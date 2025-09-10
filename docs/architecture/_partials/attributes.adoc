@@ -1,0 +1,39 @@
+// Shared attributes for Elara architecture documentation
+:project-name: Elara
+:version: 1.0
+:framework-type: Domain-Agnostic Functional Core / Imperative Shell Framework
+:primary-language: Clojure
+:audiences: Domain Developers; Platform Engineers; API Integrators
+:diagrams-dir: ../diagrams
+:source-dir: ../../src
+:test-dir: ../../test
+:config-dir: ../../resources
+:toc:
+:toclevels: 3
+:numbered:
+:source-highlighter: highlightjs
+:icons: font
+:experimental:
+:figure-caption!:
+:table-caption!:
+:example-caption!:
+:listing-caption!:
+:source-highlighter: rouge
+:rouge-style: github
+
+// Custom styling for callouts and notes
+:tip-caption: 💡
+:note-caption: 📝
+:important-caption: ⚠️
+:caution-caption: 🔥
+:warning-caption: ⚠️
+
+// Cross-reference shortcuts
+:xref-overview: xref:overview.adoc
+:xref-components: xref:components.adoc
+:xref-ports-adapters: xref:ports-and-adapters.adoc
+:xref-data-flow: xref:data-flow.adoc
+:xref-layer-separation: xref:layer-separation.adoc
+:xref-integration-patterns: xref:integration-patterns.adoc
+:xref-configuration: xref:configuration-and-env.adoc
+:xref-observability: xref:error-handling-and-observability.adoc

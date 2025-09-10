@@ -1,0 +1,583 @@
+= Error Handling and Observability
+include::_partials/attributes.adoc[]
+
+[abstract]
+--
+This document outlines error handling strategies, observability patterns, and monitoring approaches in {project-name}. It ensures predictable error propagation, comprehensive logging, and effective debugging capabilities across the functional core and imperative shell.
+--
+
+== Audience and Scope
+
+**Primary Audience:** Backend Engineers, Platform Engineers, DevOps Engineers
+
+**Scope:** Error handling patterns, logging strategies, metrics collection, monitoring setup
+
+**Prerequisites:** Understanding of {xref-components}[Component Architecture] and {xref-ports-adapters}[Ports and Adapters]
+
+== Key Takeaways
+
+* ✅ **Railway-oriented programming** for error propagation
+* ✅ **Structured logging** with correlation IDs
+* ✅ **Metrics collection** for system health monitoring
+* ✅ **Error boundaries** to prevent failure cascade
+* ✅ **Observability-first design** for production debugging
+
+== Error Handling Philosophy
+
+=== Railway-Oriented Programming
+
+Elara uses railway-oriented programming to handle errors predictably, keeping the functional core pure while managing failures explicitly.
+
+[source,clojure]
+----
+;; Result type for railway-oriented programming
+(ns elara.core.shared.result)
+
+(defrecord Success [value])
+(defrecord Failure [error])
+
+(defn success [value]
+  (->Success value))
+
+(defn failure 
+  ([error] (->Failure error))
+  ([error-type message data]
+   (->Failure {:type error-type
+              :message message
+              :data data
+              :timestamp (java.time.Instant/now)})))
+
+(defn success? [result]
+  (instance? Success result))
+
+(defn failure? [result]
+  (instance? Failure result))
+
+(defn map-result
+  "Apply function to success value, pass through failures."
+  [f result]
+  (if (success? result)
+    (try
+      (success (f (:value result)))
+      (catch Exception e
+        (failure :function-error (.getMessage e) {:function (str f)})))
+    result))
+
+(defn flat-map-result
+  "Chain result-returning functions."
+  [f result]
+  (if (success? result)
+    (try
+      (f (:value result))
+      (catch Exception e
+        (failure :function-error (.getMessage e) {:function (str f)})))
+    result))
+
+;; Convenience macros
+(defmacro ->>
+  "Threading macro for result types."
+  [initial & forms]
+  (reduce (fn [acc form]
+            `(flat-map-result ~form ~acc))
+          initial
+          forms))
+----
+
+=== Error Types and Categories
+
+[source,clojure]
+----
+;; Standardized error taxonomy
+(ns elara.core.shared.errors)
+
+;; Domain errors (business logic violations)
+(defn validation-error [field message]
+  {:type :validation-error
+   :field field
+   :message message
+   :category :domain})
+
+(defn business-rule-error [rule message data]
+  {:type :business-rule-error
+   :rule rule
+   :message message
+   :data data
+   :category :domain})
+
+;; Infrastructure errors (external failures)
+(defn database-error [operation message cause]
+  {:type :database-error
+   :operation operation
+   :message message
+   :cause cause
+   :category :infrastructure})
+
+(defn external-service-error [service status message]
+  {:type :external-service-error
+   :service service
+   :status status
+   :message message
+   :category :infrastructure})
+
+;; System errors (internal failures)
+(defn configuration-error [component message]
+  {:type :configuration-error
+   :component component
+   :message message
+   :category :system})
+
+(defn timeout-error [operation duration]
+  {:type :timeout-error
+   :operation operation
+   :duration-ms duration
+   :category :system})
+----
+
+== Functional Core Error Handling
+
+[source,clojure]
+----
+;; Pure error handling in functional core
+(ns elara.core.user.user
+  (:require [elara.core.shared.result :as result]
+            [elara.core.shared.errors :as errors]))
+
+(defn validate-email [email]
+  (cond
+    (empty? email)
+    (result/failure :validation-error "Email is required" {:field :email})
+    
+    (not (re-matches #".+@.+\..+" email))
+    (result/failure :validation-error "Invalid email format" {:field :email})
+    
+    :else
+    (result/success email)))
+
+(defn validate-user [user-data]
+  (let [{:keys [name email age]} user-data]
+    (result/>>>
+      (result/success user-data)
+      (fn [_] (validate-email email))
+      (fn [_] (if (and age (< age 13))
+                (result/failure :business-rule-error 
+                               "Users must be at least 13 years old"
+                               {:field :age :value age})
+                (result/success user-data))))))
+
+(defn create-user [user-data]
+  "Pure user creation logic with validation."
+  (result/>>> 
+    (validate-user user-data)
+    (fn [validated-data]
+      (result/success 
+        (assoc validated-data
+               :id (java.util.UUID/randomUUID)
+               :created-at (java.time.Instant/now)
+               :status :active)))))
+----
+
+== Imperative Shell Error Handling
+
+[source,clojure]
+----
+;; Error handling in imperative shell
+(ns elara.shell.services.user-service
+  (:require [elara.core.user.user :as user-core]
+            [elara.core.shared.result :as result]
+            [elara.shell.adapters.database :as db]
+            [clojure.tools.logging :as log]))
+
+(defn create-user!
+  "Create user with error handling and logging."
+  [user-repo user-data correlation-id]
+  (log/info "Creating user" {:correlation-id correlation-id
+                             :user-email (:email user-data)})
+  
+  (let [creation-result (user-core/create-user user-data)]
+    (if (result/success? creation-result)
+      (let [user (:value creation-result)]
+        (try
+          (let [save-result (db/save-user! user-repo user)]
+            (if (result/success? save-result)
+              (do
+                (log/info "User created successfully" 
+                         {:correlation-id correlation-id
+                          :user-id (:id user)})
+                save-result)
+              (do
+                (log/error "Failed to save user" 
+                          {:correlation-id correlation-id
+                           :error (:error save-result)})
+                save-result)))
+          (catch Exception e
+            (log/error e "Unexpected error during user creation" 
+                      {:correlation-id correlation-id})
+            (result/failure :system-error 
+                           "Failed to create user" 
+                           {:cause (.getMessage e)}))))
+      (do
+        (log/warn "User validation failed" 
+                 {:correlation-id correlation-id
+                  :error (:error creation-result)})
+        creation-result))))
+----
+
+== Structured Logging
+
+[source,clojure]
+----
+;; Structured logging configuration
+(ns elara.shell.utils.logging
+  (:require [clojure.tools.logging :as log]
+            [cheshire.core :as json]))
+
+;; Correlation ID management
+(def ^:dynamic *correlation-id* nil)
+
+(defn with-correlation-id [correlation-id f]
+  (binding [*correlation-id* correlation-id]
+    (f)))
+
+(defn generate-correlation-id []
+  (str (java.util.UUID/randomUUID)))
+
+;; Structured log events
+(defn log-event [level event-type message data]
+  (let [log-entry {:timestamp (java.time.Instant/now)
+                  :level level
+                  :event-type event-type
+                  :message message
+                  :correlation-id *correlation-id*
+                  :thread (.getName (Thread/currentThread))
+                  :data (or data {})}]
+    
+    (case level
+      :info (log/info (json/generate-string log-entry))
+      :warn (log/warn (json/generate-string log-entry))
+      :error (log/error (json/generate-string log-entry))
+      :debug (log/debug (json/generate-string log-entry)))))
+
+;; Convenience logging functions
+(defn log-info [event-type message & [data]]
+  (log-event :info event-type message data))
+
+(defn log-error [event-type message error & [data]]
+  (log-event :error event-type message 
+            (merge {:error {:type (type error)
+                           :message (.getMessage error)
+                           :stack-trace (mapv str (.getStackTrace error))}}
+                   (or data {}))))
+
+(defn log-performance [operation duration-ms & [data]]
+  (log-event :info :performance-metric
+            (str operation " completed")
+            (merge {:operation operation
+                   :duration-ms duration-ms}
+                  (or data {}))))
+----
+
+== Metrics and Monitoring
+
+[source,clojure]
+----
+;; Metrics collection
+(ns elara.shell.utils.metrics
+  (:require [iapetos.core :as prometheus]
+            [iapetos.collector.jvm :as jvm-metrics]
+            [clojure.tools.logging :as log]))
+
+(defonce registry 
+  (-> (prometheus/collector-registry)
+      (jvm-metrics/initialize)))
+
+;; Business metrics
+(defonce user-registrations-total
+  (prometheus/counter registry
+                     :user/registrations-total
+                     {:description "Total number of user registrations"}))
+
+(defonce user-operations-duration
+  (prometheus/histogram registry
+                       :user/operations-duration-seconds
+                       {:description "Duration of user operations"
+                        :labels [:operation :status]}))
+
+(defonce active-database-connections
+  (prometheus/gauge registry
+                   :database/active-connections
+                   {:description "Number of active database connections"}))
+
+;; Metric recording functions
+(defn record-user-registration! []
+  (prometheus/inc registry user-registrations-total))
+
+(defn record-operation-duration! [operation status duration-ms]
+  (prometheus/observe registry user-operations-duration
+                     (/ duration-ms 1000.0)
+                     {:operation operation :status status}))
+
+(defmacro with-timing
+  "Execute body and record timing metrics."
+  [operation & body]
+  `(let [start-time# (System/currentTimeMillis)]
+     (try
+       (let [result# (do ~@body)]
+         (record-operation-duration! ~operation "success" 
+                                    (- (System/currentTimeMillis) start-time#))
+         result#)
+       (catch Exception e#
+         (record-operation-duration! ~operation "error" 
+                                    (- (System/currentTimeMillis) start-time#))
+         (throw e#)))))
+----
+
+== HTTP Error Handling
+
+[source,clojure]
+----
+;; HTTP error response handling
+(ns elara.shell.interfaces.http.error-handling
+  (:require [ring.util.response :as response]
+            [cheshire.core :as json]
+            [elara.shell.utils.logging :as logging]))
+
+(defn error-response [status error-type message & [details]]
+  (-> {:error {:type error-type
+              :message message
+              :details (or details {})
+              :timestamp (java.time.Instant/now)}}
+      (json/generate-string)
+      (response/response)
+      (response/status status)
+      (response/content-type "application/json")))
+
+(defn handle-result [result correlation-id]
+  "Convert result to HTTP response."
+  (if (result/success? result)
+    (response/response (json/generate-string (:value result)))
+    (let [error (:error result)]
+      (logging/log-error :request-error 
+                        "Request failed" 
+                        (ex-info "Request error" error)
+                        {:correlation-id correlation-id})
+      
+      (case (:type error)
+        :validation-error
+        (error-response 400 "validation_error" (:message error) (:data error))
+        
+        :business-rule-error
+        (error-response 422 "business_rule_error" (:message error) (:data error))
+        
+        :not-found-error
+        (error-response 404 "not_found" (:message error))
+        
+        :database-error
+        (error-response 500 "internal_server_error" "A system error occurred")
+        
+        ;; Default to 500 for unknown errors
+        (error-response 500 "internal_server_error" "An unexpected error occurred")))))
+
+;; Error boundary middleware
+(defn wrap-error-boundary [handler]
+  (fn [request]
+    (let [correlation-id (or (get-in request [:headers "x-correlation-id"])
+                            (logging/generate-correlation-id))]
+      (try
+        (logging/with-correlation-id correlation-id
+          (handler (assoc request :correlation-id correlation-id)))
+        (catch Exception e
+          (logging/log-error :unhandled-exception
+                            "Unhandled exception in request processing"
+                            e
+                            {:correlation-id correlation-id
+                             :uri (:uri request)
+                             :method (:request-method request)})
+          (error-response 500 "internal_server_error" 
+                         "An unexpected error occurred"))))))
+----
+
+== Health Checks and Circuit Breakers
+
+[source,clojure]
+----
+;; Health check implementation
+(ns elara.shell.utils.health
+  (:require [elara.shell.adapters.database :as db]
+            [elara.core.shared.result :as result]))
+
+(defn check-database-health [database]
+  (try
+    (if (db/ping database)
+      {:status :healthy :component :database}
+      {:status :unhealthy :component :database :error "Database ping failed"})
+    (catch Exception e
+      {:status :unhealthy 
+       :component :database 
+       :error (.getMessage e)})))
+
+(defn check-system-health [system]
+  (let [checks [(check-database-health (:database system))]
+        unhealthy (filter #(= :unhealthy (:status %)) checks)
+        overall-status (if (empty? unhealthy) :healthy :unhealthy)]
+    
+    {:status overall-status
+     :checks checks
+     :timestamp (java.time.Instant/now)}))
+
+;; Simple circuit breaker
+(defrecord CircuitBreaker [failure-count threshold timeout-ms last-failure-time])
+
+(defn create-circuit-breaker [threshold timeout-ms]
+  (atom (->CircuitBreaker 0 threshold timeout-ms nil)))
+
+(defn circuit-open? [circuit-breaker]
+  (let [{:keys [failure-count threshold timeout-ms last-failure-time]} @circuit-breaker
+        current-time (System/currentTimeMillis)]
+    (and (>= failure-count threshold)
+         last-failure-time
+         (< (- current-time last-failure-time) timeout-ms))))
+
+(defn execute-with-circuit-breaker [circuit-breaker operation]
+  (if (circuit-open? circuit-breaker)
+    (result/failure :circuit-breaker-open "Circuit breaker is open" {})
+    (try
+      (let [result (operation)]
+        (swap! circuit-breaker assoc :failure-count 0)
+        result)
+      (catch Exception e
+        (swap! circuit-breaker update :failure-count inc)
+        (swap! circuit-breaker assoc :last-failure-time (System/currentTimeMillis))
+        (result/failure :operation-failed (.getMessage e) {:cause e})))))
+----
+
+== Monitoring and Alerting Setup
+
+=== Prometheus Configuration
+
+[source,yaml]
+----
+# prometheus.yml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'elara'
+    static_configs:
+      - targets: ['localhost:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+rule_files:
+  - "elara_alerts.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+----
+
+=== Alert Rules
+
+[source,yaml]
+----
+# elara_alerts.yml
+groups:
+- name: elara_alerts
+  rules:
+  - alert: HighErrorRate
+    expr: rate(user_operations_duration_seconds_count{status="error"}[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: High error rate detected
+      description: "Error rate is {{ $value }} errors per second"
+
+  - alert: DatabaseConnectionsHigh
+    expr: database_active_connections > 80
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: Database connections near limit
+      description: "Active connections: {{ $value }}"
+
+  - alert: ServiceDown
+    expr: up == 0
+    for: 30s
+    labels:
+      severity: critical
+    annotations:
+      summary: Elara service is down
+      description: "Elara service has been down for more than 30 seconds"
+----
+
+== Testing Error Handling
+
+[source,clojure]
+----
+;; Error handling tests
+(ns elara.core.user.user-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [elara.core.user.user :as user]
+            [elara.core.shared.result :as result]))
+
+(deftest user-validation-test
+  (testing "validates email format"
+    (let [result (user/validate-email "invalid-email")]
+      (is (result/failure? result))
+      (is (= :validation-error (get-in result [:error :type])))))
+  
+  (testing "rejects underage users"
+    (let [result (user/create-user {:name "John"
+                                   :email "john@example.com"
+                                   :age 10})]
+      (is (result/failure? result))
+      (is (= :business-rule-error (get-in result [:error :type]))))))
+
+(deftest error-propagation-test
+  (testing "errors propagate through result chain"
+    (let [result (result/>>>
+                   (result/failure :test-error "Test failure" {})
+                   (fn [_] (result/success "should not reach")))
+          ]
+      (is (result/failure? result))
+      (is (= :test-error (get-in result [:error :type]))))))
+----
+
+== Best Practices Summary
+
+[IMPORTANT]
+.Error Handling Guidelines
+====
+**DO:**
+
+* ✅ Use result types for predictable error handling
+* ✅ Log structured data with correlation IDs
+* ✅ Categorize errors by domain, infrastructure, and system
+* ✅ Implement circuit breakers for external dependencies
+* ✅ Monitor key business and system metrics
+* ✅ Test error scenarios comprehensively
+
+**DON'T:**
+
+* ❌ Swallow exceptions without logging
+* ❌ Expose internal error details to users
+* ❌ Use exceptions for control flow
+* ❌ Log sensitive data
+* ❌ Create overly broad try-catch blocks
+====
+
+== Next Steps
+
+Explore:
+
+1. **{xref-integration}[Integration Patterns]** - External system error handling
+2. **Deployment guides** - Production monitoring setup
+
+== References
+
+* **"Railway Oriented Programming"** by Scott Wlaschin
+* **Prometheus documentation** - Metrics and alerting
+* **The Twelve-Factor App** - Logging best practices

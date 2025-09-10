@@ -1,0 +1,8 @@
+/.calva/
+/.clj-kondo/
+/.cpcache/
+/.idea/
+/.lsp/
+.env
+._*
+/docs/**/*.html

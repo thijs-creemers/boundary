@@ -1,0 +1,66 @@
+@startuml
+title CLI Command Lifecycle - User Creation
+
+actor Operator
+participant "CLI Parser\n(tools.cli)" as CLI
+participant "Command Handler" as Handler
+participant "Malli Validator" as Validator  
+participant "Core Function" as Core
+participant "Repository Port" as Port
+participant "PostgreSQL Adapter" as DB
+participant "Logger" as Logger
+
+Operator -> CLI: elara users create\n--email="user@example.com"\n--role=admin --active=true
+
+CLI -> CLI: parse arguments\nvalidate required options
+CLI -> Handler: execute create-user command\nwith parsed options
+
+Handler -> Logger: log command start
+Handler -> Validator: validate and coerce input
+activate Validator
+
+alt Valid Input
+  Validator -> Validator: coerce types\n("admin" -> :admin, "true" -> true)
+  Validator -> Handler: return validated data
+  deactivate Validator
+  
+  Handler -> Core: create-new-user(validated-data)
+  activate Core
+  
+  Note over Core: Pure function\nSame as HTTP path
+  
+  Core -> Port: find-user-by-email(email)
+  Port -> DB: SELECT query
+  DB -> Port: user not found
+  Port -> Core: nil
+  
+  Core -> Handler: {:status :created\n :user-data {...}\n :effects [...]}
+  deactivate Core
+  
+  Handler -> Port: save-user(user-data)
+  Port -> DB: INSERT user
+  DB -> Port: success
+  Port -> Handler: user-id
+  
+  Handler -> Logger: log success
+  Handler -> CLI: {:status :success\n :user-id uuid\n :message "User created"}
+  
+else Invalid Input  
+  Validator -> Handler: validation-error
+  deactivate Validator
+  
+  Handler -> Logger: log validation error
+  Handler -> CLI: {:status :error\n :message "Invalid input"\n :errors [...]}
+end
+
+CLI -> Operator: JSON output:\n{"status": "success",\n "userId": "123e4567...",\n "message": "User created successfully"}
+
+note over Operator, Logger
+  Key Differences from HTTP:
+  • CLI parsing instead of JSON parsing
+  • Exit codes instead of HTTP status
+  • Console output instead of HTTP response
+  • Same core logic and validation pipeline
+end note
+
+@enduml

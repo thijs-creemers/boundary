@@ -1,0 +1,261 @@
+= SQL Database Shell
+:toc:
+:toc-title: Table of Contents
+:source-highlighter: highlight.js
+
+The `elara.shell.sql-db` namespace provides a simple, straightforward gateway to SQL databases with schema-driven operations, comprehensive error handling, and detailed logging.
+
+== Overview
+
+This namespace offers core database operations:
+
+* Insert and update data (`transact!`)
+* Fetch/select data (`fetch`)
+* Create database tables from schemas (`create-table!`)
+* Drop tables (`drop-table!`)
+
+All operations are schema-aware, using Malli schemas to drive database interactions, automatically handling field naming conventions, JSON serialization/deserialization, and primary key management.
+
+== Error Handling
+
+All database operations include robust error handling that:
+
+* Categorizes common database errors
+* Provides meaningful error messages
+* Preserves the original exception information
+* Logs error details
+
+Error categories include:
+
+* `:duplicate-key` - Duplicate primary key or unique constraint violations
+* `:foreign-key-violation` - Foreign key constraint violations
+* `:connection-error` - Database connection issues
+* `:permission-error` - Insufficient permissions
+* `:unknown-error` - Other database errors
+
+Errors are wrapped in an `ex-info` exception containing:
+
+* Error type (from categories above)
+* Operation that caused the error
+* Table name affected
+* Original exception
+
+== Logging
+
+All database operations include detailed logging:
+
+* `INFO` level - Records operation start with schema and parameter details
+* `DEBUG` level - Records query execution details
+* `ERROR` level - Records detailed error information when exceptions occur
+
+This logging provides visibility into database operations for monitoring and debugging.
+
+== Functions
+
+=== transact!
+
+[source,clojure]
+----
+(defn transact!
+  "Inserts or updates data based on schema.
+   If data contains the primary key and it exists in DB, updates; otherwise inserts.
+   Accepts a single map or a collection of maps."
+  [db-spec schema data-maps])
+----
+
+Parameters:
+
+* `db-spec` - Database connection specification
+* `schema` - A Malli schema defining the table structure
+* `data-maps` - A single map or a collection of maps containing the data to insert or update
+
+Returns:
+
+* A vector of inserted/updated records with database-generated values and parsed JSON fields
+
+Errors:
+
+* Throws `ex-info` with categorized error information when database operations fail
+
+Logging:
+
+* `INFO` - Records schema and number of records being processed
+* `DEBUG` - Records the executed SQL query
+* `ERROR` - Records detailed error information if an exception occurs
+
+Examples:
+
+[source,clojure]
+----
+;; Insert a single user
+(transact! db-spec User {:email "jane.doe@example.com" :active? true})
+
+;; Update a single user
+(transact! db-spec User {:id 1 :email "jane.updated@example.com" :active? false})
+
+;; Insert or update multiple users at once
+(transact! db-spec User [
+  {:email "user1@example.com" :active? true}
+  {:email "user2@example.com" :active? false}
+  {:id 5 :email "update.user5@example.com" :active? true}
+])
+----
+
+=== fetch
+
+[source,clojure]
+----
+(defn fetch
+  "Fetches data from the database based on schema and search criteria.
+   Criteria is a map of field name to value pairs to match.
+   Options can include :limit, :offset, :order-by."
+  [db-spec schema criteria & {:keys [limit offset order-by]}])
+----
+
+Parameters:
+
+* `db-spec` - Database connection specification
+* `schema` - A Malli schema defining the table structure
+* `criteria` - Map of field-value pairs for filtering records
+* Options:
+** `:limit` - Maximum number of records to return
+** `:offset` - Number of records to skip
+** `:order-by` - Sorting criteria
+
+Returns:
+
+* Vector of matching records with parsed JSON fields
+
+Errors:
+
+* Throws `ex-info` with categorized error information when database operations fail
+
+Logging:
+
+* `INFO` - Records schema, criteria, and pagination parameters
+* `DEBUG` - Records the executed SQL query
+* `ERROR` - Records detailed error information if an exception occurs
+
+Examples:
+
+[source,clojure]
+----
+;; Find all active users
+(fetch db-spec User {:active? true})
+
+;; Find the 10 most recent users
+(fetch db-spec User {} :limit 10 :order-by [[:created_at :desc]])
+
+;; Pagination example
+(fetch db-spec User {} :limit 20 :offset 40)
+----
+
+=== create-table!
+
+[source,clojure]
+----
+(defn create-table!
+  "Creates DDL for tables, indexes, etc. based on schema and executes it."
+  [db-spec schema])
+----
+
+Parameters:
+
+* `db-spec` - Database connection specification
+* `schema` - A Malli schema defining the table structure
+
+Example:
+
+[source,clojure]
+----
+;; Create the user table
+(create-table! db-spec User)
+----
+
+=== drop-table!
+
+[source,clojure]
+----
+(defn drop-table!
+  "Drops a table based on schema."
+  [db-spec schema])
+----
+
+Parameters:
+
+* `db-spec` - Database connection specification
+* `schema` - A Malli schema defining the table to drop
+
+Example:
+
+[source,clojure]
+----
+;; Drop the user table
+(drop-table! db-spec User)
+----
+
+== Working with Transactions
+
+The SQL gateway supports transactions using `next.jdbc`'s transaction facilities:
+
+[source,clojure]
+----
+(require '[next.jdbc :as jdbc])
+
+(defn create-user-with-address [db-spec user-data address-data]
+  (jdbc/with-transaction [tx db-spec]
+    ;; Both operations in one transaction
+    (let [user (transact! tx User user-data)
+          address (assoc address-data :user-id (:id user))]
+      (transact! tx Address address)
+      {:user user :address address})))
+----
+
+Important transaction guidelines:
+
+1. Inside the transaction block, use the transaction connection (`tx`) instead of the original `db-spec`
+2. If any operation throws an exception, the entire transaction is rolled back
+3. Use transactions for logically related operations that must succeed or fail together
+4. Error handling and logging work correctly within transactions
+
+== JSON Handling
+
+This namespace automatically handles JSON serialization and deserialization for fields marked with `:db/type :json` in schema metadata:
+
+[source,clojure]
+----
+(def User
+  [:map
+   {:closed true}
+   [:id {:meta {:db/constraints #{:primary-key}}} :int]
+   [:email :string]
+   [:active? :boolean]
+   [:prefs {:meta {:db/type :json}} {:map [:theme :string]}]])
+
+;; Working with JSON fields is seamless:
+(transact! db-spec User {:id 1
+                         :email "user@example.com"
+                         :active? true
+                         :prefs {:theme "dark"}})
+----
+
+== Testing Database Operations
+
+The error handling and logging features make it easier to test database operations:
+
+[source,clojure]
+----
+(deftest test-fetch-error-handling
+  (jdbc/with-transaction [tx test-db-spec]
+    ;; Test that error handling works correctly
+    (try
+      ;; Simulate a database error
+      (with-redefs [jdbc/execute! (fn [_ _ _]
+                                    (throw (Exception. "Simulated database error")))]
+        (fetch tx User {:id 1})
+        (is false "Expected an exception"))
+      (catch Exception e
+        (let [data (ex-data e)]
+          (is (= :unknown-error (:type data)))
+          (is (= "fetch" (:operation data))))))))
+----

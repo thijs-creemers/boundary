@@ -1,0 +1,76 @@
+@startuml
+title HTTP Request Lifecycle - User Creation
+
+actor Client
+participant "Ring/Reitit" as Router
+participant "HTTP Handler" as Handler
+participant "Malli Validator" as Validator
+participant "Core Function" as Core
+participant "Repository Port" as Port
+participant "PostgreSQL Adapter" as DB
+participant "Error Translator" as ErrorTrans
+participant "Logger" as Logger
+
+Client -> Router: POST /api/v1/users\n{"email":"user@example.com","role":"admin"}
+
+Router -> Handler: handle-create-user-request
+activate Handler
+
+Handler -> Logger: log request start
+Handler -> Validator: parse and validate input
+activate Validator
+
+alt Valid Input
+  Validator -> Validator: coerce types\n(string "admin" -> :admin)
+  Validator -> Handler: return validated data
+  deactivate Validator
+  
+  Handler -> Core: create-new-user(validated-data)
+  activate Core
+  
+  Note over Core: Pure function\nNo side effects\nBusiness logic only
+  
+  Core -> Port: find-user-by-email(email)
+  Port -> DB: SQL query
+  DB -> Port: user not found
+  Port -> Core: nil
+  
+  Core -> Core: apply business rules\n(check role permissions, etc.)
+  Core -> Handler: {:status :created\n :user-data {...}\n :effects [{:save-user user-data}\n           {:send-welcome-email email}]}
+  deactivate Core
+  
+  Handler -> Port: save-user(user-data)  
+  Port -> DB: INSERT user
+  DB -> Port: success
+  Port -> Handler: user-id
+  
+  Handler -> Logger: log success
+  Handler -> Router: {:status 201\n :body {"userId": uuid}}
+  
+else Invalid Input
+  Validator -> ErrorTrans: validation-error
+  deactivate Validator
+  activate ErrorTrans
+  
+  ErrorTrans -> ErrorTrans: create problem details\n(RFC 7807 format)
+  ErrorTrans -> Logger: log validation error
+  ErrorTrans -> Handler: {:status 400\n :body problem-details}
+  deactivate ErrorTrans
+  
+  Handler -> Router: HTTP 400 response
+end
+
+deactivate Handler
+
+Router -> Client: HTTP response\n(201 Created or 400 Bad Request)
+
+note over Client, Logger
+  Key Architectural Points:
+  • Shell handles all I/O (HTTP, DB, logging)
+  • Core contains only pure business logic  
+  • Validation happens at shell boundary
+  • Errors translated to appropriate format
+  • Port abstractions enable testing
+end note
+
+@enduml

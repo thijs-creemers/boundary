@@ -1,0 +1,427 @@
+= Architecture Overview
+include::_partials/attributes.adoc[]
+
+[abstract]
+--
+This document provides a comprehensive overview of the {project-name} framework's architecture, focusing on the Functional Core / Imperative Shell (FC/IS) paradigm that separates pure business logic from side-effectful operations. It serves as the foundational reference for understanding Elara's design philosophy, key architectural decisions, and how the framework achieves high testability, maintainability, and reliability.
+--
+
+== Audience and Scope
+
+**Primary Audience:** {audiences}
+
+**Scope:** High-level architectural vision, design patterns, and cross-cutting concerns
+
+**Prerequisites:** Basic understanding of Clojure, functional programming concepts, and web application architecture
+
+== Key Takeaways
+
+After reading this document, you will understand:
+
+* ✅ **Functional Core / Imperative Shell paradigm** and its benefits
+* ✅ **Hexagonal Architecture principles** and their implementation in Elara
+* ✅ **Dependency flow rules** and architectural boundaries
+* ✅ **Multi-interface consistency** across REST, CLI, and Web
+* ✅ **Key architectural decisions** and their trade-offs
+
+[[p0-gap-resolution]]
+== P0 Gap Resolution
+
+[IMPORTANT]
+.Addressing PRD Priority Gap
+====
+This architecture documentation directly resolves the **P0 priority gap** identified in the PRD Content Gap Log:
+
+**Original Gap:** "Architecture diagrams and detailed technical specs" (Owner: Tech Lead, Target: Phase 1)
+
+**Resolution Provided:**
+
+1. **Detailed Technical Specifications**: Eight focused architecture documents covering all aspects of system design
+2. **Comprehensive Diagrams**: Leveraging existing PlantUML assets with additional architectural views
+3. **Concrete Implementation Examples**: Real code snippets from the Elara codebase with tagged regions
+4. **Cross-Interface Patterns**: Consistent behavior across REST API, CLI, and Web interfaces
+5. **Production Guidelines**: Operational concerns including configuration, logging, and observability
+
+This documentation enables **Domain Developers**, **Platform Engineers**, and **API Integrators** to work effectively with Elara's architecture.
+====
+
+== Architectural Philosophy
+
+=== Module-Centric Architecture Foundation
+
+Elara is built on a **module-centric architecture** where each domain module owns its complete functionality stack, from pure business logic to external interfaces. This approach creates highly composable, testable, and maintainable systems that can evolve into reusable development toolchains.
+
+**Strategic Vision**: Elara serves as both a framework for building applications and a **foundation for creating reusable development toolchains**:
+
+* **Library Extraction**: Core infrastructure extractable into reusable libraries (`elara-core`)
+* **Template Generation**: Automated module scaffolding with consistent patterns (`elara-gen`)
+* **Domain Frameworks**: Specialized frameworks for different industries
+* **Module Marketplace**: Shareable, installable modules for common functionality
+
+**Complete Domain Ownership**: Each module (`user`, `billing`, `workflow`) contains:
+
+- Pure business logic (functional core)
+- Port definitions and schemas
+- HTTP, CLI, and WebSocket interfaces
+- Service orchestration components
+- Adapter implementations
+- Feature flag integration
+
+=== Module-Centric Package Structure
+
+Elara's module-centric architecture is reflected in a clear package organization where each domain module owns its complete functionality stack:
+
+```
+src/elara/
+├── user/                   # 👤 USER DOMAIN MODULE
+│   ├── core/               # Pure business logic
+│   │   ├── user.clj       # Core user functions
+│   │   ├── membership.clj  # Membership calculations
+│   │   └── preferences.clj # User preferences logic
+│   ├── ports.clj          # User-specific ports (IUserRepository, etc.)
+│   ├── schema.clj         # User domain schemas only
+│   ├── http.clj           # User HTTP handlers & routes
+│   ├── cli.clj            # User CLI commands & parsing
+│   └── shell/             # User shell components
+│       ├── adapters.clj   # User repository adapters
+│       └── service.clj    # User service orchestration
+├── billing/               # 💰 BILLING DOMAIN MODULE (feature-flagged)
+│   ├── core/
+│   │   ├── pricing.clj    # Price calculations
+│   │   ├── discounts.clj  # Discount logic
+│   │   └── invoicing.clj  # Invoice generation
+│   ├── ports.clj          # Billing ports (IPaymentProcessor, etc.)
+│   ├── schema.clj         # Billing schemas only
+│   ├── http.clj           # Billing HTTP handlers & routes
+│   ├── cli.clj            # Billing CLI commands & parsing
+│   └── shell/
+│       ├── adapters.clj   # Payment/invoice adapters
+│       └── service.clj    # Billing service
+├── workflow/              # ⚙️ WORKFLOW DOMAIN MODULE
+│   ├── core/
+│   │   ├── state_machine.clj # Process state logic
+│   │   └── transitions.clj   # State transition rules
+│   ├── ports.clj          # Workflow ports
+│   ├── schema.clj         # Workflow schemas
+│   ├── http.clj           # Workflow HTTP handlers & routes
+│   ├── cli.clj            # Workflow CLI commands & parsing
+│   └── shell/
+│       ├── adapters.clj   # Workflow adapters
+│       └── service.clj    # Workflow service
+├── shared/                # 🔗 SHARED UTILITIES
+│   ├── core/
+│   │   ├── validation.clj # Pure validation functions
+│   │   └── calculations.clj # Common calculations
+│   ├── ports.clj          # Shared ports (ISystemServices, etc.)
+│   ├── schema.clj         # Common schemas
+│   └── shell/
+│       ├── logging.clj    # Logging utilities
+│       ├── metrics.clj    # Metrics collection
+│       └── monitoring.clj # Health checks
+├── shell/                 # 🐚 IMPERATIVE SHELL AGGREGATION
+│   ├── interfaces/        # External interface aggregators
+│   │   ├── http/
+│   │   │   ├── server.clj     # HTTP server & middleware
+│   │   │   └── routes.clj     # Aggregates module routes
+│   │   ├── cli/
+│   │   │   ├── main.clj       # CLI entry point
+│   │   │   └── commands.clj   # Aggregates module commands
+│   │   └── web/
+│   │       └── websockets.clj # Real-time interfaces
+│   ├── system/            # System wiring and lifecycle
+│   │   ├── components.clj # Component definitions
+│   │   ├── lifecycle.clj  # Start/stop management
+│   │   └── wiring.clj     # Dependency injection
+│   └── adapters/          # Shared adapter implementations
+│       ├── database/
+│       │   ├── postgresql.clj
+│       │   └── migrations.clj
+│       └── external/
+│           ├── email_smtp.clj
+│           └── notifications.clj
+└── config.clj             # ⚙️ Configuration management
+```
+
+**Key Architectural Benefits:**
+
+* **Complete Domain Ownership**: Each module (`user/`, `billing/`, `workflow/`) contains everything needed for that domain
+* **Scalable Development**: Teams can work independently on different modules without conflicts
+* **Feature Flag Integration**: Entire modules can be enabled/disabled via configuration
+* **Clear Boundaries**: Related code is co-located, unrelated code is separated
+* **Strategic Evolution**: Modules can be extracted as independent libraries (`elara-core`)
+
+=== The Functional Core / Imperative Shell Paradigm
+
+Within each module, Elara implements the FC/IS architectural pattern, which provides a clear separation between:
+
+**Functional Core** (Pure Business Logic)::
+* Contains only deterministic functions with no side effects
+* Focuses exclusively on business rules, calculations, and domain logic  
+* Depends only on abstract interfaces (ports), never concrete implementations
+* Produces immutable data structures as outputs
+* Enables comprehensive unit testing without mocks
+
+**Imperative Shell** (Infrastructure & I/O)::
+* Handles all side effects: database operations, HTTP requests, file I/O, logging
+* Validates and coerces input data before passing to core functions
+* Implements concrete adapters for abstract ports
+* Translates core outputs to appropriate interface formats
+* Manages configuration, error handling, and operational concerns
+
+[source,clojure]
+----
+;; Functional Core Example - Pure business logic
+;; tag::pure_function_example[]
+(defn calculate-user-discount
+  "Pure function: calculates discount based on user data and business rules.
+  No side effects, deterministic, easily testable."
+  [user-data business-rules]
+  (let [membership-years (- (current-year) (:joined-year user-data))
+        base-discount (if (>= membership-years 5) 0.15 0.10)
+        premium-bonus (if (:premium-member? user-data) 0.05 0.0)]
+    {:discount-rate (+ base-discount premium-bonus)
+     :reason (if (:premium-member? user-data)
+               "Long-term premium member"
+               "Standard loyalty discount")}))
+;; end::pure_function_example[]
+
+;; Imperative Shell Example - Orchestrates I/O and side effects  
+ ✅ ;; tag::shell_orchestration_example[]
+(defn handle-discount-calculation
+  "Shell function: handles I/O, validation, and coordinates core logic."
+  [user-repo rule-engine user-id]
+  (try
+    ;; 1. Fetch data (side effect)
+    (let [user-data (ports/find-user-by-id user-repo user-id)
+          business-rules (ports/get-active-rules rule-engine)]
+      
+      ;; 2. Validate input
+      (when-not (malli/validate schemas/User user-data)
+        (throw (ex-info "Invalid user data" {:user-id user-id})))
+      
+      ;; 3. Call pure core function
+      (let [discount-result (calculate-user-discount user-data business-rules)]
+        
+        ;; 4. Perform side effects based on result
+        (log/info "Discount calculated" {:user-id user-id :discount (:discount-rate discount-result)})
+        
+        ;; 5. Return formatted response
+        {:status :success
+         :data discount-result}))
+    (catch Exception e
+      (log/error e "Failed to calculate discount" {:user-id user-id})
+      {:status :error :message "Discount calculation failed"})))
+;; end::shell_orchestration_example[]
+----
+
+=== Benefits of FC/IS Architecture
+
+**Testability**::
+* Core functions are pure and require no mocks or test doubles
+* Business logic can be tested in isolation with simple input/output verification
+* Integration tests focus on adapter implementations and I/O boundaries
+
+**Maintainability**::
+* Clear separation of concerns makes code easier to understand and modify
+* Business logic changes don't affect infrastructure code and vice versa
+* New interfaces (REST, CLI, Web) can be added without changing core logic
+
+**Reliability**::
+* Pure functions are deterministic and eliminate entire classes of bugs
+* Side effects are contained and explicitly managed
+* Error handling is consistent across all interfaces
+
+== System Architecture Overview
+
+=== High-Level System Context
+
+.Elara Framework - C4 Container View
+image::{diagrams-dir}/c4-container.png[C4 Container Diagram, 800]
+
+The system serves three distinct user types through separate interfaces while maintaining a unified architectural core:
+
+**External Users:**
+
+* **API Consumers**: Developers and systems integrating via REST endpoints
+* **Operators**: System administrators using CLI for management and automation
+* **End Users**: Business users interacting through the web interface
+
+**Core Containers:**
+
+* **Functional Core**: Pure Clojure functions containing business logic
+* **Imperative Shell**: Side-effect handling layer managing validation, I/O, and infrastructure
+* **External Systems**: PostgreSQL for persistence, Email services for notifications
+
+=== Component Interaction Overview
+
+.Framework Component Architecture
+image::{diagrams-dir}/component-overview.png[Component Overview, 800]
+
+The component diagram illustrates the key architectural elements:
+
+**Presentation Layer**::
+* **REST API** (Ring/Reitit): JSON-based HTTP endpoints
+* **CLI** (tools.cli): Command-line interface for operations
+* **Web Frontend** (ClojureScript/Replicant): Interactive user interface
+
+**Imperative Shell Layer**::
+* **Validation** (Malli): Schema-based input validation and coercion
+* **Error Translation**: Converts core errors to interface-appropriate formats
+* **Configuration** (Aero): Environment-based configuration management
+* **Logging** (TeleMere): Structured logging and telemetry
+* **Adapters**: Concrete implementations for databases, email, external APIs
+* **Ports**: Abstract interfaces (Clojure protocols) defining capabilities
+
+**Functional Core**::
+* **Domain Functions**: Pure business logic for specific domains (users, jobs, etc.)
+* **Business Rules Engine**: Configurable rules and decision logic
+* **Data Transformations**: Pure functions for data processing and calculations
+
+== Architectural Principles and Rules
+
+=== Dependency Flow Rules
+
+Elara enforces strict dependency rules to maintain architectural integrity:
+
+[cols="2,1,3"]
+|===
+|Dependency Direction |Status |Rule
+
+|**Presentation → Shell** |✅ Allowed |All interfaces depend on shell for I/O handling
+|**Shell → Core** |✅ Allowed |Shell calls core functions with validated data
+|**Core → Ports** |✅ Allowed |Core depends only on abstract interfaces
+|**Shell → Adapters** |✅ Allowed |Shell provides concrete implementations
+|**Core → Shell** |❌ Forbidden |Core never depends on shell or infrastructure
+|**Core → Adapters** |❌ Forbidden |Core never depends on concrete implementations
+|**Ports → Adapters** |❌ Forbidden |Abstractions don't depend on implementations
+|===
+
+=== Layer Boundaries and Responsibilities
+
+**Functional Core Constraints:**
+
+* ✅ Pure functions only - no side effects whatsoever
+* ✅ Deterministic behavior - same input always produces same output
+* ✅ Immutable data structures for inputs and outputs
+* ✅ Domain-focused logic only - calculations, rules, transformations
+* ❌ No I/O operations - no database, network, file system access
+* ❌ No time-dependent operations - no `(System/currentTimeMillis)`
+* ❌ No logging or other side effects
+
+**Imperative Shell Responsibilities:**
+
+* ✅ All side effects - I/O, logging, configuration, external calls
+* ✅ Input validation and type coercion using Malli schemas
+* ✅ Error handling and translation to appropriate formats
+* ✅ Adapter implementations and dependency injection
+* ✅ Cross-cutting concerns - security, audit logging, metrics
+* ❌ No business logic or domain calculations
+* ❌ No business rule decisions based on data content
+
+== Key Architectural Decisions
+
+=== ADR-001: Functional Core / Imperative Shell Pattern
+
+**Decision:** Implement strict FC/IS separation with pure core functions and side-effect handling in shell.
+
+**Rationale:**
+
+* Enables comprehensive testing of business logic without infrastructure dependencies
+* Provides clear separation of concerns between domain logic and technical implementation
+* Facilitates multiple interface implementations (REST, CLI, Web) with consistent behavior
+* Reduces complexity by isolating side effects to shell boundaries
+
+**Trade-offs:**
+* **Positive**: High testability, maintainability, reliability
+* **Negative**: Requires discipline to maintain boundaries, potential performance overhead
+
+**Status:** ✅ Adopted
+
+=== ADR-002: Ports and Adapters (Hexagonal Architecture)
+
+**Decision:** Use Clojure protocols as ports and concrete implementations as adapters.
+
+**Rationale:**
+
+* Enables dependency inversion - core depends on abstractions, not implementations
+* Facilitates testing with mock implementations
+* Allows swapping implementations (e.g., PostgreSQL vs H2 for testing)
+* Supports multiple deployment configurations
+
+**Trade-offs:**
+* **Positive**: Flexible, testable, supports multiple implementations
+* **Negative**: Additional abstraction layer, requires interface design discipline
+
+**Status:** ✅ Adopted
+
+=== ADR-003: Multi-Interface Consistency
+
+**Decision:** Ensure identical behavior across REST API, CLI, and Web interfaces.
+
+**Rationale:**
+* Provides predictable experience for users across different interaction modes
+* Simplifies documentation and support
+* Enables gradual migration between interfaces
+* Validates architectural consistency
+
+**Trade-offs:**
+* **Positive**: Consistent user experience, architectural validation
+* **Negative**: May constrain interface-specific optimizations
+
+**Status:** ✅ Adopted
+
+=== ADR-004: Schema-First Validation with Malli
+
+**Decision:** Use Malli for all input validation and data transformation at shell boundaries.
+
+**Rationale:**
+* Provides runtime validation with compile-time schema definitions
+* Enables automatic coercion (string "123" → integer 123)
+* Generates clear, actionable error messages
+* Supports schema composition and reuse across interfaces
+
+**Trade-offs:**
+* **Positive**: Type safety, clear errors, schema reuse
+* **Negative**: Learning curve, schema maintenance overhead
+
+**Status:** ✅ Adopted
+
+== Cross-Cutting Concerns
+
+=== Configuration Management
+
+* **Environment-based configuration** using Aero with profile overlays
+* **No secrets in code** - externalized through environment variables
+* **Configuration validation** at application startup
+* **Immutable configuration** passed through dependency injection
+
+=== Error Handling Strategy
+
+* **Domain errors** returned as data structures from core functions
+* **Infrastructure errors** handled in shell with appropriate logging
+* **Consistent error formats** across all interfaces (RFC 7807 for HTTP)
+* **Correlation IDs** for request tracing across system boundaries
+
+=== Observability and Monitoring
+
+* **Structured logging** with TeleMere and tools.logging
+* **Request/response logging** at interface boundaries
+* **Performance metrics** collection at adapter boundaries
+* **Health checks** for external dependencies
+
+== Next Steps
+
+Now that you understand Elara's architectural foundation, explore the detailed documentation:
+
+1. **{xref-layer-separation}[Layer Separation Guidelines]** - Detailed rules for FC/IS boundaries
+2. **{xref-components}[Component Architecture]** - Namespace organization and module structure
+3. **{xref-ports-adapters}[Ports and Adapters]** - Protocol patterns and dependency injection
+4. **{xref-data-flow}[Data Flow Architecture]** - Request processing and validation pipelines
+
+== References
+
+* **Gary Bernhardt's "Boundaries" Talk**: Original FC/IS concept presentation
+* **Hexagonal Architecture (Ports and Adapters)**: Alistair Cockburn's architectural pattern
+* **Clean Architecture**: Robert C. Martin's architectural principles
+* **Functional Programming Principles**: Emphasis on pure functions and immutability
+* **RFC 7807**: Problem Details for HTTP APIs standard for error responses

@@ -1,0 +1,277 @@
+= SQL Utilities
+:toc:
+:toc-title: Table of Contents
+:source-highlighter: highlight.js
+
+The `app.core.sql-utils` namespace provides utility functions for working with SQL databases using Malli schemas in Clojure applications.
+
+== Overview
+
+This namespace offers functions to:
+
+* Convert between schema field names and database column names
+* Generate SQL queries for common operations
+* Extract schema information for database operations
+* Map database results back to schema-compliant data structures
+
+These utilities form the foundation for the higher-level database operations in `elara.shell.sql-db`.
+
+== Functions
+
+=== Schema Utilities
+
+==== schema-to-table-name
+
+[source,clojure]
+----
+(defn schema-to-table-name
+  "Return the table name for the given schema keyword."
+  [schema])
+----
+
+Parameters:
+
+* `schema` - A keyword representing the schema name
+
+Returns:
+
+* A string with the table name derived from the schema name
+
+Example:
+
+[source,clojure]
+----
+(schema-to-table-name :User) ;; Returns "User"
+----
+
+==== primary-key-field
+
+[source,clojure]
+----
+(defn primary-key-field
+  "Returns the [key meta-schema type?] vector for the field
+   whose :db/constraints include :primary-key."
+  [schema])
+----
+
+Parameters:
+
+* `schema` - A Malli schema with metadata
+
+Returns:
+
+* The keyword of the field designated as primary key
+
+Example:
+
+[source,clojure]
+----
+(def User
+  [:map
+   {:closed true}
+   [:id {:meta {:db/constraints #{:primary-key}}} :int]
+   [:name :string]])
+
+(primary-key-field User) ;; Returns :id
+----
+
+=== Field Name Transformations
+
+==== sanitize-field-name
+
+[source,clojure]
+----
+(defn sanitize-field-name
+  "removes the ? from the field name keyword for booleans and returns a keyword"
+  [field])
+----
+
+Parameters:
+
+* `field` - A keyword field name, possibly with `?` for boolean fields
+
+Returns:
+
+* A keyword with any `?` characters removed
+
+Example:
+
+[source,clojure]
+----
+(sanitize-field-name :active?) ;; Returns :active
+----
+
+==== desanitize-field-name
+
+[source,clojure]
+----
+(defn desanitize-field-name
+  "Add back the ? from the field name keyword for booleans and returns a keyword."
+  [field])
+----
+
+Parameters:
+
+* `field` - A keyword field name
+
+Returns:
+
+* A keyword with `?` appended to the name
+
+Example:
+
+[source,clojure]
+----
+(desanitize-field-name :active) ;; Returns :active?
+----
+
+==== map-db-to-schema
+
+[source,clojure]
+----
+(defn map-db-to-schema
+  "Maps the database field name to the schema."
+  [db-data schema])
+----
+
+Parameters:
+
+* `db-data` - Map of database column names to values
+* `schema` - A Malli schema
+
+Returns:
+
+* A map with database column names converted to schema field names
+
+Example:
+
+[source,clojure]
+----
+(def User
+  [:map
+   [:id :int]
+   [:active? :boolean]])
+
+(map-db-to-schema {:id 1, :active true} User)
+;; Returns {:id 1, :active? true}
+----
+
+=== Query Generation
+
+==== generate-create-ddl
+
+[source,clojure]
+----
+(defn generate-create-ddl
+  "Generates the DDL for creating the table named in keyword `table`
+  based on the malli schema named in fields."
+  [{:keys [table fields]}])
+----
+
+Parameters:
+
+* Map containing:
+** `table` - Keyword for the table name
+** `fields` - Malli schema defining the fields
+
+Returns:
+
+* SQL DDL statement for creating the table (as formatted by honey.sql)
+
+Example:
+
+[source,clojure]
+----
+(generate-create-ddl {:table :users
+                      :fields [:map
+                               [:id {:meta {:db/type :serial
+                                            :db/constraints #{:primary-key}}} :int]
+                               [:email {:meta {:db/type :text}} :string]]})
+----
+
+==== query-by-pk
+
+[source,clojure]
+----
+(defn query-by-pk
+  "Generates a SQL query to find a record by the pk for the given table and schema."
+  [schema pk-value])
+----
+
+Parameters:
+
+* `schema` - Schema with `:table` and fields
+* `pk-value` - Value of the primary key to query by
+
+Returns:
+
+* A honey.sql query map for selecting by primary key
+
+Example:
+
+[source,clojure]
+----
+(query-by-pk {:table :users
+              :fields [:map
+                      [:id {:meta {:db/constraints #{:primary-key}}} :int]
+                      [:name :string]]}
+             42)
+;; Returns {:select [:*], :from [:users], :where [:= :id 42]}
+----
+
+==== generate-update-query
+
+[source,clojure]
+----
+(defn generate-update-query
+  "Generates a SQL UPDATE query for the given table, where condition, and fields to update."
+  [table where-operator where-field where-value update-map])
+----
+
+Parameters:
+
+* `table` - Table name (keyword or string)
+* `where-operator` - SQL operator for the WHERE clause (e.g., `:=`)
+* `where-field` - Field to filter on
+* `where-value` - Value to filter by
+* `update-map` - Map of fields to update with their new values
+
+Returns:
+
+* A honey.sql query map for the UPDATE statement
+
+Example:
+
+[source,clojure]
+----
+(generate-update-query :users := :id 5 {:name "New Name", :email "new@example.com"})
+;; Returns {:update :users, :set {:name "New Name", :email "new@example.com"}, :where [:= :id 5]}
+----
+
+==== generate-find-by-id-query
+
+[source,clojure]
+----
+(defn generate-find-by-id-query
+  "Generates a SQL query to find a record by the pk for the given table and schema."
+  [table-name operator-key pk-field pk-value])
+----
+
+Parameters:
+
+* `table-name` - Name of the table to query
+* `operator-key` - SQL operator for comparison (usually `:=`)
+* `pk-field` - Primary key field name
+* `pk-value` - Primary key value to match
+
+Returns:
+
+* A honey.sql query map for selecting by ID
+
+Example:
+
+[source,clojure]
+----
+(generate-find-by-id-query :users := :id 42)
+;; Returns {:select [:*], :from [:users], :where [:= :id 42]}
+----

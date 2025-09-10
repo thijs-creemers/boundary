@@ -1,0 +1,150 @@
+=== Acceptance Criteria: [Feature Name]
+
+==== Feature Description
+_Brief description of what this feature accomplishes_
+
+==== Acceptance Criteria
+
+===== Functional Requirements
+
+====== AC-1: [Criterion Name]
+* **Given:** _Initial context and preconditions_
+* **When:** _Specific action is performed_
+* **Then:** _Expected outcome occurs_
+* **Verification Method:** _How to verify this works (test, inspection, etc.)_
+
+====== AC-2: [Criterion Name]
+* **Given:** _Initial context and preconditions_
+* **When:** _Specific action is performed_
+* **Then:** _Expected outcome occurs_
+* **Verification Method:** _How to verify this works_
+
+===== Non-Functional Requirements
+
+====== Performance
+* Response time for [operation] must be < [X]ms at p95
+* System must handle [X] concurrent [operations]
+* Memory usage must not exceed [X]MB under typical load
+
+====== Security
+* All inputs must be validated against defined schemas
+* Authentication required for [specific operations]
+* Authorization checks must verify [specific permissions]
+
+====== Reliability
+* [Operation] must be idempotent
+* System must gracefully handle [specific error conditions]
+* Data integrity must be maintained during [specific scenarios]
+
+===== Error Handling
+
+====== Error Scenario 1: [Error Type]
+* **Given:** _Error conditions exist_
+* **When:** _Operation is attempted_
+* **Then:** _Appropriate error response is returned_
+* **Status Code:** _[HTTP status if applicable]_
+* **Error Format:** _Follow RFC 7807 Problem Details_
+
+====== Error Scenario 2: [Error Type]
+* **Given:** _Error conditions exist_
+* **When:** _Operation is attempted_
+* **Then:** _System remains in consistent state_
+
+===== Data Requirements
+
+====== Input Validation
+* Field [X] must be validated against schema [Y]
+* Field [X] must meet business rule [Y]
+* Invalid input must result in clear error messages
+
+====== Output Format
+* Response must conform to schema [X]
+* Response must include required metadata
+* Response format must be consistent across interfaces
+
+===== Interface Requirements
+
+====== API Requirements
+* Endpoint must follow REST conventions
+* Content-Type must be application/json
+* Error responses must use application/problem+json
+
+====== CLI Requirements
+* Command must follow pattern: `elara [resource] [action] [options]`
+* Help text must be clear and include examples
+* Exit codes must follow standard conventions
+
+====== Web Frontend Requirements
+* Form validation must use shared schemas
+* Error messages must be user-friendly
+* Loading states must provide user feedback
+
+===== Implementation Constraints
+
+====== Architecture
+* Core functions must remain pure (no side effects)
+* Shell layer must handle all IO operations
+* Dependencies must flow from Shell → Core, never Core → Shell
+
+====== Technology
+* Must use malli for validation
+* Must use [specific libraries from tech stack]
+* Must follow established patterns in codebase
+
+===== Test Coverage
+
+====== Unit Tests
+* Core functions must have 100% line coverage
+* Property-based tests for critical business logic
+* Schema validation tests for all boundaries
+
+====== Integration Tests
+* End-to-end API tests for happy path
+* Database integration tests with test data
+* CLI integration tests with various inputs
+
+====== Performance Tests
+* Load tests for critical endpoints
+* Memory usage tests under stress
+* Response time tests with realistic data
+
+===== Documentation
+
+====== User Documentation
+* API documentation must include request/response examples
+* CLI help must include usage examples
+* Error messages must reference documentation
+
+====== Developer Documentation
+* Implementation must reference architectural decisions
+* Core function contracts must be documented
+* Schema changes must be documented with migration notes
+
+===== Definition of Done Checklist
+
+* [ ] All functional acceptance criteria verified
+* [ ] All non-functional requirements met
+* [ ] Error handling tested and documented
+* [ ] Input/output schemas validated
+* [ ] API, CLI, and Web interfaces implemented
+* [ ] Unit tests written and passing
+* [ ] Integration tests written and passing
+* [ ] Performance requirements verified
+* [ ] Documentation updated
+* [ ] Code reviewed and approved
+* [ ] No regressions in existing functionality
+
+===== Success Metrics
+
+* **Functional Success:** _All user stories can be completed successfully_
+* **Performance Success:** _All response times meet defined SLAs_
+* **Quality Success:** _Test coverage above [X]%, zero critical bugs_
+* **Usability Success:** _Users can complete tasks without documentation_
+
+===== Rollback Criteria
+
+If any of these conditions occur, consider rolling back:
+* Critical bugs affecting core functionality
+* Performance degradation beyond acceptable thresholds
+* Data integrity issues
+* Security vulnerabilities introduced

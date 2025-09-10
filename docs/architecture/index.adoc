@@ -1,0 +1,164 @@
+= Elara Architecture Documentation
+include::_partials/attributes.adoc[]
+
+== Overview
+
+This documentation provides comprehensive architectural guidance for the {project-name} framework - a **module-centric architecture** implementing the Functional Core / Imperative Shell pattern, where each domain module owns its complete functionality stack from pure business logic to external interfaces.
+
+[IMPORTANT]
+.P0 Gap Resolution
+====
+This architecture documentation directly addresses the **P0 priority gap** identified in the Product Requirements Document:
+
+**Gap:** "Architecture diagrams and detailed technical specs" (Owner: Tech Lead, Target: Phase 1)
+
+**Resolution:** This documentation set provides:
+
+* ✅ **Detailed architectural specifications** across 8 focused documents
+* ✅ **Comprehensive diagrams** leveraging existing PlantUML assets and new architectural views
+* ✅ **Concrete code examples** extracted from the actual implementation
+* ✅ **Cross-interface consistency patterns** for REST, CLI, and Web interfaces
+* ✅ **Production-ready guidance** for deployment, configuration, and observability
+====
+
+== Target Audiences
+
+This documentation serves three primary personas identified in the PRD:
+
+**🧑‍💻 Domain Developers**::
+Implement business logic in the functional core
++
+*Needs:* Clear core boundaries, rich domain examples, pure function patterns
+
+**⚙️ Platform Engineers**::
+Maintain the shell layer and infrastructure adapters
++
+*Needs:* Clear adapter patterns, infrastructure tooling, monitoring capabilities
+
+**🔌 API Integrators**::
+Consume REST endpoints for system integration
++
+*Needs:* Complete API documentation, consistent error handling, reliable schemas
+
+== Architecture Documentation Structure
+
+=== Foundation Documents
+
+{xref-overview}[**Architecture Overview**]::
+High-level architectural vision, FC/IS paradigm, key design decisions, and trade-offs
+
+{xref-components}[**Component Architecture**]::
+Namespace organization, module responsibilities, component interaction patterns
+
+{xref-layer-separation}[**Layer Separation Guidelines**]::
+Explicit rules for FC/IS boundaries, dependency constraints, testing strategies
+
+=== Core Patterns
+
+{xref-ports-adapters}[**Ports and Adapters**]::
+Protocol definitions, adapter implementations, dependency injection patterns
+
+{xref-data-flow}[**Data Flow Architecture**]::
+End-to-end data flow, validation pipelines, error propagation patterns
+
+{xref-integration-patterns}[**Integration Patterns**]::
+REST API, CLI, and Web interface integration strategies
+
+=== Operational Concerns
+
+{xref-configuration}[**Configuration and Environment Management**]::
+Configuration sources, environment overlays, secrets management
+
+{xref-observability}[**Error Handling and Observability**]::
+Error taxonomies, structured logging, metrics, and tracing patterns
+
+== Quick Start Guide
+
+For newcomers to the Elara framework:
+
+1. **Start with** {xref-overview}[Architecture Overview] to understand the FC/IS paradigm
+2. **Review** {xref-layer-separation}[Layer Separation Guidelines] to understand boundaries
+3. **Study** {xref-components}[Component Architecture] for namespace organization
+4. **Implement** using patterns from {xref-ports-adapters}[Ports and Adapters]
+
+== Diagrams and Visual References
+
+All architectural diagrams are maintained as PlantUML source files in `{diagrams-dir}/` and rendered automatically during documentation builds. Key diagrams include:
+
+* **C4 Container Diagram**: System boundary and external integrations
+* **Component Overview**: Framework component interactions
+* **Request Lifecycle**: HTTP and CLI processing flows
+* **Validation Pipeline**: Data transformation and validation stages
+
+[TIP]
+====
+**Diagram Updates**: When making architectural changes, update the corresponding `.puml` files in `{diagrams-dir}/` and reference them from multiple documents as needed.
+====
+
+== Contributing to Architecture Documentation
+
+=== Adding New Documentation
+
+1. **Follow the template structure** defined in `_partials/attributes.adoc`
+2. **Include concrete code examples** using AsciiDoc `include::` directives with tagged regions
+3. **Reference existing diagrams** or create new PlantUML diagrams as needed
+4. **Cross-reference related documents** using the predefined xref shortcuts
+
+=== Code Examples and Security
+
+[IMPORTANT]
+.Keep Secrets Secret
+====
+**Never include sensitive information in documentation:**
+
+* ❌ Database connection strings with credentials
+* ❌ API keys or authentication tokens
+* ❌ Production configuration values
+* ❌ Personal or customer data
+
+**Use placeholders and environment variables:**
+
+```clojure
+;; ✅ Good: Environment variable reference
+{:database-url (env :DATABASE_URL)}
+
+;; ❌ Bad: Hardcoded connection string
+{:database-url "postgresql://user:password@host/db"}
+```
+====
+
+=== Building Documentation Locally
+
+[source,bash]
+----
+# Install AsciiDoctor with PlantUML support
+gem install asciidoctor asciidoctor-diagram
+
+# Build all architecture documentation
+asciidoctor -r asciidoctor-diagram -D build/docs docs/architecture/index.adoc
+
+# Build specific document
+asciidoctor -r asciidoctor-diagram docs/architecture/overview.adoc
+----
+
+== Document Status and Maintenance
+
+[cols="2,1,1,3"]
+|===
+|Document |Status |Last Updated |Notes
+
+|Architecture Overview |✅ Complete |{docdate} |Core concepts and P0 gap resolution
+|Component Architecture |✅ Complete |{docdate} |Namespace organization and interaction patterns
+|Layer Separation Guidelines |✅ Complete |{docdate} |FC/IS boundaries and testing strategies
+|Ports and Adapters |✅ Complete |{docdate} |Protocol patterns and dependency injection
+|Data Flow Architecture |✅ Complete |{docdate} |Validation pipelines and error propagation
+|Integration Patterns |📋 Planned |{docdate} |REST, CLI, Web interface strategies
+|Configuration and Environment Management |📋 Planned |{docdate} |Config sources and environment overlays
+|Error Handling and Observability |📋 Planned |{docdate} |Error taxonomies and monitoring
+|===
+
+**Legend:** ✅ Complete | 📝 In Progress | 📋 Planned | ⚠️ Needs Update
+
+---
+
+**Next Steps:** Begin with {xref-overview}[Architecture Overview] to understand Elara's foundational principles and design philosophy.

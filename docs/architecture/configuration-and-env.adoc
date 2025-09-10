@@ -1,0 +1,461 @@
+= Configuration and Environment Management
+include::_partials/attributes.adoc[]
+
+[abstract]
+--
+This document details configuration management strategies in {project-name}, covering environment-specific setup, secrets management, and system wiring patterns. It ensures the functional core remains pure while adapters receive appropriate configuration through dependency injection.
+--
+
+== Audience and Scope
+
+**Primary Audience:** Platform Engineers, DevOps Engineers
+
+**Scope:** Configuration sources, environment management, secrets handling, system startup
+
+**Prerequisites:** Understanding of {xref-components}[Component Architecture] and {xref-ports-adapters}[Ports and Adapters]
+
+== Key Takeaways
+
+* ✅ **Environment-based configuration** with profile overlays
+* ✅ **Secrets management** without exposing sensitive data in code
+* ✅ **System wiring patterns** for dependency injection
+* ✅ **Configuration validation** and startup checks
+
+== Configuration Architecture
+
+=== Configuration Sources and Precedence
+
+Elara uses a layered configuration approach with clear precedence rules:
+
+1. **Environment Variables** (highest precedence)
+2. **Profile-specific files** (`resources/config/{profile}/config.edn`)
+3. **Base configuration** (`resources/config/base.edn`)
+4. **Default values** (lowest precedence)
+
+[source,clojure]
+----
+;; Configuration management with Aero
+(ns elara.config
+  (:require [aero.core :as aero]
+            [clojure.java.io :as io]
+            [clojure.tools.logging :as log]))
+
+(defn read-config
+  "Read configuration for specified profile with environment variable overrides."
+  [profile]
+  (let [config-file (str "config/" profile "/config.edn")
+        config-resource (io/resource config-file)]
+    
+    (if config-resource
+      (do
+        (log/info "Loading configuration" {:profile profile :file config-file})
+        (aero/read-config config-resource {:profile profile}))
+      (do
+        (log/error "Configuration file not found" {:profile profile :file config-file})
+        (throw (ex-info "Configuration file not found" 
+                       {:profile profile :file config-file}))))))
+
+;; Example configuration structure
+;; resources/config/dev/config.edn
+{:profile :dev
+ :database {:host #env DATABASE_HOST
+           :port #long #env [DATABASE_PORT "5432"]
+           :name #env [DATABASE_NAME "elara_dev"]
+           :user #env DATABASE_USER
+           :password #env DATABASE_PASSWORD
+           :pool-size 5
+           :connection-timeout 30000}
+ 
+ :http {:port #long #env [HTTP_PORT "8080"]
+        :host #env [HTTP_HOST "0.0.0.0"]}
+ 
+ :logging {:level #env [LOG_LEVEL "info"]
+          :appender :console}
+ 
+ :features {:user-registration true
+           :email-notifications true
+           :metrics-collection false}}
+----
+
+=== Environment-Specific Configuration
+
+[source,clojure]
+----
+;; Environment configurations with module feature flags
+
+;; resources/config/dev/config.edn - Development
+{:database {:host "localhost"
+           :port 5432
+           :name "elara_dev"
+           :user "dev_user"
+           :password #env DATABASE_PASSWORD}
+ :http {:port 8080}
+ :logging {:level "debug"}
+ :features {:metrics-collection false
+           :user-module true          ; Core module always enabled
+           :billing-module false      ; Disable billing in dev
+           :workflow-module true      ; Enable workflow for testing
+           :experimental-features true}}
+
+;; resources/config/staging/config.edn - Staging
+{:database {:host #env DATABASE_HOST
+           :port #long #env DATABASE_PORT
+           :name #env DATABASE_NAME
+           :user #env DATABASE_USER
+           :password #env DATABASE_PASSWORD
+           :pool-size 10
+           :ssl true}
+ :http {:port #long #env HTTP_PORT}
+ :logging {:level "info"}
+ :features {:metrics-collection true
+           :user-module true
+           :billing-module true        ; Enable for staging testing
+           :workflow-module true
+           :experimental-features false}}
+
+;; resources/config/prod/config.edn - Production
+{:database {:host #env DATABASE_HOST
+           :port #long #env DATABASE_PORT
+           :name #env DATABASE_NAME
+           :user #env DATABASE_USER
+           :password #env DATABASE_PASSWORD
+           :pool-size 20
+           :ssl true
+           :connection-timeout 5000}
+ :http {:port #long #env HTTP_PORT}
+ :logging {:level "warn"}
+ :features {:metrics-collection true
+           :performance-monitoring true
+           :user-module true
+           :billing-module #env [BILLING_MODULE_ENABLED "false"]  ; Environment controlled
+           :workflow-module true
+           :experimental-features false}}
+----
+
+== Secrets Management
+
+[IMPORTANT]
+.Keep Secrets Secret
+====
+**Never store secrets in configuration files or code:**
+
+* ❌ Database passwords in EDN files
+* ❌ API keys in source code
+* ❌ Certificates in repositories
+
+**Use environment variables and external secret managers:**
+
+```bash
+# Environment variables
+export DATABASE_PASSWORD="secure-password"
+export API_KEY="secret-api-key"
+
+# External secret managers
+export DATABASE_PASSWORD_FILE="/run/secrets/db-password"
+export API_KEY_VAULT="vault:secret/api-keys:key"
+```
+====
+
+[source,clojure]
+----
+;; Secure secrets handling
+(ns elara.config.secrets
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
+            [clojure.tools.logging :as log]))
+
+(defn read-secret-file
+  "Read secret from file system (Docker secrets, Kubernetes secrets)."
+  [file-path]
+  (try
+    (-> (slurp file-path)
+        (str/trim))
+    (catch Exception e
+      (log/error e "Failed to read secret file" {:path file-path})
+      (throw e))))
+
+(defn resolve-secret
+  "Resolve secret from various sources."
+  [secret-ref]
+  (cond
+    ;; Direct environment variable
+    (string? secret-ref)
+    (System/getenv secret-ref)
+    
+    ;; File-based secret
+    (and (map? secret-ref) (:file secret-ref))
+    (read-secret-file (:file secret-ref))
+    
+    ;; Default value if secret not found
+    :else
+    (:default secret-ref)))
+
+;; Configuration with secure secret resolution
+(defn load-secure-config
+  "Load configuration with secure secret resolution."
+  [profile]
+  (let [raw-config (read-config profile)]
+    (-> raw-config
+        (update-in [:database :password] resolve-secret)
+        (update-in [:external-apis :api-key] resolve-secret)
+        (update-in [:jwt :signing-key] resolve-secret))))
+----
+
+== System Wiring and Startup
+
+[source,clojure]
+----
+;; System component wiring with configuration and feature flags
+(ns elara.system.wiring
+  (:require [elara.config :as config]
+            [elara.shell.adapters.database :as db-adapter]
+            [elara.shell.adapters.http :as http-adapter]
+            [elara.shell.interfaces.http.routes :as routes]
+            [clojure.tools.logging :as log]))
+
+(defn create-system
+  "Create system with environment-specific configuration and feature flags."
+  [profile]
+  (log/info "Creating system" {:profile profile})
+  
+  (let [config (config/load-secure-config profile)
+        features (get config :features {})
+        
+        ;; Create adapters with configuration
+        database (db-adapter/create-database-adapter (:database config))
+        user-repo (db-adapter/create-user-repository database)
+        
+        ;; System map with all components - no centralized services
+        system {:config config
+               :profile profile
+               :features features
+               :database database
+               :user-repository user-repo}]
+    
+    ;; Validate system configuration
+    (validate-system-config system)
+    
+    ;; Log enabled modules
+    (log-enabled-modules features)
+    
+    system))
+
+(defn log-enabled-modules
+  "Log which modules are enabled based on feature flags."
+  [features]
+  (let [enabled-modules (->> features
+                            (filter (fn [[k v]] 
+                                     (and (str/ends-with? (name k) "-module")
+                                          v)))
+                            (map first)
+                            (sort))]
+    (log/info "Enabled modules" {:modules enabled-modules})))
+
+(defn start-system
+  "Start system components that require lifecycle management."
+  [system]
+  (log/info "Starting system" {:profile (:profile system)})
+  
+  (-> system
+      (start-database)
+      (start-http-server)
+      (register-shutdown-hooks)))
+
+(defn validate-system-config
+  "Validate system configuration before startup."
+  [system]
+  (let [config (:config system)
+        profile (:profile system)]
+    
+    ;; Required configuration checks
+    (when-not (get-in config [:database :host])
+      (throw (ex-info "Database host not configured" {:profile profile})))
+    
+    (when-not (get-in config [:database :password])
+      (throw (ex-info "Database password not configured" {:profile profile})))
+    
+    (log/info "System configuration validated" {:profile profile})))
+----
+
+== Configuration Validation
+
+[source,clojure]
+----
+;; Configuration schema validation
+(ns elara.config.validation
+  (:require [malli.core :as m]))
+
+(def ConfigSchema
+  [:map {:closed true}
+   [:profile keyword?]
+   [:database [:map
+              [:host string?]
+              [:port [:int {:min 1 :max 65535}]]
+              [:name string?]
+              [:user string?]
+              [:password string?]
+              [:pool-size {:optional true} [:int {:min 1 :max 100}]]]]
+   [:http [:map
+          [:port [:int {:min 1 :max 65535}]]
+          [:host {:optional true} string?]]]
+   [:logging [:map
+             [:level [:enum "debug" "info" "warn" "error"]]]]
+   [:features {:optional true} map?]])
+
+(defn validate-config
+  "Validate configuration against schema."
+  [config]
+  (if (m/validate ConfigSchema config)
+    config
+    (throw (ex-info "Invalid configuration"
+                   {:errors (m/humanize (m/explain ConfigSchema config))}))))
+----
+
+== Module Feature Flag Management
+
+[source,clojure]
+----
+;; Module feature flag utilities
+(ns elara.config.features
+  (:require [clojure.tools.logging :as log]))
+
+(defn module-enabled?
+  "Check if a specific module is enabled via feature flags."
+  [features module-name]
+  (let [flag-key (keyword (str (name module-name) "-module"))]
+    (get features flag-key false)))
+
+(defn enabled-modules
+  "Get list of all enabled modules from feature flags."
+  [features]
+  (->> features
+       (filter (fn [[k v]] 
+                (and (str/ends-with? (name k) "-module")
+                     v)))
+       (map (fn [[k _]] 
+             (-> (name k)
+                 (str/replace "-module" "")
+                 keyword)))
+       (into #{})))
+
+(defn with-module-routes
+  "Conditionally include module routes based on feature flags."
+  [routes module-name features route-fn]
+  (if (module-enabled? features module-name)
+    (do
+      (log/info "Including routes for module" {:module module-name})
+      (conj routes (route-fn)))
+    (do
+      (log/debug "Skipping routes for disabled module" {:module module-name})
+      routes)))
+
+;; Example usage in route aggregation
+(defn api-routes
+  "Build API routes with feature flag conditional inclusion."
+  [features]
+  (let [routes []]
+    (-> routes
+        ;; Core modules always included
+        (conj (elara.modules.user.http/routes))
+        
+        ;; Conditional module inclusion
+        (with-module-routes :billing features elara.modules.billing.http/routes)
+        (with-module-routes :workflow features elara.modules.workflow.http/routes)
+        
+        ;; Combine all routes
+        (apply routes/routes))))
+----
+
+=== Environment-Specific Module Control
+
+[source,bash]
+----
+# Development - Minimal modules for fast startup
+USER_MODULE_ENABLED=true
+BILLING_MODULE_ENABLED=false
+WORKFLOW_MODULE_ENABLED=true
+EXPERIMENTAL_FEATURES=true
+
+# Staging - Full feature testing
+USER_MODULE_ENABLED=true
+BILLING_MODULE_ENABLED=true
+WORKFLOW_MODULE_ENABLED=true
+EXPERIMENTAL_FEATURES=false
+
+# Production - Stable modules only
+USER_MODULE_ENABLED=true
+BILLING_MODULE_ENABLED=true  # Can be toggled for gradual rollout
+WORKFLOW_MODULE_ENABLED=true
+EXPERIMENTAL_FEATURES=false
+----
+
+== Environment Variables Guide
+
+=== Required Environment Variables
+
+[cols="2,2,3,2"]
+|===
+|Variable |Type |Description |Example
+
+|`DATABASE_HOST` |String |Database server hostname |`localhost`
+|`DATABASE_PASSWORD` |String |Database user password |`secure-password`
+|`HTTP_PORT` |Integer |HTTP server port |`8080`
+|`LOG_LEVEL` |String |Logging level |`info`
+|===
+
+=== Optional Environment Variables
+
+[cols="2,2,3,2"]
+|===
+|Variable |Type |Description |Default
+
+|`DATABASE_PORT` |Integer |Database port |`5432`
+|`DATABASE_NAME` |String |Database name |`elara_{profile}`
+|`HTTP_HOST` |String |HTTP bind address |`0.0.0.0`
+|===
+
+=== Docker Environment Example
+
+[source,bash]
+----
+# .env file for Docker Compose
+DATABASE_HOST=postgres
+DATABASE_PORT=5432
+DATABASE_NAME=elara_prod
+DATABASE_USER=elara_user
+DATABASE_PASSWORD=secure-password
+HTTP_PORT=8080
+LOG_LEVEL=info
+----
+
+== Testing Configuration
+
+[source,clojure]
+----
+;; Configuration testing utilities
+(ns elara.config-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [elara.config :as config]))
+
+(deftest config-loading-test
+  (testing "loads development configuration"
+    (let [config (config/read-config "dev")]
+      (is (= :dev (:profile config)))
+      (is (contains? config :database))
+      (is (contains? config :http))))
+  
+  (testing "validates required fields"
+    (is (thrown? Exception (config/validate-config {})))))
+----
+
+== Next Steps
+
+Explore:
+
+1. **{xref-observability}[Error Handling and Observability]** - Monitoring configuration
+2. **Deployment guides** - Environment-specific deployments
+
+== References
+
+* **"The Twelve-Factor App"** - Configuration best practices
+* **Aero Documentation** - Configuration library reference

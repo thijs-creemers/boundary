@@ -1,0 +1,697 @@
+= Ports and Adapters
+include::_partials/attributes.adoc[]
+
+[abstract]
+--
+This document explains the implementation of the Ports and Adapters pattern (Hexagonal Architecture) in {project-name}. It covers the definition of ports as Clojure protocols, the implementation of adapters as concrete I/O handlers, and the dependency injection patterns that enable testable, flexible architecture.
+--
+
+== Audience and Scope
+
+**Primary Audience:** Domain Developers, Platform Engineers
+
+**Scope:** Port definitions, adapter implementations, dependency injection, testing strategies
+
+**Prerequisites:** Understanding of {xref-overview}[Architecture Overview] and {xref-layer-separation}[Layer Separation Guidelines]
+
+== Key Takeaways
+
+After reading this document, you will understand:
+
+* ✅ **Port definition patterns** using Clojure protocols
+* ✅ **Adapter implementation strategies** for various I/O operations
+* ✅ **Dependency injection approaches** for wiring ports to adapters
+* ✅ **Testing patterns** for both ports and adapters
+* ✅ **Multiple implementation strategies** for different environments
+
+== Ports and Adapters Fundamentals
+
+=== What Are Ports?
+
+**Ports are abstract interfaces** that define the capabilities needed by the functional core without specifying how those capabilities are implemented. In Elara, ports are defined as Clojure protocols.
+
+**Key Characteristics of Ports:**
+
+* ✅ **Abstract interfaces** - No implementation details
+* ✅ **Core-owned** - Defined by and for the functional core's needs
+* ✅ **Business-focused** - Named and designed around domain concepts
+* ✅ **Technology-agnostic** - No mention of databases, HTTP, etc.
+
+[source,clojure]
+----
+;; Example Port Definition
+(ns elara.ports
+  "Abstract interfaces (ports) for core business capabilities.")
+
+;; User data management port
+(defprotocol IUserRepository
+  "Abstract interface for user data persistence.
+  Core depends on this interface, adapters implement it."
+  (find-user-by-id [this user-id]
+    "Retrieve user data by unique identifier.")
+  (find-user-by-email [this email]
+    "Retrieve user data by email address.")
+  (create-user [this user-data]
+    "Create a new user record. Returns created user with generated ID.")
+  (update-user [this user-data]
+    "Update existing user record. Returns updated user data.")
+  (delete-user [this user-id]
+    "Remove user record. Returns true if successful."))
+
+;; Email communication port
+(defprotocol IEmailService
+  "Abstract interface for email communication.
+  Defines capabilities needed by core without implementation details."
+  (send-email [this recipient subject body]
+    "Send email message. Returns delivery confirmation.")
+  (send-templated-email [this recipient template-id data]
+    "Send email using template with data substitution."))
+
+;; Job processing port
+(defprotocol IJobProcessor
+  "Abstract interface for background job processing."
+  (schedule-job [this job-type job-data delay-ms]
+    "Schedule job for future execution. Returns job identifier.")
+  (cancel-job [this job-id]
+    "Cancel scheduled job. Returns true if successful."))
+
+;; Configuration access port
+(defprotocol IConfigurationProvider
+  "Abstract interface for configuration access."
+  (get-config [this key]
+    "Retrieve configuration value by key.")
+  (get-config-with-default [this key default-value]
+    "Retrieve configuration value with fallback default."))
+----
+
+=== What Are Adapters?
+
+**Adapters are concrete implementations** of ports that handle actual I/O operations and external system integration. They live in the imperative shell and "adapt" external systems to the port interfaces.
+
+**Key Characteristics of Adapters:**
+
+* ✅ **Concrete implementations** - Real I/O code and system integration
+* ✅ **Shell-owned** - Implemented and wired by the imperative shell
+* ✅ **Technology-specific** - Know about databases, HTTP clients, file systems
+* ✅ **Replaceable** - Multiple implementations possible for different environments
+
+== Port Design Patterns
+
+=== Domain-Driven Port Design
+
+Ports should be designed from the functional core's perspective, focusing on business capabilities rather than technical implementation details.
+
+[source,clojure]
+----
+;; ✅ GOOD: Business-focused port design
+(defprotocol IUserRepository
+  (find-active-users [this]
+    "Find all users with active status.")
+  (find-users-by-membership-tier [this tier]
+    "Find users by membership level (bronze, silver, gold, platinum).")
+  (update-user-preferences [this user-id preferences]
+    "Update user's preference settings."))
+
+;; ❌ POOR: Technology-focused port design
+(defprotocol IBadUserRepository
+  (execute-sql-query [this sql params]
+    "Execute raw SQL query.")  ; ❌ Exposes SQL details
+  (get-database-connection [this]
+    "Get JDBC connection.")    ; ❌ Exposes database technology
+  (commit-transaction [this]
+    "Commit current transaction."))  ; ❌ Exposes transaction management
+----
+
+=== Data Transfer Objects (DTOs)
+
+Ports should work with immutable data structures that represent domain concepts, not database records or API responses.
+
+[source,clojure]
+----
+;; Domain data structure used by ports
+(def User
+  {:id uuid?
+   :email string?
+   :name string?
+   :status #{:active :inactive :suspended}
+   :membership-tier #{:bronze :silver :gold :platinum}
+   :preferences map?
+   :created-at inst?
+   :updated-at inst?})
+
+;; Port works with domain data, not database records
+(defprotocol IUserRepository
+  (create-user [this user-data]
+    "Takes domain User map, returns User map with generated :id"))
+----
+
+== Adapter Implementation Patterns
+
+=== Database Adapters
+
+Database adapters handle data persistence using specific database technologies while implementing abstract port interfaces.
+
+[source,clojure]
+----
+;; PostgreSQL adapter implementation
+(ns elara.shell.db
+  (:require [elara.ports :as ports]
+            [next.jdbc :as jdbc]
+            [honey.sql :as sql]
+            [clojure.tools.logging :as log]))
+
+(defrecord PostgreSQLUserRepository [db-spec]
+  ports/IUserRepository
+  
+  (find-user-by-id [this user-id]
+    (log/debug "Finding user by ID" {:user-id user-id})
+    (let [query (sql/format {:select [:*]
+                            :from [:users]
+                            :where [:= :id user-id]})
+          result (jdbc/execute-one! db-spec query)]
+      (when result
+        (transform-db-record-to-domain result))))
+  
+  (find-user-by-email [this email]
+    (log/debug "Finding user by email" {:email email})
+    (let [query (sql/format {:select [:*]
+                            :from [:users]
+                            :where [:= :email email]})
+          result (jdbc/execute-one! db-spec query)]
+      (when result
+        (transform-db-record-to-domain result))))
+  
+  (create-user [this user-data]
+    (log/info "Creating new user" {:email (:email user-data)})
+    (let [db-record (transform-domain-to-db-record user-data)
+          query (sql/format {:insert-into :users
+                            :values [db-record]
+                            :returning [:*]})
+          result (jdbc/execute-one! db-spec query)]
+      (transform-db-record-to-domain result)))
+  
+  (update-user [this user-data]
+    (log/info "Updating user" {:user-id (:id user-data)})
+    (let [db-record (transform-domain-to-db-record user-data)
+          query (sql/format {:update :users
+                            :set (dissoc db-record :id)
+                            :where [:= :id (:id user-data)]
+                            :returning [:*]})
+          result (jdbc/execute-one! db-spec query)]
+      (transform-db-record-to-domain result)))
+  
+  (delete-user [this user-id]
+    (log/info "Deleting user" {:user-id user-id})
+    (let [query (sql/format {:delete-from :users
+                            :where [:= :id user-id]})
+          result (jdbc/execute-one! db-spec query)]
+      (> (:next.jdbc/update-count result) 0))))
+
+;; Data transformation functions
+(defn- transform-db-record-to-domain
+  "Convert database record to domain data structure."
+  [db-record]
+  {:id (:id db-record)
+   :email (:email db-record)
+   :name (:name db-record)
+   :status (keyword (:status db-record))
+   :membership-tier (keyword (:membership_tier db-record))
+   :preferences (or (:preferences db-record) {})
+   :created-at (:created_at db-record)
+   :updated-at (:updated_at db-record)})
+
+(defn- transform-domain-to-db-record
+  "Convert domain data structure to database record."
+  [domain-data]
+  {:id (:id domain-data)
+   :email (:email domain-data)
+   :name (:name domain-data)
+   :status (name (:status domain-data))
+   :membership_tier (name (:membership-tier domain-data))
+   :preferences (:preferences domain-data)
+   :created_at (:created-at domain-data)
+   :updated-at (:updated-at domain-data)})
+
+;; Factory function for creating adapter instances
+(defn make-user-repository
+  "Create PostgreSQL user repository adapter."
+  [db-spec]
+  (->PostgreSQLUserRepository db-spec))
+----
+
+=== In-Memory Adapters for Testing
+
+In-memory adapters provide fast, isolated testing environments without external dependencies.
+
+[source,clojure]
+----
+;; In-memory adapter for testing
+(ns elara.test.adapters
+  (:require [elara.ports :as ports]
+            [clojure.tools.logging :as log]))
+
+(defrecord InMemoryUserRepository [users-atom]
+  ports/IUserRepository
+  
+  (find-user-by-id [this user-id]
+    (get @users-atom user-id))
+  
+  (find-user-by-email [this email]
+    (first (filter #(= email (:email %)) (vals @users-atom))))
+  
+  (create-user [this user-data]
+    (let [user-id (java.util.UUID/randomUUID)
+          new-user (assoc user-data
+                         :id user-id
+                         :created-at (java.time.Instant/now)
+                         :updated-at (java.time.Instant/now))]
+      (swap! users-atom assoc user-id new-user)
+      new-user))
+  
+  (update-user [this user-data]
+    (let [user-id (:id user-data)
+          updated-user (assoc user-data :updated-at (java.time.Instant/now))]
+      (swap! users-atom assoc user-id updated-user)
+      updated-user))
+  
+  (delete-user [this user-id]
+    (let [existed? (contains? @users-atom user-id)]
+      (swap! users-atom dissoc user-id)
+      existed?)))
+
+;; Factory function for test adapter
+(defn make-in-memory-user-repository
+  "Create in-memory user repository for testing."
+  ([] (make-in-memory-user-repository {}))
+  ([initial-users]
+   (->InMemoryUserRepository (atom initial-users))))
+----
+
+=== Email Service Adapters
+
+Email adapters can have multiple implementations for different environments and providers.
+
+[source,clojure]
+----
+;; SMTP email adapter
+(ns elara.shell.email
+  (:require [elara.ports :as ports]
+            [postal.core :as postal]
+            [clojure.tools.logging :as log]))
+
+(defrecord SMTPEmailService [smtp-config]
+  ports/IEmailService
+  
+  (send-email [this recipient subject body]
+    (log/info "Sending email" {:recipient recipient :subject subject})
+    (let [message {:from (:from smtp-config)
+                  :to recipient
+                  :subject subject
+                  :body body}
+          result (postal/send-message smtp-config message)]
+      (if (= :SUCCESS (:error result))
+        {:success true :message-id (:id result)}
+        {:success false :error (:message result)})))
+  
+  (send-templated-email [this recipient template-id data]
+    (log/info "Sending templated email" {:recipient recipient :template template-id})
+    ;; Template processing logic here
+    (let [rendered-body (render-template template-id data)
+          subject (get-template-subject template-id)]
+      (send-email this recipient subject rendered-body))))
+
+;; Console email adapter for development
+(defrecord ConsoleEmailService []
+  ports/IEmailService
+  
+  (send-email [this recipient subject body]
+    (println "\n=== EMAIL ===")
+    (println "To:" recipient)
+    (println "Subject:" subject)
+    (println "Body:" body)
+    (println "=============")
+    {:success true :message-id (str "console-" (java.util.UUID/randomUUID))})
+  
+  (send-templated-email [this recipient template-id data]
+    (println "\n=== TEMPLATED EMAIL ===")
+    (println "To:" recipient)
+    (println "Template:" template-id)
+    (println "Data:" data)
+    (println "=======================")
+    {:success true :message-id (str "console-template-" (java.util.UUID/randomUUID))}))
+
+;; Factory functions
+(defn make-smtp-email-service [smtp-config]
+  (->SMTPEmailService smtp-config))
+
+(defn make-console-email-service []
+  (->ConsoleEmailService))
+----
+
+== Dependency Injection and Wiring
+
+=== System Wiring Pattern
+
+Elara uses a simple dependency injection pattern where adapters are created and passed to core functions through the shell layer.
+
+[source,clojure]
+----
+;; System configuration and wiring
+(ns elara.shell.system
+  (:require [elara.shell.db :as db]
+            [elara.shell.email :as email]
+            [elara.config :as config]))
+
+(defn create-system
+  "Create and wire all system components based on configuration."
+  [config]
+  (let [;; Create database connection
+        db-spec (:database config)
+        
+        ;; Create adapters
+        user-repo (db/make-user-repository db-spec)
+        email-service (case (:email-provider config)
+                       :smtp (email/make-smtp-email-service (:smtp config))
+                       :console (email/make-console-email-service)
+                       (throw (ex-info "Unknown email provider" {:provider (:email-provider config)})))
+        
+        ;; Additional adapters as needed
+        job-processor (create-job-processor config)
+        config-provider (create-config-provider config)]
+    
+    ;; Return system map with all wired adapters
+    {:user-repository user-repo
+     :email-service email-service
+     :job-processor job-processor
+     :config-provider config-provider}))
+
+;; Using the system in shell functions
+(defn handle-user-registration
+  "Shell function that uses dependency-injected adapters."
+  [system request]
+  (let [user-repo (:user-repository system)
+        email-service (:email-service system)
+        raw-data (get-in request [:body])
+        
+        ;; Validate input
+        validated-data (validate-user-data raw-data)]
+    
+    (if (:valid? validated-data)
+      ;; Call core function with injected dependencies
+      (let [core-result (user-core/register-user user-repo email-service (:data validated-data))]
+        (translate-core-result-to-http-response core-result))
+      
+      ;; Return validation errors
+      {:status 400
+       :body {:error "Invalid input"
+             :details (:errors validated-data)}})))
+----
+
+=== Configuration-Based Adapter Selection
+
+Adapters can be selected based on environment configuration, enabling different implementations for development, testing, and production.
+
+[source,clojure]
+----
+;; Environment-specific adapter configuration
+;; resources/config/dev.edn
+{:database {:dbtype "h2:mem"
+           :dbname "devdb"}
+ :email-provider :console
+ :job-processor :in-memory}
+
+;; resources/config/prod.edn  
+{:database {:dbtype "postgresql"
+           :host "db.prod.example.com"
+           :port 5432
+           :dbname "elara_prod"
+           :user #env DB_USER
+           :password #env DB_PASSWORD}
+ :email-provider :smtp
+ :smtp {:host "smtp.mailgun.org"
+        :port 587
+        :user #env SMTP_USER
+        :pass #env SMTP_PASS
+        :from "noreply@example.com"}
+ :job-processor :redis}
+
+;; Adapter factory with environment selection
+(defn create-adapters-for-environment
+  "Create appropriate adapters based on environment configuration."
+  [env-config]
+  (let [env (:environment env-config :dev)]
+    {:user-repository (case (:database-type env-config)
+                       :postgresql (db/make-postgresql-user-repository (:database env-config))
+                       :h2 (db/make-h2-user-repository (:database env-config))
+                       :in-memory (test/make-in-memory-user-repository))
+     
+     :email-service (case (:email-provider env-config)
+                     :smtp (email/make-smtp-email-service (:smtp env-config))
+                     :sendgrid (email/make-sendgrid-email-service (:sendgrid env-config))
+                     :console (email/make-console-email-service))}))
+----
+
+== Testing Strategies
+
+=== Contract Testing for Ports
+
+Contract tests ensure that all adapter implementations correctly fulfill the port interface contract.
+
+[source,clojure]
+----
+;; Contract test suite for IUserRepository port
+(ns elara.test.contracts.user-repository-test
+  (:require [clojure.test :refer [deftest testing is]]
+            [elara.ports :as ports]
+            [elara.shell.db :as db]
+            [elara.test.adapters :as test-adapters]))
+
+(defn test-user-repository-contract
+  "Test suite that validates IUserRepository contract compliance.
+  Can be run against any implementation of the port."
+  [repo-factory-fn]
+  (testing "IUserRepository contract compliance"
+    (let [repo (repo-factory-fn)
+          test-user {:email "test@example.com"
+                    :name "Test User"
+                    :status :active
+                    :membership-tier :bronze
+                    :preferences {:theme "dark"}}]
+      
+      (testing "create-user returns user with generated ID"
+        (let [created-user (ports/create-user repo test-user)]
+          (is (some? (:id created-user)))
+          (is (= (:email test-user) (:email created-user)))
+          (is (= (:name test-user) (:name created-user)))
+          (is (some? (:created-at created-user)))))
+      
+      (testing "find-user-by-email retrieves created user"
+        (let [created-user (ports/create-user repo test-user)
+              found-user (ports/find-user-by-email repo (:email test-user))]
+          (is (= (:id created-user) (:id found-user)))
+          (is (= (:email created-user) (:email found-user)))))
+      
+      (testing "find-user-by-id retrieves created user"
+        (let [created-user (ports/create-user repo test-user)
+              found-user (ports/find-user-by-id repo (:id created-user))]
+          (is (= created-user found-user))))
+      
+      (testing "update-user modifies existing user"
+        (let [created-user (ports/create-user repo test-user)
+              updated-data (assoc created-user :name "Updated Name")
+              updated-user (ports/update-user repo updated-data)]
+          (is (= "Updated Name" (:name updated-user)))
+          (is (= (:id created-user) (:id updated-user)))))
+      
+      (testing "delete-user removes user"
+        (let [created-user (ports/create-user repo test-user)
+              deleted? (ports/delete-user repo (:id created-user))
+              found-user (ports/find-user-by-id repo (:id created-user))]
+          (is (true? deleted?))
+          (is (nil? found-user)))))))
+
+;; Run contract tests against all implementations
+(deftest postgresql-user-repository-contract-test
+  (test-user-repository-contract #(db/make-user-repository test-db-spec)))
+
+(deftest in-memory-user-repository-contract-test
+  (test-user-repository-contract #(test-adapters/make-in-memory-user-repository)))
+----
+
+=== Unit Testing with Mock Adapters
+
+Core functions can be tested with simple mock implementations that verify interaction patterns.
+
+[source,clojure]
+----
+;; Mock adapter for testing core logic
+(ns elara.test.mocks
+  (:require [elara.ports :as ports]))
+
+(defrecord MockUserRepository [call-log]
+  ports/IUserRepository
+  
+  (find-user-by-id [this user-id]
+    (swap! call-log conj {:method :find-user-by-id :args [user-id]})
+    ;; Return predetermined test data
+    {:id user-id
+     :email "mock@example.com"
+     :name "Mock User"
+     :status :active})
+  
+  (create-user [this user-data]
+    (swap! call-log conj {:method :create-user :args [user-data]})
+    (assoc user-data :id (java.util.UUID/randomUUID) :created-at (java.time.Instant/now))))
+
+(defn make-mock-user-repository
+  "Create mock user repository that logs all calls."
+  []
+  (->MockUserRepository (atom [])))
+
+;; Test core function with mock
+(deftest test-user-registration-logic
+  (let [mock-repo (make-mock-user-repository)
+        mock-email (make-mock-email-service)
+        user-data {:email "test@example.com" :name "Test User"}
+        
+        result (user-core/register-user mock-repo mock-email user-data)]
+    
+    ;; Verify core logic result
+    (is (= :success (:status result)))
+    
+    ;; Verify expected interactions with ports
+    (is (= 1 (count @(:call-log mock-repo))))
+    (is (= :create-user (get-in @(:call-log mock-repo) [0 :method])))))
+----
+
+== Advanced Patterns
+
+=== Composite Adapters
+
+Sometimes you need to combine multiple adapters or add cross-cutting concerns like caching, metrics, or circuit breakers.
+
+[source,clojure]
+----
+;; Caching decorator adapter
+(ns elara.shell.adapters.caching
+  (:require [elara.ports :as ports]
+            [clojure.core.cache :as cache]))
+
+(defrecord CachingUserRepository [underlying-repo cache-atom ttl-ms]
+  ports/IUserRepository
+  
+  (find-user-by-id [this user-id]
+    (if-let [cached-user (cache/lookup @cache-atom user-id)]
+      (do
+        (log/debug "Cache hit for user" {:user-id user-id})
+        cached-user)
+      (let [user (ports/find-user-by-id underlying-repo user-id)]
+        (when user
+          (swap! cache-atom cache/assoc user-id user)
+          (log/debug "Cache miss, loaded user" {:user-id user-id}))
+        user)))
+  
+  (create-user [this user-data]
+    ;; Create via underlying repo
+    (let [created-user (ports/create-user underlying-repo user-data)]
+      ;; Cache the new user
+      (swap! cache-atom cache/assoc (:id created-user) created-user)
+      created-user))
+  
+  (update-user [this user-data]
+    ;; Update via underlying repo
+    (let [updated-user (ports/update-user underlying-repo user-data)]
+      ;; Update cache
+      (swap! cache-atom cache/assoc (:id updated-user) updated-user)
+      updated-user))
+  
+  (delete-user [this user-id]
+    ;; Delete from underlying repo
+    (let [deleted? (ports/delete-user underlying-repo user-id)]
+      ;; Remove from cache
+      (when deleted?
+        (swap! cache-atom cache/evict user-id))
+      deleted?)))
+
+(defn make-caching-user-repository
+  "Wrap any user repository with caching."
+  [underlying-repo & {:keys [ttl-ms max-size] :or {ttl-ms 300000 max-size 1000}}]
+  (let [cache-impl (cache/lru-cache-factory {} :threshold max-size)]
+    (->CachingUserRepository underlying-repo (atom cache-impl) ttl-ms)))
+----
+
+=== Multi-Provider Adapters
+
+Adapters can orchestrate multiple external services for reliability or feature completeness.
+
+[source,clojure]
+----
+;; Multi-provider email adapter with fallback
+(defrecord MultiProviderEmailService [primary-service fallback-service]
+  ports/IEmailService
+  
+  (send-email [this recipient subject body]
+    (let [primary-result (try
+                          (ports/send-email primary-service recipient subject body)
+                          (catch Exception e
+                            (log/warn e "Primary email service failed")
+                            {:success false :error (.getMessage e)}))]
+      
+      (if (:success primary-result)
+        primary-result
+        (do
+          (log/info "Attempting fallback email service")
+          (try
+            (ports/send-email fallback-service recipient subject body)
+            (catch Exception e
+              (log/error e "Both email services failed")
+              {:success false :error "All email providers unavailable"})))))))
+
+(defn make-multi-provider-email-service
+  "Create email service with primary and fallback providers."
+  [primary-config fallback-config]
+  (let [primary (email/make-smtp-email-service primary-config)
+        fallback (email/make-sendgrid-email-service fallback-config)]
+    (->MultiProviderEmailService primary fallback)))
+----
+
+== Best Practices and Guidelines
+
+=== Port Design Guidelines
+
+1. **Keep ports focused**: Each port should represent a single business capability
+2. **Use domain language**: Port methods should use business terminology, not technical jargon
+3. **Return domain data**: Ports should work with domain data structures, not database records
+4. **Avoid leaky abstractions**: Don't expose implementation details through the port interface
+5. **Design for testability**: Port interfaces should be easy to mock and test
+
+=== Adapter Implementation Guidelines
+
+1. **Handle errors gracefully**: Adapters should catch and translate technical errors appropriately
+2. **Log operations**: Include appropriate logging for debugging and monitoring
+3. **Validate inputs**: Verify that inputs meet adapter expectations
+4. **Transform data**: Convert between domain objects and external system formats
+5. **Make them replaceable**: Design adapters so they can be easily swapped for different implementations
+
+=== Testing Guidelines
+
+1. **Write contract tests**: Ensure all implementations satisfy port contracts
+2. **Test error conditions**: Verify adapter behavior under failure scenarios
+3. **Use in-memory adapters for unit tests**: Fast, isolated testing without external dependencies
+4. **Integration test with real adapters**: Verify actual system integration
+5. **Mock adapters for core testing**: Test core logic without I/O concerns
+
+== Next Steps
+
+Now that you understand ports and adapters, explore:
+
+1. **{xref-data-flow}[Data Flow Architecture]** - How data flows through ports and adapters
+2. **{xref-integration-patterns}[Integration Patterns]** - Using ports and adapters in different interfaces
+3. **{xref-configuration}[Configuration and Environment Management]** - Wiring adapters based on configuration
+
+== References
+
+* **"Hexagonal Architecture" by Alistair Cockburn** - Original ports and adapters pattern
+* **"Clean Architecture" by Robert C. Martin** - Dependency inversion principle
+* **"Growing Object-Oriented Software, Guided by Tests"** - Mock objects and testing strategies
+* **Clojure Protocols Documentation** - Technical reference for protocol implementation
