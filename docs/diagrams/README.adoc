@@ -1,8 +1,8 @@
-= Elara Diagrams
+= Boundary Diagrams
 
 == Overview
 
-This directory contains PlantUML source files for all architectural and design diagrams used in Elara documentation.
+This directory contains PlantUML source files for all architectural and design diagrams used in Boundary documentation.
 
 == Diagram Types
 

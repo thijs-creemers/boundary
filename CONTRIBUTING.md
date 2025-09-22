@@ -1,6 +1,6 @@
-# Contributing to Elara Framework
+# Contributing to Boundary Framework
 
-Thank you for your interest in contributing to Elara! This guide will help you understand our development process and how to make effective contributions.
+Thank you for your interest in contributing to Boundary! This guide will help you understand our development process and how to make effective contributions.
 
 ## Quick Start for Contributors
 
@@ -13,8 +13,8 @@ Thank you for your interest in contributing to Elara! This guide will help you u
 brew install openjdk clojure/tools/clojure  # macOS
 
 # Clone and setup
-git clone <repo-url> elara
-cd elara
+git clone <repo-url> boundary
+cd boundary
 clojure -M:test                            # Verify setup
 clojure -M:repl-clj                        # Start development REPL
 ```
@@ -44,7 +44,7 @@ Before proposing new features:
 
 #### Architecture Guidelines
 
-Elara follows strict architectural principles:
+Boundary follows strict architectural principles:
 
 **Functional Core Requirements:**
 - Pure functions only - no side effects
@@ -152,7 +152,7 @@ When adding a new domain module:
 
 1. **Create module structure**:
    ```
-   src/elara/new-module/
+   src/boundary/new-module/
    ├── core/           # Pure business logic
    ├── ports.clj       # Abstract interfaces  
    ├── schema.clj      # Domain schemas
@@ -217,7 +217,7 @@ Reviewers will check for:
 
 - **[Developer Guide (warp.md)](./warp.md)**: Complete development reference
 - **[Architecture Documentation](docs/architecture/)**: Detailed architectural guides
-- **[PRD](docs/elara.prd.adoc)**: Complete product requirements
+- **[PRD](docs/boundary.prd.adoc)**: Complete product requirements
 
 ### 💬 **Communication**
 
@@ -249,7 +249,7 @@ Contributors who make significant improvements will be recognized in:
 - Project documentation  
 - Contributor list
 
-Thank you for helping make Elara better! 🚀
+Thank you for helping make Boundary better! 🚀
 
 ---
 

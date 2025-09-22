@@ -1,10 +1,10 @@
 # Configuration
 
-*Environment management and secrets handling in Elara*
+*Environment management and secrets handling in Boundary*
 
 ## Configuration Architecture
 
-Elara uses a layered configuration approach based on **Aero** for data-driven configuration and **Environ** for environment variable access. The configuration system follows the FC/IS pattern by keeping configuration concerns in the Shell layer while the Functional Core receives pure data.
+Boundary uses a layered configuration approach based on **Aero** for data-driven configuration and **Environ** for environment variable access. The configuration system follows the FC/IS pattern by keeping configuration concerns in the Shell layer while the Functional Core receives pure data.
 
 ### Configuration Sources (by precedence)
 
@@ -30,23 +30,23 @@ resources/conf/
 
 The development configuration uses SQLite for simplicity and includes basic settings:
 
-```clojure path=/Users/thijscreemers/work/tcbv/elara/resources/conf/dev/config.edn start=1
+```clojure path=/Users/thijscreemers/work/tcbv/boundary/resources/conf/dev/config.edn start=1
 {
  :active
  {
-  :elara/settings
-  {:name              "elara-dev"
+  :boundary/settings
+  {:name              "boundary-dev"
    :version           "0.1.0"
    :date-format       "yyyy-MM-dd"
    :date-time-format  "yyyy-MM-dd HH:mm:ss"
    :currency/iso-code "EUR"}}
 
- :elara/sqlite
+ :boundary/sqlite
  {:db "dev-database.db"}
 
  :inactive
  {
-  :elara/postgresql
+  :boundary/postgresql
   {:host          #env "POSTGRES_HOST"
    :port          #env "POSTGRES_PORT"
    :dbname        #env "POSTGRES_DB"
@@ -54,7 +54,7 @@ The development configuration uses SQLite for simplicity and includes basic sett
    :password      #env "POSTGRES_PASSWORD"
    :auto-commit   true
    :max-pool-size 15}
-  :elara/logging {:level     :info
+  :boundary/logging {:level     :info
                   :console   true
                   :appenders [{:appender       :rolling-file
                                :file           "logs/web-service.log"
@@ -72,7 +72,7 @@ Create a `.env` file in the project root for development (never commit this file
 # Database configuration (when using PostgreSQL)
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_DB=elara_dev
+POSTGRES_DB=boundary_dev
 POSTGRES_USER=dev_user
 POSTGRES_PASSWORD=dev_password
 
@@ -84,9 +84,9 @@ HTTP_HOST=localhost
 LOG_LEVEL=debug
 
 # Feature flags
-ELARA_FEATURE_USER_MODULE=true
-ELARA_FEATURE_BILLING_MODULE=false
-ELARA_FEATURE_WORKFLOW_MODULE=true
+BND_FEATURE_USER_MODULE=true
+BND_FEATURE_BILLING_MODULE=false
+BND_FEATURE_WORKFLOW_MODULE=true
 ```
 
 ### Setting up Development Environment
@@ -97,14 +97,14 @@ ELARA_FEATURE_WORKFLOW_MODULE=true
 # Set environment variables in your shell
 export POSTGRES_HOST=localhost
 export POSTGRES_PORT=5432  
-export POSTGRES_DB=elara_dev
+export POSTGRES_DB=boundary_dev
 export POSTGRES_USER=dev_user
 export POSTGRES_PASSWORD=dev_password
 
 # Or use direnv with .envrc file
 echo 'export POSTGRES_HOST=localhost' >> .envrc
 echo 'export POSTGRES_PORT=5432' >> .envrc
-echo 'export POSTGRES_DB=elara_dev' >> .envrc
+echo 'export POSTGRES_DB=boundary_dev' >> .envrc
 direnv allow
 ```
 
@@ -115,7 +115,7 @@ direnv allow
 cat > .env << EOF
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_DB=elara_dev
+POSTGRES_DB=boundary_dev
 POSTGRES_USER=dev_user
 POSTGRES_PASSWORD=dev_password
 EOF
@@ -125,18 +125,18 @@ EOF
 
 ### Reading Configuration
 
-Configuration is read through the `elara.config` namespace:
+Configuration is read through the `boundary.config` namespace:
 
 ```clojure path=null start=null
 (ns your-namespace
-  (:require [elara.config :as config]))
+  (:require [boundary.config :as config]))
 
 ;; Read configuration for current profile
 (def app-config (config/read-config "dev"))
 
 ;; Access specific configuration sections
-(def db-config (:elara/postgresql app-config))
-(def app-settings (:elara/settings app-config))
+(def db-config (:boundary/postgresql app-config))
+(def app-settings (:boundary/settings app-config))
 ```
 
 ### Profile-based Loading
@@ -163,7 +163,7 @@ Use the `#env` reader tag in EDN files for environment-specific values:
 ```clojure path=null start=null
 {:database {:host #env "DATABASE_HOST"                    ; Required env var
             :port #env ["DATABASE_PORT" "5432"]           ; Optional with default
-            :name #env ["DATABASE_NAME" "elara_dev"]      ; Optional with default
+            :name #env ["DATABASE_NAME" "boundary_dev"]      ; Optional with default
             :password #env "DATABASE_PASSWORD"}}           ; Required env var
 ```
 
@@ -172,10 +172,10 @@ Use the `#env` reader tag in EDN files for environment-specific values:
 Configure module and feature toggles through configuration:
 
 ```clojure path=null start=null
-{:features {:user-module #env ["ELARA_USER_MODULE" "true"]
-            :billing-module #env ["ELARA_BILLING_MODULE" "false"]
-            :workflow-module #env ["ELARA_WORKFLOW_MODULE" "true"]
-            :experimental-features #env ["ELARA_EXPERIMENTAL" "false"]}}
+{:features {:user-module #env ["BND_USER_MODULE" "true"]
+            :billing-module #env ["BND_BILLING_MODULE" "false"]
+            :workflow-module #env ["BND_WORKFLOW_MODULE" "true"]
+            :experimental-features #env ["BND_EXPERIMENTAL" "false"]}}
 ```
 
 ### Database Configuration
@@ -184,10 +184,10 @@ Support for multiple database types:
 
 ```clojure path=null start=null
 ;; SQLite (development)
-{:active {:elara/sqlite {:db "dev-database.db"}}}
+{:active {:boundary/sqlite {:db "dev-database.db"}}}
 
 ;; PostgreSQL (staging/production)  
-{:active {:elara/postgresql {:host #env "POSTGRES_HOST"
+{:active {:boundary/postgresql {:host #env "POSTGRES_HOST"
                              :port #env ["POSTGRES_PORT" "5432"]  
                              :dbname #env "POSTGRES_DB"
                              :user #env "POSTGRES_USER"
@@ -201,10 +201,10 @@ Support for multiple database types:
 
 ```clojure path=null start=null
 {:active
- {:elara/settings {:name "elara-staging"
+ {:boundary/settings {:name "boundary-staging"
                    :version "0.1.0"}
   
-  :elara/postgresql {:host #env "POSTGRES_HOST"
+  :boundary/postgresql {:host #env "POSTGRES_HOST"
                      :port #env ["POSTGRES_PORT" "5432"]
                      :dbname #env "POSTGRES_DB" 
                      :user #env "POSTGRES_USER"
@@ -212,7 +212,7 @@ Support for multiple database types:
                      :max-pool-size #env ["DB_POOL_SIZE" "15"]
                      :ssl-mode "require"}
   
-  :elara/logging {:level #env ["LOG_LEVEL" "info"]
+  :boundary/logging {:level #env ["LOG_LEVEL" "info"]
                   :console false
                   :structured true}
                   
@@ -226,10 +226,10 @@ Support for multiple database types:
 
 ```clojure path=null start=null  
 {:active
- {:elara/settings {:name "elara-production"
+ {:boundary/settings {:name "boundary-production"
                    :version "0.1.0"}
   
-  :elara/postgresql {:host #env "POSTGRES_HOST"
+  :boundary/postgresql {:host #env "POSTGRES_HOST"
                      :port #env ["POSTGRES_PORT" "5432"]
                      :dbname #env "POSTGRES_DB"
                      :user #env "POSTGRES_USER" 
@@ -238,7 +238,7 @@ Support for multiple database types:
                      :ssl-mode "require"
                      :connection-timeout #env ["DB_TIMEOUT" "5000"]}
   
-  :elara/logging {:level #env ["LOG_LEVEL" "warn"]
+  :boundary/logging {:level #env ["LOG_LEVEL" "warn"]
                   :console false
                   :structured true
                   :telemetry true}
@@ -269,14 +269,14 @@ Support for multiple database types:
 
 ```zsh
 # Database credentials
-export POSTGRES_PASSWORD="$(vault kv get -field=password secret/elara/db)"
-export API_KEY="$(vault kv get -field=api-key secret/elara/external)"
+export POSTGRES_PASSWORD="$(vault kv get -field=password secret/boundary/db)"
+export API_KEY="$(vault kv get -field=api-key secret/boundary/external)"
 
 # JWT signing key
 export JWT_SECRET="$(openssl rand -base64 32)"
 
 # External service credentials  
-export STRIPE_SECRET_KEY="$(vault kv get -field=secret-key secret/elara/stripe)"
+export STRIPE_SECRET_KEY="$(vault kv get -field=secret-key secret/boundary/stripe)"
 ```
 
 ### File-based Secrets (Docker/Kubernetes)
@@ -310,11 +310,11 @@ For testing, override configuration to use in-memory or test-specific resources:
 ```clojure path=null start=null
 ;; test/resources/conf/test/config.edn
 {:active
- {:elara/settings {:name "elara-test"}
+ {:boundary/settings {:name "boundary-test"}
   
-  :elara/sqlite {:db ":memory:"}  ; In-memory SQLite for tests
+  :boundary/sqlite {:db ":memory:"}  ; In-memory SQLite for tests
   
-  :elara/logging {:level :error   ; Reduce noise in tests
+  :boundary/logging {:level :error   ; Reduce noise in tests
                   :console false}
                   
   :features {:user-module true
@@ -326,8 +326,8 @@ For testing, override configuration to use in-memory or test-specific resources:
 ### Test Environment Setup
 
 ```clojure path=null start=null
-(ns elara.test-helpers
-  (:require [elara.config :as config]))
+(ns boundary.test-helpers
+  (:require [boundary.config :as config]))
 
 (defn with-test-config [test-fn]
   (binding [config/*profile* "test"]
@@ -346,16 +346,16 @@ For testing, override configuration to use in-memory or test-specific resources:
 Configuration is wired through the Integrant system:
 
 ```clojure path=null start=null
-(ns elara.shell.system.wiring
-  (:require [elara.config :as config]
+(ns boundary.shell.system.wiring
+  (:require [boundary.config :as config]
             [integrant.core :as ig]))
 
 (defn system-config [profile]
   (let [app-config (config/read-config profile)]
     ;; Build Integrant system configuration from app config
-    {:elara/database    (:elara/postgresql app-config)
-     :elara/http-server (:elara/http app-config)
-     :elara/logging     (:elara/logging app-config)}))
+    {:boundary/database    (:boundary/postgresql app-config)
+     :boundary/http-server (:boundary/http app-config)
+     :boundary/logging     (:boundary/logging app-config)}))
 
 (defn start-system! [profile]
   (-> (system-config profile)
@@ -377,9 +377,9 @@ Validate configuration at startup using Malli schemas:
    [:max-pool-size {:optional true} :int]])
 
 (defn validate-config! [config]
-  (when-not (m/validate DatabaseConfig (:elara/postgresql config))
+  (when-not (m/validate DatabaseConfig (:boundary/postgresql config))
     (throw (ex-info "Invalid database configuration" 
-                    {:errors (m/explain DatabaseConfig (:elara/postgresql config))}))))
+                    {:errors (m/explain DatabaseConfig (:boundary/postgresql config))}))))
 ```
 
 ## Common Configuration Tasks
@@ -388,13 +388,13 @@ Validate configuration at startup using Malli schemas:
 
 ```zsh
 # Set profile via environment variable
-export ELARA_PROFILE=staging
+export BND_PROFILE=staging
 
 # Or pass as system property
-clojure -J-Delara.profile=staging -M:run
+clojure -J-Dboundary.profile=staging -M:run
 
 # Or programmatically
-(config/read-config (or (System/getenv "ELARA_PROFILE") "dev"))
+(config/read-config (or (System/getenv "BND_PROFILE") "dev"))
 ```
 
 ### Adding New Configuration Keys
@@ -462,8 +462,8 @@ ls -la resources/conf/dev/config.edn
 ### Configuration Debugging
 
 ```clojure path=null start=null
-(ns elara.config.debug
-  (:require [elara.config :as config]
+(ns boundary.config.debug
+  (:require [boundary.config :as config]
             [clojure.pprint :as pprint]))
 
 (defn debug-config [profile]

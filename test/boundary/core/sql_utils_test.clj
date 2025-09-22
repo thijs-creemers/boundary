@@ -1,7 +1,7 @@
-(ns elara.core.sql-utils-test
+(ns boundary.core.sql-utils-test
   (:require [clojure.test :refer :all]
-            [elara.core.sql-utils :as sql-utils]
-            [elara.schema :refer [User]]))
+            [boundary.core.sql-utils :as sql-utils]
+            [boundary.schema :refer [User]]))
 
 (deftest test-generate-create-ddl
   (testing "DDL generation for table creation"

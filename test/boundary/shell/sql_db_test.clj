@@ -1,6 +1,6 @@
-(ns elara.shell.sql-db-test
+(ns boundary.shell.sql-db-test
   (:require [clojure.test :refer :all]
-            [elara.shell.sql-db :as sql-db]
+            [boundary.shell.sql-db :as sql-db]
             [next.jdbc :as jdbc]))
 
 (def test-db-spec {:dbtype "h2:mem" :dbname "testdb" :user "sa" :password ""})

@@ -1,1 +1,1 @@
-(ns elara.shell.adapters.database.h2)
+(ns boundary.shell.adapters.database.h2)

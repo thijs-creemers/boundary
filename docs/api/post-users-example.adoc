@@ -1,7 +1,7 @@
 === POST /api/v1/users
 
 ==== Purpose
-Creates a new user account with role-based permissions and tenant association. This endpoint demonstrates the complete validation pipeline, core function integration, and error handling patterns of the Elara framework.
+Creates a new user account with role-based permissions and tenant association. This endpoint demonstrates the complete validation pipeline, core function integration, and error handling patterns of the Boundary framework.
 
 ==== Request
 
@@ -89,7 +89,7 @@ Creates a new user account with role-based permissions and tenant association. T
 [source,json]
 ----
 {
-  "type": "https://elara.example.com/problems/validation-error",
+  "type": "https://boundary.example.com/problems/validation-error",
   "title": "Validation Error",
   "status": 400,
   "detail": "One or more fields failed validation",
@@ -113,7 +113,7 @@ Creates a new user account with role-based permissions and tenant association. T
 [source,json]
 ----
 {
-  "type": "https://elara.example.com/problems/business-rule-violation",
+  "type": "https://boundary.example.com/problems/business-rule-violation",
   "title": "Business Rule Violation",
   "status": 422,
   "detail": "Cannot create admin user without proper authorization",
@@ -129,7 +129,7 @@ Creates a new user account with role-based permissions and tenant association. T
 
 ==== Implementation Notes
 
-* **Core Function**: `elara.core.user/create-new-user` - Pure function that validates business rules and returns user data with effects
+* **Core Function**: `boundary.core.user/create-new-user` - Pure function that validates business rules and returns user data with effects
 * **Repository Dependencies**: `IUserRepository` for email uniqueness checks and user persistence
 * **Validation Pipeline**: Uses Malli schema with JSON transformer for type coercion
 * **Business Rules**: 
@@ -143,7 +143,7 @@ Creates a new user account with role-based permissions and tenant association. T
 *CLI Equivalent:*
 [source,bash]
 ----
-elara users create --email="john.doe@example.com" --role=user --active=true
+boundary users create --email="john.doe@example.com" --role=user --active=true
 ----
 
 *cURL Example:*
@@ -160,6 +160,6 @@ curl -X POST http://localhost:8080/api/v1/users \
 ----
 
 *Test Coverage:*
-* **Unit Tests**: `elara.core.user-test/create-new-user-test` covers business logic
-* **Integration Tests**: `elara.shell.http-test/create-user-integration-test` covers full request lifecycle
+* **Unit Tests**: `boundary.core.user-test/create-new-user-test` covers business logic
+* **Integration Tests**: `boundary.shell.http-test/create-user-integration-test` covers full request lifecycle
 * **Contract Tests**: Schema validation tests ensure request/response format compliance

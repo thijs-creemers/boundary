@@ -1,1 +1,1 @@
-(ns elara.shell.adapters.external.payment-stripe)
+(ns boundary.shell.adapters.external.payment-stripe)

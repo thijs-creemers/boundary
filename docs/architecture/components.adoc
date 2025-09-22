@@ -29,16 +29,16 @@ After reading this document, you will understand:
 .Framework Component Interaction
 image::{diagrams-dir}/component-overview.png[Component Overview, 800]
 
-Elara's component architecture follows a strict layered approach where each layer has specific responsibilities and clear boundaries. The diagram above shows the main components and their interactions.
+Boundary's component architecture follows a strict layered approach where each layer has specific responsibilities and clear boundaries. The diagram above shows the main components and their interactions.
 
 == Namespace Structure and Organization
 
 === Adopted Module-Centric Architecture
 
-✅ **Elara implements a module-centric architecture where each domain module owns its complete functionality stack:**
+✅ **Boundary implements a module-centric architecture where each domain module owns its complete functionality stack:**
 
 ```
-src/elara/
+src/boundary/
 ├── user/                   # 👤 USER DOMAIN MODULE
 │   ├── core/               # Pure business logic
 │   │   ├── user.clj       # Core user functions
@@ -147,30 +147,30 @@ src/elara/
 [source,clojure]
 ----
 ;; USER MODULE - All user-related code together
-(ns elara.user.ports)
+(ns boundary.user.ports)
 (defprotocol IUserRepository
   (find-user-by-id [this user-id])
   (create-user [this user-data]))
 
-(ns elara.user.schema)
+(ns boundary.user.schema)
 (def User [:map [:id uuid?] [:email string?] [:active? boolean?]])
 
-(ns elara.user.core.user)
+(ns boundary.user.core.user)
 (defn calculate-user-benefits [user-data] ...)
 
-(ns elara.user.shell.service)
+(ns boundary.user.shell.service)
 (defn register-user [system request] ...)
 
 ;; BILLING MODULE - Separate concerns
-(ns elara.billing.ports)
+(ns boundary.billing.ports)
 (defprotocol IPaymentProcessor
   (process-payment [this payment-data])
   (refund-payment [this transaction-id amount]))
 
-(ns elara.billing.schema)  
+(ns boundary.billing.schema)
 (def Payment [:map [:amount [:double {:min 0.01}]] [:currency string?]])
 
-(ns elara.billing.core.pricing)
+(ns boundary.billing.core.pricing)
 (defn calculate-total-cost [line-items tax-rate] ...)
 ----
 
@@ -180,9 +180,9 @@ Modules can depend on each other through well-defined ports:
 [source,clojure]
 ----
 ;; Cross-module dependency example
-(ns elara.billing.core.invoicing
-  (:require [elara.user.ports :as user-ports]    ; ✓ Depend on user ports
-            [elara.billing.core.pricing :as pricing]))
+(ns boundary.billing.core.invoicing
+  (:require [boundary.user.ports :as user-ports]    ; ✓ Depend on user ports
+            [boundary.billing.core.pricing :as pricing]))
 
 (defn generate-invoice [user-repo payment-processor user-id line-items]
   ;; Use user module through its ports
@@ -211,10 +211,10 @@ Modules can depend on each other through well-defined ports:
 [source,clojure]
 ----
 ;; Example: Core User Component
-(ns elara.core.user
+(ns boundary.core.user
   "Pure user domain logic and business rules."
-  (:require [elara.ports :as ports]
-            [elara.schema :as schema]))
+  (:require [boundary.ports :as ports]
+            [boundary.schema :as schema]))
 
 (defn calculate-membership-benefits
   "Pure function: calculates membership benefits based on user data.
@@ -309,7 +309,7 @@ Modules can depend on each other through well-defined ports:
 [source,clojure]
 ----
 ;; Example: Ports Definition Component
-(ns elara.ports
+(ns boundary.ports
   "Abstract interfaces (ports) defining capabilities needed by core.
   These are implemented by shell adapters.")
 
@@ -379,11 +379,11 @@ Modules can depend on each other through well-defined ports:
 [source,clojure]
 ----
 ;; Example: Shell Service Component
-(ns elara.shell.services.user-service
+(ns boundary.shell.services.user-service
   "User service - orchestrates user operations between interfaces and core."
-  (:require [elara.core.user :as user-core]
-            [elara.ports :as ports]
-            [elara.schema :as schema]
+  (:require [boundary.core.user :as user-core]
+            [boundary.ports :as ports]
+            [boundary.schema :as schema]
             [malli.core :as m]
             [malli.error :as me]
             [clojure.tools.logging :as log]))
@@ -543,9 +543,9 @@ Modules can depend on each other through well-defined ports:
 [source,clojure]
 ----
 ;; Example: Database Adapter Component
-(ns elara.shell.adapters.database.postgresql
+(ns boundary.shell.adapters.database.postgresql
   "PostgreSQL adapter implementing user repository port."
-  (:require [elara.ports :as ports]
+  (:require [boundary.ports :as ports]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [clojure.tools.logging :as log]))
@@ -711,9 +711,9 @@ Modules can depend on each other through well-defined ports:
 [source,clojure]
 ----
 ;; Example: HTTP Interface Component
-(ns elara.shell.interfaces.http.handlers
+(ns boundary.shell.interfaces.http.handlers
   "HTTP request handlers - translate between HTTP and service layer."
-  (:require [elara.shell.services.user-service :as user-service]
+  (:require [boundary.shell.services.user-service :as user-service]
             [ring.util.response :as response]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]))
@@ -840,13 +840,13 @@ The sequence diagram shows how components interact during a typical HTTP request
 [source,clojure]
 ----
 ;; System wiring component
-(ns elara.shell.system.wiring
+(ns boundary.shell.system.wiring
   "System component wiring and dependency injection."
-  (:require [elara.shell.adapters.database.postgresql :as pg-adapter]
-            [elara.shell.adapters.notifications.smtp :as smtp-adapter]
-            [elara.shell.services.user-service :as user-service]
-            [elara.shell.interfaces.http.server :as http-server]
-            [elara.config :as config]
+  (:require [boundary.shell.adapters.database.postgresql :as pg-adapter]
+            [boundary.shell.adapters.notifications.smtp :as smtp-adapter]
+            [boundary.shell.services.user-service :as user-service]
+            [boundary.shell.interfaces.http.server :as http-server]
+            [boundary.config :as config]
             [clojure.tools.logging :as log]))
 
 (defn create-system
@@ -901,7 +901,7 @@ The sequence diagram shows how components interact during a typical HTTP request
 
 (defn- create-system-services [config]
   ;; Create system services adapter
-  (reify elara.ports/ISystemServices
+  (reify boundary.ports/ISystemServices
     (current-timestamp [_]
       (java.time.Instant/now))
     (generate-id [_ entity-type]
@@ -915,9 +915,9 @@ The sequence diagram shows how components interact during a typical HTTP request
 [source,clojure]
 ----
 ;; Application entry point component
-(ns elara.shell.main
+(ns boundary.shell.main
   "Application entry point and lifecycle management."
-  (:require [elara.shell.system.wiring :as wiring]
+  (:require [boundary.shell.system.wiring :as wiring]
             [clojure.tools.logging :as log])
   (:gen-class))
 
@@ -926,7 +926,7 @@ The sequence diagram shows how components interact during a typical HTTP request
 (defn start-application
   "Start the complete application system."
   [profile]
-  (log/info "Starting Elara application" {:profile profile})
+  (log/info "Starting Boundary application" {:profile profile})
   
   (try
     (let [new-system (-> (wiring/create-system profile)
@@ -941,7 +941,7 @@ The sequence diagram shows how components interact during a typical HTTP request
 (defn stop-application
   "Stop the application system gracefully."
   []
-  (log/info "Stopping Elara application")
+  (log/info "Stopping Boundary application")
   
   (when-let [current-system @system]
     (try
@@ -969,9 +969,9 @@ The sequence diagram shows how components interact during a typical HTTP request
 [source,clojure]
 ----
 ;; Core component tests - pure functions, no mocks needed
-(ns elara.core.user-test
+(ns boundary.core.user-test
   (:require [clojure.test :refer [deftest is testing]]
-            [elara.core.user :as user-core]))
+            [boundary.core.user :as user-core]))
 
 (deftest calculate-membership-benefits-test
   (testing "membership benefits calculation"
@@ -1000,10 +1000,10 @@ The sequence diagram shows how components interact during a typical HTTP request
 [source,clojure]
 ----
 ;; Service component tests - integration with mocked adapters
-(ns elara.shell.services.user-service-test
+(ns boundary.shell.services.user-service-test
   (:require [clojure.test :refer [deftest is testing]]
-            [elara.shell.services.user-service :as user-service]
-            [elara.test.mocks :as mocks]))
+            [boundary.shell.services.user-service :as user-service]
+            [boundary.test.mocks :as mocks]))
 
 (deftest register-user-test
   (testing "successful user registration"
@@ -1025,10 +1025,10 @@ The sequence diagram shows how components interact during a typical HTTP request
 [source,clojure]
 ----
 ;; Adapter component tests - integration with real external systems
-(ns elara.shell.adapters.database.postgresql-test
+(ns boundary.shell.adapters.database.postgresql-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [elara.shell.adapters.database.postgresql :as pg-adapter]
-            [elara.test.database :as test-db]))
+            [boundary.shell.adapters.database.postgresql :as pg-adapter]
+            [boundary.test.database :as test-db]))
 
 (use-fixtures :each test-db/with-test-database)
 

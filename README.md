@@ -1,4 +1,4 @@
-# Elara Framework
+# Boundary Framework
 
 A module-centric Clojure framework implementing the Functional Core / Imperative Shell architectural paradigm.
 
@@ -15,15 +15,15 @@ For a comprehensive guide including setup, architecture overview, development wo
 brew install openjdk clojure/tools/clojure  # macOS
 
 # Clone and verify
-git clone <repo-url> elara
-cd elara
+git clone <repo-url> boundary
+cd boundary
 clojure -M:test                            # Run tests
 clojure -M:repl-clj                        # Start REPL
 ```
 
 ## Architecture
 
-Elara implements a **module-centric architecture** where each domain module (`user`, `billing`, `workflow`) owns its complete functionality stack:
+Boundary implements a **module-centric architecture** where each domain module (`user`, `billing`, `workflow`) owns its complete functionality stack:
 
 - **Functional Core**: Pure business logic with no side effects
 - **Imperative Shell**: All I/O, validation, and infrastructure concerns  
@@ -37,7 +37,7 @@ See [Architecture Documentation](docs/architecture/) for detailed technical spec
 ### Development
 - **[Developer Guide (warp.md)](./warp.md)** - Complete development reference
 - **[PRD Summary](docs/PRD-IMPROVEMENT-SUMMARY.adoc)** - Project requirements and improvements
-- **[Full PRD](docs/elara.prd.adoc)** - Comprehensive product requirements
+- **[Full PRD](docs/boundary.prd.adoc)** - Comprehensive product requirements
 
 ### Architecture
 - **[Architecture Overview](docs/architecture/overview.adoc)** - High-level architectural decisions

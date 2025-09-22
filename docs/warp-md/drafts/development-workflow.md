@@ -1,6 +1,6 @@
 # Development Workflow
 
-*Concrete commands and steps for daily Elara development*
+*Concrete commands and steps for daily Boundary development*
 
 ## Quick Development Cycle
 
@@ -31,7 +31,7 @@ clojure -M:test --watch
 **Focus on specific tests:**
 ```zsh
 clojure -M:test --focus :user
-clojure -M:test --focus elara.user.core.user-test
+clojure -M:test --focus boundary.user.core.user-test
 ```
 
 **Skip tests temporarily:**
@@ -55,7 +55,7 @@ clojure -M:outdated
 
 ### Integrant-Based Development
 
-Elara uses Integrant for system lifecycle management. The development workflow relies on REPL-driven development with live system reloading.
+Boundary uses Integrant for system lifecycle management. The development workflow relies on REPL-driven development with live system reloading.
 
 **In your REPL:**
 ```clojure
@@ -90,16 +90,16 @@ Elara uses Integrant for system lifecycle management. The development workflow r
 
 **Key development settings:**
 ```clojure
-{:elara/settings
- {:name "elara-dev"        ; Development environment name
+{:boundary/settings
+ {:name "boundary-dev"        ; Development environment name
   :version "0.1.0"}
  
- :elara/sqlite            ; Fast local database
+ :boundary/sqlite            ; Fast local database
  {:db "dev-database.db"}
  
  ;; PostgreSQL available but inactive for dev
  :inactive
- {:elara/postgresql {...}}}
+ {:boundary/postgresql {...}}}
 ```
 
 ## Module-Centric Development
@@ -110,39 +110,39 @@ Elara uses Integrant for system lifecycle management. The development workflow r
 
 1. **Start with the core (pure functions):**
    ```zsh
-   $EDITOR src/elara/user/core/user.clj
+   $EDITOR src/boundary/user/core/user.clj
    ```
 
 2. **Update schemas:**
    ```zsh
-   $EDITOR src/elara/user/schema.clj
+   $EDITOR src/boundary/user/schema.clj
    ```
 
 3. **Add tests first:**
    ```zsh
-   $EDITOR test/elara/user/core/user_test.clj
+   $EDITOR test/boundary/user/core/user_test.clj
    ```
 
 4. **Run focused tests:**
    ```zsh
-   clojure -M:test --focus elara.user.core.user-test
+   clojure -M:test --focus boundary.user.core.user-test
    ```
 
 5. **Update shell layer (adapters, services):**
    ```zsh
-   $EDITOR src/elara/user/shell/service.clj
-   $EDITOR src/elara/user/shell/adapters.clj
+   $EDITOR src/boundary/user/shell/service.clj
+   $EDITOR src/boundary/user/shell/adapters.clj
    ```
 
 6. **Add integration tests:**
    ```zsh
-   $EDITOR test/elara/user/shell/adapters_test.clj
+   $EDITOR test/boundary/user/shell/adapters_test.clj
    ```
 
 7. **Update interfaces (HTTP, CLI):**
    ```zsh
-   $EDITOR src/elara/user/http.clj
-   $EDITOR src/elara/user/cli.clj
+   $EDITOR src/boundary/user/http.clj
+   $EDITOR src/boundary/user/cli.clj
    ```
 
 ### Creating a New Module
@@ -150,7 +150,7 @@ Elara uses Integrant for system lifecycle management. The development workflow r
 **Template structure for new module (e.g., `notifications`):**
 
 ```
-src/elara/notifications/
+src/boundary/notifications/
 ├── core/                          # Pure business logic
 │   ├── notifications.clj          # Core notification functions
 │   └── templates.clj              # Template processing logic
@@ -167,39 +167,39 @@ src/elara/notifications/
 
 1. **Create module structure:**
    ```zsh
-   mkdir -p src/elara/notifications/{core,shell}
-   mkdir -p test/elara/notifications/{core,shell}
+   mkdir -p src/boundary/notifications/{core,shell}
+   mkdir -p test/boundary/notifications/{core,shell}
    ```
 
 2. **Start with ports (define interfaces):**
    ```zsh
-   $EDITOR src/elara/notifications/ports.clj
+   $EDITOR src/boundary/notifications/ports.clj
    ```
 
 3. **Define schemas:**
    ```zsh
-   $EDITOR src/elara/notifications/schema.clj
+   $EDITOR src/boundary/notifications/schema.clj
    ```
 
 4. **Implement core logic:**
    ```zsh
-   $EDITOR src/elara/notifications/core/notifications.clj
+   $EDITOR src/boundary/notifications/core/notifications.clj
    ```
 
 5. **Test core logic:**
    ```zsh
-   $EDITOR test/elara/notifications/core/notifications_test.clj
-   clojure -M:test --focus elara.notifications.core.notifications-test
+   $EDITOR test/boundary/notifications/core/notifications_test.clj
+   clojure -M:test --focus boundary.notifications.core.notifications-test
    ```
 
 6. **Implement adapters:**
    ```zsh
-   $EDITOR src/elara/notifications/shell/adapters.clj
+   $EDITOR src/boundary/notifications/shell/adapters.clj
    ```
 
 7. **Add integration tests:**
    ```zsh
-   $EDITOR test/elara/notifications/shell/adapters_test.clj
+   $EDITOR test/boundary/notifications/shell/adapters_test.clj
    ```
 
 ## REPL-Driven Development Workflow
@@ -209,7 +209,7 @@ src/elara/notifications/
 **Typical REPL session:**
 ```clojure
 ;; 1. Load your namespace
-(require '[elara.user.core.user :as user] :reload)
+(require '[boundary.user.core.user :as user] :reload)
 
 ;; 2. Load test data
 (def test-user-data {:email "dev@example.com"
@@ -230,7 +230,7 @@ src/elara/notifications/
 ;; => {:status :error, :errors [...]}
 
 ;; 5. Test with real system (if running)
-(require '[elara.user.shell.service :as user-service])
+(require '[boundary.user.shell.service :as user-service])
 (user-service/register-user @ig-repl/system test-user-data)
 ```
 
@@ -242,7 +242,7 @@ src/elara/notifications/
 (ig-repl/reset)  ; Reloads all changed code and restarts system
 
 ;; Or reload specific namespace
-(require '[elara.user.core.user :as user] :reload-all)
+(require '[boundary.user.core.user :as user] :reload-all)
 ```
 
 **If system fails to start:**
@@ -278,8 +278,8 @@ SELECT * FROM users LIMIT 5;
    ```zsh
    export POSTGRES_HOST=localhost
    export POSTGRES_PORT=5432
-   export POSTGRES_DB=elara_dev
-   export POSTGRES_USER=elara_dev
+   export POSTGRES_DB=boundary_dev
+   export POSTGRES_USER=boundary_dev
    export POSTGRES_PASSWORD=dev_password
    ```
 
@@ -296,7 +296,7 @@ SELECT * FROM users LIMIT 5;
 **Module-specific database initialization:**
 - Each module manages its own schema
 - SQLite adapters automatically create tables
-- See `src/elara/user/shell/adapters.clj` for examples
+- See `src/boundary/user/shell/adapters.clj` for examples
 
 ## Build and Packaging
 
@@ -314,7 +314,7 @@ clojure -T:build uber
 
 **Built artifact location:**
 ```
-target/elara-*-standalone.jar
+target/boundary-*-standalone.jar
 ```
 
 ### Development Scripts
@@ -324,7 +324,7 @@ target/elara-*-standalone.jar
 **`dev-setup.sh`:**
 ```bash
 #!/usr/bin/env zsh
-echo "Setting up Elara development environment..."
+echo "Setting up Boundary development environment..."
 
 # Install dependencies
 clojure -P -M:test:clj-kondo:outdated
@@ -342,7 +342,7 @@ echo "Start REPL with: clojure -M:repl-clj"
 **`run-tests.sh`:**
 ```bash
 #!/usr/bin/env zsh
-echo "Running Elara test suite..."
+echo "Running Boundary test suite..."
 
 # Run all tests
 clojure -M:test

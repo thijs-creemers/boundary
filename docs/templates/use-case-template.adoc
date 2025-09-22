@@ -48,7 +48,7 @@ _What initiates this use case?_
 ==== Technical Implementation
 
 ===== Core Function
-`elara.core.[domain]/[function-name]`
+`boundary.core.[domain]/[function-name]`
 
 ===== Input Schema
 [source,clojure]
@@ -70,8 +70,8 @@ _What initiates this use case?_
 * `I[Other]Repository`
 
 ===== Shell Components
-* **HTTP Handler:** `elara.shell.http/handle-[action]`
-* **CLI Command:** `elara [resource] [action]`
+* **HTTP Handler:** `boundary.shell.http/handle-[action]`
+* **CLI Command:** `boundary [resource] [action]`
 * **Validation:** Uses `[Schema]` with malli
 
 ==== Test Cases
@@ -105,7 +105,7 @@ curl -X POST http://localhost:8080/api/v1/[resource] \
 ===== CLI Example
 [source,bash]
 ----
-elara [resource] [action] --field="example"
+boundary [resource] [action] --field="example"
 ----
 
 ===== Expected Response

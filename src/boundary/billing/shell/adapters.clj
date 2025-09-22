@@ -1,1 +1,1 @@
-(ns elara.billing.shell.adapters)
+(ns boundary.billing.shell.adapters)

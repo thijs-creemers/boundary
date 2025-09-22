@@ -1,1 +1,1 @@
-(ns elara.shell.utils.logging)
+(ns boundary.shell.utils.logging)

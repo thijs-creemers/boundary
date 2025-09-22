@@ -1,1 +1,1 @@
-(ns elara.shell.adapters.filesystem.config-files)
+(ns boundary.shell.adapters.filesystem.config-files)

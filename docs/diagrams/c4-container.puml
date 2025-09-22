@@ -3,13 +3,13 @@
 
 LAYOUT_WITH_LEGEND()
 
-title Container Diagram for Elara Framework
+title Container Diagram for Boundary Framework
 
 Person(api_user, "API Consumer", "External system or developer consuming REST endpoints")
 Person(cli_user, "Operator", "System administrator using CLI for management tasks")  
 Person(web_user, "End User", "Business user interacting via web interface")
 
-System_Boundary(elara, "Elara Framework") {
+System_Boundary(boundary, "Boundary Framework") {
     Container(web_app, "Web Application", "ClojureScript, Replicant", "Interactive web interface for user management")
     Container(api_app, "REST API", "Ring, Reitit", "JSON API for system integration")
     Container(cli_app, "CLI Tool", "tools.cli", "Command-line interface for operations")

@@ -1,1 +1,1 @@
-(ns elara.shell.utils.error-handling)
+(ns boundary.shell.utils.error-handling)

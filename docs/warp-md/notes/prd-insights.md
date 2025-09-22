@@ -1,20 +1,20 @@
 # Core PRD Insights for Project Overview
 
-*Extracted from elara.prd.adoc - Key insights for warp.md project overview section*
+*Extracted from boundary.prd.adoc - Key insights for warp.md project overview section*
 
 ## Project Vision & Goals
 
 ### Primary Purpose
-**Elara** is a **module-centric software framework** that implements the "Functional Core / Imperative Shell" architectural paradigm with complete domain ownership. This approach creates highly composable, testable, and maintainable systems where each domain module owns its complete functionality stack.
+**Boundary** is a **module-centric software framework** that implements the "Functional Core / Imperative Shell" architectural paradigm with complete domain ownership. This approach creates highly composable, testable, and maintainable systems where each domain module owns its complete functionality stack.
 
 ### Strategic Vision
-Elara is designed as both a framework for building applications and a **foundation for creating reusable development toolchains**. The framework supports multiple interaction modes:
+Boundary is designed as both a framework for building applications and a **foundation for creating reusable development toolchains**. The framework supports multiple interaction modes:
 - **REST API** for external system integration and programmatic access
 - **CLI** for operational tasks, automation, and administrative functions  
 - **Web Frontend** for human user interaction and visual management
 
 ### Framework Evolution Strategy
-The module-centric architecture enables Elara to evolve into a comprehensive development platform:
+The module-centric architecture enables Boundary to evolve into a comprehensive development platform:
 1. **Library Extraction**: Core infrastructure can be extracted into reusable libraries
 2. **Template Generation**: Automated module generation with consistent patterns
 3. **Domain Frameworks**: Specialized frameworks for different industries (fintech, healthcare, e-commerce)
@@ -139,12 +139,12 @@ Each domain module owns its complete functionality stack:
 - Comprehensive integration testing
 
 ### Phase 3: Framework Library Extraction (Q3 2026)
-- **Core Infrastructure Library** (`elara-core`)
+- **Core Infrastructure Library** (`boundary-core`)
 - Library packaging and distribution
 - Versioned releases and breaking change management
 
 ### Phase 4: Module Template System (Q4 2026)
-- **Template Generator** (`elara-gen`)
+- **Template Generator** (`boundary-gen`)
 - Domain-specific templates
 - Architecture pattern enforcement
 
@@ -229,4 +229,4 @@ Each domain module owns its complete functionality stack:
 
 ---
 *Extracted: 2025-01-10 18:24*
-*Source: docs/elara.prd.adoc*
+*Source: docs/boundary.prd.adoc*

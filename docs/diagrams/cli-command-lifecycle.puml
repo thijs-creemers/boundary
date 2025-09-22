@@ -10,7 +10,7 @@ participant "Repository Port" as Port
 participant "PostgreSQL Adapter" as DB
 participant "Logger" as Logger
 
-Operator -> CLI: elara users create\n--email="user@example.com"\n--role=admin --active=true
+Operator -> CLI: boundary users create\n--email="user@example.com"\n--role=admin --active=true
 
 CLI -> CLI: parse arguments\nvalidate required options
 CLI -> Handler: execute create-user command\nwith parsed options

@@ -1,5 +1,5 @@
-(ns elara.shell.adapters.database.sqlite
-  "Shared SQLite database adapter utilities for Elara framework.
+(ns boundary.shell.adapters.database.sqlite
+  "Shared SQLite database adapter utilities for Boundary framework.
 
    This namespace provides common SQLite-specific functionality that can be reused
    across different modules. It handles SQLite's unique characteristics and provides

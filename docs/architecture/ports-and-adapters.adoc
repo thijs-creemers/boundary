@@ -28,7 +28,7 @@ After reading this document, you will understand:
 
 === What Are Ports?
 
-**Ports are abstract interfaces** that define the capabilities needed by the functional core without specifying how those capabilities are implemented. In Elara, ports are defined as Clojure protocols.
+**Ports are abstract interfaces** that define the capabilities needed by the functional core without specifying how those capabilities are implemented. In Boundary, ports are defined as Clojure protocols.
 
 **Key Characteristics of Ports:**
 
@@ -40,7 +40,7 @@ After reading this document, you will understand:
 [source,clojure]
 ----
 ;; Example Port Definition
-(ns elara.ports
+(ns boundary.ports
   "Abstract interfaces (ports) for core business capabilities.")
 
 ;; User data management port
@@ -154,8 +154,8 @@ Database adapters handle data persistence using specific database technologies w
 [source,clojure]
 ----
 ;; PostgreSQL adapter implementation
-(ns elara.shell.db
-  (:require [elara.ports :as ports]
+(ns boundary.shell.db
+  (:require [boundary.ports :as ports]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [clojure.tools.logging :as log]))
@@ -246,8 +246,8 @@ In-memory adapters provide fast, isolated testing environments without external 
 [source,clojure]
 ----
 ;; In-memory adapter for testing
-(ns elara.test.adapters
-  (:require [elara.ports :as ports]
+(ns boundary.test.adapters
+  (:require [boundary.ports :as ports]
             [clojure.tools.logging :as log]))
 
 (defrecord InMemoryUserRepository [users-atom]
@@ -294,8 +294,8 @@ Email adapters can have multiple implementations for different environments and 
 [source,clojure]
 ----
 ;; SMTP email adapter
-(ns elara.shell.email
-  (:require [elara.ports :as ports]
+(ns boundary.shell.email
+  (:require [boundary.ports :as ports]
             [postal.core :as postal]
             [clojure.tools.logging :as log]))
 
@@ -352,15 +352,15 @@ Email adapters can have multiple implementations for different environments and 
 
 === System Wiring Pattern
 
-Elara uses a simple dependency injection pattern where adapters are created and passed to core functions through the shell layer.
+Boundary uses a simple dependency injection pattern where adapters are created and passed to core functions through the shell layer.
 
 [source,clojure]
 ----
 ;; System configuration and wiring
-(ns elara.shell.system
-  (:require [elara.shell.db :as db]
-            [elara.shell.email :as email]
-            [elara.config :as config]))
+(ns boundary.shell.system
+  (:require [boundary.shell.db :as db]
+            [boundary.shell.email :as email]
+            [boundary.config :as config]))
 
 (defn create-system
   "Create and wire all system components based on configuration."
@@ -424,7 +424,7 @@ Adapters can be selected based on environment configuration, enabling different 
 {:database {:dbtype "postgresql"
            :host "db.prod.example.com"
            :port 5432
-           :dbname "elara_prod"
+           :dbname "boundary_prod"
            :user #env DB_USER
            :password #env DB_PASSWORD}
  :email-provider :smtp
@@ -460,11 +460,11 @@ Contract tests ensure that all adapter implementations correctly fulfill the por
 [source,clojure]
 ----
 ;; Contract test suite for IUserRepository port
-(ns elara.test.contracts.user-repository-test
+(ns boundary.test.contracts.user-repository-test
   (:require [clojure.test :refer [deftest testing is]]
-            [elara.ports :as ports]
-            [elara.shell.db :as db]
-            [elara.test.adapters :as test-adapters]))
+            [boundary.ports :as ports]
+            [boundary.shell.db :as db]
+            [boundary.test.adapters :as test-adapters]))
 
 (defn test-user-repository-contract
   "Test suite that validates IUserRepository contract compliance.
@@ -525,8 +525,8 @@ Core functions can be tested with simple mock implementations that verify intera
 [source,clojure]
 ----
 ;; Mock adapter for testing core logic
-(ns elara.test.mocks
-  (:require [elara.ports :as ports]))
+(ns boundary.test.mocks
+  (:require [boundary.ports :as ports]))
 
 (defrecord MockUserRepository [call-log]
   ports/IUserRepository
@@ -573,8 +573,8 @@ Sometimes you need to combine multiple adapters or add cross-cutting concerns li
 [source,clojure]
 ----
 ;; Caching decorator adapter
-(ns elara.shell.adapters.caching
-  (:require [elara.ports :as ports]
+(ns boundary.shell.adapters.caching
+  (:require [boundary.ports :as ports]
             [clojure.core.cache :as cache]))
 
 (defrecord CachingUserRepository [underlying-repo cache-atom ttl-ms]

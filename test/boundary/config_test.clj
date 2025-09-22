@@ -1,7 +1,7 @@
-(ns elara.config-test
+(ns boundary.config-test
   (:require
     [clojure.test :refer :all]
-    [elara.config :refer [dot-env-for-profile read-config]]))
+    [boundary.config :refer [dot-env-for-profile read-config]]))
 
 (deftest dot-env-for-profile-parses-dev
   (let [env (dot-env-for-profile "dev")]
@@ -13,8 +13,8 @@
 
 (deftest read-config-produces-active-map
   (let [config (read-config "dev")
-        settings (:elara/settings config)
-        pg       (:elara/postgresql config)]
+        settings (:boundary/settings config)
+        pg       (:boundary/postgresql config)]
     ;; check general app settings from config.edn
     (is (= "isfx-dev" (get settings :name)))
     (is (= "0.1.0"    (get settings :version)))

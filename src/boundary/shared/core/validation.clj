@@ -1,1 +1,1 @@
-(ns elara.shared.core.validation)
+(ns boundary.shared.core.validation)

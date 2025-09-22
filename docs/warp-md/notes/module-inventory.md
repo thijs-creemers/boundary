@@ -3,12 +3,12 @@
 ## Module-Centric Architecture Analysis
 
 ### Overview
-The Elara codebase perfectly implements the module-centric architecture described in the PRD, with clear Functional Core / Imperative Shell boundaries.
+The Boundary codebase perfectly implements the module-centric architecture described in the PRD, with clear Functional Core / Imperative Shell boundaries.
 
 ## Directory Structure
 
 ```
-src/elara/
+src/boundary/
 ├── user/                   # 👤 USER DOMAIN MODULE
 │   ├── core/               # Pure business logic
 │   ├── shell/              # Shell orchestration
@@ -54,7 +54,7 @@ src/elara/
 ## Domain Modules Analysis
 
 ### 1. User Module (Complete Implementation)
-**Path**: `src/elara/user/`
+**Path**: `src/boundary/user/`
 
 **Core Layer** (`user/core/`):
 - `user.clj` - Core user business logic ✅
@@ -72,7 +72,7 @@ src/elara/
 - `cli.clj` - User CLI commands & parsing ✅
 
 ### 2. Billing Module (Complete Implementation)  
-**Path**: `src/elara/billing/`
+**Path**: `src/boundary/billing/`
 
 **Core Layer** (`billing/core/`):
 - `pricing.clj` - Price calculations ✅
@@ -90,7 +90,7 @@ src/elara/
 - `cli.clj` - Billing CLI commands & parsing ✅
 
 ### 3. Workflow Module (Complete Implementation)
-**Path**: `src/elara/workflow/`
+**Path**: `src/boundary/workflow/`
 
 **Core Layer** (`workflow/core/`):
 - `state_machine.clj` - Process state logic ✅
@@ -108,7 +108,7 @@ src/elara/
 
 ## Shared Infrastructure
 
-### Shared Module (`src/elara/shared/`)
+### Shared Module (`src/boundary/shared/`)
 **Purpose**: Common utilities and cross-cutting concerns
 
 - `core/` - Pure utility functions
@@ -117,7 +117,7 @@ src/elara/
 - `system/` - System-level utilities ✅
 - `utils/` - Common utilities ✅
 
-### Shell Infrastructure (`src/elara/shell/`)  
+### Shell Infrastructure (`src/boundary/shell/`)  
 **Purpose**: Framework-wide imperative shell components
 
 **Adapters** (`shell/adapters/`):

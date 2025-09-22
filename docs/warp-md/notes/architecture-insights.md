@@ -8,7 +8,7 @@
 **Philosophy**: Separate pure business logic from side effects to maximize testability, maintainability, and reliability.
 
 **Implementation**:
-- **Functional Core**: Pure functions in `src/elara/` containing all business logic
+- **Functional Core**: Pure functions in `src/boundary/` containing all business logic
 - **Imperative Shell**: Side-effect handling in adapters, handlers, and infrastructure
 - **Benefits**: 
   - Pure functions are easily testable without mocking
@@ -20,7 +20,7 @@
 
 **Structure**:
 ```
-src/elara/
+src/boundary/
 ├── messaging/          # Message processing and routing
 ├── customers/          # Customer profile management  
 ├── analytics/          # Reporting and insights
@@ -52,7 +52,7 @@ src/elara/
 
 ### Layer 1: Functional Core (Business Logic)
 ```
-Location: src/elara/{domain}/
+Location: src/boundary/{domain}/
 Purpose: Pure business logic implementation
 Characteristics:
 - No side effects (no I/O, no state mutation)
@@ -69,7 +69,7 @@ Characteristics:
 
 ### Layer 2: Application Services 
 ```
-Location: src/elara/{domain}/services.clj
+Location: src/boundary/{domain}/services.clj
 Purpose: Orchestrate business logic and coordinate with infrastructure
 Characteristics:
 - Calls pure functions from Functional Core
@@ -86,7 +86,7 @@ Characteristics:
 
 ### Layer 3: Imperative Shell (Infrastructure)
 ```
-Location: src/elara/{domain}/{adapters,handlers}/
+Location: src/boundary/{domain}/{adapters,handlers}/
 Purpose: Handle all side effects and external system integration
 Characteristics:
 - Database operations

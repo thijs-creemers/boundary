@@ -1,1 +1,1 @@
-(ns elara.shell.system.components.sqlite)
+(ns boundary.shell.system.components.sqlite)

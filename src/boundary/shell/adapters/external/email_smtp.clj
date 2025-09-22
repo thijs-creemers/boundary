@@ -1,1 +1,1 @@
-(ns elara.shell.adapters.external.email-smtp)
+(ns boundary.shell.adapters.external.email-smtp)

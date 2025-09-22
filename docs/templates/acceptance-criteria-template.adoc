@@ -70,7 +70,7 @@ _Brief description of what this feature accomplishes_
 * Error responses must use application/problem+json
 
 ====== CLI Requirements
-* Command must follow pattern: `elara [resource] [action] [options]`
+* Command must follow pattern: `boundary [resource] [action] [options]`
 * Help text must be clear and include examples
 * Exit codes must follow standard conventions
 

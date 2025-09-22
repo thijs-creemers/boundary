@@ -1,4 +1,4 @@
-= Elara Architecture Documentation
+= Boundary Architecture Documentation
 include::_partials/attributes.adoc[]
 
 == Overview
@@ -74,7 +74,7 @@ Error taxonomies, structured logging, metrics, and tracing patterns
 
 == Quick Start Guide
 
-For newcomers to the Elara framework:
+For newcomers to the Boundary framework:
 
 1. **Start with** {xref-overview}[Architecture Overview] to understand the FC/IS paradigm
 2. **Review** {xref-layer-separation}[Layer Separation Guidelines] to understand boundaries
@@ -161,4 +161,4 @@ asciidoctor -r asciidoctor-diagram docs/architecture/overview.adoc
 
 ---
 
-**Next Steps:** Begin with {xref-overview}[Architecture Overview] to understand Elara's foundational principles and design philosophy.
+**Next Steps:** Begin with {xref-overview}[Architecture Overview] to understand Boundary's foundational principles and design philosophy.

@@ -6,14 +6,14 @@
 
 == Overview
 
-This document captures the implementation details, architectural decisions, and design patterns used in the Elara User Module. It serves as both implementation guidance and architectural reference for the module-centric, hexagonal architecture approach.
+This document captures the implementation details, architectural decisions, and design patterns used in the Boundary User Module. It serves as both implementation guidance and architectural reference for the module-centric, hexagonal architecture approach.
 
 === Module Structure
 
-The User Module follows Elara's standardized module structure:
+The User Module follows Boundary's standardized module structure:
 
 ```
-src/elara/user/
+src/boundary/user/
 ├── schema.clj          # Comprehensive schema definitions (✅ Implemented)
 ├── ports.clj           # Port interfaces/contracts (✅ Implemented)  
 ├── core/               # Pure business logic (TODO)
@@ -26,7 +26,7 @@ src/elara/user/
     └── service.clj     # Service orchestration (TODO)
 ```
 
-== Schema Implementation (`elara.user.schema`)
+== Schema Implementation (`boundary.user.schema`)
 
 === Design Philosophy
 
@@ -190,7 +190,7 @@ The schema implementation embodies several key architectural principles:
 - Testing data generators
 - Clear error reporting
 
-== Ports Implementation (`elara.user.ports`)
+== Ports Implementation (`boundary.user.ports`)
 
 === Design Philosophy
 
@@ -358,7 +358,7 @@ The ports implementation embodies hexagonal architecture principles:
 - Audit trail requirements
 - Security context propagation
 
-== SQLite Adapter Implementation (`elara.user.shell.adapters`)
+== SQLite Adapter Implementation (`boundary.user.shell.adapters`)
 
 === Design Philosophy
 
@@ -665,7 +665,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 
 **🔄 Architectural Refactoring**
 
-The user adapter implementation leverages shared SQLite utilities from `elara.shell.adapters.database.sqlite`:
+The user adapter implementation leverages shared SQLite utilities from `boundary.shell.adapters.database.sqlite`:
 
 ```clojure
 ;; Before: Duplicate utility functions
@@ -871,7 +871,7 @@ The user adapter implementation leverages shared SQLite utilities from `elara.sh
 
 == Conclusion
 
-The User Module implementation demonstrates Elara's module-centric, hexagonal architecture principles in practice. The comprehensive schema system provides type safety and interface consistency, while the port definitions enable flexible, testable, and scalable implementations.
+The User Module implementation demonstrates Boundary's module-centric, hexagonal architecture principles in practice. The comprehensive schema system provides type safety and interface consistency, while the port definitions enable flexible, testable, and scalable implementations.
 
 Key achievements:
 - **Type-safe data handling** across all interfaces
@@ -881,4 +881,4 @@ Key achievements:
 - **Security-first approach** with tenant isolation and audit trails
 - **Future-proof extensibility** through modular design patterns
 
-This implementation serves as a template for other modules in the Elara framework, establishing patterns and practices that ensure consistency and quality across the entire system.
+This implementation serves as a template for other modules in the Boundary framework, establishing patterns and practices that ensure consistency and quality across the entire system.

@@ -1,17 +1,17 @@
 # Module Structure and Conventions
 
-*Real examples from Elara's module-centric architecture with scaffolding templates*
+*Real examples from Boundary's module-centric architecture with scaffolding templates*
 
 ## Module-Centric Architecture Overview
 
-Elara implements a **complete domain ownership** model where each module owns its entire vertical stack. This ensures clear boundaries, team autonomy, and independent evolution.
+Boundary implements a **complete domain ownership** model where each module owns its entire vertical stack. This ensures clear boundaries, team autonomy, and independent evolution.
 
 ### Standard Module Layout
 
 Every domain module follows this consistent structure:
 
 ```
-src/elara/{module-name}/
+src/boundary/{module-name}/
 ├── core/                          # Functional Core (Pure Logic)
 │   ├── {domain}.clj               # Main domain functions
 │   ├── {subdomain1}.clj           # Domain-specific logic
@@ -31,7 +31,7 @@ src/elara/{module-name}/
 
 **Complete structure:**
 ```
-src/elara/user/
+src/boundary/user/
 ├── core/                          # Pure business logic
 │   ├── user.clj                   # Core user domain functions
 │   ├── membership.clj             # Membership calculations
@@ -45,9 +45,9 @@ src/elara/user/
     └── service.clj                # User service orchestration
 ```
 
-**Core Layer Example (`elara.user.core.user`):**
+**Core Layer Example (`boundary.user.core.user`):**
 ```clojure
-(ns elara.user.core.user
+(ns boundary.user.core.user
   "Pure user domain functions - no side effects")
 
 ;; Pure function - takes data, returns data
@@ -70,9 +70,9 @@ src/elara/user/
        :errors [{:field :email :code :already-exists}]})))
 ```
 
-**Port Definition (`elara.user.ports`):**
+**Port Definition (`boundary.user.ports`):**
 ```clojure
-(ns elara.user.ports
+(ns boundary.user.ports
   "Abstract interfaces for user module dependencies")
 
 (defprotocol IUserRepository
@@ -88,9 +88,9 @@ src/elara/user/
   (send-password-reset [this user reset-token]))
 ```
 
-**Schema Definition (`elara.user.schema`):**
+**Schema Definition (`boundary.user.schema`):**
 ```clojure
-(ns elara.user.schema
+(ns boundary.user.schema
   "User module data validation schemas")
 
 (def User
@@ -110,9 +110,9 @@ src/elara/user/
    [:active {:optional true} :boolean]])
 ```
 
-**Shell Service (`elara.user.shell.service`):**
+**Shell Service (`boundary.user.shell.service`):**
 ```clojure
-(ns elara.user.shell.service
+(ns boundary.user.shell.service
   "User service orchestration - coordinates core with infrastructure")
 
 (defn register-user [system user-data]
@@ -139,7 +139,7 @@ src/elara/user/
 
 **Layout:**
 ```
-src/elara/billing/
+src/boundary/billing/
 ├── core/
 │   ├── pricing.clj                # Price calculations
 │   ├── discounts.clj              # Discount logic
@@ -172,7 +172,7 @@ src/elara/billing/
 
 **Layout:**
 ```
-src/elara/workflow/
+src/boundary/workflow/
 ├── core/
 │   ├── state_machine.clj          # Process state logic
 │   └── transitions.clj            # State transition rules
@@ -192,7 +192,7 @@ src/elara/workflow/
 The shell layer provides shared infrastructure that all modules can use:
 
 ```
-src/elara/shell/
+src/boundary/shell/
 ├── adapters/                      # Concrete adapter implementations
 │   ├── database/                  # Database-specific adapters
 │   │   ├── sqlite.clj             # SQLite utilities
@@ -228,7 +228,7 @@ src/elara/shell/
 ### Shared Utilities
 
 ```
-src/elara/shared/
+src/boundary/shared/
 ├── core/                          # Shared pure functions
 │   ├── calculations.clj           # Common calculations
 │   └── validation.clj             # Cross-module validations
@@ -242,8 +242,8 @@ src/elara/shared/
 
 ```clojure
 ;; Within user module
-(ns elara.user.shell.service)
-(require '[elara.user.core.user :as user-core])
+(ns boundary.user.shell.service)
+(require '[boundary.user.core.user :as user-core])
 
 (defn register-user [system user-data]
   (user-core/create-new-user user-data system))
@@ -253,7 +253,7 @@ src/elara/shared/
 
 ```clojure
 ;; Billing module calling user module through dependency injection
-(ns elara.billing.shell.service)
+(ns boundary.billing.shell.service)
 
 (defn process-subscription [system subscription-data]
   (let [{:keys [user-repository billing-repository]} system
@@ -289,12 +289,12 @@ if [[ -z "$MODULE_NAME" ]]; then
 fi
 
 # Create directory structure
-mkdir -p "src/elara/${MODULE_NAME}/{core,shell}"
-mkdir -p "test/elara/${MODULE_NAME}/{core,shell}"
+mkdir -p "src/boundary/${MODULE_NAME}/{core,shell}"
+mkdir -p "test/boundary/${MODULE_NAME}/{core,shell}"
 
 # Create files from templates
-cat > "src/elara/${MODULE_NAME}/ports.clj" << EOF
-(ns elara.${MODULE_NAME}.ports
+cat > "src/boundary/${MODULE_NAME}/ports.clj" << EOF
+(ns boundary.${MODULE_NAME}.ports
   "Abstract interfaces for ${MODULE_NAME} module")
 
 ;; TODO: Define protocols for ${MODULE_NAME} domain
@@ -306,8 +306,8 @@ cat > "src/elara/${MODULE_NAME}/ports.clj" << EOF
 ;;   (update [this entity]))
 EOF
 
-cat > "src/elara/${MODULE_NAME}/schema.clj" << EOF
-(ns elara.${MODULE_NAME}.schema
+cat > "src/boundary/${MODULE_NAME}/schema.clj" << EOF
+(ns boundary.${MODULE_NAME}.schema
   "Data validation schemas for ${MODULE_NAME} module"
   (:require [malli.core :as m]))
 
@@ -325,7 +325,7 @@ EOF
 
 **Core template (`core/{module-name}.clj`):**
 ```clojure
-(ns elara.${MODULE_NAME}.core.${MODULE_NAME}
+(ns boundary.${MODULE_NAME}.core.${MODULE_NAME}
   "Pure ${MODULE_NAME} domain functions - no side effects")
 
 ;; TODO: Implement core business logic for ${MODULE_NAME}
@@ -346,10 +346,10 @@ EOF
 
 **Shell service template:**
 ```clojure
-(ns elara.${MODULE_NAME}.shell.service
+(ns boundary.${MODULE_NAME}.shell.service
   "Service orchestration for ${MODULE_NAME} module"
-  (:require [elara.${MODULE_NAME}.core.${MODULE_NAME} :as ${MODULE_NAME}-core]
-            [elara.${MODULE_NAME}.ports :as ports]))
+  (:require [boundary.${MODULE_NAME}.core.${MODULE_NAME} :as ${MODULE_NAME}-core]
+            [boundary.${MODULE_NAME}.ports :as ports]))
 
 (defn create-${MODULE_NAME} [system ${MODULE_NAME}-data]
   "Orchestrates ${MODULE_NAME} creation with dependency injection"
@@ -365,7 +365,7 @@ EOF
 
 **HTTP interface template:**
 ```clojure
-(ns elara.${MODULE_NAME}.http
+(ns boundary.${MODULE_NAME}.http
   "HTTP API endpoints for ${MODULE_NAME} module")
 
 ;; TODO: Define HTTP routes for ${MODULE_NAME}
@@ -377,7 +377,7 @@ EOF
 
 **CLI interface template:**
 ```clojure
-(ns elara.${MODULE_NAME}.cli
+(ns boundary.${MODULE_NAME}.cli
   "CLI commands for ${MODULE_NAME} module")
 
 ;; TODO: Define CLI commands for ${MODULE_NAME}

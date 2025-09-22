@@ -24,7 +24,7 @@
 
 ### ✅ **Internal Documentation Links** (All Present)
 
-- `docs/elara.prd.adoc` ✅
+- `docs/boundary.prd.adoc` ✅
 - `docs/PRD-IMPROVEMENT-SUMMARY.adoc` ✅
 - `docs/architecture/overview.adoc` ✅
 - `docs/architecture/components.adoc` ✅
@@ -40,7 +40,7 @@
 Confirmed actual codebase matches documented structure:
 
 ```
-src/elara/
+src/boundary/
 ├── user/
 │   ├── core/
 │   │   ├── user.clj ✅
@@ -65,8 +65,8 @@ src/elara/
 
 All code examples in warp.md are based on actual code:
 
-- **Port definitions**: Based on real `src/elara/user/ports.clj`
-- **Schema examples**: Based on real `src/elara/user/schema.clj`
+- **Port definitions**: Based on real `src/boundary/user/ports.clj`
+- **Schema examples**: Based on real `src/boundary/user/schema.clj`
 - **Module structure**: Matches actual directory layout
 - **Build configuration**: Based on real `build.clj` and `deps.edn`
 
@@ -116,7 +116,7 @@ The warp.md developer guide is **highly accurate** and **thoroughly validated**:
 - ✅ Configuration reflects current project state
 - ✅ Dependencies and tools are correctly documented
 
-The guide successfully provides a comprehensive, accurate, and practical resource for developers joining the Elara framework project.
+The guide successfully provides a comprehensive, accurate, and practical resource for developers joining the Boundary framework project.
 
 ---
 *Validated: 2025-01-10 18:16*

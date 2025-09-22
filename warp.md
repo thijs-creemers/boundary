@@ -1,6 +1,6 @@
-# Elara Framework Developer Guide
+ Boundary Framework Developer Guide
 
-A comprehensive guide for developing with Elara, a module-centric Clojure framework implementing the Functional Core / Imperative Shell (FC/IS) architectural paradigm.
+A comprehensive guide for developing with Boundary, a module-centric Clojure framework implementing the Functional Core / Imperative Shell (FC/IS) architectural paradigm.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ A comprehensive guide for developing with Elara, a module-centric Clojure framew
 
 ## Project Overview
 
-Elara is a **module-centric software framework** built on Clojure that implements the "Functional Core / Imperative Shell" architectural paradigm. It provides a foundation for creating highly composable, testable, and maintainable systems where each domain module owns its complete functionality stack.
+Boundary is a **module-centric software framework** built on Clojure that implements the "Functional Core / Imperative Shell" architectural paradigm. It provides a foundation for creating highly composable, testable, and maintainable systems where each domain module owns its complete functionality stack.
 
 ### Key Characteristics
 
@@ -74,8 +74,8 @@ chmod +x linux-install-*.sh && sudo ./linux-install-*.sh
 
 ```zsh
 # Clone the repository
-git clone <repository-url> elara
-cd elara
+git clone <repository-url> boundary
+cd boundary
 
 # Verify your shell (commands in this guide assume zsh)
 echo $SHELL
@@ -88,7 +88,7 @@ clojure -M:repl-clj
 
 # In the REPL, load and start the system
 user=> (require '[integrant.repl :as ig-repl])
-user=> (require '[elara.config :as config])
+user=> (require '[boundary.config :as config])
 user=> (ig-repl/go)  ; Start the system
 ```
 
@@ -107,7 +107,7 @@ clojure -M:outdated
 
 ## Architecture Summary
 
-Elara implements a **module-centric architecture** where each domain module owns its complete functionality stack, organized around the Functional Core / Imperative Shell paradigm.
+Boundary implements a **module-centric architecture** where each domain module owns its complete functionality stack, organized around the Functional Core / Imperative Shell paradigm.
 
 ### Core Architectural Principles
 
@@ -188,7 +188,7 @@ clojure -M:repl-clj
 
 # In REPL - load development utilities
 user=> (require '[integrant.repl :as ig-repl])
-user=> (require '[elara.config :as config])
+user=> (require '[boundary.config :as config])
 
 # Start the system
 user=> (ig-repl/go)
@@ -241,12 +241,12 @@ user=> (ig-repl/go)
 
 ## Module Structure
 
-Elara follows a **module-centric architecture** where each domain module owns its complete functionality stack:
+Boundary follows a **module-centric architecture** where each domain module owns its complete functionality stack:
 
 ### General Module Template
 
 ```
-src/elara/
+src/boundary/
 ├── {module-name}/           # DOMAIN MODULE (e.g., user, billing)
 │   ├── core/               # Pure business logic
 │   │   ├── {entity}.clj    # Core domain functions
@@ -263,7 +263,7 @@ src/elara/
 ### Example: User Module
 
 ```
-src/elara/user/
+src/boundary/user/
 ├── core/
 │   ├── user.clj           # Core user business logic
 │   ├── membership.clj     # Membership benefit calculations
@@ -281,8 +281,8 @@ src/elara/user/
 
 ```clojure
 ;; Pure business logic in user core
-(ns elara.user.core.user
-  (:require [elara.user.ports :as ports]))
+(ns boundary.user.core.user
+  (:require [boundary.user.ports :as ports]))
 
 (defn calculate-membership-benefits
   "Pure function: calculates membership benefits based on user data.
@@ -301,9 +301,9 @@ src/elara/user/
 
 ```clojure
 ;; Shell orchestration in user service
-(ns elara.user.shell.service
-  (:require [elara.user.core.user :as user-core]
-            [elara.user.ports :as ports]))
+(ns boundary.user.shell.service
+  (:require [boundary.user.core.user :as user-core]
+            [boundary.user.ports :as ports]))
 
 (defn register-user
   "Service function: orchestrates user registration with validation and effects."
@@ -324,8 +324,8 @@ src/elara/user/
 
 ```clojure
 ;; Concrete adapter implementation
-(ns elara.user.shell.adapters
-  (:require [elara.user.ports :as ports]
+(ns boundary.user.shell.adapters
+  (:require [boundary.user.ports :as ports]
             [next.jdbc :as jdbc]))
 
 (defrecord PostgreSQLUserRepository [db-spec]
@@ -345,7 +345,7 @@ src/elara/user/
 
 ### Core Framework Dependencies
 
-| Library | Purpose | Usage in Elara |
+| Library | Purpose | Usage in Boundary |
 |---------|---------|-----------------|
 | **Clojure 1.12.1** | Core language | Foundation for all modules |
 | **Integrant** | System lifecycle | Component management and dependency injection |
@@ -353,7 +353,7 @@ src/elara/user/
 
 ### Data Management
 
-| Library | Purpose | Usage in Elara |
+| Library | Purpose | Usage in Boundary |
 |---------|---------|-----------------|
 | **next.jdbc** | Database connectivity | PostgreSQL connections and queries |
 | **HoneySQL** | SQL generation | Type-safe SQL query building |
@@ -362,7 +362,7 @@ src/elara/user/
 
 ### Web and Interface
 
-| Library | Purpose | Usage in Elara |
+| Library | Purpose | Usage in Boundary |
 |---------|---------|-----------------|
 | **Ring** | HTTP abstraction | Web server foundation |
 | **Reitit** | Routing | HTTP request routing |
@@ -370,7 +370,7 @@ src/elara/user/
 
 ### Development and Operations
 
-| Library | Purpose | Usage in Elara |
+| Library | Purpose | Usage in Boundary |
 |---------|---------|-----------------|
 | **TeleMere** | Structured logging | Application logging and telemetry |
 | **tools.logging** | Logging abstraction | Legacy logging support |
@@ -386,7 +386,7 @@ src/elara/user/
 
 ## Testing Strategy
 
-Elara's testing strategy aligns with the Functional Core / Imperative Shell architecture:
+Boundary's testing strategy aligns with the Functional Core / Imperative Shell architecture:
 
 ### Core Layer Testing (Pure Functions)
 
@@ -495,7 +495,7 @@ clojure -M:test:coverage
 
 ## Configuration Management
 
-Elara uses **Aero** for sophisticated configuration management with module-centric organization and environment-based profiles.
+Boundary uses **Aero** for sophisticated configuration management with module-centric organization and environment-based profiles.
 
 ### Configuration Structure
 
@@ -512,16 +512,16 @@ resources/
 
 ```zsh
 # Development environment variables (zsh)
-export ELARA_ENV=development
+export BND_ENV=development
 export DB_HOST=localhost
 export DB_PORT=5432
-export DB_NAME=elara_dev
-export DB_USERNAME=elara_dev
+export DB_NAME=boundary_dev
+export DB_USERNAME=boundary_dev
 export DB_PASSWORD=dev_password
 
 # Feature flags
-export ELARA_FEATURE_BILLING=true
-export ELARA_FEATURE_WORKFLOW=false
+export BND_FEATURE_BILLING=true
+export BND_FEATURE_WORKFLOW=false
 
 # External services
 export SMTP_HOST=localhost
@@ -532,10 +532,10 @@ export SMTP_PORT=1025  # MailHog for development
 
 ```clojure
 ;; Load configuration in REPL
-user=> (require '[elara.config :as config])
+user=> (require '[boundary.config :as config])
 user=> (def cfg (config/load-config))  ; Loads from resources/conf/dev/config.edn
-user=> (get-in cfg [:active :elara/settings :name])  ; "elara-dev"
-user=> (get-in cfg [:elara/sqlite :db])  ; "dev-database.db"
+user=> (get-in cfg [:active :boundary/settings :name])  ; "boundary-dev"
+user=> (get-in cfg [:boundary/sqlite :db])  ; "dev-database.db"
 ```
 
 ### Environment-Specific Configurations
@@ -543,18 +543,18 @@ user=> (get-in cfg [:elara/sqlite :db])  ; "dev-database.db"
 **Current Development Configuration (`resources/conf/dev/config.edn`):**
 ```clojure
 {:active
- {:elara/settings
-  {:name              "elara-dev"
+ {:boundary/settings
+  {:name              "boundary-dev"
    :version           "0.1.0"
    :date-format       "yyyy-MM-dd"
    :date-time-format  "yyyy-MM-dd HH:mm:ss"
    :currency/iso-code "EUR"}}
 
- :elara/sqlite
+ :boundary/sqlite
  {:db "dev-database.db"}
 
  :inactive  ; Available but not currently active
- {:elara/postgresql
+ {:boundary/postgresql
   {:host          #env "POSTGRES_HOST"
    :port          #env "POSTGRES_PORT"
    :dbname        #env "POSTGRES_DB"
@@ -579,8 +579,8 @@ user=> (get-in cfg [:elara/sqlite :db])  ; "dev-database.db"
 # For PostgreSQL setup, set environment variables:
 export POSTGRES_HOST=localhost
 export POSTGRES_PORT=5432
-export POSTGRES_DB=elara_dev
-export POSTGRES_USER=elara_dev
+export POSTGRES_DB=boundary_dev
+export POSTGRES_USER=boundary_dev
 export POSTGRES_PASSWORD=dev_password
 
 # Start development services (if using PostgreSQL)
@@ -588,10 +588,10 @@ export POSTGRES_PASSWORD=dev_password
 
 # Verify configuration in REPL
 clojure -M:repl-clj
-user=> (require '[elara.config :as config])
+user=> (require '[boundary.config :as config])
 user=> (def cfg (config/load-config))
 user=> (keys (:active cfg))  ; See active configuration sections
-user=> (:elara/sqlite cfg)   ; Check SQLite config
+user=> (:boundary/sqlite cfg)   ; Check SQLite config
 ```
 
 ## Common Development Tasks
@@ -639,7 +639,7 @@ clojure -M:test --watch --focus :unit   # Watch unit tests only
 docker-compose -f docker/dev-compose.yml up -d postgres
 
 # Connect to database
-psql -h localhost -U elara_dev -d elara_dev
+psql -h localhost -U boundary_dev -d boundary_dev
 
 # Run migrations (if available)
 clojure -M:migrate up
@@ -684,7 +684,7 @@ clojure -T:build uber                  # Create standalone JAR
 ls target/*.jar
 
 # Build Docker image (if Dockerfile exists)
-docker build -t elara:latest .
+docker build -t boundary:latest .
 ```
 
 ### Development Utilities
@@ -709,11 +709,11 @@ rm -rf .cpcache target                # Clean build artifacts
 clojure -M:repl-clj                   # Fresh REPL start
 
 # Check system health (in REPL)
-user=> (require '[elara.system.health :as health])
+user=> (require '[boundary.system.health :as health])
 user=> (health/check-all)             # Check all system dependencies
 
 # Database connection test
-user=> (require '[elara.db :as db])
+user=> (require '[boundary.db :as db])
 user=> (db/health-check)              # Test database connectivity
 ```
 
@@ -721,15 +721,15 @@ user=> (db/health-check)              # Test database connectivity
 
 ```zsh
 # Development
-export ELARA_ENV=development
+export BND_ENV=development
 clojure -M:repl-clj
 
 # Testing
-export ELARA_ENV=test
+export BND_ENV=test
 clojure -M:test
 
 # Staging deployment
-export ELARA_ENV=staging
+export BND_ENV=staging
 clojure -M:build:deploy
 ```
 
@@ -737,7 +737,7 @@ clojure -M:build:deploy
 
 ### Internal Documentation
 
-- [Product Requirements Document](docs/elara.prd.adoc) - Comprehensive project requirements and vision
+- [Product Requirements Document](docs/boundary.prd.adoc) - Comprehensive project requirements and vision
 - [PRD Improvement Summary](docs/PRD-IMPROVEMENT-SUMMARY.adoc) - Recent improvements and development roadmap
 - [Architecture Overview](docs/architecture/overview.adoc) - High-level architectural decisions and principles
 - [Component Architecture](docs/architecture/components.adoc) - Detailed component organization and interactions
@@ -764,6 +764,7 @@ clojure -M:build:deploy
 - [Malli Documentation](https://github.com/metosin/malli) - Schema validation library
 - [Aero Configuration](https://github.com/juxt/aero) - Configuration management
 - [next.jdbc Guide](https://github.com/seancorfield/next-jdbc) - Database connectivity
+- be careful and concise in the placement of indents and put all parenthesis etc. right. We use parinfer and that gice a ot of trouble when we write sloppy code.
 
 #### Development Tools
 - [Kaocha Test Runner](https://github.com/lambdaisland/kaocha) - Testing framework

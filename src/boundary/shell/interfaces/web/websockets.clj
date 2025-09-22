@@ -1,1 +1,1 @@
-(ns elara.shell.interfaces.web.websockets)
+(ns boundary.shell.interfaces.web.websockets)

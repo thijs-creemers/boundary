@@ -91,7 +91,7 @@ _Brief description of what this endpoint does_
 [source,json]
 ----
 {
-  "type": "https://elara.example.com/problems/validation-error",
+  "type": "https://boundary.example.com/problems/validation-error",
   "title": "Validation Error",
   "status": 400,
   "detail": "One or more fields failed validation",
@@ -108,7 +108,7 @@ _Brief description of what this endpoint does_
 ==== Implementation Notes
 
 * _Implementation details, business rules, constraints_
-* _Core function mapping: `elara.core.[domain]/[function-name]`_
+* _Core function mapping: `boundary.core.[domain]/[function-name]`_
 * _Repository dependencies: `[IRepository]`_
 
 ==== Examples
@@ -116,7 +116,7 @@ _Brief description of what this endpoint does_
 *CLI Equivalent:*
 [source,bash]
 ----
-elara [resource] [action] --field="value"
+boundary [resource] [action] --field="value"
 ----
 
 *cURL Example:*

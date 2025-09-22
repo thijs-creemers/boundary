@@ -1,1 +1,1 @@
-(ns elara.shell.config)
+(ns boundary.shell.config)

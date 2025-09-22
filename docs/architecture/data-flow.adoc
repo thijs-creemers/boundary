@@ -31,7 +31,7 @@ After reading this document, you will understand:
 .HTTP Request Processing Lifecycle
 image::{diagrams-dir}/http-request-lifecycle.png[HTTP Request Lifecycle, 800]
 
-The request lifecycle shows the complete data journey through Elara's architecture:
+The request lifecycle shows the complete data journey through Boundary's architecture:
 
 1. **External Request** arrives at interface layer (HTTP, CLI, WebSocket)
 2. **Interface Parsing** extracts data from protocol-specific format
@@ -51,12 +51,12 @@ The validation pipeline ensures data integrity at the shell boundary:
 
 === Domain Data Structures
 
-Elara uses consistent domain data structures across all interfaces, defined with Malli schemas:
+Boundary uses consistent domain data structures across all interfaces, defined with Malli schemas:
 
 [source,clojure]
 ----
 ;; Domain schemas - consistent across all interfaces
-(ns elara.schema
+(ns boundary.schema
   (:require [malli.core :as m]
             [malli.util :as mu]
             [malli.registry :as mr]))
@@ -140,12 +140,12 @@ Elara uses consistent domain data structures across all interfaces, defined with
 
 === Input Validation Strategy
 
-Elara uses a multi-stage validation approach that ensures data integrity while providing clear error messages:
+Boundary uses a multi-stage validation approach that ensures data integrity while providing clear error messages:
 
 [source,clojure]
 ----
 ;; Validation pipeline implementation
-(ns elara.shell.validation
+(ns boundary.shell.validation
   "Input validation and coercion pipeline."
   (:require [malli.core :as m]
             [malli.error :as me]
@@ -226,7 +226,7 @@ Elara uses a multi-stage validation approach that ensures data integrity while p
 (comment
   ;; JSON input validation
   (validate-json-input 
-    elara.schema/UserRegistrationRequest
+    boundary.schema/UserRegistrationRequest
     {"email" "test@example.com"
      "name" "Test User"
      "preferences" {"theme" "dark"}})
@@ -237,7 +237,7 @@ Elara uses a multi-stage validation approach that ensures data integrity while p
   
   ;; CLI input validation
   (validate-cli-input
-    elara.schema/UserRegistrationRequest
+    boundary.schema/UserRegistrationRequest
     {:email "test@example.com"
      :name "Test User"})
   ;; => {:valid? true
@@ -250,7 +250,7 @@ Elara uses a multi-stage validation approach that ensures data integrity while p
 [source,clojure]
 ----
 ;; Error formatting for different interfaces
-(ns elara.shell.error-formatting
+(ns boundary.shell.error-formatting
   "Error formatting strategies for different interfaces."
   (:require [clojure.tools.logging :as log]))
 
@@ -318,12 +318,12 @@ Elara uses a multi-stage validation approach that ensures data integrity while p
 [source,clojure]
 ----
 ;; HTTP interface data flow
-(ns elara.shell.interfaces.http.user-handlers
+(ns boundary.shell.interfaces.http.user-handlers
   "HTTP handlers demonstrating complete data flow."
-  (:require [elara.shell.services.user-service :as user-service]
-            [elara.shell.validation :as validation]
-            [elara.shell.error-formatting :as error-fmt]
-            [elara.schema :as schema]
+  (:require [boundary.shell.services.user-service :as user-service]
+            [boundary.shell.validation :as validation]
+            [boundary.shell.error-formatting :as error-fmt]
+            [boundary.schema :as schema]
             [ring.util.response :as response]
             [cheshire.core :as json]
             [clojure.tools.logging :as log]))
@@ -465,12 +465,12 @@ Elara uses a multi-stage validation approach that ensures data integrity while p
 [source,clojure]
 ----
 ;; CLI interface data flow
-(ns elara.shell.interfaces.cli.user-commands
+(ns boundary.shell.interfaces.cli.user-commands
   "CLI commands demonstrating data flow patterns."
-  (:require [elara.shell.services.user-service :as user-service]
-            [elara.shell.validation :as validation]
-            [elara.shell.error-formatting :as error-fmt]
-            [elara.schema :as schema]
+  (:require [boundary.shell.services.user-service :as user-service]
+            [boundary.shell.validation :as validation]
+            [boundary.shell.error-formatting :as error-fmt]
+            [boundary.schema :as schema]
             [tools.cli :refer [parse-opts]]
             [clojure.tools.logging :as log]))
 
@@ -493,7 +493,7 @@ Elara uses a multi-stage validation approach that ensures data integrity while p
       ;; Show help
       (:help options)
       {:exit-code 0
-       :output (str "Usage: elara user register [OPTIONS]\n\n"
+       :output (str "Usage: boundary user register [OPTIONS]\n\n"
                    "Register a new user account.\n\n"
                    "Options:\n" summary)}
       
@@ -603,11 +603,11 @@ Elara uses a multi-stage validation approach that ensures data integrity while p
 [source,clojure]
 ----
 ;; WebSocket interface data flow
-(ns elara.shell.interfaces.websocket.user-events
+(ns boundary.shell.interfaces.websocket.user-events
   "WebSocket handlers for real-time user events."
-  (:require [elara.shell.services.user-service :as user-service]
-            [elara.shell.validation :as validation]
-            [elara.schema :as schema]
+  (:require [boundary.shell.services.user-service :as user-service]
+            [boundary.shell.validation :as validation]
+            [boundary.schema :as schema]
             [cheshire.core :as json]
             [clojure.tools.logging :as log]))
 
@@ -736,7 +736,7 @@ Elara uses a multi-stage validation approach that ensures data integrity while p
 
 === Error Flow Architecture
 
-Elara uses a structured approach to error handling that maintains consistency across all interfaces:
+Boundary uses a structured approach to error handling that maintains consistency across all interfaces:
 
 1. **Core Layer**: Returns error data (never throws exceptions)
 2. **Service Layer**: Catches adapter exceptions, logs with correlation IDs
@@ -746,10 +746,10 @@ Elara uses a structured approach to error handling that maintains consistency ac
 [source,clojure]
 ----
 ;; Error propagation example
-(ns elara.shell.error-propagation-example
+(ns boundary.shell.error-propagation-example
   "Example demonstrating error flow through layers."
-  (:require [elara.core.user :as user-core]
-            [elara.ports :as ports]
+  (:require [boundary.core.user :as user-core]
+            [boundary.ports :as ports]
             [clojure.tools.logging :as log]))
 
 ;; 1. Core layer - returns error data
@@ -909,7 +909,7 @@ Elara uses a structured approach to error handling that maintains consistency ac
 
 === Cross-Interface Consistency
 
-Elara ensures consistent behavior across all interfaces through:
+Boundary ensures consistent behavior across all interfaces through:
 
 1. **Shared Domain Schemas**: All interfaces use the same Malli schemas
 2. **Common Service Layer**: Business logic executed through same service functions
@@ -943,7 +943,7 @@ Elara ensures consistent behavior across all interfaces through:
 [source,clojure]
 ----
 ;; Data flow monitoring example
-(ns elara.shell.monitoring
+(ns boundary.shell.monitoring
   "Data flow monitoring and metrics collection."
   (:require [clojure.tools.logging :as log]))
 

@@ -17,14 +17,14 @@
    [:role [:enum :admin :user :viewer]]
    [:active :boolean]
    [:login-count {:optional true} :int]
-   [:last-login {:optional true} :inst]
+   [:last-login {:optional true} :string]
    [:date-format {:optional true} [:enum :iso :us :eu]]
    [:time-format {:optional true} [:enum :12h :24h]]
    [:tenant-id :uuid]
    [:avatar-url {:optional true} :string]
-   [:created-at :inst]
-   [:updated-at {:optional true} :inst]
-   [:deleted-at {:optional true} :inst]])
+   [:created-at :string]
+   [:updated-at {:optional true} :string]
+   [:deleted-at {:optional true} :string]])
 
 (def UserPreferences
   "Schema for user preferences."
@@ -45,8 +45,8 @@
   [:map {:title "User Session"}
    [:user-id :uuid]
    [:token :string]
-   [:expires-at :inst]
-   [:created-at :inst]])
+   [:expires-at :string]
+   [:created-at :string]])
 
 (def UserProfile
   "Schema for user profile, combining user and preferences."
@@ -342,7 +342,7 @@
   [user-data]
   (m/explain User user-data))
 
-(defn validate-create-user-request
+#_(defn validate-create-user-request
   "Validates create user request with transformation."
   [request-data]
   (let [transformed-data (m/transform CreateUserRequest request-data user-request-transformer)]
@@ -350,7 +350,7 @@
       {:valid? true :data transformed-data}
       {:valid? false :errors (m/explain CreateUserRequest transformed-data)})))
 
-(defn validate-update-user-request
+#_(defn validate-update-user-request
   "Validates update user request with transformation."
   [request-data]
   (let [transformed-data (m/transform UpdateUserRequest request-data user-request-transformer)]
@@ -358,7 +358,7 @@
       {:valid? true :data transformed-data}
       {:valid? false :errors (m/explain UpdateUserRequest transformed-data)})))
 
-(defn validate-login-request
+#_(defn validate-login-request
   "Validates login request with transformation."
   [request-data]
   (let [transformed-data (m/transform LoginRequest request-data user-request-transformer)]
@@ -366,7 +366,7 @@
       {:valid? true :data transformed-data}
       {:valid? false :errors (m/explain LoginRequest transformed-data)})))
 
-(defn validate-cli-args
+#_(defn validate-cli-args
   "Validates CLI arguments with appropriate transformations."
   [schema args]
   (let [transformed-args (m/transform schema args cli-transformer)]
@@ -405,7 +405,7 @@
        m/children
        (mapv (comp name first))))
 
-(defn get-required-user-fields
+#_(defn get-required-user-fields
   "Returns the required field names for the User schema."
   []
   (->> User
@@ -415,7 +415,7 @@
                      (= :maybe (m/type schema)))))
        (mapv (comp name first))))
 
-(defn get-optional-user-fields
+#_(defn get-optional-user-fields
   "Returns the optional field names for the User schema."
   []
   (->> User

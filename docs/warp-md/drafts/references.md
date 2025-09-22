@@ -35,22 +35,22 @@
 ## Module Documentation
 
 ### User Module
-- **Source**: `src/elara/user/`
-- **Tests**: `test/elara/user/`
+- **Source**: `src/boundary/user/`
+- **Tests**: `test/boundary/user/`
 - **API**: User management, preferences, membership
-- **Schema**: `src/elara/user/schema.clj`
+- **Schema**: `src/boundary/user/schema.clj`
 
 ### Billing Module  
-- **Source**: `src/elara/billing/`
-- **Tests**: `test/elara/billing/`
+- **Source**: `src/boundary/billing/`
+- **Tests**: `test/boundary/billing/`
 - **API**: Pricing, discounts, invoicing
-- **Schema**: `src/elara/billing/schema.clj`
+- **Schema**: `src/boundary/billing/schema.clj`
 
 ### Workflow Module
-- **Source**: `src/elara/workflow/`
-- **Tests**: `test/elara/workflow/`
+- **Source**: `src/boundary/workflow/`
+- **Tests**: `test/boundary/workflow/`
 - **API**: Process orchestration and state management
-- **Schema**: `src/elara/workflow/schema.clj`
+- **Schema**: `src/boundary/workflow/schema.clj`
 
 ## External Library Documentation
 

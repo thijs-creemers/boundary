@@ -1,1 +1,1 @@
-(ns elara.shell.adapters.database.mysql)
+(ns boundary.shell.adapters.database.mysql)

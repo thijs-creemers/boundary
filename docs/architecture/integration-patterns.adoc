@@ -29,7 +29,7 @@ After reading this document, you will understand:
 .Interface Integration Flow
 image::{diagrams-dir}/http-request-lifecycle.png[HTTP Request Lifecycle, 800]
 
-Elara provides three primary integration interfaces, each tailored to specific use cases while maintaining consistent underlying behavior:
+Boundary provides three primary integration interfaces, each tailored to specific use cases while maintaining consistent underlying behavior:
 
 **REST API**: Programmatic access for system integration and automation
 
@@ -51,18 +51,18 @@ Elara provides three primary integration interfaces, each tailored to specific u
 
 === Routing and Request Handling
 
-Elara uses Ring and Reitit for HTTP handling with a clean separation between routing configuration and handler implementation.
+Boundary uses Ring and Reitit for HTTP handling with a clean separation between routing configuration and handler implementation.
 
 [source,clojure]
 ----
 ;; HTTP routing configuration with module-centric organization
-(ns elara.shell.interfaces.http.routes
+(ns boundary.shell.interfaces.http.routes
   "HTTP API routing configuration - aggregates routes from all modules."
-  (:require [elara.core.user.http :as user-http]
-            [elara.core.membership.http :as membership-http]
-            [elara.core.billing.http :as billing-http]
-            [elara.shell.interfaces.http.middleware :as middleware]
-            [elara.shell.interfaces.http.monitoring :as monitoring]
+  (:require [boundary.core.user.http :as user-http]
+            [boundary.core.membership.http :as membership-http]
+            [boundary.core.billing.http :as billing-http]
+            [boundary.shell.interfaces.http.middleware :as middleware]
+            [boundary.shell.interfaces.http.monitoring :as monitoring]
             [reitit.ring :as ring]
             [reitit.swagger :as swagger]
             [reitit.ring.middleware.parameters :as parameters]
@@ -74,7 +74,7 @@ Elara uses Ring and Reitit for HTTP handling with a clean separation between rou
   "Aggregate API routes from all modules."
   [system]
   [["/api"
-    {:swagger {:tags ["Elara API"]}}
+    {:swagger {:tags ["Boundary API"]}}
     
     ["/v1"
      {:middleware [middleware/correlation-id
@@ -116,7 +116,7 @@ To align with our domain-driven modular approach, HTTP handlers are organized by
 [source,clojure]
 ----
 ;; Cross-cutting HTTP handler utilities
-(ns elara.shell.interfaces.http.common
+(ns boundary.shell.interfaces.http.common
   "Common HTTP handler utilities shared across all domains."
   (:require [ring.util.response :as response]
             [clojure.tools.logging :as log]
@@ -159,7 +159,7 @@ To align with our domain-driven modular approach, HTTP handlers are organized by
 (defn create-problem-details
   "Create RFC 7807 Problem Details for HTTP errors."
   [service-result correlation-id]
-  {:type (str "https://api.elara.example/errors/" (name (:error-type service-result)))
+  {:type (str "https://api.boundary.example/errors/" (name (:error-type service-result)))
    :title (error-type-to-title (:error-type service-result))
    :status (map-error-type-to-http-status (:error-type service-result))
    :detail (:message service-result)
@@ -194,11 +194,11 @@ Each module owns its complete HTTP integration including handlers, routes, and s
 [source,clojure]
 ----
 ;; User module HTTP integration
-(ns elara.core.user.http
+(ns boundary.core.user.http
   "User module HTTP interface - handlers, routes, and schemas."
-  (:require [elara.core.user.user :as user-core]
-            [elara.core.user.schema :as user-schema]
-            [elara.shell.interfaces.http.common :as http-common]
+  (:require [boundary.core.user.user :as user-core]
+            [boundary.core.user.schema :as user-schema]
+            [boundary.shell.interfaces.http.common :as http-common]
             [reitit.coercion.malli :as malli]
             [clojure.tools.logging :as log]))
 
@@ -262,11 +262,11 @@ Each module owns its complete HTTP integration including handlers, routes, and s
 [source,clojure]
 ----
 ;; Membership module HTTP integration
-(ns elara.core.membership.http
+(ns boundary.core.membership.http
   "Membership module HTTP interface."
-  (:require [elara.core.membership.membership :as membership-core]
-            [elara.core.membership.schema :as membership-schema]
-            [elara.shell.interfaces.http.common :as http-common]))
+  (:require [boundary.core.membership.membership :as membership-core]
+            [boundary.core.membership.schema :as membership-schema]
+            [boundary.shell.interfaces.http.common :as http-common]))
 
 ;; Membership-specific handlers
 (defn handle-get-benefits [system]
@@ -309,12 +309,12 @@ Each module owns its complete HTTP integration including handlers, routes, and s
 [source,clojure]
 ----
 ;; Billing module HTTP integration (feature-flagged)
-(ns elara.core.billing.http
+(ns boundary.core.billing.http
   "Billing module HTTP interface."
-  (:require [elara.core.billing.billing :as billing-core]
-            [elara.core.billing.schema :as billing-schema]
-            [elara.shell.interfaces.http.common :as http-common]
-            [elara.config :as config]))
+  (:require [boundary.core.billing.billing :as billing-core]
+            [boundary.core.billing.schema :as billing-schema]
+            [boundary.shell.interfaces.http.common :as http-common]
+            [boundary.config :as config]))
 
 ;; Feature flag check
 (defn billing-enabled? [system]
@@ -365,7 +365,7 @@ Each module owns its complete HTTP integration including handlers, routes, and s
 **File Organization Example:**
 
 ```
-src/elara/shell/interfaces/http/
+src/boundary/shell/interfaces/http/
 ├── common.clj                    # Cross-cutting HTTP utilities
 ├── routes.clj                    # Route configuration
 ├── middleware.clj                # HTTP middleware
@@ -384,7 +384,7 @@ src/elara/shell/interfaces/http/
 [source,clojure]
 ----
 ;; API versioning patterns
-(ns elara.shell.interfaces.http.versioning
+(ns boundary.shell.interfaces.http.versioning
   "API versioning and backward compatibility."
   (:require [clojure.tools.logging :as log]))
 
@@ -423,10 +423,10 @@ src/elara/shell/interfaces/http/
   "Handle user creation with version-specific behavior."
   [system request user-data]
   (case (:api-version request)
-    :v1 (elara.user.shell.service/register-user-v1 system user-data)
-    :v2 (elara.user.shell.service/register-user-v2 system user-data)
+    :v1 (boundary.user.shell.service/register-user-v1 system user-data)
+    :v2 (boundary.user.shell.service/register-user-v2 system user-data)
     ;; Default to latest stable
-    (elara.user.shell.service/register-user-v1 system user-data)))
+    (boundary.user.shell.service/register-user-v1 system user-data)))
 
 ;; Deprecation warnings
 (defn add-deprecation-warning
@@ -449,9 +449,9 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 [source,clojure]
 ----
 ;; CLI command structure and parsing
-(ns elara.shell.interfaces.cli.commands
+(ns boundary.shell.interfaces.cli.commands
   "CLI command definitions and parsing."
-  (:require [elara.user.shell.service :as user-service]
+  (:require [boundary.user.shell.service :as user-service]
             [tools.cli :refer [parse-opts]]
             [clojure.string :as str]
             [clojure.tools.logging :as log]))
@@ -493,7 +493,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
     (cond
       (:help options)
       {:exit-code 0
-       :output (format "Usage: elara user create [OPTIONS]\n\n%s\n\nExamples:\n  elara user create --email john@example.com --name \"John Doe\"\n  elara user create --email jane@example.com --name \"Jane Smith\" --theme dark --notifications" summary)}
+       :output (format "Usage: boundary user create [OPTIONS]\n\n%s\n\nExamples:\n  boundary user create --email john@example.com --name \"John Doe\"\n  boundary user create --email jane@example.com --name \"Jane Smith\" --theme dark --notifications" summary)}
       
       errors
       {:exit-code 2
@@ -526,7 +526,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
     (cond
       (:help options)
       {:exit-code 0
-       :output (format "Usage: elara user get USER_ID [OPTIONS]\n\n%s\n\nExamples:\n  elara user get 123e4567-e89b-12d3-a456-426614174000\n  elara user get 123e4567-e89b-12d3-a456-426614174000 --json" summary)}
+       :output (format "Usage: boundary user get USER_ID [OPTIONS]\n\n%s\n\nExamples:\n  boundary user get 123e4567-e89b-12d3-a456-426614174000\n  boundary user get 123e4567-e89b-12d3-a456-426614174000 --json" summary)}
       
       errors
       {:exit-code 2
@@ -534,7 +534,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
       
       (not (first arguments))
       {:exit-code 2
-       :output "Error: USER_ID is required\n\nUsage: elara user get USER_ID"}
+       :output "Error: USER_ID is required\n\nUsage: boundary user get USER_ID"}
       
       :else
       (let [user-id (try
@@ -561,7 +561,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
     (cond
       (:help options)
       {:exit-code 0
-       :output (format "Usage: elara user benefits USER_ID [OPTIONS]\n\n%s\n\nExamples:\n  elara user benefits 123e4567-e89b-12d3-a456-426614174000\n  elara user benefits 123e4567-e89b-12d3-a456-426614174000 --refresh --json" summary)}
+       :output (format "Usage: boundary user benefits USER_ID [OPTIONS]\n\n%s\n\nExamples:\n  boundary user benefits 123e4567-e89b-12d3-a456-426614174000\n  boundary user benefits 123e4567-e89b-12d3-a456-426614174000 --refresh --json" summary)}
       
       errors
       {:exit-code 2
@@ -569,7 +569,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
       
       (not (first arguments))
       {:exit-code 2
-       :output "Error: USER_ID is required\n\nUsage: elara user benefits USER_ID"}
+       :output "Error: USER_ID is required\n\nUsage: boundary user benefits USER_ID"}
       
       :else
       (let [user-id (try
@@ -703,9 +703,9 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 [source,clojure]
 ----
 ;; WebSocket integration for real-time features
-(ns elara.shell.interfaces.websocket.handlers
+(ns boundary.shell.interfaces.websocket.handlers
   "WebSocket handlers for real-time web interface communication."
-  (:require [elara.shell.services.user-service :as user-service]
+  (:require [boundary.shell.services.user-service :as user-service]
             [cheshire.core :as json]
             [clojure.tools.logging :as log]))
 
@@ -870,9 +870,9 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 [source,clojure]
 ----
 ;; Shared service functions used by all interfaces
-(ns elara.shell.services.integration
+(ns boundary.shell.services.integration
   "Service functions that ensure consistency across all interfaces."
-  (:require [elara.shell.services.user-service :as user-service]
+  (:require [boundary.shell.services.user-service :as user-service]
             [clojure.tools.logging :as log]))
 
 (defn unified-user-registration
@@ -941,11 +941,11 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 [source,clojure]
 ----
 ;; Consistent validation across all interfaces
-(ns elara.shell.validation.unified
+(ns boundary.shell.validation.unified
   "Unified validation logic for all interfaces."
   (:require [malli.core :as m]
             [malli.error :as me]
-            [elara.schema :as schema]))
+            [boundary.schema :as schema]))
 
 (defn validate-user-registration
   "Validate user registration data consistently across interfaces."
@@ -987,7 +987,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 |Interface |Version Method |Implementation |Backward Compatibility
 
 |**REST API** |URL path versioning |`/api/v1/`, `/api/v2/` |Maintain v1 for 12 months
-|**CLI** |Command versioning |`elara v1 user create`, `elara v2 user create` |Auto-migration warnings
+|**CLI** |Command versioning |`boundary v1 user create`, `boundary v2 user create` |Auto-migration warnings
 |**WebSocket** |Message versioning |`{"version": "v1", "type": "user.get"}` |Client negotiation
 |**Schemas** |Schema versioning |Separate schema namespaces |Progressive enhancement
 |===
@@ -997,7 +997,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 [source,clojure]
 ----
 ;; API migration and deprecation support
-(ns elara.shell.interfaces.migration
+(ns boundary.shell.interfaces.migration
   "Support for API migrations and backward compatibility."
   (:require [clojure.tools.logging :as log]))
 
@@ -1020,7 +1020,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
     [:rest :v1] {:deprecated? true
                  :sunset-date "2024-12-31"
                  :successor-version :v2
-                 :migration-guide "https://docs.elara.com/migration/v1-to-v2"}
+                 :migration-guide "https://docs.boundary.com/migration/v1-to-v2"}
     
     [:cli :v1] {:deprecated? false}  ; Current stable
     
@@ -1046,7 +1046,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 [source,clojure]
 ----
 ;; Caching strategies for different interfaces
-(ns elara.shell.interfaces.caching
+(ns boundary.shell.interfaces.caching
   "Cross-interface caching strategies."
   (:require [clojure.core.cache :as cache]))
 

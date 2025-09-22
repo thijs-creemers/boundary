@@ -1,1 +1,1 @@
-(ns elara.shell.adapters.external.notifications)
+(ns boundary.shell.adapters.external.notifications)

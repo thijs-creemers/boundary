@@ -1,1 +1,1 @@
-(ns elara.billing.shell.service)
+(ns boundary.billing.shell.service)

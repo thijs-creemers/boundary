@@ -1,9 +1,9 @@
-(ns elara.user.ports
+(ns boundary.user.ports
   "User module port definitions (abstract interfaces).
    
    This namespace defines all ports (abstract interfaces) that the user module
    needs to interact with external systems and services. These ports follow
-   Elara's hexagonal architecture pattern, allowing core business logic to
+   Boundary's hexagonal architecture pattern, allowing core business logic to
    remain pure and testable while enabling flexible adapter implementations.
    
    Port Categories:
@@ -13,7 +13,9 @@
    
    Each port is implemented by adapters in the shell layer, enabling dependency
    inversion and supporting multiple implementations (PostgreSQL, H2, in-memory, etc.)."
-  (:require [elara.user.schema :as schema]))
+  (:require [boundary.user.schema :as schema]
+            [malli.core :as m]
+            [malli.transform :as mt]))
 
 ;; =============================================================================
 ;; Data Persistence Ports
@@ -29,8 +31,8 @@
    - Soft/hard delete operations for data lifecycle management
    
    All methods should handle tenant isolation automatically and return
-   domain entities as defined in elara.user.schema."
-  
+   domain entities as defined in boundary.user.schema."
+
   ;; Basic CRUD Operations
   (find-user-by-id [this user-id]
     "Retrieve user by unique identifier.
@@ -44,7 +46,7 @@
      
      Example:
        (find-user-by-id repo #uuid \"123e4567-e89b-12d3-a456-426614174000\")")
-  
+
   (find-user-by-email [this email tenant-id]
     "Retrieve user by email address within tenant scope.
      
@@ -58,7 +60,7 @@
      
      Example:
        (find-user-by-email repo \"john@example.com\" tenant-id)")
-  
+
   (find-users-by-tenant [this tenant-id options]
     "Retrieve paginated users for tenant with filtering and sorting.
      
@@ -79,7 +81,7 @@
      
      Example:
        (find-users-by-tenant repo tenant-id {:limit 10 :filter-role :admin})")
-  
+
   (create-user [this user-entity]
     "Create new user with automatic ID and timestamp generation.
      
@@ -97,7 +99,7 @@
                          :role :user
                          :active true
                          :tenant-id tenant-id})")
-  
+
   (update-user [this user-entity]
     "Update existing user with automatic updated-at timestamp.
      
@@ -111,7 +113,7 @@
      
      Example:
        (update-user repo (assoc existing-user :name \"Updated Name\"))")
-  
+
   (soft-delete-user [this user-id]
     "Mark user as deleted without physical removal.
      
@@ -125,7 +127,7 @@
      
      Example:
        (soft-delete-user repo user-id)")
-  
+
   (hard-delete-user [this user-id]
     "Permanently delete user and all related data.
      
@@ -139,7 +141,7 @@
      
      Example:
        (hard-delete-user repo user-id)")
-  
+
   ;; Business-Specific Queries
   (find-active-users-by-role [this tenant-id role]
     "Find all active users with specific role in tenant.
@@ -154,7 +156,7 @@
      
      Example:
        (find-active-users-by-role repo tenant-id :admin)")
-  
+
   (count-users-by-tenant [this tenant-id]
     "Count total active users in tenant.
      
@@ -166,7 +168,7 @@
      
      Example:
        (count-users-by-tenant repo tenant-id)")
-  
+
   (find-users-created-since [this tenant-id since-date]
     "Find users created after specified date.
      
@@ -180,7 +182,7 @@
      
      Example:
        (find-users-created-since repo tenant-id (time/minus (time/instant) (time/days 7)))")
-  
+
   (find-users-by-email-domain [this tenant-id email-domain]
     "Find users with email addresses from specific domain.
      
@@ -194,7 +196,7 @@
      
      Example:
        (find-users-by-email-domain repo tenant-id \"company.com\")")
-  
+
   ;; Batch Operations
   (create-users-batch [this user-entities]
     "Create multiple users in single transaction.
@@ -210,7 +212,7 @@
      Example:
        (create-users-batch repo [{:email \"user1@example.com\" ...}
                                 {:email \"user2@example.com\" ...}])")
-  
+
   (update-users-batch [this user-entities]
     "Update multiple users in single transaction.
      
@@ -236,7 +238,7 @@
    
    Sessions provide secure, stateful authentication tracking across
    user interactions with the system."
-  
+
   (create-session [this session-entity]
     "Create new user session with secure token generation.
      
@@ -254,7 +256,7 @@
                             :expires-at (time/plus (time/instant) (time/hours 24))
                             :user-agent \"Mozilla/5.0...\"
                             :ip-address \"192.168.1.1\"})")
-  
+
   (find-session-by-token [this session-token]
     "Retrieve active session by token.
      
@@ -268,7 +270,7 @@
      
      Example:
        (find-session-by-token repo \"abc123def456...\")")
-  
+
   (find-sessions-by-user [this user-id]
     "Find all active sessions for a user.
      
@@ -282,7 +284,7 @@
      
      Example:
        (find-sessions-by-user repo user-id)")
-  
+
   (invalidate-session [this session-token]
     "Invalidate session by token (logout).
      
@@ -296,7 +298,7 @@
      
      Example:
        (invalidate-session repo session-token)")
-  
+
   (invalidate-all-user-sessions [this user-id]
     "Invalidate all sessions for a user (force logout everywhere).
      
@@ -309,7 +311,7 @@
      
      Example:
        (invalidate-all-user-sessions repo user-id)")
-  
+
   (cleanup-expired-sessions [this before-timestamp]
     "Remove expired sessions for maintenance.
      
@@ -339,7 +341,7 @@
    
    Implementations may use SMTP, cloud services (SendGrid, SES), or
    console logging for development environments."
-  
+
   (send-email [this recipient subject body options]
     "Send email to recipient with specified content.
      
@@ -350,7 +352,7 @@
        options: Optional map with:
                 {:format :html|:text|:both
                  :from-email \"noreply@example.com\"
-                 :from-name \"Elara System\"
+                 :from-name \"Boundary System\"
                  :reply-to \"support@example.com\"
                  :attachments [{:filename \"doc.pdf\" :content byte-array}]
                  :template-id \"welcome-email\"
@@ -363,7 +365,7 @@
        (send-email service \"user@example.com\" \"Welcome!\" 
                   \"<h1>Welcome to our service!</h1>\" 
                   {:format :html})")
-  
+
   (send-welcome-email [this user]
     "Send welcome email to newly registered user.
      
@@ -377,7 +379,7 @@
      
      Example:
        (send-welcome-email service new-user)")
-  
+
   (send-password-reset-email [this user reset-token]
     "Send password reset email with secure token.
      
@@ -392,7 +394,7 @@
      
      Example:
        (send-password-reset-email service user \"secure-token-123\")")
-  
+
   (send-account-notification [this user notification-type data]
     "Send account-related notification to user.
      
@@ -421,7 +423,7 @@
    - Webhook notifications for integrations
    
    Supports user preference management and notification batching."
-  
+
   (send-notification [this user-id notification]
     "Send notification through user's preferred channels.
      
@@ -448,7 +450,7 @@
                           :message \"New login detected\"
                           :priority :high
                           :channels [:email :push]})")
-  
+
   (send-bulk-notification [this user-ids notification]
     "Send notification to multiple users efficiently.
      
@@ -466,7 +468,7 @@
                               {:type :update
                                :title \"System Maintenance\"
                                :message \"Scheduled downtime tonight\"})")
-  
+
   (get-notification-preferences [this user-id]
     "Retrieve user's notification preferences.
      
@@ -481,7 +483,7 @@
      
      Example:
        (get-notification-preferences service user-id)")
-  
+
   (update-notification-preferences [this user-id preferences]
     "Update user's notification preferences.
      
@@ -510,7 +512,7 @@
    event persistence for replay, and module-level event subscriptions.
    
    Events follow a structured format with type, source, and payload data."
-  
+
   (publish-event [this event]
     "Publish domain event to all interested subscribers.
      
@@ -537,7 +539,7 @@
                               :timestamp (time/instant)
                               :payload {:email \"user@example.com\"
                                        :role :user}})")
-  
+
   (subscribe-to-events [this subscriber-id event-types handler-fn]
     "Subscribe to specific event types with handler function.
      
@@ -554,7 +556,7 @@
        (subscribe-to-events service :billing-module [:user-created :user-updated]
                            (fn [event] 
                              (billing/sync-customer-data event)))")
-  
+
   (unsubscribe-from-events [this subscription-id]
     "Remove event subscription.
      
@@ -567,7 +569,7 @@
      
      Example:
        (unsubscribe-from-events service subscription-id)")
-  
+
   (get-event-history [this filters]
     "Retrieve historical events for replay or analysis.
      
@@ -597,7 +599,7 @@
    HIPAA, SOX) and security incident investigation.
    
    Audit logs are immutable and include comprehensive context information."
-  
+
   (log-user-action [this action-data]
     "Log user-initiated action for audit trail.
      
@@ -625,7 +627,7 @@
                                 :target-user-id target-user-id
                                 :changes {:role {:from :user :to :admin}}
                                 :result :success})")
-  
+
   (log-system-event [this event-data]
     "Log system-level event for operational audit.
      
@@ -644,7 +646,7 @@
        (log-system-event service {:event :configuration-change
                                  :component :user-module
                                  :details {:feature-flags {:old {...} :new {...}}}})")
-  
+
   (get-audit-trail [this filters]
     "Retrieve audit trail for investigation or compliance.
      
@@ -677,7 +679,7 @@
    service rather than direct system time calls.
    
    Enables time mocking for tests and consistent timezone handling."
-  
+
   (current-instant [this]
     "Get current timestamp as Instant.
      
@@ -688,7 +690,7 @@
      
      Example:
        (current-instant service)")
-  
+
   (current-date [this timezone]
     "Get current date in specified timezone.
      
@@ -701,7 +703,7 @@
      
      Example:
        (current-date service \"UTC\")")
-  
+
   (format-timestamp [this instant format-string timezone]
     "Format timestamp for display in user's timezone.
      
@@ -717,7 +719,7 @@
      Example:
        (format-timestamp service (current-instant service) 
                         \"MMM dd, yyyy 'at' HH:mm\" \"America/New_York\")")
-  
+
   (parse-timestamp [this timestamp-string format-string timezone]
     "Parse timestamp string to Instant.
      
@@ -733,7 +735,7 @@
      Example:
        (parse-timestamp service \"2023-12-25 14:30:00\" 
                        \"yyyy-MM-dd HH:mm:ss\" \"UTC\")")
-  
+
   (add-duration [this instant duration]
     "Add duration to instant.
      
@@ -747,7 +749,7 @@
      
      Example:
        (add-duration service (current-instant service) (time/hours 24))")
-  
+
   (is-business-hours? [this instant timezone]
     "Check if instant falls within business hours.
      
@@ -767,7 +769,7 @@
 ;; Utility Functions for Port Usage
 ;; =============================================================================
 
-(defn validate-user-input
+#_(defn validate-user-input
   "Validate user input using schema before passing to ports.
    
    Args:
@@ -780,11 +782,11 @@
    
    Example:
      (validate-user-input schema/CreateUserRequest request-data)"
-  [schema data]
-  (let [transformed-data (schema/m/transform schema data schema/user-request-transformer)]
-    (if (schema/m/validate schema transformed-data)
-      {:valid? true :data transformed-data}
-      {:valid? false :errors (schema/m/explain schema transformed-data)})))
+   [sch data]
+   (let [transformed-data (m/transform sch data schema/user-request-transformer)]
+     (if (m/validate sch transformed-data)
+       {:valid? true :data transformed-data}
+       {:valid? false :errors (m/explain sch transformed-data)})))
 
 (defn ensure-tenant-isolation
   "Ensure tenant ID is present and valid for data isolation.
@@ -802,10 +804,10 @@
      (ensure-tenant-isolation (:tenant-id user-context))"
   [tenant-id]
   (when (nil? tenant-id)
-    (throw (ex-info "Tenant ID is required for data isolation" 
+    (throw (ex-info "Tenant ID is required for data isolation"
                     {:type :missing-tenant-id})))
   (when-not (instance? java.util.UUID tenant-id)
-    (throw (ex-info "Invalid tenant ID format" 
+    (throw (ex-info "Invalid tenant ID format"
                     {:type :invalid-tenant-id :tenant-id tenant-id})))
   tenant-id)
 

@@ -1,1 +1,1 @@
-(ns elara.shell.interfaces.cli.main)
+(ns boundary.shell.interfaces.cli.main)

@@ -7,8 +7,8 @@
 ### Initial Setup
 ```zsh
 # Clone and verify
-git clone <repository-url> elara
-cd elara
+git clone <repository-url> boundary
+cd boundary
 clojure -M:test                     # Verify everything works
 ```
 
@@ -18,7 +18,7 @@ clojure -M:test                     # Verify everything works
 clojure -M:repl-clj
 
 # Alternative: Start with specific profile
-ELARA_PROFILE=dev clojure -M:repl-clj
+BND_PROFILE=dev clojure -M:repl-clj
 ```
 
 ## Testing
@@ -32,7 +32,7 @@ clojure -M:test
 clojure -M:test --watch
 
 # Run specific test namespaces
-clojure -M:test --namespace elara.user.core-test
+clojure -M:test --namespace boundary.user.core-test
 
 # Run module-specific tests
 clojure -M:test --focus :user
@@ -48,7 +48,7 @@ clojure -M:test --reporter pretty          # Pretty printed
 ### Test Debugging
 ```zsh
 # Run single test with verbose output
-clojure -M:test --namespace elara.user.core-test --verbose
+clojure -M:test --namespace boundary.user.core-test --verbose
 
 # Run failing tests only
 clojure -M:test --fail-fast
@@ -83,7 +83,7 @@ clojure -M:test --skip-meta :integration
 ### Configuration Management
 ```clojure
 ;; Load and inspect configuration
-(require '[elara.config :as config])
+(require '[boundary.config :as config])
 (config/read-config "dev")
 
 ;; Debug configuration with pretty printing
@@ -97,9 +97,9 @@ clojure -M:test --skip-meta :integration
 ### Module Exploration
 ```clojure
 ;; Load and explore modules
-(require '[elara.user.core :as user])
-(require '[elara.billing.core :as billing])
-(require '[elara.workflow.core :as workflow])
+(require '[boundary.user.core :as user])
+(require '[boundary.billing.core :as billing])
+(require '[boundary.workflow.core :as workflow])
 
 ;; Check available functions
 (dir user)
@@ -114,7 +114,7 @@ clojure -M:test --skip-meta :integration
 clojure -M:clj-kondo --lint src test
 
 # Lint specific directories
-clojure -M:clj-kondo --lint src/elara/user
+clojure -M:clj-kondo --lint src/boundary/user
 
 # Lint with specific config
 clojure -M:clj-kondo --lint src --config .clj-kondo/config.edn
@@ -144,13 +144,13 @@ ls -la target/
 ### Running Built Application
 ```zsh
 # Run the uberjar
-java -jar target/elara-0.1.0-standalone.jar
+java -jar target/boundary-0.1.0-standalone.jar
 
 # Run with specific profile
-ELARA_PROFILE=staging java -jar target/elara-0.1.0-standalone.jar
+BND_PROFILE=staging java -jar target/boundary-0.1.0-standalone.jar
 
 # Run with custom JVM options
-java -Xmx2g -jar target/elara-0.1.0-standalone.jar
+java -Xmx2g -jar target/boundary-0.1.0-standalone.jar
 ```
 
 ## Database Operations
@@ -173,13 +173,13 @@ sqlite3 dev-database.db "SELECT * FROM users LIMIT 10;"
 ### PostgreSQL (if configured)
 ```zsh
 # Connect to PostgreSQL
-psql -h localhost -U postgres -d elara_dev
+psql -h localhost -U postgres -d boundary_dev
 
 # Create development database
-createdb elara_dev
+createdb boundary_dev
 
 # Drop and recreate database
-dropdb elara_dev && createdb elara_dev
+dropdb boundary_dev && createdb boundary_dev
 ```
 
 ## Module Development
@@ -187,14 +187,14 @@ dropdb elara_dev && createdb elara_dev
 ### Creating New Module
 ```zsh
 # Create module directory structure
-mkdir -p src/elara/newmodule/{core,shell}
-mkdir -p test/elara/newmodule/{core,shell}
+mkdir -p src/boundary/newmodule/{core,shell}
+mkdir -p test/boundary/newmodule/{core,shell}
 
 # Create basic files
-touch src/elara/newmodule/core.clj
-touch src/elara/newmodule/ports.clj
-touch src/elara/newmodule/schema.clj
-touch src/elara/newmodule/shell/service.clj
+touch src/boundary/newmodule/core.clj
+touch src/boundary/newmodule/ports.clj
+touch src/boundary/newmodule/schema.clj
+touch src/boundary/newmodule/shell/service.clj
 ```
 
 ### Module Testing
@@ -203,8 +203,8 @@ touch src/elara/newmodule/shell/service.clj
 clojure -M:test --focus :newmodule
 
 # Test core vs shell separately
-clojure -M:test --namespace elara.newmodule.core-test
-clojure -M:test --namespace elara.newmodule.shell.service-test
+clojure -M:test --namespace boundary.newmodule.core-test
+clojure -M:test --namespace boundary.newmodule.shell.service-test
 ```
 
 ## Git Workflows
@@ -253,7 +253,7 @@ git commit -m "Descriptive commit message"   # Commit
 ### Database Performance
 ```clojure
 ;; In REPL - check connection pool
-(require '[elara.shell.system.components.postgresql :as pg])
+(require '[boundary.shell.system.components.postgresql :as pg])
 (when-let [ds (:datasource pg/ds)]
   (.getMaximumPoolSize (.getHikariPoolMXBean ds)))
 ```
@@ -293,25 +293,25 @@ git commit -m "Descriptive commit message"   # Commit
 ### Development Environment
 ```zsh
 # Set development profile
-export ELARA_PROFILE=dev
+export BND_PROFILE=dev
 
 # Set database to SQLite
 unset POSTGRES_HOST POSTGRES_PORT POSTGRES_DB
 
 # Use direnv for automatic env loading
-echo 'export ELARA_PROFILE=dev' > .envrc
+echo 'export BND_PROFILE=dev' > .envrc
 direnv allow
 ```
 
 ### Staging/Production Environment
 ```zsh
 # Set environment variables
-export ELARA_PROFILE=staging
+export BND_PROFILE=staging
 export POSTGRES_HOST=staging-db.example.com
 export POSTGRES_PORT=5432
-export POSTGRES_DB=elara_staging
+export POSTGRES_DB=boundary_staging
 export POSTGRES_USER=app_user
-export POSTGRES_PASSWORD="$(vault kv get -field=password secret/elara/staging)"
+export POSTGRES_PASSWORD="$(vault kv get -field=password secret/boundary/staging)"
 ```
 
 ## Log Management
@@ -331,7 +331,7 @@ tail -f logs/web-service.log | grep ERROR
 ### Log Configuration
 ```clojure
 ;; Change log level in REPL
-(require '[elara.shell.logging :as log])
+(require '[boundary.shell.logging :as log])
 ;; (Adjust based on actual logging setup)
 ```
 
@@ -353,7 +353,7 @@ open docs/architecture/index.html  # (if available)
 (doc function-name)
 
 ;; Find functions in namespace
-(dir elara.user.core)
+(dir boundary.user.core)
 
 ;; Search for functions
 (apropos "user")

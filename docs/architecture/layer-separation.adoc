@@ -47,8 +47,8 @@ After reading this document, you will understand:
 [source,clojure]
 ----
 ;; ✅ CORRECT: Pure business logic in core
-(ns elara.core.user
-  (:require [elara.ports :as ports]))
+(ns boundary.core.user
+  (:require [boundary.ports :as ports]))
 
 (defn calculate-membership-benefits
   "Pure function: calculates benefits based on user data and business rules.
@@ -158,10 +158,10 @@ After reading this document, you will understand:
 [source,clojure]
 ----
 ;; ✅ CORRECT: Shell orchestrates I/O and calls core
-(ns elara.shell.user
-  (:require [elara.core.user :as user-core]
-            [elara.ports :as ports]
-            [elara.schema :as schema]
+(ns boundary.shell.user
+  (:require [boundary.core.user :as user-core]
+            [boundary.ports :as ports]
+            [boundary.schema :as schema]
             [malli.core :as m]
             [clojure.tools.logging :as log]))
 
@@ -273,7 +273,7 @@ After reading this document, you will understand:
 === Recommended Namespace Layout
 
 ```
-src/elara/
+src/boundary/
 ├── core/                  # Functional Core
 │   ├── user.clj           # Pure user domain functions
 │   ├── pricing.clj        # Pure pricing calculations
@@ -295,22 +295,22 @@ src/elara/
 [source,clojure]
 ----
 ;; ✅ CORRECT: Core depends only on ports (abstractions)
-(ns elara.core.user
-  (:require [elara.ports :as ports]))  ; Only abstract interfaces
+(ns boundary.core.user
+  (:require [boundary.ports :as ports]))  ; Only abstract interfaces
 
 ;; ✅ CORRECT: Shell depends on core and implements adapters
-(ns elara.shell.user
-  (:require [elara.core.user :as user-core]  ; Core business logic
-            [elara.ports :as ports]          ; Abstract interfaces
-            [elara.shell.db :as db]))        ; Concrete adapters
+(ns boundary.shell.user
+  (:require [boundary.core.user :as user-core]  ; Core business logic
+            [boundary.ports :as ports]          ; Abstract interfaces
+            [boundary.shell.db :as db]))        ; Concrete adapters
 
 ;; ❌ WRONG: Core depending on shell
-(ns elara.core.user
-  (:require [elara.shell.db :as db]))        ; ❌ Core → Shell dependency
+(ns boundary.core.user
+  (:require [boundary.shell.db :as db]))        ; ❌ Core → Shell dependency
 
 ;; ❌ WRONG: Core depending on concrete adapters
-(ns elara.core.user
-  (:require [elara.adapters.postgres :as pg])) ; ❌ Core → Adapter dependency
+(ns boundary.core.user
+  (:require [boundary.adapters.postgres :as pg])) ; ❌ Core → Adapter dependency
 ----
 
 == Testing Strategies by Layer
@@ -327,9 +327,9 @@ src/elara/
 [source,clojure]
 ----
 ;; ✅ CORRECT: Pure function testing
-(ns elara.core.user-test
+(ns boundary.core.user-test
   (:require [clojure.test :refer [deftest is testing]]
-            [elara.core.user :as user-core]))
+            [boundary.core.user :as user-core]))
 
 (deftest calculate-membership-benefits-test
   (testing "calculates correct benefits for different membership tiers"
@@ -390,11 +390,11 @@ src/elara/
 [source,clojure]
 ----
 ;; Integration test for shell layer
-(ns elara.shell.user-test
+(ns boundary.shell.user-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [elara.shell.user :as user-shell]
-            [elara.shell.db :as db]
-            [elara.test-utils :as test-utils]))
+            [boundary.shell.user :as user-shell]
+            [boundary.shell.db :as db]
+            [boundary.test-utils :as test-utils]))
 
 (use-fixtures :each test-utils/with-test-database)
 

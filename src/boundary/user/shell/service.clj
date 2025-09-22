@@ -1,1 +1,1 @@
-(ns elara.user.shell.service)
+(ns boundary.user.shell.service)

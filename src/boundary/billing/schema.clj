@@ -1,1 +1,1 @@
-(ns elara.billing.schema)
+(ns boundary.billing.schema)

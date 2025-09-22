@@ -4,17 +4,17 @@
 
 ## Core Architectural Pattern: Functional Core / Imperative Shell
 
-Elara implements the **Functional Core / Imperative Shell** (FC/IS) pattern with strict separation of concerns:
+Boundary implements the **Functional Core / Imperative Shell** (FC/IS) pattern with strict separation of concerns:
 
 ### Functional Core (Pure Business Logic)
-- **Location**: `src/elara/{module}/core/`
+- **Location**: `src/boundary/{module}/core/`
 - **Characteristics**: Pure functions, no side effects, deterministic behavior
 - **Contains**: Business rules, calculations, decision logic, domain validations
 - **Dependencies**: Only on port abstractions, never concrete implementations
 - **Testing**: Unit tests with no mocks required
 
 ### Imperative Shell (Infrastructure)
-- **Location**: `src/elara/{module}/shell/`, adapters, handlers
+- **Location**: `src/boundary/{module}/shell/`, adapters, handlers
 - **Characteristics**: All I/O, side effects, infrastructure concerns
 - **Contains**: Database operations, HTTP handling, external API calls, logging
 - **Dependencies**: Implements ports, calls core functions with validated data
@@ -44,7 +44,7 @@ Elara implements the **Functional Core / Imperative Shell** (FC/IS) pattern with
 Each module (`user`, `billing`, `workflow`) owns its complete vertical stack:
 
 ```
-src/elara/user/                    # USER MODULE
+src/boundary/user/                    # USER MODULE
 ├── core/                          # Pure business logic
 │   ├── user.clj                   # User domain functions
 │   ├── membership.clj             # Membership calculations
@@ -69,7 +69,7 @@ src/elara/user/                    # USER MODULE
 
 ### Port Definition (Abstract Interfaces)
 ```clojure
-(ns elara.user.ports)
+(ns boundary.user.ports)
 
 (defprotocol IUserRepository
   "User data persistence interface"
@@ -80,7 +80,7 @@ src/elara/user/                    # USER MODULE
 
 ### Adapter Implementation (Concrete)
 ```clojure
-(ns elara.user.shell.adapters)
+(ns boundary.user.shell.adapters)
 
 (defrecord PostgreSQLUserRepository [datasource]
   ports/IUserRepository
@@ -169,7 +169,7 @@ HTTP/CLI Request
            :message "Email address already in use"}]}
 
 ;; Shell translates to Problem Details format
-{:type "https://elara.example.com/problems/validation-error"
+{:type "https://boundary.example.com/problems/validation-error"
  :title "Validation Error"
  :status 400
  :detail "One or more fields failed validation"
@@ -195,10 +195,10 @@ All interfaces (REST API, CLI, Web Frontend) use the same:
 ### Integrant-Based System
 ```clojure
 ;; System configuration
-{:elara/database {:host "localhost" :port 5432}
- :elara/user-repository {:database #ig/ref :elara/database}
- :elara/user-service {:repository #ig/ref :elara/user-repository}
- :elara/http-server {:service #ig/ref :elara/user-service :port 3000}}
+{:boundary/database {:host "localhost" :port 5432}
+ :boundary/user-repository {:database #ig/ref :boundary/database}
+ :boundary/user-service {:repository #ig/ref :boundary/user-repository}
+ :boundary/http-server {:service #ig/ref :boundary/user-service :port 3000}}
 
 ;; REPL development workflow
 (ig-repl/go)     ; Start system

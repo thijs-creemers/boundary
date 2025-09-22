@@ -25,7 +25,7 @@ This document details configuration management strategies in {project-name}, cov
 
 === Configuration Sources and Precedence
 
-Elara uses a layered configuration approach with clear precedence rules:
+Boundary uses a layered configuration approach with clear precedence rules:
 
 1. **Environment Variables** (highest precedence)
 2. **Profile-specific files** (`resources/config/{profile}/config.edn`)
@@ -35,7 +35,7 @@ Elara uses a layered configuration approach with clear precedence rules:
 [source,clojure]
 ----
 ;; Configuration management with Aero
-(ns elara.config
+(ns boundary.config
   (:require [aero.core :as aero]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]))
@@ -60,7 +60,7 @@ Elara uses a layered configuration approach with clear precedence rules:
 {:profile :dev
  :database {:host #env DATABASE_HOST
            :port #long #env [DATABASE_PORT "5432"]
-           :name #env [DATABASE_NAME "elara_dev"]
+           :name #env [DATABASE_NAME "boundary_dev"]
            :user #env DATABASE_USER
            :password #env DATABASE_PASSWORD
            :pool-size 5
@@ -86,7 +86,7 @@ Elara uses a layered configuration approach with clear precedence rules:
 ;; resources/config/dev/config.edn - Development
 {:database {:host "localhost"
            :port 5432
-           :name "elara_dev"
+           :name "boundary_dev"
            :user "dev_user"
            :password #env DATABASE_PASSWORD}
  :http {:port 8080}
@@ -159,7 +159,7 @@ export API_KEY_VAULT="vault:secret/api-keys:key"
 [source,clojure]
 ----
 ;; Secure secrets handling
-(ns elara.config.secrets
+(ns boundary.config.secrets
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging :as log]))
@@ -206,11 +206,11 @@ export API_KEY_VAULT="vault:secret/api-keys:key"
 [source,clojure]
 ----
 ;; System component wiring with configuration and feature flags
-(ns elara.system.wiring
-  (:require [elara.config :as config]
-            [elara.shell.adapters.database :as db-adapter]
-            [elara.shell.adapters.http :as http-adapter]
-            [elara.shell.interfaces.http.routes :as routes]
+(ns boundary.system.wiring
+  (:require [boundary.config :as config]
+            [boundary.shell.adapters.database :as db-adapter]
+            [boundary.shell.adapters.http :as http-adapter]
+            [boundary.shell.interfaces.http.routes :as routes]
             [clojure.tools.logging :as log]))
 
 (defn create-system
@@ -282,7 +282,7 @@ export API_KEY_VAULT="vault:secret/api-keys:key"
 [source,clojure]
 ----
 ;; Configuration schema validation
-(ns elara.config.validation
+(ns boundary.config.validation
   (:require [malli.core :as m]))
 
 (def ConfigSchema
@@ -316,7 +316,7 @@ export API_KEY_VAULT="vault:secret/api-keys:key"
 [source,clojure]
 ----
 ;; Module feature flag utilities
-(ns elara.config.features
+(ns boundary.config.features
   (:require [clojure.tools.logging :as log]))
 
 (defn module-enabled?
@@ -356,11 +356,11 @@ export API_KEY_VAULT="vault:secret/api-keys:key"
   (let [routes []]
     (-> routes
         ;; Core modules always included
-        (conj (elara.modules.user.http/routes))
+        (conj (boundary.modules.user.http/routes))
         
         ;; Conditional module inclusion
-        (with-module-routes :billing features elara.modules.billing.http/routes)
-        (with-module-routes :workflow features elara.modules.workflow.http/routes)
+        (with-module-routes :billing features boundary.modules.billing.http/routes)
+        (with-module-routes :workflow features boundary.modules.workflow.http/routes)
         
         ;; Combine all routes
         (apply routes/routes))))
@@ -410,7 +410,7 @@ EXPERIMENTAL_FEATURES=false
 |Variable |Type |Description |Default
 
 |`DATABASE_PORT` |Integer |Database port |`5432`
-|`DATABASE_NAME` |String |Database name |`elara_{profile}`
+|`DATABASE_NAME` |String |Database name |`boundary_{profile}`
 |`HTTP_HOST` |String |HTTP bind address |`0.0.0.0`
 |===
 
@@ -421,8 +421,8 @@ EXPERIMENTAL_FEATURES=false
 # .env file for Docker Compose
 DATABASE_HOST=postgres
 DATABASE_PORT=5432
-DATABASE_NAME=elara_prod
-DATABASE_USER=elara_user
+DATABASE_NAME=boundary_prod
+DATABASE_USER=boundary_user
 DATABASE_PASSWORD=secure-password
 HTTP_PORT=8080
 LOG_LEVEL=info
@@ -433,9 +433,9 @@ LOG_LEVEL=info
 [source,clojure]
 ----
 ;; Configuration testing utilities
-(ns elara.config-test
+(ns boundary.config-test
   (:require [clojure.test :refer [deftest is testing]]
-            [elara.config :as config]))
+            [boundary.config :as config]))
 
 (deftest config-loading-test
   (testing "loads development configuration"

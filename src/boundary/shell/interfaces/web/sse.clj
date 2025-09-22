@@ -1,1 +1,1 @@
-(ns elara.shell.interfaces.web.sse)
+(ns boundary.shell.interfaces.web.sse)

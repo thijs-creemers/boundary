@@ -20,4 +20,4 @@ COPY --from=builder /app/resources/conf/dev ./resources/conf/dev
 ENV PROFILE=dev
 EXPOSE 3000
 
-CMD ["java", "-jar", "elara.jar", "-e", "dev"]
+CMD ["java", "-jar", "boundary.jar", "-e", "dev"]

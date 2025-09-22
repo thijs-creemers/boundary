@@ -1,1 +1,1 @@
-(ns elara.workflow.shell.adapters)
+(ns boundary.workflow.shell.adapters)

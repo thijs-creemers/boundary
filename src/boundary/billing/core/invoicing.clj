@@ -1,1 +1,1 @@
-(ns elara.billing.core.invoicing)
+(ns boundary.billing.core.invoicing)

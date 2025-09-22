@@ -1,1 +1,1 @@
-(ns elara.shell.system.lifecycle)
+(ns boundary.shell.system.lifecycle)

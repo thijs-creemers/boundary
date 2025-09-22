@@ -1,1 +1,1 @@
-(ns elara.workflow.schema)
+(ns boundary.workflow.schema)

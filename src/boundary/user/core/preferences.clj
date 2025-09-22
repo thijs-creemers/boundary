@@ -1,1 +1,1 @@
-(ns elara.user.core.preferences)
+(ns boundary.user.core.preferences)

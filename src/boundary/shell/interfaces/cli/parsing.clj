@@ -1,1 +1,1 @@
-(ns elara.shell.interfaces.cli.parsing)
+(ns boundary.shell.interfaces.cli.parsing)

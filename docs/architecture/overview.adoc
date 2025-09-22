@@ -3,7 +3,7 @@ include::_partials/attributes.adoc[]
 
 [abstract]
 --
-This document provides a comprehensive overview of the {project-name} framework's architecture, focusing on the Functional Core / Imperative Shell (FC/IS) paradigm that separates pure business logic from side-effectful operations. It serves as the foundational reference for understanding Elara's design philosophy, key architectural decisions, and how the framework achieves high testability, maintainability, and reliability.
+This document provides a comprehensive overview of the {project-name} framework's architecture, focusing on the Functional Core / Imperative Shell (FC/IS) paradigm that separates pure business logic from side-effectful operations. It serves as the foundational reference for understanding Boundary's design philosophy, key architectural decisions, and how the framework achieves high testability, maintainability, and reliability.
 --
 
 == Audience and Scope
@@ -19,7 +19,7 @@ This document provides a comprehensive overview of the {project-name} framework'
 After reading this document, you will understand:
 
 * ✅ **Functional Core / Imperative Shell paradigm** and its benefits
-* ✅ **Hexagonal Architecture principles** and their implementation in Elara
+* ✅ **Hexagonal Architecture principles** and their implementation in Boundary
 * ✅ **Dependency flow rules** and architectural boundaries
 * ✅ **Multi-interface consistency** across REST, CLI, and Web
 * ✅ **Key architectural decisions** and their trade-offs
@@ -38,23 +38,23 @@ This architecture documentation directly resolves the **P0 priority gap** identi
 
 1. **Detailed Technical Specifications**: Eight focused architecture documents covering all aspects of system design
 2. **Comprehensive Diagrams**: Leveraging existing PlantUML assets with additional architectural views
-3. **Concrete Implementation Examples**: Real code snippets from the Elara codebase with tagged regions
+3. **Concrete Implementation Examples**: Real code snippets from the Boundary codebase with tagged regions
 4. **Cross-Interface Patterns**: Consistent behavior across REST API, CLI, and Web interfaces
 5. **Production Guidelines**: Operational concerns including configuration, logging, and observability
 
-This documentation enables **Domain Developers**, **Platform Engineers**, and **API Integrators** to work effectively with Elara's architecture.
+This documentation enables **Domain Developers**, **Platform Engineers**, and **API Integrators** to work effectively with Boundary's architecture.
 ====
 
 == Architectural Philosophy
 
 === Module-Centric Architecture Foundation
 
-Elara is built on a **module-centric architecture** where each domain module owns its complete functionality stack, from pure business logic to external interfaces. This approach creates highly composable, testable, and maintainable systems that can evolve into reusable development toolchains.
+Boundary is built on a **module-centric architecture** where each domain module owns its complete functionality stack, from pure business logic to external interfaces. This approach creates highly composable, testable, and maintainable systems that can evolve into reusable development toolchains.
 
-**Strategic Vision**: Elara serves as both a framework for building applications and a **foundation for creating reusable development toolchains**:
+**Strategic Vision**: Boundary serves as both a framework for building applications and a **foundation for creating reusable development toolchains**:
 
-* **Library Extraction**: Core infrastructure extractable into reusable libraries (`elara-core`)
-* **Template Generation**: Automated module scaffolding with consistent patterns (`elara-gen`)
+* **Library Extraction**: Core infrastructure extractable into reusable libraries (`boundary-core`)
+* **Template Generation**: Automated module scaffolding with consistent patterns (`boundary-gen`)
 * **Domain Frameworks**: Specialized frameworks for different industries
 * **Module Marketplace**: Shareable, installable modules for common functionality
 
@@ -69,10 +69,10 @@ Elara is built on a **module-centric architecture** where each domain module own
 
 === Module-Centric Package Structure
 
-Elara's module-centric architecture is reflected in a clear package organization where each domain module owns its complete functionality stack:
+Boundary's module-centric architecture is reflected in a clear package organization where each domain module owns its complete functionality stack:
 
 ```
-src/elara/
+src/boundary/
 ├── user/                   # 👤 USER DOMAIN MODULE
 │   ├── core/               # Pure business logic
 │   │   ├── user.clj       # Core user functions
@@ -148,11 +148,11 @@ src/elara/
 * **Scalable Development**: Teams can work independently on different modules without conflicts
 * **Feature Flag Integration**: Entire modules can be enabled/disabled via configuration
 * **Clear Boundaries**: Related code is co-located, unrelated code is separated
-* **Strategic Evolution**: Modules can be extracted as independent libraries (`elara-core`)
+* **Strategic Evolution**: Modules can be extracted as independent libraries (`boundary-core`)
 
 === The Functional Core / Imperative Shell Paradigm
 
-Within each module, Elara implements the FC/IS architectural pattern, which provides a clear separation between:
+Within each module, Boundary implements the FC/IS architectural pattern, which provides a clear separation between:
 
 **Functional Core** (Pure Business Logic)::
 * Contains only deterministic functions with no side effects
@@ -235,7 +235,7 @@ Within each module, Elara implements the FC/IS architectural pattern, which prov
 
 === High-Level System Context
 
-.Elara Framework - C4 Container View
+.Boundary Framework - C4 Container View
 image::{diagrams-dir}/c4-container.png[C4 Container Diagram, 800]
 
 The system serves three distinct user types through separate interfaces while maintaining a unified architectural core:
@@ -281,7 +281,7 @@ The component diagram illustrates the key architectural elements:
 
 === Dependency Flow Rules
 
-Elara enforces strict dependency rules to maintain architectural integrity:
+Boundary enforces strict dependency rules to maintain architectural integrity:
 
 [cols="2,1,3"]
 |===
@@ -411,7 +411,7 @@ Elara enforces strict dependency rules to maintain architectural integrity:
 
 == Next Steps
 
-Now that you understand Elara's architectural foundation, explore the detailed documentation:
+Now that you understand Boundary's architectural foundation, explore the detailed documentation:
 
 1. **{xref-layer-separation}[Layer Separation Guidelines]** - Detailed rules for FC/IS boundaries
 2. **{xref-components}[Component Architecture]** - Namespace organization and module structure

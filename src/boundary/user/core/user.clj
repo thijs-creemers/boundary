@@ -1,1 +1,1 @@
-(ns elara.user.core.user)
+(ns boundary.user.core.user)

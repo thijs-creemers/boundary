@@ -1,6 +1,6 @@
 # Key Technologies
 
-*Practical guide to Elara's technology stack with usage examples*
+*Practical guide to Boundary's technology stack with usage examples*
 
 ## Build System
 
@@ -290,7 +290,7 @@
 
 ## Library Selection Criteria
 
-When choosing libraries for Elara, we prioritize:
+When choosing libraries for Boundary, we prioritize:
 
 1. **Maturity**: Established libraries with active maintenance
 2. **Performance**: Libraries optimized for production workloads

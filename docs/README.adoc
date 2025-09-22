@@ -1,10 +1,10 @@
-= Elara Documentation
+= Boundary Documentation
 
 == Overview
 
-This directory contains the authoritative documentation for the Elara framework, including:
+This directory contains the authoritative documentation for the Boundary framework, including:
 
-* **elara.prd.adoc** - The complete Product Requirements Document
+* **boundary.prd.adoc** - The complete Product Requirements Document
 * **architecture/** - Detailed architecture documentation and design decisions
 * **api/** - API specifications and examples
 * **diagrams/** - PlantUML diagrams and visual documentation
@@ -28,10 +28,10 @@ To render AsciiDoc documents locally:
 gem install asciidoctor
 
 # Render the PRD
-asciidoctor docs/elara.prd.adoc -o docs/elara.prd.html
+asciidoctor docs/boundary.prd.adoc -o docs/boundary.prd.html
 
 # Render with PlantUML support
-asciidoctor -r asciidoctor-diagram docs/elara.prd.adoc -o docs/elara.prd.html
+asciidoctor -r asciidoctor-diagram docs/boundary.prd.adoc -o docs/boundary.prd.html
 ----
 
 === PlantUML Diagrams
@@ -65,7 +65,7 @@ plantuml -tsvg docs/diagrams/*.puml
 ----
 docs/
 ├── README.adoc              # This file
-├── elara.prd.adoc          # Main Product Requirements Document
+├── boundary.prd.adoc          # Main Product Requirements Document
 ├── architecture/           # Detailed architecture docs
 ├── api/                    # API specifications and examples
 ├── diagrams/              # PlantUML diagrams

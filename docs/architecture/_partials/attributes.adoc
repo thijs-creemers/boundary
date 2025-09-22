@@ -1,5 +1,5 @@
-// Shared attributes for Elara architecture documentation
-:project-name: Elara
+// Shared attributes for Boundary architecture documentation
+:project-name: Boundary
 :version: 1.0
 :framework-type: Domain-Agnostic Functional Core / Imperative Shell Framework
 :primary-language: Clojure

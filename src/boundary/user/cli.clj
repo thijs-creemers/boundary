@@ -1,1 +1,1 @@
-(ns elara.user.cli)
+(ns boundary.user.cli)

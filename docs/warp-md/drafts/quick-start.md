@@ -1,6 +1,6 @@
 # Quick Start
 
-*Get Elara running in minutes*
+*Get Boundary running in minutes*
 
 ## Prerequisites
 
@@ -41,8 +41,8 @@ sudo dnf install direnv rlwrap git
 
 ```zsh
 # Clone the repository
-git clone https://github.com/your-org/elara.git
-cd elara
+git clone https://github.com/your-org/boundary.git
+cd boundary
 
 # Verify project structure
 ls -la
@@ -94,7 +94,7 @@ In the REPL:
 ;; => Shows running system components
 
 ;; Try a simple operation (if user module is active)
-(require '[elara.user.core :as user])
+(require '[boundary.user.core :as user])
 ;; => nil (successful load)
 ```
 
@@ -150,9 +150,9 @@ The system uses **SQLite by default** for development (zero setup required):
 
 ```clojure
 ;; Check current database config
-(require '[elara.config :as config])
+(require '[boundary.config :as config])
 (config/read-config "dev")
-;; => {:elara/sqlite {:db "dev-database.db"}, ...}
+;; => {:boundary/sqlite {:db "dev-database.db"}, ...}
 ```
 
 ### Optional: PostgreSQL Setup
@@ -163,17 +163,17 @@ If you need PostgreSQL for testing integrations:
 # macOS
 brew install postgresql
 brew services start postgresql  
-createdb elara_dev
+createdb boundary_dev
 
 # Linux
 sudo apt-get install postgresql postgresql-contrib
 sudo systemctl start postgresql
-sudo -u postgres createdb elara_dev
+sudo -u postgres createdb boundary_dev
 
 # Set environment variables
 export POSTGRES_HOST=localhost
 export POSTGRES_PORT=5432
-export POSTGRES_DB=elara_dev
+export POSTGRES_DB=boundary_dev
 export POSTGRES_USER=$(whoami)
 export POSTGRES_PASSWORD=dev_password
 ```
@@ -188,17 +188,17 @@ clojure -T:build uber
 
 # Check build output
 ls -la target/
-# => elara-0.1.0-standalone.jar
+# => boundary-0.1.0-standalone.jar
 ```
 
 ### Run Built Application
 
 ```zsh
 # Run the built JAR
-java -jar target/elara-0.1.0-standalone.jar
+java -jar target/boundary-0.1.0-standalone.jar
 
 # With environment-specific profile
-ELARA_PROFILE=staging java -jar target/elara-0.1.0-standalone.jar
+BND_PROFILE=staging java -jar target/boundary-0.1.0-standalone.jar
 ```
 
 ## Troubleshooting
@@ -239,7 +239,7 @@ clojure -M:repl-clj -v
 ls -la dev-database.db
 
 # Run single test namespace for debugging
-clojure -M:test --namespace elara.user.core-test
+clojure -M:test --namespace boundary.user.core-test
 ```
 
 ### Getting Help
@@ -263,7 +263,7 @@ tail -f logs/web-service.log
 **Validate configuration**:
 ```clojure
 ;; Load and inspect config
-(require '[elara.config :as config])
+(require '[boundary.config :as config])
 (require '[clojure.pprint :refer [pprint]])
 (pprint (config/read-config "dev"))
 ```
@@ -280,16 +280,16 @@ tail -f logs/web-service.log
 
 2. **Set up direnv** for automatic environment loading:
    ```zsh
-   echo 'export ELARA_PROFILE=dev' > .envrc
+   echo 'export BND_PROFILE=dev' > .envrc
    direnv allow
    ```
 
 3. **Explore the codebase**:
    ```clojure
    ;; In REPL - explore modules
-   (require '[elara.user.core :as user])
-   (require '[elara.billing.core :as billing])
-   (require '[elara.workflow.core :as workflow])
+   (require '[boundary.user.core :as user])
+   (require '[boundary.billing.core :as billing])
+   (require '[boundary.workflow.core :as workflow])
    ```
 
 ### Key Concepts to Learn
@@ -304,13 +304,13 @@ tail -f logs/web-service.log
 
 - **Architecture**: `docs/architecture/` - Detailed architectural documentation
 - **PRD**: `docs/PRD-IMPROVEMENT-SUMMARY.adoc` - Project requirements and goals
-- **Module Examples**: `src/elara/{user,billing,workflow}/` - Reference implementations
+- **Module Examples**: `src/boundary/{user,billing,workflow}/` - Reference implementations
 
 ## Development Commands Summary
 
 ```zsh
 # Project setup
-git clone <repo> && cd elara
+git clone <repo> && cd boundary
 clojure -M:test                    # Verify installation
 
 # Development cycle  

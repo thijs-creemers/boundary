@@ -1,1 +1,1 @@
-(ns elara.shell.interfaces.http.common)
+(ns boundary.shell.interfaces.http.common)

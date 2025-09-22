@@ -1,4 +1,4 @@
-= Elara Framework: Product Requirements Document
+= Boundary Framework: Product Requirements Document
 :version: 1.0
 :authors: Technical Team
 :date: {docdate}
@@ -35,7 +35,7 @@ This PRD is being restructured and expanded. See <<content-gaps,Content Gap Log>
 [[background]]
 === Background
 
-Elara is a **module-centric software framework** that implements the "Functional Core / Imperative Shell" architectural paradigm with complete domain ownership. This approach creates highly composable, testable, and maintainable systems where each domain module owns its complete functionality stack.
+Boundary is a **module-centric software framework** that implements the "Functional Core / Imperative Shell" architectural paradigm with complete domain ownership. This approach creates highly composable, testable, and maintainable systems where each domain module owns its complete functionality stack.
 
 The framework supports multiple interaction modes to serve different stakeholders:
 
@@ -43,7 +43,7 @@ The framework supports multiple interaction modes to serve different stakeholder
 * **CLI** for operational tasks, automation, and administrative functions  
 * **Web Frontend** for human user interaction and visual management
 
-**Strategic Vision**: Elara is designed as both a framework for building applications and a **foundation for creating reusable development toolchains**. The module-centric architecture enables:
+**Strategic Vision**: Boundary is designed as both a framework for building applications and a **foundation for creating reusable development toolchains**. The module-centric architecture enables:
 
 * **Library Extraction**: Core infrastructure can be extracted into reusable libraries
 * **Template Generation**: Automated module generation with consistent patterns
@@ -171,11 +171,11 @@ The framework supports multiple interaction modes to serve different stakeholder
 .System Context - C4 Container View
 image::diagrams/c4-container.png[C4 Container Diagram, 800]
 
-The Elara framework implements a layered architecture with strict dependency rules and clear separation of concerns:
+The Boundary framework implements a layered architecture with strict dependency rules and clear separation of concerns:
 
 ==== System Boundary
 
-Elara serves three primary user types through distinct interfaces:
+Boundary serves three primary user types through distinct interfaces:
 
 * **API Consumers**: External systems and developers using REST endpoints
 * **Operators**: System administrators using CLI for management and automation
@@ -256,7 +256,7 @@ The architecture enforces strict dependency rules:
 .Framework Component Interaction
 image::diagrams/component-overview.png[Component Overview Diagram, 800]
 
-This diagram illustrates how the major components of the Elara framework interact:
+This diagram illustrates how the major components of the Boundary framework interact:
 
 **Key Architectural Elements:**
 
@@ -324,13 +324,13 @@ The validation pipeline ensures data integrity at the shell boundary:
 .Ports and Adapters Pattern
 image::diagrams/ports-adapters.png[Ports and Adapters, 800]
 
-Elara implements the Ports and Adapters pattern (also known as Hexagonal Architecture) to achieve dependency inversion and enable the module-centric architecture.
+Boundary implements the Ports and Adapters pattern (also known as Hexagonal Architecture) to achieve dependency inversion and enable the module-centric architecture.
 
 ==== Port Definitions (Abstract Interfaces)
 
 Ports are defined as Clojure protocols within each module's `ports.clj` file, representing capabilities needed by that module's core logic:
 
-**User Module Ports** (`elara.user.ports`):
+**User Module Ports** (`boundary.user.ports`):
 [source,clojure]
 ----
 (defprotocol IUserRepository
@@ -356,7 +356,7 @@ Ports are defined as Clojure protocols within each module's `ports.clj` file, re
     "Notify user of account modifications."))
 ----
 
-**Billing Module Ports** (`elara.billing.ports`):
+**Billing Module Ports** (`boundary.billing.ports`):
 [source,clojure]
 ----
 (defprotocol IPaymentProcessor
@@ -378,7 +378,7 @@ Ports are defined as Clojure protocols within each module's `ports.clj` file, re
     "Update invoice status. Returns updated invoice."))
 ----
 
-**Shared System Ports** (`elara.shared.ports`):
+**Shared System Ports** (`boundary.shared.ports`):
 [source,clojure]
 ----
 (defprotocol ISystemServices
@@ -404,11 +404,11 @@ Ports are defined as Clojure protocols within each module's `ports.clj` file, re
 
 Adapters provide concrete implementations of ports using specific technologies:
 
-**PostgreSQL User Repository** (`elara.user.shell.adapters`):
+**PostgreSQL User Repository** (`boundary.user.shell.adapters`):
 [source,clojure]
 ----
-(ns elara.user.shell.adapters
-  (:require [elara.user.ports :as ports]
+(ns boundary.user.shell.adapters
+  (:require [boundary.user.ports :as ports]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [clojure.tools.logging :as log]))
@@ -486,7 +486,7 @@ Adapters provide concrete implementations of ports using specific technologies:
   (->PostgreSQLUserRepository db-spec))
 ----
 
-**SMTP Email Notification Service** (`elara.user.shell.adapters`):
+**SMTP Email Notification Service** (`boundary.user.shell.adapters`):
 [source,clojure]
 ----
 (defrecord SMTPNotificationService [smtp-config]
@@ -495,7 +495,7 @@ Adapters provide concrete implementations of ports using specific technologies:
   (send-welcome-email [_ user]
     (log/info "Sending welcome email" {:user-email (:email user)})
     (let [email-content {:to (:email user)
-                        :subject "Welcome to Elara!"
+                        :subject "Welcome to Boundary!"
                         :body (render-template :welcome-email user)}]
       (send-email smtp-config email-content)))
   
@@ -523,8 +523,8 @@ Adapters provide concrete implementations of ports using specific technologies:
 **Mock Implementations for Testing**:
 [source,clojure]
 ----
-(ns elara.user.test.mocks
-  (:require [elara.user.ports :as ports]))
+(ns boundary.user.test.mocks
+  (:require [boundary.user.ports :as ports]))
 
 (defrecord MockUserRepository [state]
   ports/IUserRepository
@@ -558,7 +558,7 @@ Adapters provide concrete implementations of ports using specific technologies:
 
 The module-centric architecture uses dependency injection to wire concrete adapters to core functions:
 
-**System Configuration** (`elara.shell.system.wiring`):
+**System Configuration** (`boundary.shell.system.wiring`):
 [source,clojure]
 ----
 (defn create-system [config]
@@ -587,8 +587,8 @@ The module-centric architecture uses dependency injection to wire concrete adapt
 **Module Service Integration**:
 [source,clojure]
 ----
-(ns elara.user.shell.service
-  (:require [elara.user.core.user :as user-core]))
+(ns boundary.user.shell.service
+  (:require [boundary.user.core.user :as user-core]))
 
 (defn register-user [system request-data]
   "Service function that injects dependencies into core logic."
@@ -645,10 +645,10 @@ The module-centric architecture uses dependency injection to wire concrete adapt
 
 **Complete Domain Ownership**
 
-Elara's module-centric approach ensures each domain module owns its complete functionality stack:
+Boundary's module-centric approach ensures each domain module owns its complete functionality stack:
 
 ```
-src/elara/
+src/boundary/
 ├── user/                   # USER DOMAIN MODULE
 │   ├── core/               # Pure business logic
 │   │   ├── user.clj       # Core user functions
@@ -696,14 +696,14 @@ src/elara/
 
 **Strategic Framework Vision**
 
-The module-centric architecture enables Elara to evolve into a comprehensive development platform:
+The module-centric architecture enables Boundary to evolve into a comprehensive development platform:
 
-1. **Core Framework Library** (`elara-core`)
+1. **Core Framework Library** (`boundary-core`)
    - Extractable shared infrastructure
    - Reusable across multiple applications
    - Standardized patterns for ports, adapters, validation
 
-2. **Module Template Generator** (`elara-gen`)
+2. **Module Template Generator** (`boundary-gen`)
    - Automated module scaffolding
    - Domain-specific templates (financial, healthcare, e-commerce)
    - Consistent architecture enforcement
@@ -807,7 +807,7 @@ The Imperative Shell serves as the boundary layer that isolates the pure functio
 
 ==== Implementation Examples
 
-**HTTP Handler Pattern** (`elara.shell.http`)
+**HTTP Handler Pattern** (`boundary.shell.http`)
 [source,clojure]
 ----
 (defn handle-create-user [request repos]
@@ -830,7 +830,7 @@ The Imperative Shell serves as the boundary layer that isolates the pure functio
       {:status 500 :body (format-error-response "Internal server error")})))
 ----
 
-**Repository Adapter Pattern** (`elara.shell.sql-db`)
+**Repository Adapter Pattern** (`boundary.shell.sql-db`)
 [source,clojure]
 ----
 (defrecord PostgreSQLUserRepository [db-conn]
@@ -853,7 +853,7 @@ The Imperative Shell serves as the boundary layer that isolates the pure functio
 [[core-responsibilities]]
 === Core Responsibilities
 
-The Functional Core is the heart of the Elara framework, containing ALL business logic while maintaining complete purity. Core functions are deterministic, testable, and free from side effects.
+The Functional Core is the heart of the Boundary framework, containing ALL business logic while maintaining complete purity. Core functions are deterministic, testable, and free from side effects.
 
 ==== Core Business Responsibilities
 
@@ -970,7 +970,7 @@ All core functions must follow this pattern:
 
 ==== Implementation Examples
 
-**Pure Business Logic** (`elara.core.user`)
+**Pure Business Logic** (`boundary.core.user`)
 [source,clojure]
 ----
 (defn create-new-user
@@ -1074,19 +1074,19 @@ All core functions must follow this pattern:
 [[validation-and-schemas]]
 === Validation and Schemas
 
-Elara uses **Malli** for all data validation and schema management across the module-centric architecture. Each module defines its own schemas while sharing common validation patterns through the framework.
+Boundary uses **Malli** for all data validation and schema management across the module-centric architecture. Each module defines its own schemas while sharing common validation patterns through the framework.
 
 ==== Module-Centric Schema Organization
 
 Schemas are organized by module to maintain domain ownership and prevent schema monoliths:
 
-**User Module Schemas** (`elara.user.schema`):
+**User Module Schemas** (`boundary.user.schema`):
 [source,clojure]
 ----
-(ns elara.user.schema
+(ns boundary.user.schema
   (:require [malli.core :as m]
             [malli.transform :as mt]
-            [elara.shared.schema :as shared]))
+            [boundary.shared.schema :as shared]))
 
 ;; Domain entity schemas
 (def User
@@ -1162,12 +1162,12 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
    :name :user-response}))
 ----
 
-**Billing Module Schemas** (`elara.billing.schema`):
+**Billing Module Schemas** (`boundary.billing.schema`):
 [source,clojure]
 ----
-(ns elara.billing.schema
+(ns boundary.billing.schema
   (:require [malli.core :as m]
-            [elara.shared.schema :as shared]))
+            [boundary.shared.schema :as shared]))
 
 ;; Domain entities
 (def Invoice
@@ -1221,10 +1221,10 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
    [:paymentDetails [:map-of :keyword :any]]]) ; Payment method specific data
 ----
 
-**Shared Schemas** (`elara.shared.schema`):
+**Shared Schemas** (`boundary.shared.schema`):
 [source,clojure]
 ----
-(ns elara.shared.schema
+(ns boundary.shared.schema
   (:require [malli.core :as m]))
 
 ;; Common data types
@@ -1280,10 +1280,10 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
 
 ==== Validation Pipeline Implementation
 
-**Shell Validation Functions** (`elara.shared.shell.validation`):
+**Shell Validation Functions** (`boundary.shared.shell.validation`):
 [source,clojure]
 ----
-(ns elara.shared.shell.validation
+(ns boundary.shared.shell.validation
   (:require [malli.core :as m]
             [malli.error :as me]
             [malli.transform :as mt]
@@ -1341,12 +1341,12 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
 
 ==== Interface-Specific Validation
 
-**HTTP API Validation** (`elara.shell.interfaces.http.validation`):
+**HTTP API Validation** (`boundary.shell.interfaces.http.validation`):
 [source,clojure]
 ----
-(ns elara.shell.interfaces.http.validation
-  (:require [elara.shared.shell.validation :as validation]
-            [elara.user.schema :as user-schema]
+(ns boundary.shell.interfaces.http.validation
+  (:require [boundary.shared.shell.validation :as validation]
+            [boundary.user.schema :as user-schema]
             [ring.util.response :as response]))
 
 (defn validate-create-user-request [request-body]
@@ -1360,7 +1360,7 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
       {:valid? true :data (:data result)}
       {:valid? false 
        :http-response (-> (response/response 
-                          {:type "https://elara.example.com/problems/validation-error"
+                          {:type "https://boundary.example.com/problems/validation-error"
                            :title "Validation Error"
                            :status 400
                            :detail "One or more fields failed validation"
@@ -1369,12 +1369,12 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
                           (response/content-type "application/problem+json"))})))
 ----
 
-**CLI Validation** (`elara.shell.interfaces.cli.validation`):
+**CLI Validation** (`boundary.shell.interfaces.cli.validation`):
 [source,clojure]
 ----
-(ns elara.shell.interfaces.cli.validation
-  (:require [elara.shared.shell.validation :as validation]
-            [elara.user.schema :as user-schema]
+(ns boundary.shell.interfaces.cli.validation
+  (:require [boundary.shared.shell.validation :as validation]
+            [boundary.user.schema :as user-schema]
             [malli.transform :as mt]))
 
 ;; CLI-specific transformer that handles string boolean conversion
@@ -1417,9 +1417,9 @@ Modules can reference schemas from other modules through well-defined imports:
 [source,clojure]
 ----
 ;; billing module referencing user schemas
-(ns elara.billing.schema
-  (:require [elara.user.schema :as user-schema]
-            [elara.shared.schema :as shared]))
+(ns boundary.billing.schema
+  (:require [boundary.user.schema :as user-schema]
+            [boundary.shared.schema :as shared]))
 
 ;; Invoice references User but doesn't duplicate schema
 (def InvoiceWithCustomer
@@ -1434,8 +1434,8 @@ Modules can reference schemas from other modules through well-defined imports:
 **Schema Versioning Strategy**:
 [source,clojure]
 ----
-(ns elara.user.schema.v2  ; Versioned schema namespace
-  (:require [elara.user.schema :as v1]))
+(ns boundary.user.schema.v2  ; Versioned schema namespace
+  (:require [boundary.user.schema :as v1]))
 
 ;; Evolved schema with additional fields
 (def User
@@ -1466,9 +1466,9 @@ Modules can reference schemas from other modules through well-defined imports:
 **Schema Testing Patterns**:
 [source,clojure]
 ----
-(ns elara.user.schema-test
+(ns boundary.user.schema-test
   (:require [clojure.test :refer [deftest is testing]]
-            [elara.user.schema :as schema]
+            [boundary.user.schema :as schema]
             [malli.core :as m]
             [malli.generator :as mg]))
 
@@ -1516,7 +1516,7 @@ Modules can reference schemas from other modules through well-defined imports:
                    :active "false"}  ; String boolean from CLI
           result (m/transform schema/CreateUserCLIArgs
                              cli-args
-                             elara.shell.interfaces.cli.validation/cli-transformer)]
+                             boundary.shell.interfaces.cli.validation/cli-transformer)]
       (is (= false (:active result))))))  ; Converted to boolean
 ----
 
@@ -1550,7 +1550,7 @@ Modules can reference schemas from other modules through well-defined imports:
 [[configuration-secrets-environments]]
 === Configuration, Secrets, and Environments
 
-Elara uses **Aero** for configuration management with a module-centric approach that supports multiple environments, secure secret handling, and feature flag integration. Each module can define its own configuration requirements while sharing common infrastructure patterns.
+Boundary uses **Aero** for configuration management with a module-centric approach that supports multiple environments, secure secret handling, and feature flag integration. Each module can define its own configuration requirements while sharing common infrastructure patterns.
 
 ==== Configuration Architecture
 
@@ -1572,7 +1572,7 @@ config/
 **Module-Centric Configuration Loading**:
 [source,clojure]
 ----
-(ns elara.shell.system.config
+(ns boundary.shell.system.config
   (:require [aero.core :as aero]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]))
@@ -1646,14 +1646,14 @@ config/
                           :staging #long #env "DB_PORT"
                           :production #long #env "DB_PORT" 
                           :test 5432}
-           :name #profile {:development "elara_dev"
+           :name #profile {:development "boundary_dev"
                           :staging #env "DB_NAME"
                           :production #env "DB_NAME"
-                          :test "elara_test"}
-           :username #profile {:development "elara_dev"
+                          :test "boundary_test"}
+           :username #profile {:development "boundary_dev"
                               :staging #env "DB_USERNAME"
                               :production #env "DB_USERNAME"
-                              :test "elara_test"}
+                              :test "boundary_test"}
            :password #profile {:development "dev_password"
                               :staging #env "DB_PASSWORD"
                               :production #env "DB_PASSWORD"
@@ -1701,8 +1701,8 @@ config/
                                                         :test 1000}}
            :cors {:allowed-origins #profile {:development ["http://localhost:3000" 
                                                          "http://localhost:8080"]
-                                            :staging ["https://staging.elara.example.com"]
-                                            :production ["https://elara.example.com"]
+                                            :staging ["https://staging.boundary.example.com"]
+                                            :production ["https://boundary.example.com"]
                                             :test ["*"]}}
            :api-keys {:enabled? #profile {:development false
                                          :staging true
@@ -1820,11 +1820,11 @@ config/
                                                          :staging true
                                                          :production true
                                                          :test false}}
-                                     :from-address #profile {:development "dev@elara.localhost"
-                                                            :staging "noreply@staging.elara.example.com"
-                                                            :production "noreply@elara.example.com"
-                                                            :test "test@elara.test"}
-                                     :templates {:welcome {:subject "Welcome to Elara!"
+                                     :from-address #profile {:development "dev@boundary.localhost"
+                                                            :staging "noreply@staging.boundary.example.com"
+                                                            :production "noreply@boundary.example.com"
+                                                            :test "test@boundary.test"}
+                                     :templates {:welcome {:subject "Welcome to Boundary!"
                                                           :template-path "templates/email/welcome.html"}
                                                 :password-reset {:subject "Password Reset Request"
                                                                :template-path "templates/email/password-reset.html"
@@ -2020,7 +2020,7 @@ config/
 **Secret Loading Strategy**:
 [source,clojure]
 ----
-(ns elara.shell.system.secrets
+(ns boundary.shell.system.secrets
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]))
 
@@ -2093,11 +2093,11 @@ config/
 
 ==== Configuration Service Implementation
 
-**Configuration Service** (`elara.shared.shell.config`):
+**Configuration Service** (`boundary.shared.shell.config`):
 [source,clojure]
 ----
-(ns elara.shared.shell.config
-  (:require [elara.shared.ports :as ports]
+(ns boundary.shared.shell.config
+  (:require [boundary.shared.ports :as ports]
             [clojure.tools.logging :as log]))
 
 (defrecord ConfigurationService [config cache]
@@ -2180,9 +2180,9 @@ config/
 **Feature Flag Usage Patterns**:
 [source,clojure]
 ----
-(ns elara.user.shell.service
-  (:require [elara.user.core.user :as user-core]
-            [elara.shared.ports :as ports]
+(ns boundary.user.shell.service
+  (:require [boundary.user.core.user :as user-core]
+            [boundary.shared.ports :as ports]
             [clojure.tools.logging :as log]))
 
 (defn create-user [system request-data]
@@ -2245,9 +2245,9 @@ config/
 **HTTP Route Feature Flag Integration**:
 [source,clojure]
 ----
-(ns elara.user.http
+(ns boundary.user.http
   (:require [reitit.ring :as ring]
-            [elara.shared.ports :as ports]))
+            [boundary.shared.ports :as ports]))
 
 (defn feature-flag-middleware [feature-flag]
   "Middleware that checks feature flags before allowing requests."
@@ -2258,7 +2258,7 @@ config/
           (handler request)
           {:status 503
            :headers {"Content-Type" "application/problem+json"}
-           :body {:type "https://elara.example.com/problems/feature-disabled"
+           :body {:type "https://boundary.example.com/problems/feature-disabled"
                   :title "Feature Disabled"
                   :status 503
                   :detail "This feature is currently disabled"
@@ -2282,7 +2282,7 @@ config/
 **Configuration Schema Validation**:
 [source,clojure]
 ----
-(ns elara.shared.schema.config
+(ns boundary.shared.schema.config
   (:require [malli.core :as m]))
 
 (def DatabaseConfig
@@ -2332,10 +2332,10 @@ config/
 **Configuration Testing**:
 [source,clojure]
 ----
-(ns elara.shared.shell.config-test
+(ns boundary.shared.shell.config-test
   (:require [clojure.test :refer [deftest is testing]]
-            [elara.shared.shell.config :as config]
-            [elara.shared.schema.config :as config-schema]))
+            [boundary.shared.shell.config :as config]
+            [boundary.shared.schema.config :as config-schema]))
 
 (def test-config
   {:server {:port 3000 :host "localhost" :shutdown-timeout-ms 30000}
@@ -2431,7 +2431,7 @@ config/
 [[persistence-and-transactions]]
 === Persistence and Transactions
 
-Elara implements persistence through a **module-centric repository pattern** with clear transaction boundaries and comprehensive data access abstractions. Each module owns its data persistence concerns while sharing common infrastructure patterns through the framework.
+Boundary implements persistence through a **module-centric repository pattern** with clear transaction boundaries and comprehensive data access abstractions. Each module owns its data persistence concerns while sharing common infrastructure patterns through the framework.
 
 ==== Repository Pattern Architecture
 
@@ -2439,7 +2439,7 @@ Elara implements persistence through a **module-centric repository pattern** wit
 
 Each module defines its own repository interfaces as ports, ensuring domain ownership of data access patterns:
 
-**User Module Repository** (`elara.user.ports`):
+**User Module Repository** (`boundary.user.ports`):
 [source,clojure]
 ----
 (defprotocol IUserRepository
@@ -2487,7 +2487,7 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
     "Remove all sessions expired before timestamp. Returns count of deleted sessions."))
 ----
 
-**Billing Module Repository** (`elara.billing.ports`):
+**Billing Module Repository** (`boundary.billing.ports`):
 [source,clojure]
 ----
 (defprotocol IBillingRepository
@@ -2529,7 +2529,7 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
     "Retrieve transactions within date range for reporting."))
 ----
 
-**Workflow Module Repository** (`elara.workflow.ports`):
+**Workflow Module Repository** (`boundary.workflow.ports`):
 [source,clojure]
 ----
 (defprotocol IWorkflowRepository
@@ -2566,16 +2566,16 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
 
 The framework provides a comprehensive PostgreSQL implementation using next.jdbc and HoneySQL:
 
-**Base Repository Utilities** (`elara.shared.shell.persistence`):
+**Base Repository Utilities** (`boundary.shared.shell.persistence`):
 [source,clojure]
 ----
-(ns elara.shared.shell.persistence
+(ns boundary.shared.shell.persistence
   (:require [next.jdbc :as jdbc]
             [next.jdbc.connection :as connection]
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
             [clojure.tools.logging :as log]
-            [elara.shared.shell.config :as config]))
+            [boundary.shared.shell.config :as config]))
 
 (defn create-connection-pool [db-config]
   "Creates HikariCP connection pool with configuration."
@@ -2674,12 +2674,12 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
     [[(keyword field-name) direction]]))
 ----
 
-**User Repository Implementation** (`elara.user.shell.adapters.repository`):
+**User Repository Implementation** (`boundary.user.shell.adapters.repository`):
 [source,clojure]
 ----
-(ns elara.user.shell.adapters.repository
-  (:require [elara.user.ports :as ports]
-            [elara.shared.shell.persistence :as persistence]
+(ns boundary.user.shell.adapters.repository
+  (:require [boundary.user.ports :as ports]
+            [boundary.shared.shell.persistence :as persistence]
             [honey.sql :as sql]
             [clojure.tools.logging :as log]
             [java-time :as time]))
@@ -2843,12 +2843,12 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
   (->PostgreSQLUserRepository datasource "users"))
 ----
 
-**Session Repository Implementation** (`elara.user.shell.adapters.session-repository`):
+**Session Repository Implementation** (`boundary.user.shell.adapters.session-repository`):
 [source,clojure]
 ----
-(ns elara.user.shell.adapters.session-repository
-  (:require [elara.user.ports :as ports]
-            [elara.shared.shell.persistence :as persistence]
+(ns boundary.user.shell.adapters.session-repository
+  (:require [boundary.user.ports :as ports]
+            [boundary.shared.shell.persistence :as persistence]
             [honey.sql :as sql]
             [clojure.tools.logging :as log]
             [java-time :as time]))
@@ -2931,15 +2931,15 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
 
 **Module-Level Transaction Boundaries**
 
-Elara enforces transaction boundaries at the module service level, ensuring business operations maintain data consistency:
+Boundary enforces transaction boundaries at the module service level, ensuring business operations maintain data consistency:
 
-**User Service Transaction Management** (`elara.user.shell.service`):
+**User Service Transaction Management** (`boundary.user.shell.service`):
 [source,clojure]
 ----
-(ns elara.user.shell.service
-  (:require [elara.user.core.user :as user-core]
-            [elara.user.ports :as ports]
-            [elara.shared.shell.persistence :as persistence]
+(ns boundary.user.shell.service
+  (:require [boundary.user.core.user :as user-core]
+            [boundary.user.ports :as ports]
+            [boundary.shared.shell.persistence :as persistence]
             [clojure.tools.logging :as log]))
 
 (defn register-user-with-welcome [system user-data]
@@ -3101,16 +3101,16 @@ Elara enforces transaction boundaries at the module service level, ensuring busi
 
 **Cross-Module Transaction Coordination**
 
-For operations spanning multiple modules, Elara uses explicit transaction coordination:
+For operations spanning multiple modules, Boundary uses explicit transaction coordination:
 
-**Order Processing with User and Billing** (`elara.orders.shell.service`):
+**Order Processing with User and Billing** (`boundary.orders.shell.service`):
 [source,clojure]
 ----
-(ns elara.orders.shell.service
-  (:require [elara.user.ports :as user-ports]
-            [elara.billing.ports :as billing-ports]
-            [elara.orders.core.orders :as orders-core]
-            [elara.shared.shell.persistence :as persistence]))
+(ns boundary.orders.shell.service
+  (:require [boundary.user.ports :as user-ports]
+            [boundary.billing.ports :as billing-ports]
+            [boundary.orders.core.orders :as orders-core]
+            [boundary.shared.shell.persistence :as persistence]))
 
 (defn process-order-with-billing [system order-data]
   "Process order involving user validation and billing in coordinated transaction."
@@ -3205,7 +3205,7 @@ For operations spanning multiple modules, Elara uses explicit transaction coordi
 
 **Migration Strategy**
 
-Elara uses a module-centric migration approach where each module manages its own database schema:
+Boundary uses a module-centric migration approach where each module manages its own database schema:
 
 **Migration Directory Structure**:
 [source]
@@ -3287,10 +3287,10 @@ COMMENT ON COLUMN users.role IS 'User role for authorization (admin, user, viewe
 COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active user';
 ----
 
-**Migration Management Service** (`elara.shared.shell.migrations`):
+**Migration Management Service** (`boundary.shared.shell.migrations`):
 [source,clojure]
 ----
-(ns elara.shared.shell.migrations
+(ns boundary.shared.shell.migrations
   (:require [next.jdbc :as jdbc]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -3404,11 +3404,11 @@ COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active
 **Repository Testing with Test Containers**:
 [source,clojure]
 ----
-(ns elara.user.shell.adapters.repository-test
+(ns boundary.user.shell.adapters.repository-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [elara.user.shell.adapters.repository :as user-repo]
-            [elara.user.ports :as user-ports]
-            [elara.shared.shell.persistence :as persistence]
+            [boundary.user.shell.adapters.repository :as user-repo]
+            [boundary.user.ports :as user-ports]
+            [boundary.shared.shell.persistence :as persistence]
             [testcontainers.core :as tc]
             [java-time :as time]))
 
@@ -3416,7 +3416,7 @@ COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active
 (def test-db-container
   (tc/create {:image "postgres:15-alpine"
               :exposed-ports [5432]
-              :env {"POSTGRES_DB" "elara_test"
+              :env {"POSTGRES_DB" "boundary_test"
                    "POSTGRES_USER" "test"
                    "POSTGRES_PASSWORD" "test"}}))
 
@@ -3426,7 +3426,7 @@ COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active
   (let [datasource (persistence/create-connection-pool
                    {:host (tc/host test-db-container)
                     :port (tc/mapped-port test-db-container 5432)
-                    :name "elara_test"
+                    :name "boundary_test"
                     :username "test"
                     :password "test"
                     :pool {:minimum-idle 1 :maximum-pool-size 2}})]
@@ -3600,7 +3600,7 @@ _[TODO: Complete with security model and authorization patterns]_
 [[rest-endpoints]]
 === REST Endpoints
 
-The Elara REST API provides programmatic access to all framework functionality through a consistent JSON-based interface.
+The Boundary REST API provides programmatic access to all framework functionality through a consistent JSON-based interface.
 
 ==== API Conventions
 
@@ -3699,7 +3699,7 @@ Retrieves a specific user by their unique identifier, including all user attribu
 
 *Implementation Notes:*
 
-* Core function: `elara.core.user/get-user-by-id`
+* Core function: `boundary.core.user/get-user-by-id`
 * Automatically filters by tenant context
 * Returns 404 if user doesn't exist or not in current tenant
 
@@ -3840,7 +3840,7 @@ Creates a new job with the specified details, automatically associating it with 
 
 *Implementation Notes:*
 
-* Core function: `elara.core.job/create-job`
+* Core function: `boundary.core.job/create-job`
 * Validates assigned user exists and is in same tenant
 * Automatically sets `created-by` from authentication context
 * Default status is `:created` if not specified
@@ -3978,7 +3978,7 @@ _[TODO: Complete with API conventions and standards]_
 [[error-model-status-codes]]
 === Error Model and Status Codes
 
-Elara follows RFC 7807 Problem Details for HTTP APIs to provide consistent, machine-readable error responses across all endpoints.
+Boundary follows RFC 7807 Problem Details for HTTP APIs to provide consistent, machine-readable error responses across all endpoints.
 
 ==== Standard HTTP Status Codes
 
@@ -4031,7 +4031,7 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
 [source,json]
 ----
 {
-  "type": "https://elara.example.com/problems/validation-error",
+  "type": "https://boundary.example.com/problems/validation-error",
   "title": "Validation Error", 
   "status": 400,
   "detail": "One or more fields failed validation",
@@ -4055,7 +4055,7 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
 [source,json]
 ----
 {
-  "type": "https://elara.example.com/problems/validation-error",
+  "type": "https://boundary.example.com/problems/validation-error",
   "title": "Validation Error",
   "status": 400,
   "detail": "Required fields are missing",
@@ -4076,7 +4076,7 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
 [source,json]
 ----
 {
-  "type": "https://elara.example.com/problems/resource-conflict",
+  "type": "https://boundary.example.com/problems/resource-conflict",
   "title": "Resource Conflict",
   "status": 409,
   "detail": "User with this email already exists",
@@ -4095,7 +4095,7 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
 [source,json]
 ----
 {
-  "type": "https://elara.example.com/problems/business-rule-violation",
+  "type": "https://boundary.example.com/problems/business-rule-violation",
   "title": "Business Rule Violation",
   "status": 422,
   "detail": "Cannot create admin user without proper authorization",
@@ -4116,7 +4116,7 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
 [source,json]
 ----
 {
-  "type": "https://elara.example.com/problems/authentication-required",
+  "type": "https://boundary.example.com/problems/authentication-required",
   "title": "Authentication Required",
   "status": 401,
   "detail": "Valid authentication credentials are required",
@@ -4128,7 +4128,7 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
 [source,json]
 ----
 {
-  "type": "https://elara.example.com/problems/insufficient-permissions",
+  "type": "https://boundary.example.com/problems/insufficient-permissions",
   "title": "Insufficient Permissions",
   "status": 403,
   "detail": "User lacks required permissions for this operation",
@@ -4147,7 +4147,7 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
 [source,json]
 ----
 {
-  "type": "https://elara.example.com/problems/resource-not-found",
+  "type": "https://boundary.example.com/problems/resource-not-found",
   "title": "Resource Not Found",
   "status": 404,
   "detail": "The requested user could not be found",
@@ -4168,7 +4168,7 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
 [source,json]
 ----
 {
-  "type": "https://elara.example.com/problems/internal-server-error",
+  "type": "https://boundary.example.com/problems/internal-server-error",
   "title": "Internal Server Error",
   "status": 500,
   "detail": "An unexpected error occurred while processing the request",
@@ -4180,7 +4180,7 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
 [source,json]
 ----
 {
-  "type": "https://elara.example.com/problems/service-unavailable",
+  "type": "https://boundary.example.com/problems/service-unavailable",
   "title": "Service Unavailable",
   "status": 503,
   "detail": "Database connection unavailable",
@@ -4239,15 +4239,15 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
 [[commands-and-options]]
 === Commands and Options
 
-The Elara CLI provides a consistent command-line interface that mirrors the functionality of the REST API while offering additional operational capabilities. The CLI shares the same core business logic as the REST API, ensuring consistent behavior across interfaces.
+The Boundary CLI provides a consistent command-line interface that mirrors the functionality of the REST API while offering additional operational capabilities. The CLI shares the same core business logic as the REST API, ensuring consistent behavior across interfaces.
 
 ==== Command Structure
 
-All Elara commands follow this pattern:
+All Boundary commands follow this pattern:
 
 [source,bash]
 ----
-elara [global-options] <resource> <action> [resource-options]
+boundary [global-options] <resource> <action> [resource-options]
 ----
 
 ==== Global Options
@@ -4256,7 +4256,7 @@ elara [global-options] <resource> <action> [resource-options]
 |===
 |Option |Default |Description
 
-|`--config=<path>` |`~/.elara/config.edn` |Path to configuration file
+|`--config=<path>` |`~/.boundary/config.edn` |Path to configuration file
 |`--profile=<name>` |`default` |Configuration profile to use
 |`--tenant-id=<uuid>` |Current user's tenant |Tenant context for operations
 |`--token=<jwt>` |From config |Authentication token
@@ -4273,7 +4273,7 @@ elara [global-options] <resource> <action> [resource-options]
 **Create User**
 [source,bash]
 ----
-elara users create --email=<email> --role=<role> [--active=<bool>]
+boundary users create --email=<email> --role=<role> [--active=<bool>]
 ----
 
 *Options:*
@@ -4290,14 +4290,14 @@ elara users create --email=<email> --role=<role> [--active=<bool>]
 *Example:*
 [source,bash]
 ----
-$ elara users create --email=john.doe@example.com --role=user
+$ boundary users create --email=john.doe@example.com --role=user
 Created user: john.doe@example.com (role: user, id: 123e4567-e89b-12d3-a456-426614174000)
 ----
 
 **Get User**
 [source,bash]
 ----
-elara users get [--id=<uuid> | --email=<email>]
+boundary users get [--id=<uuid> | --email=<email>]
 ----
 
 *Options:*
@@ -4312,7 +4312,7 @@ elara users get [--id=<uuid> | --email=<email>]
 *Example:*
 [source,bash]
 ----
-$ elara users get --id=123e4567-e89b-12d3-a456-426614174000
+$ boundary users get --id=123e4567-e89b-12d3-a456-426614174000
 ╔════════════════════════════════════════╗
 ║ User Details                           ║
 ╠══════════════════╤═════════════════════╣
@@ -4329,7 +4329,7 @@ $ elara users get --id=123e4567-e89b-12d3-a456-426614174000
 **List Users**
 [source,bash]
 ----
-elara users list [--limit=<n>] [--offset=<n>] [--sort=<field>] [--filter-role=<role>] [--filter-active=<bool>]
+boundary users list [--limit=<n>] [--offset=<n>] [--sort=<field>] [--filter-role=<role>] [--filter-active=<bool>]
 ----
 
 *Options:*
@@ -4348,7 +4348,7 @@ elara users list [--limit=<n>] [--offset=<n>] [--sort=<field>] [--filter-role=<r
 *Example:*
 [source,bash]
 ----
-$ elara users list --limit=10 --filter-role=admin --sort=-created-at
+$ boundary users list --limit=10 --filter-role=admin --sort=-created-at
 ╔════════════════════════════════════════════════════════════════════════════╗
 ║ Users (showing 3 of 3 total)                                               ║
 ╠════════════════════╤══════════════════════╤════════╤════════╤═════════════╣
@@ -4363,7 +4363,7 @@ $ elara users list --limit=10 --filter-role=admin --sort=-created-at
 **Update User**
 [source,bash]
 ----
-elara users update --id=<uuid> [--role=<role>] [--active=<bool>] [--email=<email>]
+boundary users update --id=<uuid> [--role=<role>] [--active=<bool>] [--email=<email>]
 ----
 
 *Options:*
@@ -4380,14 +4380,14 @@ elara users update --id=<uuid> [--role=<role>] [--active=<bool>] [--email=<email
 *Example:*
 [source,bash]
 ----
-$ elara users update --id=123e4567-e89b-12d3-a456-426614174000 --role=admin
+$ boundary users update --id=123e4567-e89b-12d3-a456-426614174000 --role=admin
 User updated successfully.
 ----
 
 **Delete User**
 [source,bash]
 ----
-elara users delete --id=<uuid> [--force]
+boundary users delete --id=<uuid> [--force]
 ----
 
 *Options:*
@@ -4402,7 +4402,7 @@ elara users delete --id=<uuid> [--force]
 *Example:*
 [source,bash]
 ----
-$ elara users delete --id=123e4567-e89b-12d3-a456-426614174000
+$ boundary users delete --id=123e4567-e89b-12d3-a456-426614174000
 Are you sure you want to delete user john.doe@example.com? [y/N]: y
 User deleted successfully.
 ----
@@ -4412,7 +4412,7 @@ User deleted successfully.
 **Create Job**
 [source,bash]
 ----
-elara jobs create --title=<title> [--description=<desc>] [--assigned-to=<user-id>] [--priority=<priority>] [--due-date=<iso-date>]
+boundary jobs create --title=<title> [--description=<desc>] [--assigned-to=<user-id>] [--priority=<priority>] [--due-date=<iso-date>]
 ----
 
 *Options:*
@@ -4430,14 +4430,14 @@ elara jobs create --title=<title> [--description=<desc>] [--assigned-to=<user-id
 *Example:*
 [source,bash]
 ----
-$ elara jobs create --title="Update documentation" --assigned-to=123e4567-e89b-12d3-a456-426614174000 --priority=high
+$ boundary jobs create --title="Update documentation" --assigned-to=123e4567-e89b-12d3-a456-426614174000 --priority=high
 Created job: Update documentation (id: abc12345-def6-7890-abcd-ef1234567890)
 ----
 
 **Get Job**
 [source,bash]
 ----
-elara jobs get --id=<uuid>
+boundary jobs get --id=<uuid>
 ----
 
 *Options:*
@@ -4451,7 +4451,7 @@ elara jobs get --id=<uuid>
 *Example:*
 [source,bash]
 ----
-$ elara jobs get --id=abc12345-def6-7890-abcd-ef1234567890
+$ boundary jobs get --id=abc12345-def6-7890-abcd-ef1234567890
 ╔════════════════════════════════════════╗
 ║ Job Details                             ║
 ╠══════════════════╤═════════════════════╣
@@ -4470,7 +4470,7 @@ $ elara jobs get --id=abc12345-def6-7890-abcd-ef1234567890
 **List Jobs**
 [source,bash]
 ----
-elara jobs list [--limit=<n>] [--offset=<n>] [--sort=<field>] [--filter-status=<status>] [--filter-assigned-to=<user-id>] [--filter-priority=<priority>]
+boundary jobs list [--limit=<n>] [--offset=<n>] [--sort=<field>] [--filter-status=<status>] [--filter-assigned-to=<user-id>] [--filter-priority=<priority>]
 ----
 
 *Options:*
@@ -4489,7 +4489,7 @@ elara jobs list [--limit=<n>] [--offset=<n>] [--sort=<field>] [--filter-status=<
 *Example:*
 [source,bash]
 ----
-$ elara jobs list --filter-status=in-progress --sort=priority
+$ boundary jobs list --filter-status=in-progress --sort=priority
 ╔═════════════════════════════════════════════════════════════════════════════════╗
 ║ Jobs (showing 2 of 2 total)                                                      ║
 ╠════════════════╤══════════════════════╤════════════╤══════════╤═════════════════╣
@@ -4503,7 +4503,7 @@ $ elara jobs list --filter-status=in-progress --sort=priority
 **Update Job Status**
 [source,bash]
 ----
-elara jobs update-status --id=<uuid> --status=<status> [--comment=<comment>]
+boundary jobs update-status --id=<uuid> --status=<status> [--comment=<comment>]
 ----
 
 *Options:*
@@ -4519,14 +4519,14 @@ elara jobs update-status --id=<uuid> --status=<status> [--comment=<comment>]
 *Example:*
 [source,bash]
 ----
-$ elara jobs update-status --id=abc12345-def6-7890-abcd-ef1234567890 --status=completed --comment="All sections updated and reviewed"
+$ boundary jobs update-status --id=abc12345-def6-7890-abcd-ef1234567890 --status=completed --comment="All sections updated and reviewed"
 Job status updated to: completed
 ----
 
 **Update Job**
 [source,bash]
 ----
-elara jobs update --id=<uuid> [--title=<title>] [--description=<desc>] [--assigned-to=<user-id>] [--priority=<priority>] [--due-date=<iso-date>]
+boundary jobs update --id=<uuid> [--title=<title>] [--description=<desc>] [--assigned-to=<user-id>] [--priority=<priority>] [--due-date=<iso-date>]
 ----
 
 *Options:*
@@ -4545,7 +4545,7 @@ elara jobs update --id=<uuid> [--title=<title>] [--description=<desc>] [--assign
 *Example:*
 [source,bash]
 ----
-$ elara jobs update --id=abc12345-def6-7890-abcd-ef1234567890 --priority=urgent --due-date=2025-08-20T17:00:00Z
+$ boundary jobs update --id=abc12345-def6-7890-abcd-ef1234567890 --priority=urgent --due-date=2025-08-20T17:00:00Z
 Job updated successfully.
 ----
 
@@ -4554,7 +4554,7 @@ Job updated successfully.
 **System Health**
 [source,bash]
 ----
-elara system health [--detailed]
+boundary system health [--detailed]
 ----
 
 *Options:*
@@ -4568,7 +4568,7 @@ elara system health [--detailed]
 *Example (Basic):*
 [source,bash]
 ----
-$ elara system health
+$ boundary system health
 ╔════════════════════════════════════════╗
 ║ System Health: HEALTHY                  ║
 ╠══════════════════╤═════════════════════╣
@@ -4582,7 +4582,7 @@ $ elara system health
 *Example (Detailed):*
 [source,bash]
 ----
-$ elara system health --detailed
+$ boundary system health --detailed
 ╔════════════════════════════════════════════════════════════════════════════╗
 ║ System Health: HEALTHY                                                     ║
 ╠══════════════════╤═══════════════════════════════════════════════════════════╣
@@ -4598,7 +4598,7 @@ $ elara system health --detailed
 **Configuration**
 [source,bash]
 ----
-elara system config [--show-secrets] [--validate]
+boundary system config [--show-secrets] [--validate]
 ----
 
 *Options:*
@@ -4613,7 +4613,7 @@ elara system config [--show-secrets] [--validate]
 *Example:*
 [source,bash]
 ----
-$ elara system config
+$ boundary system config
 ╔════════════════════════════════════════════════════════════════════════════╗
 ║ System Configuration                                                        ║
 ╠══════════════════╤═══════════════════════════════════════════════════════════╣
@@ -4621,12 +4621,12 @@ $ elara system config
 ╠══════════════════╪════════════════════════╪════════════════════════════════╣
 ║ database         │ host                   │ localhost                      ║
 ║                  │ port                   │ 5432                           ║
-║                  │ name                   │ elara_prod                     ║
-║                  │ username               │ elara_user                     ║
+║                  │ name                   │ boundary_prod                     ║
+║                  │ username               │ boundary_user                     ║
 ║                  │ password               │ ************                   ║
 ║ email            │ host                   │ smtp.example.com               ║
 ║                  │ port                   │ 587                            ║
-║                  │ username               │ elara@example.com              ║
+║                  │ username               │ boundary@example.com              ║
 ║                  │ password               │ ************                   ║
 ╚══════════════════╧════════════════════════╧════════════════════════════════╝
 ----
@@ -4634,7 +4634,7 @@ $ elara system config
 **Migrate Database**
 [source,bash]
 ----
-elara system migrate [--dry-run] [--to-version=<version>]
+boundary system migrate [--dry-run] [--to-version=<version>]
 ----
 
 *Options:*
@@ -4649,7 +4649,7 @@ elara system migrate [--dry-run] [--to-version=<version>]
 *Example:*
 [source,bash]
 ----
-$ elara system migrate
+$ boundary system migrate
 Starting database migration...
 Current version: 5
 Target version: 8
@@ -4662,7 +4662,7 @@ Migration complete.
 **Generate API Key**
 [source,bash]
 ----
-elara system generate-api-key --name=<name> [--expires=<iso-date>] [--scope=<scope>]
+boundary system generate-api-key --name=<name> [--expires=<iso-date>] [--scope=<scope>]
 ----
 
 *Options:*
@@ -4678,7 +4678,7 @@ elara system generate-api-key --name=<name> [--expires=<iso-date>] [--scope=<sco
 *Example:*
 [source,bash]
 ----
-$ elara system generate-api-key --name="CI/CD Pipeline" --scope=write
+$ boundary system generate-api-key --name="CI/CD Pipeline" --scope=write
 API key generated successfully.
 
 Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzeXN0ZW0iLCJuYW1lIjoiQ0kvQ0QgUGlwZWxpbmUiLCJzY29wZSI6IndyaXRlIn0.Q6CM1qIQF5YgI-cIBfCOzZ9_eYcfZmcwp9DIzqRu3aM
@@ -4692,7 +4692,7 @@ Expires: 2026-08-15T14:14:30Z
 **Export Data**
 [source,bash]
 ----
-elara export --resources=<resource-list> --output=<file> [--format=<format>]
+boundary export --resources=<resource-list> --output=<file> [--format=<format>]
 ----
 
 *Options:*
@@ -4708,7 +4708,7 @@ elara export --resources=<resource-list> --output=<file> [--format=<format>]
 *Example:*
 [source,bash]
 ----
-$ elara export --resources=users,jobs --output=./backup-2025-08-15.json
+$ boundary export --resources=users,jobs --output=./backup-2025-08-15.json
 Exporting data...
 Exported 42 users and 156 jobs to ./backup-2025-08-15.json
 ----
@@ -4716,7 +4716,7 @@ Exported 42 users and 156 jobs to ./backup-2025-08-15.json
 **Import Data**
 [source,bash]
 ----
-elara import --input=<file> [--dry-run] [--overwrite]
+boundary import --input=<file> [--dry-run] [--overwrite]
 ----
 
 *Options:*
@@ -4732,12 +4732,12 @@ elara import --input=<file> [--dry-run] [--overwrite]
 *Example:*
 [source,bash]
 ----
-$ elara import --input=./backup-2025-08-15.json --dry-run
+$ boundary import --input=./backup-2025-08-15.json --dry-run
 Validating import data...
 Found 42 users and 156 jobs in import file.
 All data is valid for import.
 
-$ elara import --input=./backup-2025-08-15.json
+$ boundary import --input=./backup-2025-08-15.json
 Importing data...
 Imported 42 users and 156 jobs successfully.
 ----
@@ -4745,11 +4745,11 @@ Imported 42 users and 156 jobs successfully.
 [[exit-codes-output-conventions]]
 === Exit Codes and Output Conventions
 
-The Elara CLI follows a consistent set of conventions for exit codes, output formatting, and error handling to ensure reliable scripting, automation, and a consistent user experience.
+The Boundary CLI follows a consistent set of conventions for exit codes, output formatting, and error handling to ensure reliable scripting, automation, and a consistent user experience.
 
 ==== Exit Codes
 
-Elara CLI commands use standard Unix exit codes with specific meanings:
+Boundary CLI commands use standard Unix exit codes with specific meanings:
 
 [cols="1,3"]
 |===
@@ -4772,7 +4772,7 @@ Elara CLI commands use standard Unix exit codes with specific meanings:
 
 ==== Output Formats
 
-Elara CLI supports multiple output formats controlled by the `--format` option:
+Boundary CLI supports multiple output formats controlled by the `--format` option:
 
 **Table Format** (default)
 
@@ -4785,21 +4785,21 @@ Elara CLI supports multiple output formats controlled by the `--format` option:
 
 - Machine-readable output in JSON format
 - Identical structure to the REST API response bodies
-- Example: `elara users list --format=json`
+- Example: `boundary users list --format=json`
 - Useful for scripting and integration with other tools
 
 **EDN Format**
 
 - Clojure's native data format for easy programmatic consumption
 - Preserves data types (UUIDs, dates, keywords) accurately
-- Example: `elara users list --format=edn`
+- Example: `boundary users list --format=edn`
 - Preferred for Clojure-based scripting and integration
 
 **YAML Format**
 
 - Human-readable alternative to JSON for complex data structures
 - Especially useful for configuration inspection
-- Example: `elara system config --format=yaml`
+- Example: `boundary system config --format=yaml`
 
 ==== Error Handling
 
@@ -4822,7 +4822,7 @@ Authentication Error:
 ERROR: Authentication Required
 Your authentication token has expired or is invalid.
 
-Run 'elara login' to obtain a new token or provide a valid token using --token.
+Run 'boundary login' to obtain a new token or provide a valid token using --token.
 ----
 
 Resource Not Found Error:
@@ -4831,7 +4831,7 @@ Resource Not Found Error:
 ERROR: Resource Not Found
 User with ID '123e4567-e89b-12d3-a456-426614174000' not found in tenant 'acme-corp'.
 
-Use 'elara users list' to see available users or check the ID and try again.
+Use 'boundary users list' to see available users or check the ID and try again.
 ----
 
 Usage Error:
@@ -4840,12 +4840,12 @@ Usage Error:
 ERROR: Missing Required Option
 The '--email' option is required when creating a user.
 
-Run 'elara users create --help' to see all required and optional arguments.
+Run 'boundary users create --help' to see all required and optional arguments.
 ----
 
 ==== Progress Indicators
 
-For long-running operations, Elara CLI provides progress feedback:
+For long-running operations, Boundary CLI provides progress feedback:
 
 **Spinners for Active Operations**
 
@@ -4867,7 +4867,7 @@ For long-running operations, Elara CLI provides progress feedback:
 
 ==== Verbosity Levels
 
-Elara CLI supports different verbosity levels:
+Boundary CLI supports different verbosity levels:
 
 **Normal Mode (default)**
 
@@ -4891,15 +4891,15 @@ Elara CLI supports different verbosity levels:
 
 All commands include built-in help:
 
-**General Help**: `elara --help`
+**General Help**: `boundary --help`
 
 - Lists all available resources and global options
 
-**Resource Help**: `elara users --help`
+**Resource Help**: `boundary users --help`
 
 - Lists all available actions for a specific resource
 
-**Command Help**: `elara users create --help`
+**Command Help**: `boundary users create --help`
 
 - Shows detailed usage, options, and examples for a specific command
 
@@ -4964,7 +4964,7 @@ _[TODO: Complete with measurable success criteria]_
 
 === Framework Evolution Strategy
 
-Elara's development follows a strategic path from application framework to comprehensive development platform:
+Boundary's development follows a strategic path from application framework to comprehensive development platform:
 
 **Phase 0: Module-Centric Foundation** (Current - Q4 2025)
 
@@ -4992,7 +4992,7 @@ Elara's development follows a strategic path from application framework to compr
 
 **Phase 3: Framework Library Extraction** (Q3 2026)
 
-* **Core Infrastructure Library** (`elara-core`)
+* **Core Infrastructure Library** (`boundary-core`)
   - Extractable shared components
   - Standardized port/adapter patterns
   - Validation and error handling utilities
@@ -5004,11 +5004,11 @@ Elara's development follows a strategic path from application framework to compr
 
 **Phase 4: Module Template System** (Q4 2026)
 
-* **Template Generator** (`elara-gen`)
+* **Template Generator** (`boundary-gen`)
   - Basic module scaffolding
   - Domain-specific templates
   - Architecture pattern enforcement
-  - Integration with `elara-core` library
+  - Integration with `boundary-core` library
 * **Template Ecosystem**
   - Financial services templates
   - Healthcare domain templates
@@ -5041,8 +5041,8 @@ Elara's development follows a strategic path from application framework to compr
 
 **Phase 2-3: Usage Metrics**
 * Library adoption rate
-* Community contributions to `elara-core`
-* Number of applications built with Elara
+* Community contributions to `boundary-core`
+* Number of applications built with Boundary
 
 **Phase 4-6: Platform Metrics**
 * Module template usage

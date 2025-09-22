@@ -26,12 +26,12 @@ This document outlines error handling strategies, observability patterns, and mo
 
 === Railway-Oriented Programming
 
-Elara uses railway-oriented programming to handle errors predictably, keeping the functional core pure while managing failures explicitly.
+Boundary uses railway-oriented programming to handle errors predictably, keeping the functional core pure while managing failures explicitly.
 
 [source,clojure]
 ----
 ;; Result type for railway-oriented programming
-(ns elara.core.shared.result)
+(ns boundary.core.shared.result)
 
 (defrecord Success [value])
 (defrecord Failure [error])
@@ -88,7 +88,7 @@ Elara uses railway-oriented programming to handle errors predictably, keeping th
 [source,clojure]
 ----
 ;; Standardized error taxonomy
-(ns elara.core.shared.errors)
+(ns boundary.core.shared.errors)
 
 ;; Domain errors (business logic violations)
 (defn validation-error [field message]
@@ -138,9 +138,9 @@ Elara uses railway-oriented programming to handle errors predictably, keeping th
 [source,clojure]
 ----
 ;; Pure error handling in functional core
-(ns elara.core.user.user
-  (:require [elara.core.shared.result :as result]
-            [elara.core.shared.errors :as errors]))
+(ns boundary.core.user.user
+  (:require [boundary.core.shared.result :as result]
+            [boundary.core.shared.errors :as errors]))
 
 (defn validate-email [email]
   (cond
@@ -181,10 +181,10 @@ Elara uses railway-oriented programming to handle errors predictably, keeping th
 [source,clojure]
 ----
 ;; Error handling in imperative shell
-(ns elara.shell.services.user-service
-  (:require [elara.core.user.user :as user-core]
-            [elara.core.shared.result :as result]
-            [elara.shell.adapters.database :as db]
+(ns boundary.shell.services.user-service
+  (:require [boundary.core.user.user :as user-core]
+            [boundary.core.shared.result :as result]
+            [boundary.shell.adapters.database :as db]
             [clojure.tools.logging :as log]))
 
 (defn create-user!
@@ -227,7 +227,7 @@ Elara uses railway-oriented programming to handle errors predictably, keeping th
 [source,clojure]
 ----
 ;; Structured logging configuration
-(ns elara.shell.utils.logging
+(ns boundary.shell.utils.logging
   (:require [clojure.tools.logging :as log]
             [cheshire.core :as json]))
 
@@ -281,7 +281,7 @@ Elara uses railway-oriented programming to handle errors predictably, keeping th
 [source,clojure]
 ----
 ;; Metrics collection
-(ns elara.shell.utils.metrics
+(ns boundary.shell.utils.metrics
   (:require [iapetos.core :as prometheus]
             [iapetos.collector.jvm :as jvm-metrics]
             [clojure.tools.logging :as log]))
@@ -336,10 +336,10 @@ Elara uses railway-oriented programming to handle errors predictably, keeping th
 [source,clojure]
 ----
 ;; HTTP error response handling
-(ns elara.shell.interfaces.http.error-handling
+(ns boundary.shell.interfaces.http.error-handling
   (:require [ring.util.response :as response]
             [cheshire.core :as json]
-            [elara.shell.utils.logging :as logging]))
+            [boundary.shell.utils.logging :as logging]))
 
 (defn error-response [status error-type message & [details]]
   (-> {:error {:type error-type
@@ -401,9 +401,9 @@ Elara uses railway-oriented programming to handle errors predictably, keeping th
 [source,clojure]
 ----
 ;; Health check implementation
-(ns elara.shell.utils.health
-  (:require [elara.shell.adapters.database :as db]
-            [elara.core.shared.result :as result]))
+(ns boundary.shell.utils.health
+  (:require [boundary.shell.adapters.database :as db]
+            [boundary.core.shared.result :as result]))
 
 (defn check-database-health [database]
   (try
@@ -461,14 +461,14 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: 'elara'
+  - job_name: 'boundary'
     static_configs:
       - targets: ['localhost:8080']
     metrics_path: '/metrics'
     scrape_interval: 5s
 
 rule_files:
-  - "elara_alerts.yml"
+  - "boundary_alerts.yml"
 
 alerting:
   alertmanagers:
@@ -481,9 +481,9 @@ alerting:
 
 [source,yaml]
 ----
-# elara_alerts.yml
+# boundary_alerts.yml
 groups:
-- name: elara_alerts
+- name: boundary_alerts
   rules:
   - alert: HighErrorRate
     expr: rate(user_operations_duration_seconds_count{status="error"}[5m]) > 0.1
@@ -509,8 +509,8 @@ groups:
     labels:
       severity: critical
     annotations:
-      summary: Elara service is down
-      description: "Elara service has been down for more than 30 seconds"
+      summary: Boundary service is down
+      description: "Boundary service has been down for more than 30 seconds"
 ----
 
 == Testing Error Handling
@@ -518,10 +518,10 @@ groups:
 [source,clojure]
 ----
 ;; Error handling tests
-(ns elara.core.user.user-test
+(ns boundary.core.user.user-test
   (:require [clojure.test :refer [deftest is testing]]
-            [elara.core.user.user :as user]
-            [elara.core.shared.result :as result]))
+            [boundary.core.user.user :as user]
+            [boundary.core.shared.result :as result]))
 
 (deftest user-validation-test
   (testing "validates email format"

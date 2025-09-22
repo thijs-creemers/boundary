@@ -4,7 +4,7 @@
 
 ### Main Sections
 
-1. **Elara PRD Improvement Summary**
+1. **Boundary PRD Improvement Summary**
    - Overview
    - Completed Improvements
      - Documentation Infrastructure ✅
@@ -63,8 +63,8 @@
 - **Operators/SREs**: Management and operational tasks via CLI
 
 ### Strategic Framework Components
-- **Library Extraction**: Core infrastructure → reusable libraries (elara-core)
-- **Template Generation**: Automated module scaffolding (elara-gen)
+- **Library Extraction**: Core infrastructure → reusable libraries (boundary-core)
+- **Template Generation**: Automated module scaffolding (boundary-gen)
 - **Domain Frameworks**: Specialized frameworks for different industries
 - **Module Marketplace**: Shareable, installable modules
 

@@ -4,7 +4,7 @@
 
 ### Primary Requirements
 - **docs/PRD-IMPROVEMENT-SUMMARY.adoc** - Recent improvements and development roadmap
-- **docs/elara.prd.adoc** - Comprehensive product requirements document  
+- **docs/boundary.prd.adoc** - Comprehensive product requirements document  
 - **docs/README.adoc** - Documentation index and build instructions
 
 ## Architecture Documentation (11 files)

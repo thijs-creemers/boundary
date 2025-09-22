@@ -1,1 +1,1 @@
-(ns elara.shell.system.wiring)
+(ns boundary.shell.system.wiring)

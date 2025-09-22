@@ -14,7 +14,7 @@ This namespace offers functions to:
 * Extract schema information for database operations
 * Map database results back to schema-compliant data structures
 
-These utilities form the foundation for the higher-level database operations in `elara.shell.sql-db`.
+These utilities form the foundation for the higher-level database operations in `boundary.shell.sql-db`.
 
 == Functions
 

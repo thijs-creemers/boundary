@@ -7,7 +7,7 @@ This template guides future updates to the `warp.md` developer guide to ensure i
 Update the developer guide when any of the following changes occur:
 
 ### 🏗️ **Structural Changes**
-- [ ] New module added to `src/elara/`
+- [ ] New module added to `src/boundary/`
 - [ ] Module structure patterns change
 - [ ] New interface types added (beyond HTTP, CLI, Web)
 - [ ] Build system changes (new aliases, different tools)
@@ -68,7 +68,7 @@ find docs -name "*.adoc" | wc -l
 
 ```zsh
 # Check internal documentation links exist
-ls -1 docs/elara.prd.adoc \
+ls -1 docs/boundary.prd.adoc \
       docs/PRD-IMPROVEMENT-SUMMARY.adoc \
       docs/architecture/overview.adoc \
       docs/architecture/components.adoc \
@@ -83,13 +83,13 @@ ls -1 docs/elara.prd.adoc \
 When making major updates, maintain this structure:
 
 ```markdown
-# Elara Framework Developer Guide
+# Boundary Framework Developer Guide
 
 ## Table of Contents
 [Standard TOC with all sections]
 
 ## 1. Project Overview
-- What Elara is (keep current)
+- What Boundary is (keep current)
 - Key characteristics (update if architecture changes)
 - User types (update if new personas emerge)
 - Goals/Non-goals (sync with PRD updates)

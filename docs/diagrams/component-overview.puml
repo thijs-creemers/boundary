@@ -1,7 +1,7 @@
 @startuml
 !define RECTANGLE class
 
-title Elara Framework - Component Overview
+title Boundary Framework - Component Overview
 
 package "Presentation Layer" {
   [REST API\n(Ring/Reitit)] as REST

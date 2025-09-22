@@ -499,7 +499,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="quoteblock abstract">
 <blockquote>
 <div class="paragraph">
-<p>This document explains the implementation of the Ports and Adapters pattern (Hexagonal Architecture) in Elara. It covers the definition of ports as Clojure protocols, the implementation of adapters as concrete I/O handlers, and the dependency injection patterns that enable testable, flexible architecture.</p>
+<p>This document explains the implementation of the Ports and Adapters pattern (Hexagonal Architecture) in Boundary. It covers the definition of ports as Clojure protocols, the implementation of adapters as concrete I/O handlers, and the dependency injection patterns that enable testable, flexible architecture.</p>
 </div>
 </blockquote>
 </div>
@@ -552,7 +552,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="sect2">
 <h3 id="_what_are_ports">3.1. What Are Ports?</h3>
 <div class="paragraph">
-<p><strong>Ports are abstract interfaces</strong> that define the capabilities needed by the functional core without specifying how those capabilities are implemented. In Elara, ports are defined as Clojure protocols.</p>
+<p><strong>Ports are abstract interfaces</strong> that define the capabilities needed by the functional core without specifying how those capabilities are implemented. In Boundary, ports are defined as Clojure protocols.</p>
 </div>
 <div class="paragraph">
 <p><strong>Key Characteristics of Ports:</strong></p>
@@ -576,7 +576,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-clojure hljs" data-lang="clojure">;; Example Port Definition
-(ns elara.ports
+(ns boundary.ports
   "Abstract interfaces (ports) for core business capabilities.")
 
 ;; User data management port
@@ -716,8 +716,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-clojure hljs" data-lang="clojure">;; PostgreSQL adapter implementation
-(ns elara.shell.db
-  (:require [elara.ports :as ports]
+(ns boundary.shell.db
+  (:require [boundary.ports :as ports]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [clojure.tools.logging :as log]))
@@ -810,8 +810,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-clojure hljs" data-lang="clojure">;; In-memory adapter for testing
-(ns elara.test.adapters
-  (:require [elara.ports :as ports]
+(ns boundary.test.adapters
+  (:require [boundary.ports :as ports]
             [clojure.tools.logging :as log]))
 
 (defrecord InMemoryUserRepository [users-atom]
@@ -860,8 +860,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-clojure hljs" data-lang="clojure">;; SMTP email adapter
-(ns elara.shell.email
-  (:require [elara.ports :as ports]
+(ns boundary.shell.email
+  (:require [boundary.ports :as ports]
             [postal.core :as postal]
             [clojure.tools.logging :as log]))
 
@@ -923,15 +923,15 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="sect2">
 <h3 id="_system_wiring_pattern">6.1. System Wiring Pattern</h3>
 <div class="paragraph">
-<p>Elara uses a simple dependency injection pattern where adapters are created and passed to core functions through the shell layer.</p>
+<p>Boundary uses a simple dependency injection pattern where adapters are created and passed to core functions through the shell layer.</p>
 </div>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-clojure hljs" data-lang="clojure">;; System configuration and wiring
-(ns elara.shell.system
-  (:require [elara.shell.db :as db]
-            [elara.shell.email :as email]
-            [elara.config :as config]))
+(ns boundary.shell.system
+  (:require [boundary.shell.db :as db]
+            [boundary.shell.email :as email]
+            [boundary.config :as config]))
 
 (defn create-system
   "Create and wire all system components based on configuration."
@@ -997,7 +997,7 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 {:database {:dbtype "postgresql"
            :host "db.prod.example.com"
            :port 5432
-           :dbname "elara_prod"
+           :dbname "boundary_prod"
            :user #env DB_USER
            :password #env DB_PASSWORD}
  :email-provider :smtp
@@ -1038,11 +1038,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-clojure hljs" data-lang="clojure">;; Contract test suite for IUserRepository port
-(ns elara.test.contracts.user-repository-test
+(ns boundary.test.contracts.user-repository-test
   (:require [clojure.test :refer [deftest testing is]]
-            [elara.ports :as ports]
-            [elara.shell.db :as db]
-            [elara.test.adapters :as test-adapters]))
+            [boundary.ports :as ports]
+            [boundary.shell.db :as db]
+            [boundary.test.adapters :as test-adapters]))
 
 (defn test-user-repository-contract
   "Test suite that validates IUserRepository contract compliance.
@@ -1105,8 +1105,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-clojure hljs" data-lang="clojure">;; Mock adapter for testing core logic
-(ns elara.test.mocks
-  (:require [elara.ports :as ports]))
+(ns boundary.test.mocks
+  (:require [boundary.ports :as ports]))
 
 (defrecord MockUserRepository [call-log]
   ports/IUserRepository
@@ -1158,8 +1158,8 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-clojure hljs" data-lang="clojure">;; Caching decorator adapter
-(ns elara.shell.adapters.caching
-  (:require [elara.ports :as ports]
+(ns boundary.shell.adapters.caching
+  (:require [boundary.ports :as ports]
             [clojure.core.cache :as cache]))
 
 (defrecord CachingUserRepository [underlying-repo cache-atom ttl-ms]

@@ -1,1 +1,1 @@
-(ns elara.shell.adapters.database.postgresql)
+(ns boundary.shell.adapters.database.postgresql)
