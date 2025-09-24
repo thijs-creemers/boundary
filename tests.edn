@@ -1,0 +1,17 @@
+#kaocha/v1
+{:tests [{:id :unit
+          :test-paths ["test"]
+          :source-paths ["src"]
+          :ns-patterns ["boundary.*-test"]
+          :randomize? true}]
+ 
+ :plugins [:kaocha.plugin/randomize
+           :kaocha.plugin/filter
+           :kaocha.plugin/profiling]
+ 
+ :kaocha.plugin.randomize/randomize? true
+ :kaocha/reporter [kaocha.report/documentation]
+ 
+ :kaocha/fail-fast? false
+ :kaocha/color? true
+ :kaocha/watch? false}

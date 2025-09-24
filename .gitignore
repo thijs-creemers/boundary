@@ -6,3 +6,4 @@
 .env
 ._*
 /docs/**/*.html
+/.nrepl-port

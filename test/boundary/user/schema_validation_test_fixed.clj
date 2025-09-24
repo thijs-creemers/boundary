@@ -1,0 +1,39 @@
+(ns boundary.user.schema-validation-test-fixed
+  (:require
+    [clojure.test :refer :all]
+    [boundary.user.schema :as schema]
+    [malli.core :as m]
+    [clj-time.core :as time]
+    [clj-time.coerce :as time-coerce]))
+
+(def valid-user
+  {:id (java.util.UUID/randomUUID)
+   :email "test@example.com"
+   :name "Test User"
+   :role :user
+   :active true
+   :tenant-id (java.util.UUID/randomUUID)
+   :created-at (time-coerce/to-string (time/now))})
+
+(deftest validate-user-test
+  (testing "validates complete valid user"
+    (is (true? (schema/validate-user valid-user))))
+  
+  (testing "fails on missing required field"
+    (is (false? (schema/validate-user (dissoc valid-user :email)))))
+  
+  (testing "fails on type mismatch"
+    (is (false? (schema/validate-user (assoc valid-user :active "true")))))
+  
+  (testing "passes with optional fields absent"
+    (is (true? (schema/validate-user (dissoc valid-user :login-count)))))
+  
+  (testing "passes with optional fields present"
+    (is (true? (schema/validate-user (assoc valid-user 
+                                           :login-count 5
+                                           :last-login (time-coerce/to-string (time/now))
+                                           :date-format :us
+                                           :time-format :12h
+                                           :avatar-url "https://example.com/avatar.jpg"
+                                           :updated-at (time-coerce/to-string (time/now))
+                                           :deleted-at nil))))))

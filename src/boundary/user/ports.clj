@@ -14,8 +14,8 @@
    Each port is implemented by adapters in the shell layer, enabling dependency
    inversion and supporting multiple implementations (PostgreSQL, H2, in-memory, etc.)."
   (:require [boundary.user.schema :as schema]
-            [malli.core :as m]
-            [malli.transform :as mt]))
+            [malli.core :as m])
+  (:import (java.util UUID)))
 
 ;; =============================================================================
 ;; Data Persistence Ports
@@ -118,7 +118,7 @@
     "Mark user as deleted without physical removal.
      
      Args:
-       user-id: UUID of user to soft delete
+       user-id: UUID of user to soft-delete
      
      Returns:
        Boolean indicating success
@@ -684,8 +684,8 @@
     "Get current timestamp as Instant.
      
      Returns:
-       java.time.Instant representing current moment
-       Should be used instead of (time/instant) for business operations
+       org.joda.time.DateTime representing current moment
+       Should be used instead of (time/now) for business operations
        Enables time mocking in tests
      
      Example:
@@ -698,7 +698,7 @@
        timezone: String timezone ID (e.g., \"America/New_York\", \"UTC\")
      
      Returns:
-       java.time.LocalDate for the current date in timezone
+       org.joda.time.LocalDate for the current date in timezone
        Useful for date-based business rules
      
      Example:
@@ -708,7 +708,7 @@
     "Format timestamp for display in user's timezone.
      
      Args:
-       instant: java.time.Instant to format
+       instant: org.joda.time.DateTime to format
        format-string: String format pattern (e.g., \"yyyy-MM-dd HH:mm:ss\")
        timezone: String timezone ID for display
      
@@ -729,7 +729,7 @@
        timezone: String timezone ID for parsing context
      
      Returns:
-       java.time.Instant parsed from string
+       org.joda.time.DateTime parsed from string
        Throws exception if parsing fails
      
      Example:
@@ -740,11 +740,11 @@
     "Add duration to instant.
      
      Args:
-       instant: java.time.Instant base time
-       duration: java.time.Duration to add (can be negative for subtraction)
+       instant: org.joda.time.DateTime base time
+       duration: org.joda.time.Duration to add (can be negative for subtraction)
      
      Returns:
-       java.time.Instant result of addition
+       org.joda.time.DateTime result of addition
        Useful for session expiration, scheduling, etc.
      
      Example:
@@ -754,13 +754,13 @@
     "Check if instant falls within business hours.
      
      Args:
-       instant: java.time.Instant to check
+       instant: org.joda.time.DateTime to check
        timezone: String timezone ID for business hours evaluation
      
      Returns:
-       Boolean indicating if time is during business hours
-       Business hours typically 9 AM - 5 PM, Monday-Friday
-       Should be configurable per tenant/organization
+       Boolean indicating if time is during business hours.
+       Business hours typically 9 AM - 5 PM, Monday-Friday.
+       Should be configurable per tenant/organization.
      
      Example:
        (is-business-hours? service (current-instant service) \"America/New_York\")"))
@@ -769,7 +769,7 @@
 ;; Utility Functions for Port Usage
 ;; =============================================================================
 
-#_(defn validate-user-input
+(defn validate-user-input
   "Validate user input using schema before passing to ports.
    
    Args:
@@ -782,11 +782,11 @@
    
    Example:
      (validate-user-input schema/CreateUserRequest request-data)"
-   [sch data]
-   (let [transformed-data (m/transform sch data schema/user-request-transformer)]
-     (if (m/validate sch transformed-data)
-       {:valid? true :data transformed-data}
-       {:valid? false :errors (m/explain sch transformed-data)})))
+  [sch data]
+  (let [transformed-data (m/decode sch data schema/user-request-transformer)]
+    (if (m/validate sch transformed-data)
+      {:valid? true :data transformed-data}
+      {:valid? false :errors (m/explain sch transformed-data)})))
 
 (defn ensure-tenant-isolation
   "Ensure tenant ID is present and valid for data isolation.
@@ -806,7 +806,7 @@
   (when (nil? tenant-id)
     (throw (ex-info "Tenant ID is required for data isolation"
                     {:type :missing-tenant-id})))
-  (when-not (instance? java.util.UUID tenant-id)
+  (when-not (instance? UUID tenant-id)
     (throw (ex-info "Invalid tenant ID format"
                     {:type :invalid-tenant-id :tenant-id tenant-id})))
   tenant-id)
@@ -820,7 +820,7 @@
    Example:
      (create-correlation-id)"
   []
-  (.toString (java.util.UUID/randomUUID)))
+  (.toString (UUID/randomUUID)))
 
 (defn enrich-user-context
   "Add system context to user data for port operations.

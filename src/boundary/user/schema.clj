@@ -1,8 +1,11 @@
 (ns boundary.user.schema
   (:require
-   [malli.core :as m]
-   [malli.util :as mu]
-   [malli.transform :as mt]))
+    [clj-time.core :as time]
+    [clj-time.coerce :as time-coerce]
+    [malli.core :as m]
+    [malli.util :as mu]
+    [malli.transform :as mt])
+  (:import (java.util UUID)))
 
 ;; =============================================================================
 ;; Domain Entity Schemas
@@ -210,7 +213,7 @@
    mt/string-transformer
    {:name :user-request
     :transformers
-    {:map {:compile (fn [schema _options]
+    {:map {:compile (fn [_schema _options]
                       (fn [value]
                        ;; Transform camelCase API keys to kebab-case internal keys
                         (cond-> value
@@ -247,22 +250,18 @@
   (mt/transformer
    {:name :user-response
     :transformers
-    {:map {:compile (fn [schema _options]
+    {:map {:compile (fn [_schema _options]
                       (fn [value]
                        ;; Transform kebab-case internal keys to camelCase API keys
                         (cond-> value
                           (:id value) (assoc :id (str (:id value)))
                           (:tenant-id value) (-> (assoc :tenantId (str (:tenant-id value)))
                                                  (dissoc :tenant-id))
-                          (:created-at value) (-> (assoc :createdAt (.toString (:created-at value)))
+                          (:created-at value) (-> (assoc :createdAt (:created-at value))
                                                   (dissoc :created-at))
-                          (:updated-at value) (-> (assoc :updatedAt
-                                                         (when (:updated-at value)
-                                                           (.toString (:updated-at value))))
+                          (:updated-at value) (-> (assoc :updatedAt (:updated-at value))
                                                   (dissoc :updated-at))
-                          (:last-login value) (-> (assoc :lastLogin
-                                                         (when (:last-login value)
-                                                           (.toString (:last-login value))))
+                          (:last-login value) (-> (assoc :lastLogin (:last-login value))
                                                   (dissoc :last-login))
                           (:login-count value) (-> (assoc :loginCount (:login-count value))
                                                    (dissoc :login-count))
@@ -271,7 +270,8 @@
                           (:date-format value) (-> (assoc :dateFormat (name (:date-format value)))
                                                    (dissoc :date-format))
                           (:time-format value) (-> (assoc :timeFormat (name (:time-format value)))
-                                                   (dissoc :time-format)))))}
+                                                   (dissoc :time-format))
+                          (:role value) (assoc :role (name (:role value))))))}
      :uuid {:compile (fn [_schema _options] str)}
      :inst {:compile (fn [_schema _options] #(.toString %))}
      :enum {:compile (fn [_schema _options] name)}}}))
@@ -317,7 +317,7 @@
                          (cond
                            (uuid? value) value
                            (string? value) (try
-                                             (java.util.UUID/fromString value)
+                                             (UUID/fromString value)
                                              (catch IllegalArgumentException _
                                                value))
                            :else value)))}
@@ -342,34 +342,34 @@
   [user-data]
   (m/explain User user-data))
 
-#_(defn validate-create-user-request
+(defn validate-create-user-request
   "Validates create user request with transformation."
   [request-data]
-  (let [transformed-data (m/transform CreateUserRequest request-data user-request-transformer)]
+  (let [transformed-data (m/decode CreateUserRequest request-data user-request-transformer)]
     (if (m/validate CreateUserRequest transformed-data)
       {:valid? true :data transformed-data}
       {:valid? false :errors (m/explain CreateUserRequest transformed-data)})))
 
-#_(defn validate-update-user-request
+(defn validate-update-user-request
   "Validates update user request with transformation."
   [request-data]
-  (let [transformed-data (m/transform UpdateUserRequest request-data user-request-transformer)]
+  (let [transformed-data (m/decode UpdateUserRequest request-data user-request-transformer)]
     (if (m/validate UpdateUserRequest transformed-data)
       {:valid? true :data transformed-data}
       {:valid? false :errors (m/explain UpdateUserRequest transformed-data)})))
 
-#_(defn validate-login-request
+(defn validate-login-request
   "Validates login request with transformation."
   [request-data]
-  (let [transformed-data (m/transform LoginRequest request-data user-request-transformer)]
+  (let [transformed-data (m/decode LoginRequest request-data user-request-transformer)]
     (if (m/validate LoginRequest transformed-data)
       {:valid? true :data transformed-data}
       {:valid? false :errors (m/explain LoginRequest transformed-data)})))
 
-#_(defn validate-cli-args
+(defn validate-cli-args
   "Validates CLI arguments with appropriate transformations."
   [schema args]
-  (let [transformed-args (m/transform schema args cli-transformer)]
+  (let [transformed-args (m/decode schema args cli-transformer)]
     (if (m/validate schema transformed-args)
       {:valid? true :data transformed-args}
       {:valid? false :errors (m/explain schema transformed-args)})))
@@ -381,12 +381,34 @@
 (defn user-entity->response
   "Transforms a user entity into an API response."
   [user-data]
-  (m/encode UserResponse user-data user-response-transformer))
+  ;; Manual transformation with field renaming
+  (let [transformed (cond-> {}
+                      (:id user-data) (assoc :id (str (:id user-data)))
+                      (:email user-data) (assoc :email (:email user-data))
+                      (:name user-data) (assoc :name (:name user-data))
+                      (:role user-data) (assoc :role (name (:role user-data)))
+                      (:active user-data) (assoc :active (:active user-data))
+                      (:login-count user-data) (assoc :loginCount (:login-count user-data))
+                      (:last-login user-data) (assoc :lastLogin (:last-login user-data))
+                      (:tenant-id user-data) (assoc :tenantId (str (:tenant-id user-data)))
+                      (:avatar-url user-data) (assoc :avatarUrl (:avatar-url user-data))
+                      (:created-at user-data) (assoc :createdAt (:created-at user-data))
+                      (:updated-at user-data) (assoc :updatedAt (:updated-at user-data)))]
+    transformed))
 
 (defn user-profile-entity->response
   "Transforms a user profile entity into an API response."
   [user-profile-data]
-  (m/encode UserProfileResponse user-profile-data user-response-transformer))
+  ;; First transform the base user fields, then add preference fields
+  (let [base-transformed (user-entity->response user-profile-data)
+        preferences-transformed (cond-> base-transformed
+                                 (:notifications user-profile-data) (assoc :notifications (:notifications user-profile-data))
+                                 (:theme user-profile-data) (assoc :theme (name (:theme user-profile-data)))
+                                 (:language user-profile-data) (assoc :language (:language user-profile-data))
+                                 (:timezone user-profile-data) (assoc :timezone (:timezone user-profile-data))
+                                 (:date-format user-profile-data) (assoc :dateFormat (name (:date-format user-profile-data)))
+                                 (:time-format user-profile-data) (assoc :timeFormat (name (:time-format user-profile-data))))]
+    preferences-transformed))
 
 (defn users->paginated-response
   "Converts paginated user data to API response format."
@@ -397,7 +419,6 @@
 ;; =============================================================================
 ;; Schema Utilities
 ;; =============================================================================
-
 (defn get-user-fields
   "Returns the field names for the User schema."
   []
@@ -482,13 +503,13 @@
    (generate-user {}))
   ([overrides]
    (merge
-    {:id (java.util.UUID/randomUUID)
+    {:id (UUID/randomUUID)
      :email (str "user" (rand-int 10000) "@example.com")
      :name (str "Test User " (rand-int 1000))
      :role (rand-nth [:admin :user :viewer])
      :active true
-     :tenant-id (java.util.UUID/randomUUID)
-     :created-at (java.time.Instant/now)
+     :tenant-id (UUID/randomUUID)
+     :created-at (time-coerce/to-string (time/now))
      :updated-at nil
      :deleted-at nil}
     overrides)))
@@ -519,6 +540,7 @@
      :name (str "New User " (rand-int 1000))
      :role (rand-nth [:admin :user :viewer])
      :active true
+     :tenant-id (UUID/randomUUID)
      :send-welcome true}
     overrides)))
 

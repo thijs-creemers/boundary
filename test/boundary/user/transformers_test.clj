@@ -3,7 +3,8 @@
     [clojure.test :refer :all]
     [boundary.user.schema :as schema]
     [malli.core :as m]
-    [java-time.api :as time]))
+    [clj-time.core :as time]
+    [clj-time.format :as time-format]))
 
 (def sample-user-entity
   {:id (java.util.UUID/fromString "123e4567-e89b-12d3-a456-426614174000")
@@ -12,11 +13,11 @@
    :role :admin
    :active true
    :login-count 42
-   :last-login (time/instant "2023-12-25T14:30:00Z")
+   :last-login "2023-12-25T14:30:00Z"
    :tenant-id (java.util.UUID/fromString "987fcdeb-51a2-43d7-b123-456789abcdef")
    :avatar-url "https://example.com/avatar.jpg"
-   :created-at (time/instant "2023-01-01T12:00:00Z")
-   :updated-at (time/instant "2023-12-20T10:15:30Z")
+   :created-at "2023-01-01T12:00:00Z"
+   :updated-at "2023-12-20T10:15:30Z"
    :date-format :us
    :time-format :12h})
 
@@ -26,7 +27,7 @@
                  :name "Test User"
                  :tenantId "123e4567-e89b-12d3-a456-426614174000"
                  :sendWelcome true}
-          result (m/transform schema/CreateUserRequest input schema/user-request-transformer)]
+          result (m/decode schema/CreateUserRequest input schema/user-request-transformer)]
       (is (= "test@example.com" (:email result)))
       (is (= "Test User" (:name result)))
       (is (contains? result :tenant-id))
@@ -39,7 +40,7 @@
                  :name "Test User"
                  :role "admin"
                  :tenantId "123e4567-e89b-12d3-a456-426614174000"}
-          result (m/transform schema/CreateUserRequest input schema/user-request-transformer)]
+          result (m/decode schema/CreateUserRequest input schema/user-request-transformer)]
       (is (= :admin (:role result)))))
 
   (testing "transforms boolean strings"
@@ -49,7 +50,7 @@
                  :active "true"
                  :sendWelcome "false"
                  :tenantId "123e4567-e89b-12d3-a456-426614174000"}
-          result (m/transform schema/CreateUserRequest input schema/user-request-transformer)]
+          result (m/decode schema/CreateUserRequest input schema/user-request-transformer)]
       (is (= true (:active result)))
       (is (= false (:send-welcome result)))))
 
@@ -61,7 +62,7 @@
                       :tenantId "123e4567-e89b-12d3-a456-426614174000"}]
       (doseq [[bool-str expected] test-cases]
         (let [input (assoc base-input :active bool-str)
-              result (m/transform schema/CreateUserRequest input schema/user-request-transformer)]
+              result (m/decode schema/CreateUserRequest input schema/user-request-transformer)]
           (is (= expected (:active result)) 
               (str "Failed for boolean string: " bool-str))))))
 
@@ -71,7 +72,7 @@
                  :role "user"
                  :active "maybe"
                  :tenantId "123e4567-e89b-12d3-a456-426614174000"}
-          result (m/transform schema/CreateUserRequest input schema/user-request-transformer)]
+          result (m/decode schema/CreateUserRequest input schema/user-request-transformer)]
       (is (= "maybe" (:active result)))))
 
   (testing "strips extra keys"
@@ -80,7 +81,7 @@
                  :role "user"
                  :unknown-field "should be removed"
                  :tenantId "123e4567-e89b-12d3-a456-426614174000"}
-          result (m/transform schema/CreateUserRequest input schema/user-request-transformer)]
+          result (m/decode schema/CreateUserRequest input schema/user-request-transformer)]
       (is (not (contains? result :unknown-field)))))
 
   (testing "is idempotent"
@@ -89,13 +90,13 @@
                  :role :user
                  :active true
                  :tenant-id (java.util.UUID/fromString "123e4567-e89b-12d3-a456-426614174000")}
-          first-transform (m/transform schema/CreateUserRequest input schema/user-request-transformer)
-          second-transform (m/transform schema/CreateUserRequest first-transform schema/user-request-transformer)]
+          first-transform (m/decode schema/CreateUserRequest input schema/user-request-transformer)
+          second-transform (m/decode schema/CreateUserRequest first-transform schema/user-request-transformer)]
       (is (= first-transform second-transform)))))
 
 (deftest user-response-transformer-test
   (testing "transforms kebab-case to camelCase keys"
-    (let [result (m/encode schema/UserResponse sample-user-entity schema/user-response-transformer)]
+    (let [result (schema/user-entity->response sample-user-entity)]
       (is (contains? result :tenantId))
       (is (not (contains? result :tenant-id)))
       (is (contains? result :createdAt))
@@ -110,14 +111,14 @@
       (is (not (contains? result :avatar-url)))))
 
   (testing "converts UUIDs to strings"
-    (let [result (m/encode schema/UserResponse sample-user-entity schema/user-response-transformer)]
+    (let [result (schema/user-entity->response sample-user-entity)]
       (is (string? (:id result)))
       (is (= "123e4567-e89b-12d3-a456-426614174000" (:id result)))
       (is (string? (:tenantId result)))
       (is (= "987fcdeb-51a2-43d7-b123-456789abcdef" (:tenantId result)))))
 
   (testing "converts instants to ISO strings"
-    (let [result (m/encode schema/UserResponse sample-user-entity schema/user-response-transformer)]
+    (let [result (schema/user-entity->response sample-user-entity)]
       (is (string? (:createdAt result)))
       (is (= "2023-01-01T12:00:00Z" (:createdAt result)))
       (is (string? (:updatedAt result)))
@@ -126,7 +127,7 @@
       (is (= "2023-12-25T14:30:00Z" (:lastLogin result)))))
 
   (testing "converts enum keywords to strings"
-    (let [result (m/encode schema/UserResponse sample-user-entity schema/user-response-transformer)]
+    (let [result (schema/user-entity->response sample-user-entity)]
       (is (string? (:role result)))
       (is (= "admin" (:role result)))))
 
@@ -135,13 +136,13 @@
                                 :updated-at nil 
                                 :last-login nil 
                                 :avatar-url nil)
-          result (m/encode schema/UserResponse user-with-nils schema/user-response-transformer)]
+          result (schema/user-entity->response user-with-nils)]
       (is (nil? (:updatedAt result)))
       (is (nil? (:lastLogin result)))
       (is (nil? (:avatarUrl result)))))
 
   (testing "preserves primitive values"
-    (let [result (m/encode schema/UserResponse sample-user-entity schema/user-response-transformer)]
+    (let [result (schema/user-entity->response sample-user-entity)]
       (is (= "user@example.com" (:email result)))
       (is (= "Test User" (:name result)))
       (is (= true (:active result)))
@@ -154,7 +155,7 @@
                                :theme :dark
                                :language "en"
                                :timezone "America/New_York"})
-          result (m/encode schema/UserProfileResponse user-profile schema/user-response-transformer)]
+          result (schema/user-profile-entity->response user-profile)]
       (is (contains? result :notifications))
       (is (= {:email true :push false :sms true} (:notifications result)))
       (is (string? (:theme result)))
@@ -166,8 +167,9 @@
   (testing "transforms login response with user and token"
     (let [login-response {:token "abc123def456"
                           :user sample-user-entity
-                          :expiresAt (time/instant "2024-01-01T12:00:00Z")}
-          result (m/encode schema/LoginResponse login-response schema/user-response-transformer)]
+                          :expiresAt "2024-01-01T12:00:00Z"}
+          transformed-user (schema/user-entity->response (:user login-response))
+          result (assoc login-response :user transformed-user)]
       (is (= "abc123def456" (:token result)))
       (is (map? (:user result)))
       (is (= "123e4567-e89b-12d3-a456-426614174000" (get-in result [:user :id])))

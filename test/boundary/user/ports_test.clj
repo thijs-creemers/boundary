@@ -1,17 +1,41 @@
 (ns boundary.user.ports-test
   (:require
-    [clojure.test :refer :all]
+    [clojure.test :refer [deftest is testing]]
     [boundary.user.ports :as ports]
     [boundary.user.schema :as schema]
-    [java-time.api :as time]
-    [malli.core :as m]))
+    [clj-time.core :as time])
+  (:import (java.util UUID)))
+
+;; =============================================================================
+;; Test Utilities
+;; =============================================================================
+
+(defn thrown-with-msg?
+  "Tests that a particular exception type is thrown with a message matching a pattern.
+
+   Args:
+     exception-class: Class of exception to expect
+     msg-pattern: Regex pattern or string to match against exception message
+     form: Form to evaluate that should throw the exception
+
+   Returns:
+     Boolean indicating if the expected exception with matching message was thrown"
+  [exception-class msg-pattern form]
+  (try
+    (eval form)
+    false
+    (catch Exception e
+      (and (instance? exception-class e)
+           (if (instance? java.util.regex.Pattern msg-pattern)
+             (re-find msg-pattern (.getMessage e))
+             (.contains (.getMessage e) (str msg-pattern)))))))
 
 ;; =============================================================================
 ;; Test Data Fixtures
 ;; =============================================================================
 
-(def test-tenant-id (java.util.UUID/fromString "123e4567-e89b-12d3-a456-426614174000"))
-(def test-user-id (java.util.UUID/fromString "987fcdeb-51a2-43d7-b123-456789abcdef"))
+(def test-tenant-id (UUID/fromString "123e4567-e89b-12d3-a456-426614174000"))
+(def test-user-id (UUID/fromString "987fcdeb-51a2-43d7-b123-456789abcdef"))
 (def test-session-token "abc123def456ghi789")
 
 (def sample-user
@@ -21,15 +45,15 @@
    :role :user
    :active true
    :tenant-id test-tenant-id
-   :created-at (time/instant)})
+   :created-at (time/now)})
 
 (def sample-session
-  {:id (java.util.UUID/randomUUID)
+  {:id (UUID/randomUUID)
    :user-id test-user-id
    :tenant-id test-tenant-id
    :session-token test-session-token
-   :expires-at (time/plus (time/instant) (time/hours 24))
-   :created-at (time/instant)})
+   :expires-at (time/plus (time/now) (time/hours 24))
+   :created-at (time/now)})
 
 ;; =============================================================================
 ;; Mock Port Implementations for Testing
@@ -68,20 +92,20 @@
   
   (create-user [_ user-entity]
     (let [new-user (assoc user-entity
-                         :id (java.util.UUID/randomUUID)
-                         :created-at (time/instant)
-                         :updated-at (time/instant))]
+                         :id (UUID/randomUUID)
+                         :created-at (time/now)
+                         :updated-at (time/now))]
       (swap! users assoc (:id new-user) new-user)
       new-user))
   
   (update-user [_ user-entity]
-    (let [updated-user (assoc user-entity :updated-at (time/instant))]
+    (let [updated-user (assoc user-entity :updated-at (time/now))]
       (swap! users assoc (:id updated-user) updated-user)
       updated-user))
   
   (soft-delete-user [_ user-id]
     (when-let [user (get @users user-id)]
-      (swap! users assoc user-id (assoc user :deleted-at (time/instant)))
+      (swap! users assoc user-id (assoc user :deleted-at (time/now)))
       true))
   
   (hard-delete-user [_ user-id]
@@ -130,17 +154,17 @@
   
   (create-session [_ session-entity]
     (let [new-session (assoc session-entity
-                            :id (java.util.UUID/randomUUID)
+                            :id (UUID/randomUUID)
                             :session-token (or (:session-token session-entity)
-                                             (.toString (java.util.UUID/randomUUID)))
-                            :created-at (time/instant))]
+                                               (.toString (UUID/randomUUID)))
+                            :created-at (time/now))]
       (swap! sessions assoc (:session-token new-session) new-session)
       new-session))
   
   (find-session-by-token [_ session-token]
     (when-let [session (get @sessions session-token)]
-      (when (time/after? (:expires-at session) (time/instant))
-        (let [updated-session (assoc session :last-accessed-at (time/instant))]
+      (when (time/after? (:expires-at session) (time/now))
+        (let [updated-session (assoc session :last-accessed-at (time/now))]
           (swap! sessions assoc session-token updated-session)
           updated-session))))
   
@@ -148,13 +172,13 @@
     (->> @sessions
          vals
          (filter #(and (= (:user-id %) user-id)
-                      (time/after? (:expires-at %) (time/instant))
+                      (time/after? (:expires-at %) (time/now))
                       (nil? (:revoked-at %))))
          vec))
   
   (invalidate-session [_ session-token]
     (when (get @sessions session-token)
-      (swap! sessions update session-token assoc :revoked-at (time/instant))
+      (swap! sessions update session-token assoc :revoked-at (time/now))
       true))
   
   (invalidate-all-user-sessions [_ user-id]
@@ -162,7 +186,7 @@
                             vals
                             (filter #(= (:user-id %) user-id)))]
       (doseq [session user-sessions]
-        (swap! sessions update (:session-token session) assoc :revoked-at (time/instant)))
+        (swap! sessions update (:session-token session) assoc :revoked-at (time/now)))
       (count user-sessions)))
   
   (cleanup-expired-sessions [_ before-timestamp]
@@ -205,7 +229,7 @@
         (is (= created-user found-user)))
       
       (testing "returns nil for different tenant"
-        (let [different-tenant-id (java.util.UUID/randomUUID)]
+        (let [different-tenant-id (UUID/randomUUID)]
           (is (nil? (ports/find-user-by-email repo "test@example.com" different-tenant-id))))))
     
     (testing "update-user updates timestamp"
@@ -226,8 +250,8 @@
         (is (nil? (get @users (:id created-user))))))
     
     (testing "find-users-by-tenant with pagination"
-      (let [user1 (ports/create-user repo (assoc sample-user :email "user1@example.com"))
-            user2 (ports/create-user repo (assoc sample-user :email "user2@example.com" :role :admin))
+      (let [_user1 (ports/create-user repo (assoc sample-user :email "user1@example.com"))
+            _user2 (ports/create-user repo (assoc sample-user :email "user2@example.com" :role :admin))
             result (ports/find-users-by-tenant repo test-tenant-id {:limit 10 :offset 0})]
         (is (= 2 (count (:users result))))
         (is (= 2 (:total-count result)))
@@ -238,26 +262,26 @@
             (is (= :admin (-> admin-result :users first :role)))))))
     
     (testing "find-active-users-by-role"
-      (let [admin-user (ports/create-user repo (assoc sample-user :email "admin@example.com" :role :admin))
-            regular-user (ports/create-user repo (assoc sample-user :email "user@example.com" :role :user))
+      (let [_admin-user (ports/create-user repo (assoc sample-user :email "admin@example.com" :role :admin))
+            _regular-user (ports/create-user repo (assoc sample-user :email "user@example.com" :role :user))
             admin-users (ports/find-active-users-by-role repo test-tenant-id :admin)]
         (is (= 1 (count admin-users)))
         (is (= :admin (-> admin-users first :role)))))
     
     (testing "count-users-by-tenant"
-      (let [user1 (ports/create-user repo (assoc sample-user :email "count1@example.com"))
-            user2 (ports/create-user repo (assoc sample-user :email "count2@example.com"))
+      (let [_user1 (ports/create-user repo (assoc sample-user :email "count1@example.com"))
+            _user2 (ports/create-user repo (assoc sample-user :email "count2@example.com"))
             count (ports/count-users-by-tenant repo test-tenant-id)]
         (is (>= count 2))))
     
     (testing "find-users-created-since"
-      (let [yesterday (time/minus (time/instant) (time/days 1))
-            user (ports/create-user repo (assoc sample-user :email "recent@example.com"))
+      (let [yesterday (time/minus (time/now) (time/days 1))
+            _user (ports/create-user repo (assoc sample-user :email "recent@example.com"))
             recent-users (ports/find-users-created-since repo test-tenant-id yesterday)]
         (is (some #(= (:email %) "recent@example.com") recent-users))))
     
     (testing "find-users-by-email-domain"
-      (let [company-user (ports/create-user repo (assoc sample-user :email "employee@company.com"))
+      (let [_company-user (ports/create-user repo (assoc sample-user :email "employee@company.com"))
             domain-users (ports/find-users-by-email-domain repo test-tenant-id "company.com")]
         (is (some #(= (:email %) "employee@company.com") domain-users))))))
 
@@ -268,7 +292,7 @@
     (testing "create-session generates ID and token"
       (let [session-input {:user-id test-user-id
                           :tenant-id test-tenant-id
-                          :expires-at (time/plus (time/instant) (time/hours 24))}
+                          :expires-at (time/plus (time/now) (time/hours 24))}
             created-session (ports/create-session session-repo session-input)]
         (is (uuid? (:id created-session)))
         (is (string? (:session-token created-session)))
@@ -282,13 +306,13 @@
         (is (inst? (:last-accessed-at found-session)))))
     
     (testing "find-session-by-token returns nil for expired session"
-      (let [expired-session (assoc sample-session :expires-at (time/minus (time/instant) (time/hours 1)))
+      (let [expired-session (assoc sample-session :expires-at (time/minus (time/now) (time/hours 1)))
             created-session (ports/create-session session-repo expired-session)]
         (is (nil? (ports/find-session-by-token session-repo (:session-token created-session))))))
     
     (testing "find-sessions-by-user returns active sessions"
-      (let [session1 (ports/create-session session-repo sample-session)
-            session2 (ports/create-session session-repo (assoc sample-session :session-token "different-token"))
+      (let [_session1 (ports/create-session session-repo sample-session)
+            _session2 (ports/create-session session-repo (assoc sample-session :session-token "different-token"))
             user-sessions (ports/find-sessions-by-user session-repo test-user-id)]
         (is (= 2 (count user-sessions)))
         (is (every? #(= (:user-id %) test-user-id) user-sessions))))
@@ -300,16 +324,16 @@
           (is (inst? (:revoked-at revoked-session))))))
     
     (testing "invalidate-all-user-sessions revokes all user sessions"
-      (let [session1 (ports/create-session session-repo sample-session)
-            session2 (ports/create-session session-repo (assoc sample-session :session-token "another-token"))
+      (let [_session1 (ports/create-session session-repo sample-session)
+            _session2 (ports/create-session session-repo (assoc sample-session :session-token "another-token"))
             revoked-count (ports/invalidate-all-user-sessions session-repo test-user-id)]
         (is (= 2 revoked-count))
         (is (every? #(inst? (:revoked-at %)) (vals @sessions)))))
     
     (testing "cleanup-expired-sessions removes old sessions"
-      (let [old-session (assoc sample-session :expires-at (time/minus (time/instant) (time/days 2)))
+      (let [old-session (assoc sample-session :expires-at (time/minus (time/now) (time/days 2)))
             _ (ports/create-session session-repo old-session)
-            cleanup-cutoff (time/minus (time/instant) (time/days 1))
+            cleanup-cutoff (time/minus (time/now) (time/days 1))
             cleaned-count (ports/cleanup-expired-sessions session-repo cleanup-cutoff)]
         (is (>= cleaned-count 1))))))
 
@@ -348,13 +372,13 @@
   (testing "create-correlation-id generates string UUID"
     (let [correlation-id (ports/create-correlation-id)]
       (is (string? correlation-id))
-      (is (uuid? (java.util.UUID/fromString correlation-id)))))
+      (is (uuid? (UUID/fromString correlation-id)))))
   
   (testing "enrich-user-context adds context data"
     (let [user-data {:email "test@example.com" :name "Test User"}
           context {:tenant-id test-tenant-id
                   :correlation-id "test-correlation-id"
-                  :timestamp (time/instant)}
+                  :timestamp (time/now)}
           enriched (ports/enrich-user-context user-data context)]
       (is (= test-tenant-id (:tenant-id enriched)))
       (is (= "test-correlation-id" (:correlation-id enriched)))
@@ -408,3 +432,4 @@
     (is (string? (:doc (meta #'ports/create-session))))
     (is (contains? (meta #'ports/find-user-by-id) :arglists))
     (is (contains? (meta #'ports/create-session) :arglists))))
+

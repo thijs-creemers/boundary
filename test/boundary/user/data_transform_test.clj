@@ -2,7 +2,9 @@
   (:require
     [clojure.test :refer :all]
     [boundary.user.schema :as schema]
-    [java-time.api :as time]))
+    [clj-time.core :as time]
+    [clj-time.format :as time-format]
+    [malli.core :as m]))
 
 (def sample-user-entity
   {:id (java.util.UUID/fromString "123e4567-e89b-12d3-a456-426614174000")
@@ -11,11 +13,11 @@
    :role :admin
    :active true
    :login-count 42
-   :last-login (time/instant "2023-12-25T14:30:00Z")
+   :last-login (time-format/parse "2023-12-25T14:30:00Z")
    :tenant-id (java.util.UUID/fromString "987fcdeb-51a2-43d7-b123-456789abcdef")
    :avatar-url "https://example.com/avatar.jpg"
-   :created-at (time/instant "2023-01-01T12:00:00Z")
-   :updated-at (time/instant "2023-12-20T10:15:30Z")
+   :created-at (time-format/parse "2023-01-01T12:00:00Z")
+   :updated-at (time-format/parse "2023-12-20T10:15:30Z")
    :date-format :us
    :time-format :12h})
 
@@ -82,7 +84,7 @@
                         :role :user
                         :active true
                         :tenant-id (java.util.UUID/randomUUID)
-                        :created-at (time/instant)}
+                        :created-at (time/now)}
           result (schema/user-entity->response minimal-user)]
       (is (string? (:id result)))
       (is (= "minimal@example.com" (:email result)))
@@ -167,18 +169,18 @@
 (deftest data-transformation-consistency-test
   (testing "user-entity->response produces valid UserResponse schema"
     (let [result (schema/user-entity->response sample-user-entity)]
-      (is (schema/m/validate schema/UserResponse result))))
+      (is (m/validate schema/UserResponse result))))
 
   (testing "user-profile-entity->response produces valid UserProfileResponse schema"
     (let [user-profile (merge sample-user-entity sample-user-preferences)
           result (schema/user-profile-entity->response user-profile)]
-      (is (schema/m/validate schema/UserProfileResponse result))))
+      (is (m/validate schema/UserProfileResponse result))))
 
   (testing "users->paginated-response produces valid PaginatedUsersResponse schema"
     (let [users [sample-user-entity]
           pagination-meta {:total 1 :limit 10 :offset 0 :page 1 :pages 1}
           result (schema/users->paginated-response users pagination-meta)]
-      (is (schema/m/validate schema/PaginatedUsersResponse result))))
+      (is (m/validate schema/PaginatedUsersResponse result))))
 
   (testing "transformation is deterministic"
     (let [result1 (schema/user-entity->response sample-user-entity)
