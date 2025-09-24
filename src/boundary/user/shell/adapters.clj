@@ -17,11 +17,17 @@
    - users table: Core user data with tenant isolation
    - user_sessions table: Authentication sessions with security metadata
    - Indexes optimized for common query patterns"
-  (:require [clojure.tools.logging :as log]
+  (:require [boundary.shared.utils.type-conversion :as type-conversion]
+            [clojure.tools.logging :as log]
+            [clojure.set]
+            [honey.sql :as sql]
+            [next.jdbc :as jdbc]
             [boundary.user.ports :as ports]
             [boundary.user.schema :as schema]
             [boundary.shell.adapters.database.sqlite :as sqlite]
-            [java-time :as time])
+            [clj-time.core :as t]
+            [clj-time.format :as f]
+            [next.jdbc.result-set :as rs])
   (:import [java.util UUID]))
 
 ;; =============================================================================
@@ -92,6 +98,16 @@
 ;; Data Transformation Utilities (using shared SQLite utilities)
 ;; =============================================================================
 
+;; Define ISO formatter for clj-time
+(def ^:private iso-formatter (f/formatters :date-time))
+
+;; Helper functions for clj-time <-> string
+(defn- instant->string [inst]
+  (when inst (f/unparse iso-formatter inst)))
+
+(defn- string->instant [s]
+  (when s (f/parse iso-formatter s)))
+
 ;; =============================================================================
 ;; User Entity Transformations
 ;; =============================================================================
@@ -100,15 +116,15 @@
   "Transform user entity to database format using shared SQLite utilities."
   [user-entity]
   (-> user-entity
-      (update :id sqlite/uuid->string)
-      (update :role sqlite/keyword->string)
-      (update :active sqlite/boolean->int)
-      (update :tenant-id sqlite/uuid->string)
-      (update :created-at sqlite/instant->string)
-      (update :updated-at sqlite/instant->string)
-      (update :deleted-at sqlite/instant->string)
+      (update :id type-conversion/uuid->string)
+      (update :role type-conversion/keyword->string)
+      (update :active type-conversion/boolean->int)
+      (update :tenant-id type-conversion/uuid->string)
+      (update :created-at instant->string)
+      (update :updated-at instant->string)
+      (update :deleted-at instant->string)
       ;; Convert kebab-case to snake_case for SQLite
-      sqlite/kebab-case->snake-case))
+      type-conversion/kebab-case->snake-case))
 
 (defn- db->user-entity
   "Transform database record to user entity."
@@ -120,10 +136,10 @@
                                   :created_at :created-at
                                   :updated_at :updated-at
                                   :deleted_at :deleted-at})
-        (update :id string->uuid)
-        (update :role string->keyword)
-        (update :active int->boolean)
-        (update :tenant-id string->uuid)
+        (update :id type-conversion/string->uuid)
+        (update :role type-conversion/string->keyword)
+        (update :active type-conversion/int->boolean)
+        (update :tenant-id type-conversion/string->uuid)
         (update :created-at string->instant)
         (update :updated-at string->instant)
         (update :deleted-at string->instant))))
@@ -136,9 +152,9 @@
   "Transform session entity to database format."
   [session-entity]
   (-> session-entity
-      (update :id uuid->string)
-      (update :user-id uuid->string)
-      (update :tenant-id uuid->string)
+      (update :id type-conversion/uuid->string)
+      (update :user-id type-conversion/uuid->string)
+      (update :tenant-id type-conversion/uuid->string)
       (update :expires-at instant->string)
       (update :created-at instant->string)
       (update :last-accessed-at instant->string)
@@ -169,9 +185,9 @@
                                   :ip_address :ip-address
                                   :last_accessed_at :last-accessed-at
                                   :revoked_at :revoked-at})
-        (update :id string->uuid)
-        (update :user-id string->uuid)
-        (update :tenant-id string->uuid)
+        (update :id type-conversion/string->uuid)
+        (update :user-id type-conversion/string->uuid)
+        (update :tenant-id type-conversion/string->uuid)
         (update :expires-at string->instant)
         (update :created-at string->instant)
         (update :last-accessed-at string->instant)
@@ -230,7 +246,7 @@
     (let [query {:select [:*]
                  :from [:users]
                  :where [:and
-                         [:= :id (uuid->string user-id)]
+                         [:= :id (type-conversion/uuid->string user-id)]
                          [:is :deleted_at nil]]}
           result (execute-one! datasource query)]
       (db->user-entity result)))
@@ -241,7 +257,7 @@
                  :from [:users]
                  :where [:and
                          [:= :email email]
-                         [:= :tenant_id (uuid->string tenant-id)]
+                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
                          [:is :deleted_at nil]]}
           result (execute-one! datasource query)]
       (db->user-entity result)))
@@ -255,12 +271,12 @@
           include-deleted? (get options :include-deleted? false)
 
           base-where [:and
-                      [:= :tenant_id (uuid->string tenant-id)]]
+                      [:= :tenant_id (type-conversion/uuid->string tenant-id)]]
 
           where-clause (cond-> base-where
                          (not include-deleted?) (conj [:is :deleted_at nil])
-                         (:filter-role options) (conj [:= :role (keyword->string (:filter-role options))])
-                         (:filter-active options) (conj [:= :active (boolean->int (:filter-active options))])
+                         (:filter-role options) (conj [:= :role (type-conversion/keyword->string (:filter-role options))])
+                         (:filter-active options) (conj [:= :active (type-conversion/boolean->int (:filter-active options))])
                          (:filter-email-contains options) (conj [:like :email (str "%" (:filter-email-contains options) "%")]))
 
           query {:select [:*]
@@ -282,7 +298,7 @@
 
   (create-user [_ user-entity]
     (log/info "Creating user" {:email (:email user-entity) :tenant-id (:tenant-id user-entity)})
-    (let [now (time/instant)
+    (let [now (t/now)
           user-with-metadata (-> user-entity
                                  (assoc :id (UUID/randomUUID))
                                  (assoc :created-at now)
@@ -298,7 +314,7 @@
 
   (update-user [_ user-entity]
     (log/info "Updating user" {:user-id (:id user-entity)})
-    (let [now (time/instant)
+    (let [now (t/now)
           updated-user (assoc user-entity :updated-at now)
           db-user (user-entity->db updated-user)
           query {:update :users
@@ -316,12 +332,12 @@
 
   (soft-delete-user [_ user-id]
     (log/info "Soft deleting user" {:user-id user-id})
-    (let [now (time/instant)
+    (let [now (t/now)
           query {:update :users
                  :set {:deleted_at (instant->string now)
                        :updated_at (instant->string now)}
                  :where [:and
-                         [:= :id (uuid->string user-id)]
+                         [:= :id (type-conversion/uuid->string user-id)]
                          [:is :deleted_at nil]]}
           affected-rows (execute-update! datasource query)]
 
@@ -336,7 +352,7 @@
   (hard-delete-user [_ user-id]
     (log/warn "Hard deleting user - IRREVERSIBLE" {:user-id user-id})
     (let [query {:delete-from :users
-                 :where [:= :id (uuid->string user-id)]}
+                 :where [:= :id (type-conversion/uuid->string user-id)]}
           affected-rows (execute-update! datasource query)]
 
       (if (> affected-rows 0)
@@ -353,8 +369,8 @@
     (let [query {:select [:*]
                  :from [:users]
                  :where [:and
-                         [:= :tenant_id (uuid->string tenant-id)]
-                         [:= :role (keyword->string role)]
+                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
+                         [:= :role (type-conversion/keyword->string role)]
                          [:= :active 1]
                          [:is :deleted_at nil]]
                  :order-by [[:created_at :desc]]}
@@ -366,7 +382,7 @@
     (let [query {:select [:%count.*]
                  :from [:users]
                  :where [:and
-                         [:= :tenant_id (uuid->string tenant-id)]
+                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
                          [:is :deleted_at nil]]}
           result (execute-one! datasource query)]
       (:count result)))
@@ -376,7 +392,7 @@
     (let [query {:select [:*]
                  :from [:users]
                  :where [:and
-                         [:= :tenant_id (uuid->string tenant-id)]
+                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
                          [:>= :created_at (instant->string since-date)]
                          [:is :deleted_at nil]]
                  :order-by [[:created_at :desc]]}
@@ -388,7 +404,7 @@
     (let [query {:select [:*]
                  :from [:users]
                  :where [:and
-                         [:= :tenant_id (uuid->string tenant-id)]
+                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
                          [:like :email (str "%@" email-domain)]
                          [:is :deleted_at nil]]
                  :order-by [[:created_at :desc]]}
@@ -399,7 +415,7 @@
   (create-users-batch [_ user-entities]
     (log/info "Creating users batch" {:count (count user-entities)})
     (jdbc/with-transaction [tx datasource]
-      (let [now (time/instant)
+      (let [now (t/now)
             users-with-metadata (map (fn [user]
                                        (-> user
                                            (assoc :id (UUID/randomUUID))
@@ -420,7 +436,7 @@
   (update-users-batch [_ user-entities]
     (log/info "Updating users batch" {:count (count user-entities)})
     (jdbc/with-transaction [tx datasource]
-      (let [now (time/instant)
+      (let [now (t/now)
             updated-users (map #(assoc % :updated-at now) user-entities)]
 
         (doseq [user updated-users]
@@ -454,7 +470,7 @@
 
   (create-session [_ session-entity]
     (log/info "Creating user session" {:user-id (:user-id session-entity)})
-    (let [now (time/instant)
+    (let [now (t/now)
           session-with-metadata (-> session-entity
                                     (assoc :id (UUID/randomUUID))
                                     (assoc :session-token (generate-session-token))
@@ -471,7 +487,7 @@
 
   (find-session-by-token [_ session-token]
     (log/debug "Finding session by token" {:token-prefix (subs session-token 0 8)})
-    (let [now (time/instant)
+    (let [now (t/now)
           query {:select [:*]
                  :from [:user_sessions]
                  :where [:and
@@ -479,14 +495,11 @@
                          [:> :expires_at (instant->string now)]
                          [:is :revoked_at nil]]}
           result (execute-one! datasource query)]
-
       (when result
-        ;; Update last-accessed-at timestamp
         (let [update-query {:update :user_sessions
                             :set {:last_accessed_at (instant->string now)}
                             :where [:= :session_token session-token]}]
           (execute-update! datasource update-query))
-
         (log/debug "Session found and access timestamp updated")
         (-> result
             db->session-entity
@@ -494,11 +507,11 @@
 
   (find-sessions-by-user [_ user-id]
     (log/debug "Finding sessions by user" {:user-id user-id})
-    (let [now (time/instant)
+    (let [now (t/now)
           query {:select [:*]
                  :from [:user_sessions]
                  :where [:and
-                         [:= :user_id (uuid->string user-id)]
+                         [:= :user_id (type-conversion/uuid->string user-id)]
                          [:> :expires_at (instant->string now)]
                          [:is :revoked_at nil]]
                  :order-by [[:created_at :desc]]}
@@ -507,7 +520,7 @@
 
   (invalidate-session [_ session-token]
     (log/info "Invalidating session" {:token-prefix (subs session-token 0 8)})
-    (let [now (time/instant)
+    (let [now (t/now)
           query {:update :user_sessions
                  :set {:revoked_at (instant->string now)}
                  :where [:and
@@ -525,11 +538,11 @@
 
   (invalidate-all-user-sessions [_ user-id]
     (log/warn "Invalidating all sessions for user" {:user-id user-id})
-    (let [now (time/instant)
+    (let [now (t/now)
           query {:update :user_sessions
                  :set {:revoked_at (instant->string now)}
                  :where [:and
-                         [:= :user_id (uuid->string user-id)]
+                         [:= :user_id (type-conversion/uuid->string user-id)]
                          [:is :revoked_at nil]]}
           affected-rows (execute-update! datasource query)]
 
@@ -544,59 +557,3 @@
 
       (log/info "Expired sessions cleaned up" {:count affected-rows})
       affected-rows)))
-
-;; =============================================================================
-;; Factory Functions
-;; =============================================================================
-
-(defn make-sqlite-user-repository
-  "Create SQLite implementation of IUserRepository.
-
-   Args:
-     datasource: SQLite database connection or connection pool
-
-   Returns:
-     IUserRepository implementation backed by SQLite
-
-   Example:
-     (make-sqlite-user-repository sqlite-datasource)"
-  [datasource]
-  {:pre [(some? datasource)]}
-  (log/debug "Creating SQLite user repository")
-  (->SQLiteUserRepository datasource))
-
-(defn make-sqlite-user-session-repository
-  "Create SQLite implementation of IUserSessionRepository.
-
-   Args:
-     datasource: SQLite database connection or connection pool
-
-   Returns:
-     IUserSessionRepository implementation backed by SQLite
-
-   Example:
-     (make-sqlite-user-session-repository sqlite-datasource)"
-  [datasource]
-  {:pre [(some? datasource)]}
-  (log/debug "Creating SQLite user session repository")
-  (->SQLiteUserSessionRepository datasource))
-
-(defn make-sqlite-repositories
-  "Create all SQLite repository implementations for user module.
-
-   Args:
-     datasource: SQLite database connection or connection pool
-
-   Returns:
-     Map with all user module repository implementations:
-     {:user-repository IUserRepository
-      :session-repository IUserSessionRepository}
-
-   Example:
-     (make-sqlite-repositories sqlite-datasource)"
-  [datasource]
-  {:pre [(some? datasource)]}
-  (log/info "Creating SQLite repositories for user module")
-  (initialize-database! datasource)
-  {:user-repository (make-sqlite-user-repository datasource)
-   :session-repository (make-sqlite-user-session-repository datasource)})

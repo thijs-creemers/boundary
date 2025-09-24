@@ -665,37 +665,41 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 
 **🔄 Architectural Refactoring**
 
-The user adapter implementation leverages shared SQLite utilities from `boundary.shell.adapters.database.sqlite`:
+The user adapter implementation leverages shared type conversion utilities from `boundary.shared.utils.type-conversion` and SQLite database utilities from `boundary.shell.adapters.database.sqlite`:
 
 ```clojure
-;; Before: Duplicate utility functions
+;; Before: Duplicate utility functions in each adapter
 (defn- uuid->string [uuid] ...)
 (defn- string->uuid [s] ...)
-(defn- execute-query! [datasource query-map] ...)
+(defn- boolean->int [b] ...)
+(defn- kebab-case->snake-case [m] ...)
 
-;; After: Using shared utilities
-(sqlite/uuid->string user-id)
-(sqlite/string->uuid db-field)
+;; After: Using centralized shared utilities
+(type-conversion/uuid->string user-id)
+(type-conversion/string->uuid db-field)
+(type-conversion/boolean->int active-flag)
+(type-conversion/kebab-case->snake-case user-map)
 (sqlite/execute-query! datasource query)
 ```
 
 **Key Refactoring Benefits:**
-- **Code Reuse**: Common SQLite patterns shared across modules
-- **Consistency**: Uniform behavior across all SQLite adapters
-- **Maintenance**: Single source of truth for SQLite optimizations
-- **Testing**: Shared utilities can be tested independently
+- **Code Reuse**: Generic type conversions shared across all modules
+- **Consistency**: Uniform behavior for all data transformations
+- **Maintenance**: Single source of truth for type conversion logic
+- **Testing**: Type conversions can be tested independently
+- **Separation of Concerns**: Database-specific vs generic utilities
 
 **Shared Utility Usage:**
 ```clojure
 ;; Type conversions using shared utilities
 (defn- user-entity->db [user-entity]
   (-> user-entity
-      (update :id sqlite/uuid->string)
-      (update :role sqlite/keyword->string)
-      (update :active sqlite/boolean->int)
-      sqlite/kebab-case->snake-case))
+      (update :id type-conversion/uuid->string)
+      (update :role type-conversion/keyword->string)
+      (update :active type-conversion/boolean->int)
+      type-conversion/kebab-case->snake-case))
 
-;; Query execution using shared framework
+;; Database operations using SQLite utilities  
 (sqlite/execute-query! datasource query)
 (sqlite/execute-update! datasource query)
 (sqlite/with-transaction [tx datasource] ...)

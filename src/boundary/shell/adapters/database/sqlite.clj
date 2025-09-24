@@ -7,26 +7,24 @@
 
    Key Features:
    - SQLite-optimized connection management and pooling
-   - Type conversion utilities for SQLite's limited type system
    - Query execution framework with performance monitoring
    - Transaction management with proper error handling
    - Schema initialization and migration support
    - Common query building patterns for SQLite
+   - Integration with shared type conversion utilities
 
    SQLite-Specific Optimizations:
    - Text-based UUID and timestamp storage
    - Boolean as integer (0/1) representation
    - Proper PRAGMA settings for performance
    - WAL mode support for concurrent access"
-  (:require [clojure.tools.logging :as log]
+  (:require [boundary.shared.utils.type-conversion :as tc]
+            [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
-            [next.jdbc.connection :as connection]
             [next.jdbc.result-set :as rs])
-  (:import [java.util UUID]
-           [java.time Instant]
-           [javax.sql DataSource]
-           [com.zaxxer.hikari HikariConfig HikariDataSource]))
+  (:import [com.zaxxer.hikari HikariConfig HikariDataSource]))
 
 ;; =============================================================================
 ;; SQLite Connection Management
@@ -102,182 +100,6 @@
      (log/info "SQLite PRAGMA settings initialized" {:pragmas-count (count all-pragmas)}))))
 
 ;; =============================================================================
-;; Type Conversion Utilities
-;; =============================================================================
-
-(defn uuid->string
-  "Convert UUID to string for SQLite storage.
-
-   SQLite doesn't have native UUID support, so UUIDs are stored as TEXT.
-
-   Args:
-     uuid: java.util.UUID instance or nil
-
-   Returns:
-     String representation or nil
-
-   Example:
-     (uuid->string #uuid \"123e4567-e89b-12d3-a456-426614174000\")
-     ;; => \"123e4567-e89b-12d3-a456-426614174000\""
-  [uuid]
-  (when uuid (.toString uuid)))
-
-(defn string->uuid
-  "Convert string to UUID from SQLite.
-
-   Args:
-     s: String UUID representation or nil/empty
-
-   Returns:
-     java.util.UUID instance or nil
-
-   Example:
-     (string->uuid \"123e4567-e89b-12d3-a456-426614174000\")
-     ;; => #uuid \"123e4567-e89b-12d3-a456-426614174000\""
-  [s]
-  (when (and s (not= s ""))
-    (try
-      (UUID/fromString s)
-      (catch IllegalArgumentException e
-        (log/warn "Invalid UUID string" {:uuid-string s :error (.getMessage e)})
-        nil))))
-
-(defn instant->string
-  "Convert Instant to ISO 8601 string for SQLite storage.
-
-   SQLite doesn't have native timestamp types, so we store as ISO 8601 text.
-
-   Args:
-     instant: java.time.Instant instance or nil
-
-   Returns:
-     ISO 8601 string representation or nil
-
-   Example:
-     (instant->string (Instant/now))
-     ;; => \"2023-12-25T14:30:00.123Z\""
-  [instant]
-  (when instant (.toString instant)))
-
-(defn string->instant
-  "Convert ISO 8601 string to Instant from SQLite.
-
-   Args:
-     s: ISO 8601 string or nil/empty
-
-   Returns:
-     java.time.Instant instance or nil
-
-   Example:
-     (string->instant \"2023-12-25T14:30:00.123Z\")
-     ;; => #inst \"2023-12-25T14:30:00.123Z\""
-  [s]
-  (when (and s (not= s ""))
-    (try
-      (Instant/parse s)
-      (catch Exception e
-        (log/warn "Invalid ISO 8601 timestamp string" {:timestamp-string s :error (.getMessage e)})
-        nil))))
-
-(defn keyword->string
-  "Convert keyword to string for SQLite storage.
-
-   Args:
-     kw: Keyword or nil
-
-   Returns:
-     String name or nil
-
-   Example:
-     (keyword->string :admin) ;; => \"admin\""
-  [kw]
-  (when kw (name kw)))
-
-(defn string->keyword
-  "Convert string to keyword from SQLite.
-
-   Args:
-     s: String or nil/empty
-
-   Returns:
-     Keyword or nil
-
-   Example:
-     (string->keyword \"admin\") ;; => :admin"
-  [s]
-  (when (and s (not= s "")) (keyword s)))
-
-(defn boolean->int
-  "Convert boolean to integer for SQLite storage.
-
-   SQLite doesn't have native boolean type, uses 0/1 integers.
-
-   Args:
-     b: Boolean value
-
-   Returns:
-     1 for true, 0 for false
-
-   Example:
-     (boolean->int true)  ;; => 1
-     (boolean->int false) ;; => 0"
-  [b]
-  (if b 1 0))
-
-(defn int->boolean
-  "Convert integer to boolean from SQLite.
-
-   Args:
-     i: Integer value (should be 0 or 1)
-
-   Returns:
-     Boolean value
-
-   Example:
-     (int->boolean 1) ;; => true
-     (int->boolean 0) ;; => false"
-  [i]
-  (= i 1))
-
-(defn snake-case->kebab-case
-  "Convert snake_case keys to kebab-case keys.
-
-   Args:
-     m: Map with snake_case keys
-
-   Returns:
-     Map with kebab-case keys
-
-   Example:
-     (snake-case->kebab-case {:user_id \"123\" :created_at \"2023-12-25\"})
-     ;; => {:user-id \"123\" :created-at \"2023-12-25\"}"
-  [m]
-  (when m
-    (reduce-kv (fn [acc k v]
-                 (let [new-key (-> k name (clojure.string/replace #"_" "-") keyword)]
-                   (assoc acc new-key v)))
-               {} m)))
-
-(defn kebab-case->snake-case
-  "Convert kebab-case keys to snake_case keys.
-
-   Args:
-     m: Map with kebab-case keys
-
-   Returns:
-     Map with snake_case keys
-
-   Example:
-     (kebab-case->snake-case {:user-id \"123\" :created-at \"2023-12-25\"})
-     ;; => {:user_id \"123\" :created_at \"2023-12-25\"}"
-  [m]
-  (when m
-    (reduce-kv (fn [acc k v]
-                 (let [new-key (-> k name (clojure.string/replace #"-" "_") keyword)]
-                   (assoc acc new-key v)))
-               {} m)))
-
-;; =============================================================================
 ;; Query Execution Framework
 ;; =============================================================================
 
@@ -296,7 +118,7 @@
      (execute-query! ds {:select [:*] :from [:users] :where [:= :active 1]})"
   ([datasource query-map]
    (execute-query! datasource query-map {}))
-  ([datasource query-map options]
+  ([datasource query-map _options]
    (let [sql-query (sql/format query-map {:dialect :sqlite})
          start-time (System/currentTimeMillis)]
      (log/debug "Executing SQLite query" {:sql (first sql-query) :params (rest sql-query)})
@@ -344,7 +166,7 @@
     (try
       (let [result (jdbc/execute! datasource sql-query)
             duration (- (System/currentTimeMillis) start-time)
-            affected-rows (::jdbc/update-count (first result))]
+            affected-rows (:next.jdbc/update-count (first result))]
         (log/debug "SQLite update completed" {:duration-ms duration :affected-rows affected-rows})
         affected-rows)
       (catch Exception e
@@ -437,12 +259,12 @@
      ;; => [:and [:= :name \"John\"] [:= :active 1] [:in :role [\"admin\" \"user\"]]]"
   [filters]
   (when (seq filters)
-    (let [conditions (for [[field value] filters]
-                       :when (some? value)
+    (let [conditions (for [[field value] filters
+                            :when (some? value)]
                        (cond
                          (string? value) [:like field (str "%" value "%")] ; SQLite LIKE instead of ILIKE
                          (vector? value) [:in field value]
-                         (boolean? value) [:= field (boolean->int value)]
+                         (boolean? value) [:= field (tc/boolean->int value)]
                          :else [:= field value]))]
       (when (seq conditions)
         (if (= 1 (count conditions))
@@ -505,9 +327,9 @@
   (let [table-str (name table-name)
         query {:select [:%count.*]
                :from [:sqlite_master]
-               :where [:and]
-               [:= :type "table"]
-               [:= :name table-str]}
+               :where [:and
+                       [:= :type "table"]
+                       [:= :name table-str]]}
         result (execute-one! datasource query)]
     (> (:count result 0) 0)))
 
@@ -548,8 +370,8 @@
    Example:
      (execute-ddl! ds \"CREATE TABLE users (id TEXT PRIMARY KEY)\")"
   [datasource ddl-statement]
-  (log/info "Executing SQLite DDL" {:statement (clojure.string/join " "
-                                                                    (take 5 (clojure.string/split ddl-statement #"\\s+")))})
+  (log/info "Executing SQLite DDL" {:statement (str/join " "
+                                                                    (take 5 (str/split ddl-statement #"\\s+")))})
   (try
     (let [result (jdbc/execute! datasource [ddl-statement])]
       (log/info "SQLite DDL executed successfully")
@@ -559,30 +381,8 @@
       (throw e))))
 
 ;; =============================================================================
-;; Utility Functions
+;; Database Introspection
 ;; =============================================================================
-
-(defn generate-uuid
-  "Generate a new random UUID.
-
-   Returns:
-     java.util.UUID instance
-
-   Example:
-     (generate-uuid) ;; => #uuid \"123e4567-e89b-12d3-a456-426614174000\""
-  []
-  (UUID/randomUUID))
-
-(defn current-instant
-  "Get current timestamp as Instant.
-
-   Returns:
-     java.time.Instant representing current moment
-
-   Example:
-     (current-instant) ;; => #inst \"2023-12-25T14:30:00.123Z\""
-  []
-  (Instant/now))
 
 (defn database-info
   "Get SQLite database information and statistics.
