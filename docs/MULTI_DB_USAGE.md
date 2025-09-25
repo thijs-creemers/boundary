@@ -1,0 +1,683 @@
+# Multi-Database System Usage Guide
+
+This guide demonstrates how to use the new multi-database adapter system in boundary. The system provides a unified interface for working with SQLite, PostgreSQL, MySQL, and H2 databases.
+
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Database Configuration](#database-configuration)
+- [Creating Database Contexts](#creating-database-contexts)
+- [Core Database Operations](#core-database-operations)
+- [Repository Usage](#repository-usage)
+- [Schema Management](#schema-management)
+- [Transactions](#transactions)
+- [Advanced Features](#advanced-features)
+- [Migration from Legacy System](#migration-from-legacy-system)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
+
+## Quick Start
+
+Here's a minimal example of using the multi-database system:
+
+```clojure
+(require '[boundary.shell.adapters.database.factory :as dbf]
+         '[boundary.shell.adapters.database.core :as db]
+         '[boundary.user.shell.multi-db-adapters :as user-adapters])
+
+;; Create a database context
+(def ctx (dbf/db-context {:adapter :h2
+                          :database-path "mem:quickstart"
+                          :connection-params {:DB_CLOSE_DELAY "-1"}}))
+
+;; Initialize schema
+(user-adapters/initialize-database! ctx)
+
+;; Create a repository and use it
+(def user-repo (user-adapters/new-user-repository ctx))
+
+(let [user (.create-user user-repo {:email "test@example.com"
+                                    :name "Test User"
+                                    :role :admin
+                                    :active true
+                                    :tenant-id (java.util.UUID/randomUUID)})]
+  (println "Created user:" (:id user)))
+```
+
+## Database Configuration
+
+### SQLite Configuration
+
+```clojure
+(def sqlite-config
+  {:adapter :sqlite
+   :database-path "/path/to/database.db"
+   :pool {:minimum-idle 2
+          :maximum-pool-size 8
+          :connection-timeout-ms 5000}})
+```
+
+**Configuration Options:**
+- `:database-path` - Path to SQLite database file (required)
+- `:pool` - Connection pool settings (optional)
+
+**SQLite-specific features:**
+- Automatic PRAGMA optimization (WAL mode, synchronous, etc.)
+- Boolean values stored as INTEGER (0/1)
+- Text-based timestamp storage
+
+### PostgreSQL Configuration
+
+```clojure
+(def postgres-config
+  {:adapter :postgresql
+   :host "localhost"
+   :port 5432
+   :name "myapp_db"
+   :username "myapp_user"
+   :password (System/getenv "POSTGRES_PASSWORD") ; Always use env vars for secrets!
+   :pool {:minimum-idle 5
+          :maximum-pool-size 20
+          :connection-timeout-ms 30000
+          :idle-timeout-ms 600000}
+   :connection-params {:applicationName "MyApp"
+                      :connectTimeout "10"}})
+```
+
+**Configuration Options:**
+- `:host` - Database hostname (required)
+- `:port` - Database port (required)
+- `:name` - Database name (required)
+- `:username` - Database username (required)
+- `:password` - Database password (required, use env vars!)
+- `:schema` - Schema name (optional, defaults to "public")
+- `:connection-params` - Additional connection parameters (optional)
+
+**PostgreSQL-specific features:**
+- ILIKE for case-insensitive string matching
+- Native UUID and JSONB support
+- Native boolean values
+- Connection initialization with timezone UTC
+
+### MySQL Configuration
+
+```clojure
+(def mysql-config
+  {:adapter :mysql
+   :host "localhost"
+   :port 3306
+   :name "myapp_db"
+   :username "myapp_user"
+   :password (System/getenv "MYSQL_PASSWORD") ; Always use env vars for secrets!
+   :pool {:minimum-idle 5
+          :maximum-pool-size 15
+          :connection-timeout-ms 30000}
+   :connection-params {:useSSL "false"
+                      :allowPublicKeyRetrieval "true"}})
+```
+
+**Configuration Options:**
+- `:host` - Database hostname (required)
+- `:port` - Database port (required)
+- `:name` - Database name (required)  
+- `:username` - Database username (required)
+- `:password` - Database password (required, use env vars!)
+- `:connection-params` - Additional connection parameters (optional)
+
+**MySQL-specific features:**
+- Boolean values stored as TINYINT(1)
+- Automatic SQL mode configuration for strict compliance
+- SSL configuration support
+- Timezone normalization to UTC
+
+### H2 Configuration
+
+```clojure
+;; In-memory database
+(def h2-memory-config
+  {:adapter :h2
+   :database-path "mem:testdb"
+   :connection-params {:DB_CLOSE_DELAY "-1"
+                      :MODE "PostgreSQL"
+                      :DATABASE_TO_LOWER "TRUE"}})
+
+;; File-based database
+(def h2-file-config
+  {:adapter :h2
+   :database-path "./data/myapp"
+   :connection-params {:MODE "PostgreSQL"
+                      :DATABASE_TO_LOWER "TRUE"
+                      :AUTO_SERVER "TRUE"}})
+```
+
+**Configuration Options:**
+- `:database-path` - Database path (file path or "mem:name" for in-memory) (required)
+- `:connection-params` - H2-specific parameters (optional)
+
+**H2-specific features:**
+- In-memory and file-based modes
+- PostgreSQL compatibility mode recommended
+- Native UUID and boolean support
+- Fast startup for testing
+
+## Creating Database Contexts
+
+The database context is the central object that provides access to database operations:
+
+```clojure
+(require '[boundary.shell.adapters.database.factory :as dbf])
+
+;; Create context from configuration
+(def ctx (dbf/db-context db-config))
+
+;; The context contains both the adapter and datasource
+(:adapter ctx)    ; Database adapter instance
+(:datasource ctx) ; HikariCP connection pool
+
+;; Always close the context when done
+(.close (:datasource ctx))
+```
+
+### Environment-based Configuration
+
+For production applications, configure databases based on environment:
+
+```clojure
+(defn create-database-context []
+  (let [db-type (keyword (or (System/getenv "DATABASE_TYPE") "h2"))]
+    (case db-type
+      :postgresql {:adapter :postgresql
+                   :host (System/getenv "DB_HOST")
+                   :port (Integer/parseInt (or (System/getenv "DB_PORT") "5432"))
+                   :name (System/getenv "DB_NAME")
+                   :username (System/getenv "DB_USERNAME")
+                   :password (System/getenv "DB_PASSWORD")}
+      :mysql {:adapter :mysql
+              :host (System/getenv "DB_HOST")
+              :port (Integer/parseInt (or (System/getenv "DB_PORT") "3306"))
+              :name (System/getenv "DB_NAME")
+              :username (System/getenv "DB_USERNAME")
+              :password (System/getenv "DB_PASSWORD")}
+      :sqlite {:adapter :sqlite
+               :database-path (or (System/getenv "DB_PATH") "./data/app.db")}
+      :h2 {:adapter :h2
+           :database-path (or (System/getenv "DB_PATH") "mem:app")
+           :connection-params {:DB_CLOSE_DELAY "-1" :MODE "PostgreSQL"}})))
+
+(def ctx (dbf/db-context (create-database-context)))
+```
+
+## Core Database Operations
+
+### Basic Queries
+
+```clojure
+(require '[boundary.shell.adapters.database.core :as db])
+
+;; Execute a SELECT query
+(def users (db/execute-query! ctx {:select [:*]
+                                   :from [:users]
+                                   :where [:= :active true]
+                                   :order-by [[:created_at :desc]]
+                                   :limit 10}))
+
+;; Execute query expecting single result
+(def user (db/execute-one! ctx {:select [:*]
+                                :from [:users] 
+                                :where [:= :id user-id]}))
+
+;; Execute UPDATE/INSERT/DELETE
+(def affected-rows (db/execute-update! ctx {:update :users
+                                            :set {:name "New Name"}
+                                            :where [:= :id user-id]}))
+
+;; Insert new record
+(db/execute-update! ctx {:insert-into :users
+                         :values [{:id (java.util.UUID/randomUUID)
+                                  :email "new@example.com"
+                                  :name "New User"
+                                  :active true}]})
+```
+
+### Query Building Utilities
+
+The system provides utilities for building common query patterns:
+
+```clojure
+;; Build WHERE clauses (database-specific optimizations)
+(def where-clause (db/build-where-clause ctx {:name "John"      ; Uses LIKE/ILIKE
+                                               :active true      ; Handles boolean conversion
+                                               :ids [1 2 3]}))  ; Uses IN clause
+
+;; Build pagination (with safety limits)
+(def pagination (db/build-pagination {:limit 50 :offset 100}))
+; => {:limit 50 :offset 100}
+
+;; Build ordering
+(def ordering (db/build-ordering {:sort-by :created_at 
+                                  :sort-direction :asc} 
+                                 :id)) ; fallback field
+; => [[:created_at :asc]]
+```
+
+### Batch Operations
+
+```clojure
+;; Execute multiple queries in a transaction
+(def results (db/execute-batch! ctx [{:insert-into :users :values [user1]}
+                                     {:insert-into :users :values [user2]}
+                                     {:select [:count.*] :from [:users]}]))
+; Returns vector of results: [1 1 [{:count 2}]]
+```
+
+## Repository Usage
+
+### User Repository
+
+```clojure
+(require '[boundary.user.shell.multi-db-adapters :as user-adapters])
+
+;; Create repository
+(def user-repo (user-adapters/new-user-repository ctx))
+
+;; Basic CRUD operations
+(let [user-data {:email "john@example.com"
+                 :name "John Doe"
+                 :role :admin
+                 :active true
+                 :tenant-id tenant-id}
+      
+      ;; Create
+      created-user (.create-user user-repo user-data)
+      
+      ;; Read
+      found-user (.find-user-by-id user-repo (:id created-user))
+      
+      ;; Update
+      updated-user (.update-user user-repo (assoc created-user :name "John Smith"))
+      
+      ;; Soft delete
+      success (.soft-delete-user user-repo (:id created-user))]
+  
+  (println "User lifecycle completed"))
+
+;; Business queries
+(def admin-users (.find-active-users-by-role user-repo tenant-id :admin))
+(def user-count (.count-users-by-tenant user-repo tenant-id))
+(def recent-users (.find-users-created-since user-repo tenant-id yesterday))
+
+;; Batch operations
+(def batch-users (.create-users-batch user-repo [user1-data user2-data user3-data]))
+```
+
+### Session Repository
+
+```clojure
+;; Create session repository
+(def session-repo (user-adapters/new-user-session-repository ctx))
+
+;; Session management
+(let [session-data {:user-id user-id
+                    :tenant-id tenant-id
+                    :expires-at (.plusSeconds (java.time.Instant/now) 3600)
+                    :user-agent "Mozilla/5.0..."
+                    :ip-address "192.168.1.1"}
+      
+      ;; Create session
+      session (.create-session session-repo session-data)
+      
+      ;; Find by token (updates last accessed time)
+      found-session (.find-session-by-token session-repo (:session-token session))
+      
+      ;; Find all user sessions
+      user-sessions (.find-sessions-by-user session-repo user-id)
+      
+      ;; Invalidate session
+      success (.invalidate-session session-repo (:session-token session))]
+  
+  (println "Session management completed"))
+
+;; Cleanup expired sessions
+(def cleaned-count (.cleanup-expired-sessions session-repo (java.time.Instant/now)))
+```
+
+## Schema Management
+
+### Initialize Database Schema
+
+```clojure
+;; Initialize user module schema (cross-database compatible)
+(user-adapters/initialize-database! ctx)
+
+;; The initialization creates:
+;; - users table with proper column types for each database
+;; - user_sessions table with foreign key constraints  
+;; - Appropriate indexes for performance
+```
+
+### Schema Introspection
+
+```clojure
+;; Check if table exists
+(db/table-exists? ctx :users) ; => true
+
+;; Get table information
+(def table-info (db/get-table-info ctx :users))
+; Returns vector of column maps:
+; [{:name "id" :type "UUID" :primary-key true :not-null true}
+;  {:name "email" :type "VARCHAR" :primary-key false :not-null true}
+;  ...]
+
+;; Get database information
+(def db-info (db/database-info ctx))
+; Returns map with database metadata
+```
+
+### Custom DDL Execution
+
+```clojure
+;; Execute DDL with logging
+(db/execute-ddl! ctx "CREATE INDEX idx_users_email ON users (email)")
+
+;; Database-specific DDL generation
+(require '[boundary.shell.adapters.database.postgresql :as pg])
+(require '[boundary.shell.adapters.database.mysql :as mysql])
+(require '[boundary.shell.adapters.database.sqlite :as sqlite])
+
+;; Get database-specific column types
+(pg/uuid-column-type)      ; => "UUID"
+(mysql/uuid-column-type)   ; => "CHAR(36)"
+(sqlite/uuid-column-type)  ; => "TEXT"
+
+(pg/boolean-column-type)      ; => "BOOLEAN"
+(mysql/boolean-column-type)   ; => "TINYINT(1)"
+(sqlite/boolean-column-type)  ; => "INTEGER CHECK(active IN (0,1))"
+```
+
+## Transactions
+
+### Basic Transactions
+
+```clojure
+;; Transaction with automatic rollback on exception
+(db/with-transaction [tx ctx]
+  (db/execute-update! tx {:insert-into :users :values [user-data]})
+  (db/execute-update! tx {:insert-into :user_sessions :values [session-data]})
+  ;; If any operation fails, entire transaction is rolled back
+  "Transaction completed successfully")
+
+;; Manual transaction control
+(db/with-transaction* ctx
+  (fn [tx]
+    (let [user-id (create-user! tx user-data)
+          session-id (create-session! tx user-id session-data)]
+      {:user-id user-id :session-id session-id})))
+```
+
+### Repository Transactions
+
+```clojure
+;; Repository methods automatically use transactions for batch operations
+(def users (.create-users-batch user-repo [user1 user2 user3]))
+
+;; Manual transaction coordination across repositories
+(db/with-transaction [tx ctx]
+  (let [tx-user-repo (user-adapters/new-user-repository tx)
+        tx-session-repo (user-adapters/new-user-session-repository tx)
+        
+        user (.create-user tx-user-repo user-data)
+        session (.create-session tx-session-repo (generate-session (:id user)))]
+    {:user user :session session}))
+```
+
+## Advanced Features
+
+### Database-Specific Optimizations
+
+The system automatically applies database-specific optimizations:
+
+```clojure
+;; String matching automatically uses appropriate operator
+;; PostgreSQL: ILIKE (case-insensitive)
+;; MySQL: LIKE (case-insensitive by default)  
+;; SQLite/H2: LIKE (case-sensitive)
+
+(def filters {:name "john"})
+(def where-clause (db/build-where-clause ctx filters))
+; PostgreSQL: [:ilike :name "%john%"]
+; Others: [:like :name "%john%"]
+
+;; Boolean handling is automatic
+(def user-data {:active true})
+; SQLite/MySQL: stored as 1
+; PostgreSQL/H2: stored as true
+```
+
+### Connection Pool Configuration
+
+```clojure
+(def custom-pool-config
+  {:adapter :postgresql
+   :host "localhost"
+   :port 5432
+   :name "myapp"
+   :username "user"
+   :password (System/getenv "DB_PASSWORD")
+   :pool {:minimum-idle 10          ; Minimum connections in pool
+          :maximum-pool-size 50      ; Maximum connections
+          :connection-timeout-ms 30000 ; Timeout waiting for connection
+          :idle-timeout-ms 600000    ; Idle connection timeout
+          :max-lifetime-ms 1800000   ; Maximum connection lifetime
+          :validation-timeout-ms 5000}}) ; Connection validation timeout
+```
+
+### Custom Adapters
+
+You can create custom database adapters by implementing the DBAdapter protocol:
+
+```clojure
+(require '[boundary.shell.adapters.database.protocols :as protocols])
+
+(defrecord CustomAdapter []
+  protocols/DBAdapter
+  
+  (dialect [_] :custom)
+  
+  (jdbc-driver [_] "com.custom.jdbc.Driver")
+  
+  (jdbc-url [_ db-config]
+    (str "jdbc:custom://" (:host db-config) "/" (:name db-config)))
+  
+  (pool-defaults [_]
+    {:minimum-idle 2 :maximum-pool-size 10})
+  
+  ;; ... implement other methods
+  )
+```
+
+## Migration from Legacy System
+
+### Deprecated Functions
+
+The old `boundary.shared.shell.persistence` namespace is deprecated but still functional:
+
+```clojure
+;; OLD (deprecated)
+(require '[boundary.shared.shell.persistence :as old-persistence])
+(def datasource (old-persistence/create-connection-pool config))
+(old-persistence/execute-query! datasource query)
+
+;; NEW (recommended)
+(require '[boundary.shell.adapters.database.factory :as dbf]
+         '[boundary.shell.adapters.database.core :as db])
+(def ctx (dbf/db-context config))
+(db/execute-query! ctx query)
+```
+
+### Repository Migration
+
+```clojure
+;; OLD SQLite-specific repository
+(require '[boundary.user.shell.adapters :as old-adapters])
+(def old-repo (old-adapters/->SQLiteUserRepository datasource))
+
+;; NEW database-agnostic repository
+(require '[boundary.user.shell.multi-db-adapters :as new-adapters])
+(def new-repo (new-adapters/new-user-repository ctx))
+
+;; Same interface, works with any database!
+```
+
+### Step-by-Step Migration
+
+1. **Update Dependencies**: Ensure your project includes the new adapter dependencies
+2. **Replace Imports**: Update namespace imports to use new adapters
+3. **Update Configuration**: Convert to new config format with `:adapter` key
+4. **Replace Repository Creation**: Use new constructor functions
+5. **Test**: Verify all operations work with your chosen database
+6. **Deploy**: The new system is backward compatible
+
+### Migration Helper
+
+```clojure
+(defn migrate-to-new-system [old-datasource db-type]
+  (let [config (case db-type
+                 :sqlite {:adapter :sqlite :database-path "./migrated.db"}
+                 :postgresql {:adapter :postgresql 
+                             :host "localhost" :port 5432 :name "app"
+                             :username "user" :password (System/getenv "DB_PASS")}
+                 :h2 {:adapter :h2 :database-path "mem:migrated"})
+        ctx (dbf/db-context config)]
+    
+    ;; Migrate data if needed
+    ;; ... copy data from old-datasource to new ctx
+    
+    ctx))
+```
+
+## Best Practices
+
+### Security
+
+```clojure
+;; ✅ DO: Use environment variables for secrets
+:password (System/getenv "DB_PASSWORD")
+
+;; ❌ DON'T: Hardcode secrets in configuration
+:password "my-secret-password"
+
+;; ✅ DO: Validate environment variables
+(defn get-required-env [key]
+  (or (System/getenv key)
+      (throw (ex-info (str "Required environment variable missing: " key) 
+                      {:missing-env-var key}))))
+```
+
+### Connection Management
+
+```clojure
+;; ✅ DO: Always close datasources
+(let [ctx (dbf/db-context config)]
+  (try
+    ;; Use ctx for operations
+    (finally
+      (.close (:datasource ctx)))))
+
+;; ✅ DO: Use connection pools appropriately
+;; Development: small pools
+:pool {:minimum-idle 2 :maximum-pool-size 8}
+
+;; Production: larger pools based on load
+:pool {:minimum-idle 10 :maximum-pool-size 50}
+```
+
+### Error Handling
+
+```clojure
+(try
+  (db/execute-update! ctx query)
+  (catch Exception e
+    (log/error "Database operation failed" 
+               {:query query :error (.getMessage e)})
+    ;; Handle error appropriately
+    ))
+```
+
+### Performance
+
+```clojure
+;; ✅ DO: Use appropriate batch sizes
+(partition 100 large-dataset) ; Process in chunks
+
+;; ✅ DO: Use transactions for batch operations
+(db/with-transaction [tx ctx]
+  (doseq [item items]
+    (process-item tx item)))
+
+;; ✅ DO: Use pagination for large result sets
+(def result (.find-users-by-tenant repo tenant-id 
+                                   {:limit 50 :offset (* page 50)}))
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**1. Connection Pool Exhausted**
+```clojure
+;; Symptom: "Connection pool exhausted" errors
+;; Solution: Increase pool size or reduce connection timeout
+:pool {:maximum-pool-size 20
+       :connection-timeout-ms 15000}
+```
+
+**2. Boolean Conversion Issues**
+```clojure
+;; Symptom: Booleans stored/retrieved incorrectly
+;; Check: Database-specific boolean handling is automatic
+;; SQLite/MySQL: true -> 1, false -> 0
+;; PostgreSQL/H2: true -> true, false -> false
+```
+
+**3. Transaction Deadlocks**
+```clojure
+;; Symptom: Transaction deadlock errors
+;; Solution: Keep transactions short and consistent ordering
+(db/with-transaction [tx ctx]
+  ;; Keep this block small and fast
+  (quick-operation-1 tx)
+  (quick-operation-2 tx))
+```
+
+**4. Schema Initialization Failures**
+```clojure
+;; Symptom: Schema creation fails on specific database
+;; Solution: Check database-specific column types
+(user-adapters/initialize-database! ctx)
+;; Automatically handles cross-database differences
+```
+
+### Debugging
+
+```clojure
+;; Enable debug logging to see generated SQL
+(require '[clojure.tools.logging :as log])
+
+;; Check what SQL is being generated
+(def formatted-sql (db/format-sql ctx query-map))
+(log/debug "Generated SQL:" formatted-sql)
+
+;; Inspect database context
+(log/debug "Database info:" (db/database-info ctx))
+```
+
+### Getting Help
+
+1. Check the test files for usage examples
+2. Review adapter-specific documentation in source files
+3. Enable debug logging to see generated SQL queries
+4. Test with H2 in-memory database first for quick iteration
+
+---
+
+This completes the comprehensive usage guide for the multi-database system. The system provides a powerful, flexible foundation for database-agnostic applications while maintaining excellent performance and developer experience.
