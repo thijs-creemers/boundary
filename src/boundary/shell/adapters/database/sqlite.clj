@@ -1,24 +1,31 @@
 (ns boundary.shell.adapters.database.sqlite
-  "Shared SQLite database adapter utilities for Boundary framework.
+  "SQLite database adapter implementing the DBAdapter protocol.
 
-   This namespace provides common SQLite-specific functionality that can be reused
-   across different modules. It handles SQLite's unique characteristics and provides
-   optimized patterns for embedded database usage.
+   This namespace provides SQLite-specific functionality while delegating
+   common database operations to the shared core namespace. It handles
+   SQLite's unique characteristics and provides optimized patterns for
+   embedded database usage.
 
    Key Features:
-   - SQLite-optimized connection management and pooling
-   - Query execution framework with performance monitoring
-   - Transaction management with proper error handling
-   - Schema initialization and migration support
-   - Common query building patterns for SQLite
+   - SQLite-optimized connection management with PRAGMAs
+   - Database-specific query building (LIKE for strings, boolean->int)
+   - Schema introspection via sqlite_master and PRAGMA table_info
+   - Backward-compatible API that delegates to core
    - Integration with shared type conversion utilities
 
    SQLite-Specific Optimizations:
    - Text-based UUID and timestamp storage
    - Boolean as integer (0/1) representation
-   - Proper PRAGMA settings for performance
-   - WAL mode support for concurrent access"
+   - WAL mode, synchronous settings, and other PRAGMAs
+   - Connection pool tuning for embedded usage
+
+   Migration Note:
+   This adapter now implements the DBAdapter protocol and delegates common
+   operations to boundary.shell.adapters.database.core. The existing public
+   API is maintained for backward compatibility."
   (:require [boundary.shared.utils.type-conversion :as tc]
+            [boundary.shell.adapters.database.protocols :as protocols]
+            [boundary.shell.adapters.database.core :as core]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [honey.sql :as sql]
@@ -40,8 +47,126 @@
    "PRAGMA cache_size=10000"          ; 10MB page cache
    "PRAGMA busy_timeout=5000"])       ; 5-second busy timeout
 
+(defn initialize-sqlite-pragmas!
+  "Apply SQLite PRAGMA settings to a connection.
+
+   Args:
+     datasource: Database connection or connection pool
+     custom-pragmas: Optional vector of additional PRAGMA statements
+
+   Example:
+     (initialize-sqlite-pragmas! datasource [\"PRAGMA journal_mode=DELETE\"])"
+  ([datasource]
+   (initialize-sqlite-pragmas! datasource []))
+  ([datasource custom-pragmas]
+   (let [all-pragmas (concat default-sqlite-pragmas custom-pragmas)
+         success-count (atom 0)
+         failure-count (atom 0)]
+     (log/debug "Initializing SQLite PRAGMA settings" {:pragmas-count (count all-pragmas)})
+     (doseq [pragma all-pragmas]
+       (try
+         (jdbc/execute! datasource [pragma])
+         (log/debug "Applied PRAGMA successfully" {:pragma pragma})
+         (swap! success-count inc)
+         (catch Exception e
+           (log/warn "Failed to apply PRAGMA, continuing" 
+                     {:pragma pragma 
+                      :error (.getMessage e)})
+           (swap! failure-count inc))))
+     (log/info "SQLite PRAGMA initialization completed" 
+               {:successful-pragmas @success-count
+                :failed-pragmas @failure-count
+                :total-pragmas (count all-pragmas)}))))
+
+;; =============================================================================
+;; SQLite Adapter Implementation
+;; =============================================================================
+
+(defrecord SQLiteAdapter []
+  protocols/DBAdapter
+  
+  (dialect [_]
+    :sqlite)
+  
+  (jdbc-driver [_]
+    "org.sqlite.JDBC")
+  
+  (jdbc-url [_ db-config]
+    (str "jdbc:sqlite:" (:database-path db-config)))
+  
+  (pool-defaults [_]
+    {:minimum-idle 1
+     :maximum-pool-size 5
+     :connection-timeout-ms 30000
+     :idle-timeout-ms 600000
+     :max-lifetime-ms 1800000})
+  
+  (init-connection! [_ datasource _db-config]
+    (initialize-sqlite-pragmas! datasource))
+  
+  (build-where [_ filters]
+    (when (seq filters)
+      (let [conditions (for [[field value] filters
+                              :when (some? value)]
+                         (cond
+                           (string? value) [:like field (str "%" value "%")]
+                           (vector? value) [:in field value]
+                           (boolean? value) [:= field (tc/boolean->int value)]
+                           :else [:= field value]))]
+        (when (seq conditions)
+          (if (= 1 (count conditions))
+            (first conditions)
+            (cons :and conditions))))))
+  
+  (boolean->db [_ boolean-value]
+    (tc/boolean->int boolean-value))
+  
+  (db->boolean [_ db-value]
+    (tc/int->boolean db-value))
+  
+  (table-exists? [_ datasource table-name]
+    (let [table-str (name table-name)
+          query {:select [:%count.*]
+                 :from [:sqlite_master]
+                 :where [:and
+                         [:= :type "table"]
+                         [:= :name table-str]]}
+          result (first (jdbc/execute! datasource 
+                                       (sql/format query {:dialect :sqlite})
+                                       {:builder-fn rs/as-unqualified-lower-maps}))]
+      (> (:count result 0) 0)))
+  
+  (get-table-info [_ datasource table-name]
+    (let [pragma-sql (str "PRAGMA table_info(" (name table-name) ")")
+          results (jdbc/execute! datasource [pragma-sql] {:builder-fn rs/as-unqualified-lower-maps})]
+      (mapv (fn [row]
+              {:name (:name row)
+               :type (:type row)
+               :not-null (= (:notnull row) 1)
+               :default (:dflt_value row)
+               :primary-key (= (:pk row) 1)})
+            results))))
+
+(defn new-adapter
+  "Create new SQLite adapter instance.
+   
+   Returns:
+     SQLite adapter implementing DBAdapter protocol"
+  []
+  (->SQLiteAdapter))
+
+;; =============================================================================
+;; Backward-Compatible API (delegating to core)
+;; =============================================================================
+
+(def ^:private sqlite-adapter
+  "Default SQLite adapter instance for backward compatibility."
+  (new-adapter))
+
 (defn create-sqlite-connection-pool
   "Create HikariCP connection pool optimized for SQLite.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.factory/create-datasource instead.
 
    Args:
      config: Configuration map with:
@@ -60,44 +185,8 @@
                                     :pool {:maximum-pool-size 3}})"
   [config]
   {:pre [(some? (:database-path config))]}
-  (let [db-path (:database-path config)
-        pool-config (:pool config {})
-        hikari-config (doto (HikariConfig.)
-                        (.setDriverClassName "org.sqlite.JDBC")
-                        (.setJdbcUrl (str "jdbc:sqlite:" db-path))
-                        (.setMinimumIdle (get pool-config :minimum-idle 1))
-                        (.setMaximumPoolSize (get pool-config :maximum-pool-size 5))
-                        (.setConnectionTimeout (get pool-config :connection-timeout-ms 30000))
-                        (.setIdleTimeout (get pool-config :idle-timeout-ms 600000))
-                        (.setMaxLifetime (get pool-config :max-lifetime-ms 1800000))
-                        (.setPoolName "SQLite-Pool")
-                        (.setAutoCommit true))]
-
-    (log/info "Creating SQLite connection pool" {:database-path db-path
-                                                 :pool-size (:maximum-pool-size pool-config 5)})
-    (HikariDataSource. hikari-config)))
-
-(defn initialize-sqlite-pragmas!
-  "Apply SQLite PRAGMA settings to a connection.
-
-   Args:
-     datasource: Database connection or connection pool
-     custom-pragmas: Optional vector of additional PRAGMA statements
-
-   Example:
-     (initialize-sqlite-pragmas! datasource [\"PRAGMA journal_mode=DELETE\"])"
-  ([datasource]
-   (initialize-sqlite-pragmas! datasource []))
-  ([datasource custom-pragmas]
-   (log/debug "Initializing SQLite PRAGMA settings")
-   (let [all-pragmas (concat default-sqlite-pragmas custom-pragmas)]
-     (doseq [pragma all-pragmas]
-       (try
-         (jdbc/execute! datasource [pragma])
-         (log/debug "Applied PRAGMA" {:pragma pragma})
-         (catch Exception e
-           (log/warn "Failed to apply PRAGMA" {:pragma pragma :error (.getMessage e)}))))
-     (log/info "SQLite PRAGMA settings initialized" {:pragmas-count (count all-pragmas)}))))
+  (let [db-config (assoc config :adapter :sqlite)]
+    (core/create-connection-pool sqlite-adapter db-config)))
 
 ;; =============================================================================
 ;; Query Execution Framework
@@ -105,11 +194,13 @@
 
 (defn execute-query!
   "Execute SELECT query with SQLite-specific optimizations and logging.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.core/execute-query! instead.
 
    Args:
      datasource: Database connection or connection pool
      query-map: HoneySQL query map
-     options: Optional execution options
+     options: Optional execution options (ignored)
 
    Returns:
      Vector of result maps
@@ -119,21 +210,13 @@
   ([datasource query-map]
    (execute-query! datasource query-map {}))
   ([datasource query-map _options]
-   (let [sql-query (sql/format query-map {:dialect :sqlite})
-         start-time (System/currentTimeMillis)]
-     (log/debug "Executing SQLite query" {:sql (first sql-query) :params (rest sql-query)})
-     (try
-       (let [result (jdbc/execute! datasource sql-query
-                                   {:builder-fn rs/as-unqualified-lower-maps})
-             duration (- (System/currentTimeMillis) start-time)]
-         (log/debug "SQLite query completed" {:duration-ms duration :row-count (count result)})
-         result)
-       (catch Exception e
-         (log/error "SQLite query failed" {:sql (first sql-query) :error (.getMessage e)})
-         (throw e))))))
+   (let [ctx {:datasource datasource :adapter sqlite-adapter}]
+     (core/execute-query! ctx query-map))))
 
 (defn execute-one!
   "Execute query expecting single result.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.core/execute-one! instead.
 
    Args:
      datasource: Database connection or connection pool
@@ -145,10 +228,13 @@
    Example:
      (execute-one! ds {:select [:*] :from [:users] :where [:= :id \"123\"]})"
   [datasource query-map]
-  (first (execute-query! datasource query-map)))
+  (let [ctx {:datasource datasource :adapter sqlite-adapter}]
+    (core/execute-one! ctx query-map)))
 
 (defn execute-update!
   "Execute UPDATE/INSERT/DELETE query with affected row count.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.core/execute-update! instead.
 
    Args:
      datasource: Database connection or connection pool
@@ -160,21 +246,13 @@
    Example:
      (execute-update! ds {:update :users :set {:active 0} :where [:= :id \"123\"]})"
   [datasource query-map]
-  (let [sql-query (sql/format query-map {:dialect :sqlite})
-        start-time (System/currentTimeMillis)]
-    (log/debug "Executing SQLite update" {:sql (first sql-query) :params (rest sql-query)})
-    (try
-      (let [result (jdbc/execute! datasource sql-query)
-            duration (- (System/currentTimeMillis) start-time)
-            affected-rows (:next.jdbc/update-count (first result))]
-        (log/debug "SQLite update completed" {:duration-ms duration :affected-rows affected-rows})
-        affected-rows)
-      (catch Exception e
-        (log/error "SQLite update failed" {:sql (first sql-query) :error (.getMessage e)})
-        (throw e)))))
+  (let [ctx {:datasource datasource :adapter sqlite-adapter}]
+    (core/execute-update! ctx query-map)))
 
 (defn execute-batch!
   "Execute multiple queries in a single transaction.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.core/execute-batch! instead.
 
    Args:
      datasource: Database connection or connection pool
@@ -187,17 +265,8 @@
      (execute-batch! ds [{:insert-into :users :values [{:name \"John\"}]}
                         {:insert-into :users :values [{:name \"Jane\"}]}])"
   [datasource query-maps]
-  (log/debug "Executing SQLite batch operation" {:query-count (count query-maps)})
-  (jdbc/with-transaction [tx datasource]
-    (let [start-time (System/currentTimeMillis)
-          results (mapv #(if (contains? % :select)
-                           (execute-query! tx %)
-                           (execute-update! tx %))
-                        query-maps)
-          duration (- (System/currentTimeMillis) start-time)]
-      (log/info "SQLite batch operation completed" {:query-count (count query-maps)
-                                                    :duration-ms duration})
-      results)))
+  (let [ctx {:datasource datasource :adapter sqlite-adapter}]
+    (core/execute-batch! ctx query-maps)))
 
 ;; =============================================================================
 ;; Transaction Management
@@ -205,6 +274,8 @@
 
 (defn with-transaction*
   "Execute function within SQLite transaction context.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.core/with-transaction* instead.
 
    Args:
      datasource: Database connection or connection pool
@@ -216,14 +287,8 @@
    Example:
      (with-transaction* ds (fn [tx] (execute-update! tx query)))"
   [datasource f]
-  (jdbc/with-transaction [tx datasource]
-    (try
-      (let [result (f tx)]
-        (log/debug "SQLite transaction completed successfully")
-        result)
-      (catch Exception e
-        (log/error "SQLite transaction failed, rolling back" {:error (.getMessage e)})
-        (throw e)))))
+  (let [ctx {:datasource datasource :adapter sqlite-adapter}]
+    (core/with-transaction* ctx f)))
 
 (defmacro with-transaction
   "Macro for SQLite transaction management with consistent error handling.
@@ -247,6 +312,8 @@
 
 (defn build-where-clause
   "Build dynamic WHERE clause from filter map with SQLite optimizations.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.core/build-where-clause instead.
 
    Args:
      filters: Map of field -> value filters
@@ -258,21 +325,13 @@
      (build-where-clause {:name \"John\" :active true :role [:admin :user]})
      ;; => [:and [:= :name \"John\"] [:= :active 1] [:in :role [\"admin\" \"user\"]]]"
   [filters]
-  (when (seq filters)
-    (let [conditions (for [[field value] filters
-                            :when (some? value)]
-                       (cond
-                         (string? value) [:like field (str "%" value "%")] ; SQLite LIKE instead of ILIKE
-                         (vector? value) [:in field value]
-                         (boolean? value) [:= field (tc/boolean->int value)]
-                         :else [:= field value]))]
-      (when (seq conditions)
-        (if (= 1 (count conditions))
-          (first conditions)
-          (cons :and conditions))))))
+  (let [ctx {:adapter sqlite-adapter}]
+    (core/build-where-clause ctx filters)))
 
 (defn build-pagination
   "Build LIMIT/OFFSET clause from pagination options.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.core/build-pagination instead.
 
    Args:
      options: Map with :limit and :offset keys
@@ -284,13 +343,12 @@
      (build-pagination {:limit 50 :offset 100})
      ;; => {:limit 50 :offset 100}"
   [options]
-  (let [limit (get options :limit 20)
-        offset (get options :offset 0)]
-    {:limit (min (max limit 1) 1000)  ; Limit between 1 and 1000
-     :offset (max offset 0)}))
+  (core/build-pagination options))
 
 (defn build-ordering
   "Build ORDER BY clause from sort options.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.core/build-ordering instead.
 
    Args:
      options: Map with :sort-by and :sort-direction keys
@@ -303,9 +361,7 @@
      (build-ordering {:sort-by :created-at :sort-direction :desc} :id)
      ;; => [[:created_at :desc]]"
   [options default-field]
-  (let [sort-field (get options :sort-by default-field)
-        direction (get options :sort-direction :asc)]
-    [[sort-field direction]]))
+  (core/build-ordering options default-field))
 
 ;; =============================================================================
 ;; Schema Management Utilities
@@ -313,6 +369,8 @@
 
 (defn table-exists?
   "Check if a table exists in the SQLite database.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.core/table-exists? instead.
 
    Args:
      datasource: Database connection or connection pool
@@ -324,17 +382,13 @@
    Example:
      (table-exists? ds :users) ;; => true"
   [datasource table-name]
-  (let [table-str (name table-name)
-        query {:select [:%count.*]
-               :from [:sqlite_master]
-               :where [:and
-                       [:= :type "table"]
-                       [:= :name table-str]]}
-        result (execute-one! datasource query)]
-    (> (:count result 0) 0)))
+  (let [ctx {:datasource datasource :adapter sqlite-adapter}]
+    (core/table-exists? ctx table-name)))
 
 (defn get-table-info
   "Get column information for a SQLite table.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.core/get-table-info instead.
 
    Args:
      datasource: Database connection or connection pool
@@ -347,18 +401,13 @@
      (get-table-info ds :users)
      ;; => [{:name \"id\" :type \"TEXT\" :pk true} ...]"
   [datasource table-name]
-  (let [pragma-sql (str "PRAGMA table_info(" (name table-name) ")")
-        results (jdbc/execute! datasource [pragma-sql] {:builder-fn rs/as-unqualified-lower-maps})]
-    (mapv (fn [row]
-            {:name (:name row)
-             :type (:type row)
-             :not-null (= (:notnull row) 1)
-             :default (:dflt_value row)
-             :primary-key (= (:pk row) 1)})
-          results)))
+  (let [ctx {:datasource datasource :adapter sqlite-adapter}]
+    (core/get-table-info ctx table-name)))
 
 (defn execute-ddl!
   "Execute DDL statement (CREATE TABLE, INDEX, etc.) with logging.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.core/execute-ddl! instead.
 
    Args:
      datasource: Database connection or connection pool
@@ -370,15 +419,8 @@
    Example:
      (execute-ddl! ds \"CREATE TABLE users (id TEXT PRIMARY KEY)\")"
   [datasource ddl-statement]
-  (log/info "Executing SQLite DDL" {:statement (str/join " "
-                                                                    (take 5 (str/split ddl-statement #"\\s+")))})
-  (try
-    (let [result (jdbc/execute! datasource [ddl-statement])]
-      (log/info "SQLite DDL executed successfully")
-      result)
-    (catch Exception e
-      (log/error "SQLite DDL execution failed" {:statement ddl-statement :error (.getMessage e)})
-      (throw e))))
+  (let [ctx {:datasource datasource :adapter sqlite-adapter}]
+    (core/execute-ddl! ctx ddl-statement)))
 
 ;; =============================================================================
 ;; Database Introspection
@@ -386,6 +428,8 @@
 
 (defn database-info
   "Get SQLite database information and statistics.
+   
+   DEPRECATED: Use boundary.shell.adapters.database.core/database-info instead.
 
    Args:
      datasource: Database connection or connection pool
@@ -395,14 +439,7 @@
 
    Example:
      (database-info ds)
-     ;; => {:version \"3.40.0\" :page-size 4096 :tables [...] :pragmas {...}}"
+     ;; => {:adapter :sqlite :dialect :sqlite :pool-info {...}}"
   [datasource]
-  (let [version-result (execute-one! datasource {:select [[[:sqlite_version] :version]]})
-        page-size-result (jdbc/execute-one! datasource ["PRAGMA page_size"] {:builder-fn rs/as-unqualified-lower-maps})
-        tables-result (execute-query! datasource {:select [:name]
-                                                  :from [:sqlite_master]
-                                                  :where [:= :type "table"]})]
-    {:version (:version version-result)
-     :page-size (:page_size page-size-result)
-     :table-count (count tables-result)
-     :tables (mapv :name tables-result)}))
+  (let [ctx {:datasource datasource :adapter sqlite-adapter}]
+    (core/database-info ctx)))
