@@ -84,7 +84,7 @@
   protocols/DBAdapter
 
   (dialect [_]
-    :sqlite)
+    nil)  ; SQLite uses HoneySQL's default dialect
 
   (jdbc-driver [_]
     "org.sqlite.JDBC")
@@ -130,7 +130,7 @@
                               [:= :type "table"]
                               [:= :name table-str]]}
           result    (first (jdbc/execute! datasource
-                                          (sql/format query {:dialect :sqlite})
+                                          (sql/format query)  ; SQLite uses default HoneySQL dialect
                                           {:builder-fn rs/as-unqualified-lower-maps}))]
       (> (:count result 0) 0)))
 

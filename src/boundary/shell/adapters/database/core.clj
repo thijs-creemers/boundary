@@ -23,7 +23,6 @@
             [clojure.tools.logging :as log]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
-            [next.jdbc.connection :as connection]
             [next.jdbc.result-set :as rs])
   (:import [com.zaxxer.hikari HikariConfig HikariDataSource]))
 
@@ -84,7 +83,7 @@
          (map? db-config)]}
   (protocols/validate-db-config db-config)
   
-  (let [pool-config (:pool db-config {})
+  (let [pool-config (or (:pool db-config) {})
         defaults (protocols/pool-defaults adapter)
         hikari-config (doto (HikariConfig.)
                         (.setDriverClassName (protocols/jdbc-driver adapter))
@@ -94,7 +93,7 @@
                         (.setConnectionTimeout (get pool-config :connection-timeout-ms (:connection-timeout-ms defaults 30000)))
                         (.setIdleTimeout (get pool-config :idle-timeout-ms (:idle-timeout-ms defaults 600000)))
                         (.setMaxLifetime (get pool-config :max-lifetime-ms (:max-lifetime-ms defaults 1800000)))
-                        (.setPoolName (str (name (protocols/dialect adapter)) "-Pool"))
+                        (.setPoolName (str (or (when-let [d (protocols/dialect adapter)] (name d)) "default") "-Pool"))
                         (.setAutoCommit true))]
     
     (when-let [username (:username db-config)]
@@ -150,7 +149,9 @@
      (format-sql ctx {:select [:*] :from [:users]})"
   [ctx query-map]
   (validate-context ctx)
-  (sql/format query-map {:dialect (protocols/dialect (:adapter ctx))}))
+  (if-let [dialect (protocols/dialect (:adapter ctx))]
+    (sql/format query-map {:dialect dialect})
+    (sql/format query-map)))
 
 (defn format-sql*
   "Format HoneySQL query map with custom options.
@@ -164,7 +165,10 @@
      Vector of [sql & params]"
   [ctx query-map opts]
   (validate-context ctx)
-  (let [dialect-opts (merge opts {:dialect (protocols/dialect (:adapter ctx))})]
+  (let [dialect (protocols/dialect (:adapter ctx))
+        dialect-opts (if dialect
+                       (merge opts {:dialect dialect})
+                       opts)]
     (sql/format query-map dialect-opts)))
 
 ;; =============================================================================
@@ -529,9 +533,7 @@
                      :active-connections (.getActiveConnections ds)
                      :idle-connections (.getIdleConnections ds)
                      :total-connections (.getTotalConnections ds)
-                     :maximum-pool-size (.getMaximumPoolSize ds)}))
-     ;; Additional database-specific info could be added here
-     }))
+                     :maximum-pool-size (.getMaximumPoolSize ds)}))}))
 
 (defn list-tables
   "List all tables in the database.
@@ -549,18 +551,19 @@
   (let [adapter (:adapter ctx)
         dialect (protocols/dialect adapter)
         query (case dialect
-                :sqlite {:select [:name]
-                        :from [:sqlite_master]
-                        :where [:= :type "table"]}
-                :postgresql {:select [:table_name]
-                            :from [:information_schema.tables]
-                            :where [:= :table_schema "public"]}
-                :mysql {:select [:table_name]
+                nil {:select [:name]  ; SQLite uses nil dialect
+                     :from [:sqlite_master]
+                     :where [:= :type "table"]}
+                :ansi {:select [:table_name]  ; H2 uses :ansi
                        :from [:information_schema.tables]
-                       :where [:= :table_schema [:database]]}
-                :h2 {:select [:table_name]
-                     :from [:information_schema.tables]
-                     :where [:= :table_schema "PUBLIC"]})
+                       :where [:= :table_schema "PUBLIC"]}
+                :mysql {:select [:table_name]
+                        :from [:information_schema.tables]
+                        :where [:= :table_schema [:database]]}
+                ;; Default case for other dialects (PostgreSQL uses nil)
+                {:select [:table_name]
+                 :from [:information_schema.tables]
+                 :where [:= :table_schema "public"]})
         results (execute-query! ctx query)]
     (mapv (fn [row]
             (or (:name row) 

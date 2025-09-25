@@ -32,7 +32,7 @@
   protocols/DBAdapter
 
   (dialect [_]
-    :h2)
+    :ansi)  ; H2 uses HoneySQL's ANSI SQL dialect
 
   (jdbc-driver [_]
     "org.h2.Driver")
@@ -94,7 +94,7 @@
                               [:= :table_schema "PUBLIC"]
                               [:= :table_name table-str]]}
           result    (first (jdbc/execute! datasource
-                                          (sql/format query {:dialect :h2})
+                                          (sql/format query {:dialect :ansi})
                                           {:builder-fn rs/as-unqualified-lower-maps}))]
       (> (:count result 0) 0)))
 
@@ -120,11 +120,11 @@
                                   [:= :tc.constraint_type "PRIMARY KEY"]]}
 
           columns       (jdbc/execute! datasource
-                                       (sql/format columns-query {:dialect :h2})
+                                       (sql/format columns-query {:dialect :ansi})
                                        {:builder-fn rs/as-unqualified-lower-maps})
           pk-columns    (set (map :column_name
                                   (jdbc/execute! datasource
-                                                 (sql/format pk-query {:dialect :h2})
+                                                 (sql/format pk-query {:dialect :ansi})
                                                  {:builder-fn rs/as-unqualified-lower-maps})))]
 
       (mapv (fn [col]

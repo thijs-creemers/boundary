@@ -49,7 +49,7 @@
                           :useUnicode              "true"
                           :characterEncoding       "utf8"
                           :zeroDateTimeBehavior    "convertToNull"}
-          custom-params  (:connection-params db-config {})
+          custom-params  (or (:connection-params db-config) {})
           all-params     (merge default-params custom-params)
           param-str      (str/join "&" (map (fn [[k v]] (str (name k) "=" v)) all-params))]
       (str base-url "?" param-str)))

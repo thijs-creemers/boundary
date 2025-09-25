@@ -32,7 +32,7 @@
   protocols/DBAdapter
 
   (dialect [_]
-    :postgresql)
+    nil)  ; PostgreSQL uses HoneySQL's default dialect
 
   (jdbc-driver [_]
     "org.postgresql.Driver")
@@ -100,7 +100,7 @@
                               [:= :table_schema schema]
                               [:= :table_name table-str]]}
           result    (first (jdbc/execute! datasource
-                                          (sql/format query {:dialect :postgresql})
+                                          (sql/format query)  ; PostgreSQL uses default dialect
                                           {:builder-fn rs/as-unqualified-lower-maps}))]
       (> (:count result 0) 0)))
 
@@ -108,31 +108,31 @@
     (let [table-str     (str/lower-case (name table-name))
           schema        (or "public")
           ;; Get column information
-          columns-query {:select [:column_name :data_type :is_nullable :column_default]}
-          :from [:information_schema.columns]
-          :where [:and
-                  [:= :table_schema schema]
-                  [:= :table_name table-str]]
-          :order-by [:ordinal_position]
+          columns-query {:select   [:column_name :data_type :is_nullable :column_default]
+                         :from     [:information_schema.columns]
+                         :where    [:and
+                                    [:= :table_schema schema]
+                                    [:= :table_name table-str]]
+                         :order-by [:ordinal_position]}
           ;; Get primary key information
-          pk-query {:select [:kcu.column_name]}
-          :from [[:information_schema.table_constraints :tc]]
-          :join [[:information_schema.key_column_usage :kcu]
-                 [:and
-                  [:= :tc.constraint_name :kcu.constraint_name]
-                  [:= :tc.table_schema :kcu.table_schema]]]
-          :where [:and
-                  [:= :tc.table_schema schema]
-                  [:= :tc.table_name table-str]
-                  [:= :tc.constraint_type "PRIMARY KEY"]]
+          pk-query      {:select [:kcu.column_name]
+                         :from   [[:information_schema.table_constraints :tc]]
+                         :join   [[:information_schema.key_column_usage :kcu]
+                                  [:and
+                                   [:= :tc.constraint_name :kcu.constraint_name]
+                                   [:= :tc.table_schema :kcu.table_schema]]]
+                         :where  [:and
+                                  [:= :tc.table_schema schema]
+                                  [:= :tc.table_name table-str]
+                                  [:= :tc.constraint_type "PRIMARY KEY"]]}
 
-          columns (jdbc/execute! datasource
-                                 (sql/format columns-query {:dialect :postgresql})
-                                 {:builder-fn rs/as-unqualified-lower-maps})
-          pk-columns (set (map :column_name
-                               (jdbc/execute! datasource
-                                               (sql/format pk-query {:dialect :postgresql})
-                                               {:builder-fn rs/as-unqualified-lower-maps})))]
+          columns       (jdbc/execute! datasource
+                                       (sql/format columns-query)  ; Use default dialect
+                                       {:builder-fn rs/as-unqualified-lower-maps})
+          pk-columns    (set (map :column_name
+                                  (jdbc/execute! datasource
+                                                 (sql/format pk-query)  ; Use default dialect
+                                                 {:builder-fn rs/as-unqualified-lower-maps})))]
 
       (mapv (fn [col]
               {:name        (:column_name col)
@@ -252,7 +252,7 @@
   ([datasource query-map]
    (explain-query datasource query-map {}))
   ([datasource query-map options]
-   (let [sql-query    (sql/format query-map {:dialect :postgresql})
+   (let [sql-query    (sql/format query-map)  ; Use default dialect
          explain-opts (str/join ", "
                                 (for [[k v] options :when v]
                                   (str/upper-case (name k))))
