@@ -23,7 +23,7 @@
    Each database adapter (SQLite, PostgreSQL, MySQL, H2) implements this
    protocol to provide database-specific functionality while common operations
    are handled by the shared database core namespace."
-  
+
   (dialect [this]
     "Return the HoneySQL dialect keyword for this database.
      
@@ -32,7 +32,7 @@
        
      Example:
        (dialect sqlite-adapter) ;; => :sqlite")
-  
+
   (jdbc-driver [this]
     "Return the JDBC driver class string for this database.
      
@@ -41,7 +41,7 @@
        
      Example:
        (jdbc-driver sqlite-adapter) ;; => \"org.sqlite.JDBC\"")
-  
+
   (jdbc-url [this db-config]
     "Generate JDBC URL string from database configuration.
      
@@ -54,7 +54,7 @@
      Example:
        (jdbc-url postgres-adapter {:host \"localhost\" :port 5432 :name \"mydb\"})
        ;; => \"jdbc:postgresql://localhost:5432/mydb\"")
-  
+
   (pool-defaults [this]
     "Return default connection pool settings optimized for this database.
      
@@ -64,7 +64,7 @@
      Example:
        (pool-defaults sqlite-adapter)
        ;; => {:minimum-idle 1 :maximum-pool-size 5 :connection-timeout-ms 30000}")
-  
+
   (init-connection! [this datasource db-config]
     "Initialize database connection with database-specific settings.
      
@@ -83,7 +83,7 @@
        
      Example:
        (init-connection! sqlite-adapter datasource config)")
-  
+
   (build-where [this filters]
     "Build database-specific WHERE clause conditions from filter map.
      
@@ -101,7 +101,7 @@
      Example:
        (build-where postgres-adapter {:name \"john\" :active true})
        ;; => [:and [:ilike :name \"%john%\"] [:= :active true]]")
-  
+
   (boolean->db [this boolean-value]
     "Convert boolean value to database-specific representation.
      
@@ -116,7 +116,7 @@
      Example:
        (boolean->db sqlite-adapter true) ;; => 1
        (boolean->db postgres-adapter true) ;; => true")
-  
+
   (db->boolean [this db-value]
     "Convert database boolean representation to Clojure boolean.
      
@@ -129,7 +129,7 @@
      Example:
        (db->boolean sqlite-adapter 1) ;; => true
        (db->boolean postgres-adapter true) ;; => true")
-  
+
   (table-exists? [this datasource table-name]
     "Check if a table exists in the database.
      
@@ -148,7 +148,7 @@
        
      Example:
        (table-exists? sqlite-adapter ds :users) ;; => true")
-  
+
   (get-table-info [this datasource table-name]
     "Get column information for a table.
      
@@ -206,16 +206,16 @@
         :server ::server-db-config))
 
 (defn validate-db-config
-  "Validate database configuration against spec.
-   
-   Args:
-     db-config: Database configuration map
-     
-   Returns:
-     db-config if valid
-     
-   Throws:
-     ExceptionInfo if configuration is invalid"
+      "Validate database configuration against spec.
+
+       Args:
+         db-config: Database configuration map
+
+       Returns:
+         db-config if valid
+
+       Throws:
+         ExceptionInfo if configuration is invalid"
   [db-config]
   (if (s/valid? ::db-config db-config)
     db-config

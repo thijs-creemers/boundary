@@ -22,15 +22,14 @@
    Backward Compatibility:
    - SQLiteUserRepository and SQLiteUserSessionRepository remain available
    - New database-agnostic UserRepository and UserSessionRepository recommended"
-  (:require [boundary.shared.utils.type-conversion :as type-conversion]
-            [clojure.tools.logging :as log]
-            [clojure.set]
-            [boundary.user.ports :as ports]
-            [boundary.user.schema :as schema]
-            [boundary.shell.adapters.database.core :as db]
-            [boundary.shell.adapters.database.factory :as dbf]
-            [boundary.shell.adapters.database.sqlite :as sqlite]
-            [boundary.shell.adapters.database.protocols :as protocols])
+  (:require
+    [boundary.shared.utils.type-conversion :as type-conversion]
+    [clojure.tools.logging :as log]
+    [clojure.set]
+    [boundary.user.ports :as ports]
+    [boundary.shell.adapters.database.core :as db]
+    [boundary.shell.adapters.database.sqlite :as sqlite]
+    [boundary.shell.adapters.database.protocols :as protocols])
   (:import [java.util UUID]))
 
 ;; =============================================================================
@@ -156,10 +155,14 @@
 (def ^:private iso-formatter java.time.format.DateTimeFormatter/ISO_INSTANT)
 
 ;; Helper functions for Java time <-> string
-(defn- instant->string [inst]
+(defn instant->string
+  "Transform an Instant to a string using ISO format."
+  [inst]
   (when inst (.format iso-formatter inst)))
 
-(defn- string->instant [s]
+(defn string->instant
+  "Transform a string in ISO format to an Instant."
+  [s]
   (when s (java.time.Instant/parse s)))
 
 ;; =============================================================================

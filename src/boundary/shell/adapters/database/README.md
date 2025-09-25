@@ -17,17 +17,17 @@ The system is built on a protocol-based architecture that ensures consistent beh
 ┌─────────────────────────────────────────────────────────────┐
 │                    Application Layer                        │
 ├─────────────────────────────────────────────────────────────┤
-│                User Repositories                           │
-│   (boundary.user.shell.multi-db-adapters)                 │
+│                User Repositories                            │
+│   (boundary.user.shell.multi-db-adapters)                   │
 ├─────────────────────────────────────────────────────────────┤
-│                  Core Database API                         │
-│     (boundary.shell.adapters.database.core)               │
+│                  Core Database API                          │
+│     (boundary.shell.adapters.database.core)                 │
 ├─────────────────────────────────────────────────────────────┤
-│                  DBAdapter Protocol                        │
-│   (boundary.shell.adapters.database.protocols)           │
+│                  DBAdapter Protocol                         │
+│   (boundary.shell.adapters.database.protocols)              │
 ├─────────────────────────────────────────────────────────────┤
-│  SQLite    │    H2     │  PostgreSQL │    MySQL          │
-│  Adapter   │  Adapter  │   Adapter   │   Adapter         │
+│  SQLite    │    H2     │  PostgreSQL │    MySQL             │
+│  Adapter   │  Adapter  │   Adapter   │   Adapter            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
