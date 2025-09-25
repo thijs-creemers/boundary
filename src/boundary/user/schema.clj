@@ -1,11 +1,10 @@
 (ns boundary.user.schema
   (:require
-    [clj-time.core :as time]
-    [clj-time.coerce :as time-coerce]
-    [malli.core :as m]
-    [malli.util :as mu]
-    [malli.transform :as mt])
-  (:import (java.util UUID)))
+   [malli.core :as m]
+   [malli.transform :as mt]
+   [malli.util :as mu])
+  (:import (java.time Instant)
+           (java.util UUID)))
 
 ;; =============================================================================
 ;; Domain Entity Schemas
@@ -109,7 +108,7 @@
 (def UserResponse
   "Schema for user responses."
   [:map {:title "User Response"}
-   [:id :string]  ; UUID as string
+   [:id :string] ; UUID as string
    [:email :string]
    [:name :string]
    [:role :string] ; Enum as string
@@ -165,15 +164,15 @@
   [:map {:title "Create User CLI Arguments"}
    [:email :string]
    [:name :string]
-   [:role :string]  ; String input, converted to keyword
-   [:active {:optional true} [:or :boolean :string]]  ; CLI can provide "true"/"false"
+   [:role :string] ; String input, converted to keyword
+   [:active {:optional true} [:or :boolean :string]] ; CLI can provide "true"/"false"
    [:send-welcome {:optional true} [:or :boolean :string]]
-   [:tenant-id {:optional true} :string]])  ; UUID as string from CLI
+   [:tenant-id {:optional true} :string]]) ; UUID as string from CLI
 
 (def UpdateUserCLIArgs
   "Schema for CLI arguments when updating users."
   [:map {:title "Update User CLI Arguments"}
-   [:id :string]  ; UUID as string from CLI
+   [:id :string] ; UUID as string from CLI
    [:name {:optional true} :string]
    [:role {:optional true} :string]
    [:active {:optional true} [:or :boolean :string]]])
@@ -200,9 +199,93 @@
 ;; Schema Transformers
 ;; =============================================================================
 
+;; =============================================================================
+;; Transformer Helper Functions
+;; =============================================================================
+
+(defn camel-case->kebab-case-map
+  "Transforms camelCase API keys to kebab-case internal keys."
+  [value]
+  (cond-> value
+    (:tenantId value) (-> (assoc :tenant-id (:tenantId value))
+                          (dissoc :tenantId))
+    (:sendWelcome value) (-> (assoc :send-welcome (:sendWelcome value))
+                             (dissoc :sendWelcome))))
+
+(defn string->enum
+  "Converts string values to keywords for enums."
+  [value]
+  (cond
+    (keyword? value) value
+    (string? value) (keyword value)
+    :else value))
+
+(defn string->boolean
+  "Converts string values to booleans with support for various formats."
+  [value]
+  (cond
+    (boolean? value) value
+    (string? value) (case (.toLowerCase value)
+                      "true" true
+                      "false" false
+                      "1" true
+                      "0" false
+                      "yes" true
+                      "no" false
+                      "on" true
+                      "off" false
+                      value)
+    :else value))
+
+(defn kebab-case->camel-case-map
+  "Transforms kebab-case internal keys to camelCase API keys."
+  [value]
+  (cond-> value
+    (:id value) (assoc :id (str (:id value)))
+    (:tenant-id value) (-> (assoc :tenantId (str (:tenant-id value)))
+                           (dissoc :tenant-id))
+    (:created-at value) (-> (assoc :createdAt (:created-at value))
+                            (dissoc :created-at))
+    (:updated-at value) (-> (assoc :updatedAt (:updated-at value))
+                            (dissoc :updated-at))
+    (:last-login value) (-> (assoc :lastLogin (:last-login value))
+                            (dissoc :last-login))
+    (:login-count value) (-> (assoc :loginCount (:login-count value))
+                             (dissoc :login-count))
+    (:avatar-url value) (-> (assoc :avatarUrl (:avatar-url value))
+                            (dissoc :avatar-url))
+    (:date-format value) (-> (assoc :dateFormat (name (:date-format value)))
+                             (dissoc :date-format))
+    (:time-format value) (-> (assoc :timeFormat (name (:time-format value)))
+                             (dissoc :time-format))
+    (:role value) (assoc :role (name (:role value)))
+    (:theme value) (assoc :theme (name (:theme value)))))
+
+(defn string->int
+  "Converts string values to integers."
+  [value]
+  (cond
+    (int? value) value
+    (string? value) (try
+                      (Integer/parseInt value)
+                      (catch NumberFormatException _
+                        value))
+    :else value))
+
+(defn string->uuid
+  "Converts string values to UUIDs."
+  [value]
+  (cond
+    (uuid? value) value
+    (string? value) (try
+                      (UUID/fromString value)
+                      (catch IllegalArgumentException _
+                        value))
+    :else value))
+
 (def user-request-transformer
   "Transforms external API data to internal domain format.
-   
+
    Handles:
    - String to keyword conversion for enums
    - String boolean to boolean conversion
@@ -213,35 +296,13 @@
    mt/string-transformer
    {:name :user-request
     :transformers
-    {:map {:compile (fn [_schema _options]
-                      (fn [value]
-                       ;; Transform camelCase API keys to kebab-case internal keys
-                        (cond-> value
-                          (:tenantId value) (-> (assoc :tenant-id (:tenantId value))
-                                                (dissoc :tenantId))
-                          (:sendWelcome value) (-> (assoc :send-welcome (:sendWelcome value))
-                                                   (dissoc :sendWelcome)))))}
-     :enum {:compile (fn [_schema _options]
-                       (fn [value]
-                         (cond
-                           (keyword? value) value
-                           (string? value) (keyword value)
-                           :else value)))}
-     :boolean {:compile (fn [_schema _options]
-                          (fn [value]
-                            (cond
-                              (boolean? value) value
-                              (string? value) (case (.toLowerCase value)
-                                                "true" true
-                                                "false" false
-                                                "1" true
-                                                "0" false
-                                                value)
-                              :else value)))}}}))
+    {:map {:compile (fn [_schema _options] camel-case->kebab-case-map)}
+     :enum {:compile (fn [_schema _options] string->enum)}
+     :boolean {:compile (fn [_schema _options] string->boolean)}}}))
 
 (def user-response-transformer
   "Transforms internal domain data to external API format.
-   
+
    Handles:
    - UUID to string conversion
    - Instant to ISO 8601 string conversion
@@ -250,35 +311,14 @@
   (mt/transformer
    {:name :user-response
     :transformers
-    {:map {:compile (fn [_schema _options]
-                      (fn [value]
-                       ;; Transform kebab-case internal keys to camelCase API keys
-                        (cond-> value
-                          (:id value) (assoc :id (str (:id value)))
-                          (:tenant-id value) (-> (assoc :tenantId (str (:tenant-id value)))
-                                                 (dissoc :tenant-id))
-                          (:created-at value) (-> (assoc :createdAt (:created-at value))
-                                                  (dissoc :created-at))
-                          (:updated-at value) (-> (assoc :updatedAt (:updated-at value))
-                                                  (dissoc :updated-at))
-                          (:last-login value) (-> (assoc :lastLogin (:last-login value))
-                                                  (dissoc :last-login))
-                          (:login-count value) (-> (assoc :loginCount (:login-count value))
-                                                   (dissoc :login-count))
-                          (:avatar-url value) (-> (assoc :avatarUrl (:avatar-url value))
-                                                  (dissoc :avatar-url))
-                          (:date-format value) (-> (assoc :dateFormat (name (:date-format value)))
-                                                   (dissoc :date-format))
-                          (:time-format value) (-> (assoc :timeFormat (name (:time-format value)))
-                                                   (dissoc :time-format))
-                          (:role value) (assoc :role (name (:role value))))))}
+    {:map {:compile (fn [_schema _options] kebab-case->camel-case-map)}
      :uuid {:compile (fn [_schema _options] str)}
      :inst {:compile (fn [_schema _options] #(.toString %))}
      :enum {:compile (fn [_schema _options] name)}}}))
 
 (def cli-transformer
   "Transforms CLI string arguments to appropriate types.
-   
+
    Handles:
    - String to boolean conversion (true/false, 1/0)
    - String to integer conversion
@@ -288,45 +328,10 @@
    mt/string-transformer
    {:name :cli-transformer
     :transformers
-    {:boolean {:compile (fn [_schema _options]
-                          (fn [value]
-                            (cond
-                              (boolean? value) value
-                              (string? value) (case (.toLowerCase value)
-                                                "true" true
-                                                "false" false
-                                                "1" true
-                                                "0" false
-                                                "yes" true
-                                                "no" false
-                                                "on" true
-                                                "off" false
-                                                value) ; Return unchanged if not recognized
-                              :else value)))}
-     :int {:compile (fn [_schema _options]
-                      (fn [value]
-                        (cond
-                          (int? value) value
-                          (string? value) (try
-                                            (Integer/parseInt value)
-                                            (catch NumberFormatException _
-                                              value))
-                          :else value)))}
-     :uuid {:compile (fn [_schema _options]
-                       (fn [value]
-                         (cond
-                           (uuid? value) value
-                           (string? value) (try
-                                             (UUID/fromString value)
-                                             (catch IllegalArgumentException _
-                                               value))
-                           :else value)))}
-     :enum {:compile (fn [_schema _options]
-                       (fn [value]
-                         (cond
-                           (keyword? value) value
-                           (string? value) (keyword value)
-                           :else value)))}}}))
+    {:boolean {:compile (fn [_schema _options] string->boolean)}
+     :int {:compile (fn [_schema _options] string->int)}
+     :uuid {:compile (fn [_schema _options] string->uuid)}
+     :enum {:compile (fn [_schema _options] string->enum)}}}))
 
 ;; =============================================================================
 ;; Validation Functions
@@ -381,34 +386,12 @@
 (defn user-entity->response
   "Transforms a user entity into an API response."
   [user-data]
-  ;; Manual transformation with field renaming
-  (let [transformed (cond-> {}
-                      (:id user-data) (assoc :id (str (:id user-data)))
-                      (:email user-data) (assoc :email (:email user-data))
-                      (:name user-data) (assoc :name (:name user-data))
-                      (:role user-data) (assoc :role (name (:role user-data)))
-                      (:active user-data) (assoc :active (:active user-data))
-                      (:login-count user-data) (assoc :loginCount (:login-count user-data))
-                      (:last-login user-data) (assoc :lastLogin (:last-login user-data))
-                      (:tenant-id user-data) (assoc :tenantId (str (:tenant-id user-data)))
-                      (:avatar-url user-data) (assoc :avatarUrl (:avatar-url user-data))
-                      (:created-at user-data) (assoc :createdAt (:created-at user-data))
-                      (:updated-at user-data) (assoc :updatedAt (:updated-at user-data)))]
-    transformed))
+  (kebab-case->camel-case-map user-data))
 
 (defn user-profile-entity->response
   "Transforms a user profile entity into an API response."
   [user-profile-data]
-  ;; First transform the base user fields, then add preference fields
-  (let [base-transformed (user-entity->response user-profile-data)
-        preferences-transformed (cond-> base-transformed
-                                 (:notifications user-profile-data) (assoc :notifications (:notifications user-profile-data))
-                                 (:theme user-profile-data) (assoc :theme (name (:theme user-profile-data)))
-                                 (:language user-profile-data) (assoc :language (:language user-profile-data))
-                                 (:timezone user-profile-data) (assoc :timezone (:timezone user-profile-data))
-                                 (:date-format user-profile-data) (assoc :dateFormat (name (:date-format user-profile-data)))
-                                 (:time-format user-profile-data) (assoc :timeFormat (name (:time-format user-profile-data))))]
-    preferences-transformed))
+  (kebab-case->camel-case-map user-profile-data))
 
 (defn users->paginated-response
   "Converts paginated user data to API response format."
@@ -426,24 +409,23 @@
        m/children
        (mapv (comp name first))))
 
-#_(defn get-required-user-fields
+(defn get-required-user-fields
   "Returns the required field names for the User schema."
   []
   (->> User
        m/children
-       (remove (fn [[_ schema]]
-                 (or (m/optional-key? schema)
-                     (= :maybe (m/type schema)))))
+       (remove (fn [[_key props _schema]]
+                 (or (:optional props)
+                     (= :maybe (m/type _schema)))))
        (mapv (comp name first))))
 
-#_(defn get-optional-user-fields
+(defn get-optional-user-fields
   "Returns the optional field names for the User schema."
   []
   (->> User
        m/children
-       (filter (fn [[_ schema]]
-                 (or (m/optional-key? schema)
-                     (= :maybe (m/type schema)))))
+       (filter (fn [[_key props _schema]]
+                 (:optional props)))
        (mapv (comp name first))))
 
 (defn merge-user-schemas
@@ -509,7 +491,7 @@
      :role (rand-nth [:admin :user :viewer])
      :active true
      :tenant-id (UUID/randomUUID)
-     :created-at (time-coerce/to-string (time/now))
+     :created-at (str (Instant/now))
      :updated-at nil
      :deleted-at nil}
     overrides)))

@@ -19,6 +19,19 @@ git clone <repo-url> boundary
 cd boundary
 clojure -M:test                            # Run tests
 clojure -M:repl-clj                        # Start REPL
+clojure -X:mcp # runs clojure-mcp server as configured in ~/.clojure/deps.edn 
+
+opencode setup, startup fails when the repl is not running.
+``` json
+{"mcp":
+    "clojure-mcp": {
+      "type": "local",
+      "command": [
+        "clojure",
+        "-X:mcp"
+      ]
+    }
+}
 ```
 
 ## Architecture

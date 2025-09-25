@@ -25,8 +25,7 @@
             [boundary.user.ports :as ports]
             [boundary.user.schema :as schema]
             [boundary.shell.adapters.database.sqlite :as sqlite]
-            [clj-time.core :as t]
-            [clj-time.format :as f]
+
             [next.jdbc.result-set :as rs])
   (:import [java.util UUID]))
 
@@ -98,15 +97,15 @@
 ;; Data Transformation Utilities (using shared SQLite utilities)
 ;; =============================================================================
 
-;; Define ISO formatter for clj-time
-(def ^:private iso-formatter (f/formatters :date-time))
+;; Define ISO formatter for Java time
+(def ^:private iso-formatter java.time.format.DateTimeFormatter/ISO_INSTANT)
 
-;; Helper functions for clj-time <-> string
+;; Helper functions for Java time <-> string
 (defn- instant->string [inst]
-  (when inst (f/unparse iso-formatter inst)))
+  (when inst (.format iso-formatter inst)))
 
 (defn- string->instant [s]
-  (when s (f/parse iso-formatter s)))
+  (when s (java.time.Instant/parse s)))
 
 ;; =============================================================================
 ;; User Entity Transformations
@@ -298,7 +297,7 @@
 
   (create-user [_ user-entity]
     (log/info "Creating user" {:email (:email user-entity) :tenant-id (:tenant-id user-entity)})
-    (let [now (t/now)
+    (let [now (java.time.Instant/now)
           user-with-metadata (-> user-entity
                                  (assoc :id (UUID/randomUUID))
                                  (assoc :created-at now)
@@ -314,7 +313,7 @@
 
   (update-user [_ user-entity]
     (log/info "Updating user" {:user-id (:id user-entity)})
-    (let [now (t/now)
+    (let [now (java.time.Instant/now)
           updated-user (assoc user-entity :updated-at now)
           db-user (user-entity->db updated-user)
           query {:update :users
@@ -332,7 +331,7 @@
 
   (soft-delete-user [_ user-id]
     (log/info "Soft deleting user" {:user-id user-id})
-    (let [now (t/now)
+    (let [now (java.time.Instant/now)
           query {:update :users
                  :set {:deleted_at (instant->string now)
                        :updated_at (instant->string now)}
@@ -415,7 +414,7 @@
   (create-users-batch [_ user-entities]
     (log/info "Creating users batch" {:count (count user-entities)})
     (jdbc/with-transaction [tx datasource]
-      (let [now (t/now)
+      (let [now (java.time.Instant/now)
             users-with-metadata (map (fn [user]
                                        (-> user
                                            (assoc :id (UUID/randomUUID))
@@ -436,7 +435,7 @@
   (update-users-batch [_ user-entities]
     (log/info "Updating users batch" {:count (count user-entities)})
     (jdbc/with-transaction [tx datasource]
-      (let [now (t/now)
+      (let [now (java.time.Instant/now)
             updated-users (map #(assoc % :updated-at now) user-entities)]
 
         (doseq [user updated-users]
@@ -470,7 +469,7 @@
 
   (create-session [_ session-entity]
     (log/info "Creating user session" {:user-id (:user-id session-entity)})
-    (let [now (t/now)
+    (let [now (java.time.Instant/now)
           session-with-metadata (-> session-entity
                                     (assoc :id (UUID/randomUUID))
                                     (assoc :session-token (generate-session-token))
@@ -487,7 +486,7 @@
 
   (find-session-by-token [_ session-token]
     (log/debug "Finding session by token" {:token-prefix (subs session-token 0 8)})
-    (let [now (t/now)
+    (let [now (java.time.Instant/now)
           query {:select [:*]
                  :from [:user_sessions]
                  :where [:and
@@ -507,7 +506,7 @@
 
   (find-sessions-by-user [_ user-id]
     (log/debug "Finding sessions by user" {:user-id user-id})
-    (let [now (t/now)
+    (let [now (java.time.Instant/now)
           query {:select [:*]
                  :from [:user_sessions]
                  :where [:and
@@ -520,7 +519,7 @@
 
   (invalidate-session [_ session-token]
     (log/info "Invalidating session" {:token-prefix (subs session-token 0 8)})
-    (let [now (t/now)
+    (let [now (java.time.Instant/now)
           query {:update :user_sessions
                  :set {:revoked_at (instant->string now)}
                  :where [:and
@@ -538,7 +537,7 @@
 
   (invalidate-all-user-sessions [_ user-id]
     (log/warn "Invalidating all sessions for user" {:user-id user-id})
-    (let [now (t/now)
+    (let [now (java.time.Instant/now)
           query {:update :user_sessions
                  :set {:revoked_at (instant->string now)}
                  :where [:and

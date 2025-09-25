@@ -1,10 +1,8 @@
 (ns boundary.user.transformers-test
   (:require
-    [clojure.test :refer :all]
-    [boundary.user.schema :as schema]
-    [malli.core :as m]
-    [clj-time.core :as time]
-    [clj-time.format :as time-format]))
+   [clojure.test :refer :all]
+   [boundary.user.schema :as schema]
+   [malli.core :as m]))
 
 (def sample-user-entity
   {:id (java.util.UUID/fromString "123e4567-e89b-12d3-a456-426614174000")
@@ -63,7 +61,7 @@
       (doseq [[bool-str expected] test-cases]
         (let [input (assoc base-input :active bool-str)
               result (m/decode schema/CreateUserRequest input schema/user-request-transformer)]
-          (is (= expected (:active result)) 
+          (is (= expected (:active result))
               (str "Failed for boolean string: " bool-str))))))
 
   (testing "leaves unrecognized boolean strings unchanged"
@@ -132,9 +130,9 @@
       (is (= "admin" (:role result)))))
 
   (testing "handles nil optional fields properly"
-    (let [user-with-nils (assoc sample-user-entity 
-                                :updated-at nil 
-                                :last-login nil 
+    (let [user-with-nils (assoc sample-user-entity
+                                :updated-at nil
+                                :last-login nil
                                 :avatar-url nil)
           result (schema/user-entity->response user-with-nils)]
       (is (nil? (:updatedAt result)))

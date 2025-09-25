@@ -1,10 +1,8 @@
 (ns boundary.user.simple-schema-test
   (:require
-    [clojure.test :refer :all]
-    [boundary.user.schema :as schema]
-    [malli.core :as m]
-    [clj-time.core :as time]
-    [clj-time.coerce :as time-coerce]))
+   [clojure.test :refer :all]
+   [boundary.user.schema :as schema]
+   [malli.core :as m]))
 
 (def valid-user
   {:id (java.util.UUID/randomUUID)
@@ -13,7 +11,7 @@
    :role :user
    :active true
    :tenant-id (java.util.UUID/randomUUID)
-   :created-at (time-coerce/to-string (time/now))})
+   :created-at (.toString (java.time.Instant/now))})
 
 (deftest basic-user-validation
   (testing "validates complete valid user"

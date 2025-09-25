@@ -1,10 +1,10 @@
 (ns boundary.user.data-transform-test
   (:require
-    [clojure.test :refer :all]
-    [boundary.user.schema :as schema]
-    [clj-time.core :as time]
-    [clj-time.format :as time-format]
-    [malli.core :as m]))
+   [clojure.test :refer :all]
+   [boundary.user.schema :as schema]
+   [malli.core :as m])
+  (:import
+   [java.time Instant]))
 
 (def sample-user-entity
   {:id (java.util.UUID/fromString "123e4567-e89b-12d3-a456-426614174000")
@@ -13,11 +13,11 @@
    :role :admin
    :active true
    :login-count 42
-   :last-login (time-format/parse "2023-12-25T14:30:00Z")
+   :last-login (Instant/parse "2023-12-25T14:30:00Z")
    :tenant-id (java.util.UUID/fromString "987fcdeb-51a2-43d7-b123-456789abcdef")
    :avatar-url "https://example.com/avatar.jpg"
-   :created-at (time-format/parse "2023-01-01T12:00:00Z")
-   :updated-at (time-format/parse "2023-12-20T10:15:30Z")
+   :created-at (Instant/parse "2023-01-01T12:00:00Z")
+   :updated-at (Instant/parse "2023-12-20T10:15:30Z")
    :date-format :us
    :time-format :12h})
 
@@ -66,9 +66,9 @@
       (is (not (contains? result :avatar-url)))))
 
   (testing "handles nil optional fields"
-    (let [user-with-nils (assoc sample-user-entity 
-                                :updated-at nil 
-                                :last-login nil 
+    (let [user-with-nils (assoc sample-user-entity
+                                :updated-at nil
+                                :last-login nil
                                 :avatar-url nil
                                 :login-count nil)
           result (schema/user-entity->response user-with-nils)]
@@ -84,7 +84,7 @@
                         :role :user
                         :active true
                         :tenant-id (java.util.UUID/randomUUID)
-                        :created-at (time/now)}
+                        :created-at (Instant/now)}
           result (schema/user-entity->response minimal-user)]
       (is (string? (:id result)))
       (is (= "minimal@example.com" (:email result)))
@@ -129,7 +129,7 @@
 (deftest users->paginated-response-test
   (testing "transforms vector of users to paginated response"
     (let [user1 sample-user-entity
-          user2 (assoc sample-user-entity 
+          user2 (assoc sample-user-entity
                        :id (java.util.UUID/fromString "456e7890-a12b-34c5-d678-901234567890")
                        :email "user2@example.com"
                        :name "Second User")
