@@ -152,8 +152,8 @@
       (let [adapter-type (config-key->adapter-type config-key)]
         (when-let [error (validate-adapter-config adapter-type config)]
           (swap! errors conj {:adapter adapter-type
-                             :config-key config-key
-                             :error error}))))
+                              :config-key config-key
+                              :error error}))))
     
     (if (empty? @errors)
       {:valid? true

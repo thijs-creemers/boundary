@@ -144,7 +144,7 @@
      (log/info "Creating database contexts for active configurations"
                {:env env :active-count (count active-configs)})
      
-     (doseq [[config-key db-config] active-configs]
+     (doseq [[config-key _db-config] active-configs]
        (try
          (let [ctx (create-config-context env config-key)]
            (swap! contexts assoc config-key ctx))
@@ -322,12 +322,12 @@
       (case adapter-key
         :boundary/sqlite {:jdbcUrl (str "jdbc:sqlite:" (:db config))}
         :boundary/h2 {:jdbcUrl (if (:memory config) "jdbc:h2:mem:testdb" (str "jdbc:h2:file:" (:db config)))}
-        :boundary/postgresql {:jdbcUrl (str "jdbc:postgresql://" (:host config) ":" (:port config) "/" (:dbname config))
+        :boundary/postgresql {:jdbcUrl (str "jdbc:postgresql://" (:host config) ":" (:port config) "/" (:dbname config))}
                              :user (:user config)
-                             :password (:password config)}
+                             :password (:password config)
         :boundary/mysql {:jdbcUrl (str "jdbc:mysql://" (:host config) ":" (:port config) "/" (:dbname config))
-                        :user (:user config)
-                        :password (:password config)}
+                         :user (:user config)
+                         :password (:password config)}
         {:jdbcUrl "jdbc:unknown"}))
     (dialect [this]
       (case adapter-key

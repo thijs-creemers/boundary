@@ -13,8 +13,8 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.tools.logging :as log]
             [boundary.shell.adapters.database.core :as db]
-            [boundary.shell.adapters.database.h2 :as h2]
-            [boundary.shell.adapters.database.sqlite :as sqlite]
+            [boundary.shell.adapters.database.adapters.h2 :as h2]
+            [boundary.shell.adapters.database.adapters.sqlite :as sqlite]
             [boundary.shell.adapters.database.protocols :as protocols]
             [next.jdbc :as jdbc])
   (:import [java.util UUID]))
@@ -179,7 +179,7 @@
             (db/with-transaction [tx ctx]
               (db/execute-update! tx {:insert-into :test_users
                                       :values [{:id user-id-1 :email "rollback@test.com" :name "Rollback User"}]})
-              (throw (RuntimeException. "Intentional failure"))
+              (throw (RuntimeException. "Intentional failure")))))
       
       ;; Verify no records were committed due to rollback
       (is (= 0 (count (db/execute-query! ctx {:select [:*] :from [:test_users]})))))))

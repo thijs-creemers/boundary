@@ -22,7 +22,8 @@
             [clojure.tools.logging :as log]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
-            [next.jdbc.result-set :as rs]))
+            [next.jdbc.result-set :as rs])
+  (:import (java.util UUID)))
 
 ;; =============================================================================
 ;; H2 Adapter Implementation
@@ -190,7 +191,7 @@
          (def test-ctx (create-test-context))
          (core/execute-query! test-ctx {:select [1]})"
   ([]
-   (create-test-context (str "test_" (java.util.UUID/randomUUID))))
+   (create-test-context (str "test_" (UUID/randomUUID))))
   ([db-name]
    (let [adapter   (new-adapter)
          db-config {:adapter       :h2
@@ -214,7 +215,7 @@
 (defn uuid-column-type
       "Get H2 UUID column type definition.
 
-       H2 has native UUID support but we use VARCHAR for compatibility.
+       H2 has native UUID support, but we use VARCHAR for compatibility.
 
        Returns:
          String - 'VARCHAR(36)' for UUID storage"

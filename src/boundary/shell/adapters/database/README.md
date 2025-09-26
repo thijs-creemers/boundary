@@ -11,19 +11,31 @@ A comprehensive database abstraction layer that provides unified access to multi
 
 ## Architecture Overview
 
-The system is built on a protocol-based architecture that ensures consistent behavior across all database engines:
+The system is built on a clean layered architecture with proper separation of concerns:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Application Layer                        │
+│              Business Logic Layer                           │
+│        (boundary.user.shell.service)                        │
+│               - Database agnostic                           │
+│               - Uses dependency injection                   │
 ├─────────────────────────────────────────────────────────────┤
-│                User Repositories                            │
-│   (boundary.user.shell.multi-db-adapters)                   │
+│              Repository Interfaces                          │
+│            (boundary.user.ports)                            │
 ├─────────────────────────────────────────────────────────────┤
-│                  Core Database API                          │
+│              Database Layer                                 │
+│     (boundary.shell.adapters.database.user)                 │
+│               - Implements repositories                     │
+│               - Handles entity transformations              │
+├─────────────────────────────────────────────────────────────┤
+│              Core Database API                              │
 │     (boundary.shell.adapters.database.core)                 │
 ├─────────────────────────────────────────────────────────────┤
-│                  DBAdapter Protocol                         │
+│              Schema Generation                              │
+│    (boundary.shell.adapters.database.schema)                │
+│               - Malli to DDL conversion                     │
+├─────────────────────────────────────────────────────────────┤
+│              DBAdapter Protocol                             │
 │   (boundary.shell.adapters.database.protocols)              │
 ├─────────────────────────────────────────────────────────────┤
 │  SQLite    │    H2     │  PostgreSQL │    MySQL             │
@@ -120,25 +132,30 @@ Ensure your `deps.edn` includes the necessary JDBC drivers:
   (db/execute-update! tx {:update :audit :set {:last-modified (java.time.Instant/now)}}))
 ```
 
-### 4. Use Repositories
+### 4. Use Database-Agnostic User System
 
 ```clojure
-(require '[boundary.user.shell.multi-db-adapters :as user-adapters])
+(require '[boundary.shell.adapters.database.user :as db-user]
+         '[boundary.user.shell.service :as user-service])
 
 ;; Initialize schema
-(user-adapters/initialize-database! ctx)
+(db-user/initialize-user-schema! ctx)
 
-;; Create repository
-(def user-repo (user-adapters/new-user-repository ctx))
+;; Create repositories (database layer)
+(def user-repo (db-user/create-user-repository ctx))
+(def session-repo (db-user/create-session-repository ctx))
 
-;; Use repository methods
-(def user (.create-user user-repo {:email "test@example.com"
-                                   :name "Test User"
-                                   :role :admin
-                                   :active true
-                                   :tenant-id (random-uuid)}))
+;; Create service with dependency injection (business layer)
+(def service (user-service/create-user-service user-repo session-repo))
 
-(def found-user (.find-user-by-email user-repo "test@example.com" tenant-id))
+;; Use service for business operations (database-agnostic)
+(def user (.create-user service {:email "test@example.com"
+                                :name "Test User"
+                                :role :admin
+                                :active true
+                                :tenant-id (random-uuid)}))
+
+(def found-user (.find-user-by-email service "test@example.com" tenant-id))
 ```
 
 ## Migration from Legacy SQLite System

@@ -222,7 +222,7 @@
    Returns:
      nil"
   [datasource sequence-name & {:keys [start-value increment]
-                              :or {start-value 1 increment 1}}]
+                               :or {start-value 1 increment 1}}]
   (let [sql (str "CREATE SEQUENCE IF NOT EXISTS " sequence-name 
                 " START WITH " start-value 
                 " INCREMENT BY " increment)]

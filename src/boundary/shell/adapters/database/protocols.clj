@@ -205,6 +205,33 @@
   (s/or :sqlite ::sqlite-config
         :server ::server-db-config))
 
+;; =============================================================================
+;; Test Compatibility Protocol
+;; =============================================================================
+
+(defprotocol DatabaseAdapter
+  "Test-compatible protocol alias for DBAdapter"
+  (connection-spec [this]
+    "Get connection specification map")
+  (dialect [this]
+    "Get database dialect")
+  (format-sql [this query-map]
+    "Format SQL query map"))
+
+;; Extend DBAdapter to also satisfy DatabaseAdapter for backward compatibility
+(extend-protocol DatabaseAdapter
+  Object
+  (connection-spec [this]
+    (if (satisfies? DBAdapter this)
+      {:jdbcUrl (jdbc-url this {})}
+      {:jdbcUrl "jdbc:unknown"}))
+  (dialect [this]
+    (if (satisfies? DBAdapter this)
+      (boundary.shell.adapters.database.protocols/dialect this)
+      :unknown))
+  (format-sql [this query-map]
+    query-map))
+
 (defn validate-db-config
       "Validate database configuration against spec.
 

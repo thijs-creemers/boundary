@@ -1,18 +1,39 @@
 {
+ ;; =============================================================================
+ ;; Development Environment Configuration  
+ ;; =============================================================================
+ 
  :active
  {
+  ;; Core application settings (always active)
   :boundary/settings
   {:name              "boundary-dev"
    :version           "0.1.0"
    :date-format       "yyyy-MM-dd"
    :date-time-format  "yyyy-MM-dd HH:mm:ss"
-   :currency/iso-code "EUR"}}
+   :currency/iso-code "EUR"}
 
- :boundary/sqlite
- {:db "dev-database.db"}
+  ;; Active database configurations
+  ;; Only databases listed here will be loaded and initialized
+  
+  :boundary/sqlite
+  {:db "dev-database.db"
+   :pool {:minimum-idle 1
+          :maximum-pool-size 3
+          :connection-timeout-ms 10000}}
+  
+  ;; Uncomment to activate H2 for development
+  ;; :boundary/h2
+  ;; {:memory true  ; or {:db "dev-h2-database"}
+  ;;  :pool {:minimum-idle 1
+  ;;         :maximum-pool-size 5}}
+ }
 
  :inactive
  {
+  ;; Inactive database configurations
+  ;; These are available for reference but won't be loaded unless moved to :active
+  
   :boundary/postgresql
   {:host          #env "POSTGRES_HOST"
    :port          #env "POSTGRES_PORT"
@@ -20,12 +41,34 @@
    :user          #env "POSTGRES_USER"
    :password      #env "POSTGRES_PASSWORD"
    :auto-commit   true
-   :max-pool-size 15}
-  :boundary/logging {:level     :info
-                     :console   true
-                     :appenders [{:appender       :rolling-file
-                                  :file           "logs/web-service.log"
-                                  :rolling-policy {:type        :time-based
-                                                   :max-history 30
-                                                   :max-size    5000000 ; bytes
-                                                   :pattern     ".%d{yyyy-MM-dd}.%i.gz"}}]}}}
+   :pool          {:minimum-idle 5
+                   :maximum-pool-size 15
+                   :connection-timeout-ms 30000}}
+
+  :boundary/mysql
+  {:host          #env "MYSQL_HOST"
+   :port          #env "MYSQL_PORT"
+   :dbname        #env "MYSQL_DB"
+   :user          #env "MYSQL_USER"
+   :password      #env "MYSQL_PASSWORD"
+   :pool          {:minimum-idle 5
+                   :maximum-pool-size 15
+                   :connection-timeout-ms 30000}}
+
+  :boundary/h2
+  {:memory true  ; For fast in-memory testing
+   :pool   {:minimum-idle 1
+            :maximum-pool-size 10}}
+  
+  ;; Other inactive configurations
+  :boundary/logging 
+  {:level     :debug  ; More verbose logging in dev
+   :console   true
+   :appenders [{:appender       :rolling-file
+                :file           "logs/dev-service.log"
+                :rolling-policy {:type        :time-based
+                                 :max-history 7  ; Keep 7 days in dev
+                                 :max-size    10000000 ; 10MB
+                                 :pattern     ".%d{yyyy-MM-dd}.%i.gz"}}]}
+ }
+}

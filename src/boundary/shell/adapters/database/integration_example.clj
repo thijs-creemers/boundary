@@ -41,22 +41,21 @@
    (try
      (log/info "Initializing databases for environment:" environment)
      
-     ;; Load configuration for the specified environment
+     ;; Load configuration for the specified environment and create database contexts
      (let [config (db-config/load-config environment)
-           active-adapters (config-factory/create-active-adapters config)]
+           active-contexts (config-factory/create-active-contexts environment)]
        
-       (log/info "Found" (count active-adapters) "active database adapters:"
-                 (keys active-adapters))
+       (log/info "Found" (count active-contexts) "active database contexts:"
+                 (keys active-contexts))
        
-       ;; Initialize each active adapter
+       ;; Convert contexts to the format expected by app-state
        (let [initialized-dbs 
              (into {}
-                   (map (fn [[adapter-key adapter-config]]
-                          (log/info "Initializing adapter:" adapter-key)
-                          (let [pool (db-core/create-connection-pool adapter-config)]
-                            [adapter-key {:adapter adapter-config
-                                          :pool pool}]))
-                        active-adapters))]
+                   (map (fn [[adapter-key ctx]]
+                          (log/info "Registering context for adapter:" adapter-key)
+                          [adapter-key {:adapter (:adapter ctx)
+                                        :pool (:datasource ctx)}])
+                        active-contexts))]
          
          ;; Update application state
          (swap! app-state assoc
@@ -130,7 +129,7 @@
    Returns: Query results or throws exception"
   [adapter-key query-map]
   (if-let [db (get-database adapter-key)]
-    (db-core/execute-query! (:adapter db) query-map)
+    (db-core/execute-query! {:adapter (:adapter db) :datasource (:pool db)} query-map)
     (throw (ex-info "Database adapter not found or not initialized"
                     {:adapter-key adapter-key
                      :available-adapters (keys (:databases @app-state))}))))
@@ -200,10 +199,10 @@
   (doseq [env ["dev" "test" "prod"]]
     (log/info "--- Testing environment:" env "---")
     (try
-      (let [config (db-config/load-config env)
-            active-adapters (config-factory/create-active-adapters config)]
-        (log/info "Environment" env "has" (count active-adapters) "active adapters:"
-                  (keys active-adapters)))
+      (let [_config (db-config/load-config env)
+            active-db-configs (db-config/get-active-db-configs env)]
+        (log/info "Environment" env "has" (count active-db-configs) "active database configs:"
+                  (keys active-db-configs)))
       (catch Exception e
         (log/warn "Failed to load environment" env ":" (.getMessage e)))))
   
@@ -254,5 +253,5 @@
   (example-environment-switching)
   
   ;; Clean up
-  (reset-application-state!)
-  )
+  (reset-application-state!))
+

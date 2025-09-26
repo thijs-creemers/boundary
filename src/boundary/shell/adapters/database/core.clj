@@ -62,6 +62,26 @@
             (str "Invalid database context. Expected map with :datasource and :adapter keys. Got: " 
                  (type ctx))))))
 
+(defn validate-adapter
+  "Validate that context has a valid adapter (used for DDL generation).
+   
+   Args:
+     ctx: Database context to validate
+     
+   Returns:
+     ctx if valid
+     
+   Throws:
+     IllegalArgumentException if invalid"
+  [ctx]
+  (if (and (map? ctx)
+           (:adapter ctx)
+           (satisfies? protocols/DBAdapter (:adapter ctx)))
+    ctx
+    (throw (IllegalArgumentException. 
+            (str "Invalid adapter context. Expected map with :adapter key implementing DBAdapter protocol. Got: " 
+                 (type ctx))))))
+
 ;; =============================================================================
 ;; Connection Pool Management
 ;; =============================================================================
@@ -290,8 +310,8 @@
   (log/debug "Executing batch operation" 
              {:adapter (protocols/dialect (:adapter ctx))
               :query-count (count query-maps)})
-  (jdbc/with-transaction [tx (:datasource ctx)]
-    (let [tx-ctx (assoc ctx :datasource tx)
+  (jdbc/with-transaction [tx-conn (:datasource ctx)]
+    (let [tx-ctx (assoc ctx :datasource tx-conn)
           start-time (System/currentTimeMillis)
           results (mapv (fn [query-map]
                          (if (contains? query-map :select)
@@ -323,9 +343,9 @@
      (with-transaction* ctx (fn [tx] (execute-update! tx query)))"
   [ctx f]
   (validate-context ctx)
-  (jdbc/with-transaction [tx (:datasource ctx)]
+  (jdbc/with-transaction [tx-conn (:datasource ctx)]
     (try
-      (let [tx-ctx (assoc ctx :datasource tx)
+      (let [tx-ctx (assoc ctx :datasource tx-conn)
             result (f tx-ctx)]
         (log/debug "Transaction completed successfully"
                    {:adapter (protocols/dialect (:adapter ctx))})
@@ -505,6 +525,8 @@
                         "IF NOT EXISTS ")
         ddl (str "CREATE INDEX " if-not-exists index-name " ON " table-str " (" cols-str ")")]
     (execute-ddl! ctx ddl)))
+
+;; Note: Schema-to-DDL generation is available in boundary.shell.adapters.database.schema
 
 ;; =============================================================================
 ;; Database Information
