@@ -17,6 +17,12 @@ package "Imperative Shell" {
   [Configuration\n(Aero)] as CONFIG
   [Logging\n(TeleMere)] as LOGGING
   
+  package "Shared Utilities" {
+    [Type Conversion] as TYPE_CONV
+    [Case Conversion] as CASE_CONV
+    [Generic Validation] as GEN_VALIDATION
+  }
+  
   package "Adapters" {
     [PostgreSQL\nAdapter] as PG_ADAPTER
     [Email\nAdapter] as EMAIL_ADAPTER
@@ -45,6 +51,14 @@ CLI_HANDLER --> VALIDATION
 VALIDATION --> USER_CORE
 VALIDATION --> JOB_CORE
 
+' Shared utilities connections
+VALIDATION --> TYPE_CONV
+VALIDATION --> CASE_CONV
+VALIDATION --> GEN_VALIDATION
+HTTP_HANDLER --> TYPE_CONV
+HTTP_HANDLER --> CASE_CONV
+CLI_HANDLER --> TYPE_CONV
+
 HTTP_HANDLER --> ERROR_TRANS
 CLI_HANDLER --> ERROR_TRANS
 
@@ -70,5 +84,6 @@ LOGGING ..> ERROR_TRANS : logs
 note right of USER_CORE : Pure functions only\nNo side effects\nDeterministic
 note right of IUSER_REPO : Abstract interface\nCore depends only on this
 note left of PG_ADAPTER : Concrete implementation\nShell wires this to port
+note bottom of TYPE_CONV : Reusable utilities\nUUID, Instant, type conversions\nUsed across modules
 
 @enduml

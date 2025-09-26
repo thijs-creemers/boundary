@@ -110,14 +110,10 @@ src/boundary/
 │       └── service.clj    # Workflow service
 ├── shared/                # 🔗 SHARED UTILITIES
 │   ├── core/
-│   │   ├── validation.clj # Pure validation functions
-│   │   └── calculations.clj # Common calculations
-│   ├── ports.clj          # Shared ports (ISystemServices, etc.)
-│   ├── schema.clj         # Common schemas
-│   └── shell/
-│       ├── logging.clj    # Logging utilities
-│       ├── metrics.clj    # Metrics collection
-│       └── monitoring.clj # Health checks
+│   │   └── validation.clj # Generic validation patterns and utilities
+│   └── utils/
+│       ├── type_conversion.clj # Generic type conversions (UUID, Instant, etc.)
+│       └── case_conversion.clj # camelCase <-> kebab-case transformations
 ├── shell/                 # 🐚 IMPERATIVE SHELL AGGREGATION
 │   ├── interfaces/        # External interface aggregators
 │   │   ├── http/

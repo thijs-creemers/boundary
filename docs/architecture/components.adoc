@@ -74,16 +74,12 @@ src/boundary/
 │   └── shell/
 │       ├── adapters.clj   # Workflow adapters
 │       └── service.clj    # Workflow service
-├── shared/                # 🔗 SHARED UTILITIES
+├── shared/                # 🔗 SHARED UTILITIES  
 │   ├── core/
-│   │   ├── validation.clj # Pure validation functions
-│   │   └── calculations.clj # Common calculations
-│   ├── ports.clj          # Shared ports (ISystemServices, etc.)
-│   ├── schema.clj         # Common schemas
-│   └── shell/
-│       ├── logging.clj    # Logging utilities
-│       ├── metrics.clj    # Metrics collection
-│       └── monitoring.clj # Health checks
+│   │   └── validation.clj # Generic validation patterns and utilities
+│   └── utils/
+│       ├── type_conversion.clj # Generic type conversions (UUID, Instant, etc.)
+│       └── case_conversion.clj # camelCase <-> kebab-case transformations
 ├── shell/                 # 🐚 IMPERATIVE SHELL
 │   ├── adapters/          # I/O adapter implementations
 │   │   ├── database/
@@ -146,32 +142,33 @@ src/boundary/
 
 [source,clojure]
 ----
-;; USER MODULE - All user-related code together
-(ns boundary.user.ports)
-(defprotocol IUserRepository
-  (find-user-by-id [this user-id])
-  (create-user [this user-data]))
+;; USER MODULE - Simplified structure with shared utilities
+(ns boundary.user.schema
+  (:require [boundary.shared.utils.type-conversion :as type-conversion]
+            [boundary.shared.utils.case-conversion :as case-conversion]))
 
-(ns boundary.user.schema)
-(def User [:map [:id uuid?] [:email string?] [:active? boolean?]])
+;; Schema definitions
+(def User [:map [:id :uuid] [:email :string] [:active :boolean]])
 
-(ns boundary.user.core.user)
-(defn calculate-user-benefits [user-data] ...)
+;; Transformations using shared utilities
+(defn user-specific-kebab->camel [value]
+  (-> value
+      case-conversion/kebab-case->camel-case-map  ; Shared utility
+      (cond->  ; Domain-specific adaptations
+        (:id value) (assoc :id (type-conversion/uuid->string (:id value))))))
 
-(ns boundary.user.shell.service)
-(defn register-user [system request] ...)
+;; Validation using shared patterns
+(defn validate-user [user-data]
+  (m/validate User user-data))
 
-;; BILLING MODULE - Separate concerns
-(ns boundary.billing.ports)
-(defprotocol IPaymentProcessor
-  (process-payment [this payment-data])
-  (refund-payment [this transaction-id amount]))
+;; SHARED UTILITIES - Reusable across modules
+(ns boundary.shared.utils.type-conversion)
 
-(ns boundary.billing.schema)
-(def Payment [:map [:amount [:double {:min 0.01}]] [:currency string?]])
-
-(ns boundary.billing.core.pricing)
-(defn calculate-total-cost [line-items tax-rate] ...)
+;; Generic type conversions
+(defn uuid->string [uuid] (when uuid (.toString uuid)))
+(defn string->uuid [s] (when s (UUID/fromString s)))
+(defn string->boolean [value] 
+  (case value "true" true "false" false value))
 ----
 
 **🔄 Module Integration:**

@@ -109,13 +109,13 @@ src/boundary/
 ## Shared Infrastructure
 
 ### Shared Module (`src/boundary/shared/`)
-**Purpose**: Common utilities and cross-cutting concerns
+**Purpose**: Reusable utilities and cross-cutting concerns
 
-- `core/` - Pure utility functions
-  - `calculations.clj` - Common calculations ✅
-  - `validation.clj` - Pure validation functions ✅
-- `system/` - System-level utilities ✅
-- `utils/` - Common utilities ✅
+- `core/`
+  - `validation.clj` - Generic validation patterns and utilities ✅
+- `utils/`
+  - `type_conversion.clj` - Generic type conversions (UUID, Instant, etc.) ✅
+  - `case_conversion.clj` - camelCase <-> kebab-case transformations ✅
 
 ### Shell Infrastructure (`src/boundary/shell/`)  
 **Purpose**: Framework-wide imperative shell components
@@ -136,10 +136,7 @@ src/boundary/
 - `wiring.clj` - Dependency injection ✅
 
 **Utilities** (`shell/utils/`):
-- `error_handling.clj` - Error management ✅
-- `logging.clj` - Logging utilities ✅
-- `metrics.clj` - Metrics collection ✅
-- `monitoring.clj` - Health checks ✅
+- Infrastructure utilities integrated with framework components ✅
 
 ## Architectural Boundary Analysis
 

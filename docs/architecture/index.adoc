@@ -67,6 +67,9 @@ End-to-end data flow, validation pipelines, error propagation patterns
 {xref-integration-patterns}[**Integration Patterns**]::
 REST API, CLI, and Web interface integration strategies
 
+**link:shared-utilities.adoc[Shared Utilities]**::
+Reusable type conversion, case transformation, and validation utilities
+
 === Operational Concerns
 
 {xref-configuration}[**Configuration and Environment Management**]::
@@ -156,9 +159,10 @@ asciidoctor -r asciidoctor-diagram docs/architecture/overview.adoc
 |Layer Separation Guidelines |✅ Complete |{docdate} |FC/IS boundaries and testing strategies
 |Ports and Adapters |✅ Complete |{docdate} |Protocol patterns and dependency injection
 |Data Flow Architecture |✅ Complete |{docdate} |Validation pipelines and error propagation
-|Integration Patterns |📋 Planned |{docdate} |REST, CLI, Web interface strategies
-|Configuration and Environment Management |📋 Planned |{docdate} |Config sources and environment overlays
-|Error Handling and Observability |📋 Planned |{docdate} |Error taxonomies and monitoring
+|Shared Utilities |✅ Complete |{docdate} |Type conversion, case transformation, and validation patterns
+|Integration Patterns |📊 Planned |{docdate} |REST, CLI, Web interface strategies
+|Configuration and Environment Management |📊 Planned |{docdate} |Config sources and environment overlays
+|Error Handling and Observability |📊 Planned |{docdate} |Error taxonomies and monitoring
 |===
 
 **Legend:** ✅ Complete | 📝 In Progress | 📋 Planned | ⚠️ Needs Update
