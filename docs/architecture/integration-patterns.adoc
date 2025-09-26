@@ -1020,7 +1020,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
     [:rest :v1] {:deprecated? true
                  :sunset-date "2024-12-31"
                  :successor-version :v2
-                 :migration-guide "https://docs.boundary.com/migration/v1-to-v2"}
+                 :migration-guide "link:{xref-data-flow}[Data Flow Architecture]"}  ; Updated guide reference
     
     [:cli :v1] {:deprecated? false}  ; Current stable
     

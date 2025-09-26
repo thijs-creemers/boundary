@@ -427,8 +427,8 @@ src/boundary/user/shell/service.clj
 
 Explore related documentation:
 
-1. **link:migration-guide.md[Migration Guide]** - Step-by-step migration instructions
-2. **link:user-module-architecture.md[User Module Architecture]** - Detailed implementation example
+1. **{xref-overview}[Architecture Overview]** - High-level architectural decisions
+2. **{xref-components}[Component Architecture]** - Detailed module implementation patterns
 3. **{xref-ports-adapters}[Ports and Adapters]** - Interface design patterns
 
 == References

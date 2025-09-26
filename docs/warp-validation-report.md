@@ -25,7 +25,6 @@
 ### ✅ **Internal Documentation Links** (All Present)
 
 - `docs/boundary.prd.adoc` ✅
-- `docs/PRD-IMPROVEMENT-SUMMARY.adoc` ✅
 - `docs/architecture/overview.adoc` ✅
 - `docs/architecture/components.adoc` ✅
 - `docs/architecture/data-flow.adoc` ✅

@@ -69,10 +69,10 @@ find docs -name "*.adoc" | wc -l
 ```zsh
 # Check internal documentation links exist
 ls -1 docs/boundary.prd.adoc \
-      docs/PRD-IMPROVEMENT-SUMMARY.adoc \
       docs/architecture/overview.adoc \
       docs/architecture/components.adoc \
-      docs/architecture/data-flow.adoc
+      docs/architecture/data-flow.adoc \
+      docs/architecture/ports-and-adapters.adoc
 
 # Optional: Use markdown link checker
 # npx -y markdown-link-check warp.md
