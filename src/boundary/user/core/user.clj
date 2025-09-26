@@ -442,3 +442,5 @@
      :avg-events-per-day (if (> unique-days 0) (/ event-count unique-days) 0)
      :activity-score (min 100 (* (/ unique-days analysis-period-days) 100))
      :user-id (:id user)}))
+
+;; Functions already exist above - no stubs needed
