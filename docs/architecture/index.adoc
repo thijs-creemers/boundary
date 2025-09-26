@@ -53,6 +53,9 @@ Namespace organization, module responsibilities, component interaction patterns
 {xref-layer-separation}[**Layer Separation Guidelines**]::
 Explicit rules for FC/IS boundaries, dependency constraints, testing strategies
 
+**link:clean-architecture-layers.adoc[Clean Architecture Layer Separation]**::
+Updated guidelines following clean architecture principles with domain-centric infrastructure
+
 === Core Patterns
 
 {xref-ports-adapters}[**Ports and Adapters**]::
@@ -78,8 +81,9 @@ For newcomers to the Boundary framework:
 
 1. **Start with** {xref-overview}[Architecture Overview] to understand the FC/IS paradigm
 2. **Review** {xref-layer-separation}[Layer Separation Guidelines] to understand boundaries
-3. **Study** {xref-components}[Component Architecture] for namespace organization
-4. **Implement** using patterns from {xref-ports-adapters}[Ports and Adapters]
+3. **Study** **link:clean-architecture-layers.adoc[Clean Architecture Layer Separation]** for updated patterns
+4. **Study** {xref-components}[Component Architecture] for namespace organization
+5. **Implement** using patterns from {xref-ports-adapters}[Ports and Adapters]
 
 == Diagrams and Visual References
 

@@ -3,6 +3,13 @@ include::_partials/attributes.adoc[]
 
 [abstract]
 --
+[WARNING]
+====
+**UPDATED ARCHITECTURE**: This document describes the original FC/IS patterns. For the current clean architecture implementation with domain-centric infrastructure, see **link:clean-architecture-layers.adoc[Clean Architecture Layer Separation]**.
+
+The examples in this document use the older `boundary.core.user` patterns which have been superseded by `boundary.user.shell.service` and `boundary.user.infrastructure.database`.
+====
+
 This document establishes explicit rules and guidelines for maintaining the Functional Core / Imperative Shell architectural boundaries in {project-name}. It provides concrete examples of correct and incorrect implementations, dependency constraints, and testing strategies that ensure architectural integrity.
 --
 

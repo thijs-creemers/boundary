@@ -107,7 +107,7 @@ clojure -M:outdated
 
 ## Architecture Summary
 
-Boundary implements a **module-centric architecture** where each domain module owns its complete functionality stack, organized around the Functional Core / Imperative Shell paradigm.
+Boundary implements a **clean architecture** pattern with proper separation of concerns. Each domain module follows a layered structure organized around the Functional Core / Imperative Shell paradigm, with clear dependency inversion through ports and adapters.
 
 ### Core Architectural Principles
 
@@ -243,39 +243,43 @@ user=> (ig-repl/go)
 
 Boundary follows a **module-centric architecture** where each domain module owns its complete functionality stack:
 
-### General Module Template
+### Updated Module Template (Clean Architecture)
 
 ```
 src/boundary/
 ├── {module-name}/           # DOMAIN MODULE (e.g., user, billing)
-│   ├── core/               # Pure business logic
+│   ├── schema.clj          # Domain entities and validation (Malli schemas)
+│   ├── ports.clj           # Repository interfaces and contracts
+│   ├── core/               # Pure business logic (DEPRECATED - moved to shell/service.clj)
 │   │   ├── {entity}.clj    # Core domain functions
 │   │   └── {business-logic}.clj
-│   ├── ports.clj           # Port definitions (protocols)
-│   ├── schema.clj          # Domain schemas and validation
+│   ├── shell/              # Application layer
+│   │   └── service.clj     # Database-agnostic business services
+│   ├── infrastructure/     # Infrastructure implementations
+│   │   └── database.clj    # Database-specific repository implementations
 │   ├── http.clj            # HTTP handlers & routes
-│   ├── cli.clj             # CLI commands & parsing
-│   └── shell/              # Shell components
-│       ├── adapters.clj    # Adapter implementations
-│       └── service.clj     # Service orchestration
+│   └── cli.clj             # CLI commands & parsing
 ```
 
-### Example: User Module
+### Example: User Module (Updated Architecture)
 
 ```
 src/boundary/user/
-├── core/
-│   ├── user.clj           # Core user business logic
-│   ├── membership.clj     # Membership benefit calculations
-│   └── preferences.clj    # User preference logic
-├── ports.clj              # IUserRepository, IUserNotificationService
-├── schema.clj             # User, CreateUserRequest, UserResponse schemas
+├── schema.clj             # User, UserSession schemas (Malli)
+├── ports.clj              # IUserRepository, IUserSessionRepository interfaces
+├── shell/
+│   └── service.clj        # Database-agnostic business services
+├── infrastructure/
+│   └── database.clj       # Database repository implementations
 ├── http.clj               # POST /users, GET /users/{id} handlers
-├── cli.clj                # user create, user list commands
-└── shell/
-    ├── adapters.clj       # PostgreSQLUserRepository, SMTPNotificationService
-    └── service.clj        # register-user, update-user-benefits
+└── cli.clj                # user create, user list commands
 ```
+
+**Key improvements:**
+- Clean separation between business logic (service) and infrastructure (database)
+- Database-agnostic services that use dependency injection
+- Easy to test business logic with mocked repositories
+- Clear layered architecture following clean architecture principles
 
 ### Core Function Example
 
@@ -297,49 +301,120 @@ src/boundary/user/
      :benefits (calculate-tier-benefits tier)}))
 ```
 
-### Shell Service Example
+### Database-Agnostic Service Example
 
 ```clojure
-;; Shell orchestration in user service
+;; Database-agnostic business service using dependency injection
 (ns boundary.user.shell.service
-  (:require [boundary.user.core.user :as user-core]
-            [boundary.user.ports :as ports]))
-
-(defn register-user
-  "Service function: orchestrates user registration with validation and effects."
-  [system request-data]
-  (let [{:keys [user-repository notification-service system-services]} system
-        current-time (ports/current-timestamp system-services)]
-    
-    ;; Call pure core function
-    (let [core-result (user-core/process-user-registration
-                       user-repository notification-service
-                       request-data current-time)]
-      
-      ;; Execute effects based on core decision
-      (execute-registration-effects system core-result))))
-```
-
-### Adapter Implementation Example
-
-```clojure
-;; Concrete adapter implementation
-(ns boundary.user.shell.adapters
   (:require [boundary.user.ports :as ports]
-            [next.jdbc :as jdbc]))
+            [boundary.user.schema :as user-schema]
+            [boundary.shared.utils.password :as password]
+            [malli.core :as m]
+            [clojure.tools.logging :as log]))
 
-(defrecord PostgreSQLUserRepository [db-spec]
-  ports/IUserRepository
-  
-  (find-user-by-id [_ user-id]
-    (jdbc/execute-one! db-spec 
-                       ["SELECT * FROM users WHERE id = ?" user-id]))
+(defrecord UserService [user-repository session-repository]
+  ;; Business service that uses repository interfaces, not implementations
   
   (create-user [_ user-data]
-    (jdbc/execute-one! db-spec
-                       ["INSERT INTO users (email, name) VALUES (?, ?) RETURNING *"
-                        (:email user-data) (:name user-data)])))
+    "Create user with business validation and password hashing."
+    (log/info "Creating user" {:email (:email user-data)})
+    
+    ;; Validate input using domain schema
+    (when-not (m/validate user-schema/CreateUserRequest user-data)
+      (throw (ex-info "Invalid user data" {:type :validation-error
+                                           :errors (m/explain user-schema/CreateUserRequest user-data)})))
+    
+    ;; Business logic: hash password, validate email uniqueness
+    (when (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data))
+      (throw (ex-info "User already exists" {:type :user-exists
+                                             :email (:email user-data)})))
+    
+    (let [processed-user (-> user-data
+                            (assoc :password-hash (password/hash (:password user-data)))
+                            (dissoc :password))]
+      ;; Delegate to infrastructure
+      (.create-user user-repository processed-user)))
+  
+  (authenticate [_ email password]
+    "Authenticate user and create session."
+    (log/info "Authenticating user" {:email email})
+    
+    (if-let [user (.find-user-by-email user-repository email (:tenant-id user))]
+      (if (password/verify password (:password-hash user))
+        (let [session-data {:user-id (:id user)
+                           :tenant-id (:tenant-id user)
+                           :expires-at (-> (java.time.Instant/now)
+                                          (.plusSeconds 3600))}]  ; 1 hour
+          (.create-session session-repository session-data))
+        (throw (ex-info "Invalid credentials" {:type :auth-failed})))
+      (throw (ex-info "User not found" {:type :user-not-found})))))
+
+;; Factory function for service creation
+(defn create-user-service
+  "Create a user service with injected repositories."
+  [user-repository session-repository]
+  (->UserService user-repository session-repository))
 ```
+
+### Infrastructure Implementation Example
+
+```clojure
+;; Infrastructure adapter implementation in user module
+(ns boundary.user.infrastructure.database
+  (:require [boundary.user.ports :as ports]
+            [boundary.shell.adapters.database.core :as db]
+            [boundary.shared.utils.type-conversion :as type-conversion]
+            [clojure.tools.logging :as log]))
+
+(defrecord DatabaseUserRepository [ctx]  ; Uses generic database context
+  ports/IUserRepository
+  
+  (find-user-by-email [_ email tenant-id]
+    (log/debug "Finding user by email" {:email email :tenant-id tenant-id})
+    (let [query {:select [:*]
+                 :from [:users]
+                 :where [:and
+                         [:= :email email]
+                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
+                         [:is :deleted_at nil]]}
+          result (db/execute-one! ctx query)]
+      (when result
+        ;; Transform from database format to domain entity
+        (-> result
+            (update :id type-conversion/string->uuid)
+            (update :tenant-id type-conversion/string->uuid)
+            (update :role type-conversion/string->keyword)))))
+  
+  (create-user [_ user-entity]
+    (log/info "Creating user" {:email (:email user-entity)})
+    (let [now (java.time.Instant/now)
+          user-with-metadata (-> user-entity
+                                (assoc :id (java.util.UUID/randomUUID))
+                                (assoc :created-at now)
+                                (assoc :updated-at nil)
+                                (assoc :deleted-at nil))
+          ;; Transform to database format
+          db-user (-> user-with-metadata
+                     (update :id type-conversion/uuid->string)
+                     (update :tenant-id type-conversion/uuid->string)
+                     (update :role type-conversion/keyword->string))
+          query {:insert-into :users
+                 :values [db-user]}]
+      (db/execute-update! ctx query)
+      user-with-metadata)))
+
+;; Factory function for repository creation
+(defn create-user-repository
+  "Create a database user repository instance."
+  [ctx]
+  (->DatabaseUserRepository ctx))
+```
+
+**Key differences from old approach:**
+- Lives in `boundary.user.infrastructure.database` (user module owns its infrastructure)
+- Uses generic database utilities from `boundary.shell.adapters.database.core`
+- Handles user-specific entity transformations
+- Clear separation between generic database layer and user-specific logic
 
 ## Key Technologies
 
@@ -750,6 +825,13 @@ clojure -M:build:deploy
 - [Implementation Guide](docs/implementation/) - Concrete implementation examples and patterns
 - [API Documentation](docs/api/) - REST API specifications and examples
 - [Architecture Diagrams](docs/diagrams/) - Visual system architecture references
+
+### Infrastructure and Migration
+
+- [User Module Architecture](docs/user-module-architecture.md) - Clean architecture implementation guide
+- [Migration Guide](docs/migration-guide.md) - Step-by-step guide to new infrastructure
+- [Infrastructure Examples](examples/user-infrastructure-example.clj) - Working code examples
+- [Refactoring Summary](INFRASTRUCTURE-REFACTOR-SUMMARY.md) - Complete overview of infrastructure changes
 
 ### External References
 

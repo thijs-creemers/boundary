@@ -21,7 +21,7 @@ clojure -M:test                            # Run tests
 clojure -M:repl-clj                        # Start REPL
 clojure -X:mcp # runs clojure-mcp server as configured in ~/.clojure/deps.edn 
 
-opencode setup, startup fails when the repl is not running.
+opencode setup, Auto starts mcp but startup fails when the repl is not running.
 ``` json
 {"mcp":
     "clojure-mcp": {
@@ -36,12 +36,31 @@ opencode setup, startup fails when the repl is not running.
 
 ## Architecture
 
-Boundary implements a **module-centric architecture** where each domain module (`user`, `billing`, `workflow`) owns its complete functionality stack:
+Boundary implements a **clean architecture** pattern with proper separation of concerns. Each domain module (`user`, `billing`, `workflow`) follows a layered structure:
 
-- **Functional Core**: Pure business logic with no side effects
-- **Imperative Shell**: All I/O, validation, and infrastructure concerns  
-- **Ports and Adapters**: Hexagonal architecture for dependency inversion
+### Core Principles
+- **Domain Layer**: Pure business entities and validation rules (Malli schemas)
+- **Ports Layer**: Repository interfaces and contracts
+- **Application Layer**: Database-agnostic business services using dependency injection
+- **Infrastructure Layer**: Database adapters, external APIs, and I/O implementations
 - **Multi-Interface Support**: Consistent behavior across REST, CLI, and Web
+
+### User Module Example
+```
+src/boundary/user/
+├── schema.clj              # Domain entities (Malli schemas)
+├── ports.clj               # Repository interfaces
+├── shell/
+│   └── service.clj         # Database-agnostic business services
+└── infrastructure/
+    └── database.clj        # Database-specific implementations
+```
+
+**Key Benefits:**
+- Business logic completely separated from infrastructure
+- Easy to test with mocked dependencies
+- Database-agnostic services that work with any storage implementation
+- Clear dependency flow: Infrastructure → Ports ← Services
 
 See [Architecture Documentation](docs/architecture/) for detailed technical specifications.
 
@@ -57,6 +76,12 @@ See [Architecture Documentation](docs/architecture/) for detailed technical spec
 - **[Component Architecture](docs/architecture/components.adoc)** - Detailed component interactions
 - **[Data Flow](docs/architecture/data-flow.adoc)** - Request processing patterns
 - **[Ports and Adapters](docs/architecture/ports-and-adapters.adoc)** - Hexagonal architecture guide
+- **[User Module Architecture](docs/user-module-architecture.md)** - Clean architecture implementation example
+
+### Infrastructure & Migration
+- **[Migration Guide](docs/migration-guide.md)** - Step-by-step migration to new infrastructure
+- **[Infrastructure Examples](examples/user-infrastructure-example.clj)** - Working code examples
+- **[Refactoring Summary](INFRASTRUCTURE-REFACTOR-SUMMARY.md)** - Complete overview of changes
 
 ### Build Documentation
 
