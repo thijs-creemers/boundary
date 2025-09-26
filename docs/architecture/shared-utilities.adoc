@@ -427,35 +427,6 @@ All shared utilities have extensive test coverage:
       (is (matches-expected-pattern? result)))))
 ----
 
-== Migration Guide
-
-=== Updating Existing Code
-
-When migrating to shared utilities:
-
-1. **Identify duplicated utility functions** in domain modules
-2. **Replace with shared utility calls** and update imports  
-3. **Adapt domain-specific behavior** through composition
-4. **Update tests** to focus on domain logic rather than utility behavior
-5. **Remove old utility functions** after migration
-
-[source,clojure]
-----
-;; Before migration
-(ns boundary.user.schema)
-
-(defn uuid->string [uuid] ...)          ; Duplicated utility
-(defn string->boolean [s] ...)          ; Duplicated utility
-
-;; After migration  
-(ns boundary.user.schema
-  (:require [boundary.shared.utils.type-conversion :as type-conversion]))
-
-;; Use shared utilities directly or through composition
-(def user-transformer 
-  {:uuid {:compile (fn [_] type-conversion/uuid->string)}
-   :boolean {:compile (fn [_] type-conversion/string->boolean)}})
-----
 
 == Future Enhancements
 

@@ -22,7 +22,7 @@ After reading this document, you will understand:
 * ✅ **Domain-centric modules** with infrastructure separation
 * ✅ **Service layer patterns** using dependency injection
 * ✅ **Infrastructure implementations** in dedicated layers
-* ✅ **Migration patterns** from old to new architecture
+* ✅ **Development patterns** for building clean architectures
 
 == Clean Architecture Layers
 
@@ -365,41 +365,6 @@ note right of [Database Adapters] : Implements interfaces\nHandles transformatio
         (is (true? (:active retrieved-user)))))))
 ----
 
-== Migration from Old Architecture
-
-=== Step 1: Move Infrastructure Code
-
-```bash
-# Old location (deprecated)
-src/boundary/shell/adapters/database/user.clj
-
-# New location  
-src/boundary/user/infrastructure/database.clj
-```
-
-=== Step 2: Create Service Layer
-
-```bash
-# Extract business logic from old shell/adapters to:
-src/boundary/user/shell/service.clj
-```
-
-=== Step 3: Update Dependencies
-
-[source,clojure]
-----
-;; Old approach (deprecated)
-(require '[boundary.shell.adapters.database.user :as db-user])
-
-;; New approach
-(require '[boundary.user.infrastructure.database :as user-db]
-         '[boundary.user.shell.service :as user-service])
-
-;; Usage
-(def user-repo (user-db/create-user-repository ctx))
-(def session-repo (user-db/create-session-repository ctx))
-(def service (user-service/create-user-service user-repo session-repo))
-----
 
 == Benefits of New Architecture
 
