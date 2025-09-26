@@ -92,6 +92,57 @@
     {:valid? true :data user-entity}
     {:valid? false :errors (m/explain schema/User user-entity)}))
 
+(defn calculate-user-changes
+  "Pure function: Calculate what fields are being changed.
+   
+   Args:
+     current-user: Current user entity from database
+     updated-user: Updated user data
+     
+   Returns:
+     Map with changes: {:field {:from old-value :to new-value}}
+     
+   Pure - data comparison only."
+  [current-user updated-user]
+  (reduce-kv
+   (fn [changes key new-value]
+     (let [old-value (get current-user key)]
+       (if (= old-value new-value)
+         changes
+         (assoc changes key {:from old-value :to new-value}))))
+   {}
+   (select-keys updated-user (keys current-user))))
+
+(defn validate-user-business-rules
+  "Pure function: Validate business rules for user changes.
+   
+   Args:
+     updated-user: Updated user entity
+     changes: Map of changes (from calculate-user-changes)
+     
+   Returns:
+     {:valid? true} or 
+     {:valid? false :errors error-details}
+     
+   Pure - business rule validation only."
+  [updated-user changes]
+  ;; Example business rules:
+  (cond
+    ;; Cannot change tenant-id
+    (and (:tenant-id changes) 
+         (not= (:tenant-id changes :from) (:tenant-id changes :to)))
+    {:valid? false 
+     :errors {:tenant-id "Cannot change tenant-id after user creation"}}
+    
+    ;; Cannot change email - would require verification
+    (and (:email changes)
+         (not= (:email changes :from) (:email changes :to)))
+    {:valid? false
+     :errors {:email "Email changes require separate verification process"}}
+    
+    :else
+    {:valid? true}))
+
 (defn check-user-exists-for-update-decision
   "Pure function: Determine if user update should proceed based on existing user.
    
@@ -295,6 +346,72 @@
       (if (contains? allowed-domains email-domain)
         {:valid? true}
         {:valid? false :reason (str "Email domain " email-domain " not allowed")}))))
+
+;; =============================================================================
+;; User Deletion Business Logic  
+;; =============================================================================
+
+(defn can-delete-user?
+  "Pure function: Determine if user can be deleted.
+   
+   Args:
+     user: User entity to check
+     
+   Returns:
+     {:allowed? true} or
+     {:allowed? false :reason keyword}
+     
+   Pure - business rule checking only."
+  [user]
+  (cond
+    ;; System users cannot be deleted
+    (= "system@example.com" (:email user))
+    {:allowed? false :reason :system-user}
+    
+    ;; Last admin user cannot be deleted
+    ;; (In real implementation, this would require context about other users)
+    (and (= :admin (:role user))
+         ;; (is-last-admin? user) - this would be checked in service layer
+         )
+    {:allowed? false :reason :last-admin-user}
+    
+    :else
+    {:allowed? true}))
+
+(defn prepare-user-for-soft-deletion
+  "Pure function: Prepare user for soft deletion.
+   
+   Args:
+     user: Current user entity
+     current-time: Current time instant
+     
+   Returns:
+     User entity marked as deleted
+     
+   Pure - data transformation only."
+  [user current-time]
+  (-> user
+      (assoc :deleted-at current-time)
+      (assoc :active false)
+      (assoc :updated-at current-time)))
+
+(defn can-hard-delete-user?
+  "Pure function: Determine if user can be hard deleted.
+   
+   Args:
+     user: User entity to check
+     
+   Returns:
+     {:allowed? true} or
+     {:allowed? false :reason keyword}
+     
+   Pure - business rule checking only."
+  [user]
+  (let [deletion-check (can-delete-user? user)]
+    (if (:allowed? deletion-check)
+      ;; Additional hard-deletion specific rules
+      {:allowed? true}
+      deletion-check)))
 
 ;; =============================================================================
 ;; User Analysis Functions

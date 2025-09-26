@@ -1,23 +1,24 @@
-(ns boundary.user.infrastructure.database
-  "Infrastructure layer for user module - implements user ports using database storage.
+(ns boundary.user.shell.persistence
+  "Shell layer for user module - implements user ports using database storage.
    
-   This namespace contains pure infrastructure adapters that implement user repository
-   interfaces. These adapters:
-   - Use the generic database layer (boundary.shell.adapters.database)
-   - Transform between domain entities and database records
-   - Handle user-specific database logic
-   - Remain focused on the user module only
-   
-   Key principles:
-   - No business logic (that stays in boundary.user.shell.service)
-   - Pure infrastructure concerns only
+   This namespace contains the SHELL (I/O) implementation that handles database persistence.
+   In FC/IS architecture, this is the SHELL that:
+   - Handles all I/O operations (database reads/writes)
+   - Manages external system interactions
+   - Contains side effects and impure operations
    - Implements boundary.user.ports interfaces
-   - Uses generic database utilities from shell.adapters.database
+   - Transforms between domain entities and database records
    
-   This provides proper separation where:
-   - Database layer remains generic and reusable
-   - User module owns its own infrastructure adapters
-   - Business logic stays separate from infrastructure"
+   Key FC/IS principles:
+   - ALL business logic stays in boundary.user.core.*
+   - This is ONLY for I/O and persistence concerns
+   - No business decisions made here - only data transformation
+   - Shell coordinates with core for business logic
+   
+   This provides proper FC/IS separation where:
+   - Core contains pure business logic (no I/O)
+   - Shell handles all I/O and external systems
+   - Clean boundary between functional and imperative code"
   (:require [boundary.shared.utils.type-conversion :as type-conversion]
             [boundary.shell.adapters.database.core :as db]
             [boundary.shell.adapters.database.protocols :as protocols]

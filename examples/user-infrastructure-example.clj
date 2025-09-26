@@ -7,7 +7,7 @@
    3. How to compose and test business operations
    
    Run this example to see the new architecture in action."
-  (:require [boundary.user.infrastructure.database :as user-db]
+  (:require [boundary.user.shell.persistence :as user-persistence]
             [boundary.user.shell.service :as user-service]
             [boundary.shell.adapters.database.factory :as db-factory]
             [clojure.tools.logging :as log])

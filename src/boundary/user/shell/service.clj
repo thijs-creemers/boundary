@@ -1,26 +1,24 @@
 (ns boundary.user.shell.service
-  "User module I/O shell service layer - orchestrates between pure core and external systems.
+  "FC/IS Shell Layer - User module service coordination.
    
-   This shell layer acts as the I/O orchestration interface for user-related operations,
-   bridging between the pure functional core and external systems. It handles:
-   - I/O coordination and side effects (database, time, logging)
-   - External dependency management (repositories, services)
-   - Transaction boundaries and error handling
-   - Cross-cutting concerns (logging, metrics, security)
-   - API request/response transformation
+   This is the SHELL layer in Functional Core / Imperative Shell architecture.
+   The shell coordinates between:
+   - Pure functional CORE (boundary.user.core.*)
+   - I/O SHELL persistence (boundary.user.shell.persistence)
    
-   The shell is responsible for:
-   1. Calling pure core functions with all needed parameters
-   2. Managing external dependencies (time, UUIDs, tokens)
-   3. Orchestrating repository calls based on core function results
-   4. Handling all side effects (logging, events, notifications)
+   Shell responsibilities:
+   1. Coordinate calls between core and persistence layers
+   2. Manage external dependencies (time, UUIDs, logging)
+   3. Handle all side effects and I/O operations
+   4. Orchestrate transaction boundaries
+   5. Transform between external and internal representations
    
-   Business logic lives in boundary.user.core.* namespaces."
-  (:require [boundary.user.schema :as schema]
+   The shell does NOT contain business logic - that lives in core.*
+   The shell does NOT handle database operations - that lives in persistence.*"
+  (:require [boundary.user.core.user :as user-core]
+            [boundary.user.core.session :as session-core] 
+            [boundary.user.shell.persistence :as persistence]
             [boundary.user.ports :as ports]
-            [boundary.user.core.user :as user-core]
-            [boundary.user.core.session :as session-core]
-            [malli.core :as m]
             [clojure.tools.logging :as log])
   (:import (java.util UUID)
            (java.time Instant)
@@ -114,20 +112,72 @@
                           {:type :validation-error
                            :errors (:errors validation-result)}))))
       
-      ;; 3. Prepare user for update with timestamp
+      ;; 3. Check business rules for updates
+      (let [changes (user-core/calculate-user-changes current-user user-entity)
+            business-result (user-core/validate-user-business-rules user-entity changes)]
+        (when-not (:valid? business-result)
+          (throw (ex-info "Business rule violation"
+                          {:type :business-rule-violation
+                           :errors (:errors business-result)}))))
+      
+      ;; 4. Prepare user for update with timestamp
       (let [current-time (current-timestamp)
             prepared-user (user-core/prepare-user-for-update user-entity current-time)]
         
-        ;; 4. Persist and return
+        ;; 5. Persist and return
         (.update-user user-repository prepared-user))))
   
-  (soft-delete-user [_ user-id]
+  (soft-delete-user [this user-id]
     (log/info "Soft deleting user through service" {:user-id user-id})
-    (.soft-delete-user user-repository user-id))
+    
+    ;; 1. Get current user
+    (let [current-user (.find-user-by-id user-repository user-id)]
+      (when-not current-user
+        (throw (ex-info "User not found for deletion"
+                        {:type :user-not-found
+                         :user-id user-id})))
+      
+      ;; 2. Check if deletion is allowed using pure core function
+      (let [deletion-result (user-core/can-delete-user? current-user)]
+        (when-not (:allowed? deletion-result)
+          (throw (ex-info "User deletion not allowed"
+                          {:type :deletion-not-allowed
+                           :reason (:reason deletion-result)}))))
+      
+      ;; 3. Prepare user for soft deletion
+      (let [current-time (current-timestamp)
+            prepared-user (user-core/prepare-user-for-soft-deletion current-user current-time)]
+        
+        ;; 4. Persist and return
+        (.update-user user-repository prepared-user)
+        
+        ;; 5. Invalidate all user sessions as side effect
+        (.invalidate-all-user-sessions this user-id)
+        
+        true)))
   
-  (hard-delete-user [_ user-id]
+  (hard-delete-user [this user-id]
     (log/warn "Hard deleting user through service - IRREVERSIBLE" {:user-id user-id})
-    (.hard-delete-user user-repository user-id))
+    
+    ;; 1. Get current user for validation
+    (let [current-user (.find-user-by-id user-repository user-id)]
+      (when-not current-user
+        (throw (ex-info "User not found for deletion"
+                        {:type :user-not-found
+                         :user-id user-id})))
+      
+      ;; 2. Check if hard deletion is allowed using pure core function
+      (let [deletion-result (user-core/can-hard-delete-user? current-user)]
+        (when-not (:allowed? deletion-result)
+          (throw (ex-info "User hard deletion not allowed"
+                          {:type :hard-deletion-not-allowed
+                           :reason (:reason deletion-result)}))))
+      
+      ;; 3. Invalidate all sessions first
+      (.invalidate-all-user-sessions this user-id)
+      
+      ;; 4. Perform hard deletion
+      (.hard-delete-user user-repository user-id)))
   
   ;; Session Management - Shell layer orchestrates I/O and calls pure core functions
   (create-session [this session-data]
