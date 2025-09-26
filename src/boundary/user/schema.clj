@@ -28,8 +28,8 @@
    [:tenant-id :uuid]
    [:avatar-url {:optional true} :string]
    [:created-at :string]
-   [:updated-at {:optional true} :string]
-   [:deleted-at {:optional true} :string]])
+   [:updated-at {:optional true} [:maybe :string]]
+   [:deleted-at {:optional true} [:maybe :string]]])
 
 (def UserPreferences
   "Schema for user preferences."
