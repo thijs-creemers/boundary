@@ -1,49 +1,60 @@
-(ns boundary.user.shell.multi-db-adapters
-  "Multi-database user module adapters implementing user module ports.
-
-   This namespace provides database-agnostic implementations using the new
-   multi-database adapter system. These adapters work with SQLite, PostgreSQL,
-   MySQL, and H2 databases.
-
-   Key Features:
-   - Database-agnostic using the new core database system
-   - Cross-database compatible DDL and queries
-   - Leverages database-specific optimizations (ILIKE vs LIKE, boolean handling)
-   - Transaction safety and comprehensive error handling
-   - Tenant isolation enforcement
-
-   Migration from old SQLite-specific adapters:
-   - Replace SQLiteUserRepository with UserRepository
-   - Replace SQLiteUserSessionRepository with UserSessionRepository
-   - Use database context instead of raw datasource"
+(ns boundary.user.infrastructure.database
+  "Infrastructure layer for user module - implements user ports using database storage.
+   
+   This namespace contains pure infrastructure adapters that implement user repository
+   interfaces. These adapters:
+   - Use the generic database layer (boundary.shell.adapters.database)
+   - Transform between domain entities and database records
+   - Handle user-specific database logic
+   - Remain focused on the user module only
+   
+   Key principles:
+   - No business logic (that stays in boundary.user.shell.service)
+   - Pure infrastructure concerns only
+   - Implements boundary.user.ports interfaces
+   - Uses generic database utilities from shell.adapters.database
+   
+   This provides proper separation where:
+   - Database layer remains generic and reusable
+   - User module owns its own infrastructure adapters
+   - Business logic stays separate from infrastructure"
   (:require [boundary.shared.utils.type-conversion :as type-conversion]
-            [clojure.tools.logging :as log]
-            [clojure.set]
-            [boundary.user.ports :as ports]
             [boundary.shell.adapters.database.core :as db]
-            [boundary.shell.adapters.database.protocols :as protocols])
+            [boundary.shell.adapters.database.protocols :as protocols]
+            [boundary.shell.adapters.database.schema :as db-schema]
+            [boundary.user.ports :as ports]
+            [boundary.user.schema :as user-schema]
+            [clojure.set]
+            [clojure.tools.logging :as log])
   (:import [java.util UUID]))
 
 ;; =============================================================================
-;; Data Transformation Utilities
+;; Schema Initialization
 ;; =============================================================================
 
-;; Define ISO formatter for Java time
-(def ^:private iso-formatter java.time.format.DateTimeFormatter/ISO_INSTANT)
-
-;; Helper functions for Java time <-> string conversion
-(defn- instant->string [inst]
-  (when inst (.format iso-formatter inst)))
-
-(defn- string->instant [s]
-  (when s (java.time.Instant/parse s)))
+(defn initialize-user-schema!
+  "Initialize database schema for user entities using Malli schema definitions.
+   
+   Args:
+     ctx: Database context
+     
+   Returns:
+     nil
+     
+   Example:
+     (initialize-user-schema! ctx)"
+  [ctx]
+  (log/info "Initializing user schema from Malli definitions")
+  (db-schema/initialize-tables-from-schemas! ctx 
+    {"users" user-schema/User
+     "user_sessions" user-schema/UserSession}))
 
 ;; =============================================================================
-;; User Entity Transformations
+;; Entity Transformations
 ;; =============================================================================
 
 (defn- user-entity->db
-  "Transform user entity to database format using adapter-specific conversions."
+  "Transform user domain entity to database format using adapter-specific conversions."
   [ctx user-entity]
   (let [adapter (:adapter ctx)]
     (-> user-entity
@@ -51,14 +62,14 @@
         (update :role type-conversion/keyword->string)
         (update :active #(protocols/boolean->db adapter %))
         (update :tenant-id type-conversion/uuid->string)
-        (update :created-at instant->string)
-        (update :updated-at instant->string)
-        (update :deleted-at instant->string)
+        (update :created-at type-conversion/instant->string)
+        (update :updated-at type-conversion/instant->string)
+        (update :deleted-at type-conversion/instant->string)
         ;; Convert kebab-case to snake_case for database
         type-conversion/kebab-case->snake-case)))
 
 (defn- db->user-entity
-  "Transform database record to user entity."
+  "Transform database record to user domain entity."
   [ctx db-record]
   (when db-record
     (let [adapter (:adapter ctx)]
@@ -72,25 +83,21 @@
           (update :role type-conversion/string->keyword)
           (update :active #(protocols/db->boolean adapter %))
           (update :tenant-id type-conversion/string->uuid)
-          (update :created-at string->instant)
-          (update :updated-at string->instant)
-          (update :deleted-at string->instant)))))
-
-;; =============================================================================
-;; Session Entity Transformations
-;; =============================================================================
+          (update :created-at type-conversion/string->instant)
+          (update :updated-at type-conversion/string->instant)
+          (update :deleted-at type-conversion/string->instant)))))
 
 (defn- session-entity->db
-  "Transform session entity to database format."
+  "Transform session domain entity to database format."
   [session-entity]
   (-> session-entity
       (update :id type-conversion/uuid->string)
       (update :user-id type-conversion/uuid->string)
       (update :tenant-id type-conversion/uuid->string)
-      (update :expires-at instant->string)
-      (update :created-at instant->string)
-      (update :last-accessed-at instant->string)
-      (update :revoked-at instant->string)
+      (update :expires-at type-conversion/instant->string)
+      (update :created-at type-conversion/instant->string)
+      (update :last-accessed-at type-conversion/instant->string)
+      (update :revoked-at type-conversion/instant->string)
       ;; Convert kebab-case to snake_case
       (clojure.set/rename-keys {:user-id :user_id
                                 :tenant-id :tenant_id
@@ -103,7 +110,7 @@
                                 :revoked-at :revoked_at})))
 
 (defn- db->session-entity
-  "Transform database record to session entity."
+  "Transform database record to session domain entity."
   [db-record]
   (when db-record
     (-> db-record
@@ -120,16 +127,16 @@
         (update :id type-conversion/string->uuid)
         (update :user-id type-conversion/string->uuid)
         (update :tenant-id type-conversion/string->uuid)
-        (update :expires-at string->instant)
-        (update :created-at string->instant)
-        (update :last-accessed-at string->instant)
-        (update :revoked-at string->instant))))
+        (update :expires-at type-conversion/string->instant)
+        (update :created-at type-conversion/string->instant)
+        (update :last-accessed-at type-conversion/string->instant)
+        (update :revoked-at type-conversion/string->instant))))
 
 ;; =============================================================================
-;; Database-Agnostic User Repository Implementation
+;; User Repository Implementation
 ;; =============================================================================
 
-(defrecord UserRepository [ctx]
+(defrecord DatabaseUserRepository [ctx]
   ports/IUserRepository
 
   ;; Basic CRUD Operations
@@ -231,8 +238,8 @@
     (log/info "Soft deleting user" {:user-id user-id})
     (let [now (java.time.Instant/now)
           query {:update :users
-                 :set {:deleted_at (instant->string now)
-                       :updated_at (instant->string now)}
+                 :set {:deleted_at (type-conversion/instant->string now)
+                       :updated_at (type-conversion/instant->string now)}
                  :where [:and
                          [:= :id (type-conversion/uuid->string user-id)]
                          [:is :deleted_at nil]]}
@@ -263,20 +270,25 @@
   ;; Business-Specific Queries
   (find-active-users-by-role [_ tenant-id role]
     (log/debug "Finding active users by role" {:tenant-id tenant-id :role role})
-    (let [filters {:tenant-id tenant-id :role role :active true :deleted_at nil}
+    (let [adapter (:adapter ctx)
           query {:select [:*]
                  :from [:users]
-                 :where (db/build-where-clause ctx filters)
+                 :where [:and
+                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
+                         [:= :role (type-conversion/keyword->string role)]
+                         [:= :active (protocols/boolean->db adapter true)]
+                         [:is :deleted_at nil]]
                  :order-by [[:created_at :desc]]}
           results (db/execute-query! ctx query)]
       (map #(db->user-entity ctx %) results)))
 
   (count-users-by-tenant [_ tenant-id]
     (log/debug "Counting users by tenant" {:tenant-id tenant-id})
-    (let [filters {:tenant-id tenant-id :deleted_at nil}
-          query {:select [:%count.*]
+    (let [query {:select [:%count.*]
                  :from [:users]
-                 :where (db/build-where-clause ctx filters)}
+                 :where [:and
+                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
+                         [:is :deleted_at nil]]}
           result (db/execute-one! ctx query)]
       (:count result)))
 
@@ -286,7 +298,7 @@
                  :from [:users]
                  :where [:and
                          [:= :tenant_id (type-conversion/uuid->string tenant-id)]
-                         [:>= :created_at (instant->string since-date)]
+                         [:>= :created_at (type-conversion/instant->string since-date)]
                          [:is :deleted_at nil]]
                  :order-by [[:created_at :desc]]}
           results (db/execute-query! ctx query)]
@@ -348,7 +360,7 @@
         updated-users))))
 
 ;; =============================================================================
-;; Database-Agnostic Session Repository Implementation
+;; Session Repository Implementation
 ;; =============================================================================
 
 (defn- generate-session-token
@@ -358,7 +370,7 @@
         uuid2 (UUID/randomUUID)]
     (str (.toString uuid1) (.toString uuid2))))
 
-(defrecord UserSessionRepository [ctx]
+(defrecord DatabaseUserSessionRepository [ctx]
   ports/IUserSessionRepository
 
   (create-session [_ session-entity]
@@ -385,12 +397,12 @@
                  :from [:user_sessions]
                  :where [:and
                          [:= :session_token session-token]
-                         [:> :expires_at (instant->string now)]
+                         [:> :expires_at (type-conversion/instant->string now)]
                          [:is :revoked_at nil]]}
           result (db/execute-one! ctx query)]
       (when result
         (let [update-query {:update :user_sessions
-                            :set {:last_accessed_at (instant->string now)}
+                            :set {:last_accessed_at (type-conversion/instant->string now)}
                             :where [:= :session_token session-token]}]
           (db/execute-update! ctx update-query))
         (log/debug "Session found and access timestamp updated")
@@ -405,7 +417,7 @@
                  :from [:user_sessions]
                  :where [:and
                          [:= :user_id (type-conversion/uuid->string user-id)]
-                         [:> :expires_at (instant->string now)]
+                         [:> :expires_at (type-conversion/instant->string now)]
                          [:is :revoked_at nil]]
                  :order-by [[:created_at :desc]]}
           results (db/execute-query! ctx query)]
@@ -415,7 +427,7 @@
     (log/info "Invalidating session" {:token-prefix (subs session-token 0 8)})
     (let [now (java.time.Instant/now)
           query {:update :user_sessions
-                 :set {:revoked_at (instant->string now)}
+                 :set {:revoked_at (type-conversion/instant->string now)}
                  :where [:and
                          [:= :session_token session-token]
                          [:is :revoked_at nil]]}
@@ -433,7 +445,7 @@
     (log/warn "Invalidating all sessions for user" {:user-id user-id})
     (let [now (java.time.Instant/now)
           query {:update :user_sessions
-                 :set {:revoked_at (instant->string now)}
+                 :set {:revoked_at (type-conversion/instant->string now)}
                  :where [:and
                          [:= :user_id (type-conversion/uuid->string user-id)]
                          [:is :revoked_at nil]]}
@@ -445,157 +457,40 @@
   (cleanup-expired-sessions [_ before-timestamp]
     (log/info "Cleaning up expired sessions" {:before-timestamp before-timestamp})
     (let [query {:delete-from :user_sessions
-                 :where [:< :expires_at (instant->string before-timestamp)]}
+                 :where [:< :expires_at (type-conversion/instant->string before-timestamp)]}
           affected-rows (db/execute-update! ctx query)]
 
       (log/info "Expired sessions cleaned up" {:count affected-rows})
       affected-rows)))
 
 ;; =============================================================================
-;; Cross-Database Schema Initialization
+;; Factory Functions
 ;; =============================================================================
 
-(defn- get-boolean-column-type
-  "Get database-specific boolean column type."
-  [ctx]
-  (let [adapter (:adapter ctx)
-        dialect (protocols/dialect adapter)]
-    (case dialect
-      :sqlite "INTEGER CHECK(active IN (0, 1))"
-      :mysql "TINYINT(1)"
-      (:postgresql :h2) "BOOLEAN"
-      "BOOLEAN"))) ; fallback
-
-(defn- get-uuid-column-type
-  "Get database-specific UUID column type."
-  [ctx]
-  (let [adapter (:adapter ctx)
-        dialect (protocols/dialect adapter)]
-    (case dialect
-      (:sqlite :mysql) "CHAR(36)"
-      :postgresql "UUID"
-      :h2 "UUID"
-      "VARCHAR(36)"))) ; fallback
-
-(defn- get-timestamp-column-type
-  "Get database-specific timestamp column type."
-  [ctx]
-  (let [adapter (:adapter ctx)
-        dialect (protocols/dialect adapter)]
-    (case dialect
-      :sqlite "TEXT"
-      :mysql "DATETIME"
-      (:postgresql :h2) "TIMESTAMP"
-      "TIMESTAMP"))) ; fallback
-
-(defn- create-users-table-ddl
-  "Generate cross-database users table DDL."
-  [ctx]
-  (let [uuid-type (get-uuid-column-type ctx)
-        boolean-type (get-boolean-column-type ctx)
-        timestamp-type (get-timestamp-column-type ctx)]
-    (str "CREATE TABLE IF NOT EXISTS users (
-       id " uuid-type " PRIMARY KEY,
-       email VARCHAR(255) NOT NULL,
-       name VARCHAR(255) NOT NULL,
-       role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'user', 'viewer')),
-       active " boolean-type " NOT NULL DEFAULT " (if (= (protocols/dialect (:adapter ctx)) :sqlite) "1" "true") ",
-       tenant_id " uuid-type " NOT NULL,
-       created_at " timestamp-type " NOT NULL,
-       updated_at " timestamp-type ",
-       deleted_at " timestamp-type ",
-       CONSTRAINT uk_users_email_tenant UNIQUE(email, tenant_id)
-     )")))
-
-(defn- create-user-sessions-table-ddl
-  "Generate cross-database user_sessions table DDL."
-  [ctx]
-  (let [uuid-type (get-uuid-column-type ctx)
-        timestamp-type (get-timestamp-column-type ctx)]
-    (str "CREATE TABLE IF NOT EXISTS user_sessions (
-       id " uuid-type " PRIMARY KEY,
-       user_id " uuid-type " NOT NULL,
-       tenant_id " uuid-type " NOT NULL,
-       session_token VARCHAR(255) NOT NULL UNIQUE,
-       expires_at " timestamp-type " NOT NULL,
-       created_at " timestamp-type " NOT NULL,
-       user_agent TEXT,
-       ip_address VARCHAR(45),
-       last_accessed_at " timestamp-type ",
-       revoked_at " timestamp-type ",
-       CONSTRAINT fk_sessions_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-     )")))
-
-(defn- create-indexes-ddl
-  "Generate cross-database index creation statements."
-  [ctx]
-  ["CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON users (tenant_id)"
-   "CREATE INDEX IF NOT EXISTS idx_users_email_tenant ON users (email, tenant_id)"
-   "CREATE INDEX IF NOT EXISTS idx_users_role_tenant ON users (role, tenant_id)"
-   "CREATE INDEX IF NOT EXISTS idx_users_active_tenant ON users (active, tenant_id)"
-   "CREATE INDEX IF NOT EXISTS idx_users_created_at ON users (created_at)"
-   "CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users (deleted_at)"
-   "CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions (session_token)"
-   "CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON user_sessions (user_id)"
-   "CREATE INDEX IF NOT EXISTS idx_sessions_tenant_id ON user_sessions (tenant_id)"
-   "CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON user_sessions (expires_at)"
-   "CREATE INDEX IF NOT EXISTS idx_sessions_revoked_at ON user_sessions (revoked_at)"])
-
-(defn initialize-database!
-  "Initialize database with required tables and indexes for any supported database.
+(defn create-user-repository
+  "Create a user repository instance using database storage.
    
    Args:
-     ctx: Database context from factory/db-context
-     
-   Example:
-     (def ctx (dbf/db-context {:adapter :postgresql :host 'localhost' ...}))
-     (initialize-database! ctx)"
-  [ctx]
-  (log/info "Initializing user module database schema" {:dialect (protocols/dialect (:adapter ctx))})
-  (try
-    ;; Create tables
-    (db/execute-ddl! ctx (create-users-table-ddl ctx))
-    (db/execute-ddl! ctx (create-user-sessions-table-ddl ctx))
-    
-    ;; Create indexes separately for cross-database compatibility
-    (doseq [index-ddl (create-indexes-ddl ctx)]
-      (db/execute-ddl! ctx index-ddl))
-    
-    (log/info "Database schema initialized successfully")
-    (catch Exception e
-      (log/error "Failed to initialize database schema" {:error (.getMessage e)})
-      (throw e))))
-
-;; =============================================================================
-;; Constructor Functions
-;; =============================================================================
-
-(defn new-user-repository
-  "Create new database-agnostic user repository.
-   
-   Args:
-     ctx: Database context from factory/db-context
+     ctx: Database context from boundary.shell.adapters.database.factory
      
    Returns:
-     UserRepository instance
+     DatabaseUserRepository implementing IUserRepository
      
    Example:
-     (def ctx (dbf/db-context {:adapter :postgresql :host 'localhost' ...}))
-     (def repo (new-user-repository ctx))"
+     (create-user-repository ctx)"
   [ctx]
-  (->UserRepository ctx))
+  (->DatabaseUserRepository ctx))
 
-(defn new-user-session-repository
-  "Create new database-agnostic user session repository.
+(defn create-session-repository
+  "Create a user session repository instance using database storage.
    
    Args:
-     ctx: Database context from factory/db-context
+     ctx: Database context from boundary.shell.adapters.database.factory
      
    Returns:
-     UserSessionRepository instance
+     DatabaseUserSessionRepository implementing IUserSessionRepository
      
    Example:
-     (def ctx (dbf/db-context {:adapter :sqlite :database-path '/tmp/test.db'}))
-     (def session-repo (new-user-session-repository ctx))"
+     (create-session-repository ctx)"
   [ctx]
-  (->UserSessionRepository ctx))
+  (->DatabaseUserSessionRepository ctx))

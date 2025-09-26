@@ -324,7 +324,43 @@
        Only removes sessions that expired before the cutoff
      
      Example:
-       (cleanup-expired-sessions repo (time/minus (time/instant) (time/days 30)))"))
+       (cleanup-expired-sessions repo (time/minus (time/instant) (time/days 30)))")
+
+  (update-session [this session-entity]
+    "Update existing session (for access time updates, extensions, etc.).
+     
+     Args:
+       session-entity: Complete session entity map with ID
+     
+     Returns:
+       Updated session entity
+       Used for updating access times, extending expiry, etc.
+     
+     Example:
+       (update-session repo (assoc session :last-accessed-at (time/instant)))")
+
+  (find-all-sessions [this]
+    "Find all sessions (used for cleanup operations).
+     
+     Returns:
+       Vector of all session entities
+       Should be used carefully - may need pagination for large datasets
+     
+     Example:
+       (find-all-sessions repo)")
+
+  (delete-session [this session-id]
+    "Permanently delete session by ID.
+     
+     Args:
+       session-id: UUID of session to delete
+     
+     Returns:
+       Boolean indicating success
+       Used for cleanup operations
+     
+     Example:
+       (delete-session repo session-id)")
 
 ;; =============================================================================
 ;; Communication Ports

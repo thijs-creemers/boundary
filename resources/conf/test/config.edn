@@ -1,0 +1,69 @@
+{
+ ;; =============================================================================
+ ;; Test Environment Configuration
+ ;; =============================================================================
+ 
+ :active
+ {
+  ;; Core application settings (always active)
+  :boundary/settings
+  {:name              "boundary-test"
+   :version           "0.1.0"
+   :date-format       "yyyy-MM-dd"
+   :date-time-format  "yyyy-MM-dd HH:mm:ss"
+   :currency/iso-code "EUR"}
+
+  ;; Active database configurations
+  ;; Test environment uses in-memory H2 for fast, isolated tests
+  
+  :boundary/h2
+  {:memory true  ; In-memory database for fast test execution
+   :pool   {:minimum-idle 1
+            :maximum-pool-size 5
+            :connection-timeout-ms 5000}}
+
+  ;; Test logging configuration
+  :boundary/logging
+  {:level     :debug  ; Verbose logging for debugging tests
+   :console   true    ; Log to console during tests
+   :appenders [{:appender       :rolling-file
+                :file           "logs/boundary-test.log"
+                :rolling-policy {:type        :time-based
+                                 :max-history 3  ; Keep only 3 days of test logs
+                                 :max-size    5000000 ; 5MB
+                                 :pattern     ".%d{yyyy-MM-dd}.%i.gz"}}]}
+ }
+
+ :inactive
+ {
+  ;; Alternative test database configurations
+  ;; These can be activated for integration testing or specific test scenarios
+  
+  :boundary/sqlite
+  {:memory true  ; In-memory SQLite for compatibility testing
+   :pool {:minimum-idle 1
+          :maximum-pool-size 3
+          :connection-timeout-ms 5000}}
+
+  :boundary/postgresql
+  {:host          "localhost"
+   :port          5432
+   :dbname        "boundary_test"
+   :user          "test_user"
+   :password      "test_password"
+   :auto-commit   true
+   :pool          {:minimum-idle 1
+                   :maximum-pool-size 5
+                   :connection-timeout-ms 10000}}
+
+  :boundary/mysql
+  {:host          "localhost"
+   :port          3306
+   :dbname        "boundary_test"
+   :user          "test_user"
+   :password      "test_password"
+   :pool          {:minimum-idle 1
+                   :maximum-pool-size 5
+                   :connection-timeout-ms 10000}}
+ }
+}

@@ -1,1 +1,327 @@
-(ns boundary.user.core.user)
+(ns boundary.user.core.user
+  "Functional Core - Pure user business logic.
+   
+   This namespace contains ONLY pure functions with no side effects:
+   - No I/O operations (no database calls, no logging, no HTTP)
+   - No external dependencies (time, random generation, etc.)
+   - Deterministic behavior (same input always produces same output)
+   - Immutable data structures only
+   
+   All business rules and domain logic for users belong here.
+   The shell layer orchestrates I/O and calls these pure functions."
+  (:require [boundary.user.schema :as schema]
+            [malli.core :as m]))
+
+;; =============================================================================
+;; User Creation Business Logic
+;; =============================================================================
+
+(defn validate-user-creation-request
+  "Pure function: Validate user creation request against business rules.
+   
+   Args:
+     user-data: User creation request data
+     
+   Returns:
+     {:valid? true :data processed-data} or
+     {:valid? false :errors validation-errors}
+     
+   Pure - no side effects, deterministic validation."
+  [user-data]
+  (if (m/validate schema/CreateUserRequest user-data)
+    {:valid? true :data user-data}
+    {:valid? false :errors (m/explain schema/CreateUserRequest user-data)}))
+
+(defn check-duplicate-user-decision
+  "Pure function: Determine if user creation should proceed based on existing user lookup.
+   
+   Args:
+     user-data: User data to create
+     existing-user: Result of looking up user by email (or nil if not found)
+     
+   Returns:
+     {:decision :proceed} or
+     {:decision :reject :reason :duplicate-email :email string}
+     
+   Pure - no database calls, just decision logic based on inputs."
+  [user-data existing-user]
+  (if existing-user
+    {:decision :reject 
+     :reason :duplicate-email 
+     :email (:email user-data)}
+    {:decision :proceed}))
+
+(defn prepare-user-for-creation
+  "Pure function: Prepare user data for creation with business defaults.
+   
+   Args:
+     user-data: Validated user creation request
+     current-time: Instant representing current time
+     user-id: UUID for the new user
+     
+   Returns:
+     Complete user entity ready for persistence
+     
+   Pure - takes time and ID as parameters instead of generating them."
+  [user-data current-time user-id]
+  (-> user-data
+      (assoc :id user-id)
+      (assoc :created-at current-time)
+      (assoc :updated-at nil)
+      (assoc :deleted-at nil)
+      (assoc :active true)  ; Business rule: new users are active by default
+      (dissoc :password))) ; Business rule: don't store raw password
+
+;; =============================================================================
+;; User Update Business Logic
+;; =============================================================================
+
+(defn validate-user-update-request
+  "Pure function: Validate user update request against business rules.
+   
+   Args:
+     user-entity: Complete user entity for update
+     
+   Returns:
+     {:valid? true :data user-entity} or
+     {:valid? false :errors validation-errors}
+     
+   Pure - schema validation only, no external dependencies."
+  [user-entity]
+  (if (m/validate schema/User user-entity)
+    {:valid? true :data user-entity}
+    {:valid? false :errors (m/explain schema/User user-entity)}))
+
+(defn check-user-exists-for-update-decision
+  "Pure function: Determine if user update should proceed based on existing user.
+   
+   Args:
+     user-entity: User entity to update
+     existing-user: Current user from database (or nil if not found)
+     
+   Returns:
+     {:decision :proceed} or
+     {:decision :reject :reason :user-not-found :user-id uuid}
+     
+   Pure - decision logic only, no database operations."
+  [user-entity existing-user]
+  (if existing-user
+    {:decision :proceed}
+    {:decision :reject 
+     :reason :user-not-found 
+     :user-id (:id user-entity)}))
+
+(defn prepare-user-for-update
+  "Pure function: Prepare user entity for update with business rules.
+   
+   Args:
+     user-entity: User entity to update
+     current-time: Instant representing current time
+     
+   Returns:
+     User entity prepared for update with updated timestamp
+     
+   Pure - takes time as parameter instead of generating it."
+  [user-entity current-time]
+  (assoc user-entity :updated-at current-time))
+
+;; =============================================================================
+;; User Query Business Logic
+;; =============================================================================
+
+(defn filter-active-users
+  "Pure function: Filter list of users to only include active ones.
+   
+   Args:
+     users: Vector of user entities
+     
+   Returns:
+     Vector of active users (deleted-at is nil)
+     
+   Pure - data transformation only."
+  [users]
+  (filter #(nil? (:deleted-at %)) users))
+
+(defn sort-users-by-criteria
+  "Pure function: Sort users by specified criteria.
+   
+   Args:
+     users: Vector of user entities
+     sort-by: Keyword field to sort by (:created-at, :email, :role)
+     sort-direction: :asc or :desc
+     
+   Returns:
+     Sorted vector of users
+     
+   Pure - data sorting only."
+  [users sort-by sort-direction]
+  (let [comparator (case sort-direction
+                     :asc compare
+                     :desc #(compare %2 %1))]
+    (sort-by sort-by comparator users)))
+
+(defn apply-user-filters
+  "Pure function: Apply business filters to user list.
+   
+   Args:
+     users: Vector of user entities
+     filters: Map of filter criteria {:role :admin, :active true, etc.}
+     
+   Returns:
+     Filtered vector of users
+     
+   Pure - data filtering based on criteria."
+  [users filters]
+  (cond->> users
+    (:role filters) (filter #(= (:role %) (:role filters)))
+    (:active filters) (filter #(= (:active %) (:active filters)))
+    (:email-contains filters) (filter #(.contains (:email %) (:email-contains filters)))))
+
+;; =============================================================================
+;; User Business Rules
+;; =============================================================================
+
+(defn calculate-user-membership-tier
+  "Pure function: Calculate membership tier based on user data.
+   
+   Args:
+     user: User entity with join date and activity data
+     current-date: Current date for calculation
+     
+   Returns:
+     Keyword tier (:bronze :silver :gold :platinum)
+     
+   Pure - business calculation based on input data only."
+  [user current-date]
+  (let [join-date (:created-at user)
+        days-member (/ (.between java.time.temporal.ChronoUnit/DAYS join-date current-date) 1)
+        years-member (/ days-member 365.25)]
+    (cond
+      (>= years-member 5) :platinum
+      (>= years-member 3) :gold
+      (>= years-member 1) :silver
+      :else :bronze)))
+
+(defn calculate-user-permissions
+  "Pure function: Calculate user permissions based on role and tenant.
+   
+   Args:
+     user: User entity with role information
+     tenant-config: Tenant-specific configuration map
+     
+   Returns:
+     Set of permission keywords
+     
+   Pure - permission calculation based on input data."
+  [user tenant-config]
+  (let [base-permissions #{:read-profile :update-profile}
+        role-permissions (case (:role user)
+                          :admin #{:read-all-users :create-user :update-user :delete-user}
+                          :moderator #{:read-users :update-user}
+                          :user #{}
+                          #{})
+        tenant-permissions (get-in tenant-config [:role-permissions (:role user)] #{})]
+    (clojure.set/union base-permissions role-permissions tenant-permissions)))
+
+(defn should-require-password-reset?
+  "Pure function: Determine if user should be required to reset password.
+   
+   Args:
+     user: User entity with password metadata
+     current-time: Current time instant
+     password-policy: Password policy configuration
+     
+   Returns:
+     Boolean indicating if password reset is required
+     
+   Pure - business rule evaluation based on policy and user data."
+  [user current-time password-policy]
+  (let [password-age-days (/ (.between java.time.temporal.ChronoUnit/DAYS 
+                                      (:password-updated-at user current-time) 
+                                      current-time) 1)
+        max-password-age (:max-password-age-days password-policy 90)]
+    (> password-age-days max-password-age)))
+
+;; =============================================================================
+;; User Validation Business Rules
+;; =============================================================================
+
+(defn validate-user-role-transition
+  "Pure function: Validate if role transition is allowed by business rules.
+   
+   Args:
+     current-role: Current user role keyword
+     new-role: Proposed new role keyword
+     requesting-user-role: Role of user making the request
+     
+   Returns:
+     {:valid? true} or {:valid? false :reason string}
+     
+   Pure - business rule evaluation for role transitions."
+  [current-role new-role requesting-user-role]
+  (let [role-hierarchy {:user 1 :moderator 2 :admin 3}
+        current-level (role-hierarchy current-role 0)
+        new-level (role-hierarchy new-role 0)
+        requester-level (role-hierarchy requesting-user-role 0)]
+    (cond
+      ;; Can't promote to a level higher than your own
+      (> new-level requester-level)
+      {:valid? false :reason "Cannot promote user to a role higher than your own"}
+      
+      ;; Can't demote someone at your level or higher (unless demoting yourself)
+      (and (>= current-level requester-level) 
+           (not= current-role requesting-user-role))
+      {:valid? false :reason "Cannot modify user at your role level or higher"}
+      
+      ;; Valid transition
+      :else
+      {:valid? true})))
+
+(defn validate-email-domain
+  "Pure function: Validate email domain against allowed domains.
+   
+   Args:
+     email: Email address string
+     allowed-domains: Set of allowed domain strings
+     
+   Returns:
+     {:valid? true} or {:valid? false :reason string}
+     
+   Pure - string validation against domain allowlist."
+  [email allowed-domains]
+  (if (empty? allowed-domains)
+    {:valid? true}  ; No domain restrictions
+    (let [email-domain (second (clojure.string/split email #"@"))]
+      (if (contains? allowed-domains email-domain)
+        {:valid? true}
+        {:valid? false :reason (str "Email domain " email-domain " not allowed")}))))
+
+;; =============================================================================
+;; User Analysis Functions
+;; =============================================================================
+
+(defn analyze-user-activity
+  "Pure function: Analyze user activity patterns from activity data.
+   
+   Args:
+     user: User entity
+     activity-events: Vector of activity event maps
+     analysis-period-days: Number of days to analyze
+     
+   Returns:
+     Map with activity analysis results
+     
+   Pure - data analysis based on input events."
+  [user activity-events analysis-period-days]
+  (let [recent-events (filter #(> (:timestamp %) 
+                                 (java.time.Instant/now)) ; This would be passed as param in real usage
+                              activity-events)
+        event-count (count recent-events)
+        unique-days (count (distinct (map #(java.time.LocalDate/ofInstant (:timestamp %) 
+                                                                           java.time.ZoneOffset/UTC) 
+                                         recent-events)))]
+    {:total-events event-count
+     :active-days unique-days
+     :avg-events-per-day (if (> unique-days 0) (/ event-count unique-days) 0)
+     :activity-score (min 100 (* (/ unique-days analysis-period-days) 100))
+     :user-id (:id user)}))

@@ -1,0 +1,71 @@
+{
+ ;; =============================================================================
+ ;; Production Environment Configuration
+ ;; =============================================================================
+ 
+ :active
+ {
+  ;; Core application settings (always active)
+  :boundary/settings
+  {:name              "boundary-prod"
+   :version           "0.1.0"
+   :date-format       "yyyy-MM-dd"
+   :date-time-format  "yyyy-MM-dd HH:mm:ss"
+   :currency/iso-code "EUR"}
+
+  ;; Active database configurations
+  ;; Production typically uses PostgreSQL for reliability and performance
+  
+  :boundary/postgresql
+  {:host          #env "POSTGRES_HOST"
+   :port          #env "POSTGRES_PORT"
+   :dbname        #env "POSTGRES_DB"
+   :user          #env "POSTGRES_USER"
+   :password      #env "POSTGRES_PASSWORD"
+   :auto-commit   true
+   :pool          {:minimum-idle 10
+                   :maximum-pool-size 50
+                   :connection-timeout-ms 30000
+                   :idle-timeout-ms 600000
+                   :max-lifetime-ms 1800000}}
+
+  ;; Production logging configuration
+  :boundary/logging
+  {:level     :info
+   :console   false  ; No console logging in production
+   :appenders [{:appender       :rolling-file
+                :file           "logs/boundary-prod.log"
+                :rolling-policy {:type        :time-based
+                                 :max-history 90  ; Keep 90 days
+                                 :max-size    50000000 ; 50MB
+                                 :pattern     ".%d{yyyy-MM-dd}.%i.gz"}}]}
+ }
+
+ :inactive
+ {
+  ;; Backup database configurations
+  ;; Available for emergency fallback or maintenance scenarios
+  
+  :boundary/sqlite
+  {:db "prod-fallback.db"
+   :pool {:minimum-idle 2
+          :maximum-pool-size 5
+          :connection-timeout-ms 10000}}
+
+  :boundary/mysql
+  {:host          #env "MYSQL_HOST"
+   :port          #env "MYSQL_PORT"
+   :dbname        #env "MYSQL_DB"
+   :user          #env "MYSQL_USER"
+   :password      #env "MYSQL_PASSWORD"
+   :pool          {:minimum-idle 10
+                   :maximum-pool-size 50
+                   :connection-timeout-ms 30000}}
+
+  :boundary/h2
+  {:memory false
+   :db     "prod-h2-fallback"
+   :pool   {:minimum-idle 5
+            :maximum-pool-size 20}}
+ }
+}

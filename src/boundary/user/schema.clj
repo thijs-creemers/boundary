@@ -45,10 +45,16 @@
 (def UserSession
   "Schema for user session."
   [:map {:title "User Session"}
+   [:id {:optional true} :uuid]
    [:user-id :uuid]
-   [:token :string]
+   [:session-token :string]
+   [:tenant-id :uuid]
    [:expires-at :string]
-   [:created-at :string]])
+   [:created-at :string]
+   [:last-accessed-at {:optional true} :string]
+   [:revoked-at {:optional true} :string]
+   [:ip-address {:optional true} :string]
+   [:user-agent {:optional true} :string]])
 
 (def UserProfile
   "Schema for user profile, combining user and preferences."
@@ -100,6 +106,18 @@
    [:token :string]
    [:new-password :string]
    [:confirm-password :string]])
+
+(def CreateSessionRequest
+  "Schema for creating a user session."
+  [:map {:title "Create Session Request"}
+   [:user-id :uuid]
+   [:tenant-id :uuid]
+   [:ip-address {:optional true} :string]
+   [:user-agent {:optional true} :string]
+   [:device-info {:optional true} [:map
+                                    [:device-type {:optional true} :string]
+                                    [:operating-system {:optional true} :string]
+                                    [:browser {:optional true} :string]]]])
 
 ;; =============================================================================
 ;; API Response Schemas
