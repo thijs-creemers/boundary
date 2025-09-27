@@ -11,4 +11,7 @@
     <option name="buildSystemId" value="CLOJURE_DEPS" />
     <option name="displayName" value="boundary" />
   </component>
+  <component name="CheckStyle-IDEA-Module" serialisationVersion="2">
+    <option name="activeLocationsIds" />
+  </component>
 </module>

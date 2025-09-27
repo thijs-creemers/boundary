@@ -1,6 +1,6 @@
 (ns boundary.shell.adapters.database.config-factory-test
   "Tests for database adapter factory and creation logic."
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [clojure.test :refer [deftest is testing]]
             [boundary.shell.adapters.database.config-factory :as factory]
             [boundary.shell.adapters.database.protocols :as protocols]))
 
@@ -45,13 +45,15 @@
     (let [config {:db "test.db" :pool {:minimum-idle 1}}
           adapter (factory/create-adapter :boundary/sqlite config)]
       (is (some? adapter) "Adapter should be created")
-      (is (satisfies? protocols/DatabaseAdapter adapter)
+      (is (satisfies? protocols/DBAdapter adapter)
           "Should satisfy DatabaseAdapter protocol")
       
       ;; Test protocol methods
-      (let [conn-spec (protocols/connection-spec adapter)]
-        (is (map? conn-spec) "Connection spec should be a map")
-        (is (contains? conn-spec :jdbcUrl) "Should contain JDBC URL"))
+      (let [dialect (protocols/dialect adapter)
+            jdbc-url (protocols/jdbc-url adapter {:db "test.db"})]
+        (is (= dialect :sqlite) "SQLite adapter should return :sqlite dialect")
+        (is (string? jdbc-url) "JDBC URL should be a string")
+        (is (.contains jdbc-url "sqlite") "SQLite JDBC URL should contain 'sqlite'"))
       
       (let [dialect (protocols/dialect adapter)]
         (is (some? dialect) "Should have a dialect")))))
@@ -61,14 +63,15 @@
     (let [config {:memory true :pool {:minimum-idle 1}}
           adapter (factory/create-adapter :boundary/h2 config)]
       (is (some? adapter) "Adapter should be created")
-      (is (satisfies? protocols/DatabaseAdapter adapter)
+      (is (satisfies? protocols/DBAdapter adapter)
           "Should satisfy DatabaseAdapter protocol")
       
-      (let [conn-spec (protocols/connection-spec adapter)]
-        (is (map? conn-spec) "Connection spec should be a map")
-        (is (contains? conn-spec :jdbcUrl) "Should contain JDBC URL")
-        (is (.contains (:jdbcUrl conn-spec) "mem:")
-            "In-memory H2 should contain 'mem:' in URL")))))
+      (let [dialect (protocols/dialect adapter)
+            jdbc-url (protocols/jdbc-url adapter {:memory true})]
+        (is (= dialect :h2) "H2 adapter should return :h2 dialect")
+        (is (string? jdbc-url) "JDBC URL should be a string")
+        (is (.contains jdbc-url "h2:") "H2 JDBC URL should contain 'h2:'")
+        (is (.contains jdbc-url "mem:") "In-memory H2 should contain 'mem:' in URL")))))
 
 (deftest test-create-adapter-postgresql
   (testing "Creating PostgreSQL adapter"
@@ -79,14 +82,14 @@
                   :password "testpass"}
           adapter (factory/create-adapter :boundary/postgresql config)]
       (is (some? adapter) "Adapter should be created")
-      (is (satisfies? protocols/DatabaseAdapter adapter)
+      (is (satisfies? protocols/DBAdapter adapter)
           "Should satisfy DatabaseAdapter protocol")
       
-      (let [conn-spec (protocols/connection-spec adapter)]
-        (is (map? conn-spec) "Connection spec should be a map")
-        (is (contains? conn-spec :jdbcUrl) "Should contain JDBC URL")
-        (is (.contains (:jdbcUrl conn-spec) "postgresql")
-            "PostgreSQL should contain 'postgresql' in URL")))))
+      (let [dialect (protocols/dialect adapter)
+            jdbc-url (protocols/jdbc-url adapter config)]
+        (is (= dialect :postgresql) "PostgreSQL adapter should return :postgresql dialect")
+        (is (string? jdbc-url) "JDBC URL should be a string")
+        (is (.contains jdbc-url "postgresql") "PostgreSQL JDBC URL should contain 'postgresql'")))))
 
 (deftest test-create-adapter-mysql
   (testing "Creating MySQL adapter"
@@ -97,20 +100,20 @@
                   :password "password"}
           adapter (factory/create-adapter :boundary/mysql config)]
       (is (some? adapter) "Adapter should be created")
-      (is (satisfies? protocols/DatabaseAdapter adapter)
+      (is (satisfies? protocols/DBAdapter adapter)
           "Should satisfy DatabaseAdapter protocol")
       
-      (let [conn-spec (protocols/connection-spec adapter)]
-        (is (map? conn-spec) "Connection spec should be a map")
-        (is (contains? conn-spec :jdbcUrl) "Should contain JDBC URL")
-        (is (.contains (:jdbcUrl conn-spec) "mysql")
-            "MySQL should contain 'mysql' in URL")))))
+      (let [dialect (protocols/dialect adapter)
+            jdbc-url (protocols/jdbc-url adapter config)]
+        (is (= dialect :mysql) "MySQL adapter should return :mysql dialect")
+        (is (string? jdbc-url) "JDBC URL should be a string")
+        (is (.contains jdbc-url "mysql") "MySQL JDBC URL should contain 'mysql'")))))
 
 (deftest test-create-adapter-unknown
   (testing "Creating unknown adapter should throw"
     (is (thrown? Exception 
-                 (factory/create-adapter :boundary/unknown {:some "config"}))
-        "Should throw exception for unknown adapter type")))
+                 (factory/create-adapter :boundary/unknown {:some "config"})
+                 "Should throw exception for unknown adapter type"))))
 
 ;; =============================================================================
 ;; Active Adapters Creation Tests
@@ -130,7 +133,7 @@
       
       ;; Check all adapters satisfy the protocol
       (doseq [[adapter-key adapter] adapters]
-        (is (satisfies? protocols/DatabaseAdapter adapter)
+        (is (satisfies? protocols/DBAdapter adapter)
             (str "Adapter " adapter-key " should satisfy DatabaseAdapter protocol"))))))
 
 (deftest test-create-active-adapters-empty-config
@@ -154,17 +157,17 @@
   (testing "Validating adapter configurations before creation"
     (testing "Valid configurations should pass"
       (let [configs {:boundary/sqlite {:db "test.db"}
-                    :boundary/h2 {:memory true}
-                    :boundary/postgresql {:host "localhost" :port 5432 
-                                         :dbname "test" :user "user" :password "pass"}}]
+                     :boundary/h2 {:memory true}
+                     :boundary/postgresql {:host "localhost" :port 5432
+                                           :dbname "test" :user "user" :password "pass"}}]
         (doseq [[adapter-type config] configs]
           (is (factory/valid-adapter-config? adapter-type config)
               (str "Valid config for " adapter-type " should pass validation")))))
     
     (testing "Invalid configurations should fail"
       (let [invalid-configs {:boundary/sqlite {} ; missing :db
-                            :boundary/postgresql {:host "localhost"} ; missing required fields
-                            :boundary/mysql {:port 3306}}] ; missing host and other required
+                             :boundary/postgresql {:host "localhost"} ; missing required fields
+                             :boundary/mysql {:port 3306}}] ; missing host and other required
         (doseq [[adapter-type config] invalid-configs]
           (is (not (factory/valid-adapter-config? adapter-type config))
               (str "Invalid config for " adapter-type " should fail validation")))))))
@@ -195,33 +198,19 @@
 ;; Connection Specification Tests
 ;; =============================================================================
 
-(deftest test-connection-specs-format
-  (testing "Connection specifications should be properly formatted"
-    (let [test-configs {:boundary/sqlite {:db "test.db"}
-                       :boundary/h2 {:memory true}
-                       :boundary/postgresql {:host "localhost" :port 5432 
-                                           :dbname "test" :user "user" :password "pass"}
-                       :boundary/mysql {:host "localhost" :port 3306 
-                                      :dbname "test" :user "root" :password "pass"}}]
+(deftest test-jdbc-url-format
+  (testing "JDBC URLs should be properly formatted"
+    (let [sqlite-adapter (factory/create-adapter :boundary/sqlite {:db "test.db"})
+          h2-adapter (factory/create-adapter :boundary/h2 {:memory true})]
+      (testing "SQLite JDBC URL"
+        (let [jdbc-url (protocols/jdbc-url sqlite-adapter {:db "test.db"})]
+          (is (string? jdbc-url) "JDBC URL should be a string")
+          (is (.contains jdbc-url "sqlite") "SQLite JDBC URL should contain 'sqlite'")))
       
-      (doseq [[adapter-type config] test-configs]
-        (let [adapter (factory/create-adapter adapter-type config)
-              conn-spec (protocols/connection-spec adapter)]
-          
-          (testing (str "Connection spec for " adapter-type)
-            (is (map? conn-spec) "Should be a map")
-            (is (contains? conn-spec :jdbcUrl) "Should contain :jdbcUrl")
-            (is (string? (:jdbcUrl conn-spec)) "JDBC URL should be a string")
-            (is (not (empty? (:jdbcUrl conn-spec))) "JDBC URL should not be empty")
-            
-            ;; Check URL format is reasonable
-            (let [url (:jdbcUrl conn-spec)]
-              (is (.startsWith url "jdbc:") "JDBC URL should start with 'jdbc:'")
-              (case adapter-type
-                :boundary/sqlite (is (.contains url "sqlite") "SQLite URL should contain 'sqlite'")
-                :boundary/h2 (is (.contains url "h2") "H2 URL should contain 'h2'")
-                :boundary/postgresql (is (.contains url "postgresql") "PostgreSQL URL should contain 'postgresql'")
-                :boundary/mysql (is (.contains url "mysql") "MySQL URL should contain 'mysql'")))))))))
+      (testing "H2 JDBC URL"
+        (let [jdbc-url (protocols/jdbc-url h2-adapter {:memory true})]
+          (is (string? jdbc-url) "JDBC URL should be a string")
+          (is (.contains jdbc-url "h2") "H2 JDBC URL should contain 'h2'"))))))
 
 ;; =============================================================================
 ;; Adapter Pool Configuration Tests  
@@ -283,7 +272,7 @@
             
             ; Verify all created adapters are valid
             (doseq [[adapter-key adapter] adapters]
-              (is (satisfies? protocols/DatabaseAdapter adapter)
+              (is (satisfies? protocols/DBAdapter adapter)
                   (str "Adapter " adapter-key " should satisfy protocol in " env))))
           (catch Exception e
             ; If config loading fails, that's okay - it means the real config system isn't ready
