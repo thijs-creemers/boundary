@@ -23,6 +23,7 @@
   (:require [boundary.shell.adapters.database.config :as db-config]
             [boundary.shell.adapters.database.core :as core]
             [boundary.shell.adapters.database.protocols :as protocols]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]))
 
 ;; =============================================================================
@@ -317,18 +318,7 @@
   [adapter-key config]
   ;; For now, create a mock adapter that satisfies the protocol
   ;; This will be replaced when actual adapter implementations are available
-  (reify protocols/DatabaseAdapter
-    (connection-spec [this]
-      (case adapter-key
-        :boundary/sqlite {:jdbcUrl (str "jdbc:sqlite:" (:db config))}
-        :boundary/h2 {:jdbcUrl (if (:memory config) "jdbc:h2:mem:testdb" (str "jdbc:h2:file:" (:db config)))}
-        :boundary/postgresql {:jdbcUrl (str "jdbc:postgresql://" (:host config) ":" (:port config) "/" (:dbname config))}
-                             :user (:user config)
-                             :password (:password config)
-        :boundary/mysql {:jdbcUrl (str "jdbc:mysql://" (:host config) ":" (:port config) "/" (:dbname config))
-                         :user (:user config)
-                         :password (:password config)}
-        {:jdbcUrl "jdbc:unknown"}))
+  (reify protocols/DBAdapter
     (dialect [this]
       (case adapter-key
         :boundary/sqlite :sqlite
@@ -336,8 +326,47 @@
         :boundary/postgresql :postgresql
         :boundary/mysql :mysql
         :unknown))
-    (format-sql [this query-map]
-      query-map)))
+    
+    (jdbc-driver [this]
+      (case adapter-key
+        :boundary/sqlite "org.sqlite.JDBC"
+        :boundary/h2 "org.h2.Driver"
+        :boundary/postgresql "org.postgresql.Driver"
+        :boundary/mysql "com.mysql.cj.jdbc.Driver"
+        "unknown"))
+    
+    (jdbc-url [this db-config]
+      (case adapter-key
+        :boundary/sqlite (str "jdbc:sqlite:" (or (:db config) (:database-path db-config)))
+        :boundary/h2 (if (or (:memory config) (and (:database-path db-config) (str/starts-with? (str (:database-path db-config)) "mem:")))
+                       (str "jdbc:h2:" (or (:database-path db-config) "mem:testdb"))
+                       (str "jdbc:h2:file:" (or (:db config) (:database-path db-config))))
+        :boundary/postgresql (str "jdbc:postgresql://" 
+                                  (or (:host config) (:host db-config "localhost")) ":" 
+                                  (or (:port config) (:port db-config 5432)) "/" 
+                                  (or (:dbname config) (:name db-config)))
+        :boundary/mysql (str "jdbc:mysql://" 
+                            (or (:host config) (:host db-config "localhost")) ":" 
+                            (or (:port config) (:port db-config 3306)) "/" 
+                            (or (:dbname config) (:name db-config)))
+        "jdbc:unknown"))
+    
+    (pool-defaults [this]
+      {:minimum-idle 2 :maximum-pool-size 10 :connection-timeout-ms 30000})
+    
+    (init-connection! [this datasource db-config] nil)
+    
+    (build-where [this filters] 
+      ;; Simple implementation - just return nil for mock adapter
+      nil)
+    
+    (boolean->db [this boolean-value] boolean-value)
+    
+    (db->boolean [this db-value] db-value)
+    
+    (table-exists? [this datasource table-name] false)
+    
+    (get-table-info [this datasource table-name] [])))
 
 (defn create-active-adapters
   "Create all active adapters from configuration (test compatibility)"
