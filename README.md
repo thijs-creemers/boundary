@@ -17,7 +17,7 @@ brew install openjdk clojure/tools/clojure  # macOS
 # Clone and verify
 git clone <repo-url> boundary
 cd boundary
-clojure -M:test                            # Run tests
+clojure -M:test:db/h2                      # Run tests (includes H2 database)
 clojure -M:repl-clj                        # Start REPL
 clojure -X:mcp # runs clojure-mcp server as configured in ~/.clojure/deps.edn 
 

@@ -81,7 +81,7 @@ cd boundary
 echo $SHELL
 
 # Run tests to verify setup
-clojure -M:test
+clojure -M:test:db/h2
 
 # Start a development REPL
 clojure -M:repl-clj
@@ -96,7 +96,7 @@ user=> (ig-repl/go)  ; Start the system
 
 ```zsh
 # Check if tests pass
-clojure -M:test
+clojure -M:test:db/h2
 
 # Lint the codebase
 clojure -M:clj-kondo --config .clj-kondo/config.edn --lint src
@@ -232,7 +232,7 @@ When adding new functionality:
 
 ```zsh
 # Watch mode for automatic test running
-clojure -M:test --watch
+clojure -M:test:db/h2 --watch
 
 # Manual reset in REPL when things get stuck
 user=> (ig-repl/halt)
@@ -463,17 +463,19 @@ src/boundary/user/
 
 Boundary's testing strategy aligns with the Functional Core / Imperative Shell architecture:
 
+> **⚠️ Database Requirement**: Tests require H2 database driver. Use `clojure -M:test:db/h2` instead of `clojure -M:test` to include the necessary database dependencies for testing.
+
 ### Core Layer Testing (Pure Functions)
 
 ```zsh
 # Run all tests
-clojure -M:test
+clojure -M:test:db/h2
 
 # Run tests for specific module
-clojure -M:test --focus :unit.user
+clojure -M:test:db/h2 --focus :unit.user
 
 # Run tests in watch mode
-clojure -M:test --watch
+clojure -M:test:db/h2 --watch
 ```
 
 **Core testing characteristics:**
@@ -521,11 +523,11 @@ clojure -M:test --watch
 
 ```zsh
 # Run integration tests (requires test database)
-clojure -M:test --focus :integration
+clojure -M:test:db/h2 --focus :integration
 
 # Run with test database container
 docker-compose -f docker/test-compose.yml up -d
-clojure -M:test --focus :integration
+clojure -M:test:db/h2 --focus :integration
 docker-compose -f docker/test-compose.yml down
 ```
 
@@ -550,19 +552,19 @@ test/
 
 ```zsh
 # All tests
-clojure -M:test
+clojure -M:test:db/h2
 
 # Specific test categories
-clojure -M:test --focus :unit
-clojure -M:test --focus :integration
-clojure -M:test --focus :contract
+clojure -M:test:db/h2 --focus :unit
+clojure -M:test:db/h2 --focus :integration
+clojure -M:test:db/h2 --focus :contract
 
 # Specific modules
-clojure -M:test --focus :user
-clojure -M:test --focus :billing
+clojure -M:test:db/h2 --focus :user
+clojure -M:test:db/h2 --focus :billing
 
 # Watch mode with focus
-clojure -M:test --watch --focus :unit
+clojure -M:test:db/h2 --watch --focus :unit
 
 # Generate test coverage (if configured)
 clojure -M:test:coverage
@@ -676,7 +678,7 @@ user=> (:boundary/sqlite cfg)   ; Check SQLite config
 ```zsh
 # Start development environment
 clojure -M:repl-clj                     # Start REPL
-clojure -M:test --watch                 # Run tests in watch mode
+clojure -M:test:db/h2 --watch                 # Run tests in watch mode
 
 # Code quality
 clojure -M:clj-kondo --lint src test   # Lint codebase
@@ -692,19 +694,19 @@ clojure -M:outdated                     # Check for outdated dependencies
 
 ```zsh
 # Run all tests
-clojure -M:test
+clojure -M:test:db/h2
 
 # Test categories
-clojure -M:test --focus :unit           # Pure core function tests
-clojure -M:test --focus :integration    # Shell service tests  
-clojure -M:test --focus :contract       # Adapter tests
+clojure -M:test:db/h2 --focus :unit           # Pure core function tests
+clojure -M:test:db/h2 --focus :integration    # Shell service tests  
+clojure -M:test:db/h2 --focus :contract       # Adapter tests
 
 # Module-specific tests
-clojure -M:test --focus :user           # User module tests
-clojure -M:test --focus :billing        # Billing module tests
+clojure -M:test:db/h2 --focus :user           # User module tests
+clojure -M:test:db/h2 --focus :billing        # Billing module tests
 
 # Watch mode
-clojure -M:test --watch --focus :unit   # Watch unit tests only
+clojure -M:test:db/h2 --watch --focus :unit   # Watch unit tests only
 ```
 
 ### Database Operations
@@ -801,7 +803,7 @@ clojure -M:repl-clj
 
 # Testing
 export BND_ENV=test
-clojure -M:test
+clojure -M:test:db/h2
 
 # Staging deployment
 export BND_ENV=staging

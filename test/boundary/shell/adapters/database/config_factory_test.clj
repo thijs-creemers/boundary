@@ -45,7 +45,7 @@
     (let [config {:db "test.db" :pool {:minimum-idle 1}}
           adapter (factory/create-adapter :boundary/sqlite config)]
       (is (some? adapter) "Adapter should be created")
-      (is (satisfies? protocols/DatabaseAdapter adapter)
+      (is (satisfies? protocols/DBAdapter adapter)
           "Should satisfy DatabaseAdapter protocol")
       
       ;; Test protocol methods
@@ -61,7 +61,7 @@
     (let [config {:memory true :pool {:minimum-idle 1}}
           adapter (factory/create-adapter :boundary/h2 config)]
       (is (some? adapter) "Adapter should be created")
-      (is (satisfies? protocols/DatabaseAdapter adapter)
+      (is (satisfies? protocols/DBAdapter adapter)
           "Should satisfy DatabaseAdapter protocol")
       
       (let [conn-spec (protocols/connection-spec adapter)]
@@ -79,7 +79,7 @@
                   :password "testpass"}
           adapter (factory/create-adapter :boundary/postgresql config)]
       (is (some? adapter) "Adapter should be created")
-      (is (satisfies? protocols/DatabaseAdapter adapter)
+      (is (satisfies? protocols/DBAdapter adapter)
           "Should satisfy DatabaseAdapter protocol")
       
       (let [conn-spec (protocols/connection-spec adapter)]
@@ -97,7 +97,7 @@
                   :password "password"}
           adapter (factory/create-adapter :boundary/mysql config)]
       (is (some? adapter) "Adapter should be created")
-      (is (satisfies? protocols/DatabaseAdapter adapter)
+      (is (satisfies? protocols/DBAdapter adapter)
           "Should satisfy DatabaseAdapter protocol")
       
       (let [conn-spec (protocols/connection-spec adapter)]
@@ -130,7 +130,7 @@
       
       ;; Check all adapters satisfy the protocol
       (doseq [[adapter-key adapter] adapters]
-        (is (satisfies? protocols/DatabaseAdapter adapter)
+        (is (satisfies? protocols/DBAdapter adapter)
             (str "Adapter " adapter-key " should satisfy DatabaseAdapter protocol"))))))
 
 (deftest test-create-active-adapters-empty-config
@@ -283,7 +283,7 @@
             
             ; Verify all created adapters are valid
             (doseq [[adapter-key adapter] adapters]
-              (is (satisfies? protocols/DatabaseAdapter adapter)
+              (is (satisfies? protocols/DBAdapter adapter)
                   (str "Adapter " adapter-key " should satisfy protocol in " env))))
           (catch Exception e
             ; If config loading fails, that's okay - it means the real config system isn't ready
