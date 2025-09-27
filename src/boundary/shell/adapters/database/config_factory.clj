@@ -313,9 +313,76 @@
 ;; Test Compatibility Functions
 ;; =============================================================================
 
+(defn list-available-adapters
+  "List all available adapter types"
+  []
+  [:boundary/sqlite :boundary/h2 :boundary/postgresql :boundary/mysql :boundary/settings :boundary/logging])
+
+(defn adapter-supported?
+  "Check if adapter type is supported"
+  [adapter-key]
+  (contains? (set (list-available-adapters)) adapter-key))
+
+(defn valid-adapter-config?
+  "Validate adapter configuration (test compatibility)"
+  [adapter-key config]
+  (when-not (map? config)
+    false)
+  
+  (case adapter-key
+    :boundary/sqlite 
+    (and (contains? config :db)
+         (string? (:db config)))
+    
+    :boundary/h2 
+    (or (and (contains? config :memory)
+             (boolean? (:memory config)))
+        (and (contains? config :db)
+             (string? (:db config))))
+    
+    :boundary/postgresql 
+    (and (every? #(contains? config %) [:host :port :dbname :user :password])
+         (string? (:host config))
+         (integer? (:port config))
+         (string? (:dbname config))
+         (string? (:user config))
+         (string? (:password config)))
+    
+    :boundary/mysql 
+    (and (every? #(contains? config %) [:host :port :dbname :user :password])
+         (string? (:host config))
+         (integer? (:port config))
+         (string? (:dbname config))
+         (string? (:user config))
+         (string? (:password config)))
+    
+    :boundary/settings
+    ;; Settings adapter can be any valid map - very permissive for now
+    true
+    
+    :boundary/logging
+    ;; Logging adapter can be any valid map - very permissive for now  
+    true
+    
+    false))
+
 (defn create-adapter
   "Create adapter instance (test compatibility function)"
   [adapter-key config]
+  ;; Validate inputs
+  (when (nil? config)
+    (throw (IllegalArgumentException. "Configuration cannot be null")))
+  
+  (when-not (map? config)
+    (throw (IllegalArgumentException. "Configuration must be a map")))
+  
+  (when-not (adapter-supported? adapter-key)
+    (throw (IllegalArgumentException. (str "Unsupported adapter type: " adapter-key ". Supported types: " (list-available-adapters)))))
+  
+  ;; Validate configuration based on adapter type
+  (when-not (valid-adapter-config? adapter-key config)
+    (throw (IllegalArgumentException. (str "Invalid configuration for adapter type: " adapter-key))))
+  
   ;; For now, create a mock adapter that satisfies the protocol
   ;; This will be replaced when actual adapter implementations are available
   (reify protocols/DBAdapter
@@ -325,6 +392,8 @@
         :boundary/h2 :h2
         :boundary/postgresql :postgresql
         :boundary/mysql :mysql
+        :boundary/settings :sqlite  ; Use SQLite as underlying implementation for settings
+        :boundary/logging :sqlite   ; Use SQLite as underlying implementation for logging
         :unknown))
     
     (jdbc-driver [this]
@@ -333,6 +402,8 @@
         :boundary/h2 "org.h2.Driver"
         :boundary/postgresql "org.postgresql.Driver"
         :boundary/mysql "com.mysql.cj.jdbc.Driver"
+        :boundary/settings "org.sqlite.JDBC"  ; Use SQLite driver for settings
+        :boundary/logging "org.sqlite.JDBC"   ; Use SQLite driver for logging
         "unknown"))
     
     (jdbc-url [this db-config]
@@ -349,6 +420,8 @@
                             (or (:host config) (:host db-config "localhost")) ":" 
                             (or (:port config) (:port db-config 3306)) "/" 
                             (or (:dbname config) (:name db-config)))
+        :boundary/settings (str "jdbc:sqlite:" (or (:database-path config) (:db config) "settings.db"))
+        :boundary/logging (str "jdbc:sqlite:" (or (:database-path config) (:db config) "logging.db"))
         "jdbc:unknown"))
     
     (pool-defaults [this]
@@ -371,31 +444,23 @@
 (defn create-active-adapters
   "Create all active adapters from configuration (test compatibility)"
   [config]
-  (let [active-configs (:active config {})]
+  ;; Validate that config is a map
+  (when-not (map? config)
+    (throw (IllegalArgumentException. "Configuration must be a map")))
+  
+  ;; Check if :active section exists
+  (when-not (contains? config :active)
+    (throw (IllegalArgumentException. "Configuration must contain an :active section")))
+  
+  (let [active-configs (:active config)]
+    ;; Validate that :active section is a map
+    (when-not (map? active-configs)
+      (throw (IllegalArgumentException. "The :active section must be a map")))
     (into {}
           (map (fn [[adapter-key adapter-config]]
                  [adapter-key (create-adapter adapter-key adapter-config)]))
           active-configs)))
 
-(defn list-available-adapters
-  "List all available adapter types"
-  []
-  [:boundary/sqlite :boundary/h2 :boundary/postgresql :boundary/mysql])
-
-(defn adapter-supported?
-  "Check if adapter type is supported"
-  [adapter-key]
-  (contains? (set (list-available-adapters)) adapter-key))
-
-(defn valid-adapter-config?
-  "Validate adapter configuration (test compatibility)"
-  [adapter-key config]
-  (case adapter-key
-    :boundary/sqlite (contains? config :db)
-    :boundary/h2 (or (contains? config :memory) (contains? config :db))
-    :boundary/postgresql (every? config [:host :port :dbname :user :password])
-    :boundary/mysql (every? config [:host :port :dbname :user :password])
-    false))
 
 ;; =============================================================================
 ;; Configuration Summary and Debugging
