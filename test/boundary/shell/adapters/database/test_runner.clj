@@ -3,9 +3,9 @@
    
    This runner executes all configuration tests and provides detailed reporting
    on which parts of the system are working and which need implementation."
-  (:require [clojure.test :as test]
-            [clojure.java.io :as io])
-  (:import [java.io StringWriter]))
+  (:require [clojure.java.io :as io]
+            [clojure.test :as test])
+  (:import (java.util Date)))
 
 ;; =============================================================================
 ;; Test Namespaces
@@ -23,7 +23,7 @@
 ;; =============================================================================
 
 (defn namespace-exists?
-  "Check if a namespace exists and can be loaded."
+      "Check if a namespace exists and can be loaded."
   [ns-symbol]
   (try
     (require ns-symbol)
@@ -32,12 +32,12 @@
       false)))
 
 (defn run-namespace-tests
-  "Run tests for a specific namespace, handling missing implementations gracefully."
+      "Run tests for a specific namespace, handling missing implementations gracefully."
   [ns-symbol]
   (println (str "\n" (str (repeat 80 "=")) "\n"))
   (println (str "Testing namespace: " ns-symbol))
   (println (str (str (repeat 80 "=")) "\n"))
-  
+
   (if (namespace-exists? ns-symbol)
     (try
       (require ns-symbol :reload)
@@ -63,17 +63,17 @@
 ;; =============================================================================
 
 (defn check-config-files
-  "Check if configuration files exist."
+      "Check if configuration files exist."
   []
   (println "\n" (str (repeat 80 "=")) "\n")
   (println "Configuration Files Check")
   (println (str (repeat 80 "=")) "\n")
-  
+
   (let [config-files ["resources/conf/dev/config.edn"
-                     "resources/conf/test/config.edn" 
-                     "resources/conf/prod/config.edn"]
-        results (atom {:found 0 :missing 0})]
-    
+                      "resources/conf/test/config.edn"
+                      "resources/conf/prod/config.edn"]
+        results      (atom {:found 0 :missing 0})]
+
     (doseq [config-file config-files]
       (if (.exists (io/file config-file))
         (do
@@ -82,29 +82,29 @@
         (do
           (println (str "❌ MISSING: " config-file))
           (swap! results update :missing inc))))
-    
+
     (println (str "\nConfiguration files summary:"))
     (println (str "  Found: " (:found @results)))
     (println (str "  Missing: " (:missing @results)))
     @results))
 
 (defn check-implementation-files
-  "Check if implementation files exist."
+      "Check if implementation files exist."
   []
   (println "\n" (str (repeat 80 "=")) "\n")
   (println "Implementation Files Check")
   (println (str (repeat 80 "=")) "\n")
-  
+
   (let [impl-files ["src/boundary/shell/adapters/database/config.clj"
-                   "src/boundary/shell/adapters/database/config_factory.clj"
-                   "src/boundary/shell/adapters/database/protocols.clj"
-                   "src/boundary/shell/adapters/database/core.clj"
-                   "src/boundary/shell/adapters/database/adapters/sqlite.clj"
-                   "src/boundary/shell/adapters/database/adapters/h2.clj"
-                   "src/boundary/shell/adapters/database/adapters/postgresql.clj"
-                   "src/boundary/shell/adapters/database/adapters/mysql.clj"]
-        results (atom {:found 0 :missing 0})]
-    
+                    "src/boundary/shell/adapters/database/config_factory.clj"
+                    "src/boundary/shell/adapters/database/protocols.clj"
+                    "src/boundary/shell/adapters/database/core.clj"
+                    "src/boundary/shell/adapters/database/adapters/sqlite.clj"
+                    "src/boundary/shell/adapters/database/adapters/h2.clj"
+                    "src/boundary/shell/adapters/database/adapters/postgresql.clj"
+                    "src/boundary/shell/adapters/database/adapters/mysql.clj"]
+        results    (atom {:found 0 :missing 0})]
+
     (doseq [impl-file impl-files]
       (if (.exists (io/file impl-file))
         (do
@@ -113,7 +113,7 @@
         (do
           (println (str "❌ MISSING: " impl-file))
           (swap! results update :missing inc))))
-    
+
     (println (str "\nImplementation files summary:"))
     (println (str "  Found: " (:found @results)))
     (println (str "  Missing: " (:missing @results)))
@@ -124,18 +124,18 @@
 ;; =============================================================================
 
 (defn check-database-drivers
-  "Check if database JDBC drivers are available on classpath."
+      "Check if database JDBC drivers are available on classpath."
   []
   (println "\n" (str (repeat 80 "=")) "\n")
   (println "Database JDBC Drivers Check")
   (println (str (repeat 80 "=")) "\n")
-  
-  (let [drivers {"SQLite" "org.sqlite.JDBC"
-                "H2" "org.h2.Driver"
-                "PostgreSQL" "org.postgresql.Driver" 
-                "MySQL" "com.mysql.cj.jdbc.Driver"}
+
+  (let [drivers {"SQLite"     "org.sqlite.JDBC"
+                 "H2"         "org.h2.Driver"
+                 "PostgreSQL" "org.postgresql.Driver"
+                 "MySQL"      "com.mysql.cj.jdbc.Driver"}
         results (atom {:available 0 :missing 0})]
-    
+
     (doseq [[db-name driver-class] drivers]
       (try
         (Class/forName driver-class)
@@ -144,7 +144,7 @@
         (catch ClassNotFoundException _
           (println (str "❌ MISSING: " db-name " (" driver-class ")"))
           (swap! results update :missing inc))))
-    
+
     (println (str "\nJDBC drivers summary:"))
     (println (str "  Available: " (:available @results)))
     (println (str "  Missing: " (:missing @results)))
@@ -157,121 +157,119 @@
 ;; =============================================================================
 
 (defn run-configuration-tests
-  "Run all configuration-related tests with comprehensive reporting."
+      "Run all configuration-related tests with comprehensive reporting."
   []
   (println "🚀 Multi-Database Configuration System Test Suite")
-  (println (str "Started at: " (java.util.Date.)))
-  
+  (println (str "Started at: " (Date.)))
+
   ;; Check prerequisites
   (let [config-results (check-config-files)
-        impl-results (check-implementation-files) 
-        driver-results (check-database-drivers)]
-    
+        impl-results   (check-implementation-files)
+        driver-results (check-database-drivers)
+        test-results   (atom {:total-tests       0 :total-pass 0 :total-fail 0 :total-error 0 :total-skip 0
+                              :namespace-results []})]
     ;; Run tests
-    (let [test-results (atom {:total-tests 0 :total-pass 0 :total-fail 0 :total-error 0 :total-skip 0
-                             :namespace-results []})]
-      
-      (doseq [ns-symbol test-namespaces]
-        (let [result (run-namespace-tests ns-symbol)]
-          (swap! test-results update :total-tests + (get result :test 0))
-          (swap! test-results update :total-pass + (get result :pass 0))
-          (swap! test-results update :total-fail + (get result :fail 0))
-          (swap! test-results update :total-error + (get result :error 0))
-          (swap! test-results update :total-skip + (get result :skip 0))
-          (swap! test-results update :namespace-results conj result)))
-      
-      ;; Final summary
-      (println "\n" (str (repeat 80 "=")) "\n")
-      (println "🎯 FINAL SUMMARY")
-      (println (str (repeat 80 "=")) "\n")
-      
-      (println "Configuration Files:")
-      (println (str "  Found: " (:found config-results) ", Missing: " (:missing config-results)))
-      
-      (println "\nImplementation Files:")
-      (println (str "  Found: " (:found impl-results) ", Missing: " (:missing impl-results)))
-      
-      (println "\nJDBC Drivers:")
-      (println (str "  Available: " (:available driver-results) ", Missing: " (:missing driver-results)))
-      
-      (println "\nTest Results:")
-      (println (str "  Total Tests: " (:total-tests @test-results)))
-      (println (str "  Passed: " (:total-pass @test-results)))
-      (println (str "  Failed: " (:total-fail @test-results)))
-      (println (str "  Errors: " (:total-error @test-results)))
-      (println (str "  Skipped: " (:total-skip @test-results)))
-      
-      ;; Per-namespace breakdown
-      (println "\nPer-Namespace Results:")
-      (doseq [result (:namespace-results @test-results)]
-        (println (str "  " (:namespace result) ":"))
-        (if (:error-msg result)
-          (println (str "    ERROR: " (:error-msg result)))
-          (if (:skip result)
-            (println "    SKIPPED: Namespace not found")
-            (println (str "    Tests: " (:test result) ", Pass: " (:pass result) 
-                         ", Fail: " (:fail result) ", Error: " (:error result))))))
-      
-      ;; Recommendations
-      (println "\n📋 RECOMMENDATIONS:")
-      
-      (when (> (:missing config-results) 0)
-        (println "  🔸 Create missing configuration files using the templates provided"))
-      
-      (when (> (:missing impl-results) 0)
-        (println "  🔸 Implement missing database adapter files"))
-      
-      (when (> (:total-error @test-results) 0)
-        (println "  🔸 Fix implementation errors before running integration tests"))
-      
-      (when (> (:missing driver-results) 0)
-        (println "  🔸 Use database-specific aliases to load JDBC drivers when testing"))
-      
-      (if (and (= 0 (:missing config-results))
-               (= 0 (:missing impl-results))
-               (= 0 (:total-error @test-results)))
-        (println "  ✅ System appears ready for integration testing!")
-        (println "  ⚠️  Complete the missing components before full integration testing"))
-      
-      (println (str "\nCompleted at: " (java.util.Date.)))
-      @test-results)))
+
+    (doseq [ns-symbol test-namespaces]
+      (let [result (run-namespace-tests ns-symbol)]
+        (swap! test-results update :total-tests + (get result :test 0))
+        (swap! test-results update :total-pass + (get result :pass 0))
+        (swap! test-results update :total-fail + (get result :fail 0))
+        (swap! test-results update :total-error + (get result :error 0))
+        (swap! test-results update :total-skip + (get result :skip 0))
+        (swap! test-results update :namespace-results conj result)))
+
+    ;; Final summary
+    (println "\n" (str (repeat 80 "=")) "\n")
+    (println "🎯 FINAL SUMMARY")
+    (println (str (repeat 80 "=")) "\n")
+
+    (println "Configuration Files:")
+    (println (str "  Found: " (:found config-results) ", Missing: " (:missing config-results)))
+
+    (println "\nImplementation Files:")
+    (println (str "  Found: " (:found impl-results) ", Missing: " (:missing impl-results)))
+
+    (println "\nJDBC Drivers:")
+    (println (str "  Available: " (:available driver-results) ", Missing: " (:missing driver-results)))
+
+    (println "\nTest Results:")
+    (println (str "  Total Tests: " (:total-tests @test-results)))
+    (println (str "  Passed: " (:total-pass @test-results)))
+    (println (str "  Failed: " (:total-fail @test-results)))
+    (println (str "  Errors: " (:total-error @test-results)))
+    (println (str "  Skipped: " (:total-skip @test-results)))
+
+    ;; Per-namespace breakdown
+    (println "\nPer-Namespace Results:")
+    (doseq [result (:namespace-results @test-results)]
+      (println (str "  " (:namespace result) ":"))
+      (if (:error-msg result)
+        (println (str "    ERROR: " (:error-msg result)))
+        (if (:skip result)
+          (println "    SKIPPED: Namespace not found")
+          (println (str "    Tests: " (:test result) ", Pass: " (:pass result)
+                        ", Fail: " (:fail result) ", Error: " (:error result))))))
+
+    ;; Recommendations
+    (println "\n📋 RECOMMENDATIONS:")
+
+    (when (> (:missing config-results) 0)
+      (println "  🔸 Create missing configuration files using the templates provided"))
+
+    (when (> (:missing impl-results) 0)
+      (println "  🔸 Implement missing database adapter files"))
+
+    (when (> (:total-error @test-results) 0)
+      (println "  🔸 Fix implementation errors before running integration tests"))
+
+    (when (> (:missing driver-results) 0)
+      (println "  🔸 Use database-specific aliases to load JDBC drivers when testing"))
+
+    (if (and (= 0 (:missing config-results))
+             (= 0 (:missing impl-results))
+             (= 0 (:total-error @test-results)))
+      (println "  ✅ System appears ready for integration testing!")
+      (println "  ⚠️  Complete the missing components before full integration testing"))
+
+    (println (str "\nCompleted at: " (Date.)))
+    @test-results))
 
 ;; =============================================================================
 ;; Specific Test Scenarios
 ;; =============================================================================
 
 (defn test-basic-configuration
-  "Test basic configuration loading without dependencies."
+      "Test basic configuration loading without dependencies."
   []
   (println "\n🧪 Basic Configuration Test (No Dependencies Required)")
   (println (str (repeat 60 "-")))
-  
+
   (try
     ;; Try to load configurations
     (doseq [env ["dev" "test" "prod"]]
       (println (str "Testing " env " environment:"))
       (try
         (if (.exists (io/file (str "resources/conf/" env "/config.edn")))
-          (do
-            ;; Try to read the file manually
-            (let [config-content (slurp (str "resources/conf/" env "/config.edn"))]
-              (println (str "  ✅ Config file readable (" (count config-content) " chars)"))
-              
-              ;; Try to parse as EDN
-              (let [config (read-string config-content)]
-                (if (and (map? config) 
-                        (contains? config :active)
-                        (contains? config :inactive))
-                  (println (str "  ✅ Config structure valid (active: " (count (:active config)) 
-                               ", inactive: " (count (:inactive config)) ")"))
-                  (println "  ❌ Invalid config structure")))))
+          ;; Try to read the file manually
+          (let [config-content (slurp (str "resources/conf/" env "/config.edn"))]
+            (println (str "  ✅ Config file readable (" (count config-content) " chars)"))
+
+            ;; Try to parse as EDN
+            (let [config (read-string config-content)]
+              (if (and (map? config)
+                       (contains? config :active)
+                       (contains? config :inactive))
+                (println (str "  ✅ Config structure valid (active: " (count (:active config))
+                              ", inactive: " (count (:inactive config)) ")"))
+                (println "  ❌ Invalid config structure"))))
           (println (str "  ❌ Config file missing")))
         (catch Exception e
           (println (str "  ❌ Error: " (.getMessage e))))))
-    
+
     (catch Exception e
       (println (str "Basic configuration test failed: " (.getMessage e)))))
-  
+
   (println "Basic configuration test completed."))
 
 ;; =============================================================================
@@ -279,7 +277,7 @@
 ;; =============================================================================
 
 (defn -main
-  "Main entry point for test runner."
+      "Main entry point for test runner."
   [& args]
   (let [test-type (first args)]
     (case test-type
@@ -287,30 +285,29 @@
       "full" (run-configuration-tests)
       ;; Default: run full test suite
       (run-configuration-tests)))
-  
+
   ;; Exit cleanly
   (System/exit 0))
 
 ;; For REPL use
 (defn run-tests
-  "Run all configuration tests from REPL."
+      "Run all configuration tests from REPL."
   []
   (run-configuration-tests))
 
 (defn run-basic-tests
-  "Run basic configuration tests from REPL."
+      "Run basic configuration tests from REPL."
   []
   (test-basic-configuration))
 
 (comment
   ;; Usage examples:
-  
+
   ;; Run from REPL
   (run-tests)
-  (run-basic-tests)
-  
-  ;; Run from command line
-  ;; clj -M:test -m boundary.shell.adapters.database.test-runner
-  ;; clj -M:test -m boundary.shell.adapters.database.test-runner basic
-  ;; clj -M:test -m boundary.shell.adapters.database.test-runner full
-  )
+  (run-basic-tests))
+
+;; Run from command line
+;; clj -M:test -m boundary.shell.adapters.database.test-runner
+;; clj -M:test -m boundary.shell.adapters.database.test-runner basic
+;; clj -M:test -m boundary.shell.adapters.database.test-runner full
