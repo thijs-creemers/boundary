@@ -41,7 +41,18 @@
        (assoc :expires-at (calculate-session-expiry current-time (get session-data :remember-me false)))
        (assoc :active true)
        (assoc :ip-address (get-in session-data [:device-info :ip-address]))
-       (assoc :user-agent (get-in session-data [:device-info :user-agent])))))
+       (assoc :user-agent (get-in session-data [:device-info :user-agent]))))
+  ([session-data current-time session-id token session-policy]
+   (let [duration-hours (get session-policy :duration-hours 24)]
+     (-> session-data
+         (assoc :id session-id)
+         (assoc :token token)
+         (assoc :created-at current-time)
+         (assoc :last-accessed-at current-time)
+         (assoc :expires-at (.plusSeconds current-time (* duration-hours 3600)))
+         (assoc :active true)
+         (assoc :ip-address (get-in session-data [:device-info :ip-address]))
+         (assoc :user-agent (get-in session-data [:device-info :user-agent]))))))
 
 ;; Session management
 (defn should-extend-session?
@@ -141,3 +152,57 @@
            (let [ua1-base (clojure.string/replace (:user-agent device1) #"/[0-9.]+" "")
                  ua2-base (clojure.string/replace (:user-agent device2) #"/[0-9.]+" "")]
              (= ua1-base ua2-base)))))
+
+;; =============================================================================
+;; Additional Service Layer Functions
+;; =============================================================================
+
+(defn should-update-access-time?
+  "Pure function: Determine if session access time should be updated.
+   
+   Args:
+     session: Current session entity
+     current-time: Current timestamp
+     update-policy: Map with access update configuration
+     
+   Returns:
+     Boolean indicating if access time should be updated
+     
+   Pure - business rule evaluation based on policy and time difference."
+  [session current-time update-policy]
+  (let [threshold-minutes (get update-policy :access-update-threshold-minutes 5)
+        threshold-seconds (* threshold-minutes 60)
+        last-accessed (:last-accessed-at session)
+        time-since-access (.between java.time.temporal.ChronoUnit/SECONDS
+                                   last-accessed current-time)]
+    (>= time-since-access threshold-seconds)))
+
+(defn prepare-session-for-access-update
+  "Pure function: Prepare session for access time update.
+   
+   Args:
+     session: Current session entity
+     current-time: Current timestamp
+     
+   Returns:
+     Session entity with updated access time
+     
+   Pure - data transformation only."
+  [session current-time]
+  (assoc session :last-accessed-at current-time))
+
+(defn prepare-session-for-invalidation
+  "Pure function: Prepare session for invalidation.
+   
+   Args:
+     session: Current session entity
+     current-time: Current timestamp
+     
+   Returns:
+     Session entity marked as revoked
+     
+   Pure - data transformation only."
+  [session current-time]
+  (-> session
+      (assoc :revoked-at current-time)
+      (assoc :active false)))
