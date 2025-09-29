@@ -1,13 +1,9 @@
 (ns boundary.user.schema
   (:require
-   [clojure.set :as set]
    [malli.core :as m]
    [malli.transform :as mt]
-   [malli.util :as mu]
    [boundary.shared.utils.type-conversion :as type-conversion]
-   [boundary.shared.utils.case-conversion :as case-conversion])
-  (:import (java.time Instant)
-           (java.util UUID)))
+   [boundary.shared.utils.case-conversion :as case-conversion]))
 
 ;; =============================================================================
 ;; Domain Entity Schemas
@@ -93,7 +89,7 @@
    [:updatedAt {:optional true} :string]]) ; Instant as ISO string
 
 ;; =============================================================================
-;; User-Specific Transformation Functions  
+;; User-Specific Transformation Functions
 ;; =============================================================================
 
 (defn user-specific-camel->kebab
@@ -102,8 +98,8 @@
   (-> value
       case-conversion/camel-case->kebab-case-map
       (cond->
-        (:send-welcome value) (assoc :send-welcome (:sendWelcome value))
-        (:sendWelcome value) (dissoc :sendWelcome))))
+       (:send-welcome value) (assoc :send-welcome (:sendWelcome value))
+       (:sendWelcome value) (dissoc :sendWelcome))))
 
 (defn user-specific-kebab->camel
   "Transforms user-specific kebab-case internal keys to camelCase API keys."
@@ -111,15 +107,15 @@
   (-> value
       case-conversion/kebab-case->camel-case-map
       (cond->
-        (:id value) (assoc :id (type-conversion/uuid->string (:id value)))
-        (:tenant-id value) (assoc :tenantId (type-conversion/uuid->string (:tenant-id value)))
-        (:created-at value) (assoc :createdAt (type-conversion/instant->string (:created-at value)))
-        (:updated-at value) (assoc :updatedAt (type-conversion/instant->string (:updated-at value)))
-        (:last-login value) (assoc :lastLogin (type-conversion/instant->string (:last-login value)))
-        (:date-format value) (assoc :dateFormat (type-conversion/keyword->string (:date-format value)))
-        (:time-format value) (assoc :timeFormat (type-conversion/keyword->string (:time-format value)))
-        (:role value) (assoc :role (type-conversion/keyword->string (:role value)))
-        (:theme value) (assoc :theme (type-conversion/keyword->string (:theme value))))))
+       (:id value) (assoc :id (type-conversion/uuid->string (:id value)))
+       (:tenant-id value) (assoc :tenantId (type-conversion/uuid->string (:tenant-id value)))
+       (:created-at value) (assoc :createdAt (type-conversion/instant->string (:created-at value)))
+       (:updated-at value) (assoc :updatedAt (type-conversion/instant->string (:updated-at value)))
+       (:last-login value) (assoc :lastLogin (type-conversion/instant->string (:last-login value)))
+       (:date-format value) (assoc :dateFormat (type-conversion/keyword->string (:date-format value)))
+       (:time-format value) (assoc :timeFormat (type-conversion/keyword->string (:time-format value)))
+       (:role value) (assoc :role (type-conversion/keyword->string (:role value)))
+       (:theme value) (assoc :theme (type-conversion/keyword->string (:theme value))))))
 
 ;; =============================================================================
 ;; Schema Transformers
@@ -145,19 +141,6 @@
      :uuid {:compile (fn [_schema _options] type-conversion/uuid->string)}
      :inst {:compile (fn [_schema _options] type-conversion/instant->string)}
      :enum {:compile (fn [_schema _options] type-conversion/keyword->string)}}}))
-
-;; =============================================================================
-;; Data Transformation Utilities
-;; =============================================================================
-
-(defn user-entity->response
-  "Transforms a user entity into an API response."
-  [user-data]
-  (user-specific-kebab->camel user-data))
-
-;; =============================================================================
-;; Validation Functions
-;; =============================================================================
 
 (defn validate-user
   "Validates a user entity against the User schema."

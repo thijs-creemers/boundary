@@ -1,6 +1,6 @@
 (ns boundary.shell.adapters.database.config-test
   "Tests for database configuration loading and parsing."
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [clojure.test :refer [deftest is testing]]
             [boundary.shell.adapters.database.config :as config]
             [clojure.java.io :as io]))
 
@@ -10,37 +10,37 @@
 
 (def sample-config
   "Sample configuration for testing"
-  {:active 
-   {:boundary/sqlite 
+  {:active
+   {:boundary/sqlite
     {:db "test-database.db"
      :pool {:minimum-idle 1
             :maximum-pool-size 3
             :connection-timeout-ms 10000}}
-    
+
     :boundary/h2
     {:memory true
      :pool {:minimum-idle 1
             :maximum-pool-size 5}}}
-   
+
    :inactive
    {:boundary/postgresql
     {:host "localhost"
      :port 5432
-     :dbname "test_db" 
+     :dbname "test_db"
      :user "test_user"
      :password "test_password"
      :pool {:minimum-idle 5
             :maximum-pool-size 15}}
-    
+
     :boundary/mysql
     {:host "localhost"
      :port 3306
      :dbname "test_db"
-     :user "test_user" 
+     :user "test_user"
      :password "test_password"
      :pool {:minimum-idle 5
             :maximum-pool-size 15}}}
-   
+
    :boundary/settings
    {:name "test-app"
     :version "1.0.0"}})
@@ -55,12 +55,12 @@
       (is (map? config) "Config should be a map")
       (is (contains? config :active) "Config should have :active section")
       (is (contains? config :inactive) "Config should have :inactive section")
-      
+
       ;; Check that H2 is active in dev
       (is (contains? (:active config) :boundary/h2)
           "H2 should be active in dev environment")
-      
-      ;; Check that PostgreSQL is inactive in dev  
+
+      ;; Check that PostgreSQL is inactive in dev
       (is (contains? (:inactive config) :boundary/postgresql)
           "PostgreSQL should be inactive in dev environment"))))
 
@@ -69,26 +69,26 @@
     (let [config (config/load-config "test")]
       (is (map? config) "Config should be a map")
       (is (contains? config :active) "Config should have :active section")
-      
+
       ;; Check that H2 is active in test
       (is (contains? (:active config) :boundary/h2)
           "H2 should be active in test environment")
-      
+
       ;; Check H2 is configured for in-memory
       (let [h2-config (get-in config [:active :boundary/h2])]
         (is (true? (:memory h2-config))
             "H2 should be configured for in-memory in test environment")))))
 
-(deftest test-load-config-prod  
+(deftest test-load-config-prod
   (testing "Loading production configuration"
     (let [config (config/load-config "prod")]
       (is (map? config) "Config should be a map")
       (is (contains? config :active) "Config should have :active section")
-      
+
       ;; Check that PostgreSQL is active in prod
       (is (contains? (:active config) :boundary/postgresql)
           "PostgreSQL should be active in prod environment")
-      
+
       ;; Check PostgreSQL pool configuration
       (let [pg-config (get-in config [:active :boundary/postgresql])]
         (is (contains? pg-config :pool)
@@ -102,7 +102,7 @@
         "Should throw exception for nonexistent environment")))
 
 ;; =============================================================================
-;; Configuration Validation Tests  
+;; Configuration Validation Tests
 ;; =============================================================================
 
 (deftest test-get-active-adapters
@@ -148,21 +148,21 @@
     (testing "Valid configuration"
       (is (config/valid-config-structure? sample-config)
           "Sample config should be valid"))
-    
+
     (testing "Missing :active section"
       (let [invalid-config (dissoc sample-config :active)]
         (is (not (config/valid-config-structure? invalid-config))
             "Config missing :active should be invalid")))
-    
-    (testing "Missing :inactive section"  
+
+    (testing "Missing :inactive section"
       (let [invalid-config (dissoc sample-config :inactive)]
         (is (not (config/valid-config-structure? invalid-config))
             "Config missing :inactive should be invalid")))
-    
+
     (testing "Empty configuration"
       (is (not (config/valid-config-structure? {}))
           "Empty config should be invalid"))
-    
+
     (testing "Non-map configuration"
       (is (not (config/valid-config-structure? "not-a-map"))
           "Non-map config should be invalid"))))
@@ -171,31 +171,31 @@
   (testing "Individual adapter configuration validation"
     (testing "Valid SQLite config"
       (let [sqlite-config {:db "test.db"
-                          :pool {:minimum-idle 1
-                                 :maximum-pool-size 5}}]
+                           :pool {:minimum-idle 1
+                                  :maximum-pool-size 5}}]
         (is (config/valid-adapter-config? :boundary/sqlite sqlite-config)
             "Valid SQLite config should pass validation")))
-    
+
     (testing "Valid PostgreSQL config"
       (let [pg-config {:host "localhost"
-                      :port 5432
-                      :dbname "testdb"
-                      :user "testuser"
-                      :password "testpass"}]
+                       :port 5432
+                       :dbname "testdb"
+                       :user "testuser"
+                       :password "testpass"}]
         (is (config/valid-adapter-config? :boundary/postgresql pg-config)
             "Valid PostgreSQL config should pass validation")))
-    
+
     (testing "Valid H2 config"
       (let [h2-config {:memory true}]
         (is (config/valid-adapter-config? :boundary/h2 h2-config)
             "Valid H2 config should pass validation")))
-    
+
     (testing "Invalid config - missing required fields"
       (let [invalid-pg-config {:host "localhost"}] ; missing required fields
         (is (not (config/valid-adapter-config? :boundary/postgresql invalid-pg-config))
             "PostgreSQL config missing required fields should fail validation")))))
 
-;; =============================================================================  
+;; =============================================================================
 ;; Environment Detection Tests
 ;; =============================================================================
 
@@ -206,29 +206,28 @@
       (is (= "test" (config/detect-environment))
           "Should detect environment from system property")
       (System/clearProperty "env"))
-    
+
     (testing "Default environment when not set"
       (System/clearProperty "env")
       (is (= "dev" (config/detect-environment))
           "Should default to 'dev' when env not set"))
-    
-    (testing "Environment from environment variable"
+
+    (testing "Environment from environment variable")))
       ; Note: This would require setting actual env vars, which is complex in tests
       ; Instead we test the function behavior with mocked system calls
-      )))
 
 ;; =============================================================================
-;; Configuration Merging and Override Tests  
+;; Configuration Merging and Override Tests
 ;; =============================================================================
 
 (deftest test-merge-configurations
   (testing "Merging configurations for override scenarios"
     (let [base-config {:active {:boundary/sqlite {:db "base.db"}}
-                      :inactive {:boundary/h2 {:memory true}}}
+                       :inactive {:boundary/h2 {:memory true}}}
           override-config {:active {:boundary/h2 {:memory false :db "override.db"}}
-                          :inactive {:boundary/sqlite {:db "moved.db"}}}
+                           :inactive {:boundary/sqlite {:db "moved.db"}}}
           merged (config/merge-configs base-config override-config)]
-      
+
       (is (contains? (:active merged) :boundary/h2)
           "H2 should be moved to active")
       (is (contains? (:inactive merged) :boundary/sqlite)
@@ -262,14 +261,14 @@
   (testing "Configuration loading should be thread-safe"
     (let [results (atom [])
           threads (for [i (range 10)]
-                   (Thread. #(swap! results conj (config/load-config "dev"))))]
-      
+                    (Thread. #(swap! results conj (config/load-config "dev"))))]
+
       ; Start all threads
       (doseq [t threads] (.start t))
-      
+
       ; Wait for completion
       (doseq [t threads] (.join t))
-      
+
       ; All results should be identical (cached) and valid
       (let [configs @results]
         (is (= 10 (count configs)) "Should have 10 results")
@@ -287,10 +286,10 @@
         (let [config-path (str "resources/conf/" env "/config.edn")]
           (is (.exists (io/file config-path))
               (str "Config file should exist: " config-path))
-          
+
           (let [config (config/load-config env)]
             (is (map? config) (str "Config should be a map for env: " env))
-            (is (contains? config :active) 
+            (is (contains? config :active)
                 (str "Config should have :active section for env: " env))
             (is (seq (:active config))
                 (str "Config should have at least one active adapter for env: " env))))))))
