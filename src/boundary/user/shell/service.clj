@@ -56,6 +56,8 @@
 ;; =============================================================================
 
 (defrecord UserService [user-repository session-repository]
+  ports/IUserService
+  
   ;; User Management - Shell layer orchestrates I/O and calls pure core functions
   (create-user [this user-data]
     (log/info "Creating user through service" {:email (:email user-data)})

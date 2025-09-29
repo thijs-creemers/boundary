@@ -17,9 +17,9 @@ brew install openjdk clojure/tools/clojure  # macOS
 # Clone and verify
 git clone <repo-url> boundary
 cd boundary
-clojure -M:test:db/h2                      # Run tests (includes H2 database)
-clojure -M:repl-clj                        # Start REPL
-clojure -X:mcp # runs clojure-mcp server as configured in ~/.clojure/deps.edn 
+clojure -M:test                           # Run tests (auto-loads required drivers)
+clojure -M:repl-clj                       # Start REPL
+clojure -X:mcp # runs clojure-mcp server as configured in ~/.clojure/deps.edn
 
 opencode setup, Auto starts mcp but startup fails when the repl is not running.
 ``` json
@@ -82,6 +82,7 @@ See [Architecture Documentation](docs/architecture/) for detailed technical spec
 - **[Migration Guide](docs/migration-guide.md)** - Step-by-step migration to new infrastructure
 - **[Infrastructure Examples](examples/user-infrastructure-example.clj)** - Working code examples
 - **[Refactoring Summary](INFRASTRUCTURE-REFACTOR-SUMMARY.md)** - Complete overview of changes
+- **[Dynamic Driver Loading](docs/DYNAMIC_DRIVER_LOADING.md)** - Automatic JDBC driver loading system
 
 ### Build Documentation
 

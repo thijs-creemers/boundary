@@ -20,8 +20,8 @@
   protocols/DBAdapter
   
   (dialect [_]
-    ;; SQLite uses nil dialect (default) for HoneySQL
-    nil)
+    ;; SQLite should return :sqlite for identification purposes
+    :sqlite)
   
   (jdbc-driver [_]
     "org.sqlite.JDBC")

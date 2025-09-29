@@ -27,66 +27,61 @@
  :aliases {;; =============================================================================
            ;; Development and REPL aliases
            ;; =============================================================================
-           
-           :repl-clj  {:extra-deps {nrepl/nrepl       {:mvn/version "1.4.0"}
-                                    cider/cider-nrepl {:mvn/version "0.57.0"}}
-                       :main-opts  ["-m" "nrepl.cmdline" "--port" "7888" "--middleware" "[cider.nrepl/cider-middleware]"]}
-           :repl-cljs {:extra-deps {org.clojure/clojurescript {:mvn/version "1.12.42"}
-                                    cider/cider-nrepl         {:mvn/version "0.57.0"}
-                                    cider/piggieback          {:mvn/version "0.6.1"}}
-                       :main-opts  ["-m" "nrepl.cmdline" "--middleware"
-                                    "[cider.nrepl/cider-middleware,cider.piggieback/wrap-cljs-repl]"]}
-           
+
+           :repl-clj       {:extra-deps {nrepl/nrepl       {:mvn/version "1.4.0"}
+                                         cider/cider-nrepl {:mvn/version "0.57.0"}}
+                            :main-opts  ["-m" "nrepl.cmdline" "--port" "7888" "--middleware" "[cider.nrepl/cider-middleware]"]}
+           :repl-cljs      {:extra-deps {org.clojure/clojurescript {:mvn/version "1.12.42"}
+                                         cider/cider-nrepl         {:mvn/version "0.57.0"}
+                                         cider/piggieback          {:mvn/version "0.6.1"}}
+                            :main-opts  ["-m" "nrepl.cmdline" "--middleware"
+                                         "[cider.nrepl/cider-middleware,cider.piggieback/wrap-cljs-repl]"]}
+
            ;; =============================================================================
-           ;; Database-specific JDBC driver aliases
-           ;; Use these to conditionally include only needed drivers
+           ;; Database JDBC drivers
+           ;; Drivers are now loaded dynamically based on active databases in config
+           ;; Include all common drivers to support all possible configurations
            ;; =============================================================================
-           
-           :db/sqlite     {:extra-deps {org.xerial/sqlite-jdbc {:mvn/version "3.46.1.3"}}}
-           :db/postgresql {:extra-deps {org.postgresql/postgresql {:mvn/version "42.7.7"}}}
-           :db/h2         {:extra-deps {com.h2database/h2 {:mvn/version "2.3.232"}}}
-           :db/mysql      {:extra-deps {com.mysql/mysql-connector-j {:mvn/version "9.1.0"}}}
-           
-           ;; Combined aliases for multiple drivers
-           :db/all-drivers {:extra-deps {org.xerial/sqlite-jdbc        {:mvn/version "3.46.1.3"}
-                                         org.postgresql/postgresql     {:mvn/version "42.7.7"}
-                                         com.h2database/h2             {:mvn/version "2.3.232"}
-                                         com.mysql/mysql-connector-j   {:mvn/version "9.1.0"}}}
-           
+
+           :db {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.50.3.0"}
+                             org.postgresql/postgresql   {:mvn/version "42.7.7"}
+                             com.h2database/h2           {:mvn/version "2.3.232"}
+                             com.mysql/mysql-connector-j {:mvn/version "9.4.0"}}}
+
+
            ;; =============================================================================
-           ;; Environment-specific aliases
-           ;; Combine these with database-specific aliases as needed
+           ;; Environment aliases with database support
+           ;; Use :db alias to include all database drivers, actual drivers loaded by config
            ;; =============================================================================
-           
-           :env/dev  {:jvm-opts ["-Denv=dev"]}
-           :env/test {:jvm-opts ["-Denv=test"]}
-           :env/prod {:jvm-opts ["-Denv=prod"]}
-           
-           ;; =============================================================================
-           ;; Common environment + database combinations
-           ;; =============================================================================
-           
-           :dev-sqlite  {:extra-deps {org.xerial/sqlite-jdbc {:mvn/version "********"}}
-                         :jvm-opts   ["-Denv=dev"]}
-           :dev-h2      {:extra-deps {com.h2database/h2 {:mvn/version "2.3.232"}}
-                         :jvm-opts   ["-Denv=dev"]}
-           :test-h2     {:extra-deps {com.h2database/h2 {:mvn/version "2.3.232"}}
-                         :jvm-opts   ["-Denv=test"]}
-           :prod-pg     {:extra-deps {org.postgresql/postgresql {:mvn/version "42.7.7"}}
-                         :jvm-opts   ["-Denv=prod"]}
-           
+
+           :dev            {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.50.3.0"}
+                                         org.postgresql/postgresql   {:mvn/version "42.7.7"}
+                                         com.h2database/h2           {:mvn/version "2.3.232"}
+                                         com.mysql/mysql-connector-j {:mvn/version "9.4.0"}}
+                            :jvm-opts   ["-Denv=dev"]}
+           :prod           {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.50.3.0"}
+                                         org.postgresql/postgresql   {:mvn/version "42.7.7"}
+                                         com.h2database/h2           {:mvn/version "2.3.232"}
+                                         com.mysql/mysql-connector-j {:mvn/version "9.4.0"}}
+                            :jvm-opts   ["-Denv=prod"]}
+
            ;; =============================================================================
            ;; Tool and utility aliases
            ;; =============================================================================
-           
-           :clj-kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2025.07.28"}}
-                       :main-opts    ["-m" "clj-kondo.main"]
-                       :extra-paths  ["src"]}
-           :test      {:main-opts   ["-m" "kaocha.runner"]
-                       :extra-paths ["test"]
-                       :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}}
-           :outdated  {:extra-deps {olical/depot {:mvn/version "2.4.1"}}
-                       :main-opts  ["-m" "depot.outdated.main"]}
-           :build     {:main-opts  ["-m" "build"]
-                       :extra-deps {io.github.clojure/tools.build {:git/tag "v0.10.10" :git/sha "deedd623"}}
-                       :ns-default build}}}
+
+           :clj-kondo      {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2025.07.28"}}
+                            :main-opts    ["-m" "clj-kondo.main"]
+                            :extra-paths  ["src"]}
+           :test           {:main-opts   ["-m" "kaocha.runner"]
+                            :extra-paths ["test"]
+                            :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                                         org.xerial/sqlite-jdbc      {:mvn/version "3.47.1.0"}
+                                         org.postgresql/postgresql   {:mvn/version "42.7.7"}
+                                         com.h2database/h2           {:mvn/version "2.3.232"}
+                                         com.mysql/mysql-connector-j {:mvn/version "9.4.0"}}
+                            :jvm-opts    ["-Denv=test"]}
+           :outdated       {:extra-deps {olical/depot {:mvn/version "2.4.1"}}
+                            :main-opts  ["-m" "depot.outdated.main"]}
+           :build          {:main-opts  ["-m" "build"]
+                            :extra-deps {io.github.clojure/tools.build {:git/tag "v0.10.10" :git/sha "deedd623"}}
+                            :ns-default build}}}

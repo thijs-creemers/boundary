@@ -360,7 +360,193 @@
        Used for cleanup operations
      
      Example:
-       (delete-session repo session-id)")
+       (delete-session repo session-id)"))
+
+;; =============================================================================
+;; Service Layer Ports
+;; =============================================================================
+
+(defprotocol IUserService
+  "User domain service interface for business operations.
+   
+   This port defines the service layer interface for user domain operations.
+   The service layer coordinates between pure business logic (core) and
+   I/O operations (repositories), managing external dependencies like time,
+   UUIDs, and logging.
+   
+   Service layer responsibilities:
+   - Orchestrate complex business operations
+   - Coordinate between multiple repositories
+   - Handle external dependencies (time, IDs, logging)
+   - Enforce business rules and validation
+   - Manage transaction boundaries"
+
+  ;; User Management Operations
+  (create-user [this user-data]
+    "Create new user with full validation and business rule enforcement.
+     
+     Args:
+       user-data: Map with user creation data
+                 {:email string :name string :role keyword :tenant-id uuid ...}
+     
+     Returns:
+       Created user entity with generated ID and timestamps
+       
+     Throws:
+       - ExceptionInfo with :type :validation-error for invalid data
+       - ExceptionInfo with :type :user-exists for duplicate email
+       - ExceptionInfo with :type :business-rule-violation for rule violations
+     
+     Example:
+       (create-user service {:email \"new@example.com\"
+                           :name \"New User\"
+                           :role :user
+                           :tenant-id tenant-id})")
+
+  (find-user-by-id [this user-id]
+    "Find user by ID with service-level validation.
+     
+     Args:
+       user-id: UUID of user to find
+     
+     Returns:
+       User entity or nil if not found
+       
+     Example:
+       (find-user-by-id service user-id)")
+
+  (find-user-by-email [this email tenant-id]
+    "Find user by email with tenant isolation.
+     
+     Args:
+       email: String email address
+       tenant-id: UUID for tenant isolation
+     
+     Returns:
+       User entity or nil if not found
+       
+     Example:
+       (find-user-by-email service \"user@example.com\" tenant-id)")
+
+  (find-users-by-tenant [this tenant-id options]
+    "Find users by tenant with pagination and filtering.
+     
+     Args:
+       tenant-id: UUID for tenant isolation
+       options: Map with pagination/filtering options
+     
+     Returns:
+       Map with :users vector and :total-count
+       
+     Example:
+       (find-users-by-tenant service tenant-id {:limit 10 :offset 0})")
+
+  (update-user [this user-entity]
+    "Update user with validation and business rule enforcement.
+     
+     Args:
+       user-entity: Complete user entity map with ID
+     
+     Returns:
+       Updated user entity
+       
+     Throws:
+       - ExceptionInfo with :type :user-not-found if user doesn't exist
+       - ExceptionInfo with :type :validation-error for invalid data
+       - ExceptionInfo with :type :business-rule-violation for rule violations
+       
+     Example:
+       (update-user service updated-user)")
+
+  (soft-delete-user [this user-id]
+    "Soft delete user with business rule validation.
+     
+     Args:
+       user-id: UUID of user to delete
+     
+     Returns:
+       Boolean indicating success
+       
+     Throws:
+       - ExceptionInfo with :type :user-not-found if user doesn't exist
+       - ExceptionInfo with :type :deletion-not-allowed if deletion not permitted
+       
+     Example:
+       (soft-delete-user service user-id)")
+
+  (hard-delete-user [this user-id]
+    "Hard delete user (irreversible) with strict validation.
+     
+     Args:
+       user-id: UUID of user to permanently delete
+     
+     Returns:
+       Boolean indicating success
+       
+     Throws:
+       - ExceptionInfo with :type :user-not-found if user doesn't exist
+       - ExceptionInfo with :type :hard-deletion-not-allowed if not permitted
+       
+     Example:
+       (hard-delete-user service user-id)")
+
+  ;; Session Management Operations
+  (create-session [this session-data]
+    "Create user session with token generation and validation.
+     
+     Args:
+       session-data: Map with session creation data
+                    {:user-id uuid :tenant-id uuid :user-agent string ...}
+     
+     Returns:
+       Created session entity with generated token and expiry
+       
+     Throws:
+       - ExceptionInfo with :type :validation-error for invalid data
+       
+     Example:
+       (create-session service {:user-id user-id
+                               :tenant-id tenant-id
+                               :user-agent \"Mozilla/5.0...\"})")
+
+  (find-session-by-token [this session-token]
+    "Find and validate session by token.
+     
+     Args:
+       session-token: String session token
+     
+     Returns:
+       Valid session entity or nil if not found/expired
+       
+     Side effects:
+       - Updates last-accessed-at if session is valid
+       
+     Example:
+       (find-session-by-token service \"session-token-123\")")
+
+  (invalidate-session [this session-token]
+    "Invalidate session (logout).
+     
+     Args:
+       session-token: String session token to invalidate
+     
+     Returns:
+       Boolean indicating success
+       
+     Example:
+       (invalidate-session service \"session-token-123\")")
+
+  (invalidate-all-user-sessions [this user-id]
+    "Invalidate all sessions for a user (force logout everywhere).
+     
+     Args:
+       user-id: UUID of user whose sessions to invalidate
+     
+     Returns:
+       Integer count of invalidated sessions
+       
+     Example:
+       (invalidate-all-user-sessions service user-id)"))
 
 ;; =============================================================================
 ;; Communication Ports
@@ -806,18 +992,18 @@
 ;; =============================================================================
 
 (defn validate-user-input
-  "Validate user input using schema before passing to ports.
-   
-   Args:
-     schema: Malli schema to validate against
-     data: User input data to validate
-   
-   Returns:
-     {:valid? true :data transformed-data} or
-     {:valid? false :errors validation-errors}
-   
-   Example:
-     (validate-user-input schema/CreateUserRequest request-data)"
+      "Validate user input using schema before passing to ports.
+
+       Args:
+         schema: Malli schema to validate against
+         data: User input data to validate
+
+       Returns:
+         {:valid? true :data transformed-data} or
+         {:valid? false :errors validation-errors}
+
+       Example:
+         (validate-user-input schema/CreateUserRequest request-data)"
   [sch data]
   (let [transformed-data (m/decode sch data schema/user-request-transformer)]
     (if (m/validate sch transformed-data)
@@ -825,19 +1011,19 @@
       {:valid? false :errors (m/explain sch transformed-data)})))
 
 (defn ensure-tenant-isolation
-  "Ensure tenant ID is present and valid for data isolation.
-   
-   Args:
-     tenant-id: UUID or nil
-   
-   Returns:
-     UUID tenant-id
-   
-   Throws:
-     Exception if tenant-id is nil or invalid
-   
-   Example:
-     (ensure-tenant-isolation (:tenant-id user-context))"
+      "Ensure tenant ID is present and valid for data isolation.
+
+       Args:
+         tenant-id: UUID or nil
+
+       Returns:
+         UUID tenant-id
+
+       Throws:
+         Exception if tenant-id is nil or invalid
+
+       Example:
+         (ensure-tenant-isolation (:tenant-id user-context))"
   [tenant-id]
   (when (nil? tenant-id)
     (throw (ex-info "Tenant ID is required for data isolation"
@@ -848,30 +1034,30 @@
   tenant-id)
 
 (defn create-correlation-id
-  "Generate correlation ID for request tracing.
-   
-   Returns:
-     String correlation ID for linking related operations
-   
-   Example:
-     (create-correlation-id)"
+      "Generate correlation ID for request tracing.
+
+       Returns:
+         String correlation ID for linking related operations
+
+       Example:
+         (create-correlation-id)"
   []
   (.toString (UUID/randomUUID)))
 
 (defn enrich-user-context
-  "Add system context to user data for port operations.
-   
-   Args:
-     user-data: User entity or input data
-     context: Map with :tenant-id, :correlation-id, :timestamp, etc.
-   
-   Returns:
-     User data enriched with context information
-   
-   Example:
-     (enrich-user-context user-input 
-                         {:tenant-id tenant-id
-                          :correlation-id (create-correlation-id)})"
+      "Add system context to user data for port operations.
+
+       Args:
+         user-data: User entity or input data
+         context: Map with :tenant-id, :correlation-id, :timestamp, etc.
+
+       Returns:
+         User data enriched with context information
+
+       Example:
+         (enrich-user-context user-input
+                             {:tenant-id tenant-id
+                              :correlation-id (create-correlation-id)})"
   [user-data context]
   (merge user-data
          (select-keys context [:tenant-id :correlation-id :timestamp])

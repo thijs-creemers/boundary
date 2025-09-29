@@ -9,6 +9,7 @@
   (:require [boundary.shell.adapters.database.config :as db-config]
             [boundary.shell.adapters.database.config-factory :as config-factory]
             [boundary.shell.adapters.database.core :as db-core]
+            [boundary.shell.adapters.database.driver-loader :as driver-loader]
             [clojure.tools.logging :as log]))
 
 ;; =============================================================================
@@ -30,8 +31,9 @@
    This function:
    1. Loads the environment-specific config.edn
    2. Identifies active database adapters
-   3. Creates connection pools for each active adapter
-   4. Stores the initialized adapters in application state
+   3. Loads required JDBC drivers based on active databases
+   4. Creates connection pools for each active adapter
+   5. Stores the initialized adapters in application state
    
    Returns: map of {:adapter-key {:adapter adapter :pool pool}}"
   ([]
@@ -41,29 +43,35 @@
    (try
      (log/info "Initializing databases for environment:" environment)
      
-     ;; Load configuration for the specified environment and create database contexts
-     (let [config (db-config/load-config environment)
-           active-contexts (config-factory/create-active-contexts environment)]
+     ;; Load configuration for the specified environment
+     (let [config (db-config/load-config environment)]
        
-       (log/info "Found" (count active-contexts) "active database contexts:"
-                 (keys active-contexts))
+       ;; Load required JDBC drivers based on active databases
+       (log/info "Loading JDBC drivers for active databases in environment:" environment)
+       (driver-loader/load-required-drivers! config)
        
-       ;; Convert contexts to the format expected by app-state
-       (let [initialized-dbs 
-             (into {}
-                   (map (fn [[adapter-key ctx]]
-                          (log/info "Registering context for adapter:" adapter-key)
-                          [adapter-key {:adapter (:adapter ctx)
-                                        :pool (:datasource ctx)}])
-                        active-contexts))]
+       ;; Create database contexts for active databases
+       (let [active-contexts (config-factory/create-active-contexts environment)]
          
-         ;; Update application state
-         (swap! app-state assoc
-                :databases initialized-dbs
-                :config config)
+         (log/info "Found" (count active-contexts) "active database contexts:"
+                   (keys active-contexts))
          
-         (log/info "Successfully initialized" (count initialized-dbs) "database connections")
-         initialized-dbs))
+         ;; Convert contexts to the format expected by app-state
+         (let [initialized-dbs 
+               (into {}
+                     (map (fn [[adapter-key ctx]]
+                            (log/info "Registering context for adapter:" adapter-key)
+                            [adapter-key {:adapter (:adapter ctx)
+                                          :pool (:datasource ctx)}])
+                          active-contexts))]
+           
+           ;; Update application state
+           (swap! app-state assoc
+                  :databases initialized-dbs
+                  :config config)
+           
+           (log/info "Successfully initialized" (count initialized-dbs) "database connections")
+           initialized-dbs)))
      
      (catch Exception e
        (log/error e "Failed to initialize databases")
@@ -162,34 +170,6 @@
   (shutdown-databases!)
   (log/info "=== Example Complete ==="))
 
-(defn example-multi-database-usage
-  "Demonstrate using multiple active databases simultaneously."
-  []
-  (log/info "=== Multi-Database Usage Example ===")
-  
-  ;; For this example, we'll need a config with multiple active databases
-  ;; You would modify your config.edn to have both SQLite and H2 active
-  
-  (initialize-databases!)
-  
-  (let [active-dbs (list-active-databases)]
-    (if (> (count active-dbs) 1)
-      (do
-        (log/info "Testing with multiple databases:" (map first active-dbs))
-        
-        ;; Execute the same query on all active databases
-        (doseq [[adapter-key _] active-dbs]
-          (try
-            (let [result (execute-query adapter-key {:select [:current_timestamp :as :now]})]
-              (log/info "Timestamp from" adapter-key ":" result))
-            (catch Exception e
-              (log/warn "Query failed on" adapter-key ":" (.getMessage e))))))
-      
-      (log/info "Only one database active, cannot demonstrate multi-database usage")))
-  
-  (shutdown-databases!)
-  (log/info "=== Multi-Database Example Complete ==="))
-
 (defn example-environment-switching
   "Demonstrate switching between different environment configurations."
   []
@@ -208,10 +188,6 @@
   
   (log/info "=== Environment Switching Example Complete ==="))
 
-;; =============================================================================
-;; Development and Testing Helpers
-;; =============================================================================
-
 (defn reset-application-state!
   "Reset application state - useful for development and testing."
   []
@@ -225,33 +201,3 @@
   (let [state @app-state]
     {:active-databases (keys (:databases state))
      :config-loaded? (some? (:config state))}))
-
-(comment
-  ;; Interactive development examples
-  ;; Execute these in your REPL to test the system
-  ;; 
-  ;; IMPORTANT: Start your REPL with appropriate database drivers:
-  ;; clj -M:repl-clj:db/sqlite           ; SQLite only
-  ;; clj -M:repl-clj:db/h2               ; H2 only  
-  ;; clj -M:repl-clj:db/all-drivers      ; All drivers available
-  
-  ;; Basic initialization
-  (initialize-databases!)
-  (current-state)
-  
-  ;; Test a query (requires SQLite driver: :db/sqlite)
-  (execute-query :boundary/sqlite {:select [:1 :as :test]})
-  
-  ;; Test H2 query (requires H2 driver: :db/h2) 
-  (execute-query :boundary/h2 {:select [:1 :as :test]})
-  
-  ;; List active databases
-  (list-active-databases)
-  
-  ;; Run examples
-  (example-basic-usage)
-  (example-environment-switching)
-  
-  ;; Clean up
-  (reset-application-state!))
-

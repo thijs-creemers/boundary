@@ -28,8 +28,10 @@
 (defn setup-h2-test-db []
   "Create in-memory H2 database for testing."
   (let [adapter (h2/new-adapter)
+        ;; Use unique database name to avoid conflicts between tests
+        db-name (str "mem:testdb-" (System/currentTimeMillis) "-" (rand-int 10000))
         db-config {:adapter :h2
-                   :database-path "mem:testdb"
+                   :database-path db-name
                    :connection-params {:DB_CLOSE_DELAY "-1"  ; Keep DB alive during tests
                                      :MODE "PostgreSQL"    ; Use PostgreSQL compatibility
                                      :DATABASE_TO_LOWER "TRUE"}}
@@ -161,6 +163,9 @@
           user-id-1 (UUID/randomUUID)
           user-id-2 (UUID/randomUUID)]
       
+      ;; Ensure clean state
+      (db/execute-update! ctx {:delete-from :test_users})
+      
       ;; Test successful transaction
       (db/with-transaction [tx ctx]
         (db/execute-update! tx {:insert-into :test_users
@@ -199,15 +204,17 @@
         (is (vector? where-clause))
         (is (= :and (first where-clause))))
       
-      ;; Test with string filter (should use LIKE for H2/PostgreSQL-compatible)
-      (let [filters {:name "John"}
+      ;; Test with string pattern filter (should use ILIKE for H2/PostgreSQL-compatible)
+      (let [filters {:name "John*"}
             where-clause (db/build-where-clause ctx filters)]
-        (is (some #(and (vector? %) (= :like (first %))) (rest where-clause))))
+        (is (vector? where-clause))
+        (is (= :ilike (first where-clause))))
       
       ;; Test with vector filter (should use IN)
       (let [filters {:id [(UUID/randomUUID) (UUID/randomUUID)]}
             where-clause (db/build-where-clause ctx filters)]
-        (is (some #(and (vector? %) (= :in (first %))) (rest where-clause))))
+        (is (vector? where-clause))
+        (is (= :in (first where-clause))))
       
       ;; Test empty filters
       (is (nil? (db/build-where-clause ctx {})))
@@ -300,7 +307,7 @@
     (let [ctx @test-ctx]
       
       ;; Test SQL syntax error
-      (is (thrown-with-msg? java.lang.Exception #".*SQL.*"
+      (is (thrown-with-msg? java.lang.Exception #"Database query failed"
             (db/execute-query! ctx {:select [:*] :from [:non_existent_table]})))
       
       ;; Test constraint violation
@@ -351,7 +358,7 @@
                           :values [{:id user-id-1 :email "batch1@test.com" :name "Batch User 1"}]}
                          {:insert-into :test_users  
                           :values [{:id user-id-2 :email "batch2@test.com" :name "Batch User 2"}]}
-                         {:select [:count.*] :from [:test_users]}]]
+                         {:select [[:%count.* :count]] :from [:test_users]}]]
       
       (let [results (db/execute-batch! ctx batch-queries)]
         (is (= 3 (count results)))

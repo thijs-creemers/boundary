@@ -38,8 +38,8 @@
                 :rolling-policy {:type        :time-based
                                  :max-history 90  ; Keep 90 days
                                  :max-size    50000000 ; 50MB
-                                 :pattern     ".%d{yyyy-MM-dd}.%i.gz"}}]}
- }
+                                 :pattern     ".%d{yyyy-MM-dd}.%i.gz"}}]}}
+
 
  :inactive
  {
@@ -66,6 +66,5 @@
   {:memory false
    :db     "prod-h2-fallback"
    :pool   {:minimum-idle 5
-            :maximum-pool-size 20}}
- }
-}
+            :maximum-pool-size 20}}}}
+
