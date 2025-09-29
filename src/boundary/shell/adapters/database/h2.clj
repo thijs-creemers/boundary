@@ -88,35 +88,35 @@
     db-value)
 
   (table-exists? [_ datasource table-name]
-    (let [table-str (str/upper-case (name table-name))
+    (let [table-str (str/lower-case (name table-name))  ; Use lowercase for PostgreSQL compatibility
           query     {:select [:%count.*]
                      :from   [:information_schema.tables]
                      :where  [:and
-                              [:= :table_schema "PUBLIC"]
+                              [:= :table_schema "public"]  ; Use lowercase schema
                               [:= :table_name table-str]]}
           result    (first (jdbc/execute! datasource
                                           (sql/format query {:dialect :ansi})
                                           {:builder-fn rs/as-unqualified-lower-maps}))]
-      (> (:count result 0) 0)))
+      (> (or (:count result) (get result :?column?) 0) 0)))
 
   (get-table-info [_ datasource table-name]
-    (let [table-str     (str/upper-case (name table-name))
+    (let [table-str     (str/lower-case (name table-name))  ; Use lowercase for PostgreSQL compatibility
           ;; Get column information
           columns-query {:select   [:column_name :data_type :is_nullable :column_default]
                          :from     [:information_schema.columns]
                          :where    [:and
-                                    [:= :table_schema "PUBLIC"]
+                                    [:= :table_schema "public"]  ; Use lowercase schema
                                     [:= :table_name table-str]]
                          :order-by [:ordinal_position]}
           ;; Get primary key information
-          pk-query      {:select [:column_name]
-                         :from   [:information_schema.table_constraints :tc]
+          pk-query      {:select [:kcu.column_name]
+                         :from   [[:information_schema.table_constraints :tc]]
                          :join   [[:information_schema.key_column_usage :kcu]
                                   [:and
                                    [:= :tc.constraint_name :kcu.constraint_name]
                                    [:= :tc.table_schema :kcu.table_schema]]]
                          :where  [:and
-                                  [:= :tc.table_schema "PUBLIC"]
+                                  [:= :tc.table_schema "public"]  ; Use lowercase schema
                                   [:= :tc.table_name table-str]
                                   [:= :tc.constraint_type "PRIMARY KEY"]]}
 

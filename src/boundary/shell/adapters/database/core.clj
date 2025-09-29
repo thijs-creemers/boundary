@@ -168,9 +168,16 @@
    Example:
      (format-sql ctx {:select [:*] :from [:users]})"
   [ctx query-map]
-  (validate-context ctx)
-  (if-let [dialect (protocols/dialect (:adapter ctx))]
-    (sql/format query-map {:dialect dialect})
+  (validate-adapter ctx)
+  (if-let [adapter-dialect (protocols/dialect (:adapter ctx))]
+    ;; Map adapter dialects to HoneySQL-supported dialects
+    (let [honey-dialect (case adapter-dialect
+                          :sqlite nil        ; SQLite uses default (ANSI)
+                          :h2 :ansi         ; H2 uses ANSI SQL
+                          adapter-dialect)] ; Others use the same name
+      (if honey-dialect
+        (sql/format query-map {:dialect honey-dialect})
+        (sql/format query-map)))
     (sql/format query-map)))
 
 (defn format-sql*
@@ -184,10 +191,14 @@
    Returns:
      Vector of [sql & params]"
   [ctx query-map opts]
-  (validate-context ctx)
-  (let [dialect (protocols/dialect (:adapter ctx))
-        dialect-opts (if dialect
-                       (merge opts {:dialect dialect})
+  (validate-adapter ctx)
+  (let [adapter-dialect (protocols/dialect (:adapter ctx))
+        honey-dialect (case adapter-dialect
+                        :sqlite nil        ; SQLite uses default (ANSI)
+                        :h2 :ansi         ; H2 uses ANSI SQL
+                        adapter-dialect)   ; Others use the same name
+        dialect-opts (if honey-dialect
+                       (merge opts {:dialect honey-dialect})
                        opts)]
     (sql/format query-map dialect-opts)))
 
@@ -209,32 +220,35 @@
      (execute-query! ctx {:select [:*] :from [:users] :where [:= :active true]})"
   [ctx query-map]
   (validate-context ctx)
-  (let [sql-query (format-sql ctx query-map)
-        start-time (System/currentTimeMillis)]
-    (log/debug "Executing query" 
-               {:adapter (protocols/dialect (:adapter ctx))
-                :sql (first sql-query) 
-                :params (rest sql-query)})
-    (try
-      (let [result (jdbc/execute! (:datasource ctx) sql-query
-                                  {:builder-fn rs/as-unqualified-lower-maps})
-            duration (- (System/currentTimeMillis) start-time)]
-        (log/debug "Query completed" 
+  (let [sql-query (format-sql ctx query-map)]
+    ;; Validate that we have a non-empty SQL statement
+    (when (or (empty? sql-query) (empty? (first sql-query)))
+      (throw (IllegalArgumentException. "Invalid or empty query map provided")))
+      (let [start-time (System/currentTimeMillis)]
+        (log/debug "Executing query" 
                    {:adapter (protocols/dialect (:adapter ctx))
-                    :duration-ms duration 
-                    :row-count (count result)})
-        result)
-      (catch Exception e
-        (log/error "Query failed" 
-                   {:adapter (protocols/dialect (:adapter ctx))
-                    :sql (first sql-query)
-                    :error (.getMessage e)})
-        (throw (ex-info "Database query failed"
-                        {:adapter (protocols/dialect (:adapter ctx))
-                         :sql (first sql-query)
-                         :params (rest sql-query)
-                         :original-error (.getMessage e)}
-                        e))))))
+                    :sql (first sql-query) 
+                    :params (rest sql-query)})
+        (try
+          (let [result (jdbc/execute! (:datasource ctx) sql-query
+                                      {:builder-fn rs/as-unqualified-lower-maps})
+                duration (- (System/currentTimeMillis) start-time)]
+            (log/debug "Query completed" 
+                       {:adapter (protocols/dialect (:adapter ctx))
+                        :duration-ms duration 
+                        :row-count (count result)})
+            result)
+          (catch Exception e
+            (log/error "Query failed" 
+                       {:adapter (protocols/dialect (:adapter ctx))
+                        :sql (first sql-query)
+                        :error (.getMessage e)})
+            (throw (ex-info "Database query failed"
+                            {:adapter (protocols/dialect (:adapter ctx))
+                             :sql (first sql-query)
+                             :params (rest sql-query)
+                             :original-error (.getMessage e)}
+                            e)))))))
 
 (defn execute-one!
   "Execute query expecting single result.
@@ -389,7 +403,7 @@
    Example:
      (build-where-clause ctx {:name \"John\" :active true :role [:admin :user]})"
   [ctx filters]
-  (validate-context ctx)
+  (validate-adapter ctx)
   (when (seq filters)
     (protocols/build-where (:adapter ctx) filters)))
 
@@ -424,7 +438,8 @@
      (build-ordering {:sort-by :created-at :sort-direction :desc} :id)"
   [options default-field]
   (let [sort-field (get options :sort-by default-field)
-        direction (get options :sort-direction :asc)]
+        raw-direction (get options :sort-direction :asc)
+        direction (if (#{:asc :desc} raw-direction) raw-direction :asc)]
     [[sort-field direction]]))
 
 ;; =============================================================================
@@ -552,10 +567,10 @@
      :pool-info (when (instance? HikariDataSource (:datasource ctx))
                   (let [ds ^HikariDataSource (:datasource ctx)]
                     {:pool-name (.getPoolName ds)
-                     :active-connections (.getActiveConnections ds)
-                     :idle-connections (.getIdleConnections ds)
-                     :total-connections (.getTotalConnections ds)
-                     :maximum-pool-size (.getMaximumPoolSize ds)}))}))
+                     :maximum-pool-size (.getMaximumPoolSize ds)
+                     :minimum-idle (.getMinimumIdle ds)
+                     :connection-timeout (.getConnectionTimeout ds)
+                     :is-closed (.isClosed ds)}))}))
 
 (defn list-tables
   "List all tables in the database.
@@ -573,12 +588,12 @@
   (let [adapter (:adapter ctx)
         dialect (protocols/dialect adapter)
         query (case dialect
-                nil {:select [:name]  ; SQLite uses nil dialect
-                     :from [:sqlite_master]
-                     :where [:= :type "table"]}
-                :ansi {:select [:table_name]  ; H2 uses :ansi
-                       :from [:information_schema.tables]
-                       :where [:= :table_schema "PUBLIC"]}
+                :sqlite {:select [:name]  ; SQLite uses sqlite_master
+                         :from [:sqlite_master]
+                         :where [:= :type "table"]}
+                :h2 {:select [:table_name]  ; H2 uses information_schema
+                     :from [:information_schema.tables]
+                     :where [:= :table_schema "PUBLIC"]}
                 :mysql {:select [:table_name]
                         :from [:information_schema.tables]
                         :where [:= :table_schema [:database]]}

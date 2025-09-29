@@ -189,23 +189,23 @@
     (testing "Multi-step validation workflow"
       (let [raw-cli-input {:name "Admin User" :age "35" :active "1" :role "admin"}
             ;; Step 1: CLI validation
+            ;; Pre-process data to convert "1"/"0" to "true"/"false" for boolean fields
+            preprocessed-data (-> raw-cli-input
+                                  (update :active #(cond (= % "1") "true"
+                                                          (= % "0") "false"
+                                                          :else %)))
             cli-transformer (mt/transformer
                             mt/string-transformer
-                            {:transformers
-                             {:boolean {:compile (fn [_schema _options]
-                                                  (fn [value]
-                                                    (cond
-                                                      (= value "1") true
-                                                      (= value "0") false
-                                                      :else value)))}
-                              :enum {:compile (fn [_schema _options]
+                            {:name :cli-transformer
+                             :transformers
+                             {:enum {:compile (fn [_schema _options]
                                              (fn [value]
                                                (if (string? value)
                                                  (keyword value)
                                                  value)))}}})
             cli-result (validation/validate-cli-args 
                        TestCreateUserSchema 
-                       raw-cli-input 
+                       preprocessed-data 
                        cli-transformer)]
         
         (is (validation/validation-passed? cli-result))

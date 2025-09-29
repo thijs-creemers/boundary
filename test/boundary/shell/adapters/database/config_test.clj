@@ -56,9 +56,9 @@
       (is (contains? config :active) "Config should have :active section")
       (is (contains? config :inactive) "Config should have :inactive section")
       
-      ;; Check that SQLite is active in dev
-      (is (contains? (:active config) :boundary/sqlite)
-          "SQLite should be active in dev environment")
+      ;; Check that H2 is active in dev
+      (is (contains? (:active config) :boundary/h2)
+          "H2 should be active in dev environment")
       
       ;; Check that PostgreSQL is inactive in dev  
       (is (contains? (:inactive config) :boundary/postgresql)
@@ -107,7 +107,7 @@
 
 (deftest test-get-active-adapters
   (testing "Extracting active adapters from configuration"
-    (let [active-adapters (config/get-active-adapters sample-config)]
+    (let [active-adapters (config/get-active-adapters-from-config sample-config)]
       (is (map? active-adapters) "Active adapters should be a map")
       (is (= 2 (count active-adapters)) "Should have 2 active adapters")
       (is (contains? active-adapters :boundary/sqlite)

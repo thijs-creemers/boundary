@@ -42,9 +42,8 @@
       (do
         (log/info "Loading database configuration" {:env env :path config-path})
         (aero/read-config config-resource))
-      (do
-        (log/warn "Configuration file not found, using defaults" {:env env :path config-path})
-        {:active {} :inactive {}}))))
+      (throw (ex-info (str "Configuration file not found: " config-path)
+                      {:env env :path config-path})))))
 
 (defn load-config
   "Load configuration for environment with caching"
@@ -75,7 +74,7 @@
         
         ;; Find all keys that look like database configurations
         db-key? (fn [k] (and (keyword? k)
-                            (re-matches #".*/(sqlite|postgresql|mysql|h2).*" (name k))))
+                            (some? (re-matches #"(sqlite|postgresql|mysql|h2)" (name k)))))
         
         active-dbs (into {} (filter #(db-key? (first %)) active-configs))
         inactive-dbs (into {} (filter #(db-key? (first %)) inactive-configs))]

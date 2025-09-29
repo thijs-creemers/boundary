@@ -10,7 +10,8 @@
   (:require [boundary.shell.adapters.database.protocols :as protocols]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [next.jdbc :as jdbc]))
+            [next.jdbc :as jdbc]
+            [next.jdbc.result-set :as rs]))
 
 ;; =============================================================================
 ;; H2 Adapter Implementation
@@ -20,8 +21,8 @@
   protocols/DBAdapter
   
   (dialect [_]
-    ;; H2 uses :ansi dialect for HoneySQL 
-    :ansi)
+    ;; H2 should return its own dialect identifier
+    :h2)
   
   (jdbc-driver [_]
     "org.h2.Driver")
@@ -62,8 +63,8 @@
         ;; Enable PostgreSQL compatibility mode (if not already set in URL)
         (jdbc/execute! conn ["SET MODE PostgreSQL"])
         
-        ;; Disable case sensitivity for unquoted identifiers
-        (jdbc/execute! conn ["SET DATABASE_TO_UPPER FALSE"])
+        ;; Enable lowercase identifiers for PostgreSQL compatibility
+        (jdbc/execute! conn ["SET DATABASE_TO_LOWER TRUE"])
         
         ;; Set reasonable lock timeout
         (jdbc/execute! conn ["SET LOCK_TIMEOUT 30000"])
@@ -125,10 +126,10 @@
   
   (table-exists? [_ datasource table-name]
     (try
-      (let [table-str (str/upper-case (name table-name))
-            query "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'PUBLIC' AND TABLE_NAME = ?"
+      (let [table-str (str/lower-case (name table-name))  ; Use lowercase for PostgreSQL compatibility mode
+            query "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'PUBLIC' AND LOWER(TABLE_NAME) = ?"
             result (jdbc/execute! datasource [query table-str])]
-        (seq result))
+        (boolean (seq result)))  ; Ensure boolean return instead of truthy/falsy
       (catch Exception e
         (log/error "Failed to check table existence" 
                   {:table table-name :error (.getMessage e)})
@@ -136,13 +137,22 @@
   
   (get-table-info [_ datasource table-name]
     (try
-      (let [table-str (str/upper-case (name table-name))
-            query "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, 
-                         CASE WHEN COLUMN_KEY = 'PRI' THEN TRUE ELSE FALSE END AS IS_PRIMARY
-                   FROM INFORMATION_SCHEMA.COLUMNS 
-                   WHERE TABLE_SCHEMA = 'PUBLIC' AND TABLE_NAME = ?
-                   ORDER BY ORDINAL_POSITION"
-            results (jdbc/execute! datasource [query table-str])]
+      (let [table-str (str/lower-case (name table-name))  ; Use lowercase for PostgreSQL compatibility mode
+            query "SELECT c.COLUMN_NAME, c.DATA_TYPE, c.IS_NULLABLE, c.COLUMN_DEFAULT,
+                         CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN TRUE ELSE FALSE END AS IS_PRIMARY
+                   FROM INFORMATION_SCHEMA.COLUMNS c
+                   LEFT JOIN (
+                     SELECT kcu.COLUMN_NAME
+                     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+                     JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+                       ON kcu.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+                       AND kcu.TABLE_SCHEMA = tc.TABLE_SCHEMA
+                     WHERE LOWER(kcu.TABLE_NAME) = ? AND tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+                   ) pk ON c.COLUMN_NAME = pk.COLUMN_NAME
+                   WHERE c.TABLE_SCHEMA = 'PUBLIC' AND LOWER(c.TABLE_NAME) = ?
+                   ORDER BY c.ORDINAL_POSITION"
+            results (jdbc/execute! datasource [query table-str table-str]
+                                   {:builder-fn rs/as-unqualified-lower-maps})]  ; Pass table name twice for subquery and main query
         (mapv (fn [row]
                 {:name (str/lower-case (:column_name row))
                  :type (:data_type row)
