@@ -46,9 +46,9 @@
      (initialize-user-schema! ctx)"
   [ctx]
   (log/info "Initializing user schema from Malli definitions")
-  (db-schema/initialize-tables-from-schemas! ctx 
-    {"users" user-schema/User
-     "user_sessions" user-schema/UserSession}))
+  (db-schema/initialize-tables-from-schemas! ctx
+                                             {"users" user-schema/User
+                                              "user_sessions" user-schema/UserSession}))
 
 ;; =============================================================================
 ;; Entity Transformations
@@ -164,26 +164,26 @@
   (find-users-by-tenant [_ tenant-id options]
     (log/debug "Finding users by tenant" {:tenant-id tenant-id :options options})
     (let [base-filters {:tenant-id tenant-id}
-          
+
           ;; Add optional filters
           filters (cond-> base-filters
                     (not (:include-deleted? options)) (assoc :deleted_at nil)
                     (:filter-role options) (assoc :role (:filter-role options))
                     (:filter-active options) (assoc :active (:filter-active options)))
-          
+
           ;; Handle email contains separately (needs special LIKE handling)
           where-conditions (cond-> (db/build-where-clause ctx filters)
                              (:filter-email-contains options)
                              (conj [:like :email (str "%" (:filter-email-contains options) "%")]))
-          
+
           where-clause (if (vector? (first where-conditions))
                          where-conditions
                          [:and where-conditions])
-          
+
           ;; Build pagination
           pagination (db/build-pagination options)
           ordering (db/build-ordering options :created_at)
-          
+
           query {:select [:*]
                  :from [:users]
                  :where where-clause

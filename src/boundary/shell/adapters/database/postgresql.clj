@@ -143,7 +143,7 @@
             columns))))
 
 (defn new-adapter
-      "Create new PostgreSQL adapter instance.
+  "Create new PostgreSQL adapter instance.
 
        Returns:
          PostgreSQL adapter implementing DBAdapter protocol"
@@ -155,7 +155,7 @@
 ;; =============================================================================
 
 (defn create-database-url
-      "Create PostgreSQL JDBC URL from components.
+  "Create PostgreSQL JDBC URL from components.
 
        Args:
          host: Database hostname
@@ -181,7 +181,7 @@
 ;; =============================================================================
 
 (defn boolean-column-type
-      "Get PostgreSQL boolean column type definition.
+  "Get PostgreSQL boolean column type definition.
 
        Returns:
          String - 'BOOLEAN' for PostgreSQL"
@@ -189,7 +189,7 @@
   "BOOLEAN")
 
 (defn uuid-column-type
-      "Get PostgreSQL UUID column type definition.
+  "Get PostgreSQL UUID column type definition.
 
        PostgreSQL has native UUID support.
 
@@ -199,7 +199,7 @@
   "UUID")
 
 (defn varchar-uuid-column-type
-      "Get PostgreSQL varchar UUID column type definition for compatibility.
+  "Get PostgreSQL varchar UUID column type definition for compatibility.
 
        Use this when you don't want to enable the UUID extension.
 
@@ -209,7 +209,7 @@
   "VARCHAR(36)")
 
 (defn timestamp-column-type
-      "Get PostgreSQL timestamp column type definition.
+  "Get PostgreSQL timestamp column type definition.
 
        Returns:
          String - 'TIMESTAMP WITH TIME ZONE' for PostgreSQL"
@@ -217,7 +217,7 @@
   "TIMESTAMP WITH TIME ZONE")
 
 (defn serial-primary-key
-      "Get PostgreSQL serial primary key definition.
+  "Get PostgreSQL serial primary key definition.
 
        Returns:
          String - PostgreSQL serial syntax"
@@ -225,7 +225,7 @@
   "SERIAL PRIMARY KEY")
 
 (defn bigserial-primary-key
-      "Get PostgreSQL bigserial primary key definition.
+  "Get PostgreSQL bigserial primary key definition.
 
        Returns:
          String - PostgreSQL bigserial syntax"
@@ -237,7 +237,7 @@
 ;; =============================================================================
 
 (defn explain-query
-      "Get PostgreSQL query execution plan.
+  "Get PostgreSQL query execution plan.
 
        Args:
          datasource: PostgreSQL datasource
@@ -257,14 +257,14 @@
                                 (for [[k v] options :when v]
                                   (str/upper-case (name k))))
          explain-sql  (str "EXPLAIN "
-                            (when (seq explain-opts) (str "(" explain-opts ") "))
-                            (first sql-query))
+                           (when (seq explain-opts) (str "(" explain-opts ") "))
+                           (first sql-query))
          params       (rest sql-query)]
      (jdbc/execute! datasource (cons explain-sql params)
                     {:builder-fn rs/as-unqualified-lower-maps}))))
 
 (defn analyze-table
-      "Update PostgreSQL table statistics for better query planning.
+  "Update PostgreSQL table statistics for better query planning.
 
        Args:
          datasource: PostgreSQL datasource
@@ -282,7 +282,7 @@
      (log/debug "Analyzed PostgreSQL table" {:table table-str}))))
 
 (defn vacuum-table
-      "Vacuum PostgreSQL table to reclaim space and update statistics.
+  "Vacuum PostgreSQL table to reclaim space and update statistics.
 
        Args:
          datasource: PostgreSQL datasource
@@ -299,8 +299,8 @@
                                (for [[k v] options :when v]
                                  (str/upper-case (name k))))
          vacuum-sql  (str "VACUUM "
-                           (when (seq vacuum-opts) (str "(" vacuum-opts ") "))
-                           table-str)]
+                          (when (seq vacuum-opts) (str "(" vacuum-opts ") "))
+                          table-str)]
      (jdbc/execute! datasource [vacuum-sql])
      (log/debug "Vacuumed PostgreSQL table" {:table table-str :options options}))))
 
@@ -309,7 +309,7 @@
 ;; =============================================================================
 
 (defn enable-extension
-      "Enable PostgreSQL extension.
+  "Enable PostgreSQL extension.
 
        Args:
          datasource: PostgreSQL datasource
@@ -324,7 +324,7 @@
     (log/info "Enabled PostgreSQL extension" {:extension extension-name})))
 
 (defn list-extensions
-      "List installed PostgreSQL extensions.
+  "List installed PostgreSQL extensions.
 
        Args:
          datasource: PostgreSQL datasource
@@ -348,7 +348,7 @@
 ;; =============================================================================
 
 (defn connection-info
-      "Get PostgreSQL connection and server information.
+  "Get PostgreSQL connection and server information.
 
        Args:
          datasource: PostgreSQL datasource
@@ -371,7 +371,7 @@
      :server-port (:inet_server_port stats-result)}))
 
 (defn active-connections
-      "Get information about active PostgreSQL connections.
+  "Get information about active PostgreSQL connections.
 
        Args:
          datasource: PostgreSQL datasource

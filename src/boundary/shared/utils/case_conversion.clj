@@ -40,9 +40,9 @@
   (when m
     (reduce-kv (fn [acc k v]
                  (let [kebab-key (-> (name k)
-                                   (str/replace #"([a-z])([A-Z])" "$1-$2")
-                                   str/lower-case
-                                   keyword)]
+                                     (str/replace #"([a-z])([A-Z])" "$1-$2")
+                                     str/lower-case
+                                     keyword)]
                    (assoc acc kebab-key v)))
                {} m)))
 
@@ -66,8 +66,8 @@
   (when m
     (reduce-kv (fn [acc k v]
                  (let [camel-key (-> (name k)
-                                   (str/replace #"-(.)" #(str/upper-case (second %1)))
-                                   keyword)]
+                                     (str/replace #"-(.)" #(str/upper-case (second %1)))
+                                     keyword)]
                    (assoc acc camel-key v)))
                {} m)))
 
@@ -92,7 +92,7 @@
         (str/replace #"([a-z])([A-Z])" "$1-$2")
         str/lower-case)))
 
-(defn kebab-case->camel-case-string  
+(defn kebab-case->camel-case-string
   "Convert a kebab-case string to camelCase string.
    
    Args:
@@ -129,15 +129,15 @@
     (map? data)
     (reduce-kv (fn [acc k v]
                  (let [new-key (if (keyword? k)
-                                (-> k name transform-fn keyword)
-                                k)]
+                                 (-> k name transform-fn keyword)
+                                 k)]
                    (assoc acc new-key (deep-transform-keys transform-fn v))))
                {} data)
-    
+
     (vector? data)
     (mapv #(deep-transform-keys transform-fn %) data)
-    
-    (list? data)  
+
+    (list? data)
     (map #(deep-transform-keys transform-fn %) data)
-    
+
     :else data))

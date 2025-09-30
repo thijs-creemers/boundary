@@ -24,7 +24,7 @@
 ;; Configuration Loading
 ;; =============================================================================
 
-(def ^:dynamic *config-cache* 
+(def ^:dynamic *config-cache*
   "Cache for loaded configurations to avoid repeated file reads"
   (atom {}))
 
@@ -71,14 +71,14 @@
   [config]
   (let [active-configs (:active config {})
         inactive-configs (:inactive config {})
-        
+
         ;; Find all keys that look like database configurations
         db-key? (fn [k] (and (keyword? k)
-                            (some? (re-matches #"(sqlite|postgresql|mysql|h2)" (name k)))))
-        
+                             (some? (re-matches #"(sqlite|postgresql|mysql|h2)" (name k)))))
+
         active-dbs (into {} (filter #(db-key? (first %)) active-configs))
         inactive-dbs (into {} (filter #(db-key? (first %)) inactive-configs))]
-    
+
     {:active active-dbs
      :inactive inactive-dbs
      :all (merge inactive-dbs active-dbs)}))
@@ -126,18 +126,18 @@
   (case adapter-type
     :sqlite (when-not (:db config)
               "SQLite configuration missing :db key")
-    
+
     :postgresql (let [required-keys [:host :port :dbname :user :password]]
                   (when-let [missing (seq (remove config required-keys))]
                     (str "PostgreSQL configuration missing keys: " missing)))
-    
+
     :mysql (let [required-keys [:host :port :dbname :user :password]]
              (when-let [missing (seq (remove config required-keys))]
                (str "MySQL configuration missing keys: " missing)))
-    
+
     :h2 (when-not (or (:db config) (:memory config))
           "H2 configuration missing :db or :memory key")
-    
+
     nil)) ; Unknown adapter type, skip validation
 
 (defn validate-database-configs
@@ -146,14 +146,14 @@
   (let [db-configs (get-database-configs env)
         active-configs (:active db-configs)
         errors (atom [])]
-    
+
     (doseq [[config-key config] active-configs]
       (let [adapter-type (config-key->adapter-type config-key)]
         (when-let [error (validate-adapter-config adapter-type config)]
           (swap! errors conj {:adapter adapter-type
                               :config-key config-key
                               :error error}))))
-    
+
     (if (empty? @errors)
       {:valid? true
        :message "All database configurations are valid"}
@@ -210,7 +210,7 @@
       :postgresql (postgresql-config->db-config config)
       :mysql (mysql-config->db-config config)
       :h2 (h2-config->db-config config)
-      (throw (IllegalArgumentException. 
+      (throw (IllegalArgumentException.
               (str "Unknown adapter type for config key: " config-key))))))
 
 (defn get-active-db-configs
@@ -308,16 +308,16 @@
     (println "Active Configs:" (count (:active-count summary)))
     (println "Inactive Configs:" (:inactive-count summary))
     (println "Validation:" (if (get-in summary [:validation :valid?]) "✅ VALID" "❌ INVALID"))
-    
+
     (when-not (get-in summary [:validation :valid?])
       (println "Validation Errors:")
       (doseq [error (get-in summary [:validation :errors])]
         (println " -" (:adapter error) ":" (:error error))))
-    
+
     (println "\nActive Database Configs:")
     (doseq [config-key (get-in summary [:configs :active])]
       (println " -" config-key))
-    
+
     (println "\nInactive Database Configs:")
     (doseq [config-key (get-in summary [:configs :inactive])]
       (println " -" config-key))

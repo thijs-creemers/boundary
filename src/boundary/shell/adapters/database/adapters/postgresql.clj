@@ -20,20 +20,20 @@
 
 (defrecord PostgreSQLAdapter []
   protocols/DBAdapter
-  
+
   (dialect [_]
     ;; PostgreSQL uses nil dialect (default) for HoneySQL
     nil)
-  
+
   (jdbc-driver [_]
     "org.postgresql.Driver")
-  
+
   (jdbc-url [_ db-config]
     (let [host (:host db-config)
           port (:port db-config)
           dbname (:name db-config)]
       (str "jdbc:postgresql://" host ":" port "/" dbname)))
-  
+
   (pool-defaults [_]
     ;; PostgreSQL can handle large connection pools efficiently
     {:minimum-idle 5
@@ -41,86 +41,86 @@
      :connection-timeout-ms 30000
      :idle-timeout-ms 600000
      :max-lifetime-ms 1800000})
-  
+
   (init-connection! [_ datasource db-config]
     ;; Set up PostgreSQL-specific connection settings
     (try
       (with-open [conn (jdbc/get-connection datasource)]
         (log/debug "Initializing PostgreSQL connection with optimal settings")
-        
+
         ;; Set timezone to UTC for consistency across all connections
         (jdbc/execute! conn ["SET TIME ZONE 'UTC'"])
-        
+
         ;; Set application name for connection tracking
         (let [app-name (or (:application-name db-config) "clojure-app")]
           (jdbc/execute! conn [(str "SET application_name = '" app-name "'")]))
-        
+
         ;; Set search path if specified
         (when-let [schema (:schema db-config)]
           (jdbc/execute! conn [(str "SET search_path = " schema)]))
-        
+
         ;; Enable standard conforming strings
         (jdbc/execute! conn ["SET standard_conforming_strings = ON"])
-        
+
         ;; Set statement timeout (optional)
         (when-let [timeout (:statement-timeout-ms db-config)]
           (jdbc/execute! conn [(str "SET statement_timeout = " timeout)]))
-        
+
         ;; Set lock timeout
         (jdbc/execute! conn ["SET lock_timeout = '30s'"])
-        
+
         (log/info "PostgreSQL connection initialized with optimal settings"))
       (catch Exception e
         (log/warn "Failed to apply PostgreSQL settings" {:error (.getMessage e)})
         ;; Don't fail initialization for settings issues
         nil)))
-  
+
   (build-where [_ filters]
     (when (seq filters)
       (let [conditions (map (fn [[field value]]
-                             (cond
+                              (cond
                                ;; Handle nil values
-                               (nil? value)
-                               [:is field nil]
-                               
+                                (nil? value)
+                                [:is field nil]
+
                                ;; Handle collections (IN clause)
-                               (coll? value)
-                               (if (empty? value)
+                                (coll? value)
+                                (if (empty? value)
                                  ;; Empty collection should match nothing
-                                 [:= 1 0]
-                                 [:in field value])
-                               
+                                  [:= 1 0]
+                                  [:in field value])
+
                                ;; Handle string pattern matching with ILIKE for case-insensitive
-                               (and (string? value) (str/includes? value "*"))
-                               [:ilike field (str/replace value "*" "%")]
-                               
+                                (and (string? value) (str/includes? value "*"))
+                                [:ilike field (str/replace value "*" "%")]
+
                                ;; Handle JSON queries (if field ends with ->)
-                               (and (string? value) (str/ends-with? (name field) "->"))
+                                (and (string? value) (str/ends-with? (name field) "->"))
                                ;; This would need custom HoneySQL extension for complex JSON queries
-                               [:= field value]
-                               
+                                [:= field value]
+
                                ;; Handle array contains (if value is a vector and field suggests array)
-                               (and (vector? value) (str/includes? (name field) "array"))
+                                (and (vector? value) (str/includes? (name field) "array"))
                                ;; PostgreSQL array containment: field @> ARRAY[...]
-                               [:raw (str (name field) " @> ARRAY[" 
-                                         (str/join "," (map pr-str value)) "]")]
-                               
+                                [:raw (str (name field) " @> ARRAY["
+                                           (str/join "," (map pr-str value)) "]")]
+
                                ;; Handle boolean values (PostgreSQL supports native booleans)
-                               (boolean? value)
-                               [:= field value]
-                               
+                                (boolean? value)
+                                [:= field value]
+
                                ;; Default equality
-                               :else
-                               [:= field value]))
-                           filters)]
+                                :else
+                                [:= field value]))
+                            filters)]
         (if (= 1 (count conditions))
           (first conditions)
           (into [:and] conditions)))))
-  
+
   (boolean->db [_ boolean-value]
     ;; PostgreSQL supports native boolean values
     boolean-value)
-  
+
   (db->boolean [_ db-value]
     ;; PostgreSQL returns proper boolean values, but handle edge cases
     (cond
@@ -134,7 +134,7 @@
       (= db-value 1) true
       (= db-value 0) false
       :else (boolean db-value)))
-  
+
   (table-exists? [_ datasource table-name]
     (try
       (let [table-str (name table-name)
@@ -142,10 +142,10 @@
             result (jdbc/execute! datasource [query table-str])]
         (seq result))
       (catch Exception e
-        (log/error "Failed to check table existence" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "Failed to check table existence"
+                   {:table table-name :error (.getMessage e)})
         false)))
-  
+
   (get-table-info [_ datasource table-name]
     (try
       (let [table-str (name table-name)
@@ -178,8 +178,8 @@
                  :primary-key (:is_primary_key row)})
               results))
       (catch Exception e
-        (log/error "Failed to get table info" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "Failed to get table info"
+                   {:table table-name :error (.getMessage e)})
         []))))
 
 ;; =============================================================================
@@ -260,8 +260,8 @@
       (jdbc/execute! datasource [sql])
       (log/info "ANALYZE completed successfully" {:table table-name})
       (catch Exception e
-        (log/error "ANALYZE failed" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "ANALYZE failed"
+                   {:table table-name :error (.getMessage e)})
         (throw e)))))
 
 (defn create-index-concurrently!
@@ -282,17 +282,17 @@
         cols-str (str/join ", " (map name columns))
         unique-str (if unique? "UNIQUE " "")
         type-str (if (= index-type :btree) "" (str " USING " (name index-type)))
-        sql (str "CREATE " unique-str "INDEX CONCURRENTLY IF NOT EXISTS " 
-                index-name " ON " table-str type-str " (" cols-str ")")]
-    
-    (log/info "Creating PostgreSQL index concurrently" 
-             {:index index-name :table table-name :columns columns :type index-type})
+        sql (str "CREATE " unique-str "INDEX CONCURRENTLY IF NOT EXISTS "
+                 index-name " ON " table-str type-str " (" cols-str ")")]
+
+    (log/info "Creating PostgreSQL index concurrently"
+              {:index index-name :table table-name :columns columns :type index-type})
     (try
       (jdbc/execute! datasource [sql])
       (log/info "PostgreSQL index created successfully" {:index index-name})
       (catch Exception e
-        (log/error "Failed to create PostgreSQL index" 
-                  {:index index-name :error (.getMessage e)})
+        (log/error "Failed to create PostgreSQL index"
+                   {:index index-name :error (.getMessage e)})
         (throw e)))))
 
 (defn upsert!
@@ -311,33 +311,33 @@
   (let [table-str (name table)
         all-columns (keys data)
         conflict-cols (map name conflict-columns)
-        update-cols (or update-columns 
-                       (remove (set conflict-cols) (map name all-columns)))
-        
+        update-cols (or update-columns
+                        (remove (set conflict-cols) (map name all-columns)))
+
         ;; Build INSERT part
         insert-columns (str/join ", " (map name all-columns))
         placeholders (str/join ", " (repeat (count all-columns) "?"))
-        
+
         ;; Build ON CONFLICT UPDATE part
         conflict-clause (str/join ", " conflict-cols)
-        update-clause (str/join ", " 
-                               (map #(str % " = EXCLUDED." %) update-cols))
-        
+        update-clause (str/join ", "
+                                (map #(str % " = EXCLUDED." %) update-cols))
+
         sql (str "INSERT INTO " table-str " (" insert-columns ") "
-                "VALUES (" placeholders ") "
-                "ON CONFLICT (" conflict-clause ") "
-                "DO UPDATE SET " update-clause)]
-    
-    (log/debug "Executing PostgreSQL upsert" 
-              {:table table :conflict-columns conflict-columns :update-columns update-cols})
+                 "VALUES (" placeholders ") "
+                 "ON CONFLICT (" conflict-clause ") "
+                 "DO UPDATE SET " update-clause)]
+
+    (log/debug "Executing PostgreSQL upsert"
+               {:table table :conflict-columns conflict-columns :update-columns update-cols})
     (try
       (let [values (mapv data (map keyword (map name all-columns)))
             result (jdbc/execute! datasource (into [sql] values))]
         (log/debug "PostgreSQL upsert completed" {:table table :result result})
         result)
       (catch Exception e
-        (log/error "PostgreSQL upsert failed" 
-                  {:table table :conflict-columns conflict-columns :error (.getMessage e)})
+        (log/error "PostgreSQL upsert failed"
+                   {:table table :conflict-columns conflict-columns :error (.getMessage e)})
         (throw e)))))
 
 (defn vacuum-analyze!
@@ -350,15 +350,15 @@
    Returns:
      nil"
   [datasource & {:keys [table-name]}]
-  (let [sql (if table-name 
-             (str "VACUUM ANALYZE " (name table-name))
-             "VACUUM ANALYZE")]
-    (log/info "Running VACUUM ANALYZE on PostgreSQL" 
-             {:table (or table-name "entire database")})
+  (let [sql (if table-name
+              (str "VACUUM ANALYZE " (name table-name))
+              "VACUUM ANALYZE")]
+    (log/info "Running VACUUM ANALYZE on PostgreSQL"
+              {:table (or table-name "entire database")})
     (try
       (jdbc/execute! datasource [sql])
       (log/info "VACUUM ANALYZE completed successfully" {:table table-name})
       (catch Exception e
-        (log/error "VACUUM ANALYZE failed" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "VACUUM ANALYZE failed"
+                   {:table table-name :error (.getMessage e)})
         (throw e)))))

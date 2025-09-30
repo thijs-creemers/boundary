@@ -18,20 +18,20 @@
 
 (defrecord SQLiteAdapter []
   protocols/DBAdapter
-  
+
   (dialect [_]
     ;; SQLite should return :sqlite for identification purposes
     :sqlite)
-  
+
   (jdbc-driver [_]
     "org.sqlite.JDBC")
-  
+
   (jdbc-url [_ db-config]
     (let [db-path (:database-path db-config)]
       (if (= ":memory:" db-path)
         "jdbc:sqlite::memory:"
         (str "jdbc:sqlite:" db-path))))
-  
+
   (pool-defaults [_]
     ;; SQLite works best with smaller connection pools due to file locking
     {:minimum-idle 1
@@ -39,75 +39,75 @@
      :connection-timeout-ms 30000
      :idle-timeout-ms 600000
      :max-lifetime-ms 1800000})
-  
+
   (init-connection! [_ datasource _db-config]
     ;; Apply SQLite PRAGMA settings for optimal performance and reliability
     (try
       (with-open [conn (jdbc/get-connection datasource)]
         (log/debug "Initializing SQLite connection with optimized PRAGMA settings")
-        
+
         ;; Enable WAL mode for better concurrency
         (jdbc/execute! conn ["PRAGMA journal_mode = WAL"])
-        
+
         ;; Optimize synchronous mode (NORMAL is good balance of safety/performance)
         (jdbc/execute! conn ["PRAGMA synchronous = NORMAL"])
-        
+
         ;; Set reasonable timeout for busy database
         (jdbc/execute! conn ["PRAGMA busy_timeout = 30000"])
-        
+
         ;; Enable foreign key enforcement
         (jdbc/execute! conn ["PRAGMA foreign_keys = ON"])
-        
+
         ;; Optimize temp store
         (jdbc/execute! conn ["PRAGMA temp_store = MEMORY"])
-        
+
         ;; Set reasonable cache size (in KB)
         (jdbc/execute! conn ["PRAGMA cache_size = -64000"])  ; 64MB
-        
+
         (log/info "SQLite connection initialized with optimized settings"))
       (catch Exception e
         (log/warn "Failed to apply SQLite PRAGMA settings" {:error (.getMessage e)})
         ;; Don't fail initialization for PRAGMA issues
         nil)))
-  
+
   (build-where [_ filters]
     (when (seq filters)
       (let [conditions (map (fn [[field value]]
-                             (cond
+                              (cond
                                ;; Handle nil values
-                               (nil? value)
-                               [:is field nil]
-                               
+                                (nil? value)
+                                [:is field nil]
+
                                ;; Handle collections (IN clause)
-                               (coll? value)
-                               (if (empty? value)
+                                (coll? value)
+                                (if (empty? value)
                                  ;; Empty collection should match nothing
-                                 [:= 1 0]
-                                 [:in field value])
-                               
+                                  [:= 1 0]
+                                  [:in field value])
+
                                ;; Handle string pattern matching (case-insensitive)
-                               (and (string? value) (str/includes? value "*"))
-                               [:like field (str/replace value "*" "%")]
-                               
+                                (and (string? value) (str/includes? value "*"))
+                                [:like field (str/replace value "*" "%")]
+
                                ;; Handle boolean values (convert to integers)
-                               (boolean? value)
-                               [:= field (if value 1 0)]
-                               
+                                (boolean? value)
+                                [:= field (if value 1 0)]
+
                                ;; Default equality
-                               :else
-                               [:= field value]))
-                           filters)]
+                                :else
+                                [:= field value]))
+                            filters)]
         (if (= 1 (count conditions))
           (first conditions)
           (into [:and] conditions)))))
-  
+
   (boolean->db [_ boolean-value]
     ;; SQLite stores booleans as integers
     (cond
       (true? boolean-value) 1
       (false? boolean-value) 0
       :else nil))
-  
+
   (db->boolean [_ db-value]
     ;; Convert SQLite integer values back to booleans
     (cond
@@ -118,7 +118,7 @@
       (= db-value "true") true
       (= db-value "false") false
       :else (boolean db-value)))
-  
+
   (table-exists? [_ datasource table-name]
     (try
       (let [table-str (name table-name)
@@ -126,10 +126,10 @@
             result (jdbc/execute! datasource [query table-str])]
         (seq result))
       (catch Exception e
-        (log/error "Failed to check table existence" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "Failed to check table existence"
+                   {:table table-name :error (.getMessage e)})
         false)))
-  
+
   (get-table-info [_ datasource table-name]
     (try
       (let [table-str (name table-name)
@@ -143,8 +143,8 @@
                  :primary-key (= 1 (:pk row))})
               results))
       (catch Exception e
-        (log/error "Failed to get table info" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "Failed to get table info"
+                   {:table table-name :error (.getMessage e)})
         []))))
 
 ;; =============================================================================
@@ -228,16 +228,16 @@
   (try
     (let [pragmas ["journal_mode" "synchronous" "foreign_keys" "cache_size" "temp_store"]
           settings (reduce (fn [acc pragma]
-                            (try
-                              (let [query (str "PRAGMA " pragma)
-                                    result (jdbc/execute! datasource [query])]
-                                (assoc acc (keyword pragma) 
-                                      (-> result first vals first)))
-                              (catch Exception e
-                                (log/debug "Failed to get PRAGMA" 
-                                          {:pragma pragma :error (.getMessage e)})
-                                acc)))
-                          {} pragmas)]
+                             (try
+                               (let [query (str "PRAGMA " pragma)
+                                     result (jdbc/execute! datasource [query])]
+                                 (assoc acc (keyword pragma)
+                                        (-> result first vals first)))
+                               (catch Exception e
+                                 (log/debug "Failed to get PRAGMA"
+                                            {:pragma pragma :error (.getMessage e)})
+                                 acc)))
+                           {} pragmas)]
       settings)
     (catch Exception e
       (log/error "Failed to get PRAGMA settings" {:error (.getMessage e)})

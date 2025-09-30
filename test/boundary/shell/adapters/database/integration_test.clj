@@ -1,25 +1,24 @@
 (ns boundary.shell.adapters.database.integration-test
   "Integration tests for the complete multi-database adapter system."
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [boundary.shell.adapters.database.integration-example :as integration]
-            [boundary.shell.adapters.database.config :as config]
+  (:require [boundary.shell.adapters.database.config :as config]
             [boundary.shell.adapters.database.config-factory :as factory]
-            [boundary.shell.adapters.database.core :as db-core]))
+            [boundary.shell.adapters.database.integration-example :as integration]
+            [clojure.test :refer [deftest is testing use-fixtures]]))
 
 ;; =============================================================================
 ;; Test Fixtures and Setup
 ;; =============================================================================
 
 (defn reset-system-fixture
-  "Fixture to reset the integration system before each test."
+      "Fixture to reset the integration system before each test."
   [test-fn]
   (try
     ;; Reset application state before test
     (integration/reset-application-state!)
     (test-fn)
-  (finally
-    ;; Clean up after test
-    (integration/reset-application-state!))))
+    (finally
+      ;; Clean up after test
+      (integration/reset-application-state!))))
 
 (use-fixtures :each reset-system-fixture)
 
@@ -34,21 +33,21 @@
       (let [initialized-dbs (integration/initialize-databases!)]
         (is (map? initialized-dbs) "Should return map of initialized databases")
         (is (seq initialized-dbs) "Should have at least one initialized database")
-        
+
         ;; Check application state is updated
         (let [state (integration/current-state)]
           (is (:config-loaded? state) "Config should be loaded")
           (is (seq (:active-databases state)) "Should have active databases"))
-        
+
         ;; Verify we can list active databases
         (let [active-dbs (integration/list-active-databases)]
           (is (seq active-dbs) "Should have active databases")
           (doseq [[adapter-key db-info] active-dbs]
             (is (keyword? adapter-key) "Adapter key should be keyword")
-            (is (map? db-info) "DB info should be map")
+            (is (map? db-info) "DB info should be a map")
             (is (contains? db-info :adapter) "Should contain adapter")
             (is (contains? db-info :pool) "Should contain connection pool"))))
-      
+
       (finally
         (System/clearProperty "env")))))
 
@@ -57,7 +56,7 @@
     (let [initialized-dbs (integration/initialize-databases! "test")]
       (is (map? initialized-dbs) "Should return map of initialized databases")
       (is (seq initialized-dbs) "Should have at least one initialized database")
-      
+
       ;; Test environment should typically use H2
       (let [active-dbs (integration/list-active-databases)]
         (is (some #(= :boundary/h2 (first %)) active-dbs)
@@ -72,7 +71,7 @@
         ;; If env vars are set, initialization should succeed
         (is (map? initialized-dbs) "Should return map of initialized databases")
         (is (seq initialized-dbs) "Should have at least one initialized database")
-        
+
         ;; Production environment should typically use PostgreSQL
         (let [active-dbs (integration/list-active-databases)]
           (is (some #(= :boundary/postgresql (first %)) active-dbs)
@@ -80,7 +79,7 @@
       (catch Exception e
         ;; Expected failure when production environment variables are not set
         (is (or (.contains (.getMessage e) "Database initialization failed")
-               (.contains (.getMessage e) "Invalid database configuration"))
+                (.contains (.getMessage e) "Invalid database configuration"))
             (str "Expected production config error due to missing env vars, got: " (.getMessage e)))
         (println "Note: Production initialization failed as expected due to missing environment variables")))))
 
@@ -95,8 +94,8 @@
 
 (deftest test-database-access
   (testing "Database access after system initialization"
-    (integration/initialize-databases! "test") ; Use test env with H2
-    
+    (integration/initialize-databases! "test")              ; Use test env with H2
+
     (testing "Get specific database"
       (let [active-dbs (integration/list-active-databases)]
         (when-let [[adapter-key _] (first active-dbs)]
@@ -105,12 +104,12 @@
             (is (map? db) "Database should be a map")
             (is (contains? db :adapter) "Should contain adapter")
             (is (contains? db :pool) "Should contain pool")))))
-    
+
     (testing "Get primary database"
       (let [primary-db (integration/get-primary-database)]
         (is (some? primary-db) "Should have a primary database")
         (is (map? primary-db) "Primary database should be a map")))
-    
+
     (testing "Get non-existent database"
       (let [non-existent-db (integration/get-database :boundary/nonexistent)]
         (is (nil? non-existent-db) "Non-existent database should return nil")))))
@@ -118,7 +117,7 @@
 (deftest test-query-execution
   (testing "Query execution through integration system"
     (integration/initialize-databases! "test")
-    
+
     (let [active-dbs (integration/list-active-databases)]
       (when-let [[adapter-key _] (first active-dbs)]
         (testing (str "Query execution on " adapter-key)
@@ -131,16 +130,16 @@
               ;; Since our dynamic driver loading works, we expect database-related errors
               ;; rather than driver-loading errors
               (is (or (.contains (.getMessage e) "Database query failed")
-                     (.contains (.getMessage e) "ClassNotFoundException")
-                     (.contains (.getMessage e) "No suitable driver"))
+                      (.contains (.getMessage e) "ClassNotFoundException")
+                      (.contains (.getMessage e) "No suitable driver"))
                   (str "Expected database or driver-related error, got: " (.getMessage e))))))))))
 
 (deftest test-query-execution-non-existent-adapter
   (testing "Query execution on non-existent adapter should throw"
     (integration/initialize-databases! "test")
-    
+
     (is (thrown-with-msg? Exception #"Database adapter not found"
-                         (integration/execute-query :boundary/nonexistent {:select [:1]}))
+                          (integration/execute-query :boundary/nonexistent {:select [:1]}))
         "Should throw informative error for non-existent adapter")))
 
 ;; =============================================================================
@@ -151,30 +150,29 @@
   (testing "System with multiple active databases"
     ;; This test assumes a config with multiple active databases
     ;; If not available, we'll create a temporary multi-db scenario
-    
+
     ;; For now, test the scenario where multiple databases could be active
     (integration/initialize-databases! "dev")
-    
+
     (let [active-dbs (integration/list-active-databases)
-          db-count (count active-dbs)]
-      
+          db-count   (count active-dbs)]
+
       ;; Always ensure we have at least one database
       (is (>= db-count 1) "Should have at least one active database after initialization")
-      
-      (if (> db-count 1)
-        (do
-          (testing "Multiple database query execution"
-            (is (> db-count 1) (str "Should have multiple databases, found: " db-count))
-            (doseq [[adapter-key _] active-dbs]
-              (testing (str "Query on " adapter-key)
-                (try
-                  (let [result (integration/execute-query adapter-key {:select [[1 :test]]})]
-                    (is (some? result) (str "Should get result from " adapter-key)))
-                  (catch Exception e
-                    ;; Expected if query fails due to database issues
-                    (println (str "Note: " adapter-key " query failed: " (.getMessage e)))
-                    (is true (str "Query attempt completed for " adapter-key)))))))
-        
+
+      (when (> db-count 1)
+        (testing "Multiple database query execution"
+          (is (> db-count 1) (str "Should have multiple databases, found: " db-count))
+          (doseq [[adapter-key _] active-dbs]
+            (testing (str "Query on " adapter-key)
+              (try
+                (let [result (integration/execute-query adapter-key {:select [[1 :test]]})]
+                  (is (some? result) (str "Should get result from " adapter-key)))
+                (catch Exception e
+                  ;; Expected if query fails due to database issues
+                  (println (str "Note: " adapter-key " query failed: " (.getMessage e)))
+                  (is true (str "Query attempt completed for " adapter-key)))))))
+
         (testing "Single database scenario"
           (is (= db-count 1) (str "Should have exactly one active database, found: " db-count))
           (let [[adapter-key _] (first active-dbs)]
@@ -190,18 +188,18 @@
       (let [initialized-dbs (integration/initialize-databases! "test")]
         (is (map? initialized-dbs) "Initialization should succeed")
         (is (seq initialized-dbs) "Should have initialized databases")))
-    
+
     (testing "Usage"
       (let [state (integration/current-state)]
         (is (:config-loaded? state) "Config should be loaded")
         (is (seq (:active-databases state)) "Should have active databases"))
-      
+
       (let [active-dbs (integration/list-active-databases)]
         (is (seq active-dbs) "Should be able to list active databases")))
-    
+
     (testing "Shutdown"
       (integration/shutdown-databases!)
-      
+
       (let [state (integration/current-state)]
         (is (empty? (:active-databases state)) "Should have no active databases after shutdown")))))
 
@@ -212,7 +210,7 @@
     (let [state-before (integration/current-state)]
       (is (:config-loaded? state-before) "Should have config loaded")
       (is (seq (:active-databases state-before)) "Should have active databases"))
-    
+
     ;; Reset system
     (integration/reset-application-state!)
     (let [state-after (integration/current-state)]
@@ -230,20 +228,20 @@
         (try
           (integration/reset-application-state!)
           (integration/initialize-databases! env)
-          
+
           (let [state (integration/current-state)]
             (is (:config-loaded? state) (str "Config should be loaded for " env))
             (is (seq (:active-databases state)) (str "Should have active databases for " env)))
-          
+
           (let [active-dbs (integration/list-active-databases)]
             (is (seq active-dbs) (str "Should have active databases for " env))
-            
+
             ;; Verify each database is properly initialized
             (doseq [[adapter-key db-info] active-dbs]
               (is (keyword? adapter-key) (str "Adapter key should be keyword in " env))
               (is (some? (:adapter db-info)) (str "Should have adapter in " env))
               (is (some? (:pool db-info)) (str "Should have connection pool in " env))))
-          
+
           (catch Exception e
             ;; Some environments might not be available, that's okay
             (println (str "Note: Environment " env " not available: " (.getMessage e)))))))))
@@ -256,11 +254,11 @@
   (testing "Double initialization should handle gracefully"
     (integration/initialize-databases! "test")
     (let [first-state (integration/current-state)]
-      
+
       ;; Initialize again
-      (integration/initialize-databases! "test") 
+      (integration/initialize-databases! "test")
       (let [second-state (integration/current-state)]
-        
+
         ;; System should still be functional
         (is (:config-loaded? second-state) "Config should still be loaded")
         (is (seq (:active-databases second-state)) "Should still have active databases")))))
@@ -268,10 +266,10 @@
 (deftest test-shutdown-without-initialization
   (testing "Shutdown without initialization should not throw"
     (integration/reset-application-state!)
-    
+
     ;; This should not throw an exception
     (integration/shutdown-databases!)
-    
+
     (let [state (integration/current-state)]
       (is (empty? (:active-databases state)) "Should have no active databases"))))
 
@@ -279,9 +277,9 @@
   (testing "Query execution after shutdown should throw appropriate error"
     (integration/initialize-databases! "test")
     (integration/shutdown-databases!)
-    
+
     (is (thrown-with-msg? Exception #"Database adapter not found"
-                         (integration/execute-query :boundary/h2 {:select [:1]}))
+                          (integration/execute-query :boundary/h2 {:select [:1]}))
         "Should throw error when querying after shutdown")))
 
 ;; =============================================================================
@@ -293,22 +291,22 @@
     (doseq [env ["dev" "test" "prod"]]
       (testing (str "Environment: " env)
         (try
-          (let [config (config/load-config env)
+          (let [config          (config/load-config env)
                 active-adapters (factory/create-active-adapters config)]
-            
+
             (is (map? config) (str "Config should be loaded for " env))
             (is (map? active-adapters) (str "Should create active adapters for " env))
             (is (seq active-adapters) (str "Should have at least one adapter for " env))
-            
+
             ;; Verify adapters match what's in the active config
             (let [active-config-keys (keys (:active config))
-                  adapter-keys (keys active-adapters)
-                  db-adapter-keys (filter #(.startsWith (name %) "boundary/") active-config-keys)]
-              
+                  adapter-keys       (keys active-adapters)
+                  db-adapter-keys    (filter #(.startsWith (name %) "boundary/") active-config-keys)]
+
               (doseq [db-key db-adapter-keys]
                 (is (contains? active-adapters db-key)
                     (str "Adapter " db-key " should be created for " env)))))
-          
+
           (catch Exception e
             (println (str "Note: Config/factory integration test failed for " env ": " (.getMessage e)))))))))
 
@@ -320,25 +318,25 @@
   (testing "System initialization should be reasonably fast"
     (let [start-time (System/nanoTime)]
       (integration/initialize-databases! "test")
-      (let [end-time (System/nanoTime)
+      (let [end-time    (System/nanoTime)
             duration-ms (/ (- end-time start-time) 1000000.0)]
-        
-        (is (< duration-ms 2000) ; Should initialize in under 2 seconds
+
+        (is (< duration-ms 2000)                            ; Should initialize in under 2 seconds
             (str "System initialization took " duration-ms "ms, should be under 2000ms"))))))
 
 (deftest test-query-performance
   (testing "Query execution should be reasonably fast"
     (integration/initialize-databases! "test")
-    
+
     (let [active-dbs (integration/list-active-databases)]
       (when-let [[adapter-key _] (first active-dbs)]
         (try
           (let [start-time (System/nanoTime)]
             (integration/execute-query adapter-key {:select [[1 :test]]})
-            (let [end-time (System/nanoTime)
+            (let [end-time    (System/nanoTime)
                   duration-ms (/ (- end-time start-time) 1000000.0)]
-              
-              (is (< duration-ms 1000) ; Should execute in under 1 second
+
+              (is (< duration-ms 1000)                      ; Should execute in under 1 second
                   (str "Query execution took " duration-ms "ms, should be under 1000ms"))))
           (catch Exception e
             ;; Expected if query fails due to database issues
@@ -362,20 +360,20 @@
           ;; Since our dynamic driver loading works, we expect database-related errors
           ;; rather than driver-loading errors
           (is (or (.contains (.getMessage e) "Database query failed")
-                 (.contains (.getMessage e) "ClassNotFoundException")
-                 (.contains (.getMessage e) "No suitable driver"))
+                  (.contains (.getMessage e) "ClassNotFoundException")
+                  (.contains (.getMessage e) "No suitable driver"))
               (str "Expected database or driver-related error, got: " (.getMessage e)))))
-    
-    (testing "Environment switching example"
-      ;; This should work even without JDBC drivers since it only loads configs
-      (try
-        (integration/example-environment-switching)
-        (is true "Environment switching example should complete")
-        (catch Exception e
-          (println (str "Environment switching example failed: " (.getMessage e)))
-          ;; This test documents expected behavior even if it fails
-          (is false (str "Environment switching should not fail: " (.getMessage e)))))))
+
+      (testing "Environment switching example"
+        ;; This should work even without JDBC drivers since it only loads configs
+        (try
+          (integration/example-environment-switching)
+          (is true "Environment switching example should complete")
+          (catch Exception e
+            (println (str "Environment switching example failed: " (.getMessage e)))
+            ;; This test documents expected behavior even if it fails
+            (is false (str "Environment switching should not fail: " (.getMessage e)))))))))
 
 ;; Run all tests
 (defn run-integration-tests []
-  (clojure.test/run-tests 'boundary.shell.adapters.database.integration-test)))))
+  (clojure.test/run-tests 'boundary.shell.adapters.database.integration-test))

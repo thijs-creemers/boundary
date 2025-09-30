@@ -46,21 +46,21 @@
               :postgresql "UUID"
               :h2 "UUID"
               "VARCHAR(36)") ; fallback
-      
+
       :string "VARCHAR(255)" ; Default string length
-      
+
       :int (case dialect
              :sqlite "INTEGER"
              :mysql "INT"
              (:postgresql :h2) "INTEGER"
              "INTEGER") ; fallback
-      
+
       :boolean (case dialect
                  :sqlite "INTEGER"
                  :mysql "TINYINT(1)"
                  (:postgresql :h2) "BOOLEAN"
                  "BOOLEAN") ; fallback
-      
+
       ; Default for timestamps and unknown types
       (case dialect
         :sqlite "TEXT"
@@ -81,8 +81,8 @@
    Returns:
      Map with :name, :type, :optional? or nil for non-field entries"
   [field-def]
-  (when (and (vector? field-def) 
-             (>= (count field-def) 2) 
+  (when (and (vector? field-def)
+             (>= (count field-def) 2)
              (keyword? (first field-def)))
     (let [field-name (name (first field-def))
           ; Handle both [name type] and [name properties type] formats
@@ -119,16 +119,16 @@
         primary-key (if (= name "id") " PRIMARY KEY" "")
         ; Handle enum constraints
         enum-constraint (if (and (vector? schema) (= :enum (first schema)))
-                         (let [enum-values (map str (rest schema))
-                               values-str (str/join ", " (map #(str "'" % "'") enum-values))]
-                           (str " CHECK(" name " IN (" values-str "))"))
-                         "")
+                          (let [enum-values (map str (rest schema))
+                                values-str (str/join ", " (map #(str "'" % "'") enum-values))]
+                            (str " CHECK(" name " IN (" values-str "))"))
+                          "")
         ; Handle boolean defaults for active fields
         boolean-default (if (and (= type :boolean) (= name "active") (not optional?))
-                         (case (protocols/dialect (:adapter ctx))
-                           :sqlite " DEFAULT 1"
-                           " DEFAULT true")
-                         "")]
+                          (case (protocols/dialect (:adapter ctx))
+                            :sqlite " DEFAULT 1"
+                            " DEFAULT true")
+                          "")]
     (str name " " column-type not-null primary-key enum-constraint boolean-default)))
 
 (defn- generate-table-constraints
@@ -142,19 +142,19 @@
      Vector of constraint definition strings"
   [table-name field-infos]
   (let [; Find foreign key fields (fields ending with -id but not id itself)
-        fk-fields (filter #(and (not= (:name %) "id") 
-                                (str/ends-with? (:name %) "-id")) 
-                         field-infos)]
+        fk-fields (filter #(and (not= (:name %) "id")
+                                (str/ends-with? (:name %) "-id"))
+                          field-infos)]
     (vec (concat
           ; Foreign key constraints
           (map (fn [{:keys [name]}]
                  (let [ref-table (str/replace name #"-id$" "s") ; user-id -> users
                        constraint-name (str "fk_" table-name "_" (str/replace name "-" "_"))]
-                   (str "CONSTRAINT " constraint-name 
-                        " FOREIGN KEY (" (str/replace name "-" "_") 
+                   (str "CONSTRAINT " constraint-name
+                        " FOREIGN KEY (" (str/replace name "-" "_")
                         ") REFERENCES " ref-table "(id) ON DELETE CASCADE")))
                fk-fields)
-          
+
           ; Table-specific unique constraints
           (case table-name
             "users" ["CONSTRAINT uk_users_email_tenant UNIQUE(email, tenant_id)"]
@@ -180,17 +180,17 @@
         field-infos (->> fields
                          (map extract-field-info)
                          (filter some?))
-        
+
         ; Generate column definitions
         column-defs (map #(generate-column-definition ctx %) field-infos)
-        
+
         ; Generate constraints
         constraints (generate-table-constraints table-name field-infos)
-        
+
         ; Combine all definitions
         all-definitions (concat column-defs constraints)
         definitions-str (str/join ",\n  " all-definitions)]
-    
+
     (str "CREATE TABLE IF NOT EXISTS " table-name " (\n  "
          definitions-str
          "\n);")))
@@ -207,43 +207,43 @@
   [table-name field-infos]
   (let [; Categorize fields for automatic index generation
         id-fields (filter #(str/ends-with? (:name %) "-id") field-infos)
-        enum-fields (filter #(and (vector? (:schema %)) 
+        enum-fields (filter #(and (vector? (:schema %))
                                   (= :enum (first (:schema %)))) field-infos)
         timestamp-fields (filter #(str/ends-with? (:name %) "-at") field-infos)]
-    
+
     (vec (concat
           ; Indexes on foreign key fields
           (map (fn [{:keys [name]}]
-                 (str "CREATE INDEX IF NOT EXISTS idx_" table-name "_" 
-                      (str/replace name "-" "_") " ON " table-name " (" 
+                 (str "CREATE INDEX IF NOT EXISTS idx_" table-name "_"
+                      (str/replace name "-" "_") " ON " table-name " ("
                       (str/replace name "-" "_") ")"))
                id-fields)
-          
+
           ; Indexes on enum fields (like role, active)
           (map (fn [{:keys [name]}]
-                 (str "CREATE INDEX IF NOT EXISTS idx_" table-name "_" 
-                      (str/replace name "-" "_") " ON " table-name " (" 
+                 (str "CREATE INDEX IF NOT EXISTS idx_" table-name "_"
+                      (str/replace name "-" "_") " ON " table-name " ("
                       (str/replace name "-" "_") ")"))
                enum-fields)
-          
+
           ; Indexes on timestamp fields
           (map (fn [{:keys [name]}]
-                 (str "CREATE INDEX IF NOT EXISTS idx_" table-name "_" 
-                      (str/replace name "-" "_") " ON " table-name " (" 
+                 (str "CREATE INDEX IF NOT EXISTS idx_" table-name "_"
+                      (str/replace name "-" "_") " ON " table-name " ("
                       (str/replace name "-" "_") ")"))
                timestamp-fields)
-          
+
           ; Table-specific compound indexes
           (case table-name
-            "users" 
+            "users"
             ["CREATE INDEX IF NOT EXISTS idx_users_email_tenant ON users (email, tenant_id)"
              "CREATE INDEX IF NOT EXISTS idx_users_role_tenant ON users (role, tenant_id)"
              "CREATE INDEX IF NOT EXISTS idx_users_active_tenant ON users (active, tenant_id)"]
-            
-            "user_sessions" 
+
+            "user_sessions"
             ["CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions (token)"
              "CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON user_sessions (expires_at)"]
-            
+
             [])))))
 
 (defn generate-indexes-ddl
@@ -285,30 +285,30 @@
        {\"users\" User-schema
         \"user_sessions\" UserSession-schema})"
   [ctx schema-definitions]
-  (log/info "Initializing database schema from Malli definitions" 
+  (log/info "Initializing database schema from Malli definitions"
             {:dialect (protocols/dialect (:adapter ctx))
              :tables (keys schema-definitions)})
-  
+
   (try
     ; Create tables
     (doseq [[table-name malli-schema] schema-definitions]
       (let [ddl (generate-table-ddl ctx table-name malli-schema)]
         (log/debug "Creating table" {:table table-name :ddl ddl})
         (db-core/execute-ddl! ctx ddl)))
-    
+
     ; Create indexes
     (doseq [[table-name malli-schema] schema-definitions]
       (let [index-ddls (generate-indexes-ddl ctx table-name malli-schema)]
         (doseq [index-ddl index-ddls]
           (log/debug "Creating index" {:table table-name :ddl index-ddl})
           (db-core/execute-ddl! ctx index-ddl))))
-    
-    (log/info "Database schema initialization completed successfully" 
+
+    (log/info "Database schema initialization completed successfully"
               {:dialect (protocols/dialect (:adapter ctx))
                :tables (keys schema-definitions)})
-    
+
     (catch Exception e
-      (log/error "Database schema initialization failed" 
+      (log/error "Database schema initialization failed"
                  {:error (.getMessage e)
                   :dialect (protocols/dialect (:adapter ctx))})
       (throw e))))

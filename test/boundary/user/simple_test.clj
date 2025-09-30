@@ -2,8 +2,7 @@
   "Simple tests to verify test infrastructure works"
   (:require [boundary.user.core.user :as user-core]
             [clojure.test :refer [deftest testing is]])
-  (:import [java.time Instant]
-           [java.util UUID]))
+  (:import [java.util UUID]))
 
 (deftest test-validate-user-creation-request
   (testing "Valid user creation request"
@@ -20,7 +19,7 @@
     (let [user {:email "test@example.com" :role :user}
           result (user-core/can-delete-user? user)]
       (is (:allowed? result))))
-  
+
   (testing "System user cannot be deleted"
     (let [system-user {:email "system@example.com" :role :user}
           result (user-core/can-delete-user? system-user)]

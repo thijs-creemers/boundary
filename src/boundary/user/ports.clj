@@ -992,7 +992,7 @@
 ;; =============================================================================
 
 (defn validate-user-input
-      "Validate user input using schema before passing to ports.
+  "Validate user input using schema before passing to ports.
 
        Args:
          schema: Malli schema to validate against
@@ -1011,7 +1011,7 @@
       {:valid? false :errors (m/explain sch transformed-data)})))
 
 (defn ensure-tenant-isolation
-      "Ensure tenant ID is present and valid for data isolation.
+  "Ensure tenant ID is present and valid for data isolation.
 
        Args:
          tenant-id: UUID or nil
@@ -1034,7 +1034,7 @@
   tenant-id)
 
 (defn create-correlation-id
-      "Generate correlation ID for request tracing.
+  "Generate correlation ID for request tracing.
 
        Returns:
          String correlation ID for linking related operations
@@ -1045,7 +1045,7 @@
   (.toString (UUID/randomUUID)))
 
 (defn enrich-user-context
-      "Add system context to user data for port operations.
+  "Add system context to user data for port operations.
 
        Args:
          user-data: User entity or input data

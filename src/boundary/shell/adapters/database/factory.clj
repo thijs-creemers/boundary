@@ -66,15 +66,15 @@
           (throw (RuntimeException. (str "Adapter namespace not found: " adapter-ns)))))
       (catch Exception e
         (throw (RuntimeException.
-                 (str "Failed to load database adapter: " adapter-type
-                      ". Error: " (.getMessage e)) e))))))
+                (str "Failed to load database adapter: " adapter-type
+                     ". Error: " (.getMessage e)) e))))))
 
 ;; =============================================================================
 ;; Adapter Factory Functions
 ;; =============================================================================
 
 (defn create-adapter
-      "Create database adapter from configuration.
+  "Create database adapter from configuration.
 
        Args:
          db-config: Database configuration map with :adapter key
@@ -94,11 +94,11 @@
       (log/debug "Creating database adapter" {:adapter adapter})
       (constructor-fn))
     (throw (IllegalArgumentException.
-             (str "Unsupported database adapter: " adapter
-                  ". Supported adapters: :sqlite, :postgresql, :mysql, :h2")))))
+            (str "Unsupported database adapter: " adapter
+                 ". Supported adapters: :sqlite, :postgresql, :mysql, :h2")))))
 
 (defn create-datasource
-      "Create connection pool datasource using adapter and configuration.
+  "Create connection pool datasource using adapter and configuration.
 
        Args:
          db-config: Database configuration map
@@ -117,7 +117,7 @@
 ;; =============================================================================
 
 (defn db-context
-      "Create database context with adapter and datasource.
+  "Create database context with adapter and datasource.
 
        A database context contains both the database adapter and the connection
        pool, providing everything needed for database operations through the core API.
@@ -141,7 +141,7 @@
      :datasource datasource}))
 
 (defn close-db-context!
-      "Close database context and its connection pool.
+  "Close database context and its connection pool.
 
        Args:
          ctx: Database context
@@ -155,7 +155,7 @@
     (core/close-connection-pool! (:datasource ctx))))
 
 (defn with-db
-      "Execute function with temporary database context.
+  "Execute function with temporary database context.
 
        Creates a database context, executes the function with it, then
        automatically closes the connection pool. Useful for one-time operations
@@ -184,7 +184,7 @@
 ;; =============================================================================
 
 (defn sqlite-config
-      "Create SQLite database configuration.
+  "Create SQLite database configuration.
 
        Args:
          database-path: String path to SQLite database file
@@ -204,7 +204,7 @@
           opts)))
 
 (defn postgresql-config
-      "Create PostgreSQL database configuration.
+  "Create PostgreSQL database configuration.
 
        Args:
          host: Database hostname
@@ -233,7 +233,7 @@
           opts)))
 
 (defn mysql-config
-      "Create MySQL database configuration.
+  "Create MySQL database configuration.
 
        Args:
          host: Database hostname
@@ -262,7 +262,7 @@
           opts)))
 
 (defn h2-config
-      "Create H2 database configuration.
+  "Create H2 database configuration.
 
        Args:
          database-path: String path to H2 database (or :memory for in-memory)
@@ -290,7 +290,7 @@
 ;; =============================================================================
 
 (defn db-config-from-env
-      "Create database configuration from environment variables.
+  "Create database configuration from environment variables.
 
        Expected environment variables:
        - DB_ADAPTER: sqlite, postgresql, mysql, or h2
@@ -317,7 +317,7 @@
 
     (when-not adapter
       (throw (IllegalArgumentException.
-               "DB_ADAPTER environment variable is required. Valid values: sqlite, postgresql, mysql, h2")))
+              "DB_ADAPTER environment variable is required. Valid values: sqlite, postgresql, mysql, h2")))
 
     (case adapter
       :sqlite
@@ -343,8 +343,8 @@
 
         (when-not (and host port-str database username password)
           (throw (IllegalArgumentException.
-                   (str "For " (name adapter) ", these environment variables are required: "
-                        "DB_HOST, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD"))))
+                  (str "For " (name adapter) ", these environment variables are required: "
+                       "DB_HOST, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD"))))
 
         (let [port (Integer/parseInt port-str)
               opts (when-let [pool-size (System/getenv "DB_POOL_SIZE")]
@@ -354,15 +354,15 @@
             :mysql (mysql-config host port database username password opts))))
 
       (throw (IllegalArgumentException.
-               (str "Unsupported adapter: " adapter
-                    ". Supported: sqlite, postgresql, mysql, h2"))))))
+              (str "Unsupported adapter: " adapter
+                   ". Supported: sqlite, postgresql, mysql, h2"))))))
 
 ;; =============================================================================
 ;; Validation and Testing Helpers
 ;; =============================================================================
 
 (defn validate-connection
-      "Test database connection and validate configuration.
+  "Test database connection and validate configuration.
 
        Args:
          db-config: Database configuration map
@@ -375,19 +375,19 @@
   [db-config]
   (try
     (with-db db-config
-             (fn [ctx]
-               (let [db-info (core/database-info ctx)]
-                 {:status          :success
-                  :adapter         (:adapter db-info)
-                  :connection-pool (:pool-info db-info)
-                  :message         "Database connection successful"})))
+      (fn [ctx]
+        (let [db-info (core/database-info ctx)]
+          {:status          :success
+           :adapter         (:adapter db-info)
+           :connection-pool (:pool-info db-info)
+           :message         "Database connection successful"})))
     (catch Exception e
       {:status  :error
        :error   (.getMessage e)
        :message "Database connection failed"})))
 
 (defn list-supported-adapters
-      "List all supported database adapters.
+  "List all supported database adapters.
 
        Returns:
          Vector of supported adapter keywords"
@@ -399,7 +399,7 @@
 ;; =============================================================================
 
 (defn create-managed-contexts
-      "Create multiple database contexts with centralized lifecycle management.
+  "Create multiple database contexts with centralized lifecycle management.
 
        Args:
          config-map: Map of context-name -> db-config
@@ -430,7 +430,7 @@
 ;; =============================================================================
 
 (defn in-memory-context
-      "Create in-memory database context for testing.
+  "Create in-memory database context for testing.
 
        Uses H2 in-memory database for fast, isolated testing.
 

@@ -58,7 +58,7 @@
 (defn should-extend-session?
   [session current-time extension-policy]
   (let [time-until-expiry (.between java.time.temporal.ChronoUnit/SECONDS
-                                   current-time (:expires-at session))
+                                    current-time (:expires-at session))
         extension-threshold (* (get extension-policy :extend-threshold-hours 2) 3600)]
     (< time-until-expiry extension-threshold)))
 
@@ -88,10 +88,10 @@
 (defn detect-suspicious-activity?
   [session previous-sessions]
   (let [ip-changes (and (seq previous-sessions)
-                       (not= (:ip-address session) (:ip-address (first previous-sessions))))
+                        (not= (:ip-address session) (:ip-address (first previous-sessions))))
         concurrent-sessions (> (count previous-sessions) 0)
         reasons (cond-> []
-                  ip-changes (conj :ip-change)  
+                  ip-changes (conj :ip-change)
                   concurrent-sessions (conj :concurrent-sessions))]
     {:suspicious? (seq reasons)
      :reasons reasons}))
@@ -174,7 +174,7 @@
         threshold-seconds (* threshold-minutes 60)
         last-accessed (:last-accessed-at session)
         time-since-access (.between java.time.temporal.ChronoUnit/SECONDS
-                                   last-accessed current-time)]
+                                    last-accessed current-time)]
     (>= time-since-access threshold-seconds)))
 
 (defn prepare-session-for-access-update

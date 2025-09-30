@@ -152,7 +152,7 @@
             columns))))
 
 (defn new-adapter
-      "Create new MySQL adapter instance.
+  "Create new MySQL adapter instance.
 
        Returns:
          MySQL adapter implementing DBAdapter protocol"
@@ -164,7 +164,7 @@
 ;; =============================================================================
 
 (defn create-database-url
-      "Create MySQL JDBC URL from components.
+  "Create MySQL JDBC URL from components.
 
        Args:
          host: Database hostname
@@ -193,7 +193,7 @@
 ;; =============================================================================
 
 (defn boolean-column-type
-      "Get MySQL boolean column type definition.
+  "Get MySQL boolean column type definition.
 
        MySQL doesn't have native boolean, uses TINYINT(1).
 
@@ -203,7 +203,7 @@
   "TINYINT(1)")
 
 (defn uuid-column-type
-      "Get MySQL UUID column type definition.
+  "Get MySQL UUID column type definition.
 
        MySQL doesn't have native UUID support, use CHAR for performance.
 
@@ -213,7 +213,7 @@
   "CHAR(36)")
 
 (defn varchar-uuid-column-type
-      "Get MySQL varchar UUID column type definition.
+  "Get MySQL varchar UUID column type definition.
 
        Alternative to CHAR(36) if variable length is preferred.
 
@@ -223,7 +223,7 @@
   "VARCHAR(36)")
 
 (defn timestamp-column-type
-      "Get MySQL timestamp column type definition.
+  "Get MySQL timestamp column type definition.
 
        Returns:
          String - 'TIMESTAMP' for MySQL"
@@ -231,7 +231,7 @@
   "TIMESTAMP")
 
 (defn datetime-column-type
-      "Get MySQL datetime column type definition.
+  "Get MySQL datetime column type definition.
 
        DATETIME has better range than TIMESTAMP in MySQL.
 
@@ -241,7 +241,7 @@
   "DATETIME")
 
 (defn auto-increment-primary-key
-      "Get MySQL auto-increment primary key definition.
+  "Get MySQL auto-increment primary key definition.
 
        Returns:
          String - MySQL auto-increment syntax"
@@ -253,7 +253,7 @@
 ;; =============================================================================
 
 (defn explain-query
-      "Get MySQL query execution plan.
+  "Get MySQL query execution plan.
 
        Args:
          datasource: MySQL datasource
@@ -279,7 +279,7 @@
                     {:builder-fn rs/as-unqualified-lower-maps}))))
 
 (defn analyze-table
-      "Update MySQL table statistics for better query planning.
+  "Update MySQL table statistics for better query planning.
 
        Args:
          datasource: MySQL datasource
@@ -293,7 +293,7 @@
     (log/debug "Analyzed MySQL table" {:table table-str})))
 
 (defn optimize-table
-      "Optimize MySQL table to reclaim space and update indexes.
+  "Optimize MySQL table to reclaim space and update indexes.
 
        Args:
          datasource: MySQL datasource
@@ -311,7 +311,7 @@
 ;; =============================================================================
 
 (defn server-info
-      "Get MySQL server information.
+  "Get MySQL server information.
 
        Args:
          datasource: MySQL datasource
@@ -334,7 +334,7 @@
      :current-user     (:current_user vars-result)}))
 
 (defn show-engines
-      "List available MySQL storage engines.
+  "List available MySQL storage engines.
 
        Args:
          datasource: MySQL datasource
@@ -357,7 +357,7 @@
           results)))
 
 (defn show-variables
-      "Show MySQL system variables.
+  "Show MySQL system variables.
 
        Args:
          datasource: MySQL datasource
@@ -386,7 +386,7 @@
 ;; =============================================================================
 
 (defn show-processlist
-      "Show active MySQL connections and queries.
+  "Show active MySQL connections and queries.
 
        Args:
          datasource: MySQL datasource
@@ -411,7 +411,7 @@
           results)))
 
 (defn show-table-status
-      "Show MySQL table status and statistics.
+  "Show MySQL table status and statistics.
 
        Args:
          datasource: MySQL datasource

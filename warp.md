@@ -832,7 +832,7 @@ clojure -M:build:deploy
 
 - [User Module Architecture](docs/user-module-architecture.md) - Clean architecture implementation guide
 - [Migration Guide](docs/migration-guide.md) - Step-by-step guide to new infrastructure
-- [Infrastructure Examples](examples/user-infrastructure-example.clj) - Working code examples
+- [Infrastructure Examples](examples/user_infrastructure_example.clj) - Working code examples
 - [Refactoring Summary](INFRASTRUCTURE-REFACTOR-SUMMARY.md) - Complete overview of infrastructure changes
 
 ### External References

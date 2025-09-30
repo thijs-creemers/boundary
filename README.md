@@ -80,7 +80,7 @@ See [Architecture Documentation](docs/architecture/) for detailed technical spec
 
 ### Infrastructure & Migration
 - **[Migration Guide](docs/migration-guide.md)** - Step-by-step migration to new infrastructure
-- **[Infrastructure Examples](examples/user-infrastructure-example.clj)** - Working code examples
+- **[Infrastructure Examples](examples/user_infrastructure_example.clj)** - Working code examples
 - **[Refactoring Summary](INFRASTRUCTURE-REFACTOR-SUMMARY.md)** - Complete overview of changes
 - **[Dynamic Driver Loading](docs/DYNAMIC_DRIVER_LOADING.md)** - Automatic JDBC driver loading system
 

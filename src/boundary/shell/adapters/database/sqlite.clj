@@ -46,7 +46,7 @@
    "PRAGMA busy_timeout=5000"])                             ; 5-second busy timeout
 
 (defn initialize-sqlite-pragmas!
-      "Apply SQLite PRAGMA settings to a connection.
+  "Apply SQLite PRAGMA settings to a connection.
 
        Args:
          datasource: Database connection or connection pool
@@ -146,7 +146,7 @@
             results))))
 
 (defn new-adapter
-      "Create new SQLite adapter instance.
+  "Create new SQLite adapter instance.
 
        Returns:
          SQLite adapter implementing DBAdapter protocol"
@@ -178,5 +178,5 @@
        (execute-update! tx query2))"
   [binding & body]
   `(with-transaction* ~(second binding)
-                      (fn [~(first binding)]
-                        ~@body)))
+     (fn [~(first binding)]
+       ~@body)))

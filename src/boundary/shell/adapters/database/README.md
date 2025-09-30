@@ -16,15 +16,15 @@ The system is built on a clean layered architecture with proper separation of co
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │              Business Logic Layer                           │
-│        (boundary.user.shell.service)                        │
+│        (boundary.<module>.shell.service)                    │
 │               - Database agnostic                           │
 │               - Uses dependency injection                   │
 ├─────────────────────────────────────────────────────────────┤
 │              Repository Interfaces                          │
-│            (boundary.user.ports)                            │
+│            (boundary.<module>.ports)                        │
 ├─────────────────────────────────────────────────────────────┤
 │              Database Layer                                 │
-│     (boundary.shell.adapters.database.user)                 │
+│     (boundary.<module>.shell.persistence                    │
 │               - Implements repositories                     │
 │               - Handles entity transformations              │
 ├─────────────────────────────────────────────────────────────┤

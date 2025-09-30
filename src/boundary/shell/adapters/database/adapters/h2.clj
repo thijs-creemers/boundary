@@ -19,30 +19,30 @@
 
 (defrecord H2Adapter []
   protocols/DBAdapter
-  
+
   (dialect [_]
     ;; H2 should return its own dialect identifier
     :h2)
-  
+
   (jdbc-driver [_]
     "org.h2.Driver")
-  
+
   (jdbc-url [_ db-config]
     (let [db-path (:database-path db-config)]
       (cond
         ;; In-memory database
         (:memory db-config)
         "jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_UPPER=FALSE;DB_CLOSE_DELAY=-1"
-        
+
         ;; Handle explicit memory path
         (or (= ":memory:" db-path)
             (str/starts-with? db-path "mem:"))
         (str "jdbc:h2:" db-path ";MODE=PostgreSQL;DATABASE_TO_UPPER=FALSE;DB_CLOSE_DELAY=-1")
-        
+
         ;; File-based database
         :else
         (str "jdbc:h2:file:" db-path ";MODE=PostgreSQL;DATABASE_TO_UPPER=FALSE;AUTO_SERVER=TRUE"))))
-  
+
   (pool-defaults [_]
     ;; H2 can handle more connections efficiently
     {:minimum-idle 2
@@ -50,66 +50,66 @@
      :connection-timeout-ms 30000
      :idle-timeout-ms 600000
      :max-lifetime-ms 1800000})
-  
+
   (init-connection! [_ datasource _db-config]
     ;; Set up H2-specific connection settings
     (try
       (with-open [conn (jdbc/get-connection datasource)]
         (log/debug "Initializing H2 connection with compatibility settings")
-        
+
         ;; Set timezone to UTC for consistency
         (jdbc/execute! conn ["SET TIME ZONE 'UTC'"])
-        
+
         ;; Enable PostgreSQL compatibility mode (if not already set in URL)
         (jdbc/execute! conn ["SET MODE PostgreSQL"])
-        
+
         ;; Enable lowercase identifiers for PostgreSQL compatibility
         (jdbc/execute! conn ["SET DATABASE_TO_LOWER TRUE"])
-        
+
         ;; Set reasonable lock timeout
         (jdbc/execute! conn ["SET LOCK_TIMEOUT 30000"])
-        
+
         (log/info "H2 connection initialized with PostgreSQL compatibility mode"))
       (catch Exception e
         (log/warn "Failed to apply H2 settings" {:error (.getMessage e)})
         ;; Don't fail initialization for settings issues
         nil)))
-  
+
   (build-where [_ filters]
     (when (seq filters)
       (let [conditions (map (fn [[field value]]
-                             (cond
+                              (cond
                                ;; Handle nil values
-                               (nil? value)
-                               [:is field nil]
-                               
+                                (nil? value)
+                                [:is field nil]
+
                                ;; Handle collections (IN clause)
-                               (coll? value)
-                               (if (empty? value)
+                                (coll? value)
+                                (if (empty? value)
                                  ;; Empty collection should match nothing
-                                 [:= 1 0]
-                                 [:in field value])
-                               
+                                  [:= 1 0]
+                                  [:in field value])
+
                                ;; Handle string pattern matching with ILIKE for case-insensitive
-                               (and (string? value) (str/includes? value "*"))
-                               [:ilike field (str/replace value "*" "%")]
-                               
+                                (and (string? value) (str/includes? value "*"))
+                                [:ilike field (str/replace value "*" "%")]
+
                                ;; Handle boolean values (H2 supports native booleans)
-                               (boolean? value)
-                               [:= field value]
-                               
+                                (boolean? value)
+                                [:= field value]
+
                                ;; Default equality
-                               :else
-                               [:= field value]))
-                           filters)]
+                                :else
+                                [:= field value]))
+                            filters)]
         (if (= 1 (count conditions))
           (first conditions)
           (into [:and] conditions)))))
-  
+
   (boolean->db [_ boolean-value]
     ;; H2 supports native boolean values
     boolean-value)
-  
+
   (db->boolean [_ db-value]
     ;; H2 returns proper boolean values, but handle edge cases
     (cond
@@ -123,7 +123,7 @@
       (= db-value "TRUE") true
       (= db-value "FALSE") false
       :else (boolean db-value)))
-  
+
   (table-exists? [_ datasource table-name]
     (try
       (let [table-str (str/lower-case (name table-name))  ; Use lowercase for PostgreSQL compatibility mode
@@ -131,10 +131,10 @@
             result (jdbc/execute! datasource [query table-str])]
         (boolean (seq result)))  ; Ensure boolean return instead of truthy/falsy
       (catch Exception e
-        (log/error "Failed to check table existence" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "Failed to check table existence"
+                   {:table table-name :error (.getMessage e)})
         false)))
-  
+
   (get-table-info [_ datasource table-name]
     (try
       (let [table-str (str/lower-case (name table-name))  ; Use lowercase for PostgreSQL compatibility mode
@@ -161,8 +161,8 @@
                  :primary-key (boolean (:is_primary row))})
               results))
       (catch Exception e
-        (log/error "Failed to get table info" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "Failed to get table info"
+                   {:table table-name :error (.getMessage e)})
         []))))
 
 ;; =============================================================================
@@ -213,9 +213,9 @@
     (let [settings-query "SELECT * FROM INFORMATION_SCHEMA.SETTINGS"
           results (jdbc/execute! datasource [settings-query])]
       (into {} (map (fn [row]
-                     [(keyword (str/lower-case (:setting_name row)))
-                      (:setting_value row)])
-                   results)))
+                      [(keyword (str/lower-case (:setting_name row)))
+                       (:setting_value row)])
+                    results)))
     (catch Exception e
       (log/error "Failed to get H2 settings" {:error (.getMessage e)})
       {})))
@@ -233,16 +233,16 @@
      nil"
   [datasource sequence-name & {:keys [start-value increment]
                                :or {start-value 1 increment 1}}]
-  (let [sql (str "CREATE SEQUENCE IF NOT EXISTS " sequence-name 
-                " START WITH " start-value 
-                " INCREMENT BY " increment)]
+  (let [sql (str "CREATE SEQUENCE IF NOT EXISTS " sequence-name
+                 " START WITH " start-value
+                 " INCREMENT BY " increment)]
     (log/info "Creating H2 sequence" {:sequence sequence-name :start start-value :increment increment})
     (try
       (jdbc/execute! datasource [sql])
       (log/info "H2 sequence created successfully" {:sequence sequence-name})
       (catch Exception e
-        (log/error "Failed to create H2 sequence" 
-                  {:sequence sequence-name :error (.getMessage e)})
+        (log/error "Failed to create H2 sequence"
+                   {:sequence sequence-name :error (.getMessage e)})
         (throw e)))))
 
 (defn upsert!
@@ -262,11 +262,11 @@
         key-cols (map name key-columns)
         value-cols (map name all-columns)
         placeholders (str/join ", " (repeat (count all-columns) "?"))
-        key-conditions (str/join " AND " 
-                                (map #(str "KEY." % " = VALUES." %) key-cols))
+        key-conditions (str/join " AND "
+                                 (map #(str "KEY." % " = VALUES." %) key-cols))
         sql (str "MERGE INTO " table-str " KEY(" (str/join ", " key-cols) ") "
-                "VALUES (" placeholders ")")]
-    
+                 "VALUES (" placeholders ")")]
+
     (log/debug "Executing H2 MERGE" {:table table :key-columns key-columns})
     (try
       (let [values (mapv data (map keyword value-cols))
@@ -274,8 +274,8 @@
         (log/debug "H2 MERGE completed" {:table table :affected-rows result})
         (first result))
       (catch Exception e
-        (log/error "H2 MERGE failed" 
-                  {:table table :key-columns key-columns :error (.getMessage e)})
+        (log/error "H2 MERGE failed"
+                   {:table table :key-columns key-columns :error (.getMessage e)})
         (throw e)))))
 
 (defn truncate-table!
@@ -294,6 +294,6 @@
       (jdbc/execute! datasource [sql])
       (log/info "H2 table truncated successfully" {:table table-name})
       (catch Exception e
-        (log/error "Failed to truncate H2 table" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "Failed to truncate H2 table"
+                   {:table table-name :error (.getMessage e)})
         (throw e)))))

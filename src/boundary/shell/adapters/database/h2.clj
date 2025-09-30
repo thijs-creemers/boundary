@@ -137,7 +137,7 @@
             columns))))
 
 (defn new-adapter
-      "Create new H2 adapter instance.
+  "Create new H2 adapter instance.
 
        Returns:
          H2 adapter implementing DBAdapter protocol"
@@ -149,7 +149,7 @@
 ;; =============================================================================
 
 (defn in-memory-url
-      "Create H2 in-memory database URL.
+  "Create H2 in-memory database URL.
 
        Args:
          db-name: Database name (optional, defaults to 'testdb')
@@ -165,7 +165,7 @@
    (str "jdbc:h2:mem:" db-name ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH")))
 
 (defn file-url
-      "Create H2 file-based database URL.
+  "Create H2 file-based database URL.
 
        Args:
          file-path: Path to database file (without .mv.db extension)
@@ -179,7 +179,7 @@
   (str "jdbc:h2:" file-path ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH"))
 
 (defn create-test-context
-      "Create H2 in-memory database context for testing.
+  "Create H2 in-memory database context for testing.
 
        Args:
          db-name: Optional database name (defaults to random UUID)
@@ -205,7 +205,7 @@
 ;; =============================================================================
 
 (defn boolean-column-type
-      "Get H2 boolean column type definition.
+  "Get H2 boolean column type definition.
 
        Returns:
          String - 'BOOLEAN' for H2"
@@ -213,7 +213,7 @@
   "BOOLEAN")
 
 (defn uuid-column-type
-      "Get H2 UUID column type definition.
+  "Get H2 UUID column type definition.
 
        H2 has native UUID support, but we use VARCHAR for compatibility.
 
@@ -223,7 +223,7 @@
   "VARCHAR(36)")
 
 (defn timestamp-column-type
-      "Get H2 timestamp column type definition.
+  "Get H2 timestamp column type definition.
 
        Returns:
          String - 'TIMESTAMP' for H2"
@@ -231,7 +231,7 @@
   "TIMESTAMP")
 
 (defn auto-increment-primary-key
-      "Get H2 auto-increment primary key definition.
+  "Get H2 auto-increment primary key definition.
 
        Returns:
          String - H2 auto-increment syntax"
@@ -243,7 +243,7 @@
 ;; =============================================================================
 
 (defn explain-query
-      "Get H2 query execution plan.
+  "Get H2 query execution plan.
 
        Args:
          datasource: H2 datasource
@@ -262,7 +262,7 @@
                    {:builder-fn rs/as-unqualified-lower-maps})))
 
 (defn analyze-table
-      "Update H2 table statistics for better query planning.
+  "Update H2 table statistics for better query planning.
 
        Args:
          datasource: H2 datasource
@@ -280,7 +280,7 @@
 ;; =============================================================================
 
 (defn show-tables
-      "List all tables in H2 database.
+  "List all tables in H2 database.
 
        Args:
          datasource: H2 datasource
@@ -297,7 +297,7 @@
     (mapv #(str/lower-case (:table_name %)) results)))
 
 (defn show-indexes
-      "List all indexes in H2 database.
+  "List all indexes in H2 database.
 
        Args:
          datasource: H2 datasource

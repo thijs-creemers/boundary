@@ -205,9 +205,8 @@
   (s/or :sqlite ::sqlite-config
         :server ::server-db-config))
 
-
 (defn validate-db-config
-      "Validate database configuration against spec.
+  "Validate database configuration against spec.
 
        Args:
          db-config: Database configuration map

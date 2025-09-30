@@ -19,14 +19,14 @@
 
 (defrecord MySQLAdapter []
   protocols/DBAdapter
-  
+
   (dialect [_]
     ;; MySQL uses :mysql dialect for HoneySQL
     :mysql)
-  
+
   (jdbc-driver [_]
     "com.mysql.cj.jdbc.Driver")
-  
+
   (jdbc-url [_ db-config]
     (let [host (:host db-config)
           port (:port db-config)
@@ -34,7 +34,7 @@
           ;; Add MySQL-specific connection parameters for optimal behavior
           params "?useSSL=false&serverTimezone=UTC&characterEncoding=utf8mb4&useUnicode=true&rewriteBatchedStatements=true"]
       (str "jdbc:mysql://" host ":" port "/" dbname params)))
-  
+
   (pool-defaults [_]
     ;; MySQL can handle reasonable connection pools
     {:minimum-idle 3
@@ -42,91 +42,91 @@
      :connection-timeout-ms 30000
      :idle-timeout-ms 600000
      :max-lifetime-ms 1800000})
-  
+
   (init-connection! [_ datasource db-config]
     ;; Set up MySQL-specific connection settings
     (try
       (with-open [conn (jdbc/get-connection datasource)]
         (log/debug "Initializing MySQL connection with optimal settings")
-        
+
         ;; Set timezone to UTC for consistency
         (jdbc/execute! conn ["SET time_zone = '+00:00'"])
-        
+
         ;; Set SQL mode for strict behavior and standards compliance
         (jdbc/execute! conn ["SET sql_mode = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'"])
-        
+
         ;; Set character set and collation to UTF8MB4 for full Unicode support
         (jdbc/execute! conn ["SET NAMES utf8mb4"])
         (jdbc/execute! conn ["SET CHARACTER SET utf8mb4"])
         (jdbc/execute! conn ["SET collation_connection = 'utf8mb4_unicode_ci'"])
-        
+
         ;; Set transaction isolation level
         (jdbc/execute! conn ["SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED"])
-        
+
         ;; Disable foreign key checks if specified (useful for bulk operations)
         (when (:disable-foreign-key-checks db-config)
           (jdbc/execute! conn ["SET foreign_key_checks = 0"]))
-        
+
         ;; Set wait timeout
         (jdbc/execute! conn ["SET wait_timeout = 28800"])  ; 8 hours
         (jdbc/execute! conn ["SET interactive_timeout = 28800"])
-        
+
         ;; Enable query cache if available (older MySQL versions)
         (try
           (jdbc/execute! conn ["SET query_cache_type = ON"])
           (catch Exception _
             ;; Query cache removed in MySQL 8.0, ignore error
             nil))
-        
+
         (log/info "MySQL connection initialized with optimal settings"))
       (catch Exception e
         (log/warn "Failed to apply MySQL settings" {:error (.getMessage e)})
         ;; Don't fail initialization for settings issues
         nil)))
-  
+
   (build-where [_ filters]
     (when (seq filters)
       (let [conditions (map (fn [[field value]]
-                             (cond
+                              (cond
                                ;; Handle nil values
-                               (nil? value)
-                               [:is field nil]
-                               
+                                (nil? value)
+                                [:is field nil]
+
                                ;; Handle collections (IN clause)
-                               (coll? value)
-                               (if (empty? value)
+                                (coll? value)
+                                (if (empty? value)
                                  ;; Empty collection should match nothing
-                                 [:= 1 0]
-                                 [:in field value])
-                               
+                                  [:= 1 0]
+                                  [:in field value])
+
                                ;; Handle string pattern matching (case-insensitive with LIKE)
-                               (and (string? value) (str/includes? value "*"))
-                               [:like field (str/replace value "*" "%")]
-                               
+                                (and (string? value) (str/includes? value "*"))
+                                [:like field (str/replace value "*" "%")]
+
                                ;; Handle JSON queries (MySQL 5.7+)
-                               (and (string? value) (str/includes? (name field) "json"))
+                                (and (string? value) (str/includes? (name field) "json"))
                                ;; MySQL JSON functions: JSON_EXTRACT, JSON_CONTAINS, etc.
-                               [:= field value]  ; Simplified for now
-                               
+                                [:= field value]  ; Simplified for now
+
                                ;; Handle boolean values (MySQL stores as TINYINT)
-                               (boolean? value)
-                               [:= field (if value 1 0)]
-                               
+                                (boolean? value)
+                                [:= field (if value 1 0)]
+
                                ;; Default equality
-                               :else
-                               [:= field value]))
-                           filters)]
+                                :else
+                                [:= field value]))
+                            filters)]
         (if (= 1 (count conditions))
           (first conditions)
           (into [:and] conditions)))))
-  
+
   (boolean->db [_ boolean-value]
     ;; MySQL stores booleans as TINYINT(1)
     (cond
       (true? boolean-value) 1
       (false? boolean-value) 0
       :else nil))
-  
+
   (db->boolean [_ db-value]
     ;; Convert MySQL TINYINT values back to booleans
     (cond
@@ -139,7 +139,7 @@
       (= db-value "TRUE") true
       (= db-value "FALSE") false
       :else (boolean db-value)))
-  
+
   (table-exists? [_ datasource table-name]
     (try
       (let [table-str (name table-name)
@@ -147,10 +147,10 @@
             result (jdbc/execute! datasource [query table-str])]
         (seq result))
       (catch Exception e
-        (log/error "Failed to check table existence" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "Failed to check table existence"
+                   {:table table-name :error (.getMessage e)})
         false)))
-  
+
   (get-table-info [_ datasource table-name]
     (try
       (let [table-str (name table-name)
@@ -172,8 +172,8 @@
                  :primary-key (= "PRI" (:column_key row))})
               results))
       (catch Exception e
-        (log/error "Failed to get table info" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "Failed to get table info"
+                   {:table table-name :error (.getMessage e)})
         []))))
 
 ;; =============================================================================
@@ -223,13 +223,13 @@
   [datasource & {:keys [pattern]}]
   (try
     (let [query (if pattern
-                 (str "SHOW STATUS LIKE '" pattern "'")
-                 "SHOW STATUS")
+                  (str "SHOW STATUS LIKE '" pattern "'")
+                  "SHOW STATUS")
           results (jdbc/execute! datasource [query])]
       (into {} (map (fn [row]
-                     [(keyword (str/lower-case (str/replace (:variable_name row) "_" "-")))
-                      (:value row)])
-                   results)))
+                      [(keyword (str/lower-case (str/replace (:variable_name row) "_" "-")))
+                       (:value row)])
+                    results)))
     (catch Exception e
       (log/error "Failed to get MySQL status" {:error (.getMessage e)})
       {})))
@@ -251,8 +251,8 @@
         (log/info "OPTIMIZE TABLE completed" {:table table-name :result result})
         result)
       (catch Exception e
-        (log/error "OPTIMIZE TABLE failed" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "OPTIMIZE TABLE failed"
+                   {:table table-name :error (.getMessage e)})
         (throw e)))))
 
 (defn analyze-table!
@@ -272,8 +272,8 @@
         (log/info "ANALYZE TABLE completed" {:table table-name :result result})
         result)
       (catch Exception e
-        (log/error "ANALYZE TABLE failed" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "ANALYZE TABLE failed"
+                   {:table table-name :error (.getMessage e)})
         (throw e)))))
 
 (defn upsert!
@@ -291,29 +291,29 @@
   (let [table-str (name table)
         all-columns (keys data)
         update-cols (or update-columns all-columns)
-        
+
         ;; Build INSERT part
         insert-columns (str/join ", " (map name all-columns))
         placeholders (str/join ", " (repeat (count all-columns) "?"))
-        
+
         ;; Build ON DUPLICATE KEY UPDATE part
-        update-clause (str/join ", " 
-                               (map #(str (name %) " = VALUES(" (name %) ")") update-cols))
-        
+        update-clause (str/join ", "
+                                (map #(str (name %) " = VALUES(" (name %) ")") update-cols))
+
         sql (str "INSERT INTO " table-str " (" insert-columns ") "
-                "VALUES (" placeholders ") "
-                "ON DUPLICATE KEY UPDATE " update-clause)]
-    
-    (log/debug "Executing MySQL upsert" 
-              {:table table :update-columns (map name update-cols)})
+                 "VALUES (" placeholders ") "
+                 "ON DUPLICATE KEY UPDATE " update-clause)]
+
+    (log/debug "Executing MySQL upsert"
+               {:table table :update-columns (map name update-cols)})
     (try
       (let [values (mapv data all-columns)
             result (jdbc/execute! datasource (into [sql] values))]
         (log/debug "MySQL upsert completed" {:table table :result result})
         result)
       (catch Exception e
-        (log/error "MySQL upsert failed" 
-                  {:table table :error (.getMessage e)})
+        (log/error "MySQL upsert failed"
+                   {:table table :error (.getMessage e)})
         (throw e)))))
 
 (defn show-create-table
@@ -331,8 +331,8 @@
           result (jdbc/execute! datasource [query])]
       (:create_table (first result)))
     (catch Exception e
-      (log/error "Failed to show CREATE TABLE" 
-                {:table table-name :error (.getMessage e)})
+      (log/error "Failed to show CREATE TABLE"
+                 {:table table-name :error (.getMessage e)})
       nil)))
 
 (defn get-table-status
@@ -347,8 +347,8 @@
   [datasource & {:keys [table-name]}]
   (try
     (let [query (if table-name
-                 (str "SHOW TABLE STATUS LIKE '" (name table-name) "'")
-                 "SHOW TABLE STATUS")
+                  (str "SHOW TABLE STATUS LIKE '" (name table-name) "'")
+                  "SHOW TABLE STATUS")
           results (jdbc/execute! datasource [query])]
       (mapv (fn [row]
               {:name (:name row)
@@ -360,10 +360,10 @@
                :create-time (:create_time row)
                :update-time (:update_time row)
                :collation (:collation row)})
-           results))
+            results))
     (catch Exception e
-      (log/error "Failed to get MySQL table status" 
-                {:table table-name :error (.getMessage e)})
+      (log/error "Failed to get MySQL table status"
+                 {:table table-name :error (.getMessage e)})
       [])))
 
 (defn repair-table!
@@ -383,6 +383,6 @@
         (log/info "REPAIR TABLE completed" {:table table-name :result result})
         result)
       (catch Exception e
-        (log/error "REPAIR TABLE failed" 
-                  {:table table-name :error (.getMessage e)})
+        (log/error "REPAIR TABLE failed"
+                   {:table table-name :error (.getMessage e)})
         (throw e)))))
