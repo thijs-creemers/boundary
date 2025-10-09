@@ -48,7 +48,7 @@
   (log/info "Initializing user schema from Malli definitions")
   (db-schema/initialize-tables-from-schemas! ctx
                                              {"users" user-schema/User
-                                              "user_sessions" user-schema/UserSession}))
+                                              "user_preferences" user-schema/UserPreferences}))
 
 ;; =============================================================================
 ;; Entity Transformations

@@ -66,7 +66,7 @@ sudo apt-get update
 sudo apt-get install -y default-jdk rlwrap
 
 # Install Clojure CLI
-curl -L -O https://download.clojure.org/install/linux-install-1.11.1.1413.sh
+curl -L -O https://download.clojure.org/install/linux-install-1.12.3.1577.sh
 chmod +x linux-install-*.sh && sudo ./linux-install-*.sh
 ```
 
@@ -81,7 +81,7 @@ cd boundary
 echo $SHELL
 
 # Run tests to verify setup
-clojure -M:test:db/h2
+clojure -M:test
 
 # Start a development REPL
 clojure -M:repl-clj
