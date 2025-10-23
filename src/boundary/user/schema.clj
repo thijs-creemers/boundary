@@ -41,6 +41,20 @@
    [:date-format [:enum :iso :us :eu]]
    [:time-format [:enum :12h :24h]]])
 
+(def UserSession
+  "Schema for UserSession entity."
+  [:map {:title "User Session"}
+   [:id :uuid]
+   [:user-id :uuid]
+   [:tenant-id :uuid]
+   [:session-token :string]
+   [:expires-at :string]
+   [:created-at :string]
+   [:last-accessed-at {:optional true} [:maybe :string]]
+   [:revoked-at {:optional true} [:maybe :string]]
+   [:user-agent {:optional true} :string]
+   [:ip-address {:optional true} :string]])
+
 ;; =============================================================================
 ;; API Request Schemas
 ;; =============================================================================
@@ -160,7 +174,8 @@
   "Registry of all user module schemas for easy access."
   {:domain-entities
    {:user User
-    :user-preferences UserPreferences}})
+    :user-preferences UserPreferences
+    :user-session UserSession}})
 
 (defn get-schema
   "Retrieves a schema from the registry by category and name."

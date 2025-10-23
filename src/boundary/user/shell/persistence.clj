@@ -36,6 +36,15 @@
 (defn initialize-user-schema!
   "Initialize database schema for user entities using Malli schema definitions.
    
+   Creates the following tables:
+   - users: User accounts with tenant isolation
+   - user_sessions: User authentication sessions
+   
+   Includes indexes for:
+   - Foreign keys (tenant_id, user_id)
+   - Unique constraints (email per tenant, session tokens)
+   - Query performance (role, active status, expiration dates)
+   
    Args:
      ctx: Database context
      
@@ -48,7 +57,7 @@
   (log/info "Initializing user schema from Malli definitions")
   (db-schema/initialize-tables-from-schemas! ctx
                                              {"users" user-schema/User
-                                              "user_preferences" user-schema/UserPreferences}))
+                                              "user_sessions" user-schema/UserSession}))
 
 ;; =============================================================================
 ;; Entity Transformations

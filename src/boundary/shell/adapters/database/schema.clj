@@ -25,6 +25,15 @@
             [clojure.tools.logging :as log]))
 
 ;; =============================================================================
+;; Column Name Conversion
+;; =============================================================================
+
+(defn- col-name
+  "Convert kebab-case field name to snake_case column name."
+  [s]
+  (str/replace s "-" "_"))
+
+;; =============================================================================
 ;; Column Type Mapping
 ;; =============================================================================
 
@@ -114,14 +123,15 @@
    Returns:
      String column definition"
   [ctx {:keys [name type optional? schema]}]
-  (let [column-type (malli-type->column-type ctx type)
+  (let [column-name (col-name name)  ; Convert kebab-case to snake_case
+        column-type (malli-type->column-type ctx type)
         not-null (if optional? "" " NOT NULL")
         primary-key (if (= name "id") " PRIMARY KEY" "")
         ; Handle enum constraints
         enum-constraint (if (and (vector? schema) (= :enum (first schema)))
                           (let [enum-values (map str (rest schema))
                                 values-str (str/join ", " (map #(str "'" % "'") enum-values))]
-                            (str " CHECK(" name " IN (" values-str "))"))
+                            (str " CHECK(" column-name " IN (" values-str "))"))
                           "")
         ; Handle boolean defaults for active fields
         boolean-default (if (and (= type :boolean) (= name "active") (not optional?))
@@ -129,7 +139,7 @@
                             :sqlite " DEFAULT 1"
                             " DEFAULT true")
                           "")]
-    (str name " " column-type not-null primary-key enum-constraint boolean-default)))
+    (str column-name " " column-type not-null primary-key enum-constraint boolean-default)))
 
 (defn- generate-table-constraints
   "Generate table-level constraints (unique, foreign keys) based on table name and fields.
@@ -146,19 +156,21 @@
                                 (str/ends-with? (:name %) "-id"))
                           field-infos)]
     (vec (concat
-          ; Foreign key constraints
-          (map (fn [{:keys [name]}]
-                 (let [ref-table (str/replace name #"-id$" "s") ; user-id -> users
-                       constraint-name (str "fk_" table-name "_" (str/replace name "-" "_"))]
-                   (str "CONSTRAINT " constraint-name
-                        " FOREIGN KEY (" (str/replace name "-" "_")
-                        ") REFERENCES " ref-table "(id) ON DELETE CASCADE")))
-               fk-fields)
+          ; Foreign key constraints - DISABLED FOR NOW
+          ; (uncomment when tenant table is implemented)
+          ; (map (fn [{:keys [name]}]
+          ;        (let [ref-table (str/replace name #"-id$" "s") ; user-id -> users
+          ;              constraint-name (str "fk_" table-name "_" (col-name name))]
+          ;          (str "CONSTRAINT " constraint-name
+          ;               " FOREIGN KEY (" (col-name name)
+          ;               ") REFERENCES " ref-table "(id) ON DELETE CASCADE")))
+          ;      fk-fields)
+          []
 
           ; Table-specific unique constraints
           (case table-name
             "users" ["CONSTRAINT uk_users_email_tenant UNIQUE(email, tenant_id)"]
-            "user_sessions" [] ; Foreign key constraint handled above
+            "user_sessions" ["CONSTRAINT uk_user_sessions_token UNIQUE(session_token)"]
             [])))))
 
 (defn generate-table-ddl
@@ -215,22 +227,22 @@
           ; Indexes on foreign key fields
           (map (fn [{:keys [name]}]
                  (str "CREATE INDEX IF NOT EXISTS idx_" table-name "_"
-                      (str/replace name "-" "_") " ON " table-name " ("
-                      (str/replace name "-" "_") ")"))
+                      (col-name name) " ON " table-name " ("
+                      (col-name name) ")"))
                id-fields)
 
           ; Indexes on enum fields (like role, active)
           (map (fn [{:keys [name]}]
                  (str "CREATE INDEX IF NOT EXISTS idx_" table-name "_"
-                      (str/replace name "-" "_") " ON " table-name " ("
-                      (str/replace name "-" "_") ")"))
+                      (col-name name) " ON " table-name " ("
+                      (col-name name) ")"))
                enum-fields)
 
           ; Indexes on timestamp fields
           (map (fn [{:keys [name]}]
                  (str "CREATE INDEX IF NOT EXISTS idx_" table-name "_"
-                      (str/replace name "-" "_") " ON " table-name " ("
-                      (str/replace name "-" "_") ")"))
+                      (col-name name) " ON " table-name " ("
+                      (col-name name) ")"))
                timestamp-fields)
 
           ; Table-specific compound indexes
@@ -241,7 +253,7 @@
              "CREATE INDEX IF NOT EXISTS idx_users_active_tenant ON users (active, tenant_id)"]
 
             "user_sessions"
-            ["CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions (token)"
+            ["CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions (session_token)"
              "CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON user_sessions (expires_at)"]
 
             [])))))
@@ -312,3 +324,4 @@
                  {:error (.getMessage e)
                   :dialect (protocols/dialect (:adapter ctx))})
       (throw e))))
+

@@ -2,6 +2,11 @@
 
 A comprehensive guide for developing with Boundary, a module-centric Clojure framework implementing the Functional Core / Imperative Shell (FC/IS) architectural paradigm.
 
+
+*** Important: do not stage, commit or push without permission ***
+
+*** Important: Please use the clojure MCP server for creating correctly balanced clojure code.
+
 ## Table of Contents
 
 - [Project Overview](#project-overview)

@@ -16,18 +16,18 @@
   ;; Active database configurations
   ;; Only databases listed here will be loaded and initialized
   
-  ;; SQLite for file-based development
-  ;; :boundary/sqlite
-  ;; {:db "dev-database.db"
-  ;;  :pool {:minimum-idle 1
-  ;;         :maximum-pool-size 3
-  ;;         :connection-timeout-ms 10000}}
-  
-  ;; H2 for development (active)
-  :boundary/h2
-  {:memory true  ; or {:db "dev-h2-database"}
+  ;; SQLite for file-based development (active)
+  :boundary/sqlite
+  {:db "dev-database.db"
    :pool {:minimum-idle 1
-          :maximum-pool-size 5}}
+          :maximum-pool-size 3
+          :connection-timeout-ms 10000}}
+
+  ;; HTTP Server configuration
+  :boundary/http
+  {:port #or [#env HTTP_PORT 3000]
+   :host #or [#env HTTP_HOST "0.0.0.0"]
+   :join? false}
  }
 
  :inactive
