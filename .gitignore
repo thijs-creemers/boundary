@@ -9,4 +9,4 @@
 /docs/**/*.html
 /.nrepl-port
 opencode.json
-*.db
+*.db*
