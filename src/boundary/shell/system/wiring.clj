@@ -99,11 +99,11 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-service]}]
+  [_ {:keys [user-service config]}]
   (log/info "Initializing HTTP handler with Reitit router")
-  (let [user-http (require 'boundary.user.http)
-        create-handler (ns-resolve 'boundary.user.http 'create-handler)
-        handler (create-handler user-service)]
+  (let [user-http (require 'boundary.user.shell.http)
+        create-handler (ns-resolve 'boundary.user.shell.http 'create-handler)
+        handler (create-handler user-service (or config {}))]
     (log/info "HTTP handler initialized successfully")
     handler))
 

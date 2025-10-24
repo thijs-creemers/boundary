@@ -4,7 +4,7 @@
    Provides command-line interface for all modules.
    Currently supports user and session management."
   (:require [boundary.config :as config]
-            [boundary.user.cli :as user-cli]
+            [boundary.user.shell.cli :as user-cli]
             [boundary.user.shell.persistence :as user-persistence]
             [boundary.user.shell.service :as user-service]
             [boundary.shell.adapters.database.factory :as db-factory]

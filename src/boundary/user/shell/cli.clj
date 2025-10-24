@@ -1,4 +1,4 @@
-(ns boundary.user.cli
+(ns boundary.user.shell.cli)
   "CLI commands for user management."
   (:require [boundary.user.ports :as ports]
             [clojure.tools.logging :as log]))
@@ -60,3 +60,4 @@
           (do
             (println "Unknown command:" command)
             (System/exit 1)))))))
+

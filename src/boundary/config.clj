@@ -191,8 +191,9 @@
       :session-repository (ig/ref :boundary/session-repository)}
      
      :boundary/http-handler
-     {:user-service (ig/ref :boundary/user-service)}
-     
+     {:user-service (ig/ref :boundary/user-service)
+      :config config}
+
      :boundary/http-server
      (merge http-cfg
             {:handler (ig/ref :boundary/http-handler)})}))
