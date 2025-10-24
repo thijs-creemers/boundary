@@ -1,4 +1,4 @@
-(ns boundary.shell.adapters.database.schema
+(ns boundary.shell.adapters.database.utils.schema
   "Schema-to-DDL generation utilities for database adapters.
    
    This namespace provides utilities for generating database DDL statements
@@ -15,12 +15,12 @@
    - Automatic index creation based on field patterns
    
    Usage:
-     (require '[boundary.shell.adapters.database.schema :as schema])
-     
+     (require '[boundary.shell.adapters.database.utils.schema :as schema])
+
      (schema/generate-table-ddl ctx \"users\" some-malli-schema)
      (schema/initialize-tables-from-schemas! ctx schema-map)"
   (:require [boundary.shell.adapters.database.protocols :as protocols]
-            [boundary.shell.adapters.database.core :as db-core]
+            [boundary.shell.adapters.database.common.core :as db-core]
             [clojure.string :as str]
             [clojure.tools.logging :as log]))
 

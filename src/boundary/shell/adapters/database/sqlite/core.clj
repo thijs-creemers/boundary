@@ -31,7 +31,7 @@
             [boundary.shell.adapters.database.sqlite.metadata :as metadata]
             [boundary.shell.adapters.database.sqlite.query :as query]
             [boundary.shell.adapters.database.sqlite.utils :as utils]
-            [boundary.shell.adapters.database.core :refer [with-transaction*]]))
+            [boundary.shell.adapters.database.common.core :refer [with-transaction*]]))
 
 ;; =============================================================================
 ;; SQLite Adapter Implementation

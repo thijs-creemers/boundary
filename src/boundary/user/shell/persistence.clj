@@ -20,9 +20,9 @@
    - Shell handles all I/O and external systems
    - Clean boundary between functional and imperative code"
   (:require [boundary.shared.utils.type-conversion :as type-conversion]
-            [boundary.shell.adapters.database.core :as db]
+            [boundary.shell.adapters.database.common.core :as db]
             [boundary.shell.adapters.database.protocols :as protocols]
-            [boundary.shell.adapters.database.schema :as db-schema]
+            [boundary.shell.adapters.database.utils.schema :as db-schema]
             [boundary.user.ports :as ports]
             [boundary.user.schema :as user-schema]
             [clojure.set]

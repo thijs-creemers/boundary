@@ -28,8 +28,11 @@ The system is built on a clean layered architecture with proper separation of co
 │               - Implements repositories                     │
 │               - Handles entity transformations              │
 ├─────────────────────────────────────────────────────────────┤
-│              Core Database API                              │
-│     (boundary.shell.adapters.database.core)                 │
+│              Common Database API                            │
+│  (boundary.shell.adapters.database.common.core)             │
+│               - Connection pool management                  │
+│               - Query execution & transactions              │
+│               - Schema introspection                        │
 ├─────────────────────────────────────────────────────────────┤
 │              Schema Generation                              │
 │    (boundary.shell.adapters.database.schema)                │
@@ -38,8 +41,13 @@ The system is built on a clean layered architecture with proper separation of co
 │              DBAdapter Protocol                             │
 │   (boundary.shell.adapters.database.protocols)              │
 ├─────────────────────────────────────────────────────────────┤
-│  SQLite    │    H2     │  PostgreSQL │    MySQL             │
-│  Adapter   │  Adapter  │   Adapter   │   Adapter            │
+│  SQLite      │    H2        │  PostgreSQL  │    MySQL       │
+│  Module      │   Module     │   Module     │   Module       │
+│  ├─core.clj  │  ├─core.clj  │  ├─core.clj  │  ├─core.clj    │
+│  ├─connection│  ├─connection│  ├─connection│  ├─connection  │
+│  ├─query     │  ├─query     │  ├─query     │  ├─query       │
+│  ├─metadata  │  ├─metadata  │  ├─metadata  │  ├─metadata    │
+│  └─utils     │  └─utils     │  └─utils     │  └─utils       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -49,11 +57,6 @@ The system is built on a clean layered architecture with proper separation of co
 - Write once, run on any supported database
 - Consistent API across all database engines
 - Automatic query translation and optimization
-
-### Backward Compatible
-- Existing SQLite code continues to work unchanged
-- Deprecation warnings guide migration to new API
-- Gradual migration path available
 
 ### Production Ready
 - Robust connection pooling with HikariCP
@@ -115,7 +118,7 @@ Ensure your `deps.edn` includes the necessary JDBC drivers:
 ### 3. Execute Queries
 
 ```clojure
-(require '[boundary.shell.adapters.database.core :as db])
+(require '[boundary.shell.adapters.database.common.core :as db])
 
 ;; The same query works with any database context
 (db/execute-query! ctx {:select [:*] :from [:users] :where [:= :active true]})
@@ -157,18 +160,6 @@ Ensure your `deps.edn` includes the necessary JDBC drivers:
 
 (def found-user (.find-user-by-email service "test@example.com" tenant-id))
 ```
-
-## Migration from Legacy SQLite System
-
-See [MIGRATION_GUIDE.md](./docs/MIGRATION_GUIDE.md) for detailed migration instructions.
-
-### Summary
-
-1. **Update imports**: Replace `boundary.shared.shell.persistence` with `boundary.shell.adapters.database.factory` and `boundary.shell.adapters.database.core`
-2. **Update configuration**: Change from JDBC-style config to adapter-style config
-3. **Replace datasource with context**: Use `dbf/db-context` instead of `create-connection-pool`
-4. **Update repository constructors**: Use new multi-db repository constructors
-5. **Test thoroughly**: Verify all functionality works with existing data
 
 ## Configuration Examples
 
@@ -335,3 +326,36 @@ clojure -M:test:db/h2 -e :integration  # SQLite/H2 tests only
 ## License
 
 See the main project license.
+
+## Modular Architecture
+
+The system has been refactored into a clean modular architecture where each database adapter and the common functionality are organized into focused namespaces:
+
+### Common Module Structure
+```
+common/
+├── core.clj        # Main entry point - coordinates all common functionality
+├── connection.clj  # HikariCP connection pool management
+├── query.clj       # HoneySQL formatting and query building utilities
+├── execution.clj   # Query execution with logging and error handling
+├── schema.clj      # Schema introspection and DDL execution
+└── utils.clj       # Database information and convenience functions
+```
+
+### Database Adapter Module Structure
+Each database adapter (SQLite, H2, PostgreSQL, MySQL) follows the same pattern:
+```
+<adapter>/
+├── core.clj        # Main entry point - implements DBAdapter protocol
+├── connection.clj  # Database-specific connection management
+├── query.clj       # Database-specific query building and conversions
+├── metadata.clj    # Database-specific table introspection
+└── utils.clj       # Database-specific utilities and DDL helpers
+```
+
+### Benefits of Modular Design
+- **Focused Responsibilities**: Each module has a single, clear purpose
+- **Easier Maintenance**: Changes are isolated to relevant modules
+- **Better Testability**: Each module can be tested independently
+- **Consistent Patterns**: All adapters follow the same structure
+- **Clear Documentation**: Module purposes are clearly defined

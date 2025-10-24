@@ -170,5 +170,5 @@
          db-config {:adapter       :h2
                     :database-path (str "mem:" db-name)}]
      {:adapter    adapter
-      :datasource ((requiring-resolve 'boundary.shell.adapters.database.core/create-connection-pool)
+      :datasource ((requiring-resolve 'boundary.shell.adapters.database.common.core/create-connection-pool)
                    adapter db-config)})))

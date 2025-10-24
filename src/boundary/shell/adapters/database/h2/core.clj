@@ -29,7 +29,7 @@
             [boundary.shell.adapters.database.h2.metadata :as metadata]
             [boundary.shell.adapters.database.h2.query :as query]
             [boundary.shell.adapters.database.h2.utils :as utils]
-            [boundary.shell.adapters.database.core :refer [with-transaction*]]))
+            [boundary.shell.adapters.database.common.core :refer [with-transaction*]]))
 
 ;; =============================================================================
 ;; H2 Adapter Implementation

@@ -21,7 +21,7 @@
      ;; Create specific adapter context from config
      (cf/create-config-context \"dev\" :boundary/sqlite)"
   (:require [boundary.shell.adapters.database.config :as db-config]
-            [boundary.shell.adapters.database.core :as core]
+            [boundary.shell.adapters.database.common.core :as core]
             [boundary.shell.adapters.database.protocols :as protocols]
             [clojure.string :as str]
             [clojure.tools.logging :as log]))
@@ -50,7 +50,7 @@
                          :sqlite 'boundary.shell.adapters.database.sqlite.core
                          :postgresql 'boundary.shell.adapters.database.postgresql.core
                          :mysql 'boundary.shell.adapters.database.mysql.core
-                         :h2 'boundary.shell.adapters.database.h2)
+                         :h2 'boundary.shell.adapters.database.h2.core)
             constructor-fn (case adapter-type
                              :sqlite 'new-adapter
                              :postgresql 'new-adapter

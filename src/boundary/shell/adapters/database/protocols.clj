@@ -188,31 +188,38 @@
    [:idle-timeout-ms {:optional true} pos-int?]
    [:max-lifetime-ms {:optional true} pos-int?]])
 
-(def SQLiteConfig
-  "Schema for SQLite database configuration."
-  [:map {:title "SQLite Configuration"}
-   [:adapter [:enum :sqlite]]
+(def EmbeddedDBConfig
+  "Schema for embedded database configuration (SQLite, H2 file/memory)."
+  [:map {:title "Embedded Database Configuration"}
+   [:adapter [:enum :sqlite :h2]]
    [:database-path string?]
    [:pool {:optional true} PoolConfig]])
 
 (def ServerDBConfig
-  "Schema for server-based database configuration (PostgreSQL, MySQL, H2)."
+  "Schema for server-based database configuration (PostgreSQL, MySQL, H2 server)."
   [:map {:title "Server Database Configuration"}
    [:adapter [:enum :postgresql :mysql :h2]]
-   [:host {:optional true} string?]  ; Optional for H2 embedded mode
-   [:port {:optional true} pos-int?]  ; Optional for H2 embedded mode
-   [:name {:optional true} string?]  ; Optional for H2 embedded mode
-   [:database-path {:optional true} string?]  ; For H2 embedded mode (mem: or file:)
-   [:connection-params {:optional true} map?]  ; For H2-specific params
+   [:host string?]
+   [:port pos-int?]
+   [:name string?]  ; Database name is required for server databases
    [:username {:optional true} string?]
    [:password {:optional true} string?]
+   [:connection-params {:optional true} map?]  ; For database-specific connection parameters
    [:pool {:optional true} PoolConfig]])
 
 (def DBConfig
-  "Schema for database configuration - supports SQLite and server-based databases."
+  "Schema for database configuration - supports embedded and server-based databases.
+
+   Embedded databases (SQLite, H2 file/memory):
+   - Require :adapter and :database-path
+   - database-path can be file path or 'mem:name' for H2
+
+   Server databases (PostgreSQL, MySQL, H2 server):
+   - Require :adapter, :host, :port, and :name
+   - Optional :username, :password, :connection-params"
   [:or
-   {:error/message "Database configuration must be either SQLite or server-based (PostgreSQL/MySQL/H2)"}
-   SQLiteConfig
+   {:error/message "Database configuration must be either embedded (SQLite/H2) or server-based (PostgreSQL/MySQL/H2)"}
+   EmbeddedDBConfig
    ServerDBConfig])
 
 (defn validate-db-config
@@ -237,6 +244,7 @@
                     {:config db-config
                      :errors (m/explain DBConfig db-config)}))))
 
+
 ;; =============================================================================
 ;; Utility Functions
 ;; =============================================================================
@@ -252,7 +260,7 @@
 
    Example:
      (valid-db-config? {:adapter :sqlite :database-path \"db.sqlite\"}) ;; => true
-     (valid-db-config? {:adapter :invalid}) ;; => false"
+     (valid-db-config? {:adapter :postgresql :host \"localhost\" :port 5432 :name \"mydb\"}) ;; => true"
   [db-config]
   (m/validate DBConfig db-config))
 
@@ -271,24 +279,64 @@
   (when-not (m/validate DBConfig db-config)
     (m/explain DBConfig db-config)))
 
-(defn sqlite-config?
-  "Check if configuration is for SQLite database.
+(defn embedded-db-config?
+  "Check if configuration is for an embedded database (SQLite or H2 file/memory).
 
    Args:
      db-config: Database configuration map
 
    Returns:
-     Boolean - true if SQLite configuration"
+     Boolean - true if embedded database configuration
+
+   Example:
+     (embedded-db-config? {:adapter :sqlite :database-path \"./app.db\"}) ;; => true
+     (embedded-db-config? {:adapter :h2 :database-path \"mem:testdb\"}) ;; => true"
   [db-config]
-  (= :sqlite (:adapter db-config)))
+  (and (contains? #{:sqlite :h2} (:adapter db-config))
+       (contains? db-config :database-path)))
 
 (defn server-db-config?
-  "Check if configuration is for server-based database (PostgreSQL, MySQL, H2).
+  "Check if configuration is for server-based database (PostgreSQL, MySQL, H2 server).
 
    Args:
      db-config: Database configuration map
 
    Returns:
-     Boolean - true if server-based database configuration"
+     Boolean - true if server-based database configuration
+
+   Example:
+     (server-db-config? {:adapter :postgresql :host \"localhost\" :port 5432 :name \"mydb\"}) ;; => true"
   [db-config]
-  (contains? #{:postgresql :mysql :h2} (:adapter db-config)))
+  (and (contains? #{:postgresql :mysql :h2} (:adapter db-config))
+       (contains? db-config :host)
+       (contains? db-config :port)
+       (contains? db-config :name)))
+
+(defn get-adapter-type
+  "Get the adapter type from database configuration.
+
+   Args:
+     db-config: Database configuration map
+
+   Returns:
+     Keyword - :sqlite, :h2, :postgresql, or :mysql
+
+   Example:
+     (get-adapter-type {:adapter :sqlite :database-path \"./app.db\"}) ;; => :sqlite"
+  [db-config]
+  (:adapter db-config))
+
+(defn requires-credentials?
+  "Check if the database configuration requires authentication credentials.
+
+   Args:
+     db-config: Database configuration map
+
+   Returns:
+     Boolean - true if database typically requires username/password
+
+   Example:
+     (requires-credentials? {:adapter :postgresql :host \"localhost\"}) ;; => true
+     (requires-credentials? {:adapter :sqlite :database-path \"./app.db\"}) ;; => false"
+  [db-config]
+  (server-db-config? db-config))

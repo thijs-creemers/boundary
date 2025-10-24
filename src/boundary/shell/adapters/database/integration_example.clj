@@ -8,8 +8,8 @@
    - Handle multiple active databases simultaneously"
   (:require [boundary.shell.adapters.database.config :as db-config]
             [boundary.shell.adapters.database.config-factory :as config-factory]
-            [boundary.shell.adapters.database.core :as db-core]
-            [boundary.shell.adapters.database.driver-loader :as driver-loader]
+            [boundary.shell.adapters.database.common.core :as db-core]
+            [boundary.shell.adapters.database.utils.driver-loader :as driver-loader]
             [clojure.tools.logging :as log]))
 
 ;; =============================================================================
