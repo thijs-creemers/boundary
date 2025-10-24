@@ -1,13 +1,13 @@
-(ns boundary.user.shell.cli)
+(ns boundary.user.shell.cli
   "CLI commands for user management."
   (:require [boundary.user.ports :as ports]
             [clojure.tools.logging :as log]))
 
 (defn parse-args
-  "Parse command-line arguments into a map."
+      "Parse command-line arguments into a map."
   [args]
   (loop [remaining args
-         result {}]
+         result    {}]
     (if (empty? remaining)
       result
       (let [[flag value & rest] remaining]
@@ -17,13 +17,13 @@
           (recur (rest remaining) result))))))
 
 (defn create-user
-  "Create a new user."
+      "Create a new user."
   [user-service {:keys [email name role tenant-id]}]
   (try
-    (let [user-data {:email email
-                    :name name
-                    :role (keyword role)
-                    :tenant-id (java.util.UUID/fromString tenant-id)}]
+    (let [user-data {:email     email
+                     :name      name
+                     :role      (keyword role)
+                     :tenant-id (java.util.UUID/fromString tenant-id)}]
       (log/info "Creating user" {:email email})
       (let [result (ports/create-user user-service user-data)]
         (println "User created successfully:")
@@ -37,7 +37,7 @@
       (System/exit 1))))
 
 (defn run-cli
-  "Main CLI dispatcher."
+      "Main CLI dispatcher."
   [user-service args]
   (if (empty? args)
     (do
@@ -60,4 +60,10 @@
           (do
             (println "Unknown command:" command)
             (System/exit 1)))))))
+
+
+(comment
+  (let [tenant-id "123e4567-e89b-12d3-a456-426614174000"]))
+     (create-user)
+  ...
 

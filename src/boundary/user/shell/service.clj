@@ -15,39 +15,39 @@
    
    The shell does NOT contain business logic - that lives in core.*
    The shell does NOT handle database operations - that lives in persistence.*"
-  (:require [boundary.user.core.user :as user-core]
-            [boundary.user.core.session :as session-core]
-            [boundary.user.shell.persistence :as persistence]
+  (:require [boundary.user.core.session :as session-core]
+            [boundary.user.core.user :as user-core]
             [boundary.user.ports :as ports]
+            [clojure.string :as str]
             [clojure.tools.logging :as log])
-  (:import (java.util UUID)
+  (:import (java.security SecureRandom)
            (java.time Instant)
-           (java.security SecureRandom)))
+           (java.util UUID)))
 
 ;; =============================================================================
 ;; Helper Functions for External Dependencies
 ;; =============================================================================
 
 (defn generate-secure-token
-  "Generate cryptographically secure random token for sessions.
+      "Generate cryptographically secure random token for sessions.
        This is a shell layer responsibility as it involves external randomness."
   []
   (let [secure-random (SecureRandom.)
         token-bytes   (byte-array 32)]
     (.nextBytes secure-random token-bytes)
-    (-> token-bytes
-        (.encodeToString (java.util.Base64/getEncoder))
-        (.replace "+" "-")
-        (.replace "/" "_")
-        (.replace "=" ""))))
+    (-> (java.util.Base64/getEncoder)
+        (.encodeToString token-bytes)
+        (str/replace "+" "-")
+        (str/replace "/" "_")
+        (str/replace "=" ""))))
 
 (defn generate-user-id
-  "Generate UUID for new users. Shell layer responsibility."
+      "Generate UUID for new users. Shell layer responsibility."
   []
   (UUID/randomUUID))
 
 (defn current-timestamp
-  "Get current timestamp. Shell layer responsibility for time dependency."
+      "Get current timestamp. Shell layer responsibility for time dependency."
   []
   (Instant/now))
 
@@ -70,7 +70,7 @@
                          :errors (:errors validation-result)}))))
 
     ;; 2. Check business rules using pure core function
-    (let [existing-user     (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data))
+    (let [existing-user     (ports/find-user-by-email user-repository (:email user-data) (:tenant-id user-data))
           uniqueness-result (user-core/check-duplicate-user-decision user-data existing-user)]
       (when (= :reject (:decision uniqueness-result))
         (throw (ex-info "User already exists"
@@ -83,25 +83,25 @@
           prepared-user (user-core/prepare-user-for-creation user-data current-time user-id)]
 
       ;; 4. Persist and return
-      (.create-user user-repository prepared-user)))
+      (ports/create-user user-repository prepared-user)))
 
   (find-user-by-id [_ user-id]
     (log/debug "Finding user by ID through service" {:user-id user-id})
-    (.find-user-by-id user-repository user-id))
+    (ports/find-user-by-id user-repository user-id))
 
   (find-user-by-email [_ email tenant-id]
     (log/debug "Finding user by email through service" {:email email :tenant-id tenant-id})
-    (.find-user-by-email user-repository email tenant-id))
+    (ports/find-user-by-email user-repository email tenant-id))
 
   (find-users-by-tenant [_ tenant-id options]
     (log/debug "Finding users by tenant through service" {:tenant-id tenant-id})
-    (.find-users-by-tenant user-repository tenant-id options))
+    (ports/find-users-by-tenant user-repository tenant-id options))
 
   (update-user [this user-entity]
     (log/info "Updating user through service" {:user-id (:id user-entity)})
 
     ;; 1. Get current user
-    (let [current-user (.find-user-by-id user-repository (:id user-entity))]
+    (let [current-user (ports/find-user-by-id user-repository (:id user-entity))]
       (when-not current-user
         (throw (ex-info "User not found for update"
                         {:type    :user-not-found
@@ -127,13 +127,13 @@
             prepared-user (user-core/prepare-user-for-update user-entity current-time)]
 
         ;; 5. Persist and return
-        (.update-user user-repository prepared-user))))
+        (ports/update-user user-repository prepared-user))))
 
   (soft-delete-user [this user-id]
     (log/info "Soft deleting user through service" {:user-id user-id})
 
     ;; 1. Get current user
-    (let [current-user (.find-user-by-id user-repository user-id)]
+    (let [current-user (ports/find-user-by-id user-repository user-id)]
       (when-not current-user
         (throw (ex-info "User not found for deletion"
                         {:type    :user-not-found
@@ -151,10 +151,10 @@
             prepared-user (user-core/prepare-user-for-soft-deletion current-user current-time)]
 
         ;; 4. Persist and return
-        (.update-user user-repository prepared-user)
+        (ports/update-user user-repository prepared-user)
 
         ;; 5. Invalidate all user sessions as side effect
-        (.invalidate-all-user-sessions this user-id)
+        (ports/invalidate-all-user-sessions this user-id)
 
         true)))
 
@@ -162,7 +162,7 @@
     (log/warn "Hard deleting user through service - IRREVERSIBLE" {:user-id user-id})
 
     ;; 1. Get current user for validation
-    (let [current-user (.find-user-by-id user-repository user-id)]
+    (let [current-user (ports/find-user-by-id user-repository user-id)]
       (when-not current-user
         (throw (ex-info "User not found for deletion"
                         {:type    :user-not-found
@@ -176,10 +176,10 @@
                            :reason (:reason deletion-result)}))))
 
       ;; 3. Invalidate all sessions first
-      (.invalidate-all-user-sessions this user-id)
+      (ports/invalidate-all-user-sessions this user-id)
 
       ;; 4. Perform hard deletion
-      (.hard-delete-user user-repository user-id)))
+      (ports/hard-delete-user user-repository user-id)))
 
   ;; Session Management - Shell layer orchestrates I/O and calls pure core functions
   (create-session [this session-data]
@@ -200,16 +200,16 @@
 
           ;; 3. Use pure core function to prepare session
           prepared-session (session-core/prepare-session-for-creation
-                            session-data current-time session-id session-token session-policy)]
+                             session-data current-time session-id session-token session-policy)]
 
       ;; 4. Persist and return
-      (.create-session session-repository prepared-session)))
+      (ports/create-session session-repository prepared-session)))
 
   (find-session-by-token [this session-token]
     (log/debug "Finding session by token through service")
 
     ;; 1. Get session from repository
-    (when-let [session (.find-session-by-token session-repository session-token)]
+    (when-let [session (ports/find-session-by-token session-repository session-token)]
       (let [current-time      (current-timestamp)
             update-policy     {:access-update-threshold-minutes 5} ; TODO: Make configurable
 
@@ -221,7 +221,7 @@
             ;; 3. Update access time if policy allows
             (when (session-core/should-update-access-time? session current-time update-policy)
               (let [updated-session (session-core/prepare-session-for-access-update session current-time)]
-                (.update-session session-repository updated-session)))
+                (ports/update-session session-repository updated-session)))
             session)
           (do
             (log/debug "Session validation failed" validation-result)
@@ -231,14 +231,14 @@
     (log/info "Invalidating session through service")
 
     ;; 1. Find session
-    (if-let [session (.find-session-by-token session-repository session-token)]
+    (if-let [session (ports/find-session-by-token session-repository session-token)]
       (let [current-time        (current-timestamp)
 
             ;; 2. Use pure core function to prepare invalidation
             invalidated-session (session-core/prepare-session-for-invalidation session current-time)]
 
         ;; 3. Update in repository
-        (.update-session session-repository invalidated-session)
+        (ports/update-session session-repository invalidated-session)
         true)
       false))
 
@@ -246,32 +246,32 @@
     (log/warn "Invalidating all user sessions through service" {:user-id user-id})
 
     ;; 1. Get all user sessions
-    (let [sessions     (.find-sessions-by-user session-repository user-id)
+    (let [sessions     (ports/find-sessions-by-user session-repository user-id)
           current-time (current-timestamp)]
 
       ;; 2. Use pure core function to prepare each for invalidation
       (doseq [session sessions]
         (let [invalidated-session (session-core/prepare-session-for-invalidation session current-time)]
-          (.update-session session-repository invalidated-session)))
+          (ports/update-session session-repository invalidated-session)))
 
       ;; 3. Return count of invalidated sessions
       (count sessions))))
 
-  ;; =============================================================================
-  ;; Factory Functions
-  ;; =============================================================================
+;; =============================================================================
+;; Factory Functions
+;; =============================================================================
 
 (defn create-user-service
-  "Create a user service instance with injected repositories.
+      "Create a user service instance with injected repositories.
 
-     Args:
-       user-repository: Implementation of IUserRepository
-       session-repository: Implementation of IUserSessionRepository
+         Args:
+           user-repository: Implementation of IUserRepository
+           session-repository: Implementation of IUserSessionRepository
 
-     Returns:
-       UserService instance
+         Returns:
+           UserService instance
 
-     Example:
-       (def service (create-user-service user-repo session-repo))"
+         Example:
+           (def service (create-user-service user-repo session-repo))"
   [user-repository session-repository]
   (->UserService user-repository session-repository))
