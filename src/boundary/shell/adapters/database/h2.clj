@@ -26,6 +26,18 @@
   (:import (java.util UUID)))
 
 ;; =============================================================================
+;; Configuration Constants
+;; =============================================================================
+
+(def ^:private h2-connection-options
+  "H2 connection options for PostgreSQL compatibility and consistency."
+  "MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH")
+
+(def ^:private default-schema
+  "Default schema name for H2 database queries."
+  "public")
+
+;; =============================================================================
 ;; H2 Adapter Implementation
 ;; =============================================================================
 
@@ -40,10 +52,7 @@
 
   (jdbc-url [_ db-config]
     (let [database-path (:database-path db-config)]
-      (cond
-        (= database-path "mem:testdb") "jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH"
-        (str/starts-with? database-path "mem:") (str "jdbc:h2:" database-path ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH")
-        :else (str "jdbc:h2:" database-path ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH"))))
+      (str "jdbc:h2:" database-path ";" h2-connection-options)))
 
   (pool-defaults [_]
     {:minimum-idle          1
@@ -63,7 +72,11 @@
 
       (log/debug "H2 connection initialized successfully")
       (catch Exception e
-        (log/warn "Failed to initialize some H2 settings" {:error (.getMessage e)}))))
+        ;; Log warning but don't fail - these are optional optimization settings
+        ;; Connection will still work even if these settings fail
+        (log/warn "Failed to initialize some H2 settings (connection will still work)"
+                  {:error (.getMessage e)
+                   :error-type (type e)}))))
 
   (build-where [_ filters]
     (when (seq filters)
@@ -92,7 +105,7 @@
           query     {:select [:%count.*]
                      :from   [:information_schema.tables]
                      :where  [:and
-                              [:= :table_schema "public"]  ; Use lowercase schema
+                              [:= :table_schema default-schema]
                               [:= :table_name table-str]]}
           result    (first (jdbc/execute! datasource
                                           (sql/format query {:dialect :ansi})
@@ -105,7 +118,7 @@
           columns-query {:select   [:column_name :data_type :is_nullable :column_default]
                          :from     [:information_schema.columns]
                          :where    [:and
-                                    [:= :table_schema "public"]  ; Use lowercase schema
+                                    [:= :table_schema default-schema]
                                     [:= :table_name table-str]]
                          :order-by [:ordinal_position]}
           ;; Get primary key information
@@ -116,7 +129,7 @@
                                    [:= :tc.constraint_name :kcu.constraint_name]
                                    [:= :tc.table_schema :kcu.table_schema]]]
                          :where  [:and
-                                  [:= :tc.table_schema "public"]  ; Use lowercase schema
+                                  [:= :tc.table_schema default-schema]
                                   [:= :tc.table_name table-str]
                                   [:= :tc.constraint_type "PRIMARY KEY"]]}
 
@@ -162,7 +175,7 @@
   ([]
    (in-memory-url "testdb"))
   ([db-name]
-   (str "jdbc:h2:mem:" db-name ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH")))
+   (str "jdbc:h2:mem:" db-name ";" h2-connection-options)))
 
 (defn file-url
   "Create H2 file-based database URL.
@@ -176,7 +189,7 @@
        Example:
          (file-url \"./data/app\") ;; => \"jdbc:h2:./data/app;...\""
   [file-path]
-  (str "jdbc:h2:" file-path ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH"))
+  (str "jdbc:h2:" file-path ";" h2-connection-options))
 
 (defn create-test-context
   "Create H2 in-memory database context for testing.
@@ -242,6 +255,22 @@
 ;; H2-Specific Query Optimizations
 ;; =============================================================================
 
+(defn- validate-datasource
+  "Validate datasource parameter.
+
+   Args:
+     datasource: Datasource to validate
+
+   Returns:
+     datasource if valid
+
+   Throws:
+     IllegalArgumentException if invalid"
+  [datasource]
+  (when (nil? datasource)
+    (throw (IllegalArgumentException. "Datasource cannot be nil")))
+  datasource)
+
 (defn explain-query
   "Get H2 query execution plan.
 
@@ -255,9 +284,12 @@
        Example:
          (explain-query ds {:select [:*] :from [:users]})"
   [datasource query-map]
-  (let [sql-query   (sql/format query-map {:dialect :h2})
-        explain-sql (str "EXPLAIN " (first sql-query))
-        params      (rest sql-query)]
+  (validate-datasource datasource)
+  (when (or (nil? query-map) (not (map? query-map)))
+    (throw (IllegalArgumentException. "query-map must be a non-nil map")))
+  (let [[sql & params] (sql/format query-map {:dialect :h2})
+        ;; H2 EXPLAIN requires the SQL to be part of the statement, not a parameter
+        explain-sql (str "EXPLAIN " sql)]
     (jdbc/execute! datasource (cons explain-sql params)
                    {:builder-fn rs/as-unqualified-lower-maps})))
 
@@ -271,7 +303,11 @@
        Example:
          (analyze-table ds :users)"
   [datasource table-name]
+  (validate-datasource datasource)
+  (when (nil? table-name)
+    (throw (IllegalArgumentException. "table-name cannot be nil")))
   (let [table-str (name table-name)]
+    ;; H2 ANALYZE TABLE requires table name in the SQL, cannot be parameterized
     (jdbc/execute! datasource [(str "ANALYZE TABLE " table-str)])
     (log/debug "Analyzed H2 table" {:table table-str})))
 
@@ -291,9 +327,13 @@
        Example:
          (show-tables ds) ;; => [\"users\" \"sessions\"]"
   [datasource]
-  (let [results (jdbc/execute! datasource
-                               ["SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'PUBLIC'"]
-                               {:builder-fn rs/as-unqualified-lower-maps})]
+  (validate-datasource datasource)
+  (let [query {:select [:table_name]
+               :from [:information_schema.tables]
+               :where [:= :table_schema (str/upper-case default-schema)]}
+        results (jdbc/execute! datasource
+                              (sql/format query {:dialect :ansi})
+                              {:builder-fn rs/as-unqualified-lower-maps})]
     (mapv #(str/lower-case (:table_name %)) results)))
 
 (defn show-indexes
@@ -311,13 +351,17 @@
   ([datasource]
    (show-indexes datasource nil))
   ([datasource table-name]
-   (let [base-query "SELECT INDEX_NAME, TABLE_NAME, NON_UNIQUE, COLUMN_NAME FROM INFORMATION_SCHEMA.INDEXES WHERE TABLE_SCHEMA = 'PUBLIC'"
-         query      (if table-name
-                      (str base-query " AND TABLE_NAME = ?")
-                      base-query)
-         params     (if table-name [(str/upper-case (name table-name))] [])
-         results    (jdbc/execute! datasource (cons query params)
-                                   {:builder-fn rs/as-unqualified-lower-maps})]
+   (validate-datasource datasource)
+   (let [base-condition [:= :table_schema (str/upper-case default-schema)]
+         where-clause (if table-name
+                       [:and base-condition [:= :table_name (str/upper-case (name table-name))]]
+                       base-condition)
+         query {:select [:index_name :table_name :non_unique :column_name]
+                :from [:information_schema.indexes]
+                :where where-clause}
+         results (jdbc/execute! datasource
+                               (sql/format query {:dialect :ansi})
+                               {:builder-fn rs/as-unqualified-lower-maps})]
      (mapv (fn [row]
              {:index-name  (str/lower-case (:index_name row))
               :table-name  (str/lower-case (:table_name row))

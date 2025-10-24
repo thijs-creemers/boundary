@@ -9,12 +9,19 @@
 ;; Domain Entity Schemas
 ;; =============================================================================
 
+(def email-regex
+  "Regular expression for basic email validation."
+  #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
 (def User
-  "Schema for User entity."
+  "Schema for User entity.
+   
+   Note: Timestamps use :string for database compatibility. The application layer
+   handles conversion between Instant objects and ISO-8601 strings."
   [:map {:title "User"}
    [:id :uuid]
-   [:email :string]
-   [:name :string]
+   [:email [:re {:error/message "Invalid email format"} email-regex]]
+   [:name [:string {:min 1 :max 255}]]
    [:role [:enum :admin :user :viewer]]
    [:active :boolean]
    [:login-count {:optional true} :int]
@@ -62,8 +69,8 @@
 (def CreateUserRequest
   "Schema for create user API requests."
   [:map {:title "Create User Request"}
-   [:email :string]
-   [:name :string]
+   [:email [:re {:error/message "Invalid email format"} email-regex]]
+   [:name [:string {:min 1 :max 255}]]
    [:role [:enum :admin :user :viewer]]
    [:active {:optional true} :boolean]
    [:tenant-id :uuid]
@@ -72,15 +79,15 @@
 (def UpdateUserRequest
   "Schema for update user API requests."
   [:map {:title "Update User Request"}
-   [:name {:optional true} :string]
+   [:name {:optional true} [:string {:min 1 :max 255}]]
    [:role {:optional true} [:enum :admin :user :viewer]]
    [:active {:optional true} :boolean]])
 
 (def LoginRequest
   "Schema for login API requests."
   [:map {:title "Login Request"}
-   [:email :string]
-   [:password :string]
+   [:email [:re {:error/message "Invalid email format"} email-regex]]
+   [:password [:string {:min 8 :max 255 :error/message "Password must be at least 8 characters"}]]
    [:remember {:optional true} :boolean]])
 
 ;; =============================================================================
@@ -88,7 +95,7 @@
 ;; =============================================================================
 
 (def UserResponse
-  "Schema for user responses."
+  "Schema for user responses (camelCase for API compatibility)."
   [:map {:title "User Response"}
    [:id :string] ; UUID as string
    [:email :string]
@@ -97,6 +104,8 @@
    [:active :boolean]
    [:loginCount {:optional true} :int]
    [:lastLogin {:optional true} :string] ; Instant as ISO string
+   [:dateFormat {:optional true} :string] ; Enum as string
+   [:timeFormat {:optional true} :string] ; Enum as string
    [:tenantId :string] ; UUID as string
    [:avatarUrl {:optional true} :string]
    [:createdAt :string] ; Instant as ISO string

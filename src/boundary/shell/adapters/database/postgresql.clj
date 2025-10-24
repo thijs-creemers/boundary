@@ -24,6 +24,23 @@
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]))
 
+
+;; =============================================================================
+;; Configuration Constants
+;; =============================================================================
+
+(def ^:private default-schema
+  "Default schema name for PostgreSQL database queries."
+  "public")
+
+(def ^:private default-application-name
+  "Default application name for PostgreSQL connections."
+  "boundary-app")
+
+(def ^:private default-statement-timeout-ms
+  "Default statement timeout in milliseconds (30 seconds)."
+  30000)
+
 ;; =============================================================================
 ;; PostgreSQL Adapter Implementation
 ;; =============================================================================
@@ -32,7 +49,7 @@
   protocols/DBAdapter
 
   (dialect [_]
-    nil)  ; PostgreSQL uses HoneySQL's default dialect
+    nil) ; PostgreSQL uses HoneySQL's default dialect
 
   (jdbc-driver [_]
     "org.postgresql.Driver")
@@ -44,30 +61,34 @@
       (str base-url "?stringtype=unspecified")))
 
   (pool-defaults [_]
-    {:minimum-idle          5
-     :maximum-pool-size     20
+    {:minimum-idle 5
+     :maximum-pool-size 20
      :connection-timeout-ms 30000
-     :idle-timeout-ms       600000
-     :max-lifetime-ms       1800000})
+     :idle-timeout-ms 600000
+     :max-lifetime-ms 1800000})
 
   (init-connection! [_ datasource db-config]
     (log/debug "Initializing PostgreSQL connection settings")
     (try
-      ;; Set application name for connection identification
-      (let [app-name (or (:application-name db-config) "boundary-app")]
-        (jdbc/execute! datasource [(str "SET application_name = '" app-name "'")]))
+      ;; Set application name for connection identification (parameterized for safety)
+      (let [app-name (or (:application-name db-config) default-application-name)]
+        (jdbc/execute! datasource ["SET application_name = ?" app-name]))
 
       ;; Set timezone to UTC for consistency
       (jdbc/execute! datasource ["SET TIME ZONE 'UTC'"])
 
       ;; Optionally set statement timeout (configurable, default 30 seconds)
-      (let [timeout (get db-config :statement-timeout-ms 30000)]
+      (let [timeout (get db-config :statement-timeout-ms default-statement-timeout-ms)]
         (when (pos? timeout)
-          (jdbc/execute! datasource [(str "SET statement_timeout = " timeout)])))
+          ;; Timeout value is a number, safe to interpolate
+          (jdbc/execute! datasource ["SET statement_timeout = ?" timeout])))
 
       (log/debug "PostgreSQL connection initialized successfully")
       (catch Exception e
-        (log/warn "Failed to initialize some PostgreSQL settings" {:error (.getMessage e)}))))
+        ;; Log warning but don't fail - these are optional optimization settings
+        (log/warn "Failed to initialize some PostgreSQL settings (connection will still work)"
+                  {:error (.getMessage e)
+                   :error-type (type e)}))))
 
   (build-where [_ filters]
     (when (seq filters)
@@ -93,52 +114,50 @@
 
   (table-exists? [_ datasource table-name]
     (let [table-str (str/lower-case (name table-name))
-          schema    (or "public")                           ; Could be configurable in the future
-          query     {:select [:%count.*]
-                     :from   [:information_schema.tables]
-                     :where  [:and
-                              [:= :table_schema schema]
-                              [:= :table_name table-str]]}
-          result    (first (jdbc/execute! datasource
-                                          (sql/format query)  ; PostgreSQL uses default dialect
-                                          {:builder-fn rs/as-unqualified-lower-maps}))]
-      (> (:count result 0) 0)))
+          query {:select [:%count.*]
+                 :from [:information_schema.tables]
+                 :where [:and
+                         [:= :table_schema default-schema]
+                         [:= :table_name table-str]]}
+          result (first (jdbc/execute! datasource
+                                       (sql/format query) ; PostgreSQL uses default dialect
+                                       {:builder-fn rs/as-unqualified-lower-maps}))]
+      (> (get result :count 0) 0)))
 
   (get-table-info [_ datasource table-name]
-    (let [table-str     (str/lower-case (name table-name))
-          schema        (or "public")
+    (let [table-str (str/lower-case (name table-name))
           ;; Get column information
-          columns-query {:select   [:column_name :data_type :is_nullable :column_default]
-                         :from     [:information_schema.columns]
-                         :where    [:and
-                                    [:= :table_schema schema]
-                                    [:= :table_name table-str]]
+          columns-query {:select [:column_name :data_type :is_nullable :column_default]
+                         :from [:information_schema.columns]
+                         :where [:and
+                                 [:= :table_schema default-schema]
+                                 [:= :table_name table-str]]
                          :order-by [:ordinal_position]}
           ;; Get primary key information
-          pk-query      {:select [:kcu.column_name]
-                         :from   [[:information_schema.table_constraints :tc]]
-                         :join   [[:information_schema.key_column_usage :kcu]
-                                  [:and
-                                   [:= :tc.constraint_name :kcu.constraint_name]
-                                   [:= :tc.table_schema :kcu.table_schema]]]
-                         :where  [:and
-                                  [:= :tc.table_schema schema]
-                                  [:= :tc.table_name table-str]
-                                  [:= :tc.constraint_type "PRIMARY KEY"]]}
+          pk-query {:select [:kcu.column_name]
+                    :from [[:information_schema.table_constraints :tc]]
+                    :join [[:information_schema.key_column_usage :kcu]
+                           [:and
+                            [:= :tc.constraint_name :kcu.constraint_name]
+                            [:= :tc.table_schema :kcu.table_schema]]]
+                    :where [:and
+                            [:= :tc.table_schema default-schema]
+                            [:= :tc.table_name table-str]
+                            [:= :tc.constraint_type "PRIMARY KEY"]]}
 
-          columns       (jdbc/execute! datasource
-                                       (sql/format columns-query)  ; Use default dialect
-                                       {:builder-fn rs/as-unqualified-lower-maps})
-          pk-columns    (set (map :column_name
-                                  (jdbc/execute! datasource
-                                                 (sql/format pk-query)  ; Use default dialect
-                                                 {:builder-fn rs/as-unqualified-lower-maps})))]
+          columns (jdbc/execute! datasource
+                                 (sql/format columns-query) ; Use default dialect
+                                 {:builder-fn rs/as-unqualified-lower-maps})
+          pk-columns (set (map :column_name
+                               (jdbc/execute! datasource
+                                              (sql/format pk-query) ; Use default dialect
+                                              {:builder-fn rs/as-unqualified-lower-maps})))]
 
       (mapv (fn [col]
-              {:name        (:column_name col)
-               :type        (:data_type col)
-               :not-null    (= "NO" (:is_nullable col))
-               :default     (:column_default col)
+              {:name (:column_name col)
+               :type (:data_type col)
+               :not-null (= "NO" (:is_nullable col))
+               :default (:column_default col)
                :primary-key (contains? pk-columns (:column_name col))})
             columns))))
 
@@ -169,8 +188,8 @@
        Example:
          (create-database-url \"localhost\" 5432 \"mydb\" {:ssl true})"
   [host port database & [options]]
-  (let [base-url  (str "jdbc:postgresql://" host ":" port "/" database)
-        params    (merge {:stringtype "unspecified"} options)
+  (let [base-url (str "jdbc:postgresql://" host ":" port "/" database)
+        params (merge {:stringtype "unspecified"} options)
         param-str (str/join "&" (map (fn [[k v]] (str (name k) "=" v)) params))]
     (if (seq params)
       (str base-url "?" param-str)
@@ -236,6 +255,22 @@
 ;; PostgreSQL-Specific Query Optimizations
 ;; =============================================================================
 
+(defn- validate-datasource
+  "Validate datasource parameter.
+
+   Args:
+     datasource: Datasource to validate
+
+   Returns:
+     datasource if valid
+
+   Throws:
+     IllegalArgumentException if invalid"
+  [datasource]
+  (when (nil? datasource)
+    (throw (IllegalArgumentException. "Datasource cannot be nil")))
+  datasource)
+
 (defn explain-query
   "Get PostgreSQL query execution plan.
 
@@ -252,14 +287,17 @@
   ([datasource query-map]
    (explain-query datasource query-map {}))
   ([datasource query-map options]
-   (let [sql-query    (sql/format query-map)  ; Use default dialect
+   (validate-datasource datasource)
+   (when (or (nil? query-map) (not (map? query-map)))
+     (throw (IllegalArgumentException. "query-map must be a non-nil map")))
+   (let [[sql & params] (sql/format query-map) ; Use default dialect
          explain-opts (str/join ", "
                                 (for [[k v] options :when v]
                                   (str/upper-case (name k))))
-         explain-sql  (str "EXPLAIN "
-                           (when (seq explain-opts) (str "(" explain-opts ") "))
-                           (first sql-query))
-         params       (rest sql-query)]
+         ;; PostgreSQL EXPLAIN requires SQL in the statement, not as parameter
+         explain-sql (str "EXPLAIN "
+                          (when (seq explain-opts) (str "(" explain-opts ") "))
+                          sql)]
      (jdbc/execute! datasource (cons explain-sql params)
                     {:builder-fn rs/as-unqualified-lower-maps}))))
 
@@ -274,10 +312,15 @@
          (analyze-table ds :users)
          (analyze-table ds) ; Analyze all tables"
   ([datasource]
+   (validate-datasource datasource)
    (jdbc/execute! datasource ["ANALYZE"])
    (log/debug "Analyzed all PostgreSQL tables"))
   ([datasource table-name]
+   (validate-datasource datasource)
+   (when (nil? table-name)
+     (throw (IllegalArgumentException. "table-name cannot be nil")))
    (let [table-str (name table-name)]
+     ;; PostgreSQL ANALYZE requires table name in SQL, cannot be parameterized
      (jdbc/execute! datasource [(str "ANALYZE " table-str)])
      (log/debug "Analyzed PostgreSQL table" {:table table-str}))))
 
@@ -294,13 +337,17 @@
   ([datasource table-name]
    (vacuum-table datasource table-name {}))
   ([datasource table-name options]
-   (let [table-str   (name table-name)
+   (validate-datasource datasource)
+   (when (nil? table-name)
+     (throw (IllegalArgumentException. "table-name cannot be nil")))
+   (let [table-str (name table-name)
          vacuum-opts (str/join ", "
                                (for [[k v] options :when v]
                                  (str/upper-case (name k))))
-         vacuum-sql  (str "VACUUM "
-                          (when (seq vacuum-opts) (str "(" vacuum-opts ") "))
-                          table-str)]
+         ;; PostgreSQL VACUUM requires table name in SQL, cannot be parameterized
+         vacuum-sql (str "VACUUM "
+                         (when (seq vacuum-opts) (str "(" vacuum-opts ") "))
+                         table-str)]
      (jdbc/execute! datasource [vacuum-sql])
      (log/debug "Vacuumed PostgreSQL table" {:table table-str :options options}))))
 
@@ -319,6 +366,11 @@
          (enable-extension ds \"uuid-ossp\")
          (enable-extension ds \"pg_stat_statements\")"
   [datasource extension-name]
+  (validate-datasource datasource)
+  (when (or (nil? extension-name) (str/blank? extension-name))
+    (throw (IllegalArgumentException. "extension-name cannot be nil or blank")))
+  ;; PostgreSQL CREATE EXTENSION requires extension name in SQL, cannot be parameterized
+  ;; We wrap in quotes to handle hyphens in extension names
   (let [sql (str "CREATE EXTENSION IF NOT EXISTS \"" extension-name "\"")]
     (jdbc/execute! datasource [sql])
     (log/info "Enabled PostgreSQL extension" {:extension extension-name})))
@@ -335,11 +387,12 @@
        Example:
          (list-extensions ds)"
   [datasource]
+  (validate-datasource datasource)
   (let [results (jdbc/execute! datasource
                                ["SELECT extname, extversion FROM pg_extension"]
                                {:builder-fn rs/as-unqualified-lower-maps})]
     (mapv (fn [row]
-            {:name    (:extname row)
+            {:name (:extname row)
              :version (:extversion row)})
           results)))
 
@@ -359,14 +412,15 @@
        Example:
          (connection-info ds)"
   [datasource]
+  (validate-datasource datasource)
   (let [version-result (jdbc/execute-one! datasource ["SELECT version()"]
                                           {:builder-fn rs/as-unqualified-lower-maps})
-        stats-result   (jdbc/execute-one! datasource
-                                          ["SELECT current_database(), current_user, inet_server_addr(), inet_server_port()"]
-                                          {:builder-fn rs/as-unqualified-lower-maps})]
-    {:version     (:version version-result)
-     :database    (:current_database stats-result)
-     :user        (:current_user stats-result)
+        stats-result (jdbc/execute-one! datasource
+                                        ["SELECT current_database(), current_user, inet_server_addr(), inet_server_port()"]
+                                        {:builder-fn rs/as-unqualified-lower-maps})]
+    {:version (:version version-result)
+     :database (:current_database stats-result)
+     :user (:current_user stats-result)
      :server-addr (:inet_server_addr stats-result)
      :server-port (:inet_server_port stats-result)}))
 
@@ -382,14 +436,15 @@
        Example:
          (active-connections ds)"
   [datasource]
+  (validate-datasource datasource)
   (let [results (jdbc/execute! datasource
                                ["SELECT pid, usename, application_name, client_addr, state, query_start FROM pg_stat_activity WHERE state = 'active'"]
                                {:builder-fn rs/as-unqualified-lower-maps})]
     (mapv (fn [row]
-            {:pid              (:pid row)
-             :username         (:usename row)
+            {:pid (:pid row)
+             :username (:usename row)
              :application-name (:application_name row)
-             :client-addr      (:client_addr row)
-             :state            (:state row)
-             :query-start      (:query_start row)})
+             :client-addr (:client_addr row)
+             :state (:state row)
+             :query-start (:query_start row)})
           results)))

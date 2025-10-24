@@ -26,6 +26,18 @@
             [next.jdbc.result-set :as rs]))
 
 ;; =============================================================================
+;; Configuration Constants
+;; =============================================================================
+
+(def ^:private default-sql-mode
+  "Default SQL mode for MySQL connections."
+  "STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION")
+
+;; =============================================================================
+;; MySQL Adapter Implementation
+;; =============================================================================
+
+;; =============================================================================
 ;; MySQL Adapter Implementation
 ;; =============================================================================
 
@@ -40,34 +52,34 @@
 
   (jdbc-url [_ db-config]
     (let [{:keys [host port name]} db-config
-          base-url       (str "jdbc:mysql://" host ":" port "/" name)
+          base-url (str "jdbc:mysql://" host ":" port "/" name)
           ;; Common MySQL connection parameters for consistency and security
-          default-params {:serverTimezone          "UTC"
-                          :useSSL                  "true"
-                          :requireSSL              "false"
+          default-params {:serverTimezone "UTC"
+                          :useSSL "true"
+                          :requireSSL "false"
                           :verifyServerCertificate "false"
-                          :useUnicode              "true"
-                          :characterEncoding       "utf8"
-                          :zeroDateTimeBehavior    "convertToNull"}
-          custom-params  (or (:connection-params db-config) {})
-          all-params     (merge default-params custom-params)
-          param-str      (str/join "&" (map (fn [[k v]] (str (name k) "=" v)) all-params))]
+                          :useUnicode "true"
+                          :characterEncoding "utf8"
+                          :zeroDateTimeBehavior "convertToNull"}
+          custom-params (or (:connection-params db-config) {})
+          all-params (merge default-params custom-params)
+          param-str (str/join "&" (map (fn [[k v]] (str (name k) "=" v)) all-params))]
       (str base-url "?" param-str)))
 
   (pool-defaults [_]
-    {:minimum-idle          5
-     :maximum-pool-size     15
+    {:minimum-idle 5
+     :maximum-pool-size 15
      :connection-timeout-ms 30000
-     :idle-timeout-ms       600000
-     :max-lifetime-ms       1800000})
+     :idle-timeout-ms 600000
+     :max-lifetime-ms 1800000})
 
   (init-connection! [_ datasource db-config]
     (log/debug "Initializing MySQL connection settings")
     (try
-      ;; Set SQL mode for strict behavior (configurable)
-      (let [sql-mode (get db-config :sql-mode "STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION")]
+      ;; Set SQL mode for strict behavior (configurable, parameterized for safety)
+      (let [sql-mode (get db-config :sql-mode default-sql-mode)]
         (when (seq sql-mode)
-          (jdbc/execute! datasource [(str "SET SESSION sql_mode = '" sql-mode "'")])))
+          (jdbc/execute! datasource ["SET SESSION sql_mode = ?" sql-mode])))
 
       ;; Set timezone to UTC for consistency
       (jdbc/execute! datasource ["SET SESSION time_zone = '+00:00'"])
@@ -103,51 +115,51 @@
 
   (table-exists? [_ datasource table-name]
     (let [table-str (name table-name)
-          query     {:select [:%count.*]
-                     :from   [:information_schema.tables]
-                     :where  [:and
-                              [:= :table_schema [:database]]
-                              [:= :table_name table-str]]}
-          result    (first (jdbc/execute! datasource
-                                          (sql/format query {:dialect :mysql})
-                                          {:builder-fn rs/as-unqualified-lower-maps}))]
-      (> (:count result 0) 0)))
+          query {:select [:%count.*]
+                 :from [:information_schema.tables]
+                 :where [:and
+                         [:= :table_schema [:database]]
+                         [:= :table_name table-str]]}
+          result (first (jdbc/execute! datasource
+                                       (sql/format query {:dialect :mysql})
+                                       {:builder-fn rs/as-unqualified-lower-maps}))]
+      (> (get result :count 0) 0)))
 
   (get-table-info [_ datasource table-name]
-    (let [table-str     (name table-name)
+    (let [table-str (name table-name)
           ;; Get column information
-          columns-query {:select   [:column_name :data_type :is_nullable :column_default :extra]
-                         :from     [:information_schema.columns]
-                         :where    [:and
-                                    [:= :table_schema [:database]]
-                                    [:= :table_name table-str]]
+          columns-query {:select [:column_name :data_type :is_nullable :column_default :extra]
+                         :from [:information_schema.columns]
+                         :where [:and
+                                 [:= :table_schema [:database]]
+                                 [:= :table_name table-str]]
                          :order-by [:ordinal_position]}
           ;; Get primary key information
-          pk-query      {:select [:kcu.column_name]
-                         :from   [[:information_schema.table_constraints :tc]]
-                         :join   [[:information_schema.key_column_usage :kcu]
-                                  [:and
-                                   [:= :tc.constraint_name :kcu.constraint_name]
-                                   [:= :tc.table_schema :kcu.table_schema]]]
-                         :where  [:and
-                                  [:= :tc.table_schema [:database]]
-                                  [:= :tc.table_name table-str]
-                                  [:= :tc.constraint_type "PRIMARY KEY"]]}
+          pk-query {:select [:kcu.column_name]
+                    :from [[:information_schema.table_constraints :tc]]
+                    :join [[:information_schema.key_column_usage :kcu]
+                           [:and
+                            [:= :tc.constraint_name :kcu.constraint_name]
+                            [:= :tc.table_schema :kcu.table_schema]]]
+                    :where [:and
+                            [:= :tc.table_schema [:database]]
+                            [:= :tc.table_name table-str]
+                            [:= :tc.constraint_type "PRIMARY KEY"]]}
 
-          columns       (jdbc/execute! datasource
-                                       (sql/format columns-query {:dialect :mysql})
-                                       {:builder-fn rs/as-unqualified-lower-maps})
-          pk-columns    (set (map :column_name
-                                  (jdbc/execute! datasource
-                                                 (sql/format pk-query {:dialect :mysql})
-                                                 {:builder-fn rs/as-unqualified-lower-maps})))]
+          columns (jdbc/execute! datasource
+                                 (sql/format columns-query {:dialect :mysql})
+                                 {:builder-fn rs/as-unqualified-lower-maps})
+          pk-columns (set (map :column_name
+                               (jdbc/execute! datasource
+                                              (sql/format pk-query {:dialect :mysql})
+                                              {:builder-fn rs/as-unqualified-lower-maps})))]
 
       (mapv (fn [col]
-              {:name           (:column_name col)
-               :type           (:data_type col)
-               :not-null       (= "NO" (:is_nullable col))
-               :default        (:column_default col)
-               :primary-key    (contains? pk-columns (:column_name col))
+              {:name (:column_name col)
+               :type (:data_type col)
+               :not-null (= "NO" (:is_nullable col))
+               :default (:column_default col)
+               :primary-key (contains? pk-columns (:column_name col))
                :auto-increment (str/includes? (str (:extra col)) "auto_increment")})
             columns))))
 
@@ -178,12 +190,12 @@
        Example:
          (create-database-url \"localhost\" 3306 \"mydb\" {:useSSL \"false\"})"
   [host port database & [options]]
-  (let [base-url       (str "jdbc:mysql://" host ":" port "/" database)
+  (let [base-url (str "jdbc:mysql://" host ":" port "/" database)
         default-params {:serverTimezone "UTC"
-                        :useSSL         "true"
-                        :requireSSL     "false"}
-        params         (merge default-params options)
-        param-str      (str/join "&" (map (fn [[k v]] (str (name k) "=" v)) params))]
+                        :useSSL "true"
+                        :requireSSL "false"}
+        params (merge default-params options)
+        param-str (str/join "&" (map (fn [[k v]] (str (name k) "=" v)) params))]
     (if (seq params)
       (str base-url "?" param-str)
       base-url)))
@@ -252,6 +264,22 @@
 ;; MySQL-Specific Query Optimizations
 ;; =============================================================================
 
+(defn- validate-datasource
+  "Validate datasource parameter.
+
+   Args:
+     datasource: Datasource to validate
+
+   Returns:
+     datasource if valid
+
+   Throws:
+     IllegalArgumentException if invalid"
+  [datasource]
+  (when (nil? datasource)
+    (throw (IllegalArgumentException. "Datasource cannot be nil")))
+  datasource)
+
 (defn explain-query
   "Get MySQL query execution plan.
 
@@ -268,13 +296,16 @@
   ([datasource query-map]
    (explain-query datasource query-map :traditional))
   ([datasource query-map format-type]
-   (let [sql-query     (sql/format query-map {:dialect :mysql})
+   (validate-datasource datasource)
+   (when (or (nil? query-map) (not (map? query-map)))
+     (throw (IllegalArgumentException. "query-map must be a non-nil map")))
+   (let [sql-query (sql/format query-map {:dialect :mysql})
          format-clause (case format-type
                          :json "FORMAT=JSON"
                          :tree "FORMAT=TREE"
                          "")
-         explain-sql   (str "EXPLAIN " format-clause " " (first sql-query))
-         params        (rest sql-query)]
+         explain-sql (str "EXPLAIN " format-clause " " (first sql-query))
+         params (rest sql-query)]
      (jdbc/execute! datasource (cons explain-sql params)
                     {:builder-fn rs/as-unqualified-lower-maps}))))
 
@@ -288,7 +319,11 @@
        Example:
          (analyze-table ds :users)"
   [datasource table-name]
+  (validate-datasource datasource)
+  (when (nil? table-name)
+    (throw (IllegalArgumentException. "table-name cannot be nil")))
   (let [table-str (name table-name)]
+    ;; MySQL ANALYZE TABLE requires table name in SQL, cannot be parameterized
     (jdbc/execute! datasource [(str "ANALYZE TABLE " table-str)])
     (log/debug "Analyzed MySQL table" {:table table-str})))
 
@@ -302,7 +337,11 @@
        Example:
          (optimize-table ds :users)"
   [datasource table-name]
+  (validate-datasource datasource)
+  (when (nil? table-name)
+    (throw (IllegalArgumentException. "table-name cannot be nil")))
   (let [table-str (name table-name)]
+    ;; MySQL OPTIMIZE TABLE requires table name in SQL, cannot be parameterized
     (jdbc/execute! datasource [(str "OPTIMIZE TABLE " table-str)])
     (log/debug "Optimized MySQL table" {:table table-str})))
 
@@ -322,16 +361,17 @@
        Example:
          (server-info ds)"
   [datasource]
+  (validate-datasource datasource)
   (let [version-result (jdbc/execute-one! datasource ["SELECT VERSION() as version"]
                                           {:builder-fn rs/as-unqualified-lower-maps})
-        vars-result    (jdbc/execute-one! datasource
-                                          ["SELECT @@hostname as hostname, @@port as port, DATABASE() as current_db, USER() as current_user"]
-                                          {:builder-fn rs/as-unqualified-lower-maps})]
-    {:version          (:version version-result)
-     :hostname         (:hostname vars-result)
-     :port             (:port vars-result)
+        vars-result (jdbc/execute-one! datasource
+                                       ["SELECT @@hostname as hostname, @@port as port, DATABASE() as current_db, USER() as current_user"]
+                                       {:builder-fn rs/as-unqualified-lower-maps})]
+    {:version (:version version-result)
+     :hostname (:hostname vars-result)
+     :port (:port vars-result)
      :current-database (:current_db vars-result)
-     :current-user     (:current_user vars-result)}))
+     :current-user (:current_user vars-result)}))
 
 (defn show-engines
   "List available MySQL storage engines.
@@ -345,15 +385,16 @@
        Example:
          (show-engines ds)"
   [datasource]
+  (validate-datasource datasource)
   (let [results (jdbc/execute! datasource ["SHOW ENGINES"]
                                {:builder-fn rs/as-unqualified-lower-maps})]
     (mapv (fn [row]
-            {:engine       (:engine row)
-             :support      (:support row)
-             :comment      (:comment row)
+            {:engine (:engine row)
+             :support (:support row)
+             :comment (:comment row)
              :transactions (:transactions row)
-             :xa           (:xa row)
-             :savepoints   (:savepoints row)})
+             :xa (:xa row)
+             :savepoints (:savepoints row)})
           results)))
 
 (defn show-variables
@@ -371,13 +412,14 @@
   ([datasource]
    (show-variables datasource nil))
   ([datasource pattern]
-   (let [query   (if pattern
-                   (str "SHOW VARIABLES LIKE '" pattern "'")
-                   "SHOW VARIABLES")
+   (validate-datasource datasource)
+   (let [query (if pattern
+                 (str "SHOW VARIABLES LIKE '" pattern "'")
+                 "SHOW VARIABLES")
          results (jdbc/execute! datasource [query]
                                 {:builder-fn rs/as-unqualified-lower-maps})]
      (mapv (fn [row]
-             {:name  (:variable_name row)
+             {:name (:variable_name row)
               :value (:value row)})
            results))))
 
@@ -397,17 +439,18 @@
        Example:
          (show-processlist ds)"
   [datasource]
+  (validate-datasource datasource)
   (let [results (jdbc/execute! datasource ["SHOW PROCESSLIST"]
                                {:builder-fn rs/as-unqualified-lower-maps})]
     (mapv (fn [row]
-            {:id      (:id row)
-             :user    (:user row)
-             :host    (:host row)
-             :db      (:db row)
+            {:id (:id row)
+             :user (:user row)
+             :host (:host row)
+             :db (:db row)
              :command (:command row)
-             :time    (:time row)
-             :state   (:state row)
-             :info    (:info row)})
+             :time (:time row)
+             :state (:state row)
+             :info (:info row)})
           results)))
 
 (defn show-table-status
@@ -425,18 +468,19 @@
   ([datasource]
    (show-table-status datasource nil))
   ([datasource table-name]
-   (let [query   (if table-name
-                   (str "SHOW TABLE STATUS LIKE '" (name table-name) "'")
-                   "SHOW TABLE STATUS")
+   (validate-datasource datasource)
+   (let [query (if table-name
+                 (str "SHOW TABLE STATUS LIKE '" (name table-name) "'")
+                 "SHOW TABLE STATUS")
          results (jdbc/execute! datasource [query]
                                 {:builder-fn rs/as-unqualified-lower-maps})]
      (mapv (fn [row]
-             {:name           (:name row)
-              :engine         (:engine row)
-              :rows           (:rows row)
+             {:name (:name row)
+              :engine (:engine row)
+              :rows (:rows row)
               :avg-row-length (:avg_row_length row)
-              :data-length    (:data_length row)
-              :index-length   (:index_length row)
+              :data-length (:data_length row)
+              :index-length (:index_length row)
               :auto-increment (:auto_increment row)
-              :collation      (:collation row)})
+              :collation (:collation row)})
            results))))

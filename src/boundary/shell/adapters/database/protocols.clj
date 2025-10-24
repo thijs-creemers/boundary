@@ -11,7 +11,7 @@
    - Only include methods that differ between databases
    - Database-agnostic operations belong in core namespace
    - Type conversions use shared utilities where possible"
-  (:require [clojure.spec.alpha :as s]))
+  (:require [malli.core :as m]))
 
 ;; =============================================================================
 ;; Core Database Adapter Protocol
@@ -28,10 +28,14 @@
     "Return the HoneySQL dialect keyword for this database.
      
      Returns:
-       Keyword - :sqlite, :postgresql, :mysql, or :h2
+       Keyword - :sqlite, :postgresql, :mysql, :h2, or nil (for PostgreSQL default)
+       
+     Note:
+       PostgreSQL adapter returns nil to use HoneySQL's default dialect
        
      Example:
-       (dialect sqlite-adapter) ;; => :sqlite")
+       (dialect sqlite-adapter) ;; => :sqlite
+       (dialect postgres-adapter) ;; => nil")
 
   (jdbc-driver [this]
     "Return the JDBC driver class string for this database.
@@ -172,53 +176,119 @@
        ;; => [{:name \"id\" :type \"TEXT\" :not-null true :primary-key true} ...]"))
 
 ;; =============================================================================
-;; Configuration Specifications
+;; Configuration Schemas (Malli)
 ;; =============================================================================
 
-(s/def ::adapter #{:sqlite :postgresql :mysql :h2})
-(s/def ::database-path string?)
-(s/def ::host string?)
-(s/def ::port pos-int?)
-(s/def ::name string?)
-(s/def ::username string?)
-(s/def ::password string?)
+(def PoolConfig
+  "Schema for connection pool configuration."
+  [:map {:closed true}
+   [:minimum-idle {:optional true} pos-int?]
+   [:maximum-pool-size {:optional true} pos-int?]
+   [:connection-timeout-ms {:optional true} pos-int?]
+   [:idle-timeout-ms {:optional true} pos-int?]
+   [:max-lifetime-ms {:optional true} pos-int?]])
 
-(s/def ::sqlite-config
-  (s/keys :req-un [::adapter ::database-path]
-          :opt-un [::pool]))
+(def SQLiteConfig
+  "Schema for SQLite database configuration."
+  [:map {:title "SQLite Configuration"}
+   [:adapter [:enum :sqlite]]
+   [:database-path string?]
+   [:pool {:optional true} PoolConfig]])
 
-(s/def ::server-db-config
-  (s/keys :req-un [::adapter ::host ::port ::name ::username ::password]
-          :opt-un [::pool]))
+(def ServerDBConfig
+  "Schema for server-based database configuration (PostgreSQL, MySQL, H2)."
+  [:map {:title "Server Database Configuration"}
+   [:adapter [:enum :postgresql :mysql :h2]]
+   [:host {:optional true} string?]  ; Optional for H2 embedded mode
+   [:port {:optional true} pos-int?]  ; Optional for H2 embedded mode
+   [:name {:optional true} string?]  ; Optional for H2 embedded mode
+   [:database-path {:optional true} string?]  ; For H2 embedded mode (mem: or file:)
+   [:connection-params {:optional true} map?]  ; For H2-specific params
+   [:username {:optional true} string?]
+   [:password {:optional true} string?]
+   [:pool {:optional true} PoolConfig]])
 
-(s/def ::minimum-idle pos-int?)
-(s/def ::maximum-pool-size pos-int?)
-(s/def ::connection-timeout-ms pos-int?)
-(s/def ::idle-timeout-ms pos-int?)
-(s/def ::max-lifetime-ms pos-int?)
-
-(s/def ::pool
-  (s/keys :opt-un [::minimum-idle ::maximum-pool-size ::connection-timeout-ms
-                   ::idle-timeout-ms ::max-lifetime-ms]))
-
-(s/def ::db-config
-  (s/or :sqlite ::sqlite-config
-        :server ::server-db-config))
+(def DBConfig
+  "Schema for database configuration - supports SQLite and server-based databases."
+  [:or
+   {:error/message "Database configuration must be either SQLite or server-based (PostgreSQL/MySQL/H2)"}
+   SQLiteConfig
+   ServerDBConfig])
 
 (defn validate-db-config
-  "Validate database configuration against spec.
+  "Validate database configuration against Malli schema.
 
-       Args:
-         db-config: Database configuration map
+   Args:
+     db-config: Database configuration map
 
-       Returns:
-         db-config if valid
+   Returns:
+     db-config if valid
 
-       Throws:
-         ExceptionInfo if configuration is invalid"
+   Throws:
+     ExceptionInfo with detailed validation errors if configuration is invalid
+
+   Example:
+     (validate-db-config {:adapter :sqlite :database-path \"db.sqlite\"})
+     (validate-db-config {:adapter :postgresql :host \"localhost\" :port 5432 :name \"mydb\"})"
   [db-config]
-  (if (s/valid? ::db-config db-config)
+  (if (m/validate DBConfig db-config)
     db-config
     (throw (ex-info "Invalid database configuration"
                     {:config db-config
-                     :errors (s/explain-data ::db-config db-config)}))))
+                     :errors (m/explain DBConfig db-config)}))))
+
+;; =============================================================================
+;; Utility Functions
+;; =============================================================================
+
+(defn valid-db-config?
+  "Check if database configuration is valid without throwing exceptions.
+
+   Args:
+     db-config: Database configuration map
+
+   Returns:
+     Boolean - true if configuration is valid
+
+   Example:
+     (valid-db-config? {:adapter :sqlite :database-path \"db.sqlite\"}) ;; => true
+     (valid-db-config? {:adapter :invalid}) ;; => false"
+  [db-config]
+  (m/validate DBConfig db-config))
+
+(defn explain-db-config
+  "Get detailed validation errors for invalid database configuration.
+
+   Args:
+     db-config: Database configuration map
+
+   Returns:
+     Malli explanation map or nil if valid
+
+   Example:
+     (explain-db-config {:adapter :invalid})"
+  [db-config]
+  (when-not (m/validate DBConfig db-config)
+    (m/explain DBConfig db-config)))
+
+(defn sqlite-config?
+  "Check if configuration is for SQLite database.
+
+   Args:
+     db-config: Database configuration map
+
+   Returns:
+     Boolean - true if SQLite configuration"
+  [db-config]
+  (= :sqlite (:adapter db-config)))
+
+(defn server-db-config?
+  "Check if configuration is for server-based database (PostgreSQL, MySQL, H2).
+
+   Args:
+     db-config: Database configuration map
+
+   Returns:
+     Boolean - true if server-based database configuration"
+  [db-config]
+  (contains? #{:postgresql :mysql :h2} (:adapter db-config)))

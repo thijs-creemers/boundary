@@ -99,10 +99,10 @@
                     "src/boundary/shell/adapters/database/config_factory.clj"
                     "src/boundary/shell/adapters/database/protocols.clj"
                     "src/boundary/shell/adapters/database/core.clj"
-                    "src/boundary/shell/adapters/database/adapters/sqlite.clj"
-                    "src/boundary/shell/adapters/database/adapters/h2.clj"
-                    "src/boundary/shell/adapters/database/adapters/postgresql.clj"
-                    "src/boundary/shell/adapters/database/adapters/mysql.clj"]
+                    "src/boundary/shell/adapters/database/sqlite.clj"
+                    "src/boundary/shell/adapters/database/h2.clj"
+                    "src/boundary/shell/adapters/database/postgresql.clj"
+                    "src/boundary/shell/adapters/database/mysql.clj"]
         results    (atom {:found 0 :missing 0})]
 
     (doseq [impl-file impl-files]

@@ -27,6 +27,22 @@
   (:import [com.zaxxer.hikari HikariConfig HikariDataSource]))
 
 ;; =============================================================================
+;; Configuration Constants
+;; =============================================================================
+
+(def ^:private default-pagination-limit
+  "Default number of results to return when no limit is specified."
+  20)
+
+(def ^:private min-pagination-limit
+  "Minimum allowed pagination limit."
+  1)
+
+(def ^:private max-pagination-limit
+  "Maximum allowed pagination limit to prevent excessive memory usage."
+  1000)
+
+;; =============================================================================
 ;; Database Context Type
 ;; =============================================================================
 
@@ -128,12 +144,22 @@
                :pool-name (.getPoolName hikari-config)})
 
     (let [datasource (HikariDataSource. hikari-config)]
-      ;; Initialize database-specific connection settings
-      (protocols/init-connection! adapter datasource db-config)
-      (log/info "Database connection pool created successfully"
-                {:adapter (protocols/dialect adapter)
-                 :pool-name (.getPoolName hikari-config)})
-      datasource)))
+      (try
+        ;; Initialize database-specific connection settings
+        (protocols/init-connection! adapter datasource db-config)
+        (log/info "Database connection pool created successfully"
+                  {:adapter (protocols/dialect adapter)
+                   :pool-name (.getPoolName hikari-config)})
+        datasource
+        (catch Exception e
+          (log/error "Failed to initialize database connection, closing pool"
+                     {:adapter (protocols/dialect adapter)
+                      :error (.getMessage e)})
+          (.close datasource)
+          (throw (ex-info "Database initialization failed"
+                          {:adapter (protocols/dialect adapter)
+                           :original-error (.getMessage e)}
+                          e)))))))
 
 (defn close-connection-pool!
   "Close HikariCP connection pool.
@@ -155,6 +181,20 @@
 ;; HoneySQL Formatting
 ;; =============================================================================
 
+(defn- adapter-dialect->honey-dialect
+  "Map adapter dialect to HoneySQL-supported dialect.
+
+   Args:
+     adapter-dialect: Keyword dialect from adapter
+
+   Returns:
+     HoneySQL dialect keyword or nil for default (ANSI)"
+  [adapter-dialect]
+  (case adapter-dialect
+    :sqlite nil        ; SQLite uses default (ANSI)
+    :h2 :ansi         ; H2 uses ANSI SQL
+    adapter-dialect)) ; Others use the same name (e.g., :postgresql, :mysql)
+
 (defn format-sql
   "Format HoneySQL query map using adapter's dialect.
 
@@ -170,11 +210,7 @@
   [ctx query-map]
   (validate-adapter ctx)
   (if-let [adapter-dialect (protocols/dialect (:adapter ctx))]
-    ;; Map adapter dialects to HoneySQL-supported dialects
-    (let [honey-dialect (case adapter-dialect
-                          :sqlite nil        ; SQLite uses default (ANSI)
-                          :h2 :ansi         ; H2 uses ANSI SQL
-                          adapter-dialect)] ; Others use the same name
+    (let [honey-dialect (adapter-dialect->honey-dialect adapter-dialect)]
       (if honey-dialect
         (sql/format query-map {:dialect honey-dialect})
         (sql/format query-map)))
@@ -193,10 +229,7 @@
   [ctx query-map opts]
   (validate-adapter ctx)
   (let [adapter-dialect (protocols/dialect (:adapter ctx))
-        honey-dialect (case adapter-dialect
-                        :sqlite nil        ; SQLite uses default (ANSI)
-                        :h2 :ansi         ; H2 uses ANSI SQL
-                        adapter-dialect)   ; Others use the same name
+        honey-dialect (adapter-dialect->honey-dialect adapter-dialect)
         dialect-opts (if honey-dialect
                        (merge opts {:dialect honey-dialect})
                        opts)]
@@ -220,11 +253,11 @@
      (execute-query! ctx {:select [:*] :from [:users] :where [:= :active true]})"
   [ctx query-map]
   (validate-context ctx)
-  (let [sql-query (format-sql ctx query-map)]
-    ;; Validate that we have a non-empty SQL statement
-    (when (or (empty? sql-query) (empty? (first sql-query)))
-      (throw (IllegalArgumentException. "Invalid or empty query map provided")))
-    (let [start-time (System/currentTimeMillis)]
+  ;; Validate query-map before formatting to avoid wasting resources
+  (when (or (nil? query-map) (not (map? query-map)) (empty? query-map))
+    (throw (IllegalArgumentException. "Invalid or empty query map provided")))
+  (let [sql-query (format-sql ctx query-map)
+        start-time (System/currentTimeMillis)]
       (log/debug "Executing query"
                  {:adapter (protocols/dialect (:adapter ctx))
                   :sql (first sql-query)
@@ -248,7 +281,7 @@
                            :sql (first sql-query)
                            :params (rest sql-query)
                            :original-error (.getMessage e)}
-                          e)))))))
+                          e))))))
 
 (defn execute-one!
   "Execute query expecting single result.
@@ -419,9 +452,9 @@
    Example:
      (build-pagination {:limit 50 :offset 100})"
   [options]
-  (let [limit (get options :limit 20)
+  (let [limit (get options :limit default-pagination-limit)
         offset (get options :offset 0)]
-    {:limit (min (max limit 1) 1000)  ; Clamp between 1 and 1000
+    {:limit (min (max limit min-pagination-limit) max-pagination-limit)
      :offset (max offset 0)}))
 
 (defn build-ordering

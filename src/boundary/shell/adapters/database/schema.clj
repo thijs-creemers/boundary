@@ -152,9 +152,9 @@
      Vector of constraint definition strings"
   [table-name field-infos]
   (let [; Find foreign key fields (fields ending with -id but not id itself)
-        fk-fields (filter #(and (not= (:name %) "id")
-                                (str/ends-with? (:name %) "-id"))
-                          field-infos)]
+        _fk-fields (filter #(and (not= (:name %) "id")
+                                 (str/ends-with? (:name %) "-id"))
+                           field-infos)]
     (vec (concat
           ; Foreign key constraints - DISABLED FOR NOW
           ; (uncomment when tenant table is implemented)
@@ -268,7 +268,7 @@
      
    Returns:
      Vector of DDL index statements"
-  [ctx table-name malli-schema]
+  [_ctx table-name malli-schema]
   (let [fields (rest malli-schema)
         field-infos (->> fields
                          (map extract-field-info)

@@ -32,8 +32,40 @@
             [next.jdbc.result-set :as rs]))
 
 ;; =============================================================================
+;; Configuration Constants
+;; =============================================================================
+
+(def ^:private mmap-size-bytes
+  "Memory-mapped I/O size in bytes (256MB)."
+  268435456)
+
+(def ^:private cache-size-pages
+  "Page cache size in pages (~10MB with 1KB pages)."
+  10000)
+
+(def ^:private busy-timeout-ms
+  "Busy timeout in milliseconds (5 seconds)."
+  5000)
+
+;; =============================================================================
 ;; SQLite Connection Management
 ;; =============================================================================
+
+(defn- validate-datasource
+  "Validate datasource parameter.
+
+   Args:
+     datasource: Datasource to validate
+
+   Returns:
+     datasource if valid
+
+   Throws:
+     IllegalArgumentException if invalid"
+  [datasource]
+  (when (nil? datasource)
+    (throw (IllegalArgumentException. "Datasource cannot be nil")))
+  datasource)
 
 (def ^:private default-sqlite-pragmas
   "Default SQLite PRAGMA settings for optimal performance and reliability."
@@ -41,9 +73,9 @@
    "PRAGMA synchronous=NORMAL"                              ; Balance between safety and performance
    "PRAGMA foreign_keys=ON"                                 ; Enable foreign key constraints
    "PRAGMA temp_store=MEMORY"                               ; Store temporary tables in memory
-   "PRAGMA mmap_size=268435456"                             ; 256MB memory-mapped I/O
-   "PRAGMA cache_size=10000"                                ; 10MB page cache
-   "PRAGMA busy_timeout=5000"])                             ; 5-second busy timeout
+   (str "PRAGMA mmap_size=" mmap-size-bytes)                ; Memory-mapped I/O
+   (str "PRAGMA cache_size=" cache-size-pages)              ; Page cache
+   (str "PRAGMA busy_timeout=" busy-timeout-ms)])           ; Busy timeout
 
 (defn initialize-sqlite-pragmas!
   "Apply SQLite PRAGMA settings to a connection.
@@ -57,6 +89,7 @@
   ([datasource]
    (initialize-sqlite-pragmas! datasource []))
   ([datasource custom-pragmas]
+   (validate-datasource datasource)
    (let [all-pragmas   (concat default-sqlite-pragmas custom-pragmas)
          success-count (atom 0)
          failure-count (atom 0)]
@@ -132,10 +165,16 @@
           result    (first (jdbc/execute! datasource
                                           (sql/format query)  ; SQLite uses default HoneySQL dialect
                                           {:builder-fn rs/as-unqualified-lower-maps}))]
-      (> (:count result 0) 0)))
+      (> (get result :count 0) 0)))
 
   (get-table-info [_ datasource table-name]
-    (let [pragma-sql (str "PRAGMA table_info(" (name table-name) ")")
+    (when (nil? table-name)
+      (throw (IllegalArgumentException. "table-name cannot be nil")))
+    ;; PRAGMA table_info requires table name in SQL, cannot be parameterized
+    ;; We validate that table-name is a valid identifier by using (name table-name)
+    ;; which will only work with keywords/strings/symbols
+    (let [table-str (name table-name)
+          pragma-sql (str "PRAGMA table_info(" table-str ")")
           results    (jdbc/execute! datasource [pragma-sql] {:builder-fn rs/as-unqualified-lower-maps})]
       (mapv (fn [row]
               {:name        (:name row)
