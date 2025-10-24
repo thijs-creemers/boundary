@@ -47,7 +47,7 @@
     (do
       (log/info "Loading active database adapter" {:adapter adapter-type :env env})
       (let [adapter-ns (case adapter-type
-                         :sqlite 'boundary.shell.adapters.database.sqlite
+                         :sqlite 'boundary.shell.adapters.database.sqlite.core
                          :postgresql 'boundary.shell.adapters.database.postgresql.core
                          :mysql 'boundary.shell.adapters.database.mysql.core
                          :h2 'boundary.shell.adapters.database.h2)

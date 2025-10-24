@@ -11,7 +11,7 @@
 
    Uses H2 in-memory database for fast, isolated tests."
   (:require [boundary.shell.adapters.database.h2 :as h2]
-            [boundary.shell.adapters.database.sqlite :as sqlite]
+            [boundary.shell.adapters.database.sqlite.core :as sqlite]
             [boundary.shell.adapters.database.core :as db]
             [boundary.shell.adapters.database.protocols :as protocols]
             [clojure.test :refer [deftest is testing use-fixtures]]

@@ -1,370 +1,66 @@
 (ns boundary.shell.adapters.database.h2
-  "H2 database adapter implementing the DBAdapter protocol.
-   
-   This namespace provides H2-specific functionality for both file-based and
-   in-memory databases. H2 is excellent for development, testing, and embedded
-   applications due to its lightweight nature and PostgreSQL compatibility mode.
-   
-   Key Features:
-   - PostgreSQL compatibility mode for easier migration
-   - In-memory databases for fast testing
-   - File-based databases for development
-   - Standard SQL features with good performance
-   - Native boolean support (no conversion needed)
-   
-   H2-Specific Optimizations:
-   - PostgreSQL compatibility mode by default
-   - Proper timezone handling
-   - Case-insensitive identifiers for compatibility
-   - Optimized connection pool settings for embedded usage"
-  (:require [boundary.shell.adapters.database.protocols :as protocols]
-            [clojure.string :as str]
-            [clojure.tools.logging :as log]
-            [honey.sql :as sql]
-            [next.jdbc :as jdbc]
-            [next.jdbc.result-set :as rs])
-  (:import (java.util UUID)))
+  "H2 database adapter - main entry point.
+
+   This namespace serves as the main entry point for H2 database
+   functionality. It delegates to the modular h2.core namespace
+   which coordinates specialized modules for different aspects of H2 operations.
+
+   The adapter has been refactored into 5 specialized namespaces:
+   - h2.connection: Connection management and H2-specific settings
+   - h2.query: H2-specific query building and boolean handling
+   - h2.metadata: Table introspection and schema information
+   - h2.utils: Utility functions and DDL helpers
+   - h2.core: Main adapter implementation and coordination
+
+   This namespace maintains backward compatibility by re-exporting
+   the core functionality."
+  (:require [boundary.shell.adapters.database.h2.core :as h2-core]))
 
 ;; =============================================================================
-;; Configuration Constants
+;; Main Adapter Functions (Re-exported from core)
 ;; =============================================================================
 
-(def ^:private h2-connection-options
-  "H2 connection options for PostgreSQL compatibility and consistency."
-  "MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH")
-
-(def ^:private default-schema
-  "Default schema name for H2 database queries."
-  "public")
+(def new-adapter h2-core/new-adapter)
 
 ;; =============================================================================
-;; H2 Adapter Implementation
+;; H2-Specific Utilities (Re-exported from core)
 ;; =============================================================================
 
-(defrecord H2Adapter []
-  protocols/DBAdapter
+;; Connection and URL building
+(def in-memory-url h2-core/in-memory-url)
+(def file-url h2-core/file-url)
 
-  (dialect [_]
-    :ansi)  ; H2 uses HoneySQL's ANSI SQL dialect
+;; DDL helpers
+(def boolean-column-type h2-core/boolean-column-type)
+(def uuid-column-type h2-core/uuid-column-type)
+(def timestamp-column-type h2-core/timestamp-column-type)
+(def auto-increment-primary-key h2-core/auto-increment-primary-key)
 
-  (jdbc-driver [_]
-    "org.h2.Driver")
+;; Performance and maintenance
+(def explain-query h2-core/explain-query)
+(def analyze-table h2-core/analyze-table)
 
-  (jdbc-url [_ db-config]
-    (let [database-path (:database-path db-config)]
-      (str "jdbc:h2:" database-path ";" h2-connection-options)))
+;; Database information
+(def show-tables h2-core/show-tables)
+(def show-indexes h2-core/show-indexes)
 
-  (pool-defaults [_]
-    {:minimum-idle          1
-     :maximum-pool-size     10
-     :connection-timeout-ms 30000
-     :idle-timeout-ms       600000
-     :max-lifetime-ms       1800000})
-
-  (init-connection! [_ datasource _db-config]
-    (log/debug "Initializing H2 connection settings")
-    (try
-      ;; Set timezone to UTC for consistency
-      (jdbc/execute! datasource ["SET TIME ZONE '+00:00'"])
-
-      ;; Enable referential integrity (foreign keys)
-      (jdbc/execute! datasource ["SET REFERENTIAL_INTEGRITY TRUE"])
-
-      (log/debug "H2 connection initialized successfully")
-      (catch Exception e
-        ;; Log warning but don't fail - these are optional optimization settings
-        ;; Connection will still work even if these settings fail
-        (log/warn "Failed to initialize some H2 settings (connection will still work)"
-                  {:error (.getMessage e)
-                   :error-type (type e)}))))
-
-  (build-where [_ filters]
-    (when (seq filters)
-      (let [conditions (for [[field value] filters
-                             :when (some? value)]
-                         (cond
-                           (string? value) [:like field (str "%" value "%")]
-                           (vector? value) [:in field value]
-                           (boolean? value) [:= field value] ; H2 supports native booleans
-                           :else [:= field value]))]
-        (when (seq conditions)
-          (if (= 1 (count conditions))
-            (first conditions)
-            (cons :and conditions))))))
-
-  (boolean->db [_ boolean-value]
-    ;; H2 supports native boolean values
-    boolean-value)
-
-  (db->boolean [_ db-value]
-    ;; H2 returns native boolean values
-    db-value)
-
-  (table-exists? [_ datasource table-name]
-    (let [table-str (str/lower-case (name table-name))  ; Use lowercase for PostgreSQL compatibility
-          query     {:select [:%count.*]
-                     :from   [:information_schema.tables]
-                     :where  [:and
-                              [:= :table_schema default-schema]
-                              [:= :table_name table-str]]}
-          result    (first (jdbc/execute! datasource
-                                          (sql/format query {:dialect :ansi})
-                                          {:builder-fn rs/as-unqualified-lower-maps}))]
-      (> (or (:count result) (get result :?column?) 0) 0)))
-
-  (get-table-info [_ datasource table-name]
-    (let [table-str     (str/lower-case (name table-name))  ; Use lowercase for PostgreSQL compatibility
-          ;; Get column information
-          columns-query {:select   [:column_name :data_type :is_nullable :column_default]
-                         :from     [:information_schema.columns]
-                         :where    [:and
-                                    [:= :table_schema default-schema]
-                                    [:= :table_name table-str]]
-                         :order-by [:ordinal_position]}
-          ;; Get primary key information
-          pk-query      {:select [:kcu.column_name]
-                         :from   [[:information_schema.table_constraints :tc]]
-                         :join   [[:information_schema.key_column_usage :kcu]
-                                  [:and
-                                   [:= :tc.constraint_name :kcu.constraint_name]
-                                   [:= :tc.table_schema :kcu.table_schema]]]
-                         :where  [:and
-                                  [:= :tc.table_schema default-schema]
-                                  [:= :tc.table_name table-str]
-                                  [:= :tc.constraint_type "PRIMARY KEY"]]}
-
-          columns       (jdbc/execute! datasource
-                                       (sql/format columns-query {:dialect :ansi})
-                                       {:builder-fn rs/as-unqualified-lower-maps})
-          pk-columns    (set (map :column_name
-                                  (jdbc/execute! datasource
-                                                 (sql/format pk-query {:dialect :ansi})
-                                                 {:builder-fn rs/as-unqualified-lower-maps})))]
-
-      (mapv (fn [col]
-              {:name        (str/lower-case (:column_name col))
-               :type        (:data_type col)
-               :not-null    (= "NO" (:is_nullable col))
-               :default     (:column_default col)
-               :primary-key (contains? pk-columns (:column_name col))})
-            columns))))
-
-(defn new-adapter
-  "Create new H2 adapter instance.
-
-       Returns:
-         H2 adapter implementing DBAdapter protocol"
-  []
-  (->H2Adapter))
+;; Development and testing utilities
+(def create-test-context h2-core/create-test-context)
 
 ;; =============================================================================
-;; H2-Specific Utilities
+;; Transaction Management (Re-exported from core)
 ;; =============================================================================
 
-(defn in-memory-url
-  "Create H2 in-memory database URL.
-
-       Args:
-         db-name: Database name (optional, defaults to 'testdb')
-
-       Returns:
-         JDBC URL for H2 in-memory database
-
-       Example:
-         (in-memory-url) ;; => \"jdbc:h2:mem:testdb;...\""
-  ([]
-   (in-memory-url "testdb"))
-  ([db-name]
-   (str "jdbc:h2:mem:" db-name ";" h2-connection-options)))
-
-(defn file-url
-  "Create H2 file-based database URL.
-
-       Args:
-         file-path: Path to database file (without .mv.db extension)
-
-       Returns:
-         JDBC URL for H2 file database
-
-       Example:
-         (file-url \"./data/app\") ;; => \"jdbc:h2:./data/app;...\""
-  [file-path]
-  (str "jdbc:h2:" file-path ";" h2-connection-options))
-
-(defn create-test-context
-  "Create H2 in-memory database context for testing.
-
-       Args:
-         db-name: Optional database name (defaults to random UUID)
-
-       Returns:
-         Database context ready for testing
-
-       Example:
-         (def test-ctx (create-test-context))
-         (core/execute-query! test-ctx {:select [1]})"
-  ([]
-   (create-test-context (str "test_" (UUID/randomUUID))))
-  ([db-name]
-   (let [adapter   (new-adapter)
-         db-config {:adapter       :h2
-                    :database-path (str "mem:" db-name)}]
-     {:adapter    adapter
-      :datasource ((requiring-resolve 'boundary.shell.adapters.database.core/create-connection-pool)
-                   adapter db-config)})))
-
-;; =============================================================================
-;; DDL Helpers for H2
-;; =============================================================================
-
-(defn boolean-column-type
-  "Get H2 boolean column type definition.
-
-       Returns:
-         String - 'BOOLEAN' for H2"
-  []
-  "BOOLEAN")
-
-(defn uuid-column-type
-  "Get H2 UUID column type definition.
-
-       H2 has native UUID support, but we use VARCHAR for compatibility.
-
-       Returns:
-         String - 'VARCHAR(36)' for UUID storage"
-  []
-  "VARCHAR(36)")
-
-(defn timestamp-column-type
-  "Get H2 timestamp column type definition.
-
-       Returns:
-         String - 'TIMESTAMP' for H2"
-  []
-  "TIMESTAMP")
-
-(defn auto-increment-primary-key
-  "Get H2 auto-increment primary key definition.
-
-       Returns:
-         String - H2 auto-increment syntax"
-  []
-  "BIGINT AUTO_INCREMENT PRIMARY KEY")
-
-;; =============================================================================
-;; H2-Specific Query Optimizations
-;; =============================================================================
-
-(defn- validate-datasource
-  "Validate datasource parameter.
+(defmacro with-transaction
+  "Macro for H2 transaction management with consistent error handling.
 
    Args:
-     datasource: Datasource to validate
+     binding: [tx-var datasource]
+     body: Expressions to execute within transaction
 
-   Returns:
-     datasource if valid
-
-   Throws:
-     IllegalArgumentException if invalid"
-  [datasource]
-  (when (nil? datasource)
-    (throw (IllegalArgumentException. "Datasource cannot be nil")))
-  datasource)
-
-(defn explain-query
-  "Get H2 query execution plan.
-
-       Args:
-         datasource: H2 datasource
-         query-map: HoneySQL query map
-
-       Returns:
-         Vector of execution plan rows
-
-       Example:
-         (explain-query ds {:select [:*] :from [:users]})"
-  [datasource query-map]
-  (validate-datasource datasource)
-  (when (or (nil? query-map) (not (map? query-map)))
-    (throw (IllegalArgumentException. "query-map must be a non-nil map")))
-  (let [[sql & params] (sql/format query-map {:dialect :h2})
-        ;; H2 EXPLAIN requires the SQL to be part of the statement, not a parameter
-        explain-sql (str "EXPLAIN " sql)]
-    (jdbc/execute! datasource (cons explain-sql params)
-                   {:builder-fn rs/as-unqualified-lower-maps})))
-
-(defn analyze-table
-  "Update H2 table statistics for better query planning.
-
-       Args:
-         datasource: H2 datasource
-         table-name: Table name to analyze
-
-       Example:
-         (analyze-table ds :users)"
-  [datasource table-name]
-  (validate-datasource datasource)
-  (when (nil? table-name)
-    (throw (IllegalArgumentException. "table-name cannot be nil")))
-  (let [table-str (name table-name)]
-    ;; H2 ANALYZE TABLE requires table name in the SQL, cannot be parameterized
-    (jdbc/execute! datasource [(str "ANALYZE TABLE " table-str)])
-    (log/debug "Analyzed H2 table" {:table table-str})))
-
-;; =============================================================================
-;; Development and Testing Utilities
-;; =============================================================================
-
-(defn show-tables
-  "List all tables in H2 database.
-
-       Args:
-         datasource: H2 datasource
-
-       Returns:
-         Vector of table names
-
-       Example:
-         (show-tables ds) ;; => [\"users\" \"sessions\"]"
-  [datasource]
-  (validate-datasource datasource)
-  (let [query {:select [:table_name]
-               :from [:information_schema.tables]
-               :where [:= :table_schema (str/upper-case default-schema)]}
-        results (jdbc/execute! datasource
-                              (sql/format query {:dialect :ansi})
-                              {:builder-fn rs/as-unqualified-lower-maps})]
-    (mapv #(str/lower-case (:table_name %)) results)))
-
-(defn show-indexes
-  "List all indexes in H2 database.
-
-       Args:
-         datasource: H2 datasource
-         table-name: Optional table name to filter indexes
-
-       Returns:
-         Vector of index information
-
-       Example:
-         (show-indexes ds) ;; => [{:index-name \"..\" :table-name \"..\" ...}]"
-  ([datasource]
-   (show-indexes datasource nil))
-  ([datasource table-name]
-   (validate-datasource datasource)
-   (let [base-condition [:= :table_schema (str/upper-case default-schema)]
-         where-clause (if table-name
-                       [:and base-condition [:= :table_name (str/upper-case (name table-name))]]
-                       base-condition)
-         query {:select [:index_name :table_name :non_unique :column_name]
-                :from [:information_schema.indexes]
-                :where where-clause}
-         results (jdbc/execute! datasource
-                               (sql/format query {:dialect :ansi})
-                               {:builder-fn rs/as-unqualified-lower-maps})]
-     (mapv (fn [row]
-             {:index-name  (str/lower-case (:index_name row))
-              :table-name  (str/lower-case (:table_name row))
-              :unique      (not (:non_unique row))
-              :column-name (str/lower-case (:column_name row))})
-           results))))
+   Example:
+     (with-transaction [tx datasource]
+       (execute-update! tx query1)
+       (execute-update! tx query2))"
+  [binding & body]
+  `(h2-core/with-transaction ~binding ~@body))
