@@ -3,7 +3,10 @@
 /.cpcache/
 /.idea/
 /.lsp/
+/.clojure-mcp
 .env
 ._*
 /docs/**/*.html
 /.nrepl-port
+opencode.json
+*.db
