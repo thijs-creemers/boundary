@@ -50,7 +50,7 @@
   (let [adapter-ns     (case adapter-type
                          :sqlite 'boundary.shell.adapters.database.sqlite
                          :postgresql 'boundary.shell.adapters.database.postgresql.core
-                         :mysql 'boundary.shell.adapters.database.mysql
+                         :mysql 'boundary.shell.adapters.database.mysql.core
                          :h2 'boundary.shell.adapters.database.h2)
         constructor-fn (case adapter-type
                          :sqlite 'new-adapter
