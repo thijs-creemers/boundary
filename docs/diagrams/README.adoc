@@ -8,7 +8,7 @@ This directory contains PlantUML source files for all architectural and design d
 
 === Architecture Diagrams
 * **c4-container.puml** - C4 Container diagram showing system context
-* **component-overview.puml** - Component diagram showing Shell and Core interaction
+* **system-component-overview.puml** - Component diagram showing Shell and Core interaction
 * **ports-adapters.puml** - Detailed view of ports and adapters pattern (TODO)
 
 === Sequence Diagrams  

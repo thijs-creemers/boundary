@@ -5,7 +5,39 @@
 :source-highlighter: highlightjs
 :icons: font
 
-This guide demonstrates how to use the new multi-database adapter system in boundary. The system provides a unified interface for working with SQLite, PostgreSQL, MySQL, and H2 databases.
+**Last Updated:** October 24, 2025 +
+**Status:** ✅ Protocol-based adapter architecture implemented
+
+This guide demonstrates how to use the protocol-based multi-database adapter system in boundary. The system provides a unified interface for working with SQLite, PostgreSQL, MySQL, and H2 databases through consistent DatabaseConnection and DatabaseMetadata protocols.
+
+== Architecture Overview
+
+=== Protocol-Based Design (Refactored Oct 24, 2025)
+
+The multi-database system is built on two core protocols:
+
+**DatabaseConnection Protocol:**
+
+* `execute-query!` - Execute SELECT queries
+* `execute-update!` - Execute INSERT/UPDATE/DELETE
+* `execute-batch!` - Execute multiple statements in transaction
+* `with-transaction*` - Transaction management
+
+**DatabaseMetadata Protocol:**
+
+* `table-exists?` - Check if table exists
+* `get-table-info` - Retrieve table schema information
+* `database-info` - Get database metadata
+
+**Database-Specific Adapters:**
+
+Each database has a dedicated namespace with:
+
+* `core.clj` - Adapter implementation (DatabaseConnection + DatabaseMetadata)
+* `connection.clj` - Connection pool management
+* `query.clj` - Database-specific query building
+* `metadata.clj` - Schema introspection
+* `utils.clj` - Type conversion and utilities
 
 == Quick Start
 

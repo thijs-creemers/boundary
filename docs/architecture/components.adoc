@@ -31,6 +31,101 @@ image::{diagrams-dir}/component-overview.png[Component Overview, 800]
 
 Boundary's component architecture follows a strict layered approach where each layer has specific responsibilities and clear boundaries. The diagram above shows the main components and their interactions.
 
+=== Detailed System Component Diagram (PlantUML)
+
+[plantuml, system-component-overview, svg]
+----
+@startuml
+!define RECTANGLE class
+
+title Boundary Framework - Component Overview
+
+package "Presentation Layer" {
+  [REST API\n(Ring/Reitit)] as REST
+  [CLI\n(tools.cli)] as CLI
+  [Web Frontend\n(Replicant)] as WEB
+}
+
+package "Imperative Shell" {
+  [HTTP Handlers] as HTTP_HANDLER
+  [CLI Handlers] as CLI_HANDLER
+  [Validation\n(Malli)] as VALIDATION
+  [Error Translation] as ERROR_TRANS
+  [Configuration\n(Aero)] as CONFIG
+  [Logging\n(TeleMere)] as LOGGING
+
+  package "Shared Utilities" {
+    [Type Conversion] as TYPE_CONV
+    [Case Conversion] as CASE_CONV
+    [Generic Validation] as GEN_VALIDATION
+  }
+
+  package "Adapters" {
+    [PostgreSQL\nAdapter] as PG_ADAPTER
+    [Email\nAdapter] as EMAIL_ADAPTER
+  }
+
+  package "Ports" {
+    interface "IUserRepository" as IUSER_REPO
+    interface "IEmailService" as IEMAIL_SERVICE
+  }
+}
+
+package "Functional Core" {
+  [User Core\nFunctions] as USER_CORE
+  [Job Core\nFunctions] as JOB_CORE
+  [Business Rules\nEngine] as BIZ_RULES
+}
+
+' Presentation to Shell connections
+REST --> HTTP_HANDLER
+CLI --> CLI_HANDLER
+WEB --> HTTP_HANDLER
+
+' Shell internal connections
+HTTP_HANDLER --> VALIDATION
+CLI_HANDLER --> VALIDATION
+VALIDATION --> USER_CORE
+VALIDATION --> JOB_CORE
+
+' Shared utilities connections
+VALIDATION --> TYPE_CONV
+VALIDATION --> CASE_CONV
+VALIDATION --> GEN_VALIDATION
+HTTP_HANDLER --> TYPE_CONV
+HTTP_HANDLER --> CASE_CONV
+CLI_HANDLER --> TYPE_CONV
+
+HTTP_HANDLER --> ERROR_TRANS
+CLI_HANDLER --> ERROR_TRANS
+
+' Adapter to Port connections
+PG_ADAPTER ..|> IUSER_REPO
+EMAIL_ADAPTER ..|> IEMAIL_SERVICE
+
+' Core to Port connections
+USER_CORE --> IUSER_REPO
+USER_CORE --> IEMAIL_SERVICE
+JOB_CORE --> IUSER_REPO
+BIZ_RULES --> IUSER_REPO
+
+' Cross-cutting concerns
+CONFIG ..> HTTP_HANDLER : configures
+CONFIG ..> CLI_HANDLER : configures
+CONFIG ..> PG_ADAPTER : configures
+
+LOGGING ..> HTTP_HANDLER : logs
+LOGGING ..> CLI_HANDLER : logs
+LOGGING ..> ERROR_TRANS : logs
+
+note right of USER_CORE : Pure functions only\nNo side effects\nDeterministic
+note right of IUSER_REPO : Abstract interface\nCore depends only on this
+note left of PG_ADAPTER : Concrete implementation\nShell wires this to port
+note bottom of TYPE_CONV : Reusable utilities\nUUID, Instant, type conversions\nUsed across modules
+
+@enduml
+----
+
 == Namespace Structure and Organization
 
 === Adopted Module-Centric Architecture
@@ -74,7 +169,7 @@ src/boundary/
 │   └── shell/
 │       ├── adapters.clj   # Workflow adapters
 │       └── service.clj    # Workflow service
-├── shared/                # 🔗 SHARED UTILITIES  
+├── shared/                # 🔗 SHARED UTILITIES
 │   ├── core/
 │   │   └── validation.clj # Generic validation patterns and utilities
 │   └── utils/
@@ -82,10 +177,37 @@ src/boundary/
 │       └── case_conversion.clj # camelCase <-> kebab-case transformations
 ├── shell/                 # 🐚 IMPERATIVE SHELL
 │   ├── adapters/          # I/O adapter implementations
-│   │   ├── database/
-│   │   │   ├── postgresql.clj
-│   │   │   ├── migrations.clj
-│   │   │   └── connection.clj
+│   │   ├── database/      # ✨ REFACTORED Oct 24, 2025
+│   │   │   ├── protocols.clj           # DatabaseConnection & DatabaseMetadata protocols
+│   │   │   ├── factory.clj             # Database adapter factory
+│   │   │   ├── core.clj               # Database-agnostic operations
+│   │   │   ├── postgresql/
+│   │   │   │   ├── core.clj           # PostgreSQL adapter implementation
+│   │   │   │   ├── connection.clj     # Connection management
+│   │   │   │   ├── query.clj          # Query building
+│   │   │   │   ├── metadata.clj       # Schema introspection
+│   │   │   │   └── utils.clj          # Type conversion utilities
+│   │   │   ├── sqlite/
+│   │   │   │   ├── core.clj           # SQLite adapter implementation
+│   │   │   │   ├── connection.clj
+│   │   │   │   ├── query.clj
+│   │   │   │   ├── metadata.clj
+│   │   │   │   └── utils.clj
+│   │   │   ├── h2/
+│   │   │   │   ├── core.clj           # H2 adapter implementation
+│   │   │   │   ├── connection.clj
+│   │   │   │   ├── query.clj
+│   │   │   │   ├── metadata.clj
+│   │   │   │   └── utils.clj
+│   │   │   ├── mysql/
+│   │   │   │   ├── core.clj           # MySQL adapter implementation
+│   │   │   │   ├── connection.clj
+│   │   │   │   ├── query.clj
+│   │   │   │   ├── metadata.clj
+│   │   │   │   └── utils.clj
+│   │   │   └── utils/
+│   │   │       ├── schema.clj         # Schema generation utilities
+│   │   │       └── driver_loader.clj  # Dynamic driver loading
 │   │   ├── external/
 │   │   │   ├── email_smtp.clj
 │   │   │   ├── payment_stripe.clj
@@ -129,7 +251,7 @@ src/boundary/
 **🔍 Discoverability:**
 
 * Related ports, schemas, and logic grouped together
-* Clear domain boundaries make codebase navigation intuitive  
+* Clear domain boundaries make codebase navigation intuitive
 * New developers can focus on one domain at a time
 
 **🤼 Maintainability:**
@@ -167,7 +289,7 @@ src/boundary/
 ;; Generic type conversions
 (defn uuid->string [uuid] (when uuid (.toString uuid)))
 (defn string->uuid [s] (when s (UUID/fromString s)))
-(defn string->boolean [value] 
+(defn string->boolean [value]
   (case value "true" true "false" false value))
 ----
 
@@ -220,19 +342,19 @@ Modules can depend on each other through well-defined ports:
   (let [join-date (:joined-at user-data)
         membership-duration (calculate-duration join-date current-date)
         years-active (duration-to-years membership-duration)
-        
+
         ;; Pure business logic - no side effects
         tier (determine-membership-tier years-active (:spending-total user-data))
         discount-rate (get-discount-for-tier tier membership-rules)
         perks (get-perks-for-tier tier membership-rules)
-        
+
         ;; Return immutable result data
         benefits {:membership-tier tier
                  :discount-rate discount-rate
                  :perks perks
                  :years-active years-active
                  :next-tier-requirements (calculate-next-tier-requirements tier)}]
-    
+
     ;; Return decision data for shell to execute
     {:user-benefits benefits
      :effects (when (tier-upgraded? (:previous-tier user-data) tier)
@@ -253,13 +375,13 @@ Modules can depend on each other through well-defined ports:
       {:decision :reject-duplicate
        :reason "Email already registered"
        :existing-user-id (:id existing-user)}
-      
+
       ;; Business rule: validate registration data
       (not (valid-registration-data? registration-data))
       {:decision :reject-invalid
        :reason "Invalid registration data"
        :validation-errors (get-validation-errors registration-data)}
-      
+
       ;; Happy path: create user
       :else
       (let [new-user (create-user-record registration-data current-time)
@@ -390,7 +512,7 @@ Modules can depend on each other through well-defined ports:
   [system request-data]
   (let [{:keys [user-repository notification-service system-services]} system
         correlation-id (ports/generate-correlation-id system-services)]
-    
+
     ;; 1. Input validation (Shell responsibility)
     (log/info "Processing user registration" {:correlation-id correlation-id})
     (if-let [validation-errors (validate-registration-request request-data)]
@@ -399,7 +521,7 @@ Modules can depend on each other through well-defined ports:
        :error-type :validation-failed
        :details validation-errors
        :correlation-id correlation-id}
-      
+
       ;; 2. Call core function with validated data
       (let [current-time (ports/current-timestamp system-services)
             core-result (user-core/process-user-registration
@@ -407,7 +529,7 @@ Modules can depend on each other through well-defined ports:
                         notification-service
                         request-data
                         current-time)]
-        
+
         ;; 3. Execute effects based on core decision (Shell responsibility)
         (case (:decision core-result)
           :accept-registration
@@ -415,16 +537,16 @@ Modules can depend on each other through well-defined ports:
             ;; Execute all effects
             (doseq [effect (:effects core-result)]
               (execute-effect system effect correlation-id))
-            
+
             (log/info "User registration successful"
                      {:correlation-id correlation-id
                       :user-id (get-in core-result [:user-data :id])})
-            
+
             {:status :success
              :data {:user-id (get-in core-result [:user-data :id])
                    :message "User registered successfully"}
              :correlation-id correlation-id})
-          
+
           :reject-duplicate
           (do
             (log/warn "Duplicate registration attempt"
@@ -434,7 +556,7 @@ Modules can depend on each other through well-defined ports:
              :error-type :duplicate-user
              :message (:reason core-result)
              :correlation-id correlation-id})
-          
+
           :reject-invalid
           (do
             (log/warn "Invalid registration data"
@@ -445,7 +567,7 @@ Modules can depend on each other through well-defined ports:
              :message (:reason core-result)
              :details (:validation-errors core-result)
              :correlation-id correlation-id})
-          
+
           ;; Unknown decision
           (do
             (log/error "Unknown core decision"
@@ -462,9 +584,9 @@ Modules can depend on each other through well-defined ports:
   (let [{:keys [user-repository system-services]} system
         correlation-id (ports/generate-correlation-id system-services)
         current-time (ports/current-timestamp system-services)]
-    
+
     (log/info "Updating user benefits" {:user-id user-id :correlation-id correlation-id})
-    
+
     ;; Fetch current user data
     (if-let [user-data (ports/find-user-by-id user-repository user-id)]
       ;; Call core function to calculate new benefits
@@ -472,19 +594,19 @@ Modules can depend on each other through well-defined ports:
                             user-data
                             default-membership-rules
                             current-time)]
-        
+
         ;; Update user with new benefits
         (ports/update-user-benefits user-repository user-id (:user-benefits benefits-result))
-        
+
         ;; Execute any effects (notifications, etc.)
         (doseq [effect (:effects benefits-result)]
           (execute-effect system effect correlation-id))
-        
+
         (log/info "Benefits updated successfully" {:user-id user-id :correlation-id correlation-id})
         {:status :success
          :data (:user-benefits benefits-result)
          :correlation-id correlation-id})
-      
+
       ;; User not found
       (do
         (log/warn "User not found for benefits update" {:user-id user-id :correlation-id correlation-id})
@@ -498,23 +620,23 @@ Modules can depend on each other through well-defined ports:
   "Execute a single effect returned by core function."
   [system effect correlation-id]
   (log/debug "Executing effect" {:effect-type (:type effect) :correlation-id correlation-id})
-  
+
   (case (:type effect)
     :save-user
     (ports/create-user (:user-repository system) (:data effect))
-    
+
     :send-welcome-email
     (ports/send-notification (:notification-service system)
                             (get-in effect [:data :user-id])
                             :welcome-email
                             (:data effect))
-    
+
     :send-notification
     (ports/send-notification (:notification-service system)
                             (:user-id effect)
                             (:template effect)
                             (:data effect))
-    
+
     ;; Unknown effect type
     (log/warn "Unknown effect type" {:effect effect :correlation-id correlation-id})))
 
@@ -549,7 +671,7 @@ Modules can depend on each other through well-defined ports:
 
 (defrecord PostgreSQLUserRepository [db-spec metrics]
   ports/IUserRepository
-  
+
   (find-user-by-id [this user-id]
     (log/debug "Finding user by ID" {:user-id user-id})
     (let [start-time (System/currentTimeMillis)
@@ -557,14 +679,14 @@ Modules can depend on each other through well-defined ports:
                             :from [:users]
                             :where [:= :id user-id]})
           result (jdbc/execute-one! db-spec query)]
-      
+
       ;; Record metrics
       (record-query-metrics metrics :find-user-by-id (- (System/currentTimeMillis) start-time))
-      
+
       ;; Transform database record to domain object
       (when result
         (db-record->domain-user result))))
-  
+
   (find-user-by-email [this email]
     (log/debug "Finding user by email" {:email email})
     (let [start-time (System/currentTimeMillis)
@@ -572,12 +694,12 @@ Modules can depend on each other through well-defined ports:
                             :from [:users]
                             :where [:= :email email]})
           result (jdbc/execute-one! db-spec query)]
-      
+
       (record-query-metrics metrics :find-user-by-email (- (System/currentTimeMillis) start-time))
-      
+
       (when result
         (db-record->domain-user result))))
-  
+
   (find-users-by-tier [this membership-tier]
     (log/debug "Finding users by tier" {:tier membership-tier})
     (let [start-time (System/currentTimeMillis)
@@ -585,11 +707,11 @@ Modules can depend on each other through well-defined ports:
                             :from [:users]
                             :where [:= :membership_tier (name membership-tier)]})
           results (jdbc/execute! db-spec query)]
-      
+
       (record-query-metrics metrics :find-users-by-tier (- (System/currentTimeMillis) start-time))
-      
+
       (map db-record->domain-user results)))
-  
+
   (create-user [this user-data]
     (log/info "Creating new user" {:email (:email user-data)})
     (let [start-time (System/currentTimeMillis)
@@ -598,11 +720,11 @@ Modules can depend on each other through well-defined ports:
                             :values [db-record]
                             :returning [:*]})
           result (jdbc/execute-one! db-spec query)]
-      
+
       (record-query-metrics metrics :create-user (- (System/currentTimeMillis) start-time))
-      
+
       (db-record->domain-user result)))
-  
+
   (update-user [this user-data]
     (log/info "Updating user" {:user-id (:id user-data)})
     (let [start-time (System/currentTimeMillis)
@@ -612,11 +734,11 @@ Modules can depend on each other through well-defined ports:
                             :where [:= :id (:id user-data)]
                             :returning [:*]})
           result (jdbc/execute-one! db-spec query)]
-      
+
       (record-query-metrics metrics :update-user (- (System/currentTimeMillis) start-time))
-      
+
       (db-record->domain-user result)))
-  
+
   (update-user-benefits [this user-id benefits]
     (log/info "Updating user benefits" {:user-id user-id})
     (let [start-time (System/currentTimeMillis)
@@ -627,11 +749,11 @@ Modules can depend on each other through well-defined ports:
                             :where [:= :id user-id]
                             :returning [:*]})
           result (jdbc/execute-one! db-spec query)]
-      
+
       (record-query-metrics metrics :update-user-benefits (- (System/currentTimeMillis) start-time))
-      
+
       (db-record->domain-user result)))
-  
+
   (get-user-statistics [this]
     (log/debug "Getting user statistics")
     (let [start-time (System/currentTimeMillis)
@@ -643,9 +765,9 @@ Modules can depend on each other through well-defined ports:
                             :from [:users]
                             :where [:= :active true]})
           result (jdbc/execute-one! db-spec query)]
-      
+
       (record-query-metrics metrics :get-user-statistics (- (System/currentTimeMillis) start-time))
-      
+
       ;; Return statistics in domain format
       {:total-users (:total_users result)
        :users-by-tier {:bronze (:bronze_users result)
@@ -722,12 +844,12 @@ Modules can depend on each other through well-defined ports:
     (let [correlation-id (or (get-in request [:headers "x-correlation-id"])
                             (str (java.util.UUID/randomUUID)))
           request-body (json/parse-string (slurp (:body request)) true)]
-      
+
       (log/info "HTTP user registration request" {:correlation-id correlation-id})
-      
+
       ;; Call service layer
       (let [service-result (user-service/register-user system request-body)]
-        
+
         ;; Transform service result to HTTP response
         (case (:status service-result)
           :success
@@ -735,7 +857,7 @@ Modules can depend on each other through well-defined ports:
               (response/status 201)
               (response/header "Content-Type" "application/json")
               (response/header "X-Correlation-ID" correlation-id))
-          
+
           :error
           (let [status-code (case (:error-type service-result)
                              :validation-failed 400
@@ -759,12 +881,12 @@ Modules can depend on each other through well-defined ports:
     (let [correlation-id (or (get-in request [:headers "x-correlation-id"])
                             (str (java.util.UUID/randomUUID)))
           user-id (get-in request [:path-params :user-id])]
-      
+
       (log/info "HTTP get user benefits request" {:user-id user-id :correlation-id correlation-id})
-      
+
       ;; Call service layer
       (let [service-result (user-service/get-user-benefits system user-id)]
-        
+
         ;; Transform to HTTP response
         (case (:status service-result)
           :success
@@ -772,7 +894,7 @@ Modules can depend on each other through well-defined ports:
               (response/status 200)
               (response/header "Content-Type" "application/json")
               (response/header "X-Correlation-ID" correlation-id))
-          
+
           :error
           (let [status-code (case (:error-type service-result)
                              :user-not-found 404
@@ -850,25 +972,25 @@ The sequence diagram shows how components interact during a typical HTTP request
   "Create and wire all system components."
   [config-profile]
   (log/info "Creating system components" {:profile config-profile})
-  
+
   (let [config (config/read-config config-profile)
-        
+
         ;; Create adapters (implementations of ports)
         user-repository (pg-adapter/make-postgresql-user-repository
                         (:database config)
                         :metrics (:metrics config))
-        
+
         notification-service (smtp-adapter/make-smtp-notification-service
                              (:smtp config))
-        
+
         system-services (create-system-services config)
-        
+
         ;; Create system map with all dependencies
         system {:config config
                :user-repository user-repository
                :notification-service notification-service
                :system-services system-services}]
-    
+
     (log/info "System components created successfully")
     system))
 
@@ -876,7 +998,7 @@ The sequence diagram shows how components interact during a typical HTTP request
   "Start all system components that require lifecycle management."
   [system]
   (log/info "Starting system components")
-  
+
   ;; Start HTTP server
   (let [server (http-server/start-server system (:config system))]
     (assoc system :http-server server)))
@@ -885,15 +1007,15 @@ The sequence diagram shows how components interact during a typical HTTP request
   "Stop all system components gracefully."
   [system]
   (log/info "Stopping system components")
-  
+
   ;; Stop HTTP server
   (when-let [server (:http-server system)]
     (http-server/stop-server server))
-  
+
   ;; Close database connections
   (when-let [db-pool (get-in system [:user-repository :db-spec :datasource])]
     (.close db-pool))
-  
+
   (log/info "System stopped successfully"))
 
 (defn- create-system-services [config]
@@ -924,7 +1046,7 @@ The sequence diagram shows how components interact during a typical HTTP request
   "Start the complete application system."
   [profile]
   (log/info "Starting Boundary application" {:profile profile})
-  
+
   (try
     (let [new-system (-> (wiring/create-system profile)
                         (wiring/start-system))]
@@ -939,7 +1061,7 @@ The sequence diagram shows how components interact during a typical HTTP request
   "Stop the application system gracefully."
   []
   (log/info "Stopping Boundary application")
-  
+
   (when-let [current-system @system]
     (try
       (wiring/stop-system current-system)
@@ -953,7 +1075,7 @@ The sequence diagram shows how components interact during a typical HTTP request
   [& args]
   (let [profile (or (first args) "prod")]
     (start-application profile)
-    
+
     ;; Add shutdown hook
     (.addShutdownHook (Runtime/getRuntime)
                       (Thread. #(stop-application)))))
@@ -981,7 +1103,7 @@ The sequence diagram shows how components interact during a typical HTTP request
                                    :gold {:min-years 3 :min-spending 5000 :discount 0.15}
                                    :platinum {:min-years 5 :min-spending 10000 :discount 0.20}}}
           current-date #inst "2024-01-01"]
-      
+
       (let [result (user-core/calculate-membership-benefits user-data membership-rules current-date)]
         ;; Pure function testing - straightforward assertions
         (is (= :gold (get-in result [:user-benefits :membership-tier])))
@@ -1009,7 +1131,7 @@ The sequence diagram shows how components interact during a typical HTTP request
                  :system-services (mocks/make-mock-system-services)}
           request-data {:email "test@example.com"
                        :name "Test User"}]
-      
+
       (let [result (user-service/register-user system request-data)]
         (is (= :success (:status result)))
         (is (contains? (:data result) :user-id))
@@ -1036,16 +1158,16 @@ The sequence diagram shows how components interact during a typical HTTP request
                     :name "Integration Test"
                     :active? true
                     :membership-tier :bronze}]
-      
+
       ;; Test create
       (let [created-user (ports/create-user repo user-data)]
         (is (some? (:id created-user)))
         (is (= (:email user-data) (:email created-user)))
-        
+
         ;; Test find by ID
         (let [found-user (ports/find-user-by-id repo (:id created-user))]
           (is (= created-user found-user)))
-        
+
         ;; Test find by email
         (let [found-user (ports/find-user-by-email repo (:email user-data))]
           (is (= (:id created-user) (:id found-user))))))))

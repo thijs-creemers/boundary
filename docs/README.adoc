@@ -6,10 +6,13 @@ This directory contains the authoritative documentation for the Boundary framewo
 
 * **boundary.prd.adoc** - The complete Product Requirements Document
 * **architecture/** - Detailed architecture documentation and design decisions
+  ** **database-adapters.adoc** - Protocol-based database adapter architecture (✨ Oct 24, 2025)
 * **api/** - API specifications and examples
 * **diagrams/** - PlantUML diagrams and visual documentation
 * **examples/** - Domain examples and implementation patterns
 * **templates/** - Documentation templates for consistency
+* **multi-db-usage.adoc** - Multi-database system usage guide
+* **dynamic-driver-loading.adoc** - Dynamic JDBC driver loading system
 
 == Building Documentation
 
