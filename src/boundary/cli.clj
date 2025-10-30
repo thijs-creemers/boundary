@@ -8,8 +8,7 @@
             [boundary.user.shell.persistence :as user-persistence]
             [boundary.user.shell.service :as user-service]
             [boundary.shell.adapters.database.factory :as db-factory]
-            [clojure.tools.logging :as log]
-            [integrant.core :as ig])
+            [clojure.tools.logging :as log])
   (:gen-class))
 
 (defn -main
@@ -17,33 +16,46 @@
    
    Loads system configuration, initializes services, and dispatches CLI commands."
   [& args]
-  (try
-    (log/info "Starting Boundary CLI" {:args args})
+  (let [exit-status (atom 1)]
+    (try
+      (log/info "Starting Boundary CLI" {:args args})
 
-    ;; Load configuration
-    (let [config (config/load-config)
-          
-          ;; Initialize database context
-          db-config (get-in config [:active :boundary/sqlite])
-          db-ctx (db-factory/db-context db-config)
-          
+      ;; Load configuration
+      (let [config (config/load-config)
+            
+            ;; Initialize database context
+            db-config (get-in config [:active :boundary/sqlite])
+            db-ctx (db-factory/db-context db-config)]
+        
+        (try
           ;; Initialize database schema
-          _ (user-persistence/initialize-user-schema! db-ctx)
+          (user-persistence/initialize-user-schema! db-ctx)
           
           ;; Create repositories
-          user-repo (user-persistence/create-user-repository db-ctx)
-          session-repo (user-persistence/create-session-repository db-ctx)
+          (let [user-repo (user-persistence/create-user-repository db-ctx)
+                session-repo (user-persistence/create-session-repository db-ctx)
+                
+                ;; Create user service
+                user-service (user-service/create-user-service user-repo session-repo)
+                
+                ;; Dispatch CLI commands and capture exit status
+                status (user-cli/run-cli! user-service args)]
+            
+            (reset! exit-status status))
           
-          ;; Create user service
-          user-service (user-service/create-user-service user-repo session-repo)]
+          (finally
+            ;; Always close database connections
+            (when-let [datasource (:datasource db-ctx)]
+              (try
+                (.close datasource)
+                (catch Exception e
+                  (log/warn "Failed to close database connection" {:error (.getMessage e)})))))))
 
-      ;; Dispatch CLI commands
-      (user-cli/run-cli user-service args)
-
-      ;; Close database connections
-      (.close (:datasource db-ctx)))
-
-    (catch Exception e
-      (log/error "CLI execution failed" {:error (.getMessage e)})
-      (println "Error:" (.getMessage e))
-      (System/exit 1))))
+      (catch Exception e
+        (log/error "CLI execution failed" {:error (.getMessage e)})
+        (binding [*out* *err*]
+          (println "Fatal error:" (.getMessage e)))
+        (reset! exit-status 1))
+      
+      (finally
+        (System/exit @exit-status)))))

@@ -70,7 +70,7 @@
                          :errors (:errors validation-result)}))))
 
     ;; 2. Check business rules using pure core function
-    (let [existing-user     (ports/find-user-by-email user-repository (:email user-data) (:tenant-id user-data))
+    (let [existing-user     (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data))
           uniqueness-result (user-core/check-duplicate-user-decision user-data existing-user)]
       (when (= :reject (:decision uniqueness-result))
         (throw (ex-info "User already exists"
@@ -83,25 +83,25 @@
           prepared-user (user-core/prepare-user-for-creation user-data current-time user-id)]
 
       ;; 4. Persist and return
-      (ports/create-user user-repository prepared-user)))
+      (.create-user user-repository prepared-user)))
 
   (find-user-by-id [_ user-id]
     (log/debug "Finding user by ID through service" {:user-id user-id})
-    (ports/find-user-by-id user-repository user-id))
+    (.find-user-by-id user-repository user-id))
 
   (find-user-by-email [_ email tenant-id]
     (log/debug "Finding user by email through service" {:email email :tenant-id tenant-id})
-    (ports/find-user-by-email user-repository email tenant-id))
+    (.find-user-by-email user-repository email tenant-id))
 
   (find-users-by-tenant [_ tenant-id options]
     (log/debug "Finding users by tenant through service" {:tenant-id tenant-id})
-    (ports/find-users-by-tenant user-repository tenant-id options))
+    (.find-users-by-tenant user-repository tenant-id options))
 
   (update-user [this user-entity]
     (log/info "Updating user through service" {:user-id (:id user-entity)})
 
     ;; 1. Get current user
-    (let [current-user (ports/find-user-by-id user-repository (:id user-entity))]
+    (let [current-user (.find-user-by-id user-repository (:id user-entity))]
       (when-not current-user
         (throw (ex-info "User not found for update"
                         {:type    :user-not-found
@@ -127,13 +127,13 @@
             prepared-user (user-core/prepare-user-for-update user-entity current-time)]
 
         ;; 5. Persist and return
-        (ports/update-user user-repository prepared-user))))
+        (.update-user user-repository prepared-user))))
 
   (soft-delete-user [this user-id]
     (log/info "Soft deleting user through service" {:user-id user-id})
 
     ;; 1. Get current user
-    (let [current-user (ports/find-user-by-id user-repository user-id)]
+    (let [current-user (.find-user-by-id user-repository user-id)]
       (when-not current-user
         (throw (ex-info "User not found for deletion"
                         {:type    :user-not-found
@@ -151,7 +151,7 @@
             prepared-user (user-core/prepare-user-for-soft-deletion current-user current-time)]
 
         ;; 4. Persist and return
-        (ports/update-user user-repository prepared-user)
+        (.update-user user-repository prepared-user)
 
         ;; 5. Invalidate all user sessions as side effect
         (ports/invalidate-all-user-sessions this user-id)
@@ -162,7 +162,7 @@
     (log/warn "Hard deleting user through service - IRREVERSIBLE" {:user-id user-id})
 
     ;; 1. Get current user for validation
-    (let [current-user (ports/find-user-by-id user-repository user-id)]
+    (let [current-user (.find-user-by-id user-repository user-id)]
       (when-not current-user
         (throw (ex-info "User not found for deletion"
                         {:type    :user-not-found
@@ -179,7 +179,7 @@
       (ports/invalidate-all-user-sessions this user-id)
 
       ;; 4. Perform hard deletion
-      (ports/hard-delete-user user-repository user-id)))
+      (.hard-delete-user user-repository user-id)))
 
   ;; Session Management - Shell layer orchestrates I/O and calls pure core functions
   (create-session [this session-data]
@@ -203,13 +203,13 @@
                              session-data current-time session-id session-token session-policy)]
 
       ;; 4. Persist and return
-      (ports/create-session session-repository prepared-session)))
+      (.create-session session-repository prepared-session)))
 
   (find-session-by-token [this session-token]
     (log/debug "Finding session by token through service")
 
     ;; 1. Get session from repository
-    (when-let [session (ports/find-session-by-token session-repository session-token)]
+    (when-let [session (.find-session-by-token session-repository session-token)]
       (let [current-time      (current-timestamp)
             update-policy     {:access-update-threshold-minutes 5} ; TODO: Make configurable
 
@@ -221,7 +221,7 @@
             ;; 3. Update access time if policy allows
             (when (session-core/should-update-access-time? session current-time update-policy)
               (let [updated-session (session-core/prepare-session-for-access-update session current-time)]
-                (ports/update-session session-repository updated-session)))
+                (.update-session session-repository updated-session)))
             session)
           (do
             (log/debug "Session validation failed" validation-result)
@@ -231,14 +231,14 @@
     (log/info "Invalidating session through service")
 
     ;; 1. Find session
-    (if-let [session (ports/find-session-by-token session-repository session-token)]
+    (if-let [session (.find-session-by-token session-repository session-token)]
       (let [current-time        (current-timestamp)
 
             ;; 2. Use pure core function to prepare invalidation
             invalidated-session (session-core/prepare-session-for-invalidation session current-time)]
 
         ;; 3. Update in repository
-        (ports/update-session session-repository invalidated-session)
+        (.update-session session-repository invalidated-session)
         true)
       false))
 
@@ -246,13 +246,13 @@
     (log/warn "Invalidating all user sessions through service" {:user-id user-id})
 
     ;; 1. Get all user sessions
-    (let [sessions     (ports/find-sessions-by-user session-repository user-id)
+    (let [sessions     (.find-sessions-by-user session-repository user-id)
           current-time (current-timestamp)]
 
       ;; 2. Use pure core function to prepare each for invalidation
       (doseq [session sessions]
         (let [invalidated-session (session-core/prepare-session-for-invalidation session current-time)]
-          (ports/update-session session-repository invalidated-session)))
+          (.update-session session-repository invalidated-session)))
 
       ;; 3. Return count of invalidated sessions
       (count sessions))))

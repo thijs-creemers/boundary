@@ -1,7 +1,6 @@
-(ns boundary.user.core.session
+(ns boundary.user.core.session)
   "Functional Core - Pure session business logic - Minimal working version"
-  (:require [boundary.user.schema :as schema]
-            [malli.core :as m]))
+
 
 ;; Basic session validation
 (defn validate-session-creation-request
@@ -35,7 +34,7 @@
   ([session-data current-time session-id token]
    (-> session-data
        (assoc :id session-id)
-       (assoc :token token)
+       (assoc :session-token token)
        (assoc :created-at current-time)
        (assoc :last-accessed-at current-time)
        (assoc :expires-at (calculate-session-expiry current-time (get session-data :remember-me false)))
@@ -46,7 +45,7 @@
    (let [duration-hours (get session-policy :duration-hours 24)]
      (-> session-data
          (assoc :id session-id)
-         (assoc :token token)
+         (assoc :session-token token)
          (assoc :created-at current-time)
          (assoc :last-accessed-at current-time)
          (assoc :expires-at (.plusSeconds current-time (* duration-hours 3600)))

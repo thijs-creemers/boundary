@@ -16,8 +16,8 @@
 (def User
   "Schema for User entity.
    
-   Note: Timestamps use :string for database compatibility. The application layer
-   handles conversion between Instant objects and ISO-8601 strings."
+   Note: Timestamps use :inst (java.time.Instant) internally. The infrastructure layer
+   handles conversion to/from strings for database storage."
   [:map {:title "User"}
    [:id :uuid]
    [:email [:re {:error/message "Invalid email format"} email-regex]]
@@ -25,14 +25,14 @@
    [:role [:enum :admin :user :viewer]]
    [:active :boolean]
    [:login-count {:optional true} :int]
-   [:last-login {:optional true} :string]
+   [:last-login {:optional true} inst?]
    [:date-format {:optional true} [:enum :iso :us :eu]]
    [:time-format {:optional true} [:enum :12h :24h]]
    [:tenant-id :uuid]
    [:avatar-url {:optional true} :string]
-   [:created-at :string]
-   [:updated-at {:optional true} [:maybe :string]]
-   [:deleted-at {:optional true} [:maybe :string]]])
+   [:created-at inst?]
+   [:updated-at {:optional true} [:maybe inst?]]
+   [:deleted-at {:optional true} [:maybe inst?]]])
 
 (def UserPreferences
   "Schema for user preferences."
@@ -55,10 +55,10 @@
    [:user-id :uuid]
    [:tenant-id :uuid]
    [:session-token :string]
-   [:expires-at :string]
-   [:created-at :string]
-   [:last-accessed-at {:optional true} [:maybe :string]]
-   [:revoked-at {:optional true} [:maybe :string]]
+   [:expires-at inst?]
+   [:created-at inst?]
+   [:last-accessed-at {:optional true} [:maybe inst?]]
+   [:revoked-at {:optional true} [:maybe inst?]]
    [:user-agent {:optional true} :string]
    [:ip-address {:optional true} :string]])
 
@@ -131,9 +131,13 @@
       case-conversion/kebab-case->camel-case-map
       (cond->
        (:id value) (assoc :id (type-conversion/uuid->string (:id value)))
+       (:user-id value) (assoc :userId (type-conversion/uuid->string (:user-id value)))
        (:tenant-id value) (assoc :tenantId (type-conversion/uuid->string (:tenant-id value)))
        (:created-at value) (assoc :createdAt (type-conversion/instant->string (:created-at value)))
        (:updated-at value) (assoc :updatedAt (type-conversion/instant->string (:updated-at value)))
+       (:expires-at value) (assoc :expiresAt (type-conversion/instant->string (:expires-at value)))
+       (:last-accessed-at value) (assoc :lastAccessedAt (type-conversion/instant->string (:last-accessed-at value)))
+       (:revoked-at value) (assoc :revokedAt (type-conversion/instant->string (:revoked-at value)))
        (:last-login value) (assoc :lastLogin (type-conversion/instant->string (:last-login value)))
        (:date-format value) (assoc :dateFormat (type-conversion/keyword->string (:date-format value)))
        (:time-format value) (assoc :timeFormat (type-conversion/keyword->string (:time-format value)))

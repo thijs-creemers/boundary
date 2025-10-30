@@ -129,7 +129,20 @@
         primary-key (if (= name "id") " PRIMARY KEY" "")
         ; Handle enum constraints
         enum-constraint (if (and (vector? schema) (= :enum (first schema)))
-                          (let [enum-values (map str (rest schema))
+                          (let [; Skip properties map if present: [:enum {...} :val1 :val2] or [:enum :val1 :val2]
+                                schema-rest (rest schema)
+                                enum-raw-values (if (and (seq schema-rest) (map? (first schema-rest)))
+                                                  (rest schema-rest)  ; Skip properties map
+                                                  schema-rest)        ; No properties, use as-is
+                                ; Filter out non-value items (maps, vectors, functions)
+                                enum-values (->> enum-raw-values
+                                                 (filter #(or (keyword? %) (string? %) (number? %)))
+                                                 (map (fn [v]
+                                                        (cond
+                                                          (keyword? v) (clojure.core/name v)  ; :admin -> "admin"
+                                                          (string? v) v                       ; already a string
+                                                          :else (str v))))                    ; fallback to str
+                                                 (into []))
                                 values-str (str/join ", " (map #(str "'" % "'") enum-values))]
                             (str " CHECK(" column-name " IN (" values-str "))"))
                           "")

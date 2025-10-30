@@ -1,8 +1,7 @@
 (ns boundary.user.schema-validation-test-fixed
   (:require
    [clojure.test :refer :all]
-   [boundary.user.schema :as schema]
-   [malli.core :as m]))
+   [boundary.user.schema :as schema]))
 
 (def valid-user
   {:id (java.util.UUID/randomUUID)
@@ -11,7 +10,7 @@
    :role :user
    :active true
    :tenant-id (java.util.UUID/randomUUID)
-   :created-at (.toString (java.time.Instant/now))})
+   :created-at (java.time.Instant/now)})
 
 (deftest validate-user-test
   (testing "validates complete valid user"
@@ -29,9 +28,9 @@
   (testing "passes with optional fields present"
     (is (true? (schema/validate-user (assoc valid-user
                                             :login-count 5
-                                            :last-login (.toString (java.time.Instant/now))
+                                            :last-login (java.time.Instant/now)
                                             :date-format :us
                                             :time-format :12h
                                             :avatar-url "https://example.com/avatar.jpg"
-                                            :updated-at (.toString (java.time.Instant/now))
+                                            :updated-at (java.time.Instant/now)
                                             :deleted-at nil))))))

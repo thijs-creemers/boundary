@@ -36,7 +36,8 @@
         nil))))
 
 (defn keyword->string
-  "Convert keyword to string for storage (nil-safe)."
+  "Convert keyword to string for storage (nil-safe).
+   Removes the colon prefix for database storage."
   [kw]
   (when kw (name kw)))
 
