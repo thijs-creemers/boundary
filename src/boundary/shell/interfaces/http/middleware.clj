@@ -1,16 +1,20 @@
 (ns boundary.shell.interfaces.http.middleware
-  "HTTP middleware for web applications.
-
+  "HTTP middleware for web applications (imperative shell).
+   
    This namespace provides reusable HTTP middleware that can be used across
    different modules and applications. It follows RFC standards and best
    practices for web API development.
+   
+   Middleware functions handle I/O boundaries: request/response interception,
+   logging, and exception handling.
 
    Features:
    - Request correlation ID management
    - Structured request/response logging
-   - RFC 7807 Problem Details for error responses
+   - RFC 7807 Problem Details for error responses (via core)
    - Generic exception handling middleware"
-  (:require [clojure.tools.logging :as log])
+  (:require [boundary.core.http.problem-details :as problem]
+            [clojure.tools.logging :as log])
   (:import (java.util UUID)))
 
 ;; =============================================================================
@@ -76,17 +80,20 @@
 ;; =============================================================================
 
 (defn wrap-exception-handling
-      "Middleware to catch exceptions and return RFC 7807 problem details.
+  "Middleware to catch exceptions and return RFC 7807 problem details.
+   
+   SHELL FUNCTION: Performs side effects (exception catching, logging).
+   Uses pure core functions for problem details transformation.
 
-       Catches all exceptions and converts them to standardized RFC 7807 problem
-       details responses. Logs exceptions for debugging and monitoring.
+   Catches all exceptions and converts them to standardized RFC 7807 problem
+   details responses. Logs exceptions for debugging and monitoring.
 
-       Args:
-         handler: Ring handler function
-         error-mappings: Optional custom error type mappings
+   Args:
+     handler: Ring handler function
+     error-mappings: Optional custom error type mappings
 
-       Returns:
-         Ring middleware function"
+   Returns:
+     Ring middleware function"
   ([handler]
    (wrap-exception-handling handler {}))
   ([handler error-mappings]
@@ -94,13 +101,18 @@
      (try
        (handler request)
        (catch Exception ex
+         ;; Side effect: error logging
          (log/error "Request failed with exception"
-                    {:uri            (:uri request)
-                     :method         (:request-method request)
+                    {:uri (:uri request)
+                     :method (:request-method request)
                      :correlation-id (:correlation-id request)
-                     :error          (.getMessage ex)
-                     :ex-data        (ex-data ex)})
-         (let [common (requiring-resolve 'boundary.shell.interfaces.http.common)]
-           ((resolve 'boundary.shell.interfaces.http.common/exception->problem)
-            ex (:correlation-id request) (:uri request) error-mappings)))))))
+                     :error (.getMessage ex)
+                     :ex-data (ex-data ex)})
+         
+         ;; Pure: transform exception to problem details using core function
+         (problem/exception->problem-response 
+          ex 
+          (:correlation-id request) 
+          (:uri request) 
+          error-mappings))))))
 

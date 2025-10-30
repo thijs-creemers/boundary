@@ -1,66 +1,36 @@
 (ns boundary.shell.adapters.database.common.execution
-  "Common query execution utilities with logging and error handling."
-  (:require [boundary.shell.adapters.database.protocols :as protocols]
-            [boundary.shell.adapters.database.common.query :as query]
+  "Query execution with I/O, logging, and error handling.
+   
+   This is part of the imperative shell - it performs database I/O,
+   manages transactions, and handles side effects like logging."
+  (:require [boundary.core.database.query :as core-query]
+            [boundary.core.database.validation :as core-validation]
+            [boundary.shell.adapters.database.protocols :as protocols]
             [clojure.tools.logging :as log]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]))
 
 ;; =============================================================================
-;; Context Validation
+;; Context Validation (Re-exported from core)
 ;; =============================================================================
 
-(defn db-context?
+(def db-context?
   "Check if value is a valid database context.
+   
+   Delegates to pure core function."
+  core-validation/db-context?)
 
-   Args:
-     ctx: Value to check
-
-   Returns:
-     Boolean - true if valid database context"
-  [ctx]
-  (and (map? ctx)
-       (:datasource ctx)
-       (:adapter ctx)
-       (satisfies? protocols/DBAdapter (:adapter ctx))))
-
-(defn validate-context
+(def validate-context
   "Validate database context and throw if invalid.
+   
+   Delegates to pure core function."
+  core-validation/validate-db-context)
 
-   Args:
-     ctx: Database context to validate
-
-   Returns:
-     ctx if valid
-
-   Throws:
-     IllegalArgumentException if invalid"
-  [ctx]
-  (if (db-context? ctx)
-    ctx
-    (throw (IllegalArgumentException.
-            (str "Invalid database context. Expected map with :datasource and :adapter keys. Got: "
-                 (type ctx))))))
-
-(defn validate-adapter
-  "Validate that context has a valid adapter (used for DDL generation).
-
-   Args:
-     ctx: Database context to validate
-
-   Returns:
-     ctx if valid
-
-   Throws:
-     IllegalArgumentException if invalid"
-  [ctx]
-  (if (and (map? ctx)
-           (:adapter ctx)
-           (satisfies? protocols/DBAdapter (:adapter ctx)))
-    ctx
-    (throw (IllegalArgumentException.
-            (str "Invalid adapter context. Expected map with :adapter key implementing DBAdapter protocol. Got: "
-                 (type ctx))))))
+(def validate-adapter
+  "Validate that context has a valid adapter.
+   
+   Delegates to pure core function."
+  core-validation/validate-adapter-context)
 
 ;; =============================================================================
 ;; Query Execution
@@ -68,6 +38,9 @@
 
 (defn execute-query!
   "Execute SELECT query and return results.
+   
+   SHELL FUNCTION: Performs database I/O and logging (side effects).
+   Uses pure core functions for query formatting.
 
    Args:
      ctx: Database context {:datasource ds :adapter adapter}
@@ -83,32 +56,43 @@
   ;; Validate query-map before formatting to avoid wasting resources
   (when (or (nil? query-map) (not (map? query-map)) (empty? query-map))
     (throw (IllegalArgumentException. "Invalid or empty query map provided")))
-  (let [sql-query (query/format-sql (:adapter ctx) query-map)
+  
+  ;; Pure: format query using core function
+  (let [adapter-dialect (protocols/dialect (:adapter ctx))
+        sql-query (core-query/format-sql adapter-dialect query-map)
         start-time (System/currentTimeMillis)]
-      (log/debug "Executing query"
-                 {:adapter (protocols/dialect (:adapter ctx))
-                  :sql (first sql-query)
-                  :params (rest sql-query)})
-      (try
-        (let [result (jdbc/execute! (:datasource ctx) sql-query
-                                    {:builder-fn rs/as-unqualified-lower-maps})
-              duration (- (System/currentTimeMillis) start-time)]
-          (log/debug "Query completed"
-                     {:adapter (protocols/dialect (:adapter ctx))
-                      :duration-ms duration
-                      :row-count (count result)})
-          result)
-        (catch Exception e
-          (log/error "Query failed"
-                     {:adapter (protocols/dialect (:adapter ctx))
-                      :sql (first sql-query)
-                      :error (.getMessage e)})
-          (throw (ex-info "Database query failed"
-                          {:adapter (protocols/dialect (:adapter ctx))
-                           :sql (first sql-query)
-                           :params (rest sql-query)
-                           :original-error (.getMessage e)}
-                          e))))))
+    
+    ;; Side effect: log query
+    (log/debug "Executing query"
+               {:adapter adapter-dialect
+                :sql (first sql-query)
+                :params (rest sql-query)})
+    
+    (try
+      ;; Side effect: database I/O
+      (let [result (jdbc/execute! (:datasource ctx) sql-query
+                                  {:builder-fn rs/as-unqualified-lower-maps})
+            duration (- (System/currentTimeMillis) start-time)]
+        
+        ;; Side effect: log result
+        (log/debug "Query completed"
+                   {:adapter adapter-dialect
+                    :duration-ms duration
+                    :row-count (count result)})
+        result)
+      
+      (catch Exception e
+        ;; Side effect: error logging
+        (log/error "Query failed"
+                   {:adapter adapter-dialect
+                    :sql (first sql-query)
+                    :error (.getMessage e)})
+        (throw (ex-info "Database query failed"
+                        {:adapter adapter-dialect
+                         :sql (first sql-query)
+                         :params (rest sql-query)
+                         :original-error (.getMessage e)}
+                        e))))))
 
 (defn execute-one!
   "Execute query expecting single result.
@@ -127,6 +111,8 @@
 
 (defn execute-update!
   "Execute UPDATE/INSERT/DELETE query.
+   
+   SHELL FUNCTION: Performs database I/O and logging (side effects).
 
    Args:
      ctx: Database context
@@ -139,28 +125,39 @@
      (execute-update! ctx {:update :users :set {:active false} :where [:= :id \"123\"]})"
   [ctx query-map]
   (validate-context ctx)
-  (let [sql-query (query/format-sql (:adapter ctx) query-map)
+  
+  ;; Pure: format query using core function
+  (let [adapter-dialect (protocols/dialect (:adapter ctx))
+        sql-query (core-query/format-sql adapter-dialect query-map)
         start-time (System/currentTimeMillis)]
+    
+    ;; Side effect: log update
     (log/debug "Executing update"
-               {:adapter (protocols/dialect (:adapter ctx))
+               {:adapter adapter-dialect
                 :sql (first sql-query)
                 :params (rest sql-query)})
+    
     (try
+      ;; Side effect: database I/O
       (let [result (jdbc/execute! (:datasource ctx) sql-query)
             duration (- (System/currentTimeMillis) start-time)
             affected-rows (::jdbc/update-count (first result))]
+        
+        ;; Side effect: log result
         (log/debug "Update completed"
-                   {:adapter (protocols/dialect (:adapter ctx))
+                   {:adapter adapter-dialect
                     :duration-ms duration
                     :affected-rows affected-rows})
         affected-rows)
+      
       (catch Exception e
+        ;; Side effect: error logging
         (log/error "Update failed"
-                   {:adapter (protocols/dialect (:adapter ctx))
+                   {:adapter adapter-dialect
                     :sql (first sql-query)
                     :error (.getMessage e)})
         (throw (ex-info "Database update failed"
-                        {:adapter (protocols/dialect (:adapter ctx))
+                        {:adapter adapter-dialect
                          :sql (first sql-query)
                          :params (rest sql-query)
                          :original-error (.getMessage e)}

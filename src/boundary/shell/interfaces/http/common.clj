@@ -3,60 +3,42 @@
 
    This namespace provides common HTTP functionality including standardized
    error responses following RFC 7807 Problem Details specification and
-   other utility functions used across HTTP interfaces."
-  (:require [clojure.string :as str]))
+   other utility functions used across HTTP interfaces.
+   
+   Pure problem details transformations are now in boundary.core.http.problem-details"
+  (:require [boundary.core.http.problem-details :as core-problem]
+            [clojure.string :as str]))
 
 ;; =============================================================================
-;; RFC 7807 Problem Details
+;; RFC 7807 Problem Details (Re-exported from core)
 ;; =============================================================================
 
-(def ^:private default-error-mappings
-  "Default mapping of exception types to HTTP status codes and titles."
-  {:validation-error          [400 "Validation Error"]
-   :invalid-request           [400 "Invalid Request"]
-   :unauthorized              [401 "Unauthorized"]
-   :auth-failed               [401 "Authentication Failed"]
-   :forbidden                 [403 "Forbidden"]
-   :not-found                 [404 "Not Found"]
-   :user-not-found            [404 "User Not Found"]
-   :resource-not-found        [404 "Resource Not Found"]
-   :conflict                  [409 "Conflict"]
-   :user-exists               [409 "User Already Exists"]
-   :resource-exists           [409 "Resource Already Exists"]
-   :business-rule-violation   [400 "Business Rule Violation"]
-   :deletion-not-allowed      [403 "Deletion Not Allowed"]
-   :hard-deletion-not-allowed [403 "Hard Deletion Not Allowed"]})
+(def default-error-mappings
+  "Default mapping of exception types to HTTP status codes and titles.
+   
+   Re-exported from core for backward compatibility."
+  core-problem/default-error-mappings)
 
 (defn exception->problem
-      "Convert exception to RFC 7807 problem details.
+  "Convert exception to RFC 7807 problem details.
+   
+   Delegates to pure core function.
 
-       Creates standardized error responses following RFC 7807 Problem Details
-       for HTTP APIs specification.
+   Creates standardized error responses following RFC 7807 Problem Details
+   for HTTP APIs specification.
 
-       Args:
-         ex: Exception to convert
-         correlation-id: Request correlation ID
-         uri: Request URI
-         error-mappings: Optional custom error type mappings (overrides defaults)
+   Args:
+     ex: Exception to convert
+     correlation-id: Request correlation ID
+     uri: Request URI
+     error-mappings: Optional custom error type mappings (overrides defaults)
 
-       Returns:
-         Ring response map with RFC 7807 problem details"
+   Returns:
+     Ring response map with RFC 7807 problem details"
   ([ex correlation-id uri]
    (exception->problem ex correlation-id uri {}))
   ([ex correlation-id uri error-mappings]
-   (let [ex-data  (ex-data ex)
-         ex-type  (:type ex-data)
-         mappings (merge default-error-mappings error-mappings)
-         [status title] (get mappings ex-type [500 "Internal Server Error"])]
-     {:status  status
-      :headers {"Content-Type" "application/problem+json"}
-      :body    {:type          (str "https://api.example.com/problems/" (name (or ex-type :internal-error)))
-                :title         title
-                :status        status
-                :detail        (.getMessage ex)
-                :instance      uri
-                :correlationId correlation-id
-                :errors        (or (:errors ex-data) {})}})))
+   (core-problem/exception->problem-response ex correlation-id uri error-mappings)))
 
 ;; =============================================================================
 ;; Standard HTTP Response Handlers

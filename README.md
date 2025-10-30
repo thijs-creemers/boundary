@@ -92,7 +92,10 @@ asciidoctor -D build/docs docs/architecture/components.adoc
 asciidoctor -D build/docs docs/architecture/data-flow.adoc
 
 # Build all architecture docs
+``` bash
+```
 cd docs/architecture && for doc in *.adoc; do asciidoctor -D ../../build/docs "$doc"; done
 cd -
 ```
- Restore files not in .git
+```
+```

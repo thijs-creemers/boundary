@@ -1,8 +1,8 @@
 (ns boundary.shell.adapters.database.common.utils
   "Common database utilities and information functions."
-  (:require [boundary.shell.adapters.database.protocols :as protocols]
-            [boundary.shell.adapters.database.common.execution :as execution]
-            [boundary.shell.adapters.database.common.query :as query])
+  (:require [boundary.core.database.query :as core-query]
+            [boundary.shell.adapters.database.protocols :as protocols]
+            [boundary.shell.adapters.database.common.execution :as execution])
   (:import [com.zaxxer.hikari HikariDataSource]))
 
 ;; =============================================================================
@@ -76,6 +76,8 @@
 
 (defn format-sql
   "Format HoneySQL query map using context's adapter dialect.
+   
+   Delegates to pure core function.
 
    Args:
      ctx: Database context
@@ -88,10 +90,13 @@
      (format-sql ctx {:select [:*] :from [:users]})"
   [ctx query-map]
   (execution/validate-adapter ctx)
-  (query/format-sql (:adapter ctx) query-map))
+  (let [adapter-dialect (protocols/dialect (:adapter ctx))]
+    (core-query/format-sql adapter-dialect query-map)))
 
 (defn format-sql*
   "Format HoneySQL query map with custom options.
+   
+   Delegates to pure core function.
 
    Args:
      ctx: Database context
@@ -102,10 +107,14 @@
      Vector of [sql & params]"
   [ctx query-map opts]
   (execution/validate-adapter ctx)
-  (query/format-sql* (:adapter ctx) query-map opts))
+  (let [adapter-dialect (protocols/dialect (:adapter ctx))]
+    (core-query/format-sql-with-opts adapter-dialect query-map opts)))
 
 (defn build-where-clause
   "Build dynamic WHERE clause from filter map using adapter-specific logic.
+   
+   Uses adapter protocol for database-specific WHERE clause building.
+   This allows different handling of patterns (LIKE vs ILIKE) per database.
 
    Args:
      ctx: Database context
@@ -118,10 +127,13 @@
      (build-where-clause ctx {:name \"John\" :active true :role [:admin :user]})"
   [ctx filters]
   (execution/validate-adapter ctx)
-  (query/build-where-clause (:adapter ctx) filters))
+  (when (seq filters)
+    (protocols/build-where (:adapter ctx) filters)))
 
 (defn build-pagination
   "Build LIMIT/OFFSET clause from pagination options with safe defaults.
+   
+   Delegates to pure core function.
 
    Args:
      options: Map with :limit and :offset keys
@@ -132,10 +144,12 @@
    Example:
      (build-pagination {:limit 50 :offset 100})"
   [options]
-  (query/build-pagination options))
+  (core-query/build-pagination options))
 
 (defn build-ordering
   "Build ORDER BY clause from sort options.
+   
+   Delegates to pure core function.
 
    Args:
      options: Map with :sort-by and :sort-direction keys
@@ -147,4 +161,4 @@
    Example:
      (build-ordering {:sort-by :created-at :sort-direction :desc} :id)"
   [options default-field]
-  (query/build-ordering options default-field))
+  (core-query/build-ordering options default-field))

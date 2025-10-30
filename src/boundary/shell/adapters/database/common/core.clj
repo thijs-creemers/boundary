@@ -5,13 +5,14 @@
    functionality, bringing together specialized modules for different
    aspects of database operations that work across all adapter types.
 
-   The common functionality has been refactored into 5 specialized namespaces:
+   The common functionality has been refactored into specialized namespaces:
    - common.connection: Connection pool management with HikariCP
-   - common.query: Query building and HoneySQL formatting utilities
    - common.execution: Query execution with logging and error handling
    - common.schema: Schema introspection and DDL execution
    - common.utils: Database information and convenience functions
    - common.core: Main coordination module (this namespace)
+   
+   Pure query building functions are now in boundary.core.database.query
 
    This modular structure provides:
    - Better organization with focused responsibilities
@@ -20,7 +21,6 @@
    - Clear separation of concerns"
   (:require [boundary.shell.adapters.database.common.connection :as connection]
             [boundary.shell.adapters.database.common.execution :as execution]
-            [boundary.shell.adapters.database.common.query :as query]
             [boundary.shell.adapters.database.common.schema :as schema]
             [boundary.shell.adapters.database.common.utils :as utils]))
 
@@ -80,7 +80,8 @@
 (def create-index-if-not-exists! schema/create-index-if-not-exists!)
 
 ;; =============================================================================
-;; Query Building and Formatting (Re-exported from utils/query)
+;; Query Building and Formatting (Re-exported from utils)
+;; Note: Pure query building is now in boundary.core.database.query
 ;; =============================================================================
 
 (def format-sql utils/format-sql)
