@@ -1,0 +1,264 @@
+PORTS AND ADAPTERS PATTERN (HEXAGONAL ARCHITECTURE)
+═══════════════════════════════════════════════════════════════════════════════
+Accurate Representation: Bidirectional Communication Through Ports
+═══════════════════════════════════════════════════════════════════════════════
+
+
+                        EXTERNAL ACTORS & SYSTEMS
+                   (All adapters are bidirectional)
+
+    ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
+    │   REST API   │      │     CLI      │      │   Web UI     │
+    │              │      │              │      │              │
+    │  IN: HTTP    │      │  IN: Args    │      │  IN: Events  │
+    │ OUT: JSON    │      │ OUT: Output  │      │ OUT: Updates │
+    └──────┬───────┘      └──────┬───────┘      └──────┬───────┘
+           │                     │                     │
+           └─────────────────────┼─────────────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │    INTERFACE PORTS      │  ◄── Bidirectional
+                    │                         │      Protocol/Interface
+                    │  ┌────────────────────┐ │
+                    │  │ Request  ──►       │ │      Data flows BOTH ways
+                    │  │          ◄── Reply │ │      through ports
+                    │  └────────────────────┘ │
+                    └────────────┬────────────┘
+                                 │
+                                 │
+                    ╔════════════▼════════════╗
+                    ║   FUNCTIONAL CORE       ║
+                    ║                         ║
+                    ║  Pure Business Logic    ║  ◄── Orchestrates all
+                    ║  • Receives input       ║      interactions
+                    ║  • Applies rules        ║
+                    ║  • Queries data         ║      Calls ports for:
+                    ║  • Persists results     ║      • Reading data (IN)
+                    ║  • Sends notifications  ║      • Writing data (OUT)
+                    ║                         ║
+                    ╚════════════╤════════════╝
+                                 │
+                                 │
+                    ┌────────────▼────────────┐
+                    │  PERSISTENCE PORTS      │  ◄── Bidirectional
+                    │                         │      Protocol/Interface
+                    │  ┌────────────────────┐ │
+                    │  │ Query    ──►       │ │      Core queries data (IN)
+                    │  │          ◄── Data  │ │      Core persists data (OUT)
+                    │  │ Command  ──►       │ │
+                    │  │          ◄── ACK   │ │
+                    │  └────────────────────┘ │
+                    └────────────┬────────────┘
+                                 │
+           ┌─────────────────────┼─────────────────────┐
+           │                     │                     │
+    ┌──────▼───────┐      ┌──────▼───────┐      ┌──────▼───────┐
+    │  Database    │      │   Email      │      │    File      │
+    │              │      │              │      │              │
+    │  IN: Read    │      │  IN: Status  │      │  IN: Read    │
+    │ OUT: Write   │      │ OUT: Send    │      │ OUT: Write   │
+    └──────┬───────┘      └──────┬───────┘      └──────┬───────┘
+           │                     │                     │
+    ┌──────▼───────┐      ┌──────▼───────┐      ┌──────▼───────┐
+    │  PostgreSQL  │      │    SMTP      │      │Configuration │
+    │   Database   │      │    Server    │      │    Files     │
+    └──────────────┘      └──────────────┘      └──────────────┘
+
+
+KEY INSIGHT: ALL PORTS ARE BIDIRECTIONAL
+═════════════════════════════════════════════════════════════════════════════
+
+The core doesn't distinguish between "driving" and "driven" - it only knows:
+  • "I need to communicate with external systems"
+  • "I'll use port abstractions to do so"
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ DATABASE ADAPTER - Bidirectional Communication                           │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Core → Port: find-user-by-email("user@example.com")                    │
+│         └─► Database reads and returns data  (INPUT to core)            │
+│                                                                          │
+│  Core → Port: create-user({:email "user@example.com" ...})              │
+│         └─► Database writes and confirms     (OUTPUT from core)         │
+│                                                                          │
+│  Core → Port: update-user-status(user-id, :active)                      │
+│         └─► Database modifies and returns    (BOTH)                     │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ HTTP ADAPTER - Bidirectional Communication                               │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  HTTP → Core: POST /users with JSON body     (INPUT to core)            │
+│  Core → HTTP: {:status 201 :body {...}}      (OUTPUT from core)         │
+│                                                                          │
+│  The adapter is both:                                                   │
+│  • Source of input (receives HTTP requests)                             │
+│  • Destination of output (formats HTTP responses)                       │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ FILE SYSTEM ADAPTER - Bidirectional Communication                        │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Core → Port: get-config("database.host")                               │
+│         └─► File system reads config          (INPUT to core)           │
+│                                                                          │
+│  Core → Port: write-export-file(data, path)                             │
+│         └─► File system writes file           (OUTPUT from core)        │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+
+BETTER TERMINOLOGY
+══════════════════════════════════════════════════════════════════════════
+
+Instead of "Driving/Driven" or "Primary/Secondary", think in terms of:
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ USER-FACING ADAPTERS                                                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│  • REST API, CLI, Web UI                                                │
+│  • Initiate user workflows                                              │
+│  • Receive requests → Process → Return responses                        │
+│  • Bidirectional: Request IN, Response OUT                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ INFRASTRUCTURE ADAPTERS                                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│  • Database, Email, File System, External APIs                          │
+│  • Support core business logic                                          │
+│  • Query/Command operations                                             │
+│  • Bidirectional: Query IN (read), Command OUT (write)                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Both types are equal in the architecture - all are adapters that connect
+external systems to the core through port abstractions.
+
+
+REALISTIC USER CREATION FLOW (Showing Bidirectionality)
+═══════════════════════════════════════════════════════════════════════════
+
+1. REST Adapter receives POST /users with JSON
+   └─► [External → Adapter] HTTP request with data
+
+2. REST Adapter validates and calls core function
+   └─► [Adapter → Core] Validated user data
+
+3. Core checks if user already exists
+   └─► [Core → Repository Port] find-user-by-email(email)
+       └─► [Port → Database Adapter] Execute query
+           └─► [Database Adapter → PostgreSQL] SELECT query
+               └─► [PostgreSQL → Database Adapter] No rows found
+                   └─► [Database Adapter → Core] nil (user doesn't exist)
+   
+   ◄── DATA FLOWS BACK (INPUT to core from database)
+
+4. Core applies business rules and creates user entity
+   └─► [Core logic] Pure function processing
+
+5. Core persists new user
+   └─► [Core → Repository Port] create-user(user-data)
+       └─► [Port → Database Adapter] Save command
+           └─► [Database Adapter → PostgreSQL] INSERT query
+               └─► [PostgreSQL → Database Adapter] Success + ID
+                   └─► [Database Adapter → Core] Created user with ID
+   
+   ◄── DATA FLOWS BACK (confirmation from database)
+
+6. Core sends welcome email
+   └─► [Core → Email Port] send-welcome-email(user-email)
+       └─► [Port → Email Adapter] Send command
+           └─► [Email Adapter → SMTP Server] Send email
+               └─► [SMTP Server → Email Adapter] Delivery status
+                   └─► [Email Adapter → Core] Confirmation
+
+   ◄── DATA FLOWS BACK (status from email service)
+
+7. Core returns success result
+   └─► [Core → Adapter] {:status :success :data user}
+
+8. REST Adapter formats HTTP response
+   └─► [Adapter → External] HTTP 201 with JSON body
+   
+   ◄── DATA FLOWS BACK (response to original caller)
+
+
+Every port interaction is bidirectional:
+  • Core sends request/command/query
+  • Adapter returns data/status/confirmation
+
+
+PORT PROTOCOL EXAMPLES (Showing Bidirectional Nature)
+═══════════════════════════════════════════════════════════════════════════
+
+(defprotocol IUserRepository
+  "All methods are bidirectional request/response"
+  
+  (find-user-by-id [this user-id]
+    "Core OUT: user-id
+     Core IN:  user map or nil")
+    
+  (create-user [this user-data]
+    "Core OUT: user-data to persist
+     Core IN:  persisted user with generated ID")
+    
+  (update-user [this user-data]
+    "Core OUT: updated user-data
+     Core IN:  confirmation of update")
+    
+  (delete-user [this user-id]
+    "Core OUT: user-id to delete
+     Core IN:  boolean success status"))
+
+(defprotocol IEmailService
+  "Email service also bidirectional"
+  
+  (send-email [this recipient subject body]
+    "Core OUT: email details
+     Core IN:  delivery confirmation/status")
+    
+  (get-email-status [this message-id]
+    "Core OUT: message-id to check
+     Core IN:  delivery status details"))
+
+
+ARCHITECTURAL PRINCIPLE
+═══════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  ALL ADAPTERS ARE EQUAL                                                 │
+│  ═══════════════════════                                                │
+│                                                                         │
+│  There is no fundamental difference between:                            │
+│  • A REST adapter that receives HTTP and returns JSON                   │
+│  • A database adapter that receives queries and returns data            │
+│                                                                         │
+│  Both are:                                                              │
+│  • Adapters that implement port protocols                               │
+│  • Bidirectional communication channels                                 │
+│  • Technology-specific implementations                                  │
+│  • Interchangeable with other implementations                           │
+│                                                                         │
+│  The CORE orchestrates ALL interactions through ports                   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+DEPENDENCY RULES (Unchanged by Bidirectionality)
+═══════════════════════════════════════════════════════════════════════════
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│  ✅  Core → Ports              Core depends on abstractions              │
+│  ❌  Core → Adapters           Core never depends on implementations     │
+│  ✅  Adapters → Ports          Adapters implement port interfaces        │
+│  ✅  Adapters ↔ External       Adapters handle external communication    │
+│                                (bidirectional by nature)                 │
+└──────────────────────────────────────────────────────────────────────────┘
+
+The key insight: Direction of data flow ≠ Direction of dependency

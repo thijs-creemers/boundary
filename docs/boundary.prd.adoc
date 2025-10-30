@@ -35,7 +35,8 @@ This PRD is being restructured and expanded. See <<content-gaps,Content Gap Log>
 [[background]]
 === Background
 
-Boundary is a **module-centric software framework** that implements the "Functional Core / Imperative Shell" architectural paradigm with complete domain ownership. This approach creates highly composable, testable, and maintainable systems where each domain module owns its complete functionality stack.
+Boundary is a **module-centric software framework** that implements the "Functional Core / Imperative Shell" architectural paradigm with complete domain ownership.
+This approach creates highly composable, testable, and maintainable systems where each domain module owns its complete functionality stack.
 
 The framework supports multiple interaction modes to serve different stakeholders:
 
@@ -45,12 +46,13 @@ The framework supports multiple interaction modes to serve different stakeholder
 
 **Strategic Vision**: Boundary is designed as both a framework for building applications and a **foundation for creating reusable development toolchains**. The module-centric architecture enables:
 
-* **Library Extraction**: Core infrastructure can be extracted into reusable libraries
+* **Library Extraction**: Core infrastructure can/must be extracted into reusable libraries upon maturity
+* **Module Templates**: Standardized module templates for rapid domain module creation
 * **Template Generation**: Automated module generation with consistent patterns
 * **Domain Frameworks**: Specialized frameworks for different industries (fintech, healthcare, e-commerce)
 * **Module Marketplace**: Shareable, installable modules for common functionality
 
-**Module Ownership Principle**: Each domain module (`user`, `billing`, `workflow`) contains its complete functionality:
+**Module Ownership Principle**: Each domain module like (`user`, `billing`, `workflow`) contains its complete functionality:
 
 - Pure business logic (core)
 - Port definitions and schemas
@@ -73,7 +75,7 @@ The framework supports multiple interaction modes to serve different stakeholder
 ==== Non-Goals
 
 * **Multi-tenancy Runtime Support**: Framework provides preparation but not active multi-tenant features
-* **Mobile/Desktop Clients**: Focus on web-based and server-side interfaces only
+* **Mobile/Desktop Clients**: Focus on web-based and server-side interfaces only for the initial release
 * **Specific Domain Logic**: Framework provides patterns, not domain-specific implementations
 * **Authentication Provider**: Framework supports auth patterns but doesn't include specific providers
 
@@ -254,7 +256,7 @@ The architecture enforces strict dependency rules:
 ==== Component Overview
 
 .Framework Component Interaction
-image::diagrams/component-overview.png[Component Overview Diagram, 800]
+image::diagrams/system-component-overview.png[Component Overview Diagram, 800]
 
 This diagram illustrates how the major components of the Boundary framework interact:
 
@@ -299,7 +301,7 @@ The CLI flow shows how command-line operations map to the same core logic:
 ==== Data Validation and Coercion
 
 .Validation Pipeline
-image::diagrams/validation-pipeline.png[Validation Pipeline, 800]
+image::diagrams/validation-pipeline.png[Validation Pipeline]
 
 The validation pipeline ensures data integrity at the shell boundary:
 
