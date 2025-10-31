@@ -35,10 +35,18 @@
                      vals
                      (filter #(= (:tenant-id %) tenant-id))
                      (filter #(nil? (:deleted-at %))))
-          total-count (count users)
+          ;; Apply role filter if provided
+          filtered-users (if-let [role (:filter-role options)]
+                          (filter #(= (:role %) role) users)
+                          users)
+          ;; Apply active filter if provided
+          final-users (if (contains? options :filter-active)
+                       (filter #(= (:active %) (:filter-active options)) filtered-users)
+                       filtered-users)
+          total-count (count final-users)
           limit (or (:limit options) 20)
           offset (or (:offset options) 0)
-          page (take limit (drop offset users))]
+          page (take limit (drop offset final-users))]
       {:users page
        :total-count total-count}))
   

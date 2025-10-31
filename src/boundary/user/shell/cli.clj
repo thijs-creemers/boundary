@@ -72,7 +72,7 @@
 
 (def user-create-options
   [[nil "--email EMAIL" "User email address (required)"
-    :validate [#(re-matches #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" %)
+    :validate [#(re-matches #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" %)
                "Must be a valid email address"]]
    [nil "--name NAME" "User full name (required)"]
    [nil "--role ROLE" "User role: admin, user, or viewer (required)"
@@ -110,7 +110,7 @@
     :parse-fn parse-uuid-string
     :validate [some? "Must be a valid UUID"]]
    [nil "--email EMAIL" "User email address"
-    :validate [#(re-matches #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" %)
+    :validate [#(re-matches #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" %)
                "Must be a valid email address"]]
    [nil "--tenant-id UUID" "Tenant UUID (required with --email)"
     :parse-fn parse-uuid-string
@@ -244,7 +244,7 @@
   [sessions]
   (let [headers ["Token" "User ID" "Created" "Expires" "Revoked"]
         rows (map (fn [session]
-                   [(truncate-string (:session-token session) 20)
+                   [(:session-token session)  ; Don't truncate token - needed for invalidation
                     (truncate-string (str (:user-id session)) 36)
                     (format-instant (:created-at session))
                     (format-instant (:expires-at session))
@@ -639,32 +639,56 @@ Examples:
       (do
         (println root-help)
         0)
-      (let [;; Parse global options first
-            global-parsed (cli/parse-opts args global-options :in-order true)
-            global-opts (:options global-parsed)
-            remaining (:arguments global-parsed)
-            format-type (keyword (:format global-opts))
-            
-            ;; Check for global help
-            _ (when (:help global-opts)
-                (println root-help)
-                (System/exit 0))
-            
-            ;; Parse domain and verb
-            [domain-str verb-str & cmd-args] remaining
+      (let [;; Parse to extract domain and verb (skip option flags and their values)
+            ;; We need to skip pairs like ["--format" "json"] and ["--help"]
+            parsed-for-domain (cli/parse-opts args global-options :in-order true)
+            global-errors (:errors parsed-for-domain)
+            domain-args (:arguments parsed-for-domain)
+            [domain-str verb-str] domain-args
             domain (when domain-str (keyword domain-str))
-            verb (when verb-str (keyword verb-str))]
+            verb (when verb-str (keyword verb-str))
+            
+            ;; Check for help flags early
+            has-help-flag? (or (:help (:options parsed-for-domain))
+                              (some #(= % "--help") args))
+            help-as-verb? (= verb-str "--help")]
         
-        ;; Handle domain-level help
-        (cond
+        ;; Check for global option errors first (e.g., invalid --format value)
+        (if (seq global-errors)
+          (do
+            (binding [*out* *err*]
+              (println (format-error :table
+                                    {:type :parse-error
+                                     :message "Invalid arguments"
+                                     :details (str/join ", " global-errors)})))
+            1)
+          ;; Otherwise continue with help and command dispatch
+          (cond
+          ;; Global --help or no domain
+          (and has-help-flag? (nil? domain))
+          (do (println root-help) 0)
+          
+          ;; Domain-level --help: user --help or user create --help
+          (and (= domain :user) (or help-as-verb? has-help-flag?))
+          (do (println user-help) 0)
+          
+          (and (= domain :session) (or help-as-verb? has-help-flag?))
+          (do (println session-help) 0)
+          
+          ;; Legacy: domain help verb
           (and (= domain :user) (= verb :help))
           (do (println user-help) 0)
           
           (and (= domain :session) (= verb :help))
           (do (println session-help) 0)
           
+          ;; Execute command - parse options now
           (and domain verb)
-          (let [;; Get command-specific options
+          (let [;; Get all args after domain and verb
+                domain-verb-count 2
+                remaining-args (vec (drop domain-verb-count args))
+                
+                ;; Get command-specific options
                 cmd-options (case domain
                               :user (case verb
                                       :create user-create-options
@@ -681,19 +705,25 @@ Examples:
                               nil)]
             (if-not cmd-options
               (do
-                (println (format-error format-type
-                                      {:type :unknown-command
-                                       :message (str "Unknown command: " domain-str " " verb-str)}))
+                (binding [*out* *err*]
+                  (println (format-error :table
+                                        {:type :unknown-command
+                                         :message (str "Unknown command: " domain-str " " verb-str)})))
                 1)
-              (let [parsed (cli/parse-opts cmd-args cmd-options)
+              (let [;; Merge global options with command options
+                    all-options (into global-options cmd-options)
+                    ;; Parse with merged options
+                    parsed (cli/parse-opts remaining-args all-options)
                     opts (:options parsed)
-                    errors (:errors parsed)]
+                    errors (:errors parsed)
+                    format-type (keyword (get opts :format "table"))]
                 (if errors
                   (do
-                    (println (format-error format-type
-                                          {:type :parse-error
-                                           :message "Invalid arguments"
-                                           :details (str/join ", " errors)}))
+                    (binding [*out* *err*]
+                      (println (format-error format-type
+                                            {:type :parse-error
+                                             :message "Invalid arguments"
+                                             :details (str/join ", " errors)})))
                     1)
                   (let [result (dispatch-command domain verb opts service)]
                     (if (:message result)
@@ -704,7 +734,7 @@ Examples:
                     (:status result))))))
           
           :else
-          (do (println root-help) 0))))
+          (do (println root-help) 0)))))
     
     (catch Exception e
       (let [ex-data (ex-data e)
