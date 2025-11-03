@@ -23,7 +23,7 @@
 ;; User-Specific Error Mappings
 ;; =============================================================================
 
-(def ^:private user-error-mappings
+(def user-error-mappings
   "User module specific error type mappings for RFC 7807 problem details."
   {:user-exists [409 "User Already Exists"]
    :user-not-found [404 "User Not Found"]
@@ -59,11 +59,9 @@
       (if user
         {:status 200
          :body (schema/user-specific-kebab->camel user)}
-        {:status 404
-         :body {:type "https://boundary.example.com/problems/not-found"
-                :title "User Not Found"
-                :status 404
-                :detail (str "User with ID " (:id path) " not found")}}))))
+        (throw (ex-info "User not found"
+                        {:type :user-not-found
+                         :user-id (:id path)}))))))
 
 (defn list-users-handler
   "GET /api/users - List users with pagination and filters."
@@ -89,11 +87,9 @@
     (let [user-id (type-conversion/string->uuid (:id path))
           current-user (ports/find-user-by-id user-service user-id)]
       (if-not current-user
-        {:status 404
-         :body {:type "https://boundary.example.com/problems/not-found"
-                :title "User Not Found"
-                :status 404
-                :detail (str "User with ID " (:id path) " not found")}}
+        (throw (ex-info "User not found"
+                        {:type :user-not-found
+                         :user-id (:id path)}))
         (let [updated-user (merge current-user
                                   (when (:name body) {:name (:name body)})
                                   (when (:role body) {:role (keyword (:role body))})
@@ -139,12 +135,10 @@
                 :userId (type-conversion/uuid->string (:user-id session))
                 :tenantId (type-conversion/uuid->string (:tenant-id session))
                 :expiresAt (type-conversion/instant->string (:expires-at session))}}
-        {:status 404
-         :body {:valid false
-                :type "https://boundary.example.com/problems/not-found"
-                :title "Session Not Found"
-                :status 404
-                :detail "Session not found or expired"}}))))
+        (throw (ex-info "Session not found or expired"
+                        {:type :session-not-found
+                         :valid false
+                         :token session-token}))))))
 
 (defn invalidate-session-handler
   "DELETE /api/sessions/:token - Invalidate session."
