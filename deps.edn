@@ -101,6 +101,13 @@
            :build     {:main-opts  ["-m" "build"]
                        :extra-deps {io.github.clojure/tools.build {:git/tag "v0.10.10" :git/sha "deedd623"}}
                        :ns-default build}
+           :coverage  {:extra-deps {cloverage/cloverage {:mvn/version "1.2.4"}}
+                       :main-opts  ["-m" "cloverage.coverage"
+                                    "--src-ns-path" "src"
+                                    "--test-ns-path" "test"
+                                    "--text"]
+                       :extra-paths ["test"]
+                       :jvm-opts   ["-Denv=test"]}
 
            ;; =============================================================================
            ;; CLI Interface

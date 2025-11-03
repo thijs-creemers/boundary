@@ -1,4 +1,4 @@
-(ns boundary.shell.adapters.database.mysql.connection)
+(ns boundary.shell.adapters.database.mysql.connection
   "MySQL connection management utilities."
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]

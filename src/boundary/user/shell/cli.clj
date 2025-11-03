@@ -1,60 +1,22 @@
 (ns boundary.user.shell.cli
   "CLI commands for user management.
-   
+
    This is the SHELL layer in Functional Core / Imperative Shell architecture.
    Responsibilities:
    - Parse command-line arguments using tools.cli
    - Orchestrate service calls (no business logic here)
    - Format output (table or JSON)
    - Handle errors and exit codes
-   
+
    All business logic lives in boundary.user.core.* and boundary.user.shell.service."
   (:require [boundary.user.ports :as ports]
+            [boundary.shared.core.utils.validation :as validation]
+            [boundary.shared.core.utils.type-conversion :as type-conv]
             [cheshire.core :as json]
             [clojure.string :as str]
             [clojure.tools.cli :as cli]
             [clojure.tools.logging :as log])
-  (:import [java.time.format DateTimeFormatter]
-           [java.util UUID]))
-
-;; =============================================================================
-;; Argument Parsing and Validation
-;; =============================================================================
-
-(defn parse-uuid-string
-  "Parse a string as UUID, returning nil if invalid."
-  [s]
-  (try
-    (UUID/fromString s)
-    (catch Exception _
-      nil)))
-
-(defn parse-int
-  "Parse a string as positive integer, returning nil if invalid."
-  [s]
-  (try
-    (let [n (Integer/parseInt s)]
-      (when (pos? n) n))
-    (catch Exception _
-      nil)))
-
-(defn parse-bool
-  "Parse a string as boolean. Accepts: true, false, 1, 0, yes, no (case-insensitive)."
-  [s]
-  (case (str/lower-case s)
-    ("true" "1" "yes" "y") true
-    ("false" "0" "no" "n") false
-    nil))
-
-(defn valid-uuid?
-  "Check if string is a valid UUID."
-  [s]
-  (some? (parse-uuid-string s)))
-
-(defn valid-format?
-  "Check if format is valid (table or json)."
-  [s]
-  (contains? #{"table" "json"} s))
+  (:import [java.time.format DateTimeFormatter]))
 
 ;; =============================================================================
 ;; Global CLI Options
@@ -63,7 +25,7 @@
 (def global-options
   [["-f" "--format FORMAT" "Output format: table (default) or json"
     :default "table"
-    :validate [valid-format? "Must be 'table' or 'json'"]]
+    :validate [validation/valid-output-format? "Must be 'table' or 'json'"]]
    ["-h" "--help" "Show help"]])
 
 ;; =============================================================================
@@ -79,20 +41,20 @@
     :parse-fn keyword
     :validate [#(contains? #{:admin :user :viewer} %) "Must be admin, user, or viewer"]]
    [nil "--tenant-id UUID" "Tenant UUID (required)"
-    :parse-fn parse-uuid-string
+    :parse-fn type-conv/parse-uuid-string
     :validate [some? "Must be a valid UUID"]]
    [nil "--active BOOL" "User active status (default: true)"
     :default true
-    :parse-fn parse-bool
+    :parse-fn type-conv/parse-bool
     :validate [some? "Must be true, false, yes, no, 1, or 0"]]])
 
 (def user-list-options
   [[nil "--tenant-id UUID" "Tenant UUID (required)"
-    :parse-fn parse-uuid-string
+    :parse-fn type-conv/parse-uuid-string
     :validate [some? "Must be a valid UUID"]]
    [nil "--limit N" "Maximum number of results (default: 20)"
     :default 20
-    :parse-fn parse-int
+    :parse-fn type-conv/parse-int
     :validate [some? "Must be a positive integer"]]
    [nil "--offset N" "Number of results to skip (default: 0)"
     :default 0
@@ -102,35 +64,35 @@
     :parse-fn keyword
     :validate [#(contains? #{:admin :user :viewer} %) "Must be admin, user, or viewer"]]
    [nil "--active BOOL" "Filter by active status"
-    :parse-fn parse-bool
+    :parse-fn type-conv/parse-bool
     :validate [some? "Must be true, false, yes, no, 1, or 0"]]])
 
 (def user-find-options
   [[nil "--id UUID" "User ID"
-    :parse-fn parse-uuid-string
+    :parse-fn type-conv/parse-uuid-string
     :validate [some? "Must be a valid UUID"]]
    [nil "--email EMAIL" "User email address"
     :validate [#(re-matches #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" %)
                "Must be a valid email address"]]
    [nil "--tenant-id UUID" "Tenant UUID (required with --email)"
-    :parse-fn parse-uuid-string
+    :parse-fn type-conv/parse-uuid-string
     :validate [some? "Must be a valid UUID"]]])
 
 (def user-update-options
   [[nil "--id UUID" "User ID (required)"
-    :parse-fn parse-uuid-string
+    :parse-fn type-conv/parse-uuid-string
     :validate [some? "Must be a valid UUID"]]
    [nil "--name NAME" "User full name"]
    [nil "--role ROLE" "User role: admin, user, or viewer"
     :parse-fn keyword
     :validate [#(contains? #{:admin :user :viewer} %) "Must be admin, user, or viewer"]]
    [nil "--active BOOL" "User active status"
-    :parse-fn parse-bool
+    :parse-fn type-conv/parse-bool
     :validate [some? "Must be true, false, yes, no, 1, or 0"]]])
 
 (def user-delete-options
   [[nil "--id UUID" "User ID (required)"
-    :parse-fn parse-uuid-string
+    :parse-fn type-conv/parse-uuid-string
     :validate [some? "Must be a valid UUID"]]])
 
 ;; =============================================================================
@@ -139,10 +101,10 @@
 
 (def session-create-options
   [[nil "--user-id UUID" "User UUID (required)"
-    :parse-fn parse-uuid-string
+    :parse-fn type-conv/parse-uuid-string
     :validate [some? "Must be a valid UUID"]]
    [nil "--tenant-id UUID" "Tenant UUID (required)"
-    :parse-fn parse-uuid-string
+    :parse-fn type-conv/parse-uuid-string
     :validate [some? "Must be a valid UUID"]]
    [nil "--user-agent AGENT" "User agent string"]
    [nil "--ip-address IP" "IP address"]])
@@ -152,7 +114,7 @@
 
 (def session-list-options
   [[nil "--user-id UUID" "User UUID (required)"
-    :parse-fn parse-uuid-string
+    :parse-fn type-conv/parse-uuid-string
     :validate [some? "Must be a valid UUID"]]])
 
 ;; =============================================================================
@@ -202,11 +164,11 @@
 
 (defn render-table
   "Render data as a formatted table.
-   
+
    Args:
      headers: Vector of column header strings
      rows: Vector of vectors containing row data
-     
+
    Returns:
      Formatted table string"
   [headers rows]
@@ -214,9 +176,9 @@
     "No results found."
     (let [;; Calculate column widths
           widths (reduce (fn [ws row]
-                          (map max ws (map #(count (str %)) row)))
-                        (map count headers)
-                        rows)
+                           (map max ws (map #(count (str %)) row)))
+                         (map count headers)
+                         rows)
           separator (format-table-separator widths)
           header-row (format-table-row headers widths)]
       (str separator "\n"
@@ -230,13 +192,13 @@
   [users]
   (let [headers ["ID" "Email" "Name" "Role" "Active" "Created"]
         rows (map (fn [user]
-                   [(truncate-string (str (:id user)) 36)
-                    (truncate-string (:email user) 30)
-                    (truncate-string (:name user) 25)
-                    (name (:role user))
-                    (str (:active user))
-                    (format-instant (:created-at user))])
-                 users)]
+                    [(truncate-string (str (:id user)) 36)
+                     (truncate-string (:email user) 30)
+                     (truncate-string (:name user) 25)
+                     (name (:role user))
+                     (str (:active user))
+                     (format-instant (:created-at user))])
+                  users)]
     (render-table headers rows)))
 
 (defn format-session-table
@@ -244,12 +206,12 @@
   [sessions]
   (let [headers ["Token" "User ID" "Created" "Expires" "Revoked"]
         rows (map (fn [session]
-                   [(:session-token session)  ; Don't truncate token - needed for invalidation
-                    (truncate-string (str (:user-id session)) 36)
-                    (format-instant (:created-at session))
-                    (format-instant (:expires-at session))
-                    (if (:revoked-at session) "Yes" "No")])
-                 sessions)]
+                    [(:session-token session) ; Don't truncate token - needed for invalidation
+                     (truncate-string (str (:user-id session)) 36)
+                     (format-instant (:created-at session))
+                     (format-instant (:expires-at session))
+                     (if (:revoked-at session) "Yes" "No")])
+                  sessions)]
     (render-table headers rows)))
 
 ;; =============================================================================
@@ -297,7 +259,7 @@
 
 (defn format-success
   "Format successful result based on output format.
-   
+
    Args:
      format-type: :table or :json
      entity-type: :user, :user-list, :session, :session-list
@@ -307,10 +269,10 @@
     :json (case entity-type
             :user (format-json (user->json data))
             :user-list (format-json {:users (map user->json data)
-                                    :count (count data)})
+                                     :count (count data)})
             :session (format-json (session->json data))
             :session-list (format-json {:sessions (map session->json data)
-                                       :count (count data)}))
+                                        :count (count data)}))
     :table (case entity-type
              :user (format-user-table [data])
              :user-list (format-user-table data)
@@ -336,8 +298,8 @@
   (let [{:keys [email name role tenant-id active]} opts]
     (when-not (and email name role tenant-id)
       (throw (ex-info "Missing required arguments"
-                     {:type :validation-error
-                      :message "Required: --email, --name, --role, --tenant-id"})))
+                      {:type :validation-error
+                       :message "Required: --email, --name, --role, --tenant-id"})))
     (let [user-data {:email email
                      :name name
                      :role role
@@ -354,8 +316,8 @@
   (let [{:keys [tenant-id limit offset role active]} opts]
     (when-not tenant-id
       (throw (ex-info "Missing required argument"
-                     {:type :validation-error
-                      :message "Required: --tenant-id"})))
+                      {:type :validation-error
+                       :message "Required: --tenant-id"})))
     (let [options (cond-> {:limit limit :offset offset}
                     role (assoc :filter-role role)
                     (some? active) (assoc :filter-active active))
@@ -372,26 +334,26 @@
       id (let [result (ports/find-user-by-id service id)]
            (when-not result
              (throw (ex-info "User not found"
-                            {:type :user-not-found
-                             :message (str "No user found with ID: " id)})))
+                             {:type :user-not-found
+                              :message (str "No user found with ID: " id)})))
            {:status 0
             :entity-type :user
             :data result})
-      
+
       (and email tenant-id)
       (let [result (ports/find-user-by-email service email tenant-id)]
         (when-not result
           (throw (ex-info "User not found"
-                         {:type :user-not-found
-                          :message (str "No user found with email: " email)})))
+                          {:type :user-not-found
+                           :message (str "No user found with email: " email)})))
         {:status 0
          :entity-type :user
          :data result})
-      
+
       :else
       (throw (ex-info "Missing required arguments"
-                     {:type :validation-error
-                      :message "Required: --id OR (--email AND --tenant-id)"})))))
+                      {:type :validation-error
+                       :message "Required: --id OR (--email AND --tenant-id)"})))))
 
 (defn execute-user-update
   "Execute user update command."
@@ -399,17 +361,17 @@
   (let [{:keys [id name role active]} opts]
     (when-not id
       (throw (ex-info "Missing required argument"
-                     {:type :validation-error
-                      :message "Required: --id"})))
+                      {:type :validation-error
+                       :message "Required: --id"})))
     (when-not (or name role (some? active))
       (throw (ex-info "No fields to update"
-                     {:type :validation-error
-                      :message "At least one of --name, --role, or --active required"})))
+                      {:type :validation-error
+                       :message "At least one of --name, --role, or --active required"})))
     (let [current-user (ports/find-user-by-id service id)]
       (when-not current-user
         (throw (ex-info "User not found"
-                       {:type :user-not-found
-                        :message (str "No user found with ID: " id)})))
+                        {:type :user-not-found
+                         :message (str "No user found with ID: " id)})))
       (let [updated-user (cond-> current-user
                            name (assoc :name name)
                            role (assoc :role role)
@@ -425,8 +387,8 @@
   (let [{:keys [id]} opts]
     (when-not id
       (throw (ex-info "Missing required argument"
-                     {:type :validation-error
-                      :message "Required: --id"})))
+                      {:type :validation-error
+                       :message "Required: --id"})))
     (ports/soft-delete-user service id)
     {:status 0
      :message "User deleted successfully"}))
@@ -437,8 +399,8 @@
   (let [{:keys [user-id tenant-id user-agent ip-address]} opts]
     (when-not (and user-id tenant-id)
       (throw (ex-info "Missing required arguments"
-                     {:type :validation-error
-                      :message "Required: --user-id, --tenant-id"})))
+                      {:type :validation-error
+                       :message "Required: --user-id, --tenant-id"})))
     (let [session-data (cond-> {:user-id user-id
                                 :tenant-id tenant-id}
                          user-agent (assoc :user-agent user-agent)
@@ -454,15 +416,15 @@
   (let [{:keys [token]} opts]
     (when-not token
       (throw (ex-info "Missing required argument"
-                     {:type :validation-error
-                      :message "Required: --token"})))
+                      {:type :validation-error
+                       :message "Required: --token"})))
     (let [result (ports/invalidate-session service token)]
       (if result
         {:status 0
          :message "Session invalidated successfully"}
         (throw (ex-info "Session not found"
-                       {:type :session-not-found
-                        :message (str "No session found with token: " token)}))))))
+                        {:type :session-not-found
+                         :message (str "No session found with token: " token)}))))))
 
 (defn execute-session-list
   "Execute session list command."
@@ -470,8 +432,8 @@
   (let [{:keys [user-id]} opts]
     (when-not user-id
       (throw (ex-info "Missing required argument"
-                     {:type :validation-error
-                      :message "Required: --user-id"})))
+                      {:type :validation-error
+                       :message "Required: --user-id"})))
     (let [sessions (.find-sessions-by-user (get service :session-repository service) user-id)]
       {:status 0
        :entity-type :session-list
@@ -483,13 +445,13 @@
 
 (defn dispatch-command
   "Dispatch command to appropriate executor.
-   
+
    Args:
      domain: :user or :session
      verb: :create, :list, :find, :update, :delete, :invalidate
      opts: Parsed command options
      service: User service instance
-     
+
    Returns:
      Map with :status, :entity-type, :data, or :message"
   [domain verb opts service]
@@ -501,18 +463,18 @@
             :update (execute-user-update service opts)
             :delete (execute-user-delete service opts)
             (throw (ex-info (str "Unknown user command: " (name verb))
-                           {:type :unknown-command
-                            :message (str "Unknown command: user " (name verb))})))
+                            {:type :unknown-command
+                             :message (str "Unknown command: user " (name verb))})))
     :session (case verb
                :create (execute-session-create service opts)
                :invalidate (execute-session-invalidate service opts)
                :list (execute-session-list service opts)
                (throw (ex-info (str "Unknown session command: " (name verb))
-                              {:type :unknown-command
-                               :message (str "Unknown command: session " (name verb))})))
+                               {:type :unknown-command
+                                :message (str "Unknown command: session " (name verb))})))
     (throw (ex-info (str "Unknown domain: " (name domain))
-                   {:type :unknown-domain
-                    :message (str "Unknown domain: " (name domain))}))))
+                    {:type :unknown-domain
+                     :message (str "Unknown domain: " (name domain))}))))
 
 ;; =============================================================================
 ;; Help Text
@@ -623,14 +585,14 @@ Examples:
 
 (defn run-cli!
   "Main CLI entry point. Parses arguments, executes commands, and returns status.
-   
+
    Args:
      service: User service instance
      args: Command-line arguments vector
-     
+
    Returns:
      Exit status: 0 for success, 1 for error
-     
+
    Side effects:
      Prints to stdout/stderr based on command and format"
   [service args]
@@ -647,106 +609,105 @@ Examples:
             [domain-str verb-str] domain-args
             domain (when domain-str (keyword domain-str))
             verb (when verb-str (keyword verb-str))
-            
+
             ;; Check for help flags early
             has-help-flag? (or (:help (:options parsed-for-domain))
-                              (some #(= % "--help") args))
+                               (some #(= % "--help") args))
             help-as-verb? (= verb-str "--help")]
-        
+
         ;; Check for global option errors first (e.g., invalid --format value)
         (if (seq global-errors)
           (do
             (binding [*out* *err*]
               (println (format-error :table
-                                    {:type :parse-error
-                                     :message "Invalid arguments"
-                                     :details (str/join ", " global-errors)})))
+                                     {:type :parse-error
+                                      :message "Invalid arguments"
+                                      :details (str/join ", " global-errors)})))
             1)
           ;; Otherwise continue with help and command dispatch
           (cond
           ;; Global --help or no domain
-          (and has-help-flag? (nil? domain))
-          (do (println root-help) 0)
-          
+            (and has-help-flag? (nil? domain))
+            (do (println root-help) 0)
+
           ;; Domain-level --help: user --help or user create --help
-          (and (= domain :user) (or help-as-verb? has-help-flag?))
-          (do (println user-help) 0)
-          
-          (and (= domain :session) (or help-as-verb? has-help-flag?))
-          (do (println session-help) 0)
-          
+            (and (= domain :user) (or help-as-verb? has-help-flag?))
+            (do (println user-help) 0)
+
+            (and (= domain :session) (or help-as-verb? has-help-flag?))
+            (do (println session-help) 0)
+
           ;; Legacy: domain help verb
-          (and (= domain :user) (= verb :help))
-          (do (println user-help) 0)
-          
-          (and (= domain :session) (= verb :help))
-          (do (println session-help) 0)
-          
+            (and (= domain :user) (= verb :help))
+            (do (println user-help) 0)
+
+            (and (= domain :session) (= verb :help))
+            (do (println session-help) 0)
+
           ;; Execute command - parse options now
-          (and domain verb)
-          (let [;; Get all args after domain and verb
-                domain-verb-count 2
-                remaining-args (vec (drop domain-verb-count args))
-                
-                ;; Get command-specific options
-                cmd-options (case domain
-                              :user (case verb
-                                      :create user-create-options
-                                      :list user-list-options
-                                      :find user-find-options
-                                      :update user-update-options
-                                      :delete user-delete-options
-                                      nil)
-                              :session (case verb
-                                         :create session-create-options
-                                         :invalidate session-invalidate-options
-                                         :list session-list-options
-                                         nil)
-                              nil)]
-            (if-not cmd-options
-              (do
-                (binding [*out* *err*]
-                  (println (format-error :table
-                                        {:type :unknown-command
-                                         :message (str "Unknown command: " domain-str " " verb-str)})))
-                1)
-              (let [;; Merge global options with command options
-                    all-options (into global-options cmd-options)
-                    ;; Parse with merged options
-                    parsed (cli/parse-opts remaining-args all-options)
-                    opts (:options parsed)
-                    errors (:errors parsed)
-                    format-type (keyword (get opts :format "table"))]
-                (if errors
-                  (do
-                    (binding [*out* *err*]
-                      (println (format-error format-type
-                                            {:type :parse-error
-                                             :message "Invalid arguments"
-                                             :details (str/join ", " errors)})))
-                    1)
-                  (let [result (dispatch-command domain verb opts service)]
-                    (if (:message result)
-                      (println (:message result))
-                      (println (format-success format-type
-                                              (:entity-type result)
-                                              (:data result))))
-                    (:status result))))))
-          
-          :else
-          (do (println root-help) 0)))))
-    
+            (and domain verb)
+            (let [;; Get all args after domain and verb
+                  domain-verb-count 2
+                  remaining-args (vec (drop domain-verb-count args))
+
+                 ;; Get command-specific options
+                  cmd-options (case domain
+                                :user (case verb
+                                        :create user-create-options
+                                        :list user-list-options
+                                        :find user-find-options
+                                        :update user-update-options
+                                        :delete user-delete-options
+                                        nil)
+                                :session (case verb
+                                           :create session-create-options
+                                           :invalidate session-invalidate-options
+                                           :list session-list-options
+                                           nil)
+                                nil)]
+              (if-not cmd-options
+                (do
+                  (binding [*out* *err*]
+                    (println (format-error :table
+                                           {:type :unknown-command
+                                            :message (str "Unknown command: " domain-str " " verb-str)})))
+                  1)
+                (let [;; Merge global options with command options
+                      all-options (into global-options cmd-options)
+                     ;; Parse with merged options
+                      parsed (cli/parse-opts remaining-args all-options)
+                      opts (:options parsed)
+                      errors (:errors parsed)
+                      format-type (keyword (get opts :format "table"))]
+                  (if errors
+                    (do
+                      (binding [*out* *err*]
+                        (println (format-error format-type
+                                               {:type :parse-error
+                                                :message "Invalid arguments"
+                                                :details (str/join ", " errors)})))
+                      1)
+                    (let [result (dispatch-command domain verb opts service)]
+                      (if (:message result)
+                        (println (:message result))
+                        (println (format-success format-type
+                                                 (:entity-type result)
+                                                 (:data result))))
+                      (:status result))))))
+
+            :else
+            (do (println root-help) 0)))))
+
     (catch Exception e
       (let [ex-data (ex-data e)
             format-type (or (try (keyword (get-in (cli/parse-opts args global-options)
-                                                   [:options :format]))
+                                                  [:options :format]))
                                  (catch Exception _ :table))
                             :table)
             error-data {:type (or (:type ex-data) :error)
-                       :message (.getMessage e)
-                       :details (dissoc ex-data :type)}]
+                        :message (.getMessage e)
+                        :details (dissoc ex-data :type)}]
         (log/error "CLI command failed" {:error (.getMessage e) :data ex-data})
         (binding [*out* *err*]
           (println (format-error format-type error-data)))
         1))))
-

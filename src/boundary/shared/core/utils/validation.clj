@@ -1,4 +1,4 @@
-(ns boundary.shared.core.validation
+(ns boundary.shared.core.utils.validation
   "Generic validation utilities for use across Boundary application modules.
    
    This namespace provides reusable validation patterns and utilities that
@@ -12,10 +12,11 @@
    - Validation result normalization
    
    Usage:
-   (:require [boundary.shared.core.validation :as validation])
+   (:require [boundary.shared.core.utils.validation :as validation])
    
    (validation/validate-with-transform SomeSchema data transformer)"
-  (:require [malli.core :as m]))
+  (:require [malli.core :as m]
+            [boundary.shared.core.utils.type-conversion :as type-conv]))
 
 ;; =============================================================================
 ;; Generic Validation Functions
@@ -111,3 +112,30 @@
      Validated data or nil if validation failed"
   [validation-result]
   (:data validation-result))
+
+(defn valid-uuid?
+  "Check if string is a valid UUID.
+
+   This is commonly used in CLI option validation where UUIDs are required.
+
+   Args:
+     s: String to validate as UUID
+
+   Returns:
+     Boolean indicating if string is valid UUID"
+  [s]
+  (some? (type-conv/parse-uuid-string s)))
+
+(defn valid-output-format?
+  "Check if format is valid (table or json).
+
+       This is commonly used in CLI option validation for output format selection.
+
+       Args:
+         s: String to validate as format
+
+       Returns:
+         Boolean indicating if format is valid"
+  [s]
+  (contains? #{"table" "json"} s))
+

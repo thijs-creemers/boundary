@@ -25,18 +25,18 @@
 (def test-ctx (atom nil))
 
 (defn setup-h2-test-db
-      "Create in-memory H2 database for testing."
+  "Create in-memory H2 database for testing."
   []
-  (let [adapter    (h2/new-adapter)
+  (let [adapter (h2/new-adapter)
         ;; Use unique database name to avoid conflicts between tests
-        db-name    (str "mem:testdb-" (System/currentTimeMillis) "-" (rand-int 10000))
-        db-config  {:adapter           :h2
-                    :database-path     db-name
-                    :connection-params {:DB_CLOSE_DELAY    "-1" ; Keep DB alive during tests
-                                        :MODE              "PostgreSQL" ; Use PostgreSQL compatibility
-                                        :DATABASE_TO_LOWER "TRUE"}}
+        db-name (str "mem:testdb-" (System/currentTimeMillis) "-" (rand-int 10000))
+        db-config {:adapter :h2
+                   :database-path db-name
+                   :connection-params {:DB_CLOSE_DELAY "-1" ; Keep DB alive during tests
+                                       :MODE "PostgreSQL" ; Use PostgreSQL compatibility
+                                       :DATABASE_TO_LOWER "TRUE"}}
         datasource (db/create-connection-pool adapter db-config)
-        ctx        {:adapter adapter :datasource datasource}]
+        ctx {:adapter adapter :datasource datasource}]
     (reset! test-ctx ctx)
 
     ;; Create test tables
@@ -60,7 +60,7 @@
     ctx))
 
 (defn cleanup-h2-test-db
-      "Clean up test database."
+  "Clean up test database."
   []
   (when-let [ctx @test-ctx]
     (try
@@ -70,12 +70,12 @@
     (reset! test-ctx nil)))
 
 (use-fixtures :each
-              (fn [test-fn]
-                (setup-h2-test-db)
-                (try
-                  (test-fn)
-                  (finally
-                    (cleanup-h2-test-db)))))
+  (fn [test-fn]
+    (setup-h2-test-db)
+    (try
+      (test-fn)
+      (finally
+        (cleanup-h2-test-db)))))
 
 ;; =============================================================================
 ;; Core Database Operations Tests
@@ -83,8 +83,8 @@
 
 (deftest test-connection-pool-creation
   (testing "Connection pool creation with H2"
-    (let [adapter    (h2/new-adapter)
-          db-config  {:adapter :h2 :database-path "mem:test_pool"}
+    (let [adapter (h2/new-adapter)
+          db-config {:adapter :h2 :database-path "mem:test_pool"}
           datasource (db/create-connection-pool adapter db-config)]
       (is (some? datasource))
       (is (instance? javax.sql.DataSource datasource))
@@ -92,19 +92,19 @@
 
 (deftest test-execute-query
   (testing "Query execution returns correct results"
-    (let [ctx          @test-ctx
-          user-id      (UUID/randomUUID)
+    (let [ctx @test-ctx
+          user-id (UUID/randomUUID)
           ;; Insert test data
           insert-query {:insert-into :test_users
-                        :values      [{:id     user-id
-                                       :email  "test@example.com"
-                                       :name   "Test User"
-                                       :active true}]}
-          _            (db/execute-update! ctx insert-query)
+                        :values [{:id user-id
+                                  :email "test@example.com"
+                                  :name "Test User"
+                                  :active true}]}
+          _ (db/execute-update! ctx insert-query)
 
           ;; Query the data
           select-query {:select [:*] :from [:test_users] :where [:= :id user-id]}
-          results      (db/execute-query! ctx select-query)]
+          results (db/execute-query! ctx select-query)]
 
       (is (= 1 (count results)))
       (let [user (first results)]
@@ -115,7 +115,7 @@
 
 (deftest test-execute-one
   (testing "Execute-one returns single result or nil"
-    (let [ctx     @test-ctx
+    (let [ctx @test-ctx
           user-id (UUID/randomUUID)]
 
       ;; Test nil result for non-existent record
@@ -123,7 +123,7 @@
 
       ;; Insert test data
       (db/execute-update! ctx {:insert-into :test_users
-                               :values      [{:id user-id :email "single@test.com" :name "Single User"}]})
+                               :values [{:id user-id :email "single@test.com" :name "Single User"}]})
 
       ;; Test single result
       (let [result (db/execute-one! ctx {:select [:*] :from [:test_users] :where [:= :id user-id]})]
@@ -133,34 +133,34 @@
 
 (deftest test-execute-update
   (testing "Execute-update returns affected row count"
-    (let [ctx     @test-ctx
+    (let [ctx @test-ctx
           user-id (UUID/randomUUID)]
 
       ;; Insert
       (let [affected (db/execute-update! ctx {:insert-into :test_users
-                                              :values      [{:id user-id :email "update@test.com" :name "Update User"}]})]
+                                              :values [{:id user-id :email "update@test.com" :name "Update User"}]})]
         (is (= 1 affected)))
 
       ;; Update
       (let [affected (db/execute-update! ctx {:update :test_users
-                                              :set    {:name "Updated Name"}
-                                              :where  [:= :id user-id]})]
+                                              :set {:name "Updated Name"}
+                                              :where [:= :id user-id]})]
         (is (= 1 affected)))
 
       ;; Delete
       (let [affected (db/execute-update! ctx {:delete-from :test_users
-                                              :where       [:= :id user-id]})]
+                                              :where [:= :id user-id]})]
         (is (= 1 affected)))
 
       ;; Update non-existent (should return 0)
       (let [affected (db/execute-update! ctx {:update :test_users
-                                              :set    {:name "Won't work"}
-                                              :where  [:= :id user-id]})]
+                                              :set {:name "Won't work"}
+                                              :where [:= :id user-id]})]
         (is (= 0 affected))))))
 
 (deftest test-transactions
   (testing "Transaction commit and rollback behavior"
-    (let [ctx       @test-ctx
+    (let [ctx @test-ctx
           user-id-1 (UUID/randomUUID)
           user-id-2 (UUID/randomUUID)]
 
@@ -169,10 +169,10 @@
 
       ;; Test successful transaction
       (db/with-transaction [tx ctx]
-                           (db/execute-update! tx {:insert-into :test_users
-                                                   :values      [{:id user-id-1 :email "tx1@test.com" :name "TX User 1"}]})
-                           (db/execute-update! tx {:insert-into :test_users
-                                                   :values      [{:id user-id-2 :email "tx2@test.com" :name "TX User 2"}]}))
+        (db/execute-update! tx {:insert-into :test_users
+                                :values [{:id user-id-1 :email "tx1@test.com" :name "TX User 1"}]})
+        (db/execute-update! tx {:insert-into :test_users
+                                :values [{:id user-id-2 :email "tx2@test.com" :name "TX User 2"}]}))
 
       ;; Verify both records were committed
       (is (= 2 (count (db/execute-query! ctx {:select [:*] :from [:test_users]}))))
@@ -183,9 +183,9 @@
       ;; Test rollback on exception
       (is (thrown? java.lang.Exception
                    (db/with-transaction [tx ctx]
-                                        (db/execute-update! tx {:insert-into :test_users
-                                                                :values      [{:id user-id-1 :email "rollback@test.com" :name "Rollback User"}]})
-                                        (throw (RuntimeException. "Intentional failure")))))
+                     (db/execute-update! tx {:insert-into :test_users
+                                             :values [{:id user-id-1 :email "rollback@test.com" :name "Rollback User"}]})
+                     (throw (RuntimeException. "Intentional failure")))))
 
       ;; Verify no records were committed due to rollback
       (is (= 0 (count (db/execute-query! ctx {:select [:*] :from [:test_users]})))))))
@@ -197,22 +197,22 @@
 (deftest test-build-where-clause
   (testing "Where clause building with different filter types"
     (let [adapter (h2/new-adapter)
-          ctx     {:adapter adapter}]
+          ctx {:adapter adapter}]
 
       ;; Test simple equality filters
-      (let [filters      {:email "test@example.com" :active true}
+      (let [filters {:email "test@example.com" :active true}
             where-clause (db/build-where-clause ctx filters)]
-        (is (sequential? where-clause))  ; Can be list or vector
+        (is (sequential? where-clause)) ; Can be list or vector
         (is (= :and (first where-clause))))
 
       ;; Test with string pattern filter (H2 uses LIKE, not ILIKE)
-      (let [filters      {:name "John*"}
+      (let [filters {:name "John*"}
             where-clause (db/build-where-clause ctx filters)]
-        (is (sequential? where-clause))  ; Can be list or vector
-        (is (= :like (first where-clause))))  ; H2 uses LIKE
+        (is (sequential? where-clause)) ; Can be list or vector
+        (is (= :like (first where-clause)))) ; H2 uses LIKE
 
       ;; Test with vector filter (should use IN)
-      (let [filters      {:id [(UUID/randomUUID) (UUID/randomUUID)]}
+      (let [filters {:id [(UUID/randomUUID) (UUID/randomUUID)]}
             where-clause (db/build-where-clause ctx filters)]
         (is (vector? where-clause))
         (is (= :in (first where-clause))))
@@ -280,7 +280,7 @@
 
 (deftest test-get-table-info
   (testing "Table information retrieval"
-    (let [ctx        @test-ctx
+    (let [ctx @test-ctx
           table-info (db/get-table-info ctx :test_users)]
 
       (is (vector? table-info))
@@ -288,7 +288,7 @@
 
       ;; Check that we have expected columns
       (let [column-names (set (map :name table-info))
-            id-column    (first (filter #(= "id" (:name %)) table-info))]
+            id-column (first (filter #(= "id" (:name %)) table-info))]
         (is (contains? column-names "id"))
         (is (contains? column-names "email"))
         (is (contains? column-names "name"))
@@ -315,12 +315,12 @@
       (let [user-id (UUID/randomUUID)]
         ;; Insert first record
         (db/execute-update! ctx {:insert-into :test_users
-                                 :values      [{:id user-id :email "unique@test.com" :name "Unique User"}]})
+                                 :values [{:id user-id :email "unique@test.com" :name "Unique User"}]})
 
         ;; Try to insert duplicate (should fail on primary key)
         (is (thrown? java.lang.Exception
                      (db/execute-update! ctx {:insert-into :test_users
-                                              :values      [{:id user-id :email "duplicate@test.com" :name "Duplicate User"}]})))))))
+                                              :values [{:id user-id :email "duplicate@test.com" :name "Duplicate User"}]})))))))
 
 ;; =============================================================================
 ;; Database Dialect Tests
@@ -328,19 +328,19 @@
 
 (deftest test-dialect-formatting
   (testing "Queries are formatted with correct dialect"
-    (let [h2-adapter     (h2/new-adapter)
+    (let [h2-adapter (h2/new-adapter)
           sqlite-adapter (sqlite/new-adapter)
 
-          query-map      {:select [:*] :from [:test_table] :where [:= :id 1]}]
+          query-map {:select [:*] :from [:test_table] :where [:= :id 1]}]
 
       ;; Test H2 dialect
-      (let [ctx           {:adapter h2-adapter}
+      (let [ctx {:adapter h2-adapter}
             formatted-sql (db/format-sql ctx query-map)]
         (is (vector? formatted-sql))
         (is (string? (first formatted-sql))))
 
       ;; Test SQLite dialect
-      (let [ctx           {:adapter sqlite-adapter}
+      (let [ctx {:adapter sqlite-adapter}
             formatted-sql (db/format-sql ctx query-map)]
         (is (vector? formatted-sql))
         (is (string? (first formatted-sql)))))))
@@ -351,24 +351,24 @@
 
 (deftest test-execute-batch
   (testing "Batch execution in transaction"
-    (let [ctx           @test-ctx
-          user-id-1     (UUID/randomUUID)
-          user-id-2     (UUID/randomUUID)
+    (let [ctx @test-ctx
+          user-id-1 (UUID/randomUUID)
+          user-id-2 (UUID/randomUUID)
 
           batch-queries [{:insert-into :test_users
-                          :values      [{:id user-id-1 :email "batch1@test.com" :name "Batch User 1"}]}
+                          :values [{:id user-id-1 :email "batch1@test.com" :name "Batch User 1"}]}
                          {:insert-into :test_users
-                          :values      [{:id user-id-2 :email "batch2@test.com" :name "Batch User 2"}]}
+                          :values [{:id user-id-2 :email "batch2@test.com" :name "Batch User 2"}]}
                          {:select [[:%count.* :count]] :from [:test_users]}]]
 
       (let [results (db/execute-batch! ctx batch-queries)]
         (is (= 3 (count results)))
 
         ;; First two should be update counts, last should be query result
-        (is (= 1 (first results)))                          ; First insert affected 1 row
-        (is (= 1 (second results)))                         ; Second insert affected 1 row
-        (is (vector? (nth results 2)))                      ; Third is query result
-        (is (= 2 (:count (first (nth results 2)))))))))     ; Should have 2 total users
+        (is (= 1 (first results))) ; First insert affected 1 row
+        (is (= 1 (second results))) ; Second insert affected 1 row
+        (is (vector? (nth results 2))) ; Third is query result
+        (is (= 2 (:count (first (nth results 2))))))))) ; Should have 2 total users
 
 ;; =============================================================================
 ;; Performance and Logging Tests
@@ -378,13 +378,13 @@
   (testing "Queries log execution time and row counts"
     ;; This is more of an integration test to ensure logging doesn't break
     ;; In a real scenario, you'd capture log output and verify it
-    (let [ctx     @test-ctx
+    (let [ctx @test-ctx
           user-id (UUID/randomUUID)]
 
       ;; These should complete without throwing exceptions
       ;; and produce appropriate log messages
       (is (some? (db/execute-update! ctx {:insert-into :test_users
-                                          :values      [{:id user-id :email "log@test.com" :name "Log User"}]})))
+                                          :values [{:id user-id :email "log@test.com" :name "Log User"}]})))
 
       (is (some? (db/execute-one! ctx {:select [:*] :from [:test_users] :where [:= :id user-id]})))
 
@@ -398,13 +398,13 @@
   (testing "Core functions work with different adapters"
     ;; Test with H2 (already tested above)
     (let [h2-adapter (h2/new-adapter)]
-      (is (= :ansi (protocols/dialect h2-adapter)))  ; H2 uses ANSI SQL dialect
+      (is (= :ansi (protocols/dialect h2-adapter))) ; H2 uses ANSI SQL dialect
       (is (string? (protocols/jdbc-driver h2-adapter)))
       (is (map? (protocols/pool-defaults h2-adapter))))
 
     ;; Test with SQLite
     (let [sqlite-adapter (sqlite/new-adapter)]
-      (is (nil? (protocols/dialect sqlite-adapter)))  ; SQLite uses HoneySQL default (nil)
+      (is (nil? (protocols/dialect sqlite-adapter))) ; SQLite uses HoneySQL default (nil)
       (is (string? (protocols/jdbc-driver sqlite-adapter)))
       (is (map? (protocols/pool-defaults sqlite-adapter)))
 
@@ -420,10 +420,10 @@
     ;; can work with different database backends
     (let [test-query-fn (fn [ctx]
                           (let [user-id (UUID/randomUUID)
-                                email   "cross@db.test"]
+                                email "cross@db.test"]
                             ;; Insert
                             (db/execute-update! ctx {:insert-into :test_users
-                                                     :values      [{:id user-id :email email :name "Cross DB User"}]})
+                                                     :values [{:id user-id :email email :name "Cross DB User"}]})
                             ;; Query back
                             (db/execute-one! ctx {:select [:email] :from [:test_users] :where [:= :id user-id]})))]
 
@@ -433,7 +433,7 @@
 
 (deftest test-database-info
   (testing "Database info provides useful metadata"
-    (let [ctx     @test-ctx
+    (let [ctx @test-ctx
           db-info (db/database-info ctx)]
 
       (is (map? db-info))

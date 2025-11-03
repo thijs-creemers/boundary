@@ -15,7 +15,7 @@
    - DELETE /sessions/:token - Invalidate session (logout)"
   (:require [clojure.tools.logging :as log]
             [boundary.shell.interfaces.http.routes :as routes]
-            [boundary.shared.utils.type-conversion :as type-conversion]
+            [boundary.shared.core.utils.type-conversion :as type-conversion]
             [boundary.user.schema :as schema]
             [boundary.user.ports :as ports]))
 

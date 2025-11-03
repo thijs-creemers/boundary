@@ -148,7 +148,7 @@
                    :or   {additional-health-checks nil
                           error-mappings           {}}}]
       (let [common-routes          (concat (health-routes config additional-health-checks)
-                                                    (api-docs-routes config))
+                                           (api-docs-routes config))
             middleware-with-errors (conj default-middleware
                                          (http-middleware/wrap-exception-handling error-mappings))]
 
@@ -187,7 +187,7 @@
                                   error-mappings           {}
                                   extra-middleware         []}}]
   (let [common-routes       (concat (health-routes config additional-health-checks)
-                                          (api-docs-routes config))
+                                    (api-docs-routes config))
         enhanced-middleware (concat default-middleware
                                     extra-middleware
                                     [(http-middleware/wrap-exception-handling error-mappings)])
@@ -219,8 +219,8 @@
   (ring/ring-handler
     router
     (ring/create-default-handler
-       (cond-> {:not-found not-found-handler}
-                 method-not-allowed-handler (assoc :method-not-allowed method-not-allowed-handler)))))
+      (cond-> {:not-found not-found-handler}
+              method-not-allowed-handler (assoc :method-not-allowed method-not-allowed-handler)))))
 
 ;; =============================================================================
 ;; Convenience Functions

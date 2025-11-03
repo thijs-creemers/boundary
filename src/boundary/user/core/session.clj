@@ -1,6 +1,6 @@
-(ns boundary.user.core.session)
+(ns boundary.user.core.session
   "Functional Core - Pure session business logic - Minimal working version"
-
+  (:require [clojure.string :as str]))
 
 ;; Basic session validation
 (defn validate-session-creation-request

@@ -1,5 +1,5 @@
-(ns boundary.shell.adapters.database.h2.query)
-  "H2 query building utilities."
+(ns boundary.shell.adapters.database.h2.query
+  "H2 query building utilities.")
 
 ;; =============================================================================
 ;; Query Building

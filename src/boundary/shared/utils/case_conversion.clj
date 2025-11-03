@@ -1,143 +1,43 @@
 (ns boundary.shared.utils.case-conversion
-  "Generic case conversion utilities for API and data transformations.
-   
-   This namespace provides reusable case conversion utilities that handle
-   transformations between different naming conventions commonly used in APIs:
-   - camelCase (JavaScript/JSON APIs)
-   - kebab-case (Clojure idioms)
-   - snake_case (Database/SQL)
-   
-   These functions are designed to be nil-safe and handle nested data structures
-   where appropriate.
-   
-   Usage:
-   (:require [boundary.shared.utils.case-conversion :as case-conversion])
-   
-   (case-conversion/camel-case->kebab-case-map {:userId \"123\" :tenantId \"456\"})
-   ;; => {:user-id \"123\" :tenant-id \"456\"}"
-  (:require [clojure.string :as str]))
+  (:require [clojure.string]))
 
-;; =============================================================================
-;; camelCase <-> kebab-case Conversions
-;; =============================================================================
-
-(defn camel-case->kebab-case-map
-  "Transform camelCase API keys to kebab-case internal keys (nil-safe).
-   
-   This is a generic version that handles common API field transformations.
-   For domain-specific transformations, compose this with additional transforms.
-   
-   Args:
-     m: Map with camelCase keyword keys, or nil
-     
-   Returns:
-     Map with kebab-case keyword keys, or nil if input is nil
-     
-   Example:
-     (camel-case->kebab-case-map {:userId \"123\" :tenantId \"456\"})
-     ;; => {:user-id \"123\" :tenant-id \"456\"}"
-  [m]
-  (when m
-    (reduce-kv (fn [acc k v]
-                 (let [kebab-key (-> (name k)
-                                     (str/replace #"([a-z])([A-Z])" "$1-$2")
-                                     str/lower-case
-                                     keyword)]
-                   (assoc acc kebab-key v)))
-               {} m)))
-
-(defn kebab-case->camel-case-map
-  "Transform kebab-case internal keys to camelCase API keys (nil-safe).
-   
-   This is a generic version that handles basic case conversion.
-   For domain-specific transformations (like type conversions), 
-   compose this with additional transforms.
-   
-   Args:
-     m: Map with kebab-case keyword keys, or nil
-     
-   Returns:
-     Map with camelCase keyword keys, or nil if input is nil
-     
-   Example:
-     (kebab-case->camel-case-map {:user-id \"123\" :tenant-id \"456\"})
-     ;; => {:userId \"123\" :tenantId \"456\"}"
-  [m]
-  (when m
-    (reduce-kv (fn [acc k v]
-                 (let [camel-key (-> (name k)
-                                     (str/replace #"-(.)" #(str/upper-case (second %1)))
-                                     keyword)]
-                   (assoc acc camel-key v)))
-               {} m)))
-
-;; =============================================================================
-;; String Case Conversions
-;; =============================================================================
-
-(defn camel-case->kebab-case-string
-  "Convert a camelCase string to kebab-case string.
-   
-   Args:
-     s: camelCase string
-     
-   Returns:
-     kebab-case string
-     
-   Example:
-     (camel-case->kebab-case-string \"userId\") ;; => \"user-id\""
-  [s]
+(defn camel-case->kebab-case-string [s]
   (when s
     (-> s
-        (str/replace #"([a-z])([A-Z])" "$1-$2")
-        str/lower-case)))
+        (clojure.string/replace #"([A-Z]+)([A-Z][a-z])" "$1-$2")
+        (clojure.string/replace #"([a-z\\d])([A-Z])" "$1-$2")
+        (clojure.string/lower-case))))
 
-(defn kebab-case->camel-case-string
-  "Convert a kebab-case string to camelCase string.
-   
-   Args:
-     s: kebab-case string
-     
-   Returns:
-     camelCase string
-     
-   Example:
-     (kebab-case->camel-case-string \"user-id\") ;; => \"userId\""
-  [s]
+(defn kebab-case->camel-case-string [s]
   (when s
-    (str/replace s #"-(.)" #(str/upper-case (second %1)))))
+    (let [[first & rest] (clojure.string/split s #"-")]
+      (apply str first (map clojure.string/capitalize rest)))))
 
-;; =============================================================================
-;; Deep Transformation Utilities
-;; =============================================================================
-
-(defn deep-transform-keys
-  "Recursively transform all keys in a nested data structure using transform-fn.
-   
-   Args:
-     transform-fn: Function to transform each key
-     data: Nested data structure (maps, vectors, lists)
-     
-   Returns:
-     Data structure with all keys transformed
-     
-   Example:
-     (deep-transform-keys camel-case->kebab-case-string
-                         {:userId \"123\" :userInfo {:firstName \"John\"}})"
-  [transform-fn data]
-  (cond
-    (map? data)
+(defn camel-case->kebab-case-map [m]
+  (when m
     (reduce-kv (fn [acc k v]
-                 (let [new-key (if (keyword? k)
-                                 (-> k name transform-fn keyword)
-                                 k)]
-                   (assoc acc new-key (deep-transform-keys transform-fn v))))
-               {} data)
+                 (let [new-key (keyword (camel-case->kebab-case-string (name k)))]
+                   (assoc acc new-key v)))
+               {}
+               m)))
 
-    (vector? data)
-    (mapv #(deep-transform-keys transform-fn %) data)
+(defn kebab-case->camel-case-map [m]
+  (when m
+    (reduce-kv (fn [acc k v]
+                 (let [new-key (keyword (kebab-case->camel-case-string (name k)))]
+                   (assoc acc new-key v)))
+               {}
+               m)))
 
-    (list? data)
-    (map #(deep-transform-keys transform-fn %) data)
-
-    :else data))
+(defn deep-transform-keys [transform-fn m]
+  (cond
+    (map? m) (reduce-kv (fn [acc k v]
+                         (let [new-key (if (keyword? k)
+                                        (keyword (transform-fn (name k)))
+                                        k)]
+                           (assoc acc new-key (deep-transform-keys transform-fn v))))
+                       {}
+                       m)
+    (vector? m) (mapv #(deep-transform-keys transform-fn %) m)
+    (seq? m) (map #(deep-transform-keys transform-fn %) m)
+    :else m))

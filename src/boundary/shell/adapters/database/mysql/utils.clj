@@ -1,4 +1,4 @@
-(ns boundary.shell.adapters.database.mysql.utils)
+(ns boundary.shell.adapters.database.mysql.utils
   "MySQL utility functions and DDL helpers."
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]

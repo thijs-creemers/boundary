@@ -19,7 +19,7 @@
    - Core contains pure business logic (no I/O)
    - Shell handles all I/O and external systems
    - Clean boundary between functional and imperative code"
-  (:require [boundary.shared.utils.type-conversion :as type-conversion]
+  (:require [boundary.shared.core.utils.type-conversion :as type-conversion]
             [boundary.shell.adapters.database.common.core :as db]
             [boundary.shell.adapters.database.protocols :as protocols]
             [boundary.shell.adapters.database.utils.schema :as db-schema]
@@ -338,7 +338,7 @@
                                            (assoc :updated-at nil)
                                            (assoc :deleted-at nil)))
                                      user-entities)
-            db-users (map #(user-entity->db ctx %) users-with-metadata)]
+            db-users (map #(user-entity->db tx %) users-with-metadata)]
 
         (doseq [db-user db-users]
           (let [query {:insert-into :users
@@ -355,7 +355,7 @@
             updated-users (map #(assoc % :updated-at now) user-entities)]
 
         (doseq [user updated-users]
-          (let [db-user (user-entity->db ctx user)
+          (let [db-user (user-entity->db tx user)
                 query {:update :users
                        :set (dissoc db-user :id :created_at :deleted_at)
                        :where [:= :id (:id db-user)]}

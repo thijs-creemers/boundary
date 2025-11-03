@@ -10,3 +10,4 @@
 /.nrepl-port
 opencode.json
 *.db*
+/target

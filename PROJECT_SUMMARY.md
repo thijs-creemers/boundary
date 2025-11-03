@@ -251,33 +251,33 @@ Boundary follows a **module-centric architecture** where each domain module owns
 ### Updated Module Template (Clean Architecture)
 
 ```
-src/boundary/
-├── {module-name}/           # DOMAIN MODULE (e.g., user, billing)
-│   ├── schema.clj          # Domain entities and validation (Malli schemas)
-│   ├── ports.clj           # Repository interfaces and contracts
-│   ├── core/               # Pure business logic (DEPRECATED - moved to shell/service.clj)
-│   │   ├── {entity}.clj    # Core domain functions
-│   │   └── {business-logic}.clj
-│   ├── shell/              # Application layer
-│   │   └── service.clj     # Database-agnostic business services
-│   ├── infrastructure/     # Infrastructure implementations
-│   │   └── database.clj    # Database-specific repository implementations
-│   ├── http.clj            # HTTP handlers & routes
-│   └── cli.clj             # CLI commands & parsing
+src/boundary/user/
+├── core/
+│   ├── session.clj
+│   └── user.clj
+├── ports.clj
+├── schema.clj
+└── shell/
+    ├── cli.clj
+    ├── http.clj
+    ├── persistence.clj
+    └── service.clj
 ```
 
 ### Example: User Module (Updated Architecture)
 
 ```
 src/boundary/user/
-├── schema.clj             # User, UserSession schemas (Malli)
-├── ports.clj              # IUserRepository, IUserSessionRepository interfaces
-├── shell/
-│   └── service.clj        # Database-agnostic business services
-├── infrastructure/
-│   └── database.clj       # Database repository implementations
-├── http.clj               # POST /users, GET /users/{id} handlers
-└── cli.clj                # user create, user list commands
+├── core/
+│   ├── session.clj
+│   └── user.clj
+├── ports.clj
+├── schema.clj
+└── shell/
+    ├── cli.clj
+    ├── http.clj
+    ├── persistence.clj
+    └── service.clj
 ```
 
 **Key improvements:**
@@ -286,140 +286,70 @@ src/boundary/user/
 - Easy to test business logic with mocked repositories
 - Clear layered architecture following clean architecture principles
 
-### Core Function Example
+### User Core Example
 
 ```clojure
 ;; Pure business logic in user core
-(ns boundary.user.core.user
-  (:require [boundary.user.ports :as ports]))
+(ns boundary.user.core.user)
 
-(defn calculate-membership-benefits
-  "Pure function: calculates membership benefits based on user data.
-   No side effects, deterministic, easily testable."
-  [user-data membership-rules current-date]
-  (let [membership-years (calculate-years-active user-data current-date)
-        tier (determine-tier membership-years (:spending-total user-data))
-        discount-rate (get-discount-for-tier tier membership-rules)]
-    {:membership-tier tier
-     :discount-rate discount-rate
-     :years-active membership-years
+(defn calculate-user-membership-tier
+  \"Pure function: Calculate membership tier based on user data.\"_in [user current-date]
+  (let [join-date    (:created-at user)
+        days-member  (/ (.between ChronoUnit/DAYS join-date current-date) 1)
+        years-member (/ days-member 365.25)]
+    (cond
+      (>= years-member 5) :platinum
+      (>= years-member 3) :gold
+      (>= years-member 1) :silver
+      :else :bronze)))
+```
      :benefits (calculate-tier-benefits tier)}))
 ```
 
-### Database-Agnostic Service Example
+### User Service Example
 
 ```clojure
 ;; Database-agnostic business service using dependency injection
 (ns boundary.user.shell.service
   (:require [boundary.user.ports :as ports]
-            [boundary.user.schema :as user-schema]
-            [boundary.shared.utils.password :as password]
-            [malli.core :as m]
-            [clojure.tools.logging :as log]))
+            [boundary.user.core.user :as user-core]))
 
 (defrecord UserService [user-repository session-repository]
-  ;; Business service that uses repository interfaces, not implementations
-  
-  (create-user [_ user-data]
-    "Create user with business validation and password hashing."
-    (log/info "Creating user" {:email (:email user-data)})
-    
-    ;; Validate input using domain schema
-    (when-not (m/validate user-schema/CreateUserRequest user-data)
-      (throw (ex-info "Invalid user data" {:type :validation-error
-                                           :errors (m/explain user-schema/CreateUserRequest user-data)})))
-    
-    ;; Business logic: hash password, validate email uniqueness
-    (when (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data))
-      (throw (ex-info "User already exists" {:type :user-exists
-                                             :email (:email user-data)})))
-    
-    (let [processed-user (-> user-data
-                            (assoc :password-hash (password/hash (:password user-data)))
-                            (dissoc :password))]
-      ;; Delegate to infrastructure
-      (.create-user user-repository processed-user)))
-  
-  (authenticate [_ email password]
-    "Authenticate user and create session."
-    (log/info "Authenticating user" {:email email})
-    
-    (if-let [user (.find-user-by-email user-repository email (:tenant-id user))]
-      (if (password/verify password (:password-hash user))
-        (let [session-data {:user-id (:id user)
-                           :tenant-id (:tenant-id user)
-                           :expires-at (-> (java.time.Instant/now)
-                                          (.plusSeconds 3600))}]  ; 1 hour
-          (.create-session session-repository session-data))
-        (throw (ex-info "Invalid credentials" {:type :auth-failed})))
-      (throw (ex-info "User not found" {:type :user-not-found})))))
-
-;; Factory function for service creation
-(defn create-user-service
-  "Create a user service with injected repositories."
+  ports/IUserService
+  (create-user [this user-data]
+    (let [validation-result (user-core/validate-user-creation-request user-data)]
+      (when-not (:valid? validation-result)
+        (throw (ex-info "Invalid user data" {:type :validation-error :errors (:errors validation-result)}))))
+    (let [existing-user (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data)) uniqueness-result (user-core/check-duplicate-user-decision user-data existing-user)]
+      (when (= :reject (:decision uniqueness-result))
+        (throw (ex-info "User already exists" {:type :user-exists :email (:email user-data)}))))
+    (let [current-time (current-timestamp) user-id (generate-user-id) prepared-user (user-core/prepare-user-for-creation user-data current-time user-id)]
+      (.create-user user-repository prepared-user))))
+```
   [user-repository session-repository]
   (->UserService user-repository session-repository))
 ```
 
-### Infrastructure Implementation Example
+### User Persistence Example
 
 ```clojure
-;; Infrastructure adapter implementation in user module
-(ns boundary.user.infrastructure.database
+(ns boundary.user.shell.persistence
   (:require [boundary.user.ports :as ports]
-            [boundary.shell.adapters.database.core :as db]
-            [boundary.shared.utils.type-conversion :as type-conversion]
-            [clojure.tools.logging :as log]))
+            [boundary.shell.adapters.database.common.core :as db]))
 
-(defrecord DatabaseUserRepository [ctx]  ; Uses generic database context
+(defrecord DatabaseUserRepository [ctx]
   ports/IUserRepository
-  
-  (find-user-by-email [_ email tenant-id]
-    (log/debug "Finding user by email" {:email email :tenant-id tenant-id})
-    (let [query {:select [:*]
-                 :from [:users]
-                 :where [:and
-                         [:= :email email]
-                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
-                         [:is :deleted_at nil]]}
-          result (db/execute-one! ctx query)]
-      (when result
-        ;; Transform from database format to domain entity
-        (-> result
-            (update :id type-conversion/string->uuid)
-            (update :tenant-id type-conversion/string->uuid)
-            (update :role type-conversion/string->keyword)))))
-  
+  (find-user-by-id [_ user-id]
+    (let [query {:select [:*] :from [:users] :where [:and [:= :id (type-conversion/uuid->string user-id)] [:is :deleted_at nil]]} result (db/execute-one! ctx query)]
+      (db->user-entity ctx result)))
+
   (create-user [_ user-entity]
-    (log/info "Creating user" {:email (:email user-entity)})
-    (let [now (java.time.Instant/now)
-          user-with-metadata (-> user-entity
-                                (assoc :id (java.util.UUID/randomUUID))
-                                (assoc :created-at now)
-                                (assoc :updated-at nil)
-                                (assoc :deleted-at nil))
-          ;; Transform to database format
-          db-user (-> user-with-metadata
-                     (update :id type-conversion/uuid->string)
-                     (update :tenant-id type-conversion/uuid->string)
-                     (update :role type-conversion/keyword->string))
-          query {:insert-into :users
-                 :values [db-user]}]
+    (let [now (java.time.Instant/now) user-with-metadata (-> user-entity (assoc :id (UUID/randomUUID)) (assoc :created-at now) (assoc :updated-at nil) (assoc :deleted-at nil)) db-user (user-entity->db ctx user-with-metadata) query {:insert-into :users :values [db-user]}]_in
       (db/execute-update! ctx query)
       user-with-metadata)))
-
-;; Factory function for repository creation
-(defn create-user-repository
-  "Create a database user repository instance."
-  [ctx]
-  (->DatabaseUserRepository ctx))
+```
 ```
 
-**Key differences from old approach:**
-- Lives in `boundary.user.infrastructure.database` (user module owns its infrastructure)
-- Uses generic database utilities from `boundary.shell.adapters.database.core`
-- Handles user-specific entity transformations
-- Clear separation between generic database layer and user-specific logic
 
 ## Key Technologies
 
@@ -820,7 +750,7 @@ clojure -M:build:deploy
 ### Internal Documentation
 
 - [Product Requirements Document](docs/boundary.prd.adoc) - Comprehensive project requirements and vision
-- [PRD Improvement Summary](docs/PRD-IMPROVEMENT-SUMMARY.adoc) - Recent improvements and development roadmap
+- [PRD Improvement Summary](docs/PRD-IMPROVEMENT-SUMMARY.adoc)
 - [Architecture Overview](docs/architecture/overview.adoc) - High-level architectural decisions and principles
 - [Component Architecture](docs/architecture/components.adoc) - Detailed component organization and interactions
 - [Data Flow Architecture](docs/architecture/data-flow.adoc) - Request processing and data transformation patterns
@@ -835,10 +765,10 @@ clojure -M:build:deploy
 
 ### Infrastructure and Migration
 
-- [User Module Architecture](docs/user-module-architecture.md) - Clean architecture implementation guide
-- [Migration Guide](docs/migration-guide.md) - Step-by-step guide to new infrastructure
+- [User Module Architecture](docs/user-module-architecture.adoc)
+- [Migration Guide](docs/migration-guide.adoc)
 - [Infrastructure Examples](examples/user_infrastructure_example.clj) - Working code examples
-- [Refactoring Summary](INFRASTRUCTURE-REFACTOR-SUMMARY.md) - Complete overview of infrastructure changes
+- [Refactoring Summary](INFRASTRUCTURE-REFACTOR-SUMMARY.adoc)
 
 ### External References
 
@@ -854,6 +784,7 @@ clojure -M:build:deploy
 - [Aero Configuration](https://github.com/juxt/aero) - Configuration management
 - [next.jdbc Guide](https://github.com/seancorfield/next-jdbc) - Database connectivity
 - be careful and concise in the placement of indents and put all parenthesis etc. right. We use parinfer and that gice a ot of trouble when we write sloppy code.
+- use clojure-mcp for editing as much as possible.
 
 #### Development Tools
 - [Kaocha Test Runner](https://github.com/lambdaisland/kaocha) - Testing framework
@@ -870,4 +801,3 @@ clojure -M:build:deploy
 
 **Note**: This guide is based on the comprehensive documentation in the `docs/` directory. For the most up-to-date architectural decisions and implementation details, refer to the linked documentation files.
 
-Last updated: Based on PRD-IMPROVEMENT-SUMMARY.adoc and architecture documentation as of the current codebase state.

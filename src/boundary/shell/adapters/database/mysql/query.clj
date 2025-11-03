@@ -1,6 +1,6 @@
-(ns boundary.shell.adapters.database.mysql.query)
+(ns boundary.shell.adapters.database.mysql.query
   "MySQL query building utilities."
-  (:require [boundary.shared.utils.type-conversion :as tc]))
+  (:require [boundary.shared.core.utils.type-conversion :as tc]))
 
 ;; =============================================================================
 ;; Query Building

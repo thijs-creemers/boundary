@@ -1,4 +1,4 @@
-(ns boundary.shell.adapters.database.mysql.metadata)
+(ns boundary.shell.adapters.database.mysql.metadata
   "MySQL metadata and table introspection utilities."
   (:require [clojure.string :as str]
             [honey.sql :as sql]

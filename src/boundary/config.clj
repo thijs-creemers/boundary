@@ -91,25 +91,25 @@
   (let [adapter (db-adapter config)
         adapter-key (keyword "boundary" (name adapter))
         adapter-config (get-in config [:active adapter-key])]
-    
+
     (when-not adapter-config
       (throw (ex-info "No configuration found for active adapter"
                       {:adapter adapter
                        :adapter-key adapter-key})))
-    
+
     (case adapter
       :sqlite
       {:adapter :sqlite
        :database-path (:db adapter-config)
        :pool (:pool adapter-config)}
-      
+
       :h2
       {:adapter :h2
        :database-path (if (:memory adapter-config)
                         "mem:boundary;DB_CLOSE_DELAY=-1"
                         (:db adapter-config))
        :pool (:pool adapter-config)}
-      
+
       :postgresql
       {:adapter :postgresql
        :host (:host adapter-config)
@@ -118,7 +118,7 @@
        :username (:user adapter-config)
        :password (:password adapter-config)
        :pool (:pool adapter-config)}
-      
+
       :mysql
       {:adapter :mysql
        :host (:host adapter-config)
@@ -127,7 +127,7 @@
        :username (:user adapter-config)
        :password (:password adapter-config)
        :pool (:pool adapter-config)}
-      
+
       (throw (ex-info "Unsupported database adapter"
                       {:adapter adapter
                        :supported [:sqlite :h2 :postgresql :mysql]})))))
@@ -179,17 +179,17 @@
         http-cfg (http-config config)]
     {:boundary/db-context
      db-cfg
-     
+
      :boundary/user-repository
      {:ctx (ig/ref :boundary/db-context)}
-     
+
      :boundary/session-repository
      {:ctx (ig/ref :boundary/db-context)}
-     
+
      :boundary/user-service
      {:user-repository (ig/ref :boundary/user-repository)
       :session-repository (ig/ref :boundary/session-repository)}
-     
+
      :boundary/http-handler
      {:user-service (ig/ref :boundary/user-service)
       :config config}
@@ -205,23 +205,22 @@
 (comment
   ;; Load configuration
   (def config (load-config))
-  
+
   ;; Check active adapter
   (db-adapter config)
-  
+
   ;; Extract database spec
   (db-spec config)
-  
+
   ;; HTTP config
   (http-config config)
-  
+
   ;; Generate Integrant config
   (def ig-cfg (ig-config config))
-  
+
   ;; Initialize system
-  (require '[integrant.core :as ig])
   (def system (ig/init ig-cfg))
-  
+
   ;; Halt systemu
   (ig/halt! system)
   ...)

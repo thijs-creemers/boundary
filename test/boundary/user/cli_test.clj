@@ -1,6 +1,6 @@
 (ns boundary.user.cli-test
   "Unit tests for CLI with mocked service.
-   
+
    Tests CLI argument parsing, dispatch, formatting, and error handling
    without requiring actual service implementation."
   {:cli true :unit true}
@@ -17,74 +17,74 @@
 
 (defrecord MockUserService [state]
   ports/IUserService
-  
+
   (create-user [_ user-data]
     (let [user (assoc user-data
-                     :id (UUID/randomUUID)
-                     :created-at (Instant/now)
-                     :updated-at nil
-                     :deleted-at nil)]
+                      :id (UUID/randomUUID)
+                      :created-at (Instant/now)
+                      :updated-at nil
+                      :deleted-at nil)]
       (swap! state assoc-in [:users (:id user)] user)
       user))
-  
+
   (find-user-by-id [_ user-id]
     (get-in @state [:users user-id]))
-  
+
   (find-user-by-email [_ email tenant-id]
     (->> (vals (get @state :users {}))
          (filter #(and (= (:email %) email)
-                      (= (:tenant-id %) tenant-id)))
+                       (= (:tenant-id %) tenant-id)))
          first))
-  
+
   (find-users-by-tenant [_ tenant-id _options]
     (let [users (->> (vals (get @state :users {}))
                      (filter #(= (:tenant-id %) tenant-id)))]
       {:users users
        :total-count (count users)}))
-  
+
   (update-user [_ user-entity]
     (if (get-in @state [:users (:id user-entity)])
       (let [updated (assoc user-entity :updated-at (Instant/now))]
         (swap! state assoc-in [:users (:id user-entity)] updated)
         updated)
       (throw (ex-info "User not found" {:type :user-not-found}))))
-  
+
   (soft-delete-user [_ user-id]
     (if (get-in @state [:users user-id])
       (do
         (swap! state assoc-in [:users user-id :deleted-at] (Instant/now))
         true)
       (throw (ex-info "User not found" {:type :user-not-found}))))
-  
+
   (hard-delete-user [_ user-id]
     (if (get-in @state [:users user-id])
       (do
         (swap! state update :users dissoc user-id)
         true)
       (throw (ex-info "User not found" {:type :user-not-found}))))
-  
+
   (create-session [_ session-data]
     (let [now (Instant/now)
           session (assoc session-data
-                        :id (UUID/randomUUID)
-                        :session-token (str "token-" (UUID/randomUUID))
-                        :created-at now
-                        :expires-at (.plusSeconds now 3600)
-                        :last-accessed-at nil
-                        :revoked-at nil)]
+                         :id (UUID/randomUUID)
+                         :session-token (str "token-" (UUID/randomUUID))
+                         :created-at now
+                         :expires-at (.plusSeconds now 3600)
+                         :last-accessed-at nil
+                         :revoked-at nil)]
       (swap! state assoc-in [:sessions (:session-token session)] session)
       session))
-  
+
   (find-session-by-token [_ session-token]
     (get-in @state [:sessions session-token]))
-  
+
   (invalidate-session [_ session-token]
     (if (get-in @state [:sessions session-token])
       (do
         (swap! state assoc-in [:sessions session-token :revoked-at] (Instant/now))
         true)
       false))
-  
+
   (invalidate-all-user-sessions [_ user-id]
     (let [sessions (filter #(= (:user-id (val %)) user-id) (get @state :sessions {}))]
       (doseq [[token _] sessions]
@@ -105,7 +105,7 @@
           result (helpers/capture-cli-output #(cli/run-cli! service []))]
       (is (= 0 (:status result)))
       (is (helpers/table-has-data? (:out result) ["Usage:" "user" "session"]))))
-  
+
   (testing "Global --help flag shows root help"
     (let [service (create-mock-service)
           result (helpers/capture-cli-output #(cli/run-cli! service ["--help"]))]
@@ -118,7 +118,7 @@
           result (helpers/capture-cli-output #(cli/run-cli! service ["user" "--help"]))]
       (is (= 0 (:status result)))
       (is (helpers/table-has-data? (:out result) ["create" "list" "find" "update" "delete"]))))
-  
+
   (testing "session --help shows session help"
     (let [service (create-mock-service)
           result (helpers/capture-cli-output #(cli/run-cli! service ["session" "--help"]))]
@@ -229,15 +229,15 @@
           tenant-id (UUID/randomUUID)
           ;; Create some users first
           _ (ports/create-user service {:email "user1@example.com"
-                                       :name "User One"
-                                       :role :user
-                                       :tenant-id tenant-id
-                                       :active true})
+                                        :name "User One"
+                                        :role :user
+                                        :tenant-id tenant-id
+                                        :active true})
           _ (ports/create-user service {:email "user2@example.com"
-                                       :name "User Two"
-                                       :role :admin
-                                       :tenant-id tenant-id
-                                       :active true})
+                                        :name "User Two"
+                                        :role :admin
+                                        :tenant-id tenant-id
+                                        :active true})
           args ["user" "list" "--tenant-id" (str tenant-id)]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -251,10 +251,10 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           _ (ports/create-user service {:email "test@example.com"
-                                       :name "Test User"
-                                       :role :user
-                                       :tenant-id tenant-id
-                                       :active true})
+                                        :name "Test User"
+                                        :role :user
+                                        :tenant-id tenant-id
+                                        :active true})
           args ["user" "list" "--tenant-id" (str tenant-id) "--format" "json"]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -268,15 +268,15 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           _ (ports/create-user service {:email "admin@example.com"
-                                       :name "Admin"
-                                       :role :admin
-                                       :tenant-id tenant-id
-                                       :active true})
+                                        :name "Admin"
+                                        :role :admin
+                                        :tenant-id tenant-id
+                                        :active true})
           _ (ports/create-user service {:email "user@example.com"
-                                       :name "User"
-                                       :role :user
-                                       :tenant-id tenant-id
-                                       :active true})
+                                        :name "User"
+                                        :role :user
+                                        :tenant-id tenant-id
+                                        :active true})
           args ["user" "list" "--tenant-id" (str tenant-id) "--role" "admin"]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -292,10 +292,10 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           user (ports/create-user service {:email "find@example.com"
-                                          :name "Find Me"
-                                          :role :user
-                                          :tenant-id tenant-id
-                                          :active true})
+                                           :name "Find Me"
+                                           :role :user
+                                           :tenant-id tenant-id
+                                           :active true})
           args ["user" "find" "--id" (str (:id user))]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -315,10 +315,10 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           _ (ports/create-user service {:email "findme@example.com"
-                                       :name "Find Me"
-                                       :role :user
-                                       :tenant-id tenant-id
-                                       :active true})
+                                        :name "Find Me"
+                                        :role :user
+                                        :tenant-id tenant-id
+                                        :active true})
           args ["user" "find" "--email" "findme@example.com" "--tenant-id" (str tenant-id)]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -341,10 +341,10 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           user (ports/create-user service {:email "update@example.com"
-                                          :name "Original Name"
-                                          :role :user
-                                          :tenant-id tenant-id
-                                          :active true})
+                                           :name "Original Name"
+                                           :role :user
+                                           :tenant-id tenant-id
+                                           :active true})
           args ["user" "update" "--id" (str (:id user)) "--name" "Updated Name"]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -364,10 +364,10 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           user (ports/create-user service {:email "test@example.com"
-                                          :name "Test"
-                                          :role :user
-                                          :tenant-id tenant-id
-                                          :active true})
+                                           :name "Test"
+                                           :role :user
+                                           :tenant-id tenant-id
+                                           :active true})
           args ["user" "update" "--id" (str (:id user))]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 1 (:status result)))
@@ -382,10 +382,10 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           user (ports/create-user service {:email "delete@example.com"
-                                          :name "Delete Me"
-                                          :role :user
-                                          :tenant-id tenant-id
-                                          :active true})
+                                           :name "Delete Me"
+                                           :role :user
+                                           :tenant-id tenant-id
+                                           :active true})
           args ["user" "delete" "--id" (str (:id user))]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -420,7 +420,7 @@
   (testing "Invalidate session - success"
     (let [service (create-mock-service)
           session (ports/create-session service {:user-id (UUID/randomUUID)
-                                                :tenant-id (UUID/randomUUID)})
+                                                 :tenant-id (UUID/randomUUID)})
           args ["session" "invalidate" "--token" (:session-token session)]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
