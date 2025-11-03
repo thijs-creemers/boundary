@@ -1,0 +1,314 @@
+= ADR-005: Validation Developer Experience Foundations
+:revdate: 2025-11-03
+:revremark: Initial draft
+:toc:
+:toclevels: 3
+
+== Status
+
+**ACCEPTED** - Implementation in progress
+
+== Context
+
+The Boundary framework's validation system has grown organically, with validation logic spread across schema validation (Malli), business rules (pure functions in core), and orchestration (shell services). While the current system works well, it lacks:
+
+1. **Structured error reporting** - Errors are inconsistent across modules
+2. **Developer tooling** - Limited REPL helpers, no visualization, no coverage tracking
+3. **Error message quality** - Generic messages, no contextual help or suggestions
+4. **Testability** - No property-based testing, snapshot testing, or behavior DSL
+5. **Documentation** - Validation rules not discoverable or auto-documented
+6. **Observability** - No tracking of which rules execute or performance profiling
+
+This ADR establishes the foundational infrastructure for a comprehensive validation developer experience (DevEx) enhancement initiative.
+
+== Decision
+
+We will implement a **layered validation infrastructure** that enhances developer experience while maintaining:
+
+- **Backward compatibility** - Existing code continues to work unchanged
+- **FC/IS architecture** - Pure functional core, imperative shell separation preserved
+- **Feature-flag gating** - New functionality controlled by `BND_DEVEX_VALIDATION` environment variable
+- **i18n readiness** - Error codes and message templates enable future internationalization
+
+=== Core Components
+
+==== 1. Standard Result Format
+
+All validation operations return a consistent structure:
+
+[source,clojure]
+----
+{:valid?   boolean                    ; Overall validation status
+ :data     map                        ; Validated/transformed data (if valid)
+ :errors   vector-of-error-maps       ; Validation errors (if invalid)
+ :warnings vector-of-warning-maps}    ; Non-blocking warnings (optional)
+----
+
+Error/warning maps follow this structure:
+
+[source,clojure]
+----
+{:field   keyword                     ; Field identifier
+ :code    keyword                     ; Error/warning code
+ :message string                      ; Human-readable message
+ :params  map                         ; Template parameters
+ :path    vector                      ; Path to error location
+ :rule-id keyword}                    ; Optional: validation rule ID
+----
+
+==== 2. Validation Rule Registry
+
+Central registry for all validation rules across modules:
+
+[source,clojure]
+----
+{:rule-id        keyword           ; Unique identifier
+ :description    string            ; Human-readable description
+ :category       keyword           ; :schema | :business | :cross-field | :context
+ :module         keyword           ; Module name
+ :fields         [keyword]         ; Affected fields
+ :error-code     keyword           ; Default error code
+ :validator-fn   (fn [data] ...)   ; Actual validation function
+ :dependencies   [rule-id]         ; Required rules (optional)
+ :metadata       map}              ; Additional metadata
+----
+
+==== 3. Error Code Catalog
+
+Hierarchical error codes with consistent naming:
+
+- Format: `:domain.field/error-type`
+- Examples: `:user.email/required`, `:user.email/invalid-format`
+- Categories: `:required`, `:invalid-format`, `:invalid-value`, `:out-of-range`, `:too-short`, `:too-long`, `:duplicate`, `:not-found`, `:forbidden`, `:dependency`
+
+==== 4. Feature Flag System
+
+Environment variable `BND_DEVEX_VALIDATION=true` enables:
+
+- Enhanced error formatting
+- Message templating and suggestions
+- Execution tracking for coverage
+- Example payload generation
+- Context-aware messaging
+
+== Architectural Principles
+
+=== 1. Separation of Concerns
+
+[cols="1,1,2"]
+|===
+|Layer |Location |Responsibility
+
+|**Schema Validation**
+|`boundary.<module>.schema`
+|Malli schema definitions, structure validation
+
+|**Business Rules**
+|`boundary.<module>.core.*`
+|Pure functions with domain logic
+
+|**Orchestration**
+|`boundary.<module>.shell.service`
+|I/O coordination, external dependencies
+
+|**Validation Infrastructure**
+|`boundary.shared.core.validation.*`
+|Results, registry, codes, messages
+|===
+
+=== 2. Backward Compatibility Strategy
+
+**Existing code path (BND_DEVEX_VALIDATION=false or unset):**
+
+- Legacy result format: `{:valid? boolean :data map :errors malli-errors}`
+- No execution tracking
+- Original error messages
+- Zero overhead
+
+**Enhanced code path (BND_DEVEX_VALIDATION=true):**
+
+- Structured result format with `:warnings` key
+- Execution tracking for coverage
+- Templated messages with suggestions
+- Example payloads (opt-in)
+
+**Compatibility shim:**
+
+`boundary.shared.core.validation` namespace delegates to new implementations while preserving API:
+
+[source,clojure]
+----
+(validate-with-transform schema data transformer)  ; Works in both modes
+(validation-passed? result)                        ; Works in both modes
+(get-validation-errors result)                     ; Works in both modes
+----
+
+=== 3. FC/IS Compliance
+
+All validation infrastructure remains pure and side-effect free:
+
+- **Pure functions**: `validation.result/*`, error constructors, rule validators
+- **Atoms for REPL development**: Registry uses atoms for interactive development
+- **No I/O in core**: Feature flag check is the only environment access
+- **Immutable data structures**: All results and errors are immutable maps
+
+=== 4. i18n Readiness
+
+Error codes and parameters enable future message translation:
+
+[source,clojure]
+----
+{:field :email
+ :code :user.email/invalid-format
+ :message "Email format is invalid"           ; English default
+ :params {:value "bad@email" :regex "..."}    ; For template interpolation
+ :path [:user :email]}
+----
+
+Future i18n system can:
+
+1. Match on `:code` to lookup translated template
+2. Interpolate `:params` into template
+3. Format `:path` according to locale conventions
+
+== Implementation Strategy
+
+=== Phase 1: Foundations (Week 1) ✅
+
+- [x] Standard result format (`validation.result`)
+- [x] Validation rule registry (`validation.registry`)
+- [x] Error code catalog (`validation.codes`)
+- [x] Backward-compatible shim (`validation`)
+- [x] Feature flag system
+- [x] ADR documentation
+
+=== Phase 2: Error Messages (Week 1-2)
+
+- [ ] Message style guide
+- [ ] Message templating engine
+- [ ] "Did you mean?" suggestions (Damerau-Levenshtein)
+- [ ] Contextual message rendering
+
+=== Phase 3: Testing & Coverage (Week 2-3)
+
+- [ ] Property-based test generators
+- [ ] Snapshot testing harness
+- [ ] Behavior specification DSL
+- [ ] Validation coverage reporting
+
+=== Phase 4: Developer Tooling (Week 3-4)
+
+- [ ] REPL helpers for interactive debugging
+- [ ] Validation visualization (GraphViz export)
+- [ ] Performance profiling tools
+- [ ] Conflict detection
+
+=== Phase 5: Documentation & CI (Week 4)
+
+- [ ] Auto-generated validation documentation
+- [ ] Error code catalog (Asciidoc)
+- [ ] Validation patterns guide
+- [ ] CI integration and gates
+
+== Consequences
+
+=== Positive
+
+1. **Improved error quality** - Structured, consistent, actionable error messages
+2. **Better testability** - Property-based testing, snapshot testing, coverage tracking
+3. **Enhanced discoverability** - Registry enables rule discovery and documentation
+4. **REPL-friendly** - Interactive validation debugging and exploration
+5. **Future-proof** - i18n-ready, extensible metadata, conflict detection
+6. **Zero migration cost** - Existing code works unchanged
+
+=== Negative
+
+1. **Additional complexity** - New namespaces and abstractions to learn
+2. **Memory overhead** - Registry and execution tracking use atoms (small impact)
+3. **Feature flag maintenance** - Two code paths to maintain during transition
+4. **Documentation burden** - New patterns and APIs to document
+
+=== Neutral
+
+1. **Development velocity** - Initial slowdown for infrastructure, acceleration later
+2. **Code size** - More code overall, but better organized and reusable
+3. **Performance** - Minimal impact in production (feature flag off), tracking overhead when enabled
+
+== Rollout Plan
+
+**Week 1-2: Foundation & Early Adopters**
+
+- Implement foundations (Phase 1) ✅
+- Begin error messages (Phase 2)
+- Enable in development environments only
+- Gather feedback from team
+
+**Week 3: Expanded Testing**
+
+- Property-based testing (Phase 3)
+- REPL helpers (Phase 4)
+- Enable in staging environment
+- Iterate based on feedback
+
+**Week 4: Production Readiness**
+
+- Complete documentation (Phase 5)
+- Performance validation
+- CI integration
+- Default-on in all environments
+
+**Post-Launch: Continuous Improvement**
+
+- Expand error code catalog
+- Add module-specific validators to registry
+- Enhance message templates
+- Community feedback integration
+
+== Alternatives Considered
+
+=== 1. Replace Existing System
+
+**Rejected** - Too risky, high migration cost, disrupts existing code
+
+=== 2. Build Separate Validation Library
+
+**Rejected** - Maintenance burden, fragmentation, doesn't improve existing code
+
+=== 3. Ad-hoc Improvements Only
+
+**Rejected** - Inconsistent results, missed opportunities for systemic improvements
+
+=== 4. Immediate Breaking Changes
+
+**Rejected** - Violates stability guarantees, impacts downstream projects
+
+== References
+
+- link:../validation-guide.adoc[Validation Guide] (to be created)
+- link:../validation-patterns.adoc[Validation Patterns] (to be created)
+- link:../error-codes.adoc[Error Code Catalog] (to be created)
+- link:../../warp.md[Developer Guide] (updated with validation section)
+
+== Notes
+
+**Related ADRs:**
+
+- ADR-001: Functional Core / Imperative Shell Pattern
+- ADR-002: Ports and Adapters (Hexagonal Architecture)
+- ADR-003: Multi-Interface Consistency
+- ADR-004: Schema-First Validation with Malli
+
+**Implementation Files:**
+
+- `src/boundary/shared/core/validation/result.clj` - Standard result format
+- `src/boundary/shared/core/validation/registry.clj` - Rule registry
+- `src/boundary/shared/core/validation/codes.clj` - Error code catalog
+- `src/boundary/shared/core/validation.clj` - Backward-compatible API
+
+**Environment Variables:**
+
+- `BND_DEVEX_VALIDATION` - Enable DevEx features (default: false)
+
+---
+
+*This ADR documents the foundational decisions for the validation DevEx initiative. Individual features and tools will be implemented incrementally with their own documentation.*

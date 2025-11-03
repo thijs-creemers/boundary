@@ -1,0 +1,860 @@
+= Error Code Catalog
+:revdate: 2025-11-03
+:toc:
+:toclevels: 3
+
+== Overview
+
+This document provides a comprehensive catalog of all validation error codes used in the Boundary framework, along with their message templates, resolution steps, and examples.
+
+=== Error Code Format
+
+Error codes follow a hierarchical naming convention:
+
+[source]
+----
+:domain.field/error-type
+----
+
+**Examples:**
+
+- `:user.email/required` - User module, email field, required validation
+- `:user.email/invalid-format` - User module, email field, format validation
+- `:billing.amount/out-of-range` - Billing module, amount field, range validation
+
+=== Error Categories
+
+[cols="1,3"]
+|===
+|Category |Description
+
+|`:required`
+|Missing required field
+
+|`:invalid-format`
+|Format validation failure (regex, email, UUID, etc.)
+
+|`:invalid-value`
+|Value doesn't match allowed enumeration
+
+|`:out-of-range`
+|Numeric or date value outside allowed range
+
+|`:too-short`
+|String or collection below minimum length
+
+|`:too-long`
+|String or collection above maximum length
+
+|`:duplicate`
+|Uniqueness constraint violation
+
+|`:not-found`
+|Referenced entity doesn't exist
+
+|`:forbidden`
+|Operation not allowed by business rules
+
+|`:dependency`
+|Depends on another field or condition
+|===
+
+== Message Templates
+
+=== Template Structure
+
+Each error code has an associated message template that can be interpolated with parameters:
+
+[source,clojure]
+----
+{:code :user.email/required
+ :template "{{field-name}} is required"
+ :params {:field-name "Email"}
+ :suggestion "Provide an email address for the user"}
+----
+
+**Rendered:**
+[source]
+----
+Email is required
+Suggestion: Provide an email address for the user
+----
+
+=== Parameter Naming Conventions
+
+[cols="1,2,2"]
+|===
+|Parameter |Usage |Example
+
+|`{{field-name}}`
+|Human-readable field name
+|"Email", "User Name", "Tenant ID"
+
+|`{{value}}`
+|Actual value provided (sanitized)
+|`"john@example"`, `"abc"`, `"5"`
+
+|`{{expected}}`
+|Expected value or format
+|`"user@domain.com"`, `"admin\|user\|viewer"`, `"1-100"`
+
+|`{{min}}` / `{{max}}`
+|Numeric or length bounds
+|`"8"`, `"255"`, `"1"`, `"1000"`
+
+|`{{current}}`
+|Current value in context
+|`"user"`, `"active"`, `"draft"`
+
+|`{{allowed}}`
+|List of allowed values
+|`"admin, user, viewer"`, `"pending, approved, rejected"`
+
+|`{{regex}}`
+|Regular expression pattern (simplified)
+|`"letters and numbers only"`, `"valid email format"`
+
+|`{{dependency}}`
+|Dependent field name
+|`"Tenant ID"`, `"User Role"`, `"Payment Method"`
+|===
+
+== Common Error Codes
+
+=== Required Field Errors
+
+==== `:required`
+
+**Description:** Generic required field validation failure
+
+**Message Template:**
+[source]
+----
+{{field-name}} is required
+----
+
+**Suggestion Template:**
+[source]
+----
+Provide a value for {{field-name}}
+----
+
+**Example:**
+[source,json]
+----
+{
+  "field": "email",
+  "code": "required",
+  "message": "Email is required",
+  "params": {"field-name": "Email"},
+  "path": ["email"],
+  "suggestion": "Provide a value for Email"
+}
+----
+
+**Resolution Steps:**
+
+1. Add the required field to your request
+2. Ensure the field is not null or empty
+3. Check API documentation for required fields
+
+=== Format Validation Errors
+
+==== `:invalid-format`
+
+**Description:** Field format doesn't match expected pattern
+
+**Message Template:**
+[source]
+----
+{{field-name}} has an invalid format
+----
+
+**Detailed Template:**
+[source]
+----
+{{field-name}} must match the format: {{expected}}
+----
+
+**Suggestion Template:**
+[source]
+----
+Provide {{field-name}} in the correct format. Expected: {{expected}}
+----
+
+**Example:**
+[source,json]
+----
+{
+  "field": "email",
+  "code": "invalid-format",
+  "message": "Email has an invalid format",
+  "params": {
+    "field-name": "Email",
+    "value": "bad@email",
+    "expected": "user@domain.com"
+  },
+  "path": ["email"],
+  "suggestion": "Provide Email in the correct format. Expected: user@domain.com"
+}
+----
+
+**Resolution Steps:**
+
+1. Check the format requirements in API documentation
+2. Validate your input matches the expected pattern
+3. Use provided examples as reference
+
+=== Value Validation Errors
+
+==== `:invalid-value`
+
+**Description:** Value is not in the allowed set
+
+**Message Template:**
+[source]
+----
+{{field-name}} has an invalid value: "{{value}}"
+----
+
+**Detailed Template:**
+[source]
+----
+{{field-name}} must be one of: {{allowed}}
+----
+
+**Suggestion Template (with "did you mean"):**
+[source]
+----
+Invalid value "{{value}}" for {{field-name}}. Did you mean "{{suggestion}}"? 
+Allowed values: {{allowed}}
+----
+
+**Example:**
+[source,json]
+----
+{
+  "field": "role",
+  "code": "invalid-value",
+  "message": "Role has an invalid value: \"moderater\"",
+  "params": {
+    "field-name": "Role",
+    "value": "moderater",
+    "allowed": "admin, user, viewer",
+    "suggestion": "moderator"
+  },
+  "path": ["role"],
+  "suggestion": "Invalid value \"moderater\" for Role. Did you mean \"moderator\"? Allowed values: admin, user, viewer"
+}
+----
+
+**Resolution Steps:**
+
+1. Check the "Did you mean?" suggestion if provided
+2. Review the list of allowed values
+3. Verify correct spelling and casing
+
+=== Range Validation Errors
+
+==== `:out-of-range`
+
+**Description:** Numeric or date value outside allowed range
+
+**Message Template:**
+[source]
+----
+{{field-name}} is out of range
+----
+
+**Detailed Template:**
+[source]
+----
+{{field-name}} must be between {{min}} and {{max}}
+----
+
+**Suggestion Template:**
+[source]
+----
+Provide {{field-name}} between {{min}} and {{max}}. You provided: {{value}}
+----
+
+**Example:**
+[source,json]
+----
+{
+  "field": "age",
+  "code": "out-of-range",
+  "message": "Age is out of range",
+  "params": {
+    "field-name": "Age",
+    "value": "150",
+    "min": "0",
+    "max": "120"
+  },
+  "path": ["age"],
+  "suggestion": "Provide Age between 0 and 120. You provided: 150"
+}
+----
+
+**Resolution Steps:**
+
+1. Check the allowed range in the error message
+2. Verify your value is within bounds
+3. Ensure correct units (e.g., seconds vs milliseconds)
+
+=== Length Validation Errors
+
+==== `:too-short`
+
+**Description:** String or collection below minimum length
+
+**Message Template:**
+[source]
+----
+{{field-name}} is too short
+----
+
+**Detailed Template:**
+[source]
+----
+{{field-name}} must be at least {{min}} characters
+----
+
+**Example:**
+[source,json]
+----
+{
+  "field": "password",
+  "code": "too-short",
+  "message": "Password is too short",
+  "params": {
+    "field-name": "Password",
+    "min": "8",
+    "current-length": "5"
+  },
+  "path": ["password"],
+  "suggestion": "Provide Password with at least 8 characters"
+}
+----
+
+==== `:too-long`
+
+**Description:** String or collection above maximum length
+
+**Message Template:**
+[source]
+----
+{{field-name}} is too long
+----
+
+**Detailed Template:**
+[source]
+----
+{{field-name}} must be at most {{max}} characters
+----
+
+**Example:**
+[source,json]
+----
+{
+  "field": "name",
+  "code": "too-long",
+  "message": "Name is too long",
+  "params": {
+    "field-name": "Name",
+    "max": "255",
+    "current-length": "300"
+  },
+  "path": ["name"],
+  "suggestion": "Provide Name with at most 255 characters"
+}
+----
+
+=== Business Rule Errors
+
+==== `:duplicate`
+
+**Description:** Uniqueness constraint violation
+
+**Message Template:**
+[source]
+----
+{{field-name}} already exists
+----
+
+**Contextual Template:**
+[source]
+----
+A {{entity}} with this {{field-name}} already exists
+----
+
+**Suggestion Template:**
+[source]
+----
+Choose a different {{field-name}}. The value "{{value}}" is already in use.
+----
+
+**Example:**
+[source,json]
+----
+{
+  "field": "email",
+  "code": "duplicate",
+  "message": "Email already exists",
+  "params": {
+    "field-name": "Email",
+    "value": "user@example.com",
+    "entity": "user"
+  },
+  "path": ["email"],
+  "suggestion": "Choose a different Email. The value \"user@example.com\" is already in use."
+}
+----
+
+**Resolution Steps:**
+
+1. Choose a different unique value
+2. Check if the existing record can be updated instead
+3. Contact administrator if you believe this is an error
+
+==== `:forbidden`
+
+**Description:** Operation not allowed by business rules
+
+**Message Template:**
+[source]
+----
+Cannot modify {{field-name}}
+----
+
+**Contextual Template:**
+[source]
+----
+{{field-name}} cannot be changed {{reason}}
+----
+
+**Example:**
+[source,json]
+----
+{
+  "field": "tenant-id",
+  "code": "forbidden",
+  "message": "Cannot modify Tenant ID",
+  "params": {
+    "field-name": "Tenant ID",
+    "reason": "after user creation"
+  },
+  "path": ["tenant-id"],
+  "suggestion": "Tenant ID cannot be changed after user creation. Create a new user if needed."
+}
+----
+
+**Resolution Steps:**
+
+1. Review the reason in the error message
+2. Check if an alternative operation is available
+3. Consult API documentation for allowed operations
+
+==== `:dependency`
+
+**Description:** Field depends on another field or condition
+
+**Message Template:**
+[source]
+----
+{{field-name}} requires {{dependency}}
+----
+
+**Detailed Template:**
+[source]
+----
+{{field-name}} can only be set when {{dependency}} is {{expected}}
+----
+
+**Example:**
+[source,json]
+----
+{
+  "field": "billing-address",
+  "code": "dependency",
+  "message": "Billing Address requires Payment Method",
+  "params": {
+    "field-name": "Billing Address",
+    "dependency": "Payment Method"
+  },
+  "path": ["billing-address"],
+  "suggestion": "Provide Payment Method before setting Billing Address"
+}
+----
+
+== User Module Error Codes
+
+=== `:user.email/required`
+
+**Category:** Schema Validation
+
+**Message:** "Email is required"
+
+**Context:** User creation, user update
+
+**Example Request:**
+
+[source,json]
+----
+{
+  "name": "John Doe",
+  "role": "user"
+}
+----
+
+**Example Error:**
+[source,json]
+----
+{
+  "field": "email",
+  "code": "user.email/required",
+  "message": "Email is required",
+  "path": ["email"],
+  "rule-id": "user.email/required",
+  "suggestion": "Provide an email address for the user"
+}
+----
+
+=== `:user.email/invalid-format`
+
+**Category:** Schema Validation
+
+**Message:** "Email format is invalid"
+
+**Context:** User creation, user update
+
+**Example Request:**
+[source,json]
+----
+{
+  "email": "not-an-email",
+  "name": "John Doe",
+  "role": "user"
+}
+----
+
+**Example Error:**
+[source,json]
+----
+{
+  "field": "email",
+  "code": "user.email/invalid-format",
+  "message": "Email format is invalid",
+  "params": {
+    "value": "not-an-email",
+    "expected": "user@domain.com"
+  },
+  "path": ["email"],
+  "rule-id": "user.email/format",
+  "suggestion": "Provide a valid email address (e.g., user@example.com)"
+}
+----
+
+=== `:user.email/duplicate`
+
+**Category:** Business Rule
+
+**Message:** "Email already exists"
+
+**Context:** User creation
+
+**Example Request:**
+[source,json]
+----
+{
+  "email": "existing@example.com",
+  "name": "John Doe",
+  "role": "user"
+}
+----
+
+**Example Error:**
+[source,json]
+----
+{
+  "field": "email",
+  "code": "user.email/duplicate",
+  "message": "A user with this email already exists",
+  "params": {
+    "value": "existing@example.com"
+  },
+  "path": ["email"],
+  "rule-id": "user.email/unique",
+  "suggestion": "Use a different email address or update the existing user"
+}
+----
+
+**Resolution Steps:**
+
+1. Verify the email address
+2. Check if you intended to update an existing user
+3. Use a different email if creating a new user
+
+=== `:user.role/invalid-value`
+
+**Category:** Schema Validation
+
+**Message:** "Role is not valid"
+
+**Context:** User creation, user update
+
+**Allowed Values:** `admin`, `user`, `viewer`
+
+**Example with "Did you mean?":**
+
+**Request:**
+[source,json]
+----
+{
+  "email": "user@example.com",
+  "name": "John Doe",
+  "role": "admin"
+}
+----
+
+**Error:**
+[source,json]
+----
+{
+  "field": "role",
+  "code": "user.role/invalid-value",
+  "message": "Role is not valid",
+  "params": {
+    "value": "admim",
+    "allowed": "admin, user, viewer",
+    "suggestion": "admin"
+  },
+  "path": ["role"],
+  "rule-id": "user.role/enum",
+  "suggestion": "Did you mean \"admin\"? Allowed roles: admin, user, viewer"
+}
+----
+
+=== `:user.tenant-id/forbidden`
+
+**Category:** Business Rule
+
+**Message:** "Cannot change Tenant ID"
+
+**Context:** User update
+
+**Example Request:**
+[source,http]
+----
+PUT /api/users/123
+{
+  "tenantId": "different-tenant-id"
+}
+----
+
+**Example Error:**
+[source,json]
+----
+{
+  "field": "tenant-id",
+  "code": "user.tenant-id/forbidden",
+  "message": "Tenant ID cannot be changed after user creation",
+  "params": {
+    "current": "original-tenant-id",
+    "attempted": "different-tenant-id"
+  },
+  "path": ["tenant-id"],
+  "rule-id": "user.tenant-id/immutable",
+  "suggestion": "Tenant ID is immutable. Create a new user if a different tenant is needed."
+}
+----
+
+== Billing Module Error Codes
+
+=== `:billing.amount/required`
+
+**Category:** Schema Validation
+
+**Message:** "Amount is required"
+
+=== `:billing.amount/out-of-range`
+
+**Category:** Business Rule
+
+**Message:** "Amount is out of range"
+
+**Context:** Payment processing, invoice creation
+
+**Example:**
+[source,json]
+----
+{
+  "field": "amount",
+  "code": "billing.amount/out-of-range",
+  "message": "Amount must be between 0.01 and 999999.99",
+  "params": {
+    "value": "0",
+    "min": "0.01",
+    "max": "999999.99",
+    "currency": "USD"
+  },
+  "path": ["amount"],
+  "suggestion": "Provide an amount between 0.01 and 999999.99 USD"
+}
+----
+
+=== `:billing.currency/invalid`
+
+**Category:** Schema Validation
+
+**Message:** "Currency code is invalid"
+
+**Context:** Payment processing, invoice creation
+
+**Allowed Values:** ISO 4217 currency codes (USD, EUR, GBP, etc.)
+
+== Workflow Module Error Codes
+
+=== `:workflow.status/required`
+
+**Category:** Schema Validation
+
+**Message:** "Status is required"
+
+=== `:workflow.transition/forbidden`
+
+**Category:** Business Rule
+
+**Message:** "Status transition not allowed"
+
+**Context:** Workflow state changes
+
+**Example:**
+[source,json]
+----
+{
+  "field": "status",
+  "code": "workflow.transition/forbidden",
+  "message": "Cannot transition from 'approved' to 'draft'",
+  "params": {
+    "current": "approved",
+    "attempted": "draft",
+    "allowed-transitions": "completed, cancelled"
+  },
+  "path": ["status"],
+  "rule-id": "workflow.status/valid-transition",
+  "suggestion": "Valid transitions from 'approved': completed, cancelled"
+}
+----
+
+== Contextual Messaging
+
+=== Operation Context
+
+Error messages can be tailored based on the operation:
+
+[cols="1,2,2"]
+|===
+|Operation |Generic Message |Contextual Message
+
+|CREATE
+|"Email is required"
+|"Email is required when creating a user"
+
+|UPDATE
+|"Tenant ID cannot be changed"
+|"Tenant ID cannot be changed during user update"
+
+|DELETE
+|"User not found"
+|"Cannot delete user: user not found"
+|===
+
+=== Role-Based Messaging
+
+Messages can include role-specific guidance:
+
+[source,json]
+----
+{
+  "field": "role",
+  "code": "user.role/forbidden",
+  "message": "Cannot assign admin role",
+  "params": {
+    "user-role": "user",
+    "attempted-role": "admin"
+  },
+  "suggestion": "You do not have permission to assign admin role. Contact your administrator."
+}
+----
+
+=== Multi-Tenant Context
+
+Messages can reference tenant-specific rules:
+
+[source,json]
+----
+{
+  "field": "email",
+  "code": "user.email/invalid-format",
+  "message": "Email domain not allowed for this tenant",
+  "params": {
+    "value": "user@external.com",
+    "allowed-domains": "company.com, company.net"
+  },
+  "suggestion": "Use an email address from allowed domains: company.com, company.net"
+}
+----
+
+== Best Practices
+
+=== Writing Error Messages
+
+**DO:**
+
+- Use clear, concise language
+- Start with the field name
+- Provide specific, actionable guidance
+- Include "did you mean?" suggestions when applicable
+- Reference allowed values or ranges
+
+**DON'T:**
+
+- Use technical jargon unnecessarily
+- Include sensitive information (PII, secrets)
+- Be vague or generic ("Something went wrong")
+- Blame the user ("You made a mistake")
+- Use ALL CAPS or excessive punctuation
+
+=== Example Payload Hints
+
+When enabled, include a minimal valid example:
+
+[source,json]
+----
+{
+  "error": {
+    "field": "email",
+    "code": "user.email/required",
+    "message": "Email is required",
+    "path": ["email"],
+    "suggestion": "Provide an email address for the user"},
+  "example": {
+    "email": "user@example.com",
+    "name": "John Doe",
+    "role": "user"
+  }
+}
+----
+
+=== Resolution Steps
+
+Provide 2-3 concrete steps to fix the error:
+
+1. Check the specific requirement mentioned
+2. Verify your input matches the format/range
+3. Consult documentation or contact support
+
+---
+
+*This catalog is auto-updated from the validation registry. Last generated: 2025-11-03*
