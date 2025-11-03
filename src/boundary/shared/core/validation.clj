@@ -11,8 +11,7 @@
    
    This namespace will delegate to new implementations when feature flag is enabled."
   (:require [malli.core :as m]
-            [boundary.shared.core.validation.result :as vr]
-            [boundary.shared.core.validation.codes :as vc]))
+            [boundary.shared.core.validation.result :as vr]))
 
 (defn validate-with-transform
   "Validate data with transformation (legacy interface).
@@ -59,8 +58,8 @@
 (defn get-validation-errors
   "Get validation errors (works with legacy and new format)."
   [result]
-  (when-not (validation-passed? result)
-    (or (:errors result) [])))
+  (when (and result (not (validation-passed? result)))
+    (:errors result)))
 
 (defn get-validated-data
   "Get validated data (works with legacy and new format)."

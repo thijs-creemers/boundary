@@ -38,37 +38,43 @@
    
    Algorithm adapted from Wikipedia/standard implementations."
   [s1 s2]
-  (let [s1 (str/lower-case s1)
-        s2 (str/lower-case s2)
-        len1 (count s1)
-        len2 (count s2)]
-    (if (or (zero? len1) (zero? len2))
-      (max len1 len2)
-      (let [max-dist (+ len1 len2)
-            h (java.util.HashMap.)]
-        (.put h "" 0)
-        (loop [i 1
-               matrix (vec (repeat (+ len1 2) (vec (repeat (+ len2 2) 0))))]
-          (if (> i len1)
-            ;; Final distance is in last cell
-            (get-in matrix [len1 len2])
-            (let [db (atom 0)]
+  (when (and s1 s2)
+    (let [s1 (str/lower-case (str s1))
+          s2 (str/lower-case (str s2))
+          len1 (count s1)
+          len2 (count s2)]
+      (if (or (zero? len1) (zero? len2))
+        (max len1 len2)
+        ;; Use standard Levenshtein with transposition support
+        (let [d (vec (for [_ (range (inc len1))]
+                       (vec (repeat (inc len2) 0))))
+              ;; Initialize first row and column
+              d (reduce (fn [mat i] (assoc-in mat [i 0] i))
+                        d (range (inc len1)))
+              d (reduce (fn [mat j] (assoc-in mat [0 j] j))
+                        d (range (inc len2)))]
+          (loop [i 1
+                 mat d]
+            (if (> i len1)
+              (get-in mat [len1 len2])
               (recur (inc i)
                      (loop [j 1
-                            mat matrix]
+                            m mat]
                        (if (> j len2)
-                         mat
-                         (let [k (or (.get h (str (nth s2 (dec j)))) 0)
-                               l @db
-                               cost (if (= (nth s1 (dec i)) (nth s2 (dec j))) 0 1)
-                               _ (when (zero? cost) (reset! db j))
-                               deletion (+ (get-in mat [i (dec j)]) 1)
-                               insertion (+ (get-in mat [(dec i) j]) 1)
-                               substitution (+ (get-in mat [(dec i) (dec j)]) cost)
-                               transposition (+ (get-in mat [(dec k) (dec l)]) (- i k 1) 1 (- j l 1))
+                         m
+                         (let [cost (if (= (nth s1 (dec i)) (nth s2 (dec j))) 0 1)
+                               deletion (inc (get-in m [(dec i) j]))
+                               insertion (inc (get-in m [i (dec j)]))
+                               substitution (+ (get-in m [(dec i) (dec j)]) cost)
+                               ;; Check for transposition
+                               transposition (if (and (> i 1) (> j 1)
+                                                      (= (nth s1 (dec i)) (nth s2 (- j 2)))
+                                                      (= (nth s1 (- i 2)) (nth s2 (dec j))))
+                                               (inc (get-in m [(- i 2) (- j 2)]))
+                                               Integer/MAX_VALUE)
                                min-val (min deletion insertion substitution transposition)]
                            (recur (inc j)
-                                  (assoc-in mat [i j] min-val)))))))))))))
+                                  (assoc-in m [i j] min-val)))))))))))))
 
 (defn- similarity-score
   "Calculate similarity score between 0.0 (completely different) and 1.0 (identical).
@@ -80,10 +86,15 @@
    Returns:
      Float between 0.0 and 1.0"
   [s1 s2]
-  (let [max-len (max (count s1) (count s2))]
-    (if (zero? max-len)
-      1.0
-      (- 1.0 (/ (damerau-levenshtein-distance s1 s2) max-len)))))
+  (if (or (nil? s1) (nil? s2))
+    0.0
+    (let [max-len (max (count s1) (count s2))]
+      (if (zero? max-len)
+        1.0
+        (let [distance (damerau-levenshtein-distance s1 s2)]
+          (if distance
+            (- 1.0 (/ distance max-len))
+            0.0))))))
 
 ;; =============================================================================
 ;; Value Sanitization
@@ -319,7 +330,7 @@
    Example:
      {:value \"admim\" :allowed \"admin, user, viewer\" :suggestion \"admin\"}
      => \"Did you mean \\\"admin\\\"? Allowed values: admin, user, viewer\""
-  [{:keys [value allowed suggestion] :as params}]
+  [{:keys [_ allowed suggestion]}]
   (when (and suggestion allowed)
     (str "Did you mean \"" suggestion "\"? Allowed values: " allowed)))
 
@@ -410,7 +421,7 @@
    Example:
      (render-message :required {:field :email})
      => \"Email is required\""
-  [code params opts]
+  [code params _]
   (let [;; Ensure field-name is formatted
         formatted-params (cond-> params
                            (and (:field params)
@@ -502,6 +513,6 @@
       (cond-> error
         message (assoc :message message)
         suggestion (assoc :suggestion suggestion)))
-    (catch Exception e
+    (catch Exception _
       ;; Non-breaking: preserve original error if rendering fails
       error)))
