@@ -172,7 +172,11 @@
         ;; File exists - compare
         :else
         (let [expected-snap (read-snapshot! file-path)
-              comparison (snapshot/compare expected-snap actual-snap)]
+              ;; Normalize both snapshots to ensure consistent data types (strings, not objects)
+              ;; This is done by serializing and deserializing both
+              normalized-expected (snapshot/parse-snapshot (snapshot/stable-serialize expected-snap))
+              normalized-actual (snapshot/parse-snapshot (snapshot/stable-serialize actual-snap))
+              comparison (snapshot/compare normalized-expected normalized-actual)]
           (if (:equal? comparison)
             (do
               (t/is true "Snapshot matches")

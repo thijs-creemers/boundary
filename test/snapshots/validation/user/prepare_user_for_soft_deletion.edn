@@ -1,0 +1,16 @@
+{:meta
+ {:case-name nil,
+  :schema-version "1.0",
+  :seed 53,
+  :test-name prepare-user-for-soft-deletion,
+  :test-ns user},
+ :result
+ {:active false,
+  :created-at "2025-01-01T00:00:00Z",
+  :deleted-at "2025-01-01T00:00:00Z",
+  :email "test@example.com",
+  :id #uuid "00000000-0000-0000-0000-000000000002",
+  :name "Test User",
+  :role :user,
+  :tenant-id #uuid "00000000-0000-0000-0000-000000000001",
+  :updated-at "2025-01-01T00:00:00Z"}}

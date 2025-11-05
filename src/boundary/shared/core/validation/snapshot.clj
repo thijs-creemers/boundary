@@ -75,16 +75,52 @@
 ;; Deterministic Serialization
 ;; -----------------------------------------------------------------------------
 
+(defn- strip-memory-address
+  "Strip memory address (@hexadecimal) from object string representation.
+
+  Args:
+    s - String representation of an object
+
+  Returns:
+    String with @address removed for deterministic comparison.
+
+  Example:
+    (strip-memory-address \"malli.core$Schema@7a6ba56\")
+    ;; => \"malli.core$Schema\""
+  [s]
+  (str/replace s #"@[0-9a-fA-F]+" ""))
+
 (defn- sort-map-keys
-  "Recursively sort all map keys for deterministic serialization.
+  "Recursively sort all map keys and convert non-EDN-serializable values.
+
+  Transforms:
+  - Java time objects (Instant, LocalDate, etc.) to ISO-8601 strings
+  - Regex patterns to string representations
+  - Other objects to their string representation (with memory addresses stripped)
 
   Args:
     x - Data structure (maps, vectors, lists, primitives)
 
   Returns:
-    Same structure with all maps converted to sorted-maps."
+    Same structure with all maps converted to sorted-maps and non-EDN values converted."
   [x]
   (cond
+    ;; Handle java.time objects
+    (instance? java.time.temporal.Temporal x)
+    (str x)
+
+    ;; Handle regex patterns
+    (instance? java.util.regex.Pattern x)
+    {:regex-pattern (str x)}
+
+    ;; Handle other Java objects that aren't EDN-serializable
+    (and (instance? Object x)
+         (not (or (string? x) (number? x) (boolean? x) (nil? x)
+                  (keyword? x) (symbol? x) (uuid? x)
+                  (map? x) (vector? x) (list? x) (set? x))))
+    (strip-memory-address (str x))
+
+    ;; Recursively process collections
     (map? x)
     (into (sorted-map) (map (fn [[k v]] [k (sort-map-keys v)]) x))
 
