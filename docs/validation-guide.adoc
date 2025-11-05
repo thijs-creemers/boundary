@@ -772,6 +772,46 @@ Follow these patterns when integrating enhanced validation into modules:
 (msg/render-message :required {:field :email} {})
 ----
 
+== REPL Helpers and Tooling
+
+=== Quickstart (REPL)
+
+[source,clojure]
+----
+(require '[boundary.shared.tools.validation.repl :as v])
+
+;; Registry overview
+(v/stats)
+(v/list-rules)                    ; all rules
+(v/list-rules {:module :user})    ; filter by module
+(v/conflicts)                     ; potential rule conflicts
+
+;; Validate / Explain (Malli)
+(require '[boundary.user.schema :as user-schema])
+(v/validate user-schema/CreateUserRequest {:email "a@b.co" :name "A" :role :user :tenant-id #uuid "00000000-0000-0000-0000-000000000001"})
+(v/explain  user-schema/CreateUserRequest {:email "invalid"})
+
+;; Timing
+(require '[boundary.user.core.user :as user-core])
+(v/time-call user-core/validate-user-creation-request {:email "a@b.co" :name "A" :role :user :tenant-id #uuid "00000000-0000-0000-0000-000000000001"})
+
+;; Snapshots (deterministic EDN)
+(println (v/snapshot->edn {:status :ok} {:seed 42 :meta {:test "example"}}))
+
+;; GraphViz DOT export
+(spit "build/validation-user.dot" (v/rules->dot {:modules #{:user}}))
+----
+
+=== Reading Coverage Reports
+
+[source,clojure]
+----
+(require '[clojure.edn :as edn])
+(def user-cov (edn/read-string (slurp "test/reports/coverage/user.edn")))
+(:coverage user-cov)   ; => 100.0
+(:by-module user-cov)  ; per-module breakdown
+----
+
 == References
 
 - link:error-codes.adoc[Error Code Catalog] - Complete list of error codes and templates

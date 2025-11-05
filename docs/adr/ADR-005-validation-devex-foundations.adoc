@@ -393,9 +393,9 @@ Total execution time: 0.027 seconds
 
 - [x] Core validation unit tests (Phase 2.1) ✅
 - [x] Property-based test generators (Phase 3.1) ✅
-- [ ] Snapshot testing harness
-- [ ] Behavior specification DSL
-- [ ] Validation coverage reporting
+- [x] Snapshot testing harness (Phase 3.2) ✅
+- [x] Behavior specification DSL (Phase 3.3) ✅
+- [x] Validation coverage reporting (Phase 3.4) ✅
 
 === Phase 3.1: Property-Based Test Generators ✅ **COMPLETE**
 
@@ -533,12 +533,87 @@ All property-based tests maintain strict Functional Core principles:
 - ✅ All existing tests continue to pass (300+ tests in full suite)
 - ✅ Zero regressions introduced
 
+=== Phase 3.2: Snapshot Testing Harness ✅ **COMPLETE**
+
+**Completion Date:** 2025-11-05
+
+- [x] Implemented snapshot capture/serialize/compare/path utilities (pure) (`src/boundary/shared/core/validation/snapshot.clj`)
+- [x] Added test I/O helpers with UPDATE_SNAPSHOTS flow (`test/boundary/shared/core/validation/snapshot_io.clj`)
+- [x] Created user validation snapshots (12 files) under `test/snapshots/validation/user/`
+- [x] Snapshot tests for user validation results (`test/boundary/user/core/user_validation_snapshot_test.clj`)
+
+**Testing Metrics:**
+
+```
+12 tests, 12 assertions, 0 failures
+Snapshots: 12 EDN files generated
+```
+
+**Files Created:**
+- `test/boundary/user/core/user_validation_snapshot_test.clj`
+- `test/snapshots/validation/user/*.edn`
+
+=== Phase 3.3: Behavior Specification DSL ✅ **COMPLETE**
+
+**Completion Date:** 2025-11-05
+
+- [x] Behavior DSL available with mutation helpers, scenario execution, compilation (`src/boundary/shared/core/validation/behavior.clj`)
+- [x] Applied DSL to user module CreateUserRequest
+- [x] Scenarios: valid data, four required-field cases, wrong email format
+
+**Testing Metrics:**
+
+```
+1 suite test, 6 assertions, 0 failures
+```
+
+**Files Created:**
+- `test/boundary/user/core/user_behavior_spec_test.clj`
+
+=== Phase 3.4: Validation Coverage Reporting ✅ **COMPLETE**
+
+**Completion Date:** 2025-11-05
+
+- [x] Coverage computation utilities (pure) (`src/boundary/shared/core/validation/coverage.clj`)
+- [x] Coverage reporting integrated with Behavior DSL scenarios (user module)
+- [x] EDN and human-readable reports generated under `test/reports/coverage/`
+
+**Testing Metrics:**
+
+```
+1 suite test, 7 assertions, 0 failures
+Coverage (user): 100.0% (6/6 rules executed)
+```
+
+**Reports:**
+- `test/reports/coverage/user.edn`
+- `test/reports/coverage/user.txt`
+
 === Phase 4: Developer Tooling (Week 3-4)
 
-- [ ] REPL helpers for interactive debugging
-- [ ] Validation visualization (GraphViz export)
-- [ ] Performance profiling tools
-- [ ] Conflict detection
+- [x] REPL helpers for interactive debugging (Phase 4.1) ✅
+- [x] Validation visualization (GraphViz export) (Phase 4.2) ✅
+- [x] Performance profiling tools (Phase 4.3) ✅
+- [x] Conflict detection (Phase 4.4) ✅
+
+=== Phase 4.1: REPL Helpers ✅
+
+- New namespace: `src/boundary/shared/tools/validation/repl.clj`
+- Features: registry listing, stats, conflicts, malli validate/explain wrappers,
+  snapshot EDN generation, snapshot compare, timing helper
+
+=== Phase 4.2: Visualization (GraphViz) ✅
+
+- Function: `(repl/rules->dot {:modules #{:user}})` returns DOT graph string
+- Grouped by module, nodes labeled with rule-id and category
+
+=== Phase 4.3: Profiling Tools ✅
+
+- Function: `(repl/time-call f args...)` returns `{:ms ... :result ...}`
+
+=== Phase 4.4: Conflict Detection ✅
+
+- Uses registry helpers to find duplicates and overlapping rules
 
 === Phase 5: Documentation & CI (Week 4)
 
@@ -678,6 +753,7 @@ All property-based tests maintain strict Functional Core principles:
 - `src/boundary/shared/core/validation/codes.clj` - Error code catalog
 - `src/boundary/shared/core/validation/result.clj` - Standard result format
 - `src/boundary/shared/core/validation/registry.clj` - Rule registry for coverage tracking
+- `src/boundary/shared/tools/validation/repl.clj` - REPL helpers (stats, conflicts, DOT, timing, snapshots)
 - `src/boundary/shared/core/config/feature_flags.clj` - Feature flag management
 
 === Test Files
@@ -687,6 +763,10 @@ All property-based tests maintain strict Functional Core principles:
 - `test/boundary/shared/core/validation/result_test.clj` - Result format tests
 - `test/boundary/user/core/user_validation_test.clj` - User validation unit tests (12 tests, 80 assertions) ✅
 - `test/boundary/user/core/user_property_test.clj` - Property-based validation tests (18 tests, 1,800 test cases) ✅
+- `test/boundary/user/core/user_validation_snapshot_test.clj` - Snapshot tests (12 snapshots) ✅
+- `test/boundary/user/core/user_behavior_spec_test.clj` - Behavior DSL suite + coverage (1 suite, 6 scenarios) ✅
+- `test/reports/coverage/user.edn` - User module coverage EDN report ✅
+- `test/reports/coverage/user.txt` - User module coverage summary ✅
 
 === Related Documentation
 

@@ -49,7 +49,7 @@
           result (user-core/validate-user-creation-request request)]
       (snapshot-io/check-snapshot!
        result
-       {:ns *ns*
+       {:ns (ns-name *ns*)
         :test 'email-validation-success
         :seed 42}))))
 
@@ -60,7 +60,7 @@
           result (user-core/validate-user-creation-request request)]
       (snapshot-io/check-snapshot!
        result
-       {:ns *ns*
+       {:ns (ns-name *ns*)
         :test 'email-validation-invalid-format
         :seed 43}))))
 
@@ -71,7 +71,7 @@
           result (user-core/validate-user-creation-request request)]
       (snapshot-io/check-snapshot!
        result
-       {:ns *ns*
+       {:ns (ns-name *ns*)
         :test 'email-validation-missing
         :seed 44}))))
 
@@ -86,7 +86,7 @@
           result (user-core/validate-user-creation-request request)]
       (snapshot-io/check-snapshot!
        result
-       {:ns *ns*
+       {:ns (ns-name *ns*)
         :test 'name-validation-too-short
         :seed 45}))))
 
@@ -98,7 +98,7 @@
           result (user-core/validate-user-creation-request request)]
       (snapshot-io/check-snapshot!
        result
-       {:ns *ns*
+       {:ns (ns-name *ns*)
         :test 'name-validation-too-long
         :seed 46}))))
 
@@ -110,7 +110,7 @@
           result (user-core/validate-user-creation-request request)]
       (snapshot-io/check-snapshot!
        result
-       {:ns *ns*
+       {:ns (ns-name *ns*)
         :test 'name-validation-boundary
         :seed 47}))))
 
@@ -125,7 +125,7 @@
           result (user-core/validate-user-creation-request request)]
       (snapshot-io/check-snapshot!
        result
-       {:ns *ns*
+       {:ns (ns-name *ns*)
         :test 'multiple-validation-errors
         :seed 48}))))
 
@@ -135,7 +135,7 @@
     (let [result (user-core/validate-user-creation-request valid-user-request)]
       (snapshot-io/check-snapshot!
        result
-       {:ns *ns*
+       {:ns (ns-name *ns*)
         :test 'complete-valid-user
         :seed 49}))))
 
@@ -162,7 +162,7 @@
           result (user-core/validate-user-business-rules updated-user changes)]
       (snapshot-io/check-snapshot!
        result
-       {:ns *ns*
+       {:ns (ns-name *ns*)
         :test 'tenant-id-change-forbidden
         :seed 50}))))
 
@@ -183,7 +183,7 @@
           result (user-core/validate-user-business-rules updated-user changes)]
       (snapshot-io/check-snapshot!
        result
-       {:ns *ns*
+       {:ns (ns-name *ns*)
         :test 'email-change-forbidden
         :seed 51}))))
 
@@ -200,7 +200,7 @@
                   fixed-user-id)]
       (snapshot-io/check-snapshot!
        result
-       {:ns *ns*
+       {:ns (ns-name *ns*)
         :test 'prepare-user-for-creation
         :seed 52}))))
 
@@ -219,6 +219,6 @@
           result (user-core/prepare-user-for-soft-deletion user fixed-timestamp)]
       (snapshot-io/check-snapshot!
        result
-       {:ns *ns*
+       {:ns (ns-name *ns*)
         :test 'prepare-user-for-soft-deletion
         :seed 53}))))
