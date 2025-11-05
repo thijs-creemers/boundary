@@ -11,7 +11,7 @@
 
 (def email-regex
   "Regular expression for basic email validation."
-  #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+  #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
 
 (def User
   "Schema for User entity.

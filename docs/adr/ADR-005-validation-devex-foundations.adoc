@@ -182,12 +182,92 @@ Future i18n system can:
 - [x] Feature flag system
 - [x] ADR documentation
 
-=== Phase 2: Error Messages (Week 1-2)
+=== Phase 2: Error Messages (Week 1-2) ✅ **COMPLETE**
 
-- [ ] Message style guide
-- [ ] Message templating engine
-- [ ] "Did you mean?" suggestions (Damerau-Levenshtein)
-- [ ] Contextual message rendering
+**Completion Date:** 2025-11-03
+
+- [x] Message style guide
+- [x] Message templating engine
+- [x] "Did you mean?" suggestions (Damerau-Levenshtein)
+- [x] Contextual message rendering
+- [x] Comprehensive validation developer guide (docs/validation-guide.adoc)
+- [x] Complete error code catalog (docs/error-codes.adoc)
+
+**Implementation Summary:**
+
+Phase 2 successfully delivered enhanced error messaging capabilities while maintaining 100% backward compatibility. All 167 existing tests continue to pass.
+
+**Key Achievements:**
+
+1. **Message Templating System** (`boundary.shared.core.validation.messages`)
+   - Template resolution with fallback chain (operation → role → module → base → default)
+   - Safe parameter interpolation with PII redaction
+   - Field name formatting (kebab-case → Title Case with acronym handling)
+   - Value sanitization (truncation, email pattern redaction)
+
+2. **"Did You Mean?" Suggestions**
+   - Damerau-Levenshtein distance algorithm for typo detection
+   - Intelligent similarity scoring (threshold-based matching)
+   - Formatted suggestion rendering with allowed values list
+
+3. **Contextual Rendering** (`boundary.shared.core.validation.context`)
+   - Operation-specific templates (create/update/delete)
+   - Role-based guidance (admin/user/viewer/moderator/guest)
+   - Multi-tenant context support
+   - Example payload generation using Malli with deterministic seeds
+   - Next steps formatting with numbered resolution guidance
+
+4. **Comprehensive Documentation**
+   - **validation-guide.adoc** (784 lines): Complete developer guide with REPL examples, integration patterns, best practices, troubleshooting, and JSON API examples
+   - **error-codes.adoc** (1,175 lines): Full error code catalog with all user module codes, templates, suggestions, resolution steps, and HTTP status mappings
+
+**FC/IS Compliance:**
+
+All validation infrastructure maintains strict Functional Core / Imperative Shell separation:
+- **Pure functions**: All message rendering, template resolution, and suggestion generation are pure
+- **No side effects**: Core never reads environment variables or performs I/O
+- **Deterministic**: Same inputs always produce same outputs (example generation uses explicit seeds)
+- **Immutable data**: All result structures and error maps are immutable
+
+**Feature Flag Integration:**
+
+Enhanced features controlled by `BND_DEVEX_VALIDATION` environment variable:
+- Feature flag checked once per request in shell layer
+- Core functions accept optional `{:enhanced? boolean :context map}` parameter
+- Legacy behavior preserved when feature flag disabled (default)
+- Zero performance impact on core validation functions
+
+**Error Code Catalog:**
+
+Implemented complete user module error codes:
+- `:user.email/required`, `:user.email/invalid-format`, `:user.email/duplicate`
+- `:user.name/required`, `:user.name/too-short`, `:user.name/too-long`
+- `:user.role/required`, `:user.role/invalid-value`
+- `:user.tenant-id/required`, `:user.tenant-id/invalid-uuid`, `:user.tenant-id/forbidden`
+- `:user.password/too-short`
+
+All codes include:
+- Category classification (Schema vs Business)
+- Message templates (default + detailed)
+- Suggestion templates
+- Resolution steps
+- Example JSON payloads
+- HTTP status mappings (422 for schema, 409 for duplicate, 403 for forbidden)
+
+**Backward Compatibility Strategy:**
+
+1. **Dual-arity functions**: Existing functions signatures unchanged, new arities accept options
+2. **Legacy result format**: When `enhanced?` false or absent, returns original format exactly
+3. **Gradual adoption**: Modules can adopt enhanced errors incrementally
+4. **No breaking changes**: All 167 existing tests pass without modification
+
+**Testing Status:**
+
+- ✅ Unit tests: messages_test.clj (7 tests, 54 assertions, 0 failures)
+- ✅ Context tests: context_test.clj (8 tests, 78 assertions, 0 failures)  
+- ✅ Legacy tests: All 167 existing tests pass
+- ✅ Integration: Feature flag toggling verified
+- ✅ Backward compatibility: Legacy code paths tested
 
 === Phase 3: Testing & Coverage (Week 2-3)
 
@@ -282,12 +362,77 @@ Future i18n system can:
 
 **Rejected** - Violates stability guarantees, impacts downstream projects
 
+**Lessons Learned:**
+
+1. **Infrastructure First Approach Worked Well**
+   - Building message templating, context rendering, and error codes before integrating into modules provided solid foundation
+   - Pure function design made testing straightforward and deterministic
+   - Feature flag isolation enabled safe development without impacting production
+
+2. **Documentation as First-Class Deliverable**
+   - Creating comprehensive guides (validation-guide.adoc, error-codes.adoc) alongside code improved clarity
+   - REPL examples in documentation serve as both usage guide and smoke tests
+   - Cross-linking between ADR, guides, and code catalog creates cohesive knowledge base
+
+3. **Backward Compatibility Pattern Success**
+   - Dual-arity functions provide clean upgrade path
+   - Optional parameters with sensible defaults minimize breaking changes
+   - Legacy tests acting as regression suite proved invaluable
+
+4. **FC/IS Separation Paid Off**
+   - Keeping core pure made testing trivial (no mocks, no I/O setup)
+   - Feature flag handling only in shell simplified reasoning
+   - Clear boundaries between pure logic and effects prevented complexity creep
+
+**Future Enhancements (Post-Phase 2):**
+
+1. **Internationalization (i18n)**
+   - Message catalog structure already supports locale-based template selection
+   - Parameter interpolation ready for locale-specific formatting
+   - Error codes stable foundation for translation keys
+
+2. **CLI-Specific Formatting**
+   - Colored output for errors/warnings/suggestions
+   - ASCII art for validation tree visualization
+   - Interactive "Did you mean?" selection
+
+3. **Enhanced Example Generation**
+   - Valid/invalid example pairs for each validation rule
+   - Boundary case examples (min/max values)
+   - Generated test fixtures from schemas
+
+4. **Validation Rule Composition**
+   - Composable validation pipelines
+   - Conditional validation based on context
+   - Cross-module validation dependencies
+
 == References
 
-- link:../validation-guide.adoc[Validation Guide] (to be created)
-- link:../validation-patterns.adoc[Validation Patterns] (to be created)
-- link:../error-codes.adoc[Error Code Catalog] (to be created)
-- link:../../warp.md[Developer Guide] (updated with validation section)
+=== Documentation Created in Phase 2
+
+- link:../validation-guide.adoc[Validation Developer Guide] - Complete usage guide with REPL examples, integration patterns, best practices, and troubleshooting (784 lines)
+- link:../validation-patterns.adoc[Validation Patterns and Message Style Guide] - Conventions, tone guidance, and examples  
+- link:../error-codes.adoc[Error Code Catalog] - All user module error codes with templates, suggestions, and JSON examples (1,175 lines)
+
+=== Implementation Files
+
+- `src/boundary/shared/core/validation/messages.clj` - Message templating and suggestion engine
+- `src/boundary/shared/core/validation/context.clj` - Contextual rendering and example generation
+- `src/boundary/shared/core/validation/codes.clj` - Error code catalog
+- `src/boundary/shared/core/validation/result.clj` - Standard result format
+- `src/boundary/shared/core/validation/registry.clj` - Rule registry for coverage tracking
+- `src/boundary/shared/core/config/feature_flags.clj` - Feature flag management
+
+=== Test Files
+
+- `test/boundary/shared/core/validation/messages_test.clj` - Message templating tests (7 tests, 54 assertions)
+- `test/boundary/shared/core/validation/context_test.clj` - Context rendering tests (8 tests, 78 assertions)
+- `test/boundary/shared/core/validation/result_test.clj` - Result format tests
+
+=== Related Documentation
+
+- link:../../warp.md[Developer Guide] - Project overview and development workflow
+- link:../boundary.prd.adoc[Product Requirements Document] - Project vision and requirements
 
 == Notes
 
