@@ -1,0 +1,70 @@
+= Configuration Reference
+include::../_partials/attributes.adoc[]
+
+== Overview
+
+Boundary uses Aero for environment-based configuration.
+
+== Configuration File Location
+
+Configuration lives in `{config-dir}/conf/dev/config.edn`
+
+== Environment Variables
+
+=== HTTP Server
+
+[cols="1,2,1"]
+|===
+|Variable |Purpose |Default
+
+|`HTTP_PORT`
+|HTTP server port
+|3000
+
+|`HTTP_HOST`
+|HTTP server host
+|0.0.0.0
+|===
+
+=== Database (PostgreSQL)
+
+[cols="1,2"]
+|===
+|Variable |Purpose
+
+|`POSTGRES_HOST`
+|PostgreSQL hostname
+
+|`POSTGRES_PORT`
+|PostgreSQL port
+
+|`POSTGRES_DB`
+|Database name
+
+|`POSTGRES_USER`
+|Database user
+
+|`POSTGRES_PASSWORD`
+|Database password
+|===
+
+=== Validation DevEx
+
+[cols="1,2,1"]
+|===
+|Variable |Purpose |Default
+
+|`BND_DEVEX_VALIDATION`
+|Enable enhanced validation
+|false
+|===
+
+== Profiles
+
+=== Development
+
+=== Test
+
+=== Production
+
+TIP: TODO: Document env vars, profiles, config structure with placeholders only

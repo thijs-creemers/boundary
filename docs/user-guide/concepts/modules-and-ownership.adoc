@@ -1,0 +1,19 @@
+= Modules and Domain Ownership
+include::../_partials/attributes.adoc[]
+
+[[modules]]
+== Overview
+
+Boundary's module-centric architecture organizes code by domain.
+
+== Module Structure
+
+== Domain Ownership Principle
+
+== Example: User Module
+
+== Learn More
+
+See {xref-arch-components}[Component Architecture] for detailed module organization.
+
+TIP: TODO: Explain module boundaries, link to architecture components

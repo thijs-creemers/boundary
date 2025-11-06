@@ -1,0 +1,58 @@
+= Commands Reference
+include::../_partials/attributes.adoc[]
+
+== Overview
+
+Common Clojure CLI commands for Boundary development.
+
+NOTE: The source of truth for all aliases is link:{source-dir}/../deps.edn[deps.edn].
+
+== Development Commands
+
+=== Start REPL
+
+[source,{shell}]
+----
+clojure -M:repl-clj
+----
+
+=== Run Tests
+
+[source,{shell}]
+----
+clojure -M:test:db/h2
+----
+
+=== Run Tests in Watch Mode
+
+[source,{shell}]
+----
+clojure -M:test:db/h2 --watch
+----
+
+== CLI Interface
+
+[source,{shell}]
+----
+clojure -M:cli user list --tenant-id <UUID>
+----
+
+== Code Quality
+
+=== Lint
+
+[source,{shell}]
+----
+clojure -M:clj-kondo --lint src test
+----
+
+=== Check Outdated Dependencies
+
+[source,{shell}]
+----
+clojure -M:outdated
+----
+
+== Build Commands
+
+TIP: TODO: Enumerate common commands from deps.edn with examples

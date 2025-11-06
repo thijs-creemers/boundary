@@ -4,9 +4,11 @@ A module-centric Clojure framework implementing the Functional Core / Imperative
 
 ## Quick Start
 
-**→ [See the complete Developer Guide (warp.md)](./warp.md) ←**
+**→ [User Guide](docs/user-guide/index.adoc) ←** - Get started with tutorials and practical how-to guides
 
-For a comprehensive guide including setup, architecture overview, development workflow, and common tasks.
+**→ [Developer Guide (warp.md)](./warp.md) ←** - Comprehensive reference for development, architecture, and advanced topics
+
+The **User Guide** provides persona-based learning paths, quickstart tutorials, and step-by-step how-to guides for common tasks. The **Developer Guide** offers in-depth architectural documentation and complete development reference.
 
 ### Minimal Setup
 

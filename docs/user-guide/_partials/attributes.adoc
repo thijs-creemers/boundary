@@ -1,0 +1,49 @@
+// Shared attributes for Boundary User Guide
+:project-name: Boundary
+:version: 0.1.0
+:repo-url: https://github.com/thijs-creemers/boundary
+:default-api-url: http://localhost:3000
+:default-repl-port: 7888
+:shell: zsh
+:toc:
+:toclevels: 3
+:numbered:
+:source-highlighter: highlightjs
+:icons: font
+:experimental:
+
+// Custom styling for callouts
+:tip-caption: 💡
+:note-caption: 📝
+:important-caption: ⚠️
+:caution-caption: 🔥
+:warning-caption: ⚠️
+
+// Directory references
+:source-dir: ../../src
+:test-dir: ../../test
+:config-dir: ../../resources
+:docs-dir: ..
+
+// Cross-reference shortcuts within user guide
+:xref-quickstart: xref:tutorials/quickstart.adoc
+:xref-fc-is: xref:concepts/functional-core-imperative-shell.adoc
+:xref-modules: xref:concepts/modules-and-ownership.adoc
+:xref-ports: xref:concepts/ports-and-adapters.adoc
+:xref-validation: xref:concepts/validation-system.adoc
+:xref-commands: xref:reference/commands.adoc
+:xref-config: xref:reference/configuration.adoc
+:xref-errors: xref:reference/error-codes.adoc
+:xref-troubleshooting: xref:troubleshooting.adoc
+
+// Cross-references to architecture docs
+:xref-arch-overview: xref:../architecture/overview.adoc
+:xref-arch-components: xref:../architecture/components.adoc
+:xref-arch-ports-adapters: xref:../architecture/ports-and-adapters.adoc
+:xref-arch-data-flow: xref:../architecture/data-flow.adoc
+:xref-arch-layers: xref:../architecture/layer-separation.adoc
+
+// Cross-references to other docs
+:xref-cli-guide: xref:../cli/user-cli.adoc
+:xref-validation-guide: xref:../validation-guide.adoc
+:xref-dev-guide: xref:../../warp.md

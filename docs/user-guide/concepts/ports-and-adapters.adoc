@@ -1,0 +1,19 @@
+= Ports and Adapters
+include::../_partials/attributes.adoc[]
+
+[[ports-adapters]]
+== Overview
+
+The Ports and Adapters pattern (Hexagonal Architecture) enables dependency inversion.
+
+== Ports: Abstract Interfaces
+
+== Adapters: Concrete Implementations
+
+== Example
+
+== Learn More
+
+See {xref-arch-ports-adapters}[Ports and Adapters Architecture] for implementation details.
+
+TIP: TODO: Brief intro, link to detailed architecture doc

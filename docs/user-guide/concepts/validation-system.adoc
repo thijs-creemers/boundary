@@ -1,0 +1,19 @@
+= Validation System
+include::../_partials/attributes.adoc[]
+
+[[validation]]
+== Overview
+
+Boundary uses Malli for schema validation with enhanced developer experience features.
+
+== Feature Flag: BND_DEVEX_VALIDATION
+
+== Enhanced Error Messages
+
+== Example
+
+== Learn More
+
+See {xref-validation-guide}[Validation Developer Guide] for complete documentation.
+
+TIP: TODO: Summarize validation approach, DevEx flag, link to validation-guide

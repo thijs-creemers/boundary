@@ -1,0 +1,34 @@
+= Troubleshooting Guide
+include::_partials/attributes.adoc[]
+
+== Overview
+
+Common problems and solutions when working with Boundary.
+
+== REPL Won't Start
+
+=== Missing JDK
+
+=== Port Already in Use
+
+== Tests Fail
+
+=== Missing :db/h2 Alias
+
+== HTTP Server Issues
+
+=== Server Not Started
+
+== Database Connection Problems
+
+=== SQLite File Permissions
+
+=== PostgreSQL Environment Variables
+
+== Validation Errors
+
+=== Enable DevEx Flag
+
+=== Reading Error Messages
+
+TIP: TODO: Aggregate problems from DEVELOPMENT_STATUS.md with symptom → cause → fix format

@@ -1,0 +1,22 @@
+= Error Codes Reference
+include::../_partials/attributes.adoc[]
+
+== Overview
+
+Boundary uses hierarchical error codes for validation and operational errors.
+
+== Error Code Catalog
+
+For the complete error code catalog, see link:../../error-codes.adoc[Error Codes Documentation].
+
+== Common Error Codes
+
+=== Validation Errors
+
+=== Authentication Errors
+
+=== Database Errors
+
+== Contributing
+
+TIP: TODO: xref to docs/error-codes.adoc or create stub explaining how error codes are documented
