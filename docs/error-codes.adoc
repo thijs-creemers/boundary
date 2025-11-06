@@ -403,6 +403,780 @@ Choose a different {{field-name}}. The value "{{value}}" is already in use.
   "message": "Email already exists",
   "params": {
     "field-name": "Email",
+    "entity": "user",
+    "value": "john@example.com"
+  },
+  "path": ["email"],
+  "suggestion": "Choose a different Email. The value \"john@example.com\" is already in use.",
+  "http_status": 409
+}
+----
+
+**Resolution Steps:**
+
+1. Choose a different unique value
+2. Check if updating the existing record is more appropriate
+3. Contact your administrator if this seems incorrect
+
+==== `:not-found`
+
+**Description:** Referenced entity doesn't exist
+
+**Message Template:**
+[source]
+----
+{{entity}} not found
+----
+
+**Contextual Template:**
+[source]
+----
+Cannot {{operation}} {{entity}}: {{entity}} not found
+----
+
+**Example:**
+[source,json]
+----
+{
+  "field": "id",
+  "code": "not-found",
+  "message": "User not found",
+  "params": {
+    "entity": "user",
+    "operation": "update",
+    "id": "550e8400-e29b-41d4-a716-446655440000"
+  },
+  "path": ["id"],
+  "suggestion": "Verify the ID or reference exists",
+  "http_status": 404
+}
+----
+
+**Resolution Steps:**
+
+1. Verify the ID or reference exists
+2. Check if the resource was recently deleted
+3. Ensure you have permission to access the resource
+
+==== `:forbidden`
+
+**Description:** Operation not allowed by business rules
+
+**Message Template:**
+[source]
+----
+Cannot modify {{field-name}}
+----
+
+**Detailed Template:**
+[source]
+----
+{{field-name}} cannot be changed after {{reason}}
+----
+
+**Example:**
+[source,json]
+----
+{
+  "field": "tenant-id",
+  "code": "forbidden",
+  "message": "Cannot modify Tenant ID",
+  "params": {
+    "field-name": "Tenant ID",
+    "reason": "user creation"
+  },
+  "path": ["tenant-id"],
+  "suggestion": "Tenant ID cannot be changed after user creation. Create a new user if a different tenant is needed.",
+  "http_status": 403
+}
+----
+
+**Resolution Steps:**
+
+1. Review the constraint mentioned in the error
+2. Check if an alternative operation is available
+3. Consult API documentation for allowed operations
+
+==== `:dependency`
+
+**Description:** Field depends on another field or condition
+
+**Message Template:**
+[source]
+----
+{{field-name}} requires {{dependency}}
+----
+
+**Detailed Template:**
+[source]
+----
+{{field-name}} can only be set when {{dependency}} is {{expected}}
+----
+
+**Example:**
+[source,json]
+----
+{
+  "field": "billing-address",
+  "code": "dependency",
+  "message": "Billing Address requires Payment Method",
+  "params": {
+    "field-name": "Billing Address",
+    "dependency": "Payment Method"
+  },
+  "path": ["billing-address"],
+  "suggestion": "Provide Payment Method before setting Billing Address",
+  "http_status": 422
+}
+----
+
+**Resolution Steps:**
+
+1. Identify the required dependency field
+2. Provide valid value for the dependency
+3. Ensure correct order of operations
+
+== User Module Error Codes
+
+This section documents all error codes specific to the User module.
+
+=== User Email Validation
+
+==== `:user.email/required`
+
+**Category:** Schema Validation
+
+**Description:** Email field is required for user creation
+
+**When it occurs:** 
+- Creating a user without email field
+- Email field is null or empty string
+
+**Message Templates:**
+
+[source]
+----
+;; Default
+"Email is required"
+
+;; With operation context
+"Email is required when creating a user"
+
+;; With role guidance (admin)
+"Email is required when creating a user. You have full access to perform this operation."
+
+;; With role guidance (viewer)
+"Email is required when creating a user. You have view-only access. Contact your administrator to request changes."
+----
+
+**Suggestion:**
+[source]
+----
+"Provide an email address for the user"
+----
+
+**Resolution Steps:**
+
+1. Add the email field to your request
+2. Ensure the field is not null or empty
+3. Check API documentation for required fields
+
+**Example JSON:**
+[source,json]
+----
+{
+  "field": "email",
+  "code": "user.email/required",
+  "message": "Email is required when creating a user",
+  "params": {
+    "field-name": "Email",
+    "entity": "user",
+    "operation": "create"
+  },
+  "path": ["email"],
+  "suggestion": "Provide an email address for the user",
+  "next-steps": "Next steps:\n1. Add the email field to your request\n2. Ensure the field is not null or empty\n3. Check API documentation for required fields",
+  "http_status": 422
+}
+----
+
+==== `:user.email/invalid-format`
+
+**Category:** Schema Validation
+
+**Description:** Email format doesn't match required pattern
+
+**When it occurs:**
+- Email missing @ symbol
+- Email missing domain
+- Invalid characters in email
+
+**Message Templates:**
+
+[source]
+----
+;; Default
+"Email format is invalid"
+
+;; Detailed
+"Email must match the format: user@domain.com"
+----
+
+**Suggestion:**
+[source]
+----
+"Provide Email in the correct format. Expected: user@domain.com"
+----
+
+**Resolution Steps:**
+
+1. Verify the format matches user@domain.com
+2. Ensure it includes @ and a valid domain
+3. Check for typos or special characters
+
+**Example JSON:**
+[source,json]
+----
+{
+  "field": "email",
+  "code": "user.email/invalid-format",
+  "message": "Email format is invalid",
+  "params": {
+    "field-name": "Email",
+    "value": "bad.email",
+    "expected": "user@domain.com"
+  },
+  "path": ["email"],
+  "suggestion": "Provide Email in the correct format. Expected: user@domain.com",
+  "http_status": 422
+}
+----
+
+==== `:user.email/duplicate`
+
+**Category:** Business Rule
+
+**Description:** Email already exists in the system
+
+**When it occurs:**
+- Attempting to create user with existing email
+- Email uniqueness constraint violation
+
+**Message Templates:**
+
+[source]
+----
+;; Default
+"Email already exists"
+
+;; With context
+"A user with this Email already exists"
+----
+
+**Suggestion:**
+[source]
+----
+"Choose a different Email. The value \"{{value}}\" is already in use. Use the 'Forgot Password' link to access your account."
+----
+
+**Resolution Steps:**
+
+1. Use a different email address
+2. Check if you already have an account
+3. Use password reset if you forgot your credentials
+
+**Example JSON:**
+[source,json]
+----
+{
+  "field": "email",
+  "code": "user.email/duplicate",
+  "message": "A user with this Email already exists",
+  "params": {
+    "field-name": "Email",
+    "entity": "user",
+    "value": "john@example.com"
+  },
+  "path": ["email"],
+  "suggestion": "Choose a different Email. The value \"john@example.com\" is already in use. Use the 'Forgot Password' link to access your account.",
+  "http_status": 409
+}
+----
+
+=== User Name Validation
+
+==== `:user.name/required`
+
+**Category:** Schema Validation
+
+**Description:** Name field is required
+
+**Message Template:**
+[source]
+----
+"Name is required"
+----
+
+**Example JSON:**
+[source,json]
+----
+{
+  "field": "name",
+  "code": "user.name/required",
+  "message": "Name is required when creating a user",
+  "params": {
+    "field-name": "Name",
+    "entity": "user",
+    "operation": "create"
+  },
+  "path": ["name"],
+  "suggestion": "Provide a name for the user",
+  "http_status": 422
+}
+----
+
+==== `:user.name/too-short`
+
+**Category:** Schema Validation
+
+**Description:** Name is below minimum length (1 character)
+
+**Message Template:**
+[source]
+----
+"Name is too short"
+----
+
+**Detailed Template:**
+[source]
+----
+"Name must be at least 1 character"
+----
+
+**Example JSON:**
+[source,json]
+----
+{
+  "field": "name",
+  "code": "user.name/too-short",
+  "message": "Name must be at least 1 character",
+  "params": {
+    "field-name": "Name",
+    "min": "1",
+    "current-length": "0"
+  },
+  "path": ["name"],
+  "suggestion": "Provide Name with at least 1 character",
+  "http_status": 422
+}
+----
+
+==== `:user.name/too-long`
+
+**Category:** Schema Validation
+
+**Description:** Name exceeds maximum length (255 characters)
+
+**Message Template:**
+[source]
+----
+"Name is too long"
+----
+
+**Detailed Template:**
+[source]
+----
+"Name must be at most 255 characters"
+----
+
+**Example JSON:**
+[source,json]
+----
+{
+  "field": "name",
+  "code": "user.name/too-long",
+  "message": "Name must be at most 255 characters",
+  "params": {
+    "field-name": "Name",
+    "max": "255",
+    "current-length": "300"
+  },
+  "path": ["name"],
+  "suggestion": "Provide Name with at most 255 characters",
+  "http_status": 422
+}
+----
+
+=== User Role Validation
+
+==== `:user.role/required`
+
+**Category:** Schema Validation
+
+**Description:** Role field is required
+
+**Message Template:**
+[source]
+----
+"Role is required"
+----
+
+**Example JSON:**
+[source,json]
+----
+{
+  "field": "role",
+  "code": "user.role/required",
+  "message": "Role is required when creating a user",
+  "params": {
+    "field-name": "Role",
+    "entity": "user",
+    "operation": "create"
+  },
+  "path": ["role"],
+  "suggestion": "Provide a role for the user",
+  "http_status": 422
+}
+----
+
+==== `:user.role/invalid-value`
+
+**Category:** Schema Validation
+
+**Description:** Role is not one of the allowed values
+
+**Allowed Values:** `admin`, `user`, `viewer`
+
+**Message Template:**
+[source]
+----
+"Role must be one of: admin, user, viewer"
+----
+
+**Suggestion Template (with typo detection):**
+[source]
+----
+"Did you mean \"admin\"? Allowed values: admin, user, viewer"
+----
+
+**Example JSON:**
+[source,json]
+----
+{
+  "field": "role",
+  "code": "user.role/invalid-value",
+  "message": "Role must be one of: admin, user, viewer",
+  "params": {
+    "field-name": "Role",
+    "value": "admim",
+    "allowed": "admin, user, viewer",
+    "suggestion": "admin"
+  },
+  "path": ["role"],
+  "suggestion": "Did you mean \"admin\"? Allowed values: admin, user, viewer",
+  "http_status": 422
+}
+----
+
+=== User Tenant Validation
+
+==== `:user.tenant-id/required`
+
+**Category:** Schema Validation
+
+**Description:** Tenant ID is required for multi-tenant systems
+
+**Message Template:**
+[source]
+----
+"Tenant ID is required"
+----
+
+**Example JSON:**
+[source,json]
+----
+{
+  "field": "tenant-id",
+  "code": "user.tenant-id/required",
+  "message": "Tenant ID is required when creating a user",
+  "params": {
+    "field-name": "Tenant ID",
+    "entity": "user",
+    "operation": "create"
+  },
+  "path": ["tenant-id"],
+  "suggestion": "Provide a valid tenant ID",
+  "http_status": 422
+}
+----
+
+==== `:user.tenant-id/invalid-uuid`
+
+**Category:** Schema Validation
+
+**Description:** Tenant ID is not a valid UUID format
+
+**Message Template:**
+[source]
+----
+"Tenant ID must be a valid UUID"
+----
+
+**Example JSON:**
+[source,json]
+----
+{
+  "field": "tenant-id",
+  "code": "user.tenant-id/invalid-uuid",
+  "message": "Tenant ID must be a valid UUID",
+  "params": {
+    "field-name": "Tenant ID",
+    "value": "not-a-uuid",
+    "expected": "550e8400-e29b-41d4-a716-446655440000"
+  },
+  "path": ["tenant-id"],
+  "suggestion": "Provide Tenant ID in valid UUID format. Expected: 550e8400-e29b-41d4-a716-446655440000",
+  "http_status": 422
+}
+----
+
+==== `:user.tenant-id/forbidden`
+
+**Category:** Business Rule
+
+**Description:** Tenant ID cannot be changed after user creation
+
+**When it occurs:**
+- Attempting to update tenant-id on existing user
+- Business rule violation
+
+**Message Template:**
+[source]
+----
+"Cannot modify Tenant ID"
+----
+
+**Detailed Template:**
+[source]
+----
+"Tenant ID cannot be changed after user creation"
+----
+
+**Suggestion:**
+[source]
+----
+"Tenant ID cannot be changed after user creation. Create a new user if a different tenant is needed."
+----
+
+**Resolution Steps:**
+
+1. Review the immutability constraint
+2. Create a new user in the target tenant if needed
+3. Migrate user data manually if required
+
+**Example JSON:**
+[source,json]
+----
+{
+  "field": "tenant-id",
+  "code": "user.tenant-id/forbidden",
+  "message": "Tenant ID cannot be changed after user creation",
+  "params": {
+    "field-name": "Tenant ID",
+    "reason": "user creation"
+  },
+  "path": ["tenant-id"],
+  "suggestion": "Tenant ID cannot be changed after user creation. Create a new user if a different tenant is needed.",
+  "http_status": 403
+}
+----
+
+=== User Password Validation
+
+==== `:user.password/too-short`
+
+**Category:** Schema Validation
+
+**Description:** Password is below minimum length (8 characters)
+
+**Message Template:**
+[source]
+----
+"Password is too short"
+----
+
+**Detailed Template:**
+[source]
+----
+"Password must be at least 8 characters"
+----
+
+**Suggestion:**
+[source]
+----
+"Provide Password with at least 8 characters"
+----
+
+**Resolution Steps:**
+
+1. Ensure password has at least 8 characters
+2. Consider using a mix of letters, numbers, and symbols
+3. Use a password manager for strong passwords
+
+**Example JSON:**
+[source,json]
+----
+{
+  "field": "password",
+  "code": "user.password/too-short",
+  "message": "Password must be at least 8 characters",
+  "params": {
+    "field-name": "Password",
+    "min": "8",
+    "current-length": "5"
+  },
+  "path": ["password"],
+  "suggestion": "Provide Password with at least 8 characters",
+  "http_status": 422
+}
+----
+
+== Error Code Summary Tables
+
+=== User Module Error Codes
+
+[cols="2,1,1,4"]
+|===
+|Code |Category |HTTP Status |Description
+
+|`:user.email/required`
+|Schema
+|422
+|Email field is required
+
+|`:user.email/invalid-format`
+|Schema
+|422
+|Email format doesn't match pattern
+
+|`:user.email/duplicate`
+|Business
+|409
+|Email already exists in system
+
+|`:user.name/required`
+|Schema
+|422
+|Name field is required
+
+|`:user.name/too-short`
+|Schema
+|422
+|Name below minimum length (1 char)
+
+|`:user.name/too-long`
+|Schema
+|422
+|Name exceeds maximum length (255 chars)
+
+|`:user.role/required`
+|Schema
+|422
+|Role field is required
+
+|`:user.role/invalid-value`
+|Schema
+|422
+|Role not in allowed set (admin, user, viewer)
+
+|`:user.tenant-id/required`
+|Schema
+|422
+|Tenant ID is required
+
+|`:user.tenant-id/invalid-uuid`
+|Schema
+|422
+|Tenant ID not valid UUID format
+
+|`:user.tenant-id/forbidden`
+|Business
+|403
+|Cannot change tenant-id after creation
+
+|`:user.password/too-short`
+|Schema
+|422
+|Password below minimum length (8 chars)
+|===
+
+== Cross-References
+
+=== Related Documentation
+
+- link:validation-guide.adoc[Validation Developer Guide] - Usage examples and integration patterns
+- link:validation-patterns.adoc[Validation Patterns] - Message style guide and conventions
+- link:adr/ADR-005-validation-devex-foundations.adoc[ADR-005] - Architectural decision record
+
+=== API Documentation
+
+- link:api/post-users-example.adoc[POST /users Example] - User creation API with validation examples
+
+== Appendix: Error Code Conventions
+
+=== Naming Convention
+
+[source]
+----
+:domain.field/error-type
+----
+
+**Examples:**
+- `:user.email/required` - User domain, email field, required error
+- `:billing.amount/out-of-range` - Billing domain, amount field, range error
+
+=== Error Categories
+
+- **Schema**: Schema/format validation (required, format, type, length)
+- **Business**: Business rule violations (duplicate, forbidden, dependency)
+- **Cross-Field**: Validation across multiple fields
+- **Context**: Context-dependent validation (role, tenant, state)
+
+=== HTTP Status Code Mapping
+
+[cols="1,2,3"]
+|===
+|Status |Usage |Error Types
+
+|`400`
+|Bad Request
+|Malformed request, invalid JSON
+
+|`403`
+|Forbidden
+|Business rule prevents operation (`:forbidden`)
+
+|`404`
+|Not Found
+|Referenced resource doesn't exist (`:not-found`)
+
+|`409`
+|Conflict
+|Uniqueness constraint violation (`:duplicate`)
+
+|`422`
+|Unprocessable Entity
+|Schema validation failures (`:required`, `:invalid-format`, `:invalid-value`, `:too-short`, `:too-long`, `:out-of-range`)
+|===
+
+---
+
+*This error code catalog is maintained as part of ADR-005: Validation Developer Experience Foundations. For implementation details, see link:validation-guide.adoc[Validation Developer Guide].*
+  "field": "email",
+  "code": "duplicate",
+  "message": "Email already exists",
+  "params": {
+    "field-name": "Email",
     "value": "user@example.com",
     "entity": "user"
   },

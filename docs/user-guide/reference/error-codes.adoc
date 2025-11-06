@@ -1,0 +1,430 @@
+= Error Codes Reference
+include::../_partials/attributes.adoc[]
+
+[[overview]]
+== Overview
+
+Boundary uses structured error codes following RFC 7807 (Problem Details) for HTTP errors and consistent exit codes for CLI operations.
+
+[[http-errors]]
+== HTTP Error Codes
+
+[[http-4xx]]
+=== 4xx Client Errors
+
+[[error-400]]
+==== 400 Bad Request
+
+**When:** Invalid request format or validation failure
+
+**Response:**
+[source,json]
+----
+{
+  "type": "https://boundary.dev/errors/validation-failed",
+  "title": "Validation Failed",
+  "status": 400,
+  "detail": "Request validation failed",
+  "instance": "/users",
+  "errors": [
+    {
+      "field": "email",
+      "code": "user.email/required",
+      "message": "Email is required when creating a user"
+    }
+  ]
+}
+----
+
+**Common Causes:**
+
+* Missing required fields
+* Invalid email format
+* Invalid UUID format
+* Invalid enum values
+* Field value out of range
+
+[[error-401]]
+==== 401 Unauthorized
+
+**When:** Missing or invalid authentication
+
+**Response:**
+[source,json]
+----
+{
+  "type": "https://boundary.dev/errors/unauthorized",
+  "title": "Unauthorized",
+  "status": 401,
+  "detail": "Authentication required",
+  "instance": "/users/550e8400-e29b-41d4-a716-446655440000"
+}
+----
+
+**Common Causes:**
+
+* Missing session token
+* Expired session token
+* Invalid session token
+
+[[error-403]]
+==== 403 Forbidden
+
+**When:** Authenticated but insufficient permissions
+
+**Response:**
+[source,json]
+----
+{
+  "type": "https://boundary.dev/errors/forbidden",
+  "title": "Forbidden",
+  "status": 403,
+  "detail": "Insufficient permissions to perform this action",
+  "instance": "/users/550e8400-e29b-41d4-a716-446655440000",
+  "required_role": "admin",
+  "current_role": "user"
+}
+----
+
+**Common Causes:**
+
+* User role lacks required permissions
+* Cross-tenant access attempt
+* Resource access denied
+
+[[error-404]]
+==== 404 Not Found
+
+**When:** Resource doesn't exist
+
+**Response:**
+[source,json]
+----
+{
+  "type": "https://boundary.dev/errors/not-found",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "User not found",
+  "instance": "/users/550e8400-e29b-41d4-a716-446655440000",
+  "resource_type": "user",
+  "resource_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+----
+
+**Common Causes:**
+
+* Invalid user ID
+* Resource deleted
+* Wrong tenant context
+
+[[error-409]]
+==== 409 Conflict
+
+**When:** Resource state conflict
+
+**Response:**
+[source,json]
+----
+{
+  "type": "https://boundary.dev/errors/conflict",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "User with this email already exists",
+  "instance": "/users",
+  "conflict_field": "email",
+  "conflict_value": "alice@example.com"
+}
+----
+
+**Common Causes:**
+
+* Duplicate email address
+* Duplicate username
+* Concurrent modification
+
+[[error-422]]
+==== 422 Unprocessable Entity
+
+**When:** Valid syntax but semantic errors
+
+**Response:**
+[source,json]
+----
+{
+  "type": "https://boundary.dev/errors/unprocessable",
+  "title": "Unprocessable Entity",
+  "status": 422,
+  "detail": "Business rule violation",
+  "instance": "/users/550e8400-e29b-41d4-a716-446655440000",
+  "errors": [
+    {
+      "rule": "user.role/downgrade-prevented",
+      "message": "Cannot downgrade admin role while active sessions exist"
+    }
+  ]
+}
+----
+
+**Common Causes:**
+
+* Business rule violations
+* Invalid state transitions
+* Constraint violations
+
+[[http-5xx]]
+=== 5xx Server Errors
+
+[[error-500]]
+==== 500 Internal Server Error
+
+**When:** Unexpected server error
+
+**Response:**
+[source,json]
+----
+{
+  "type": "https://boundary.dev/errors/internal-error",
+  "title": "Internal Server Error",
+  "status": 500,
+  "detail": "An unexpected error occurred",
+  "instance": "/users",
+  "trace_id": "a1b2c3d4-e5f6-4789-a0b1-c2d3e4f56789"
+}
+----
+
+[[error-503]]
+==== 503 Service Unavailable
+
+**When:** Service temporarily unavailable
+
+**Response:**
+[source,json]
+----
+{
+  "type": "https://boundary.dev/errors/service-unavailable",
+  "title": "Service Unavailable",
+  "status": 503,
+  "detail": "Database connection unavailable",
+  "instance": "/users",
+  "retry_after": 30
+}
+----
+
+[[validation-error-codes]]
+== Validation Error Codes
+
+[[validation-required]]
+=== Required Field Errors
+
+[cols="1,2"]
+|===
+|Code |Description
+
+|`user.email/required`
+|Email field is required
+
+|`user.name/required`
+|Name field is required
+
+|`user.role/required`
+|Role field is required
+
+|`user.tenant-id/required`
+|Tenant ID is required
+
+|`session.user-id/required`
+|User ID is required for session
+|===
+
+[[validation-format]]
+=== Format Validation Errors
+
+[cols="1,2"]
+|===
+|Code |Description
+
+|`user.email/invalid-format`
+|Email address format invalid
+
+|`user.id/invalid-uuid`
+|User ID must be valid UUID
+
+|`user.tenant-id/invalid-uuid`
+|Tenant ID must be valid UUID
+|===
+
+[[validation-enum]]
+=== Enum Validation Errors
+
+[cols="1,2"]
+|===
+|Code |Description
+
+|`user.role/invalid-enum`
+|Role must be admin, user, or viewer
+
+|`user.status/invalid-enum`
+|Status must be active, inactive, or suspended
+|===
+
+[[validation-range]]
+=== Range Validation Errors
+
+[cols="1,2"]
+|===
+|Code |Description
+
+|`user.name/too-short`
+|Name must be at least 1 character
+
+|`user.name/too-long`
+|Name must be at most 255 characters
+|===
+
+[[business-error-codes]]
+== Business Logic Error Codes
+
+[[business-user]]
+=== User Errors
+
+[cols="1,2"]
+|===
+|Code |Description
+
+|`user/duplicate-email`
+|User with this email already exists
+
+|`user/not-found`
+|User not found
+
+|`user/inactive`
+|User account is inactive
+
+|`user/suspended`
+|User account is suspended
+
+|`user/role-downgrade-prevented`
+|Cannot downgrade role with active sessions
+|===
+
+[[business-session]]
+=== Session Errors
+
+[cols="1,2"]
+|===
+|Code |Description
+
+|`session/not-found`
+|Session not found
+
+|`session/expired`
+|Session has expired
+
+|`session/invalid-token`
+|Invalid session token
+
+|`session/already-invalidated`
+|Session already invalidated
+|===
+
+[[cli-exit-codes]]
+== CLI Exit Codes
+
+[cols="1,2,2"]
+|===
+|Code |Meaning |Example
+
+|0
+|Success
+|Command completed successfully
+
+|1
+|General error
+|Invalid arguments, connection failure
+
+|2
+|Validation error
+|Invalid email format, missing field
+
+|3
+|Not found
+|User or resource not found
+
+|4
+|Conflict
+|Duplicate email, concurrent modification
+
+|5
+|Permission denied
+|Insufficient permissions
+|===
+
+[[error-handling]]
+== Error Handling Patterns
+
+[[pattern-api-client]]
+=== API Client Error Handling
+
+[source,clojure]
+----
+(defn handle-api-response [response]
+  (case (:status response)
+    200 {:success true :data (:body response)}
+    400 {:success false 
+         :type :validation-error
+         :errors (get-in response [:body :errors])}
+    404 {:success false
+         :type :not-found
+         :message (get-in response [:body :detail])}
+    409 {:success false
+         :type :conflict
+         :field (get-in response [:body :conflict_field])}
+    500 {:success false
+         :type :server-error
+         :trace-id (get-in response [:body :trace_id])}
+    {:success false :type :unknown :status (:status response)}))
+----
+
+[[pattern-cli-script]]
+=== CLI Script Error Handling
+
+[source,{shell}]
+----
+#!/bin/zsh
+
+clojure -M:cli user-create \
+  --email alice@example.com \
+  --name "Alice" \
+  --role user \
+  --tenant-id "$TENANT_ID"
+
+exit_code=$?
+
+case $exit_code in
+  0)
+    echo "✓ User created successfully"
+    ;;
+  2)
+    echo "✗ Validation error - check input format" >&2
+    ;;
+  3)
+    echo "✗ Resource not found" >&2
+    ;;
+  4)
+    echo "✗ Conflict - user may already exist" >&2
+    ;;
+  *)
+    echo "✗ Unexpected error (exit code: $exit_code)" >&2
+    ;;
+esac
+
+exit $exit_code
+----
+
+[[learn-more]]
+== Learn More
+
+* xref:../how-to/add-rest-endpoint.adoc[Add a REST Endpoint]
+* xref:../concepts/validation-system.adoc[Validation System]
+* xref:commands.adoc[CLI Command Reference]
+* https://tools.ietf.org/html/rfc7807[RFC 7807: Problem Details]

@@ -134,13 +134,13 @@
   (cond
     ;; Cannot change tenant-id
     (and (:tenant-id changes)
-         (not= (:tenant-id changes :from) (:tenant-id changes :to)))
+         (not= (get-in changes [:tenant-id :from]) (get-in changes [:tenant-id :to])))
     {:valid? false
      :errors {:tenant-id "Cannot change tenant-id after user creation"}}
 
     ;; Cannot change email - would require verification
     (and (:email changes)
-         (not= (:email changes :from) (:email changes :to)))
+         (not= (get-in changes [:email :from]) (get-in changes [:email :to])))
     {:valid? false
      :errors {:email "Email changes require separate verification process"}}
 

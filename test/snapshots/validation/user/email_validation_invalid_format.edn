@@ -1,0 +1,17 @@
+{:meta
+ {:case-name nil,
+  :schema-version "1.0",
+  :seed 43,
+  :test-name email-validation-invalid-format,
+  :test-ns user},
+ :result
+ {:errors
+  {:errors
+   "({:path [:email], :in [:email], :schema [:re #:error{:message \"Invalid email format\"} #\"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\\.[a-zA-Z]{2,}$\"], :value \"not-an-email\"})",
+   :schema "malli.core$_map_schema$reify$reify__9248",
+   :value
+   {:email "not-an-email",
+    :name "Test User",
+    :role :user,
+    :tenant-id #uuid "00000000-0000-0000-0000-000000000001"}},
+  :valid? false}}

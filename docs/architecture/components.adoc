@@ -27,7 +27,6 @@ After reading this document, you will understand:
 == System Component Overview
 
 .Framework Component Interaction
-image::{diagrams-dir}/component-overview.png[Component Overview, 800]
 
 Boundary's component architecture follows a strict layered approach where each layer has specific responsibilities and clear boundaries. The diagram above shows the main components and their interactions.
 

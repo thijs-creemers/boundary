@@ -11,3 +11,6 @@
 opencode.json
 *.db*
 /target
+/build/
+/test/reports/
+# Keep snapshots tracked; do not ignore test/snapshots/

@@ -1,0 +1,447 @@
+= Configuration Reference
+include::../_partials/attributes.adoc[]
+
+[[overview]]
+== Overview
+
+Boundary uses Aero for configuration management with environment-based profiles. Configuration files are located in `resources/conf/<env>/config.edn`.
+
+[[structure]]
+== Configuration Structure
+
+[source]
+----
+resources/
+└── conf/
+    └── dev/
+        └── config.edn       # Development configuration
+----
+
+[[current-config]]
+== Current Configuration Format
+
+[source,clojure]
+----
+{:active
+ {:boundary/settings
+  {:name              "boundary-dev"
+   :version           "0.1.0"
+   :date-format       "yyyy-MM-dd"
+   :date-time-format  "yyyy-MM-dd HH:mm:ss"
+   :currency/iso-code "EUR"}}
+
+ :boundary/sqlite
+ {:db "dev-database.db"}
+
+ :inactive  ; Available but not active
+ {:boundary/postgresql
+  {:host          #env "POSTGRES_HOST"
+   :port          #env "POSTGRES_PORT"
+   :dbname        #env "POSTGRES_DB"
+   :user          #env "POSTGRES_USER"
+   :password      #env "POSTGRES_PASSWORD"
+   :auto-commit   true
+   :max-pool-size 15}}}
+----
+
+[[sections]]
+== Configuration Sections
+
+[[section-settings]]
+=== boundary/settings
+
+General application settings.
+
+[cols="1,2,1"]
+|===
+|Key |Description |Example
+
+|`:name`
+|Application name
+|`"boundary-dev"`
+
+|`:version`
+|Application version
+|`"0.1.0"`
+
+|`:date-format`
+|Date format pattern
+|`"yyyy-MM-dd"`
+
+|`:date-time-format`
+|DateTime format pattern
+|`"yyyy-MM-dd HH:mm:ss"`
+
+|`:currency/iso-code`
+|Currency code
+|`"EUR"`, `"USD"`
+|===
+
+[[section-sqlite]]
+=== boundary/sqlite
+
+SQLite database configuration (default).
+
+[cols="1,2,1"]
+|===
+|Key |Description |Example
+
+|`:db`
+|Database file path
+|`"dev-database.db"`
+|===
+
+[[section-postgresql]]
+=== boundary/postgresql
+
+PostgreSQL database configuration (inactive by default).
+
+[cols="1,2,1"]
+|===
+|Key |Description |Example
+
+|`:host`
+|Database host
+|`"localhost"`, `#env "POSTGRES_HOST"`
+
+|`:port`
+|Database port
+|`5432`, `#env "POSTGRES_PORT"`
+
+|`:dbname`
+|Database name
+|`"boundary_dev"`, `#env "POSTGRES_DB"`
+
+|`:user`
+|Database user
+|`"boundary_dev"`, `#env "POSTGRES_USER"`
+
+|`:password`
+|Database password
+|`#env "POSTGRES_PASSWORD"`
+
+|`:auto-commit`
+|Auto-commit transactions
+|`true`, `false`
+
+|`:max-pool-size`
+|Connection pool size
+|`15`
+|===
+
+[[env-variables]]
+== Environment Variables
+
+[[env-database]]
+=== Database Configuration
+
+[cols="1,2,1"]
+|===
+|Variable |Purpose |Default
+
+|`POSTGRES_HOST`
+|PostgreSQL host
+|`localhost`
+
+|`POSTGRES_PORT`
+|PostgreSQL port
+|`5432`
+
+|`POSTGRES_DB`
+|Database name
+|(required)
+
+|`POSTGRES_USER`
+|Database user
+|(required)
+
+|`POSTGRES_PASSWORD`
+|Database password
+|(required)
+|===
+
+[[env-feature-flags]]
+=== Feature Flags
+
+[cols="1,2,1"]
+|===
+|Variable |Purpose |Default
+
+|`BND_DEVEX_VALIDATION`
+|Enhanced validation features
+|`false`
+
+|`BND_FEATURE_BILLING`
+|Enable billing module
+|`false`
+
+|`BND_FEATURE_WORKFLOW`
+|Enable workflow module
+|`false`
+|===
+
+[[env-application]]
+=== Application Settings
+
+[cols="1,2,1"]
+|===
+|Variable |Purpose |Default
+
+|`BND_ENV`
+|Environment name
+|`development`
+
+|`HTTP_PORT`
+|HTTP server port
+|`3000`
+
+|`REPL_PORT`
+|nREPL server port
+|`7888`
+|===
+
+[[loading-config]]
+== Loading Configuration
+
+[[load-repl]]
+=== In REPL
+
+[source,clojure]
+----
+(require '[boundary.config :as config])
+
+;; Load configuration
+(def cfg (config/load-config))
+
+;; Access settings
+(get-in cfg [:active :boundary/settings :name])
+;; => "boundary-dev"
+
+;; Access database config
+(get-in cfg [:boundary/sqlite :db])
+;; => "dev-database.db"
+----
+
+[[load-code]]
+=== In Application Code
+
+[source,clojure]
+----
+(ns boundary.my-module
+  (:require [boundary.config :as config]))
+
+(defn initialize []
+  (let [cfg (config/load-config)
+        db-config (get-in cfg [:boundary/sqlite])]
+    ;; Use configuration
+    ...))
+----
+
+[[aero-features]]
+== Aero Features
+
+[[aero-env-vars]]
+=== Environment Variable Readers
+
+[source,clojure]
+----
+;; Read from environment
+{:password #env "DB_PASSWORD"}
+
+;; With default value
+{:port #env ["HTTP_PORT" 3000]}
+----
+
+[[aero-profiles]]
+=== Profile-Based Configuration
+
+[source,clojure]
+----
+;; Different values per environment
+{:database
+ {:host #profile {:dev "localhost"
+                 :staging "staging-db.example.com"
+                 :prod "prod-db.example.com"}}}
+----
+
+[[aero-merge]]
+=== Configuration Merging
+
+[source,clojure]
+----
+;; Base configuration
+{:base {:timeout 5000}}
+
+;; Merge with overrides
+{:config #merge [#ref [:base] {:timeout 10000}]}
+----
+
+[[examples]]
+== Configuration Examples
+
+[[example-dev]]
+=== Development Configuration
+
+[source,{shell}]
+----
+# No environment variables needed for SQLite
+clojure -M:repl-clj
+----
+
+[[example-postgresql]]
+=== PostgreSQL Configuration
+
+[source,{shell}]
+----
+# Set PostgreSQL environment variables
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5432
+export POSTGRES_DB=boundary_dev
+export POSTGRES_USER=boundary_dev
+export POSTGRES_PASSWORD=dev_secret_123
+
+# Enable PostgreSQL in config.edn
+# Move :boundary/postgresql from :inactive to :active
+
+clojure -M:repl-clj
+----
+
+[[example-validation]]
+=== Enable Enhanced Validation
+
+[source,{shell}]
+----
+export BND_DEVEX_VALIDATION=true
+clojure -M:repl-clj
+----
+
+[[example-feature-flags]]
+=== Enable Feature Flags
+
+[source,{shell}]
+----
+export BND_FEATURE_BILLING=true
+export BND_FEATURE_WORKFLOW=false
+clojure -M:repl-clj
+----
+
+[[config-patterns]]
+== Configuration Patterns
+
+[[pattern-secrets]]
+=== Managing Secrets
+
+**✅ DO: Use environment variables**
+
+[source,clojure]
+----
+{:database
+ {:password #env "DB_PASSWORD"}}  ; ✅ From environment
+----
+
+**❌ DON'T: Hardcode secrets**
+
+[source,clojure]
+----
+{:database
+ {:password "super_secret_123"}}  ; ❌ Never commit secrets
+----
+
+[[pattern-validation]]
+=== Configuration Validation
+
+[source,clojure]
+----
+(defn validate-config [cfg]
+  (when-not (get-in cfg [:boundary/sqlite :db])
+    (throw (ex-info "Database config missing" {})))
+  cfg)
+
+(def cfg (-> (config/load-config)
+            validate-config))
+----
+
+[[pattern-defaults]]
+=== Providing Defaults
+
+[source,clojure]
+----
+(defn get-port [cfg]
+  (get-in cfg [:http :port] 3000))  ; Default to 3000
+
+(defn get-pool-size [cfg]
+  (get-in cfg [:database :pool-size] 10))  ; Default to 10
+----
+
+[[troubleshooting]]
+== Troubleshooting Configuration
+
+[[trouble-not-found]]
+=== Configuration File Not Found
+
+**Problem:** `config.edn` not found
+
+**Solution:**
+
+[source,{shell}]
+----
+# Verify file exists
+ls resources/conf/dev/config.edn
+
+# Check working directory
+pwd
+# Should be project root
+----
+
+[[trouble-env-not-read]]
+=== Environment Variable Not Read
+
+**Problem:** `#env` reader not working
+
+**Solution:**
+
+[source,{shell}]
+----
+# Verify variable is set
+echo $POSTGRES_PASSWORD
+
+# Set variable before starting application
+export POSTGRES_PASSWORD=secret
+clojure -M:repl-clj
+----
+
+[[trouble-wrong-profile]]
+=== Wrong Profile Loaded
+
+**Problem:** Wrong environment configuration
+
+**Solution:**
+
+[source,{shell}]
+----
+# Set BND_ENV explicitly
+export BND_ENV=development
+clojure -M:repl-clj
+
+# Verify in REPL
+(System/getenv "BND_ENV")
+;; => "development"
+----
+
+[[checklist]]
+== Configuration Checklist
+
+- [ ] Configuration file exists in correct location
+- [ ] Secrets managed via environment variables
+- [ ] No hardcoded passwords or API keys
+- [ ] Feature flags configured for environment
+- [ ] Database connection tested
+- [ ] Configuration validated on startup
+- [ ] Defaults provided for optional settings
+
+[[learn-more]]
+== Learn More
+
+* xref:../how-to/configure-db.adoc[Configure Database]
+* xref:../concepts/modules-and-ownership.adoc[Modules and Domain Ownership]
+* https://github.com/juxt/aero[Aero Documentation]

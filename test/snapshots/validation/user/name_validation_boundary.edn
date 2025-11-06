@@ -1,0 +1,14 @@
+{:meta
+ {:case-name nil,
+  :schema-version "1.0",
+  :seed 47,
+  :test-name name-validation-boundary,
+  :test-ns user},
+ :result
+ {:data
+  {:email "test@example.com",
+   :name
+   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   :role :user,
+   :tenant-id #uuid "00000000-0000-0000-0000-000000000001"},
+  :valid? true}}
