@@ -1,7 +1,10 @@
  Boundary Framework Developer Guide
 
-A comprehensive guide for developing with Boundary, a module-centric Clojure framework implementing the Functional Core / Imperative Shell (FC/IS) architectural paradigm.
+A comprehensive reference for developing with Boundary, a module-centric Clojure framework implementing the Functional Core / Imperative Shell (FC/IS) architectural paradigm.
 
+**Looking for practical tutorials and how-to guides?** See the [User Guide](docs/user-guide/index.adoc) for persona-based learning paths, quickstart tutorials, and step-by-step instructions for common tasks.
+
+This **Developer Guide** provides comprehensive architectural documentation, advanced development workflows, and complete technical reference.
 
 *** Important: do not stage, commit or push without permission ***
 
