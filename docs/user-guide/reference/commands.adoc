@@ -1,58 +1,426 @@
-= Commands Reference
+= CLI Command Reference
 include::../_partials/attributes.adoc[]
 
+[[overview]]
 == Overview
 
-Common Clojure CLI commands for Boundary development.
-
-NOTE: The source of truth for all aliases is link:{source-dir}/../deps.edn[deps.edn].
-
-== Development Commands
-
-=== Start REPL
+Complete reference for Boundary CLI commands. All commands follow the pattern:
 
 [source,{shell}]
 ----
-clojure -M:repl-clj
+clojure -M:cli <command> [options]
 ----
 
-=== Run Tests
+[[global-options]]
+== Global Options
+
+Available for all commands:
+
+[cols="1,2,2"]
+|===
+|Option |Description |Example
+
+|`-f, --format`
+|Output format: `table` (default) or `json`
+|`--format json`
+
+|`-h, --help`
+|Show command help
+|`-h`
+|===
+
+[[user-commands]]
+== User Commands
+
+[[user-create]]
+=== user-create
+
+Create a new user.
+
+**Usage:**
+[source,{shell}]
+----
+clojure -M:cli user-create \
+  --email alice@example.com \
+  --name "Alice Smith" \
+  --role user \
+  --tenant-id <UUID> \
+  [--active true]
+----
+
+**Options:**
+
+[cols="1,2,1"]
+|===
+|Option |Description |Required
+
+|`--email`
+|User email address
+|✅ Yes
+
+|`--name`
+|User full name
+|✅ Yes
+
+|`--role`
+|Role: `admin`, `user`, or `viewer`
+|✅ Yes
+
+|`--tenant-id`
+|Tenant UUID
+|✅ Yes
+
+|`--active`
+|Active status (default: true)
+|❌ No
+|===
+
+**Example:**
+[source,{shell}]
+----
+clojure -M:cli user-create \
+  --email alice@example.com \
+  --name "Alice Smith" \
+  --role user \
+  --tenant-id 550e8400-e29b-41d4-a716-446655440000
+----
+
+[[user-list]]
+=== user-list
+
+List users with optional filtering.
+
+**Usage:**
+[source,{shell}]
+----
+clojure -M:cli user-list \
+  --tenant-id <UUID> \
+  [--limit 20] \
+  [--offset 0] \
+  [--role user] \
+  [--active true]
+----
+
+**Options:**
+
+[cols="1,2,1"]
+|===
+|Option |Description |Required
+
+|`--tenant-id`
+|Tenant UUID
+|✅ Yes
+
+|`--limit`
+|Max results (default: 20)
+|❌ No
+
+|`--offset`
+|Results to skip (default: 0)
+|❌ No
+
+|`--role`
+|Filter by role
+|❌ No
+
+|`--active`
+|Filter by active status
+|❌ No
+|===
+
+**Example:**
+[source,{shell}]
+----
+clojure -M:cli user-list \
+  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+  --role admin \
+  --format json
+----
+
+[[user-find]]
+=== user-find
+
+Find user by ID or email.
+
+**Usage:**
+[source,{shell}]
+----
+clojure -M:cli user-find \
+  --id <UUID>
+# OR
+clojure -M:cli user-find \
+  --email alice@example.com \
+  --tenant-id <UUID>
+----
+
+**Options:**
+
+[cols="1,2,1"]
+|===
+|Option |Description |Required
+
+|`--id`
+|User UUID (exclusive with --email)
+|One of
+
+|`--email`
+|User email (requires --tenant-id)
+|One of
+
+|`--tenant-id`
+|Tenant UUID (required with --email)
+|With email
+|===
+
+[[user-update]]
+=== user-update
+
+Update user properties.
+
+**Usage:**
+[source,{shell}]
+----
+clojure -M:cli user-update \
+  --id <UUID> \
+  [--name "New Name"] \
+  [--role admin] \
+  [--active false]
+----
+
+**Options:**
+
+[cols="1,2,1"]
+|===
+|Option |Description |Required
+
+|`--id`
+|User UUID
+|✅ Yes
+
+|`--name`
+|New name
+|❌ No
+
+|`--role`
+|New role
+|❌ No
+
+|`--active`
+|New active status
+|❌ No
+|===
+
+[[user-delete]]
+=== user-delete
+
+Soft-delete a user.
+
+**Usage:**
+[source,{shell}]
+----
+clojure -M:cli user-delete --id <UUID>
+----
+
+**Options:**
+
+[cols="1,2,1"]
+|===
+|Option |Description |Required
+
+|`--id`
+|User UUID
+|✅ Yes
+|===
+
+[[session-commands]]
+== Session Commands
+
+[[session-create]]
+=== session-create
+
+Create a new session for a user.
+
+**Usage:**
+[source,{shell}]
+----
+clojure -M:cli session-create \
+  --user-id <UUID> \
+  --tenant-id <UUID> \
+  [--user-agent "Mozilla/5.0..."] \
+  [--ip-address "192.168.1.1"]
+----
+
+**Options:**
+
+[cols="1,2,1"]
+|===
+|Option |Description |Required
+
+|`--user-id`
+|User UUID
+|✅ Yes
+
+|`--tenant-id`
+|Tenant UUID
+|✅ Yes
+
+|`--user-agent`
+|User agent string
+|❌ No
+
+|`--ip-address`
+|IP address
+|❌ No
+|===
+
+[[session-list]]
+=== session-list
+
+List active sessions for a user.
+
+**Usage:**
+[source,{shell}]
+----
+clojure -M:cli session-list --user-id <UUID>
+----
+
+**Options:**
+
+[cols="1,2,1"]
+|===
+|Option |Description |Required
+
+|`--user-id`
+|User UUID
+|✅ Yes
+|===
+
+[[session-invalidate]]
+=== session-invalidate
+
+Invalidate a session.
+
+**Usage:**
+[source,{shell}]
+----
+clojure -M:cli session-invalidate --token <TOKEN>
+----
+
+**Options:**
+
+[cols="1,2,1"]
+|===
+|Option |Description |Required
+
+|`--token`
+|Session token
+|✅ Yes
+|===
+
+[[output-formats]]
+== Output Formats
+
+[[output-table]]
+=== Table Format (Default)
+
+[source]
+----
++------+----------------------+-------------+-------+--------+---------------------+
+| ID   | Email               | Name        | Role  | Active | Created             |
++------+----------------------+-------------+-------+--------+---------------------+
+| 550e | alice@example.com   | Alice Smith | user  | true   | 2024-11-06 10:30:00 |
+| 9f2a | bob@example.com     | Bob Jones   | admin | true   | 2024-11-05 14:15:30 |
++------+----------------------+-------------+-------+--------+---------------------+
+----
+
+[[output-json]]
+=== JSON Format
+
+[source,json]
+----
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "alice@example.com",
+    "name": "Alice Smith",
+    "role": "user",
+    "active": true,
+    "createdAt": "2024-11-06T10:30:00Z"
+  },
+  {
+    "id": "9f2a0b6c-3d4e-5f78-9abc-def123456789",
+    "email": "bob@example.com",
+    "name": "Bob Jones",
+    "role": "admin",
+    "active": true,
+    "createdAt": "2024-11-05T14:15:30Z"
+  }
+]
+----
+
+[[exit-codes]]
+== Exit Codes
+
+[cols="1,2,2"]
+|===
+|Code |Meaning |Example
+
+|0
+|Success
+|Command completed successfully
+
+|1
+|General error
+|Invalid arguments, connection failure
+
+|2
+|Validation error
+|Invalid email format, missing required field
+|===
+
+[[scripting-examples]]
+== Scripting Examples
+
+[[script-create-users]]
+=== Bulk User Creation
 
 [source,{shell}]
 ----
-clojure -M:test:db/h2
+#!/bin/zsh
+TENANT_ID="550e8400-e29b-41d4-a716-446655440000"
+
+while IFS=',' read -r email name role; do
+  clojure -M:cli user-create \
+    --email "$email" \
+    --name "$name" \
+    --role "$role" \
+    --tenant-id "$TENANT_ID" \
+    --format json
+  
+  if [[ $? -ne 0 ]]; then
+    echo "Failed to create user: $email" >&2
+  fi
+done < users.csv
 ----
 
-=== Run Tests in Watch Mode
+[[script-active-sessions]]
+=== Count Active Sessions
 
 [source,{shell}]
 ----
-clojure -M:test:db/h2 --watch
+#!/bin/zsh
+USER_ID="9f2a0b6c-3d4e-5f78-9abc-def123456789"
+
+session_count=$(clojure -M:cli session-list \
+  --user-id "$USER_ID" \
+  --format json | jq 'length')
+
+echo "Active sessions: $session_count"
 ----
 
-== CLI Interface
+[[learn-more]]
+== Learn More
 
-[source,{shell}]
-----
-clojure -M:cli user list --tenant-id <UUID>
-----
-
-== Code Quality
-
-=== Lint
-
-[source,{shell}]
-----
-clojure -M:clj-kondo --lint src test
-----
-
-=== Check Outdated Dependencies
-
-[source,{shell}]
-----
-clojure -M:outdated
-----
-
-== Build Commands
-
-TIP: TODO: Enumerate common commands from deps.edn with examples
+* xref:../how-to/use-cli.adoc[Use the CLI]
+* xref:../concepts/modules-and-ownership.adoc[Modules and Domain Ownership]
+* xref:configuration.adoc[Configuration Reference]
