@@ -365,9 +365,7 @@
   [{:keys [field-name min max value]}]
   (when (and field-name min max)
     (let [base (str "Provide " field-name " between " min " and " max)]
-      (if value
-        (str base ". You provided: " value)
-        (str base)))))
+      (if value (str base ". You provided: " value) base))))
 
 (defn create-length-hint
   "Create length validation hint.

@@ -168,8 +168,8 @@
     ;;     Missing Rules:
     ;;       :user.email/format\""
   [coverage {:keys [show-missing show-modules] :or {show-missing true show-modules true}}]
-  (let [lines [(str "Validation Coverage Report")
-               (str "========================")
+  (let [lines ["Validation Coverage Report"
+               "========================"
                (str "Overall: " (format-percentage (:pct coverage))
                     " (" (:executed coverage) "/" (:total coverage) ")")]
         ;; Add module breakdown
