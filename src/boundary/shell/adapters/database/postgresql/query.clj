@@ -1,6 +1,5 @@
 (ns boundary.shell.adapters.database.postgresql.query
-  "PostgreSQL query building utilities."
-  (:require [clojure.string :as str]))
+  "PostgreSQL query building utilities.")
 
 ;; =============================================================================
 ;; Query Building

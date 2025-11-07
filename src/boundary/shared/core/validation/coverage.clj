@@ -19,7 +19,8 @@
     ;; Generate EDN report for file export
     (edn-report result)
     ;; => {:coverage 50.0 :total 2 :executed 1 :timestamp \"...\" ...}"
-  (:require [clojure.string :as str]))
+  (:require [clojure.set :as set]
+            [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
 ;; Coverage Computation (Pure)
@@ -57,14 +58,14 @@
   (let [registered (or registered #{})
         executed (or executed #{})
         total (count registered)
-        executed-count (count (clojure.set/intersection registered executed))
+        executed-count (count (set/intersection registered executed))
         pct (if (zero? total) 0.0 (* 100.0 (/ executed-count total)))
-        missing (clojure.set/difference registered executed)
+        missing (set/difference registered executed)
         ;; Per-module breakdown
         per-module (reduce-kv
                     (fn [acc module module-rules]
                       (let [module-total (count module-rules)
-                            module-executed (count (clojure.set/intersection module-rules executed))
+                            module-executed (count (set/intersection module-rules executed))
                             module-pct (if (zero? module-total)
                                          0.0
                                          (* 100.0 (/ module-executed module-total)))]
@@ -72,7 +73,7 @@
                                {:total module-total
                                 :executed module-executed
                                 :pct module-pct
-                                :missing (clojure.set/difference module-rules executed)})))
+                                :missing (set/difference module-rules executed)})))
                     {}
                     by-module)]
     {:total total
@@ -94,7 +95,7 @@
     (merge-executions [#{:user.email/required} #{:user.name/required}])
     ;; => #{:user.email/required :user.name/required}"
   [execution-sets]
-  (reduce clojure.set/union #{} execution-sets))
+  (reduce set/union #{} execution-sets))
 
 ;; -----------------------------------------------------------------------------
 ;; Report Generation (Pure)

@@ -5,7 +5,7 @@
   - capture: Create snapshot maps with metadata
   - stable-serialize: Deterministic EDN serialization
   - path-for: Compute snapshot file paths from test metadata
-  - compare: Deep comparison with detailed diffs
+  - compare-snapshots: Deep comparison with detailed diffs
 
   All functions are pure with no I/O. File operations belong in test helpers.
 
@@ -24,7 +24,7 @@
     ;; => \"test/snapshots/validation/boundary/user/validation_test/email_required__missing.edn\"
 
     ;; Compare snapshots
-    (compare expected actual)
+    (compare-snapshots expected actual)
     ;; => {:equal? true :diff [nil nil nil]}
 
   Snapshot format:
@@ -37,6 +37,7 @@
    :result <validation-result>}"
   (:require [clojure.data :as data]
             [clojure.edn :as edn]
+            [clojure.pprint :as pprint]
             [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
@@ -158,7 +159,7 @@
     (binding [*print-length* nil
               *print-level* nil]
       (with-out-str
-        (clojure.pprint/pprint sorted)))))
+        (pprint/pprint sorted)))))
 
 (defn parse-snapshot
   "Parse EDN string back to snapshot map.
@@ -242,7 +243,7 @@
 ;; Comparison
 ;; -----------------------------------------------------------------------------
 
-(defn compare
+(defn compare-snapshots
   "Deep comparison of two snapshots with detailed diff.
 
   Uses clojure.data/diff to identify differences between expected and actual snapshots.
@@ -257,8 +258,8 @@
     :diff   - Vector [only-in-expected only-in-actual shared] from clojure.data/diff
 
   Example:
-    (compare {:meta {:seed 42} :result {:status :success}}
-             {:meta {:seed 42} :result {:status :failure}})
+    (compare-snapshots {:meta {:seed 42} :result {:status :success}}
+                       {:meta {:seed 42} :result {:status :failure}})
     ;; => {:equal? false
     ;;     :diff [{:result {:status :success}} 
     ;;            {:result {:status :failure}} 
@@ -274,13 +275,13 @@
   "Format a diff result into human-readable string.
 
   Args:
-    diff - Diff result from compare
+    diff - Diff result from compare-snapshots
 
   Returns:
     Formatted string showing differences.
 
   Example:
-    (format-diff (compare expected actual))
+    (format-diff (compare-snapshots expected actual))
     ;; => \"Differences found:\n  Only in expected: {...}\n  Only in actual: {...}\""
   [{:keys [equal? diff]}]
   (if equal?
@@ -289,10 +290,10 @@
       (str "Differences found:\n"
            (when only-expected
              (str "  Only in expected:\n"
-                  (with-out-str (clojure.pprint/pprint only-expected))))
+                  (with-out-str (pprint/pprint only-expected))))
            (when only-actual
              (str "  Only in actual:\n"
-                  (with-out-str (clojure.pprint/pprint only-actual))))
+                  (with-out-str (pprint/pprint only-actual))))
            (when shared
              (str "  Shared values:\n"
-                  (with-out-str (clojure.pprint/pprint shared))))))))
+                  (with-out-str (pprint/pprint shared))))))))

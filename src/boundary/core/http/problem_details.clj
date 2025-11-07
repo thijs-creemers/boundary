@@ -2,9 +2,7 @@
   "Pure functions for RFC 7807 Problem Details transformations.
    
    All functions are pure data transformations from exceptions to
-   standardized error response structures."
-  (:require [boundary.shared.core.config.feature-flags :as flags]
-            [boundary.shared.core.validation.context :as val-context]))
+   standardized error response structures.")
 
 ;; =============================================================================
 ;; Error Type Mappings

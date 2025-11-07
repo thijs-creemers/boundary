@@ -3,7 +3,8 @@
    
    All functions in this namespace are pure - they take data and return data
    without side effects. No I/O, logging, or state mutation."
-  (:require [honey.sql :as sql]))
+  (:require [clojure.string]
+            [honey.sql :as sql]))
 
 ;; =============================================================================
 ;; Constants
@@ -137,28 +138,56 @@
     [[sort-field direction]]))
 
 (defn build-where-filters
-  "Build WHERE clause conditions from filter map.
+  "Build WHERE clause conditions from filter map with proper type conversions.
    
-   Pure function: transforms filter map to HoneySQL conditions.
+   Pure function: transforms filter map to HoneySQL conditions with type handling.
+   Converts kebab-case field names to snake_case for database compatibility.
    
    Args:
-     filters: Map of field -> value filters
-     
+     filters: Map of kebab-case field keywords -> value filters
+   
    Returns:
-     HoneySQL WHERE clause vector or nil if no filters
-     
+     HoneySQL WHERE clause vector with snake_case field names or nil if no filters
+   
+   Type Handling:
+     - UUID: converted to string for DB storage
+     - Keyword values: converted to string for DB storage  
+     - Boolean: passed as-is (adapter handles DB-specific conversion)
+     - Sequential values: used with IN clause, items converted if needed
+     - nil: used with IS NULL clause
+   
+   Field Name Handling:
+     - Kebab-case keywords (e.g., :tenant-id) converted to snake_case (e.g., :tenant_id)
+   
    Example:
      (build-where-filters {:name \"John\" :active true})
      => [:and [:= :name \"John\"] [:= :active true]]
      
      (build-where-filters {:role [:admin :user]})
-     => [:and [:in :role [:admin :user]]]"
+     => [:and [:in :role [\"admin\" \"user\"]]]
+     
+     (build-where-filters {:tenant-id #uuid \"...\" :deleted-at nil})
+     => [:and [:= :tenant_id \"...\"] [:is :deleted_at nil]]"
   [filters]
   (when (seq filters)
-    (let [conditions (for [[field value] filters]
-                       (if (sequential? value)
-                         [:in field value]
-                         [:= field value]))]
+    (let [kebab->snake (fn [kw]
+                         (keyword (clojure.string/replace (name kw) #"-" "_")))
+          convert-value (fn [value]
+                          (cond
+                            (uuid? value) (str value)
+                            (keyword? value) (name value)
+                            (sequential? value) (mapv #(cond
+                                                         (uuid? %) (str %)
+                                                         (keyword? %) (name %)
+                                                         :else %) value)
+                            :else value))
+          conditions (for [[field value] filters]
+                       (let [db-field (kebab->snake field)
+                             converted-value (convert-value value)]
+                         (cond
+                           (nil? value) [:is db-field nil]
+                           (sequential? converted-value) [:in db-field converted-value]
+                           :else [:= db-field converted-value])))]
       (if (= 1 (count conditions))
         (first conditions)
         (vec (cons :and conditions))))))

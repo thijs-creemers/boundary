@@ -96,3 +96,11 @@
 (println "  (user-repository)   - User repository")
 (println "  (session-repository) - Session repository")
 (println "========================================\n")
+
+(comment
+  (go)
+  (reset)
+  ...)
+
+
+

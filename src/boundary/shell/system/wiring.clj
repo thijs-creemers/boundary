@@ -101,7 +101,7 @@
 (defmethod ig/init-key :boundary/http-handler
   [_ {:keys [user-service config]}]
   (log/info "Initializing HTTP handler with Reitit router")
-  (let [user-http (require 'boundary.user.shell.http)
+  (let [_user-http (require 'boundary.user.shell.http)
         create-handler (ns-resolve 'boundary.user.shell.http 'create-handler)
         handler (create-handler user-service (or config {}))]
     (log/info "HTTP handler initialized successfully")
@@ -156,7 +156,7 @@
     (log/warn "System already started, halting existing system first")
     (stop!))
   (log/info "Starting Boundary system")
-  (let [config (require 'boundary.config)
+  (let [_config (require 'boundary.config)
         load-config (ns-resolve 'boundary.config 'load-config)
         ig-config (ns-resolve 'boundary.config 'ig-config)
         cfg (ig-config (load-config))

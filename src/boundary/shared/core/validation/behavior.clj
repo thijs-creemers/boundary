@@ -28,6 +28,7 @@
       [email-required-scenario
        email-format-scenario])"
   (:require [clojure.test :as t]
+            [clojure.set :as set]
             [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
@@ -188,7 +189,7 @@
         actual-codes (set (map :code (:errors result [])))
         status-match? (= expected-status actual-status)
         codes-match? (or (empty? expected-codes)
-                         (clojure.set/subset? expected-codes actual-codes))
+                         (set/subset? expected-codes actual-codes))
         passed? (and status-match? codes-match?)
         message (if passed?
                   (str "✓ Expected " expected-status
@@ -224,7 +225,7 @@
      :result validation-result
      :assertions [{:passed? bool :message str}]
      :all-passed? bool}"
-  [scenario opts]
+  [scenario _opts]
   (validate-scenario scenario)
   (let [base (or (:base scenario) {})
         mutations (or (:mutations scenario) [])

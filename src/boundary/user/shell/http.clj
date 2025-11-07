@@ -76,7 +76,7 @@
           users (map schema/user-specific-kebab->camel (:users result))]
       {:status 200
        :body {:users users
-              :totalCount (:total-count result)
+              :totalCount (or (:total-count result) 0)
               :limit (:limit options)
               :offset (:offset options)}})))
 
@@ -222,7 +222,7 @@
 
    Returns:
      Map of health check functions"
-  [user-service]
+  [_user-service]
   {:database (fn []
                ;; Simple check to verify database connectivity
                ;; Could be enhanced to check specific user tables

@@ -30,8 +30,7 @@
      (gen-boundaries User {:seed 42})
      => [{:name \"\" ...} {:name \"a\" ...} {:name \"aaa...\" ...}]"
   (:require [malli.core :as m]
-            [malli.generator :as mg]
-            [clojure.set :as set]))
+            [malli.generator :as mg]))
 
 ;; =============================================================================
 ;; Constants and Configuration
@@ -191,7 +190,7 @@
    
    Returns:
      Data with field removed"
-  [data field schema]
+  [data field _schema]
   (dissoc data field))
 
 (defn- apply-wrong-type
@@ -204,7 +203,7 @@
    
    Returns:
      Data with field type changed"
-  [data field schema]
+  [data field _schema]
   (let [current-value (get data field)
         wrong-value (cond
                       (string? current-value) 42
@@ -227,7 +226,7 @@
    
    Returns:
      Data with invalid format"
-  [data field schema]
+  [data field _schema]
   (let [current-value (get data field)
         ;; Common invalid formats
         wrong-value (cond
@@ -254,7 +253,7 @@
    
    Returns:
      Data with out-of-range value"
-  [data field schema opts]
+  [data field _schema opts]
   (let [current-value (get data field)
         overflow? (get opts :overflow? true)
         wrong-value (cond
@@ -294,7 +293,7 @@
    
    Returns:
      Data with invalid enum value"
-  [data field schema]
+  [data field _schema]
   (assoc data field :invalid-enum-value))
 
 ;; =============================================================================

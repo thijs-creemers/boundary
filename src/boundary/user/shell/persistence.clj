@@ -172,24 +172,21 @@
 
   (find-users-by-tenant [_ tenant-id options]
     (log/debug "Finding users by tenant" {:tenant-id tenant-id :options options})
-    (let [base-filters {:tenant-id tenant-id}
-
-          ;; Add optional filters
+    (let [;; Build filters with kebab-case (query builder handles all conversions)
+          base-filters {:tenant-id tenant-id}
           filters (cond-> base-filters
-                    (not (:include-deleted? options)) (assoc :deleted_at nil)
+                    (not (:include-deleted? options)) (assoc :deleted-at nil)
                     (:filter-role options) (assoc :role (:filter-role options))
-                    (:filter-active options) (assoc :active (:filter-active options)))
-
-          ;; Handle email contains separately (needs special LIKE handling)
-          where-conditions (cond-> (db/build-where-clause ctx filters)
-                             (:filter-email-contains options)
-                             (conj [:like :email (str "%" (:filter-email-contains options) "%")]))
-
-          where-clause (if (vector? (first where-conditions))
-                         where-conditions
-                         [:and where-conditions])
-
-          ;; Build pagination
+                    (contains? options :filter-active) (assoc :active (:filter-active options)))
+          ;; Enhanced query builder handles: type conversion, case conversion, and boolean conversion
+          where-base (db/build-where-clause ctx filters)
+          ;; Handle email LIKE separately (special case not covered by standard filters)
+          where-clause (if-let [pattern (:filter-email-contains options)]
+                         (if where-base
+                           [:and where-base [:like :email (str "%" pattern "%")]]
+                           [:like :email (str "%" pattern "%")])
+                         where-base)
+          ;; Build pagination & ordering
           pagination (db/build-pagination options)
           ordering (db/build-ordering options :created_at)
 
@@ -200,13 +197,17 @@
                  :limit (:limit pagination)
                  :offset (:offset pagination)}
 
-          count-query {:select [:%count.*]
+          ;; Count query with explicit alias to ensure consistent key across databases
+          count-query {:select [[:%count.* :total]]
                        :from [:users]
                        :where where-clause}
-
           users (map #(db->user-entity ctx %) (db/execute-query! ctx query))
-          total-count (:count (db/execute-one! ctx count-query))]
-
+          ;; Extract count with defensive fallback to 0
+          count-result (db/execute-one! ctx count-query)
+          total-count (or (:total count-result)
+                          (:count count-result)
+                          (get count-result (keyword "COUNT(*)"))
+                          0)]
       {:users users
        :total-count total-count}))
 
@@ -294,13 +295,16 @@
 
   (count-users-by-tenant [_ tenant-id]
     (log/debug "Counting users by tenant" {:tenant-id tenant-id})
-    (let [query {:select [:%count.*]
+    (let [query {:select [[:%count.* :total]]
                  :from [:users]
                  :where [:and
                          [:= :tenant_id (type-conversion/uuid->string tenant-id)]
                          [:is :deleted_at nil]]}
           result (db/execute-one! ctx query)]
-      (:count result)))
+      (or (:total result)
+          (:count result)
+          (get result (keyword "COUNT(*)"))
+          0)))
 
   (find-users-created-since [_ tenant-id since-date]
     (log/debug "Finding users created since" {:tenant-id tenant-id :since-date since-date})

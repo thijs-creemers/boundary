@@ -1,7 +1,6 @@
 (ns boundary.shell.adapters.database.mysql.utils
   "MySQL utility functions and DDL helpers."
-  (:require [clojure.string :as str]
-            [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]))

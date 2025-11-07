@@ -374,9 +374,8 @@
 
     ;; Last admin user cannot be deleted
     ;; (In real implementation, this would require context about other users)
-    (and (= :admin (:role user)))
+    (= :admin (:role user))
     ; (is-last-admin? user) - this would be checked in service layer
-
     {:allowed? false :reason :last-admin-user}
 
     :else

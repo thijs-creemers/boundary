@@ -386,7 +386,7 @@
   ;; For now, create a mock adapter that satisfies the protocol
   ;; This will be replaced when actual adapter implementations are available
   (reify protocols/DBAdapter
-    (dialect [thijs]
+    (dialect [_this]
       (case adapter-key
         :boundary/sqlite :sqlite
         :boundary/h2 :h2
@@ -396,7 +396,7 @@
         :boundary/logging :sqlite   ; Use SQLite as underlying implementation for logging
         :unknown))
 
-    (jdbc-driver [thijs]
+    (jdbc-driver [_this]
       (case adapter-key
         :boundary/sqlite "org.sqlite.JDBC"
         :boundary/h2 "org.h2.Driver"
@@ -406,7 +406,7 @@
         :boundary/logging "org.sqlite.JDBC"   ; Use SQLite driver for logging
         "unknown"))
 
-    (jdbc-url [thijs db-config]
+    (jdbc-url [_this db-config]
       (case adapter-key
         :boundary/sqlite (str "jdbc:sqlite:" (or (:db config) (:database-path db-config)))
         :boundary/h2 (if (or (:memory config) (and (:database-path db-config) (str/starts-with? (str (:database-path db-config)) "mem:")))
@@ -424,22 +424,22 @@
         :boundary/logging (str "jdbc:sqlite:" (or (:database-path config) (:db config) "logging.db"))
         "jdbc:unknown"))
 
-    (pool-defaults [thijs]
+    (pool-defaults [_this]
       {:minimum-idle 2 :maximum-pool-size 10 :connection-timeout-ms 30000})
 
-    (init-connection! [this datasource db-config] nil)
+    (init-connection! [_this _datasource _db-config] nil)
 
-    (build-where [thijs filters]
+    (build-where [_this _filters]
       ;; Simple implementation - just return nil for mock adapter
       nil)
 
-    (boolean->db [this boolean-value] boolean-value)
+    (boolean->db [_this boolean-value] boolean-value)
 
-    (db->boolean [this db-value] db-value)
+    (db->boolean [_this db-value] db-value)
 
-    (table-exists? [this datasource table-name] false)
+    (table-exists? [_this _datasource _table-name] false)
 
-    (get-table-info [this datasource table-name] [])))
+    (get-table-info [_this _datasource _table-name] [])))
 
 (defn create-active-adapters
   "Create all active adapters from configuration (test compatibility)"

@@ -111,24 +111,38 @@
     (core-query/format-sql-with-opts adapter-dialect query-map opts)))
 
 (defn build-where-clause
-  "Build dynamic WHERE clause from filter map using adapter-specific logic.
+  "Build dynamic WHERE clause from filter map with type and case conversion.
    
-   Uses adapter protocol for database-specific WHERE clause building.
-   This allows different handling of patterns (LIKE vs ILIKE) per database.
+   Delegates to core query builder for database-agnostic WHERE clause construction.
+   Handles kebab-case to snake_case conversion, type conversions, and adapter-specific
+   boolean conversions automatically.
 
    Args:
-     ctx: Database context
-     filters: Map of field -> value filters
+     ctx: Database context with :adapter for database-specific conversions
+     filters: Map of kebab-case field keywords -> value filters
 
    Returns:
-     HoneySQL WHERE clause or nil
+     HoneySQL WHERE clause with snake_case fields or nil
 
    Example:
-     (build-where-clause ctx {:name \"John\" :active true :role [:admin :user]})"
+     (build-where-clause ctx {:name \"John\" :active true :role [:admin :user]})
+     (build-where-clause ctx {:tenant-id #uuid\"...\" :deleted-at nil})"
   [ctx filters]
   (execution/validate-adapter ctx)
-  (when (seq filters)
-    (protocols/build-where (:adapter ctx) filters)))
+  (let [adapter (:adapter ctx)
+        ;; Convert booleans to adapter-specific format (SQLite: 0/1, Postgres: true/false)
+        convert-booleans (fn [m]
+                          (reduce-kv (fn [acc k v]
+                                       (assoc acc k
+                                              (cond
+                                                (boolean? v) (protocols/boolean->db adapter v)
+                                                (and (sequential? v) (every? boolean? v))
+                                                (mapv #(protocols/boolean->db adapter %) v)
+                                                :else v)))
+                                     {}
+                                     m))
+        filters-with-db-booleans (convert-booleans filters)]
+    (core-query/build-where-filters filters-with-db-booleans)))
 
 (defn build-pagination
   "Build LIMIT/OFFSET clause from pagination options with safe defaults.

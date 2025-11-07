@@ -165,7 +165,7 @@
      Data with sensitive fields redacted"
   [data]
   (reduce-kv
-   (fn [result k v]
+   (fn [result k _v]
      (if (sensitive-fields k)
        (assoc result k (str "<" (name k) ">"))
        result))
@@ -203,7 +203,7 @@
           final-keys (remove exclude-keys include-keys)
           minimal (select-keys generated final-keys)]
       (redact-sensitive-fields minimal))
-    (catch Exception e
+    (catch Exception _e
       nil)))
 
 (defn generate-example-payload
@@ -388,7 +388,7 @@
         suggestion (assoc :suggestion suggestion)
         formatted-steps (assoc :next-steps formatted-steps)
         example (assoc :example example)))
-    (catch Exception e
+    (catch Exception _e
       ;; Non-breaking: preserve original error
       error)))
 
