@@ -271,6 +271,11 @@
     {:equal? equal?
      :diff diff-result}))
 
+;; Alias for backwards compatibility with tests
+;; Note: This shadows clojure.core/compare in this namespace
+(def ^{:doc "Alias for compare-snapshots. See compare-snapshots for full documentation."}
+  compare compare-snapshots)
+
 (defn format-diff
   "Format a diff result into human-readable string.
 

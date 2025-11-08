@@ -305,7 +305,7 @@
                      :role role
                      :tenant-id tenant-id
                      :active active}
-          result (ports/create-user service user-data)]
+          result (ports/register-user service user-data)]
       {:status 0
        :entity-type :user
        :data result})))
@@ -321,7 +321,7 @@
     (let [options (cond-> {:limit limit :offset offset}
                     role (assoc :filter-role role)
                     (some? active) (assoc :filter-active active))
-          result (ports/find-users-by-tenant service tenant-id options)]
+          result (ports/list-users-by-tenant service tenant-id options)]
       {:status 0
        :entity-type :user-list
        :data (:users result)})))
@@ -331,7 +331,7 @@
   [service opts]
   (let [{:keys [id email tenant-id]} opts]
     (cond
-      id (let [result (ports/find-user-by-id service id)]
+      id (let [result (ports/get-user-by-id service id)]
            (when-not result
              (throw (ex-info "User not found"
                              {:type :user-not-found
@@ -341,7 +341,7 @@
             :data result})
 
       (and email tenant-id)
-      (let [result (ports/find-user-by-email service email tenant-id)]
+      (let [result (ports/get-user-by-email service email tenant-id)]
         (when-not result
           (throw (ex-info "User not found"
                           {:type :user-not-found
@@ -367,7 +367,7 @@
       (throw (ex-info "No fields to update"
                       {:type :validation-error
                        :message "At least one of --name, --role, or --active required"})))
-    (let [current-user (ports/find-user-by-id service id)]
+    (let [current-user (ports/get-user-by-id service id)]
       (when-not current-user
         (throw (ex-info "User not found"
                         {:type :user-not-found
@@ -376,7 +376,7 @@
                            name (assoc :name name)
                            role (assoc :role role)
                            (some? active) (assoc :active active))
-            result (ports/update-user service updated-user)]
+            result (ports/update-user-profile service updated-user)]
         {:status 0
          :entity-type :user
          :data result}))))
@@ -389,7 +389,7 @@
       (throw (ex-info "Missing required argument"
                       {:type :validation-error
                        :message "Required: --id"})))
-    (ports/soft-delete-user service id)
+    (ports/deactivate-user service id)
     {:status 0
      :message "User deleted successfully"}))
 
@@ -405,7 +405,7 @@
                                 :tenant-id tenant-id}
                          user-agent (assoc :user-agent user-agent)
                          ip-address (assoc :ip-address ip-address))
-          result (ports/create-session service session-data)]
+          result (ports/authenticate-user service session-data)]
       {:status 0
        :entity-type :session
        :data result})))
@@ -418,7 +418,7 @@
       (throw (ex-info "Missing required argument"
                       {:type :validation-error
                        :message "Required: --token"})))
-    (let [result (ports/invalidate-session service token)]
+    (let [result (ports/logout-user service token)]
       (if result
         {:status 0
          :message "Session invalidated successfully"}

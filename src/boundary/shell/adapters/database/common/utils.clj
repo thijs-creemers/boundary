@@ -111,14 +111,14 @@
     (core-query/format-sql-with-opts adapter-dialect query-map opts)))
 
 (defn build-where-clause
-  "Build dynamic WHERE clause from filter map with type and case conversion.
+  "Build dynamic WHERE clause from filter map using adapter-specific query building.
    
-   Delegates to core query builder for database-agnostic WHERE clause construction.
-   Handles kebab-case to snake_case conversion, type conversions, and adapter-specific
-   boolean conversions automatically.
+   Delegates to adapter's protocol method for database-specific WHERE clause construction
+   (e.g., SQLite uses GLOB, PostgreSQL uses ILIKE, H2 uses LIKE for strings).
+   Handles kebab-case to snake_case conversion and type conversions automatically.
 
    Args:
-     ctx: Database context with :adapter for database-specific conversions
+     ctx: Database context with :adapter for database-specific query building
      filters: Map of kebab-case field keywords -> value filters
 
    Returns:
@@ -130,19 +130,29 @@
   [ctx filters]
   (execution/validate-adapter ctx)
   (let [adapter (:adapter ctx)
-        ;; Convert booleans to adapter-specific format (SQLite: 0/1, Postgres: true/false)
-        convert-booleans (fn [m]
-                          (reduce-kv (fn [acc k v]
-                                       (assoc acc k
-                                              (cond
-                                                (boolean? v) (protocols/boolean->db adapter v)
-                                                (and (sequential? v) (every? boolean? v))
-                                                (mapv #(protocols/boolean->db adapter %) v)
-                                                :else v)))
-                                     {}
-                                     m))
-        filters-with-db-booleans (convert-booleans filters)]
-    (core-query/build-where-filters filters-with-db-booleans)))
+        ;; Convert kebab-case to snake_case for database fields
+        kebab->snake (fn [kw]
+                      (keyword (clojure.string/replace (name kw) #"-" "_")))
+        ;; Convert values to database-appropriate types
+        convert-value (fn [value]
+                       (cond
+                         (uuid? value) (str value)
+                         (keyword? value) (name value)
+                         (sequential? value) (mapv #(cond
+                                                      (uuid? %) (str %)
+                                                      (keyword? %) (name %)
+                                                      :else %) value)
+                         (boolean? value) (protocols/boolean->db adapter value)
+                         :else value))
+        ;; Transform filters to snake_case with converted values
+        db-filters (when (seq filters)
+                    (reduce-kv (fn [acc k v]
+                                (assoc acc (kebab->snake k) (convert-value v)))
+                              {}
+                              filters))]
+    ;; Use adapter's protocol method for database-specific query building
+    (when db-filters
+      (protocols/build-where adapter db-filters))))
 
 (defn build-pagination
   "Build LIMIT/OFFSET clause from pagination options with safe defaults.

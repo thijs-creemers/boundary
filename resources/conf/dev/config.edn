@@ -16,12 +16,12 @@
   ;; Active database configurations
   ;; Only databases listed here will be loaded and initialized
   
-  ;; SQLite for file-based development (active)
-  :boundary/sqlite
-  {:db "dev-database.db"
-   :pool {:minimum-idle 1
-          :maximum-pool-size 3
-          :connection-timeout-ms 10000}}
+ ;; SQLite for file-based development (active)
+ :boundary/sqlite
+ {:db   "dev-database.db"
+  :pool {:minimum-idle          1
+         :maximum-pool-size     3
+         :connection-timeout-ms 10000}}
 
   ;; HTTP Server configuration
   :boundary/http

@@ -115,10 +115,17 @@
            ;; CLI Interface
            ;; =============================================================================
 
-           :cli       {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.50.3.0"}
-                                    org.postgresql/postgresql   {:mvn/version "42.7.8"}
-                                    com.h2database/h2           {:mvn/version "2.4.240"}
-                                    com.mysql/mysql-connector-j {:mvn/version "9.4.0"}}
-                       :main-opts  ["-m" "boundary.cli"]
-                       :jvm-opts   ["-Denv=dev"]}}}
+            :cli       {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.50.3.0"}
+                                     org.postgresql/postgresql   {:mvn/version "42.7.8"}
+                                     com.h2database/h2           {:mvn/version "2.4.240"}
+                                     com.mysql/mysql-connector-j {:mvn/version "9.4.0"}}
+                        :main-opts  ["-m" "boundary.cli"]
+                        :jvm-opts   ["-Denv=dev"]}
+            
+            ;; =============================================================================
+            ;; Documentation 
+            ;; =============================================================================
+            
+            :docs      {:exec-fn clojure.core/sh
+                        :exec-args ["scripts/build-docs.sh"]}}}
 

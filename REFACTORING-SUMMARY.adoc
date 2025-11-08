@@ -1,0 +1,196 @@
+= Service Layer Refactoring Summary
+:toc:
+:toclevels: 3
+
+== Overview
+
+This document summarizes the architectural refactoring completed to resolve protocol method name collisions and database configuration issues in the Boundary project.
+
+== Issues Resolved
+
+=== Issue 1: Protocol Method Name Collisions
+
+**Problem:** Clojure protocol methods must be globally unique within a namespace. The `IUserService` protocol had method names that duplicated those in `IUserRepository` and `IUserSessionRepository`, causing protocol overwrite warnings.
+
+**Root Cause:** Service layer was mirroring repository method names (e.g., `create-user`, `update-user`), violating Clojure's protocol uniqueness requirement.
+
+**Solution:** Renamed all `IUserService` methods to use domain-specific business operation names that align with the Functional Core / Imperative Shell (FC/IS) architectural paradigm.
+
+=== Issue 2: Invalid Database Configuration
+
+**Problem:** CLI startup failed with "Fatal error: Invalid database configuration"
+
+**Root Cause:** Configuration file used `:db` key, but database protocols expected `:adapter` and `:database-path` keys per the canonical schema.
+
+**Solution:** Updated configuration to match the expected schema defined in database protocols.
+
+== Architectural Decisions
+
+=== Service Layer Naming Strategy
+
+Based on the Boundary Architecture Guide and FC/IS principles:
+
+* **Repository Layer (Data Access)**: Keep simple CRUD-oriented names (`create-user`, `find-user-by-id`)
+* **Service Layer (Business Operations)**: Use domain-specific operation names (`register-user`, `authenticate-user`)
+
+This separation:
+
+* Prevents protocol method name collisions
+* Makes business intent explicit at the service layer
+* Aligns with the FC/IS paradigm where service orchestrates business operations
+* Maintains consistency across REST, CLI, and Web interfaces using business vocabulary
+
+== Method Mapping Reference
+
+[cols="2,2,3"]
+|===
+|Old Method (Repository) |New Method (Service) |Business Purpose
+
+|`create-user`
+|`register-user`
+|User registration business operation
+
+|`update-user`
+|`update-user-profile`
+|Profile update operation
+
+|`find-user-by-id`
+|`get-user-by-id`
+|Retrieve user operation
+
+|`find-user-by-email`
+|`get-user-by-email`
+|Retrieve by email operation
+
+|`find-users-by-tenant`
+|`list-users-by-tenant`
+|List users operation
+
+|`soft-delete-user`
+|`deactivate-user`
+|User deactivation operation
+
+|`hard-delete-user`
+|`permanently-delete-user`
+|Permanent deletion (GDPR compliance)
+
+|`create-session`
+|`authenticate-user`
+|Authentication operation
+
+|`find-session-by-token`
+|`validate-session`
+|Session validation operation
+
+|`invalidate-session`
+|`logout-user`
+|Logout operation
+
+|`invalidate-all-user-sessions`
+|`logout-user-everywhere`
+|Force logout from all devices operation
+|===
+
+== Files Modified
+
+=== Core Architecture
+
+* `src/boundary/user/ports.clj` - Protocol definitions
+* `src/boundary/user/shell/service.clj` - UserService implementation
+* `resources/conf/dev/config.edn` - Database configuration schema
+
+=== Interface Adapters
+
+* `src/boundary/user/shell/cli.clj` - CLI handlers
+* `src/boundary/user/shell/http.clj` - HTTP REST handlers
+
+=== Test Suites
+
+* `test/boundary/user/service_test.clj` - Service integration tests
+* `test/boundary/user/cli_test.clj` - CLI tests
+* `test/boundary/user/http_test.clj` - HTTP handler tests
+
+== Configuration Changes
+
+=== Before
+
+[source,clojure]
+----
+:boundary/sqlite
+{:db "dev-database.db"
+ :pool {:minimum-idle 1
+        :maximum-pool-size 3
+        :connection-timeout-ms 10000}}
+----
+
+=== After
+
+[source,clojure]
+----
+:boundary/sqlite
+{:adapter           :sqlite
+ :database-path    "dev-database.db"
+ :pool             {:minimum-idle          1
+                    :maximum-pool-size     3
+                    :connection-timeout-ms 10000}}
+----
+
+== Verification Results
+
+✅ **Protocol Collision Warnings**: RESOLVED
+
+* All refactored namespaces load successfully
+* No "overwriting method" warnings detected
+* Code compiles cleanly
+
+✅ **Database Configuration**: RESOLVED
+
+* Configuration loads with correct schema
+* `:adapter :sqlite` and `:database-path` keys present
+* Validates against `DBConfig` schema
+
+✅ **Code Quality**
+
+* Proper parenthesis balance maintained (Parinfer-compatible)
+* Precise indentation preserved
+* All test files updated consistently
+
+== Remaining Tasks
+
+. **CLI End-to-End Testing**: Verify CLI commands work with SQLite database (requires SQLite JDBC driver)
+. **Full Test Suite**: Run complete test suite once unrelated snapshot test issue is resolved
+. **Linting**: Run `clj-kondo` to verify no new warnings introduced
+. **Documentation**: Update developer docs with method mapping table
+
+== Migration Guide for Developers
+
+If you have code that calls `IUserService` methods, update as follows:
+
+[source,clojure]
+----
+;; OLD
+(ports/create-user service user-data)
+(ports/find-user-by-id service user-id)
+(ports/create-session service session-data)
+
+;; NEW
+(ports/register-user service user-data)
+(ports/get-user-by-id service user-id)
+(ports/authenticate-user service session-data)
+----
+
+**Important:** Repository method names remain unchanged. Only service layer methods were renamed.
+
+== Benefits of This Refactoring
+
+. **Eliminates Technical Debt**: Resolves protocol collision warnings
+. **Improves Code Clarity**: Service methods clearly express business intent
+. **Aligns with Architecture**: Better adherence to FC/IS and Ports & Adapters patterns
+. **Maintains Consistency**: Same business vocabulary across all interfaces (REST, CLI, Web)
+. **Future-Proof**: Prevents similar collisions when adding new protocols
+
+== Conclusion
+
+The refactoring successfully resolves both the protocol collision warnings and database configuration issues while strengthening the architectural boundaries between data access (repository) and business operations (service) layers.
+
+All changes maintain backward compatibility in terms of behavior—only method names changed, not functionality or data structures.

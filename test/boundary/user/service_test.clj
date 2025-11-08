@@ -211,7 +211,7 @@
                     :name "Test User"
                     :role :user
                     :tenant-id tenant-id}
-          result (ports/create-user service user-data)]
+          result (ports/register-user service user-data)]
       
       (is (some? (:id result)))
       (is (= "test@example.com" (:email result)))
@@ -230,12 +230,12 @@
                     :name "First User"
                     :role :user
                     :tenant-id tenant-id}
-          _ (ports/create-user service user-data)]
+          _ (ports/register-user service user-data)]
       
       ;; Attempt to create duplicate
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                            #"User already exists"
-                           (ports/create-user service user-data)))))
+                           (ports/register-user service user-data)))))
   
   (testing "Validation error for invalid user data"
     (let [{:keys [user-repository session-repository]} (create-mock-repositories)
@@ -247,19 +247,19 @@
       
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                            #"Invalid user data"
-                           (ports/create-user service invalid-data))))))
+                           (ports/register-user service invalid-data))))))
 
 (deftest test-find-user
   (testing "Find user by ID"
     (let [{:keys [user-repository session-repository]} (create-mock-repositories)
           service (user-service/create-user-service user-repository session-repository)
           tenant-id (UUID/randomUUID)
-          created-user (ports/create-user service
-                                          {:email "find@example.com"
-                                           :name "Find User"
-                                           :role :user
-                                           :tenant-id tenant-id})
-          found-user (ports/find-user-by-id service (:id created-user))]
+          created-user (ports/register-user service
+                                            {:email "find@example.com"
+                                             :name "Find User"
+                                             :role :user
+                                             :tenant-id tenant-id})
+          found-user (ports/get-user-by-id service (:id created-user))]
       
       (is (some? found-user))
       (is (= (:id created-user) (:id found-user)))
@@ -269,12 +269,12 @@
     (let [{:keys [user-repository session-repository]} (create-mock-repositories)
           service (user-service/create-user-service user-repository session-repository)
           tenant-id (UUID/randomUUID)
-          _ (ports/create-user service
-                               {:email "email@example.com"
-                                :name "Email User"
-                                :role :user
-                                :tenant-id tenant-id})
-          found-user (ports/find-user-by-email service "email@example.com" tenant-id)]
+          _ (ports/register-user service
+                                 {:email "email@example.com"
+                                  :name "Email User"
+                                  :role :user
+                                  :tenant-id tenant-id})
+          found-user (ports/get-user-by-email service "email@example.com" tenant-id)]
       
       (is (some? found-user))
       (is (= "email@example.com" (:email found-user))))))
@@ -284,13 +284,13 @@
     (let [{:keys [user-repository session-repository]} (create-mock-repositories)
           service (user-service/create-user-service user-repository session-repository)
           tenant-id (UUID/randomUUID)
-          created-user (ports/create-user service
-                                          {:email "update@example.com"
-                                           :name "Original Name"
-                                           :role :user
-                                           :tenant-id tenant-id})
+          created-user (ports/register-user service
+                                            {:email "update@example.com"
+                                             :name "Original Name"
+                                             :role :user
+                                             :tenant-id tenant-id})
           updated-user (assoc created-user :name "Updated Name" :role :admin)
-          result (ports/update-user service updated-user)]
+          result (ports/update-user-profile service updated-user)]
       
       (is (= "Updated Name" (:name result)))
       (is (= :admin (:role result)))
@@ -307,24 +307,24 @@
       
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                            #"User not found"
-                           (ports/update-user service fake-user))))))
+                           (ports/update-user-profile service fake-user))))))
 
 (deftest test-soft-delete-user
   (testing "Soft delete user successfully"
     (let [{:keys [user-repository session-repository]} (create-mock-repositories)
           service (user-service/create-user-service user-repository session-repository)
           tenant-id (UUID/randomUUID)
-          created-user (ports/create-user service
-                                          {:email "delete@example.com"
-                                           :name "Delete User"
-                                           :role :user
-                                           :tenant-id tenant-id})
-          result (ports/soft-delete-user service (:id created-user))]
+          created-user (ports/register-user service
+                                            {:email "delete@example.com"
+                                             :name "Delete User"
+                                             :role :user
+                                             :tenant-id tenant-id})
+          result (ports/deactivate-user service (:id created-user))]
       
       (is (true? result))
       
       ;; Verify user is marked as deleted
-      (let [deleted-user (ports/find-user-by-id service (:id created-user))]
+      (let [deleted-user (ports/get-user-by-id service (:id created-user))]
         (is (false? (:active deleted-user)))
         (is (some? (:deleted-at deleted-user))))))
   
@@ -335,7 +335,7 @@
       
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                            #"User not found"
-                           (ports/soft-delete-user service fake-id))))))
+                           (ports/deactivate-user service fake-id))))))
 
 ;; =============================================================================
 ;; Session Service Tests
@@ -351,7 +351,7 @@
                        :tenant-id tenant-id
                        :user-agent "Mozilla/5.0"
                        :ip-address "***********"}
-          result (ports/create-session service session-data)]
+          result (ports/authenticate-user service session-data)]
       
       (is (some? (:id result)))
       (is (some? (:session-token result)))
@@ -366,7 +366,7 @@
           service (user-service/create-user-service user-repository session-repository)
           session-data {:user-id (UUID/randomUUID)
                        :tenant-id (UUID/randomUUID)}
-          result (ports/create-session service session-data)
+          result (ports/authenticate-user service session-data)
           now (Instant/now)]
       
       ;; Session should expire in the future (24 hours by default)
@@ -376,10 +376,10 @@
   (testing "Find valid session"
     (let [{:keys [user-repository session-repository]} (create-mock-repositories)
           service (user-service/create-user-service user-repository session-repository)
-          session (ports/create-session service
-                                        {:user-id (UUID/randomUUID)
-                                         :tenant-id (UUID/randomUUID)})
-          found-session (ports/find-session-by-token service (:session-token session))]
+          session (ports/authenticate-user service
+                                           {:user-id (UUID/randomUUID)
+                                            :tenant-id (UUID/randomUUID)})
+          found-session (ports/validate-session service (:session-token session))]
       
       (is (some? found-session))
       (is (= (:id session) (:id found-session)))
@@ -388,7 +388,7 @@
   (testing "Invalid token returns nil"
     (let [{:keys [user-repository session-repository]} (create-mock-repositories)
           service (user-service/create-user-service user-repository session-repository)
-          found-session (ports/find-session-by-token service "invalid-token-123")]
+          found-session (ports/validate-session service "invalid-token-123")]
       
       (is (nil? found-session)))))
 
@@ -396,21 +396,21 @@
   (testing "Invalidate session successfully"
     (let [{:keys [user-repository session-repository]} (create-mock-repositories)
           service (user-service/create-user-service user-repository session-repository)
-          session (ports/create-session service
-                                        {:user-id (UUID/randomUUID)
-                                         :tenant-id (UUID/randomUUID)})
-          result (ports/invalidate-session service (:session-token session))]
+          session (ports/authenticate-user service
+                                           {:user-id (UUID/randomUUID)
+                                            :tenant-id (UUID/randomUUID)})
+          result (ports/logout-user service (:session-token session))]
       
       (is (true? result))
       
       ;; Verify session is invalidated
-      (let [invalidated-session (ports/find-session-by-token service (:session-token session))]
+      (let [invalidated-session (ports/validate-session service (:session-token session))]
         (is (nil? invalidated-session)))))
   
   (testing "Invalidate non-existent session"
     (let [{:keys [user-repository session-repository]} (create-mock-repositories)
           service (user-service/create-user-service user-repository session-repository)
-          result (ports/invalidate-session service "fake-token-123")]
+          result (ports/logout-user service "fake-token-123")]
       
       (is (false? result)))))
 
@@ -421,22 +421,22 @@
           user-id (UUID/randomUUID)
           tenant-id (UUID/randomUUID)
           ;; Create multiple sessions for the same user
-          session1 (ports/create-session service {:user-id user-id :tenant-id tenant-id})
-          session2 (ports/create-session service {:user-id user-id :tenant-id tenant-id})
-          session3 (ports/create-session service {:user-id user-id :tenant-id tenant-id})
-          result (ports/invalidate-all-user-sessions service user-id)]
+          session1 (ports/authenticate-user service {:user-id user-id :tenant-id tenant-id})
+          session2 (ports/authenticate-user service {:user-id user-id :tenant-id tenant-id})
+          session3 (ports/authenticate-user service {:user-id user-id :tenant-id tenant-id})
+          result (ports/logout-user-everywhere service user-id)]
       
       (is (= 3 result))
       
       ;; Verify all sessions are invalidated
-      (is (nil? (ports/find-session-by-token service (:session-token session1))))
-      (is (nil? (ports/find-session-by-token service (:session-token session2))))
-      (is (nil? (ports/find-session-by-token service (:session-token session3))))))
+      (is (nil? (ports/validate-session service (:session-token session1))))
+      (is (nil? (ports/validate-session service (:session-token session2))))
+      (is (nil? (ports/validate-session service (:session-token session3))))))
   
   (testing "Invalidate sessions for user with no sessions"
     (let [{:keys [user-repository session-repository]} (create-mock-repositories)
           service (user-service/create-user-service user-repository session-repository)
           user-id (UUID/randomUUID)
-          result (ports/invalidate-all-user-sessions service user-id)]
+          result (ports/logout-user-everywhere service user-id)]
       
       (is (= 0 result)))))

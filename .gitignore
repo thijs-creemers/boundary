@@ -4,8 +4,10 @@
 /.idea/
 /.lsp/
 /.clojure-mcp
+/.cache/
 .env
 ._*
+ROOT/
 /docs/**/*.html
 /.nrepl-port
 opencode.json
@@ -13,4 +15,6 @@ opencode.json
 /target
 /build/
 /test/reports/
+/node_modules
+/resources/public/docs
 # Keep snapshots tracked; do not ignore test/snapshots/

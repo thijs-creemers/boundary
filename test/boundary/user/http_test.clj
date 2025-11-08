@@ -37,7 +37,7 @@
 (defrecord MockUserService [state]
   ports/IUserService
 
-  (create-user [_ user-data]
+  (register-user [_ user-data]
     (let [user-id (UUID/randomUUID)
           now (Instant/now)
           created-user (assoc user-data
@@ -48,17 +48,17 @@
       (swap! state assoc user-id created-user)
       created-user))
 
-  (find-user-by-id [_ user-id]
+  (get-user-by-id [_ user-id]
     (get @state user-id))
 
-  (find-user-by-email [_ email tenant-id]
+  (get-user-by-email [_ email tenant-id]
     (->> @state
          vals
          (filter #(and (= (:email %) email)
                        (= (:tenant-id %) tenant-id)))
          first))
 
-  (find-users-by-tenant [_ tenant-id options]
+  (list-users-by-tenant [_ tenant-id options]
     (let [users (->> @state
                      vals
                      (filter #(= (:tenant-id %) tenant-id))
@@ -70,7 +70,7 @@
       {:users page
        :total-count total-count}))
 
-  (update-user [_ user-entity]
+  (update-user-profile [_ user-entity]
     (let [user-id (:id user-entity)
           existing (get @state user-id)]
       (if existing
@@ -81,7 +81,7 @@
                         {:type :user-not-found
                          :user-id user-id})))))
 
-  (soft-delete-user [_ user-id]
+  (deactivate-user [_ user-id]
     (let [existing (get @state user-id)]
       (if existing
         (do
@@ -92,7 +92,7 @@
                         {:type :user-not-found
                          :user-id user-id})))))
 
-  (hard-delete-user [_ user-id]
+  (permanently-delete-user [_ user-id]
     (if (get @state user-id)
       (do
         (swap! state dissoc user-id)
@@ -101,7 +101,7 @@
                       {:type :user-not-found
                        :user-id user-id}))))
 
-  (create-session [_ session-data]
+  (authenticate-user [_ session-data]
     (let [session-id (UUID/randomUUID)
           now (Instant/now)
           session-token (str (UUID/randomUUID) (UUID/randomUUID))
@@ -116,7 +116,7 @@
       (swap! state assoc-in [:sessions session-token] session)
       session))
 
-  (find-session-by-token [_ session-token]
+  (validate-session [_ session-token]
     (let [session (get-in @state [:sessions session-token])
           now (Instant/now)]
       (when (and session
@@ -124,14 +124,14 @@
                  (.isAfter (:expires-at session) now))
         session)))
 
-  (invalidate-session [_ session-token]
+  (logout-user [_ session-token]
     (if (get-in @state [:sessions session-token])
       (do
         (swap! state assoc-in [:sessions session-token :revoked-at] (Instant/now))
         true)
       false))
 
-  (invalidate-all-user-sessions [_ user-id]
+  (logout-user-everywhere [_ user-id]
     (let [sessions (get-in @state [:sessions])
           user-sessions (filter #(= (:user-id (val %)) user-id) sessions)
           count (count user-sessions)]
@@ -186,11 +186,11 @@
   (testing "GET /users/:id - Get existing user"
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
-          created-user (ports/create-user service
-                                          {:email "test@example.com"
-                                           :name "Test User"
-                                           :role :user
-                                           :tenant-id tenant-id})
+          created-user (ports/register-user service
+                                            {:email "test@example.com"
+                                             :name "Test User"
+                                             :role :user
+                                             :tenant-id tenant-id})
           handler (user-http/get-user-handler service)
           request {:parameters
                    {:path {:id (str (:id created-user))}}}
@@ -223,16 +223,16 @@
   (testing "GET /users - List users with pagination"
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
-          _ (ports/create-user service
-                               {:email "user1@example.com"
-                                :name "User 1"
-                                :role :user
-                                :tenant-id tenant-id})
-          _ (ports/create-user service
-                               {:email "user2@example.com"
-                                :name "User 2"
-                                :role :admin
-                                :tenant-id tenant-id})
+          _ (ports/register-user service
+                                 {:email "user1@example.com"
+                                  :name "User 1"
+                                  :role :user
+                                  :tenant-id tenant-id})
+          _ (ports/register-user service
+                                 {:email "user2@example.com"
+                                  :name "User 2"
+                                  :role :admin
+                                  :tenant-id tenant-id})
           handler (user-http/list-users-handler service)
           request {:parameters
                    {:query {:tenantId (str tenant-id)
@@ -247,16 +247,16 @@
   (testing "GET /users - Filter by role"
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
-          _ (ports/create-user service
-                               {:email "user1@example.com"
-                                :name "User 1"
-                                :role :user
-                                :tenant-id tenant-id})
-          _ (ports/create-user service
-                               {:email "admin1@example.com"
-                                :name "Admin 1"
-                                :role :admin
-                                :tenant-id tenant-id})
+          _ (ports/register-user service
+                                 {:email "user1@example.com"
+                                  :name "User 1"
+                                  :role :user
+                                  :tenant-id tenant-id})
+          _ (ports/register-user service
+                                 {:email "admin1@example.com"
+                                  :name "Admin 1"
+                                  :role :admin
+                                  :tenant-id tenant-id})
           handler (user-http/list-users-handler service)
           request {:parameters
                    {:query {:tenantId (str tenant-id)
@@ -273,11 +273,11 @@
   (testing "PUT /users/:id - Update user successfully"
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
-          created-user (ports/create-user service
-                                          {:email "test@example.com"
-                                           :name "Test User"
-                                           :role :user
-                                           :tenant-id tenant-id})
+          created-user (ports/register-user service
+                                            {:email "test@example.com"
+                                             :name "Test User"
+                                             :role :user
+                                             :tenant-id tenant-id})
           handler (user-http/update-user-handler service)
           request {:parameters
                    {:path {:id (str (:id created-user))}
@@ -312,11 +312,11 @@
   (testing "DELETE /users/:id - Soft delete user successfully"
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
-          created-user (ports/create-user service
-                                          {:email "test@example.com"
-                                           :name "Test User"
-                                           :role :user
-                                           :tenant-id tenant-id})
+          created-user (ports/register-user service
+                                            {:email "test@example.com"
+                                             :name "Test User"
+                                             :role :user
+                                             :tenant-id tenant-id})
           handler (user-http/delete-user-handler service)
           request {:parameters
                    {:path {:id (str (:id created-user))}}}
@@ -325,7 +325,7 @@
       (is (= 204 (:status response)))
 
       ;; Verify user is soft deleted
-      (let [deleted-user (ports/find-user-by-id service (:id created-user))]
+      (let [deleted-user (ports/get-user-by-id service (:id created-user))]
         (is (false? (:active deleted-user)))
         (is (some? (:deleted-at deleted-user)))))))
 
@@ -356,11 +356,11 @@
     (let [service (create-mock-service)
           user-id (UUID/randomUUID)
           tenant-id (UUID/randomUUID)
-          session (ports/create-session service
-                                        {:user-id user-id
-                                         :tenant-id tenant-id
-                                         :user-agent "Mozilla/5.0"
-                                         :ip-address "192.168.1.1"})
+          session (ports/authenticate-user service
+                                           {:user-id user-id
+                                            :tenant-id tenant-id
+                                            :user-agent "Mozilla/5.0"
+                                            :ip-address "***********"})
           handler (user-http/validate-session-handler service)
           request {:parameters
                    {:path {:token (:session-token session)}}}
@@ -394,9 +394,9 @@
     (let [service (create-mock-service)
           user-id (UUID/randomUUID)
           tenant-id (UUID/randomUUID)
-          session (ports/create-session service
-                                        {:user-id user-id
-                                         :tenant-id tenant-id})
+          session (ports/authenticate-user service
+                                           {:user-id user-id
+                                            :tenant-id tenant-id})
           handler (user-http/invalidate-session-handler service)
           request {:parameters
                    {:path {:token (:session-token session)}}}
@@ -405,5 +405,5 @@
       (is (= 204 (:status response)))
 
       ;; Verify session is invalidated
-      (let [invalidated-session (ports/find-session-by-token service (:session-token session))]
+      (let [invalidated-session (ports/validate-session service (:session-token session))]
         (is (nil? invalidated-session))))))

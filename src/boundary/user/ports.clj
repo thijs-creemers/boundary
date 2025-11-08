@@ -382,8 +382,11 @@
    - Manage transaction boundaries"
 
   ;; User Management Operations
-  (create-user [this user-data]
-    "Create new user with full validation and business rule enforcement.
+  (register-user [this user-data]
+    "Register a new user with full validation and business rule enforcement.
+     
+     Business operation that coordinates user registration including validation,
+     uniqueness checks, and initial setup.
      
      Args:
        user-data: Map with user creation data
@@ -398,13 +401,13 @@
        - ExceptionInfo with :type :business-rule-violation for rule violations
      
      Example:
-       (create-user service {:email \"new@example.com\"
-                           :name \"New User\"
-                           :role :user
-                           :tenant-id tenant-id})")
+       (register-user service {:email \"new@example.com\"
+                              :name \"New User\"
+                              :role :user
+                              :tenant-id tenant-id})")
 
-  (find-user-by-id [this user-id]
-    "Find user by ID with service-level validation.
+  (get-user-by-id [this user-id]
+    "Retrieve user by ID with service-level validation.
      
      Args:
        user-id: UUID of user to find
@@ -413,10 +416,10 @@
        User entity or nil if not found
        
      Example:
-       (find-user-by-id service user-id)")
+       (get-user-by-id service user-id)")
 
-  (find-user-by-email [this email tenant-id]
-    "Find user by email with tenant isolation.
+  (get-user-by-email [this email tenant-id]
+    "Retrieve user by email with tenant isolation.
      
      Args:
        email: String email address
@@ -426,10 +429,10 @@
        User entity or nil if not found
        
      Example:
-       (find-user-by-email service \"user@example.com\" tenant-id)")
+       (get-user-by-email service \"user@example.com\" tenant-id)")
 
-  (find-users-by-tenant [this tenant-id options]
-    "Find users by tenant with pagination and filtering.
+  (list-users-by-tenant [this tenant-id options]
+    "List users by tenant with pagination and filtering.
      
      Args:
        tenant-id: UUID for tenant isolation
@@ -439,10 +442,12 @@
        Map with :users vector and :total-count
        
      Example:
-       (find-users-by-tenant service tenant-id {:limit 10 :offset 0})")
+       (list-users-by-tenant service tenant-id {:limit 10 :offset 0})")
 
-  (update-user [this user-entity]
-    "Update user with validation and business rule enforcement.
+  (update-user-profile [this user-entity]
+    "Update user profile with validation and business rule enforcement.
+     
+     Business operation that validates profile changes and applies business rules.
      
      Args:
        user-entity: Complete user entity map with ID
@@ -456,13 +461,15 @@
        - ExceptionInfo with :type :business-rule-violation for rule violations
        
      Example:
-       (update-user service updated-user)")
+       (update-user-profile service updated-user)")
 
-  (soft-delete-user [this user-id]
-    "Soft delete user with business rule validation.
+  (deactivate-user [this user-id]
+    "Deactivate user account with business rule validation.
+     
+     Business operation that soft-deletes a user after checking deletion policies.
      
      Args:
-       user-id: UUID of user to delete
+       user-id: UUID of user to deactivate
      
      Returns:
        Boolean indicating success
@@ -472,10 +479,12 @@
        - ExceptionInfo with :type :deletion-not-allowed if deletion not permitted
        
      Example:
-       (soft-delete-user service user-id)")
+       (deactivate-user service user-id)")
 
-  (hard-delete-user [this user-id]
-    "Hard delete user (irreversible) with strict validation.
+  (permanently-delete-user [this user-id]
+    "Permanently delete user (irreversible) with strict validation.
+     
+     Business operation for GDPR compliance and permanent user removal.
      
      Args:
        user-id: UUID of user to permanently delete
@@ -488,11 +497,13 @@
        - ExceptionInfo with :type :hard-deletion-not-allowed if not permitted
        
      Example:
-       (hard-delete-user service user-id)")
+       (permanently-delete-user service user-id)")
 
   ;; Session Management Operations
-  (create-session [this session-data]
-    "Create user session with token generation and validation.
+  (authenticate-user [this session-data]
+    "Authenticate user and create session with token generation.
+     
+     Business operation that creates authenticated session after validation.
      
      Args:
        session-data: Map with session creation data
@@ -505,12 +516,14 @@
        - ExceptionInfo with :type :validation-error for invalid data
        
      Example:
-       (create-session service {:user-id user-id
-                               :tenant-id tenant-id
-                               :user-agent \"Mozilla/5.0...\"})")
+       (authenticate-user service {:user-id user-id
+                                  :tenant-id tenant-id
+                                  :user-agent \"Mozilla/5.0...\"})")
 
-  (find-session-by-token [this session-token]
-    "Find and validate session by token.
+  (validate-session [this session-token]
+    "Validate and retrieve session by token.
+     
+     Business operation that checks session validity and updates access time.
      
      Args:
        session-token: String session token
@@ -522,10 +535,12 @@
        - Updates last-accessed-at if session is valid
        
      Example:
-       (find-session-by-token service \"session-token-123\")")
+       (validate-session service \"session-token-123\")")
 
-  (invalidate-session [this session-token]
-    "Invalidate session (logout).
+  (logout-user [this session-token]
+    "Log out user by invalidating session.
+     
+     Business operation that terminates a user session.
      
      Args:
        session-token: String session token to invalidate
@@ -534,10 +549,12 @@
        Boolean indicating success
        
      Example:
-       (invalidate-session service \"session-token-123\")")
+       (logout-user service \"session-token-123\")")
 
-  (invalidate-all-user-sessions [this user-id]
-    "Invalidate all sessions for a user (force logout everywhere).
+  (logout-user-everywhere [this user-id]
+    "Log out user from all sessions (force logout everywhere).
+     
+     Business operation for security incidents, password changes, etc.
      
      Args:
        user-id: UUID of user whose sessions to invalidate
@@ -546,7 +563,7 @@
        Integer count of invalidated sessions
        
      Example:
-       (invalidate-all-user-sessions service user-id)"))
+       (logout-user-everywhere service user-id)"))
 
 ;; =============================================================================
 ;; Communication Ports

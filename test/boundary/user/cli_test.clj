@@ -18,7 +18,7 @@
 (defrecord MockUserService [state]
   ports/IUserService
 
-  (create-user [_ user-data]
+  (register-user [_ user-data]
     (let [user (assoc user-data
                       :id (UUID/randomUUID)
                       :created-at (Instant/now)
@@ -27,43 +27,43 @@
       (swap! state assoc-in [:users (:id user)] user)
       user))
 
-  (find-user-by-id [_ user-id]
+  (get-user-by-id [_ user-id]
     (get-in @state [:users user-id]))
 
-  (find-user-by-email [_ email tenant-id]
+  (get-user-by-email [_ email tenant-id]
     (->> (vals (get @state :users {}))
          (filter #(and (= (:email %) email)
                        (= (:tenant-id %) tenant-id)))
          first))
 
-  (find-users-by-tenant [_ tenant-id _options]
+  (list-users-by-tenant [_ tenant-id _options]
     (let [users (->> (vals (get @state :users {}))
                      (filter #(= (:tenant-id %) tenant-id)))]
       {:users users
        :total-count (count users)}))
 
-  (update-user [_ user-entity]
+  (update-user-profile [_ user-entity]
     (if (get-in @state [:users (:id user-entity)])
       (let [updated (assoc user-entity :updated-at (Instant/now))]
         (swap! state assoc-in [:users (:id user-entity)] updated)
         updated)
       (throw (ex-info "User not found" {:type :user-not-found}))))
 
-  (soft-delete-user [_ user-id]
+  (deactivate-user [_ user-id]
     (if (get-in @state [:users user-id])
       (do
         (swap! state assoc-in [:users user-id :deleted-at] (Instant/now))
         true)
       (throw (ex-info "User not found" {:type :user-not-found}))))
 
-  (hard-delete-user [_ user-id]
+  (permanently-delete-user [_ user-id]
     (if (get-in @state [:users user-id])
       (do
         (swap! state update :users dissoc user-id)
         true)
       (throw (ex-info "User not found" {:type :user-not-found}))))
 
-  (create-session [_ session-data]
+  (authenticate-user [_ session-data]
     (let [now (Instant/now)
           session (assoc session-data
                          :id (UUID/randomUUID)
@@ -75,17 +75,17 @@
       (swap! state assoc-in [:sessions (:session-token session)] session)
       session))
 
-  (find-session-by-token [_ session-token]
+  (validate-session [_ session-token]
     (get-in @state [:sessions session-token]))
 
-  (invalidate-session [_ session-token]
+  (logout-user [_ session-token]
     (if (get-in @state [:sessions session-token])
       (do
         (swap! state assoc-in [:sessions session-token :revoked-at] (Instant/now))
         true)
       false))
 
-  (invalidate-all-user-sessions [_ user-id]
+  (logout-user-everywhere [_ user-id]
     (let [sessions (filter #(= (:user-id (val %)) user-id) (get @state :sessions {}))]
       (doseq [[token _] sessions]
         (swap! state assoc-in [:sessions token :revoked-at] (Instant/now)))
@@ -228,12 +228,12 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           ;; Create some users first
-          _ (ports/create-user service {:email "user1@example.com"
+          _ (ports/register-user service {:email "user1@example.com"
                                         :name "User One"
                                         :role :user
                                         :tenant-id tenant-id
                                         :active true})
-          _ (ports/create-user service {:email "user2@example.com"
+          _ (ports/register-user service {:email "user2@example.com"
                                         :name "User Two"
                                         :role :admin
                                         :tenant-id tenant-id
@@ -250,7 +250,7 @@
   (testing "List users with JSON output"
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
-          _ (ports/create-user service {:email "test@example.com"
+          _ (ports/register-user service {:email "test@example.com"
                                         :name "Test User"
                                         :role :user
                                         :tenant-id tenant-id
@@ -267,12 +267,12 @@
   (testing "List users with role filter"
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
-          _ (ports/create-user service {:email "admin@example.com"
+          _ (ports/register-user service {:email "admin@example.com"
                                         :name "Admin"
                                         :role :admin
                                         :tenant-id tenant-id
                                         :active true})
-          _ (ports/create-user service {:email "user@example.com"
+          _ (ports/register-user service {:email "user@example.com"
                                         :name "User"
                                         :role :user
                                         :tenant-id tenant-id
@@ -291,7 +291,7 @@
   (testing "Find user by ID - success"
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
-          user (ports/create-user service {:email "find@example.com"
+          user (ports/register-user service {:email "find@example.com"
                                            :name "Find Me"
                                            :role :user
                                            :tenant-id tenant-id
@@ -314,7 +314,7 @@
   (testing "Find user by email - success"
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
-          _ (ports/create-user service {:email "findme@example.com"
+          _ (ports/register-user service {:email "findme@example.com"
                                         :name "Find Me"
                                         :role :user
                                         :tenant-id tenant-id
@@ -340,7 +340,7 @@
   (testing "Update user - success"
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
-          user (ports/create-user service {:email "update@example.com"
+          user (ports/register-user service {:email "update@example.com"
                                            :name "Original Name"
                                            :role :user
                                            :tenant-id tenant-id
@@ -363,7 +363,7 @@
   (testing "Update user without any fields"
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
-          user (ports/create-user service {:email "test@example.com"
+          user (ports/register-user service {:email "test@example.com"
                                            :name "Test"
                                            :role :user
                                            :tenant-id tenant-id
@@ -381,7 +381,7 @@
   (testing "Delete user - success"
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
-          user (ports/create-user service {:email "delete@example.com"
+          user (ports/register-user service {:email "delete@example.com"
                                            :name "Delete Me"
                                            :role :user
                                            :tenant-id tenant-id
@@ -419,7 +419,7 @@
 (deftest test-session-invalidate-success
   (testing "Invalidate session - success"
     (let [service (create-mock-service)
-          session (ports/create-session service {:user-id (UUID/randomUUID)
+          session (ports/authenticate-user service {:user-id (UUID/randomUUID)
                                                  :tenant-id (UUID/randomUUID)})
           args ["session" "invalidate" "--token" (:session-token session)]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]

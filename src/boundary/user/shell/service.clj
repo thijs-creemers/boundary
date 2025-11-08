@@ -59,8 +59,8 @@
   ports/IUserService
 
   ;; User Management - Shell layer orchestrates I/O and calls pure core functions
-  (create-user [this user-data]
-    (log/info "Creating user through service" {:email (:email user-data)})
+  (register-user [this user-data]
+    (log/info "Registering user through service" {:email (:email user-data)})
 
     ;; 1. Validate request using pure core function
     (let [validation-result (user-core/validate-user-creation-request user-data)]
@@ -85,20 +85,20 @@
       ;; 4. Persist and return
       (.create-user user-repository prepared-user)))
 
-  (find-user-by-id [_ user-id]
-    (log/debug "Finding user by ID through service" {:user-id user-id})
+  (get-user-by-id [_ user-id]
+    (log/debug "Getting user by ID through service" {:user-id user-id})
     (.find-user-by-id user-repository user-id))
 
-  (find-user-by-email [_ email tenant-id]
-    (log/debug "Finding user by email through service" {:email email :tenant-id tenant-id})
+  (get-user-by-email [_ email tenant-id]
+    (log/debug "Getting user by email through service" {:email email :tenant-id tenant-id})
     (.find-user-by-email user-repository email tenant-id))
 
-  (find-users-by-tenant [_ tenant-id options]
-    (log/debug "Finding users by tenant through service" {:tenant-id tenant-id})
+  (list-users-by-tenant [_ tenant-id options]
+    (log/debug "Listing users by tenant through service" {:tenant-id tenant-id})
     (.find-users-by-tenant user-repository tenant-id options))
 
-  (update-user [this user-entity]
-    (log/info "Updating user through service" {:user-id (:id user-entity)})
+  (update-user-profile [this user-entity]
+    (log/info "Updating user profile through service" {:user-id (:id user-entity)})
 
     ;; 1. Get current user
     (let [current-user (.find-user-by-id user-repository (:id user-entity))]
@@ -129,8 +129,8 @@
         ;; 5. Persist and return
         (.update-user user-repository prepared-user))))
 
-  (soft-delete-user [this user-id]
-    (log/info "Soft deleting user through service" {:user-id user-id})
+  (deactivate-user [this user-id]
+    (log/info "Deactivating user through service" {:user-id user-id})
 
     ;; 1. Get current user
     (let [current-user (.find-user-by-id user-repository user-id)]
@@ -154,12 +154,12 @@
         (.update-user user-repository prepared-user)
 
         ;; 5. Invalidate all user sessions as side effect
-        (ports/invalidate-all-user-sessions this user-id)
+        (ports/logout-user-everywhere this user-id)
 
         true)))
 
-  (hard-delete-user [this user-id]
-    (log/warn "Hard deleting user through service - IRREVERSIBLE" {:user-id user-id})
+  (permanently-delete-user [this user-id]
+    (log/warn "Permanently deleting user - IRREVERSIBLE" {:user-id user-id})
 
     ;; 1. Get current user for validation
     (let [current-user (.find-user-by-id user-repository user-id)]
@@ -176,14 +176,14 @@
                            :reason (:reason deletion-result)}))))
 
       ;; 3. Invalidate all sessions first
-      (ports/invalidate-all-user-sessions this user-id)
+      (ports/logout-user-everywhere this user-id)
 
       ;; 4. Perform hard deletion
       (.hard-delete-user user-repository user-id)))
 
   ;; Session Management - Shell layer orchestrates I/O and calls pure core functions
-  (create-session [this session-data]
-    (log/info "Creating session through service" {:user-id (:user-id session-data)})
+  (authenticate-user [this session-data]
+    (log/info "Authenticating user and creating session" {:user-id (:user-id session-data)})
 
     ;; 1. Validate request using pure core function
     (let [validation-result (session-core/validate-session-creation-request session-data)]
@@ -205,8 +205,8 @@
       ;; 4. Persist and return
       (.create-session session-repository prepared-session)))
 
-  (find-session-by-token [this session-token]
-    (log/debug "Finding session by token through service")
+  (validate-session [this session-token]
+    (log/debug "Validating session token through service")
 
     ;; 1. Get session from repository
     (when-let [session (.find-session-by-token session-repository session-token)]
@@ -227,8 +227,8 @@
             (log/debug "Session validation failed" validation-result)
             nil)))))
 
-  (invalidate-session [this session-token]
-    (log/info "Invalidating session through service")
+  (logout-user [this session-token]
+    (log/info "Logging out user by invalidating session")
 
     ;; 1. Find session
     (if-let [session (.find-session-by-token session-repository session-token)]
@@ -242,8 +242,8 @@
         true)
       false))
 
-  (invalidate-all-user-sessions [this user-id]
-    (log/warn "Invalidating all user sessions through service" {:user-id user-id})
+  (logout-user-everywhere [this user-id]
+    (log/warn "Logging out user from all sessions" {:user-id user-id})
 
     ;; 1. Get all user sessions
     (let [sessions     (.find-sessions-by-user session-repository user-id)

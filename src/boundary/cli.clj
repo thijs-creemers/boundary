@@ -4,6 +4,7 @@
    Provides command-line interface for all modules.
    Currently supports user and session management."
   (:require [boundary.config :as config]
+            [boundary.shell.adapters.database.config :as db-config]
             [boundary.user.shell.cli :as user-cli]
             [boundary.user.shell.persistence :as user-persistence]
             [boundary.user.shell.service :as user-service]
@@ -23,8 +24,9 @@
       ;; Load configuration
       (let [config (config/load-config)
             
-            ;; Initialize database context
-            db-config (get-in config [:active :boundary/sqlite])
+            ;; Get database config and convert to factory format
+            sqlite-config (get-in config [:active :boundary/sqlite])
+            db-config (db-config/config->db-config :boundary/sqlite sqlite-config)
             db-ctx (db-factory/db-context db-config)]
         
         (try

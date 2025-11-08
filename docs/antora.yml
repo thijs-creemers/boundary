@@ -1,0 +1,6 @@
+name: reference
+title: Reference
+version: '1.0'
+start_page: README.adoc
+nav:
+- modules/ROOT/nav.adoc

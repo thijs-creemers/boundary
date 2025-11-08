@@ -46,7 +46,7 @@
                      :role (keyword (:role body))
                      :tenant-id (type-conversion/string->uuid (:tenantId body))
                      :active (get body :active true)}
-          created-user (ports/create-user user-service user-data)]
+          created-user (ports/register-user user-service user-data)]
       {:status 201
        :body (schema/user-specific-kebab->camel created-user)})))
 
@@ -55,7 +55,7 @@
   [user-service]
   (fn [{{:keys [path]} :parameters}]
     (let [user-id (type-conversion/string->uuid (:id path))
-          user (ports/find-user-by-id user-service user-id)]
+          user (ports/get-user-by-id user-service user-id)]
       (if user
         {:status 200
          :body (schema/user-specific-kebab->camel user)}
@@ -72,7 +72,7 @@
                    :offset (or (:offset query) 0)
                    :filter-role (when (:role query) (keyword (:role query)))
                    :filter-active (:active query)}
-          result (ports/find-users-by-tenant user-service tenant-id options)
+          result (ports/list-users-by-tenant user-service tenant-id options)
           users (map schema/user-specific-kebab->camel (:users result))]
       {:status 200
        :body {:users users
@@ -85,7 +85,7 @@
   [user-service]
   (fn [{{:keys [path body]} :parameters}]
     (let [user-id (type-conversion/string->uuid (:id path))
-          current-user (ports/find-user-by-id user-service user-id)]
+          current-user (ports/get-user-by-id user-service user-id)]
       (if-not current-user
         (throw (ex-info "User not found"
                         {:type :user-not-found
@@ -94,7 +94,7 @@
                                   (when (:name body) {:name (:name body)})
                                   (when (:role body) {:role (keyword (:role body))})
                                   (when (some? (:active body)) {:active (:active body)}))
-              result (ports/update-user user-service updated-user)]
+              result (ports/update-user-profile user-service updated-user)]
           {:status 200
            :body (schema/user-specific-kebab->camel result)})))))
 
@@ -103,7 +103,7 @@
   [user-service]
   (fn [{{:keys [path]} :parameters}]
     (let [user-id (type-conversion/string->uuid (:id path))]
-      (ports/soft-delete-user user-service user-id)
+      (ports/deactivate-user user-service user-id)
       {:status 204})))
 
 ;; =============================================================================
@@ -119,7 +119,7 @@
                         :tenant-id (type-conversion/string->uuid (:tenantId body))
                         :user-agent (get-in body [:deviceInfo :userAgent])
                         :ip-address (get-in body [:deviceInfo :ipAddress])}
-          session (ports/create-session user-service session-data)]
+          session (ports/authenticate-user user-service session-data)]
       {:status 201
        :body (schema/user-specific-kebab->camel session)})))
 
@@ -128,7 +128,7 @@
   [user-service]
   (fn [{{:keys [path]} :parameters}]
     (let [session-token (:token path)
-          session (ports/find-session-by-token user-service session-token)]
+          session (ports/validate-session user-service session-token)]
       (if session
         {:status 200
          :body {:valid true
@@ -145,7 +145,7 @@
   [user-service]
   (fn [{{:keys [path]} :parameters}]
     (let [session-token (:token path)]
-      (ports/invalidate-session user-service session-token)
+      (ports/logout-user user-service session-token)
       {:status 204})))
 
 ;; =============================================================================
