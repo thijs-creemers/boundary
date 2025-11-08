@@ -2,80 +2,108 @@
  ;; =============================================================================
  ;; Development Environment Configuration  
  ;; =============================================================================
- 
+
  :active
  {
-  ;; Core application settings (always active)
-  :boundary/settings
-  {:name              "boundary-dev"
-   :version           "0.1.0"
-   :date-format       "yyyy-MM-dd"
-   :date-time-format  "yyyy-MM-dd HH:mm:ss"
-   :currency/iso-code "EUR"}
+ ;; Core application settings (always active)
+ :boundary/settings
+ {:name              "boundary-dev"
+  :version           "0.1.0"
+  :date-format       "yyyy-MM-dd"
+  :date-time-format  "yyyy-MM-dd HH:mm:ss"
+  :currency/iso-code "EUR"
+  
+  ;; Default tenant ID for development
+  ;; This provides a consistent tenant context for:
+  ;; - REPL development and testing
+  ;; - CLI operations without explicit tenant specification
+  ;; - Default test fixtures
+  ;; Production systems should NOT rely on defaults and must always specify tenant-id
+  :default-tenant-id #or [#env DEFAULT_TENANT_ID "00000000-0000-0000-0000-000000000001"]}
 
   ;; Active database configurations
   ;; Only databases listed here will be loaded and initialized
-  
- ;; SQLite for file-based development (active)
- :boundary/sqlite
- {:db   "dev-database.db"
-  :pool {:minimum-idle          1
-         :maximum-pool-size     3
-         :connection-timeout-ms 10000}}
+
+  ;; SQLite for file-based development (active)
+  :boundary/sqlite
+  {:db   "dev-database.db"
+   :pool {:minimum-idle          1
+          :maximum-pool-size     3
+          :connection-timeout-ms 10000}}
 
   ;; HTTP Server configuration
   :boundary/http
-  {:port #or [#env HTTP_PORT 3000]
-   :host #or [#env HTTP_HOST "0.0.0.0"]
+  {:port  #or [#env HTTP_PORT 3000]
+   :host  #or [#env HTTP_HOST "0.0.0.0"]
    :join? false}
- }
+
+  ;; Observability configurations
+  ;; Using no-op providers by default - can be switched to real providers per need
+  
+  :boundary/logging
+  {:provider :no-op}
+
+  :boundary/metrics
+  {:provider :no-op}
+
+  :boundary/error-reporting
+  {:provider :no-op}}
+
 
  :inactive
  {
   ;; Inactive database configurations
   ;; These are available for reference but won't be loaded unless moved to :active
-  
+
   :boundary/postgresql
-  {:host          #env "POSTGRES_HOST"
-   :port          #env "POSTGRES_PORT"
-   :dbname        #env "POSTGRES_DB"
-   :user          #env "POSTGRES_USER"
-   :password      #env "POSTGRES_PASSWORD"
-   :auto-commit   true
-   :pool          {:minimum-idle 5
-                   :maximum-pool-size 15
-                   :connection-timeout-ms 30000}}
+  {:host        #env "POSTGRES_HOST"
+   :port        #env "POSTGRES_PORT"
+   :dbname      #env "POSTGRES_DB"
+   :user        #env "POSTGRES_USER"
+   :password    #env "POSTGRES_PASSWORD"
+   :auto-commit true
+   :pool        {:minimum-idle          5
+                 :maximum-pool-size     15
+                 :connection-timeout-ms 30000}}
 
   :boundary/mysql
-  {:host          #env "MYSQL_HOST"
-   :port          #env "MYSQL_PORT"
-   :dbname        #env "MYSQL_DB"
-   :user          #env "MYSQL_USER"
-   :password      #env "MYSQL_PASSWORD"
-   :pool          {:minimum-idle 5
-                   :maximum-pool-size 15
-                   :connection-timeout-ms 30000}}
+  {:host     #env "MYSQL_HOST"
+   :port     #env "MYSQL_PORT"
+   :dbname   #env "MYSQL_DB"
+   :user     #env "MYSQL_USER"
+   :password #env "MYSQL_PASSWORD"
+   :pool     {:minimum-idle          5
+              :maximum-pool-size     15
+              :connection-timeout-ms 30000}}
 
   :boundary/sqlite
-  {:db "dev-database.db"
-   :pool {:minimum-idle 1
-          :maximum-pool-size 3
+  {:db   "dev-database.db"
+   :pool {:minimum-idle          1
+          :maximum-pool-size     3
           :connection-timeout-ms 10000}}
-  
+
   :boundary/h2
-  {:memory true  ; For fast in-memory testing
-   :pool   {:minimum-idle 1
+  {:memory true                                             ; For fast in-memory testing
+   :pool   {:minimum-idle      1
             :maximum-pool-size 10}}
-  
-  ;; Other inactive configurations
-  :boundary/logging 
-  {:level     :debug  ; More verbose logging in dev
-   :console   true
-   :appenders [{:appender       :rolling-file
-                :file           "logs/dev-service.log"
-                :rolling-policy {:type        :time-based
-                                 :max-history 7  ; Keep 7 days in dev
-                                 :max-size    10000000 ; 10MB
-                                 :pattern     ".%d{yyyy-MM-dd}.%i.gz"}}]}
- }
-}
+
+   ;; Example observability configurations for future use
+   ;; Move to :active section when you need real providers
+   
+   :boundary/logging-with-file
+   {:provider :file
+    :level    :debug
+    :file     "logs/dev-service.log"
+    :format   :json}
+
+   :boundary/metrics-with-prometheus
+   {:provider :prometheus
+    :port     9090
+    :path     "/metrics"}
+
+   :boundary/error-reporting-with-sentry
+   {:provider :sentry
+    :dsn      #env "SENTRY_DSN"
+    :environment "development"}}}
+
+

@@ -1,14 +1,16 @@
- Boundary Framework Developer Guide
+# Boundary Framework Developer Guide
 
 A comprehensive reference for developing with Boundary, a module-centric Clojure framework implementing the Functional Core / Imperative Shell (FC/IS) architectural paradigm.
 
-**Looking for practical tutorials and how-to guides?** See the [User Guide](docs/user-guide/index.adoc) for persona-based learning paths, quickstart tutorials, and step-by-step instructions for common tasks.
+**Looking for practical tutorials and how-to guides?** See the [User Guide](docs/user-guide/DECISIONS.md) for development decisions and step-by-step guidance.
 
 This **Developer Guide** provides comprehensive architectural documentation, advanced development workflows, and complete technical reference.
 
-*** Important: do not stage, commit or push without permission ***
-
-*** Important: Please use the clojure-mcp server for creating correctly balanced clojure code. Always double check if it is running an d functioning.
+> **⚠️ Important Development Notes**
+> - Do not stage, commit or push without permission  
+> - Use the clojure-mcp server for creating correctly balanced Clojure code
+> - Always verify clojure-mcp is running and functioning before editing Clojure files
+> - Follow parinfer conventions for proper Clojure formatting
 
 ## Table of Contents
 
@@ -16,6 +18,7 @@ This **Developer Guide** provides comprehensive architectural documentation, adv
 - [Quick Start](#quick-start)
 - [Architecture Summary](#architecture-summary)
 - [Development Workflow](#development-workflow)
+- [Observability Integration](#observability-integration)
 - [Module Structure](#module-structure)
 - [Key Technologies](#key-technologies)
 - [Testing Strategy](#testing-strategy)
@@ -247,6 +250,61 @@ user=> (ig-repl/halt)
 user=> (ig-repl/go)
 ```
 
+## Observability Integration
+
+The Boundary framework includes built-in observability infrastructure with logging, metrics, and error reporting capabilities following the Functional Core/Imperative Shell pattern.
+
+### Quick Integration
+
+Feature modules can easily integrate observability by accepting the protocols as dependencies:
+
+```clojure
+(ns my-feature.service
+  (:require [boundary.logging.ports :as logging]
+            [boundary.metrics.ports :as metrics]
+            [boundary.error-reporting.ports :as error-reporting]))
+
+(defrecord MyFeatureService [logger metric-collector error-reporter]
+  ;; Feature protocols...
+  
+  IMyFeatureService
+  (process-request [this request]
+    (logging/info logger "Processing request" {:request-id (:id request)})
+    (metrics/increment metric-collector "requests.processed" {:feature "my-feature"})
+    
+    (try
+      ;; Business logic here
+      (let [result (do-processing request)]
+        (logging/info logger "Request processed successfully")
+        result)
+      (catch Exception e
+        (error-reporting/capture-exception error-reporter e 
+                                         {:context "process-request" 
+                                          :request-id (:id request)})
+        (throw (ex-info "Processing failed" {:request-id (:id request)} e))))))
+```
+
+### System Configuration
+
+Configure observability providers in your `config.edn`:
+
+```clojure
+{:logging {:provider :no-op  ; or :datadog
+           :level :info}
+ :metrics {:provider :no-op  ; or :datadog  
+           :namespace "boundary"}
+ :error-reporting {:provider :no-op  ; or :sentry
+                   :dsn "your-sentry-dsn"}}
+```
+
+### Available Providers
+
+- **Logging**: No-op (development), Datadog
+- **Metrics**: No-op (development), Datadog  
+- **Error Reporting**: No-op (development), Sentry
+
+See [docs/OBSERVABILITY_INTEGRATION.md](docs/OBSERVABILITY_INTEGRATION.md) for complete integration guide including custom adapters and advanced configuration.
+
 ## Module Structure
 
 Boundary follows a **module-centric architecture** where each domain module owns its complete functionality stack:
@@ -296,7 +354,8 @@ src/boundary/user/
 (ns boundary.user.core.user)
 
 (defn calculate-user-membership-tier
-  \"Pure function: Calculate membership tier based on user data.\"_in [user current-date]
+  "Pure function: Calculate membership tier based on user data."
+  [user current-date]
   (let [join-date    (:created-at user)
         days-member  (/ (.between ChronoUnit/DAYS join-date current-date) 1)
         years-member (/ days-member 365.25)]
@@ -305,9 +364,7 @@ src/boundary/user/
       (>= years-member 3) :gold
       (>= years-member 1) :silver
       :else :bronze)))
-```
-     :benefits (calculate-tier-benefits tier)}))
-```
+
 
 ### User Service Example
 
@@ -326,9 +383,12 @@ src/boundary/user/
     (let [existing-user (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data)) uniqueness-result (user-core/check-duplicate-user-decision user-data existing-user)]
       (when (= :reject (:decision uniqueness-result))
         (throw (ex-info "User already exists" {:type :user-exists :email (:email user-data)}))))
-    (let [current-time (current-timestamp) user-id (generate-user-id) prepared-user (user-core/prepare-user-for-creation user-data current-time user-id)]
+    (let [current-time (current-timestamp)
+          user-id (generate-user-id)
+          prepared-user (user-core/prepare-user-for-creation user-data current-time user-id)]
       (.create-user user-repository prepared-user))))
-```
+
+(defn make-user-service
   [user-repository session-repository]
   (->UserService user-repository session-repository))
 ```
@@ -347,7 +407,14 @@ src/boundary/user/
       (db->user-entity ctx result)))
 
   (create-user [_ user-entity]
-    (let [now (java.time.Instant/now) user-with-metadata (-> user-entity (assoc :id (UUID/randomUUID)) (assoc :created-at now) (assoc :updated-at nil) (assoc :deleted-at nil)) db-user (user-entity->db ctx user-with-metadata) query {:insert-into :users :values [db-user]}]_in
+    (let [now (java.time.Instant/now)
+          user-with-metadata (-> user-entity
+                                (assoc :id (UUID/randomUUID))
+                                (assoc :created-at now)
+                                (assoc :updated-at nil)
+                                (assoc :deleted-at nil))
+          db-user (user-entity->db ctx user-with-metadata)
+          query {:insert-into :users :values [db-user]}]
       (db/execute-update! ctx query)
       user-with-metadata)))
 ```
@@ -714,6 +781,12 @@ clojure -M:deps:outdated              # Check for updates
 
 # REPL utilities
 rlwrap clojure -M:repl-clj            # REPL with readline support
+
+# Validation development utilities (REPL)
+(require '[boundary.shared.tools.validation.repl :as v])
+(v/stats)                              # Show validation statistics
+(v/list-rules {:module :user})         # List validation rules
+(spit "build/validation-user.dot" (v/rules->dot {:modules #{:user}}))  # Generate validation graph
 ```
 
 ### Troubleshooting
@@ -748,45 +821,15 @@ export BND_ENV=staging
 clojure -M:build:deploy
 ```
 
-## Validation DevEx quickstart
-
-- REPL helpers
-  ```clojure
-  (require '[boundary.shared.tools.validation.repl :as v])
-  (v/stats)
-  (v/list-rules {:module :user})
-  (println (v/snapshot->edn {:status :ok} {:seed 42}))
-  (spit "build/validation-user.dot" (v/rules->dot {:modules #{:user}}))
-  ```
-- Coverage reports
-  - Generated by behavior specs at: `test/reports/coverage/user.{edn,txt}`
-- Snapshot tests
-  ```zsh
-  UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
-  clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
-  ```
-
-## Validation DevEx screenshots
-
-- Validation rules graph: `docs/diagrams/validation-user.png`
-  - Generate: `dot -Tpng build/validation-user.dot -o docs/diagrams/validation-user.png`
-- Coverage text summary: `test/reports/coverage/user.txt`
-
-## CI snippets
-
-- GitHub Actions (validation): see README.md section “CI snippets”
-
 ## References
 
 ### Internal Documentation
 
-- [Product Requirements Document](docs/boundary.prd.adoc) - Comprehensive project requirements and vision
-- [PRD Improvement Summary](docs/PRD-IMPROVEMENT-SUMMARY.adoc)
-- [Architecture Overview](docs/architecture/overview.adoc) - High-level architectural decisions and principles
-- [Component Architecture](docs/architecture/components.adoc) - Detailed component organization and interactions
-- [Data Flow Architecture](docs/architecture/data-flow.adoc) - Request processing and data transformation patterns
-- [Ports and Adapters Guide](docs/architecture/ports-and-adapters.adoc) - Hexagonal architecture implementation
-- [Layer Separation Guidelines](docs/architecture/layer-separation.adoc) - FC/IS boundary rules and practices
+- [Observability Integration Guide](docs/OBSERVABILITY_INTEGRATION.md) - FC/IS observability framework implementation
+- [Development Decisions](docs/user-guide/DECISIONS.md) - Architectural and implementation decisions
+- [Default Tenant ID Implementation](docs/development/default-tenant-id.adoc) - Tenant handling specifications
+- [Documentation Build Guide](docs/README-DOCS.md) - Documentation structure and build process
+- [Architecture Diagrams](docs/diagrams/README.adoc) - System architecture visualizations
 
 ### Development Documentation
 

@@ -90,7 +90,7 @@
 ;; =============================================================================
 
 (defn api-docs-routes
-      "Create OpenAPI/Swagger documentation routes.
+      "Create OpenAPI/Swagger documentation routes with CSS fix for path rendering.
 
        Args:
          config: Application configuration
@@ -120,7 +120,8 @@
                       {:url    "/swagger.json"
                        :config {:validatorUrl           nil
                                 :tryItOutEnabled        true
-                                :supportedSubmitMethods ["get" "post" "put" "patch" "delete"]}})}}]
+                                :supportedSubmitMethods ["get" "post" "put" "patch" "delete"]}
+                       :options {:custom-css ".opblock-summary-path { min-width: 200px !important; width: auto !important; } .opblock-summary-path span { word-break: normal !important; white-space: normal !important; display: inline !important; }"}})}}]
 
    ["/api-docs/*"
     {:get {:no-doc  true
@@ -128,7 +129,8 @@
                       {:url    "/swagger.json"
                        :config {:validatorUrl           nil
                                 :tryItOutEnabled        true
-                                :supportedSubmitMethods ["get" "post" "put" "patch" "delete"]}})}}]])
+                                :supportedSubmitMethods ["get" "post" "put" "patch" "delete"]}
+                       :options {:custom-css ".opblock-summary-path { min-width: 200px !important; width: auto !important; } .opblock-summary-path span { word-break: normal !important; white-space: normal !important; display: inline !important; }"}})}}]])
 
 ;; =============================================================================
 ;; Module Route Injection System

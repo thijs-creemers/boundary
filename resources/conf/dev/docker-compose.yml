@@ -1,9 +1,9 @@
 services:
   db:
-    image: postgres:15
+    image: postgres:18
     container_name: my-app-db
     environment:
-      POSTGRES_DB: ixfn_dev
+      POSTGRES_DB: boundary_dev
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:

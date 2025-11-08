@@ -1,0 +1,152 @@
+= Default Tenant ID Configuration
+:toc:
+:toc-placement!:
+
+toc::[]
+
+== Overview
+
+The Boundary framework supports multi-tenancy through the `tenant-id` field. For development and testing convenience, a default tenant ID can be configured to avoid manually specifying tenant context in every operation.
+
+== Configuration
+
+The default tenant ID is configured in `resources/conf/dev/config.edn`:
+
+[source,clojure]
+----
+:boundary/settings
+{:name              "boundary-dev"
+ :version           "0.1.0"
+ :date-format       "yyyy-MM-dd"
+ :date-time-format  "yyyy-MM-dd HH:mm:ss"
+ :currency/iso-code "EUR"
+ 
+ ;; Default tenant ID for development
+ :default-tenant-id #or [#env DEFAULT_TENANT_ID "00000000-0000-0000-0000-000000000001"]}
+----
+
+== Environment Variable Override
+
+You can override the default tenant ID using the `DEFAULT_TENANT_ID` environment variable:
+
+[source,zsh]
+----
+# Set custom default tenant ID
+export DEFAULT_TENANT_ID="12345678-1234-1234-1234-123456789abc"
+
+# Start REPL with custom tenant ID
+clojure -M:repl-clj
+----
+
+== Usage in Development
+
+=== REPL Development
+
+[source,clojure]
+----
+;; Load configuration
+(require '[boundary.config :as config])
+(require '[boundary.shared.core.utils.type-conversion :as tc])
+
+(def cfg (config/load-config))
+
+;; Get default tenant ID as string
+(config/default-tenant-id cfg)
+;; => "00000000-0000-0000-0000-000000000001"
+
+;; Convert to UUID for use in operations
+(def tenant-id (tc/string->uuid (config/default-tenant-id cfg)))
+;; => #uuid "00000000-0000-0000-0000-000000000001"
+
+;; Use in user operations
+(require '[boundary.user.ports :as ports])
+(require '[integrant.repl :as ig-repl])
+
+;; Start system
+(ig-repl/go)
+
+;; Create user with default tenant
+(def user-service (:boundary/user-service integrant.repl.state/system))
+(ports/register-user user-service
+  {:email "test@example.com"
+   :name "Test User"
+   :password "secret123"
+   :role :user
+   :tenant-id tenant-id
+   :active true})
+----
+
+=== CLI Operations
+
+When implementing CLI commands, you can use the default tenant ID when no tenant is explicitly specified:
+
+[source,clojure]
+----
+(ns boundary.user.shell.cli
+  (:require [boundary.config :as config]
+            [boundary.shared.core.utils.type-conversion :as tc]))
+
+(defn get-tenant-id-from-options
+  "Get tenant ID from CLI options or use default."
+  [options config]
+  (if-let [tenant-id-str (:tenant-id options)]
+    (tc/string->uuid tenant-id-str)
+    (tc/string->uuid (config/default-tenant-id config))))
+----
+
+=== Test Fixtures
+
+Use the default tenant ID in test fixtures for consistency:
+
+[source,clojure]
+----
+(ns boundary.user.test-fixtures
+  (:require [boundary.config :as config]
+            [boundary.shared.core.utils.type-conversion :as tc]))
+
+(def test-config (config/load-config {:profile :test}))
+(def default-tenant-id (tc/string->uuid (config/default-tenant-id test-config)))
+
+(def test-user-data
+  {:email "test@example.com"
+   :name "Test User"
+   :password "secret123"
+   :role :user
+   :tenant-id default-tenant-id
+   :active true})
+----
+
+== Production Considerations
+
+[IMPORTANT]
+====
+**Production systems should NEVER rely on default tenant IDs.**
+
+All production API requests must include explicit tenant identification through:
+
+* Authentication tokens containing tenant context
+* Request headers specifying tenant ID
+* URL path segments identifying the tenant
+* Query parameters (as a last resort)
+
+The default tenant ID configuration is intended **only** for:
+
+* Local development
+* REPL exploration
+* Automated testing
+* CLI administrative operations with explicit user acknowledgment
+====
+
+== Security Best Practices
+
+. **Never hardcode production tenant IDs** in configuration files
+. **Always validate tenant access** in the authentication/authorization layer
+. **Log tenant context** in all operations for audit trails
+. **Use different tenant IDs** for development, staging, and production
+. **Enforce tenant isolation** at the database query level
+
+== Related Documentation
+
+* link:../architecture/multi-tenancy.adoc[Multi-Tenancy Architecture] (if exists)
+* link:../../warp.md#configuration-management[Configuration Management]
+* link:../api/README.adoc[REST API Documentation] (if exists)

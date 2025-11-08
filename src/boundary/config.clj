@@ -157,6 +157,59 @@
   [config]
   (get-in config [:active :boundary/settings] {}))
 
+(defn default-tenant-id
+  "Extract default tenant ID for development/testing.
+   
+   This provides a consistent tenant context for:
+   - REPL development and testing
+   - CLI operations without explicit tenant specification  
+   - Default test fixtures
+   
+   Args:
+     config: Configuration map from load-config
+   
+   Returns:
+     UUID string of default tenant ID
+   
+   Note:
+     Production systems should NOT rely on defaults and must
+     always specify tenant-id explicitly in requests."
+  [config]
+  (get-in config [:active :boundary/settings :default-tenant-id]))
+
+(defn logging-config
+  "Extract logging configuration.
+   
+   Args:
+     config: Configuration map from load-config
+   
+   Returns:
+     Map with logging provider and settings"
+  [config]
+  (get-in config [:active :boundary/logging] {:provider :no-op}))
+
+(defn metrics-config
+  "Extract metrics configuration.
+   
+   Args:
+     config: Configuration map from load-config
+   
+   Returns:
+     Map with metrics provider and settings"
+  [config]
+  (get-in config [:active :boundary/metrics] {:provider :no-op}))
+
+(defn error-reporting-config
+  "Extract error reporting configuration.
+   
+   Args:
+     config: Configuration map from load-config
+   
+   Returns:
+     Map with error reporting provider and settings"
+  [config]
+  (get-in config [:active :boundary/error-reporting] {:provider :no-op}))
+
 ;; =============================================================================
 ;; Integrant Configuration Generation
 ;; =============================================================================
@@ -176,7 +229,10 @@
      (integrant.core/init ig-cfg)"
   [config]
   (let [db-cfg (db-spec config)
-        http-cfg (http-config config)]
+        http-cfg (http-config config)
+        logging-cfg (logging-config config)
+        metrics-cfg (metrics-config config)
+        error-reporting-cfg (error-reporting-config config)]
     {:boundary/db-context
      db-cfg
 
@@ -185,6 +241,15 @@
 
      :boundary/session-repository
      {:ctx (ig/ref :boundary/db-context)}
+
+     :boundary/logging
+     logging-cfg
+
+     :boundary/metrics
+     metrics-cfg
+
+     :boundary/error-reporting
+     error-reporting-cfg
 
      :boundary/user-service
      {:user-repository (ig/ref :boundary/user-repository)
@@ -214,6 +279,15 @@
 
   ;; HTTP config
   (http-config config)
+  
+  ;; Get default tenant ID for development
+  (default-tenant-id config)
+  ;; => "00000000-0000-0000-0000-000000000001" (or value from DEFAULT_TENANT_ID env var)
+  
+  ;; Use default tenant ID in REPL development
+  (require '[boundary.shared.core.utils.type-conversion :as tc])
+  (def tenant-id (tc/string->uuid (default-tenant-id config)))
+  ;; => #uuid "00000000-0000-0000-0000-000000000001"
 
   ;; Generate Integrant config
   (def ig-cfg (ig-config config))
@@ -221,7 +295,7 @@
   ;; Initialize system
   (def system (ig/init ig-cfg))
 
-  ;; Halt systemu
+  ;; Halt system
   (ig/halt! system)
   ...)
 

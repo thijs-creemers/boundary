@@ -191,6 +191,7 @@ validation:
 - **[Infrastructure Examples](examples/user_infrastructure_example.clj)** - Working code examples
 - **[Refactoring Summary](INFRASTRUCTURE-REFACTOR-SUMMARY.md)** - Complete overview of changes
 - **[Dynamic Driver Loading](docs/DYNAMIC_DRIVER_LOADING.md)** - Automatic JDBC driver loading system
+- **[Observability Integration](docs/OBSERVABILITY_INTEGRATION.md)** - Complete guide for logging, metrics, and error reporting
 
 ### Build Documentation
 

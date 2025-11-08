@@ -10,6 +10,9 @@
    - :boundary/user-repository - User data persistence
    - :boundary/session-repository - Session data persistence
    - :boundary/user-service - User business logic orchestration
+   - :boundary/logging - Structured logging and audit trails
+   - :boundary/metrics - Application and business metrics collection
+   - :boundary/error-reporting - Error tracking and alerting
    - :boundary/http-handler - HTTP request routing and handling
    - :boundary/http-server - Jetty HTTP server
    
@@ -19,12 +22,15 @@
      (def cfg (config/ig-config (config/load-config)))
      (def system (ig/init cfg))
      (ig/halt! system)"
-  (:require [boundary.shell.adapters.database.factory :as db-factory]
-            [boundary.user.shell.persistence :as user-persistence]
-            [boundary.user.shell.service :as user-service]
-            [clojure.tools.logging :as log]
-            [integrant.core :as ig]
-            [ring.adapter.jetty :as jetty]))
+   (:require [boundary.shell.adapters.database.factory :as db-factory]
+             [boundary.user.shell.persistence :as user-persistence]
+             [boundary.user.shell.service :as user-service]
+             [boundary.logging.shell.adapters.no-op :as logging-no-op]
+             [boundary.metrics.shell.adapters.no-op :as metrics-no-op]
+             [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
+             [clojure.tools.logging :as log]
+             [integrant.core :as ig]
+             [ring.adapter.jetty :as jetty]))
 
 ;; =============================================================================
 ;; Database Context
@@ -110,6 +116,78 @@
 (defmethod ig/halt-key! :boundary/http-handler
   [_ _handler]
   (log/info "HTTP handler halted"))
+
+;; =============================================================================
+;; Logging Component
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/logging
+  [_ config]
+  (log/info "Initializing logging component" {:provider (:provider config)})
+  (let [logger (case (:provider config)
+                 :no-op (logging-no-op/create-logging-component config)
+                 ;; Future providers will be added here:
+                 ;; :stdout (stdout-adapter/create-logging-component config)
+                 ;; :json (json-adapter/create-logging-component config)
+                 ;; :datadog (datadog-adapter/create-logging-component config)
+                 (do
+                   (log/warn "Unknown logging provider, falling back to no-op"
+                             {:provider (:provider config)})
+                   (logging-no-op/create-logging-component config)))]
+    (log/info "Logging component initialized" {:provider (:provider config)})
+    logger))
+
+(defmethod ig/halt-key! :boundary/logging
+  [_ _logger]
+  (log/info "Logging component halted"))
+
+;; =============================================================================
+;; Metrics Component
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/metrics
+  [_ config]
+  (log/info "Initializing metrics component" {:provider (:provider config)})
+  (let [metrics (case (:provider config)
+                  :no-op (metrics-no-op/create-metrics-component config)
+                  ;; Future providers will be added here:
+                  ;; :prometheus (prometheus-adapter/create-metrics-component config)
+                  ;; :datadog (datadog-adapter/create-metrics-component config)
+                  ;; :cloudwatch (cloudwatch-adapter/create-metrics-component config)
+                  (do
+                    (log/warn "Unknown metrics provider, falling back to no-op"
+                              {:provider (:provider config)})
+                    (metrics-no-op/create-metrics-component config)))]
+    (log/info "Metrics component initialized" {:provider (:provider config)})
+    metrics))
+
+(defmethod ig/halt-key! :boundary/metrics
+  [_ _metrics]
+  (log/info "Metrics component halted"))
+
+;; =============================================================================
+;; Error Reporting Component
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/error-reporting
+  [_ config]
+  (log/info "Initializing error reporting component" {:provider (:provider config)})
+  (let [error-reporter (case (:provider config)
+                         :no-op (error-reporting-no-op/create-error-reporting-component config)
+                         ;; Future providers will be added here:
+                         ;; :sentry (sentry-adapter/create-error-reporting-component config)
+                         ;; :rollbar (rollbar-adapter/create-error-reporting-component config)
+                         ;; :bugsnag (bugsnag-adapter/create-error-reporting-component config)
+                         (do
+                           (log/warn "Unknown error reporting provider, falling back to no-op"
+                                     {:provider (:provider config)})
+                           (error-reporting-no-op/create-error-reporting-component config)))]
+    (log/info "Error reporting component initialized" {:provider (:provider config)})
+    error-reporter))
+
+(defmethod ig/halt-key! :boundary/error-reporting
+  [_ _error-reporter]
+  (log/info "Error reporting component halted"))
 
 ;; =============================================================================
 ;; HTTP Server (Jetty)
