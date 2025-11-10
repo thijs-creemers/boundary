@@ -253,7 +253,10 @@
 
      :boundary/user-service
      {:user-repository (ig/ref :boundary/user-repository)
-      :session-repository (ig/ref :boundary/session-repository)}
+      :session-repository (ig/ref :boundary/session-repository)
+      :logger (ig/ref :boundary/logging)
+      :metrics (ig/ref :boundary/metrics)
+      :error-reporting (ig/ref :boundary/error-reporting)}
 
      :boundary/http-handler
      {:user-service (ig/ref :boundary/user-service)
@@ -279,11 +282,11 @@
 
   ;; HTTP config
   (http-config config)
-  
+
   ;; Get default tenant ID for development
   (default-tenant-id config)
   ;; => "00000000-0000-0000-0000-000000000001" (or value from DEFAULT_TENANT_ID env var)
-  
+
   ;; Use default tenant ID in REPL development
   (require '[boundary.shared.core.utils.type-conversion :as tc])
   (def tenant-id (tc/string->uuid (default-tenant-id config)))

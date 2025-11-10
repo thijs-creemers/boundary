@@ -50,7 +50,7 @@
      Sanitized tags map"
   [tags]
   (->> tags
-       (map (fn [[k v]] 
+       (map (fn [[k v]]
               [(normalize-metric-name (name k))
                (str v)]))
        (into {})))
@@ -83,7 +83,7 @@
   ([emitter name]
    (increment-counter emitter name {}))
   ([emitter name tags]
-   (ports/increment-counter! emitter name 1 tags)))
+   (ports/inc-counter! emitter name 1 tags)))
 
 (defn increment-counter-by
   "Increments a counter metric by a specific amount.
@@ -99,7 +99,7 @@
   ([emitter name amount]
    (increment-counter-by emitter name amount {}))
   ([emitter name amount tags]
-   (ports/increment-counter! emitter name amount tags)))
+   (ports/inc-counter! emitter name amount tags)))
 
 (defn count-events
   "Convenience function to count application events.
@@ -139,22 +139,20 @@
    (ports/set-gauge! emitter name value tags)))
 
 (defn track-active-count
-  "Tracks active count using increment/decrement gauge operations.
+  "Tracks active count by setting gauge values.
    
    Args:
-     emitter   - IMetricsEmitter instance
-     name      - Gauge name
-     operation - :increment or :decrement
-     tags      - Optional tags map
+     emitter - IMetricsEmitter instance
+     name    - Gauge name
+     value   - Current count value
+     tags    - Optional tags map
    
    Returns:
      nil"
-  ([emitter name operation]
-   (track-active-count emitter name operation {}))
-  ([emitter name operation tags]
-   (case operation
-     :increment (ports/increment-gauge! emitter name 1 tags)
-     :decrement (ports/decrement-gauge! emitter name 1 tags))))
+  ([emitter name value]
+   (track-active-count emitter name value {}))
+  ([emitter name value tags]
+   (ports/set-gauge! emitter name value tags)))
 
 (defn track-resource-usage
   "Tracks resource usage metrics.
@@ -238,7 +236,7 @@
 ;; =============================================================================
 
 (defn record-timer
-  "Records a timing measurement.
+  "Records a timing measurement using histogram.
    
    Args:
      emitter  - IMetricsEmitter instance
@@ -251,10 +249,10 @@
   ([emitter name duration]
    (record-timer emitter name duration {}))
   ([emitter name duration tags]
-   (ports/record-timer! emitter name duration tags)))
+   (ports/observe-histogram! emitter name duration tags)))
 
 (defn time-operation
-  "Times an operation using a timer metric.
+  "Times an operation using histogram timing.
    
    Args:
      emitter - IMetricsEmitter instance
@@ -267,7 +265,7 @@
   ([emitter name f]
    (time-operation emitter name {} f))
   ([emitter name tags f]
-   (ports/time-operation! emitter name tags f)))
+   (ports/time-histogram! emitter name tags f)))
 
 ;; =============================================================================
 ;; Business Metrics Helpers
@@ -309,12 +307,12 @@
                    :status (str status)}]
     ;; Count total requests
     (count-events emitter "api-request" base-tags)
-    
+
     ;; Count successful vs error requests
     (if (< status 400)
       (count-events emitter "api-success" base-tags)
       (count-events emitter "api-error" base-tags))
-    
+
     ;; Track request duration
     (track-request-duration emitter method endpoint status duration)))
 
@@ -358,11 +356,11 @@
                    :success (str success)}]
     ;; Count operations
     (count-events emitter "db-operation" base-tags)
-    
+
     ;; Track operation duration
     (let [timer-name (build-metric-name "db" "operations" "duration")]
       (record-timer emitter timer-name duration base-tags))
-    
+
     ;; Count errors separately
     (when-not success
       (count-events emitter "db-error" (dissoc base-tags :success)))))
@@ -385,11 +383,11 @@
                    :success (str success)}]
     ;; Count service calls
     (count-events emitter "external-service-call" base-tags)
-    
+
     ;; Track call duration
     (let [timer-name (build-metric-name "external" "services" "duration")]
       (record-timer emitter timer-name duration base-tags))
-    
+
     ;; Count errors separately
     (when-not success
       (count-events emitter "external-service-error" (dissoc base-tags :success)))))
@@ -414,11 +412,11 @@
                    :status (name status)}]
     ;; Count health checks
     (count-events emitter "health-check" base-tags)
-    
+
     ;; Track check duration
     (let [timer-name (build-metric-name "health" "checks" "duration")]
       (record-timer emitter timer-name duration base-tags))
-    
+
     ;; Set health status gauge
     (let [gauge-name (build-metric-name "health" "status" (str component))
           status-value (case status

@@ -6,6 +6,9 @@
   {:cli true :unit true}
   (:require [boundary.user.ports :as ports]
             [boundary.user.shell.cli :as cli]
+            [boundary.logging.ports]
+            [boundary.metrics.ports]
+            [boundary.error-reporting.ports]
             [clojure.test :refer [deftest testing is]]
             [support.cli-helpers :as helpers])
   (:import [java.time Instant]
@@ -92,8 +95,86 @@
       (count sessions))))
 
 (defn create-mock-service
+  "Create a mock service with all required observability components for CLI testing."
   []
-  (->MockUserService (atom {:users {} :sessions {}})))
+  (let [user-service (->MockUserService (atom {:users {} :sessions {}}))
+        ;; Create mock observability services matching service_test.clj pattern
+        mock-logger (reify
+                      boundary.logging.ports/ILogger
+                      (log* [_ level message context exception] nil)
+                      (trace [_ message] nil) (trace [_ message context] nil)
+                      (debug [_ message] nil) (debug [_ message context] nil)
+                      (info [_ message] nil) (info [_ message context] nil)
+                      (warn [_ message] nil) (warn [_ message context] nil) (warn [_ message context exception] nil)
+                      (error [_ message] nil) (error [_ message context] nil) (error [_ message context exception] nil)
+                      (fatal [_ message] nil) (fatal [_ message context] nil) (fatal [_ message context exception] nil)
+
+                      boundary.logging.ports/IAuditLogger
+                      (audit-event [_ event-type actor resource action result context] nil)
+                      (security-event [_ event-type severity details context] nil))
+        mock-metrics (reify boundary.metrics.ports/IMetricsEmitter
+                       (inc-counter! [_ handle] nil) (inc-counter! [_ handle value] nil) (inc-counter! [_ handle value tags] nil)
+                       (set-gauge! [_ handle value] nil) (set-gauge! [_ handle value tags] nil)
+                       (observe-histogram! [_ handle value] nil) (observe-histogram! [_ handle value tags] nil)
+                       (observe-summary! [_ handle value] nil) (observe-summary! [_ handle value tags] nil)
+                       (time-histogram! [_ handle f] (f)) (time-histogram! [_ handle tags f] (f))
+                       (time-summary! [_ handle f] (f)) (time-summary! [_ handle tags f] (f)))
+        mock-error-reporter (reify
+                              boundary.error-reporting.ports/IErrorReporter
+                              (capture-exception [_ exception] nil) (capture-exception [_ exception context] nil) (capture-exception [_ exception context tags] nil)
+                              (capture-message [_ message level] nil) (capture-message [_ message level context] nil) (capture-message [_ message level context tags] nil)
+                              (capture-event [_ event-map] nil)
+
+                              boundary.error-reporting.ports/IErrorContext
+                              (with-context [_ context-map f] (f))
+                              (add-breadcrumb! [_ breadcrumb] nil)
+                              (clear-breadcrumbs! [_] nil)
+                              (set-user! [_ user-info] nil)
+                              (set-tags! [_ tags] nil)
+                              (set-extra! [_ extra] nil)
+                              (current-context [_] {}))]
+    ;; Return a service map that implements the user service protocols
+    ;; AND provides the observability services that CLI expects
+    (reify
+      ;; Forward all user service calls to the MockUserService
+      boundary.user.ports/IUserService
+      (register-user [_ user-data]
+        (boundary.user.ports/register-user user-service user-data))
+      (get-user-by-id [_ user-id]
+        (boundary.user.ports/get-user-by-id user-service user-id))
+      (get-user-by-email [_ email tenant-id]
+        (boundary.user.ports/get-user-by-email user-service email tenant-id))
+      (list-users-by-tenant [_ tenant-id options]
+        (boundary.user.ports/list-users-by-tenant user-service tenant-id options))
+      (update-user-profile [_ user-entity]
+        (boundary.user.ports/update-user-profile user-service user-entity))
+      (deactivate-user [_ user-id]
+        (boundary.user.ports/deactivate-user user-service user-id))
+      (permanently-delete-user [_ user-id]
+        (boundary.user.ports/permanently-delete-user user-service user-id))
+      (authenticate-user [_ session-data]
+        (boundary.user.ports/authenticate-user user-service session-data))
+      (validate-session [_ session-token]
+        (boundary.user.ports/validate-session user-service session-token))
+      (logout-user [_ session-token]
+        (boundary.user.ports/logout-user user-service session-token))
+      (logout-user-everywhere [_ user-id]
+        (boundary.user.ports/logout-user-everywhere user-service user-id))
+
+      ;; Provide access to observability services as a map (like real service)
+      clojure.lang.ILookup
+      (valAt [_ key]
+        (case key
+          :error-reporter mock-error-reporter
+          :logger mock-logger
+          :metrics mock-metrics
+          nil))
+      (valAt [_ key default]
+        (case key
+          :error-reporter mock-error-reporter
+          :logger mock-logger
+          :metrics mock-metrics
+          default)))))
 
 ;; =============================================================================
 ;; Help Text Tests
@@ -229,15 +310,15 @@
           tenant-id (UUID/randomUUID)
           ;; Create some users first
           _ (ports/register-user service {:email "user1@example.com"
-                                        :name "User One"
-                                        :role :user
-                                        :tenant-id tenant-id
-                                        :active true})
+                                          :name "User One"
+                                          :role :user
+                                          :tenant-id tenant-id
+                                          :active true})
           _ (ports/register-user service {:email "user2@example.com"
-                                        :name "User Two"
-                                        :role :admin
-                                        :tenant-id tenant-id
-                                        :active true})
+                                          :name "User Two"
+                                          :role :admin
+                                          :tenant-id tenant-id
+                                          :active true})
           args ["user" "list" "--tenant-id" (str tenant-id)]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -251,10 +332,10 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           _ (ports/register-user service {:email "test@example.com"
-                                        :name "Test User"
-                                        :role :user
-                                        :tenant-id tenant-id
-                                        :active true})
+                                          :name "Test User"
+                                          :role :user
+                                          :tenant-id tenant-id
+                                          :active true})
           args ["user" "list" "--tenant-id" (str tenant-id) "--format" "json"]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -268,15 +349,15 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           _ (ports/register-user service {:email "admin@example.com"
-                                        :name "Admin"
-                                        :role :admin
-                                        :tenant-id tenant-id
-                                        :active true})
+                                          :name "Admin"
+                                          :role :admin
+                                          :tenant-id tenant-id
+                                          :active true})
           _ (ports/register-user service {:email "user@example.com"
-                                        :name "User"
-                                        :role :user
-                                        :tenant-id tenant-id
-                                        :active true})
+                                          :name "User"
+                                          :role :user
+                                          :tenant-id tenant-id
+                                          :active true})
           args ["user" "list" "--tenant-id" (str tenant-id) "--role" "admin"]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -292,10 +373,10 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           user (ports/register-user service {:email "find@example.com"
-                                           :name "Find Me"
-                                           :role :user
-                                           :tenant-id tenant-id
-                                           :active true})
+                                             :name "Find Me"
+                                             :role :user
+                                             :tenant-id tenant-id
+                                             :active true})
           args ["user" "find" "--id" (str (:id user))]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -315,10 +396,10 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           _ (ports/register-user service {:email "findme@example.com"
-                                        :name "Find Me"
-                                        :role :user
-                                        :tenant-id tenant-id
-                                        :active true})
+                                          :name "Find Me"
+                                          :role :user
+                                          :tenant-id tenant-id
+                                          :active true})
           args ["user" "find" "--email" "findme@example.com" "--tenant-id" (str tenant-id)]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -341,10 +422,10 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           user (ports/register-user service {:email "update@example.com"
-                                           :name "Original Name"
-                                           :role :user
-                                           :tenant-id tenant-id
-                                           :active true})
+                                             :name "Original Name"
+                                             :role :user
+                                             :tenant-id tenant-id
+                                             :active true})
           args ["user" "update" "--id" (str (:id user)) "--name" "Updated Name"]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -364,10 +445,10 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           user (ports/register-user service {:email "test@example.com"
-                                           :name "Test"
-                                           :role :user
-                                           :tenant-id tenant-id
-                                           :active true})
+                                             :name "Test"
+                                             :role :user
+                                             :tenant-id tenant-id
+                                             :active true})
           args ["user" "update" "--id" (str (:id user))]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 1 (:status result)))
@@ -382,10 +463,10 @@
     (let [service (create-mock-service)
           tenant-id (UUID/randomUUID)
           user (ports/register-user service {:email "delete@example.com"
-                                           :name "Delete Me"
-                                           :role :user
-                                           :tenant-id tenant-id
-                                           :active true})
+                                             :name "Delete Me"
+                                             :role :user
+                                             :tenant-id tenant-id
+                                             :active true})
           args ["user" "delete" "--id" (str (:id user))]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))
@@ -420,7 +501,7 @@
   (testing "Invalidate session - success"
     (let [service (create-mock-service)
           session (ports/authenticate-user service {:user-id (UUID/randomUUID)
-                                                 :tenant-id (UUID/randomUUID)})
+                                                    :tenant-id (UUID/randomUUID)})
           args ["session" "invalidate" "--token" (:session-token session)]
           result (helpers/capture-cli-output #(cli/run-cli! service args))]
       (is (= 0 (:status result)))

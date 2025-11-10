@@ -32,7 +32,7 @@ Boundary is a **module-centric software framework** built on Clojure that implem
 
 ### Key Characteristics
 
-- **Module-Centric Architecture**: Each domain module (`user`, `billing`, `workflow`) contains its complete functionality from pure business logic to external interfaces
+- **Module-Centric Architecture**: Each domain module (`user`, `billing`, `workflow`, `error_reporting`, `logging`, `metrics`) contains its complete functionality from pure business logic to external interfaces
 - **Functional Core / Imperative Shell**: Strict separation between pure business logic (core) and side-effectful operations (shell)
 - **Multi-Interface Support**: Consistent behavior across REST API, CLI, and Web interfaces
 - **Ports and Adapters**: Hexagonal architecture enabling dependency inversion and easy testing
@@ -56,8 +56,8 @@ Boundary is a **module-centric software framework** built on Clojure that implem
 
 **Non-Goals:**
 - Multi-tenancy runtime support (framework provides preparation patterns only)
-- Mobile/desktop client support (focuses on server-side interfaces)
-- Specific domain logic (provides patterns, not implementations)
+- Mobile/desktop client support (focuses on server-side interfaces, maybe later)
+- [ ] Specific domain logic (provides patterns, not implementations)
 - Built-in authentication providers (supports auth patterns)
 
 ## Quick Start

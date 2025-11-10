@@ -36,7 +36,7 @@
    Returns:
      Updated context map"
   [context user-id user-info]
-  (assoc context 
+  (assoc context
          :user-id user-id
          :user-info user-info))
 
@@ -53,7 +53,7 @@
    Returns:
      Updated context map"
   [context request-id method path headers]
-  (assoc context 
+  (assoc context
          :request-id request-id
          :http-method (clojure.string/upper-case (name method))
          :http-path (str path)
@@ -71,7 +71,7 @@
    Returns:
      Updated context map"
   [context operation entity action]
-  (assoc context 
+  (assoc context
          :operation (str operation)
          :entity (str entity)
          :action (str action)))
@@ -158,10 +158,10 @@
   [reporter exception message context]
   (let [classification (classify-exception exception)
         enriched-context (merge context
-                                 classification
-                                 {:error-type :application
-                                  :timestamp (System/currentTimeMillis)})]
-    (ports/report-exception! reporter exception message enriched-context)))
+                                classification
+                                {:error-type :application
+                                 :timestamp (System/currentTimeMillis)})]
+    (ports/capture-exception reporter exception enriched-context)))
 
 (defn report-validation-error
   "Reports validation errors in a structured format.
@@ -178,7 +178,7 @@
                              {:error-type :validation
                               :validation-errors errors
                               :error-count (count errors)})]
-    (ports/report-error! reporter :warning "Validation failed" error-context {})))
+    (ports/capture-message reporter "Validation failed" :warning error-context {})))
 
 (defn report-external-service-error
   "Reports external service errors.
@@ -198,9 +198,10 @@
                                 :service service-name
                                 :operation operation
                                 :service-error error})]
-    (ports/report-error! reporter :error 
-                         (str "External service error: " service-name) 
-                         service-context {})))
+    (ports/capture-message reporter
+                           (str "External service error: " service-name)
+                           :error
+                           service-context {})))
 
 (defn report-security-incident
   "Reports security-related incidents.
@@ -219,9 +220,10 @@
                                  :incident-type incident
                                  :security-details details
                                  :severity :high})]
-    (ports/report-error! reporter :error 
-                         (str "Security incident: " incident) 
-                         security-context {})))
+    (ports/capture-message reporter
+                           (str "Security incident: " incident)
+                           :error
+                           security-context {})))
 
 ;; =============================================================================
 ;; Exception Handling Utilities
@@ -298,7 +300,12 @@
    Returns:
      nil"
   [context message category level data]
-  (ports/add-breadcrumb context message category level data))
+  (let [breadcrumb {:message message
+                    :category category
+                    :level level
+                    :timestamp (java.time.Instant/now)
+                    :data data}]
+    (ports/add-breadcrumb! context breadcrumb)))
 
 (defn track-user-navigation
   "Tracks user navigation as breadcrumbs.
@@ -311,10 +318,10 @@
    Returns:
      nil"
   [context path method]
-  (add-breadcrumb context 
+  (add-breadcrumb context
                   (str (clojure.string/upper-case (name method)) " " path)
-                  "navigation" 
-                  :info 
+                  "navigation"
+                  :info
                   {:path path :method method}))
 
 (defn track-user-action
@@ -328,10 +335,10 @@
    Returns:
      nil"
   [context action target]
-  (add-breadcrumb context 
+  (add-breadcrumb context
                   (str "User " action " " target)
-                  "user-action" 
-                  :info 
+                  "user-action"
+                  :info
                   {:action action :target target}))
 
 ;; =============================================================================
@@ -401,7 +408,7 @@
    Returns:
      Set of sensitive key names"
   []
-  #{:password :token :secret :key :authorization :api-key 
+  #{:password :token :secret :key :authorization :api-key
     :client-secret :private-key :credential :auth-token})
 
 (defn merge-error-configs
@@ -443,20 +450,20 @@
    Returns:
      Map of scenario results"
   [reporter context]
-  {:validation-error 
-   (report-validation-error reporter 
-                            [{:field "email" :message "Invalid format"}] 
+  {:validation-error
+   (report-validation-error reporter
+                            [{:field "email" :message "Invalid format"}]
                             context)
-   
-   :application-error 
-   (report-application-error reporter 
-                             (create-test-exception "Test application error") 
-                             "Simulated application error" 
+
+   :application-error
+   (report-application-error reporter
+                             (create-test-exception "Test application error")
+                             "Simulated application error"
                              context)
-   
-   :external-service-error 
-   (report-external-service-error reporter 
-                                  "payment-service" 
-                                  "process-payment" 
-                                  {:status 500 :message "Service unavailable"} 
+
+   :external-service-error
+   (report-external-service-error reporter
+                                  "payment-service"
+                                  "process-payment"
+                                  {:status 500 :message "Service unavailable"}
                                   context)})

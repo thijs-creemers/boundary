@@ -22,15 +22,15 @@
      (def cfg (config/ig-config (config/load-config)))
      (def system (ig/init cfg))
      (ig/halt! system)"
-   (:require [boundary.shell.adapters.database.factory :as db-factory]
-             [boundary.user.shell.persistence :as user-persistence]
-             [boundary.user.shell.service :as user-service]
-             [boundary.logging.shell.adapters.no-op :as logging-no-op]
-             [boundary.metrics.shell.adapters.no-op :as metrics-no-op]
-             [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
-             [clojure.tools.logging :as log]
-             [integrant.core :as ig]
-             [ring.adapter.jetty :as jetty]))
+  (:require [boundary.shell.adapters.database.factory :as db-factory]
+            [boundary.user.shell.persistence :as user-persistence]
+            [boundary.user.shell.service :as user-service]
+            [boundary.logging.shell.adapters.no-op :as logging-no-op]
+            [boundary.metrics.shell.adapters.no-op :as metrics-no-op]
+            [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
+            [clojure.tools.logging :as log]
+            [integrant.core :as ig]
+            [ring.adapter.jetty :as jetty]))
 
 ;; =============================================================================
 ;; Database Context
@@ -40,11 +40,11 @@
   [_ config]
   (log/info "Initializing database context" {:adapter (:adapter config)})
   (let [ctx (db-factory/db-context config)]
-    
+
     ;; Initialize user module schema
     (log/info "Initializing user module database schema")
     (user-persistence/initialize-user-schema! ctx)
-    
+
     (log/info "Database context initialized successfully"
               {:adapter (:adapter config)})
     ctx))
@@ -90,9 +90,9 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/user-service
-  [_ {:keys [user-repository session-repository]}]
+  [_ {:keys [user-repository session-repository logger metrics error-reporting]}]
   (log/info "Initializing user service")
-  (let [service (user-service/create-user-service user-repository session-repository)]
+  (let [service (user-service/create-user-service user-repository session-repository logger metrics error-reporting)]
     (log/info "User service initialized")
     service))
 
@@ -285,13 +285,13 @@
   ;; (ig-repl/go)     ; Start system
   ;; (ig-repl/reset)  ; Reload and restart
   ;; (ig-repl/halt)   ; Stop system
-  
+
   ;; Or use the convenience functions:
   (start!)
   (stop!)
   (restart!)
-  
+
   ;; Check system state
   @system-state
-  
+
   ...)

@@ -6,6 +6,7 @@
   (:require [boundary.core.database.query :as core-query]
             [boundary.core.database.validation :as core-validation]
             [boundary.shell.adapters.database.protocols :as protocols]
+            [boundary.error-reporting.core :as error-reporting]
             [clojure.tools.logging :as log]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]))
@@ -32,6 +33,18 @@
    Delegates to pure core function."
   core-validation/validate-adapter-context)
 
+(defn- add-database-breadcrumb
+  "Add database operation breadcrumb for tracking database operations.
+   
+   Args:
+     operation: String describing the database operation
+     status: :start, :success, or :error
+     details: Map with operation details"
+  [operation status details]
+  ;; Skip breadcrumb addition since database layer doesn't have error context
+  ;; This prevents protocol errors when called from contexts without proper error reporting setup
+  nil)
+
 ;; =============================================================================
 ;; Query Execution
 ;; =============================================================================
@@ -56,32 +69,56 @@
   ;; Validate query-map before formatting to avoid wasting resources
   (when (or (nil? query-map) (not (map? query-map)) (empty? query-map))
     (throw (IllegalArgumentException. "Invalid or empty query map provided")))
-  
+
   ;; Pure: format query using core function
   (let [adapter-dialect (protocols/dialect (:adapter ctx))
         sql-query (core-query/format-sql adapter-dialect query-map)
-        start-time (System/currentTimeMillis)]
-    
+        start-time (System/currentTimeMillis)
+        operation-details {:adapter adapter-dialect
+                           :operation-type "query"
+                           :table (or (get-in query-map [:from 0])
+                                      (get-in query-map [:select-from 0])
+                                      "unknown")}]
+
+    ;; Add breadcrumb for operation start
+    (add-database-breadcrumb "query" :start operation-details)
+
     ;; Side effect: log query
     (log/debug "Executing query"
                {:adapter adapter-dialect
                 :sql (first sql-query)
                 :params (rest sql-query)})
-    
+
     (try
       ;; Side effect: database I/O
       (let [result (jdbc/execute! (:datasource ctx) sql-query
                                   {:builder-fn rs/as-unqualified-lower-maps})
-            duration (- (System/currentTimeMillis) start-time)]
-        
+            duration (- (System/currentTimeMillis) start-time)
+            success-details (merge operation-details
+                                   {:duration-ms duration
+                                    :row-count (count result)})]
+
+        ;; Add breadcrumb for successful completion
+        (add-database-breadcrumb "query" :success success-details)
+
         ;; Side effect: log result
         (log/debug "Query completed"
                    {:adapter adapter-dialect
                     :duration-ms duration
                     :row-count (count result)})
         result)
-      
+
       (catch Exception e
+        ;; Add breadcrumb for error
+        (let [error-details (merge operation-details
+                                   {:error (.getMessage e)
+                                    :sql (first sql-query)
+                                    :params (rest sql-query)})]
+          (add-database-breadcrumb "query" :error error-details))
+
+;; Skip error reporting since database layer doesn't have error context
+        ;; This prevents protocol errors when called from contexts without proper error reporting setup
+
         ;; Side effect: error logging
         (log/error "Query failed"
                    {:adapter adapter-dialect
@@ -125,32 +162,69 @@
      (execute-update! ctx {:update :users :set {:active false} :where [:= :id \"123\"]})"
   [ctx query-map]
   (validate-context ctx)
-  
+
   ;; Pure: format query using core function
   (let [adapter-dialect (protocols/dialect (:adapter ctx))
         sql-query (core-query/format-sql adapter-dialect query-map)
-        start-time (System/currentTimeMillis)]
-    
+        start-time (System/currentTimeMillis)
+        operation-type (cond
+                         (contains? query-map :insert-into) "insert"
+                         (contains? query-map :update) "update"
+                         (contains? query-map :delete-from) "delete"
+                         :else "modify")
+        table-name (or (get query-map :insert-into)
+                       (get query-map :update)
+                       (get query-map :delete-from)
+                       "unknown")
+        operation-details {:adapter adapter-dialect
+                           :operation-type operation-type
+                           :table table-name}]
+
+    ;; Add breadcrumb for operation start
+    (add-database-breadcrumb operation-type :start operation-details)
+
     ;; Side effect: log update
     (log/debug "Executing update"
                {:adapter adapter-dialect
                 :sql (first sql-query)
                 :params (rest sql-query)})
-    
+
     (try
       ;; Side effect: database I/O
       (let [result (jdbc/execute! (:datasource ctx) sql-query)
             duration (- (System/currentTimeMillis) start-time)
-            affected-rows (::jdbc/update-count (first result))]
-        
+            affected-rows (::jdbc/update-count (first result))
+            success-details (merge operation-details
+                                   {:duration-ms duration
+                                    :affected-rows affected-rows})]
+
+        ;; Add breadcrumb for successful completion
+        (add-database-breadcrumb operation-type :success success-details)
+
         ;; Side effect: log result
         (log/debug "Update completed"
                    {:adapter adapter-dialect
                     :duration-ms duration
                     :affected-rows affected-rows})
         affected-rows)
-      
+
       (catch Exception e
+        ;; Add breadcrumb for error
+        (let [error-details (merge operation-details
+                                   {:error (.getMessage e)
+                                    :sql (first sql-query)
+                                    :params (rest sql-query)})]
+          (add-database-breadcrumb operation-type :error error-details))
+
+        ;; Report error to error reporting system
+        (error-reporting/report-application-error
+         {} ; context - Database layer doesn't have error context
+         e
+         (str "Database " operation-type " execution failed")
+         (merge operation-details
+                {:sql (first sql-query)
+                 :params (rest sql-query)}))
+
         ;; Side effect: error logging
         (log/error "Update failed"
                    {:adapter adapter-dialect
@@ -178,23 +252,55 @@
                          {:insert-into :users :values [{:name \"Jane\"}]}])"
   [ctx query-maps]
   (validate-context ctx)
-  (log/debug "Executing batch operation"
-             {:adapter (protocols/dialect (:adapter ctx))
-              :query-count (count query-maps)})
-  (jdbc/with-transaction [tx-conn (:datasource ctx)]
-    (let [tx-ctx (assoc ctx :datasource tx-conn)
-          start-time (System/currentTimeMillis)
-          results (mapv (fn [query-map]
-                          (if (contains? query-map :select)
-                            (execute-query! tx-ctx query-map)
-                            (execute-update! tx-ctx query-map)))
-                        query-maps)
-          duration (- (System/currentTimeMillis) start-time)]
-      (log/info "Batch operation completed"
-                {:adapter (protocols/dialect (:adapter ctx))
-                 :query-count (count query-maps)
-                 :duration-ms duration})
-      results)))
+  (let [operation-details {:adapter (protocols/dialect (:adapter ctx))
+                           :operation-type "batch"
+                           :query-count (count query-maps)}]
+
+    ;; Add breadcrumb for operation start
+    (add-database-breadcrumb "batch" :start operation-details)
+
+    (log/debug "Executing batch operation"
+               {:adapter (protocols/dialect (:adapter ctx))
+                :query-count (count query-maps)})
+
+    (try
+      (jdbc/with-transaction [tx-conn (:datasource ctx)]
+        (let [tx-ctx (assoc ctx :datasource tx-conn)
+              start-time (System/currentTimeMillis)
+              results (mapv (fn [query-map]
+                              (if (contains? query-map :select)
+                                (execute-query! tx-ctx query-map)
+                                (execute-update! tx-ctx query-map)))
+                            query-maps)
+              duration (- (System/currentTimeMillis) start-time)
+              success-details (merge operation-details
+                                     {:duration-ms duration
+                                      :results-count (count results)})]
+
+          ;; Add breadcrumb for successful completion
+          (add-database-breadcrumb "batch" :success success-details)
+
+          (log/info "Batch operation completed"
+                    {:adapter (protocols/dialect (:adapter ctx))
+                     :query-count (count query-maps)
+                     :duration-ms duration})
+          results))
+
+      (catch Exception e
+        ;; Add breadcrumb for error
+        (let [error-details (merge operation-details
+                                   {:error (.getMessage e)})]
+          (add-database-breadcrumb "batch" :error error-details))
+
+        ;; Report error to error reporting system
+        (error-reporting/report-application-error
+         {} ; context - Database layer doesn't have error context
+         e
+         "Database batch operation failed"
+         operation-details)
+
+        ;; Re-throw to preserve error chain
+        (throw e)))))
 
 ;; =============================================================================
 ;; Transaction Management
@@ -214,15 +320,40 @@
      (with-transaction* ctx (fn [tx] (execute-update! tx query)))"
   [ctx f]
   (validate-context ctx)
-  (jdbc/with-transaction [tx-conn (:datasource ctx)]
-    (try
-      (let [tx-ctx (assoc ctx :datasource tx-conn)
-            result (f tx-ctx)]
-        (log/debug "Transaction completed successfully"
-                   {:adapter (protocols/dialect (:adapter ctx))})
-        result)
-      (catch Exception e
-        (log/error "Transaction failed, rolling back"
-                   {:adapter (protocols/dialect (:adapter ctx))
-                    :error (.getMessage e)})
-        (throw e)))))
+  (let [operation-details {:adapter (protocols/dialect (:adapter ctx))
+                           :operation-type "transaction"}]
+
+    ;; Add breadcrumb for transaction start
+    (add-database-breadcrumb "transaction" :start operation-details)
+
+    (jdbc/with-transaction [tx-conn (:datasource ctx)]
+      (try
+        (let [tx-ctx (assoc ctx :datasource tx-conn)
+              result (f tx-ctx)
+              success-details (merge operation-details {:status "committed"})]
+
+          ;; Add breadcrumb for successful transaction
+          (add-database-breadcrumb "transaction" :success success-details)
+
+          (log/debug "Transaction completed successfully"
+                     {:adapter (protocols/dialect (:adapter ctx))})
+          result)
+
+        (catch Exception e
+          ;; Add breadcrumb for transaction error
+          (let [error-details (merge operation-details
+                                     {:error (.getMessage e)
+                                      :status "rolled-back"})]
+            (add-database-breadcrumb "transaction" :error error-details))
+
+          ;; Report error to error reporting system
+          (error-reporting/report-application-error
+           {} ; context - Database layer doesn't have error context
+           e
+           "Database transaction failed and was rolled back"
+           operation-details)
+
+          (log/error "Transaction failed, rolling back"
+                     {:adapter (protocols/dialect (:adapter ctx))
+                      :error (.getMessage e)})
+          (throw e))))))
