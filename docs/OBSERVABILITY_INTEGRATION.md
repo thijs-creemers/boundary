@@ -222,23 +222,38 @@ Safe for development and testing - all operations are ignored:
  :error-reporting {:provider :no-op}}
 ```
 
-### Future Providers
+### Production Providers
 
-The system is designed to support multiple providers:
+#### Datadog Logging (Available)
+
+Complete Datadog logging integration with HTTP batch processing:
+
+```clojure
+{:logging {:provider :datadog 
+           :api-key "your-32-character-api-key"
+           :service "your-service-name"
+           :host "intake.logs.datadoghq.com"  ; optional, defaults to US
+           :batch-size 100                    ; optional
+           :flush-interval 5000}}             ; optional, milliseconds
+```
+
+#### Future Providers
+
+The system is designed to support additional providers:
 
 ```clojure
 ;; Metrics providers
 {:metrics {:provider :prometheus :endpoint "http://localhost:9090"}}
-{:metrics {:provider :datadog :api-key "your-key"}}
+{:metrics {:provider :datadog :api-key "your-key"}}  ; metrics adapter planned
 {:metrics {:provider :cloudwatch :region "us-east-1"}}
 
 ;; Error reporting providers  
 {:error-reporting {:provider :sentry :dsn "your-sentry-dsn"}}
 {:error-reporting {:provider :rollbar :access-token "your-token"}}
 
-;; Logging providers
+;; Additional logging providers
 {:logging {:provider :json :level :info}}
-{:logging {:provider :datadog :api-key "your-key"}}
+{:logging {:provider :elasticsearch :endpoint "http://localhost:9200"}}
 ```
 
 ## Testing Integration
