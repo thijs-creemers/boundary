@@ -77,19 +77,24 @@
 ;; -----------------------------------------------------------------------------
 
 (defn- strip-memory-address
-  "Strip memory address (@hexadecimal) from object string representation.
+  "Strip memory address (@hexadecimal) and reify identifiers from object string representation.
 
   Args:
     s - String representation of an object
 
   Returns:
-    String with @address removed for deterministic comparison.
+    String with @address and reify__xxxx removed for deterministic comparison.
 
   Example:
     (strip-memory-address \"malli.core$Schema@7a6ba56\")
-    ;; => \"malli.core$Schema\""
+    ;; => \"malli.core$Schema\"
+    
+    (strip-memory-address \"malli.core$_map_schema$reify$reify__9248\")
+    ;; => \"malli.core$_map_schema$reify\""
   [s]
-  (str/replace s #"@[0-9a-fA-F]+" ""))
+  (-> s
+      (str/replace #"@[0-9a-fA-F]+" "")
+      (str/replace #"reify__\d+" "")))
 
 (defn- sort-map-keys
   "Recursively sort all map keys and convert non-EDN-serializable values.
@@ -274,7 +279,7 @@
 ;; Alias for backwards compatibility with tests
 ;; Note: This shadows clojure.core/compare in this namespace
 (def ^{:doc "Alias for compare-snapshots. See compare-snapshots for full documentation."}
-  compare compare-snapshots)
+  compare-snaps compare-snapshots)
 
 (defn format-diff
   "Format a diff result into human-readable string.

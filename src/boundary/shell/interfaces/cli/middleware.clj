@@ -1,21 +1,23 @@
 (ns boundary.shell.interfaces.cli.middleware
-  "CLI middleware for command execution (imperative shell).
+  "CLI middleware for command execution with enhanced error context (imperative shell).
    
    This namespace provides reusable CLI middleware that can be used across
    different modules and applications for consistent observability and
    error handling in command-line interfaces.
    
    Middleware functions handle CLI boundaries: command execution interception,
-   context generation, logging, and exception handling.
+   context generation, logging, and exception handling with enhanced context
+   preservation for debugging.
 
    Features:
    - Command correlation ID generation
    - Tenant and user context extraction from config/environment
    - Structured command execution logging with observability context
-   - Command timing and error reporting
+   - Command timing and error reporting with enhanced context
    - Error reporting breadcrumb integration"
   (:require [boundary.error-reporting.core :as error-reporting]
             [boundary.logging.core :as logging]
+            [boundary.shell.utils.error-handling :as error-handling]
             [clojure.tools.logging :as log])
   (:import (java.util UUID)))
 
@@ -27,30 +29,8 @@
 ;; Error Reporting Helpers
 ;; =============================================================================
 
-(defn- add-cli-breadcrumb
-  "Add CLI operation breadcrumb with enriched context.
-   
-   Args:
-     context: Error reporting context (from CLI execution context)
-     operation: String describing the CLI operation
-     status: :start, :success, or :error
-     details: Map with operation details"
-  [context operation status details]
-  (error-reporting/add-breadcrumb
-   (or context {}) ; Use provided context or empty map
-   (str "CLI " operation " " (case status
-                               :start "initiated"
-                               :success "completed"
-                               :error "failed"))
-   "cli" ; category
-   (case status
-     :start :info
-     :success :info
-     :error :error) ; level
-   (merge {:operation operation
-           :status (name status)
-           :source "cli-middleware"}
-          details)))
+;; Removed add-cli-breadcrumb - breadcrumb functionality should be handled
+;; by the error reporting services, not the CLI middleware layer
 
 (defn generate-correlation-id
   "Generates a new correlation ID for CLI command execution.
@@ -173,8 +153,7 @@
                             :tenant-id tenant-id
                             :user-id user-id}]
 
-       ;; Add breadcrumb for command start
-       (add-cli-breadcrumb context "command" :start command-details)
+;; Note: breadcrumb tracking removed - should be handled by error reporting services
 
        ;; Log command start
        (if logger
@@ -196,8 +175,7 @@
                                       {:duration-ms duration
                                        :outcome "success"})]
 
-           ;; Add breadcrumb for successful completion
-           (add-cli-breadcrumb context "command" :success success-details)
+;; Note: breadcrumb tracking removed - should be handled by error reporting services
 
            ;; Log successful completion
            (if logger
@@ -219,8 +197,7 @@
                                        :error (.getMessage ex)
                                        :exception-type (.getSimpleName (class ex))})]
 
-             ;; Add breadcrumb for command error
-             (add-cli-breadcrumb context "command" :error error-details)
+;; Note: breadcrumb tracking removed - should be handled by error reporting services
 
              ;; Log error
              (if logger
@@ -231,45 +208,29 @@
              (throw ex))))))))
 
 (defn with-cli-error-reporting
-  "Higher-order function that wraps CLI command execution with error reporting.
+  "Execute CLI command with enhanced error reporting.
    
    Captures unexpected exceptions and reports them to the error reporting system
-   while preserving CLI exit code behavior. Provides comprehensive error
-   context including command details and execution environment.
+   with comprehensive error context while preserving CLI exit code behavior. 
+   Uses enhanced error context utilities for better debugging information.
    
    Args:
-     f: Function to execute with error reporting
+     context: CLI context map containing user, operation, and additional context
+     operation-fn: Function to execute with error reporting (takes context as arg)
    
    Returns:
-     Function that reports errors around execution"
-  [f]
-  (fn [service cli-opts context]
-    (try
-      (f service cli-opts context)
-      (catch Exception ex
-        (let [{:keys [command subcommand correlation-id tenant-id user-id]} context
-              error-details {:command command
-                             :subcommand subcommand
-                             :correlation-id correlation-id
-                             :tenant-id tenant-id
-                             :user-id user-id
-                             :cli-opts cli-opts
-                             :error (.getMessage ex)
-                             :exception-type (.getSimpleName (class ex))}]
-
-          ;; Add breadcrumb for uncaught exception
-          (add-cli-breadcrumb context "exception" :error error-details)
-
-          ;; Report error to error reporting system with full context
-          (error-reporting/report-application-error
-           context
-           ex
-           (str "CLI command failed: " command
-                (when subcommand (str " " subcommand)))
-           error-details)
-
-          ;; Re-throw to maintain CLI behavior (exit codes, etc.)
-          (throw ex))))))
+     Result of operation-fn, or throws enhanced exception with CLI context"
+  [context operation-fn]
+  (let [{:keys [operation user-id]} context
+        ;; Build CLI error context for enhanced reporting using error-handling utilities
+        cli-error-context (merge {:command operation
+                                  :user-id user-id}
+                                 context)]
+    ;; Use enhanced CLI error context wrapper from error-handling utils
+    ;; This handles the exception enhancement and CLI context preservation
+    (error-handling/with-cli-error-context
+      cli-error-context
+      #(operation-fn context))))
 
 ;; =============================================================================
 ;; Convenience Functions
@@ -278,23 +239,27 @@
 (defn wrap-cli-command
   "Convenience function that applies all CLI middleware to a command function.
    
-   Applies logging, context generation, and error reporting middleware.
+   Creates a higher-order function that applies logging, context generation, 
+   and error reporting middleware when called.
    
    Args:
      command: Command name string
      subcommand: Subcommand name string (optional)
      config: Application config map (optional)
      logger: ILogger instance (optional)
-     f: Command function to wrap
+     f: Command function to wrap (will receive [service cli-opts context])
    
    Returns:
-     Fully wrapped command function"
+     Function that takes [service cli-opts] and executes with full middleware stack"
   ([command f]
    (wrap-cli-command command nil nil nil f))
   ([command subcommand f]
    (wrap-cli-command command subcommand nil nil f))
   ([command subcommand config logger f]
-   (-> f
-       (with-cli-error-reporting)
-       (with-cli-logging logger)
-       (with-cli-context command subcommand config))))
+   (fn [service cli-opts]
+     (let [context (build-cli-context command subcommand cli-opts config)]
+       (with-cli-error-reporting
+         context
+         (fn [ctx]
+           (let [logged-fn (with-cli-logging logger f)]
+             (logged-fn service cli-opts ctx))))))))

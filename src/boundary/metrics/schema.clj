@@ -4,8 +4,8 @@
    This namespace defines Malli schemas for validating metrics configuration,
    ensuring proper structure and constraints for different metrics providers."
   (:require
-   [malli.core :as m]
-   [malli.transform :as mt]))
+    [malli.core :as m]
+    [malli.transform :as mt]))
 
 ;; =============================================================================
 ;; Core Metrics Configuration Schemas
@@ -129,7 +129,7 @@
     [:connection-timeout {:optional true} [:int {:min 1000 :max 30000}]]]])
 
 (def CloudwatchMetricsConfig
-  "Configuration for AWS CloudWatch metrics provider."  
+  "Configuration for AWS CloudWatch metrics provider."
   [:and BaseMetricsConfig
    [:map {:title "CloudWatch Metrics Configuration"}
     [:provider [:= :cloudwatch]]
@@ -158,7 +158,7 @@
 (def MetricsConfig
   "Unified metrics configuration schema that validates any provider."
   [:multi {:dispatch :provider
-           :title "Metrics Configuration"}
+           :title    "Metrics Configuration"}
    [:in-memory InMemoryMetricsConfig]
    [:prometheus PrometheusMetricsConfig]
    [:datadog-statsd DatadogStatsdConfig]
@@ -206,8 +206,8 @@
    [:infrastructure {:optional true} MetricsConfig]
    [:application {:optional true} ApplicationMetricsConfig]
    [:business {:optional true} BusinessMetricsConfig]
-   [:alerting {:optional true} :map] ; For future alerting integration
-   [:dashboards {:optional true} :map]]) ; For future dashboard integration
+   [:alerting {:optional true} :map]                        ; For future alerting integration
+   [:dashboards {:optional true} :map]])                    ; For future dashboard integration
 
 ;; =============================================================================
 ;; Default Configurations
@@ -215,82 +215,82 @@
 
 (def default-in-memory-config
   "Default in-memory metrics configuration."
-  {:provider :in-memory
-   :enabled true
-   :namespace "boundary"
-   :max-memory-mb 50
-   :enable-gc true
-   :gc-threshold 0.8
+  {:provider         :in-memory
+   :enabled          true
+   :namespace        "boundary"
+   :max-memory-mb    50
+   :enable-gc        true
+   :gc-threshold     0.8
    :export-snapshots false
-   :tagging {:enabled true
-             :max-tags 20
-             :max-tag-key-length 50
-             :max-tag-value-length 200
-             :default-tags {:service "boundary"}
-             :sanitize-keys true}
-   :retention {:enabled true
-               :max-age-seconds 3600
-               :max-metrics 10000
-               :cleanup-interval-seconds 300}})
+   :tagging          {:enabled              true
+                      :max-tags             20
+                      :max-tag-key-length   50
+                      :max-tag-value-length 200
+                      :default-tags         {:service "boundary"}
+                      :sanitize-keys        true}
+   :retention        {:enabled                  true
+                      :max-age-seconds          3600
+                      :max-metrics              10000
+                      :cleanup-interval-seconds 300}})
 
 (def default-prometheus-config
   "Default Prometheus metrics configuration."
-  {:provider :prometheus
-   :enabled true
-   :namespace "boundary"
-   :port 9090
-   :path "/metrics"
+  {:provider               :prometheus
+   :enabled                true
+   :namespace              "boundary"
+   :port                   9090
+   :path                   "/metrics"
    :enable-default-metrics true
-   :include-help-text true
-   :histogram-buckets [0.005 0.01 0.025 0.05 0.1 0.25 0.5 1 2.5 5 10]
-   :summary-quantiles [0.5 0.95 0.99]
-   :summary-max-age 600
-   :tagging {:enabled true
-             :max-tags 15
-             :default-tags {:service "boundary"}
-             :sanitize-keys true}})
+   :include-help-text      true
+   :histogram-buckets      [0.005 0.01 0.025 0.05 0.1 0.25 0.5 1 2.5 5 10]
+   :summary-quantiles      [0.5 0.95 0.99]
+   :summary-max-age        600
+   :tagging                {:enabled       true
+                            :max-tags      15
+                            :default-tags  {:service "boundary"}
+                            :sanitize-keys true}})
 
 (def default-datadog-config
   "Default Datadog StatsD metrics configuration."
-  {:provider :datadog-statsd
-   :enabled true
-   :namespace "boundary"
-   :host "localhost"
-   :port 8125
-   :service "boundary"
-   :environment "development"
+  {:provider         :datadog-statsd
+   :enabled          true
+   :namespace        "boundary"
+   :host             "localhost"
+   :port             8125
+   :service          "boundary"
+   :environment      "development"
    :origin-detection false
-   :socket-timeout 5000
-   :max-packet-size 1432
-   :tagging {:enabled true
-             :max-tags 20
-             :max-tag-key-length 200
-             :max-tag-value-length 500
-             :default-tags {:service "boundary"}
-             :sanitize-keys true
-             :allow-special-chars false}})
+   :socket-timeout   5000
+   :max-packet-size  1432
+   :tagging          {:enabled              true
+                      :max-tags             20
+                      :max-tag-key-length   200
+                      :max-tag-value-length 500
+                      :default-tags         {:service "boundary"}
+                      :sanitize-keys        true
+                      :allow-special-chars  false}})
 
 (def default-application-config
   "Default application metrics configuration."
-  {:enabled true
-   :collect-jvm-metrics true
-   :collect-gc-metrics true
-   :collect-memory-metrics true
-   :collect-thread-metrics true
-   :collect-cpu-metrics true
-   :collect-http-metrics true
+  {:enabled                  true
+   :collect-jvm-metrics      true
+   :collect-gc-metrics       true
+   :collect-memory-metrics   true
+   :collect-thread-metrics   true
+   :collect-cpu-metrics      true
+   :collect-http-metrics     true
    :collect-database-metrics true
    :collect-business-metrics false})
 
 (def default-business-config
   "Default business metrics configuration."
-  {:user-actions true
-   :api-usage true
-   :feature-usage false
+  {:user-actions           true
+   :api-usage              true
+   :feature-usage          false
    :performance-indicators true
-   :error-rates true
-   :success-rates true
-   :conversion-metrics false})
+   :error-rates            true
+   :success-rates          true
+   :conversion-metrics     false})
 
 ;; =============================================================================
 ;; Validation Functions
@@ -323,9 +323,9 @@
 (def metrics-config-transformer
   "Transforms external configuration to internal format."
   (mt/transformer
-   mt/strip-extra-keys-transformer
-   mt/string-transformer
-   {:name :metrics-config}))
+    mt/strip-extra-keys-transformer
+    mt/string-transformer
+    {:name :metrics-config}))
 
 (defn normalize-metrics-config
   "Normalizes and validates a metrics configuration map."
@@ -334,8 +334,8 @@
     (if (validate-metrics-config normalized)
       normalized
       (throw (ex-info "Invalid metrics configuration"
-                      {:errors (explain-metrics-config normalized)
-                       :config config})))))
+               {:errors (explain-metrics-config normalized)
+                :config config})))))
 
 (defn normalize-system-metrics-config
   "Normalizes and validates a system metrics configuration map."
@@ -344,8 +344,8 @@
     (if (validate-system-metrics-config normalized)
       normalized
       (throw (ex-info "Invalid system metrics configuration"
-                      {:errors (explain-system-metrics-config normalized)
-                       :config config})))))
+               {:errors (explain-system-metrics-config normalized)
+                :config config})))))
 
 ;; =============================================================================
 ;; Schema Registry
@@ -354,23 +354,23 @@
 (def schema-registry
   "Registry of all metrics schemas for easy access."
   {:core
-   {:metrics-config MetricsConfig
+   {:metrics-config        MetricsConfig
     :system-metrics-config SystemMetricsConfig
-    :application-config ApplicationMetricsConfig
-    :business-config BusinessMetricsConfig}
+    :application-config    ApplicationMetricsConfig
+    :business-config       BusinessMetricsConfig}
    :providers
-   {:in-memory InMemoryMetricsConfig
-    :prometheus PrometheusMetricsConfig
+   {:in-memory      InMemoryMetricsConfig
+    :prometheus     PrometheusMetricsConfig
     :datadog-statsd DatadogStatsdConfig
-    :statsd StatsdConfig
-    :cloudwatch CloudwatchMetricsConfig
-    :custom CustomMetricsConfig}
+    :statsd         StatsdConfig
+    :cloudwatch     CloudwatchMetricsConfig
+    :custom         CustomMetricsConfig}
    :common
-   {:metric-provider MetricProvider
-    :metric-type MetricType
+   {:metric-provider  MetricProvider
+    :metric-type      MetricType
     :aggregation-type AggregationType
-    :tagging-config TaggingConfig
-    :sampling-config SamplingConfig
+    :tagging-config   TaggingConfig
+    :sampling-config  SamplingConfig
     :retention-config RetentionConfig}})
 
 (defn get-schema

@@ -143,7 +143,7 @@
   (testing "Compare returns equal? true for identical snapshots"
     (let [snap1 {:meta {:seed 42} :result {:status :success}}
           snap2 {:meta {:seed 42} :result {:status :success}}
-          result (snapshot/compare snap1 snap2)]
+          result (snapshot/compare-snapshots snap1 snap2)]
       (is (true? (:equal? result)))
       (is (= [nil nil snap1] (:diff result))))))
 
@@ -151,7 +151,7 @@
   (testing "Compare detects differences in results"
     (let [snap1 {:meta {:seed 42} :result {:status :success}}
           snap2 {:meta {:seed 42} :result {:status :failure}}
-          result (snapshot/compare snap1 snap2)]
+          result (snapshot/compare-snapshots snap1 snap2)]
       (is (false? (:equal? result)))
       (is (some? (first (:diff result)))) ;; only-in-expected
       (is (some? (second (:diff result))))))) ;; only-in-actual
@@ -160,7 +160,7 @@
   (testing "Compare detects differences in metadata"
     (let [snap1 {:meta {:seed 42} :result {:status :success}}
           snap2 {:meta {:seed 99} :result {:status :success}}
-          result (snapshot/compare snap1 snap2)]
+          result (snapshot/compare-snapshots snap1 snap2)]
       (is (false? (:equal? result)))
       (is (some? (first (:diff result))))))) ;; only-in-expected
 
@@ -172,7 +172,7 @@
           snap2 {:meta {:seed 42}
                  :result {:status :failure
                           :errors [{:code :user.name/required :path [:name]}]}}
-          result (snapshot/compare snap1 snap2)]
+          result (snapshot/compare-snapshots snap1 snap2)]
       (is (false? (:equal? result)))
       (is (some? (first (:diff result))))))) ;; Different error codes
 
@@ -183,7 +183,7 @@
 (deftest ^:phase3 format-diff-equal-test
   (testing "Format diff for equal snapshots"
     (let [snap {:meta {:seed 42} :result {:status :success}}
-          comparison (snapshot/compare snap snap)
+          comparison (snapshot/compare-snapshots snap snap)
           formatted (snapshot/format-diff comparison)]
       (is (= "Snapshots are equal." formatted)))))
 
@@ -191,7 +191,7 @@
   (testing "Format diff shows differences"
     (let [snap1 {:meta {:seed 42} :result {:status :success}}
           snap2 {:meta {:seed 42} :result {:status :failure}}
-          comparison (snapshot/compare snap1 snap2)
+          comparison (snapshot/compare-snapshots snap1 snap2)
           formatted (snapshot/format-diff comparison)]
       (is (string? formatted))
       (is (re-find #"Differences found" formatted))
@@ -226,6 +226,6 @@
   (testing "Compare handles nil values in snapshots"
     (let [snap1 {:meta {:seed 42} :result nil}
           snap2 {:meta {:seed 42} :result {:status :success}}
-          result (snapshot/compare snap1 snap2)]
+          result (snapshot/compare-snapshots snap1 snap2)]
       (is (false? (:equal? result)))
       (is (some? (first (:diff result))))))) ;; nil vs map difference

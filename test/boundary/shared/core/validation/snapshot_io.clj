@@ -176,7 +176,7 @@
               ;; This is done by serializing and deserializing both
               normalized-expected (snapshot/parse-snapshot (snapshot/stable-serialize expected-snap))
               normalized-actual (snapshot/parse-snapshot (snapshot/stable-serialize actual-snap))
-              comparison (snapshot/compare normalized-expected normalized-actual)]
+              comparison (snapshot/compare-snapshots normalized-expected normalized-actual)]
           (if (:equal? comparison)
             (do
               (t/is true "Snapshot matches")

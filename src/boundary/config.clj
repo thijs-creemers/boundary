@@ -139,12 +139,13 @@
      config: Configuration map from load-config
    
    Returns:
-     Map with :port, :host, and :join? keys"
+     Map with :port, :host, :join?, and :port-range keys"
   [config]
   (let [http-cfg (get-in config [:active :boundary/http])]
     {:port (or (:port http-cfg) 3000)
      :host (or (:host http-cfg) "0.0.0.0")
-     :join? (or (:join? http-cfg) false)}))
+     :join? (or (:join? http-cfg) false)
+     :port-range (:port-range http-cfg)}))
 
 (defn app-config
   "Extract application-level configuration.
@@ -264,7 +265,8 @@
 
      :boundary/http-server
      (merge http-cfg
-            {:handler (ig/ref :boundary/http-handler)})}))
+            {:handler (ig/ref :boundary/http-handler)
+             :config http-cfg})}))
 
 ;; =============================================================================
 ;; REPL Utilities

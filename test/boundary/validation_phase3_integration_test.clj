@@ -173,7 +173,7 @@
           modified {:status :failure :errors [{:code :error}]}
           snap-original (snapshot/capture original {})
           snap-modified (snapshot/capture modified {})
-          comparison (snapshot/compare snap-original snap-modified)]
+          comparison (snapshot/compare-snapshots snap-original snap-modified)]
       ;; Comparison detects difference
       (is (false? (:equal? comparison)))
       (is (some? (first (:diff comparison))))
@@ -282,7 +282,7 @@
         (is (some? snapshot-1))
         (is (some? snapshot-2))
         ;; Different results
-        (let [comparison (snapshot/compare snapshot-1 snapshot-2)]
+        (let [comparison (snapshot/compare-snapshots snapshot-1 snapshot-2)]
           (is (false? (:equal? comparison)))))
 
       ;; 4. Compute coverage

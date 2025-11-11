@@ -62,7 +62,7 @@
   "Middleware to add correlation ID to requests and responses.
 
        Adds a unique correlation ID to each request for tracing purposes.
-       Uses X-Request-Id header if present, otherwise generates a new UUID.
+       Uses X-Correlation-ID header if present, otherwise generates a new UUID.
 
        Args:
          handler: Ring handler function
@@ -71,12 +71,13 @@
          Ring middleware function"
   [handler]
   (fn [request]
-    (let [correlation-id (or (get-in request [:headers "x-request-id"])
+    (let [correlation-id (or (get-in request [:headers "x-correlation-id"])
+                             (get-in request [:headers "x-request-id"])
                              (str (UUID/randomUUID)))
           request-with-id (assoc request :correlation-id correlation-id)
           response (handler request-with-id)]
       (if response
-        (assoc-in response [:headers "X-Request-Id"] correlation-id)
+        (assoc-in response [:headers "X-Correlation-ID"] correlation-id)
         response))))
 
 ;; =============================================================================
@@ -242,14 +243,14 @@
 ;; =============================================================================
 
 (defn wrap-exception-handling
-  "Middleware to catch exceptions and return RFC 7807 problem details.
+  "Middleware to catch exceptions and return RFC 7807 problem details with context.
    
    SHELL FUNCTION: Performs side effects (exception catching, logging).
-   Uses pure core functions for problem details transformation.
+   Uses pure core functions for problem details transformation with enhanced context.
 
    Catches all exceptions and converts them to standardized RFC 7807 problem
-   details responses. Logs exceptions for debugging and monitoring, and reports
-   them to the error reporting system with full context.
+   details responses with full error context for debugging. Logs exceptions for 
+   debugging and monitoring, and reports them to the error reporting system.
 
    Args:
      handler: Ring handler function
@@ -267,6 +268,9 @@
          (let [{:keys [observability-context correlation-id uri request-method
                        tenant-id user-id]} request
                context (or observability-context {})
+               ;; Build enhanced error context using the new helper
+               error-context (problem/request->context request)
+               ;; Add additional context for error reporting
                error-details {:method (if request-method (name request-method) "unknown")
                               :uri uri
                               :correlation-id correlation-id
@@ -278,28 +282,31 @@
            ;; Add breadcrumb for exception
            (add-http-breadcrumb context "exception" :error error-details)
 
-           ;; Report error to error reporting system with full context (only if proper error reporter)
+           ;; Report error to error reporting system with enhanced context
            (when (and context (satisfies? error-reporting-ports/IErrorReporter context))
-             (error-reporting/report-application-error
+             (error-reporting/report-enhanced-application-error
               context
               ex
               "HTTP request failed with exception"
-              error-details))
+              error-details
+              error-context))
 
-           ;; Side effect: error logging
+           ;; Side effect: error logging with enhanced context
            (log/error "Request failed with exception"
                       (merge {:uri uri
                               :method (name request-method)
                               :correlation-id correlation-id
                               :error (.getMessage ex)
-                              :ex-data (ex-data ex)}
+                              :ex-data (ex-data ex)
+                              :error-context error-context}
                              (when tenant-id {:tenant-id tenant-id})
                              (when user-id {:user-id user-id})))
 
-           ;; Pure: transform exception to problem details using core function
+           ;; Pure: transform exception to problem details using enhanced core function
            (problem/exception->problem-response
             ex
             correlation-id
             uri
-            error-mappings)))))))
+            error-mappings
+            error-context)))))))
 

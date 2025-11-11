@@ -8,7 +8,8 @@
   (:require [boundary.user.shell.http :as user-http]
             [boundary.user.ports :as ports]
             [boundary.shell.interfaces.http.middleware :as middleware]
-            [clojure.test :refer [deftest testing is]])
+            [clojure.test :refer [deftest testing is]]
+            [cheshire.core :as json])
   (:import [java.util UUID]
            [java.time Instant]))
 
@@ -143,6 +144,14 @@
   []
   (->MockUserService (atom {})))
 
+(defn parse-json-response
+  "Parse JSON response body for testing structured error responses.
+   Handles case where response body is a JSON string that needs parsing."
+  [response]
+  (if (string? (:body response))
+    (assoc response :body (json/parse-string (:body response) true))
+    response))
+
 ;; =============================================================================
 ;; User Handler Tests
 ;; =============================================================================
@@ -206,7 +215,8 @@
           non-existent-id (UUID/randomUUID)
           request {:parameters
                    {:path {:id (str non-existent-id)}}}
-          response (call-handler handler request user-http/user-error-mappings)]
+          response (-> (call-handler handler request user-http/user-error-mappings)
+                       parse-json-response)]
 
       ;; Assert RFC 7807 Problem Details fields
       (is (= 404 (:status response)))
@@ -296,7 +306,8 @@
           request {:parameters
                    {:path {:id (str non-existent-id)}
                     :body {:name "Updated Name"}}}
-          response (call-handler handler request user-http/user-error-mappings)]
+          response (-> (call-handler handler request user-http/user-error-mappings)
+                       parse-json-response)]
 
       ;; Assert RFC 7807 Problem Details fields
       (is (= 404 (:status response)))
@@ -376,7 +387,8 @@
           invalid-token "invalid-token-12345"
           request {:parameters
                    {:path {:token invalid-token}}}
-          response (call-handler handler request user-http/user-error-mappings)]
+          response (-> (call-handler handler request user-http/user-error-mappings)
+                       parse-json-response)]
 
       ;; Assert RFC 7807 Problem Details fields
       (is (= 404 (:status response)))

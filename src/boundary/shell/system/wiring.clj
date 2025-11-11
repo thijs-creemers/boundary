@@ -28,6 +28,7 @@
             [boundary.logging.shell.adapters.no-op :as logging-no-op]
             [boundary.metrics.shell.adapters.no-op :as metrics-no-op]
             [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
+            [boundary.shell.utils.port-manager :as port-manager]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]
             [ring.adapter.jetty :as jetty]))
@@ -194,17 +195,23 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-server
-  [_ {:keys [handler port host join?]}]
-  (log/info "Starting HTTP server" {:port port :host host})
-  (let [server (jetty/run-jetty handler
-                                {:port port
-                                 :host host
-                                 :join? (or join? false)})]
-    (log/info "HTTP server started successfully"
-              {:port port
-               :host host
-               :url (str "http://" host ":" port)})
-    server))
+  [_ {:keys [handler port host join? config] :as server-config}]
+  (let [http-config (or config {})
+        port-allocation (port-manager/allocate-port port http-config)
+        allocated-port (:port port-allocation)]
+
+    (port-manager/log-port-allocation port allocated-port http-config "HTTP Server")
+
+    (let [server (jetty/run-jetty handler
+                                  {:port allocated-port
+                                   :host host
+                                   :join? (or join? false)})]
+      (log/info "HTTP server started successfully"
+                {:port allocated-port
+                 :host host
+                 :url (str "http://" host ":" allocated-port)
+                 :allocation-message (:message port-allocation)})
+      server)))
 
 (defmethod ig/halt-key! :boundary/http-server
   [_ server]

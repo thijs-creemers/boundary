@@ -8,6 +8,6 @@
  {:errors
   {:errors
    "({:path [:email], :in [:email], :schema [:map {:title \"Create User Request\"} [:email [:re #:error{:message \"Invalid email format\"} #\"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\\.[a-zA-Z]{2,}$\"]] [:name [:string {:min 1, :max 255}]] [:role [:enum :admin :user :viewer]] [:active {:optional true} :boolean] [:tenant-id :uuid] [:send-welcome {:optional true} :boolean]], :value nil, :type :malli.core/missing-key} {:path [:name], :in [:name], :schema [:map {:title \"Create User Request\"} [:email [:re #:error{:message \"Invalid email format\"} #\"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\\.[a-zA-Z]{2,}$\"]] [:name [:string {:min 1, :max 255}]] [:role [:enum :admin :user :viewer]] [:active {:optional true} :boolean] [:tenant-id :uuid] [:send-welcome {:optional true} :boolean]], :value nil, :type :malli.core/missing-key} {:path [:tenant-id], :in [:tenant-id], :schema [:map {:title \"Create User Request\"} [:email [:re #:error{:message \"Invalid email format\"} #\"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\\.[a-zA-Z]{2,}$\"]] [:name [:string {:min 1, :max 255}]] [:role [:enum :admin :user :viewer]] [:active {:optional true} :boolean] [:tenant-id :uuid] [:send-welcome {:optional true} :boolean]], :value nil, :type :malli.core/missing-key})",
-   :schema "malli.core$_map_schema$reify$reify__9248",
+   :schema "malli.core$_map_schema$reify$",
    :value {:role :user}},
   :valid? false}}

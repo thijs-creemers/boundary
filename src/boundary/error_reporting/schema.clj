@@ -274,9 +274,9 @@
    :filtering {:enabled true
                :min-severity :warning
                :rate-limit {:enabled true
-                           :max-reports-per-minute 60
-                           :max-reports-per-hour 1000
-                           :burst-allowance 10}}
+                            :max-reports-per-minute 60
+                            :max-reports-per-hour 1000
+                            :burst-allowance 10}}
    :context {:collect-user-context true
              :collect-request-context true
              :collect-system-context true
@@ -311,9 +311,9 @@
    :filtering {:enabled true
                :min-severity :error
                :rate-limit {:enabled true
-                           :max-reports-per-minute 30
-                           :max-reports-per-hour 500
-                           :burst-allowance 5}}
+                            :max-reports-per-minute 30
+                            :max-reports-per-hour 500
+                            :burst-allowance 5}}
    :context {:collect-user-context false
              :collect-request-context true
              :collect-system-context true

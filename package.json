@@ -4,7 +4,8 @@
   "description": "Boundary Framework Documentation",
   "scripts": {
     "build-docs": "antora --fetch antora-playbook.yml",
-    "serve-docs": "http-server resources/public/docs -p 8080 -o",
+    "serve-docs": "node scripts/serve-docs.js",
+    "serve-docs-simple": "http-server resources/public/docs -p 8080 -o",
     "dev-docs": "npm run build-docs && npm run serve-docs"
   },
   "devDependencies": {

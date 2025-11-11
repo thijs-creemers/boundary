@@ -46,6 +46,7 @@ Boundary implements a **clean architecture** pattern with proper separation of c
 - **Application Layer**: Database-agnostic business services using dependency injection
 - **Infrastructure Layer**: Database adapters, external APIs, and I/O implementations
 - **Multi-Interface Support**: Consistent behavior across REST, CLI, and Web
+- **RFC 7807 Error Handling**: Standardized HTTP error responses with proper context separation
 
 ### User Module Example
 ```

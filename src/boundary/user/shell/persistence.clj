@@ -717,6 +717,89 @@
         (error-reporting/report-application-error {} ex "Failed to cleanup expired sessions"
                                                   {:operation "cleanup-expired-sessions"
                                                    :before-timestamp before-timestamp})
+        (throw ex))))
+
+  (update-session [_ session-entity]
+    (log/debug "Updating user session" {:session-id (:id session-entity)})
+    (add-persistence-breadcrumb "update-session" :start
+                                {:session-id (:id session-entity)})
+    (try
+      (let [db-session (session-entity->db session-entity)
+            query {:update :user_sessions
+                   :set (dissoc db-session :id)
+                   :where [:= :id (type-conversion/uuid->string (:id session-entity))]}
+            affected-rows (db/execute-update! ctx query)]
+
+        (if (> affected-rows 0)
+          (do
+            (add-persistence-breadcrumb "update-session" :success
+                                        {:session-id (:id session-entity) :affected-rows affected-rows})
+            (log/debug "Session updated successfully")
+            session-entity)
+          (do
+            (add-persistence-breadcrumb "update-session" :success
+                                        {:session-id (:id session-entity) :found false :affected-rows affected-rows})
+            (log/warn "Session not found for update")
+            nil)))
+      (catch Exception ex
+        (add-persistence-breadcrumb "update-session" :error
+                                    {:session-id (:id session-entity)
+                                     :error-message (.getMessage ex)
+                                     :error-type (or (:type (ex-data ex)) "database-error")})
+        (error-reporting/report-application-error {} ex "Failed to update session"
+                                                  {:operation "update-session"
+                                                   :session-id (:id session-entity)})
+        (throw ex))))
+
+  (find-all-sessions [_]
+    (log/debug "Finding all sessions")
+    (add-persistence-breadcrumb "find-all-sessions" :start {})
+    (try
+      (let [query {:select [:*]
+                   :from [:user_sessions]
+                   :order-by [[:created_at :desc]]}
+            results (db/execute-query! ctx query)
+            sessions (map db->session-entity results)]
+        (add-persistence-breadcrumb "find-all-sessions" :success
+                                    {:count (count sessions)})
+        (log/debug "Found all sessions" {:count (count sessions)})
+        sessions)
+      (catch Exception ex
+        (add-persistence-breadcrumb "find-all-sessions" :error
+                                    {:error-message (.getMessage ex)
+                                     :error-type (or (:type (ex-data ex)) "database-error")})
+        (error-reporting/report-application-error {} ex "Failed to find all sessions"
+                                                  {:operation "find-all-sessions"})
+        (throw ex))))
+
+  (delete-session [_ session-id]
+    (log/warn "Permanently deleting session" {:session-id session-id})
+    (add-persistence-breadcrumb "delete-session" :start
+                                {:session-id session-id})
+    (try
+      (let [query {:delete-from :user_sessions
+                   :where [:= :id (type-conversion/uuid->string session-id)]}
+            affected-rows (db/execute-update! ctx query)]
+
+        (if (> affected-rows 0)
+          (do
+            (add-persistence-breadcrumb "delete-session" :success
+                                        {:session-id session-id :affected-rows affected-rows})
+            (log/info "Session deleted successfully")
+            true)
+          (do
+            (add-persistence-breadcrumb "delete-session" :success
+                                        {:session-id session-id :found false :affected-rows affected-rows})
+            (log/warn "Session not found for deletion")
+            false)))
+      (catch Exception ex
+        (add-persistence-breadcrumb "delete-session" :error
+                                    {:session-id session-id
+                                     :error-message (.getMessage ex)
+                                     :error-type (or (:type (ex-data ex)) "database-error")})
+        (error-reporting/report-application-error {} ex "Failed to delete session"
+                                                  {:operation "delete-session"
+                                                   :session-id session-id})
         (throw ex)))))
 
 ;; =============================================================================

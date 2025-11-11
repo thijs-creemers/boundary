@@ -160,7 +160,102 @@
         enriched-context (merge context
                                 classification
                                 {:error-type :application
-                                 :timestamp (System/currentTimeMillis)})]
+                                 :timestamp (or (:timestamp context) (java.time.Instant/now))})]
+    (ports/capture-exception reporter exception enriched-context)))
+
+(defn error-context->reporting-context
+  "Convert enhanced error context to error reporting context format.
+   
+   Transforms the enhanced error context from Problem Details into the format
+   expected by the error reporting system, ensuring compatibility and proper
+   context preservation.
+   
+   Args:
+     error-context - Enhanced error context map from Problem Details
+     
+   Returns:
+     Error reporting context map with proper structure"
+  [error-context]
+  (when error-context
+    (cond-> {}
+      (:user-id error-context) (assoc :user-id (:user-id error-context))
+      (:tenant-id error-context) (assoc :tenant-id (:tenant-id error-context))
+      (:trace-id error-context) (assoc :trace-id (:trace-id error-context))
+      (:request-id error-context) (assoc :request-id (:request-id error-context))
+      (:ip-address error-context) (assoc :ip-address (:ip-address error-context))
+      (:user-agent error-context) (assoc :user-agent (:user-agent error-context))
+      (:environment error-context) (assoc :environment (:environment error-context))
+      (:timestamp error-context) (assoc :timestamp (:timestamp error-context))
+      (:command error-context) (assoc :command (:command error-context))
+      ;; HTTP-specific context
+      (:uri error-context) (assoc :uri (:uri error-context))
+      (:method error-context) (assoc :method (:method error-context))
+      ;; CLI-specific context
+      (:operation error-context) (assoc :operation (:operation error-context))
+      (:process-id error-context) (assoc :process-id (:process-id error-context))
+      (:cli-version error-context) (assoc :cli-version (:cli-version error-context))
+      (:args error-context) (assoc :args (:args error-context))
+      ;; Nested data structures
+      (:request-headers error-context) (assoc :request-headers (:request-headers error-context))
+      (:response-metadata error-context) (assoc :response-metadata (:response-metadata error-context))
+      (:cache-hit error-context) (assoc :cache-hit (:cache-hit error-context))
+      ;; Additional context goes into extra
+      (seq (dissoc error-context :user-id :tenant-id :trace-id :request-id
+                   :ip-address :user-agent :environment :timestamp :command
+                   :uri :method :operation :process-id :cli-version :args
+                   :request-headers :response-metadata :cache-hit))
+      (assoc :extra (dissoc error-context :user-id :tenant-id :trace-id :request-id
+                            :ip-address :user-agent :environment :timestamp :command
+                            :uri :method :operation :process-id :cli-version :args
+                            :request-headers :response-metadata :cache-hit)))))
+
+(defn extract-cause-chain
+  "Extract the cause chain from an exception into a nested structure.
+   
+   Args:
+     exception - Exception instance
+     
+   Returns:
+     Nested map representing the cause chain, or nil if no cause"
+  [exception]
+  (when-let [cause (.getCause exception)]
+    (let [cause-info {:message (.getMessage cause)
+                      :data (when (instance? clojure.lang.ExceptionInfo cause)
+                              (ex-data cause))}]
+      (if-let [nested-cause (extract-cause-chain cause)]
+        (assoc cause-info :cause nested-cause)
+        cause-info))))
+
+(defn report-enhanced-application-error
+  "Reports an application error with enhanced context from Problem Details.
+   
+   This function bridges the enhanced error context from our Problem Details
+   implementation with the error reporting system, ensuring all context
+   information is properly preserved for debugging.
+   
+   Args:
+     reporter  - IErrorReporter instance
+     exception - Exception instance
+     message   - Descriptive error message
+     context   - Standard error context map
+     error-context - Enhanced error context from Problem Details
+   
+   Returns:
+     Error ID string"
+  [reporter exception message context error-context]
+  (let [classification (classify-exception exception)
+        ;; Convert enhanced context to reporting format
+        reporting-context (error-context->reporting-context error-context)
+        ;; Extract cause chain
+        cause-chain (extract-cause-chain exception)
+        ;; Merge all context together
+        enriched-context (cond-> (merge context
+                                        reporting-context
+                                        classification
+                                        {:error-type :application
+                                         :timestamp (System/currentTimeMillis)
+                                         :enhanced-context error-context})
+                           cause-chain (assoc :cause cause-chain))]
     (ports/capture-exception reporter exception enriched-context)))
 
 (defn report-validation-error

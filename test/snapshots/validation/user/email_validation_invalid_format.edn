@@ -8,7 +8,7 @@
  {:errors
   {:errors
    "({:path [:email], :in [:email], :schema [:re #:error{:message \"Invalid email format\"} #\"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\\.[a-zA-Z]{2,}$\"], :value \"not-an-email\"})",
-   :schema "malli.core$_map_schema$reify$reify__9248",
+   :schema "malli.core$_map_schema$reify$",
    :value
    {:email "not-an-email",
     :name "Test User",

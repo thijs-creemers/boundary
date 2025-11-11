@@ -78,7 +78,7 @@
   [expected actual]
   (let [e (snap/capture expected {:schema-version "1.0"})
         a (snap/capture actual {:schema-version "1.0"})
-        cmp (snap/compare e a)]
+        cmp (snap/compare-snapshots e a)]
     (assoc cmp :pretty (snap/format-diff cmp))))
 
 ;; ----------------------------------------------------------------------------
