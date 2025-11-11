@@ -29,7 +29,7 @@
    - message: String message or format string
    - context: Optional map with correlation-id, request-id, tenant-id, etc.
    - exception: Optional exception/throwable for error logs"
-  
+
   (log* [this level message context exception]
     "Low-level logging method. All other methods delegate to this.
      
@@ -41,22 +41,22 @@
      
      Returns:
        nil (side effect only)")
-  
+
   (trace [this message] [this message context]
     "Log at TRACE level for very detailed debugging")
-  
+
   (debug [this message] [this message context]
     "Log at DEBUG level for development debugging")
-  
+
   (info [this message] [this message context]
     "Log at INFO level for normal application flow")
-  
+
   (warn [this message] [this message context] [this message context exception]
     "Log at WARN level for recoverable issues")
-  
+
   (error [this message] [this message context] [this message context exception]
     "Log at ERROR level for application errors")
-  
+
   (fatal [this message] [this message context] [this message context exception]
     "Log at FATAL level for critical system failures"))
 
@@ -72,7 +72,7 @@
    - System state changes
    - Security events
    - Compliance-relevant activities"
-  
+
   (audit-event [this event-type actor resource action result context]
     "Log a structured audit event.
      
@@ -86,7 +86,7 @@
      
      Returns:
        nil (side effect only)")
-  
+
   (security-event [this event-type severity details context]
     "Log security-related events.
      
@@ -108,7 +108,7 @@
    
    This allows for correlation IDs, request context, and other metadata
    to be automatically included in all log messages within a request scope."
-  
+
   (with-context [this context-map f]
     "Execute function f with additional logging context.
      
@@ -121,7 +121,7 @@
      
      Returns:
        Result of calling (f)")
-  
+
   (current-context [this]
     "Get the current logging context map.
      
@@ -137,7 +137,7 @@
    
    This allows for dynamic adjustment of logging behavior without
    requiring application restart."
-  
+
   (set-level! [this level]
     "Change the minimum logging level.
      
@@ -146,13 +146,13 @@
      
      Returns:
        Previous level")
-  
+
   (get-level [this]
     "Get the current minimum logging level.
      
      Returns:
        Keyword log level")
-  
+
   (set-config! [this config-map]
     "Update logging configuration.
      
@@ -161,7 +161,7 @@
      
      Returns:
        Previous configuration map")
-  
+
   (get-config [this]
     "Get the current logging configuration.
      

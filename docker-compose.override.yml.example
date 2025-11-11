@@ -1,0 +1,44 @@
+#
+# Docker Compose Override Example
+# Rename this file to docker-compose.override.yml to apply customizations
+# This file is automatically loaded by Docker Compose and overrides docker-compose.yml
+#
+
+# Example: Development with live reload and debugging
+services:
+  app:
+    # Override for development debugging
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+      - HOT_RELOAD=true
+    # Expose additional ports for debugging
+    ports:
+      - "${HTTP_PORT:-3000}:${HTTP_PORT:-3000}" 
+      - "5005:5005"  # JVM Debug port
+    # Override command for development
+    # command: ["java", "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005", "-jar", "app.jar"]
+    
+  # Add additional services for development
+  # Example: Redis for caching
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: boundary-redis
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - boundary-network
+
+  # Example: Custom database configuration
+  db:
+    environment:
+      # Override default database settings
+      - POSTGRES_LOG_STATEMENT=all
+      - POSTGRES_LOG_MIN_DURATION_STATEMENT=0
+    # Mount custom PostgreSQL configuration
+    # volumes:
+    #   - ./resources/db/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+
+  # Enable documentation service by default in development
+  docs:
+    profiles: [] # Remove profiles restriction to enable by default

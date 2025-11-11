@@ -4,30 +4,30 @@
    This namespace defines Malli schemas for validating logging configuration,
    ensuring proper structure and constraints for different logging providers."
   (:require
-   [malli.core :as m]
-   [malli.transform :as mt]))
+    [malli.core :as m]
+    [malli.transform :as mt]))
 
 ;; =============================================================================
 ;; Core Logging Configuration Schemas
 ;; =============================================================================
 
+;; Valid logging levels in order of severity.
 (def LogLevel
-  "Valid logging levels in order of severity."
   [:enum :trace :debug :info :warn :error :fatal])
 
+;; Types of logging providers supported.
 (def LogProvider
-  "Supported logging providers."
   [:enum :stdout :json :structured :file :syslog :datadog :custom])
 
+;; Configuration for correlation ID handling.
 (def CorrelationConfig
-  "Configuration for correlation ID handling."
   [:map {:title "Correlation Configuration"}
    [:header {:optional true} [:string {:min 1 :max 100}]]
    [:generate-if-missing {:optional true} :boolean]
    [:include-in-logs {:optional true} :boolean]])
 
+;; Sampling configuration for log levels.
 (def SamplingConfig
-  "Configuration for log sampling rates."
   [:map {:title "Sampling Configuration"}
    [:trace {:optional true} [:double {:min 0.0 :max 1.0}]]
    [:debug {:optional true} [:double {:min 0.0 :max 1.0}]]
@@ -37,8 +37,8 @@
    [:fatal {:optional true} [:double {:min 0.0 :max 1.0}]]
    [:audit {:optional true} [:double {:min 0.0 :max 1.0}]]])
 
+;; Base configuration common to all logging providers.
 (def BaseLoggingConfig
-  "Base logging configuration shared by all providers."
   [:map {:title "Base Logging Configuration"}
    [:provider LogProvider]
    [:level {:optional true} LogLevel]
@@ -52,8 +52,8 @@
 ;; Provider-Specific Configuration Schemas
 ;; =============================================================================
 
+;; Configuration for stdout logging provider.
 (def StdoutLoggingConfig
-  "Configuration for stdout logging provider."
   [:and BaseLoggingConfig
    [:map {:title "Stdout Logging Configuration"}
     [:provider [:= :stdout]]
@@ -63,8 +63,8 @@
     [:include-level {:optional true} :boolean]
     [:include-thread {:optional true} :boolean]]])
 
+;; Configuration for JSON logging provider.
 (def JsonLoggingConfig
-  "Configuration for JSON logging provider."
   [:and BaseLoggingConfig
    [:map {:title "JSON Logging Configuration"}
     [:provider [:= :json]]
@@ -72,20 +72,20 @@
     [:include-stacktrace {:optional true} :boolean]
     [:max-stacktrace-elements {:optional true} [:int {:min 1 :max 1000}]]]])
 
+;; Configuration for file logging provider.
 (def FileLoggingConfig
-  "Configuration for file logging provider."
   [:and BaseLoggingConfig
    [:map {:title "File Logging Configuration"}
     [:provider [:= :file]]
     [:path [:string {:min 1 :max 500}]]
-    [:max-size {:optional true} [:int {:min 1024}]] ; bytes
+    [:max-size {:optional true} [:int {:min 1024}]]         ; bytes
     [:max-files {:optional true} [:int {:min 1 :max 100}]]
     [:append {:optional true} :boolean]
     [:buffer-size {:optional true} [:int {:min 1024 :max 65536}]]
     [:flush-interval {:optional true} [:int {:min 100 :max 60000}]]]])
 
+;; Configuration for structured logging provider.
 (def StructuredLoggingConfig
-  "Configuration for structured logging provider (ELK, etc.)."
   [:and BaseLoggingConfig
    [:map {:title "Structured Logging Configuration"}
     [:provider [:= :structured]]
@@ -95,8 +95,8 @@
     [:service-name {:optional true} [:string {:min 1 :max 100}]]
     [:service-version {:optional true} [:string {:min 1 :max 50}]]]])
 
+;; Configuration for Datadog logging provider.
 (def DatadogLoggingConfig
-  "Configuration for Datadog logging provider."
   [:and BaseLoggingConfig
    [:map {:title "Datadog Logging Configuration"}
     [:provider [:= :datadog]]
@@ -109,8 +109,8 @@
     [:batch-size {:optional true} [:int {:min 1 :max 1000}]]
     [:flush-interval {:optional true} [:int {:min 1000 :max 60000}]]]])
 
+;; Configuration for custom logging provider.
 (def CustomLoggingConfig
-  "Configuration for custom logging provider."
   [:and BaseLoggingConfig
    [:map {:title "Custom Logging Configuration"}
     [:provider [:= :custom]]
@@ -121,10 +121,10 @@
 ;; Unified Configuration Schema
 ;; =============================================================================
 
+;; Unified logging configuration schema that validates any provider.
 (def LoggingConfig
-  "Unified logging configuration schema that validates any provider."
   [:multi {:dispatch :provider
-           :title "Logging Configuration"}
+           :title    "Logging Configuration"}
    [:stdout StdoutLoggingConfig]
    [:json JsonLoggingConfig]
    [:file FileLoggingConfig]
@@ -136,12 +136,12 @@
 ;; Audit Logging Configuration Schemas
 ;; =============================================================================
 
+;; Types of audit events to track.
 (def AuditEventType
-  "Types of audit events to track."
   [:enum :user-action :system-event :security-event :data-change :api-call])
 
+;; Configuration for audit logging.
 (def AuditLoggingConfig
-  "Configuration for audit logging."
   [:map {:title "Audit Logging Configuration"}
    [:enabled {:optional true} :boolean]
    [:provider {:optional true} LogProvider]
@@ -151,14 +151,14 @@
    [:include-response-body {:optional true} :boolean]
    [:max-body-size {:optional true} [:int {:min 0 :max 1048576}]] ; 1MB max
    [:sensitive-fields {:optional true} [:vector :string]]
-   [:retention-days {:optional true} [:int {:min 1 :max 2555}]}]) ; ~7 years max
+   [:retention-days {:optional true} [:int {:min 1 :max 2555}]]]) ; ~7 years max
 
 ;; =============================================================================
 ;; Complete System Configuration Schema
 ;; =============================================================================
 
+;; Complete system logging configuration.
 (def SystemLoggingConfig
-  "Complete system logging configuration."
   [:map {:title "System Logging Configuration"}
    [:application {:optional true} LoggingConfig]
    [:audit {:optional true} AuditLoggingConfig]
@@ -169,45 +169,45 @@
 ;; Default Configurations
 ;; =============================================================================
 
+;; Default stdout logging configuration.
 (def default-stdout-config
-  "Default stdout logging configuration."
-  {:provider :stdout
-   :level :info
-   :enabled true
-   :json false
-   :colors true
+  {:provider          :stdout
+   :level             :info
+   :enabled           true
+   :json              false
+   :colors            true
    :include-timestamp true
-   :include-level true
-   :include-thread false
-   :correlation {:header \"x-correlation-id\"
-                 :generate-if-missing true
-                 :include-in-logs true}
-   :default-tags {:service \"boundary\"}})
+   :include-level     true
+   :include-thread    false
+   :correlation       {:header              "x-correlation-id"
+                       :generate-if-missing true
+                       :include-in-logs     true}
+   :default-tags      {:service "boundary"}})
 
+;;Default JSON logging configuration.
 (def default-json-config
-  "Default JSON logging configuration."
-  {:provider :json
-   :level :info
-   :enabled true
-   :pretty false
-   :include-stacktrace true
+  {:provider                :json
+   :level                   :info
+   :enabled                 true
+   :pretty                  false
+   :include-stacktrace      true
    :max-stacktrace-elements 50
-   :correlation {:header \"x-correlation-id\"
-                 :generate-if-missing true
-                 :include-in-logs true}
-   :default-tags {:service \"boundary\"}})
+   :correlation             {:header              "x-correlation-id"
+                             :generate-if-missing true
+                             :include-in-logs     true}
+   :default-tags            {:service "boundary"}})
 
+;; Default audit logging configuration.
 (def default-audit-config
-  "Default audit logging configuration."
-  {:enabled true
-   :provider :json
-   :level :info
-   :event-types [:user-action :security-event :data-change]
-   :include-request-body false
+  {:enabled               true
+   :provider              :json
+   :level                 :info
+   :event-types           [:user-action :security-event :data-change]
+   :include-request-body  false
    :include-response-body false
-   :max-body-size 4096
-   :sensitive-fields [\"password\" \"token\" \"secret\" \"key\"]
-   :retention-days 90})
+   :max-body-size         4096
+   :sensitive-fields      ["password" "token" "secret" "key"]
+   :retention-days        90})
 
 ;; =============================================================================
 ;; Validation Functions
@@ -237,57 +237,57 @@
 ;; Configuration Transformation
 ;; =============================================================================
 
+;; Transformer for logging configurations to ensure proper types.
 (def logging-config-transformer
-  "Transforms external configuration to internal format."
   (mt/transformer
-   mt/strip-extra-keys-transformer
-   mt/string-transformer
-   {:name :logging-config}))
+    mt/strip-extra-keys-transformer
+    mt/string-transformer
+    {:name :logging-config}))
 
+;; Normalizes and validates a logging configuration map.
 (defn normalize-logging-config
-  "Normalizes and validates a logging configuration map."
   [config]
   (let [normalized (m/decode LoggingConfig config logging-config-transformer)]
     (if (validate-logging-config normalized)
       normalized
-      (throw (ex-info \"Invalid logging configuration\"
-                      {:errors (explain-logging-config normalized)
-                       :config config})))))
+      (throw (ex-info "Invalid logging configuration"
+               {:errors (explain-logging-config normalized)
+                :config config})))))
 
+;; Normalizes and validates a complete system logging configuration map.
 (defn normalize-system-logging-config
-  "Normalizes and validates a system logging configuration map."
   [config]
   (let [normalized (m/decode SystemLoggingConfig config logging-config-transformer)]
     (if (validate-system-logging-config normalized)
       normalized
-      (throw (ex-info \"Invalid system logging configuration\"
-                      {:errors (explain-system-logging-config normalized)
-                       :config config})))))
+      (throw (ex-info "Invalid system logging configuration"
+               {:errors (explain-system-logging-config normalized)
+                :config config})))))
 
 ;; =============================================================================
 ;; Schema Registry
 ;; =============================================================================
 
+;; Registry of all defined schemas for easy access.
 (def schema-registry
-  "Registry of all logging schemas for easy access."
   {:core
-   {:logging-config LoggingConfig
+   {:logging-config        LoggingConfig
     :system-logging-config SystemLoggingConfig
-    :audit-config AuditLoggingConfig}
+    :audit-config          AuditLoggingConfig}
    :providers
-   {:stdout StdoutLoggingConfig
-    :json JsonLoggingConfig
-    :file FileLoggingConfig
+   {:stdout     StdoutLoggingConfig
+    :json       JsonLoggingConfig
+    :file       FileLoggingConfig
     :structured StructuredLoggingConfig
-    :datadog DatadogLoggingConfig
-    :custom CustomLoggingConfig}
+    :datadog    DatadogLoggingConfig
+    :custom     CustomLoggingConfig}
    :common
-   {:log-level LogLevel
-    :log-provider LogProvider
+   {:log-level          LogLevel
+    :log-provider       LogProvider
     :correlation-config CorrelationConfig
-    :sampling-config SamplingConfig}})
+    :sampling-config    SamplingConfig}})
 
+;; Function to retrieve a schema by category and name.
 (defn get-schema
-  "Retrieves a schema from the registry by category and name."
   [category schema-name]
   (get-in schema-registry [category schema-name]))
