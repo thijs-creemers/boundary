@@ -1,0 +1,26 @@
+* Reference Documentation
+** xref:README.adoc[README]
+** xref:boundary.prd.adoc[Product Requirements]
+** xref:validation-guide.adoc[Validation Guide]
+** xref:validation-patterns.adoc[Validation Patterns]
+
+** xref:multi-db-usage.adoc[Multi-DB Usage]
+** xref:error-codes.adoc[Error Codes]
+** Observability
+*** xref:architecture:error-handling-observability.adoc[Error Handling & Observability]
+*** xref:architecture:observability-integration.adoc[Observability Integration Guide]
+*** xref:observability-reference.adoc[Observability API Reference]
+** Architecture Decision Records
+*** xref:adr/ADR-005-validation-devex-foundations.adoc[ADR-005: Validation DevEx Foundations]
+** Change Reports
+
+*** xref:change-reports/FC-IS-COMPLIANCE-ANALYSIS.adoc[FC/IS Compliance Analysis]
+*** xref:change-reports/FC-IS-REFACTORING-COMPLETE.adoc[FC/IS Refactoring Complete]
+** CLI
+*** xref:cli/user-cli.adoc[User CLI]
+** Implementation Guides
+*** xref:implementation/user-module-implementation.adoc[User Module Implementation]
+** Templates
+*** xref:templates/acceptance-criteria-template.adoc[Acceptance Criteria Template]
+*** xref:templates/endpoint-template.adoc[Endpoint Template]
+*** xref:templates/use-case-template.adoc[Use Case Template]

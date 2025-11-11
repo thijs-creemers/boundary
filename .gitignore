@@ -7,7 +7,6 @@
 /.cache/
 .env
 ._*
-ROOT/
 /docs/**/*.html
 /.nrepl-port
 opencode.json

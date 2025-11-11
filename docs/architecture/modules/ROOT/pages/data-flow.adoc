@@ -1,0 +1,1026 @@
+= Data Flow Architecture
+include::partial$attributes.adoc[]
+
+[abstract]
+--
+This document details how data flows through {project-name}'s architectural layers, from external interfaces to the functional core and back. It covers validation pipelines, data transformation patterns, error propagation strategies, and consistency patterns across REST API, CLI, and Web interfaces.
+--
+
+== Audience and Scope
+
+**Primary Audience:** Domain Developers, Platform Engineers, API Integrators
+
+**Scope:** Data flow patterns, validation strategies, transformation pipelines, error handling
+
+**Prerequisites:** Understanding of {xref-overview}[Architecture Overview], {xref-layer-separation}[Layer Separation Guidelines], and {xref-components}[Component Architecture]
+
+== Key Takeaways
+
+After reading this document, you will understand:
+
+* ✅ **End-to-end data flow** from external requests to core processing
+* ✅ **Validation and transformation pipelines** using Malli schemas
+* ✅ **Error propagation patterns** across architectural layers
+* ✅ **Consistency mechanisms** ensuring uniform behavior across interfaces
+* ✅ **Data transformation strategies** between domain objects and external formats
+
+== Data Flow Overview
+
+=== Request Processing Pipeline
+
+.HTTP Request Processing Lifecycle
+image::{diagrams-dir}/http-request-lifecycle.png[HTTP Request Lifecycle, 800]
+
+The request lifecycle shows the complete data journey through Boundary's architecture:
+
+1. **External Request** arrives at interface layer (HTTP, CLI, WebSocket)
+2. **Interface Parsing** extracts data from protocol-specific format
+3. **Validation Pipeline** validates and coerces data using Malli schemas
+4. **Core Processing** executes pure business logic with validated data
+5. **Effect Execution** performs side effects based on core decisions
+6. **Response Formation** transforms results to protocol-appropriate format
+7. **External Response** returns formatted response to client
+
+.Validation and Data Transformation Pipeline
+image::{diagrams-dir}/validation-pipeline.png[Validation Pipeline, 400]
+
+The validation pipeline ensures data integrity at the shell boundary:
+- **Raw Input** → **Parse** → **Schema Lookup** → **Type Coercion** → **Validation** → **Core Processing**
+
+== Data Types and Schemas
+
+=== Domain Data Structures
+
+Boundary uses consistent domain data structures across all interfaces, defined with Malli schemas:
+
+[source,clojure]
+----
+;; Domain schemas - consistent across all interfaces
+(ns boundary.schema
+  (:require [malli.core :as m]
+            [malli.util :as mu]
+            [malli.registry :as mr]))
+
+;; Core user domain schema
+(def User
+  [:map {:closed true}
+   [:id uuid?]
+   [:email [:re #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"]]
+   [:name [:string {:min 1 :max 100}]]
+   [:active? boolean?]
+   [:membership-tier [:enum :bronze :silver :gold :platinum]]
+   [:preferences map?]
+   [:joined-at inst?]
+   [:updated-at inst?]])
+
+;; User registration request schema - external input
+(def UserRegistrationRequest
+  [:map {:closed true}
+   [:email [:re #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"]]
+   [:name [:string {:min 1 :max 100}]]
+   [:preferences {:optional true} map?]])
+
+;; User benefits schema - computed domain data
+(def UserBenefits
+  [:map {:closed true}
+   [:membership-tier [:enum :bronze :silver :gold :platinum]]
+   [:discount-rate [:double {:min 0.0 :max 1.0}]]
+   [:perks [:vector string?]]
+   [:years-active int?]
+   [:next-tier-requirements {:optional true}
+    [:map
+     [:years-needed {:optional true} int?]
+     [:spending-needed {:optional true} [:double {:min 0.0}]]]]])
+
+;; API response schema - external output
+(def UserRegistrationResponse
+  [:map {:closed true}
+   [:user-id uuid?]
+   [:message string?]
+   [:benefits UserBenefits]])
+
+;; Error response schema - consistent across interfaces
+(def ErrorResponse
+  [:map {:closed true}
+   [:error
+    [:map
+     [:type [:enum :validation-failed :duplicate-user :user-not-found 
+                   :invalid-data :internal-error :unauthorized]]
+     [:message string?]
+     [:details {:optional true} any?]
+     [:correlation-id {:optional true} string?]]]])
+
+;; Schema registry for validation
+(def registry
+  (merge
+    (m/default-schemas)
+    {::User User
+     ::UserRegistrationRequest UserRegistrationRequest
+     ::UserBenefits UserBenefits
+     ::UserRegistrationResponse UserRegistrationResponse
+     ::ErrorResponse ErrorResponse}))
+
+(mr/set-default-registry! (mr/composite-registry registry))
+----
+
+=== Data Transformation Layers
+
+[cols="2,2,3,2"]
+|===
+|Layer |Data Format |Responsibility |Example
+
+|**External** |Protocol-specific |Raw input/output formats |JSON, CLI args, form data
+|**Interface** |Parsed structures |Protocol parsing and formatting |Clojure maps from JSON
+|**Validation** |Coerced data |Type coercion and validation |Strings → keywords, numbers
+|**Domain** |Domain objects |Business logic processing |Canonical domain structures
+|**Persistence** |Storage format |Database/file representations |SQL rows, JSON documents
+|===
+
+== Validation and Coercion Pipeline
+
+=== Input Validation Strategy
+
+Boundary uses a multi-stage validation approach that ensures data integrity while providing clear error messages:
+
+[source,clojure]
+----
+;; Validation pipeline implementation
+(ns boundary.shell.validation
+  "Input validation and coercion pipeline."
+  (:require [malli.core :as m]
+            [malli.error :as me]
+            [malli.transform :as mt]
+            [clojure.tools.logging :as log]))
+
+(def string-transformer
+  "Transformer for string-based input (JSON, CLI args)."
+  (mt/transformer
+    mt/string-transformer
+    mt/strip-extra-keys-transformer
+    {:name :string-coercion}))
+
+(def json-transformer
+  "Transformer for JSON input with additional coercions."
+  (mt/transformer
+    {:name :json-coercion
+     :decoders {:enum keyword
+               :keyword keyword
+               inst? (fn [x] (if (string? x) (java.time.Instant/parse x) x))
+               uuid? (fn [x] (if (string? x) (java.util.UUID/fromString x) x))}}
+    string-transformer))
+
+(defn validate-and-coerce
+  "Validate and coerce input data using specified schema.
+  Returns {:valid? true :data coerced-data} or {:valid? false :errors error-details}"
+  [schema input-data transformer]
+  (let [correlation-id (str (java.util.UUID/randomUUID))]
+    (log/debug "Validating input data" {:schema (m/form schema) :correlation-id correlation-id})
+    
+    (try
+      ;; First, attempt coercion
+      (let [coerced-data (m/coerce schema input-data transformer)]
+        ;; Then validate the coerced data
+        (if (m/validate schema coerced-data)
+          (do
+            (log/debug "Validation successful" {:correlation-id correlation-id})
+            {:valid? true
+             :data coerced-data
+             :correlation-id correlation-id})
+          
+          ;; Validation failed after coercion
+          (let [explain-result (m/explain schema coerced-data)
+                humanized-errors (me/humanize explain-result)]
+            (log/warn "Validation failed after coercion"
+                     {:errors humanized-errors :correlation-id correlation-id})
+            {:valid? false
+             :errors humanized-errors
+             :raw-explanation explain-result
+             :correlation-id correlation-id})))
+      
+      (catch Exception e
+        ;; Coercion failed
+        (log/error e "Data coercion failed" {:correlation-id correlation-id})
+        {:valid? false
+         :errors {:coercion-error (.getMessage e)}
+         :correlation-id correlation-id}))))
+
+(defn validate-json-input
+  "Validate JSON input data (from HTTP requests)."
+  [schema input-data]
+  (validate-and-coerce schema input-data json-transformer))
+
+(defn validate-cli-input
+  "Validate CLI input data (from command line arguments)."
+  [schema input-data]
+  (validate-and-coerce schema input-data string-transformer))
+
+(defn validate-domain-data
+  "Validate domain data (no coercion needed)."
+  [schema domain-data]
+  (if (m/validate schema domain-data)
+    {:valid? true :data domain-data}
+    {:valid? false
+     :errors (me/humanize (m/explain schema domain-data))}))
+
+;; Validation example usage
+(comment
+  ;; JSON input validation
+  (validate-json-input 
+    boundary.schema/UserRegistrationRequest
+    {"email" "test@example.com"
+     "name" "Test User"
+     "preferences" {"theme" "dark"}})
+  ;; => {:valid? true
+  ;;     :data {:email "test@example.com"
+  ;;            :name "Test User"
+  ;;            :preferences {:theme "dark"}}}
+  
+  ;; CLI input validation
+  (validate-cli-input
+    boundary.schema/UserRegistrationRequest
+    {:email "test@example.com"
+     :name "Test User"})
+  ;; => {:valid? true
+  ;;     :data {:email "test@example.com"
+  ;;            :name "Test User"}})
+----
+
+=== Validation Error Handling
+
+[source,clojure]
+----
+;; Error formatting for different interfaces
+(ns boundary.shell.error-formatting
+  "Error formatting strategies for different interfaces."
+  (:require [clojure.tools.logging :as log]))
+
+(defn format-validation-errors-for-http
+  "Format validation errors as RFC 7807 Problem Details."
+  [validation-result request-context]
+  (let [correlation-id (:correlation-id validation-result)
+        errors (:errors validation-result)]
+    
+    (log/warn "HTTP validation failed" 
+             {:errors errors :correlation-id correlation-id :request-id (:request-id request-context)})
+    
+    {:status 400
+     :headers {"Content-Type" "application/problem+json"
+              "X-Correlation-ID" correlation-id}
+     :body {:type "https://example.com/errors/validation-failed"
+           :title "Input Validation Failed"
+           :status 400
+           :detail "The request data did not pass validation checks."
+           :instance (str "/requests/" (:request-id request-context))
+           :errors errors
+           :correlation-id correlation-id}}))
+
+(defn format-validation-errors-for-cli
+  "Format validation errors for CLI output."
+  [validation-result]
+  (let [correlation-id (:correlation-id validation-result)
+        errors (:errors validation-result)]
+    
+    (log/warn "CLI validation failed" {:errors errors :correlation-id correlation-id})
+    
+    {:exit-code 2  ; Standard exit code for invalid usage
+     :output (str "Error: Input validation failed\n"
+                 "Correlation ID: " correlation-id "\n\n"
+                 "Validation errors:\n"
+                 (format-errors-for-terminal errors))}))
+
+(defn format-validation-errors-for-web
+  "Format validation errors for web interface (JSON)."
+  [validation-result]
+  (let [correlation-id (:correlation-id validation-result)
+        errors (:errors validation-result)]
+    
+    (log/warn "Web validation failed" {:errors errors :correlation-id correlation-id})
+    
+    {:status :error
+     :error-type :validation-failed
+     :message "Input validation failed"
+     :details {:errors errors
+              :correlation-id correlation-id}}))
+
+(defn- format-errors-for-terminal
+  "Format error map for terminal display."
+  [errors]
+  (->> errors
+       (map (fn [[field error]]
+              (str "  " (name field) ": " error)))
+       (clojure.string/join "\n")))
+----
+
+== Data Flow Patterns by Interface
+
+=== HTTP REST API Data Flow
+
+[source,clojure]
+----
+;; HTTP interface data flow
+(ns boundary.shell.interfaces.http.user-handlers
+  "HTTP handlers demonstrating complete data flow."
+  (:require [boundary.shell.services.user-service :as user-service]
+            [boundary.shell.validation :as validation]
+            [boundary.shell.error-formatting :as error-fmt]
+            [boundary.schema :as schema]
+            [ring.util.response :as response]
+            [cheshire.core :as json]
+            [clojure.tools.logging :as log]))
+
+(defn handle-create-user
+  "Complete HTTP data flow: JSON input → validation → core → JSON response."
+  [system]
+  (fn [request]
+    (let [request-id (str (java.util.UUID/randomUUID))
+          correlation-id (or (get-in request [:headers "x-correlation-id"]) request-id)
+          request-context {:request-id request-id :correlation-id correlation-id}]
+      
+      (log/info "HTTP user creation request" request-context)
+      
+      ;; 1. Parse JSON input
+      (let [raw-body (slurp (:body request))
+            parsed-json (try
+                         (json/parse-string raw-body true)
+                         (catch Exception e
+                           (log/error e "JSON parsing failed" request-context)
+                           nil))]
+        
+        (if-not parsed-json
+          ;; JSON parsing failed
+          (-> (response/response {:type "https://example.com/errors/invalid-json"
+                                 :title "Invalid JSON"
+                                 :status 400
+                                 :detail "Request body is not valid JSON."})
+              (response/status 400)
+              (response/header "Content-Type" "application/problem+json"))
+          
+          ;; 2. Validate and coerce input
+          (let [validation-result (validation/validate-json-input 
+                                  schema/UserRegistrationRequest 
+                                  parsed-json)]
+            
+            (if-not (:valid? validation-result)
+              ;; Validation failed
+              (let [error-response (error-fmt/format-validation-errors-for-http 
+                                   validation-result 
+                                   request-context)]
+                (-> (response/response (:body error-response))
+                    (response/status (:status error-response))
+                    (response/header "Content-Type" "application/problem+json")
+                    (response/header "X-Correlation-ID" correlation-id)))
+              
+              ;; 3. Call service layer with validated data
+              (let [service-result (user-service/register-user system (:data validation-result))]
+                
+                ;; 4. Transform service result to HTTP response
+                (case (:status service-result)
+                  :success
+                  (let [response-data {:user-id (get-in service-result [:data :user-id])
+                                      :message "User registered successfully"
+                                      :benefits (get-in service-result [:data :benefits])}]
+                    (log/info "User registration successful" 
+                             (merge request-context {:user-id (:user-id response-data)}))
+                    (-> (response/response response-data)
+                        (response/status 201)
+                        (response/header "Content-Type" "application/json")
+                        (response/header "Location" (str "/api/v1/users/" (:user-id response-data)))
+                        (response/header "X-Correlation-ID" correlation-id)))
+                  
+                  :error
+                  (let [status-code (case (:error-type service-result)
+                                     :duplicate-user 409
+                                     :internal-error 500
+                                     400)
+                        error-body {:type (str "https://example.com/errors/" (name (:error-type service-result)))
+                                   :title (clojure.string/capitalize (clojure.string/replace (name (:error-type service-result)) "-" " "))
+                                   :status status-code
+                                   :detail (:message service-result)
+                                   :correlation-id correlation-id}]
+                    (log/warn "User registration failed" 
+                             (merge request-context {:error-type (:error-type service-result)}))
+                    (-> (response/response error-body)
+                        (response/status status-code)
+                        (response/header "Content-Type" "application/problem+json")
+                        (response/header "X-Correlation-ID" correlation-id))))))))))))
+
+(defn handle-get-user
+  "HTTP data flow for user retrieval."
+  [system]
+  (fn [request]
+    (let [user-id-str (get-in request [:path-params :user-id])
+          correlation-id (or (get-in request [:headers "x-correlation-id"]) (str (java.util.UUID/randomUUID)))
+          request-context {:correlation-id correlation-id}]
+      
+      (log/info "HTTP get user request" (merge request-context {:user-id user-id-str}))
+      
+      ;; 1. Validate path parameter
+      (let [validation-result (validation/validate-json-input
+                              [:map [:user-id uuid?]]
+                              {:user-id user-id-str})]
+        
+        (if-not (:valid? validation-result)
+          ;; Invalid user ID format
+          (-> (response/response {:type "https://example.com/errors/invalid-user-id"
+                                 :title "Invalid User ID"
+                                 :status 400
+                                 :detail "User ID must be a valid UUID."})
+              (response/status 400)
+              (response/header "Content-Type" "application/problem+json"))
+          
+          ;; 2. Call service layer
+          (let [user-id (get-in validation-result [:data :user-id])
+                service-result (user-service/get-user system user-id)]
+            
+            ;; 3. Transform to HTTP response
+            (case (:status service-result)
+              :success
+              (do
+                (log/info "User retrieved successfully" (merge request-context {:user-id user-id}))
+                (-> (response/response (:data service-result))
+                    (response/status 200)
+                    (response/header "Content-Type" "application/json")
+                    (response/header "X-Correlation-ID" correlation-id)))
+              
+              :error
+              (let [status-code (case (:error-type service-result)
+                                 :user-not-found 404
+                                 500)
+                    error-body {:type (str "https://example.com/errors/" (name (:error-type service-result)))
+                               :title (case (:error-type service-result)
+                                       :user-not-found "User Not Found"
+                                       "Internal Error")
+                               :status status-code
+                               :detail (:message service-result)}]
+                (log/warn "User retrieval failed" 
+                         (merge request-context {:user-id user-id :error-type (:error-type service-result)}))
+                (-> (response/response error-body)
+                    (response/status status-code)
+                    (response/header "Content-Type" "application/problem+json")
+                    (response/header "X-Correlation-ID" correlation-id))))))))
+----
+
+=== CLI Data Flow
+
+[source,clojure]
+----
+;; CLI interface data flow
+(ns boundary.shell.interfaces.cli.user-commands
+  "CLI commands demonstrating data flow patterns."
+  (:require [boundary.shell.services.user-service :as user-service]
+            [boundary.shell.validation :as validation]
+            [boundary.shell.error-formatting :as error-fmt]
+            [boundary.schema :as schema]
+            [tools.cli :refer [parse-opts]]
+            [clojure.tools.logging :as log]))
+
+(def register-user-cli-options
+  [[nil "--email EMAIL" "User email address"]
+   [nil "--name NAME" "User full name"]
+   [nil "--theme THEME" "UI theme preference (light|dark)" :default "light"]
+   [nil "--notifications" "Enable notifications" :default false]
+   [nil "--help" "Show help"]])
+
+(defn register-user-command
+  "CLI command for user registration."
+  [system args]
+  (let [correlation-id (str (java.util.UUID/randomUUID))
+        {:keys [options arguments errors summary]} (parse-opts args register-user-cli-options)]
+    
+    (log/info "CLI user registration command" {:correlation-id correlation-id :args args})
+    
+    (cond
+      ;; Show help
+      (:help options)
+      {:exit-code 0
+       :output (str "Usage: boundary user register [OPTIONS]\n\n"
+                   "Register a new user account.\n\n"
+                   "Options:\n" summary)}
+      
+      ;; CLI parsing errors
+      errors
+      (do
+        (log/warn "CLI parsing errors" {:errors errors :correlation-id correlation-id})
+        {:exit-code 2
+         :output (str "Error: Invalid command line options\n\n"
+                     (clojure.string/join "\n" errors) "\n\n"
+                     "Use --help for usage information.")})
+      
+      ;; Process registration
+      :else
+      (let [;; 1. Transform CLI options to registration data
+            registration-data {:email (:email options)
+                             :name (:name options)
+                             :preferences {:theme (:theme options)
+                                         :notifications (:notifications options)}}
+            
+            ;; 2. Validate CLI input
+            validation-result (validation/validate-cli-input
+                              schema/UserRegistrationRequest
+                              registration-data)]
+        
+        (if-not (:valid? validation-result)
+          ;; Validation failed
+          (error-fmt/format-validation-errors-for-cli validation-result)
+          
+          ;; 3. Call service layer
+          (let [service-result (user-service/register-user system (:data validation-result))]
+            
+            ;; 4. Transform to CLI output
+            (case (:status service-result)
+              :success
+              (let [user-id (get-in service-result [:data :user-id])
+                    benefits (get-in service-result [:data :benefits])]
+                (log/info "CLI user registration successful" {:correlation-id correlation-id :user-id user-id})
+                {:exit-code 0
+                 :output (str "✅ User registered successfully!\n"
+                             "User ID: " user-id "\n"
+                             "Membership Tier: " (name (:membership-tier benefits)) "\n"
+                             "Discount Rate: " (* 100 (:discount-rate benefits)) "%\n"
+                             "Correlation ID: " correlation-id)})
+              
+              :error
+              (let [exit-code (case (:error-type service-result)
+                               :duplicate-user 1
+                               :invalid-data 2
+                               3)
+                    error-prefix (case (:error-type service-result)
+                                  :duplicate-user "❌ Registration failed"
+                                  :invalid-data "❌ Invalid data"
+                                  "❌ System error")]
+                (log/warn "CLI user registration failed" 
+                         {:correlation-id correlation-id :error-type (:error-type service-result)})
+                {:exit-code exit-code
+                 :output (str error-prefix ": " (:message service-result) "\n"
+                             "Correlation ID: " correlation-id)})))))))))
+
+(defn list-users-command
+  "CLI command for listing users."
+  [system args]
+  (let [correlation-id (str (java.util.UUID/randomUUID))
+        {:keys [options]} (parse-opts args [[nil "--tier TIER" "Filter by membership tier"]
+                                           [nil "--format FORMAT" "Output format (table|json)" :default "table"]])]
+    
+    (log/info "CLI list users command" {:correlation-id correlation-id :options options})
+    
+    (let [service-result (user-service/list-users system (:tier options))]
+      (case (:status service-result)
+        :success
+        (let [users (:data service-result)
+              output (case (:format options)
+                      "json" (cheshire.core/generate-string users {:pretty true})
+                      "table" (format-users-table users))]
+          (log/info "CLI list users successful" {:correlation-id correlation-id :count (count users)})
+          {:exit-code 0
+           :output output})
+        
+        :error
+        (do
+          (log/error "CLI list users failed" {:correlation-id correlation-id :error (:error-type service-result)})
+          {:exit-code 3
+           :output (str "❌ Failed to list users: " (:message service-result) "\n"
+                       "Correlation ID: " correlation-id)})))))
+
+(defn- format-users-table
+  "Format users data as an ASCII table."
+  [users]
+  (if (empty? users)
+    "No users found."
+    (let [header "ID\t\t\t\t\tEmail\t\t\tName\t\tTier\tActive"
+          separator (apply str (repeat 80 "-"))
+          rows (map (fn [user]
+                     (str (:id user) "\t"
+                          (:email user) "\t"
+                          (:name user) "\t"
+                          (name (:membership-tier user)) "\t"
+                          (if (:active? user) "Yes" "No")))
+                   users)]
+      (clojure.string/join "\n" (concat [header separator] rows)))))
+----
+
+=== WebSocket Real-time Data Flow
+
+[source,clojure]
+----
+;; WebSocket interface data flow
+(ns boundary.shell.interfaces.websocket.user-events
+  "WebSocket handlers for real-time user events."
+  (:require [boundary.shell.services.user-service :as user-service]
+            [boundary.shell.validation :as validation]
+            [boundary.schema :as schema]
+            [cheshire.core :as json]
+            [clojure.tools.logging :as log]))
+
+(defn handle-websocket-message
+  "Handle incoming WebSocket messages with full data flow."
+  [system websocket-session message]
+  (let [session-id (get websocket-session :session-id)
+        correlation-id (str (java.util.UUID/randomUUID))]
+    
+    (log/info "WebSocket message received" {:session-id session-id :correlation-id correlation-id})
+    
+    (try
+      ;; 1. Parse JSON message
+      (let [parsed-message (json/parse-string message true)]
+        
+        ;; 2. Validate message structure
+        (let [validation-result (validation/validate-json-input
+                                [:map
+                                 [:type [:enum :user-update :user-query :subscription]]
+                                 [:payload map?]
+                                 [:request-id {:optional true} string?]]
+                                parsed-message)]
+          
+          (if-not (:valid? validation-result)
+            ;; Send validation error back through WebSocket
+            (send-websocket-error websocket-session
+                                 {:type :validation-error
+                                  :message "Invalid message format"
+                                  :errors (:errors validation-result)
+                                  :correlation-id correlation-id})
+            
+            ;; 3. Route to appropriate handler based on message type
+            (let [{:keys [type payload request-id]} (:data validation-result)]
+              (case type
+                :user-update
+                (handle-user-update-message system websocket-session payload 
+                                          {:correlation-id correlation-id 
+                                           :request-id request-id})
+                
+                :user-query
+                (handle-user-query-message system websocket-session payload
+                                         {:correlation-id correlation-id
+                                          :request-id request-id})
+                
+                :subscription
+                (handle-subscription-message system websocket-session payload
+                                           {:correlation-id correlation-id
+                                            :request-id request-id})
+                
+                ;; Unknown message type
+                (send-websocket-error websocket-session
+                                     {:type :unknown-message-type
+                                      :message (str "Unknown message type: " type)
+                                      :correlation-id correlation-id}))))))
+      
+      (catch Exception e
+        (log/error e "WebSocket message processing failed" 
+                  {:session-id session-id :correlation-id correlation-id})
+        (send-websocket-error websocket-session
+                             {:type :processing-error
+                              :message "Message processing failed"
+                              :correlation-id correlation-id})))))
+
+(defn handle-user-update-message
+  "Handle real-time user update messages."
+  [system websocket-session payload context]
+  (let [{:keys [correlation-id request-id]} context]
+    
+    ;; Validate user update payload
+    (let [validation-result (validation/validate-json-input
+                            [:map
+                             [:user-id uuid?]
+                             [:updates map?]]
+                            payload)]
+      
+      (if-not (:valid? validation-result)
+        (send-websocket-error websocket-session
+                             {:type :validation-error
+                              :message "Invalid user update payload"
+                              :errors (:errors validation-result)
+                              :correlation-id correlation-id})
+        
+        ;; Call service layer for user update
+        (let [user-id (get-in validation-result [:data :user-id])
+              updates (get-in validation-result [:data :updates])
+              service-result (user-service/update-user system user-id updates)]
+          
+          (case (:status service-result)
+            :success
+            (do
+              (log/info "WebSocket user update successful" 
+                       {:user-id user-id :correlation-id correlation-id})
+              (send-websocket-response websocket-session
+                                     {:type :user-update-success
+                                      :request-id request-id
+                                      :data (:data service-result)
+                                      :correlation-id correlation-id}))
+            
+            :error
+            (do
+              (log/warn "WebSocket user update failed"
+                       {:user-id user-id :error-type (:error-type service-result) 
+                        :correlation-id correlation-id})
+              (send-websocket-error websocket-session
+                                   {:type :user-update-failed
+                                    :request-id request-id
+                                    :message (:message service-result)
+                                    :correlation-id correlation-id})))))))
+
+(defn- send-websocket-response
+  "Send successful response through WebSocket."
+  [websocket-session response-data]
+  (let [message (json/generate-string response-data)]
+    ;; Send via WebSocket implementation
+    (.send websocket-session message)))
+
+(defn- send-websocket-error
+  "Send error response through WebSocket."
+  [websocket-session error-data]
+  (let [error-message (json/generate-string (assoc error-data :success false))]
+    ;; Send via WebSocket implementation
+    (.send websocket-session error-message)))
+----
+
+== Error Propagation Patterns
+
+=== Error Flow Architecture
+
+Boundary uses a structured approach to error handling that maintains consistency across all interfaces:
+
+1. **Core Layer**: Returns error data (never throws exceptions)
+2. **Service Layer**: Catches adapter exceptions, logs with correlation IDs
+3. **Interface Layer**: Transforms errors to protocol-appropriate formats
+4. **Client**: Receives consistent error structures
+
+[source,clojure]
+----
+;; Error propagation example
+(ns boundary.shell.error-propagation-example
+  "Example demonstrating error flow through layers."
+  (:require [boundary.core.user :as user-core]
+            [boundary.ports :as ports]
+            [clojure.tools.logging :as log]))
+
+;; 1. Core layer - returns error data
+(defn core-process-payment
+  "Core function returns structured error data."
+  [user-repo payment-processor user-id amount]
+  (let [user (ports/find-user-by-id user-repo user-id)]
+    (cond
+      ;; Business rule: user must exist
+      (nil? user)
+      {:result :error
+       :error-type :user-not-found
+       :message "User does not exist"
+       :context {:user-id user-id}}
+      
+      ;; Business rule: user must be active
+      (not (:active? user))
+      {:result :error
+       :error-type :user-inactive
+       :message "Cannot process payment for inactive user"
+       :context {:user-id user-id :user-status (:status user)}}
+      
+      ;; Business rule: amount must be positive
+      (<= amount 0)
+      {:result :error
+       :error-type :invalid-amount
+       :message "Payment amount must be positive"
+       :context {:amount amount}}
+      
+      ;; Happy path
+      :else
+      {:result :success
+       :payment-data {:user-id user-id
+                     :amount amount
+                     :user-tier (:membership-tier user)}
+       :effects [{:type :process-payment
+                 :processor payment-processor
+                 :data {:user-id user-id :amount amount}}]})))
+
+;; 2. Service layer - handles exceptions and adds context
+(defn service-process-payment
+  "Service layer handles adapter exceptions and adds correlation tracking."
+  [system user-id amount]
+  (let [correlation-id (str (java.util.UUID/randomUUID))
+        {:keys [user-repository payment-processor]} system]
+    
+    (log/info "Processing payment" {:user-id user-id :amount amount :correlation-id correlation-id})
+    
+    (try
+      ;; Call core function
+      (let [core-result (core-process-payment user-repository payment-processor user-id amount)]
+        
+        (case (:result core-result)
+          :success
+          (do
+            ;; Execute effects - this might throw exceptions
+            (try
+              (doseq [effect (:effects core-result)]
+                (execute-payment-effect effect))
+              
+              (log/info "Payment processed successfully" 
+                       {:user-id user-id :correlation-id correlation-id})
+              {:status :success
+               :data (:payment-data core-result)
+               :correlation-id correlation-id})
+              
+              (catch Exception e
+                ;; Adapter threw exception
+                (log/error e "Payment processing failed" 
+                          {:user-id user-id :correlation-id correlation-id})
+                {:status :error
+                 :error-type :payment-processing-failed
+                 :message "Payment processing failed due to external service error"
+                 :correlation-id correlation-id})))
+          
+          :error
+          (do
+            (log/warn "Payment rejected by business rules" 
+                     {:user-id user-id :error-type (:error-type core-result) :correlation-id correlation-id})
+            {:status :error
+             :error-type (:error-type core-result)
+             :message (:message core-result)
+             :context (:context core-result)
+             :correlation-id correlation-id})))
+      
+      (catch Exception e
+        ;; Unexpected exception
+        (log/error e "Unexpected error in payment service" 
+                  {:user-id user-id :correlation-id correlation-id})
+        {:status :error
+         :error-type :internal-error
+         :message "An unexpected error occurred"
+         :correlation-id correlation-id}))))
+
+;; 3. Interface layer - transforms to protocol format
+(defn http-process-payment-handler
+  "HTTP handler transforms service errors to HTTP responses."
+  [system]
+  (fn [request]
+    (let [user-id (get-in request [:path-params :user-id])
+          amount (get-in request [:json-params :amount])
+          service-result (service-process-payment system user-id amount)]
+      
+      (case (:status service-result)
+        :success
+        {:status 200
+         :headers {"Content-Type" "application/json"
+                  "X-Correlation-ID" (:correlation-id service-result)}
+         :body (:data service-result)}
+        
+        :error
+        (let [http-status (case (:error-type service-result)
+                           :user-not-found 404
+                           :user-inactive 403
+                           :invalid-amount 400
+                           :payment-processing-failed 502
+                           :internal-error 500
+                           500)
+              error-body {:type (str "https://example.com/errors/" (name (:error-type service-result)))
+                         :title (format-error-title (:error-type service-result))
+                         :status http-status
+                         :detail (:message service-result)
+                         :correlation-id (:correlation-id service-result)}]
+          {:status http-status
+           :headers {"Content-Type" "application/problem+json"
+                    "X-Correlation-ID" (:correlation-id service-result)}
+           :body error-body})))))
+
+(defn cli-process-payment-handler
+  "CLI handler transforms service errors to CLI output."
+  [system args]
+  (let [user-id (first args)
+        amount (Double/parseDouble (second args))
+        service-result (service-process-payment system user-id amount)]
+    
+    (case (:status service-result)
+      :success
+      {:exit-code 0
+       :output (str "✅ Payment processed successfully\n"
+                   "Amount: $" (:amount (:data service-result)) "\n"
+                   "Correlation ID: " (:correlation-id service-result))}
+      
+      :error
+      (let [exit-code (case (:error-type service-result)
+                       :user-not-found 1
+                       :user-inactive 2
+                       :invalid-amount 2
+                       :payment-processing-failed 3
+                       :internal-error 4
+                       4)]
+        {:exit-code exit-code
+         :output (str "❌ Payment failed: " (:message service-result) "\n"
+                     "Correlation ID: " (:correlation-id service-result))}))))
+----
+
+== Data Consistency and Integrity
+
+=== Cross-Interface Consistency
+
+Boundary ensures consistent behavior across all interfaces through:
+
+1. **Shared Domain Schemas**: All interfaces use the same Malli schemas
+2. **Common Service Layer**: Business logic executed through same service functions
+3. **Standardized Error Types**: Consistent error classifications across interfaces
+4. **Correlation ID Tracking**: End-to-end request tracking
+
+=== Data Validation Rules
+
+[cols="2,2,3,2"]
+|===
+|Validation Level |Scope |Rules |Example
+
+|**Input Validation** |Interface boundary |Format, type, required fields |Email format, required name
+|**Business Validation** |Core layer |Domain rules, constraints |User email uniqueness
+|**Persistence Validation** |Adapter layer |Storage constraints |Database foreign keys
+|**Output Validation** |Interface boundary |Response format |Valid JSON structure
+|===
+
+== Performance and Scalability Considerations
+
+=== Data Flow Optimization
+
+1. **Lazy Evaluation**: Use lazy sequences for large data sets
+2. **Streaming**: Process data in chunks rather than loading everything into memory
+3. **Caching**: Cache validation results and frequently accessed domain data
+4. **Connection Pooling**: Efficient database connection management
+5. **Async Processing**: Non-blocking operations for I/O-heavy workflows
+
+=== Monitoring and Observability
+
+[source,clojure]
+----
+;; Data flow monitoring example
+(ns boundary.shell.monitoring
+  "Data flow monitoring and metrics collection."
+  (:require [clojure.tools.logging :as log]))
+
+(defn monitor-data-flow
+  "Middleware to monitor data flow through validation and processing."
+  [handler-fn]
+  (fn [request]
+    (let [start-time (System/currentTimeMillis)
+          correlation-id (or (:correlation-id request) (str (java.util.UUID/randomUUID)))
+          request-size (count (str request))]
+      
+      ;; Log request start
+      (log/info "Request processing started" 
+               {:correlation-id correlation-id 
+                :request-size request-size
+                :timestamp start-time})
+      
+      (try
+        ;; Execute handler
+        (let [response (handler-fn request)
+              end-time (System/currentTimeMillis)
+              duration (- end-time start-time)
+              response-size (count (str response))]
+          
+          ;; Log successful completion
+          (log/info "Request processing completed" 
+                   {:correlation-id correlation-id
+                    :duration-ms duration
+                    :response-size response-size
+                    :status (:status response)})
+          
+          ;; Record metrics
+          (record-request-metrics duration request-size response-size (:status response))
+          
+          response)
+        
+        (catch Exception e
+          (let [end-time (System/currentTimeMillis)
+                duration (- end-time start-time)]
+            
+            ;; Log error
+            (log/error e "Request processing failed" 
+                      {:correlation-id correlation-id
+                       :duration-ms duration})
+            
+            ;; Record error metrics
+            (record-error-metrics duration (.getMessage e))
+            
+            ;; Re-throw
+            (throw e))))))
+
+(defn record-request-metrics [duration request-size response-size status]
+  ;; Implementation would record to metrics system
+  ;; (e.g., Prometheus, StatsD, etc.)
+  (println (str "METRIC: request_duration_ms=" duration 
+               " request_size=" request-size 
+               " response_size=" response-size 
+               " status=" status)))
+
+(defn record-error-metrics [duration error-message]
+  ;; Implementation would record error metrics
+  (println (str "METRIC: error_duration_ms=" duration 
+               " error_message=\"" error-message "\"")))
+----
+
+== Next Steps
+
+Now that you understand data flow architecture, explore:
+
+1. **{xref-integration-patterns}[Integration Patterns]** - Interface-specific implementation details
+2. **{xref-configuration}[Configuration and Environment Management]** - Environment-specific data flow
+3. **{xref-observability}[Error Handling and Observability]** - Advanced error tracking and monitoring
+
+== References
+
+* **"Data-Oriented Programming" by Yehonathan Sharvit** - Data flow patterns in functional programming
+* **"Building Event-Driven Microservices" by Adam Bellemare** - Event-driven data flow patterns
+* **"Malli Documentation"** - Schema validation and coercion in Clojure
+* **RFC 7807: Problem Details for HTTP APIs** - Standardized error response format
+* **"Observability Engineering" by Charity Majors** - Monitoring and tracing distributed systems

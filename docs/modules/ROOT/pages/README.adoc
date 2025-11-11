@@ -1,0 +1,98 @@
+= Boundary Documentation
+
+== Overview
+
+This directory contains the authoritative documentation for the Boundary framework, including:
+
+* **boundary.prd.adoc** - The complete Product Requirements Document
+* **architecture/** - Detailed architecture documentation and design decisions
+  ** **database-adapters.adoc** - Protocol-based database adapter architecture (✨ Oct 24, 2025)
+* **api/** - API specifications and examples
+* **diagrams/** - PlantUML diagrams and visual documentation
+* **examples/** - Domain examples and implementation patterns
+* **templates/** - Documentation templates for consistency
+* **multi-db-usage.adoc** - Multi-database system usage guide
+* **dynamic-driver-loading.adoc** - Dynamic JDBC driver loading system
+
+== Building Documentation
+
+=== Prerequisites
+
+* Java 8+ (for PlantUML)
+* AsciiDoctor CLI (optional, for local rendering)
+
+=== Local Development
+
+To render AsciiDoc documents locally:
+
+[source,bash]
+----
+# Install AsciiDoctor (if not already installed)
+gem install asciidoctor
+
+# Render the PRD
+asciidoctor docs/boundary.prd.adoc -o docs/boundary.prd.html
+
+# Render with PlantUML support
+asciidoctor -r asciidoctor-diagram docs/boundary.prd.adoc -o docs/boundary.prd.html
+----
+
+=== PlantUML Diagrams
+
+PlantUML diagrams are stored in `diagrams/` as standalone `.puml` files and embedded in documentation using AsciiDoc include directives.
+
+To render PlantUML diagrams standalone:
+
+[source,bash]
+----
+# Generate PNG from single PlantUML file
+plantuml docs/diagrams/component-overview.puml
+
+# Generate all diagrams at once  
+plantuml docs/diagrams/*.puml
+
+# Generate SVG instead of PNG
+plantuml -tsvg docs/diagrams/*.puml
+----
+
+=== Writing Guidelines
+
+* Use active voice and clear, concise language
+* Follow the templates in `templates/` for consistency
+* Include concrete examples and code snippets
+* Use meaningful anchor IDs for cross-references
+* Keep diagrams simple and focused on their specific purpose
+
+=== Directory Structure
+
+----
+docs/
+├── README.adoc              # This file
+├── boundary.prd.adoc          # Main Product Requirements Document
+├── architecture/           # Detailed architecture docs
+├── api/                    # API specifications and examples
+├── diagrams/              # PlantUML diagrams
+│   ├── README.adoc        # Diagram documentation
+│   └── *.puml            # PlantUML source files
+├── examples/              # Domain examples
+└── templates/            # Documentation templates
+    ├── endpoint-template.adoc
+    ├── use-case-template.adoc
+    └── acceptance-criteria-template.adoc
+----
+
+=== Contributing
+
+When updating documentation:
+
+1. Follow the established structure and templates
+2. Use include directives to reference actual code examples
+3. Update diagrams when architecture changes
+4. Test local rendering before submitting PRs
+5. Keep the PRD synchronized with implementation
+
+== Maintenance
+
+* **Owner**: Technical Lead
+* **Review Cadence**: With each major release
+* **Update Triggers**: Architecture changes, API changes, new features

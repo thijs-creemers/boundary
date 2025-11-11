@@ -1,0 +1,123 @@
+=== Use Case: [Use Case Name]
+
+==== Actors
+* **Primary:** [Primary Actor]
+* **Secondary:** [Secondary Actors]
+
+==== Trigger
+_What initiates this use case?_
+
+==== Preconditions
+* _Condition 1 that must be true before starting_
+* _Condition 2 that must be true before starting_
+
+==== Primary Flow
+1. _Actor performs initial action_
+2. _System responds with..._
+3. _Actor provides..._
+4. _System validates and processes..._
+5. _System persists..._
+6. _System responds with success..._
+
+==== Alternate Flows
+
+===== A1: [Error Condition]
+1a. _When error occurs..._
+2a. _System responds with..._
+3a. _Use case ends in error state_
+
+===== A2: [Alternative Path]
+2b. _If alternative condition..._
+3b. _System takes alternative action..._
+4b. _Continue with step 5 of primary flow_
+
+==== Postconditions
+
+===== Success Postconditions
+* _State change 1 that occurs on success_
+* _State change 2 that occurs on success_
+
+===== Failure Postconditions
+* _State preserved or rolled back_
+* _Error logged and reported_
+
+==== Business Rules
+* _Rule 1: Business constraint that applies_
+* _Rule 2: Validation rule that must be enforced_
+
+==== Technical Implementation
+
+===== Core Function
+`boundary.core.[domain]/[function-name]`
+
+===== Input Schema
+[source,clojure]
+----
+{:input/field [:string {:min 1}]
+ :input/id    :uuid}
+----
+
+===== Output Schema
+[source,clojure]
+----
+{:result/status [:enum :success :error]
+ :result/data   [:maybe :map]
+ :result/error  [:maybe :string]}
+----
+
+===== Repository Dependencies
+* `I[Entity]Repository`
+* `I[Other]Repository`
+
+===== Shell Components
+* **HTTP Handler:** `boundary.shell.http/handle-[action]`
+* **CLI Command:** `boundary [resource] [action]`
+* **Validation:** Uses `[Schema]` with malli
+
+==== Test Cases
+
+===== Happy Path
+* **Given:** _Initial conditions_
+* **When:** _Action is performed_
+* **Then:** _Expected outcome_
+
+===== Error Cases
+* **Given:** _Error conditions_
+* **When:** _Action is attempted_
+* **Then:** _Error is handled appropriately_
+
+==== Acceptance Criteria
+* [ ] _Specific, measurable criterion 1_
+* [ ] _Specific, measurable criterion 2_
+* [ ] _Error handling criterion_
+* [ ] _Performance criterion_
+
+==== Examples
+
+===== API Example
+[source,bash]
+----
+curl -X POST http://localhost:8080/api/v1/[resource] \
+  -H "Content-Type: application/json" \
+  -d '{"field": "example"}'
+----
+
+===== CLI Example
+[source,bash]
+----
+boundary [resource] [action] --field="example"
+----
+
+===== Expected Response
+[source,json]
+----
+{
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "field": "example"
+  },
+  "meta": {
+    "timestamp": "2023-01-01T12:00:00Z"
+  }
+}
+----

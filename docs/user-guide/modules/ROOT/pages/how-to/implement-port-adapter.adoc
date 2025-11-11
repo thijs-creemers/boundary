@@ -1,0 +1,255 @@
+= Implement a Port and Adapter
+include::partial$attributes.adoc[]
+
+[[overview]]
+== Overview
+
+Ports and Adapters (Hexagonal Architecture) enable dependency inversion in Boundary. This guide shows how to define abstract interfaces (ports) and implement concrete adapters for database access.
+
+**Key benefits:**
+- Core logic remains database-agnostic
+- Easy to test with mocks
+- Swap implementations without changing core
+- Multiple adapters (PostgreSQL, H2, in-memory)
+
+[[step-1-define-port]]
+== Step 1: Define the Port Protocol
+
+Ports live in `src/boundary/<module>/ports.clj`.
+
+**Example:** User repository port
+
+[source,clojure]
+----
+(ns boundary.user.ports)
+
+(defprotocol IUserRepository
+  "Abstract interface for user data persistence."
+  
+  (find-user-by-id [this user-id]
+    "Retrieve user by ID. Returns user entity or nil.")
+  
+  (find-user-by-email [this email tenant-id]
+    "Retrieve user by email within tenant. Returns user entity or nil.")
+  
+  (create-user [this user-entity]
+    "Create new user. Returns created user with generated ID.")
+  
+  (update-user [this user-entity]
+    "Update existing user. Returns updated user.")
+  
+  (soft-delete-user [this user-id]
+    "Mark user as deleted. Returns boolean success."))
+----
+
+[TIP]
+====
+**Port design principles:**
+
+- Methods return domain entities, not database records
+- No implementation details in signatures
+- Document expected behavior clearly
+====
+
+[[step-2-implement-adapter]]
+== Step 2: Implement the Database Adapter
+
+Adapters live in `src/boundary/<module>/shell/persistence.clj`.
+
+=== Create the Adapter Record
+
+[source,clojure]
+----
+(ns boundary.user.shell.persistence
+  (:require [boundary.user.ports :as ports]
+            [boundary.shell.adapters.database.common.core :as db]
+            [honey.sql :as sql]))
+
+(defrecord DatabaseUserRepository [ctx]
+  ports/IUserRepository
+  
+  (find-user-by-id [_ user-id]
+    (let [query {:select [:*]
+                 :from [:users]
+                 :where [:and
+                         [:= :id (str user-id)]
+                         [:is :deleted_at nil]]}
+          result (db/execute-one! ctx query)]
+      (when result
+        (db-record->user-entity result))))
+  
+  (find-user-by-email [_ email tenant-id]
+    (let [query {:select [:*]
+                 :from [:users]
+                 :where [:and
+                         [:= :email email]
+                         [:= :tenant_id (str tenant-id)]
+                         [:is :deleted_at nil]]}
+          result (db/execute-one! ctx query)]
+      (when result
+        (db-record->user-entity result))))
+  
+  (create-user [_ user-entity]
+    (let [now (java.time.Instant/now)
+          user-with-metadata (-> user-entity
+                                 (assoc :id (java.util.UUID/randomUUID))
+                                 (assoc :created-at now)
+                                 (assoc :updated-at nil)
+                                 (assoc :deleted-at nil))
+          db-record (user-entity->db-record user-with-metadata)
+          query {:insert-into :users
+                 :values [db-record]}]
+      (db/execute-update! ctx query)
+      user-with-metadata))
+  
+  (update-user [_ user-entity]
+    (let [now (java.time.Instant/now)
+          updated-user (assoc user-entity :updated-at now)
+          db-record (user-entity->db-record updated-user)
+          query {:update :users
+                 :set (dissoc db-record :id :created_at)
+                 :where [:= :id (str (:id user-entity))]}]
+      (db/execute-update! ctx query)
+      updated-user))
+  
+  (soft-delete-user [_ user-id]
+    (let [query {:update :users
+                 :set {:deleted_at (java.time.Instant/now)}
+                 :where [:= :id (str user-id)]}]
+      (pos? (db/execute-update! ctx query)))))
+----
+
+=== Entity Conversion Functions
+
+[source,clojure]
+----
+(defn db-record->user-entity
+  "Convert database record to domain entity."
+  [record]
+  {:id (java.util.UUID/fromString (:id record))
+   :email (:email record)
+   :name (:name record)
+   :role (keyword (:role record))
+   :active (:active record)
+   :tenant-id (java.util.UUID/fromString (:tenant_id record))
+   :created-at (:created_at record)
+   :updated-at (:updated_at record)
+   :deleted-at (:deleted_at record)})
+
+(defn user-entity->db-record
+  "Convert domain entity to database record."
+  [entity]
+  {:id (str (:id entity))
+   :email (:email entity)
+   :name (:name entity)
+   :role (name (:role entity))
+   :active (:active entity)
+   :tenant_id (str (:tenant-id entity))
+   :created_at (:created-at entity)
+   :updated_at (:updated_at entity)
+   :deleted_at (:deleted-at entity)})
+----
+
+[[step-3-factory]]
+== Step 3: Create Factory Function
+
+[source,clojure]
+----
+(defn create-user-repository
+  "Factory function to create user repository adapter.
+  
+  Args:
+    ctx: Database context with connection pool
+  
+  Returns:
+    Implementation of IUserRepository"
+  [ctx]
+  (->DatabaseUserRepository ctx))
+----
+
+[[wiring]]
+== Wiring with Dependency Injection
+
+Connect adapters to services in system configuration:
+
+[source,clojure]
+----
+(ns boundary.system)
+
+(defn create-system
+  [config]
+  (let [;; Create database context
+        db-ctx (create-db-context config)
+        
+        ;; Create adapters
+        user-repo (persistence/create-user-repository db-ctx)
+        session-repo (persistence/create-session-repository db-ctx)
+        
+        ;; Create services with injected adapters
+        user-service (service/create-user-service user-repo session-repo)]
+    
+    {:user-service user-service
+     :user-repo user-repo
+     :db-ctx db-ctx}))
+----
+
+[[testing]]
+== Testing with Mock Adapters
+
+Create in-memory adapters for testing:
+
+[source,clojure]
+----
+(ns boundary.user.shell.persistence-test)
+
+(defrecord InMemoryUserRepository [state]
+  ports/IUserRepository
+  
+  (find-user-by-id [_ user-id]
+    (get-in @state [:users user-id]))
+  
+  (create-user [_ user-entity]
+    (let [user-id (java.util.UUID/randomUUID)
+          user (assoc user-entity :id user-id)]
+      (swap! state assoc-in [:users user-id] user)
+      user)))
+
+(defn create-test-repository
+  "Create in-memory repository for testing."
+  []
+  (->InMemoryUserRepository (atom {:users {}})))
+
+;; Use in tests
+(deftest user-service-test
+  (let [repo (create-test-repository)
+        service (create-user-service repo nil)]
+    (testing "Create user"
+      (let [result (create-user service user-data)]
+        (is (some? (:id result)))))))
+----
+
+[[best-practices]]
+== Best Practices
+
+✅ **Do:**
+
+* Keep ports simple and focused
+* Return domain entities from adapters
+* Handle database-specific conversions in adapters
+* Create factory functions for adapters
+* Write tests with mock implementations
+
+❌ **Don't:**
+
+* Put business logic in adapters
+* Return database records directly
+* Leak database details into port signatures
+* Hardcode database connections
+
+[[learn-more]]
+== Learn More
+
+* {xref-ports}[Ports and Adapters Concepts]
+* {xref-arch-ports-adapters}[Architecture: Ports & Adapters] - Detailed design
+* link:../../src/boundary/user/ports.clj[User Ports Example^] - Complete port definitions
+* link:../../src/boundary/user/shell/persistence.clj[Persistence Adapter^] - Full implementation

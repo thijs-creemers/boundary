@@ -1,0 +1,250 @@
+= Run Tests in Watch Mode
+include::partial$attributes.adoc[]
+
+[[overview]]
+== Overview
+
+Boundary uses https://github.com/lambdaisland/kaocha[Kaocha^] for testing. This guide shows you how to run tests, use watch mode for test-driven development, and focus on specific tests.
+
+[[basic-test-execution]]
+== Basic Test Execution
+
+=== Run All Tests
+
+[source,{shell}]
+----
+clojure -M:test:db/h2
+----
+
+[IMPORTANT]
+====
+**Always include `:db/h2`**
+
+The `:db/h2` alias loads the H2 database driver needed for tests. Without it, database-related tests will fail with connection errors.
+====
+
+**Expected output:**
+----
+[(user)]
+162 tests, 0 failures, 0 errors.
+----
+
+=== Understanding Test Output
+
+Kaocha provides clear feedback:
+
+* **Green dots** (`.`) - Passing tests
+* **Red F** (`F`) - Failing tests with details
+* **Yellow E** (`E`) - Errors (exceptions)
+* **Summary** - Total tests, failures, errors
+
+[[watch-mode]]
+== Watch Mode for TDD
+
+=== Enable Automatic Test Runs
+
+Watch mode automatically reruns tests when you save files:
+
+[source,{shell}]
+----
+clojure -M:test:db/h2 --watch
+----
+
+**What happens:**
+
+1. All tests run initially
+2. Kaocha watches for file changes
+3. On save, relevant tests rerun automatically
+4. Fast feedback loop for TDD
+
+[TIP]
+====
+**Test-Driven Development Workflow:**
+
+1. Start watch mode: `clojure -M:test:db/h2 --watch`
+2. Write a failing test
+3. Save the file → tests run automatically
+4. Implement the code to make it pass
+5. Save → tests run again
+6. Refactor with confidence
+====
+
+=== Exit Watch Mode
+
+Press `Ctrl+C` to stop the watch process.
+
+[[focus-on-specific-tests]]
+== Focus on Specific Tests
+
+=== Run Tests by Namespace
+
+Focus on a specific namespace:
+
+[source,{shell}]
+----
+clojure -M:test:db/h2 --focus boundary.user.core.user-test
+----
+
+=== Run Tests by Keyword
+
+Kaocha supports test metadata for filtering:
+
+[source,{shell}]
+----
+# Run only unit tests
+clojure -M:test:db/h2 --focus :unit
+
+# Run only integration tests
+clojure -M:test:db/h2 --focus :integration
+
+# Run validation tests
+clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
+----
+
+=== Skip Tests
+
+Skip specific tests or categories:
+
+[source,{shell}]
+----
+# Skip slow integration tests during development
+clojure -M:test:db/h2 --skip :integration
+----
+
+[[test-categories]]
+== Test Categories
+
+Boundary organizes tests by purpose:
+
+[cols="1,3"]
+|===
+|Category |Description
+
+|**Unit Tests**
+|Pure function tests in `core/` namespaces. No I/O, no mocks needed.
+
+|**Integration Tests**
+|Service and adapter tests with database interactions.
+
+|**Validation Tests**
+|Schema validation and DevEx feature tests. ~162 tests.
+
+|**Snapshot Tests**
+|Regression tests comparing outputs to saved snapshots.
+|===
+
+=== Running Specific Categories
+
+[source,{shell}]
+----
+# Validation tests (fast)
+clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
+
+# Watch mode for specific namespace
+clojure -M:test:db/h2 --watch --focus boundary.user.shell.service-test
+----
+
+[[snapshot-tests]]
+== Snapshot Testing
+
+Boundary uses snapshot tests for validation behavior:
+
+=== Run Snapshot Tests
+
+[source,{shell}]
+----
+clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
+----
+
+=== Update Snapshots
+
+When validation behavior changes intentionally:
+
+[source,{shell}]
+----
+UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 \
+  --focus boundary.user.core.user-validation-snapshot-test
+----
+
+[CAUTION]
+====
+**Only update snapshots when changes are intentional!**
+
+Review the diff carefully before updating. Snapshot changes affect expected validation messages.
+====
+
+[[test-configuration]]
+== Test Configuration
+
+=== Kaocha Configuration
+
+Test configuration lives in `tests.edn` (if present) or is defined via aliases in `deps.edn`.
+
+=== Database for Tests
+
+Tests use **H2 in-memory database** by default:
+
+* Fast execution
+* No persistent state
+* Automatically reset between test runs
+
+[[common-patterns]]
+== Common Test Patterns
+
+=== Quick Feedback Loop
+
+[source,{shell}]
+----
+# Focus on what you're working on
+clojure -M:test:db/h2 --watch --focus boundary.user.core.user-test
+----
+
+=== Pre-Commit Check
+
+[source,{shell}]
+----
+# Run all tests before committing
+clojure -M:test:db/h2
+----
+
+=== Validation Development
+
+[source,{shell}]
+----
+# Work on validation with fast feedback
+clojure -M:test:db/h2 --watch \
+  --focus boundary.user.core.user-validation-snapshot-test
+----
+
+[[known-issues]]
+== Known Issues and Limitations
+
+=== Port Conflicts
+
+If tests fail with "port already in use":
+
+[source,{shell}]
+----
+# Find and kill process using port 7888 (REPL port)
+lsof -ti:7888 | xargs kill -9
+----
+
+See {xref-troubleshooting}[Troubleshooting Guide] for more solutions.
+
+=== Test Coverage
+
+Current test coverage (as of latest):
+
+* **Overall**: ~47%
+* **Validation module**: 97% (162/167 tests)
+* **User module**: Functional, needs expansion
+
+For detailed status, see link:../../DEVELOPMENT_STATUS.md[Development Status^].
+
+[[learn-more]]
+== Learn More
+
+* https://github.com/lambdaisland/kaocha[Kaocha Documentation^]
+* {xref-validation}[Validation System Concepts]
+* {xref-troubleshooting}[Troubleshooting Common Issues]
+* link:../../DEVELOPMENT_STATUS.md[Development Status^]

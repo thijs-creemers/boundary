@@ -3,8 +3,8 @@
    
    All functions are pure data transformations from exceptions to
    standardized error response structures."
-  (:require [clojure.string :as str]
-            [cheshire.core]))
+  (:require [cheshire.core]
+            [clojure.string :as str]))
 
 ;; =============================================================================
 ;; Error Type Mappings
@@ -14,19 +14,19 @@
   "Default mapping of exception types to HTTP status codes and titles.
    
    Pure data structure: no side effects."
-  {:validation-error [400 "Validation Error"]
-   :invalid-request [400 "Invalid Request"]
-   :unauthorized [401 "Unauthorized"]
-   :auth-failed [401 "Authentication Failed"]
-   :forbidden [403 "Forbidden"]
-   :not-found [404 "Not Found"]
-   :user-not-found [404 "User Not Found"]
-   :resource-not-found [404 "Resource Not Found"]
-   :conflict [409 "Conflict"]
-   :user-exists [409 "User Already Exists"]
-   :resource-exists [409 "Resource Already Exists"]
-   :business-rule-violation [400 "Business Rule Violation"]
-   :deletion-not-allowed [403 "Deletion Not Allowed"]
+  {:validation-error          [400 "Validation Error"]
+   :invalid-request           [400 "Invalid Request"]
+   :unauthorized              [401 "Unauthorized"]
+   :auth-failed               [401 "Authentication Failed"]
+   :forbidden                 [403 "Forbidden"]
+   :not-found                 [404 "Not Found"]
+   :user-not-found            [404 "User Not Found"]
+   :resource-not-found        [404 "Resource Not Found"]
+   :conflict                  [409 "Conflict"]
+   :user-exists               [409 "User Already Exists"]
+   :resource-exists           [409 "Resource Already Exists"]
+   :business-rule-violation   [400 "Business Rule Violation"]
+   :deletion-not-allowed      [403 "Deletion Not Allowed"]
    :hard-deletion-not-allowed [403 "Hard Deletion Not Allowed"]})
 
 ;; =============================================================================
@@ -60,58 +60,54 @@
   ([ex correlation-id uri error-mappings]
    (exception->problem-body ex correlation-id uri error-mappings {}))
   ([ex correlation-id uri error-mappings context]
-   (let [ex-data (ex-data ex)
-         ex-type (:type ex-data)
-         mappings (merge default-error-mappings error-mappings)
+   (let [ex-data                      (ex-data ex)
+         ex-type                      (:type ex-data)
+         mappings                     (merge default-error-mappings error-mappings)
          ;; Title logic: typed exceptions use mapping, untyped use message
          [status title] (if ex-type
                           (get mappings ex-type [500 "Internal Server Error"])
                           [500 (.getMessage ex)])
          ;; Reserved RFC 7807 fields that shouldn't be duplicated
-         reserved-keys #{:type :title :status :detail :instance}
+         reserved-keys                #{:type :title :status :detail :instance}
          ;; Internal keys that shouldn't appear in response
-         internal-keys #{:errors}
+         internal-keys                #{:errors}
          ;; Context keys that should be preserved in context section
-         context-keys #{:user-id :tenant-id :trace-id :request-id
-                        :user-agent :ip-address :timestamp :environment
-                        :method :uri}
+         context-keys                 #{:user-id :tenant-id :trace-id :request-id
+                                        :user-agent :ip-address :timestamp :environment
+                                        :method :uri}
          ;; Extract extension members from ex-data, excluding reserved/internal keys
          ;; Note: If user-id exists in both ex-data and context, ex-data takes precedence
          ;; as it's more specific to the error (e.g., "which user wasn't found")
-         extension-candidates (apply dissoc ex-data (concat reserved-keys internal-keys))
+         extension-candidates         (apply dissoc ex-data (concat reserved-keys internal-keys))
          ;; Only exclude context keys from extension members if they don't exist in ex-data
          ;; This allows error-specific fields (like user-id from ex-data) to be extension members
-         extension-members (if (:user-id ex-data)
-                             ;; If user-id is in ex-data, preserve it as extension member
-                             extension-candidates
-                             ;; Otherwise exclude context keys normally
-                             (apply dissoc extension-candidates context-keys))
+         extension-members            (if (:user-id ex-data)
+                                        ;; If user-id is in ex-data, preserve it as extension member
+                                        extension-candidates
+                                        ;; Otherwise exclude context keys normally
+                                        (apply dissoc extension-candidates context-keys))
          ;; Build error context from provided context, filtering out nil values
-         error-context (into {} (filter (comp some? val)
-                                        (select-keys context context-keys)))
+         error-context                (into {} (filter (comp some? val) (select-keys context context-keys)))
          ;; Add timestamp if not provided
-         error-context-with-timestamp (assoc error-context
-                                             :timestamp
-                                             (or (:timestamp error-context)
-                                                 (java.time.Instant/now)))
+         error-context-with-timestamp (assoc error-context :timestamp (or (:timestamp error-context) (java.time.Instant/now)))
          ;; Choose context key based on whether exception has type
          ;; Typed exceptions (integration tests) use :context
          ;; Untyped exceptions (unit tests) use :errorContext
-         context-key (if ex-type :context :errorContext)]
+         context-key                  (if ex-type :context :errorContext)]
      (merge
-      {:type (str "https://api.example.com/problems/"
-                  (name (or ex-type :internal-error)))
-       :title title
-       :status status
-       :detail (if ex-type ex-data (.getMessage ex)) ;; Use ex-data for typed errors, message for others
-       :instance uri
-       :correlationId correlation-id
-       :errors (or (:errors ex-data) {})}
-      ;; Add error context if present - key depends on exception type
-      (when (seq error-context-with-timestamp)
-        {context-key error-context-with-timestamp})
-      ;; Merge extension members at top level per RFC 7807
-      extension-members))))
+       {:type          (str "https://api.example.com/problems/"
+                                   (name (or ex-type :internal-error)))
+        :title         title
+        :status        status
+        :detail        (if ex-type ex-data (.getMessage ex)) ;; Use ex-data for typed errors, message for others
+        :instance      uri
+        :correlationId correlation-id
+        :errors        (or (:errors ex-data) {})}
+       ;; Add error context if present - key depends on exception type
+       (when (seq error-context-with-timestamp)
+         {context-key error-context-with-timestamp})
+       ;; Merge extension members at top level per RFC 7807
+       extension-members))))
 
 (defn problem-details->response
   "Convert problem details body to Ring response map.
@@ -124,9 +120,9 @@
    Returns:
      Ring response map with appropriate headers"
   [problem-body]
-  {:status (:status problem-body)
+  {:status  (:status problem-body)
    :headers {"Content-Type" "application/problem+json"}
-   :body (cheshire.core/generate-string problem-body)})
+   :body    (cheshire.core/generate-string problem-body)})
 
 (defn exception->problem-response
   "Transform exception to complete RFC 7807 problem response with context.
@@ -149,7 +145,7 @@
    (exception->problem-response ex correlation-id uri error-mappings {}))
   ([ex correlation-id uri error-mappings context]
    (-> (exception->problem-body ex correlation-id uri error-mappings context)
-       (problem-details->response))))
+     (problem-details->response))))
 
 ;; =============================================================================
 ;; Context Building Helpers
@@ -195,9 +191,9 @@
    (cli-context {}))
   ([additional-context]
    (merge {:environment (or (System/getProperty "environment") "development")
-           :timestamp (java.time.Instant/now)
-           :process-id (str (.pid (java.lang.ProcessHandle/current)))}
-          additional-context)))
+           :timestamp   (java.time.Instant/now)
+           :process-id  (str (.pid (java.lang.ProcessHandle/current)))}
+     additional-context)))
 
 (defn enrich-context
   "Enrich existing context with additional debugging information.

@@ -1,0 +1,782 @@
+= Observability Integration Guide
+include::partial$attributes.adoc[]
+
+[abstract]
+--
+This guide provides practical instructions for integrating observability modules into {project-name} applications. It covers step-by-step setup, configuration, and usage patterns for logging, metrics, and error reporting in both development and production environments.
+--
+
+== Audience and Scope
+
+**Primary Audience:** Backend Engineers implementing observability features
+
+**Scope:** Practical integration steps, configuration examples, common patterns
+
+**Prerequisites:** Understanding of {xref-error-handling-observability}[Error Handling & Observability] architecture
+
+== Quick Start
+
+=== 1. Add Observability Dependencies
+
+[source,clojure]
+----
+;; In your feature service namespace
+(ns your-app.feature.shell.service
+  (:require
+   [boundary.logging.core :as log]
+   [boundary.metrics.core :as metrics]
+   [boundary.error-reporting.core :as error]))
+----
+
+=== 2. Configure System Dependencies
+
+[source,clojure]
+----
+;; In your Integrant configuration
+{:your-app.feature/service
+ {:logger (ig/ref :boundary.logging/logger)
+  :metrics (ig/ref :boundary.metrics/registry)
+  :error-reporter (ig/ref :boundary.error-reporting/reporter)
+  :feature-repo (ig/ref :your-app.feature/repository)}}
+----
+
+=== 3. Use in Service Functions
+
+[source,clojure]
+----
+(defn process-business-operation!
+  [{:keys [logger metrics error-reporter]} data context]
+  (let [enriched-context (log/with-tags context {:operation "process-business"})]
+    
+    ;; Log operation start
+    (log/info logger "Starting business operation" enriched-context)
+    
+    ;; Record metrics
+    (metrics/increment-counter metrics "business_operations_total" 
+                              {:type "process"} 1)
+    
+    (try
+      (let [result (your-business-logic data)]
+        ;; Log success
+        (log/info logger "Business operation completed" 
+                 (assoc enriched-context :result-size (count result)))
+        
+        ;; Record success metric
+        (metrics/increment-counter metrics "business_operations_success_total" 
+                                  {:type "process"} 1)
+        result)
+      (catch Exception e
+        ;; Report error
+        (error/report-exception error-reporter e enriched-context)
+        
+        ;; Record error metric
+        (metrics/increment-counter metrics "business_operations_error_total" 
+                                  {:type "process" :error-type "exception"} 1)
+        (throw e)))))
+----
+
+== Integration Patterns
+
+=== HTTP Request Logging
+
+Integrate observability into HTTP handlers for comprehensive request tracking:
+
+[source,clojure]
+----
+;; HTTP handler with full observability
+(ns boundary.shell.interfaces.http.handlers.user
+  (:require
+   [boundary.logging.core :as log]
+   [boundary.metrics.core :as metrics]
+   [boundary.error-reporting.core :as error]))
+
+(defn create-user-handler
+  [{:keys [user-service logger metrics error-reporter]}]
+  (fn [request]
+    (let [correlation-id (get-in request [:headers "x-correlation-id"] 
+                                (str (java.util.UUID/randomUUID)))
+          context {:correlation-id correlation-id
+                   :request-id (:request-id request)
+                   :method (:request-method request)
+                   :path (:uri request)}
+          start-time (System/currentTimeMillis)]
+      
+      ;; Log request start
+      (log/info logger "HTTP request received" context)
+      
+      ;; Add request breadcrumb for error tracking
+      (error/with-error-breadcrumb error-reporter context
+                                  "http" "Request received"
+                                  {:method (:request-method request)
+                                   :path (:uri request)}
+        (fn []
+          (try
+            (let [user-data (:body-params request)
+                  result (user-service/create-user! user-service user-data context)
+                  duration (- (System/currentTimeMillis) start-time)]
+              
+              ;; Log successful response
+              (log/info logger "HTTP request completed successfully" 
+                       (assoc context 
+                              :status 201
+                              :duration-ms duration))
+              
+              ;; Record successful request metrics
+              (metrics/record-request-metrics metrics 
+                                             (:request-method request)
+                                             (:uri request)
+                                             201
+                                             duration
+                                             context)
+              
+              {:status 201 :body result})
+            
+            (catch Exception e
+              (let [duration (- (System/currentTimeMillis) start-time)]
+                ;; Log error
+                (log/error logger "HTTP request failed" e context)
+                
+                ;; Report error with full context
+                (error/report-exception error-reporter e 
+                                       (assoc context
+                                              :user-data (:body-params request)
+                                              :duration-ms duration))
+                
+                ;; Record error metrics
+                (metrics/record-request-metrics metrics 
+                                               (:request-method request)
+                                               (:uri request)
+                                               500
+                                               duration
+                                               context)
+                
+                {:status 500 
+                 :body {:error "Internal server error"
+                        :correlation-id correlation-id}}))))))))
+----
+
+=== Database Operation Monitoring
+
+Monitor database operations with comprehensive logging and metrics:
+
+[source,clojure]
+----
+;; Database repository with observability
+(ns boundary.user.shell.persistence
+  (:require
+   [boundary.logging.core :as log]
+   [boundary.metrics.core :as metrics]
+   [boundary.error-reporting.core :as error]))
+
+(defn save-user! 
+  [{:keys [datasource logger metrics error-reporter]} user context]
+  (let [operation-context (log/with-tags context 
+                                         {:operation "db-save"
+                                          :table "users"
+                                          :entity-id (:id user)})
+        start-time (System/currentTimeMillis)]
+    
+    ;; Log database operation start
+    (log/debug logger "Starting database save operation" operation-context)
+    
+    (try
+      (let [result (jdbc/insert! datasource :users user)
+            duration (- (System/currentTimeMillis) start-time)]
+        
+        ;; Log successful save
+        (log/info logger "User saved to database" 
+                 (assoc operation-context :duration-ms duration))
+        
+        ;; Record database metrics
+        (metrics/record-database-operation metrics "save" "users" 
+                                          duration true operation-context)
+        
+        result)
+      
+      (catch SQLException e
+        (let [duration (- (System/currentTimeMillis) start-time)]
+          ;; Log database error
+          (log/error logger "Database save operation failed" e operation-context)
+          
+          ;; Report with database-specific context
+          (error/report-exception error-reporter e 
+                                 (assoc operation-context
+                                        :sql-state (.getSQLState e)
+                                        :error-code (.getErrorCode e)
+                                        :duration-ms duration))
+          
+          ;; Record error metrics
+          (metrics/record-database-operation metrics "save" "users" 
+                                            duration false operation-context)
+          
+          (throw e))))))
+----
+
+=== External Service Integration
+
+Monitor calls to external services with circuit breaker patterns:
+
+[source,clojure]
+----
+;; External service client with observability
+(ns boundary.shell.adapters.external.payment-service
+  (:require
+   [boundary.logging.core :as log]
+   [boundary.metrics.core :as metrics]
+   [boundary.error-reporting.core :as error]))
+
+(defn process-payment!
+  [{:keys [http-client logger metrics error-reporter]} payment-data context]
+  (let [service-context (log/with-tags context 
+                                       {:service "payment-service"
+                                        :operation "process-payment"
+                                        :amount (:amount payment-data)})
+        start-time (System/currentTimeMillis)]
+    
+    ;; Log external service call
+    (log/info logger "Calling external payment service" service-context)
+    
+    ;; Add breadcrumb for service call
+    (error/with-error-breadcrumb error-reporter service-context
+                                "external" "Payment service call started"
+                                {:service "payment-service"
+                                 :endpoint "/payments"
+                                 :amount (:amount payment-data)}
+      (fn []
+        (try
+          (let [response (http/post http-client "/api/payments" 
+                                   {:json payment-data
+                                    :timeout 5000})
+                duration (- (System/currentTimeMillis) start-time)]
+            
+            (if (= 200 (:status response))
+              (do
+                ;; Log successful response
+                (log/info logger "Payment processed successfully" 
+                         (assoc service-context 
+                                :status (:status response)
+                                :duration-ms duration))
+                
+                ;; Record success metrics
+                (metrics/record-external-service-call metrics "payment-service" 
+                                                     "process-payment"
+                                                     duration
+                                                     (:status response)
+                                                     service-context)
+                (:body response))
+              
+              (let [error-context (assoc service-context
+                                        :status (:status response)
+                                        :response-body (:body response))]
+                ;; Log non-200 response
+                (log/warn logger "Payment service returned error status" error-context)
+                
+                ;; Report service error
+                (error/report-error error-reporter :warn 
+                                   "Payment service error response" 
+                                   error-context)
+                
+                ;; Record error metrics
+                (metrics/record-external-service-call metrics "payment-service" 
+                                                     "process-payment"
+                                                     duration
+                                                     (:status response)
+                                                     service-context)
+                
+                (throw (ex-info "Payment processing failed" 
+                               {:status (:status response)
+                                :body (:body response)})))))
+          
+          (catch Exception e
+            (let [duration (- (System/currentTimeMillis) start-time)]
+              ;; Log exception
+              (log/error logger "Payment service call failed" e service-context)
+              
+              ;; Report with full context
+              (error/report-exception error-reporter e 
+                                     (assoc service-context 
+                                            :duration-ms duration
+                                            :timeout-ms 5000))
+              
+              ;; Record exception metrics  
+              (metrics/record-external-service-call metrics "payment-service" 
+                                                   "process-payment"
+                                                   duration
+                                                   0  ; Unknown status
+                                                   service-context)
+              (throw e))))))))
+----
+
+== Configuration Strategies
+
+=== Environment-based Configuration
+
+Configure different observability backends for different environments:
+
+[source,clojure]
+----
+;; Development configuration (resources/conf/dev/config.edn)  
+{:observability
+ {:logging
+  {:adapter :stdout
+   :config {:level :debug
+            :structured? false
+            :include-stacktrace? true
+            :pretty-print? true}}
+  
+  :metrics
+  {:adapter :no-op
+   :config {:enabled? false}}
+  
+  :error-reporting
+  {:adapter :no-op
+   :config {:enabled? false}}}}
+
+;; Staging configuration (resources/conf/staging/config.edn)
+{:observability
+ {:logging
+  {:adapter :json
+   :config {:level :info
+            :structured? true
+            :include-stacktrace? true}}
+  
+  :metrics
+  {:adapter :prometheus
+   :config {:namespace "boundary-staging"
+            :port 9090
+            :default-labels {:service "boundary"
+                            :environment "staging"
+                            :version #profile {:staging #or [#env APP_VERSION "dev"]}}}}
+  
+  :error-reporting
+  {:adapter :sentry
+   :config {:dsn #env SENTRY_DSN
+            :environment "staging"
+            :release #or [#env APP_VERSION "dev"]
+            :sample-rate 0.5}}}}
+
+;; Production configuration (resources/conf/prod/config.edn)
+{:observability
+ {:logging
+  {:adapter :json
+   :config {:level :info
+            :structured? true
+            :include-stacktrace? false
+            :filter-sensitive-data? true}}
+  
+  :metrics
+  {:adapter :prometheus
+   :config {:namespace "boundary"
+            :port 9090
+            :path "/metrics"
+            :registry-labels {:service "boundary"
+                             :environment "production"
+                             :version #env APP_VERSION
+                             :instance #env HOSTNAME}}}
+  
+  :error-reporting
+  {:adapter :sentry
+   :config {:dsn #env SENTRY_DSN
+            :environment "production"
+            :release #env APP_VERSION
+            :sample-rate 0.1
+            :before-send-fn sanitize-sensitive-data}}}}
+----
+
+=== Feature Flag Integration
+
+Control observability features dynamically:
+
+[source,clojure]
+----
+;; Feature-flagged observability
+(ns boundary.shell.utils.feature-flags
+  (:require [boundary.logging.core :as log]))
+
+(defn with-feature-flag [flag-name default-value logger context f & args]
+  (let [flag-enabled? (get-feature-flag flag-name default-value)]
+    (log/debug logger "Feature flag evaluated" 
+               (assoc context 
+                      :flag-name flag-name
+                      :enabled? flag-enabled?))
+    
+    (if flag-enabled?
+      (apply f args)
+      (do
+        (log/debug logger "Feature disabled by flag" 
+                   (assoc context :flag-name flag-name))
+        nil))))
+
+;; Usage in service
+(defn enhanced-user-processing! 
+  [{:keys [logger]} user-data context]
+  ;; Always log basic operation
+  (log/info logger "Processing user" context)
+  
+  ;; Conditionally add enhanced metrics
+  (with-feature-flag "enhanced-user-metrics" false logger context
+    (fn []
+      (metrics/record-user-processing-details user-data context)))
+  
+  ;; Conditionally add detailed error reporting
+  (with-feature-flag "detailed-error-reporting" true logger context
+    (fn []
+      (error/with-error-breadcrumb error-reporter context
+                                  "user" "Enhanced processing started"
+                                  {:user-id (:id user-data)}
+        process-user-with-details)))
+  
+  (process-user user-data))
+----
+
+== Testing Strategies
+
+=== Mock Adapters for Testing
+
+Create comprehensive test doubles for observability components:
+
+[source,clojure]
+----
+;; Test utilities for observability
+(ns boundary.test.observability-utils
+  (:require
+   [boundary.logging.ports :as log-ports]
+   [boundary.metrics.ports :as metrics-ports]
+   [boundary.error-reporting.ports :as error-ports]))
+
+;; Capturing logger for test assertions
+(defrecord CapturingLogger [logs]
+  log-ports/ILogger
+  (log [_ level message context]
+    (swap! logs conj {:level level :message message :context context}))
+  (debug [this message context] (.log this :debug message context))
+  (info [this message context] (.log this :info message context))
+  (warn [this message context] (.log this :warn message context))
+  (error [this message context] (.log this :error message context)))
+
+;; Capturing metrics for test assertions
+(defrecord CapturingMetrics [registry emissions]
+  metrics-ports/IMetricsRegistry
+  (register-counter [_ name description labels]
+    (swap! registry assoc name {:type :counter :description description :labels labels}))
+  
+  metrics-ports/IMetricsEmitter
+  (increment-counter [_ metric-name labels value]
+    (swap! emissions conj {:type :counter-increment 
+                          :metric metric-name 
+                          :labels labels 
+                          :value value})))
+
+;; Capturing error reporter for test assertions
+(defrecord CapturingErrorReporter [reports]
+  error-ports/IErrorReporter
+  (report-exception [_ exception context]
+    (swap! reports conj {:type :exception 
+                        :exception exception 
+                        :context context}))
+  (report-error [_ level message context]
+    (swap! reports conj {:type :error 
+                        :level level 
+                        :message message 
+                        :context context})))
+
+;; Test fixtures
+(defn observability-test-fixture []
+  {:logger (->CapturingLogger (atom []))
+   :metrics (->CapturingMetrics (atom {}) (atom []))
+   :error-reporter (->CapturingErrorReporter (atom []))})
+
+;; Test helper functions
+(defn get-logs [logger] @(:logs logger))
+(defn get-metrics-emissions [metrics] @(:emissions metrics))
+(defn get-error-reports [error-reporter] @(:reports error-reporter))
+
+(defn assert-logged [logger level message-pattern]
+  (let [logs (get-logs logger)
+        matching-logs (filter #(and (= level (:level %))
+                                   (re-find message-pattern (:message %))) logs)]
+    (pos? (count matching-logs))))
+
+(defn assert-metric-incremented [metrics metric-name expected-value]
+  (let [emissions (get-metrics-emissions metrics)
+        matching-emissions (filter #(and (= :counter-increment (:type %))
+                                        (= metric-name (:metric %))) emissions)
+        total-value (reduce + (map :value matching-emissions))]
+    (= expected-value total-value)))
+----
+
+=== Integration Test Examples
+
+[source,clojure]
+----
+;; Integration test with observability
+(ns boundary.user.integration-test
+  (:require
+   [clojure.test :refer [deftest is testing use-fixtures]]
+   [boundary.test.observability-utils :as obs-test]
+   [boundary.user.shell.service :as user-service]))
+
+(def ^:dynamic *observability*)
+
+(defn observability-fixture [f]
+  (binding [*observability* (obs-test/observability-test-fixture)]
+    (f)))
+
+(use-fixtures :each observability-fixture)
+
+(deftest user-creation-observability-test
+  (testing "user creation generates appropriate observability events"
+    (let [{:keys [logger metrics error-reporter]} *observability*
+          service {:logger logger 
+                   :metrics metrics 
+                   :error-reporter error-reporter}
+          context {:correlation-id "test-123"}
+          user-data {:name "Test User" :email "test@example.com"}]
+      
+      ;; Execute the operation
+      (user-service/create-user! service user-data context)
+      
+      ;; Assert logging behavior
+      (is (obs-test/assert-logged logger :info #"Starting.*user.*creation"))
+      (is (obs-test/assert-logged logger :info #"User.*created.*successfully"))
+      
+      ;; Assert metrics behavior
+      (is (obs-test/assert-metric-incremented metrics "user_operations_total" 1))
+      (is (obs-test/assert-metric-incremented metrics "user_creation_success_total" 1))
+      
+      ;; Assert no errors were reported
+      (is (empty? (obs-test/get-error-reports error-reporter))))))
+
+(deftest user-creation-error-observability-test
+  (testing "user creation errors are properly observed"
+    (let [{:keys [logger error-reporter]} *observability*
+          service {:logger logger 
+                   :error-reporter error-reporter}
+          context {:correlation-id "test-456"}
+          invalid-user-data {:name "" :email "invalid-email"}]
+      
+      ;; Execute the failing operation
+      (is (thrown? Exception 
+                   (user-service/create-user! service invalid-user-data context)))
+      
+      ;; Assert error logging
+      (is (obs-test/assert-logged logger :error #"User.*creation.*failed"))
+      
+      ;; Assert error reporting
+      (is (= 1 (count (obs-test/get-error-reports error-reporter))))
+      
+      (let [error-report (first (obs-test/get-error-reports error-reporter))]
+        (is (= :exception (:type error-report)))
+        (is (= "test-456" (get-in error-report [:context :correlation-id])))))))
+----
+
+== Performance Considerations
+
+=== Async Logging
+
+For high-throughput applications, implement asynchronous logging:
+
+[source,clojure]
+----
+;; Async logging adapter
+(ns boundary.logging.shell.adapters.async
+  (:require
+   [boundary.logging.ports :as ports]
+   [clojure.core.async :as async]))
+
+(defrecord AsyncLogger [log-channel underlying-logger]
+  ports/ILogger
+  (log [_ level message context]
+    (async/>!! log-channel {:level level :message message :context context})))
+
+(defn create-async-logger [underlying-logger buffer-size]
+  (let [log-channel (async/chan buffer-size)
+        async-logger (->AsyncLogger log-channel underlying-logger)]
+    
+    ;; Start async processing
+    (async/go-loop []
+      (when-let [log-entry (async/<! log-channel)]
+        (try
+          (.log underlying-logger 
+                (:level log-entry) 
+                (:message log-entry) 
+                (:context log-entry))
+          (catch Exception e
+            ;; Handle logging errors without blocking
+            (println "Async logging error:" (.getMessage e))))
+        (recur)))
+    
+    async-logger))
+----
+
+=== Metrics Batching
+
+Batch metrics for better performance:
+
+[source,clojure]
+----
+;; Batched metrics emitter
+(ns boundary.metrics.shell.adapters.batched
+  (:require
+   [boundary.metrics.ports :as ports]
+   [clojure.core.async :as async]))
+
+(defrecord BatchedMetricsEmitter [batch-channel underlying-emitter batch-size flush-interval-ms]
+  ports/IMetricsEmitter
+  (increment-counter [_ metric-name labels value]
+    (async/>!! batch-channel {:type :counter-increment
+                              :metric metric-name
+                              :labels labels
+                              :value value})))
+
+(defn create-batched-metrics-emitter 
+  [underlying-emitter batch-size flush-interval-ms]
+  (let [batch-channel (async/chan 10000)  ; Large buffer for metrics
+        emitter (->BatchedMetricsEmitter batch-channel underlying-emitter 
+                                        batch-size flush-interval-ms)]
+    
+    ;; Start batch processing
+    (async/go-loop [batch [] batch-count 0]
+      (let [timeout-ch (async/timeout flush-interval-ms)
+            [metric ch] (async/alts! [batch-channel timeout-ch])]
+        
+        (cond
+          ;; Received new metric
+          (= ch batch-channel)
+          (let [new-batch (conj batch metric)
+                new-count (inc batch-count)]
+            (if (>= new-count batch-size)
+              (do
+                ;; Flush batch
+                (flush-metrics-batch underlying-emitter new-batch)
+                (recur [] 0))
+              (recur new-batch new-count)))
+          
+          ;; Timeout occurred
+          (= ch timeout-ch)
+          (do
+            ;; Flush any accumulated metrics
+            (when (pos? batch-count)
+              (flush-metrics-batch underlying-emitter batch))
+            (recur [] 0)))))
+    
+    emitter))
+
+(defn flush-metrics-batch [underlying-emitter batch]
+  (doseq [metric batch]
+    (case (:type metric)
+      :counter-increment
+      (.increment-counter underlying-emitter 
+                         (:metric metric)
+                         (:labels metric)
+                         (:value metric)))))
+----
+
+== Troubleshooting
+
+=== Common Issues
+
+==== Missing Correlation IDs
+
+**Problem:** Requests aren't being correlated across service boundaries.
+
+**Solution:** Ensure correlation IDs are propagated in HTTP headers and async operations:
+
+[source,clojure]
+----
+;; HTTP client with correlation ID propagation
+(defn make-http-request [http-client url data context]
+  (let [headers (merge {"Content-Type" "application/json"}
+                      (when-let [correlation-id (:correlation-id context)]
+                        {"X-Correlation-ID" correlation-id}))]
+    (http/post http-client url {:json data :headers headers})))
+
+;; Async operation with context propagation
+(defn async-processing [data context]
+  (async/go
+    ;; Maintain context in async operations
+    (log/info logger "Async processing started" context)
+    (process-data data)
+    (log/info logger "Async processing completed" context)))
+----
+
+==== High Memory Usage from Logging
+
+**Problem:** Excessive memory usage due to verbose logging.
+
+**Solution:** Implement log level filtering and context sanitization:
+
+[source,clojure]
+----
+;; Context sanitization
+(defn sanitize-context [context]
+  (-> context
+      (dissoc :sensitive-data :password :token)
+      (update :user-data #(select-keys % [:id :email]))  ; Keep only safe fields
+      (assoc :sanitized? true)))
+
+;; Level-aware logging
+(defn log-with-level-check [logger level message context]
+  (when (should-log? logger level)
+    (.log logger level message (sanitize-context context))))
+----
+
+==== Metrics Cardinality Explosion
+
+**Problem:** Too many unique label combinations causing memory issues.
+
+**Solution:** Limit label cardinality and use bounded sets:
+
+[source,clojure]
+----
+;; Safe label creation
+(defn safe-labels [raw-labels]
+  (-> raw-labels
+      (update :user-id #(if % "authenticated" "anonymous"))  ; Reduce cardinality
+      (update :path normalize-path)  ; Group similar paths
+      (select-keys [:service :operation :status :environment])))  ; Limit labels
+
+(defn normalize-path [path]
+  (cond
+    (re-find #"/users/\d+" path) "/users/{id}"
+    (re-find #"/api/v\d+/" path) "/api/{version}/*"
+    :else path))
+----
+
+== Best Practices Summary
+
+[IMPORTANT]
+.Integration Best Practices
+====
+**DO:**
+
+* ✅ Add correlation IDs to all requests and propagate them
+* ✅ Use structured context consistently across all operations
+* ✅ Configure different observability backends per environment
+* ✅ Test observability behavior with mock adapters
+* ✅ Sanitize sensitive data before logging/reporting
+* ✅ Use async processing for high-throughput scenarios
+* ✅ Monitor observability system performance itself
+
+**DON'T:**
+
+* ❌ Log sensitive data (passwords, tokens, PII)
+* ❌ Create unbounded metric label cardinality
+* ❌ Block application threads with synchronous observability calls
+* ❌ Ignore observability configuration in tests
+* ❌ Hardcode observability configuration
+====
+
+== Next Steps
+
+1. **Set up production monitoring** - Configure Prometheus, Grafana, and Sentry
+2. **Create custom dashboards** - Build application-specific monitoring views
+3. **Configure alerting rules** - Set up proactive monitoring alerts
+4. **Implement log aggregation** - Centralize log collection and search
+
+== References
+
+* **{xref-error-handling-observability}[Error Handling & Observability]** - Architecture overview
+* **Boundary Observability Integration** - `docs/OBSERVABILITY_INTEGRATION.md`
+* **System Wiring Configuration** - `src/boundary/shell/system/wiring.clj`
+* **Protocol Implementations** - `src/boundary/{logging,metrics,error-reporting}/shell/adapters.clj`
