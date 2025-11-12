@@ -93,7 +93,7 @@
   [requested-port config]
   (let [docker? (docker-environment?)
         dev? (development-environment?)
-        port-range (get-in config [:port-range] {:start requested-port :end (+ requested-port 99)})]
+        port-range (or (:port-range config) {:start requested-port :end (+ requested-port 99)})]
 
     (cond
       ;; Docker environment - use exact port or fail fast

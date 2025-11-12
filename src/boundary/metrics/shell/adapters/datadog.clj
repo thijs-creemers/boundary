@@ -76,6 +76,18 @@
       (throw (ex-info "Tags must be either a map or vector of strings"
                       {:tags tags :type (type tags)})))))
 
+(defn- vector-tags->map
+  "Convert vector tags format back to map format.
+   Converts [\"key:value\" \"key2:value2\"] to {:key \"value\" :key2 \"value2\"}"
+  [vector-tags]
+  (when (seq vector-tags)
+    (reduce
+     (fn [acc tag-str]
+       (let [[k v] (clojure.string/split tag-str #":" 2)]
+         (assoc acc (keyword k) v)))
+     {}
+     vector-tags)))
+
 (defn- build-metric-line
   "Build a DogStatsD metric line: metric.name:value|type|@sample_rate|#tags"
   [metric-name value metric-type tags sample-rate]
@@ -425,10 +437,15 @@
   (set-default-tags! [this tags]
     (let [previous (:global-tags @config)]
       (swap! config assoc :global-tags tags)
-      previous))
+      (if (vector? previous)
+        (vector-tags->map previous)
+        previous)))
 
   (get-default-tags [this]
-    (:global-tags @config))
+    (let [tags (:global-tags @config)]
+      (if (vector? tags)
+        (vector-tags->map tags)
+        tags)))
 
   (set-export-interval! [this interval-ms]
     (let [previous (:export-interval @config)]

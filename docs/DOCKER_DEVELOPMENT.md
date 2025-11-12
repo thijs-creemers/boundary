@@ -41,29 +41,29 @@ The Boundary Framework provides a comprehensive Docker-based development environ
 
 ```
 ┌─────────────────────────┐
-│     Load Balancer      │  (Optional - for multi-instance)
+│     Load Balancer       │  (Optional - for multi-instance)
 └─────────────────────────┘
              │
              ▼
 ┌─────────────────────────┐
-│    Boundary App        │  Port: 3000-3010
-│  (Main Application)    │  Health: /health
+│    Boundary App         │  Port: 3000-3010
+│  (Main Application)     │  Health: /health
 └─────────────────────────┘
              │
              ▼
 ┌─────────────────────────┐
-│    PostgreSQL DB       │  Port: 5432
-│   (Primary Database)   │  Health: pg_isready
+│    PostgreSQL DB        │  Port: 5432
+│   (Primary Database)    │  Health: pg_isready
 └─────────────────────────┘
 
 ┌─────────────────────────┐
-│   Documentation        │  Port: 8080 (optional)
-│   Server (Node.js)     │  Profile: docs
+│   Documentation         │  Port: 8080 (optional)
+│   Server (Node.js)      │  Profile: docs
 └─────────────────────────┘
 
 ┌─────────────────────────┐
-│   Development Tools    │  Interactive shell
-│   (Clojure REPL)       │  Profile: dev, full
+│   Development Tools     │  Interactive shell
+│   (Clojure REPL)        │  Profile: dev, full
 └─────────────────────────┘
 ```
 

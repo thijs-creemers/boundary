@@ -83,14 +83,16 @@
 
 (deftest test-http-server-startup-with-available-port
   (testing "HTTP server starts successfully when port is available"
-    (let [system (start-system-with-port 59985)]
+    (let [available-port (port-manager/find-available-port 59980)
+          system (start-system-with-port available-port)]
       (try
-        (is (not (:error system)))
-        (is (contains? system :boundary/http-server))
-        (let [server (:boundary/http-server system)]
-          (is (some? server))
-          ;; Verify server is actually running by checking if it's started
-          (is (.isStarted server)))
+        (is (not (:error system)) "System should start without errors")
+        (when (not (:error system))
+          (is (contains? system :boundary/http-server))
+          (let [server (:boundary/http-server system)]
+            (is (some? server))
+            ;; Verify server is actually running by checking if it's started
+            (is (.isStarted server))))
         (finally
           (stop-system system))))))
 
