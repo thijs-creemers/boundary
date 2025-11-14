@@ -9,6 +9,12 @@
            :kaocha.plugin/filter
            :kaocha.plugin/profiling]
  
+ ;; Enable metadata-based filtering for focus-meta.
+ ;; Examples:
+ ;;   ^:phase3   → clojure -M:test:db/h2 --focus-meta :phase3
+ ;;   ^:user     → clojure -M:test:db/h2 --focus-meta :user
+ :kaocha.plugin.filter/focus-meta [:unit :integration :contract :user :billing :phase3]
+ 
  :kaocha.plugin.randomize/randomize? true
  :kaocha/reporter [kaocha.report/documentation]
  
