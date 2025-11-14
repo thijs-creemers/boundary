@@ -9,9 +9,10 @@
   (:require [boundary.user.shell.service :as user-service]
             [boundary.user.ports :as ports]
             [boundary.logging.ports]
+            [boundary.logging.core :as logging]
             [boundary.metrics.ports]
             [boundary.error-reporting.ports]
-            [clojure.test :refer [deftest testing is use-fixtures]])
+            [clojure.test :refer [deftest testing is]])
   (:import [java.util UUID]
            [java.time Instant]))
 
@@ -243,6 +244,167 @@
     (user-service/create-user-service user-repository session-repository
                                       mock-logger mock-metrics mock-error-reporter)))
 
+(defn create-test-service-with-capturing-observability
+  "Create a UserService with mock repositories and capturing observability services for testing."
+  []
+  (let [{:keys [user-repository session-repository]} (create-mock-repositories)
+        metrics-state (atom [])
+        gauge-state (atom [])
+        mock-metrics (reify
+                       boundary.metrics.ports/IMetricsEmitter
+                       (inc-counter! [_ handle]
+                         (swap! metrics-state conj {:name handle :value 1 :tags {}}))
+                       (inc-counter! [_ handle value]
+                         (swap! metrics-state conj {:name handle :value value :tags {}}))
+                       (inc-counter! [_ handle value tags]
+                         (swap! metrics-state conj {:name handle :value value :tags tags}))
+                       (set-gauge! [_ handle value]
+                         (swap! gauge-state conj {:name handle :value value :tags {}}))
+                       (set-gauge! [_ handle value tags]
+                         (swap! gauge-state conj {:name handle :value value :tags tags}))
+                       (observe-histogram! [_ _ _] nil)
+                       (observe-histogram! [_ _ _ _] nil)
+                       (observe-summary! [_ _ _] nil)
+                       (observe-summary! [_ _ _ _] nil)
+                       (time-histogram! [_ handle f] (f))
+                       (time-histogram! [_ handle _ f] (f))
+                       (time-summary! [_ _ f] (f))
+                       (time-summary! [_ _ _ f] (f)))
+        breadcrumbs-state (atom [])
+        mock-error-reporter (reify
+                              boundary.error-reporting.ports/IErrorReporter
+                              (capture-exception [_ exception]
+                                (swap! breadcrumbs-state conj {:type :exception :exception exception})
+                                nil)
+                              (capture-exception [_ exception context]
+                                (swap! breadcrumbs-state conj {:type :exception :exception exception :context context})
+                                nil)
+                              (capture-exception [_ exception context tags]
+                                (swap! breadcrumbs-state conj {:type :exception :exception exception :context context :tags tags})
+                                nil)
+                              (capture-message [_ _ _] nil)
+                              (capture-message [_ _ _ _] nil)
+                              (capture-message [_ _ _ _ _] nil)
+                              (capture-event [_ _] nil)
+
+                              boundary.error-reporting.ports/IErrorContext
+                              (with-context [_ _ f] (f))
+                              (add-breadcrumb! [_ breadcrumb]
+                                (swap! breadcrumbs-state conj breadcrumb))
+                              (clear-breadcrumbs! [_] (reset! breadcrumbs-state []))
+                              (set-user! [_ _] nil)
+                              (set-tags! [_ _] nil)
+                              (set-extra! [_ _] nil)
+                              (current-context [_] {}))
+        mock-logger (reify
+                      boundary.logging.ports/ILogger
+                      (log* [_ _ _ _ _] nil)
+                      (trace [_ _] nil) (trace [_ _ _] nil)
+                      (debug [_ _] nil) (debug [_ _ _] nil)
+                      (info [_ _] nil) (info [_ _ _] nil)
+                      (warn [_ _] nil) (warn [_ _ _] nil) (warn [_ _ _ _] nil)
+                      (error [_ _] nil) (error [_ _ _] nil) (error [_ _ _ _] nil)
+                      (fatal [_ _] nil) (fatal [_ _ _] nil) (fatal [_ _ _ _] nil)
+
+                      boundary.logging.ports/IAuditLogger
+                      (audit-event [_ _ _ _ _ _ _] nil)
+                      (security-event [_ _ _ _ _] nil))
+        service (user-service/create-user-service user-repository session-repository
+                                                  mock-logger mock-metrics mock-error-reporter)]
+    {:service service
+     :metrics metrics-state
+     :gauges gauge-state
+     :breadcrumbs breadcrumbs-state}))
+
+(defn create-noop-delete-service-with-capturing-observability
+  "Create a UserService whose delete operations are no-ops, with capturing observability for testing."
+  []
+  (let [;; Repository that treats delete operations as no-ops (returns false)
+        user-repository (reify
+                          ports/IUserRepository
+                          (find-user-by-id [_ _] nil)
+                          (find-user-by-email [_ _ _] nil)
+                          (find-users-by-tenant [_ _ _] {:users [] :total-count 0})
+                          (create-user [_ user] user)
+                          (update-user [_ user] user)
+                          (soft-delete-user [_ _] false)
+                          (hard-delete-user [_ _] false)
+                          (find-active-users-by-role [_ _ _] [])
+                          (count-users-by-tenant [_ _] 0)
+                          (find-users-created-since [_ _ _] [])
+                          (find-users-by-email-domain [_ _ _] [])
+                          (create-users-batch [_ users] users)
+                          (update-users-batch [_ users] users))
+        ;; Session repository only needs to support find-all-sessions for gauge refresh
+        session-state (atom {:sessions {}})
+        session-repository (->MockUserSessionRepository session-state)
+        {:keys [metrics gauges breadcrumbs]} (create-test-service-with-capturing-observability)
+        ;; Recreate service with our custom user/session repositories but shared observability
+        mock-metrics @metrics
+        mock-gauges @gauges
+        mock-breadcrumbs @breadcrumbs]
+    (let [metrics-state (atom mock-metrics)
+          gauge-state (atom mock-gauges)
+          breadcrumbs-state (atom mock-breadcrumbs)
+          mock-metrics-emitter (reify
+                                 boundary.metrics.ports/IMetricsEmitter
+                                 (inc-counter! [_ handle]
+                                   (swap! metrics-state conj {:name handle :value 1 :tags {}}))
+                                 (inc-counter! [_ handle value]
+                                   (swap! metrics-state conj {:name handle :value value :tags {}}))
+                                 (inc-counter! [_ handle value tags]
+                                   (swap! metrics-state conj {:name handle :value value :tags tags}))
+                                 (set-gauge! [_ handle value]
+                                   (swap! gauge-state conj {:name handle :value value :tags {}}))
+                                 (set-gauge! [_ handle value tags]
+                                   (swap! gauge-state conj {:name handle :value value :tags tags}))
+                                 (observe-histogram! [_ _ _] nil)
+                                 (observe-histogram! [_ _ _ _] nil)
+                                 (observe-summary! [_ _ _] nil)
+                                 (observe-summary! [_ _ _ _] nil)
+                                 (time-histogram! [_ _ f] (f))
+                                 (time-histogram! [_ _ _ f] (f))
+                                 (time-summary! [_ _ f] (f))
+                                 (time-summary! [_ _ _ f] (f)))
+          mock-error-reporter (reify
+                                boundary.error-reporting.ports/IErrorReporter
+                                (capture-exception [_ _] nil)
+                                (capture-exception [_ _ _] nil)
+                                (capture-exception [_ _ _ _] nil)
+                                (capture-message [_ _ _] nil)
+                                (capture-message [_ _ _ _] nil)
+                                (capture-message [_ _ _ _ _] nil)
+                                (capture-event [_ _] nil)
+
+                                boundary.error-reporting.ports/IErrorContext
+                                (with-context [_ _ f] (f))
+                                (add-breadcrumb! [_ breadcrumb]
+                                  (swap! breadcrumbs-state conj breadcrumb))
+                                (clear-breadcrumbs! [_] (reset! breadcrumbs-state []))
+                                (set-user! [_ _] nil)
+                                (set-tags! [_ _] nil)
+                                (set-extra! [_ _] nil)
+                                (current-context [_] {}))
+          mock-logger (reify
+                        boundary.logging.ports/ILogger
+                        (log* [_ _ _ _ _] nil)
+                        (trace [_ _] nil) (trace [_ _ _] nil)
+                        (debug [_ _] nil) (debug [_ _ _] nil)
+                        (info [_ _] nil) (info [_ _ _] nil)
+                        (warn [_ _] nil) (warn [_ _ _] nil) (warn [_ _ _ _] nil)
+                        (error [_ _] nil) (error [_ _ _] nil) (error [_ _ _ _] nil)
+                        (fatal [_ _] nil) (fatal [_ _ _] nil) (fatal [_ _ _ _] nil)
+
+                        boundary.logging.ports/IAuditLogger
+                        (audit-event [_ _ _ _ _ _ _] nil)
+                        (security-event [_ _ _ _ _] nil))
+          service (user-service/create-user-service user-repository session-repository
+                                                    mock-logger mock-metrics-emitter mock-error-reporter)]
+      {:service service
+       :metrics metrics-state
+       :gauges gauge-state
+       :breadcrumbs breadcrumbs-state})))
+
 ;; =============================================================================
 ;; User Service Tests
 ;; =============================================================================
@@ -471,3 +633,171 @@
           result (ports/logout-user-everywhere service user-id)]
 
       (is (= 0 result)))))
+
+(deftest test-update-active-sessions-gauge-logs-exceptions
+  (testing "update-active-sessions-gauge logs exceptions via logging/log-exception"
+    (let [called (atom nil)
+          session-repository (reify
+                               ports/IUserSessionRepository
+                               (create-session [_ _] (throw (RuntimeException. "not-used")))
+                               (find-session-by-token [_ _] nil)
+                               (find-sessions-by-user [_ _] [])
+                               (invalidate-session [_ _] false)
+                               (invalidate-all-user-sessions [_ _] 0)
+                               (cleanup-expired-sessions [_ _] 0)
+                               (update-session [_ _] (throw (RuntimeException. "not-used")))
+                               (find-all-sessions [_] (throw (RuntimeException. "session-repo-failure")))
+                               (delete-session [_ _] false))
+          logger :test-logger]
+      (with-redefs [logging/log-exception (fn [logger' level message exception context]
+                                            (reset! called {:logger logger'
+                                                            :level level
+                                                            :message message
+                                                            :exception exception
+                                                            :context context}))]
+        (user-service/update-active-sessions-gauge logger nil session-repository))
+      (is (= :test-logger (:logger @called)))
+      (is (= :warn (:level @called)))
+      (is (= "Failed to update active sessions gauge" (:message @called)))
+      (is (= {:event :metrics :metric "active-sessions-gauge"}
+             (select-keys (:context @called) [:event :metric])))
+      (is (instance? Exception (:exception @called))))))
+
+(deftest test-deactivate-user-metrics-and-breadcrumbs
+  (testing "deactivate-user increments attempted and successful metrics on success and adds start/success breadcrumbs"
+    (let [{:keys [service metrics breadcrumbs]} (create-test-service-with-capturing-observability)
+          tenant-id (UUID/randomUUID)
+          user (ports/register-user service {:email "metrics-deactivate@example.com"
+                                             :name "Metrics Deactivate"
+                                             :role :user
+                                             :tenant-id tenant-id})
+          user-id (:id user)]
+      (reset! metrics [])
+      (reset! breadcrumbs [])
+      (let [result (ports/deactivate-user service user-id)
+            recorded @metrics
+            crumbs @breadcrumbs]
+        (is (true? result))
+        (is (some #(and (= "user-deactivations-attempted" (:name %))
+                        (= 1 (:value %))
+                        (= {:user-id user-id} (:tags %)))
+                  recorded))
+        (is (some #(and (= "user-deactivations-successful" (:name %))
+                        (= 1 (:value %))
+                        (= {:user-id user-id} (:tags %)))
+                  recorded))
+        (let [messages (set (map :message crumbs))]
+          (is (contains? messages "Starting user deactivation"))
+          (is (contains? messages "User deactivation successful")))
+        (let [start-crumb (first (filter #(= "Starting user deactivation" (:message %)) crumbs))
+              success-crumb (first (filter #(= "User deactivation successful" (:message %)) crumbs))]
+          (is (= "service.user" (:category start-crumb)))
+          (is (= :info (:level start-crumb)))
+          (is (= "service.user" (:category success-crumb)))
+          (is (= :info (:level success-crumb)))))))
+  (testing "deactivate-user increments attempted and failed(no-op) metrics and adds start/no-op breadcrumbs when repository returns no-op"
+    (let [{:keys [service metrics breadcrumbs]} (create-noop-delete-service-with-capturing-observability)
+          user-id (UUID/randomUUID)]
+      (reset! metrics [])
+      (reset! breadcrumbs [])
+      (let [result (ports/deactivate-user service user-id)
+            recorded @metrics
+            crumbs @breadcrumbs]
+        (is (false? result))
+        (is (some #(and (= "user-deactivations-attempted" (:name %))
+                        (= {:user-id user-id} (:tags %)))
+                  recorded))
+        (is (some #(and (= "user-deactivations-failed" (:name %))
+                        (= {:user-id user-id :reason "no-op"} (:tags %)))
+                  recorded))
+        (let [messages (set (map :message crumbs))]
+          (is (contains? messages "Starting user deactivation"))
+          (is (contains? messages "User deactivation no-op")))
+        (let [noop-crumb (first (filter #(= "User deactivation no-op" (:message %)) crumbs))]
+          (is (= "service.user" (:category noop-crumb)))
+          (is (= :warning (:level noop-crumb)))))))
+  (testing "deactivate-user increments attempted and failed(system-error) metrics when repository throws"
+    (let [{:keys [service metrics]} (create-test-service-with-capturing-observability)
+          fake-id (UUID/randomUUID)]
+      (reset! metrics [])
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"User not found"
+                            (ports/deactivate-user service fake-id)))
+      (let [recorded @metrics]
+        (is (some #(and (= "user-deactivations-attempted" (:name %))
+                        (= {:user-id fake-id} (:tags %)))
+                  recorded))
+        (is (some #(and (= "user-deactivations-failed" (:name %))
+                        (= {:user-id fake-id :reason "system-error"} (:tags %)))
+                  recorded))))))
+
+(deftest test-permanently-delete-user-metrics
+  (testing "permanently-delete-user increments attempted and successful metrics on success"
+    (let [{:keys [service metrics]} (create-test-service-with-capturing-observability)
+          tenant-id (UUID/randomUUID)
+          user (ports/register-user service {:email "delete-metrics@example.com"
+                                             :name "Delete Metrics"
+                                             :role :user
+                                             :tenant-id tenant-id})
+          user-id (:id user)]
+      (reset! metrics [])
+      (let [result (ports/permanently-delete-user service user-id)
+            recorded @metrics]
+        (is (true? result))
+        (is (some #(and (= "user-deletions-attempted" (:name %))
+                        (= {:user-id user-id} (:tags %)))
+                  recorded))
+        (is (some #(and (= "user-deletions-successful" (:name %))
+                        (= {:user-id user-id} (:tags %)))
+                  recorded)))))
+  (testing "permanently-delete-user increments attempted and failed(no-op) metrics when repository returns no-op"
+    (let [{:keys [service metrics]} (create-noop-delete-service-with-capturing-observability)
+          user-id (UUID/randomUUID)]
+      (reset! metrics [])
+      (let [result (ports/permanently-delete-user service user-id)
+            recorded @metrics]
+        (is (false? result))
+        (is (some #(and (= "user-deletions-attempted" (:name %))
+                        (= {:user-id user-id} (:tags %)))
+                  recorded))
+        (is (some #(and (= "user-deletions-failed" (:name %))
+                        (= {:user-id user-id :reason "no-op"} (:tags %)))
+                  recorded)))))
+  (testing "permanently-delete-user increments attempted and failed(system-error) metrics when repository throws"
+    (let [{:keys [service metrics]} (create-test-service-with-capturing-observability)
+          fake-id (UUID/randomUUID)]
+      (reset! metrics [])
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"User not found"
+                            (ports/permanently-delete-user service fake-id)))
+      (let [recorded @metrics]
+        (is (some #(and (= "user-deletions-attempted" (:name %))
+                        (= {:user-id fake-id} (:tags %)))
+                  recorded))
+        (is (some #(and (= "user-deletions-failed" (:name %))
+                        (= {:user-id fake-id :reason "system-error"} (:tags %)))
+                  recorded))))))
+
+(deftest test-logout-user-everywhere-metrics
+  (testing "logout-user-everywhere increments attempted/successful metrics and tracks invalidated sessions"
+    (let [{:keys [service metrics]} (create-test-service-with-capturing-observability)
+          user-id (UUID/randomUUID)
+          tenant-id (UUID/randomUUID)]
+      ;; Create multiple sessions for the same user
+      (ports/authenticate-user service {:user-id user-id :tenant-id tenant-id})
+      (ports/authenticate-user service {:user-id user-id :tenant-id tenant-id})
+      (ports/authenticate-user service {:user-id user-id :tenant-id tenant-id})
+      (reset! metrics [])
+      (let [invalidated-count (ports/logout-user-everywhere service user-id)
+            recorded @metrics]
+        (is (= 3 invalidated-count))
+        (is (some #(and (= "user-logout-everywhere-attempted" (:name %))
+                        (= {:user-id user-id} (:tags %)))
+                  recorded))
+        (is (some #(and (= "user-logout-everywhere-successful" (:name %))
+                        (= {:user-id user-id} (:tags %)))
+                  recorded))
+        (is (some #(and (= "user-sessions-invalidated" (:name %))
+                        (= 3 (:value %))
+                        (= {:user-id user-id} (:tags %)))
+                  recorded))))))

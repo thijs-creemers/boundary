@@ -4,6 +4,9 @@
             [clojure.test :refer [deftest testing is]])
   (:import [java.util UUID]))
 
+;; Tag this namespace for Kaocha metadata-based filters
+(alter-meta! *ns* assoc :user true)
+
 (deftest test-validate-user-creation-request
   (testing "Valid user creation request"
     (let [user-data {:email "test@example.com"
