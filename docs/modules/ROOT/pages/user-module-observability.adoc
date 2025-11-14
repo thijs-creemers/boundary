@@ -1,0 +1,191 @@
+= User Module Observability Reference
+:toc: left
+:toclevels: 3
+
+This document describes the observability integration in the user module, acting as the primary reference for end-to-end observability integration in Boundary.
+
+== Overview
+
+The user module combines logging, metrics, and error reporting across REST, CLI, and shell services.
+It serves as a production-ready example of how feature modules should integrate observability capabilities.
+
+== Logging
+
+*Service namespace:* `boundary.user.shell.service`
+
+All key operations log structured events using `boundary.logging.core`:
+
+* `register-user` – registration attempts, duplicates, and success events
+* `authenticate-user` – session creation and login pathway
+* `validate-session` – session validity checks and expiry
+* `logout-user` – single-session logout
+* `logout-user-everywhere` – global logout across all sessions
+* `get-user-by-id`, `get-user-by-email`, `list-users-by-tenant`, `update-user-profile`, `deactivate-user`, `permanently-delete-user`
+
+=== Business and Audit Events
+
+Business / audit events (via `log-business-event` and `audit-user-action`):
+
+* `user-registered`, `user-session-started`, `user-session-ended`
+* User lifecycle actions: `deactivate`, `hard-delete`, `logout`, `logout-everywhere`
+
+== Metrics
+
+The user service emits metrics via `boundary.metrics.core` (using counters, histograms, and gauges).
+
+=== User Lifecycle Counters
+
+* `user-registrations-attempted` / `user-registrations-successful` / `user-registrations-failed`
+* `user-deactivations-attempted` / `user-deactivations-successful` / `user-deactivations-failed`
+* `user-deletions-attempted` / `user-deletions-successful` / `user-deletions-failed`
+* `user-logout-everywhere-attempted` / `user-logout-everywhere-successful` / `user-logout-everywhere-failed`
+
+=== Session Lifecycle Counters
+
+* `user-authentications-attempted` / `user-authentications-successful` / `user-authentications-failed`
+* `session-creations`
+* `session-validations-attempted` / `session-validations-successful` / `session-validations-failed`
+* `session-invalidations-attempted` / `session-invalidations-successful` / `session-invalidations-failed`
+* `user-sessions-invalidated` – total sessions invalidated by `logout-user-everywhere`
+
+=== Validation and Error Metrics
+
+* `validation-errors` with tags such as `:operation`, `:tenant-id`, `:error-code`
+
+=== Gauge Metrics
+
+* `active-sessions-total` – total number of active sessions
+* `active-sessions-by-tenant` – active sessions per tenant (`:tenant-id` tag)
+
+=== Metric Tags
+
+All metrics are tagged where applicable with values such as:
+
+* `:tenant-id` – tenant identifier
+* `:user-id` – user identifier
+* `:operation` – operation name
+* `:reason` – failure reason (e.g. `"user-exists"`, `"system-error"`, `"expired"`, `"not-found"`)
+
+== Error Reporting
+
+The user service uses `boundary.error-reporting.core` to provide rich error context.
+
+=== Exception Reporting
+
+`report-application-error` wraps all major shell operations to capture unexpected exceptions:
+
+* `register-user`
+* `authenticate-user`
+* `validate-session`
+* `logout-user`
+* `deactivate-user`
+* `permanently-delete-user`
+* `logout-user-everywhere`
+* All read operations
+
+=== Breadcrumbs
+
+Breadcrumbs (via `add-breadcrumb`) document key lifecycle events:
+
+* "Starting user registration", "User validation failed", "Duplicate user detected"
+* "User authentication successful", "Session validation failed - expired"
+* "User logout successful", "Session validation failed - not found"
+
+=== Error Tags
+
+Error tags consistently include:
+
+* `:component` – `"service.user"`
+* `:operation` – shell operation name (e.g. `"register-user"`)
+* `:tenant-id` – tenant identifier
+* `:user-id` – user identifier
+* `:session-token` – masked session token (where appropriate)
+
+== Integration Example
+
+[source,clojure]
+----
+;; User service with observability
+(defrecord UserService [user-repository 
+                        session-repository 
+                        logger 
+                        metrics-emitter 
+                        error-reporter]
+  
+  ports/IUserService
+  
+  (register-user [this user-data]
+    (let [context {:operation "register-user"
+                   :tenant-id (:tenant-id user-data)}]
+      ;; Add breadcrumb
+      (error-reporting/add-breadcrumb 
+        error-reporter
+        "Starting user registration"
+        "service.user"
+        :info
+        {:tenant-id (:tenant-id user-data)})
+      
+      ;; Time operation with histogram
+      (metrics/time-with-histogram
+        metrics-emitter
+        "user-operation-duration"
+        {:operation-type "register"
+         :tenant-id (:tenant-id user-data)}
+        (fn []
+          ;; Log with function logging wrapper
+          (logging/with-function-logging
+            logger
+            "register-user"
+            context
+            (fn []
+              ;; Track attempt
+              (metrics/increment-counter 
+                metrics-emitter 
+                "user-registrations-attempted"
+                {:tenant-id (:tenant-id user-data)})
+              
+              (try
+                ;; Business logic...
+                (let [created-user (create-user! user-data)]
+                  ;; Log business event
+                  (logging/log-business-event 
+                    logger 
+                    "user-registered" 
+                    "user" 
+                    context
+                    {:user-id (:id created-user)})
+                  
+                  ;; Track success
+                  (metrics/increment-counter 
+                    metrics-emitter
+                    "user-registrations-successful"
+                    {:tenant-id (:tenant-id user-data)})
+                  
+                  created-user)
+                
+                (catch Exception e
+                  ;; Report error
+                  (error-reporting/report-application-error 
+                    error-reporter 
+                    e
+                    "User registration failed"
+                    {:extra {:operation "register-user"
+                             :tenant-id (:tenant-id user-data)}
+                     :tags {:component "service.user"
+                            :operation "register-user"}})
+                  
+                  ;; Track failure
+                  (metrics/increment-counter 
+                    metrics-emitter
+                    "user-registrations-failed"
+                    {:tenant-id (:tenant-id user-data)
+                     :reason "system-error"})
+                  
+                  (throw e)))))))))
+----
+
+== See Also
+
+* xref:observability-reference.adoc[Observability Module Reference]
+* xref:architecture:observability-integration.adoc[Observability Integration Guide]
+* xref:architecture:error-handling-observability.adoc[Error Handling & Observability Architecture]
