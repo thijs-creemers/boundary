@@ -1,6 +1,6 @@
 # Boundary Framework - Development Status
 
-**Last Updated:** November 11, 2025  
+**Last Updated:** November 14, 2025  
 **Project Phase:** Alpha Development  
 **Overall Status:** 🟢 Production-Ready Observability Infrastructure, Enhanced DevEx, Clean Architecture, Stable Testing
 
@@ -173,6 +173,10 @@ All systems maintain clean architecture patterns with proper separation of conce
   - Pluggable provider system with no-op implementations
   - Full Integrant integration with proper lifecycle management
   - Extensive documentation and integration examples
+- **User Module Observability Integration**: Logging, metrics, and error reporting for user operations *(COMPLETED Nov 14)*
+  - Extended observability coverage for user lifecycle operations (create, deactivate, delete)
+  - Session lifecycle metrics and gauges (active sessions, validations, invalidations)
+  - Error reporting breadcrumbs and application error reporting wired into user service
 - **Default Tenant ID Configuration**: Development workflow improvements *(COMPLETED Nov 9)*
   - Consistent tenant context for REPL development
   - CLI operations without explicit tenant specification
@@ -274,7 +278,7 @@ All systems maintain clean architecture patterns with proper separation of conce
 4. ~~**Observability infrastructure** - Complete logging, metrics, error reporting modules~~ *(COMPLETED Nov 9)*
 5. ~~**CLI integration test fixes** - Resolve observability service dependency issues~~ *(COMPLETED Nov 10)*
 6. ~~**Datadog logging adapter implementation**~~ *(COMPLETED Nov 11)*
-7. **Integrate observability into User module** - Add logging, metrics, and error reporting to user operations
+7. ~~**Integrate observability into User module** - Add logging, metrics, and error reporting to user operations~~ *(COMPLETED Nov 14)*
 8. **Implement Sentry error reporting adapter** - Production-ready error tracking
 
 ### Next Week  

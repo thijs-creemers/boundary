@@ -127,12 +127,13 @@
   "Update gauge metrics for active session counts.
    
    Args:
+     logger: ILogger instance for logging errors
      metrics-emitter: Metrics collection service instance
      session-repository: IUserSessionRepository instance
    
    Side Effects:
      Updates gauge metrics with current active session counts"
-  [metrics-emitter session-repository]
+  [logger metrics-emitter session-repository]
   (try
     (let [current-time (current-timestamp)
           session-counts (count-active-sessions session-repository current-time)]
@@ -144,7 +145,13 @@
         (metrics/set-gauge-value metrics-emitter "active-sessions-by-tenant" count {:tenant-id tenant-id})))
     (catch Exception e
       ;; Log error but don't fail the operation
-      (.warn nil "Failed to update active sessions gauge" {:error (.getMessage e)}))))
+      (logging/log-exception
+       logger
+       :warn
+       "Failed to update active sessions gauge"
+       e
+       {:event :metrics
+        :metric "active-sessions-gauge"}))))
 
 ;; =============================================================================
 ;; Database-Agnostic User Service (I/O Shell Layer)
@@ -367,7 +374,7 @@
                     {:tenant-id (:tenant-id user-credentials)})
 
                     ;; Update active sessions gauge  
-                   (update-active-sessions-gauge metrics-emitter session-repository)
+                   (update-active-sessions-gauge logger metrics-emitter session-repository)
 
                     ;; Return session
                    created-session))
@@ -590,7 +597,7 @@
                     {:tenant-id (:tenant-id session)})
 
                     ;; Update active sessions gauge
-                   (update-active-sessions-gauge metrics-emitter session-repository)
+                   (update-active-sessions-gauge logger metrics-emitter session-repository)
 
                       ;; Return result
                    {:invalidated true :session-id (:id session)})
@@ -807,6 +814,18 @@
 
   (deactivate-user [this user-id]
     (let [context {:operation "deactivate-user" :user-id user-id}]
+      ;; Add error reporting breadcrumb
+      (error-reporting/add-breadcrumb error-reporter
+                                      "Starting user deactivation"
+                                      "service.user"
+                                      :info
+                                      {:operation "deactivate-user"
+                                       :user-id user-id})
+
+      ;; Metrics: Track deactivation attempt
+      (metrics/increment-counter metrics-emitter "user-deactivations-attempted"
+                                 {:user-id user-id})
+
       (logging/with-function-logging
         logger
         "deactivate-user"
@@ -814,13 +833,80 @@
         (fn []
           (.info logger "Deactivating user" {:user-id user-id})
           (try
-            (let [result (.soft-delete-user user-repository user-id)]
-              (boolean result))
+            (let [result (.soft-delete-user user-repository user-id)
+                  success? (boolean result)]
+              (if success?
+                (do
+                  ;; Add success breadcrumb
+                  (error-reporting/add-breadcrumb
+                   error-reporter
+                   "User deactivation successful"
+                   "service.user"
+                   :info
+                   {:user-id user-id})
+
+                  ;; Audit log using logging core
+                  (logging/audit-user-action
+                   logger user-id
+                   "user"
+                   "deactivate"
+                   "success"
+                   context)
+
+                  ;; Metrics: Track successful deactivation
+                  (metrics/increment-counter
+                   metrics-emitter
+                   "user-deactivations-successful"
+                   {:user-id user-id})
+
+                  true)
+                (do
+                  ;; Deactivation was a no-op (e.g. user already inactive)
+                  (error-reporting/add-breadcrumb
+                   error-reporter
+                   "User deactivation no-op"
+                   "service.user"
+                   :warning
+                   {:user-id user-id})
+
+                  (metrics/increment-counter
+                   metrics-emitter
+                   "user-deactivations-failed"
+                   {:user-id user-id
+                    :reason "no-op"})
+                  false)))
             (catch Exception e
+              ;; Capture exception with error reporting
+              (error-reporting/report-application-error
+               error-reporter e
+               "User deactivation failed"
+               {:extra {:operation "deactivate-user"
+                        :user-id user-id}
+                :tags {:component "service.user"
+                       :operation "deactivate-user"}})
+
+              ;; Metrics: Track deactivation system error
+              (metrics/increment-counter
+               metrics-emitter
+               "user-deactivations-failed"
+               {:user-id user-id
+                :reason "system-error"})
               (throw e)))))))
 
   (permanently-delete-user [this user-id]
     (let [context {:operation "permanently-delete-user" :user-id user-id}]
+      ;; Add error reporting breadcrumb
+      (error-reporting/add-breadcrumb error-reporter
+                                      "Starting user permanent deletion"
+                                      "service.user"
+                                      :info
+                                      {:operation "permanently-delete-user"
+                                       :user-id user-id})
+
+      ;; Metrics: Track hard-delete attempt
+      (metrics/increment-counter metrics-emitter "user-deletions-attempted"
+                                 {:user-id user-id})
+
       (logging/with-function-logging
         logger
         "permanently-delete-user"
@@ -828,13 +914,80 @@
         (fn []
           (.info logger "Permanently deleting user" {:user-id user-id})
           (try
-            (let [result (.hard-delete-user user-repository user-id)]
-              (boolean result))
+            (let [result (.hard-delete-user user-repository user-id)
+                  success? (boolean result)]
+              (if success?
+                (do
+                  ;; Add success breadcrumb
+                  (error-reporting/add-breadcrumb
+                   error-reporter
+                   "User permanent deletion successful"
+                   "service.user"
+                   :info
+                   {:user-id user-id})
+
+                  ;; Audit log using logging core
+                  (logging/audit-user-action
+                   logger user-id
+                   "user"
+                   "hard-delete"
+                   "success"
+                   context)
+
+                  ;; Metrics: Track successful hard-delete
+                  (metrics/increment-counter
+                   metrics-emitter
+                   "user-deletions-successful"
+                   {:user-id user-id})
+
+                  true)
+                (do
+                  ;; Hard delete was a no-op
+                  (error-reporting/add-breadcrumb
+                   error-reporter
+                   "User permanent deletion no-op"
+                   "service.user"
+                   :warning
+                   {:user-id user-id})
+
+                  (metrics/increment-counter
+                   metrics-emitter
+                   "user-deletions-failed"
+                   {:user-id user-id
+                    :reason "no-op"})
+                  false)))
             (catch Exception e
+              ;; Capture exception with error reporting
+              (error-reporting/report-application-error
+               error-reporter e
+               "User permanent deletion failed"
+               {:extra {:operation "permanently-delete-user"
+                        :user-id user-id}
+                :tags {:component "service.user"
+                       :operation "permanently-delete-user"}})
+
+              ;; Metrics: Track hard-delete system error
+              (metrics/increment-counter
+               metrics-emitter
+               "user-deletions-failed"
+               {:user-id user-id
+                :reason "system-error"})
               (throw e)))))))
 
   (logout-user-everywhere [this user-id]
     (let [context {:operation "logout-user-everywhere" :user-id user-id}]
+      ;; Add error reporting breadcrumb
+      (error-reporting/add-breadcrumb error-reporter
+                                      "Starting logout user everywhere"
+                                      "service.user"
+                                      :info
+                                      {:operation "logout-user-everywhere"
+                                       :user-id user-id})
+
+      ;; Metrics: Track logout-everywhere attempt
+      (metrics/increment-counter metrics-emitter "user-logout-everywhere-attempted"
+                                 {:user-id user-id})
+
       (logging/with-function-logging
         logger
         "logout-user-everywhere"
@@ -842,8 +995,46 @@
         (fn []
           (.info logger "Logging out user from all sessions" {:user-id user-id})
           (try
-            (.invalidate-all-user-sessions session-repository user-id)
+            (let [invalidated-count (.invalidate-all-user-sessions session-repository user-id)]
+              ;; Add success breadcrumb
+              (error-reporting/add-breadcrumb
+               error-reporter
+               "User logout-everywhere successful"
+               "service.user"
+               :info
+               {:user-id user-id
+                :invalidated-sessions invalidated-count})
+
+              ;; Metrics: track how many sessions were invalidated
+              (metrics/increment-counter-by
+               metrics-emitter
+               "user-sessions-invalidated"
+               invalidated-count
+               {:user-id user-id})
+
+              (metrics/increment-counter
+               metrics-emitter
+               "user-logout-everywhere-successful"
+               {:user-id user-id})
+
+              ;; Return original behavior (count of invalidated sessions)
+              invalidated-count)
             (catch Exception e
+              ;; Capture exception with error reporting
+              (error-reporting/report-application-error
+               error-reporter e
+               "User logout-everywhere failed"
+               {:extra {:operation "logout-user-everywhere"
+                        :user-id user-id}
+                :tags {:component "service.user"
+                       :operation "logout-user-everywhere"}})
+
+              ;; Metrics: Track logout-everywhere system error
+              (metrics/increment-counter
+               metrics-emitter
+               "user-logout-everywhere-failed"
+               {:user-id user-id
+                :reason "system-error"})
               (throw e))))))))
 
 ;; =============================================================================
@@ -860,10 +1051,17 @@
      Function that updates all gauge metrics when called"
   [user-service]
   (fn refresh-gauges []
-    (try
-      (update-active-sessions-gauge (:metrics-emitter user-service) (:session-repository user-service))
-      (catch Exception e
-        (.warn nil "Failed to refresh gauge metrics" {:error (.getMessage e)})))))
+    (let [logger (:logger user-service)]
+      (try
+        (update-active-sessions-gauge logger (:metrics-emitter user-service) (:session-repository user-service))
+        (catch Exception e
+          (logging/log-exception
+           logger
+           :warn
+           "Failed to refresh gauge metrics"
+           e
+           {:event :metrics
+            :metric "active-sessions-gauge-refresh"}))))))
 
 ;; =============================================================================
 ;; Factory Functions
