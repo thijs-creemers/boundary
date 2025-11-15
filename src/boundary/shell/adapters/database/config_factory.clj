@@ -392,8 +392,8 @@
         :boundary/h2 :h2
         :boundary/postgresql :postgresql
         :boundary/mysql :mysql
-        :boundary/settings :sqlite  ; Use SQLite as underlying implementation for settings
-        :boundary/logging :sqlite   ; Use SQLite as underlying implementation for logging
+        :boundary/settings :sqlite ; Use SQLite as underlying implementation for settings
+        :boundary/logging :sqlite ; Use SQLite as underlying implementation for logging
         :unknown))
 
     (jdbc-driver [_this]
@@ -402,8 +402,8 @@
         :boundary/h2 "org.h2.Driver"
         :boundary/postgresql "org.postgresql.Driver"
         :boundary/mysql "com.mysql.cj.jdbc.Driver"
-        :boundary/settings "org.sqlite.JDBC"  ; Use SQLite driver for settings
-        :boundary/logging "org.sqlite.JDBC"   ; Use SQLite driver for logging
+        :boundary/settings "org.sqlite.JDBC" ; Use SQLite driver for settings
+        :boundary/logging "org.sqlite.JDBC" ; Use SQLite driver for logging
         "unknown"))
 
     (jdbc-url [_this db-config]
@@ -452,13 +452,17 @@
   (when-not (contains? config :active)
     (throw (IllegalArgumentException. "Configuration must contain an :active section")))
 
-  (let [active-configs (:active config)]
+  (let [active-configs (:active config)
+        supported-keys (set (list-available-adapters))]
     ;; Validate that :active section is a map
     (when-not (map? active-configs)
       (throw (IllegalArgumentException. "The :active section must be a map")))
     (into {}
-          (map (fn [[adapter-key adapter-config]]
-                 [adapter-key (create-adapter adapter-key adapter-config)]))
+          (comp
+           (filter (fn [[adapter-key _]]
+                     (contains? supported-keys adapter-key)))
+           (map (fn [[adapter-key adapter-config]]
+                  [adapter-key (create-adapter adapter-key adapter-config)])))
           active-configs)))
 
 ;; =============================================================================

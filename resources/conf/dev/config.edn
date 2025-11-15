@@ -40,12 +40,12 @@
   ;; Observability configurations
   ;; Using no-op providers by default - can be switched to real providers per need
 
-  :boundary/logging
+:boundary/logging
   {:provider :no-op}
-
+ 
   :boundary/metrics
   {:provider :no-op}
-
+ 
   :boundary/error-reporting
   {:provider :no-op}}
 

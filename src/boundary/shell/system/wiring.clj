@@ -28,6 +28,7 @@
             [boundary.logging.shell.adapters.no-op :as logging-no-op]
             [boundary.metrics.shell.adapters.no-op :as metrics-no-op]
             [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
+            [boundary.error-reporting.shell.adapters.sentry :as error-reporting-sentry]
             [boundary.shell.utils.port-manager :as port-manager]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]
@@ -175,8 +176,8 @@
   (log/info "Initializing error reporting component" {:provider (:provider config)})
   (let [error-reporter (case (:provider config)
                          :no-op (error-reporting-no-op/create-error-reporting-component config)
+                         :sentry (error-reporting-sentry/create-sentry-error-reporting-component config)
                          ;; Future providers will be added here:
-                         ;; :sentry (sentry-adapter/create-error-reporting-component config)
                          ;; :rollbar (rollbar-adapter/create-error-reporting-component config)
                          ;; :bugsnag (bugsnag-adapter/create-error-reporting-component config)
                          (do

@@ -31,11 +31,13 @@
         :debug false}))"
   (:require
    [boundary.error-reporting.ports :as ports]
-   [sentry-clj.core :as sentry]
-   [clojure.tools.logging :as log])
+   [boundary.shared.core.utils.pii-redaction :as pii]
+   [clojure.string :as str]
+   [clojure.tools.logging :as log]
+   [sentry-clj.core :as sentry])
   (:import
-   [java.time Instant]
-   [java.util UUID]))
+   (java.time Instant)
+   (java.util UUID)))
 
 ;; =============================================================================
 ;; State Management
@@ -132,6 +134,7 @@
             sentry-context (if tags
                              (update-in sentry-context [:tags] merge tags)
                              sentry-context)
+            sentry-context (pii/apply-redaction sentry-context config)
             event-id (generate-event-id)]
 
         (sentry/send-event
@@ -160,6 +163,7 @@
             sentry-context (if tags
                              (update-in sentry-context [:tags] merge tags)
                              sentry-context)
+            sentry-context (pii/apply-redaction sentry-context config)
             event-id (generate-event-id)]
 
         (sentry/send-event
@@ -186,6 +190,7 @@
                              tags (update :tags merge tags)
                              extra (assoc :extra extra)
                              breadcrumbs (assoc :breadcrumbs breadcrumbs))
+            sentry-context (pii/apply-redaction sentry-context config)
             event-id (generate-event-id)]
 
         (case type
@@ -214,7 +219,7 @@
         nil))))
 
 ;; =============================================================================
-;; Sentry Error Context Implementation  
+;; Sentry Error Context Implementation
 ;; =============================================================================
 
 (defrecord SentryErrorContext [config]
@@ -279,7 +284,7 @@
     true)
 
   (should-report-message? [this message level context]
-    ;; For now, implement basic filtering  
+    ;; For now, implement basic filtering
     ;; TODO: Implement more sophisticated filtering based on config
     true)
 
@@ -347,7 +352,7 @@
 
 (defn create-sentry-error-reporter
   "Create a Sentry error reporter instance.
-   
+
    Config map should contain:
    - :dsn (required) - Sentry Data Source Name
    - :environment (optional) - Environment name (dev, staging, prod)
@@ -355,7 +360,7 @@
    - :sample-rate (optional) - Sample rate 0.0 to 1.0 (default 1.0)
    - :debug (optional) - Enable debug mode (default false)
    - :server-name (optional) - Server name for grouping
-   
+
    Example:
    (create-sentry-error-reporter
      {:dsn \"https://your-dsn@sentry.io/project-id\"
@@ -467,7 +472,7 @@
 
 (defn create-sentry-error-reporting-component
   "Create a complete Sentry error reporting component that implements all protocols.
-   
+
    This is the recommended way to create Sentry error reporting for use with Integrant."
   [config]
   (let [error-reporter (create-sentry-error-reporter config)
@@ -478,10 +483,10 @@
 
 (defn create-sentry-error-reporting-components
   "Create a map of Sentry error reporting components for Integrant system configuration.
-   
+
    Returns a map with keys:
    - :error-reporter - IErrorReporter implementation
-   - :error-context - IErrorContext implementation  
+   - :error-context - IErrorContext implementation
    - :error-filter - IErrorFilter implementation
    - :error-config - IErrorReportingConfig implementation"
   [config]
