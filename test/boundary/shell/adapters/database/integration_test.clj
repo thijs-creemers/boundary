@@ -10,7 +10,7 @@
 ;; =============================================================================
 
 (defn reset-system-fixture
-      "Fixture to reset the integration system before each test."
+  "Fixture to reset the integration system before each test."
   [test-fn]
   (try
     ;; Reset application state before test
@@ -94,7 +94,7 @@
 
 (deftest test-database-access
   (testing "Database access after system initialization"
-    (integration/initialize-databases! "test")              ; Use test env with H2
+    (integration/initialize-databases! "test") ; Use test env with H2
 
     (testing "Get specific database"
       (let [active-dbs (integration/list-active-databases)]
@@ -155,7 +155,7 @@
     (integration/initialize-databases! "dev")
 
     (let [active-dbs (integration/list-active-databases)
-          db-count   (count active-dbs)]
+          db-count (count active-dbs)]
 
       ;; Always ensure we have at least one database
       (is (>= db-count 1) "Should have at least one active database after initialization")
@@ -291,7 +291,7 @@
     (doseq [env ["dev" "test" "prod"]]
       (testing (str "Environment: " env)
         (try
-          (let [config          (config/load-config env)
+          (let [config (config/load-config env)
                 active-adapters (factory/create-active-adapters config)]
 
             (is (map? config) (str "Config should be loaded for " env))
@@ -300,8 +300,9 @@
 
             ;; Verify adapters match what's in the active config
             (let [active-config-keys (keys (:active config))
-                  adapter-keys       (keys active-adapters)
-                  db-adapter-keys    (filter #(.startsWith (name %) "boundary/") active-config-keys)]
+                  adapter-keys (keys active-adapters)
+                  supported-keys (set (factory/list-available-adapters))
+                  db-adapter-keys (filter supported-keys active-config-keys)]
 
               (doseq [db-key db-adapter-keys]
                 (is (contains? active-adapters db-key)
@@ -318,10 +319,10 @@
   (testing "System initialization should be reasonably fast"
     (let [start-time (System/nanoTime)]
       (integration/initialize-databases! "test")
-      (let [end-time    (System/nanoTime)
+      (let [end-time (System/nanoTime)
             duration-ms (/ (- end-time start-time) 1000000.0)]
 
-        (is (< duration-ms 2000)                            ; Should initialize in under 2 seconds
+        (is (< duration-ms 2000) ; Should initialize in under 2 seconds
             (str "System initialization took " duration-ms "ms, should be under 2000ms"))))))
 
 (deftest test-query-performance
@@ -333,10 +334,10 @@
         (try
           (let [start-time (System/nanoTime)]
             (integration/execute-query adapter-key {:select [[1 :test]]})
-            (let [end-time    (System/nanoTime)
+            (let [end-time (System/nanoTime)
                   duration-ms (/ (- end-time start-time) 1000000.0)]
 
-              (is (< duration-ms 1000)                      ; Should execute in under 1 second
+              (is (< duration-ms 1000) ; Should execute in under 1 second
                   (str "Query execution took " duration-ms "ms, should be under 1000ms"))))
           (catch Exception e
             ;; Expected if query fails due to database issues

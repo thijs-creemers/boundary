@@ -6,7 +6,8 @@
   (:require
    [clojure.test :refer [deftest testing is use-fixtures]]
    [boundary.error-reporting.shell.adapters.sentry :as sentry-adapter]
-   [boundary.error-reporting.ports :as ports]))
+   [boundary.error-reporting.ports :as ports]
+   [sentry-clj.core :as sentry]))
 
 ;; =============================================================================
 ;; Test Configuration
@@ -188,6 +189,18 @@
 ;; Utility Function Tests
 ;; =============================================================================
 
+(defn- with-captured-event
+  "Run f with sentry/send-event stubbed, returning the captured payload."
+  [config f]
+  (let [captured (atom nil)]
+    (with-redefs [sentry/init! (fn [& _] nil)
+                  sentry/send-event (fn [event]
+                                      (reset! captured event)
+                                      nil)]
+      (let [reporter (sentry-adapter/create-sentry-error-reporter config)]
+        (f reporter)
+        @captured))))
+
 (deftest utility-function-tests
   (testing "Private utility functions through public interface"
     (let [context (sentry-adapter/create-sentry-error-context test-config)]
@@ -204,6 +217,104 @@
         (ports/add-breadcrumb! context {:message "Step 1" :category "test"})
         (ports/add-breadcrumb! context {:message "Step 2" :category "test"})
         (ports/clear-breadcrumbs! context)))))
+
+;; =============================================================================
+;; PII Redaction Tests
+;; =============================================================================
+
+(deftest pii-redaction-default-extra-test
+  (testing "Default redaction applies to :extra fields when :redact is present"
+    (let [config {:dsn "https://fake-key@fake-sentry.io/fake-project"
+                  :environment "test"
+                  :redact {}} ; use defaults
+          event (with-captured-event config
+                  (fn [reporter]
+                    (ports/capture-exception
+                     reporter
+                     (ex-info "boom" {})
+                     {:extra {:password "secret123"
+                              :token "abcd"
+                              :email "user@example.com"
+                              :safe "ok"}}
+                     nil)))]
+      (is (some? event) "An event must be sent")
+      (testing "password and token are redacted"
+        (is (= "[REDACTED]" (get-in event [:extra :password])))
+        (is (= "[REDACTED]" (get-in event [:extra :token]))))
+      (testing "email is masked, not raw"
+        (is (re-find #".*\*\*\*@example\.com$" (get-in event [:extra :email]))))
+      (testing "non-sensitive fields are preserved"
+        (is (= "ok" (get-in event [:extra :safe])))))))
+
+(deftest pii-redaction-default-tags-test
+  (testing "Default redaction applies to :tags as well when :redact is present"
+    (let [config {:dsn "https://fake-key@fake-sentry.io/fake-project"
+                  :environment "test"
+                  :redact {}}
+          event (with-captured-event config
+                  (fn [reporter]
+                    (ports/capture-message
+                     reporter
+                     "hello"
+                     :error
+                     {:tags {:password "pw"
+                             :api-key "k123"
+                             :tenant-id "tenant-1"}}
+                     nil)))]
+      (is (some? event) "Event should be sent")
+      (is (= "[REDACTED]" (get-in event [:tags :password])))
+      (is (= "[REDACTED]" (get-in event [:tags :api-key])))
+      ;; non-sensitive tag should remain
+      (is (= "tenant-1" (get-in event [:tags :tenant-id]))))))
+
+(deftest pii-redaction-additional-keys-test
+  (testing "Custom additional keys are redacted"
+    (let [config {:dsn "https://fake-key@fake-sentry.io/fake-project"
+                  :environment "test"
+                  :redact {:additional-keys [:custom-field]}}
+          event (with-captured-event config
+                  (fn [reporter]
+                    (ports/capture-exception
+                     reporter
+                     (Exception. "boom")
+                     {:extra {:custom-field "extra-1"
+                              :other "keep"}}
+                     nil)))]
+      (is (some? event))
+      (is (= "[REDACTED]" (get-in event [:extra :custom-field])))
+      (is (= "keep" (get-in event [:extra :other]))))))
+
+(deftest pii-redaction-disable-email-masking-test
+  (testing "Email is not masked when :mask-email? is false"
+    (let [config {:dsn "https://fake-key@fake-sentry.io/fake-project"
+                  :environment "test"
+                  :redact {:mask-email? false}}
+          event (with-captured-event config
+                  (fn [reporter]
+                    (ports/capture-exception
+                     reporter
+                     (Exception. "boom")
+                     {:extra {:email "user@example.com"}}
+                     nil)))]
+      (is (some? event))
+      (is (= "user@example.com" (get-in event [:extra :email]))))))
+
+(deftest pii-redaction-disabled-when-no-redact-config-test
+  (testing "When :redact is not present, default PII redaction still applies"
+    (let [config {:dsn "https://fake-key@fake-sentry.io/fake-project"
+                  :environment "test"}
+          event (with-captured-event config
+                  (fn [reporter]
+                    (ports/capture-message
+                     reporter
+                     "hi"
+                     :error
+                     {:extra {:password "pw"
+                              :email "user@example.com"}}
+                     nil)))]
+      (is (some? event))
+      (is (= "[REDACTED]" (get-in event [:extra :password])))
+      (is (re-find #".*\*\*\*@example\.com$" (get-in event [:extra :email]))))))
 
 ;; =============================================================================
 ;; Integration with Error Reporting Ports Tests

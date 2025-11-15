@@ -16,12 +16,12 @@
   ;; Active database configurations
   ;; Test environment uses in-memory H2 for fast, isolated tests
   
-  :boundary/h2
+:boundary/h2
   {:memory true  ; In-memory database for fast test execution
    :pool   {:minimum-idle 1
             :maximum-pool-size 5
             :connection-timeout-ms 5000}}
-
+ 
   ;; Test logging configuration
   :boundary/logging
   {:level     :debug  ; Verbose logging for debugging tests
@@ -32,6 +32,15 @@
                                  :max-history 3  ; Keep only 3 days of test logs
                                  :max-size    5000000 ; 5MB
                                  :pattern     ".%d{yyyy-MM-dd}.%i.gz"}}]}
+
+  ;; Error reporting configuration for tests
+  ;; Defaults to no-op; can be switched to Sentry via ERROR_REPORTING_PROVIDER
+  :boundary/error-reporting
+  {:provider    #or [#env "ERROR_REPORTING_PROVIDER" :no-op]
+   :dsn         #env "SENTRY_DSN"
+   :environment #or [#env "APP_ENV" "test"]
+   :release     #or [#env "APP_RELEASE" #env "VERSION"]
+   :sample-rate 1.0}
  }
 
  :inactive
