@@ -12,13 +12,16 @@
    - DELETE /users/:id       - Soft delete user
    - POST   /sessions        - Create session (login)
    - GET    /sessions/:token - Validate session
-   - DELETE /sessions/:token - Invalidate session (logout)"
-  (:require [clojure.tools.logging :as log]
-            [boundary.shell.interfaces.http.routes :as routes]
+   - DELETE /sessions/:token - Invalidate session (logout)
+
+   All observability is handled automatically by interceptors."
+  (:require [boundary.shell.interfaces.http.routes :as routes]
             [boundary.shared.core.utils.type-conversion :as type-conversion]
+            [boundary.shared.core.interceptor :as interceptor]
+            [boundary.shared.core.interceptor-context :as interceptor-context]
+            [boundary.user.shell.interceptors :as user-interceptors]
             [boundary.user.schema :as schema]
-            [boundary.user.ports :as ports]
-            [boundary.error-reporting.core :as error-reporting]))
+            [boundary.user.ports :as ports]))
 
 ;; =============================================================================
 ;; User-Specific Error Mappings
@@ -36,295 +39,171 @@
 ;; Error Reporting Helpers
 ;; =============================================================================
 
-(defn add-http-breadcrumb
-  "Add HTTP request breadcrumb to error context if available."
-  [request operation details]
-  (when-let [error-context (:error-context request)]
-    (error-reporting/add-breadcrumb error-context
-                                    (str "HTTP " (name (:request-method request)) " " operation)
-                                    "http"
-                                    :info
-                                    (merge {:method (:request-method request)
-                                            :uri (:uri request)
-                                            :operation operation}
-                                           details))))
+;; =============================================================================
+;; Observability Service Extraction Helpers
+;; =============================================================================
 
-(defn add-user-operation-breadcrumb
-  "Add user operation breadcrumb to error context if available."
-  [request operation target details]
-  (when-let [error-context (:error-context request)]
-    (error-reporting/track-user-action error-context operation target)
-    (error-reporting/add-breadcrumb error-context
-                                    (str "User operation: " operation " on " target)
-                                    "user"
-                                    :info
-                                    details)))
+(defn extract-observability-services
+  "Extracts observability services from user-service for interceptor context.
+   
+   Note: Since service layer cleanup removed direct observability dependencies,
+   the interceptor context will obtain these services from the system wiring."
+  [user-service]
+  {:user-service user-service})
 
-(defn add-validation-breadcrumb
-  "Add validation error breadcrumb to error context if available."
-  [request operation errors]
-  (when-let [error-context (:error-context request)]
-    (error-reporting/add-breadcrumb error-context
-                                    (str "Validation failed for " operation)
-                                    "validation"
-                                    :warning
-                                    {:operation operation
-                                     :error-count (count errors)
-                                     :errors (mapv #(select-keys % [:field :code :message]) errors)})))
+(defn create-interceptor-context
+  "Creates interceptor context with real observability services."
+  [operation-type user-service request]
+  (interceptor-context/create-http-context
+   operation-type
+   (extract-observability-services user-service)
+   request))
 
 ;; =============================================================================
 ;; User Handlers
 ;; =============================================================================
 
 (defn create-user-handler
-  "POST /api/users - Create a new user."
+  "Create a new user using interceptor pipeline.
+
+   This version demonstrates the interceptor-based approach that eliminates
+   manual observability boilerplate while providing comprehensive tracking."
   [user-service]
-  (fn [{{:keys [body]} :parameters :as request}]
-    (add-http-breadcrumb request "create-user" {:email (:email body)
-                                                :tenant-id (:tenantId body)})
-    (log/info "Creating user" {:email (:email body)})
-    (try
-      (let [user-data {:email (:email body)
-                       :name (:name body)
-                       :password (:password body)
-                       :role (keyword (:role body))
-                       :tenant-id (type-conversion/string->uuid (:tenantId body))
-                       :active (get body :active true)}]
-        (add-user-operation-breadcrumb request "create" "user"
-                                       {:email (:email user-data)
-                                        :role (:role user-data)
-                                        :tenant-id (:tenant-id user-data)})
-        (let [created-user (ports/register-user user-service user-data)]
-          (add-http-breadcrumb request "create-user-success"
-                               {:user-id (:id created-user)
-                                :email (:email created-user)})
-          {:status 201
-           :body (schema/user-specific-kebab->camel created-user)}))
-      (catch Exception ex
-        (add-http-breadcrumb request "create-user-error"
-                             {:error-type (or (:type (ex-data ex)) "unknown")
-                              :error-message (.getMessage ex)})
-        (throw ex)))))
+  (fn [request]
+    (let [;; Create context for the operation with real observability services
+          context (create-interceptor-context :user-create user-service request)
+
+          ;; Create the interceptor pipeline for user creation
+          pipeline (user-interceptors/create-user-creation-pipeline :http)
+
+          ;; Execute the pipeline
+          result-context (interceptor/run-pipeline context pipeline)]
+
+      ;; Return the response from context
+      (:response result-context))))
 
 (defn get-user-handler
-  "GET /api/users/:id - Get user by ID."
+  "GET /api/users/:id - Get user by ID using interceptor pipeline."
   [user-service]
-  (fn [{{:keys [path]} :parameters :as request}]
-    (add-http-breadcrumb request "get-user" {:user-id (:id path)})
-    (try
-      (let [user-id (type-conversion/string->uuid (:id path))]
-        (add-user-operation-breadcrumb request "get" "user" {:user-id user-id})
-        (let [user (ports/get-user-by-id user-service user-id)]
-          (if user
-            (do
-              (add-http-breadcrumb request "get-user-success"
-                                   {:user-id (:id user)
-                                    :email (:email user)
-                                    :active (:active user)})
-              {:status 200
-               :body (schema/user-specific-kebab->camel user)})
-            (do
-              (add-http-breadcrumb request "get-user-not-found" {:user-id (:id path)})
-              (throw (ex-info "User not found"
-                              {:type :user-not-found
-                               :user-id (:id path)}))))))
-      (catch Exception ex
-        (add-http-breadcrumb request "get-user-error"
-                             {:error-type (or (:type (ex-data ex)) "unknown")
-                              :error-message (.getMessage ex)
-                              :user-id (:id path)})
-        (throw ex)))))
+  (fn [request]
+    (let [;; Create context for the operation with real observability services
+          context (create-interceptor-context :user-get user-service request)
+
+          ;; Create the interceptor pipeline for user get
+          pipeline (user-interceptors/create-user-get-pipeline :http)
+
+          ;; Execute the pipeline
+          result-context (interceptor/run-pipeline context pipeline)]
+
+      ;; Return the response from context
+      (:response result-context))))
 
 (defn list-users-handler
-  "GET /api/users - List users with pagination and filters."
+  "GET /api/users - List users using interceptor pipeline."
   [user-service]
-  (fn [{{:keys [query]} :parameters :as request}]
-    (add-http-breadcrumb request "list-users" {:tenant-id (:tenantId query)
-                                               :limit (:limit query)
-                                               :offset (:offset query)})
-    (try
-      (let [tenant-id (type-conversion/string->uuid (:tenantId query))
-            options {:limit (or (:limit query) 20)
-                     :offset (or (:offset query) 0)
-                     :filter-role (when (:role query) (keyword (:role query)))
-                     :filter-active (:active query)}]
-        (add-user-operation-breadcrumb request "list" "users"
-                                       {:tenant-id tenant-id
-                                        :filters options})
-        (let [result (ports/list-users-by-tenant user-service tenant-id options)
-              users (map schema/user-specific-kebab->camel (:users result))]
-          (add-http-breadcrumb request "list-users-success"
-                               {:user-count (count users)
-                                :total-count (:total-count result)
-                                :tenant-id tenant-id})
-          {:status 200
-           :body {:users users
-                  :totalCount (or (:total-count result) 0)
-                  :limit (:limit options)
-                  :offset (:offset options)}}))
-      (catch Exception ex
-        (add-http-breadcrumb request "list-users-error"
-                             {:error-type (or (:type (ex-data ex)) "unknown")
-                              :error-message (.getMessage ex)
-                              :tenant-id (:tenantId query)})
-        (throw ex)))))
+  (fn [request]
+    (let [;; Create context for the operation with real observability services
+          context (create-interceptor-context :user-list user-service request)
+
+          ;; Create the interceptor pipeline for user list
+          pipeline (user-interceptors/create-user-list-pipeline :http)
+
+          ;; Execute the pipeline
+          result-context (interceptor/run-pipeline context pipeline)]
+
+      ;; Return the response from context
+      (:response result-context))))
 
 (defn update-user-handler
-  "PUT /api/users/:id - Update user."
+  "PUT /api/users/:id - Update user using interceptor pipeline."
   [user-service]
-  (fn [{{:keys [path body]} :parameters :as request}]
-    (add-http-breadcrumb request "update-user" {:user-id (:id path)
-                                                :updates (keys body)})
-    (try
-      (let [user-id (type-conversion/string->uuid (:id path))]
-        (add-user-operation-breadcrumb request "get" "user-for-update" {:user-id user-id})
-        (let [current-user (ports/get-user-by-id user-service user-id)]
-          (if-not current-user
-            (do
-              (add-http-breadcrumb request "update-user-not-found" {:user-id (:id path)})
-              (throw (ex-info "User not found"
-                              {:type :user-not-found
-                               :user-id (:id path)})))
-            (let [updated-user (merge current-user
-                                      (when (:name body) {:name (:name body)})
-                                      (when (:role body) {:role (keyword (:role body))})
-                                      (when (some? (:active body)) {:active (:active body)}))]
-              (add-user-operation-breadcrumb request "update" "user"
-                                             {:user-id user-id
-                                              :changes (keys body)
-                                              :role-change (when (:role body)
-                                                             {:from (:role current-user)
-                                                              :to (keyword (:role body))})})
-              (let [result (ports/update-user-profile user-service updated-user)]
-                (add-http-breadcrumb request "update-user-success"
-                                     {:user-id (:id result)
-                                      :email (:email result)
-                                      :updated-fields (keys body)})
-                {:status 200
-                 :body (schema/user-specific-kebab->camel result)})))))
-      (catch Exception ex
-        (add-http-breadcrumb request "update-user-error"
-                             {:error-type (or (:type (ex-data ex)) "unknown")
-                              :error-message (.getMessage ex)
-                              :user-id (:id path)})
-        (throw ex)))))
+  (fn [request]
+    (let [;; Create context for the operation with real observability services
+          context (create-interceptor-context :user-update user-service request)
+
+          ;; Create the interceptor pipeline for user update
+          pipeline (user-interceptors/create-user-update-pipeline :http)
+
+          ;; Execute the pipeline
+          result-context (interceptor/run-pipeline context pipeline)]
+
+      ;; Return the response from context
+      (:response result-context))))
 
 (defn delete-user-handler
-  "DELETE /api/users/:id - Soft delete user."
+  "DELETE /api/users/:id - Delete user using interceptor pipeline."
   [user-service]
-  (fn [{{:keys [path]} :parameters :as request}]
-    (add-http-breadcrumb request "delete-user" {:user-id (:id path)})
-    (try
-      (let [user-id (type-conversion/string->uuid (:id path))]
-        (add-user-operation-breadcrumb request "delete" "user" {:user-id user-id})
-        (ports/deactivate-user user-service user-id)
-        (add-http-breadcrumb request "delete-user-success" {:user-id (:id path)})
-        {:status 204})
-      (catch Exception ex
-        (add-http-breadcrumb request "delete-user-error"
-                             {:error-type (or (:type (ex-data ex)) "unknown")
-                              :error-message (.getMessage ex)
-                              :user-id (:id path)})
-        (throw ex)))))
+  (fn [request]
+    (let [;; Create context for the operation with real observability services
+          context (create-interceptor-context :user-delete user-service request)
+
+          ;; Create the interceptor pipeline for user delete
+          pipeline (user-interceptors/create-user-delete-pipeline :http)
+
+          ;; Execute the pipeline
+          result-context (interceptor/run-pipeline context pipeline)]
+
+      ;; Return the response from context
+      (:response result-context))))
 
 ;; =============================================================================
 ;; Session Handlers
 ;; =============================================================================
 
 (defn create-session-handler
-  "POST /api/sessions - Create session."
+  "POST /api/sessions - Create session using interceptor pipeline."
   [user-service]
-  (fn [{{:keys [body]} :parameters :as request}]
-    (add-http-breadcrumb request "create-session" {:user-id (:userId body)
-                                                   :tenant-id (:tenantId body)})
-    (log/info "Creating session" {:user-id (:userId body)})
-    (try
-      (let [session-data {:user-id (type-conversion/string->uuid (:userId body))
-                          :tenant-id (type-conversion/string->uuid (:tenantId body))
-                          :user-agent (get-in body [:deviceInfo :userAgent])
-                          :ip-address (get-in body [:deviceInfo :ipAddress])}]
-        (add-user-operation-breadcrumb request "authenticate" "user"
-                                       {:user-id (:user-id session-data)
-                                        :tenant-id (:tenant-id session-data)
-                                        :user-agent (:user-agent session-data)})
-        (let [session (ports/authenticate-user user-service session-data)]
-          (add-http-breadcrumb request "create-session-success"
-                               {:user-id (:user-id session)
-                                :session-token (str (take 8 (:token session)) "...")
-                                :expires-at (:expires-at session)})
-          {:status 201
-           :body (schema/user-specific-kebab->camel session)}))
-      (catch Exception ex
-        (add-http-breadcrumb request "create-session-error"
-                             {:error-type (or (:type (ex-data ex)) "unknown")
-                              :error-message (.getMessage ex)
-                              :user-id (:userId body)})
-        (throw ex)))))
+  (fn [request]
+    (let [;; Create context for the operation with real observability services
+          context (create-interceptor-context :session-create user-service request)
+
+          ;; Create the interceptor pipeline for session creation
+          pipeline (user-interceptors/create-session-creation-pipeline :http)
+
+          ;; Execute the pipeline
+          result-context (interceptor/run-pipeline context pipeline)]
+
+      ;; Return the response from context
+      (:response result-context))))
 
 (defn validate-session-handler
-  "GET /api/sessions/:token - Validate session."
+  "GET /api/sessions/:token - Validate session using interceptor pipeline."
   [user-service]
-  (fn [{{:keys [path]} :parameters :as request}]
-    (let [session-token (:token path)
-          masked-token (str (take 8 session-token) "...")]
-      (add-http-breadcrumb request "validate-session" {:session-token masked-token})
-      (try
-        (add-user-operation-breadcrumb request "validate" "session"
-                                       {:session-token masked-token})
-        (let [session (ports/validate-session user-service session-token)]
-          (if session
-            (do
-              (add-http-breadcrumb request "validate-session-success"
-                                   {:user-id (:user-id session)
-                                    :session-token masked-token
-                                    :valid true})
-              {:status 200
-               :body {:valid true
-                      :userId (type-conversion/uuid->string (:user-id session))
-                      :tenantId (type-conversion/uuid->string (:tenant-id session))
-                      :expiresAt (type-conversion/instant->string (:expires-at session))}})
-            (do
-              (add-http-breadcrumb request "validate-session-invalid"
-                                   {:session-token masked-token
-                                    :valid false})
-              (throw (ex-info "Session not found or expired"
-                              {:type :session-not-found
-                               :valid false
-                               :token session-token})))))
-        (catch Exception ex
-          (add-http-breadcrumb request "validate-session-error"
-                               {:error-type (or (:type (ex-data ex)) "unknown")
-                                :error-message (.getMessage ex)
-                                :session-token masked-token})
-          (throw ex))))))
+  (fn [request]
+    (let [;; Create context for the operation with real observability services
+          context (create-interceptor-context :session-validate user-service request)
+
+          ;; Create the interceptor pipeline for session validation
+          pipeline (user-interceptors/create-session-validation-pipeline :http)
+
+          ;; Execute the pipeline
+          result-context (interceptor/run-pipeline context pipeline)]
+
+      ;; Return the response from context
+      (:response result-context))))
 
 (defn invalidate-session-handler
-  "DELETE /api/sessions/:token - Invalidate session."
+  "DELETE /api/sessions/:token - Invalidate session using interceptor pipeline."
   [user-service]
-  (fn [{{:keys [path]} :parameters :as request}]
-    (let [session-token (:token path)
-          masked-token (str (take 8 session-token) "...")]
-      (add-http-breadcrumb request "invalidate-session" {:session-token masked-token})
-      (try
-        (add-user-operation-breadcrumb request "logout" "session"
-                                       {:session-token masked-token})
-        (ports/logout-user user-service session-token)
-        (add-http-breadcrumb request "invalidate-session-success"
-                             {:session-token masked-token})
-        {:status 204}
-        (catch Exception ex
-          (add-http-breadcrumb request "invalidate-session-error"
-                               {:error-type (or (:type (ex-data ex)) "unknown")
-                                :error-message (.getMessage ex)
-                                :session-token masked-token})
-          (throw ex))))))
+  (fn [request]
+    (let [;; Create context for the operation with real observability services
+          context (create-interceptor-context :session-invalidate user-service request)
+
+          ;; Create the interceptor pipeline for session invalidation
+          pipeline (user-interceptors/create-session-invalidation-pipeline :http)
+
+          ;; Execute the pipeline
+          result-context (interceptor/run-pipeline context pipeline)]
+
+      ;; Return the response from context
+      (:response result-context))))
 
 ;; =============================================================================
 ;; User Module Routes
 ;; =============================================================================
 
 (defn user-routes
-  "Define user module specific routes.
+  "Define user module specific routes using interceptor-based handlers.
 
    Args:
      user-service: User service instance

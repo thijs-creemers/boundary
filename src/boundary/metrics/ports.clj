@@ -25,7 +25,7 @@
    
    The registry tracks metric metadata, validates operations, and provides
    a central catalog of all metrics in the system."
-  
+
   (register-counter! [this name description tags]
     "Register a new counter metric.
      
@@ -36,7 +36,7 @@
      
      Returns:
        Metric handle/identifier for use with IMetricsEmitter")
-  
+
   (register-gauge! [this name description tags]
     "Register a new gauge metric.
      
@@ -47,7 +47,7 @@
      
      Returns:
        Metric handle/identifier for use with IMetricsEmitter")
-  
+
   (register-histogram! [this name description buckets tags]
     "Register a new histogram metric.
      
@@ -59,7 +59,7 @@
      
      Returns:
        Metric handle/identifier for use with IMetricsEmitter")
-  
+
   (register-summary! [this name description quantiles tags]
     "Register a new summary metric.
      
@@ -71,7 +71,7 @@
      
      Returns:
        Metric handle/identifier for use with IMetricsEmitter")
-  
+
   (unregister! [this name]
     "Remove a metric from the registry.
      
@@ -80,7 +80,7 @@
      
      Returns:
        Boolean indicating if metric was found and removed")
-  
+
   (list-metrics [this]
     "Get all registered metrics.
      
@@ -91,7 +91,7 @@
          :description 'HTTP requests received'
          :tags {:service 'boundary'}
          :handle ...}]")
-  
+
   (get-metric [this name]
     "Get a specific metric by name.
      
@@ -110,7 +110,7 @@
    
    This is the interface used by application code to record metric values.
    Implementation handles proper tagging, batching, and backend communication."
-  
+
   (inc-counter! [this metric-handle] [this metric-handle value] [this metric-handle value tags]
     "Increment a counter metric.
      
@@ -121,7 +121,7 @@
      
      Returns:
        nil (side effect only)")
-  
+
   (set-gauge! [this metric-handle value] [this metric-handle value tags]
     "Set a gauge metric to a specific value.
      
@@ -132,7 +132,7 @@
      
      Returns:
        nil (side effect only)")
-  
+
   (observe-histogram! [this metric-handle value] [this metric-handle value tags]
     "Record a value in a histogram metric.
      
@@ -143,7 +143,7 @@
      
      Returns:
        nil (side effect only)")
-  
+
   (observe-summary! [this metric-handle value] [this metric-handle value tags]
     "Record a value in a summary metric.
      
@@ -154,7 +154,7 @@
      
      Returns:
        nil (side effect only)")
-  
+
   (time-histogram! [this metric-handle f] [this metric-handle tags f]
     "Time the execution of function f and record in histogram.
      
@@ -165,7 +165,7 @@
      
      Returns:
        Result of calling (f)")
-  
+
   (time-summary! [this metric-handle f] [this metric-handle tags f]
     "Time the execution of function f and record in summary.
      
@@ -186,7 +186,7 @@
    
    This handles serialization and export of accumulated metrics data
    to external systems (Prometheus endpoint, Datadog agent, etc.)"
-  
+
   (export-metrics [this format]
     "Export all metrics in the specified format.
      
@@ -195,7 +195,7 @@
      
      Returns:
        String representation of metrics in requested format")
-  
+
   (export-metric [this metric-name format]
     "Export a specific metric in the specified format.
      
@@ -205,7 +205,7 @@
      
      Returns:
        String representation of metric in requested format")
-  
+
   (get-metric-values [this metric-name]
     "Get raw metric values for a specific metric.
      
@@ -218,7 +218,7 @@
         :value 42
         :tags {:method 'GET' :status '200'}
         :timestamp 1625097600000}")
-  
+
   (reset-metrics! [this]
     "Reset all metrics to their initial state.
      
@@ -227,7 +227,7 @@
      
      Returns:
        nil (side effect only)")
-  
+
   (flush! [this]
     "Force flush of any buffered metrics data.
      
@@ -246,7 +246,7 @@
    
    This allows for dynamic adjustment of metrics behavior without
    requiring application restart."
-  
+
   (set-default-tags! [this tags]
     "Set default tags applied to all metrics.
      
@@ -255,13 +255,13 @@
      
      Returns:
        Previous default tags map")
-  
+
   (get-default-tags [this]
     "Get current default tags.
      
      Returns:
        Map of default tag keys/values")
-  
+
   (set-export-interval! [this interval-ms]
     "Set the metrics export interval for push-based systems.
      
@@ -270,13 +270,13 @@
      
      Returns:
        Previous interval in milliseconds")
-  
+
   (get-export-interval [this]
     "Get current export interval.
      
      Returns:
        Current interval in milliseconds")
-  
+
   (enable-metric! [this metric-name]
     "Enable collection for a specific metric.
      
@@ -285,7 +285,7 @@
      
      Returns:
        Boolean indicating if metric was found and enabled")
-  
+
   (disable-metric! [this metric-name]
     "Disable collection for a specific metric.
      
@@ -296,7 +296,7 @@
      
      Returns:
        Boolean indicating if metric was found and disabled")
-  
+
   (metric-enabled? [this metric-name]
     "Check if a metric is currently enabled.
      
@@ -305,3 +305,21 @@
      
      Returns:
        Boolean indicating if metric is enabled"))
+
+;; =============================================================================
+;; Convenience Functions
+;; =============================================================================
+
+(defn increment
+  "Convenience function for incrementing counters.
+   For now, this is a no-op placeholder until metrics infrastructure is set up."
+  [metrics-collector metric-name tags]
+  ;; TODO: Implement when metrics infrastructure is available
+  nil)
+
+(defn observe
+  "Convenience function for observing histogram/summary values.
+   For now, this is a no-op placeholder until metrics infrastructure is set up."
+  [metrics-collector metric-name value tags]
+  ;; TODO: Implement when metrics infrastructure is available
+  nil)
