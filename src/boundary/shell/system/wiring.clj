@@ -29,6 +29,7 @@
             [boundary.error-reporting.shell.adapters.sentry :as error-reporting-sentry]
             [boundary.shell.modules :as modules]
             [boundary.shell.utils.port-manager :as port-manager]
+            ;; todo: need to find a way to decouple these dependencies an inject them in another way.
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
             [clojure.tools.logging :as log]
             [integrant.core :as ig]
