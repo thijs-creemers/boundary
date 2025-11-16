@@ -10,6 +10,7 @@
    All business rules and domain logic for users belong here.
    The shell layer orchestrates I/O and calls these pure functions."
   (:require [boundary.user.schema :as schema]
+            [boundary.user.core.validation :as validation]
             [malli.core :as m]
             [clojure.string :as str]
             [clojure.set :as set])
@@ -21,20 +22,23 @@
 ;; =============================================================================
 
 (defn validate-user-creation-request
-  "Pure function: Validate user creation request against business rules.
+  "Pure function: Validate user creation request against comprehensive business rules.
 
        Args:
          user-data: User creation request data
+         validation-config: Map containing validation policies and settings
+           {:email-domain-allowlist #{\"example.com\" \"acme.com\"}
+            :password-policy {:min-length 8 :require-special-chars? true :require-numbers? true}
+            :name-restrictions {:min-length 2 :max-length 100 :allowed-chars-regex #\"[a-zA-Z\\s-'.]\"}}
 
        Returns:
          {:valid? true :data processed-data} or
-         {:valid? false :errors validation-errors}
+         {:valid? false :errors [{:field :email :code :invalid-domain :message \"...\"}]}
 
-       Pure - no side effects, deterministic validation."
-  [user-data]
-  (if (m/validate schema/CreateUserRequest user-data)
-    {:valid? true :data user-data}
-    {:valid? false :errors (m/explain schema/CreateUserRequest user-data)}))
+       Pure - no side effects, comprehensive domain validation."
+  [user-data validation-config]
+  ;; Use the comprehensive validation from the validation namespace
+  (validation/validate-comprehensive-user-creation user-data validation-config {}))
 
 (defn check-duplicate-user-decision
   "Pure function: Determine if user creation should proceed based on existing user lookup.
@@ -51,8 +55,8 @@
   [user-data existing-user]
   (if existing-user
     {:decision :reject
-     :reason   :duplicate-email
-     :email    (:email user-data)}
+     :reason :duplicate-email
+     :email (:email user-data)}
     {:decision :proceed}))
 
 (defn prepare-user-for-creation
@@ -73,8 +77,8 @@
       (assoc :created-at current-time)
       (assoc :updated-at nil)
       (assoc :deleted-at nil)
-      (assoc :active true)                                  ; Business rule: new users are active by default
-      (dissoc :password)))                                  ; Business rule: don't store raw password
+      (assoc :active true) ; Business rule: new users are active by default
+      (dissoc :password))) ; Business rule: don't store raw password
 
 ;; =============================================================================
 ;; User Update Business Logic
@@ -163,8 +167,8 @@
   (if existing-user
     {:decision :proceed}
     {:decision :reject
-     :reason   :user-not-found
-     :user-id  (:id user-entity)}))
+     :reason :user-not-found
+     :user-id (:id user-entity)}))
 
 (defn prepare-user-for-update
   "Pure function: Prepare user entity for update with business rules.
@@ -248,8 +252,8 @@
 
        Pure - business calculation based on input data only."
   [user current-date]
-  (let [join-date    (:created-at user)
-        days-member  (/ (.between ChronoUnit/DAYS join-date current-date) 1)
+  (let [join-date (:created-at user)
+        days-member (/ (.between ChronoUnit/DAYS join-date current-date) 1)
         years-member (/ days-member 365.25)]
     (cond
       (>= years-member 5) :platinum
@@ -269,12 +273,12 @@
 
        Pure - permission calculation based on input data."
   [user tenant-config]
-  (let [base-permissions   #{:read-profile :update-profile}
-        role-permissions   (case (:role user)
-                             :admin #{:read-all-users :create-user :update-user :delete-user}
-                             :moderator #{:read-users :update-user}
-                             :user #{}
-                             #{})
+  (let [base-permissions #{:read-profile :update-profile}
+        role-permissions (case (:role user)
+                           :admin #{:read-all-users :create-user :update-user :delete-user}
+                           :moderator #{:read-users :update-user}
+                           :user #{}
+                           #{})
         tenant-permissions (get-in tenant-config [:role-permissions (:role user)] #{})]
     (set/union base-permissions role-permissions tenant-permissions)))
 
@@ -294,7 +298,7 @@
   (let [password-age-days (/ (.between ChronoUnit/DAYS
                                        (:password-updated-at user current-time)
                                        current-time) 1)
-        max-password-age  (:max-password-age-days password-policy 90)]
+        max-password-age (:max-password-age-days password-policy 90)]
     (> password-age-days max-password-age)))
 
 ;; =============================================================================
@@ -314,9 +318,9 @@
 
        Pure - business rule evaluation for role transitions."
   [current-role new-role requesting-user-role]
-  (let [role-hierarchy  {:user 1 :moderator 2 :admin 3}
-        current-level   (role-hierarchy current-role 0)
-        new-level       (role-hierarchy new-role 0)
+  (let [role-hierarchy {:user 1 :moderator 2 :admin 3}
+        current-level (role-hierarchy current-role 0)
+        new-level (role-hierarchy new-role 0)
         requester-level (role-hierarchy requesting-user-role 0)]
     (cond
       ;; Can't promote to a level higher than your own
@@ -345,7 +349,7 @@
        Pure - string validation against domain allowlist."
   [email allowed-domains]
   (if (empty? allowed-domains)
-    {:valid? true}                                          ; No domain restrictions
+    {:valid? true} ; No domain restrictions
     (let [email-domain (second (str/split email #"@"))]
       (if (contains? allowed-domains email-domain)
         {:valid? true}
@@ -434,14 +438,14 @@
        Pure - data analysis based on input events."
   [user activity-events analysis-period-days]
   (let [recent-events (filter #(> (:timestamp %)
-                                  (Instant/now))  ; This would be passed as param in real usage
+                                  (Instant/now)) ; This would be passed as param in real usage
                               activity-events)
-        event-count   (count recent-events)
-        unique-days   (count (distinct (map #(LocalDate/ofInstant (:timestamp %) ZoneOffset/UTC) recent-events)))]
-    {:total-events       event-count
-     :active-days        unique-days
+        event-count (count recent-events)
+        unique-days (count (distinct (map #(LocalDate/ofInstant (:timestamp %) ZoneOffset/UTC) recent-events)))]
+    {:total-events event-count
+     :active-days unique-days
      :avg-events-per-day (if (> unique-days 0) (/ event-count unique-days) 0)
-     :activity-score     (min 100 (* (/ unique-days analysis-period-days) 100))
-     :user-id            (:id user)}))
+     :activity-score (min 100 (* (/ unique-days analysis-period-days) 100))
+     :user-id (:id user)}))
 
 ;; Functions already exist above - no stubs needed

@@ -31,16 +31,16 @@
      (load-config {:profile :test})"
   ([] (load-config {}))
   ([{:keys [profile] :or {profile :dev}}]
-   (let [config-path     (str "conf/" (name profile) "/config.edn")
+   (let [config-path (str "conf/" (name profile) "/config.edn")
          config-resource (io/resource config-path)]
      (if config-resource
        (do
          (log/info "Loading configuration" {:profile profile :path config-path})
          (aero/read-config config-resource {:profile profile}))
        (throw (ex-info "Configuration file not found"
-                {:profile            profile
-                 :path               config-path
-                 :available-profiles [:dev :test :prod]}))))))
+                       {:profile profile
+                        :path config-path
+                        :available-profiles [:dev :test :prod]}))))))
 
 ;; =============================================================================
 ;; Configuration Helpers
@@ -73,8 +73,8 @@
      Keyword adapter (:sqlite, :h2, :postgresql, :mysql)"
   [config]
   (or (active-database-adapter config)
-    (throw (ex-info "No active database adapter found in configuration"
-            {:active-keys (keys (:active config))}))))
+      (throw (ex-info "No active database adapter found in configuration"
+                      {:active-keys (keys (:active config))}))))
 
 (defn db-spec
   "Extract database specification from config for the active adapter.
@@ -88,49 +88,49 @@
    Example:
      {:adapter :sqlite :database-path \"dev-database.db\"}"
   [config]
-  (let [adapter        (db-adapter config)
-        adapter-key    (keyword "boundary" (name adapter))
+  (let [adapter (db-adapter config)
+        adapter-key (keyword "boundary" (name adapter))
         adapter-config (get-in config [:active adapter-key])]
 
     (when-not adapter-config
       (throw (ex-info "No configuration found for active adapter"
-               {:adapter     adapter
-                :adapter-key adapter-key})))
+                      {:adapter adapter
+                       :adapter-key adapter-key})))
 
     (case adapter
       :sqlite
-      {:adapter       :sqlite
+      {:adapter :sqlite
        :database-path (:db adapter-config)
-       :pool          (:pool adapter-config)}
+       :pool (:pool adapter-config)}
 
       :h2
-      {:adapter       :h2
+      {:adapter :h2
        :database-path (if (:memory adapter-config)
                         "mem:boundary;DB_CLOSE_DELAY=-1"
                         (:db adapter-config))
-       :pool          (:pool adapter-config)}
+       :pool (:pool adapter-config)}
 
       :postgresql
-      {:adapter  :postgresql
-       :host     (:host adapter-config)
-       :port     (:port adapter-config)
-       :name     (:dbname adapter-config)
+      {:adapter :postgresql
+       :host (:host adapter-config)
+       :port (:port adapter-config)
+       :name (:dbname adapter-config)
        :username (:user adapter-config)
        :password (:password adapter-config)
-       :pool     (:pool adapter-config)}
+       :pool (:pool adapter-config)}
 
       :mysql
-      {:adapter  :mysql
-       :host     (:host adapter-config)
-       :port     (:port adapter-config)
-       :name     (:dbname adapter-config)
+      {:adapter :mysql
+       :host (:host adapter-config)
+       :port (:port adapter-config)
+       :name (:dbname adapter-config)
        :username (:user adapter-config)
        :password (:password adapter-config)
-       :pool     (:pool adapter-config)}
+       :pool (:pool adapter-config)}
 
       (throw (ex-info "Unsupported database adapter"
-               {:adapter   adapter
-                :supported [:sqlite :h2 :postgresql :mysql]})))))
+                      {:adapter adapter
+                       :supported [:sqlite :h2 :postgresql :mysql]})))))
 
 (defn http-config
   "Extract HTTP server configuration.
@@ -142,9 +142,9 @@
      Map with :port, :host, :join?, and :port-range keys"
   [config]
   (let [http-cfg (get-in config [:active :boundary/http])]
-    {:port       (or (:port http-cfg) 3000)
-     :host       (or (:host http-cfg) "0.0.0.0")
-     :join?      (or (:join? http-cfg) false)
+    {:port (or (:port http-cfg) 3000)
+     :host (or (:host http-cfg) "0.0.0.0")
+     :join? (or (:join? http-cfg) false)
      :port-range (:port-range http-cfg)}))
 
 (defn app-config
@@ -177,6 +177,23 @@
      always specify tenant-id explicitly in requests."
   [config]
   (get-in config [:active :boundary/settings :default-tenant-id]))
+
+(defn user-validation-config
+  "Extract user validation configuration.
+   
+   Args:
+     config: Configuration map from load-config
+   
+   Returns:
+     Map with user validation settings including:
+     - :email-domain-allowlist - Set of allowed email domains
+     - :password-policy - Password complexity requirements
+     - :name-restrictions - Name validation rules
+     - :role-restrictions - Role assignment rules
+     - :tenant-limits - Per-tenant user limits
+     - :cross-field-validation - Cross-field validation rules"
+  [config]
+  (get-in config [:active :boundary/settings :user-validation] {}))
 
 (defn logging-config
   "Extract logging configuration.
@@ -218,13 +235,13 @@
 (defn- core-system-config
   "Return core system components (database, observability) independent of modules."
   [config]
-  (let [db-cfg              (db-spec config)
-        logging-cfg         (logging-config config)
-        metrics-cfg         (metrics-config config)
+  (let [db-cfg (db-spec config)
+        logging-cfg (logging-config config)
+        metrics-cfg (metrics-config config)
         error-reporting-cfg (error-reporting-config config)]
-    {:boundary/db-context      db-cfg
-     :boundary/logging         logging-cfg
-     :boundary/metrics         metrics-cfg
+    {:boundary/db-context db-cfg
+     :boundary/logging logging-cfg
+     :boundary/metrics metrics-cfg
      :boundary/error-reporting error-reporting-cfg}))
 
 (defn- user-module-config
@@ -240,7 +257,8 @@
    Future modules should follow this pattern: define a *-module-config function
    that returns a partial Integrant map and merge it into ig-config."
   [config]
-  (let [http-cfg (http-config config)]
+  (let [http-cfg (http-config config)
+        validation-cfg (user-validation-config config)]
     {:boundary/user-db-schema
      {:ctx (ig/ref :boundary/db-context)}
 
@@ -251,24 +269,25 @@
      {:ctx (ig/ref :boundary/db-context)}
 
      :boundary/user-service
-     {:user-repository    (ig/ref :boundary/user-repository)
+     {:user-repository (ig/ref :boundary/user-repository)
       :session-repository (ig/ref :boundary/session-repository)
-      :logger             (ig/ref :boundary/logging)
-      :metrics            (ig/ref :boundary/metrics)
-      :error-reporter     (ig/ref :boundary/error-reporting)}
+      :validation-config validation-cfg
+      :logger (ig/ref :boundary/logging)
+      :metrics (ig/ref :boundary/metrics)
+      :error-reporter (ig/ref :boundary/error-reporting)}
 
      :boundary/user-http-handler
      {:user-service (ig/ref :boundary/user-service)
-      :config       config}
+      :config config}
 
      :boundary/http-handler
-     {:config            config
+     {:config config
       :user-http-handler (ig/ref :boundary/user-http-handler)}
 
      :boundary/http-server
      (merge http-cfg
             {:handler (ig/ref :boundary/http-handler)
-             :config  http-cfg})}))
+             :config http-cfg})}))
 
 (defn ig-config
   "Generate Integrant configuration map from loaded config.

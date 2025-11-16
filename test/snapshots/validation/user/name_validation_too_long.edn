@@ -4,15 +4,4 @@
   :seed 46,
   :test-name name-validation-too-long,
   :test-ns user},
- :result
- {:errors
-  {:errors
-   "({:path [:name], :in [:name], :schema [:string {:min 1, :max 255}], :value \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"})",
-   :schema "malli.core$_map_schema$reify$",
-   :value
-   {:email "test@example.com",
-    :name
-    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    :role :user,
-    :tenant-id #uuid "00000000-0000-0000-0000-000000000001"}},
-  :valid? false}}
+ :result {:errors "clojure.lang.LazySeq", :valid? false}}

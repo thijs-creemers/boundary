@@ -15,7 +15,8 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [boundary.user.core.user :as user-core]
             [boundary.user.schema :as schema]
-            [malli.core :as m])
+            [malli.core :as m]
+            [support.validation-helpers :as vh])
   (:import (java.time Instant)
            (java.util UUID)))
 
@@ -39,9 +40,9 @@
      (clojure.string/join "" parts))
    (gen/vector
     (gen/frequency
-     [[80 (gen/fmap char (gen/choose 97 122))]  ; lowercase letters (weighted higher)
-      [10 (gen/fmap char (gen/choose 65 90))]   ; uppercase letters
-      [5 (gen/fmap char (gen/choose 48 57))]    ; digits
+     [[80 (gen/fmap char (gen/choose 97 122))] ; lowercase letters (weighted higher)
+      [10 (gen/fmap char (gen/choose 65 90))] ; uppercase letters
+      [5 (gen/fmap char (gen/choose 48 57))] ; digits
       [3 (gen/return \.)]
       [1 (gen/return \_)]
       [1 (gen/return \%)]])
@@ -71,17 +72,17 @@
 (def invalid-email-gen
   "Generator for invalid email addresses."
   (gen/frequency
-   [[1 (gen/return "")]                        ; empty
-    [1 (gen/return "notanemail")]              ; no @
-    [1 (gen/return "@example.com")]            ; no local part
-    [1 (gen/return "user@")]                   ; no domain
-    [1 (gen/return "user@@example.com")]       ; double @
-    [1 (gen/return "user@.com")]               ; domain starts with dot
-    [1 (gen/return "user@example")]            ; no TLD
-    [1 (gen/return "user name@example.com")]   ; space in local
-    [1 (gen/return "user@exam ple.com")]       ; space in domain
+   [[1 (gen/return "")] ; empty
+    [1 (gen/return "notanemail")] ; no @
+    [1 (gen/return "@example.com")] ; no local part
+    [1 (gen/return "user@")] ; no domain
+    [1 (gen/return "user@@example.com")] ; double @
+    [1 (gen/return "user@.com")] ; domain starts with dot
+    [1 (gen/return "user@example")] ; no TLD
+    [1 (gen/return "user name@example.com")] ; space in local
+    [1 (gen/return "user@exam ple.com")] ; space in domain
     [1 (gen/fmap #(str % "@example..com") gen/string-alphanumeric)] ; consecutive dots
-    [1 (gen/return "user@example.c")]]))       ; TLD too short
+    [1 (gen/return "user@example.c")]])) ; TLD too short
 
 (def valid-name-gen
   "Generator for valid user names (1-255 characters)."
@@ -96,7 +97,7 @@
 (def invalid-name-gen
   "Generator for invalid user names."
   (gen/frequency
-   [[1 (gen/return "")]                        ; empty
+   [[1 (gen/return "")] ; empty
     [1 (gen/fmap (fn [_] (apply str (repeat 256 \a))) gen/nat)]])) ; too long
 
 (def role-gen
@@ -146,11 +147,11 @@
 
 (defspec valid-emails-pass-schema-validation 100
   (prop/for-all [email valid-email-gen]
-    (m/validate [:re schema/email-regex] email)))
+                (m/validate [:re schema/email-regex] email)))
 
 (defspec invalid-emails-fail-schema-validation 100
   (prop/for-all [email invalid-email-gen]
-    (not (m/validate [:re schema/email-regex] email))))
+                (not (m/validate [:re schema/email-regex] email))))
 
 ;; =============================================================================
 ;; Property-Based Tests: Name Validation
@@ -158,14 +159,14 @@
 
 (defspec valid-names-pass-schema-validation 100
   (prop/for-all [name valid-name-gen]
-    (and
-     (m/validate [:string {:min 1 :max 255}] name)
-     (>= (count name) 1)
-     (<= (count name) 255))))
+                (and
+                 (m/validate [:string {:min 1 :max 255}] name)
+                 (>= (count name) 1)
+                 (<= (count name) 255))))
 
 (defspec invalid-names-fail-schema-validation 100
   (prop/for-all [name invalid-name-gen]
-    (not (m/validate [:string {:min 1 :max 255}] name))))
+                (not (m/validate [:string {:min 1 :max 255}] name))))
 
 ;; =============================================================================
 ;; Property-Based Tests: User Creation Validation
@@ -173,32 +174,32 @@
 
 (defspec valid-user-data-passes-creation-validation 100
   (prop/for-all [user-data valid-user-data-gen]
-    (let [result (user-core/validate-user-creation-request user-data)]
-      (true? (:valid? result)))))
+                (let [result (user-core/validate-user-creation-request user-data vh/test-validation-config)]
+                  (true? (:valid? result)))))
 
 (defspec user-creation-preserves-email 100
   (prop/for-all [user-data valid-user-data-gen
                  user-id uuid-gen
                  timestamp instant-gen]
-    (let [prepared (user-core/prepare-user-for-creation user-data timestamp user-id)]
-      (= (:email user-data) (:email prepared)))))
+                (let [prepared (user-core/prepare-user-for-creation user-data timestamp user-id)]
+                  (= (:email user-data) (:email prepared)))))
 
 (defspec user-creation-sets-timestamps 100
   (prop/for-all [user-data valid-user-data-gen
                  user-id uuid-gen
                  timestamp instant-gen]
-    (let [prepared (user-core/prepare-user-for-creation user-data timestamp user-id)]
-      (and
-       (= timestamp (:created-at prepared))
-       (nil? (:updated-at prepared))
-       (nil? (:deleted-at prepared))))))
+                (let [prepared (user-core/prepare-user-for-creation user-data timestamp user-id)]
+                  (and
+                   (= timestamp (:created-at prepared))
+                   (nil? (:updated-at prepared))
+                   (nil? (:deleted-at prepared))))))
 
 (defspec user-creation-sets-active-by-default 100
   (prop/for-all [user-data valid-user-data-gen
                  user-id uuid-gen
                  timestamp instant-gen]
-    (let [prepared (user-core/prepare-user-for-creation user-data timestamp user-id)]
-      (true? (:active prepared)))))
+                (let [prepared (user-core/prepare-user-for-creation user-data timestamp user-id)]
+                  (true? (:active prepared)))))
 
 ;; =============================================================================
 ;; Property-Based Tests: Duplicate Detection
@@ -207,16 +208,16 @@
 (defspec duplicate-user-check-rejects-existing 100
   (prop/for-all [user-data valid-user-data-gen
                  existing-user user-entity-gen]
-    (let [result (user-core/check-duplicate-user-decision user-data existing-user)]
-      (and
-       (= :reject (:decision result))
-       (= :duplicate-email (:reason result))
-       (= (:email user-data) (:email result))))))
+                (let [result (user-core/check-duplicate-user-decision user-data existing-user)]
+                  (and
+                   (= :reject (:decision result))
+                   (= :duplicate-email (:reason result))
+                   (= (:email user-data) (:email result))))))
 
 (defspec duplicate-user-check-proceeds-when-nil 100
   (prop/for-all [user-data valid-user-data-gen]
-    (let [result (user-core/check-duplicate-user-decision user-data nil)]
-      (= :proceed (:decision result)))))
+                (let [result (user-core/check-duplicate-user-decision user-data nil)]
+                  (= :proceed (:decision result)))))
 
 ;; =============================================================================
 ;; Property-Based Tests: Business Rules
@@ -225,26 +226,26 @@
 (defspec tenant-id-change-always-fails 100
   (prop/for-all [user-entity user-entity-gen
                  new-tenant-id uuid-gen]
-    (let [updated-user (assoc user-entity :tenant-id new-tenant-id)
-          changes (user-core/calculate-user-changes user-entity updated-user)
-          validation (user-core/validate-user-business-rules updated-user changes)]
-      (if (not= (:tenant-id user-entity) new-tenant-id)
+                (let [updated-user (assoc user-entity :tenant-id new-tenant-id)
+                      changes (user-core/calculate-user-changes user-entity updated-user)
+                      validation (user-core/validate-user-business-rules updated-user changes)]
+                  (if (not= (:tenant-id user-entity) new-tenant-id)
         ;; If tenant-id actually changed, validation should fail
-        (false? (:valid? validation))
+                    (false? (:valid? validation))
         ;; If tenant-id didn't change, validation passes
-        true))))
+                    true))))
 
 (defspec email-change-always-fails 100
   (prop/for-all [user-entity user-entity-gen
                  new-email valid-email-gen]
-    (let [updated-user (assoc user-entity :email new-email)
-          changes (user-core/calculate-user-changes user-entity updated-user)
-          validation (user-core/validate-user-business-rules updated-user changes)]
-      (if (not= (:email user-entity) new-email)
+                (let [updated-user (assoc user-entity :email new-email)
+                      changes (user-core/calculate-user-changes user-entity updated-user)
+                      validation (user-core/validate-user-business-rules updated-user changes)]
+                  (if (not= (:email user-entity) new-email)
         ;; If email actually changed, validation should fail
-        (false? (:valid? validation))
+                    (false? (:valid? validation))
         ;; If email didn't change, validation passes
-        true))))
+                    true))))
 
 ;; =============================================================================
 ;; Property-Based Tests: Change Calculation
@@ -252,19 +253,19 @@
 
 (defspec unchanged-fields-not-in-changes 100
   (prop/for-all [user-entity user-entity-gen]
-    (let [changes (user-core/calculate-user-changes user-entity user-entity)]
-      (empty? changes))))
+                (let [changes (user-core/calculate-user-changes user-entity user-entity)]
+                  (empty? changes))))
 
 (defspec changed-fields-detected 100
   (prop/for-all [user-entity user-entity-gen
                  new-name valid-name-gen]
-    (let [updated-user (assoc user-entity :name new-name)
-          changes (user-core/calculate-user-changes user-entity updated-user)]
-      (if (not= (:name user-entity) new-name)
+                (let [updated-user (assoc user-entity :name new-name)
+                      changes (user-core/calculate-user-changes user-entity updated-user)]
+                  (if (not= (:name user-entity) new-name)
         ;; If name changed, should be in changes
-        (contains? changes :name)
+                    (contains? changes :name)
         ;; If name didn't change, shouldn't be in changes
-        (not (contains? changes :name))))))
+                    (not (contains? changes :name))))))
 
 ;; =============================================================================
 ;; Property-Based Tests: User Filtering
@@ -272,14 +273,14 @@
 
 (defspec active-user-filter-excludes-deleted 100
   (prop/for-all [users (gen/vector user-entity-gen 0 20)]
-    (let [active-users (user-core/filter-active-users users)]
-      (every? #(nil? (:deleted-at %)) active-users))))
+                (let [active-users (user-core/filter-active-users users)]
+                  (every? #(nil? (:deleted-at %)) active-users))))
 
 (defspec role-filter-only-returns-matching-role 100
   (prop/for-all [users (gen/vector user-entity-gen 1 20)
                  role role-gen]
-    (let [filtered (user-core/apply-user-filters users {:role role})]
-      (every? #(= role (:role %)) filtered))))
+                (let [filtered (user-core/apply-user-filters users {:role role})]
+                  (every? #(= role (:role %)) filtered))))
 
 ;; =============================================================================
 ;; Property-Based Tests: Soft Deletion
@@ -288,17 +289,17 @@
 (defspec soft-deletion-sets-timestamps 100
   (prop/for-all [user-entity user-entity-gen
                  timestamp instant-gen]
-    (let [deleted (user-core/prepare-user-for-soft-deletion user-entity timestamp)]
-      (and
-       (= timestamp (:deleted-at deleted))
-       (= timestamp (:updated-at deleted))
-       (false? (:active deleted))))))
+                (let [deleted (user-core/prepare-user-for-soft-deletion user-entity timestamp)]
+                  (and
+                   (= timestamp (:deleted-at deleted))
+                   (= timestamp (:updated-at deleted))
+                   (false? (:active deleted))))))
 
 (defspec soft-deletion-preserves-identity 100
   (prop/for-all [user-entity user-entity-gen
                  timestamp instant-gen]
-    (let [deleted (user-core/prepare-user-for-soft-deletion user-entity timestamp)]
-      (and
-       (= (:id user-entity) (:id deleted))
-       (= (:email user-entity) (:email deleted))
-       (= (:tenant-id user-entity) (:tenant-id deleted))))))
+                (let [deleted (user-core/prepare-user-for-soft-deletion user-entity timestamp)]
+                  (and
+                   (= (:id user-entity) (:id deleted))
+                   (= (:email user-entity) (:email deleted))
+                   (= (:tenant-id user-entity) (:tenant-id deleted))))))

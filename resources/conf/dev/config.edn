@@ -17,7 +17,29 @@
   ;; - CLI operations without explicit tenant specification
   ;; - Default test fixtures
   ;; Production systems should NOT rely on defaults and must always specify tenant-id
-   :default-tenant-id #or [#env DEFAULT_TENANT_ID "00000000-0000-0000-0000-000000000001"]}
+   :default-tenant-id #or [#env DEFAULT_TENANT_ID "00000000-0000-0000-0000-000000000001"]
+
+   ;; User validation configuration
+   :user-validation
+   {:email-domain-allowlist #{} ; Empty set means all domains allowed in dev
+    :password-policy {:min-length 6 ; More lenient for dev
+                      :max-length 128
+                      :require-uppercase? false
+                      :require-lowercase? false
+                      :require-numbers? false
+                      :require-special-chars? false
+                      :forbidden-patterns #{}}
+    :name-restrictions {:min-length 1
+                        :max-length 100
+                        :allowed-chars-regex "[a-zA-Z\\s\\-'.]+"
+                        :forbidden-names #{}}
+    :role-restrictions {:allowed-roles #{:user :admin :manager}
+                        :admin-email-domains #{} ; Empty means any domain can be admin in dev
+                        :default-role :user}
+    :tenant-limits {:max-users-per-tenant 1000 ; Higher limit for dev
+                    :check-enabled? false} ; Disabled in dev for easier testing
+    :cross-field-validation {:admin-requires-company-email? false ; Relaxed for dev
+                             :manager-requires-department? false}}}
 
   ;; Active database configurations
   ;; Only databases listed here will be loaded and initialized
@@ -40,12 +62,12 @@
   ;; Observability configurations
   ;; Using no-op providers by default - can be switched to real providers per need
 
-:boundary/logging
+  :boundary/logging
   {:provider :no-op}
- 
+
   :boundary/metrics
   {:provider :no-op}
- 
+
   :boundary/error-reporting
   {:provider :no-op}}
 
