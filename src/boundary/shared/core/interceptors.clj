@@ -3,8 +3,7 @@
    
    These interceptors handle common infrastructure concerns like logging,
    metrics, error handling, and context management across all modules."
-  (:require [boundary.shared.core.interceptor :as interceptor]
-            [boundary.logging.ports :as logging]
+  (:require [boundary.logging.ports :as logging]
             [boundary.metrics.ports :as metrics]
             [boundary.error-reporting.ports :as error-reporting])
   (:import [java.util UUID]
@@ -121,23 +120,121 @@
               (error-reporting/capture-exception
                error-reporter
                exception
-               {:operation (name op)
+               {:operation (subs (str op) 1) ; Remove the leading colon 
                 :correlation-id correlation-id
                 :context-keys (keys (dissoc ctx :system :exception))}))
             ctx)})
 
 (def error-normalize
-  "Normalizes exceptions into standard error response format."
+  "Generic error normalization interceptor that works with context error mappings.
+   This runs in the :error phase when actual exceptions are thrown during pipeline execution."
   {:name :error-normalize
    :error (fn [{:keys [correlation-id exception] :as ctx}]
-            (assoc ctx :response
-                   {:status 500
-                    :body {:type "internal-server-error"
-                           :title "Internal Server Error"
-                           :status 500
-                           :detail "An unexpected error occurred while processing your request"
-                           :correlation-id correlation-id
-                           :timestamp (.toString (Instant/now))}}))})
+            (let [error-data (ex-data exception)
+                  error-type (or (:type error-data) :internal-server-error) ; Default if no type
+                  error-message (ex-message exception)
+                  error-mappings (or (:error-mappings ctx) {}) ; Default empty mappings
+
+                  ;; Look up the error mapping for this error type
+                  [status-code title] (get error-mappings error-type [500 "Internal Server Error"])]
+
+              ;; Create generic error response using mappings
+              (let [base-body {:type (name error-type)
+                               :title title
+                               :status status-code
+                               :detail error-message
+                               :correlation-id correlation-id ; Use kebab-case to match test
+                               :timestamp (.toString (java.time.Instant/now))}
+                    ;; Add all extension fields from error-data except :type and :message
+                    ;; Convert UUID values to strings for JSON serialization
+                    extension-fields (reduce-kv (fn [acc k v]
+                                                  (if (instance? java.util.UUID v)
+                                                    (assoc acc k (str v))
+                                                    (assoc acc k v)))
+                                                {}
+                                                (dissoc error-data :type :message))
+                    full-body (merge base-body extension-fields)]
+                (assoc ctx :response {:status status-code :body full-body}))))})
+
+(def error-response-converter
+  "Converts failed contexts (halted with exceptions) into proper HTTP error responses.
+   Runs in the leave phase to catch contexts that were halted by fail-with-exception.
+   
+   Uses error mappings from the context to map domain-specific error types to HTTP responses."
+  {:name :error-response-converter
+   :leave (fn [ctx]
+            (if (and (:halt? ctx) (:exception ctx) (not (:response ctx)))
+              ;; Context was halted with an exception but no response was set
+              ;; Convert the exception into an HTTP error response using context mappings
+              (let [exception (:exception ctx)
+                    error-data (ex-data exception)
+                    error-type (:type error-data)
+                    error-message (ex-message exception)
+                    correlation-id (:correlation-id ctx)
+                    error-mappings (:error-mappings ctx)
+
+                    ;; Look up the error mapping for this error type
+                    [status-code title] (get error-mappings error-type [500 "Internal Server Error"])]
+
+                (cond
+                  ;; Handle user-related errors
+                  (= error-type :user-not-found)
+                  (let [response {:status status-code
+                                  :body {:type (name error-type)
+                                         :title title
+                                         :status status-code
+                                         :detail error-message
+                                         :instance (str "/users/" (:user-id error-data))
+                                         :correlationId correlation-id
+                                         :user-id (str (:user-id error-data))
+                                         :timestamp (.toString (java.time.Instant/now))}}]
+                    (assoc ctx :response response))
+
+                  ;; Handle session-related errors
+                  (= error-type :session-not-found)
+                  (let [response {:status status-code
+                                  :body {:type (name error-type)
+                                         :title title
+                                         :status status-code
+                                         :detail error-message
+                                         :instance (str "/sessions/" (:token error-data))
+                                         :correlationId correlation-id
+                                         :token (str (:token error-data))
+                                         :valid (:valid error-data)
+                                         :timestamp (.toString (java.time.Instant/now))}}]
+                    (assoc ctx :response response))
+
+                  ;; Handle other domain errors with extension fields from error-data
+                  error-type
+                  (let [base-body {:type (name error-type)
+                                   :title title
+                                   :status status-code
+                                   :detail error-message
+                                   :correlationId correlation-id
+                                   :timestamp (.toString (java.time.Instant/now))}
+                        ;; Add all extension fields from error-data except :type and :message
+                        ;; Convert UUID values to strings for JSON serialization
+                        extension-fields (reduce-kv (fn [acc k v]
+                                                      (if (instance? java.util.UUID v)
+                                                        (assoc acc k (str v))
+                                                        (assoc acc k v)))
+                                                    {}
+                                                    (dissoc error-data :type :message))
+                        full-body (merge base-body extension-fields)]
+                    (assoc ctx :response {:status status-code :body full-body}))
+
+                  ;; Default case for unhandled error types
+                  :else
+                  (let [response {:status 500
+                                  :body {:type "internal-server-error"
+                                         :title "Internal Server Error"
+                                         :status 500
+                                         :detail "An unexpected error occurred while processing your request"
+                                         :correlationId correlation-id
+                                         :timestamp (.toString (java.time.Instant/now))}}]
+                    (assoc ctx :response response))))
+              ;; Context is not failed or already has a response
+              ctx))})
 
 ;; Effects Execution Interceptor
 
@@ -289,7 +386,8 @@
   [& custom-interceptors]
   (vec (concat [context-interceptor
                 logging-start
-                metrics-start]
+                metrics-start
+                error-response-converter] ; Move error handling BEFORE custom interceptors
                custom-interceptors
                [effects-dispatch
                 logging-complete

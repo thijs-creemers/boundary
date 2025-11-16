@@ -16,7 +16,9 @@
                 (swap! execution-log conj [:enter name])
                 (cond
                   (= fail-on :enter) (throw (ex-info "Intentional enter failure" {}))
-                  halt? (assoc ctx :halt? true)
+                  halt? (-> ctx
+                            (assoc :halt? true)
+                            (assoc name :executed)) ; Both halt AND mark as executed
                   :else (assoc ctx name :executed))))
      :leave (when leave
               (fn [ctx]
@@ -40,9 +42,28 @@
 
 (deftest run-pipeline-happy-path-test
   (testing "successful pipeline execution with enter and leave phases"
-    (let [interceptor1 (create-test-interceptor :int1 :enter true :leave true)
-          interceptor2 (create-test-interceptor :int2 :enter true :leave true)
-          interceptor3 (create-test-interceptor :int3 :enter true :leave true)
+    (let [shared-log (atom [])
+          interceptor1 {:name :int1
+                        :enter (fn [ctx]
+                                 (swap! shared-log conj [:enter :int1])
+                                 (assoc ctx :int1 :executed))
+                        :leave (fn [ctx]
+                                 (swap! shared-log conj [:leave :int1])
+                                 ctx)}
+          interceptor2 {:name :int2
+                        :enter (fn [ctx]
+                                 (swap! shared-log conj [:enter :int2])
+                                 (assoc ctx :int2 :executed))
+                        :leave (fn [ctx]
+                                 (swap! shared-log conj [:leave :int2])
+                                 ctx)}
+          interceptor3 {:name :int3
+                        :enter (fn [ctx]
+                                 (swap! shared-log conj [:enter :int3])
+                                 (assoc ctx :int3 :executed))
+                        :leave (fn [ctx]
+                                 (swap! shared-log conj [:leave :int3])
+                                 ctx)}
           pipeline [interceptor1 interceptor2 interceptor3]
           initial-ctx {:test true}
           result (ic/run-pipeline initial-ctx pipeline)]
@@ -56,15 +77,34 @@
       ;; Check execution order: enter forward, leave reverse
       (is (= [[:enter :int1] [:enter :int2] [:enter :int3]
               [:leave :int3] [:leave :int2] [:leave :int1]]
-             (concat (get-execution-log interceptor1)
-                     (get-execution-log interceptor2)
-                     (get-execution-log interceptor3)))))))
+             @shared-log)))))
 
 (deftest run-pipeline-halt-test
   (testing "pipeline halts when interceptor sets :halt? true"
-    (let [interceptor1 (create-test-interceptor :int1 :enter true :leave true)
-          interceptor2 (create-test-interceptor :int2 :enter true :leave true :halt? true)
-          interceptor3 (create-test-interceptor :int3 :enter true :leave true)
+    (let [shared-log (atom [])
+          interceptor1 {:name :int1
+                        :enter (fn [ctx]
+                                 (swap! shared-log conj [:enter :int1])
+                                 (assoc ctx :int1 :executed))
+                        :leave (fn [ctx]
+                                 (swap! shared-log conj [:leave :int1])
+                                 ctx)}
+          interceptor2 {:name :int2
+                        :enter (fn [ctx]
+                                 (swap! shared-log conj [:enter :int2])
+                                 (-> ctx
+                                     (assoc :halt? true)
+                                     (assoc :int2 :executed)))
+                        :leave (fn [ctx]
+                                 (swap! shared-log conj [:leave :int2])
+                                 ctx)}
+          interceptor3 {:name :int3
+                        :enter (fn [ctx]
+                                 (swap! shared-log conj [:enter :int3])
+                                 (assoc ctx :int3 :executed))
+                        :leave (fn [ctx]
+                                 (swap! shared-log conj [:leave :int3])
+                                 ctx)}
           pipeline [interceptor1 interceptor2 interceptor3]
           initial-ctx {:test true}
           result (ic/run-pipeline initial-ctx pipeline)]
@@ -77,9 +117,7 @@
 
       ;; Check execution order: enter until halt, then leave in reverse
       (is (= [[:enter :int1] [:enter :int2] [:leave :int2] [:leave :int1]]
-             (concat (get-execution-log interceptor1)
-                     (get-execution-log interceptor2))))
-      (is (empty? (get-execution-log interceptor3))))))
+             @shared-log)))))
 
 (deftest run-pipeline-exception-test
   (testing "pipeline handles exceptions with error phase"

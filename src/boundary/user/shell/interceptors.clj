@@ -619,7 +619,7 @@
                                            :response-format :cli}))))))})
 
 (defn create-user-update-pipeline
-  "Creates pipeline for updating a user."
+  "Creates pipeline for updating an existing user."
   [interface-type]
   (case interface-type
     :http (interceptors/create-http-pipeline
@@ -1020,7 +1020,7 @@
                                            :response-format :cli}))))))})
 
 (defn create-session-validation-pipeline
-  "Creates pipeline for validating a session."
+  "Creates pipeline for validating a session token."
   [interface-type]
   (case interface-type
     :http (interceptors/create-http-pipeline

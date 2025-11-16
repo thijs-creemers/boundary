@@ -16,7 +16,8 @@
    - :system - dependency injection map
    - :correlation-id - request correlation ID
    - :halt? - flag to short-circuit pipeline execution
-   - other keys added by interceptors during execution")
+   - other keys added by interceptors during execution"
+  (:require [clojure.set :as set]))
 
 (defn execute-interceptor-fn
   "Safely executes an interceptor function with error handling."
@@ -34,20 +35,24 @@
 
 (defn run-enter-phase
   "Executes the :enter phase of interceptors in forward order.
-   Returns [final-context executed-stack] where executed-stack contains
-   interceptors that successfully executed their :enter function."
+   Returns [final-context executed-stack exception] where executed-stack contains
+   interceptors that successfully executed their :enter function.
+   If an exception occurs, it returns [partial-context partial-executed-stack exception]."
   [initial-ctx interceptors]
-  (loop [ctx initial-ctx
-         remaining interceptors
-         executed []]
-    (if (or (empty? remaining) (:halt? ctx))
-      [ctx executed]
-      (let [interceptor (first remaining)
-            {:keys [name enter]} interceptor]
-        (let [new-ctx (execute-interceptor-fn enter ctx name)]
-          (recur new-ctx
-                 (rest remaining)
-                 (conj executed interceptor)))))))
+  (reduce
+   (fn [[ctx executed exception] interceptor]
+     (if (or exception (:halt? ctx))
+       ;; Already halted or errored, just pass through
+       [ctx executed exception]
+       (let [{:keys [name enter]} interceptor]
+         (try
+           (let [new-ctx (execute-interceptor-fn enter ctx name)]
+             [new-ctx (conj executed interceptor) nil])
+           (catch Throwable t
+             ;; Return current state with exception
+             [ctx executed t])))))
+   [initial-ctx [] nil]
+   interceptors))
 
 (defn run-leave-phase
   "Executes the :leave phase of interceptors in reverse order."
@@ -87,12 +92,16 @@
    - Any interceptor can set :halt? true in context to stop forward execution
    - :leave functions will still execute for already-executed interceptors"
   [initial-ctx interceptors]
-  (try
-    (let [[ctx executed-stack] (run-enter-phase initial-ctx interceptors)]
-      (run-leave-phase ctx executed-stack))
-    (catch Throwable t
-      (let [[ctx executed-stack] (run-enter-phase initial-ctx interceptors)]
-        (run-error-phase ctx executed-stack t)))))
+  (let [[ctx executed-stack exception] (run-enter-phase initial-ctx interceptors)]
+    (if exception
+      ;; Exception during enter phase - run error phase
+      (run-error-phase ctx executed-stack exception)
+      ;; Success - run leave phase
+      (try
+        (run-leave-phase ctx executed-stack)
+        (catch Throwable t
+          ;; Exception during leave phase - run error phase
+          (run-error-phase ctx executed-stack t))))))
 
 (defn validate-interceptor
   "Validates that an interceptor has the required structure."
@@ -106,7 +115,7 @@
   (let [{:keys [enter leave error]} interceptor
         valid-keys #{:name :enter :leave :error}
         interceptor-keys (set (keys interceptor))
-        invalid-keys (clojure.set/difference interceptor-keys valid-keys)]
+        invalid-keys (set/difference interceptor-keys valid-keys)]
 
     (when (seq invalid-keys)
       (throw (ex-info "Interceptor contains invalid keys"

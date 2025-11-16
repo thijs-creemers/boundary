@@ -16,12 +16,9 @@
 
    All observability is handled automatically by interceptors."
   (:require [boundary.shell.interfaces.http.routes :as routes]
-            [boundary.shared.core.utils.type-conversion :as type-conversion]
             [boundary.shared.core.interceptor :as interceptor]
             [boundary.shared.core.interceptor-context :as interceptor-context]
-            [boundary.user.shell.interceptors :as user-interceptors]
-            [boundary.user.schema :as schema]
-            [boundary.user.ports :as ports]))
+            [boundary.user.shell.interceptors :as user-interceptors]))
 
 ;; =============================================================================
 ;; User-Specific Error Mappings
@@ -52,12 +49,13 @@
   {:user-service user-service})
 
 (defn create-interceptor-context
-  "Creates interceptor context with real observability services."
+  "Creates interceptor context with real observability services and error mappings."
   [operation-type user-service request]
-  (interceptor-context/create-http-context
-   operation-type
-   (extract-observability-services user-service)
-   request))
+  (-> (interceptor-context/create-http-context
+       operation-type
+       (extract-observability-services user-service)
+       request)
+      (assoc :error-mappings user-error-mappings)))
 
 ;; =============================================================================
 ;; User Handlers
