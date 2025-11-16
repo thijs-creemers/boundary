@@ -26,6 +26,7 @@
             [boundary.user.ports :as ports]
             [boundary.user.schema :as user-schema]
             [boundary.error-reporting.core :as error-reporting]
+            [boundary.shared.core.persistence-interceptors :as persistence-interceptors]
             [clojure.set]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]))
@@ -143,18 +144,6 @@
         (update :last-accessed-at type-conversion/string->instant)
         (update :revoked-at type-conversion/string->instant))))
 
-(defn- add-persistence-breadcrumb
-  "Add persistence operation breadcrumb for tracking database operations.
-   
-   Args:
-     operation: String describing the database operation
-     status: :start, :success, or :error
-     details: Map with operation details"
-  [operation status details]
-  ;; Skip breadcrumb addition since persistence layer doesn't have error context
-  ;; This prevents protocol errors when called from contexts without proper error reporting setup
-  nil)
-
 ;; =============================================================================
 ;; User Repository Implementation
 ;; =============================================================================
@@ -164,61 +153,36 @@
 
   ;; Basic CRUD Operations
   (find-user-by-id [_ user-id]
-    (log/debug "Finding user by ID" {:user-id user-id})
-    (add-persistence-breadcrumb "find-user-by-id" :start
-                                {:user-id user-id})
-    (try
-      (let [query {:select [:*]
-                   :from [:users]
-                   :where [:and
-                           [:= :id (type-conversion/uuid->string user-id)]
-                           [:is :deleted_at nil]]}
-            result (db/execute-one! ctx query)
-            user-entity (db->user-entity ctx result)]
-        (if user-entity
-          (add-persistence-breadcrumb "find-user-by-id" :success
-                                      {:user-id user-id :found true})
-          (add-persistence-breadcrumb "find-user-by-id" :success
-                                      {:user-id user-id :found false}))
-        user-entity)
-      (catch Exception ex
-        (add-persistence-breadcrumb "find-user-by-id" :error
-                                    {:user-id user-id
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to find user by ID"
-                                                  {:operation "find-user-by-id"
-                                                   :user-id user-id})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :find-user-by-id
+     {:user-id user-id}
+     (fn [{:keys [params]}]
+       (let [user-id (:user-id params)
+             query {:select [:*]
+                    :from [:users]
+                    :where [:and
+                            [:= :id (type-conversion/uuid->string user-id)]
+                            [:is :deleted_at nil]]}
+             result (db/execute-one! ctx query)
+             user-entity (db->user-entity ctx result)]
+         user-entity))
+     {:db-ctx ctx}))
 
   (find-user-by-email [_ email tenant-id]
-    (log/debug "Finding user by email" {:email email :tenant-id tenant-id})
-    (add-persistence-breadcrumb "find-user-by-email" :start
-                                {:email email :tenant-id tenant-id})
-    (try
-      (let [filters {:email email :tenant-id tenant-id :deleted_at nil}
-            where-clause (db/build-where-clause ctx filters)
-            query {:select [:*]
-                   :from [:users]
-                   :where where-clause}
-            result (db/execute-one! ctx query)
-            user-entity (db->user-entity ctx result)]
-        (if user-entity
-          (add-persistence-breadcrumb "find-user-by-email" :success
-                                      {:email email :tenant-id tenant-id :found true})
-          (add-persistence-breadcrumb "find-user-by-email" :success
-                                      {:email email :tenant-id tenant-id :found false}))
-        user-entity)
-      (catch Exception ex
-        (add-persistence-breadcrumb "find-user-by-email" :error
-                                    {:email email :tenant-id tenant-id
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to find user by email"
-                                                  {:operation "find-user-by-email"
-                                                   :email email
-                                                   :tenant-id tenant-id})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :find-user-by-email
+     {:email email :tenant-id tenant-id}
+     (fn [{:keys [params]}]
+       (let [{:keys [email tenant-id]} params
+             filters {:email email :tenant-id tenant-id :deleted_at nil}
+             where-clause (db/build-where-clause ctx filters)
+             query {:select [:*]
+                    :from [:users]
+                    :where where-clause}
+             result (db/execute-one! ctx query)
+             user-entity (db->user-entity ctx result)]
+         user-entity))
+     {:db-ctx ctx}))
 
   (find-users-by-tenant [_ tenant-id options]
     (log/debug "Finding users by tenant" {:tenant-id tenant-id :options options})
@@ -262,142 +226,72 @@
        :total-count total-count}))
 
   (create-user [_ user-entity]
-    (log/info "Creating user" {:email (:email user-entity) :tenant-id (:tenant-id user-entity)})
-    (add-persistence-breadcrumb "create-user" :start
-                                {:email (:email user-entity)
-                                 :tenant-id (:tenant-id user-entity)})
-    (try
-      (let [now (java.time.Instant/now)
-            user-with-metadata (-> user-entity
-                                   (assoc :id (UUID/randomUUID))
-                                   (assoc :created-at now)
-                                   (assoc :updated-at nil)
-                                   (assoc :deleted-at nil))
-            db-user (user-entity->db ctx user-with-metadata)
-            query {:insert-into :users
-                   :values [db-user]}]
-
-        (db/execute-update! ctx query)
-        (add-persistence-breadcrumb "create-user" :success
-                                    {:user-id (:id user-with-metadata)
-                                     :email (:email user-entity)})
-        (log/info "User created successfully" {:user-id (:id user-with-metadata)})
-        user-with-metadata)
-      (catch Exception ex
-        (add-persistence-breadcrumb "create-user" :error
-                                    {:email (:email user-entity)
-                                     :tenant-id (:tenant-id user-entity)
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to create user in database"
-                                                  {:operation "create-user"
-                                                   :user-email (:email user-entity)
-                                                   :tenant-id (:tenant-id user-entity)})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :create-user
+     {:user-entity user-entity}
+     (fn [{:keys [params]}]
+       (let [user-entity (:user-entity params)
+             now (java.time.Instant/now)
+             user-with-metadata (-> user-entity
+                                    (assoc :id (UUID/randomUUID))
+                                    (assoc :created-at now)
+                                    (assoc :updated-at nil)
+                                    (assoc :deleted-at nil))
+             db-user (user-entity->db ctx user-with-metadata)
+             query {:insert-into :users
+                    :values [db-user]}]
+         (db/execute-update! ctx query)
+         user-with-metadata))
+     {:db-ctx ctx}))
 
   (update-user [_ user-entity]
-    (log/info "Updating user" {:user-id (:id user-entity)})
-    (add-persistence-breadcrumb "update-user" :start
-                                {:user-id (:id user-entity)})
-    (try
-      (let [now (java.time.Instant/now)
-            updated-user (assoc user-entity :updated-at now)
-            db-user (user-entity->db ctx updated-user)
-            query {:update :users
-                   :set (dissoc db-user :id :created_at :deleted_at)
-                   :where [:= :id (:id db-user)]}
-            affected-rows (db/execute-update! ctx query)]
-
-        (if (> affected-rows 0)
-          (do
-            (add-persistence-breadcrumb "update-user" :success
-                                        {:user-id (:id user-entity)
-                                         :affected-rows affected-rows})
-            (log/info "User updated successfully" {:user-id (:id user-entity)})
-            updated-user)
-          (do
-            (add-persistence-breadcrumb "update-user" :error
-                                        {:user-id (:id user-entity)
-                                         :reason "user-not-found"
-                                         :affected-rows affected-rows})
-            (throw (ex-info "User not found or update failed"
-                            {:type :user-not-found
-                             :user-id (:id user-entity)})))))
-      (catch Exception ex
-        (when-not (= (:type (ex-data ex)) :user-not-found)
-          (add-persistence-breadcrumb "update-user" :error
-                                      {:user-id (:id user-entity)
-                                       :error-message (.getMessage ex)
-                                       :error-type (or (:type (ex-data ex)) "database-error")})
-          (error-reporting/report-application-error {} ex "Failed to update user in database"
-                                                    {:operation "update-user"
-                                                     :user-id (:id user-entity)}))
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :update-user
+     {:user-entity user-entity}
+     (fn [{:keys [params]}]
+       (let [user-entity (:user-entity params)
+             now (java.time.Instant/now)
+             updated-user (assoc user-entity :updated-at now)
+             db-user (user-entity->db ctx updated-user)
+             query {:update :users
+                    :set (dissoc db-user :id :created_at :deleted_at)
+                    :where [:= :id (:id db-user)]}
+             affected-rows (db/execute-update! ctx query)]
+         (if (> affected-rows 0)
+           updated-user
+           (throw (ex-info "User not found or update failed"
+                           {:type :user-not-found
+                            :user-id (:id user-entity)})))))
+     {:db-ctx ctx}))
 
   (soft-delete-user [_ user-id]
-    (log/info "Soft deleting user" {:user-id user-id})
-    (add-persistence-breadcrumb "soft-delete-user" :start
-                                {:user-id user-id})
-    (try
-      (let [now (java.time.Instant/now)
-            query {:update :users
-                   :set {:deleted_at (type-conversion/instant->string now)
-                         :updated_at (type-conversion/instant->string now)}
-                   :where [:and
-                           [:= :id (type-conversion/uuid->string user-id)]
-                           [:is :deleted_at nil]]}
-            affected-rows (db/execute-update! ctx query)]
-
-        (if (> affected-rows 0)
-          (do
-            (add-persistence-breadcrumb "soft-delete-user" :success
-                                        {:user-id user-id :affected-rows affected-rows})
-            (log/info "User soft deleted successfully" {:user-id user-id})
-            true)
-          (do
-            (add-persistence-breadcrumb "soft-delete-user" :success
-                                        {:user-id user-id :found false :affected-rows affected-rows})
-            (log/warn "User not found or already deleted" {:user-id user-id})
-            false)))
-      (catch Exception ex
-        (add-persistence-breadcrumb "soft-delete-user" :error
-                                    {:user-id user-id
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to soft delete user"
-                                                  {:operation "soft-delete-user"
-                                                   :user-id user-id})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :soft-delete-user
+     {:user-id user-id}
+     (fn [{:keys [params]}]
+       (let [user-id (:user-id params)
+             now (java.time.Instant/now)
+             query {:update :users
+                    :set {:deleted_at (type-conversion/instant->string now)
+                          :updated_at (type-conversion/instant->string now)}
+                    :where [:and
+                            [:= :id (type-conversion/uuid->string user-id)]
+                            [:is :deleted_at nil]]}
+             affected-rows (db/execute-update! ctx query)]
+         (> affected-rows 0)))
+     {:db-ctx ctx}))
 
   (hard-delete-user [_ user-id]
-    (log/warn "Hard deleting user - IRREVERSIBLE" {:user-id user-id})
-    (add-persistence-breadcrumb "hard-delete-user" :start
-                                {:user-id user-id})
-    (try
-      (let [query {:delete-from :users
-                   :where [:= :id (type-conversion/uuid->string user-id)]}
-            affected-rows (db/execute-update! ctx query)]
-
-        (if (> affected-rows 0)
-          (do
-            (add-persistence-breadcrumb "hard-delete-user" :success
-                                        {:user-id user-id :affected-rows affected-rows})
-            (log/warn "User hard deleted successfully" {:user-id user-id})
-            true)
-          (do
-            (add-persistence-breadcrumb "hard-delete-user" :success
-                                        {:user-id user-id :found false :affected-rows affected-rows})
-            (log/warn "User not found for hard deletion" {:user-id user-id})
-            false)))
-      (catch Exception ex
-        (add-persistence-breadcrumb "hard-delete-user" :error
-                                    {:user-id user-id
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to hard delete user"
-                                                  {:operation "hard-delete-user"
-                                                   :user-id user-id})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :hard-delete-user
+     {:user-id user-id}
+     (fn [{:keys [params]}]
+       (let [user-id (:user-id params)
+             query {:delete-from :users
+                    :where [:= :id (type-conversion/uuid->string user-id)]}
+             affected-rows (db/execute-update! ctx query)]
+         (> affected-rows 0)))
+     {:db-ctx ctx}))
 
   ;; Business-Specific Queries
   (find-active-users-by-role [_ tenant-id role]
@@ -453,74 +347,49 @@
 
   ;; Batch Operations
   (create-users-batch [_ user-entities]
-    (log/info "Creating users batch" {:count (count user-entities)})
-    (add-persistence-breadcrumb "create-users-batch" :start
-                                {:count (count user-entities)})
-    (try
-      (db/with-transaction [tx ctx]
-        (let [now (java.time.Instant/now)
-              users-with-metadata (map (fn [user]
-                                         (-> user
-                                             (assoc :id (UUID/randomUUID))
-                                             (assoc :created-at now)
-                                             (assoc :updated-at nil)
-                                             (assoc :deleted-at nil)))
-                                       user-entities)
-              db-users (map #(user-entity->db tx %) users-with-metadata)]
-
-          (doseq [db-user db-users]
-            (let [query {:insert-into :users
-                         :values [db-user]}]
-              (db/execute-update! tx query)))
-
-          (add-persistence-breadcrumb "create-users-batch" :success
-                                      {:count (count user-entities)})
-          (log/info "Users batch created successfully" {:count (count user-entities)})
-          users-with-metadata))
-      (catch Exception ex
-        (add-persistence-breadcrumb "create-users-batch" :error
-                                    {:count (count user-entities)
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to create users batch"
-                                                  {:operation "create-users-batch"
-                                                   :count (count user-entities)})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :create-users-batch
+     {:user-entities user-entities}
+     (fn [{:keys [params]}]
+       (let [user-entities (:user-entities params)]
+         (db/with-transaction [tx ctx]
+           (let [now (java.time.Instant/now)
+                 users-with-metadata (map (fn [user]
+                                            (-> user
+                                                (assoc :id (UUID/randomUUID))
+                                                (assoc :created-at now)
+                                                (assoc :updated-at nil)
+                                                (assoc :deleted-at nil)))
+                                          user-entities)
+                 db-users (map #(user-entity->db tx %) users-with-metadata)]
+             (doseq [db-user db-users]
+               (let [query {:insert-into :users
+                            :values [db-user]}]
+                 (db/execute-update! tx query)))
+             users-with-metadata))))
+     {:db-ctx ctx}))
 
   (update-users-batch [_ user-entities]
-    (log/info "Updating users batch" {:count (count user-entities)})
-    (add-persistence-breadcrumb "update-users-batch" :start
-                                {:count (count user-entities)})
-    (try
-      (db/with-transaction [tx ctx]
-        (let [now (java.time.Instant/now)
-              updated-users (map #(assoc % :updated-at now) user-entities)]
-
-          (doseq [user updated-users]
-            (let [db-user (user-entity->db tx user)
-                  query {:update :users
-                         :set (dissoc db-user :id :created_at :deleted_at)
-                         :where [:= :id (:id db-user)]}
-                  affected-rows (db/execute-update! tx query)]
-
-              (when (= affected-rows 0)
-                (throw (ex-info "User not found in batch update"
-                                {:type :user-not-found
-                                 :user-id (:id user)})))))
-
-          (add-persistence-breadcrumb "update-users-batch" :success
-                                      {:count (count user-entities)})
-          (log/info "Users batch updated successfully" {:count (count user-entities)})
-          updated-users))
-      (catch Exception ex
-        (add-persistence-breadcrumb "update-users-batch" :error
-                                    {:count (count user-entities)
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to update users batch"
-                                                  {:operation "update-users-batch"
-                                                   :count (count user-entities)})
-        (throw ex)))))
+    (persistence-interceptors/execute-persistence-operation
+     :update-users-batch
+     {:user-entities user-entities}
+     (fn [{:keys [params]}]
+       (let [user-entities (:user-entities params)]
+         (db/with-transaction [tx ctx]
+           (let [now (java.time.Instant/now)
+                 updated-users (map #(assoc % :updated-at now) user-entities)]
+             (doseq [user updated-users]
+               (let [db-user (user-entity->db tx user)
+                     query {:update :users
+                            :set (dissoc db-user :id :created_at :deleted_at)
+                            :where [:= :id (:id db-user)]}
+                     affected-rows (db/execute-update! tx query)]
+                 (when (= affected-rows 0)
+                   (throw (ex-info "User not found in batch update"
+                                   {:type :user-not-found
+                                    :user-id (:id user)})))))
+             updated-users))))
+     {:db-ctx ctx})))
 
 ;; =============================================================================
 ;; Session Repository Implementation
@@ -537,270 +406,149 @@
   ports/IUserSessionRepository
 
   (create-session [_ session-entity]
-    (log/info "Creating user session" {:user-id (:user-id session-entity)})
-    (add-persistence-breadcrumb "create-session" :start
-                                {:user-id (:user-id session-entity)})
-    (try
-      (let [now (java.time.Instant/now)
-            session-with-metadata (-> session-entity
-                                      (assoc :id (UUID/randomUUID))
-                                      (assoc :session-token (generate-session-token))
-                                      (assoc :created-at now)
-                                      (assoc :last-accessed-at nil)
-                                      (assoc :revoked-at nil))
-            db-session (session-entity->db session-with-metadata)
-            query {:insert-into :user_sessions
-                   :values [db-session]}]
-
-        (db/execute-update! ctx query)
-        (add-persistence-breadcrumb "create-session" :success
-                                    {:session-id (:id session-with-metadata)
-                                     :user-id (:user-id session-entity)})
-        (log/info "Session created successfully" {:session-id (:id session-with-metadata)})
-        session-with-metadata)
-      (catch Exception ex
-        (add-persistence-breadcrumb "create-session" :error
-                                    {:user-id (:user-id session-entity)
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to create user session"
-                                                  {:operation "create-session"
-                                                   :user-id (:user-id session-entity)})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :create-session
+     {:session-entity session-entity}
+     (fn [{:keys [params]}]
+       (let [session-entity (:session-entity params)
+             now (java.time.Instant/now)
+             session-with-metadata (-> session-entity
+                                       (assoc :id (UUID/randomUUID))
+                                       (assoc :session-token (generate-session-token))
+                                       (assoc :created-at now)
+                                       (assoc :last-accessed-at nil)
+                                       (assoc :revoked-at nil))
+             db-session (session-entity->db session-with-metadata)
+             query {:insert-into :user_sessions
+                    :values [db-session]}]
+         (db/execute-update! ctx query)
+         session-with-metadata))
+     {:db-ctx ctx}))
 
   (find-session-by-token [_ session-token]
-    (log/debug "Finding session by token" {:token-prefix (subs session-token 0 8)})
-    (add-persistence-breadcrumb "find-session-by-token" :start
-                                {:token-prefix (subs session-token 0 8)})
-    (try
-      (let [now (java.time.Instant/now)
-            query {:select [:*]
-                   :from [:user_sessions]
-                   :where [:and
-                           [:= :session_token session-token]
-                           [:> :expires_at (type-conversion/instant->string now)]
-                           [:is :revoked_at nil]]}
-            result (db/execute-one! ctx query)]
-        (if result
-          (do
-            (let [update-query {:update :user_sessions
-                                :set {:last_accessed_at (type-conversion/instant->string now)}
-                                :where [:= :session_token session-token]}]
-              (db/execute-update! ctx update-query))
-            (log/debug "Session found and access timestamp updated")
-            (add-persistence-breadcrumb "find-session-by-token" :success
-                                        {:token-prefix (subs session-token 0 8) :found true})
-            (-> result
-                db->session-entity
-                (assoc :last-accessed-at now)))
-          (do
-            (add-persistence-breadcrumb "find-session-by-token" :success
-                                        {:token-prefix (subs session-token 0 8) :found false})
-            nil)))
-      (catch Exception ex
-        (add-persistence-breadcrumb "find-session-by-token" :error
-                                    {:token-prefix (subs session-token 0 8)
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to find session by token"
-                                                  {:operation "find-session-by-token"
-                                                   :token-prefix (subs session-token 0 8)})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :find-session-by-token
+     {:session-token session-token}
+     (fn [{:keys [params]}]
+       (let [session-token (:session-token params)
+             now (java.time.Instant/now)
+             query {:select [:*]
+                    :from [:user_sessions]
+                    :where [:and
+                            [:= :session_token session-token]
+                            [:> :expires_at (type-conversion/instant->string now)]
+                            [:is :revoked_at nil]]}
+             result (db/execute-one! ctx query)]
+         (when result
+           (let [update-query {:update :user_sessions
+                               :set {:last_accessed_at (type-conversion/instant->string now)}
+                               :where [:= :session_token session-token]}]
+             (db/execute-update! ctx update-query))
+           (-> result
+               db->session-entity
+               (assoc :last-accessed-at now)))))
+     {:db-ctx ctx}))
 
   (find-sessions-by-user [_ user-id]
-    (log/debug "Finding sessions by user" {:user-id user-id})
-    (add-persistence-breadcrumb "find-sessions-by-user" :start
-                                {:user-id user-id})
-    (try
-      (let [now (java.time.Instant/now)
-            query {:select [:*]
-                   :from [:user_sessions]
-                   :where [:and
-                           [:= :user_id (type-conversion/uuid->string user-id)]
-                           [:> :expires_at (type-conversion/instant->string now)]
-                           [:is :revoked_at nil]]
-                   :order-by [[:created_at :desc]]}
-            results (db/execute-query! ctx query)
-            sessions (map db->session-entity results)]
-        (add-persistence-breadcrumb "find-sessions-by-user" :success
-                                    {:user-id user-id :count (count sessions)})
-        sessions)
-      (catch Exception ex
-        (add-persistence-breadcrumb "find-sessions-by-user" :error
-                                    {:user-id user-id
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to find sessions by user"
-                                                  {:operation "find-sessions-by-user"
-                                                   :user-id user-id})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :find-sessions-by-user
+     {:user-id user-id}
+     (fn [{:keys [params]}]
+       (let [user-id (:user-id params)
+             now (java.time.Instant/now)
+             query {:select [:*]
+                    :from [:user_sessions]
+                    :where [:and
+                            [:= :user_id (type-conversion/uuid->string user-id)]
+                            [:> :expires_at (type-conversion/instant->string now)]
+                            [:is :revoked_at nil]]
+                    :order-by [[:created_at :desc]]}
+             results (db/execute-query! ctx query)]
+         (map db->session-entity results)))
+     {:db-ctx ctx}))
 
   (invalidate-session [_ session-token]
-    (log/info "Invalidating session" {:token-prefix (subs session-token 0 8)})
-    (add-persistence-breadcrumb "invalidate-session" :start
-                                {:token-prefix (subs session-token 0 8)})
-    (try
-      (let [now (java.time.Instant/now)
-            query {:update :user_sessions
-                   :set {:revoked_at (type-conversion/instant->string now)}
-                   :where [:and
-                           [:= :session_token session-token]
-                           [:is :revoked_at nil]]}
-            affected-rows (db/execute-update! ctx query)]
-
-        (if (> affected-rows 0)
-          (do
-            (add-persistence-breadcrumb "invalidate-session" :success
-                                        {:token-prefix (subs session-token 0 8) :affected-rows affected-rows})
-            (log/info "Session invalidated successfully")
-            true)
-          (do
-            (add-persistence-breadcrumb "invalidate-session" :success
-                                        {:token-prefix (subs session-token 0 8) :found false :affected-rows affected-rows})
-            (log/warn "Session not found or already invalidated")
-            false)))
-      (catch Exception ex
-        (add-persistence-breadcrumb "invalidate-session" :error
-                                    {:token-prefix (subs session-token 0 8)
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to invalidate session"
-                                                  {:operation "invalidate-session"
-                                                   :token-prefix (subs session-token 0 8)})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :invalidate-session
+     {:session-token session-token}
+     (fn [{:keys [params]}]
+       (let [session-token (:session-token params)
+             now (java.time.Instant/now)
+             query {:update :user_sessions
+                    :set {:revoked_at (type-conversion/instant->string now)}
+                    :where [:and
+                            [:= :session_token session-token]
+                            [:is :revoked_at nil]]}
+             affected-rows (db/execute-update! ctx query)]
+         (> affected-rows 0)))
+     {:db-ctx ctx}))
 
   (invalidate-all-user-sessions [_ user-id]
-    (log/warn "Invalidating all sessions for user" {:user-id user-id})
-    (add-persistence-breadcrumb "invalidate-all-user-sessions" :start
-                                {:user-id user-id})
-    (try
-      (let [now (java.time.Instant/now)
-            query {:update :user_sessions
-                   :set {:revoked_at (type-conversion/instant->string now)}
-                   :where [:and
-                           [:= :user_id (type-conversion/uuid->string user-id)]
-                           [:is :revoked_at nil]]}
-            affected-rows (db/execute-update! ctx query)]
-
-        (add-persistence-breadcrumb "invalidate-all-user-sessions" :success
-                                    {:user-id user-id :affected-rows affected-rows})
-        (log/info "User sessions invalidated" {:user-id user-id :count affected-rows})
-        affected-rows)
-      (catch Exception ex
-        (add-persistence-breadcrumb "invalidate-all-user-sessions" :error
-                                    {:user-id user-id
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to invalidate all user sessions"
-                                                  {:operation "invalidate-all-user-sessions"
-                                                   :user-id user-id})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :invalidate-all-user-sessions
+     {:user-id user-id}
+     (fn [{:keys [params]}]
+       (let [user-id (:user-id params)
+             now (java.time.Instant/now)
+             query {:update :user_sessions
+                    :set {:revoked_at (type-conversion/instant->string now)}
+                    :where [:and
+                            [:= :user_id (type-conversion/uuid->string user-id)]
+                            [:is :revoked_at nil]]}
+             affected-rows (db/execute-update! ctx query)]
+         affected-rows))
+     {:db-ctx ctx}))
 
   (cleanup-expired-sessions [_ before-timestamp]
-    (log/info "Cleaning up expired sessions" {:before-timestamp before-timestamp})
-    (add-persistence-breadcrumb "cleanup-expired-sessions" :start
-                                {:before-timestamp before-timestamp})
-    (try
-      (let [query {:delete-from :user_sessions
-                   :where [:< :expires_at (type-conversion/instant->string before-timestamp)]}
-            affected-rows (db/execute-update! ctx query)]
-
-        (add-persistence-breadcrumb "cleanup-expired-sessions" :success
-                                    {:before-timestamp before-timestamp :affected-rows affected-rows})
-        (log/info "Expired sessions cleaned up" {:count affected-rows})
-        affected-rows)
-      (catch Exception ex
-        (add-persistence-breadcrumb "cleanup-expired-sessions" :error
-                                    {:before-timestamp before-timestamp
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to cleanup expired sessions"
-                                                  {:operation "cleanup-expired-sessions"
-                                                   :before-timestamp before-timestamp})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :cleanup-expired-sessions
+     {:before-timestamp before-timestamp}
+     (fn [{:keys [params]}]
+       (let [before-timestamp (:before-timestamp params)
+             query {:delete-from :user_sessions
+                    :where [:< :expires_at (type-conversion/instant->string before-timestamp)]}
+             affected-rows (db/execute-update! ctx query)]
+         affected-rows))
+     {:db-ctx ctx}))
 
   (update-session [_ session-entity]
-    (log/debug "Updating user session" {:session-id (:id session-entity)})
-    (add-persistence-breadcrumb "update-session" :start
-                                {:session-id (:id session-entity)})
-    (try
-      (let [db-session (session-entity->db session-entity)
-            query {:update :user_sessions
-                   :set (dissoc db-session :id)
-                   :where [:= :id (type-conversion/uuid->string (:id session-entity))]}
-            affected-rows (db/execute-update! ctx query)]
-
-        (if (> affected-rows 0)
-          (do
-            (add-persistence-breadcrumb "update-session" :success
-                                        {:session-id (:id session-entity) :affected-rows affected-rows})
-            (log/debug "Session updated successfully")
-            session-entity)
-          (do
-            (add-persistence-breadcrumb "update-session" :success
-                                        {:session-id (:id session-entity) :found false :affected-rows affected-rows})
-            (log/warn "Session not found for update")
-            nil)))
-      (catch Exception ex
-        (add-persistence-breadcrumb "update-session" :error
-                                    {:session-id (:id session-entity)
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to update session"
-                                                  {:operation "update-session"
-                                                   :session-id (:id session-entity)})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :update-session
+     {:session-entity session-entity}
+     (fn [{:keys [params]}]
+       (let [session-entity (:session-entity params)
+             db-session (session-entity->db session-entity)
+             query {:update :user_sessions
+                    :set (dissoc db-session :id)
+                    :where [:= :id (type-conversion/uuid->string (:id session-entity))]}
+             affected-rows (db/execute-update! ctx query)]
+         (when (> affected-rows 0)
+           session-entity)))
+     {:db-ctx ctx}))
 
   (find-all-sessions [_]
-    (log/debug "Finding all sessions")
-    (add-persistence-breadcrumb "find-all-sessions" :start {})
-    (try
-      (let [query {:select [:*]
-                   :from [:user_sessions]
-                   :order-by [[:created_at :desc]]}
-            results (db/execute-query! ctx query)
-            sessions (map db->session-entity results)]
-        (add-persistence-breadcrumb "find-all-sessions" :success
-                                    {:count (count sessions)})
-        (log/debug "Found all sessions" {:count (count sessions)})
-        sessions)
-      (catch Exception ex
-        (add-persistence-breadcrumb "find-all-sessions" :error
-                                    {:error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to find all sessions"
-                                                  {:operation "find-all-sessions"})
-        (throw ex))))
+    (persistence-interceptors/execute-persistence-operation
+     :find-all-sessions
+     {}
+     (fn [_]
+       (let [query {:select [:*]
+                    :from [:user_sessions]
+                    :order-by [[:created_at :desc]]}
+             results (db/execute-query! ctx query)]
+         (map db->session-entity results)))
+     {:db-ctx ctx}))
 
   (delete-session [_ session-id]
-    (log/warn "Permanently deleting session" {:session-id session-id})
-    (add-persistence-breadcrumb "delete-session" :start
-                                {:session-id session-id})
-    (try
-      (let [query {:delete-from :user_sessions
-                   :where [:= :id (type-conversion/uuid->string session-id)]}
-            affected-rows (db/execute-update! ctx query)]
-
-        (if (> affected-rows 0)
-          (do
-            (add-persistence-breadcrumb "delete-session" :success
-                                        {:session-id session-id :affected-rows affected-rows})
-            (log/info "Session deleted successfully")
-            true)
-          (do
-            (add-persistence-breadcrumb "delete-session" :success
-                                        {:session-id session-id :found false :affected-rows affected-rows})
-            (log/warn "Session not found for deletion")
-            false)))
-      (catch Exception ex
-        (add-persistence-breadcrumb "delete-session" :error
-                                    {:session-id session-id
-                                     :error-message (.getMessage ex)
-                                     :error-type (or (:type (ex-data ex)) "database-error")})
-        (error-reporting/report-application-error {} ex "Failed to delete session"
-                                                  {:operation "delete-session"
-                                                   :session-id session-id})
-        (throw ex)))))
+    (persistence-interceptors/execute-persistence-operation
+     :delete-session
+     {:session-id session-id}
+     (fn [{:keys [params]}]
+       (let [session-id (:session-id params)
+             query {:delete-from :user_sessions
+                    :where [:= :id (type-conversion/uuid->string session-id)]}
+             affected-rows (db/execute-update! ctx query)]
+         (> affected-rows 0)))
+     {:db-ctx ctx})))
 
 ;; =============================================================================
 ;; Factory Functions

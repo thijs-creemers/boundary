@@ -8,15 +8,17 @@
    - Format output (table or JSON)
    - Handle errors and exit codes
 
-   All business logic lives in boundary.user.core.* and boundary.user.shell.service."
+   All business logic lives in boundary.user.core.* and boundary.user.shell.service.
+   All observability is handled automatically by interceptors."
   (:require [boundary.user.ports :as ports]
             [boundary.shared.core.utils.validation :as validation]
             [boundary.shared.core.utils.type-conversion :as type-conv]
-            [boundary.error-reporting.core :as error-reporting]
+            [boundary.shared.core.interceptor :as interceptor]
+            [boundary.shared.core.interceptor-context :as interceptor-context]
+            [boundary.user.shell.interceptors :as user-interceptors]
             [cheshire.core :as json]
             [clojure.string :as str]
-            [clojure.tools.cli :as cli]
-            [clojure.tools.logging :as log])
+            [clojure.tools.cli :as cli])
   (:import [java.time.format DateTimeFormatter]))
 
 ;; =============================================================================
@@ -293,425 +295,171 @@
 ;; Command Execution
 ;; =============================================================================
 
-(defn add-cli-breadcrumb
-  "Add CLI command breadcrumb for tracking command execution.
+(defn extract-observability-services
+  "Extracts observability services from user-service for interceptor context.
    
-   Args:
-     error-reporter: IErrorContext instance from service
-     command-info: Map with :domain, :verb, and :opts for command context
-     status: :start, :success, or :error
-     details: Optional additional details map"
-  [error-reporter command-info status & [details]]
-  (error-reporting/add-breadcrumb
-   error-reporter ; Use error-reporter from service that implements IErrorContext
-   (str (name (:domain command-info))
-        " "
-        (name (:verb command-info))
-        " "
-        (case status
-          :start "initiated"
-          :success "completed"
-          :error "failed"))
-   "cli" ; category
-   :info ; level - :info for start/success, will be overridden to :error for error case
-   (merge
-    {:domain (name (:domain command-info))
-     :command (name (:verb command-info))
-     :status (name status)}
-    (when-let [opts (:opts command-info)]
-      {:arguments (dissoc opts :token)}) ; Remove sensitive data
-    details)))
+   Note: Since service layer cleanup removed direct observability dependencies,
+   the interceptor context will obtain these services from the system wiring."
+  [user-service]
+  {:user-service user-service})
 
-(defn add-user-operation-breadcrumb
-  "Add user operation breadcrumb with action tracking.
-   
-   Args:
-     error-reporter: IErrorContext instance from service
-     operation: String describing the operation
-     user-id: User ID (optional)
-     tenant-id: Tenant ID (optional)
-     status: :start, :success, or :error
-     details: Optional additional details"
-  [error-reporter operation user-id tenant-id status & [details]]
-  (let [target (if user-id
-                 (str "user:" user-id (when tenant-id (str " tenant:" tenant-id)))
-                 (str "tenant:" tenant-id))]
-    (error-reporting/track-user-action
-     error-reporter
-     operation
-     target)))
-
-(defn add-validation-breadcrumb
-  "Add validation breadcrumb for CLI validation errors.
-   
-   Args:
-     error-reporter: IErrorContext instance from service
-     validation-type: String describing what was validated
-     error-details: Map with validation error details"
-  [error-reporter validation-type error-details]
-  (error-reporting/add-breadcrumb
-   error-reporter ; Use error-reporter from service that implements IErrorContext
-   (str "CLI " validation-type " validation failed")
-   "validation" ; category
-   :warning ; level
-   (merge
-    {:validation-type validation-type
-     :source "cli"}
-    error-details)))
-
-(defn mask-sensitive-token
-  "Mask sensitive token data for breadcrumbs, showing only first 8 characters."
-  [token]
-  (when token
-    (if (> (count token) 8)
-      (str (subs token 0 8) "...")
-      "***")))
+(defn create-cli-interceptor-context
+  "Creates interceptor context for CLI operations with real observability services."
+  [operation-type user-service args options]
+  (-> (interceptor-context/create-cli-context-with-system
+       operation-type
+       (extract-observability-services user-service)
+       args
+       options)
+      (assoc :opts options)))
 
 (defn execute-user-create
-  "Execute user create command."
+  "Execute user create command using interceptor pipeline.
+   
+   This version demonstrates the interceptor-based approach that eliminates
+   manual observability boilerplate while providing comprehensive tracking."
   [service error-reporter opts]
-  (let [command-info {:domain :user :verb :create :opts opts}]
-    (add-cli-breadcrumb error-reporter command-info :start)
-    (try
-      (let [{:keys [email name role tenant-id active]} opts]
-        (when-not (and email name role tenant-id)
-          (add-validation-breadcrumb error-reporter "create-user-arguments"
-                                     {:missing-fields (remove #(get opts %) [:email :name :role :tenant-id])
-                                      :provided-fields (keys (select-keys opts [:email :name :role :tenant-id :active]))})
-          (throw (ex-info "Missing required arguments"
-                          {:type :validation-error
-                           :message "Required: --email, --name, --role, --tenant-id"})))
+  (let [;; Create context for the operation
+        context (create-cli-interceptor-context
+                 :user-create
+                 service
+                 [] ;; args (not used for this CLI pattern)
+                 opts)
 
-        (add-user-operation-breadcrumb error-reporter "create-user" nil tenant-id :start
-                                       {:email email :role role :active active})
+        ;; Create the interceptor pipeline for user creation
+        pipeline (user-interceptors/create-user-creation-pipeline :cli)
 
-        (let [user-data {:email email
-                         :name name
-                         :role role
-                         :tenant-id tenant-id
-                         :active active}
-              result (ports/register-user service user-data)]
+        ;; Execute the pipeline
+        result-context (interceptor/run-pipeline context pipeline)]
 
-          (add-user-operation-breadcrumb error-reporter "create-user" (:id result) tenant-id :success
-                                         {:user-id (:id result) :email email :role role})
-          (add-cli-breadcrumb error-reporter command-info :success {:user-id (:id result)})
+    ;; Return the response from context
+    (:response result-context)))
 
-          {:status 0
-           :entity-type :user
-           :data result}))
-      (catch Exception e
-        (add-cli-breadcrumb error-reporter command-info :error {:error-message (.getMessage e)})
-        (throw e)))))
+(defn execute-user-get
+  "Execute user get command using interceptor pipeline."
+  [service error-reporter opts]
+  (let [context (create-cli-interceptor-context
+                 :user-get
+                 service
+                 []
+                 opts)
+        pipeline (user-interceptors/create-user-get-pipeline :cli)
+        result-context (interceptor/run-pipeline context pipeline)]
+    (:response result-context)))
 
 (defn execute-user-list
-  "Execute user list command."
+  "Execute user list command using interceptor pipeline."
   [service error-reporter opts]
-  (let [command-info {:domain :user :verb :list :opts opts}]
-    (add-cli-breadcrumb error-reporter command-info :start)
-    (try
-      (let [{:keys [tenant-id limit offset role active]} opts]
-        (when-not tenant-id
-          (add-validation-breadcrumb error-reporter "list-users-arguments"
-                                     {:missing-fields [:tenant-id]
-                                      :provided-fields (keys (select-keys opts [:tenant-id :limit :offset :role :active]))})
-          (throw (ex-info "Missing required argument"
-                          {:type :validation-error
-                           :message "Required: --tenant-id"})))
-
-        (add-user-operation-breadcrumb error-reporter "list-users" nil tenant-id :start
-                                       {:limit limit :offset offset :role-filter role :active-filter active})
-
-        (let [options (cond-> {:limit limit :offset offset}
-                        role (assoc :filter-role role)
-                        (some? active) (assoc :filter-active active))
-              result (ports/list-users-by-tenant service tenant-id options)]
-
-          (add-user-operation-breadcrumb error-reporter "list-users" nil tenant-id :success
-                                         {:user-count (count (:users result)) :limit limit :offset offset})
-          (add-cli-breadcrumb error-reporter command-info :success
-                              {:user-count (count (:users result)) :tenant-id tenant-id})
-
-          {:status 0
-           :entity-type :user-list
-           :data (:users result)}))
-      (catch Exception e
-        (add-cli-breadcrumb error-reporter command-info :error {:error-message (.getMessage e)})
-        (throw e)))))
-
-(defn execute-user-find
-  "Execute user find command."
-  [service error-reporter opts]
-  (let [command-info {:domain :user :verb :find :opts opts}]
-    (add-cli-breadcrumb error-reporter command-info :start)
-    (try
-      (let [{:keys [id email tenant-id]} opts]
-        (cond
-          id (do
-               (add-user-operation-breadcrumb error-reporter "find-user-by-id" id nil :start {:user-id id})
-               (let [result (ports/get-user-by-id service id)]
-                 (when-not result
-                   (add-user-operation-breadcrumb error-reporter "find-user-by-id" id nil :error
-                                                  {:user-id id :error "not-found"})
-                   (add-cli-breadcrumb error-reporter command-info :error {:user-id id :error "not-found"})
-                   (throw (ex-info "User not found"
-                                   {:type :user-not-found
-                                    :message (str "No user found with ID: " id)})))
-                 (add-user-operation-breadcrumb error-reporter "find-user-by-id" id (:tenant-id result) :success
-                                                {:user-id id :email (:email result)})
-                 (add-cli-breadcrumb error-reporter command-info :success {:user-id id :found true})
-                 {:status 0
-                  :entity-type :user
-                  :data result}))
-
-          (and email tenant-id)
-          (do
-            (add-user-operation-breadcrumb error-reporter "find-user-by-email" nil tenant-id :start
-                                           {:email email :tenant-id tenant-id})
-            (let [result (ports/get-user-by-email service email tenant-id)]
-              (when-not result
-                (add-user-operation-breadcrumb error-reporter "find-user-by-email" nil tenant-id :error
-                                               {:email email :tenant-id tenant-id :error "not-found"})
-                (add-cli-breadcrumb error-reporter command-info :error
-                                    {:email email :tenant-id tenant-id :error "not-found"})
-                (throw (ex-info "User not found"
-                                {:type :user-not-found
-                                 :message (str "No user found with email: " email)})))
-              (add-user-operation-breadcrumb error-reporter "find-user-by-email" (:id result) tenant-id :success
-                                             {:user-id (:id result) :email email})
-              (add-cli-breadcrumb error-reporter command-info :success
-                                  {:user-id (:id result) :email email :found true})
-              {:status 0
-               :entity-type :user
-               :data result}))
-
-          :else
-          (do
-            (add-validation-breadcrumb error-reporter "find-user-arguments"
-                                       {:missing-fields "Either --id OR (--email AND --tenant-id) required"
-                                        :provided-fields (keys (select-keys opts [:id :email :tenant-id]))})
-            (throw (ex-info "Missing required arguments"
-                            {:type :validation-error
-                             :message "Required: --id OR (--email AND --tenant-id)"})))))
-      (catch Exception e
-        (add-cli-breadcrumb error-reporter command-info :error {:error-message (.getMessage e)})
-        (throw e)))))
+  (let [context (create-cli-interceptor-context
+                 :user-list
+                 service
+                 []
+                 opts)
+        pipeline (user-interceptors/create-user-list-pipeline :cli)
+        result-context (interceptor/run-pipeline context pipeline)]
+    (:response result-context)))
 
 (defn execute-user-update
-  "Execute user update command."
+  "Execute user update command using interceptor pipeline."
   [service error-reporter opts]
-  (let [command-info {:domain :user :verb :update :opts opts}]
-    (add-cli-breadcrumb error-reporter command-info :start)
-    (try
-      (let [{:keys [id name role active]} opts]
-        (when-not id
-          (add-validation-breadcrumb error-reporter "update-user-arguments"
-                                     {:missing-fields [:id]
-                                      :provided-fields (keys (select-keys opts [:id :name :role :active]))})
-          (throw (ex-info "Missing required argument"
-                          {:type :validation-error
-                           :message "Required: --id"})))
-        (when-not (or name role (some? active))
-          (add-validation-breadcrumb error-reporter "update-user-fields"
-                                     {:missing-fields "At least one update field required"
-                                      :provided-fields (keys (select-keys opts [:name :role :active]))})
-          (throw (ex-info "No fields to update"
-                          {:type :validation-error
-                           :message "At least one of --name, --role, or --active required"})))
-
-        (add-user-operation-breadcrumb error-reporter "update-user" id nil :start
-                                       {:user-id id :name name :role role :active active})
-
-        (let [current-user (ports/get-user-by-id service id)]
-          (when-not current-user
-            (add-user-operation-breadcrumb error-reporter "update-user" id nil :error
-                                           {:user-id id :error "not-found"})
-            (add-cli-breadcrumb error-reporter command-info :error {:user-id id :error "not-found"})
-            (throw (ex-info "User not found"
-                            {:type :user-not-found
-                             :message (str "No user found with ID: " id)})))
-          (let [updated-user (cond-> current-user
-                               name (assoc :name name)
-                               role (assoc :role role)
-                               (some? active) (assoc :active active))
-                result (ports/update-user-profile service updated-user)]
-
-            (add-user-operation-breadcrumb error-reporter "update-user" id (:tenant-id result) :success
-                                           {:user-id id :changes (select-keys opts [:name :role :active])})
-            (add-cli-breadcrumb error-reporter command-info :success
-                                {:user-id id :updated-fields (keys (select-keys opts [:name :role :active]))})
-
-            {:status 0
-             :entity-type :user
-             :data result})))
-      (catch Exception e
-        (add-cli-breadcrumb error-reporter command-info :error {:error-message (.getMessage e)})
-        (throw e)))))
+  (let [context (create-cli-interceptor-context
+                 :user-update
+                 service
+                 []
+                 opts)
+        pipeline (user-interceptors/create-user-update-pipeline :cli)
+        result-context (interceptor/run-pipeline context pipeline)]
+    (:response result-context)))
 
 (defn execute-user-delete
-  "Execute user delete command."
+  "Execute user delete command using interceptor pipeline."
   [service error-reporter opts]
-  (let [command-info {:domain :user :verb :delete :opts opts}]
-    (add-cli-breadcrumb error-reporter command-info :start)
-    (try
-      (let [{:keys [id]} opts]
-        (when-not id
-          (add-validation-breadcrumb error-reporter "delete-user-arguments"
-                                     {:missing-fields [:id]
-                                      :provided-fields (keys (select-keys opts [:id]))})
-          (throw (ex-info "Missing required argument"
-                          {:type :validation-error
-                           :message "Required: --id"})))
-
-        (add-user-operation-breadcrumb error-reporter "delete-user" id nil :start {:user-id id})
-
-        (ports/deactivate-user service id)
-
-        (add-user-operation-breadcrumb error-reporter "delete-user" id nil :success {:user-id id})
-        (add-cli-breadcrumb error-reporter command-info :success {:user-id id :action "deactivated"})
-
-        {:status 0
-         :message "User deleted successfully"})
-      (catch Exception e
-        (add-cli-breadcrumb error-reporter command-info :error {:error-message (.getMessage e)})
-        (throw e)))))
+  (let [context (create-cli-interceptor-context
+                 :user-delete
+                 service
+                 []
+                 opts)
+        pipeline (user-interceptors/create-user-delete-pipeline :cli)
+        result-context (interceptor/run-pipeline context pipeline)]
+    (:response result-context)))
 
 (defn execute-session-create
-  "Execute session create command."
+  "Execute session create command using interceptor pipeline."
   [service error-reporter opts]
-  (let [command-info {:domain :session :verb :create :opts opts}]
-    (add-cli-breadcrumb error-reporter command-info :start)
-    (try
-      (let [{:keys [user-id tenant-id user-agent ip-address]} opts]
-        (when-not (and user-id tenant-id)
-          (add-validation-breadcrumb error-reporter "create-session-arguments"
-                                     {:missing-fields (remove #(get opts %) [:user-id :tenant-id])
-                                      :provided-fields (keys (select-keys opts [:user-id :tenant-id :user-agent :ip-address]))})
-          (throw (ex-info "Missing required arguments"
-                          {:type :validation-error
-                           :message "Required: --user-id, --tenant-id"})))
+  (let [context (create-cli-interceptor-context
+                 :session-create
+                 service
+                 []
+                 opts)
+        pipeline (user-interceptors/create-session-creation-pipeline :cli)
+        result-context (interceptor/run-pipeline context pipeline)]
+    (:response result-context)))
 
-        (add-user-operation-breadcrumb error-reporter "create-session" user-id tenant-id :start
-                                       {:user-id user-id :tenant-id tenant-id :has-user-agent (boolean user-agent) :has-ip-address (boolean ip-address)})
-
-        (let [session-data (cond-> {:user-id user-id
-                                    :tenant-id tenant-id}
-                             user-agent (assoc :user-agent user-agent)
-                             ip-address (assoc :ip-address ip-address))
-              result (ports/authenticate-user service session-data)]
-
-          (add-user-operation-breadcrumb error-reporter "create-session" user-id tenant-id :success
-                                         {:user-id user-id :session-token (mask-sensitive-token (:token result))})
-          (add-cli-breadcrumb error-reporter command-info :success
-                              {:user-id user-id :session-token (mask-sensitive-token (:token result))})
-
-          {:status 0
-           :entity-type :session
-           :data result}))
-      (catch Exception e
-        (add-cli-breadcrumb error-reporter command-info :error {:error-message (.getMessage e)})
-        (throw e)))))
+(defn execute-session-validate-v2
+  "Execute session validate command using interceptor pipeline."
+  [service error-reporter opts]
+  (let [context (create-cli-interceptor-context
+                 :session-validate
+                 service
+                 []
+                 opts)
+        pipeline (user-interceptors/create-session-validation-pipeline :cli)
+        result-context (interceptor/run-pipeline context pipeline)]
+    (:response result-context)))
 
 (defn execute-session-invalidate
-  "Execute session invalidate command."
+  "Execute session invalidate command using interceptor pipeline."
   [service error-reporter opts]
-  (let [command-info {:domain :session :verb :invalidate :opts (update opts :token mask-sensitive-token)}]
-    (add-cli-breadcrumb error-reporter command-info :start)
-    (try
-      (let [{:keys [token]} opts]
-        (when-not token
-          (add-validation-breadcrumb error-reporter "invalidate-session-arguments"
-                                     {:missing-fields [:token]
-                                      :provided-fields (keys (select-keys opts [:token]))})
-          (throw (ex-info "Missing required argument"
-                          {:type :validation-error
-                           :message "Required: --token"})))
-
-        (add-user-operation-breadcrumb error-reporter "invalidate-session" nil nil :start
-                                       {:session-token (mask-sensitive-token token)})
-
-        (let [result (ports/logout-user service token)]
-          (if result
-            (do
-              (add-user-operation-breadcrumb error-reporter "invalidate-session" nil nil :success
-                                             {:session-token (mask-sensitive-token token)})
-              (add-cli-breadcrumb error-reporter command-info :success
-                                  {:session-token (mask-sensitive-token token) :action "invalidated"})
-              {:status 0
-               :message "Session invalidated successfully"})
-            (do
-              (add-user-operation-breadcrumb error-reporter "invalidate-session" nil nil :error
-                                             {:session-token (mask-sensitive-token token) :error "not-found"})
-              (add-cli-breadcrumb error-reporter command-info :error
-                                  {:session-token (mask-sensitive-token token) :error "not-found"})
-              (throw (ex-info "Session not found"
-                              {:type :session-not-found
-                               :message (str "No session found with token: " token)}))))))
-      (catch Exception e
-        (add-cli-breadcrumb error-reporter command-info :error {:error-message (.getMessage e)})
-        (throw e)))))
+  (let [context (create-cli-interceptor-context
+                 :session-invalidate
+                 service
+                 []
+                 opts)
+        pipeline (user-interceptors/create-session-invalidation-pipeline :cli)
+        result-context (interceptor/run-pipeline context pipeline)]
+    (:response result-context)))
 
 (defn execute-session-list
-  "Execute session list command."
+  "Execute session list command - NOT IMPLEMENTED"
   [service error-reporter opts]
-  (let [command-info {:domain :session :verb :list :opts opts}]
-    (add-cli-breadcrumb error-reporter command-info :start)
-    (try
-      (let [{:keys [user-id]} opts]
-        (when-not user-id
-          (add-validation-breadcrumb error-reporter "list-sessions-arguments"
-                                     {:missing-fields [:user-id]
-                                      :provided-fields (keys (select-keys opts [:user-id]))})
-          (throw (ex-info "Missing required argument"
-                          {:type :validation-error
-                           :message "Required: --user-id"})))
-
-        (add-user-operation-breadcrumb error-reporter "list-sessions" user-id nil :start {:user-id user-id})
-
-        (let [sessions (.find-sessions-by-user (get service :session-repository service) user-id)]
-
-          (add-user-operation-breadcrumb error-reporter "list-sessions" user-id nil :success
-                                         {:user-id user-id :session-count (count sessions)})
-          (add-cli-breadcrumb error-reporter command-info :success
-                              {:user-id user-id :session-count (count sessions)})
-
-          {:status 0
-           :entity-type :session-list
-           :data sessions}))
-      (catch Exception e
-        (add-cli-breadcrumb error-reporter command-info :error {:error-message (.getMessage e)})
-        (throw e)))))
+  ;; TODO: Implement session list functionality
+  ;; This would require:
+  ;; 1. Creating session list interceptors in user-interceptors.clj
+  ;; 2. Implementing session list functionality in the service layer
+  ;; 3. Adding appropriate business logic in core layer
+  {:status 501
+   :body "Session list functionality not yet implemented"})
 
 ;; =============================================================================
 ;; Command Dispatch
 ;; =============================================================================
 
 (defn dispatch-command
-  "Dispatch command to appropriate executor.
+  "Dispatch command to appropriate executor using interceptor pipeline.
 
    Args:
      domain: :user or :session
      verb: :create, :list, :find, :update, :delete, :invalidate
      opts: Parsed command options
      service: User service instance
-     error-reporter: IErrorContext instance from service
 
    Returns:
      Map with :status, :entity-type, :data, or :message"
-  [domain verb opts service error-reporter]
+  [domain verb opts service]
   (case domain
     :user (case verb
-            :create (execute-user-create service error-reporter opts)
-            :list (execute-user-list service error-reporter opts)
-            :find (execute-user-find service error-reporter opts)
-            :update (execute-user-update service error-reporter opts)
-            :delete (execute-user-delete service error-reporter opts)
+            :create (execute-user-create service nil opts)
+            :list (execute-user-list service nil opts)
+            :find (execute-user-get service nil opts) ; Note: find -> get mapping
+            :update (execute-user-update service nil opts)
+            :delete (execute-user-delete service nil opts)
             (throw (ex-info (str "Unknown user command: " (name verb))
                             {:type :unknown-command
                              :message (str "Unknown command: user " (name verb))})))
     :session (case verb
-               :create (execute-session-create service error-reporter opts)
-               :invalidate (execute-session-invalidate service error-reporter opts)
-               :list (execute-session-list service error-reporter opts)
+               :create (execute-session-create service nil opts)
+               :invalidate (execute-session-invalidate service nil opts)
+               :list (execute-session-list service nil opts) ; Note: needs implementing
                (throw (ex-info (str "Unknown session command: " (name verb))
                                {:type :unknown-command
                                 :message (str "Unknown command: session " (name verb))})))
@@ -839,135 +587,117 @@ Examples:
    Side effects:
      Prints to stdout/stderr based on command and format"
   [service args]
-  (let [error-reporter (:error-reporter service)]
-    (try
-      (if (empty? args)
-        (do
-          (println root-help)
-          0)
-        (let [;; Parse to extract domain and verb (skip option flags and their values)
-              ;; We need to skip pairs like ["--format" "json"] and ["--help"]
-              parsed-for-domain (cli/parse-opts args global-options :in-order true)
-              global-errors (:errors parsed-for-domain)
-              domain-args (:arguments parsed-for-domain)
-              [domain-str verb-str] domain-args
-              domain (when domain-str (keyword domain-str))
-              verb (when verb-str (keyword verb-str))
+  (try
+    (if (empty? args)
+      (do
+        (println root-help)
+        0)
+      (let [;; Parse to extract domain and verb (skip option flags and their values)
+            ;; We need to skip pairs like ["--format" "json"] and ["--help"]
+            parsed-for-domain (cli/parse-opts args global-options :in-order true)
+            global-errors (:errors parsed-for-domain)
+            domain-args (:arguments parsed-for-domain)
+            [domain-str verb-str] domain-args
+            domain (when domain-str (keyword domain-str))
+            verb (when verb-str (keyword verb-str))
 
-              ;; Check for help flags early
-              has-help-flag? (or (:help (:options parsed-for-domain))
-                                 (some #(= % "--help") args))
-              help-as-verb? (= verb-str "--help")]
+            ;; Check for help flags early
+            has-help-flag? (or (:help (:options parsed-for-domain))
+                               (some #(= % "--help") args))
+            help-as-verb? (= verb-str "--help")]
 
-          ;; Add CLI session breadcrumb
-          (when (and domain verb)
-            (add-cli-breadcrumb error-reporter {:domain domain :verb verb :opts {}} :start))
+        ;; Check for global option errors first (e.g., invalid --format value)
+        (if (seq global-errors)
+          (do
+            (binding [*out* *err*]
+              (println (format-error :table
+                                     {:type :parse-error
+                                      :message "Invalid arguments"
+                                      :details (str/join ", " global-errors)})))
+            1)
+          ;; Otherwise continue with help and command dispatch
+          (cond
+          ;; Global --help or no domain
+            (and has-help-flag? (nil? domain))
+            (do (println root-help) 0)
 
-          ;; Check for global option errors first (e.g., invalid --format value)
-          (if (seq global-errors)
-            (do
-              (when (and domain verb)
-                (add-cli-breadcrumb error-reporter {:domain domain :verb verb :opts {}} :error
-                                    {:error "parse-error" :details (str/join ", " global-errors)}))
-              (binding [*out* *err*]
-                (println (format-error :table
-                                       {:type :parse-error
-                                        :message "Invalid arguments"
-                                        :details (str/join ", " global-errors)})))
-              1)
-            ;; Otherwise continue with help and command dispatch
-            (cond
-            ;; Global --help or no domain
-              (and has-help-flag? (nil? domain))
-              (do (println root-help) 0)
+          ;; Domain-level --help: user --help or user create --help
+            (and (= domain :user) (or help-as-verb? has-help-flag?))
+            (do (println user-help) 0)
 
-            ;; Domain-level --help: user --help or user create --help
-              (and (= domain :user) (or help-as-verb? has-help-flag?))
-              (do (println user-help) 0)
+            (and (= domain :session) (or help-as-verb? has-help-flag?))
+            (do (println session-help) 0)
 
-              (and (= domain :session) (or help-as-verb? has-help-flag?))
-              (do (println session-help) 0)
+          ;; Legacy: domain help verb
+            (and (= domain :user) (= verb :help))
+            (do (println user-help) 0)
 
-            ;; Legacy: domain help verb
-              (and (= domain :user) (= verb :help))
-              (do (println user-help) 0)
+            (and (= domain :session) (= verb :help))
+            (do (println session-help) 0)
 
-              (and (= domain :session) (= verb :help))
-              (do (println session-help) 0)
+          ;; Execute command - parse options now
+            (and domain verb)
+            (let [;; Get all args after domain and verb
+                  domain-verb-count 2
+                  remaining-args (vec (drop domain-verb-count args))
 
-            ;; Execute command - parse options now
-              (and domain verb)
-              (let [;; Get all args after domain and verb
-                    domain-verb-count 2
-                    remaining-args (vec (drop domain-verb-count args))
+                 ;; Get command-specific options
+                  cmd-options (case domain
+                                :user (case verb
+                                        :create user-create-options
+                                        :list user-list-options
+                                        :find user-find-options
+                                        :update user-update-options
+                                        :delete user-delete-options
+                                        nil)
+                                :session (case verb
+                                           :create session-create-options
+                                           :invalidate session-invalidate-options
+                                           :list session-list-options
+                                           nil)
+                                nil)]
+              (if-not cmd-options
+                (do
+                  (binding [*out* *err*]
+                    (println (format-error :table
+                                           {:type :unknown-command
+                                            :message (str "Unknown command: " domain-str " " verb-str)})))
+                  1)
+                (let [;; Merge global options with command options
+                      all-options (into global-options cmd-options)
+                     ;; Parse with merged options
+                      parsed (cli/parse-opts remaining-args all-options)
+                      opts (:options parsed)
+                      errors (:errors parsed)
+                      format-type (keyword (get opts :format "table"))]
+                  (if errors
+                    (do
+                      (binding [*out* *err*]
+                        (println (format-error format-type
+                                               {:type :parse-error
+                                                :message "Invalid arguments"
+                                                :details (str/join ", " errors)})))
+                      1)
+                    (let [result (dispatch-command domain verb opts service)]
+                      (if (:message result)
+                        (println (:message result))
+                        (println (format-success format-type
+                                                 (:entity-type result)
+                                                 (:data result))))
+                      (:status result))))))
 
-                   ;; Get command-specific options
-                    cmd-options (case domain
-                                  :user (case verb
-                                          :create user-create-options
-                                          :list user-list-options
-                                          :find user-find-options
-                                          :update user-update-options
-                                          :delete user-delete-options
-                                          nil)
-                                  :session (case verb
-                                             :create session-create-options
-                                             :invalidate session-invalidate-options
-                                             :list session-list-options
-                                             nil)
-                                  nil)]
-                (if-not cmd-options
-                  (do
-                    (add-cli-breadcrumb error-reporter {:domain domain :verb verb :opts {}} :error
-                                        {:error "unknown-command" :domain-str domain-str :verb-str verb-str})
-                    (binding [*out* *err*]
-                      (println (format-error :table
-                                             {:type :unknown-command
-                                              :message (str "Unknown command: " domain-str " " verb-str)})))
-                    1)
-                  (let [;; Merge global options with command options
-                        all-options (into global-options cmd-options)
-                       ;; Parse with merged options
-                        parsed (cli/parse-opts remaining-args all-options)
-                        opts (:options parsed)
-                        errors (:errors parsed)
-                        format-type (keyword (get opts :format "table"))]
-                    (if errors
-                      (do
-                        (add-cli-breadcrumb error-reporter {:domain domain :verb verb :opts opts} :error
-                                            {:error "parse-error" :details (str/join ", " errors)})
-                        (binding [*out* *err*]
-                          (println (format-error format-type
-                                                 {:type :parse-error
-                                                  :message "Invalid arguments"
-                                                  :details (str/join ", " errors)})))
-                        1)
-                      (let [result (dispatch-command domain verb opts service error-reporter)]
-                        (if (:message result)
-                          (println (:message result))
-                          (println (format-success format-type
-                                                   (:entity-type result)
-                                                   (:data result))))
-                        (:status result))))))
+            :else
+            (do (println root-help) 0)))))
 
-              :else
-              (do (println root-help) 0)))))
-
-      (catch Exception e
-        (let [ex-data (ex-data e)
-              format-type (or (try (keyword (get-in (cli/parse-opts args global-options)
-                                                    [:options :format]))
-                                   (catch Exception _ :table))
-                              :table)
-              error-data {:type (or (:type ex-data) :error)
-                          :message (.getMessage e)
-                          :details (dissoc ex-data :type)}]
-          (log/error "CLI command failed" {:error (.getMessage e) :data ex-data})
-          ;; Add top-level error breadcrumb
-          (error-reporting/add-breadcrumb error-reporter "CLI execution failed" "cli" :error
-                                          {:error-type (or (:type ex-data) :error)
-                                           :error-message (.getMessage e)
-                                           :source "cli-top-level"})
-          (binding [*out* *err*]
-            (println (format-error format-type error-data)))
-          1)))))
+    (catch Exception e
+      (let [ex-data (ex-data e)
+            format-type (or (try (keyword (get-in (cli/parse-opts args global-options)
+                                                  [:options :format]))
+                                 (catch Exception _ :table))
+                            :table)
+            error-data {:type (or (:type ex-data) :error)
+                        :message (.getMessage e)
+                        :details (dissoc ex-data :type)}]
+        (binding [*out* *err*]
+          (println (format-error format-type error-data)))
+        1))))

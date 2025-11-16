@@ -92,9 +92,9 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/user-service
-  [_ {:keys [user-repository session-repository logger metrics error-reporting]}]
+  [_ {:keys [user-repository session-repository]}]
   (log/info "Initializing user service")
-  (let [service (user-service/create-user-service user-repository session-repository logger metrics error-reporting)]
+  (let [service (user-service/create-user-service user-repository session-repository)]
     (log/info "User service initialized")
     service))
 

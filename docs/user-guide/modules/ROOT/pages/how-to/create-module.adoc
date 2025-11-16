@@ -115,12 +115,26 @@ Create `src/boundary/billing/core/billing.clj`:
 
 Create `src/boundary/billing/shell/service.clj`:
 
+[IMPORTANT]
+====
+**🎯 Observability Integration**
+
+Boundary's **multi-layer interceptor pattern** automatically handles observability for service layers. Your service functions remain pure and focused on business logic while interceptors handle logging, metrics, and error reporting.
+
+**No manual observability integration required** - interceptors automatically provide:
+- Entry/exit logging with correlation IDs
+- Success/failure metrics tracking
+- Exception reporting with rich context
+- Performance timing histograms
+====
+
 [source,clojure]
 ----
 (ns boundary.billing.shell.service
   "Billing service orchestration.
   
-  This is the IMPERATIVE SHELL - coordinates I/O and calls core logic."
+  This is the IMPERATIVE SHELL - coordinates I/O and calls core logic.
+  Interceptors automatically handle observability integration."
   (:require [boundary.billing.core.billing :as billing-core]
             [boundary.billing.ports :as ports]))
 
@@ -128,6 +142,13 @@ Create `src/boundary/billing/shell/service.clj`:
   ports/IInvoiceService
   
   (create-invoice [_ invoice-data]
+    ;; Pure business logic - interceptors handle observability automatically:
+    ;; - Logs "create-invoice" entry with correlation ID and tenant context
+    ;; - Tracks "billing-operations-attempted" metric
+    ;; - Times operation in "billing-operation-duration" histogram
+    ;; - Reports any exceptions with full context
+    ;; - Logs business event on success
+    ;; - Updates "billing-operations-successful/failed" counters
     (let [validation (billing-core/validate-invoice-data invoice-data)]
       (when-not (:valid? validation)
         (throw (ex-info "Invalid invoice" validation)))
@@ -144,9 +165,25 @@ Create `src/boundary/billing/shell/service.clj`:
 
 Create `src/boundary/billing/shell/persistence.clj`:
 
+[IMPORTANT]
+====
+**🎯 Persistence Layer Observability**
+
+Boundary's **persistence layer interceptors** automatically handle database observability. Your persistence functions remain pure data access code while interceptors handle database performance tracking, connection monitoring, and error reporting.
+
+**Automatic database observability includes:**
+- Query execution timing
+- Connection pool metrics
+- Query logging with sanitized parameters
+- Database exception reporting
+====
+
 [source,clojure]
 ----
 (ns boundary.billing.shell.persistence
+  "Billing persistence operations.
+  
+  Interceptors automatically handle database observability."
   (:require [boundary.billing.ports :as ports]
             [boundary.shell.adapters.database.common.core :as db]))
 
@@ -154,6 +191,11 @@ Create `src/boundary/billing/shell/persistence.clj`:
   ports/IInvoiceRepository
   
   (find-invoice-by-id [_ invoice-id]
+    ;; Pure data access - interceptors handle observability automatically:
+    ;; - Times database query execution
+    ;; - Logs query with sanitized parameters
+    ;; - Tracks connection pool metrics
+    ;; - Reports database exceptions with context
     (let [query {:select [:*]
                  :from [:invoices]
                  :where [:= :id (str invoice-id)]}
@@ -162,6 +204,7 @@ Create `src/boundary/billing/shell/persistence.clj`:
         (db-record->invoice-entity result))))
   
   (create-invoice [_ invoice-entity]
+    ;; Pure data access - interceptors handle observability automatically
     (let [with-id (assoc invoice-entity :id (java.util.UUID/randomUUID))
           query {:insert-into :invoices
                  :values [(invoice-entity->db-record with-id)]}]

@@ -44,11 +44,26 @@ Add protocol to `src/boundary/<module>/ports.clj`:
 
 Add to `src/boundary/<module>/shell/service.clj`:
 
+[IMPORTANT]
+====
+**🎯 Automatic Observability via Interceptors**
+
+With Boundary's **multi-layer interceptor pattern**, your service functions automatically receive comprehensive observability integration without any manual instrumentation. Focus on pure business logic - interceptors handle the observability concerns.
+====
+
 [source,clojure]
 ----
 (defn create-profile
-  "Create user profile."
+  "Create user profile.
+  
+  Interceptors automatically handle:
+  - Entry/exit logging with correlation context
+  - Success/failure metrics (profile-operations-attempted/successful/failed)
+  - Performance timing (profile-operation-duration histogram)
+  - Exception reporting with rich context
+  - Business event logging (profile-created)"
   [service profile-data]
+  ;; Pure business logic - no observability boilerplate needed
   (let [validation (validate-profile-data profile-data)]
     (when-not (:valid? validation)
       (throw (ex-info "Invalid profile data" validation)))
@@ -60,12 +75,24 @@ Add to `src/boundary/<module>/shell/service.clj`:
 
 Add adapter to `src/boundary/<module>/shell/persistence.clj`:
 
+[IMPORTANT]
+====
+**🎯 Database Layer Observability**
+
+Boundary's **persistence layer interceptors** automatically provide comprehensive database observability. Your persistence functions remain pure data access code while interceptors handle performance monitoring, connection tracking, and error reporting.
+====
+
 [source,clojure]
 ----
 (defrecord DatabaseProfileRepository [ctx]
   ports/IProfileRepository
   
   (find-profile-by-user-id [_ user-id]
+    ;; Pure data access - interceptors automatically provide:
+    ;; - Query execution timing
+    ;; - Connection pool metrics  
+    ;; - Query logging with parameter sanitization
+    ;; - Database exception reporting
     (let [query {:select [:*]
                  :from [:profiles]
                  :where [:= :user_id (str user-id)]}
@@ -74,6 +101,7 @@ Add adapter to `src/boundary/<module>/shell/persistence.clj`:
         (db-record->profile-entity result))))
   
   (create-profile [_ profile-entity]
+    ;; Pure data access - interceptors handle all database observability
     (let [with-id (assoc profile-entity :id (UUID/randomUUID))
           query {:insert-into :profiles
                  :values [(profile-entity->db-record with-id)]}]
