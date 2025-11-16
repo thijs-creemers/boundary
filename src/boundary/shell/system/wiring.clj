@@ -23,12 +23,11 @@
      (def system (ig/init cfg))
      (ig/halt! system)"
   (:require [boundary.shell.adapters.database.factory :as db-factory]
-            [boundary.user.shell.persistence :as user-persistence]
-            [boundary.user.shell.service :as user-service]
             [boundary.logging.shell.adapters.no-op :as logging-no-op]
             [boundary.metrics.shell.adapters.no-op :as metrics-no-op]
             [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
             [boundary.error-reporting.shell.adapters.sentry :as error-reporting-sentry]
+            [boundary.shell.modules :as modules]
             [boundary.shell.utils.port-manager :as port-manager]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]
@@ -42,11 +41,6 @@
   [_ config]
   (log/info "Initializing database context" {:adapter (:adapter config)})
   (let [ctx (db-factory/db-context config)]
-
-    ;; Initialize user module schema
-    (log/info "Initializing user module database schema")
-    (user-persistence/initialize-user-schema! ctx)
-
     (log/info "Database context initialized successfully"
               {:adapter (:adapter config)})
     ctx))
@@ -58,61 +52,25 @@
   (log/info "Database context halted"))
 
 ;; =============================================================================
-;; User Repository
+;; User and Session Repositories
+;;
+;; NOTE: The actual Integrant wiring for :boundary/user-repository and
+;; :boundary/session-repository lives in
+;; `boundary.user.shell.module-wiring` to avoid system wiring depending
+;; directly on user shell namespaces.
 ;; =============================================================================
-
-(defmethod ig/init-key :boundary/user-repository
-  [_ {:keys [ctx]}]
-  (log/info "Initializing user repository")
-  (let [repo (user-persistence/create-user-repository ctx)]
-    (log/info "User repository initialized")
-    repo))
-
-(defmethod ig/halt-key! :boundary/user-repository
-  [_ _repo]
-  (log/info "User repository halted (no cleanup needed)"))
-
-;; =============================================================================
-;; Session Repository
-;; =============================================================================
-
-(defmethod ig/init-key :boundary/session-repository
-  [_ {:keys [ctx]}]
-  (log/info "Initializing session repository")
-  (let [repo (user-persistence/create-session-repository ctx)]
-    (log/info "Session repository initialized")
-    repo))
-
-(defmethod ig/halt-key! :boundary/session-repository
-  [_ _repo]
-  (log/info "Session repository halted (no cleanup needed)"))
-
-;; =============================================================================
-;; User Service
-;; =============================================================================
-
-(defmethod ig/init-key :boundary/user-service
-  [_ {:keys [user-repository session-repository]}]
-  (log/info "Initializing user service")
-  (let [service (user-service/create-user-service user-repository session-repository)]
-    (log/info "User service initialized")
-    service))
-
-(defmethod ig/halt-key! :boundary/user-service
-  [_ _service]
-  (log/info "User service halted (no cleanup needed)"))
 
 ;; =============================================================================
 ;; HTTP Handler
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-service config]}]
-  (log/info "Initializing HTTP handler with Reitit router")
-  (let [_user-http (require 'boundary.user.shell.http)
-        create-handler (ns-resolve 'boundary.user.shell.http 'create-handler)
-        handler (create-handler user-service (or config {}))]
-    (log/info "HTTP handler initialized successfully")
+  [_ {:keys [config user-http-handler]}]
+  (log/info "Initializing top-level HTTP handler from module handlers")
+  (let [enabled (modules/enabled-modules config)
+        handlers (cond-> {}
+                   user-http-handler (assoc :user user-http-handler))
+        handler (modules/compose-http-handlers enabled handlers)]
     handler))
 
 (defmethod ig/halt-key! :boundary/http-handler

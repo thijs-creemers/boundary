@@ -1,71 +1,24 @@
 (ns boundary.cli
   "Main CLI entry point for Boundary framework.
    
-   Provides command-line interface for all modules.
-   Currently supports user and session management."
+   Provides command-line interface for enabled modules.
+   Currently only the user module is wired, but selection is driven by config."
   (:require [boundary.config :as config]
-            [boundary.shell.adapters.database.config :as db-config]
-            [boundary.user.shell.cli :as user-cli]
-            [boundary.user.shell.persistence :as user-persistence]
-            [boundary.user.shell.service :as user-service]
-            [boundary.shell.adapters.database.factory :as db-factory]
-            [boundary.logging.shell.adapters.no-op :as no-op-logging]
-            [boundary.metrics.shell.adapters.no-op :as no-op-metrics]
-            [boundary.error-reporting.shell.adapters.no-op :as no-op-error-reporting]
+            [boundary.shell.modules :as modules]
+            [boundary.user.shell.cli-entry :as user-cli-entry]
             [clojure.tools.logging :as log])
   (:gen-class))
 
 (defn -main
   "CLI main entry point.
    
-   Loads system configuration, initializes services, and dispatches CLI commands."
+   Delegates to the appropriate module CLI implementation(s) based on
+   configuration and exits with the returned status code."
   [& args]
-  (let [exit-status (atom 1)]
-    (try
-      (log/info "Starting Boundary CLI" {:args args})
-
-      ;; Load configuration
-      (let [config (config/load-config)
-
-            ;; Get database config and convert to factory format
-            sqlite-config (get-in config [:active :boundary/sqlite])
-            db-config (db-config/config->db-config :boundary/sqlite sqlite-config)
-            db-ctx (db-factory/db-context db-config)]
-
-        (try
-          ;; Initialize database schema
-          (user-persistence/initialize-user-schema! db-ctx)
-
-          ;; Create repositories
-          (let [user-repo (user-persistence/create-user-repository db-ctx)
-                session-repo (user-persistence/create-session-repository db-ctx)
-
-                ;; Create no-op observability services for CLI
-                logger (no-op-logging/create-no-op-logger nil)
-                metrics (no-op-metrics/create-metrics-emitter nil)
-                error-reporter (no-op-error-reporting/create-error-reporter nil)
-
-                ;; Create user service
-                user-service (user-service/create-user-service user-repo session-repo logger metrics error-reporter)
-
-                ;; Dispatch CLI commands and capture exit status
-                status (user-cli/run-cli! user-service args)]
-
-            (reset! exit-status status))
-
-          (finally
-            ;; Always close database connections
-            (when-let [datasource (:datasource db-ctx)]
-              (try
-                (.close datasource)
-                (catch Exception e
-                  (log/warn "Failed to close database connection" {:error (.getMessage e)})))))))
-
-      (catch Exception e
-        (log/error "CLI execution failed" {:error (.getMessage e)})
-        (binding [*out* *err*]
-          (println "Fatal error:" (.getMessage e)))
-        (reset! exit-status 1))
-
-      (finally
-        (System/exit @exit-status)))))
+  (log/info "Starting Boundary CLI" {:args args})
+  (let [cfg (config/load-config)
+        enabled (modules/enabled-modules cfg)
+        ;; Map of module keyword to its CLI runner function
+        module->runner {:user user-cli-entry/run!}
+        status (modules/dispatch-cli enabled module->runner args)]
+    (System/exit status)))

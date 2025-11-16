@@ -62,18 +62,22 @@ The framework supports multiple interaction modes to serve different stakeholder
 
 ==== Goals
 
-* **Architectural Clarity**: Enforce clear separation between functional core and imperative shell
-* **Developer Experience**: Provide excellent tooling, documentation, and examples for rapid development
-* **Multi-Interface Consistency**: Ensure consistent behavior across REST, CLI, and Web interfaces
-* **Domain Agnostic**: Support multiple business domains through extensible patterns
-* **Production Ready**: Include observability, error handling, and operational tooling
+* **Architectural Clarity**: Enforce clear separation between functional core and imperative shell.
+* **Developer Experience**: Provide excellent tooling, documentation, and examples for rapid development.
+* **Strict Module Isolation**: Prevent modules from leaking into other modules or the core system; cross-module access is only via explicit ports or messaging interfaces.
+* **Independent Module Execution**: Each module can start, run, and deliver value even when other modules are disabled or not deployed, degrading gracefully when dependencies are unavailable.
+* **Multi-Interface Consistency**: Ensure consistent behavior across REST, CLI, and Web interfaces.
+* **Domain-Agnostic Extensibility**: Support multiple business domains through extensible, module-centric patterns.
+* **Production Readiness**: Include observability, error handling, and operational tooling suitable for staging and production.
 
 ==== Non-Goals
 
-* **Multi-tenancy Runtime Support**: Framework provides preparation but not active multi-tenant features
-* **Mobile/Desktop Clients**: Focus on web-based and server-side interfaces only for the initial release
-* **Specific Domain Logic**: Framework provides patterns, not domain-specific implementations
-* **Authentication Provider**: Framework supports auth patterns but doesn't include specific providers
+* **Multi-tenancy Runtime Support**: The framework provides preparation patterns but not active multi-tenant runtime features.
+* **Mobile/Desktop Clients**: Focus on web-based and server-side interfaces only for the initial release.
+* **Specific Domain Logic**: The framework provides patterns and infrastructure, not domain-specific implementations.
+* **Authentication Provider Implementations**: The framework supports auth patterns but does not ship specific providers.
+* **Direct Cross-Module Coupling**: Direct requires of another module's core, shell, schema, persistence, HTTP, CLI, or test namespaces are out of scope and not supported.
+* **Shared Domain Schemas**: Reusing one module's Malli schemas or database tables directly from another module or from the core is explicitly not supported.
 
 [[guiding-principles]]
 === Guiding Principles of Functional Core and Imperative Shell
@@ -686,11 +690,47 @@ src/boundary/
 
 **Benefits of Module Ownership:**
 
-* **Team Autonomy**: Each team owns a complete vertical slice
-* **Independent Evolution**: Modules can be versioned and deployed independently
-* **Simplified Reasoning**: All related code co-located within module boundaries
-* **Feature Flagging**: Entire modules can be enabled/disabled via configuration
-* **Testing Isolation**: Complete module functionality can be tested independently
+* **Team Autonomy**: Each team owns a complete vertical slice.
+* **Independent Evolution**: Modules can be versioned and deployed independently.
+* **Simplified Reasoning**: All related code co-located within module boundaries.
+* **Feature Flagging**: Entire modules can be enabled/disabled via configuration.
+* **Testing Isolation**: Complete module functionality can be tested independently.
+
+[[module-isolation-contract]]
+==== Module Isolation Contract
+
+The module-centric architecture enforces strict isolation between modules and between modules and the core platform:
+
+* **Allowed cross-module dependencies**
+** A module may require its own namespaces: `boundary.<module>.**`.
+** A module may require shared utilities: `boundary.shared.**`.
+** A module may require other modules' **ports namespaces only**: `boundary.<other-module>.ports`.
+** A module may depend on core messaging interfaces (for events) provided by the framework.
+
+* **Forbidden cross-module dependencies**
+** A module must not require another module's `core`, `shell`, `schema`, `persistence`, `http`, `cli`, or test namespaces.
+** The core system (shared shell, configuration, messaging, etc.) must not require any module-specific namespaces.
+** Modules must not import or reuse another module's Malli schemas or database tables directly.
+
+* **Independent execution requirement**
+** Removing or disabling a module must not prevent other modules from starting, exposing their own interfaces, and reporting clear "dependency unavailable" errors where cross-module calls would occur.
+
+These rules are enforced through code review and will be backed by `clj-kondo`-based boundary checks in CI.
+
+==== Ways of Working
+
+* When a module needs data or behavior from another module, define or use a port in the providing module or an event published on the core messaging interface.
+* Never require another module's `core`, `shell`, `schema`, `persistence`, `http`, `cli`, or test namespaces; use ports or events instead.
+* Keep each module independently bootable by providing no-op or stub implementations for optional dependencies and gating features with module-level feature flags.
+* Use `boundary.shared.*` only for generic, domain-agnostic utilities; do not move domain logic there.
+* Use `clj-kondo` with the Boundary boundary rules in CI to catch accidental module boundary violations early.
+
+==== Enforcement (clj-kondo and CI)
+
+* **Local development**: `clj-kondo` is configured to lint all `src` and `test` namespaces and to flag disallowed cross-module requires as errors.
+* **Boundary check**: a small boundary-check step processes `clj-kondo` analysis output to enforce the allowed/forbidden dependency rules defined in this PRD.
+* **Continuous Integration**: CI runs `clj-kondo` and the boundary-check; any violation (for example, one module requiring another module's `schema` namespace) fails the build.
+* **Code review**: reviewers treat boundary violations as blocking issues and use this document as the source of truth for what is allowed.
 
 **Strategic Framework Vision**
 
@@ -1351,10 +1391,10 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
 
 ==== Interface-Specific Validation
 
-**HTTP API Validation** (`boundary.shell.interfaces.http.validation`):
+**HTTP API Validation** (`boundary.user.shell.http.validation`):
 [source,clojure]
 ----
-(ns boundary.shell.interfaces.http.validation
+(ns boundary.user.shell.http.validation
   (:require [boundary.shared.shell.validation :as validation]
             [boundary.user.schema :as user-schema]
             [ring.util.response :as response]))
@@ -1379,10 +1419,10 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
                           (response/content-type "application/problem+json"))})))
 ----
 
-**CLI Validation** (`boundary.shell.interfaces.cli.validation`):
+**CLI Validation** (`boundary.user.shell.cli.validation`):
 [source,clojure]
 ----
-(ns boundary.shell.interfaces.cli.validation
+(ns boundary.user.shell.cli.validation
   (:require [boundary.shared.shell.validation :as validation]
             [boundary.user.schema :as user-schema]
             [malli.transform :as mt]))
@@ -1420,23 +1460,43 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
                   :exit-code 3}}))) ; INPUT_ERROR
 ----
 
-==== Cross-Module Schema Dependencies
+==== Data and Schema Boundaries
 
-Modules can reference schemas from other modules through well-defined imports:
+Boundary enforces strict data and schema ownership to keep modules independently deployable and resilient.
+
+* Each module owns its domain entities, Malli schemas, database tables, and migrations.
+* Other modules never import another module's `schema` namespace or query its tables directly.
+* Cross-module data access must go through ports (synchronous) or events (asynchronous) and local projections.
 
 [source,clojure]
 ----
-;; billing module referencing user schemas
+;; ❌ Forbidden: billing module importing user schemas
 (ns boundary.billing.schema
   (:require [boundary.user.schema :as user-schema]
             [boundary.shared.schema :as shared]))
 
-;; Invoice references User but doesn't duplicate schema
 (def InvoiceWithCustomer
   [:map {:title "Invoice with Customer Details"}
-   [:invoice Invoice]  ; Local billing schema
-   [:customer user-schema/User]  ; Reference to user module schema
-   [:tenant-context shared/TenantContext]]) ; Reference to shared schema
+   [:invoice Invoice]
+   [:customer user-schema/User]           ; ❌ leaks user module internals
+   [:tenant-context shared/TenantContext]])
+----
+
+Instead, billing defines its own DTOs or projections and obtains user information via ports or events:
+
+[source,clojure]
+----
+;; ✅ Allowed: billing module depends on a user port and its own schema
+(ns boundary.billing.core.invoice
+  (:require [boundary.billing.schema :as billing-schema]
+            [boundary.user.ports :as user-ports]))
+
+(defn enrich-invoice-with-user
+  [ports invoice]
+  (let [user (user-ports/find-user-by-id (:user-lookup ports)
+                                        (:user-id invoice))]
+    (assoc invoice :user-summary
+           (select-keys user [:id :email :name]))))
 ----
 
 ==== Schema Evolution and Versioning
@@ -1519,14 +1579,14 @@ Modules can reference schemas from other modules through well-defined imports:
       (is (= true (:active result)))     ; Converted to boolean
       (is (nil? (:extra-field result))))) ; Extra field stripped
   
-  (testing "CLI argument transformation"
+(testing "CLI argument transformation"
     (let [cli-args {:email "test@example.com"
                    :name "Test User"
                    :role "admin"
                    :active "false"}  ; String boolean from CLI
           result (m/transform schema/CreateUserCLIArgs
                              cli-args
-                             boundary.shell.interfaces.cli.validation/cli-transformer)]
+                             boundary.user.shell.cli.validation/cli-transformer)]
       (is (= false (:active result))))))  ; Converted to boolean
 ----
 

@@ -2,6 +2,7 @@
   "Integration tests for HTTP server port allocation and system startup"
   (:require [boundary.config :as config]
             [boundary.shell.system.wiring]
+            [boundary.user.shell.module-wiring]
             [boundary.shell.utils.port-manager :as port-manager]
             [clojure.test :refer [deftest testing is use-fixtures]]
             [integrant.core :as ig]
