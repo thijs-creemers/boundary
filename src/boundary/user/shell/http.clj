@@ -164,6 +164,22 @@
       ;; Return the response from context
       (:response result-context))))
 
+(defn login-handler
+  "POST /auth/login - Authenticate user with email/password using interceptor pipeline."
+  [user-service]
+  (fn [request]
+    (let [;; Create context for the operation with real observability services
+          context (create-interceptor-context :user-login user-service request)
+
+          ;; Create the interceptor pipeline for user authentication
+          pipeline (user-interceptors/create-session-creation-pipeline :http)
+
+          ;; Execute the pipeline
+          result-context (interceptor/run-pipeline context pipeline)]
+
+      ;; Return the response from context
+      (:response result-context))))
+
 (defn validate-session-handler
   "GET /api/sessions/:token - Validate session using interceptor pipeline."
   [user-service]
@@ -215,7 +231,7 @@
                      :parameters {:body [:map
                                          [:email :string]
                                          [:name :string]
-                                         [:password :string]
+                                         [:password {:optional true} :string]
                                          [:role [:enum "admin" "user" "viewer"]]
                                          [:tenantId :string]
                                          [:active {:optional true} :boolean]]}}
@@ -244,15 +260,35 @@
                            :summary "Soft delete user"
                            :tags ["users"]
                            :parameters {:path [:map [:id :string]]}}}]
+   ["/auth/login" {:post {:handler (login-handler user-service)
+                          :summary "Authenticate user with email/password"
+                          :tags ["authentication"]
+                          :parameters {:body [:map
+                                              [:email :string]
+                                              [:password :string]
+                                              [:tenantId {:optional true} :string]
+                                              [:deviceInfo {:optional true} [:map
+                                                                             [:userAgent {:optional true} :string]
+                                                                             [:ipAddress {:optional true} :string]]]]}}}]
    ["/sessions" {:post {:handler (create-session-handler user-service)
-                        :summary "Create session (login)"
+                        :summary "Create session (login by user ID)"
                         :tags ["sessions"]
-                        :parameters {:body [:map
-                                            [:userId :string]
-                                            [:tenantId :string]
-                                            [:deviceInfo {:optional true} [:map
-                                                                           [:userAgent {:optional true} :string]
-                                                                           [:ipAddress {:optional true} :string]]]]}}}]
+                        :parameters {:body [:or
+                                            ;; Traditional user ID based session creation
+                                            [:map
+                                             [:userId :string]
+                                             [:tenantId :string]
+                                             [:deviceInfo {:optional true} [:map
+                                                                            [:userAgent {:optional true} :string]
+                                                                            [:ipAddress {:optional true} :string]]]]
+                                            ;; Email/password authentication
+                                            [:map
+                                             [:email :string]
+                                             [:password :string]
+                                             [:tenantId {:optional true} :string]
+                                             [:deviceInfo {:optional true} [:map
+                                                                            [:userAgent {:optional true} :string]
+                                                                            [:ipAddress {:optional true} :string]]]]]}}}]
    ["/sessions/:token" {:get {:handler (validate-session-handler user-service)
                               :summary "Validate session"
                               :tags ["sessions"]

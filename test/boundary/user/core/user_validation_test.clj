@@ -23,7 +23,8 @@
   {:email "test@example.com"
    :name "Test User"
    :role :user
-   :tenant-id valid-tenant-id})
+   :tenant-id valid-tenant-id
+   :password "test-password-123"})
 
 ;; =============================================================================
 ;; Email Validation Tests
@@ -277,7 +278,8 @@
                          :role :admin
                          :active true
                          :tenant-id valid-tenant-id
-                         :send-welcome true}
+                         :send-welcome true
+                         :password "secure-password-123"}
           validation-result (user-core/validate-user-creation-request valid-request vh/test-validation-config)]
       (is (:valid? validation-result)
           "Complete valid request should pass validation")

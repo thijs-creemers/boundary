@@ -15,8 +15,8 @@
 (def validate-user-creation-input
   "Validates required fields for user creation.
    
-   HTTP: Validates request body has email, name, role, tenantId
-   CLI: Validates opts has email, name, role, tenant-id
+   HTTP: Validates request body has email, name, role, tenantId, and optionally password
+   CLI: Validates opts has email, name, role, tenant-id, and optionally password
    
    On validation error, adds validation details to context and throws."
   {:name ::validate-user-creation-input
@@ -30,6 +30,9 @@
               (let [required-fields (case interface-type
                                       :http [:email :name :role :tenantId]
                                       :cli [:email :name :role :tenant-id])
+                    optional-fields (case interface-type
+                                      :http [:password]
+                                      :cli [:password])
                     missing-fields (remove #(get input-data %) required-fields)]
 
                 (if (seq missing-fields)
@@ -47,7 +50,9 @@
                   ;; Validation passed
                   (ctx/add-breadcrumb context :validation :user-create-input-valid
                                       {:required-fields required-fields
-                                       :provided-fields (keys input-data)})))))})
+                                       :optional-fields optional-fields
+                                       :provided-fields (keys input-data)
+                                       :has-password (some? (:password input-data))})))))})
 
 (def transform-user-creation-data
   "Transforms and normalizes user creation input data.
@@ -74,6 +79,7 @@
 
                               :cli {:email (:email raw-input)
                                     :name (:name raw-input)
+                                    :password (:password raw-input)
                                     :role (keyword (:role raw-input))
                                     :tenant-id (:tenant-id raw-input) ; Already UUID from CLI parsing
                                     :active (:active raw-input)})]
@@ -85,7 +91,8 @@
                                        :email (:email user-data)
                                        :role (:role user-data)
                                        :tenant-id (:tenant-id user-data)
-                                       :active (:active user-data)}))))})
+                                       :active (:active user-data)
+                                       :has-password (some? (:password user-data))}))))})
 
 (def invoke-user-registration
   "Invokes the core user registration business logic.
@@ -765,7 +772,7 @@
 (def validate-session-creation-input
   "Validates input for creating a session (login).
    
-   HTTP: Validates body has userId and tenantId
+   HTTP: Validates body has either (userId + tenantId) OR (email + password)
    CLI: Validates opts has user-id and tenant-id (or email/password for authentication)"
   {:name ::validate-session-creation-input
    :enter (fn [context]
@@ -776,52 +783,85 @@
                   ;; Extract required fields based on interface
                   [user-id-str tenant-id-str] (case interface-type
                                                 :http [(:userId input-data) (:tenantId input-data)]
-                                                :cli [(:user-id input-data) (:tenant-id input-data)])]
+                                                :cli [(:user-id input-data) (:tenant-id input-data)])
+                  [email password] [(:email input-data) (:password input-data)]]
 
               (cond
-                ;; User ID is required (HTTP specific - CLI might use email/password instead)
-                (and (= interface-type :http) (nil? user-id-str))
-                (ctx/fail-with-exception context
-                                         (ex-info "User ID is required"
-                                                  {:type :validation-error
-                                                   :field :userId
-                                                   :message "User ID is required for session creation"
-                                                   :interface-type interface-type}))
+                ;; HTTP: Must have either (userId + tenantId) OR (email + password)
+                (= interface-type :http)
+                (cond
+                  ;; Valid user ID flow
+                  (and user-id-str tenant-id-str)
+                  (-> context
+                      (assoc :raw-session-data input-data)
+                      (ctx/add-breadcrumb :operation :session-create-validation-success
+                                          {:auth-type :user-id
+                                           :user-id user-id-str
+                                           :tenant-id tenant-id-str
+                                           :interface-type interface-type}))
 
-                ;; For CLI, check if we have either user-id or email/password
-                (and (= interface-type :cli)
-                     (nil? user-id-str)
-                     (or (nil? (:email input-data)) (nil? (:password input-data))))
-                (ctx/fail-with-exception context
-                                         (ex-info "User ID or email/password is required"
-                                                  {:type :validation-error
-                                                   :field [:user-id :email :password]
-                                                   :message "Either user-id or email/password combination is required"
-                                                   :interface-type interface-type}))
+                  ;; Valid email/password flow
+                  (and email password)
+                  (-> context
+                      (assoc :raw-session-data input-data)
+                      (ctx/add-breadcrumb :operation :session-create-validation-success
+                                          {:auth-type :email-password
+                                           :email email
+                                           :tenant-id tenant-id-str ; Optional for email/password
+                                           :interface-type interface-type}))
 
-                ;; Tenant ID is required for HTTP but optional for CLI (can be inferred)
-                (and (= interface-type :http) (nil? tenant-id-str))
-                (ctx/fail-with-exception context
-                                         (ex-info "Tenant ID is required"
-                                                  {:type :validation-error
-                                                   :field :tenantId
-                                                   :message "Tenant ID is required for session creation"
-                                                   :interface-type interface-type}))
+                  ;; Invalid - missing required fields for either flow
+                  :else
+                  (ctx/fail-with-exception context
+                                           (ex-info "Invalid authentication parameters"
+                                                    {:type :validation-error
+                                                     :message "Must provide either (userId + tenantId) or (email + password)"
+                                                     :provided-fields (keys input-data)
+                                                     :interface-type interface-type})))
 
-                ;; All validations passed
+                ;; CLI: Check if we have either user-id or email/password
+                (= interface-type :cli)
+                (cond
+                  ;; Valid user ID flow
+                  (and user-id-str tenant-id-str)
+                  (-> context
+                      (assoc :raw-session-data input-data)
+                      (ctx/add-breadcrumb :operation :session-create-validation-success
+                                          {:auth-type :user-id
+                                           :user-id user-id-str
+                                           :tenant-id tenant-id-str
+                                           :interface-type interface-type}))
+
+                  ;; Valid email/password flow
+                  (and email password)
+                  (-> context
+                      (assoc :raw-session-data input-data)
+                      (ctx/add-breadcrumb :operation :session-create-validation-success
+                                          {:auth-type :email-password
+                                           :email email
+                                           :tenant-id tenant-id-str ; Optional for CLI
+                                           :interface-type interface-type}))
+
+                  ;; Invalid - missing required fields
+                  :else
+                  (ctx/fail-with-exception context
+                                           (ex-info "Invalid authentication parameters"
+                                                    {:type :validation-error
+                                                     :message "Must provide either (user-id + tenant-id) or (email + password)"
+                                                     :provided-fields (keys input-data)
+                                                     :interface-type interface-type})))
+
+                ;; Should not reach here
                 :else
-                (-> context
-                    (assoc :raw-session-data input-data)
-                    (ctx/add-breadcrumb :operation :session-create-validation-success
-                                        {:user-id user-id-str
-                                         :tenant-id tenant-id-str
-                                         :has-email (some? (:email input-data))
-                                         :interface-type interface-type})))))})
+                (ctx/fail-with-exception context
+                                         (ex-info "Unknown interface type"
+                                                  {:type :system-error
+                                                   :interface-type interface-type})))))})
 
 (def transform-session-creation-data
   "Transforms and normalizes session creation data.
    
-   HTTP: Converts userId and tenantId strings to UUIDs, extracts device info
+   HTTP: Supports both userId/tenantId and email/password flows, extracts device info
    CLI: Uses provided data, handles both user-id and email/password flows"
   {:name ::transform-session-creation-data
    :enter (fn [context]
@@ -829,10 +869,13 @@
                   body (:raw-session-data context)
 
                   session-data (case interface-type
-                                 :http {:user-id (type-conv/string->uuid (:userId body))
-                                        :tenant-id (type-conv/string->uuid (:tenantId body))
-                                        :user-agent (get-in body [:deviceInfo :userAgent])
-                                        :ip-address (get-in body [:deviceInfo :ipAddress])}
+                                 :http (cond-> {}
+                                         (:userId body) (assoc :user-id (type-conv/string->uuid (:userId body)))
+                                         (:tenantId body) (assoc :tenant-id (type-conv/string->uuid (:tenantId body)))
+                                         (:email body) (assoc :email (:email body))
+                                         (:password body) (assoc :password (:password body))
+                                         true (assoc :user-agent (get-in body [:deviceInfo :userAgent] "Unknown")
+                                                     :ip-address (get-in body [:deviceInfo :ipAddress] "Unknown")))
 
                                  :cli (cond-> {}
                                         (:user-id body) (assoc :user-id (:user-id body))
@@ -848,6 +891,7 @@
                                       {:user-id (:user-id session-data)
                                        :tenant-id (:tenant-id session-data)
                                        :has-email (some? (:email session-data))
+                                       :auth-type (if (:email session-data) :email-password :user-id)
                                        :user-agent (:user-agent session-data)
                                        :interface-type interface-type}))))})
 

@@ -38,7 +38,11 @@
            com.taoensso/telemere             {:mvn/version "1.1.0"}
 
            ;; Error reporting:
-           io.sentry/sentry-clj              {:mvn/version "8.22.236"}}
+           io.sentry/sentry-clj              {:mvn/version "8.22.236"}
+
+           ;; Authentication and security
+           buddy/buddy-hashers               {:mvn/version "2.0.167"}
+           buddy/buddy-sign                  {:mvn/version "3.6.1-359"}}
 
  :aliases {;; =============================================================================
            ;; Development and REPL aliases
