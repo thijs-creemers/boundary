@@ -37,7 +37,8 @@
   {:email "user@example.com"
    :name "Behavior Spec User"
    :role :user
-   :tenant-id (UUID/fromString "00000000-0000-0000-0000-00000000B333")})
+   :tenant-id (UUID/fromString "00000000-0000-0000-0000-00000000B333")
+   :password "behavior-test-password"})
 
 (def ^:private registered-rule-ids
   #{:user.create/valid

@@ -13,7 +13,8 @@
     (let [user-data {:email "test@example.com"
                      :name "Test User"
                      :role :user
-                     :tenant-id (UUID/randomUUID)}
+                     :tenant-id (UUID/randomUUID)
+                     :password "test-password-123"}
           result (user-core/validate-user-creation-request user-data vh/test-validation-config)]
       (is (:valid? result))
       (is (= user-data (:data result))))))

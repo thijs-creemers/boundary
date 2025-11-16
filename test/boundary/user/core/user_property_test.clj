@@ -107,17 +107,19 @@
 (def valid-user-data-gen
   "Generator for valid user creation data."
   (gen/fmap
-   (fn [[email name role tenant-id]]
+   (fn [[email name role tenant-id password]]
      {:email email
       :name name
       :role role
       :active true
-      :tenant-id tenant-id})
+      :tenant-id tenant-id
+      :password password})
    (gen/tuple
     valid-email-gen
     valid-name-gen
     role-gen
-    uuid-gen)))
+    uuid-gen
+    (gen/fmap #(str "password-" %) gen/pos-int))))
 
 (def user-entity-gen
   "Generator for complete user entities."

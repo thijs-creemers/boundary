@@ -6,6 +6,7 @@
   user shell namespaces."
   (:require [boundary.user.shell.persistence :as user-persistence]
             [boundary.user.shell.service :as user-service]
+            [boundary.user.shell.auth :as user-auth]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]))
 
@@ -40,14 +41,30 @@
   (log/info "Session repository halted (no cleanup needed)"))
 
 ;; =============================================================================
+;; Authentication Service
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/auth-service
+  [_ {:keys [user-repository session-repository auth-config]}]
+  (log/info "Initializing authentication service")
+  (let [service (user-auth/create-authentication-service
+                 user-repository session-repository auth-config)]
+    (log/info "Authentication service initialized")
+    service))
+
+(defmethod ig/halt-key! :boundary/auth-service
+  [_ _service]
+  (log/info "Authentication service halted (no cleanup needed)"))
+
+;; =============================================================================
 ;; User Service
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/user-service
-  [_ {:keys [user-repository session-repository validation-config]}]
+  [_ {:keys [user-repository session-repository validation-config auth-service]}]
   (log/info "Initializing user service")
   (let [service (user-service/create-user-service
-                 user-repository session-repository validation-config)]
+                 user-repository session-repository validation-config auth-service)]
     (log/info "User service initialized")
     service))
 

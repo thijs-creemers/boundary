@@ -22,6 +22,7 @@
    [:id :uuid]
    [:email [:re {:error/message "Invalid email format"} email-regex]]
    [:name [:string {:min 1 :max 255}]]
+   [:password-hash {:optional true} [:string {:min 60 :max 60}]] ; bcrypt hash is always 60 chars
    [:role [:enum :admin :user :viewer]]
    [:active :boolean]
    [:login-count {:optional true} :int]
@@ -71,6 +72,7 @@
   [:map {:title "Create User Request"}
    [:email [:re {:error/message "Invalid email format"} email-regex]]
    [:name [:string {:min 1 :max 255}]]
+   [:password [:string {:min 8 :max 255 :error/message "Password must be at least 8 characters"}]]
    [:role [:enum :admin :user :viewer]]
    [:active {:optional true} :boolean]
    [:tenant-id :uuid]

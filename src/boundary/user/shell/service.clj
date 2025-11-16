@@ -17,6 +17,8 @@
    The shell does NOT handle database operations - that lives in persistence.*"
   (:require [boundary.user.core.session :as session-core]
             [boundary.user.core.user :as user-core]
+            [boundary.user.core.authentication :as auth-core]
+            [boundary.user.shell.auth :as auth-shell]
             [boundary.user.ports :as ports]
             [boundary.shared.core.service-interceptors :as service-interceptors]
             [clojure.string :as str])
@@ -55,7 +57,7 @@
 ;; Database-Agnostic User Service (I/O Shell Layer)
 ;; =============================================================================
 
-(defrecord UserService [user-repository session-repository validation-config]
+(defrecord UserService [user-repository session-repository validation-config auth-service]
 
   ports/IUserService
 
@@ -75,7 +77,15 @@
                              {:type :validation-error
                               :errors (:errors validation-result)}))))
 
-         ;; 2. Check business rules using pure core function
+         ;; 2. Validate password policy using pure authentication core
+         (when (:password user-data)
+           (let [password-validation (auth-core/meets-password-policy? (:password user-data) (:password-policy validation-config) {:email (:email user-data)})]
+             (when-not (:valid? password-validation)
+               (throw (ex-info "Password does not meet requirements"
+                               {:type :password-policy-violation
+                                :errors (:errors password-validation)})))))
+
+         ;; 3. Check business rules using pure core function
          (let [existing-user (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data))
                uniqueness-result (user-core/check-duplicate-user-decision user-data existing-user)]
            (when (= :reject (:decision uniqueness-result))
@@ -83,40 +93,89 @@
                              {:type :user-exists
                               :message (:message uniqueness-result)}))))
 
-         ;; 3. Persist using impure shell persistence layer
-         (let [prepared-user (user-core/prepare-user-for-creation user-data (current-timestamp) (generate-user-id))
-               created-user (.create-user user-repository prepared-user)]
-           created-user)))
+         ;; 4. Hash password using auth service (shell layer I/O)
+         (let [password-hash (when (:password user-data)
+                               (auth-shell/hash-password (:password user-data)))
+               user-data-with-hash (if password-hash
+                                     (-> user-data
+                                         (assoc :password-hash password-hash)
+                                         (dissoc :password))
+                                     user-data)]
+
+           ;; 5. Persist using impure shell persistence layer
+           (let [prepared-user (user-core/prepare-user-for-creation user-data-with-hash (current-timestamp) (generate-user-id))
+                 created-user (.create-user user-repository prepared-user)]
+             created-user))))
      {:system {:user-repository user-repository
-               :session-repository session-repository}}))
+               :session-repository session-repository
+               :auth-service auth-service}}))
 
   (authenticate-user [this user-credentials]
     (service-interceptors/execute-service-operation
      :authenticate-user
      {:user-credentials user-credentials
-      :user-id (:user-id user-credentials)
+      :email (:email user-credentials)
       :tenant-id (:tenant-id user-credentials)}
      (fn [{:keys [params]}]
-       (let [user-credentials (:user-credentials params)]
-         ;; 1. Generate session data using pure functions
-         (let [session-token (generate-secure-token)
-               session-id (generate-user-id)
-               current-time (current-timestamp)
-               session-data (session-core/prepare-session-for-creation
-                             {:user-id (:user-id user-credentials)
-                              :tenant-id (:tenant-id user-credentials)
-                              :ip-address (:ip-address user-credentials)
-                              :user-agent (:user-agent user-credentials)}
-                             current-time
-                             session-id
-                             session-token)]
+       (let [user-credentials (:user-credentials params)
+             {:keys [email password tenant-id ip-address user-agent]} user-credentials]
 
-           ;; 2. Persist session using impure shell persistence layer
-           (let [created-session (.create-session session-repository session-data)]
-             ;; Return session
-             created-session))))
+         ;; 1. Find user by email
+         (if-let [user (.find-user-by-email user-repository email tenant-id)]
+           (do
+             ;; 2. Validate credentials using pure authentication core
+             (let [credential-validation (auth-core/validate-login-credentials user-credentials)]
+               (when-not (:valid? credential-validation)
+                 (throw (ex-info "Invalid credentials format"
+                                 {:type :invalid-credentials
+                                  :errors (:errors credential-validation)}))))
+
+             ;; 3. Verify password using auth service (shell layer I/O)
+             (if (and (:password-hash user)
+                      (auth-shell/verify-password password (:password-hash user)))
+               (do
+                 ;; 4. Check account security using pure authentication core
+                 (let [login-decision (auth-core/should-allow-login-attempt? user {} (current-timestamp))]
+                   (if (:allowed? login-decision)
+                     ;; 5. Generate session data using pure functions
+                     (let [session-token (generate-secure-token)
+                           session-id (generate-user-id)
+                           current-time (current-timestamp)
+                           session-data (session-core/prepare-session-for-creation
+                                         {:user-id (:id user)
+                                          :tenant-id tenant-id
+                                          :ip-address ip-address
+                                          :user-agent user-agent}
+                                         current-time
+                                         session-id
+                                         session-token)]
+
+                       ;; 6. Persist session using impure shell persistence layer
+                       (let [created-session (.create-session session-repository session-data)]
+                         ;; Return authentication result with session and JWT
+                         {:authenticated true
+                          :user (dissoc user :password-hash)
+                          :session created-session
+                          :jwt-token (auth-shell/create-jwt-token user 24)}))
+
+                     ;; Login not allowed
+                     (throw (ex-info (:reason login-decision)
+                                     {:type :authentication-failed
+                                      :reason (:reason login-decision)
+                                      :retry-after (:retry-after login-decision)})))))
+
+               ;; Password verification failed
+               (throw (ex-info "Invalid credentials"
+                               {:type :authentication-failed
+                                :reason :invalid-password}))))
+
+           ;; User not found
+           (throw (ex-info "Invalid credentials"
+                           {:type :authentication-failed
+                            :reason :user-not-found})))))
      {:system {:user-repository user-repository
-               :session-repository session-repository}}))
+               :session-repository session-repository
+               :auth-service auth-service}}))
 
   (validate-session [this session-token]
     (service-interceptors/execute-service-operation
@@ -144,7 +203,8 @@
            ;; Session not found - return nil
            nil)))
      {:system {:user-repository user-repository
-               :session-repository session-repository}}))
+               :session-repository session-repository
+               :auth-service auth-service}}))
 
   (logout-user [this session-token]
     (service-interceptors/execute-service-operation
@@ -161,7 +221,8 @@
            ;; Session not found
            {:invalidated false})))
      {:system {:user-repository user-repository
-               :session-repository session-repository}}))
+               :session-repository session-repository
+               :auth-service auth-service}}))
 
   ;; Additional IUserService methods
   (get-user-by-id [this user-id]
@@ -169,30 +230,41 @@
      :get-user-by-id
      {:user-id user-id}
      (fn [{:keys [params]}]
-       (let [user-id (:user-id params)]
-         (.find-user-by-id user-repository user-id)))
+       (let [user-id (:user-id params)
+             user (.find-user-by-id user-repository user-id)]
+         ;; Remove sensitive data before returning
+         (when user
+           (dissoc user :password-hash))))
      {:system {:user-repository user-repository
-               :session-repository session-repository}}))
+               :session-repository session-repository
+               :auth-service auth-service}}))
 
   (get-user-by-email [this email tenant-id]
     (service-interceptors/execute-service-operation
      :get-user-by-email
      {:email email :tenant-id tenant-id}
      (fn [{:keys [params]}]
-       (let [{:keys [email tenant-id]} params]
-         (.find-user-by-email user-repository email tenant-id)))
+       (let [{:keys [email tenant-id]} params
+             user (.find-user-by-email user-repository email tenant-id)]
+         ;; Remove sensitive data before returning
+         (when user
+           (dissoc user :password-hash))))
      {:system {:user-repository user-repository
-               :session-repository session-repository}}))
+               :session-repository session-repository
+               :auth-service auth-service}}))
 
   (list-users-by-tenant [this tenant-id options]
     (service-interceptors/execute-service-operation
      :list-users-by-tenant
      {:tenant-id tenant-id :options options}
      (fn [{:keys [params]}]
-       (let [{:keys [tenant-id options]} params]
-         (.find-users-by-tenant user-repository tenant-id options)))
+       (let [{:keys [tenant-id options]} params
+             users (.find-users-by-tenant user-repository tenant-id options)]
+         ;; Remove sensitive data from all users
+         (map #(dissoc % :password-hash) users)))
      {:system {:user-repository user-repository
-               :session-repository session-repository}}))
+               :session-repository session-repository
+               :auth-service auth-service}}))
 
   (update-user-profile [this user-entity]
     (service-interceptors/execute-service-operation
@@ -210,9 +282,13 @@
                               :errors (:errors validation-result)}))))
 
          ;; 2. Persist using impure shell persistence layer
-         (.update-user user-repository user-entity)))
+         (let [updated-user (.update-user user-repository user-entity)]
+           ;; Remove sensitive data before returning
+           (when updated-user
+             (dissoc updated-user :password-hash)))))
      {:system {:user-repository user-repository
-               :session-repository session-repository}}))
+               :session-repository session-repository
+               :auth-service auth-service}}))
 
   (deactivate-user [this user-id]
     (service-interceptors/execute-service-operation
@@ -223,7 +299,8 @@
              result (.soft-delete-user user-repository user-id)]
          (boolean result)))
      {:system {:user-repository user-repository
-               :session-repository session-repository}}))
+               :session-repository session-repository
+               :auth-service auth-service}}))
 
   (permanently-delete-user [this user-id]
     (service-interceptors/execute-service-operation
@@ -234,7 +311,8 @@
              result (.hard-delete-user user-repository user-id)]
          (boolean result)))
      {:system {:user-repository user-repository
-               :session-repository session-repository}}))
+               :session-repository session-repository
+               :auth-service auth-service}}))
 
   (logout-user-everywhere [this user-id]
     (service-interceptors/execute-service-operation
@@ -246,24 +324,26 @@
          ;; Return count of invalidated sessions
          invalidated-count))
      {:system {:user-repository user-repository
-               :session-repository session-repository}})))
+               :session-repository session-repository
+               :auth-service auth-service}})))
 
 ;; =============================================================================
 ;; Factory Functions
 ;; =============================================================================
 
 (defn create-user-service
-  "Create a user service instance with injected repositories and validation config.
+  "Create a user service instance with injected repositories, validation config, and auth service.
 
    Args:
      user-repository: Implementation of IUserRepository
      session-repository: Implementation of IUserSessionRepository
      validation-config: Map containing validation policies and settings
+     auth-service: Implementation of IAuthenticationService
 
    Returns:
      UserService instance
 
    Example:
-     (def service (create-user-service user-repo session-repo validation-cfg))"
-  [user-repository session-repository validation-config]
-  (->UserService user-repository session-repository validation-config))
+     (def service (create-user-service user-repo session-repo validation-cfg auth-svc))"
+  [user-repository session-repository validation-config auth-service]
+  (->UserService user-repository session-repository validation-config auth-service))
