@@ -6,7 +6,8 @@
   (:require [clojure.test :refer [deftest testing is]]
             [boundary.user.core.user :as user-core]
             [boundary.user.schema :as schema]
-            [malli.core :as m])
+            [malli.core :as m]
+            [support.validation-helpers :as vh])
   (:import (java.util UUID)
            (java.time Instant)))
 
@@ -39,7 +40,7 @@
                         "user.name+tag@example.com"]]
       (doseq [email valid-emails]
         (let [request (assoc valid-user-creation-request :email email)
-              result (user-core/validate-user-creation-request request)]
+              result (user-core/validate-user-creation-request request vh/test-validation-config)]
           (is (:valid? result)
               (str "Email should be valid: " email))
           (is (nil? (:errors result))
@@ -59,7 +60,7 @@
                           "user@domain..com"]]
       (doseq [email invalid-emails]
         (let [request (assoc valid-user-creation-request :email email)
-              result (user-core/validate-user-creation-request request)]
+              result (user-core/validate-user-creation-request request vh/test-validation-config)]
           (is (not (:valid? result))
               (str "Email should be invalid: " email))
           (is (some? (:errors result))
@@ -89,7 +90,7 @@
   "Test Case 3: User creation fails when the email field is missing."
   (testing "Missing email field causes validation failure"
     (let [request-without-email (dissoc valid-user-creation-request :email)
-          result (user-core/validate-user-creation-request request-without-email)]
+          result (user-core/validate-user-creation-request request-without-email vh/test-validation-config)]
       (is (not (:valid? result))
           "Validation should fail when email is missing")
       (is (some? (:errors result))
@@ -101,7 +102,7 @@
 
   (testing "Nil email value causes validation failure"
     (let [request-with-nil-email (assoc valid-user-creation-request :email nil)
-          result (user-core/validate-user-creation-request request-with-nil-email)]
+          result (user-core/validate-user-creation-request request-with-nil-email vh/test-validation-config)]
       (is (not (:valid? result))
           "Validation should fail when email is nil")
       (is (some? (:errors result))
@@ -113,7 +114,7 @@
     (let [required-fields [:email :name :role :tenant-id]]
       (doseq [field required-fields]
         (let [request (dissoc valid-user-creation-request field)
-              result (user-core/validate-user-creation-request request)]
+              result (user-core/validate-user-creation-request request vh/test-validation-config)]
           (is (not (:valid? result))
               (str "Validation should fail when " field " is missing"))
           (is (some? (:errors result))
@@ -127,7 +128,7 @@
   "Test Case 4a: User creation fails when name is too short."
   (testing "Empty name is rejected"
     (let [request (assoc valid-user-creation-request :name "")
-          result (user-core/validate-user-creation-request request)]
+          result (user-core/validate-user-creation-request request vh/test-validation-config)]
       (is (not (:valid? result))
           "Validation should fail for empty name")
       (is (some? (:errors result))
@@ -139,7 +140,7 @@
 
   (testing "Name with length below minimum is rejected"
     (let [request (assoc valid-user-creation-request :name "")
-          result (user-core/validate-user-creation-request request)]
+          result (user-core/validate-user-creation-request request vh/test-validation-config)]
       (is (not (:valid? result))
           "Names shorter than 1 character should be invalid"))))
 
@@ -148,7 +149,7 @@
   (testing "Name exceeding maximum length is rejected"
     (let [too-long-name (apply str (repeat 256 "a"))
           request (assoc valid-user-creation-request :name too-long-name)
-          result (user-core/validate-user-creation-request request)]
+          result (user-core/validate-user-creation-request request vh/test-validation-config)]
       (is (not (:valid? result))
           "Validation should fail for name exceeding 255 characters")
       (is (some? (:errors result))
@@ -161,7 +162,7 @@
   (testing "Name at maximum length boundary"
     (let [max-length-name (apply str (repeat 255 "a"))
           request (assoc valid-user-creation-request :name max-length-name)
-          result (user-core/validate-user-creation-request request)]
+          result (user-core/validate-user-creation-request request vh/test-validation-config)]
       (is (:valid? result)
           "Name with exactly 255 characters should be valid")
       (is (nil? (:errors result))
@@ -176,7 +177,7 @@
                        (apply str (repeat 255 "y"))]]
       (doseq [name valid-names]
         (let [request (assoc valid-user-creation-request :name name)
-              result (user-core/validate-user-creation-request request)]
+              result (user-core/validate-user-creation-request request vh/test-validation-config)]
           (is (:valid? result)
               (str "Name should be valid with length: " (count name)))
           (is (nil? (:errors result))
@@ -258,7 +259,7 @@
                            :name ""
                            :role :invalid-role
                            :tenant-id valid-tenant-id}
-          result (user-core/validate-user-creation-request invalid-request)]
+          result (user-core/validate-user-creation-request invalid-request vh/test-validation-config)]
       (is (not (:valid? result))
           "Validation should fail with multiple errors")
       (is (some? (:errors result))
@@ -277,7 +278,7 @@
                          :active true
                          :tenant-id valid-tenant-id
                          :send-welcome true}
-          validation-result (user-core/validate-user-creation-request valid-request)]
+          validation-result (user-core/validate-user-creation-request valid-request vh/test-validation-config)]
       (is (:valid? validation-result)
           "Complete valid request should pass validation")
       (is (nil? (:errors validation-result))

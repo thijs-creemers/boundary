@@ -12,7 +12,8 @@
   (:require [clojure.test :refer [deftest testing use-fixtures]]
             [boundary.shared.core.validation.snapshot :as snapshot]
             [boundary.shared.core.validation.snapshot-io :as snapshot-io]
-            [boundary.user.core.user :as user-core])
+            [boundary.user.core.user :as user-core]
+            [support.validation-helpers :as vh])
   (:import (java.util UUID)
            (java.time Instant)))
 
@@ -46,7 +47,7 @@
   "Snapshot of successful email validation result."
   (testing "Valid email produces success result"
     (let [request (assoc valid-user-request :email "valid@example.com")
-          result (user-core/validate-user-creation-request request)]
+          result (user-core/validate-user-creation-request request vh/test-validation-config)]
       (snapshot-io/check-snapshot!
        result
        {:ns (ns-name *ns*)
@@ -57,7 +58,7 @@
   "Snapshot of email validation failure due to invalid format."
   (testing "Invalid email format produces structured error"
     (let [request (assoc valid-user-request :email "not-an-email")
-          result (user-core/validate-user-creation-request request)]
+          result (user-core/validate-user-creation-request request vh/test-validation-config)]
       (snapshot-io/check-snapshot!
        result
        {:ns (ns-name *ns*)
@@ -68,7 +69,7 @@
   "Snapshot of email validation failure when field is missing."
   (testing "Missing email produces required field error"
     (let [request (dissoc valid-user-request :email)
-          result (user-core/validate-user-creation-request request)]
+          result (user-core/validate-user-creation-request request vh/test-validation-config)]
       (snapshot-io/check-snapshot!
        result
        {:ns (ns-name *ns*)
@@ -83,7 +84,7 @@
   "Snapshot of name validation failure for empty name."
   (testing "Empty name produces length validation error"
     (let [request (assoc valid-user-request :name "")
-          result (user-core/validate-user-creation-request request)]
+          result (user-core/validate-user-creation-request request vh/test-validation-config)]
       (snapshot-io/check-snapshot!
        result
        {:ns (ns-name *ns*)
@@ -95,7 +96,7 @@
   (testing "Name over 255 characters produces length validation error"
     (let [too-long-name (apply str (repeat 256 "a"))
           request (assoc valid-user-request :name too-long-name)
-          result (user-core/validate-user-creation-request request)]
+          result (user-core/validate-user-creation-request request vh/test-validation-config)]
       (snapshot-io/check-snapshot!
        result
        {:ns (ns-name *ns*)
@@ -107,7 +108,7 @@
   (testing "Name at exactly 255 characters passes validation"
     (let [max-length-name (apply str (repeat 255 "a"))
           request (assoc valid-user-request :name max-length-name)
-          result (user-core/validate-user-creation-request request)]
+          result (user-core/validate-user-creation-request request vh/test-validation-config)]
       (snapshot-io/check-snapshot!
        result
        {:ns (ns-name *ns*)
@@ -122,7 +123,7 @@
   "Snapshot of validation with multiple simultaneous errors."
   (testing "Multiple missing fields produce aggregated errors"
     (let [request {:role :user} ; missing email, name, tenant-id
-          result (user-core/validate-user-creation-request request)]
+          result (user-core/validate-user-creation-request request vh/test-validation-config)]
       (snapshot-io/check-snapshot!
        result
        {:ns (ns-name *ns*)
@@ -132,7 +133,7 @@
 (deftest complete-valid-user-snapshot
   "Snapshot of complete valid user creation request."
   (testing "All valid fields pass validation"
-    (let [result (user-core/validate-user-creation-request valid-user-request)]
+    (let [result (user-core/validate-user-creation-request valid-user-request vh/test-validation-config)]
       (snapshot-io/check-snapshot!
        result
        {:ns (ns-name *ns*)
@@ -194,9 +195,9 @@
 (deftest prepare-user-for-creation-snapshot
   "Snapshot of user entity prepared for database insertion."
   (testing "User preparation adds required fields with business defaults"
-    (let [result (user-core/prepare-user-for-creation 
-                  valid-user-request 
-                  fixed-timestamp 
+    (let [result (user-core/prepare-user-for-creation
+                  valid-user-request
+                  fixed-timestamp
                   fixed-user-id)]
       (snapshot-io/check-snapshot!
        result

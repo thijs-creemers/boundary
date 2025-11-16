@@ -1,59 +1,77 @@
-{
- ;; =============================================================================
+{;; =============================================================================
  ;; Production Environment Configuration
  ;; =============================================================================
- 
+
  :active
- {
-  ;; Core application settings (always active)
+ {;; Core application settings (always active)
   :boundary/settings
-  {:name              "boundary-prod"
-   :version           "0.1.0"
-   :date-format       "yyyy-MM-dd"
-   :date-time-format  "yyyy-MM-dd HH:mm:ss"
-   :currency/iso-code "EUR"}
+  {:name "boundary-prod"
+   :version "0.1.0"
+   :date-format "yyyy-MM-dd"
+   :date-time-format "yyyy-MM-dd HH:mm:ss"
+   :currency/iso-code "EUR"
+
+   ;; User validation configuration - Production settings
+   :user-validation
+   {:email-domain-allowlist #{"company.com" "partner.com"} ; Strict domain control in production
+    :password-policy {:min-length 8
+                      :max-length 128
+                      :require-uppercase? true
+                      :require-lowercase? true
+                      :require-numbers? true
+                      :require-special-chars? true
+                      :forbidden-patterns #{"password" "123456" "qwerty" "admin"}}
+    :name-restrictions {:min-length 2
+                        :max-length 100
+                        :allowed-chars-regex "[a-zA-Z\\s\\-'.]+"
+                        :forbidden-names #{"admin" "root" "system" "test"}}
+    :role-restrictions {:allowed-roles #{:user :admin :manager}
+                        :admin-email-domains #{"company.com"} ; Only company domain can be admin
+                        :default-role :user}
+    :tenant-limits {:max-users-per-tenant 500 ; Production limit
+                    :check-enabled? true} ; Enabled in production
+    :cross-field-validation {:admin-requires-company-email? true ; Strict rules in production
+                             :manager-requires-department? true}}}
 
   ;; Active database configurations
   ;; Production typically uses PostgreSQL for reliability and performance
-  
-:boundary/postgresql
-  {:host          #env "POSTGRES_HOST"
-   :port          #env "POSTGRES_PORT"
-   :dbname        #env "POSTGRES_DB"
-   :user          #env "POSTGRES_USER"
-   :password      #env "POSTGRES_PASSWORD"
-   :auto-commit   true
-   :pool          {:minimum-idle 10
-                   :maximum-pool-size 50
-                   :connection-timeout-ms 30000
-                   :idle-timeout-ms 600000
-                   :max-lifetime-ms 1800000}}
- 
+
+  :boundary/postgresql
+  {:host #env "POSTGRES_HOST"
+   :port #env "POSTGRES_PORT"
+   :dbname #env "POSTGRES_DB"
+   :user #env "POSTGRES_USER"
+   :password #env "POSTGRES_PASSWORD"
+   :auto-commit true
+   :pool {:minimum-idle 10
+          :maximum-pool-size 50
+          :connection-timeout-ms 30000
+          :idle-timeout-ms 600000
+          :max-lifetime-ms 1800000}}
+
   ;; Production logging configuration
   :boundary/logging
-  {:level     :info
-   :console   false  ; No console logging in production
-   :appenders [{:appender       :rolling-file
-                :file           "logs/boundary-prod.log"
-                :rolling-policy {:type        :time-based
-                                 :max-history 90  ; Keep 90 days
-                                 :max-size    50000000 ; 50MB
-                                 :pattern     ".%d{yyyy-MM-dd}.%i.gz"}}]}
+  {:level :info
+   :console false ; No console logging in production
+   :appenders [{:appender :rolling-file
+                :file "logs/boundary-prod.log"
+                :rolling-policy {:type :time-based
+                                 :max-history 90 ; Keep 90 days
+                                 :max-size 50000000 ; 50MB
+                                 :pattern ".%d{yyyy-MM-dd}.%i.gz"}}]}
 
   ;; Production error reporting configuration (Sentry)
   :boundary/error-reporting
-  {:provider    :sentry
-   :dsn         #env "SENTRY_DSN"
+  {:provider :sentry
+   :dsn #env "SENTRY_DSN"
    :environment "prod"
-   :release     #or [#env "APP_RELEASE" #env "VERSION"]
+   :release #or [#env "APP_RELEASE" #env "VERSION"]
    :sample-rate 1.0}}
 
-
  :inactive
- {
-  ;; Backup database configurations
+ {;; Backup database configurations
   ;; Available for emergency fallback or maintenance scenarios
-  
+
   :boundary/sqlite
   {:db "prod-fallback.db"
    :pool {:minimum-idle 2
@@ -61,18 +79,18 @@
           :connection-timeout-ms 10000}}
 
   :boundary/mysql
-  {:host          #env "MYSQL_HOST"
-   :port          #env "MYSQL_PORT"
-   :dbname        #env "MYSQL_DB"
-   :user          #env "MYSQL_USER"
-   :password      #env "MYSQL_PASSWORD"
-   :pool          {:minimum-idle 10
-                   :maximum-pool-size 50
-                   :connection-timeout-ms 30000}}
+  {:host #env "MYSQL_HOST"
+   :port #env "MYSQL_PORT"
+   :dbname #env "MYSQL_DB"
+   :user #env "MYSQL_USER"
+   :password #env "MYSQL_PASSWORD"
+   :pool {:minimum-idle 10
+          :maximum-pool-size 50
+          :connection-timeout-ms 30000}}
 
   :boundary/h2
   {:memory false
-   :db     "prod-h2-fallback"
-   :pool   {:minimum-idle 5
-            :maximum-pool-size 20}}}}
+   :db "prod-h2-fallback"
+   :pool {:minimum-idle 5
+          :maximum-pool-size 20}}}}
 

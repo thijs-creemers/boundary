@@ -1,7 +1,8 @@
 (ns boundary.user.simple-test
   "Simple tests to verify test infrastructure works"
   (:require [boundary.user.core.user :as user-core]
-            [clojure.test :refer [deftest testing is]])
+            [clojure.test :refer [deftest testing is]]
+            [support.validation-helpers :as vh])
   (:import [java.util UUID]))
 
 ;; Tag this namespace for Kaocha metadata-based filters
@@ -13,7 +14,7 @@
                      :name "Test User"
                      :role :user
                      :tenant-id (UUID/randomUUID)}
-          result (user-core/validate-user-creation-request user-data)]
+          result (user-core/validate-user-creation-request user-data vh/test-validation-config)]
       (is (:valid? result))
       (is (= user-data (:data result))))))
 

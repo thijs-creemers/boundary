@@ -44,10 +44,10 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/user-service
-  [_ {:keys [user-repository session-repository]}]
+  [_ {:keys [user-repository session-repository validation-config]}]
   (log/info "Initializing user service")
   (let [service (user-service/create-user-service
-                  user-repository session-repository)]
+                 user-repository session-repository validation-config)]
     (log/info "User service initialized")
     service))
 

@@ -55,7 +55,7 @@
 ;; Database-Agnostic User Service (I/O Shell Layer)
 ;; =============================================================================
 
-(defrecord UserService [user-repository session-repository]
+(defrecord UserService [user-repository session-repository validation-config]
 
   ports/IUserService
 
@@ -68,8 +68,8 @@
       :email (:email user-data)}
      (fn [{:keys [params]}]
        (let [user-data (:user-data params)]
-         ;; 1. Validate request using pure core function
-         (let [validation-result (user-core/validate-user-creation-request user-data)]
+         ;; 1. Validate request using pure core function with validation config
+         (let [validation-result (user-core/validate-user-creation-request user-data validation-config)]
            (when-not (:valid? validation-result)
              (throw (ex-info "Invalid user data"
                              {:type :validation-error
@@ -253,16 +253,17 @@
 ;; =============================================================================
 
 (defn create-user-service
-  "Create a user service instance with injected repositories.
+  "Create a user service instance with injected repositories and validation config.
 
    Args:
      user-repository: Implementation of IUserRepository
      session-repository: Implementation of IUserSessionRepository
+     validation-config: Map containing validation policies and settings
 
    Returns:
      UserService instance
 
    Example:
-     (def service (create-user-service user-repo session-repo))"
-  [user-repository session-repository]
-  (->UserService user-repository session-repository))
+     (def service (create-user-service user-repo session-repo validation-cfg))"
+  [user-repository session-repository validation-config]
+  (->UserService user-repository session-repository validation-config))
