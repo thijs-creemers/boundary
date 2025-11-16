@@ -1,6 +1,6 @@
 # Boundary Framework - Development Status
 
-**Last Updated:** November 15, 2025  
+**Last Updated:** November 16, 2025  
 **Project Phase:** Alpha Development  
 **Overall Status:** 🟢 Multi-Layer Interceptor Pattern Complete, Clean Architecture, Production-Ready Infrastructure
 
@@ -10,7 +10,7 @@ The Boundary framework has achieved another major milestone with the implementat
 Following FC/IS architectural principles, the framework now includes production-ready 
 logging, metrics, and error reporting capabilities with pluggable provider systems. 
 
-Recent developments include complete observability modules, default tenant ID configuration for improved development workflows, dependency updates, extensive documentation, and comprehensive CLI integration test fixes. All CLI tests are now passing (33 tests, 96 assertions) after resolving observability service dependency injection issues in the test environment.
+Recent developments include complete observability modules, default tenant ID configuration for improved development workflows, dependency updates, extensive documentation, and comprehensive CLI integration test fixes. All CLI tests are now passing (33 tests, 96 assertions) after resolving observability service dependency injection issues in the test environment. The Integrant system wiring has been refactored to separate core infrastructure from module-specific wiring (core-system-config and user-module-config), making it easier to extend the system with additional modules while keeping all tests green.
 
 The validation DevEx improvements from early November continue to provide enhanced error messages and developer experience. 
 
@@ -185,6 +185,10 @@ All systems maintain clean architecture patterns with proper separation of conce
   - Extended observability coverage for user lifecycle operations (create, deactivate, delete)
   - Session lifecycle metrics and gauges (active sessions, validations, invalidations)
   - Error reporting breadcrumbs and application error reporting wired into user service
+- **Integrant System Wiring Refactor**: Core vs module-specific config separation *(COMPLETED Nov 16)*
+  - Refactored `boundary.config/ig-config` into `core-system-config` and `user-module-config`
+  - Centralized DB/observability wiring and grouped user module keys together
+  - All HTTP server port integration tests and full Kaocha test suite passing after refactor
 - **Default Tenant ID Configuration**: Development workflow improvements *(COMPLETED Nov 9)*
   - Consistent tenant context for REPL development
   - CLI operations without explicit tenant specification
