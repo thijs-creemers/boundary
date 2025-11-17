@@ -206,7 +206,8 @@
      [:div.page-actions
       [:a.button.primary {:href "/users/new"} "Create User"]]]
     (users-table users)]
-   opts))
+   ;; Ensure user-specific CSS is loaded in addition to global defaults
+   (update opts :css (fnil into []) ["/modules/user/css/user.css"])))
 
 (defn user-detail-page
   "Complete user detail page.

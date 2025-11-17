@@ -1,0 +1,53 @@
+/* Application-wide reusable layout utilities for Boundary Web UI.
+   This file is intentionally small and generic so it can be reused across modules.
+*/
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-block: 1.5rem;
+}
+
+.page-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.empty-state {
+  padding: 1.5rem;
+  text-align: center;
+  opacity: 0.7;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.5rem 0.75rem;
+}
+
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 0.25rem;
+  margin-block: 0.75rem;
+}
+
+.alert-success {
+  background-color: var(--pico-primary-soft, #e0f0ff);
+}
+
+.alert-error {
+  background-color: var(--pico-danger-soft, #ffe0e0);
+}
+
+.alert-info {
+  background-color: var(--pico-muted-border-color, #e0e0e0);
+}
+
+.flash-messages {
+  margin-block: 0.75rem;
+}

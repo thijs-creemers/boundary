@@ -19,6 +19,10 @@
   ;; Production systems should NOT rely on defaults and must always specify tenant-id
    :default-tenant-id #or [#env DEFAULT_TENANT_ID "00000000-0000-0000-0000-000000000001"]
 
+   ;; Feature flags
+   :features
+   {:user-web-ui {:enabled? #or [#env BND_WEB_UI_ENABLED true]}}
+
    ;; User validation configuration
    :user-validation
    {:email-domain-allowlist #{} ; Empty set means all domains allowed in dev

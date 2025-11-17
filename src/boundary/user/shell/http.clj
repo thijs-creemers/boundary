@@ -4,21 +4,31 @@
    This namespace implements the REST API for user and session management,
    providing a clean HTTP interface to the user service layer.
 
-   Endpoints:
-   - POST   /users           - Create user
-   - GET    /users/:id       - Get user by ID
-   - GET    /users           - List users (with filters)
-   - PUT    /users/:id       - Update user
-   - DELETE /users/:id       - Soft delete user
-   - POST   /sessions        - Create session (login)
-   - GET    /sessions/:token - Validate session
-   - DELETE /sessions/:token - Invalidate session (logout)
+   Endpoints (API):
+   - POST   /api/users           - Create user
+   - GET    /api/users/:id       - Get user by ID
+   - GET    /api/users           - List users (with filters)
+   - PUT    /api/users/:id       - Update user
+   - DELETE /api/users/:id       - Soft delete user
+   - POST   /api/sessions        - Create session (login)
+   - GET    /api/sessions/:token - Validate session
+   - DELETE /api/sessions/:token - Invalidate session (logout)
+
+   Web UI routes (HTML, authenticated):
+   - GET    /users        - Users listing page
+   - GET    /users/new    - Create user page
+   - GET    /users/:id    - User detail page
+   - POST   /users        - Create user (HTMX fragment)
+   - PUT    /users/:id    - Update user (HTMX fragment)
+   - DELETE /users/:id    - Delete user (HTMX fragment)
 
    All observability is handled automatically by interceptors."
   (:require [boundary.shell.interfaces.http.routes :as routes]
             [boundary.shared.core.interceptor :as interceptor]
             [boundary.shared.core.interceptor-context :as interceptor-context]
-            [boundary.user.shell.interceptors :as user-interceptors]))
+            [boundary.user.shell.interceptors :as user-interceptors]
+            [boundary.user.shell.middleware :as user-middleware]
+            [boundary.user.shell.web-handlers :as web-handlers]))
 
 ;; =============================================================================
 ;; User-Specific Error Mappings
@@ -221,82 +231,102 @@
 
    Args:
      user-service: User service instance
+     config: Application configuration map
 
    Returns:
      Vector of Reitit route definitions for user module"
-  [user-service]
-  [["/users" {:post {:handler (create-user-handler user-service)
-                     :summary "Create user"
-                     :tags ["users"]
-                     :parameters {:body [:map
-                                         [:email :string]
-                                         [:name :string]
-                                         [:password {:optional true} :string]
-                                         [:role [:enum "admin" "user" "viewer"]]
-                                         [:tenantId :string]
-                                         [:active {:optional true} :boolean]]}}
-              :get {:handler (list-users-handler user-service)
-                    :summary "List users with pagination and filters"
-                    :tags ["users"]
-                    :parameters {:query [:map
-                                         [:tenantId :string]
-                                         [:limit {:optional true} :int]
-                                         [:offset {:optional true} :int]
-                                         [:role {:optional true} [:enum "admin" "user" "viewer"]]
-                                         [:active {:optional true} :boolean]]}}}]
-   ["/users/:id" {:get {:handler (get-user-handler user-service)
-                        :summary "Get user by ID"
-                        :tags ["users"]
-                        :parameters {:path [:map [:id :string]]}}
-                  :put {:handler (update-user-handler user-service)
-                        :summary "Update user"
-                        :tags ["users"]
-                        :parameters {:path [:map [:id :string]]
-                                     :body [:map
-                                            [:name {:optional true} :string]
-                                            [:role {:optional true} [:enum "admin" "user" "viewer"]]
-                                            [:active {:optional true} :boolean]]}}
-                  :delete {:handler (delete-user-handler user-service)
-                           :summary "Soft delete user"
-                           :tags ["users"]
-                           :parameters {:path [:map [:id :string]]}}}]
-   ["/auth/login" {:post {:handler (login-handler user-service)
-                          :summary "Authenticate user with email/password"
-                          :tags ["authentication"]
-                          :parameters {:body [:map
-                                              [:email :string]
-                                              [:password :string]
-                                              [:tenantId {:optional true} :string]
-                                              [:deviceInfo {:optional true} [:map
-                                                                             [:userAgent {:optional true} :string]
-                                                                             [:ipAddress {:optional true} :string]]]]}}}]
-   ["/sessions" {:post {:handler (create-session-handler user-service)
-                        :summary "Create session (login by user ID)"
-                        :tags ["sessions"]
-                        :parameters {:body [:or
-                                            ;; Traditional user ID based session creation
-                                            [:map
-                                             [:userId :string]
-                                             [:tenantId :string]
-                                             [:deviceInfo {:optional true} [:map
-                                                                            [:userAgent {:optional true} :string]
-                                                                            [:ipAddress {:optional true} :string]]]]
-                                            ;; Email/password authentication
-                                            [:map
-                                             [:email :string]
-                                             [:password :string]
-                                             [:tenantId {:optional true} :string]
-                                             [:deviceInfo {:optional true} [:map
-                                                                            [:userAgent {:optional true} :string]
-                                                                            [:ipAddress {:optional true} :string]]]]]}}}]
-   ["/sessions/:token" {:get {:handler (validate-session-handler user-service)
-                              :summary "Validate session"
-                              :tags ["sessions"]
-                              :parameters {:path [:map [:token :string]]}}
-                        :delete {:handler (invalidate-session-handler user-service)
-                                 :summary "Invalidate session (logout)"
-                                 :tags ["sessions"]
-                                 :parameters {:path [:map [:token :string]]}}}]])
+  [user-service config]
+  (let [web-ui-enabled? (get-in config [:active :boundary/settings :features :user-web-ui :enabled?] true)
+        api-routes [["/users" {:post {:handler (create-user-handler user-service)
+                                        :summary "Create user"
+                                        :tags ["users"]
+                                        :parameters {:body [:map
+                                                            [:email :string]
+                                                            [:name :string]
+                                                            [:password {:optional true} :string]
+                                                            [:role [:enum "admin" "user" "viewer"]]
+                                                            [:tenantId :string]
+                                                            [:active {:optional true} :boolean]]}}
+                                :get {:handler (list-users-handler user-service)
+                                      :summary "List users with pagination and filters"
+                                      :tags ["users"]
+                                      :parameters {:query [:map
+                                                           [:tenantId :string]
+                                                           [:limit {:optional true} :int]
+                                                           [:offset {:optional true} :int]
+                                                           [:role {:optional true} [:enum "admin" "user" "viewer"]]
+                                                           [:active {:optional true} :boolean]]}}}]
+                    ["/users/:id" {:get {:handler (get-user-handler user-service)
+                                          :summary "Get user by ID"
+                                          :tags ["users"]
+                                          :parameters {:path [:map [:id :string]]}}
+                                    :put {:handler (update-user-handler user-service)
+                                          :summary "Update user"
+                                          :tags ["users"]
+                                          :parameters {:path [:map [:id :string]]
+                                                       :body [:map
+                                                              [:name {:optional true} :string]
+                                                              [:role {:optional true} [:enum "admin" "user" "viewer"]]
+                                                              [:active {:optional true} :boolean]]}}
+                                    :delete {:handler (delete-user-handler user-service)
+                                             :summary "Soft delete user"
+                                             :tags ["users"]
+                                             :parameters {:path [:map [:id :string]]}}}]
+                    ["/auth/login" {:post {:handler (login-handler user-service)
+                                            :summary "Authenticate user with email/password"
+                                            :tags ["authentication"]
+                                            :parameters {:body [:map
+                                                                [:email :string]
+                                                                [:password :string]
+                                                                [:tenantId {:optional true} :string]
+                                                                [:deviceInfo {:optional true} [:map
+                                                                                               [:userAgent {:optional true} :string]
+                                                                                               [:ipAddress {:optional true} :string]]]]}}}]
+                    ["/sessions" {:post {:handler (create-session-handler user-service)
+                                          :summary "Create session (login by user ID)"
+                                          :tags ["sessions"]
+                                          :parameters {:body [:or
+                                                              ;; Traditional user ID based session creation
+                                                              [:map
+                                                               [:userId :string]
+                                                               [:tenantId :string]
+                                                               [:deviceInfo {:optional true} [:map
+                                                                                              [:userAgent {:optional true} :string]
+                                                                                              [:ipAddress {:optional true} :string]]]]
+                                                              ;; Email/password authentication
+                                                              [:map
+                                                               [:email :string]
+                                                               [:password :string]
+                                                               [:tenantId {:optional true} :string]
+                                                               [:deviceInfo {:optional true} [:map
+                                                                                              [:userAgent {:optional true} :string]
+                                                                                              [:ipAddress {:optional true} :string]]]]]}}}]
+                    ["/sessions/:token" {:get {:handler (validate-session-handler user-service)
+                                                :summary "Validate session"
+                                                :tags ["sessions"]
+                                                :parameters {:path [:map [:token :string]]}}
+                                          :delete {:handler (invalidate-session-handler user-service)
+                                                   :summary "Invalidate session (logout)"
+                                                   :tags ["sessions"]
+                                                   :parameters {:path [:map [:token :string]]}}}]]
+        web-routes [["/users" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
+                                :get {:handler (web-handlers/users-page-handler user-service)
+                                      :summary "Users listing page"}
+                                :post {:handler (web-handlers/create-user-htmx-handler user-service)
+                                       :summary "Create user (HTMX fragment)"}}]
+                    ["/users/new" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
+                                   :get {:handler (web-handlers/create-user-page-handler)
+                                         :summary "Create user page"}}]
+                    ["/users/:id" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
+                                   :get {:handler (web-handlers/user-detail-page-handler user-service)
+                                         :summary "User detail page"}
+                                   :put {:handler (web-handlers/update-user-htmx-handler user-service)
+                                         :summary "Update user (HTMX fragment)"}
+                                   :delete {:handler (web-handlers/delete-user-htmx-handler user-service)
+                                            :summary "Delete user (HTMX fragment)"}}]]]
+    (if web-ui-enabled?
+      (into api-routes web-routes)
+      api-routes)))
 
 (defn user-health-checks
   "Additional health checks specific to user module.
@@ -332,7 +362,7 @@
      Reitit router with common routes + user module routes"
   [user-service config]
   (routes/create-router config
-                        (user-routes user-service)
+                        (user-routes user-service config)
                         :additional-health-checks (user-health-checks user-service)
                         :error-mappings user-error-mappings))
 
@@ -349,7 +379,7 @@
    (create-handler user-service {}))
   ([user-service config]
    (let [router (routes/create-router config
-                                      (user-routes user-service)
+                                      (user-routes user-service config)
                                       :additional-health-checks (user-health-checks user-service)
                                       :error-mappings user-error-mappings)]
      (routes/create-handler router))))
@@ -370,7 +400,7 @@
    (create-app user-service {}))
   ([user-service config]
    (routes/create-app config
-                      (user-routes user-service)
+                      (user-routes user-service config)
                       :additional-health-checks (user-health-checks user-service)
                       :error-mappings user-error-mappings)))
 

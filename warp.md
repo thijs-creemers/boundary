@@ -497,8 +497,9 @@ Boundary's testing strategy aligns with the Functional Core / Imperative Shell a
 # Run all tests
 clojure -M:test:db/h2
 
-# Run tests for specific module
-clojure -M:test:db/h2 --focus :unit.user
+# Run tests for specific module by metadata tag
+# (see tests.edn :kaocha.plugin.filter/focus-meta)
+clojure -M:test:db/h2 --focus-meta :unit.user
 
 # Run tests in watch mode
 clojure -M:test:db/h2 --watch
@@ -580,17 +581,17 @@ test/
 # All tests
 clojure -M:test:db/h2
 
-# Specific test categories
-clojure -M:test:db/h2 --focus :unit
-clojure -M:test:db/h2 --focus :integration
-clojure -M:test:db/h2 --focus :contract
+# Specific test categories (metadata-based)
+clojure -M:test:db/h2 --focus-meta :unit
+clojure -M:test:db/h2 --focus-meta :integration
+clojure -M:test:db/h2 --focus-meta :contract
 
-# Specific modules
-clojure -M:test:db/h2 --focus :user
-clojure -M:test:db/h2 --focus :billing
+# Specific modules (metadata-based)
+clojure -M:test:db/h2 --focus-meta :user
+clojure -M:test:db/h2 --focus-meta :billing
 
-# Watch mode with focus
-clojure -M:test:db/h2 --watch --focus :unit
+# Watch mode with focus on unit tests
+clojure -M:test:db/h2 --watch --focus-meta :unit
 
 # Generate test coverage (if configured)
 clojure -M:test:coverage

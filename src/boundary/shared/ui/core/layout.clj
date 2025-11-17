@@ -35,7 +35,7 @@
      Complete HTML page structure"
   [title content & [opts]]
   (let [{:keys [user flash css js]
-         :or {css ["/css/site.css"]
+         :or {css ["/css/pico.min.css" "/css/app.css"]
               js ["/js/htmx.min.js"]}} opts]
     [:html {:lang "en"}
      [:head
