@@ -153,7 +153,7 @@ Boundary implements a **clean architecture** pattern with proper separation of c
 │                 Presentation Layer                       │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐ │
 │  │  REST API   │ │     CLI     │ │    Web Frontend     │ │
-│  │   (Ring)    │ │(tools.cli)  │ │   (ClojureScript)   │ │
+│  │   (Ring)    │ │(tools.cli)  │ │  (HTMX + Hiccup)    │ │
 │  └─────────────┘ └─────────────┘ └─────────────────────┘ │
 └──────────────────────────────────────────────────────────┘
            │                   │                   │
@@ -188,6 +188,8 @@ Boundary implements a **clean architecture** pattern with proper separation of c
 2. **ADR-002: Ports and Adapters (Hexagonal Architecture)** - Use Clojure protocols as ports for dependency inversion
 3. **ADR-003: Multi-Interface Consistency** - Identical behavior across REST API, CLI, and Web interfaces
 4. **ADR-004: Schema-First Validation with Malli** - Runtime validation with compile-time schema definitions
+5. **ADR-005: Validation Developer Experience Foundations** - Enhanced validation infrastructure for better developer experience
+6. **ADR-006: Web UI Architecture - HTMX + Hiccup** - Server-side rendering with progressive enhancement for web interface
 
 ## Development Workflow
 

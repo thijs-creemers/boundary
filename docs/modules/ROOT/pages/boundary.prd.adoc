@@ -23,7 +23,7 @@ This PRD is being restructured and expanded. See <<content-gaps,Content Gap Log>
 |P1 |User stories and acceptance criteria |Product |Phase 2
 |P1 |Testing strategy and quality gates |QA Lead |Phase 3
 |P2 |Domain examples (scheduling, e-commerce) |Domain Team |Phase 4
-|P2 |Web frontend integration guidelines |Frontend Team |Phase 4
+|P2 |Web frontend integration guidelines |Frontend Team |✅ Complete (ADR-006)
 |===
 
 == Overview
