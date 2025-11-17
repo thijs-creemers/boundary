@@ -377,14 +377,14 @@ clojure -M:test:db/h2
 
 [source,{shell}]
 ----
-# Run only fast unit tests
-clojure -M:test:db/h2 --focus :unit
+# Run only fast unit tests (metadata-based)
+clojure -M:test:db/h2 --focus-meta :unit
 
 # Skip slow integration tests during development
 clojure -M:test:db/h2 --skip-meta :slow
 
-# Use watch mode with focus
-clojure -M:test:db/h2 --watch --focus :unit
+# Use watch mode with focus on unit tests
+clojure -M:test:db/h2 --watch --focus-meta :unit
 ----
 
 [[slow-repl-startup]]

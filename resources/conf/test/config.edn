@@ -11,12 +11,13 @@
    :version           "0.1.0"
    :date-format       "yyyy-MM-dd"
    :date-time-format  "yyyy-MM-dd HH:mm:ss"
-   :currency/iso-code "EUR"}
+   :currency/iso-code "EUR"
+   :features          {:user-web-ui {:enabled? #or [#env BND_WEB_UI_ENABLED true]}}}
 
   ;; Active database configurations
   ;; Test environment uses in-memory H2 for fast, isolated tests
   
-:boundary/h2
+  :boundary/h2
   {:memory true  ; In-memory database for fast test execution
    :pool   {:minimum-idle 1
             :maximum-pool-size 5
@@ -40,8 +41,8 @@
    :dsn         #env "SENTRY_DSN"
    :environment #or [#env "APP_ENV" "test"]
    :release     #or [#env "APP_RELEASE" #env "VERSION"]
-   :sample-rate 1.0}
- }
+   :sample-rate 1.0}}
+
 
  :inactive
  {
@@ -73,6 +74,5 @@
    :password      "test_password"
    :pool          {:minimum-idle 1
                    :maximum-pool-size 5
-                   :connection-timeout-ms 10000}}
- }
-}
+                   :connection-timeout-ms 10000}}}}
+

@@ -4,7 +4,10 @@
    Tests all user and session endpoints with:
    - Happy path scenarios
    - Error cases and validation
-   - Edge cases and boundary conditions"
+   - Edge cases and boundary conditions
+
+   These tests exercise the handlers directly; routing (e.g. /api prefix) is
+   validated at the router level, not here."
   (:require [boundary.user.shell.http :as user-http]
             [boundary.user.ports :as ports]
             [boundary.shell.interfaces.http.middleware :as middleware]

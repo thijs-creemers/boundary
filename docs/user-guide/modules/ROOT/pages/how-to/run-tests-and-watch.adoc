@@ -91,13 +91,13 @@ Kaocha supports test metadata for filtering:
 
 [source,{shell}]
 ----
-# Run only unit tests
-clojure -M:test:db/h2 --focus :unit
+# Run only unit tests (metadata-based)
+clojure -M:test:db/h2 --focus-meta :unit
 
-# Run only integration tests
-clojure -M:test:db/h2 --focus :integration
+# Run only integration tests (metadata-based)
+clojure -M:test:db/h2 --focus-meta :integration
 
-# Run validation tests
+# Run validation snapshot tests by namespace
 clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
 ----
 

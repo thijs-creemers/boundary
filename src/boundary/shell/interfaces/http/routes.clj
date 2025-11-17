@@ -136,31 +136,9 @@
 ;; Module Route Injection System
 ;; =============================================================================
 
-(defn create-module-route-injector
-      "Create a function for injecting module-specific routes.
-
-       This allows modules to register their routes with the main application
-       without tight coupling.
-
-       Returns:
-         Function that accepts module routes and merges them with common routes"
-  []
-  (fn [module-routes]
-    (fn [config & {:keys [additional-health-checks error-mappings]
-                   :or   {additional-health-checks nil
-                          error-mappings           {}}}]
-      (let [common-routes          (concat (health-routes config additional-health-checks)
-                                           (api-docs-routes config))
-            middleware-with-errors (conj default-middleware
-                                         (http-middleware/wrap-exception-handling error-mappings))]
-
-        (ring/router
-          [["" {:middleware [http-middleware/wrap-correlation-id
-                             http-middleware/wrap-request-logging]}
-            common-routes]
-           ["/api" {:data (assoc route-data :middleware middleware-with-errors)}
-            module-routes]]
-          {:data route-data})))))
+;; NOTE: The older module route injector helper has been removed in favor of
+;; using `create-router` and `create-app` directly. If you need a module
+;; injector, you can easily build one on top of those functions.
 
 ;; =============================================================================
 ;; Route Builder Functions
@@ -201,7 +179,8 @@
         common-routes]
        ["/api" {:data enhanced-route-data}
         module-routes]]
-      {:data route-data})))
+      {:data route-data
+       :conflicts nil})))
 
 (defn create-handler
       "Create a complete Ring handler with routes and fallback handlers.

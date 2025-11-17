@@ -11,6 +11,10 @@
    :date-time-format "yyyy-MM-dd HH:mm:ss"
    :currency/iso-code "EUR"
 
+   ;; Feature flags
+   :features
+   {:user-web-ui {:enabled? #or [#env BND_WEB_UI_ENABLED true]}}
+
    ;; User validation configuration - Production settings
    :user-validation
    {:email-domain-allowlist #{"company.com" "partner.com"} ; Strict domain control in production
