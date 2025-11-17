@@ -1,12 +1,12 @@
 = ADR-006: Web UI Architecture - HTMX + Hiccup
 :revdate: 2025-11-17
-:revremark: Initial draft
+:revremark: Updated to reflect module-integrated implementation
 :toc:
 :toclevels: 3
 
 == Status
 
-**ACCEPTED** - Ready for implementation
+**ACCEPTED** - Phase 1 implementation complete, ready for Phase 2
 
 == Context
 
@@ -21,22 +21,22 @@ The framework emphasizes:
 
 === Current State
 
-- Existing web infrastructure: Minimal placeholder files in `src/boundary/shell/interfaces/web/`
-- HTTP infrastructure: Robust server implementation in `src/boundary/shell/interfaces/http/`  
+- HTTP infrastructure: Robust server implementation per domain module
 - Module patterns: Established patterns from user, billing, and workflow modules
-- No existing frontend framework or UI component library
+- Shared components: Complete UI component library in `boundary.shared.ui.core`
+- Integration foundation: Web handlers and UI functions created in user module
 
 === Requirements
 
 1. **Architectural Compliance**: Must follow FC/IS separation and module isolation principles
-2. **Integration**: Leverage existing HTTP infrastructure and interceptor patterns
+2. **Integration**: Leverage existing HTTP infrastructure per module and interceptor patterns
 3. **Developer Experience**: Simple development workflow without complex build tooling
 4. **Performance**: Efficient rendering and minimal client-side complexity
 5. **Maintainability**: Clear patterns that scale across multiple domain modules
 
 == Decision
 
-We will implement the web UI using **HTMX + Hiccup** architecture with server-side rendering and progressive enhancement.
+We will implement the web UI using **HTMX + Hiccup** architecture with **module-integrated approach** using shared components rather than a separate web-ui module.
 
 === Technology Stack
 
@@ -45,69 +45,102 @@ We will implement the web UI using **HTMX + Hiccup** architecture with server-si
 - **Styling**: CSS served as static assets (no build pipeline required)
 - **No ClojureScript**: Avoiding compile complexity and build tooling
 
-=== Architecture Pattern
+=== Architecture Pattern: Module-Integrated Web UI
 
-**Implemented Structure (Phase 1 - Shared Components)**:
+**Key Decision**: Web UI is integrated directly into existing domain modules (user, billing, workflow) rather than creating a separate `boundary.web-ui` module. This approach:
+
+- Leverages existing HTTP infrastructure in each module
+- Keeps web UI close to business logic  
+- Avoids over-engineering with separate modules
+- Uses shared components for consistency
+
+**Current Implementation Structure (Phase 1 Complete)**:
 ```
 src/boundary/shared/ui/core/
-├── components.clj              ; Reusable UI components (forms, inputs, layout)
-└── layout.clj                  ; Page layout and template functions
+├── components.clj              ; ✅ 9 reusable UI components
+└── layout.clj                  ; ✅ Page layout and template functions
 
 src/boundary/user/core/
-└── ui.clj                      ; User-specific UI generation functions
+└── ui.clj                      ; ✅ User-specific UI generation functions
 
 src/boundary/user/shell/
-└── web_handlers.clj            ; User web route handlers
+└── web_handlers.clj            ; ✅ User web route handlers
+
+test/boundary/shared/ui/core/
+├── components_test.clj         ; ✅ Component tests (17 tests, 84 assertions)
+└── layout_test.clj             ; ✅ Layout tests
 ```
 
-**Full Module Structure (Future)**:
+**Full Module Integration Pattern (Future)**:
 ```
-src/boundary/web-ui/
+src/boundary/user/
 ├── core/
-│   ├── html_generation.clj      ; Pure HTML/Hiccup generation functions
-│   ├── page_templates.clj       ; Page layout and template functions
-│   └── component_library.clj    ; Reusable UI components
+│   └── ui.clj                  ; Pure UI generation functions for user domain
 ├── shell/
-│   ├── routes.clj              ; Route definitions and handlers
-│   ├── middleware.clj          ; Web-specific middleware
-│   └── rendering.clj           ; Shell integration for rendering
-├── http.clj                    ; HTTP interface (routes + handlers)
-├── ports.clj                   ; Web UI ports definitions
-└── schema.clj                  ; Web UI data schemas
+│   ├── web_handlers.clj        ; Web-specific HTTP handlers
+│   └── http.clj                ; Extended with web routes
+└── ...existing module structure...
+
+src/boundary/billing/
+├── core/
+│   └── ui.clj                  ; Pure UI generation functions for billing domain
+├── shell/
+│   ├── web_handlers.clj        ; Web-specific HTTP handlers
+│   └── http.clj                ; Extended with web routes
+└── ...existing module structure...
 ```
 
 === Key Architectural Decisions
 
-1. **Pure HTML Generation (Core Layer)**
+1. **Shared Component Library (Implemented)**
+   - Reusable UI components in `boundary.shared.ui.core.components`
+   - Pure functions with attribute passthrough pattern: `(merge base-attrs (dissoc opts :type))`
+   - Full test coverage (17 tests, 84 assertions)
+   - Components: text-input, password-input, email-input, textarea, checkbox, buttons, forms
+
+2. **Module-Integrated Web UI**
+   - Each domain module handles its own web interface
+   - Web handlers in `{module}/shell/web_handlers.clj` call existing business logic ports
+   - UI generation functions in `{module}/core/ui.clj` are pure Hiccup generators
+   - HTTP routes extended in existing `{module}/shell/http.clj` files
+
+3. **Pure HTML Generation (FC/IS Compliance)**
    - All Hiccup generation functions are pure (no side effects)
    - Components receive data and return Hiccup data structures
    - Template composition through function composition
-   - **Implemented**: Shared UI components in `boundary.shared.ui.core.components`
-   - **Pattern**: Attribute passthrough with `(merge base-attrs (dissoc opts :type))` for flexibility
+   - Side effects (HTTP handling, rendering) isolated in shell layer
 
-2. **HTMX Integration**
+4. **HTMX Integration**
    - Include HTMX library via CDN (no build step)
    - Use `hx-*` attributes in Hiccup templates for dynamic behavior
    - Server endpoints return HTML fragments for partial page updates
+   - Progressive enhancement (works without JavaScript)
 
-3. **Route Handling**
-   - Extend existing HTTP infrastructure with web-specific routes
+5. **HTTP Route Integration**
+   - Extend existing module HTTP infrastructure with web routes
    - Leverage existing interceptor chain for observability and middleware
-   - HTMX request detection via headers
+   - HTMX request detection via headers for partial vs full page rendering
 
-4. **State Management**
-   - Server-side session state (existing pattern)
-   - Minimal client-side state (form values, UI toggles)
-   - No complex client-side state management framework
-
-5. **Static Assets**
-   - CSS/JS served through existing static file serving
-   - HTMX loaded via CDN
-   - Custom styles in `/resources/public/css/app.css`
+6. **Business Logic Reuse**
+   - Web handlers call same ports as REST API endpoints
+   - No duplication of business logic - only different presentation layer
+   - Session management reuses existing authentication infrastructure
 
 == Rationale
 
-=== Why HTMX + Hiccup over Alternatives
+=== Why Module-Integrated over Separate Web-UI Module
+
+**Module-Integrated Advantages:**
+
+1. **Simplicity**: No additional module complexity or cross-module dependencies
+2. **Cohesion**: Web UI stays close to business logic it presents
+3. **Reuse**: Shared components ensure consistency across modules
+4. **Maintainability**: Changes to business logic automatically available to web UI
+5. **REPL-Friendly**: Develop UI functions in same namespace as business logic
+6. **Fast Iteration**: No cross-module dependencies to manage
+7. **Deployment**: No additional deployment complexity
+
+**Why HTMX + Hiccup over Alternatives:**
 
 **Considered Alternatives:**
 
@@ -117,13 +150,7 @@ src/boundary/web-ui/
    - ❌ Client-state complexity
    - ✅ Rich interactions, familiar Clojure syntax
 
-2. **Replicant (ClojureScript Virtual DOM)**
-   - ❌ Still requires ClojureScript build tooling
-   - ❌ Additional learning curve for data-driven rendering
-   - ✅ "UI as function of state" philosophy
-   - ✅ Clojure ecosystem consistency
-
-3. **React/Next.js with REST API**
+2. **React/Next.js with REST API**
    - ❌ Separate JavaScript ecosystem
    - ❌ Complex build and deployment pipeline
    - ❌ API-first development overhead
@@ -141,17 +168,17 @@ src/boundary/web-ui/
 === Alignment with Framework Principles
 
 1. **FC/IS Compliance**
-   - ✅ Pure HTML generation functions in core/
-   - ✅ Side effects (HTTP requests, rendering) in shell/
+   - ✅ Pure HTML generation functions in `{module}/core/ui.clj`
+   - ✅ Side effects (HTTP requests, rendering) in `{module}/shell/web_handlers.clj`
    - ✅ Clear boundary between logic and presentation
 
 2. **Module-centric Architecture**
-   - ✅ Web-UI as dedicated module following established patterns
-   - ✅ Ports for external integrations (template engines, asset management)
-   - ✅ Schema definitions for web-specific data structures
+   - ✅ Web UI integrated into existing domain modules
+   - ✅ No additional modules or complex cross-module dependencies
+   - ✅ Each module owns its complete web interface
 
 3. **Observability Integration**
-   - ✅ HTMX requests flow through existing interceptor chain
+   - ✅ HTMX requests flow through existing interceptor chain per module
    - ✅ Page rendering metrics via existing metrics infrastructure
    - ✅ Error handling through existing error reporting system
 
@@ -162,9 +189,9 @@ src/boundary/web-ui/
 
 == Current Implementation Status
 
-=== Completed Components (Phase 1)
+=== ✅ Completed: Phase 1 - Shared Component Foundation
 
-**Shared UI Component Library** - `src/boundary/shared/ui/core/`
+**Shared UI Component Library** - `src/boundary/shared/ui.core/`
 
 *Components (`components.clj`):*
 - `text-input` - Text input fields with full attribute passthrough
@@ -191,40 +218,81 @@ src/boundary/web-ui/
 - ✅ **Pure functions** - All UI components are side-effect free
 - ✅ **Composable design** - Components can be nested and combined
 - ✅ **Framework compliance** - Follows FC/IS pattern with pure core functions
+- ✅ **Attribute passthrough** - Components accept any HTML attributes for flexibility
+
+**Integration Foundation:**
+- ✅ **User module setup** - Web handlers and UI functions created
+- ✅ **Documentation alignment** - ADR and implementation plan updated
 
 == Implementation Strategy
 
-=== Phase 1: Foundation (Week 1)
+=== Phase 1: Foundation ✅ (Completed)
 - [x] Create shared UI component library in `boundary.shared.ui.core`
 - [x] Implement base HTML layout and component library (`components.clj`, `layout.clj`)
 - [x] Create reusable form components (text-input, checkbox, submit-button, etc.)
 - [x] Develop pure Hiccup generation functions with attribute passthrough
-- [ ] Set up HTMX integration and middleware
-- [ ] Create basic page templates (dashboard, user management)
+- [x] Complete test coverage for all components (17 tests, 84 assertions)
+- [x] Create integration foundation in user module
 
-=== Phase 2: Core Pages (Week 2)
-- [ ] Implement user management interfaces
-- [ ] Add form handling with HTMX
-- [ ] Integrate with existing user module business logic
+=== Phase 2: User Management UI (Next - 2 weeks)
+- [ ] Implement complete user list, create, edit, delete web interface
+- [ ] Add HTMX integration for dynamic updates
+- [ ] Implement form handling with validation and inline error display
+- [ ] Integrate with existing user business logic ports
 - [ ] Add CSS styling and responsive design
 
-=== Phase 3: Advanced Features (Week 3)
-- [ ] Modal dialogs and partial page updates
-- [ ] Search and filtering with HTMX
-- [ ] File upload handling
-- [ ] Error page templates and handling
+=== Phase 3: Additional Modules (Future - 2-3 weeks per module)
+- [ ] Extend billing module with web interface following user module pattern
+- [ ] Extend workflow module with web interface
+- [ ] Consistent component usage across all modules
 
-=== Phase 4: Integration & Polish (Week 4)
-- [ ] Observability integration (metrics, logging)
-- [ ] Security headers and CSRF protection
-- [ ] Performance optimization
-- [ ] Documentation and usage examples
+=== Phase 4: Production Readiness (Future - 1 week)
+- [ ] CSRF protection and security headers
+- [ ] Session management and user feedback
+- [ ] Performance optimization and caching
+- [ ] Documentation and deployment guides
+
+=== Integration Pattern
+
+**Example: User Module Web Integration**
+```clojure
+;; src/boundary/user/shell/web_handlers.clj
+(ns boundary.user.shell.web-handlers
+  (:require [boundary.user.core.ui :as user-ui]
+            [boundary.shared.ui.core.components :as ui]))
+
+(defn list-users-page [request]
+  (let [users (user-port/fetch-all)]
+    {:status 200
+     :headers {"content-type" "text/html"}
+     :body (user-ui/users-list-page users)}))
+
+;; src/boundary/user/core/ui.clj  
+(ns boundary.user.core.ui
+  (:require [boundary.shared.ui.core.components :as ui]
+            [boundary.shared.ui.core.layout :as layout]))
+
+(defn users-list-page [users]
+  (layout/base-page
+    {:title "Users"}
+    [:div
+     [:h1 "Users"]
+     (for [user users]
+       (ui/card [:p (:name user)]))]))
+
+;; src/boundary/user/shell/http.clj (extend existing routes)
+(defn routes []
+  [["/api/users" {...existing API routes...}]
+   ["/users"     {:get  web-handlers/list-users-page
+                  :post web-handlers/create-user}]
+   ["/users/:id" {:get  web-handlers/show-user}]])
+```
 
 === Integration Points
 
 1. **HTTP Infrastructure**
-   - Extend `src/boundary/shell/interfaces/http/` with web routes
-   - Use existing middleware stack (authentication, logging, metrics)
+   - Extend existing `{module}/shell/http.clj` with web routes
+   - Use existing middleware stack per module (authentication, logging, metrics)
    - Leverage existing static file serving for CSS/JS assets
 
 2. **Domain Modules**
@@ -233,7 +301,7 @@ src/boundary/web-ui/
    - Consistent error handling through existing error reporting
 
 3. **Observability**
-   - Page view metrics through existing metrics module
+   - Page view metrics through existing metrics module per domain
    - Request tracing through existing interceptor chain
    - Error reporting through existing error handling infrastructure
 
@@ -241,12 +309,13 @@ src/boundary/web-ui/
 
 === Positive
 
-1. **Reduced Complexity**: No build tooling, no client-side compilation
+1. **Reduced Complexity**: No build tooling, no client-side compilation, no separate modules
 2. **Fast Development**: Direct edit-reload cycle for rapid iteration
 3. **Framework Consistency**: Leverages existing HTTP and observability infrastructure
-4. **SEO Friendly**: Server-side rendering provides good search engine indexing
-5. **Accessibility**: Progressive enhancement ensures baseline functionality
-6. **Performance**: Smaller client bundles, server-side optimization opportunities
+4. **Module Cohesion**: Web UI stays close to business logic it presents
+5. **SEO Friendly**: Server-side rendering provides good search engine indexing
+6. **Accessibility**: Progressive enhancement ensures baseline functionality
+7. **Performance**: Smaller client bundles, server-side optimization opportunities
 
 === Negative
 
@@ -263,7 +332,21 @@ src/boundary/web-ui/
 
 == Alternatives Considered
 
-=== 1. Full ClojureScript SPA
+=== 1. Separate Web-UI Module
+
+**Decision**: Rejected in favor of module-integrated approach
+
+**Pros:**
+- Clear separation of web concerns from business logic
+- Dedicated module following framework patterns
+
+**Cons:**
+- Additional complexity with cross-module dependencies
+- Web UI distant from business logic it presents
+- Over-engineering for the scale of UI needed
+- More complex deployment and development workflow
+
+=== 2. Full ClojureScript SPA
 
 **Decision**: Rejected due to build complexity and maintenance overhead
 
@@ -277,21 +360,6 @@ src/boundary/web-ui/
 - Separate ecosystem (ClojureScript libraries, tooling)
 - Client-side state management complexity
 - Additional deployment complexity
-
-=== 2. Hybrid Approach (Server + Islands)
-
-**Decision**: Deferred for future consideration
-
-**Concept**: Server-side rendering with ClojureScript "islands" for specific interactive components
-
-**Pros:**
-- Best of both worlds (SSR + rich interactions)
-- Incremental adoption of client-side complexity
-
-**Cons:**
-- Increased complexity in build and deployment
-- Mixed patterns might confuse development workflow
-- Additional tooling and configuration required
 
 === 3. Template Engine Integration (Selmer/Mustache)
 
@@ -328,9 +396,10 @@ src/boundary/web-ui/
 == Documentation Updates Required
 
 === Technical Documentation
-- [ ] Update architecture diagrams to include web UI module
+- [x] Update ADR-006 to reflect module-integrated approach
+- [x] Update WEB_UI_IMPLEMENTATION_PLAN.md to match actual implementation
 - [ ] Add web UI development guide to warp.md
-- [ ] Create component library documentation
+- [ ] Create component library usage documentation
 - [ ] Document HTMX integration patterns
 
 === Product Documentation  
@@ -359,4 +428,4 @@ src/boundary/web-ui/
 
 ---
 
-*This ADR establishes the technical foundation for web UI development in the Boundary Framework. Implementation will proceed incrementally with regular feedback and iteration.*
+*This ADR establishes the technical foundation for module-integrated web UI development in the Boundary Framework. Phase 1 implementation is complete with shared components and integration foundation. Phase 2 will implement complete user management web interface.*

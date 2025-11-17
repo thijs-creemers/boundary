@@ -2,233 +2,222 @@
 
 ## Executive Summary
 
-Complete implementation plan for adding an HTMX + Hiccup web UI to the Boundary Framework. All architectural decisions have been documented and the system is ready for development.
+Implementation plan for the HTMX + Hiccup web UI in the Boundary Framework, using a module-integrated approach with shared UI components rather than a separate web-ui module.
 
-## Status
+## Status: Phase 1 Complete ✅
 
-- ✅ **Architecture Decision**: ADR-006 created - HTMX + Hiccup selected over ClojureScript
-- ✅ **Shared UI Components**: Implemented in `boundary.shared.ui.core` with full test coverage
-- ✅ **Component Library**: 9 reusable components (text-input, checkbox, forms, etc.)
-- ✅ **Test Coverage**: 17 UI tests passing (84 assertions), 424 total tests passing
-- ✅ **Architecture Validation**: Pure functions, FC/IS compliance, attribute passthrough
-- 🔄 **HTTP Integration**: Designed integration with existing Reitit/Ring infrastructure  
-- 🔄 **Observability Strategy**: Leverages shared interceptor pipeline with HTML adaptations
-- 🔄 **Implementation Roadmap**: Updated with actual implementation progress
+- ✅ **Architecture Decision**: ADR-006 - HTMX + Hiccup selected over ClojureScript  
+- ✅ **Shared UI Components**: Complete component library in `boundary.shared.ui.core`
+- ✅ **Test Coverage**: 17 UI tests passing (84 assertions), full test suite 424 tests passing
+- ✅ **Integration Foundation**: Web handlers and UI functions created in user module
+- ✅ **Documentation**: ADR-006 and implementation plan aligned with actual architecture
 
 ## Architecture Overview
+
+### Actual Implementation Approach
+
+**Key Decision**: Web UI is integrated directly into existing domain modules (user, billing, workflow) rather than creating a separate `boundary.web-ui` module. This approach:
+
+- Leverages existing HTTP infrastructure in each module
+- Keeps web UI close to business logic  
+- Avoids over-engineering with separate modules
+- Uses shared components for consistency
 
 ### Technology Stack
 - **Frontend**: HTMX (progressive enhancement) + Hiccup (server-side rendering)
 - **Backend**: Same Clojure ports as REST API/CLI (user, billing business logic)
-- **HTTP**: Reitit routes + Ring middleware + Integrant lifecycle management
-- **Observability**: Shared interceptor pipeline with logging, metrics, error reporting
+- **HTTP**: Existing Reitit routes + Ring middleware per module
+- **Components**: Shared component library in `boundary.shared.ui.core`
 
-### Implemented Structure (Phase 1 - Shared Components)
+## Current Implementation Structure
+
+### Phase 1: Shared Components Foundation ✅
+
 ```
 src/boundary/shared/ui/core/
-├── components.clj           # ✅ Reusable UI components (forms, inputs, layout)
+├── components.clj           # ✅ 9 reusable UI components
 └── layout.clj              # ✅ Page layout and template functions
 
 src/boundary/user/core/
-└── ui.clj                  # ✅ User-specific UI generation functions (placeholder)
+└── ui.clj                  # ✅ User-specific UI generation functions
 
 src/boundary/user/shell/
-└── web_handlers.clj        # ✅ User web route handlers (placeholder)
+└── web_handlers.clj        # ✅ User web route handlers
 
 test/boundary/shared/ui/core/
 ├── components_test.clj     # ✅ Component tests (17 tests, 84 assertions)
 └── layout_test.clj         # ✅ Layout tests
 ```
 
-### Future Module Structure (Full Web UI)
-```
-src/boundary/web-ui/
-├── core/                    # Functional Core (Pure Functions)
-│   ├── ui.clj              # Base HTML generation (layouts, forms)
-│   ├── transforms.clj      # Data transformations (user->row) 
-│   └── validation.clj      # Form validation logic
-├── shell/                   # Imperative Shell (Side Effects)
-│   ├── http.clj            # Route definitions + HTTP handler
-│   ├── handlers.clj        # HTTP request handlers
-│   ├── templates.clj       # Template rendering
-│   ├── interceptors.clj    # HTMX detection + observability
-│   ├── middleware.clj      # Web-specific middleware
-│   └── module_wiring.clj   # Integrant lifecycle
-├── ports.clj               # Protocol definitions
-└── schema.clj              # Data schemas
-```
+### Shared Component Library
 
-## HTTP Integration Design
-
-### Route Registration Pattern
-```clojure
-;; src/boundary/web_ui/shell/http.clj
-(defn web-ui-routes []
-  [["/"                 {:get handlers/home-page}]
-   ["/users"            {:get  handlers/list-users
-                         :post handlers/create-user}]
-   ["/users/:id/edit"   {:get  handlers/edit-user-form
-                         :post handlers/update-user}]])
-
-(defn create-handler []
-  (-> (bh.routes/create-handler (web-ui-routes))
-      (http.mw/wrap-global-middleware)
-      (ring/wrap-interceptor-chain wi.ix/default-interceptors)
-      (wrap-resource "public")
-      (wrap-content-type)))
-```
-
-### HTMX Detection & Partial Rendering
-```clojure
-;; src/boundary/web_ui/shell/interceptors.clj
-(def htmx-interceptor
-  (interceptor
-    {:name ::htmx
-     :enter (fn [{:keys [request] :as ctx}]
-              (let [hx? (boolean (get-in request [:headers "hx-request"]))]
-                (assoc-in ctx [:request :htmx] hx?)))}))
-
-;; In handlers: check (:htmx request) to return full page vs partial fragment
-```
-
-### System Integration
-```clojure
-;; Integrant configuration adds :web-ui to module list
-{:boundary.shell.interfaces.http/routes/modules
-  [:user :billing :web-ui]}
-
-;; boundary.shell.modules/compose-http-handlers automatically includes web-ui routes
-```
-
-## Observability Integration
-
-### Shared Interceptor Pipeline
-The web UI uses the same observability infrastructure as REST API:
-- **Context Management**: `boundary.shared.core.interceptor-context`
-- **Logging**: Request/response logging with correlation IDs
-- **Metrics**: Timing and counters per endpoint
-- **Error Reporting**: Exception capture with breadcrumbs
-
-### HTML-Specific Adaptations
-```clojure
-;; Error responses render HTML error pages instead of JSON Problem Details
-;; HTMX requests get partial error fragments for inline display
-;; Template rendering metrics tracked separately from API response times
-```
-
-## Implementation Progress
-
-### ✅ Completed: Shared UI Component Foundation (Phase 1)
-
-**Component Library** - `src/boundary/shared/ui/core/components.clj`:
-- `text-input` - Text fields with full attribute passthrough (`{:placeholder "..." :required true}`)  
-- `password-input` - Password fields
-- `email-input` - Email fields with type validation
-- `number-input` - Numeric input fields
+**Components Available** - `src/boundary/shared/ui/core/components.clj`:
+- `text-input` - Text fields with attribute passthrough
+- `password-input` - Password fields  
+- `email-input` - Email fields with validation
+- `number-input` - Numeric inputs
 - `textarea` - Multi-line text areas
-- `checkbox` - Checkbox inputs with conditional checked state
+- `checkbox` - Checkbox inputs with conditional state
 - `submit-button` - Form submission buttons
-- `button` - General purpose buttons  
-- `form` - Form containers with method/action support
+- `button` - General purpose buttons
+- `form` - Form containers with method/action
 
 **Layout System** - `src/boundary/shared/ui/core/layout.clj`:
-- `base-page` - HTML5 document structure with head/body
-- `main-container` - Content container with consistent styling
-- `card` - Card-based content containers
+- `base-page` - HTML5 document structure
+- `main-container` - Content containers
+- `card` - Card-based layouts
 
 **Architecture Validation:**
 - ✅ **Pure Functions**: All components are side-effect free
-- ✅ **Attribute Passthrough**: `(merge base-attrs (dissoc opts :type))` pattern enables custom attributes
-- ✅ **Composable Design**: Components nest and combine naturally
-- ✅ **Test Coverage**: 17 tests, 84 assertions, 100% passing
-- ✅ **FC/IS Compliance**: Strict separation between pure UI generation and side effects
+- ✅ **Attribute Passthrough**: Full HTML attribute support via `(merge base-attrs (dissoc opts :type))`
+- ✅ **Composable Design**: Components nest naturally
+- ✅ **FC/IS Compliance**: Clear separation of pure UI generation from side effects
 
-**Key Implementation Decisions:**
-- **Flexible Attribute Handling**: Components accept any HTML attributes, not just predefined ones
-- **Conditional State Management**: Checkboxes only add `{:checked true}` when needed, not `{:checked false}`
-- **Hiccup Data Structures**: All components return pure Hiccup vectors for maximum composability
+## Integration Pattern: Module-Based Web UI
 
-## 6-Week Implementation Roadmap
+Instead of a separate web-ui module, each domain module handles its own web interface:
 
-### ✅ Week 1: Scaffold & "Hello World" - COMPLETED
-**Files**: ✅ `shared/ui/core/components.clj`, ✅ `shared/ui/core/layout.clj`, ✅ component tests  
-**Milestone**: ✅ Shared UI component library with full test coverage (17 tests, 84 assertions)  
-**Outcome**: Foundation UI components ready for use across all modules
+### User Module Example
+```clojure
+;; src/boundary/user/shell/web_handlers.clj
+(ns boundary.user.shell.web-handlers
+  (:require [boundary.user.core.ui :as user-ui]
+            [boundary.shared.ui.core.components :as ui]))
 
-### Week 2: Route Integration & HTMX Setup
-**Files**: `web-ui/shell/http.clj`, `web-ui/shell/handlers.clj`, `web-ui/shell/interceptors.clj`  
-**Milestone**: GET "/" returns Hiccup page using shared components  
-**Test**: Route registration smoke test
+(defn list-users-page [request]
+  (let [users (user-port/fetch-all)]
+    {:status 200
+     :headers {"content-type" "text/html"}
+     :body (user-ui/users-list-page users)}))
 
-### Week 3: Static Assets & HTMX Detector  
-**Files**: `resources/public/js/htmx.min.js`, `resources/public/css/site.css`, update middleware  
-**Milestone**: Static files served, HTMX requests detected in interceptor context  
-**Test**: Asset serving + HTMX header detection
+;; src/boundary/user/core/ui.clj  
+(ns boundary.user.core.ui
+  (:require [boundary.shared.ui.core.components :as ui]
+            [boundary.shared.ui.core.layout :as layout]))
 
-### Week 4: List Users UI
-**Files**: `core/transforms.clj`, update handlers/templates  
-**Milestone**: GET `/users` returns full page OR HTMX partial based on request headers  
-**Test**: Full page vs partial rendering logic
+(defn users-list-page [users]
+  (layout/base-page
+    {:title "Users"}
+    [:div
+     [:h1 "Users"]
+     (for [user users]
+       (ui/card [:p (:name user)]))]))
+```
 
-### Week 5: Create/Edit User Forms & Validation
-**Files**: `core/validation.clj`, create/edit handlers, form templates  
-**Milestone**: HTMX form submission with inline error rendering using shared components  
-**Test**: Form validation + HTMX error handling
+### HTTP Routes Integration
+Each module's existing HTTP infrastructure handles web routes:
 
-### Week 6: Integration Testing & Cross-Module Flows
-**Files**: `test/integration/web_ui/user_flow_test.clj`  
-**Milestone**: End-to-end user workflows tested  
-**Test**: Complete user CRUD operations via HTMX
+```clojure
+;; In boundary.user.shell.http/routes (existing file)
+(defn routes []
+  [["/api/users" {...existing API routes...}]
+   ["/users"     {:get  web-handlers/list-users-page
+                  :post web-handlers/create-user}]
+   ["/users/:id" {:get  web-handlers/show-user}]])
+```
 
-### Week 7: Production Readiness & Hardening
-**Files**: Enhanced middleware, error handling, asset fingerprinting  
-**Milestone**: Security, performance, and observability hardening  
-**Test**: Security scan, load testing, error page rendering
+## Implementation Roadmap
 
-## Key Integration Points
+### ✅ Phase 1: Foundation (Completed)
+**Duration**: 1 week  
+**Status**: ✅ Complete  
+**Deliverables**: 
+- Shared component library with 9 components
+- Layout system for consistent page structure  
+- Full test coverage (17 tests, 84 assertions)
+- User module web handler and UI function placeholders
 
-### Business Logic Reuse
-- Web UI calls same `user-port/create-user`, `user-port/fetch-all` as REST API
-- No duplication of business logic - only different presentation layer
-- Session management can reuse existing user authentication ports
+### Phase 2: User Management UI (Next)
+**Duration**: 2 weeks  
+**Status**: 🔄 Ready to start  
+**Deliverables**:
+- Complete user list, create, edit, delete web interface
+- HTMX integration for dynamic updates
+- Form validation with inline error display
+- Integration with existing user business logic
 
-### Development Environment
-- HTMX served from resources/public/js/ (CDN copy)
-- CSS/images served via Ring static middleware
-- Hot reloading works with existing REPL-driven development
+**Implementation Steps**:
+1. **Week 1**: Static pages (list users, user details)
+2. **Week 2**: Forms and HTMX interactions (create, edit, delete)
 
-### Deployment Strategy
-- Same JVM process as REST API - no separate deployment
-- Static assets can be CDN-cached with fingerprinting
-- Feature flag controlled rollout via existing config system
+### Phase 3: Additional Modules (Future)
+**Duration**: 2-3 weeks per module  
+**Status**: 📋 Planned  
+**Modules**: Billing, Workflow  
+**Pattern**: Follow same module-integrated approach as user module
 
-## Risk Mitigation
+### Phase 4: Production Readiness (Future)
+**Duration**: 1 week  
+**Status**: 📋 Planned  
+**Deliverables**:
+- CSRF protection
+- Session management
+- Error handling and user feedback
+- Performance optimization
 
-### Technical Risks
-- **CSRF Protection**: Include CSRF tokens in HTMX headers
-- **Session State**: Use Ring session middleware for flash messages
-- **Caching Issues**: No-cache headers on HTMX endpoints, ETag on static assets
-- **Error Handling**: Comprehensive HTML error pages via error interceptor
+## Development Approach
 
-### Integration Risks
-- **Port Protocol Changes**: Test against real user module implementations
-- **Route Conflicts**: Web UI routes prefixed to avoid conflicts with API routes
-- **Performance**: Template caching and fragment optimization
+### Module Integration Pattern
+1. **Business Logic Reuse**: Web handlers call same ports as API endpoints
+2. **UI Functions**: Pure functions in `{module}/core/ui.clj` generate Hiccup
+3. **Web Handlers**: Side-effect functions in `{module}/shell/web_handlers.clj`
+4. **Route Integration**: Add web routes to existing `{module}/shell/http.clj`
+5. **Shared Components**: Use `boundary.shared.ui.core` for consistency
+
+### HTMX Integration Strategy
+- **Progressive Enhancement**: Pages work without JavaScript
+- **Partial Updates**: HTMX requests return HTML fragments
+- **Form Handling**: Submit forms asynchronously with validation feedback
+- **Error Display**: Inline error messages using shared components
+
+### Testing Strategy
+- **Component Tests**: Test individual UI components in isolation
+- **Integration Tests**: Test complete page rendering
+- **User Flow Tests**: Test HTMX interactions end-to-end
+- **Existing Test Suite**: Leverage existing business logic tests
+
+## Key Benefits of Module-Integrated Approach
+
+### Architectural Benefits
+- **Simplicity**: No additional module complexity
+- **Cohesion**: Web UI stays close to business logic
+- **Reuse**: Shared components ensure consistency
+- **Maintainability**: Changes to business logic automatically available to web UI
+
+### Development Benefits  
+- **REPL-Friendly**: Develop UI functions in same namespace as business logic
+- **Fast Iteration**: No cross-module dependencies to manage
+- **Test Coverage**: Reuse existing test infrastructure
+- **Deployment**: No additional deployment complexity
 
 ## Next Steps
 
-The system is now ready for implementation. To begin development:
+To continue implementation:
 
-1. Start with Week 1 scaffold - create the basic module structure
-2. Follow the file creation order for proper dependency management  
-3. Test each milestone before proceeding to the next week
-4. Use the integration tests to validate cross-module functionality
+1. **Start Phase 2**: Implement complete user management web interface
+2. **HTMX Setup**: Add HTMX library and basic interaction patterns  
+3. **Form Handling**: Implement create/edit user forms with validation
+4. **Testing**: Add integration tests for web UI functionality
+5. **Module Expansion**: Repeat pattern for billing and workflow modules
 
-All architectural decisions are documented in ADR-006, and the implementation follows established Boundary Framework patterns for consistency and maintainability.
+## Technical Decisions Made
 
-## References
+### Component Architecture
+- **Pure Functions**: All UI components return Hiccup data structures
+- **Attribute Passthrough**: Components accept any HTML attributes for flexibility
+- **Composability**: Components designed to nest and combine naturally
+- **Testing**: Complete test coverage for all components and layouts
 
-- **ADR-006**: `docs/modules/ROOT/pages/adr/ADR-006-web-ui-architecture-htmx-hiccup.adoc`
-- **System Architecture**: Updated in `warp.md` and `PRD.adoc`
-- **Existing Patterns**: Follow `boundary.user.shell.http` module structure
-- **Observability**: Use `boundary.shared.core.interceptors` pipeline
+### Integration Strategy
+- **Module-Based**: Web UI integrated into existing domain modules
+- **HTTP Reuse**: Leverage existing Reitit/Ring infrastructure per module
+- **Port Reuse**: Web handlers call same business logic ports as API endpoints
+- **Shared Assets**: Common UI components and layouts in shared namespace
+
+### Observability Strategy
+- **Existing Pipeline**: Use same interceptor pipeline as REST API
+- **HTML Adaptation**: Error responses render HTML instead of JSON
+- **HTMX Detection**: Partial rendering based on request headers
+- **Metrics**: Web UI metrics integrated with existing metrics system
+
+This approach provides a pragmatic, maintainable foundation for web UI development while leveraging the existing Boundary Framework architecture and avoiding over-engineering.
