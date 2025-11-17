@@ -220,4 +220,30 @@ To continue implementation:
 - **HTMX Detection**: Partial rendering based on request headers
 - **Metrics**: Web UI metrics integrated with existing metrics system
 
-This approach provides a pragmatic, maintainable foundation for web UI development while leveraging the existing Boundary Framework architecture and avoiding over-engineering.
+## Future Technology Considerations
+
+### Replicant (ClojureScript Reactive UI) - Deferred
+
+**Status**: Evaluated but not adopted for current phases (1-3)
+
+**When to Reconsider**:
+- Interaction density exceeds 5 distinct partial update regions per page
+- User experience requires <150ms perceived response times
+- Multiple UI elements need shared ephemeral state (wizards, dashboards)
+- HTMX round-trip latency becomes UX bottleneck
+
+**Adoption Approach (If Needed)**:
+1. **Island Strategy**: Mount Replicant components within existing HTMX pages
+2. **Hybrid Rendering**: Server-side Hiccup with client-side hydration
+3. **Gradual Migration**: Replace high-interaction HTMX endpoints with Replicant islands
+4. **Metrics-Driven**: Adopt only when ≥30% latency improvement or ≥40% server request reduction proven
+
+**Framework Compliance Safeguards**:
+- Keep domain logic server-side (FC/IS compliance)
+- Client limited to view-state and intent dispatch
+- Preserve existing Hiccup functions for rollback capability
+- All mutations require server confirmation (no optimistic domain changes)
+
+**Decision Point**: Reevaluate after Phase 2 completion based on user interaction patterns and performance metrics.
+
+This approach provides a pragmatic, maintainable foundation for web UI development while leveraging the existing Boundary Framework architecture and avoiding over-engineering. The Replicant evaluation ensures we have a clear upgrade path if interaction complexity increases beyond HTMX capabilities.

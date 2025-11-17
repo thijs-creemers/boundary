@@ -374,6 +374,58 @@ src/boundary/billing/
 - Less composable than Hiccup functions
 - Reduced type safety compared to Clojure data structures
 
+=== 4. Replicant (ClojureScript Virtual DOM / Reactive UI)
+
+**Decision**: Deferred for future evaluation - not adopted for Phase 1-3
+
+**Overview:**
+Replicant is a Clojure/SCI-based reactive UI framework that enables dynamic, stateful client-side interactions using Clojure data structures and a subscription model in the browser without requiring full Shadow-CLJS compilation (can run via SCI interpretation).
+
+**Pros:**
+- **Rich Local State**: Enables optimistic UI updates and fine-grained state management
+- **Language Continuity**: Single language (Clojure) throughout entire stack
+- **Performance**: Potentially lower server CPU for highly interactive pages through client-side diffing
+- **Real-time Integration**: Natural fit for websocket/push updates and live dashboards
+- **Reduced Server Load**: Fewer round-trips for complex interactions vs HTMX
+
+**Cons:**
+- **Runtime Complexity**: Adds ~hundreds of KB to client bundle and runtime management
+- **Build Tooling**: Still requires asset bundling and version management (lighter than full ClojureScript but not zero-build)
+- **State Management Surface**: Introduces client-side state management with new failure modes
+- **Observability Gap**: Fewer server round-trips reduce visibility; requires client telemetry
+- **Testing Complexity**: Additional test layer for client unit tests and behavior validation
+- **Architecture Risk**: Potential for business logic drift into client-side code
+
+**Framework Alignment Concerns:**
+- **FC/IS Compliance**: Risk of violating Functional Core principle if domain logic moves client-side
+- **Module Integration**: Would require significant changes to current module-integrated approach
+- **Ports Pattern**: Must ensure domain logic remains server-side with client limited to view-state and intent dispatch
+
+**Adoption Criteria (Future Consideration):**
+Consider Replicant for a page/module when ALL criteria apply:
+1. **Interaction Density**: >5 distinct partial update regions OR >10 HTMX endpoints planned
+2. **Latency Sensitivity**: UX requires <150ms perceived response (e.g., inline typing validation)
+3. **State Cohesion**: Multiple coupled UI elements depend on shared ephemeral state
+4. **Server Load**: HTML fragment re-render cost measured >5x minimal payload alternative
+5. **Team Readiness**: Project team prepared to own client telemetry and test harness
+
+**Migration Strategies (If Adopted):**
+1. **Island Approach**: Mount Replicant components in specific divs while keeping SSR/HTMX baseline
+2. **Phased Replacement**: Replace high-interaction HTMX sets with Replicant islands based on ROI
+3. **Hybrid Rendering**: Server-side initial Hiccup with client-side Replicant hydration
+4. **Event Bus Integration**: Websocket channels for server-push updates to Replicant subscriptions
+
+**Risk Mitigations:**
+- Enforce rule: All domain mutations require server confirmation
+- Development guideline: No side effects in Replicant components; side effects only via intent dispatch
+- Preserve Hiccup functions as canonical representation for rollback capability
+
+**Current Recommendation:**
+- **Phase 1-3**: Continue with HTMX + Hiccup for proven simplicity and rapid development
+- **Future Spike**: Evaluate via 1-2 day prototype when interaction complexity increases
+- **Metrics to Track**: Round-trip counts, interaction latency, server CPU per session
+- **Decision Point**: Consider if improvements show ≥30% latency reduction or ≥40% fewer server requests
+
 == Rollout Plan
 
 === Development Environment Setup
