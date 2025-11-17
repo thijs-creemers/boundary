@@ -208,6 +208,7 @@
     (users-table users)]
    ;; Ensure user-specific CSS is loaded in addition to global defaults
    (update opts :css (fnil into []) ["/modules/user/css/user.css"])))
+   opts))
 
 (defn user-detail-page
   "Complete user detail page.
