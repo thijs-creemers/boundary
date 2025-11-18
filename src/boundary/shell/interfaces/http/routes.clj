@@ -13,6 +13,7 @@
    - Standardized route structure"
   (:require [boundary.shell.interfaces.http.common :as http-common]
             [boundary.shell.interfaces.http.middleware :as http-middleware]
+            [clojure.string]
             [muuntaja.core :as m]
             [reitit.coercion.malli :as reitit-malli]
             [reitit.ring :as ring]
@@ -20,7 +21,8 @@
             [reitit.ring.middleware.muuntaja :as muuntaja]
             [reitit.ring.middleware.parameters :as parameters]
             [reitit.swagger :as swagger]
-            [reitit.swagger-ui :as swagger-ui]))
+            [reitit.swagger-ui :as swagger-ui]
+            [ring.middleware.resource :refer [wrap-resource]]))
 
 ;; =============================================================================
 ;; Common Route Configuration
@@ -195,6 +197,9 @@
 
 (defn create-handler
       "Create a complete Ring handler with routes and fallback handlers.
+       
+       Serves static resources from /public directory BEFORE routing,
+       bypassing content negotiation middleware that causes 406 errors.
 
        Args:
          router: Reitit router instance
@@ -208,11 +213,16 @@
   [router & {:keys [not-found-handler method-not-allowed-handler]
              :or   {not-found-handler          (http-common/create-not-found-handler)
                     method-not-allowed-handler nil}}]
-  (ring/ring-handler
-    router
-    (ring/create-default-handler
-      (cond-> {:not-found not-found-handler}
-              method-not-allowed-handler (assoc :method-not-allowed method-not-allowed-handler)))))
+  ;; Create the base Reitit handler
+  (let [reitit-handler (ring/ring-handler
+                         router
+                         (ring/create-default-handler
+                           (cond-> {:not-found not-found-handler}
+                                   method-not-allowed-handler (assoc :method-not-allowed method-not-allowed-handler))))]
+    ;; Wrap with resource middleware to serve static files from public/ directory
+    ;; This intercepts requests for static files BEFORE they hit Reitit routing,
+    ;; bypassing content negotiation middleware that causes 406 errors
+    (wrap-resource reitit-handler "public")))
 
 ;; =============================================================================
 ;; Convenience Functions
