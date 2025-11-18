@@ -28,7 +28,8 @@
             [boundary.shared.core.interceptor-context :as interceptor-context]
             [boundary.user.shell.interceptors :as user-interceptors]
             [boundary.user.shell.middleware :as user-middleware]
-            [boundary.user.shell.web-handlers :as web-handlers]))
+            [boundary.user.shell.web-handlers :as web-handlers]
+            [reitit.ring :as ring]))
 
 ;; =============================================================================
 ;; User-Specific Error Mappings
@@ -223,110 +224,148 @@
       (:response result-context))))
 
 ;; =============================================================================
+;; Web UI Routes
+;; =============================================================================
+
+(defn web-routes
+  "Define web UI routes under /web for HTML responses.
+   
+   Args:
+     user-service: User service instance
+     config: Application configuration map
+     
+   Returns:
+     Vector of Reitit route definitions for web UI"
+  [user-service config]
+  [["/web/users" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
+                  :get {:handler (web-handlers/users-page-handler user-service config)
+                        :summary "Users listing page"}
+                  :post {:handler (web-handlers/create-user-htmx-handler user-service config)
+                         :summary "Create user (HTMX fragment)"}}]
+   ["/web/users/new" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
+                      :get {:handler (web-handlers/create-user-page-handler config)
+                            :summary "Create user page"}}]
+   ["/web/users/table" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
+                        :get {:handler (web-handlers/users-table-fragment-handler user-service config)
+                              :summary "Users table fragment (HTMX refresh)"}}]
+   ["/web/users/:id" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
+                      :get {:handler (web-handlers/user-detail-page-handler user-service config)
+                            :summary "User detail page"}
+                      :put {:handler (web-handlers/update-user-htmx-handler user-service config)
+                            :summary "Update user (HTMX fragment)"}
+                      :delete {:handler (web-handlers/delete-user-htmx-handler user-service config)
+                               :summary "Delete user (HTMX fragment)"}}]])
+
+;; =============================================================================
+;; Static Asset Routes
+;; =============================================================================
+
+(defn static-routes
+  "Define routes for serving static assets.
+   
+   Returns:
+     Vector of Reitit route definitions for static files"
+  []
+  [["/css/*" {:get {:handler (ring/create-resource-handler {:path "/public/css"})
+                    :summary "CSS assets"}}]
+   ["/js/*" {:get {:handler (ring/create-resource-handler {:path "/public/js"})
+                   :summary "JavaScript assets"}}]
+   ["/modules/*" {:get {:handler (ring/create-resource-handler {:path "/public/modules"})
+                        :summary "Module-specific assets"}}]
+   ["/docs/*" {:get {:handler (ring/create-resource-handler {:path "/public/docs"})
+                     :summary "Documentation"}}]])
+
+;; =============================================================================
 ;; User Module Routes
 ;; =============================================================================
 
 (defn user-routes
-  "Define user module specific routes using interceptor-based handlers.
+  "Define user module specific routes.
+   
+   Combines API routes (under /api) with optional web UI routes and static assets.
 
    Args:
      user-service: User service instance
      config: Application configuration map
 
    Returns:
-     Vector of Reitit route definitions for user module"
+     Vector of all route definitions (API, web, static)"
   [user-service config]
   (let [web-ui-enabled? (get-in config [:active :boundary/settings :features :user-web-ui :enabled?] true)
         api-routes [["/users" {:post {:handler (create-user-handler user-service)
-                                        :summary "Create user"
-                                        :tags ["users"]
-                                        :parameters {:body [:map
-                                                            [:email :string]
-                                                            [:name :string]
-                                                            [:password {:optional true} :string]
-                                                            [:role [:enum "admin" "user" "viewer"]]
-                                                            [:tenantId :string]
-                                                            [:active {:optional true} :boolean]]}}
-                                :get {:handler (list-users-handler user-service)
-                                      :summary "List users with pagination and filters"
+                                      :summary "Create user"
                                       :tags ["users"]
-                                      :parameters {:query [:map
-                                                           [:tenantId :string]
-                                                           [:limit {:optional true} :int]
-                                                           [:offset {:optional true} :int]
-                                                           [:role {:optional true} [:enum "admin" "user" "viewer"]]
-                                                           [:active {:optional true} :boolean]]}}}]
+                                      :parameters {:body [:map
+                                                          [:email :string]
+                                                          [:name :string]
+                                                          [:password {:optional true} :string]
+                                                          [:role [:enum "admin" "user" "viewer"]]
+                                                          [:tenantId :string]
+                                                          [:active {:optional true} :boolean]]}}
+                               :get {:handler (list-users-handler user-service)
+                                     :summary "List users with pagination and filters"
+                                     :tags ["users"]
+                                     :parameters {:query [:map
+                                                          [:tenantId :string]
+                                                          [:limit {:optional true} :int]
+                                                          [:offset {:optional true} :int]
+                                                          [:role {:optional true} [:enum "admin" "user" "viewer"]]
+                                                          [:active {:optional true} :boolean]]}}}]
                     ["/users/:id" {:get {:handler (get-user-handler user-service)
-                                          :summary "Get user by ID"
-                                          :tags ["users"]
-                                          :parameters {:path [:map [:id :string]]}}
-                                    :put {:handler (update-user-handler user-service)
-                                          :summary "Update user"
-                                          :tags ["users"]
-                                          :parameters {:path [:map [:id :string]]
-                                                       :body [:map
-                                                              [:name {:optional true} :string]
-                                                              [:role {:optional true} [:enum "admin" "user" "viewer"]]
-                                                              [:active {:optional true} :boolean]]}}
-                                    :delete {:handler (delete-user-handler user-service)
-                                             :summary "Soft delete user"
-                                             :tags ["users"]
-                                             :parameters {:path [:map [:id :string]]}}}]
+                                         :summary "Get user by ID"
+                                         :tags ["users"]
+                                         :parameters {:path [:map [:id :string]]}}
+                                   :put {:handler (update-user-handler user-service)
+                                         :summary "Update user"
+                                         :tags ["users"]
+                                         :parameters {:path [:map [:id :string]]
+                                                      :body [:map
+                                                             [:name {:optional true} :string]
+                                                             [:role {:optional true} [:enum "admin" "user" "viewer"]]
+                                                             [:active {:optional true} :boolean]]}}
+                                   :delete {:handler (delete-user-handler user-service)
+                                            :summary "Soft delete user"
+                                            :tags ["users"]
+                                            :parameters {:path [:map [:id :string]]}}}]
                     ["/auth/login" {:post {:handler (login-handler user-service)
-                                            :summary "Authenticate user with email/password"
-                                            :tags ["authentication"]
-                                            :parameters {:body [:map
-                                                                [:email :string]
-                                                                [:password :string]
-                                                                [:tenantId {:optional true} :string]
-                                                                [:deviceInfo {:optional true} [:map
-                                                                                               [:userAgent {:optional true} :string]
-                                                                                               [:ipAddress {:optional true} :string]]]]}}}]
-                    ["/sessions" {:post {:handler (create-session-handler user-service)
-                                          :summary "Create session (login by user ID)"
-                                          :tags ["sessions"]
-                                          :parameters {:body [:or
-                                                              ;; Traditional user ID based session creation
-                                                              [:map
-                                                               [:userId :string]
-                                                               [:tenantId :string]
-                                                               [:deviceInfo {:optional true} [:map
-                                                                                              [:userAgent {:optional true} :string]
-                                                                                              [:ipAddress {:optional true} :string]]]]
-                                                              ;; Email/password authentication
-                                                              [:map
+                                           :summary "Authenticate user with email/password"
+                                           :tags ["authentication"]
+                                           :parameters {:body [:map
                                                                [:email :string]
                                                                [:password :string]
                                                                [:tenantId {:optional true} :string]
                                                                [:deviceInfo {:optional true} [:map
                                                                                               [:userAgent {:optional true} :string]
-                                                                                              [:ipAddress {:optional true} :string]]]]]}}}]
+                                                                                              [:ipAddress {:optional true} :string]]]]}}}]
+                    ["/sessions" {:post {:handler (create-session-handler user-service)
+                                         :summary "Create session (login by user ID)"
+                                         :tags ["sessions"]
+                                         :parameters {:body [:or
+                                                             [:map
+                                                              [:userId :string]
+                                                              [:tenantId :string]
+                                                              [:deviceInfo {:optional true} [:map
+                                                                                             [:userAgent {:optional true} :string]
+                                                                                             [:ipAddress {:optional true} :string]]]]
+                                                             [:map
+                                                              [:email :string]
+                                                              [:password :string]
+                                                              [:tenantId {:optional true} :string]
+                                                              [:deviceInfo {:optional true} [:map
+                                                                                             [:userAgent {:optional true} :string]
+                                                                                             [:ipAddress {:optional true} :string]]]]]}}}]
                     ["/sessions/:token" {:get {:handler (validate-session-handler user-service)
-                                                :summary "Validate session"
-                                                :tags ["sessions"]
-                                                :parameters {:path [:map [:token :string]]}}
-                                          :delete {:handler (invalidate-session-handler user-service)
-                                                   :summary "Invalidate session (logout)"
-                                                   :tags ["sessions"]
-                                                   :parameters {:path [:map [:token :string]]}}}]]
-        web-routes [["/users" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
-                                :get {:handler (web-handlers/users-page-handler user-service)
-                                      :summary "Users listing page"}
-                                :post {:handler (web-handlers/create-user-htmx-handler user-service)
-                                       :summary "Create user (HTMX fragment)"}}]
-                    ["/users/new" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
-                                   :get {:handler (web-handlers/create-user-page-handler)
-                                         :summary "Create user page"}}]
-                    ["/users/:id" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
-                                   :get {:handler (web-handlers/user-detail-page-handler user-service)
-                                         :summary "User detail page"}
-                                   :put {:handler (web-handlers/update-user-htmx-handler user-service)
-                                         :summary "Update user (HTMX fragment)"}
-                                   :delete {:handler (web-handlers/delete-user-htmx-handler user-service)
-                                            :summary "Delete user (HTMX fragment)"}}]]]
-    (if web-ui-enabled?
-      (into api-routes web-routes)
-      api-routes)))
+                                               :summary "Validate session"
+                                               :tags ["sessions"]
+                                               :parameters {:path [:map [:token :string]]}}
+                                         :delete {:handler (invalidate-session-handler user-service)
+                                                  :summary "Invalidate session (logout)"
+                                                  :tags ["sessions"]
+                                                  :parameters {:path [:map [:token :string]]}}}]]]
+    ;; Combine routes: static assets, web UI (if enabled), and API routes
+    (concat (static-routes)
+            (when web-ui-enabled? (web-routes user-service config))
+            api-routes)))
 
 (defn user-health-checks
   "Additional health checks specific to user module.
@@ -403,4 +442,3 @@
                       (user-routes user-service config)
                       :additional-health-checks (user-health-checks user-service)
                       :error-mappings user-error-mappings)))
-

@@ -50,13 +50,20 @@
       (is (= "john@example.com" (nth row 2)))
       (is (= "ADMIN" (nth row 3)))
       (is (= "Active" (nth row 4)))
-      (is (= [:a.button.small {:href "/users/123"} "View"] (nth row 5)))))
+      ;; New structure: actions div with Edit button and Deactivate button
+      (let [actions (nth row 5)]
+        (is (= :div.actions (first actions)))
+        (is (= [:a.button.small {:href "/web/users/123"} "Edit"] (second actions)))
+        (is (= :button.button.small.danger (first (nth actions 2)))))))
 
   (testing "generates correct table row for inactive user"
     (let [row (ui/user-row inactive-user)]
       (is (= "USER" (nth row 3)))
       (is (= "Inactive" (nth row 4)))
-      (is (= [:a.button.small {:href "/users/456"} "View"] (nth row 5)))))
+      ;; New structure: actions div with Edit button and Deactivate button
+      (let [actions (nth row 5)]
+        (is (= :div.actions (first actions)))
+        (is (= [:a.button.small {:href "/web/users/456"} "Edit"] (second actions))))))
 
   (testing "handles different role types"
     (let [viewer-user (assoc sample-user :role :viewer)
@@ -64,26 +71,27 @@
       (is (= "VIEWER" (nth row 3))))))
 
 (deftest users-table-test
-  (testing "generates table with users"
+  (testing "generates table with users wrapped in container"
     (let [table (ui/users-table sample-users)]
       (is (vector? table))
-      (is (= :table (first table)))
+      ;; New structure: container div with HTMX attributes
+      (is (= :div#users-table-container (first table)))
       (is (map? (second table)))
-      (is (contains? (second table) :id))
-      (is (= "users-table" (:id (second table))))
       (is (contains? (second table) :hx-get))
-      (is (= "/users" (:hx-get (second table))))))
+      (is (= "/web/users/table" (:hx-get (second table))))))
 
   (testing "shows empty state when no users"
     (let [table (ui/users-table [])]
-      (is (= [:div.empty-state "No users found."] table))))
+      ;; New structure: container div with empty state inside
+      (is (= :div#users-table-container (first table)))
+      (is (some #(= [:div.empty-state "No users found."] %) table))))
 
   (testing "includes HTMX attributes for dynamic updates"
     (let [table (ui/users-table sample-users)
           attrs (second table)]
-      (is (= "/users" (:hx-get attrs)))
-      (is (= "#users-table" (:hx-target attrs)))
-      (is (= "refresh" (:hx-trigger attrs))))))
+      (is (= "/web/users/table" (:hx-get attrs)))
+      (is (= "#users-table-container" (:hx-target attrs)))
+      (is (= "userCreated from:body, userUpdated from:body, userDeleted from:body" (:hx-trigger attrs))))))
 
 ;; =============================================================================
 ;; User Form Component Tests
@@ -93,7 +101,8 @@
   (testing "generates form with correct structure"
     (let [form (ui/user-detail-form sample-user)]
       (is (vector? form))
-      (is (= :div.user-detail (first form)))
+      ;; New structure: div with ID instead of class
+      (is (= :div#user-detail (first form)))
       (is (= [:h2 "User Details"] (second form)))))
 
   (testing "includes HTMX form attributes"
@@ -101,7 +110,8 @@
           form-element (nth form 2)]
       (is (= :form (first form-element)))
       (let [attrs (second form-element)]
-        (is (= "/users/123" (:hx-put attrs)))
+        ;; New URLs: /web/users/*
+        (is (= "/web/users/123" (:hx-put attrs)))
         (is (= "#user-detail" (:hx-target attrs))))))
 
   (testing "pre-fills form fields with user data"
@@ -122,26 +132,28 @@
   (testing "generates form with correct structure"
     (let [form (ui/create-user-form)]
       (is (vector? form))
-      (is (= :div.create-user (first form)))
+      ;; New structure: div with ID instead of class
+      (is (= :div#create-user-form (first form)))
       (is (= [:h2 "Create New User"] (second form)))))
 
   (testing "accepts data and errors parameters"
     (let [form (ui/create-user-form create-user-data validation-errors)]
       (is (vector? form))
-      (is (= :div.create-user (first form)))))
+      (is (= :div#create-user-form (first form)))))
 
   (testing "includes HTMX form attributes"
     (let [form (ui/create-user-form)
           form-element (nth form 2)]
       (is (= :form (first form-element)))
       (let [attrs (second form-element)]
-        (is (= "/users" (:hx-post attrs)))
+        ;; New URLs: /web/users
+        (is (= "/web/users" (:hx-post attrs)))
         (is (= "#create-user-form" (:hx-target attrs))))))
 
   (testing "no-arg version works"
     (let [form (ui/create-user-form)]
       (is (vector? form))
-      (is (= :div.create-user (first form)))))
+      (is (= :div#create-user-form (first form)))))
 
   (testing "includes password field (not in detail form)"
     (let [form (ui/create-user-form)
@@ -168,7 +180,8 @@
   (testing "includes navigation link"
     (let [message (ui/user-created-success sample-user)
           content (str message)]
-      (is (re-find #"/users" content))
+      ;; New URLs: /web/users
+      (is (re-find #"/web/users" content))
       (is (re-find #"View All Users" content)))))
 
 (deftest user-updated-success-test
@@ -183,7 +196,8 @@
   (testing "includes user-specific navigation link"
     (let [message (ui/user-updated-success sample-user)
           content (str message)]
-      (is (re-find #"/users/123" content))
+      ;; New URLs: /web/users/123
+      (is (re-find #"/web/users/123" content))
       (is (re-find #"View User" content)))))
 
 (deftest user-deleted-success-test
@@ -198,7 +212,8 @@
   (testing "includes navigation link to users list"
     (let [message (ui/user-deleted-success 123)
           content (str message)]
-      (is (re-find #"/users" content))
+      ;; New URLs: /web/users
+      (is (re-find #"/web/users" content))
       (is (re-find #"View All Users" content)))))
 
 ;; =============================================================================
@@ -226,7 +241,8 @@
       (let [content (str page)]
         (is (re-find #"Users" content))
         (is (re-find #"Create User" content))
-        (is (re-find #"/users/new" content)))))
+        ;; New URLs: /web/users/new
+        (is (re-find #"/web/users/new" content)))))
 
   (testing "accepts optional parameters"
     (let [opts {:flash {:success "User created"}}

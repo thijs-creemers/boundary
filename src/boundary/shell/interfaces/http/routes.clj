@@ -171,14 +171,25 @@
         enhanced-middleware (concat default-middleware
                                     extra-middleware
                                     [(http-middleware/wrap-exception-handling error-mappings)])
-        enhanced-route-data (assoc route-data :middleware enhanced-middleware)]
+        enhanced-route-data (assoc route-data :middleware enhanced-middleware)
+        ;; Separate routes that should be under /api from root-level routes
+        ;; Root-level routes: static assets (/css, /js, /modules), web UI (/web), docs
+        ;; API routes: all other routes go under /api prefix
+        {api-routes true root-routes false}
+        (group-by (fn [[path _]] 
+                   (not (or (clojure.string/starts-with? path "/css")
+                            (clojure.string/starts-with? path "/js")
+                            (clojure.string/starts-with? path "/modules")
+                            (clojure.string/starts-with? path "/docs")
+                            (clojure.string/starts-with? path "/web"))))
+                 module-routes)]
 
     (ring/router
       [["" {:middleware [http-middleware/wrap-correlation-id
                          http-middleware/wrap-request-logging]}
-        common-routes]
+        (concat common-routes root-routes)]
        ["/api" {:data enhanced-route-data}
-        module-routes]]
+        api-routes]]
       {:data route-data
        :conflicts nil})))
 
