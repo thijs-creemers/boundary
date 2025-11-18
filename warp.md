@@ -698,6 +698,292 @@ user=> (keys (:active cfg))  ; See active configuration sections
 user=> (:boundary/sqlite cfg)   ; Check SQLite config
 ```
 
+## Web UI Development
+
+### Overview
+
+Boundary provides a server-side rendered web interface using **HTMX + Hiccup** architecture. The web UI follows the same Functional Core / Imperative Shell pattern as the rest of the framework.
+
+**Key Features:**
+- Server-side rendering with Hiccup
+- Progressive enhancement with HTMX
+- Module-integrated architecture (UI code lives in domain modules)
+- No build tooling or compilation required
+- Vendored static assets (no CDN dependencies)
+
+### Quick Start
+
+```zsh
+# Start the system in REPL
+clojure -M:repl-clj
+user=> (require '[integrant.repl :as ig-repl])
+user=> (ig-repl/go)
+
+# Navigate to http://localhost:3000/web/users
+# Default web UI is enabled by feature flag
+```
+
+### Web UI Architecture
+
+**Route Organization:**
+- `/web/*` - Web UI pages and HTMX fragments
+- `/api/*` - REST API endpoints (unchanged)
+- `/css/*` - Stylesheets (Pico CSS, app.css, module CSS)
+- `/js/*` - JavaScript libraries (HTMX)
+- `/modules/*` - Module-specific assets
+
+**File Organization (User Module Example):**
+```
+src/boundary/user/
+├── core/
+│   └── ui.clj              # Pure UI generation functions (Hiccup)
+├── shell/
+│   ├── web_handlers.clj    # Web request handlers (Ring)
+│   └── http.clj            # Route composition
+```
+
+### HTMX Integration Patterns
+
+**1. Form Targeting**
+```clojure
+;; Forms target their container for in-place updates
+[:div#create-user-form {:hx-target "#create-user-form"}
+ [:form {:hx-post "/web/users"}
+  ;; form fields...]]
+```
+
+**2. Event-Based Refresh**
+```clojure
+;; Table listens for custom events from forms
+[:div#users-table-container
+ {:hx-get "/web/users/table"
+  :hx-trigger "userCreated from:body, userUpdated from:body, userDeleted from:body"
+  :hx-target "#users-table-container"}
+ [:table ...]]
+```
+
+**3. Custom Event Triggers**
+```clojure
+;; Handler sets HX-Trigger header to emit custom event
+(defn create-user-htmx-handler [user-service config]
+  (fn [request]
+    ;; ... validation and creation ...
+    {:status 201
+     :headers {"Content-Type" "text/html; charset=utf-8"
+               "HX-Trigger" "userCreated"}  ; Triggers refresh
+     :body (render-html success-message)}))
+```
+
+**4. Confirmation Dialogs**
+```clojure
+[:button {:hx-delete "/web/users/123"
+          :hx-confirm "Deactivate this user?"
+          :hx-target "#users-table-container"}
+  "Deactivate"]
+```
+
+### Working with Web Handlers
+
+**Page Handlers** (Full HTML):
+```clojure
+(defn users-page-handler [user-service config]
+  (fn [request]
+    (let [users (user-ports/list-users-by-tenant user-service tenant-id options)]
+      (html-response
+        (user-ui/users-page (:users users))))))
+```
+
+**HTMX Fragment Handlers** (Partial HTML):
+```clojure
+(defn create-user-htmx-handler [user-service config]
+  (fn [request]
+    (let [[valid? errors data] (validate-request-data schema request)]
+      (if valid?
+        (html-response
+          (user-ui/user-created-success (create-user data))
+          201
+          {"HX-Trigger" "userCreated"})
+        (html-response
+          (user-ui/create-user-form data errors)
+          400)))))
+```
+
+### Validation and Error Display
+
+**Field-Level Errors:**
+```clojure
+;; Convert Malli errors to field-keyed map
+(require '[boundary.shared.ui.core.validation :as validation])
+
+(defn validate-request [schema data]
+  (let [transformed (m/decode schema data transformer)
+        valid? (m/validate schema transformed)]
+    (if valid?
+      [true nil transformed]
+      (let [explain (m/explain schema transformed)
+            errors (validation/explain->field-errors explain)]
+        [false errors transformed]))))
+
+;; Use in forms
+(defn create-user-form [data errors]
+  [:div#create-user-form
+   [:form {:hx-post "/web/users"}
+    [:label "Name"]
+    [:input {:name "name" :value (:name data)}]
+    (when-let [errs (:name errors)]
+      (for [err errs]
+        [:span.error err]))]])
+```
+
+### Static Assets
+
+**Vendored Assets:**
+- HTMX v1.9.12 at `/js/htmx.min.js` (BSD 2-Clause)
+- Pico CSS v2.0 at `/css/pico.min.css` (MIT)
+- Module CSS at `/modules/user/css/user.css`
+
+**Local Development:**
+All assets are served from `resources/public/` - no CDN dependencies or build step required.
+
+### Testing Web UI
+
+**Handler Tests:**
+```zsh
+# Run web handler tests
+clojure -M:test:db/h2 -n boundary.user.shell.web-handlers-test
+```
+
+**Test Pattern:**
+```clojure
+(deftest create-user-htmx-handler-test
+  (testing "creates user successfully"
+    (let [service (create-mock-service)
+          handler (web-handlers/create-user-htmx-handler service config)
+          response (handler {:form-params {"name" "Test"
+                                           "email" "test@example.com"
+                                           "password" "password123"
+                                           "role" "user"
+                                           "active" "true"}})
+      (is (= 201 (:status response)))
+      (is (= "userCreated" (get-in response [:headers "HX-Trigger"])))
+      (is (str/includes? (:body response) "User Created Successfully")))))
+```
+
+### Feature Flags
+
+**Enable/Disable Web UI:**
+```clojure
+;; resources/conf/dev/config.edn
+{:active
+ {:boundary/settings
+  {:features
+   {:user-web-ui {:enabled? true}}  ; Toggle web UI
+   }}}
+```
+
+### Tenant Handling
+
+**Tenant Resolution:**
+```clojure
+;; Web handlers resolve tenant from header or config default
+(defn resolve-tenant-id [request config]
+  (or (get-in request [:headers "x-tenant-id"])
+      (get-in config [:active :boundary/settings :default-tenant-id])
+      "default"))
+```
+
+**Testing with Tenant:**
+```clojure
+(let [request {:headers {"x-tenant-id" "custom-tenant"}}]
+  (handler request))
+```
+
+### Common Patterns
+
+**1. List Page with Create Button:**
+```clojure
+(defn users-page [users opts]
+  (layout/page-layout "Users"
+    [:div.page-header
+     [:h1 "Users"]
+     [:a.button {:href "/web/users/new"} "Create User"]]
+    [:div#users-table-container
+     (users-table users)]))
+```
+
+**2. Form with Inline Validation:**
+```clojure
+(defn create-user-form [data errors]
+  [:div#create-user-form
+   [:h2 "Create New User"]
+   [:form {:hx-post "/web/users"
+           :hx-target "#create-user-form"}
+    (ui/text-input "name" "Name"
+                   {:value (:name data)
+                    :required true
+                    :errors (:name errors)})
+    ;; more fields...
+    (ui/submit-button "Create User")]])
+```
+
+**3. Success Message with Auto-Refresh:**
+```clojure
+(defn user-created-success [user]
+  [:div.alert.alert-success
+   [:h3 "User Created Successfully!"]
+   [:p "Created user: " [:strong (:name user)]]
+   [:a {:href "/web/users"} "View All Users"]])
+```
+
+### Development Workflow
+
+1. **Edit UI functions** in `{module}/core/ui.clj` (pure Hiccup)
+2. **Edit handlers** in `{module}/shell/web_handlers.clj` (Ring handlers)
+3. **Reload in REPL**: `(ig-repl/reset)`
+4. **Refresh browser** - no build step required
+5. **Run tests**: `clojure -M:test:db/h2`
+
+### Debugging Tips
+
+**Check HTMX requests:**
+```javascript
+// In browser console
+htmx.logAll();  // Enable HTMX debug logging
+```
+
+**Verify routes:**
+```clojure
+;; In REPL
+(require '[boundary.user.shell.http :as http])
+(http/user-routes)  ; Inspect route definitions
+```
+
+**Test validation:**
+```clojure
+(require '[boundary.user.schema :as schema])
+(require '[malli.core :as m])
+(m/explain schema/CreateUserRequest
+  {:name "" :email "invalid" :password "123"})
+```
+
+### Best Practices
+
+1. **Keep UI functions pure** - No side effects in `core/ui.clj`
+2. **Use semantic HTML** - Leverage Pico CSS defaults
+3. **Target containers** - Use `hx-target` to update specific divs
+4. **Emit custom events** - Use `HX-Trigger` header for coordination
+5. **Validate server-side** - Never trust client input
+6. **Test handlers** - Write tests for all HTMX endpoints
+7. **Soft delete** - Deactivate instead of permanent delete
+8. **Hide deactivated** - Don't show soft-deleted items by default
+
+### Further Reading
+
+- [ADR-006: Web UI Architecture](docs/modules/ROOT/pages/adr/ADR-006-web-ui-architecture-htmx-hiccup.adoc)
+- [HTMX Documentation](https://htmx.org/)
+- [Hiccup Documentation](https://github.com/weavejester/hiccup)
+- [Pico CSS](https://picocss.com/)
+
 ## Common Development Tasks
 
 ### Essential Development Commands

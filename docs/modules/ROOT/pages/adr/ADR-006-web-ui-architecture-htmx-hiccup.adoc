@@ -6,7 +6,7 @@
 
 == Status
 
-**ACCEPTED** - Phase 1 implementation complete, ready for Phase 2
+**ACCEPTED** - Phase 2 implementation complete, production-ready for user management UI
 
 == Context
 
@@ -211,8 +211,12 @@ src/boundary/billing/
 
 **Testing Coverage:**
 - ✅ **17 UI component tests** - All passing (84 assertions)
-- ✅ **Full test suite** - 424 tests, 2189 assertions, 0 failures
+- ✅ **6 validation tests** - Field error mapping and display
+- ✅ **16 UI integration tests** - User UI components with new structure
+- ✅ **8 web handler tests** - Page and HTMX fragment handlers
+- ✅ **Full test suite** - 438 tests, 2283 assertions, 0 failures
 - ✅ **Component behavior verification** - Attribute passthrough, conditional rendering
+- ✅ **HTMX behavior verification** - Event triggers, dynamic updates, form targeting
 
 **Architecture Validation:**
 - ✅ **Pure functions** - All UI components are side-effect free
@@ -222,7 +226,58 @@ src/boundary/billing/
 
 **Integration Foundation:**
 - ✅ **User module setup** - Web handlers and UI functions created
+- ✅ **Route composition** - `/web/*` routes separate from `/api/*` routes
+- ✅ **Static asset serving** - Local vendoring of HTMX and Pico CSS
+- ✅ **Feature flag integration** - Web UI controlled via `:user-web-ui.enabled?` config
+- ✅ **Tenant resolution** - Header-based with configured default fallback
 - ✅ **Documentation alignment** - ADR and implementation plan updated
+
+=== ✅ Completed: Phase 2 - User Management Web UI
+
+**Web Routes Implementation** - `/web/users/*` endpoints
+
+*Page Handlers:*
+- `GET /web/users` - Users listing page with table and Create User button
+- `GET /web/users/new` - Create user page with empty form
+- `GET /web/users/:id` - User detail page with edit form
+
+*HTMX Fragment Handlers:*
+- `POST /web/users` - Create user with validation, returns form fragment or success message
+  - Sets `HX-Trigger: userCreated` header on success
+  - Returns 400 with inline errors on validation failure
+- `PUT /web/users/:id` - Update user with validation, returns detail fragment
+  - Sets `HX-Trigger: userUpdated` header on success
+  - Returns 400 with inline errors on validation failure  
+- `DELETE /web/users/:id` - Deactivate user (soft delete)
+  - Sets `HX-Trigger: userDeleted` header on success
+- `GET /web/users/table` - Table fragment for auto-refresh via HTMX events
+
+**HTMX Integration Patterns:**
+- **Form targeting**: `hx-target="#create-user-form"` and `hx-target="#user-detail"`
+- **Event-based refresh**: Table listens for `userCreated`, `userUpdated`, `userDeleted` events from body
+- **Automatic table refresh**: `hx-get="/web/users/table"` triggered by custom events
+- **Confirmation dialogs**: `hx-confirm` on deactivate buttons
+- **Validation feedback**: Inline field errors displayed in form fragments
+
+**Static Assets:**
+- ✅ **HTMX v1.9.12** - Vendored locally at `/js/htmx.min.js` (BSD 2-Clause license)
+- ✅ **Pico CSS v2.0** - Vendored locally at `/css/pico.min.css` (MIT license)
+- ✅ **Module CSS** - User-specific styles at `/modules/user/css/user.css`
+- ✅ **License attribution** - `.LICENSE` files for all vendored assets
+
+**Architecture Compliance:**
+- ✅ **FC/IS Pattern**: Pure UI functions in `core/ui.clj`, effects in `shell/web_handlers.clj`
+- ✅ **Ports and Adapters**: Web handlers call existing business logic ports only
+- ✅ **Module Integration**: Web UI fully integrated into user module HTTP infrastructure
+- ✅ **Validation**: Malli schema validation with field-level error transformation
+- ✅ **Tenant Handling**: Request header with configured default fallback
+- ✅ **Soft Delete**: Deactivate only, hidden from list by default
+
+**Testing Coverage:**
+- ✅ **Page handler tests**: Full page rendering, tenant resolution, error handling
+- ✅ **HTMX handler tests**: Fragment rendering, validation, HX-Trigger headers
+- ✅ **Integration test**: Complete workflow from list to create to update to delete
+- ✅ **UI component tests**: Updated for new structure with `/web/*` URLs and HTMX attributes
 
 == Implementation Strategy
 
@@ -234,12 +289,15 @@ src/boundary/billing/
 - [x] Complete test coverage for all components (17 tests, 84 assertions)
 - [x] Create integration foundation in user module
 
-=== Phase 2: User Management UI (Next - 2 weeks)
-- [ ] Implement complete user list, create, edit, delete web interface
-- [ ] Add HTMX integration for dynamic updates
-- [ ] Implement form handling with validation and inline error display
-- [ ] Integrate with existing user business logic ports
-- [ ] Add CSS styling and responsive design
+=== Phase 2: User Management UI ✅ (Completed)
+- [x] Implement complete user list, create, edit, delete web interface
+- [x] Add HTMX integration for dynamic updates with event-based triggers
+- [x] Implement form handling with validation and inline error display
+- [x] Integrate with existing user business logic ports
+- [x] Add CSS styling (Pico CSS) with module-specific customization
+- [x] Vendor static assets locally (no CDN dependencies)
+- [x] Implement `/web` route separation from `/api` routes
+- [x] Add comprehensive test coverage (438 tests, 2283 assertions, 0 failures)
 
 === Phase 3: Additional Modules (Future - 2-3 weeks per module)
 - [ ] Extend billing module with web interface following user module pattern
