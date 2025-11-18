@@ -73,16 +73,35 @@
   (log/info "User service halted (no cleanup needed)"))
 
 ;; =============================================================================
-;; User HTTP Handler
+;; User Routes (Structured Format for Top-Level Composition)
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/user-routes
+  [_ {:keys [user-service config]}]
+  (log/info "Initializing user module routes (structured format)")
+  (require 'boundary.user.shell.http)
+  (let [user-routes-fn (ns-resolve 'boundary.user.shell.http 'user-routes)
+        routes (user-routes-fn user-service (or config {}))]
+    (log/info "User module routes initialized successfully" {:route-keys (keys routes)})
+    routes))
+
+(defmethod ig/halt-key! :boundary/user-routes
+  [_ _routes]
+  (log/info "User module routes halted (no cleanup needed)"))
+
+;; =============================================================================
+;; User HTTP Handler (DEPRECATED - Legacy Support)
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/user-http-handler
   [_ {:keys [user-service config]}]
-  (log/info "Initializing user HTTP handler")
+  (log/warn "DEPRECATED: :boundary/user-http-handler is no longer the preferred integration method.")
+  (log/warn "Please use :boundary/user-routes and top-level :boundary/http-handler instead.")
+  (log/info "Initializing user HTTP handler (legacy mode)")
   (require 'boundary.user.shell.http)
   (let [create-handler (ns-resolve 'boundary.user.shell.http 'create-handler)
         handler (create-handler user-service (or config {}))]
-    (log/info "User HTTP handler initialized successfully")
+    (log/info "User HTTP handler initialized successfully (legacy mode)")
     handler))
 
 (defmethod ig/halt-key! :boundary/user-http-handler

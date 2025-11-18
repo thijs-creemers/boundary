@@ -251,8 +251,9 @@
    - Database schema initialization
    - User and session repositories
    - User service
-   - User HTTP handler
-   - Top-level HTTP handler and server
+   - User module routes (structured format: {:api :web :static})
+   - Top-level HTTP handler (composes routes from all modules)
+   - HTTP server
    
    Future modules should follow this pattern: define a *-module-config function
    that returns a partial Integrant map and merge it into ig-config."
@@ -276,13 +277,13 @@
       :metrics (ig/ref :boundary/metrics)
       :error-reporter (ig/ref :boundary/error-reporting)}
 
-     :boundary/user-http-handler
+     :boundary/user-routes
      {:user-service (ig/ref :boundary/user-service)
       :config config}
 
      :boundary/http-handler
      {:config config
-      :user-http-handler (ig/ref :boundary/user-http-handler)}
+      :user-routes (ig/ref :boundary/user-routes)}
 
      :boundary/http-server
      (merge http-cfg

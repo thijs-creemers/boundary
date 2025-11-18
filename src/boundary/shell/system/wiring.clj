@@ -27,7 +27,6 @@
             [boundary.metrics.shell.adapters.no-op :as metrics-no-op]
             [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
             [boundary.error-reporting.shell.adapters.sentry :as error-reporting-sentry]
-            [boundary.shell.modules :as modules]
             [boundary.shell.utils.port-manager :as port-manager]
             ;; todo: need to find a way to decouple these dependencies an inject them in another way.
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
@@ -67,12 +66,43 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [config user-http-handler]}]
-  (log/info "Initializing top-level HTTP handler from module handlers")
-  (let [enabled (modules/enabled-modules config)
-        handlers (cond-> {}
-                   user-http-handler (assoc :user user-http-handler))
-        handler (modules/compose-http-handlers enabled handlers)]
+  [_ {:keys [config user-routes]}]
+  (log/info "Initializing top-level HTTP handler with structured route composition")
+  (let [;; Import routing utilities
+        _ (require 'boundary.shell.interfaces.http.routes)
+        routes-create-router (ns-resolve 'boundary.shell.interfaces.http.routes 'create-router)
+        routes-create-handler (ns-resolve 'boundary.shell.interfaces.http.routes 'create-handler)
+        
+        ;; Extract route vectors from structured format
+        static-routes-vec (or (:static user-routes) [])
+        web-routes-vec (or (:web user-routes) [])
+        api-routes-vec (or (:api user-routes) [])
+        
+        ;; Add prefixes to web and api routes since routes/create-router
+        ;; grouping logic expects them to already have prefixes for /web
+        ;; Static routes stay at root, web gets /web prefix, api gets /api prefix from router
+        web-routes-prefixed (when (seq web-routes-vec)
+                              (mapv (fn [[path opts]]
+                                      [(str "/web" path) opts])
+                                    web-routes-vec))
+        
+        ;; Combine all routes - routes/create-router will handle the rest
+        ;; It groups based on path prefixes: /css /js /modules /docs /web stay at root
+        ;; Everything else goes under /api
+        all-routes (concat static-routes-vec
+                           (or web-routes-prefixed [])
+                           api-routes-vec)
+        
+        ;; Create router and handler using common infrastructure
+        ;; This will apply /api prefix to api-routes-vec automatically
+        router (routes-create-router config all-routes)
+        handler (routes-create-handler router)]
+    
+    (log/info "Top-level HTTP handler initialized successfully"
+              {:static-routes (count static-routes-vec)
+               :web-routes (count web-routes-vec)
+               :api-routes (count api-routes-vec)
+               :total-routes (count all-routes)})
     handler))
 
 (defmethod ig/halt-key! :boundary/http-handler
@@ -156,7 +186,7 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-server
-  [_ {:keys [handler port host join? config] :as server-config}]
+  [_ {:keys [handler port host join? config]}]
   (let [http-config (or config {})
         port-allocation (port-manager/allocate-port port http-config)
         allocated-port (:port port-allocation)]
