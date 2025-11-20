@@ -27,13 +27,13 @@
                       :forbidden-patterns #{"password" "123456" "qwerty" "admin"}}
     :name-restrictions {:min-length 2
                         :max-length 100
-                        :allowed-chars-regex "[a-zA-Z\\s\\-'.]+"
+                        :allowed-chars-regex "[\\p{L}\\s\\-'.]+" ; Supports Unicode letters including accented characters
                         :forbidden-names #{"admin" "root" "system" "test"}}
     :role-restrictions {:allowed-roles #{:user :admin :manager}
                         :admin-email-domains #{"company.com"} ; Only company domain can be admin
                         :default-role :user}
     :user-limits {:max-users 500 ; Production limit
-                    :check-enabled? true} ; Enabled in production
+                  :check-enabled? true} ; Enabled in production
     :cross-field-validation {:admin-requires-company-email? true ; Strict rules in production
                              :manager-requires-department? true}}}
 

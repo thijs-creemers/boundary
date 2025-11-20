@@ -91,12 +91,14 @@
 ;; =============================================================================
 
 (defn valid-user-name?
-  "Pure function: Check if user name meets business requirements."
+  "Pure function: Check if user name meets business requirements.
+   Supports Unicode letters including accented characters."
   [name validation-config]
   (let [name-config (get-in validation-config [:name-restrictions] {})
         min-len (get name-config :min-length 2)
         max-len (get name-config :max-length 100)
-        allowed-regex-pattern (get name-config :allowed-chars-regex "[a-zA-Z\\s\\-'.]+")]
+        ;; Updated regex to support Unicode letters (\p{L}) instead of just ASCII (a-zA-Z)
+        allowed-regex-pattern (get name-config :allowed-chars-regex "[\\p{L}\\s\\-'.]+")]
     (and (>= (count name) min-len)
          (<= (count name) max-len)
          (re-matches (re-pattern allowed-regex-pattern) name)
@@ -127,7 +129,7 @@
       :else
       {:field :name
        :code :invalid-characters
-       :message "Name contains invalid characters. Only letters, spaces, hyphens, apostrophes, and periods are allowed"})))
+       :message "Name contains invalid characters. Only letters (including accented characters), spaces, hyphens, apostrophes, and periods are allowed"})))
 
 ;; =============================================================================
 ;; User Role Validation

@@ -27,7 +27,7 @@
                       :forbidden-patterns #{}}
     :name-restrictions {:min-length 1
                         :max-length 100
-                        :allowed-chars-regex "[a-zA-Z\\s\\-'.]+"
+                        :allowed-chars-regex "[\\p{L}\\s\\-'.]+" ; Supports Unicode letters including accented characters
                         :forbidden-names #{}}
     :role-restrictions {:allowed-roles #{:user :admin :manager}
                         :admin-email-domains #{} ; Empty means any domain can be admin in dev
