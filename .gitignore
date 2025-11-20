@@ -16,4 +16,4 @@ opencode.json
 /test/reports/
 /node_modules
 /resources/public/docs
-# Keep snapshots tracked; do not ignore test/snapshots/
+test-output*.txt
