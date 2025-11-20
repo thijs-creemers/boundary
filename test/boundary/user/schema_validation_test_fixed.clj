@@ -9,7 +9,7 @@
    :name "Test User"
    :role :user
    :active true
-   :tenant-id (java.util.UUID/randomUUID)
+   :user-id (java.util.UUID/randomUUID)
    :created-at (java.time.Instant/now)})
 
 (deftest validate-user-test

@@ -39,12 +39,12 @@
   "Initialize database schema for user entities using Malli schema definitions.
    
    Creates the following tables:
-   - users: User accounts with tenant isolation
+   - users: User accounts
    - user_sessions: User authentication sessions
    
    Includes indexes for:
-   - Foreign keys (tenant_id, user_id)
-   - Unique constraints (email per tenant, session tokens)
+   - Foreign keys (user_id)
+   - Unique constraints (email, session tokens)
    - Query performance (role, active status, expiration dates)
    
    Args:
@@ -73,7 +73,6 @@
         (update :id type-conversion/uuid->string)
         (update :role type-conversion/keyword->string)
         (update :active #(protocols/boolean->db adapter %))
-        (update :tenant-id type-conversion/uuid->string)
         (update :created-at type-conversion/instant->string)
         (update :updated-at type-conversion/instant->string)
         (update :deleted-at type-conversion/instant->string)
@@ -87,14 +86,12 @@
     (let [adapter (:adapter ctx)]
       (-> db-record
           ;; Convert snake_case to kebab-case
-          (clojure.set/rename-keys {:tenant_id :tenant-id
-                                    :created_at :created-at
+          (clojure.set/rename-keys {:created_at :created-at
                                     :updated_at :updated-at
                                     :deleted_at :deleted-at})
           (update :id type-conversion/string->uuid)
           (update :role type-conversion/string->keyword)
           (update :active #(protocols/db->boolean adapter %))
-          (update :tenant-id type-conversion/string->uuid)
           (update :created-at type-conversion/string->instant)
           (update :updated-at type-conversion/string->instant)
           (update :deleted-at type-conversion/string->instant)))))
@@ -105,14 +102,12 @@
   (-> session-entity
       (update :id type-conversion/uuid->string)
       (update :user-id type-conversion/uuid->string)
-      (update :tenant-id type-conversion/uuid->string)
       (update :expires-at type-conversion/instant->string)
       (update :created-at type-conversion/instant->string)
       (update :last-accessed-at type-conversion/instant->string)
       (update :revoked-at type-conversion/instant->string)
       ;; Convert kebab-case to snake_case
       (clojure.set/rename-keys {:user-id :user_id
-                                :tenant-id :tenant_id
                                 :session-token :session_token
                                 :expires-at :expires_at
                                 :created-at :created_at
@@ -128,7 +123,6 @@
     (-> db-record
         ;; Convert snake_case to kebab-case
         (clojure.set/rename-keys {:user_id :user-id
-                                  :tenant_id :tenant-id
                                   :session_token :session-token
                                   :expires_at :expires-at
                                   :created_at :created-at
@@ -138,7 +132,6 @@
                                   :revoked_at :revoked-at})
         (update :id type-conversion/string->uuid)
         (update :user-id type-conversion/string->uuid)
-        (update :tenant-id type-conversion/string->uuid)
         (update :expires-at type-conversion/string->instant)
         (update :created-at type-conversion/string->instant)
         (update :last-accessed-at type-conversion/string->instant)
@@ -168,13 +161,13 @@
          user-entity))
      {:db-ctx ctx}))
 
-  (find-user-by-email [_ email tenant-id]
+  (find-user-by-email [_ email]
     (persistence-interceptors/execute-persistence-operation
      :find-user-by-email
-     {:email email :tenant-id tenant-id}
+     {:email email}
      (fn [{:keys [params]}]
-       (let [{:keys [email tenant-id]} params
-             filters {:email email :tenant-id tenant-id :deleted_at nil}
+       (let [email (:email params)
+             filters {:email email :deleted_at nil}
              where-clause (db/build-where-clause ctx filters)
              query {:select [:*]
                     :from [:users]
@@ -184,10 +177,10 @@
          user-entity))
      {:db-ctx ctx}))
 
-  (find-users-by-tenant [_ tenant-id options]
-    (log/debug "Finding users by tenant" {:tenant-id tenant-id :options options})
+  (find-users [_ options]
+    (log/debug "Finding users" {:options options})
     (let [;; Build filters with kebab-case (query builder handles all conversions)
-          base-filters {:tenant-id tenant-id}
+          base-filters {}
           filters (cond-> base-filters
                     (not (:include-deleted? options)) (assoc :deleted-at nil)
                     (:filter-role options) (assoc :role (:filter-role options))
@@ -294,13 +287,12 @@
      {:db-ctx ctx}))
 
   ;; Business-Specific Queries
-  (find-active-users-by-role [_ tenant-id role]
-    (log/debug "Finding active users by role" {:tenant-id tenant-id :role role})
+  (find-active-users-by-role [_ role]
+    (log/debug "Finding active users by role" {:role role})
     (let [adapter (:adapter ctx)
           query {:select [:*]
                  :from [:users]
                  :where [:and
-                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
                          [:= :role (type-conversion/keyword->string role)]
                          [:= :active (protocols/boolean->db adapter true)]
                          [:is :deleted_at nil]]
@@ -308,37 +300,33 @@
           results (db/execute-query! ctx query)]
       (map #(db->user-entity ctx %) results)))
 
-  (count-users-by-tenant [_ tenant-id]
-    (log/debug "Counting users by tenant" {:tenant-id tenant-id})
+  (count-users [_]
+    (log/debug "Counting users")
     (let [query {:select [[:%count.* :total]]
                  :from [:users]
-                 :where [:and
-                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
-                         [:is :deleted_at nil]]}
+                 :where [:is :deleted_at nil]}
           result (db/execute-one! ctx query)]
       (or (:total result)
           (:count result)
           (get result (keyword "COUNT(*)"))
           0)))
 
-  (find-users-created-since [_ tenant-id since-date]
-    (log/debug "Finding users created since" {:tenant-id tenant-id :since-date since-date})
+  (find-users-created-since [_ since-date]
+    (log/debug "Finding users created since" {:since-date since-date})
     (let [query {:select [:*]
                  :from [:users]
                  :where [:and
-                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
                          [:>= :created_at (type-conversion/instant->string since-date)]
                          [:is :deleted_at nil]]
                  :order-by [[:created_at :desc]]}
           results (db/execute-query! ctx query)]
       (map #(db->user-entity ctx %) results)))
 
-  (find-users-by-email-domain [_ tenant-id email-domain]
-    (log/debug "Finding users by email domain" {:tenant-id tenant-id :email-domain email-domain})
+  (find-users-by-email-domain [_ email-domain]
+    (log/debug "Finding users by email domain" {:email-domain email-domain})
     (let [query {:select [:*]
                  :from [:users]
                  :where [:and
-                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
                          [:like :email (str "%@" email-domain)]
                          [:is :deleted_at nil]]
                  :order-by [[:created_at :desc]]}

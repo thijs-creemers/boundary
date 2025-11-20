@@ -213,7 +213,7 @@ Phase 2 successfully delivered enhanced error messaging capabilities while maint
 3. **Contextual Rendering** (`boundary.shared.core.validation.context`)
    - Operation-specific templates (create/update/delete)
    - Role-based guidance (admin/user/viewer/moderator/guest)
-   - Multi-tenant context support
+   - Multi-user context support
    - Example payload generation using Malli with deterministic seeds
    - Next steps formatting with numbered resolution guidance
 
@@ -243,7 +243,7 @@ Implemented complete user module error codes:
 - `:user.email/required`, `:user.email/invalid-format`, `:user.email/duplicate`
 - `:user.name/required`, `:user.name/too-short`, `:user.name/too-long`
 - `:user.role/required`, `:user.role/invalid-value`
-- `:user.tenant-id/required`, `:user.tenant-id/invalid-uuid`, `:user.tenant-id/forbidden`
+- `:user.user-id/required`, `:user.user-id/invalid-uuid`, `:user.user-id/forbidden`
 - `:user.password/too-short`
 
 All codes include:
@@ -276,7 +276,7 @@ All codes include:
 - [x] Comprehensive email validation tests (valid and invalid formats)
 - [x] Required field validation tests
 - [x] Name length boundary tests (min/max validation)
-- [x] Tenant ID immutability tests
+- [x] User ID immutability tests
 - [x] Business rule validation tests
 - [x] Multi-field validation error tests
 
@@ -302,7 +302,7 @@ Phase 2.1 delivered comprehensive unit tests for user validation in the function
    - Email field requirement tests
    - Nil value handling
    - Error path verification
-   - Comprehensive required field coverage (email, name, role, tenant-id)
+   - Comprehensive required field coverage (email, name, role, user-id)
 
 4. **Name Length Boundary Tests**
    - Too short: Empty name rejection
@@ -310,11 +310,11 @@ Phase 2.1 delivered comprehensive unit tests for user validation in the function
    - Valid boundaries: 1-255 characters acceptance
    - Edge cases: Exact boundary testing (1 char minimum, 255 char maximum)
 
-5. **Tenant ID Immutability Tests**
-   - Business rule enforcement: Cannot change tenant-id after creation
-   - Error code verification: `:user.tenant-id/forbidden`
+5. **user ID Immutability Tests**
+   - Business rule enforcement: Cannot change user-id after creation
+   - Error code verification: `:user.user-id/forbidden`
    - Change detection: `calculate-user-changes` function validation
-   - Proper error message: "Cannot change tenant-id after user creation"
+   - Proper error message: "Cannot change user-id after user creation"
 
 6. **Integration Tests**
    - Multiple validation errors: Aggregated error handling
@@ -332,9 +332,9 @@ Phase 2.1 delivered comprehensive unit tests for user validation in the function
 2. **Business Rule Validation Logic** (`src/boundary/user/core/user.clj`)
    - Fixed: Incorrect nested map access in `validate-user-business-rules`
    - Issue: Using default parameter syntax instead of `get-in` for nested maps
-   - Impact: Tenant-id and email immutability rules now correctly enforced
-   - Changed from: `(not= (:tenant-id changes :from) (:tenant-id changes :to))`
-   - Changed to: `(not= (get-in changes [:tenant-id :from]) (get-in changes [:tenant-id :to]))`
+   - Impact: User-id and email immutability rules now correctly enforced
+   - Changed from: `(not= (:user-id changes :from) (:user-id changes :to))`
+   - Changed to: `(not= (get-in changes [:user-id :from]) (get-in changes [:user-id :to]))`
 
 **Test Organization:**
 
@@ -342,7 +342,7 @@ Tests organized by validation concern:
 1. Email Validation Tests (valid/invalid formats, schema direct tests)
 2. Required Field Validation Tests (missing field detection)
 3. Name Length Validation Tests (boundaries and error cases)
-4. Tenant ID Immutability Tests (business rule enforcement)
+4. User ID Immutability Tests (business rule enforcement)
 5. Integration Tests (multi-field validation scenarios)
 
 **FC/IS Compliance:**
@@ -367,7 +367,7 @@ All tests maintain strict Functional Core / Imperative Shell separation:
 12 tests, 80 assertions, 0 failures
 
 Top 3 slowest tests:
-1. tenant-id-change-validation: 0.00832 seconds
+1. user-id-change-validation: 0.00832 seconds
 2. email-field-required-validation: 0.00346 seconds
 3. email-validation-rejects-invalid-emails: 0.00278 seconds
 
@@ -384,7 +384,7 @@ Total execution time: 0.027 seconds
 **Validation Coverage Achieved:**
 
 - ✅ Schema validation (Malli): Email format, name length, required fields
-- ✅ Business rules: Tenant-id immutability, email immutability
+- ✅ Business rules: User-id immutability, email immutability
 - ✅ Edge cases: Boundary values, empty strings, nil values
 - ✅ Error aggregation: Multiple simultaneous validation failures
 - ✅ Change detection: `calculate-user-changes` function
@@ -461,7 +461,7 @@ Phase 3.1 delivered comprehensive property-based testing infrastructure using `t
 - ✅ Duplicate check proceeds when no existing user (100 cases)
 
 **Business Rule Properties:**
-- ✅ Tenant-id change always fails validation (100 cases)
+- ✅ User-id change always fails validation (100 cases)
 - ✅ Email change always fails validation (100 cases)
 
 **Change Detection Properties:**
@@ -474,7 +474,7 @@ Phase 3.1 delivered comprehensive property-based testing infrastructure using `t
 
 **Soft Deletion Properties:**
 - ✅ Soft deletion sets timestamps and active=false (100 cases)
-- ✅ Soft deletion preserves identity fields (id, email, tenant-id) (100 cases)
+- ✅ Soft deletion preserves identity fields (id, email, user-id) (100 cases)
 
 **Testing Metrics:**
 

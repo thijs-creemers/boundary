@@ -107,31 +107,28 @@
 (def valid-user-data-gen
   "Generator for valid user creation data."
   (gen/fmap
-   (fn [[email name role tenant-id password]]
+   (fn [[email name role password]]
      {:email email
       :name name
       :role role
       :active true
-      :tenant-id tenant-id
       :password password})
    (gen/tuple
     valid-email-gen
     valid-name-gen
     role-gen
-    uuid-gen
     (gen/fmap #(str "password-" %) gen/pos-int))))
 
 (def user-entity-gen
   "Generator for complete user entities."
   (gen/fmap
-   (fn [[id email name role tenant-id created-at]]
+   (fn [[id email name role created-at]]
      {:id id
       :email email
       :name name
       :role role
       :active true
       :login-count 0
-      :tenant-id tenant-id
       :created-at created-at
       :updated-at nil
       :deleted-at nil})
@@ -140,7 +137,6 @@
     valid-email-gen
     valid-name-gen
     role-gen
-    uuid-gen
     instant-gen)))
 
 ;; =============================================================================
@@ -225,17 +221,7 @@
 ;; Property-Based Tests: Business Rules
 ;; =============================================================================
 
-(defspec tenant-id-change-always-fails 100
-  (prop/for-all [user-entity user-entity-gen
-                 new-tenant-id uuid-gen]
-                (let [updated-user (assoc user-entity :tenant-id new-tenant-id)
-                      changes (user-core/calculate-user-changes user-entity updated-user)
-                      validation (user-core/validate-user-business-rules updated-user changes)]
-                  (if (not= (:tenant-id user-entity) new-tenant-id)
-        ;; If tenant-id actually changed, validation should fail
-                    (false? (:valid? validation))
-        ;; If tenant-id didn't change, validation passes
-                    true))))
+
 
 (defspec email-change-always-fails 100
   (prop/for-all [user-entity user-entity-gen
@@ -303,5 +289,4 @@
                 (let [deleted (user-core/prepare-user-for-soft-deletion user-entity timestamp)]
                   (and
                    (= (:id user-entity) (:id deleted))
-                   (= (:email user-entity) (:email deleted))
-                   (= (:tenant-id user-entity) (:tenant-id deleted))))))
+                   (= (:email user-entity) (:email deleted))))))

@@ -15,7 +15,7 @@
 ;; Test Data Fixtures
 ;; =============================================================================
 
-(def valid-tenant-id (UUID/randomUUID))
+
 (def valid-user-id (UUID/randomUUID))
 (def current-time (Instant/now))
 
@@ -23,7 +23,6 @@
   {:email "test@example.com"
    :name "Test User"
    :role :user
-   :tenant-id valid-tenant-id
    :password "test-password-123"})
 
 ;; =============================================================================
@@ -112,7 +111,7 @@
 (deftest all-required-fields-validation
   "Comprehensive test for all required fields in user creation."
   (testing "All required fields must be present"
-    (let [required-fields [:email :name :role :tenant-id]]
+    (let [required-fields [:email :name :role]]
       (doseq [field required-fields]
         (let [request (dissoc valid-user-creation-request field)
               result (user-core/validate-user-creation-request request vh/test-validation-config)]
@@ -185,69 +184,12 @@
               (str "No errors expected for valid name length: " (count name))))))))
 
 ;; =============================================================================
-;; Tenant ID Immutability Tests
+
 ;; =============================================================================
 
-(deftest tenant-id-change-validation
-  "Test Case 5: User update fails when attempting to change the tenant ID."
-  (testing "Changing tenant-id is forbidden in user updates"
-    (let [original-tenant-id (UUID/randomUUID)
-          new-tenant-id (UUID/randomUUID)
-          current-user {:id valid-user-id
-                        :email "test@example.com"
-                        :name "Test User"
-                        :role :user
-                        :active true
-                        :tenant-id original-tenant-id
-                        :created-at current-time
-                        :updated-at nil
-                        :deleted-at nil}
-          updated-user (assoc current-user :tenant-id new-tenant-id)
-          changes (user-core/calculate-user-changes current-user updated-user)
-          validation-result (user-core/validate-user-business-rules updated-user changes)]
-      (is (not (:valid? validation-result))
-          "Validation should fail when tenant-id is changed")
-      (is (some? (:errors validation-result))
-          "Errors should be present for tenant-id change")
-      (is (contains? (:errors validation-result) :tenant-id)
-          "Error should specifically mention tenant-id field")
-      (is (= "Cannot change tenant-id after user creation"
-             (get-in validation-result [:errors :tenant-id]))
-          "Error message should explain tenant-id immutability")))
 
-  (testing "Keeping tenant-id unchanged passes validation"
-    (let [tenant-id (UUID/randomUUID)
-          current-user {:id valid-user-id
-                        :email "test@example.com"
-                        :name "Test User"
-                        :role :user
-                        :active true
-                        :tenant-id tenant-id
-                        :created-at current-time
-                        :updated-at nil
-                        :deleted-at nil}
-          updated-user (assoc current-user :name "Updated Name")
-          changes (user-core/calculate-user-changes current-user updated-user)
-          validation-result (user-core/validate-user-business-rules updated-user changes)]
-      (is (:valid? validation-result)
-          "Validation should pass when tenant-id remains unchanged")
-      (is (nil? (:errors validation-result))
-          "No errors when tenant-id is not modified"))))
 
-(deftest tenant-id-in-changes-detection
-  "Test that tenant-id changes are correctly detected."
-  (testing "calculate-user-changes detects tenant-id modification"
-    (let [original-tenant-id (UUID/randomUUID)
-          new-tenant-id (UUID/randomUUID)
-          current-user {:tenant-id original-tenant-id :name "Old Name"}
-          updated-user {:tenant-id new-tenant-id :name "New Name"}
-          changes (user-core/calculate-user-changes current-user updated-user)]
-      (is (contains? changes :tenant-id)
-          "Changes map should include tenant-id")
-      (is (= original-tenant-id (get-in changes [:tenant-id :from]))
-          "From value should match original tenant-id")
-      (is (= new-tenant-id (get-in changes [:tenant-id :to]))
-          "To value should match new tenant-id"))))
+
 
 ;; =============================================================================
 ;; Integration Tests - Multiple Validation Rules
@@ -258,8 +200,7 @@
   (testing "Multiple invalid fields produce multiple errors"
     (let [invalid-request {:email "notanemail"
                            :name ""
-                           :role :invalid-role
-                           :tenant-id valid-tenant-id}
+                           :role :invalid-role}
           result (user-core/validate-user-creation-request invalid-request vh/test-validation-config)]
       (is (not (:valid? result))
           "Validation should fail with multiple errors")
@@ -277,7 +218,6 @@
                          :name "John Doe"
                          :role :admin
                          :active true
-                         :tenant-id valid-tenant-id
                          :send-welcome true
                          :password "secure-password-123"}
           validation-result (user-core/validate-user-creation-request valid-request vh/test-validation-config)]

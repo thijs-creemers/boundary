@@ -63,11 +63,10 @@
 
   ;; User Management - Shell layer orchestrates I/O and calls pure core functions
   (register-user [this user-data]
-    (println "DEBUG register-user called with:" (select-keys user-data [:email :name :role :tenant-id :password]))
+    (println "DEBUG register-user called with:" (select-keys user-data [:email :name :role :password]))
     (let [result (service-interceptors/execute-service-operation
                   :register-user
                   {:user-data user-data
-                   :tenant-id (:tenant-id user-data)
                    :email (:email user-data)}
                   (fn [{:keys [params]}]
                     (let [user-data (:user-data params)]
@@ -99,7 +98,7 @@
 
                       ;; 3. Check business rules using pure core function
                       (println "DEBUG register-user step: before check-duplicate-user-decision")
-                      (let [existing-user (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data))
+                      (let [existing-user (.find-user-by-email user-repository (:email user-data))
                             uniqueness-result (user-core/check-duplicate-user-decision user-data existing-user)]
                         (println "DEBUG register-user step: after check-duplicate-user-decision" {:decision (:decision uniqueness-result)})
                         (when (= :reject (:decision uniqueness-result))
@@ -120,7 +119,7 @@
                         ;; 5. Persist using impure shell persistence layer
                         (let [prepared-user (user-core/prepare-user-for-creation user-data-with-hash (current-timestamp) (generate-user-id))
                               created-user (.create-user user-repository prepared-user)]
-                          (println "DEBUG created-user in service:" (select-keys created-user [:id :email :name :role :tenant-id :created-at]))
+                          (println "DEBUG created-user in service:" (select-keys created-user [:id :email :name :role :created-at]))
                           created-user))))
                   {:system {:user-repository user-repository
                             :session-repository session-repository
@@ -132,14 +131,13 @@
     (service-interceptors/execute-service-operation
      :authenticate-user
      {:user-credentials user-credentials
-      :email (:email user-credentials)
-      :tenant-id (:tenant-id user-credentials)}
+      :email (:email user-credentials)}
      (fn [{:keys [params]}]
        (let [user-credentials (:user-credentials params)
-             {:keys [email password tenant-id ip-address user-agent]} user-credentials]
+             {:keys [email password ip-address user-agent]} user-credentials]
 
          ;; 1. Find user by email
-         (if-let [user (.find-user-by-email user-repository email tenant-id)]
+         (if-let [user (.find-user-by-email user-repository email)]
            (do
              ;; 2. Validate credentials using pure authentication core
              (let [credential-validation (auth-core/validate-login-credentials user-credentials)]
@@ -161,7 +159,6 @@
                            current-time (current-timestamp)
                            session-data (session-core/prepare-session-for-creation
                                          {:user-id (:id user)
-                                          :tenant-id tenant-id
                                           :ip-address ip-address
                                           :user-agent user-agent}
                                          current-time
@@ -257,13 +254,13 @@
                :session-repository session-repository
                :auth-service auth-service}}))
 
-  (get-user-by-email [this email tenant-id]
+  (get-user-by-email [this email]
     (service-interceptors/execute-service-operation
      :get-user-by-email
-     {:email email :tenant-id tenant-id}
+     {:email email}
      (fn [{:keys [params]}]
-       (let [{:keys [email tenant-id]} params
-             user (.find-user-by-email user-repository email tenant-id)]
+       (let [{:keys [email]} params
+             user (.find-user-by-email user-repository email)]
          ;; Remove sensitive data before returning
          (when user
            (dissoc user :password-hash))))
@@ -271,13 +268,13 @@
                :session-repository session-repository
                :auth-service auth-service}}))
 
-  (list-users-by-tenant [this tenant-id options]
+  (list-users [this options]
     (service-interceptors/execute-service-operation
-     :list-users-by-tenant
-     {:tenant-id tenant-id :options options}
+     :list-users
+     {:options options}
      (fn [{:keys [params]}]
-       (let [{:keys [tenant-id options]} params
-             users (.find-users-by-tenant user-repository tenant-id options)]
+       (let [{:keys [options]} params
+             users (.find-users user-repository options)]
          ;; Remove sensitive data from all users
          (map #(dissoc % :password-hash) users)))
      {:system {:user-repository user-repository
@@ -288,8 +285,7 @@
     (service-interceptors/execute-service-operation
      :update-user-profile
      {:user-entity user-entity
-      :user-id (:id user-entity)
-      :tenant-id (:tenant-id user-entity)}
+      :user-id (:id user-entity)}
      (fn [{:keys [params]}]
        (let [user-entity (:user-entity params)]
          ;; 1. Validate update using pure core function

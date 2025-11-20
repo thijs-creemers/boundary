@@ -73,9 +73,9 @@ This separation:
 |`get-user-by-email`
 |Look up user by email address
 
-|`find-users-by-tenant`
-|`list-users-by-tenant`
-|List all users in a tenant
+|`find-users`
+|`list-users`
+|List all users 
 
 |`soft-delete-user`
 |`deactivate-user`
@@ -130,11 +130,11 @@ This separation:
   (get-user-by-id [this user-id]
     "Retrieve user by unique identifier.")
   
-  (get-user-by-email [this email tenant-id]
-    "Look up user by email address within tenant.")
+  (get-user-by-email [this email]
+    "Look up user by email address .")
   
-  (list-users-by-tenant [this tenant-id filters]
-    "List all users in a tenant with optional filters.")
+  (list-users [this filters]
+    "List all users  with optional filters.")
   
   (deactivate-user [this user-id]
     "Deactivate user account (soft delete).")
@@ -143,7 +143,7 @@ This separation:
     "Permanently remove user from system.")
   
   ;; Session Management
-  (authenticate-user [this user-id tenant-id session-data]
+  (authenticate-user [this user-id user-id session-data]
     "Authenticate user and create new session.")
   
   (validate-session [this session-token]
@@ -204,8 +204,8 @@ The repository protocols remain **completely unchanged**:
   (create-user [this user-data])
   (update-user [this user-id changes])
   (find-user-by-id [this user-id])
-  (find-user-by-email [this email tenant-id])
-  (find-users-by-tenant [this tenant-id filters])
+  (find-user-by-email [this email])
+  (find-users [this user-id filters])
   (soft-delete-user [this user-id])
   (hard-delete-user [this user-id]))
 
@@ -247,7 +247,7 @@ If you have custom code that calls `IUserService`:
 ----
 ;; Service calls
 (ports/create-user user-service user-data)
-(ports/find-user-by-email user-service email tenant-id)
+(ports/find-user-by-email user-service email user-id)
 (ports/invalidate-session user-service token)
 
 ;; Repository calls (no change needed)
@@ -261,7 +261,7 @@ If you have custom code that calls `IUserService`:
 ----
 ;; Service calls - updated
 (ports/register-user user-service user-data)
-(ports/get-user-by-email user-service email tenant-id)
+(ports/get-user-by-email user-service email user-id)
 (ports/logout-user user-service token)
 
 ;; Repository calls - unchanged

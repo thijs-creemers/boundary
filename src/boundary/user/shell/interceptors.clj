@@ -15,8 +15,8 @@
 (def validate-user-creation-input
   "Validates required fields for user creation.
    
-   HTTP: Validates request body has email, name, role, tenantId, and optionally password
-   CLI: Validates opts has email, name, role, tenant-id, and optionally password
+   HTTP: Validates request body has email, name, role, and optionally password
+   CLI: Validates opts has email, name, role, and optionally password
    
    On validation error, adds validation details to context and throws."
   {:name ::validate-user-creation-input
@@ -28,8 +28,8 @@
 
               ;; Required fields by interface
               (let [required-fields (case interface-type
-                                      :http [:email :name :role :tenantId]
-                                      :cli [:email :name :role :tenant-id])
+                                      :http [:email :name :role]
+                                      :cli [:email :name :role])
                     optional-fields (case interface-type
                                       :http [:password]
                                       :cli [:password])
@@ -57,7 +57,7 @@
 (def transform-user-creation-data
   "Transforms and normalizes user creation input data.
    
-   HTTP: Converts camelCase to kebab-case, transforms tenantId string to UUID
+   HTTP: Converts camelCase to kebab-case
    CLI: Normalizes data types, ensures consistent field names
    
    Adds the normalized user-data to context for downstream interceptors."
@@ -74,14 +74,12 @@
                                      :name (:name raw-input)
                                      :password (:password raw-input)
                                      :role (keyword (:role raw-input))
-                                     :tenant-id (type-conv/string->uuid (:tenantId raw-input))
                                      :active (get raw-input :active true)}
 
                               :cli {:email (:email raw-input)
                                     :name (:name raw-input)
                                     :password (:password raw-input)
                                     :role (keyword (:role raw-input))
-                                    :tenant-id (:tenant-id raw-input) ; Already UUID from CLI parsing
                                     :active (:active raw-input)})]
 
               (-> context
@@ -90,7 +88,6 @@
                                       {:interface-type interface-type
                                        :email (:email user-data)
                                        :role (:role user-data)
-                                       :tenant-id (:tenant-id user-data)
                                        :active (:active user-data)
                                        :has-password (some? (:password user-data))}))))})
 
@@ -107,12 +104,11 @@
               ;; Add operation start breadcrumb
               (let [updated-context (ctx/add-breadcrumb context :operation :user-registration-start
                                                         {:email (:email user-data)
-                                                         :role (:role user-data)
-                                                         :tenant-id (:tenant-id user-data)})]
+                                                         :role (:role user-data)})]
 
                 ;; Call the core service; it returns the created user entity directly
                 (let [created-user (ports/register-user service user-data)]
-                  (println "DEBUG created-user from service:" (select-keys created-user [:id :email :name :role :tenant-id :created-at :updated-at :deleted-at :last-login]))
+                  (println "DEBUG created-user from service:" (select-keys created-user [:id :email :name :role :created-at :updated-at :deleted-at :last-login]))
 
                   ;; Add success breadcrumb and result
                   (-> updated-context
@@ -283,33 +279,18 @@
 (def validate-list-users-input
   "Validates input parameters for listing users.
    
-   HTTP: Validates query parameters (:tenantId, :limit, :offset)
-   CLI: Validates opts (:tenant-id, :limit, :offset)"
+   HTTP: Validates query parameters (:limit, :offset)
+   CLI: Validates opts (:limit, :offset)"
   {:name ::validate-list-users-input
    :enter (fn [context]
             (let [interface-type (ctx/get-interface-type context)
                   input-data (case interface-type
                                :http (get-in context [:request :parameters :query])
                                :cli (:opts context))
-                  ;; Extract parameters based on interface
-                  tenant-id-str (case interface-type
-                                  :http (:tenantId input-data)
-                                  :cli (:tenant-id input-data))
                   limit (or (:limit input-data) 20)
                   offset (or (:offset input-data) 0)]
 
               (cond
-                ;; Tenant ID is required
-                (nil? tenant-id-str)
-                (ctx/fail-with-exception context
-                                         (ex-info "Tenant ID is required"
-                                                  {:type :validation-error
-                                                   :field (case interface-type
-                                                            :http :tenantId
-                                                            :cli :tenant-id)
-                                                   :message "Tenant ID is required for user listing"
-                                                   :interface-type interface-type}))
-
                 ;; Validate limit bounds
                 (or (not (int? limit)) (< limit 1) (> limit 100))
                 (ctx/fail-with-exception context
@@ -333,24 +314,19 @@
                 (-> context
                     (assoc :raw-query-params input-data)
                     (ctx/add-breadcrumb :operation :list-users-validation-success
-                                        {:tenant-id tenant-id-str
-                                         :limit limit
+                                        {:limit limit
                                          :offset offset
                                          :interface-type interface-type})))))})
 
 (def transform-list-users-params
   "Transforms and normalizes list users parameters.
    
-   HTTP: Converts tenantId string to UUID, extracts query params
-   CLI: Uses tenant-id as-is, extracts options from opts"
+   HTTP: Extracts query params
+   CLI: Extracts options from opts"
   {:name ::transform-list-users-params
    :enter (fn [context]
             (let [interface-type (ctx/get-interface-type context)
                   query-params (:raw-query-params context)
-                  ;; Transform parameters based on interface
-                  tenant-id (case interface-type
-                              :http (type-conv/string->uuid (:tenantId query-params))
-                              :cli (:tenant-id query-params)) ;; Already string from CLI parsing
                   options {:limit (or (:limit query-params) 20)
                            :offset (or (:offset query-params) 0)
                            :filter-role (when (:role query-params)
@@ -358,26 +334,22 @@
                            :filter-active (:active query-params)}]
 
               (-> context
-                  (assoc :tenant-id tenant-id
-                         :list-options options)
+                  (assoc :list-options options)
                   (ctx/add-breadcrumb :operation :list-users-transform-complete
-                                      {:tenant-id tenant-id
-                                       :options options
+                                      {:options options
                                        :interface-type interface-type}))))})
 
-(def fetch-users-by-tenant
-  "Fetches users by tenant with options."
-  {:name ::fetch-users-by-tenant
+(def fetch-users
+  "Fetches all users with options."
+  {:name ::fetch-users
    :enter (fn [context]
-            (let [tenant-id (:tenant-id context)
-                  options (:list-options context)
+            (let [options (:list-options context)
                   service (ctx/get-service context)
                   updated-context (ctx/add-breadcrumb context :operation :user-list-start
-                                                      {:tenant-id tenant-id
-                                                       :options options})]
+                                                      {:options options})]
 
               (try
-                (let [result (ports/list-users-by-tenant service tenant-id options)
+                (let [result (ports/list-users service options)
                       users (:users result)
                       total-count (:total-count result)]
 
@@ -386,14 +358,12 @@
                              :total-count total-count)
                       (ctx/add-breadcrumb :operation :user-list-success
                                           {:user-count (count users)
-                                           :total-count total-count
-                                           :tenant-id tenant-id})))
+                                           :total-count total-count})))
 
                 (catch Exception ex
                   (-> updated-context
                       (ctx/add-breadcrumb :operation :user-list-error
-                                          {:tenant-id tenant-id
-                                           :error-type (or (:type (ex-data ex)) "unknown")
+                                          {:error-type (or (:type (ex-data ex)) "unknown")
                                            :error-message (.getMessage ex)})
                       (ctx/fail-with-exception ex))))))})
 
@@ -435,19 +405,19 @@
                                            :response-format :cli}))))))})
 
 (defn create-user-list-pipeline
-  "Creates pipeline for listing users by tenant."
+  "Creates pipeline for listing all users."
   [interface-type]
   (case interface-type
     :http (interceptors/create-http-pipeline
            validate-list-users-input
            transform-list-users-params
-           fetch-users-by-tenant
+           fetch-users
            format-users-list-response)
 
     :cli (interceptors/create-cli-pipeline
           validate-list-users-input
           transform-list-users-params
-          fetch-users-by-tenant
+          fetch-users
           format-users-list-response)))
 
 ;; ==============================================================================
@@ -773,32 +743,30 @@
 (def validate-session-creation-input
   "Validates input for creating a session (login).
    
-   HTTP: Validates body has either (userId + tenantId) OR (email + password)
-   CLI: Validates opts has user-id and tenant-id (or email/password for authentication)"
+   HTTP: Validates body has either userId OR (email + password)
+   CLI: Validates opts has user-id (or email/password for authentication)"
   {:name ::validate-session-creation-input
    :enter (fn [context]
             (let [interface-type (ctx/get-interface-type context)
                   input-data (case interface-type
                                :http (get-in context [:request :parameters :body])
                                :cli (:opts context))
-                  ;; Extract required fields based on interface
-                  [user-id-str tenant-id-str] (case interface-type
-                                                :http [(:userId input-data) (:tenantId input-data)]
-                                                :cli [(:user-id input-data) (:tenant-id input-data)])
+                  user-id-str (case interface-type
+                                :http (:userId input-data)
+                                :cli (:user-id input-data))
                   [email password] [(:email input-data) (:password input-data)]]
 
               (cond
-                ;; HTTP: Must have either (userId + tenantId) OR (email + password)
+                ;; HTTP: Must have either userId OR (email + password)
                 (= interface-type :http)
                 (cond
                   ;; Valid user ID flow
-                  (and user-id-str tenant-id-str)
+                  user-id-str
                   (-> context
                       (assoc :raw-session-data input-data)
                       (ctx/add-breadcrumb :operation :session-create-validation-success
                                           {:auth-type :user-id
                                            :user-id user-id-str
-                                           :tenant-id tenant-id-str
                                            :interface-type interface-type}))
 
                   ;; Valid email/password flow
@@ -808,7 +776,6 @@
                       (ctx/add-breadcrumb :operation :session-create-validation-success
                                           {:auth-type :email-password
                                            :email email
-                                           :tenant-id tenant-id-str ; Optional for email/password
                                            :interface-type interface-type}))
 
                   ;; Invalid - missing required fields for either flow
@@ -816,7 +783,7 @@
                   (ctx/fail-with-exception context
                                            (ex-info "Invalid authentication parameters"
                                                     {:type :validation-error
-                                                     :message "Must provide either (userId + tenantId) or (email + password)"
+                                                     :message "Must provide either userId or (email + password)"
                                                      :provided-fields (keys input-data)
                                                      :interface-type interface-type})))
 
@@ -824,13 +791,12 @@
                 (= interface-type :cli)
                 (cond
                   ;; Valid user ID flow
-                  (and user-id-str tenant-id-str)
+                  user-id-str
                   (-> context
                       (assoc :raw-session-data input-data)
                       (ctx/add-breadcrumb :operation :session-create-validation-success
                                           {:auth-type :user-id
                                            :user-id user-id-str
-                                           :tenant-id tenant-id-str
                                            :interface-type interface-type}))
 
                   ;; Valid email/password flow
@@ -840,7 +806,6 @@
                       (ctx/add-breadcrumb :operation :session-create-validation-success
                                           {:auth-type :email-password
                                            :email email
-                                           :tenant-id tenant-id-str ; Optional for CLI
                                            :interface-type interface-type}))
 
                   ;; Invalid - missing required fields
@@ -848,7 +813,7 @@
                   (ctx/fail-with-exception context
                                            (ex-info "Invalid authentication parameters"
                                                     {:type :validation-error
-                                                     :message "Must provide either (user-id + tenant-id) or (email + password)"
+                                                     :message "Must provide either user-id or (email + password)"
                                                      :provided-fields (keys input-data)
                                                      :interface-type interface-type})))
 
@@ -862,7 +827,7 @@
 (def transform-session-creation-data
   "Transforms and normalizes session creation data.
    
-   HTTP: Supports both userId/tenantId and email/password flows, extracts device info
+   HTTP: Supports both userId and email/password flows, extracts device info
    CLI: Uses provided data, handles both user-id and email/password flows"
   {:name ::transform-session-creation-data
    :enter (fn [context]
@@ -872,7 +837,6 @@
                   session-data (case interface-type
                                  :http (cond-> {}
                                          (:userId body) (assoc :user-id (type-conv/string->uuid (:userId body)))
-                                         (:tenantId body) (assoc :tenant-id (type-conv/string->uuid (:tenantId body)))
                                          (:email body) (assoc :email (:email body))
                                          (:password body) (assoc :password (:password body))
                                          true (assoc :user-agent (get-in body [:deviceInfo :userAgent] "Unknown")
@@ -880,7 +844,6 @@
 
                                  :cli (cond-> {}
                                         (:user-id body) (assoc :user-id (:user-id body))
-                                        (:tenant-id body) (assoc :tenant-id (:tenant-id body))
                                         (:email body) (assoc :email (:email body))
                                         (:password body) (assoc :password (:password body))
                                         true (assoc :user-agent "CLI"
@@ -890,7 +853,6 @@
                   (assoc :session-data session-data)
                   (ctx/add-breadcrumb :operation :session-create-transform-complete
                                       {:user-id (:user-id session-data)
-                                       :tenant-id (:tenant-id session-data)
                                        :has-email (some? (:email session-data))
                                        :auth-type (if (:email session-data) :email-password :user-id)
                                        :user-agent (:user-agent session-data)
@@ -903,8 +865,7 @@
             (let [session-data (:session-data context)
                   service (ctx/get-service context)
                   updated-context (ctx/add-breadcrumb context :operation :user-authenticate-start
-                                                      {:user-id (:user-id session-data)
-                                                       :tenant-id (:tenant-id session-data)})]
+                                                      {:user-id (:user-id session-data)})]
 
               (try
                 (let [session (ports/authenticate-user service session-data)
@@ -944,7 +905,7 @@
 
                 :cli
                 (let [response {:status :success
-                                :data (select-keys session [:user-id :tenant-id :token :expires-at])
+                                :data (select-keys session [:user-id :token :expires-at])
                                 :message "Session created successfully"}]
                   (-> context
                       (assoc :response response)
@@ -1043,7 +1004,6 @@
                 (let [response {:status 200
                                 :body {:valid true
                                        :userId (type-conv/uuid->string (:user-id session))
-                                       :tenantId (type-conv/uuid->string (:tenant-id session))
                                        :expiresAt (type-conv/instant->string (:expires-at session))}}]
                   (-> context
                       (assoc :response response)
@@ -1055,7 +1015,6 @@
                 (let [response {:status :success
                                 :data {:valid true
                                        :user-id (:user-id session)
-                                       :tenant-id (:tenant-id session)
                                        :expires-at (:expires-at session)}
                                 :message "Session is valid"}]
                   (-> context

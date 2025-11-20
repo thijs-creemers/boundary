@@ -72,7 +72,7 @@ The framework supports multiple interaction modes to serve different stakeholder
 
 ==== Non-Goals
 
-* **Multi-tenancy Runtime Support**: The framework provides preparation patterns but not active multi-tenant runtime features.
+* 
 * **Mobile/Desktop Clients**: Focus on web-based and server-side interfaces only for the initial release.
 * **Specific Domain Logic**: The framework provides patterns and infrastructure, not domain-specific implementations.
 * **Authentication Provider Implementations**: The framework supports auth patterns but does not ship specific providers.
@@ -162,7 +162,7 @@ The framework supports multiple interaction modes to serve different stakeholder
 |**DTO** |Data Transfer Object - immutable data structure crossing layer boundaries
 |**Coercion** |Type transformation (e.g., string to integer) during input validation
 |**Problem Details** |RFC 7807 standard for HTTP error response format
-|**Tenant Context** |Data structure threading tenant information through system layers
+|**User Context** |Data structure containing user information through system layers
 |===
 
 == Architecture
@@ -471,7 +471,7 @@ Adapters provide concrete implementations of ports using specific technologies:
    :name (:name db-record)
    :role (keyword (:role db-record))
    :active (:active db-record)
-   :tenant-id (:tenant_id db-record)
+   :user-id (:user_id db-record)
    :created-at (:created_at db-record)
    :updated-at (:updated_at db-record)})
 
@@ -481,7 +481,7 @@ Adapters provide concrete implementations of ports using specific technologies:
    :name (:name user)
    :role (name (:role user))
    :active (:active user)
-   :tenant_id (:tenant-id user)})
+   :user_id (:user-id user)})
 
 ;; Factory function
 (defn make-postgresql-user-repository [db-spec]
@@ -832,7 +832,7 @@ The Imperative Shell serves as the boundary layer that isolates the pure functio
 * Connection pooling with HikariCP
 * Error handling, recovery, and circuit breaker patterns
 * Security enforcement (authentication, authorization)
-* Tenant context management and propagation
+* User context management and propagation
 
 ==== Shell Implementation Guidelines
 
@@ -1027,7 +1027,7 @@ All core functions must follow this pattern:
   "Creates a new user following business rules.
    
    Business Rules:
-   - Email must be unique within tenant
+   - Email must be unique globally
    - Admin role requires existing admin to create
    - Active users receive welcome email
    
@@ -1146,7 +1146,7 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
    [:name [:string {:min 1 :max 100}]]
    [:role [:enum :admin :user :viewer]]
    [:active :boolean]
-   [:tenant-id :uuid]
+   [:user-id :uuid]
    [:created-at :inst]
    [:updated-at [:maybe :inst]]])
 
@@ -1173,7 +1173,7 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
    [:name :string]
    [:role :string]
    [:active :boolean]
-   [:tenantId :string]
+   [:userId :string]
    [:createdAt :string]  ; ISO 8601 timestamp
    [:updatedAt [:maybe :string]]])
 
@@ -1202,8 +1202,8 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
                        ;; Transform UUIDs to strings
                        (cond-> value
                          (:id value) (assoc :id (str (:id value)))
-                         (:tenant-id value) (-> (assoc :tenantId (str (:tenant-id value)))
-                                                 (dissoc :tenant-id))
+                         (:user-id value) (-> (assoc :userId (str (:user-id value)))
+                                                 )
                          (:created-at value) (assoc :createdAt (.toString (:created-at value)))
                          (:updated-at value) (assoc :updatedAt (when (:updated-at value)
                                                                 (.toString (:updated-at value)))))))}
@@ -1224,7 +1224,7 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
   [:map {:title "Invoice Entity"}
    [:id :uuid]
    [:customer-id :uuid]
-   [:tenant-id :uuid]
+   [:user-id :uuid]
    [:number [:string {:min 1 :max 50}]]
    [:status [:enum :draft :sent :paid :overdue :cancelled]]
    [:amount [:double {:min 0.01}]]
@@ -1320,10 +1320,10 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
                              [:code :string]
                              [:message :string]]]]]])
 
-;; Tenant context (for multi-tenancy)
-(def TenantContext
-  [:map {:title "Tenant Context"}
-   [:tenant-id :uuid]
+
+(def UserContext
+  [:map {:title "User Context"}
+   [:user-id :uuid]
    [:user-id :uuid]
    [:user-role [:enum :admin :user :viewer]]])
 ----
@@ -1479,7 +1479,7 @@ Boundary enforces strict data and schema ownership to keep modules independently
   [:map {:title "Invoice with Customer Details"}
    [:invoice Invoice]
    [:customer user-schema/User]           ; ❌ leaks user module internals
-   [:tenant-context shared/TenantContext]])
+   [:user-context shared/UserContext]])
 ----
 
 Instead, billing defines its own DTOs or projections and obtains user information via ports or events:
@@ -1515,7 +1515,7 @@ Instead, billing defines its own DTOs or projections and obtains user informatio
    [:name [:string {:min 1 :max 100}]]
    [:role [:enum :admin :user :viewer]]
    [:active :boolean]
-   [:tenant-id :uuid]
+   [:user-id :uuid]
    ;; New fields in v2
    [:preferences [:maybe [:map [:notifications :boolean]
                               [:theme [:enum :light :dark]]]]]
@@ -1549,7 +1549,7 @@ Instead, billing defines its own DTOs or projections and obtains user informatio
                      :name "Test User"
                      :role :user
                      :active true
-                     :tenant-id (java.util.UUID/randomUUID)
+                     :user-id (java.util.UUID/randomUUID)
                      :created-at (java.time.Instant/now)}]
       (is (m/validate schema/User valid-user))))
   
@@ -1900,7 +1900,7 @@ config/
                                                                :template-path "templates/email/password-reset.html"
                                                                :expiry-minutes 30}}
                                      :rate-limiting {:max-per-user-per-hour 5
-                                                   :max-per-tenant-per-hour 100}}}
+                                                   :max-per-hour 100}}}
               
               :repositories {:primary {:type :postgresql
                                       :table-prefix "user_"
@@ -1919,7 +1919,7 @@ config/
                                           :port #profile {:staging #long #env "REDIS_PORT"
                                                         :production #long #env "REDIS_PORT"}}}}
               
-              :business-rules {:max-users-per-tenant #profile {:development 1000
+              :business-rules {:max-users #profile {:development 1000
                                                               :staging 500
                                                               :production 10000
                                                               :test 10}
@@ -2518,10 +2518,10 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
   ;; Basic CRUD operations
   (find-user-by-id [this user-id]
     "Retrieve user by unique identifier. Returns user entity or nil.")
-  (find-user-by-email [this email tenant-id]
-    "Retrieve user by email within tenant scope. Returns user entity or nil.")
-  (find-users-by-tenant [this tenant-id options]
-    "Retrieve paginated users for tenant with filtering/sorting options.")
+  (find-user-by-email [this email]
+    "Retrieve user by email withglobally. Returns user entity or nil.")
+  (find-users [this options]
+    "Retrieve paginated users with filtering/sorting options.")
   (create-user [this user-entity]
     "Create new user. Returns user entity with generated ID and timestamps.")
   (update-user [this user-entity]
@@ -2532,11 +2532,11 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
     "Permanently delete user. Returns success boolean.")
   
   ;; Business-specific queries
-  (find-active-users-by-role [this tenant-id role]
-    "Find all active users with specific role in tenant.")
-  (count-users-by-tenant [this tenant-id]
-    "Count total users in tenant (excluding soft-deleted).")
-  (find-users-created-since [this tenant-id since-date]
+  (find-active-users-by-role [this role]
+    "Find all active users with specific role.")
+  (count-users [this]
+    "Count total users globally (excluding soft-deleted).")
+  (find-users-created-since [this since-date]
     "Find users created after specified date.")
   
   ;; Batch operations
@@ -2566,13 +2566,13 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
   ;; Invoice operations
   (create-invoice [this invoice-entity]
     "Create new invoice. Returns invoice with generated ID and number.")
-  (find-invoice-by-id [this invoice-id tenant-id]
-    "Retrieve invoice by ID within tenant scope.")
-  (find-invoices-by-customer [this customer-id tenant-id options]
+  (find-invoice-by-id [this invoice-id]
+    "Retrieve invoice by ID withglobally.")
+  (find-invoices-by-customer [this customer-id options]
     "Retrieve paginated invoices for customer with filtering.")
   (update-invoice-status [this invoice-id new-status updated-by]
     "Update invoice status with audit trail. Returns updated invoice.")
-  (find-overdue-invoices [this tenant-id as-of-date]
+  (find-overdue-invoices [this as-of-date]
     "Find invoices past due date for collections processing.")
   
   ;; Payment operations
@@ -2584,9 +2584,9 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
     "Update payment status with external transaction details.")
   
   ;; Financial reporting queries
-  (calculate-revenue-by-period [this tenant-id start-date end-date]
+  (calculate-revenue-by-period [this start-date end-date]
     "Calculate revenue for date range. Returns aggregated financial data.")
-  (find-unpaid-invoices-summary [this tenant-id]
+  (find-unpaid-invoices-summary [this]
     "Summary of unpaid invoices by age brackets."))
 
 (defprotocol IBillingTransactionRepository
@@ -2595,7 +2595,7 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
     "Record financial transaction for audit purposes.")
   (find-transactions-by-invoice [this invoice-id]
     "Retrieve all financial transactions related to invoice.")
-  (find-transactions-by-date-range [this tenant-id start-date end-date]
+  (find-transactions-by-date-range [this start-date end-date]
     "Retrieve transactions within date range for reporting."))
 ----
 
@@ -2612,7 +2612,7 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
     "Retrieve process instance by ID.")
   (update-process-state [this process-id new-state state-data]
     "Update process state with transition data.")
-  (find-active-processes-by-type [this tenant-id process-type]
+  (find-active-processes-by-type [this process-type]
     "Find all active processes of specific type.")
   
   ;; State transition history
@@ -2624,7 +2624,7 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
   ;; Task management
   (create-workflow-task [this task-entity]
     "Create new workflow task.")
-  (find-pending-tasks-by-assignee [this assignee-id tenant-id]
+  (find-pending-tasks-by-assignee [this assignee-id]
     "Find tasks assigned to specific user.")
   (complete-task [this task-id completion-data]
     "Mark task as completed with result data."))
@@ -2768,23 +2768,23 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
       (when result
         (transform-db-to-domain result))))
   
-  (find-user-by-email [_ email tenant-id]
-    (log/debug "Finding user by email" {:email email :tenant-id tenant-id})
+  (find-user-by-email [_ email]
+    (log/debug "Finding user by email" {:email email :user-id user-id})
     (let [query {:select [:*]
                 :from [(keyword table-name)]
                 :where [:and
                        [:= :email email]
-                       [:= :tenant_id tenant-id]
+                       [:= :user_id user-id]
                        [:is :deleted_at nil]]}
           result (persistence/execute-one! datasource query)]
       (when result
         (transform-db-to-domain result))))
   
-  (find-users-by-tenant [_ tenant-id options]
-    (log/debug "Finding users by tenant" {:tenant-id tenant-id :options options})
+  (find-users [_ options]
+    (log/debug "Finding users" {:user-id user-id :options options})
     (let [filters (dissoc options :limit :offset :sort)
           where-clause [:and
-                       [:= :tenant_id tenant-id]
+                       [:= :user_id user-id]
                        [:is :deleted_at nil]
                        (persistence/build-where-clause filters)]
           query (merge {:select [:*]
@@ -2796,7 +2796,7 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
       (map transform-db-to-domain results)))
   
   (create-user [_ user-entity]
-    (log/info "Creating user" {:email (:email user-entity) :tenant-id (:tenant-id user-entity)})
+    (log/info "Creating user" {:email (:email user-entity) :user-id (:user-id user-entity)})
     (let [db-record (transform-domain-to-db user-entity)
           query {:insert-into [(keyword table-name)]
                 :values [db-record]
@@ -2837,12 +2837,12 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
           affected-rows (persistence/execute-update! datasource query)]
       (> affected-rows 0)))
   
-  (find-active-users-by-role [_ tenant-id role]
-    (log/debug "Finding active users by role" {:tenant-id tenant-id :role role})
+  (find-active-users-by-role [_ role]
+    (log/debug "Finding active users by role" {:user-id user-id :role role})
     (let [query {:select [:*]
                 :from [(keyword table-name)]
                 :where [:and
-                       [:= :tenant_id tenant-id]
+                       [:= :user_id user-id]
                        [:= :role (name role)]
                        [:= :active true]
                        [:is :deleted_at nil]]
@@ -2850,22 +2850,22 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
           results (persistence/execute-query! datasource query)]
       (map transform-db-to-domain results)))
   
-  (count-users-by-tenant [_ tenant-id]
-    (log/debug "Counting users by tenant" {:tenant-id tenant-id})
+  (count-users [_]
+    (log/debug "Counting users" {:user-id user-id})
     (let [query {:select [:%count.*]
                 :from [(keyword table-name)]
                 :where [:and
-                       [:= :tenant_id tenant-id]
+                       [:= :user_id user-id]
                        [:is :deleted_at nil]]}
           result (persistence/execute-one! datasource query)]
       (:count result 0)))
   
-  (find-users-created-since [_ tenant-id since-date]
-    (log/debug "Finding users created since date" {:tenant-id tenant-id :since-date since-date})
+  (find-users-created-since [_ since-date]
+    (log/debug "Finding users created since date" {:user-id user-id :since-date since-date})
     (let [query {:select [:*]
                 :from [(keyword table-name)]
                 :where [:and
-                       [:= :tenant_id tenant-id]
+                       [:= :user_id user-id]
                        [:>= :created_at since-date]
                        [:is :deleted_at nil]]
                 :order-by [[:created_at :desc]]}
@@ -2892,7 +2892,7 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
    :name (:name db-record)
    :role (keyword (:role db-record))
    :active (:active db-record)
-   :tenant-id (:tenant_id db-record)
+   :user-id (:user_id db-record)
    :created-at (:created_at db-record)
    :updated-at (:updated_at db-record)
    :deleted-at (:deleted_at db-record)})
@@ -2904,7 +2904,7 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
    :name (:name user-entity)
    :role (name (:role user-entity))
    :active (:active user-entity)
-   :tenant_id (:tenant-id user-entity)
+   :user_id (:user-id user-entity)
    :created_at (or (:created-at user-entity) (time/instant))
    :updated_at (:updated-at user-entity)})
 
@@ -2931,7 +2931,7 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
     (let [session-token (generate-secure-token)
           db-record {:id (java.util.UUID/randomUUID)
                     :user_id (:user-id session-entity)
-                    :tenant_id (:tenant-id session-entity)
+                    :user_id (:user-id session-entity)
                     :session_token session-token
                     :expires_at (:expires-at session-entity)
                     :created_at (time/instant)
@@ -2983,7 +2983,7 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
   "Transform database session record to domain entity."
   {:id (:id db-record)
    :user-id (:user_id db-record)
-   :tenant-id (:tenant_id db-record)
+   :user-id (:user_id db-record)
    :session-token (:session_token db-record)
    :expires-at (:expires_at db-record)
    :created-at (:created_at db-record)
@@ -3041,7 +3041,7 @@ Boundary enforces transaction boundaries at the module service level, ensuring b
                              (ports/create-session 
                                tx-session-repo
                                {:user-id (:id user)
-                                :tenant-id (:tenant-id user)
+                                :user-id (:user-id user)
                                 :expires-at (time/plus (time/instant) (time/hours 24))
                                 :user-agent (:user-agent user-data)
                                 :ip-address (:ip-address user-data)}))
@@ -3116,7 +3116,7 @@ Boundary enforces transaction boundaries at the module service level, ensuring b
                                 :new-values (select-keys updated-user (keys updates))
                                 :updated-by updater-id
                                 :updated-at (time/instant)
-                                :tenant-id (:tenant-id current-user)}
+                                :user-id (:user-id current-user)}
                     
                     _ (ports/record-audit-entry tx-audit-repo audit-entry)]
                 
@@ -3216,7 +3216,7 @@ For operations spanning multiple modules, Boundary uses explicit transaction coo
                     
                     ;; Step 3: Create invoice
                     invoice-data {:customer-id (:customer-id processed-order)
-                                 :tenant-id (:tenant-id processed-order)
+                                 :user-id (:user-id processed-order)
                                  :order-id (:id processed-order)
                                  :line-items (:line-items processed-order)
                                  :total-amount (:total-amount processed-order)
@@ -3241,13 +3241,13 @@ For operations spanning multiple modules, Boundary uses explicit transaction coo
                                    :action :created
                                    :new-values processed-order
                                    :created-by (:created-by order-data)
-                                   :tenant-id (:tenant-id processed-order)}
+                                   :user-id (:user-id processed-order)}
                                   {:entity-type :invoice
                                    :entity-id (:id invoice)
                                    :action :created
                                    :new-values invoice
                                    :created-by (:created-by order-data)
-                                   :tenant-id (:tenant-id processed-order)}]
+                                   :user-id (:user-id processed-order)}]
                     
                     _ (doseq [audit-entry audit-entries]
                        (audit-ports/record-audit-entry tx-audit-repo audit-entry))
@@ -3282,7 +3282,7 @@ Boundary uses a module-centric migration approach where each module manages its 
 ----
 resources/migrations/
 ├── shared/
-│   ├── 001-create-tenants.sql
+│   ├── 001-create-users.sql
 │   ├── 002-create-audit-log.sql
 │   └── 003-create-system-config.sql
 ├── user/
@@ -3309,11 +3309,11 @@ resources/migrations/
 -- User module: Core users table
 -- Migration: 001-create-users-table.sql
 -- Module: user
--- Dependencies: shared/001-create-tenants.sql
+-- Dependencies: shared/001-create-users.sql
 
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    
     email VARCHAR(255) NOT NULL,
     name VARCHAR(100) NOT NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'user', 'viewer')),
@@ -3323,15 +3323,15 @@ CREATE TABLE IF NOT EXISTS users (
     deleted_at TIMESTAMP WITH TIME ZONE,
     
     -- Constraints
-    CONSTRAINT users_email_tenant_unique UNIQUE (email, tenant_id, deleted_at),
+    CONSTRAINT users_email_unique UNIQUE (email, deleted_at),
     CONSTRAINT users_name_not_empty CHECK (length(trim(name)) > 0),
     CONSTRAINT users_email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON users (tenant_id) WHERE deleted_at IS NULL;
+
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_users_role ON users (tenant_id, role) WHERE deleted_at IS NULL AND active = true;
+CREATE INDEX IF NOT EXISTS idx_users_role ON users (role) WHERE deleted_at IS NULL AND active = true;
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users (created_at);
 
 -- Trigger for updated_at
@@ -3349,10 +3349,10 @@ CREATE TRIGGER update_users_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- Comments for documentation
-COMMENT ON TABLE users IS 'Core user accounts with tenant isolation and soft delete support';
+COMMENT ON TABLE users IS 'Core user accounts with soft delete support';
 COMMENT ON COLUMN users.id IS 'Unique user identifier (UUID)';
-COMMENT ON COLUMN users.tenant_id IS 'Tenant isolation - users belong to specific tenant';
-COMMENT ON COLUMN users.email IS 'User email address - unique within tenant';
+-- User identification
+COMMENT ON COLUMN users.email IS 'User email address - unique globally';
 COMMENT ON COLUMN users.role IS 'User role for authorization (admin, user, viewer)';
 COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active user';
 ----
@@ -3522,14 +3522,14 @@ COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active
 (deftest user-repository-crud-test
   (testing "complete user CRUD operations"
     (let [repo (user-repo/make-postgresql-user-repository *test-datasource*)
-          tenant-id (java.util.UUID/randomUUID)
+          user-id (java.util.UUID/randomUUID)
           
           ;; Create test user
           test-user {:email "test@example.com"
                     :name "Test User"
                     :role :user
                     :active true
-                    :tenant-id tenant-id}]
+                    :user-id user-id}]
       
       ;; Test create
       (let [created-user (user-ports/create-user repo test-user)]
@@ -3542,7 +3542,7 @@ COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active
           (is (= created-user found-user)))
         
         ;; Test find by email
-        (let [found-user (user-ports/find-user-by-email repo "test@example.com" tenant-id)]
+        (let [found-user (user-ports/find-user-by-email repo "test@example.com")]
           (is (= created-user found-user)))
         
         ;; Test update
@@ -3569,7 +3569,7 @@ COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active
 (deftest user-repository-business-queries-test
   (testing "business-specific repository queries"
     (let [repo (user-repo/make-postgresql-user-repository *test-datasource*)
-          tenant-id (java.util.UUID/randomUUID)]
+          user-id (java.util.UUID/randomUUID)]
       
       ;; Create test data
       (doseq [[email role active] [["admin@test.com" :admin true]
@@ -3580,25 +3580,25 @@ COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active
                                      :name (str "Test " (name role))
                                      :role role
                                      :active active
-                                     :tenant-id tenant-id}))
+                                     :user-id user-id}))
       
       ;; Test find active users by role
-      (let [active-users (user-ports/find-active-users-by-role repo tenant-id :user)]
+      (let [active-users (user-ports/find-active-users-by-role repo :user)]
         (is (= 1 (count active-users)))
         (is (= "user1@test.com" (:email (first active-users)))))
       
-      ;; Test count users by tenant
-      (let [user-count (user-ports/count-users-by-tenant repo tenant-id)]
+      ;; Test count users
+      (let [user-count (user-ports/count-users repo)]
         (is (= 4 user-count)))
       
       ;; Test find users created since
-      (let [recent-users (user-ports/find-users-created-since repo tenant-id (time/minus (time/instant) (time/minutes 5)))]
+      (let [recent-users (user-ports/find-users-created-since repo (time/minus (time/instant) (time/minutes 5)))]
         (is (= 4 (count recent-users)))))))
 
 (deftest transaction-rollback-test
   (testing "transaction rollback on error"
     (let [repo (user-repo/make-postgresql-user-repository *test-datasource*)
-          tenant-id (java.util.UUID/randomUUID)]
+          user-id (java.util.UUID/randomUUID)]
       
       ;; Attempt operation that should fail and rollback
       (is (thrown? Exception
@@ -3609,12 +3609,12 @@ COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active
                                                 :name "Test User"
                                                 :role :user
                                                 :active true
-                                                :tenant-id tenant-id})
+                                                :user-id user-id})
                 ;; Force error to trigger rollback
                 (throw (Exception "Forced error for rollback test"))))))
       
       ;; Verify no user was created due to rollback
-      (let [found-user (user-ports/find-user-by-email repo "test@example.com" tenant-id)]
+      (let [found-user (user-ports/find-user-by-email repo "test@example.com")]
         (is (nil? found-user))))))
 ----
 
@@ -3700,7 +3700,7 @@ The Boundary REST API provides programmatic access to all framework functionalit
 
 * Query parameter `filter[field]=value` for simple filtering
 * Query parameter `sort=field1,-field2` (- prefix for descending)
-* Support tenant-scoped filtering automatically
+* 
 
 ==== User Management Endpoints
 
@@ -3746,7 +3746,7 @@ Retrieves a specific user by their unique identifier, including all user attribu
          :user/email      :string
          :user/role       [:enum :admin :user :viewer]
          :user/active     :boolean
-         :user/tenant-id  :uuid
+         :user/id  :uuid
          :user/created-at :inst
          :user/updated-at [:maybe :inst]}]}
 ----
@@ -3760,7 +3760,7 @@ Retrieves a specific user by their unique identifier, including all user attribu
     "email": "john.doe@example.com",
     "role": "user",
     "active": true,
-    "tenantId": "456e7890-e12b-34c5-a678-901234567890",
+    "userId": "123e4567-e89b-12d3-a456-426614174000",
     "createdAt": "2023-12-15T10:30:00Z",
     "updatedAt": "2023-12-15T14:20:00Z"
   }
@@ -3770,13 +3770,13 @@ Retrieves a specific user by their unique identifier, including all user attribu
 *Implementation Notes:*
 
 * Core function: `boundary.core.user/get-user-by-id`
-* Automatically filters by tenant context
-* Returns 404 if user doesn't exist or not in current tenant
+* Filters by user context
+* Returns 404 if user doesn't exist or not 
 
 === GET /api/v1/users
 
 ==== Purpose
-Retrieves a paginated list of users with optional filtering and sorting, scoped to the current tenant.
+Retrieves a paginated list of users with optional filtering and sorting.
 
 ==== Request
 
@@ -3852,7 +3852,7 @@ Retrieves a paginated list of users with optional filtering and sorting, scoped 
 === POST /api/v1/jobs
 
 ==== Purpose
-Creates a new job with the specified details, automatically associating it with the current tenant and creator.
+Creates a new job with the specified details, automatically associating it with the creator.
 
 ==== Request
 
@@ -3899,7 +3899,7 @@ Creates a new job with the specified details, automatically associating it with 
     "status": "created",
     "assignedTo": "123e4567-e89b-12d3-a456-426614174000",
     "createdBy": "789e0123-e45b-67c8-a901-234567890123",
-    "tenantId": "456e7890-e12b-34c5-a678-901234567890",
+    "userId": "123e4567-e89b-12d3-a456-426614174000",
     "dueDate": "2023-12-30T17:00:00Z",
     "priority": "normal",
     "createdAt": "2023-12-15T11:00:00Z",
@@ -3911,7 +3911,7 @@ Creates a new job with the specified details, automatically associating it with 
 *Implementation Notes:*
 
 * Core function: `boundary.core.job/create-job`
-* Validates assigned user exists and is in same tenant
+* Validates assigned user exists
 * Automatically sets `created-by` from authentication context
 * Default status is `:created` if not specified
 
@@ -3950,7 +3950,7 @@ Retrieves a specific job by its unique identifier, including all job details and
     "status": "in-progress",
     "assignedTo": "123e4567-e89b-12d3-a456-426614174000",
     "createdBy": "789e0123-e45b-67c8-a901-234567890123",
-    "tenantId": "456e7890-e12b-34c5-a678-901234567890",
+    "userId": "123e4567-e89b-12d3-a456-426614174000",
     "dueDate": "2023-12-30T17:00:00Z",
     "priority": "normal",
     "createdAt": "2023-12-15T11:00:00Z",
@@ -4155,7 +4155,7 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
     {
       "field": "email", 
       "code": "ALREADY_EXISTS",
-      "message": "A user with email 'john@example.com' already exists in this tenant"
+      "message": "A user with email 'john@example.com' already exists "
     }
   ]
 }
@@ -4226,7 +4226,7 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
     {
       "field": "id",
       "code": "NOT_FOUND",
-      "message": "User with ID '123e4567-e89b-12d3-a456-426614174000' not found in current tenant"
+      "message": "User with ID '123e4567-e89b-12d3-a456-426614174000' not found "
     }
   ]
 }
@@ -4280,7 +4280,7 @@ All error responses use the RFC 7807 Problem Details format with `application/pr
 * `NOT_FOUND` - Referenced resource does not exist
 * `INVALID_STATE_TRANSITION` - State change not allowed
 * `ADMIN_CREATION_RESTRICTED` - Admin role assignment restricted
-* `TENANT_MISMATCH` - Resource not in user's tenant
+* `USER_MISMATCH` - Resource not accessible
 
 **Authorization Error Codes:**
 * `AUTHENTICATION_REQUIRED` - Valid authentication needed
@@ -4328,7 +4328,7 @@ boundary [global-options] <resource> <action> [resource-options]
 
 |`--config=<path>` |`~/.boundary/config.edn` |Path to configuration file
 |`--profile=<name>` |`default` |Configuration profile to use
-|`--tenant-id=<uuid>` |Current user's tenant |Tenant context for operations
+
 |`--token=<jwt>` |From config |Authentication token
 |`--format=<fmt>` |`table` |Output format: `table`, `json`, `edn`, or `yaml`
 |`--quiet`, `-q` |`false` |Suppress informational output
@@ -4390,7 +4390,7 @@ $ boundary users get --id=123e4567-e89b-12d3-a456-426614174000
 ║ Email            │ john.doe@example.com ║
 ║ Role             │ user                 ║
 ║ Active           │ true                 ║
-║ Tenant           │ acme-corp            ║
+║ UserId           │ 123e4567-e89b-12d3-a456-426614174000 ║
 ║ Created          │ 2025-08-10T15:30:00Z ║
 ║ Last Updated     │ 2025-08-15T12:42:15Z ║
 ╚══════════════════╧═════════════════════╝
@@ -4899,7 +4899,7 @@ Resource Not Found Error:
 [source,bash]
 ----
 ERROR: Resource Not Found
-User with ID '123e4567-e89b-12d3-a456-426614174000' not found in tenant 'acme-corp'.
+User with ID '123e4567-e89b-12d3-a456-426614174000' not found.
 
 Use 'boundary users list' to see available users or check the ID and try again.
 ----
@@ -4994,21 +4994,21 @@ _[TODO: Complete with comprehensive data model documentation]_
 
 **Current Entities:**
 ```clojure
-;; Tenant
-{:tenant/id   :uuid
- :tenant/name [:string {:min 1 :max 100}]}
+
+{:user/id   :uuid
+ :user/name [:string {:min 1 :max 100}]}
 
 ;; User  
 {:user/id         :uuid
  :user/email      [:string {:min 5 :max 255}]
- :user/tenant-id  :uuid
+ :user/id  :uuid
  :user/role       [:enum :admin :user :viewer]
  :user/active     :boolean
  :user/created-at :inst}
 
 ;; Job
 {:job/id          :uuid
- :job/tenant-id   :uuid  
+ :job/id   :uuid  
  :job/title       [:string {:min 1 :max 200}]
  :job/status      [:enum :created :in-progress :completed :cancelled]
  :job/created-by  :uuid

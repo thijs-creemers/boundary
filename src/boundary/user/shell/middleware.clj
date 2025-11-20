@@ -108,8 +108,7 @@
             (let [enriched-request (assoc request
                                           :user {:id (:user-id jwt-claims)
                                                  :email (:email jwt-claims)
-                                                 :role (:role jwt-claims)
-                                                 :tenant-id (:tenant-id jwt-claims)}
+                                                 :role (:role jwt-claims)}
                                           :auth-type :jwt)]
               (handler enriched-request))
             ;; Token invalid
@@ -144,8 +143,7 @@
         (if-let [session (ports/validate-session user-service session-token)]
           ;; Session valid - add user info to request
           (let [enriched-request (assoc request
-                                        :user {:id (:user-id session)
-                                               :tenant-id (:tenant-id session)}
+                                        :user {:id (:user-id session)}
                                         :session session
                                         :auth-type :session)]
             (handler enriched-request))
@@ -232,36 +230,6 @@
   [handler]
   (require-role-middleware #{:admin} handler))
 
-(defn require-tenant-access-middleware
-  "Middleware that ensures user can only access resources in their tenant.
-   
-   Compares user's tenant-id with :tenant-id path/query parameter.
-   Must be used after authentication middleware.
-   
-   Args:
-     handler: Next handler in the chain
-     
-   Returns:
-     Wrapped handler function"
-  [handler]
-  (fn [request]
-    (if-let [user (:user request)]
-      (let [user-tenant-id (:tenant-id user)
-            requested-tenant-id (or
-                                 (get-in request [:parameters :path :tenantId])
-                                 (get-in request [:parameters :query :tenantId]))]
-        (if (or (nil? requested-tenant-id)
-                (= user-tenant-id requested-tenant-id))
-          ;; Tenant access allowed
-          (handler request)
-          ;; Tenant access denied
-          (create-forbidden-response
-           "Access denied to resources outside your tenant"
-           :cross-tenant-access-denied)))
-
-      ;; No user in request
-      (create-unauthorized-response "Authentication required" :missing-user))))
-
 ;; =============================================================================
 ;; Utility Functions for Route Protection
 ;; =============================================================================
@@ -313,18 +281,4 @@
   [user-service handler]
   (-> handler
       require-admin-middleware
-      (flexible-authentication-middleware user-service)))
-
-(defn protect-tenant-scoped
-  "Wraps handler with tenant-scoped access control.
-   
-   Args:
-     user-service: User service for session validation
-     handler: Handler to protect
-     
-   Returns:
-     Protected handler with authentication and tenant authorization"
-  [user-service handler]
-  (-> handler
-      require-tenant-access-middleware
       (flexible-authentication-middleware user-service)))

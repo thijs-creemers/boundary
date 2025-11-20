@@ -37,7 +37,6 @@
   {:email "user@example.com"
    :name "Behavior Spec User"
    :role :user
-   :tenant-id (UUID/fromString "00000000-0000-0000-0000-00000000B333")
    :password "behavior-test-password"})
 
 (def ^:private registered-rule-ids
@@ -45,7 +44,6 @@
     :user.email/required
     :user.name/required
     :user.role/required
-    :user.tenant-id/required
     :user.email/invalid-format})
 
 (def ^:private executed-rule-ids (atom #{}))
@@ -82,14 +80,6 @@
     :rule-id :user.role/required
     :base base-valid
     :mutations [(behavior/remove-field :role)]
-    :action validate-create-user
-    :assertions [{:expect :failure}]}
-
-   {:name "create-user--tenant-id-required-missing"
-    :description "Tenant-id required"
-    :rule-id :user.tenant-id/required
-    :base base-valid
-    :mutations [(behavior/remove-field :tenant-id)]
     :action validate-create-user
     :assertions [{:expect :failure}]}
 

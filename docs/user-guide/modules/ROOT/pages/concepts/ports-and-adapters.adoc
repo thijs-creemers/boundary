@@ -87,12 +87,12 @@ Imagine the functional core as a hexagon with **ports** as connection points:
     Returns:
       User entity map or nil if not found")
   
-  (find-user-by-email [this email tenant-id]
-    "Retrieve user by email within a tenant.
+  (find-user-by-email [this email]
+    "Retrieve user by email .
     
     Args:
       email - Email address
-      tenant-id - UUID of tenant for multi-tenancy
+      user-id - UUID of user for 
     
     Returns:
       User entity map or nil if not found")
@@ -216,12 +216,12 @@ Imagine the functional core as a hexagon with **ports** as connection points:
       (when result
         (db-record->user-entity result))))
   
-  (find-user-by-email [_ email tenant-id]
+  (find-user-by-email [_ email]
     (let [query {:select [:*]
                 :from [:users]
                 :where [:and
                        [:= :email email]
-                       [:= :tenant_id (type-conv/uuid->string tenant-id)]
+                       [:= :user_id (type-conv/uuid->string user-id)]
                        [:is :deleted_at nil]]}
           result (db/execute-one! db-ctx query)]
       (when result
@@ -267,7 +267,7 @@ Imagine the functional core as a hexagon with **ports** as connection points:
   {:id (type-conv/string->uuid (:id record))
    :email (:email record)
    :name (:name record)
-   :tenant-id (type-conv/string->uuid (:tenant_id record))
+   :user-id (type-conv/string->uuid (:user_id record))
    :created-at (type-conv/string->instant (:created_at record))
    :updated-at (when (:updated_at record)
                 (type-conv/string->instant (:updated_at record)))})
@@ -278,7 +278,7 @@ Imagine the functional core as a hexagon with **ports** as connection points:
   {:id (type-conv/uuid->string (:id entity))
    :email (:email entity)
    :name (:name entity)
-   :tenant_id (type-conv/uuid->string (:tenant-id entity))
+   :user_id (type-conv/uuid->string (:user-id entity))
    :created_at (type-conv/instant->string (:created-at entity))
    :updated_at (when (:updated-at entity)
                 (type-conv/instant->string (:updated-at entity)))})

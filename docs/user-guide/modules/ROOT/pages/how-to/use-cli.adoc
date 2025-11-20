@@ -55,7 +55,7 @@ clojure -M:cli user create \
   --email alice@example.com \
   --name "Alice Doe" \
   --role user \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000
+  --user-id 550e8400-e29b-41d4-a716-446655440000
 ----
 
 **Required options:**
@@ -63,7 +63,7 @@ clojure -M:cli user create \
 * `--email` - Valid email address
 * `--name` - User's full name  
 * `--role` - One of: `admin`, `user`, or `viewer`
-* `--tenant-id` - Tenant UUID
+* `--user-id` - User UUID
 
 **Optional:**
 
@@ -80,12 +80,12 @@ clojure -M:cli user create \
 
 === List Users
 
-View all users in a tenant:
+View all users :
 
 [source,{shell}]
 ----
 clojure -M:cli user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000
+  --user-id 550e8400-e29b-41d4-a716-446655440000
 ----
 
 **Filter options:**
@@ -94,18 +94,18 @@ clojure -M:cli user list \
 ----
 # Limit results
 clojure -M:cli user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
   --limit 10 \
   --offset 0
 
 # Filter by role
 clojure -M:cli user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
   --role admin
 
 # Filter by active status
 clojure -M:cli user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
   --active true
 ----
 
@@ -125,7 +125,7 @@ Find by email:
 ----
 clojure -M:cli user find \
   --email alice@example.com \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000
+  --user-id 550e8400-e29b-41d4-a716-446655440000
 ----
 
 === Update a User
@@ -172,7 +172,7 @@ Create a new session (login):
 ----
 clojure -M:cli session create \
   --user-id 123e4567-e89b-12d3-a456-426614174000 \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
   --user-agent "Mozilla/5.0..." \
   --ip-address "192.168.1.1"
 ----
@@ -216,7 +216,7 @@ Human-readable tables for interactive use:
 [source,{shell}]
 ----
 clojure -M:cli user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000
+  --user-id 550e8400-e29b-41d4-a716-446655440000
 ----
 
 === JSON Format
@@ -226,7 +226,7 @@ Machine-readable JSON for scripting and automation:
 [source,{shell}]
 ----
 clojure -M:cli user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
   --format json
 ----
 
@@ -259,12 +259,12 @@ Use `jq` to process JSON output:
 ----
 # Get just the email addresses
 clojure -M:cli user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
   --format json | jq -r '.users[].email'
 
 # Count active users
 clojure -M:cli user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
   --active true \
   --format json | jq '.count'
 ----
@@ -278,14 +278,14 @@ Create multiple users from a file:
 #!/bin/zsh
 # create-users.sh
 
-TENANT_ID="550e8400-e29b-41d4-a716-446655440000"
+USER_ID="550e8400-e29b-41d4-a716-446655440000"
 
 while IFS=',' read -r email name role; do
   clojure -M:cli user create \
     --email "$email" \
     --name "$name" \
     --role "$role" \
-    --tenant-id "$TENANT_ID"
+    --user-id "$USER_ID"
 done < users.csv
 ----
 
@@ -304,7 +304,7 @@ Check exit status in scripts:
 [source,{shell}]
 ----
 if clojure -M:cli user create --email alice@example.com \
-   --name "Alice" --role user --tenant-id $TENANT_ID; then
+   --name "Alice" --role user --user-id $USER_ID; then
   echo "User created successfully"
 else
   echo "Failed to create user" >&2

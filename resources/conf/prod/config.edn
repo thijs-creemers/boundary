@@ -32,7 +32,7 @@
     :role-restrictions {:allowed-roles #{:user :admin :manager}
                         :admin-email-domains #{"company.com"} ; Only company domain can be admin
                         :default-role :user}
-    :tenant-limits {:max-users-per-tenant 500 ; Production limit
+    :user-limits {:max-users 500 ; Production limit
                     :check-enabled? true} ; Enabled in production
     :cross-field-validation {:admin-requires-company-email? true ; Strict rules in production
                              :manager-requires-department? true}}}

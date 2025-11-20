@@ -18,8 +18,8 @@
    :role-restrictions {:allowed-roles #{:user :admin :manager :viewer :test-role}
                        :admin-email-domains #{} ; Any domain can be admin in tests
                        :default-role :user}
-   :tenant-limits {:max-users-per-tenant 10000 ; High limit for tests
-                   :check-enabled? false} ; Disabled in tests
+   :user-limits {:max-users 10000 ; High limit for tests
+                 :check-enabled? false} ; Disabled in tests
    :cross-field-validation {:admin-requires-company-email? false
                             :manager-requires-department? false}})
 
@@ -41,7 +41,7 @@
    :role-restrictions {:allowed-roles #{:user :admin :manager}
                        :admin-email-domains #{"example.com"}
                        :default-role :user}
-   :tenant-limits {:max-users-per-tenant 100
-                   :check-enabled? true}
+   :user-limits {:max-users 100
+                 :check-enabled? true}
    :cross-field-validation {:admin-requires-company-email? true
                             :manager-requires-department? true}})

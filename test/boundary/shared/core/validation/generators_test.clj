@@ -19,7 +19,7 @@
   "Simple schema registry for testing without coupling to validation.registry."
   [schema-key]
   (case schema-key
-    :user user-schema/CreateUserRequest  ; Use CreateUserRequest for testing (no inst? fields)
+    :user user-schema/CreateUserRequest ; Use CreateUserRequest for testing (no inst? fields)
     :create-user-request user-schema/CreateUserRequest
     :user-session user-schema/UserSession
     nil))
@@ -35,8 +35,7 @@
       (is (m/validate user-schema/CreateUserRequest user) "Generated user request should be valid")
       (is (string? (:email user)) "User should have email string")
       (is (string? (:name user)) "User should have name string")
-      (is (keyword? (:role user)) "User should have role keyword")
-      (is (uuid? (:tenant-id user)) "User should have tenant-id UUID"))))
+      (is (keyword? (:role user)) "User should have role keyword"))))
 
 (deftest ^:phase3 gen-valid-one-create-request-test
   (testing "Generate valid CreateUserRequest"
@@ -45,8 +44,7 @@
       (is (m/validate user-schema/CreateUserRequest request) "Generated request should be valid")
       (is (string? (:email request)) "Request should have email")
       (is (string? (:name request)) "Request should have name")
-      (is (keyword? (:role request)) "Request should have role")
-      (is (uuid? (:tenant-id request)) "Request should have tenant-id"))))
+      (is (keyword? (:role request)) "Request should have role"))))
 
 ;; SKIPPED: UserSession has inst? fields which don't have built-in generators in Malli 0.19.2
 ;; (deftest ^:phase3 gen-valid-one-user-session-test
@@ -64,7 +62,7 @@
     (let [user1 (gen/gen-valid-one user-schema/CreateUserRequest {:seed test-seed})
           user2 (gen/gen-valid-one user-schema/CreateUserRequest {:seed test-seed})]
       (is (= user1 user2) "Same seed should produce identical users")))
-  
+
   (testing "Different seeds produce different data"
     (let [user1 (gen/gen-valid-one user-schema/CreateUserRequest {:seed test-seed})
           user2 (gen/gen-valid-one user-schema/CreateUserRequest {:seed alt-seed})]
@@ -74,19 +72,18 @@
   (testing "Generate sequence of valid users"
     (let [users (take 3 (gen/gen-valid user-schema/CreateUserRequest {:seed test-seed :count 5}))]
       (is (= 3 (count users)) "Should generate 3 users")
-      (is (every? #(m/validate user-schema/CreateUserRequest %) users) "All users should be valid")
-      (is (apply distinct? (map :tenant-id users)) "Each user should have unique tenant-id"))))
+      (is (every? #(m/validate user-schema/CreateUserRequest %) users) "All users should be valid"))))
 
 (deftest ^:phase3 resolve-schema-test
   (testing "Resolve schema from keyword via registry"
     (let [schema (gen/resolve-schema :user {:registry schema-registry})]
       (is (some? schema) "Should resolve :user schema")
       (is (= user-schema/CreateUserRequest schema) "Should return CreateUserRequest schema")))
-  
+
   (testing "Pass through schema directly"
     (let [schema (gen/resolve-schema user-schema/CreateUserRequest {})]
       (is (= user-schema/CreateUserRequest schema) "Should return schema as-is")))
-  
+
   (testing "Return nil for unknown keyword"
     (let [schema (gen/resolve-schema :unknown {:registry schema-registry})]
       (is (nil? schema) "Should return nil for unknown schema"))))
@@ -140,8 +137,8 @@
     ;; This test verifies the generator adds the key, not that validation fails
     (let [valid-base (gen/gen-valid-one user-schema/CreateUserRequest {:seed test-seed})
           with-extra (gen/gen-invalid-one user-schema/CreateUserRequest
-                                           :unknown-key
-                                           {:seed test-seed})]
+                                          :unknown-key
+                                          {:seed test-seed})]
       (is (some? with-extra) "Should generate data with extra key")
       (is (> (count with-extra) (count valid-base)) "Should have more keys than base")
       (is (some #(re-find #"unknown-field" (name %)) (keys with-extra))
@@ -159,10 +156,10 @@
 (deftest ^:phase3 gen-invalid-sequence-test
   (testing "Generate sequence of invalid users"
     (let [invalid-users (take 3 (gen/gen-invalid user-schema/CreateUserRequest
-                                                  :missing-required
-                                                  {:seed test-seed
-                                                   :field :email
-                                                   :count 5}))]
+                                                 :missing-required
+                                                 {:seed test-seed
+                                                  :field :email
+                                                  :count 5}))]
       (is (= 3 (count invalid-users)) "Should generate 3 invalid users")
       (is (every? #(not (m/validate user-schema/CreateUserRequest %)) invalid-users)
           "All users should be invalid")
@@ -178,7 +175,7 @@
                                         :missing-required
                                         {:seed test-seed :field :name})]
       (is (= invalid1 invalid2) "Same seed should produce identical invalid data")))
-  
+
   (testing "Different seeds produce different invalid data"
     (let [invalid1 (gen/gen-invalid-one user-schema/CreateUserRequest
                                         :missing-required

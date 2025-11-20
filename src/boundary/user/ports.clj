@@ -25,12 +25,12 @@
   "User data persistence interface with comprehensive CRUD and business operations.
    
    This port abstracts all user data access patterns, supporting:
-   - Full CRUD operations with tenant isolation
+   - Full CRUD operations operations
    - Business-specific queries for roles, status, and date ranges
    - Batch operations for bulk data processing
    - Soft/hard delete operations for data lifecycle management
    
-   All methods should handle tenant isolation automatically and return
+   All methods return
    domain entities as defined in boundary.user.schema."
 
   ;; Basic CRUD Operations
@@ -47,25 +47,23 @@
      Example:
        (find-user-by-id repo #uuid \"123e4567-e89b-12d3-a456-426614174000\")")
 
-  (find-user-by-email [this email tenant-id]
-    "Retrieve user by email address within tenant scope.
+  (find-user-by-email [this email]
+    "Retrieve user by email address.
      
      Args:
        email: User's email address (string)
-       tenant-id: UUID of the tenant for isolation
      
      Returns:
        User entity map or nil if not found
-       Only returns active users within the specified tenant
+       Only returns active users
      
      Example:
-       (find-user-by-email repo \"john@example.com\" tenant-id)")
+       (find-user-by-email repo \"john@example.com\")")
 
-  (find-users-by-tenant [this tenant-id options]
-    "Retrieve paginated users for tenant with filtering and sorting.
+  (find-users [this options]
+    "Retrieve paginated users with filtering and sorting.
      
      Args:
-       tenant-id: UUID of the tenant for isolation
        options: Map with pagination and filtering options:
                 {:limit 20
                  :offset 0
@@ -80,7 +78,7 @@
        Only returns active users unless :include-deleted? true in options
      
      Example:
-       (find-users-by-tenant repo tenant-id {:limit 10 :filter-role :admin})")
+       (find-users repo {:limit 10 :filter-role :admin})")
 
   (create-user [this user-entity]
     "Create new user with automatic ID and timestamp generation.
@@ -91,14 +89,13 @@
      
      Returns:
        Created user entity with generated ID and timestamps
-       Throws exception if email already exists in tenant
+       Throws exception if email already exists
      
      Example:
        (create-user repo {:email \"new@example.com\"
                          :name \"New User\"
                          :role :user
-                         :active true
-                         :tenant-id tenant-id})")
+                         :active true})")
 
   (update-user [this user-entity]
     "Update existing user with automatic updated-at timestamp.
@@ -109,7 +106,7 @@
      
      Returns:
        Updated user entity with new updated-at timestamp
-       Throws exception if user not found or belongs to different tenant
+       Throws exception if user not found
      
      Example:
        (update-user repo (assoc existing-user :name \"Updated Name\"))")
@@ -143,11 +140,10 @@
        (hard-delete-user repo user-id)")
 
   ;; Business-Specific Queries
-  (find-active-users-by-role [this tenant-id role]
-    "Find all active users with specific role in tenant.
+  (find-active-users-by-role [this role]
+    "Find all active users with specific role.
      
      Args:
-       tenant-id: UUID of tenant for isolation
        role: Keyword role (:admin, :user, :viewer)
      
      Returns:
@@ -155,25 +151,21 @@
        Only returns active (non-deleted) users
      
      Example:
-       (find-active-users-by-role repo tenant-id :admin)")
+       (find-active-users-by-role repo :admin)")
 
-  (count-users-by-tenant [this tenant-id]
-    "Count total active users in tenant.
-     
-     Args:
-       tenant-id: UUID of tenant for isolation
+  (count-users [this]
+    "Count total active users.
      
      Returns:
        Integer count of active users (excludes soft-deleted)
      
      Example:
-       (count-users-by-tenant repo tenant-id)")
+       (count-users repo)")
 
-  (find-users-created-since [this tenant-id since-date]
+  (find-users-created-since [this since-date]
     "Find users created after specified date.
      
      Args:
-       tenant-id: UUID of tenant for isolation
        since-date: Instant representing cutoff date
      
      Returns:
@@ -181,13 +173,12 @@
        Useful for analytics, recent user tracking, etc.
      
      Example:
-       (find-users-created-since repo tenant-id (time/minus (time/instant) (time/days 7)))")
+       (find-users-created-since repo (time/minus (time/instant) (time/days 7)))")
 
-  (find-users-by-email-domain [this tenant-id email-domain]
+  (find-users-by-email-domain [this email-domain]
     "Find users with email addresses from specific domain.
      
      Args:
-       tenant-id: UUID of tenant for isolation
        email-domain: String domain to match (e.g., \"company.com\")
      
      Returns:
@@ -195,7 +186,7 @@
        Useful for organization-based user management
      
      Example:
-       (find-users-by-email-domain repo tenant-id \"company.com\")")
+       (find-users-by-email-domain repo \"company.com\")")
 
   ;; Batch Operations
   (create-users-batch [this user-entities]
@@ -252,7 +243,6 @@
      
      Example:
        (create-session repo {:user-id user-id
-                            :tenant-id tenant-id
                             :expires-at (time/plus (time/instant) (time/hours 24))
                             :user-agent \"Mozilla/5.0...\"
                             :ip-address \"192.168.1.1\"})")
@@ -390,7 +380,7 @@
      
      Args:
        user-data: Map with user creation data
-                 {:email string :name string :role keyword :tenant-id uuid ...}
+                 {:email string :name string :role keyword ...}
      
      Returns:
        Created user entity with generated ID and timestamps
@@ -403,8 +393,7 @@
      Example:
        (register-user service {:email \"new@example.com\"
                               :name \"New User\"
-                              :role :user
-                              :tenant-id tenant-id})")
+                              :role :user})")
 
   (get-user-by-id [this user-id]
     "Retrieve user by ID with service-level validation.
@@ -418,31 +407,29 @@
      Example:
        (get-user-by-id service user-id)")
 
-  (get-user-by-email [this email tenant-id]
-    "Retrieve user by email with tenant isolation.
+  (get-user-by-email [this email]
+    "Retrieve user by email.
      
      Args:
        email: String email address
-       tenant-id: UUID for tenant isolation
      
      Returns:
        User entity or nil if not found
        
      Example:
-       (get-user-by-email service \"user@example.com\" tenant-id)")
+       (get-user-by-email service \"user@example.com\")")
 
-  (list-users-by-tenant [this tenant-id options]
-    "List users by tenant with pagination and filtering.
+  (list-users [this options]
+    "List users with pagination and filtering.
      
      Args:
-       tenant-id: UUID for tenant isolation
        options: Map with pagination/filtering options
      
      Returns:
        Map with :users vector and :total-count
        
      Example:
-       (list-users-by-tenant service tenant-id {:limit 10 :offset 0})")
+       (list-users service {:limit 10 :offset 0})")
 
   (update-user-profile [this user-entity]
     "Update user profile with validation and business rule enforcement.
@@ -507,7 +494,7 @@
      
      Args:
        session-data: Map with session creation data
-                    {:user-id uuid :tenant-id uuid :user-agent string ...}
+                    {:user-id uuid :user-agent string ...}
      
      Returns:
        Created session entity with generated token and expiry
@@ -517,7 +504,6 @@
        
      Example:
        (authenticate-user service {:user-id user-id
-                                  :tenant-id tenant-id
                                   :user-agent \"Mozilla/5.0...\"})")
 
   (validate-session [this session-token]
@@ -759,7 +745,6 @@
        event: Event map with:
               {:type :user-created|:user-updated|:user-deleted|:session-created
                :source :user-module
-               :tenant-id uuid
                :user-id uuid  ; if applicable
                :timestamp instant
                :correlation-id string  ; for request tracing
@@ -773,7 +758,6 @@
      Example:
        (publish-event service {:type :user-created
                               :source :user-module
-                              :tenant-id tenant-id
                               :user-id user-id
                               :timestamp (time/instant)
                               :payload {:email \"user@example.com\"
@@ -815,7 +799,6 @@
      Args:
        filters: Map with optional filters:
                 {:event-types [:user-created :user-updated]
-                 :tenant-id uuid
                  :user-id uuid
                  :since-timestamp instant
                  :until-timestamp instant
@@ -847,7 +830,6 @@
                    {:action :create-user|:update-user|:delete-user|:login|:logout
                     :user-id uuid  ; user performing action
                     :target-user-id uuid  ; user being acted upon (if different)
-                    :tenant-id uuid
                     :timestamp instant
                     :ip-address string
                     :user-agent string
@@ -893,7 +875,6 @@
        filters: Map with optional filters:
                 {:user-id uuid
                  :target-user-id uuid
-                 :tenant-id uuid
                  :actions [:create-user :update-user]
                  :since-timestamp instant
                  :until-timestamp instant
@@ -999,7 +980,7 @@
      Returns:
        Boolean indicating if time is during business hours.
        Business hours typically 9 AM - 5 PM, Monday-Friday.
-       Should be configurable per tenant/organization.
+       Should be configurable per organization.
      
      Example:
        (is-business-hours? service (current-instant service) \"America/New_York\")"))
@@ -1027,29 +1008,6 @@
       {:valid? true :data transformed-data}
       {:valid? false :errors (m/explain sch transformed-data)})))
 
-(defn ensure-tenant-isolation
-  "Ensure tenant ID is present and valid for data isolation.
-
-       Args:
-         tenant-id: UUID or nil
-
-       Returns:
-         UUID tenant-id
-
-       Throws:
-         Exception if tenant-id is nil or invalid
-
-       Example:
-         (ensure-tenant-isolation (:tenant-id user-context))"
-  [tenant-id]
-  (when (nil? tenant-id)
-    (throw (ex-info "Tenant ID is required for data isolation"
-                    {:type :missing-tenant-id})))
-  (when-not (instance? UUID tenant-id)
-    (throw (ex-info "Invalid tenant ID format"
-                    {:type :invalid-tenant-id :tenant-id tenant-id})))
-  tenant-id)
-
 (defn create-correlation-id
   "Generate correlation ID for request tracing.
 
@@ -1066,16 +1024,15 @@
 
        Args:
          user-data: User entity or input data
-         context: Map with :tenant-id, :correlation-id, :timestamp, etc.
+         context: Map with :correlation-id, :timestamp, etc.
 
        Returns:
          User data enriched with context information
 
        Example:
          (enrich-user-context user-input
-                             {:tenant-id tenant-id
-                              :correlation-id (create-correlation-id)})"
+                             {:correlation-id (create-correlation-id)})"
   [user-data context]
   (merge user-data
-         (select-keys context [:tenant-id :correlation-id :timestamp])
+         (select-keys context [:correlation-id :timestamp])
          {:updated-at (:timestamp context)}))

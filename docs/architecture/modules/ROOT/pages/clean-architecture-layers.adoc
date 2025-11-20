@@ -50,7 +50,7 @@ After reading this document, you will understand:
    [:email [:re #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"]]
    [:role [:enum :user :admin :moderator]]
    [:active :boolean]
-   [:tenant-id :uuid]
+   [:user-id :uuid]
    [:created-at :instant]
    [:updated-at [:maybe :instant]]
    [:deleted-at [:maybe :instant]]])
@@ -61,7 +61,7 @@ After reading this document, you will understand:
    [:email [:re #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"]]
    [:password [:string {:min 8 :max 128}]]
    [:role {:optional true} [:enum :user :admin]]
-   [:tenant-id :uuid]])
+   [:user-id :uuid]])
 ----
 
 === Ports Layer (Repository Interfaces)
@@ -83,14 +83,14 @@ After reading this document, you will understand:
   "Repository interface for user entities."
   (find-user-by-id [this user-id]
     "Find user by ID. Returns user entity or nil.")
-  (find-user-by-email [this email tenant-id]
-    "Find user by email within tenant. Returns user entity or nil.")
+  (find-user-by-email [this email]
+    "Find user by email . Returns user entity or nil.")
   (create-user [this user-entity]
     "Create new user. Returns created user entity with generated ID.")
   (update-user [this user-entity]
     "Update existing user. Returns updated user entity.")
-  (find-users-by-tenant [this tenant-id options]
-    "Find users by tenant with pagination. Returns {:users [] :total-count N}."))
+  (find-users [this user-id options]
+    "Find users with pagination. Returns {:users [] :total-count N}."))
 
 (defprotocol IUserSessionRepository
   "Repository interface for user sessions."
@@ -137,7 +137,7 @@ After reading this document, you will understand:
                        :errors (m/explain user-schema/CreateUserRequest user-data)})))
     
     ;; Business logic: check for existing user
-    (when (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data))
+    (when (.find-user-by-email user-repository (:email user-data) (:user-id user-data))
       (throw (ex-info "User already exists" 
                       {:type :user-exists
                        :email (:email user-data)})))
@@ -150,15 +150,15 @@ After reading this document, you will understand:
       ;; Delegate to infrastructure
       (.create-user user-repository processed-user)))
   
-  (authenticate [this email password tenant-id]
+  (authenticate [this email password]
     "Authenticate user and create session."
     (log/info "Authenticating user" {:email email})
     
-    (if-let [user (.find-user-by-email user-repository email tenant-id)]
+    (if-let [user (.find-user-by-email user-repository email)]
       (if (and (:active user) 
                (password/verify password (:password-hash user)))
         (let [session-data {:user-id (:id user)
-                           :tenant-id (:tenant-id user)
+                           :user-id (:user-id user)
                            :expires-at (-> (java.time.Instant/now)
                                           (.plusSeconds 3600))}]  ; 1 hour
           (.create-session session-repository session-data))
@@ -197,20 +197,20 @@ After reading this document, you will understand:
 (defrecord DatabaseUserRepository [ctx]
   ports/IUserRepository
   
-  (find-user-by-email [_ email tenant-id]
+  (find-user-by-email [_ email]
     (log/debug "Finding user by email" {:email email})
     (let [query {:select [:*]
                  :from [:users]
                  :where [:and
                          [:= :email email]
-                         [:= :tenant_id (type-conversion/uuid->string tenant-id)]
+                         [:= :user_id (type-conversion/uuid->string user-id)]
                          [:is :deleted_at nil]]}
           result (db/execute-one! ctx query)]
       (when result
         ;; Transform from database to domain format
         (-> result
             (update :id type-conversion/string->uuid)
-            (update :tenant-id type-conversion/string->uuid)
+            (update :user-id type-conversion/string->uuid)
             (update :role type-conversion/string->keyword)
             (update :created-at type-conversion/string->instant)))))
   
@@ -225,7 +225,7 @@ After reading this document, you will understand:
           ;; Transform to database format
           db-user (-> user-with-metadata
                      (update :id type-conversion/uuid->string)
-                     (update :tenant-id type-conversion/uuid->string)
+                     (update :user-id type-conversion/uuid->string)
                      (update :role type-conversion/keyword->string)
                      (update :created-at type-conversion/instant->string))
           query {:insert-into :users
@@ -307,7 +307,7 @@ note right of [Database Adapters] : Implements interfaces\nHandles transformatio
 (deftest create-user-service-test
   (testing "creates user with business validation"
     (let [mock-user-repo (reify ports/IUserRepository
-                           (find-user-by-email [_ email tenant-id]
+                           (find-user-by-email [_ email]
                              nil)  ; No existing user
                            (create-user [_ user-data]
                              (assoc user-data :id (java.util.UUID/randomUUID))))
@@ -322,7 +322,7 @@ note right of [Database Adapters] : Implements interfaces\nHandles transformatio
           
           user-data {:email "test@example.com"
                     :password "securepassword123"
-                    :tenant-id (java.util.UUID/randomUUID)}]
+                    :user-id (java.util.UUID/randomUUID)}]
       
       ;; Test business logic without database
       (let [result (.create-user service user-data)]
@@ -353,19 +353,17 @@ note right of [Database Adapters] : Implements interfaces\nHandles transformatio
           user-data {:email "db-test@example.com"
                     :role :user
                     :active true
-                    :tenant-id (java.util.UUID/randomUUID)}]
+                    :user-id (java.util.UUID/randomUUID)}]
       
       ;; Test infrastructure layer
       (let [created-user (.create-user repo user-data)
-            retrieved-user (.find-user-by-email repo (:email user-data) (:tenant-id user-data))]
+            retrieved-user (.find-user-by-email repo (:email user-data) (:user-id user-data))]
         
         (is (= (:email user-data) (:email created-user)))
         (is (= (:email user-data) (:email retrieved-user)))
         (is (= :user (:role retrieved-user)))
         (is (true? (:active retrieved-user)))))))
 ----
-
-
 == Benefits of New Architecture
 
 === 1. **Clean Separation of Concerns**

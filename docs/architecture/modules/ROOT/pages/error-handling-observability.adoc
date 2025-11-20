@@ -21,7 +21,7 @@ This document outlines the implemented error handling strategies, observability 
 * 🎯 **Multi-Layer Interceptor Pattern Achievement** - Automatic observability integration with 48-64% boilerplate reduction
 * ✅ **Complete observability infrastructure** with logging, metrics, and error reporting modules
 * ✅ **Protocol-based design** for pluggable observability backends
-* ✅ **Structured context management** with correlation IDs and tenant isolation
+* ✅ **Structured context management** with correlation IDs and 
 * ✅ **Production-ready shell adapters** with no-op implementations for development
 * ✅ **Integrant-based lifecycle management** for observability components
 * ✅ **Business logic preservation** - Core functions remain pure and focused on domain concerns
@@ -58,7 +58,7 @@ Each module follows the ports-and-adapters pattern with:
 **Architecture Benefits:**
 - **Service Layer Interceptors**: Automatically wrap service functions with logging, metrics, and error reporting
 - **Persistence Layer Interceptors**: Automatically handle database operation observability
-- **Automatic Context Propagation**: Correlation IDs, tenant context, and tracing flow seamlessly
+- **Automatic Context Propagation**: Correlation IDs, user context, and tracing flow seamlessly
 - **Zero Boilerplate**: Business logic remains focused purely on domain concerns
 ====
 
@@ -118,7 +118,7 @@ The logging module provides structured logging capabilities with rich context ma
   (create-context [this base-context])
   (enrich-context [this context enrichments])
   (with-correlation-id [this context correlation-id])
-  (with-tenant-context [this context tenant-id])
+  (with-user-context [this context user-id])
   (with-user-context [this context user-id]))
 ----
 
@@ -130,7 +130,7 @@ The logging system uses a standardized context map for correlation and enrichmen
 ----
 {:correlation-id "req-12345"     ; Request correlation ID
  :request-id     "http-67890"    ; HTTP request ID  
- :tenant-id      "tenant-abc"    ; Multi-tenant context
+ :user-id      "user-123"    ; User context
  :user-id        "user-xyz"      ; User context (if authenticated)
  :span-id        "span-456"      ; Distributed tracing span ID
  :trace-id       "trace-789"     ; Distributed tracing trace ID
@@ -153,7 +153,7 @@ The logging core provides high-level functions for common logging patterns:
 ;; Context management
 (defn merge-contexts [& contexts])
 (defn with-correlation-id [context correlation-id])
-(defn with-tenant-id [context tenant-id])
+(defn with-user-id [context user-id])
 (defn with-user-id [context user-id])
 (defn with-tags [context tags])
 
@@ -279,7 +279,7 @@ Error reporting uses an extended context structure for comprehensive error track
 ----
 {:correlation-id "req-12345"
  :request-id     "http-67890"
- :tenant-id      "tenant-abc"
+ :user-id      "user-123"
  :user-id        "user-xyz"
  :span-id        "span-456"
  :trace-id       "trace-789"

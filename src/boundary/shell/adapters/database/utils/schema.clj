@@ -97,7 +97,7 @@
           ; Handle both [name type] and [name properties type] formats
           has-properties? (and (= 3 (count field-def)) (map? (second field-def)))
           field-type (if has-properties?
-                       (nth field-def 2)  ; [name props type]
+                       (nth field-def 2) ; [name props type]
                        (second field-def)) ; [name type]
           properties (if has-properties? (second field-def) {})
           ; Extract type from vector schemas like [:enum :admin :user]
@@ -123,7 +123,7 @@
    Returns:
      String column definition"
   [ctx {:keys [name type optional? schema]}]
-  (let [column-name (col-name name)  ; Convert kebab-case to snake_case
+  (let [column-name (col-name name) ; Convert kebab-case to snake_case
         column-type (malli-type->column-type ctx type)
         not-null (if optional? "" " NOT NULL")
         primary-key (if (= name "id") " PRIMARY KEY" "")
@@ -132,16 +132,16 @@
                           (let [; Skip properties map if present: [:enum {...} :val1 :val2] or [:enum :val1 :val2]
                                 schema-rest (rest schema)
                                 enum-raw-values (if (and (seq schema-rest) (map? (first schema-rest)))
-                                                  (rest schema-rest)  ; Skip properties map
-                                                  schema-rest)        ; No properties, use as-is
+                                                  (rest schema-rest) ; Skip properties map
+                                                  schema-rest) ; No properties, use as-is
                                 ; Filter out non-value items (maps, vectors, functions)
                                 enum-values (->> enum-raw-values
                                                  (filter #(or (keyword? %) (string? %) (number? %)))
                                                  (map (fn [v]
                                                         (cond
-                                                          (keyword? v) (clojure.core/name v)  ; :admin -> "admin"
-                                                          (string? v) v                       ; already a string
-                                                          :else (str v))))                    ; fallback to str
+                                                          (keyword? v) (clojure.core/name v) ; :admin -> "admin"
+                                                          (string? v) v ; already a string
+                                                          :else (str v)))) ; fallback to str
                                                  (into []))
                                 values-str (str/join ", " (map #(str "'" % "'") enum-values))]
                             (str " CHECK(" column-name " IN (" values-str "))"))
@@ -182,7 +182,7 @@
 
           ; Table-specific unique constraints
           (case table-name
-            "users" ["CONSTRAINT uk_users_email_tenant UNIQUE(email, tenant_id)"]
+            "users" ["CONSTRAINT uk_users_email UNIQUE(email)"]
             "user_sessions" ["CONSTRAINT uk_user_sessions_token UNIQUE(session_token)"]
             [])))))
 
@@ -261,9 +261,9 @@
           ; Table-specific compound indexes
           (case table-name
             "users"
-            ["CREATE INDEX IF NOT EXISTS idx_users_email_tenant ON users (email, tenant_id)"
-             "CREATE INDEX IF NOT EXISTS idx_users_role_tenant ON users (role, tenant_id)"
-             "CREATE INDEX IF NOT EXISTS idx_users_active_tenant ON users (active, tenant_id)"]
+            ["CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)"
+             "CREATE INDEX IF NOT EXISTS idx_users_role ON users (role)"
+             "CREATE INDEX IF NOT EXISTS idx_users_active ON users (active)"]
 
             "user_sessions"
             ["CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions (session_token)"

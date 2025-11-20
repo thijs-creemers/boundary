@@ -255,11 +255,11 @@ clojure -M:cli user-create --email test@example.com ...
 ----
 # Ensure --format json flag is used
 clojure -M:cli user-list \
-  --tenant-id "$TENANT_ID" \
+  --user-id "$USER_ID" \
   --format json  # Required for JSON output
 
 # Check for error messages in output
-clojure -M:cli user-list --tenant-id "$TENANT_ID" --format json 2>&1
+clojure -M:cli user-list --user-id "$USER_ID" --format json 2>&1
 ----
 
 [[validation-issues]]

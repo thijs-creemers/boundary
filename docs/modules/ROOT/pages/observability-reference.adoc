@@ -59,7 +59,7 @@ The interceptor pattern provides automatic observability integration through:
 
 * **Service Layer Interceptors**: Wrap service functions with logging, metrics, and error reporting
 * **Persistence Layer Interceptors**: Wrap database operations with performance tracking and error handling
-* **Automatic Context Propagation**: Correlation IDs, tenant context, and tracing information flow seamlessly
+* **Automatic Context Propagation**: Correlation IDs, user context, and tracing information flow seamlessly
 * **Zero Boilerplate**: Business logic remains pure with no observability concerns
 
 [source,clojure]
@@ -141,7 +141,7 @@ All logging functions accept a context map with these standard keys:
 ----
 {:correlation-id "uuid"      ; Request correlation ID
  :request-id     "uuid"      ; HTTP request ID  
- :tenant-id      "tenant-1"  ; Multi-tenant context
+ :user-id      "user-1"  ; User context
  :user-id        "user-123"  ; User context (if authenticated)
  :span-id        "span-456"  ; Distributed tracing span ID
  :trace-id       "trace-789" ; Distributed tracing trace ID
@@ -162,8 +162,8 @@ High-level logging functions and utilities.
 (with-correlation-id context correlation-id)
 ;; Add correlation ID to context
 
-(with-tenant-id context tenant-id)
-;; Add tenant ID to context
+(with-user-id context user-id)
+;; Add user ID to context
 
 (with-user-id context user-id)
 ;; Add user ID to context
@@ -466,7 +466,7 @@ Error reports include rich context information:
 ----
 {:correlation-id "uuid"           ; Request correlation ID
  :request-id     "uuid"           ; HTTP request ID  
- :tenant-id      "tenant-1"       ; Multi-tenant context
+ :user-id      "user-1"       ; User context
  :user-id        "user-123"       ; User context
  :span-id        "span-456"       ; Distributed tracing span ID
  :trace-id       "trace-789"      ; Distributed tracing trace ID
@@ -551,7 +551,7 @@ Direct API usage for advanced customization scenarios:
 ;; Set user context
 (set-user-context error-context {:id user-id 
                                   :email user-email 
-                                  :tenant tenant-id})
+                                  :user user-id})
 
 ;; Report error with enriched context
 (report-exception error-reporter exception 

@@ -87,7 +87,7 @@ Suggestion: Provide an email address for the user
 
 |`{{field-name}}`
 |Human-readable field name
-|"Email", "User Name", "Tenant ID"
+|"Email", "User Name", "User ID"
 
 |`{{value}}`
 |Actual value provided (sanitized)
@@ -115,7 +115,7 @@ Suggestion: Provide an email address for the user
 
 |`{{dependency}}`
 |Dependent field name
-|`"Tenant ID"`, `"User Role"`, `"Payment Method"`
+|`"User ID"`, `"User Role"`, `"Payment Method"`
 |===
 
 == Common Error Codes
@@ -477,15 +477,15 @@ Cannot modify {{field-name}}
 [source,json]
 ----
 {
-  "field": "tenant-id",
+  "field": "user-id",
   "code": "forbidden",
-  "message": "Cannot modify Tenant ID",
+  "message": "Cannot modify User ID",
   "params": {
-    "field-name": "Tenant ID",
+    "field-name": "User ID",
     "reason": "user creation"
   },
-  "path": ["tenant-id"],
-  "suggestion": "Tenant ID cannot be changed after user creation. Create a new user if a different tenant is needed.",
+  "path": ["user-id"],
+  "suggestion": "User ID cannot be changed after user creation.",
   "http_status": 403
 }
 ----
@@ -877,115 +877,115 @@ This section documents all error codes specific to the User module.
 }
 ----
 
-=== User Tenant Validation
+=== User Validation
 
-==== `:user.tenant-id/required`
+==== `:user.id/required`
 
 **Category:** Schema Validation
 
-**Description:** Tenant ID is required for multi-tenant systems
+**Description:** User ID is required
 
 **Message Template:**
 [source]
 ----
-"Tenant ID is required"
+"User ID is auto-generated"
 ----
 
 **Example JSON:**
 [source,json]
 ----
 {
-  "field": "tenant-id",
-  "code": "user.tenant-id/required",
-  "message": "Tenant ID is required when creating a user",
+  "field": "user-id",
+  "code": "user.id/required",
+  "message": "User ID is auto-generated when creating a user",
   "params": {
-    "field-name": "Tenant ID",
+    "field-name": "User ID",
     "entity": "user",
     "operation": "create"
   },
-  "path": ["tenant-id"],
-  "suggestion": "Provide a valid tenant ID",
+  "path": ["user-id"],
+  "suggestion": "Provide a valid user ID",
   "http_status": 422
 }
 ----
 
-==== `:user.tenant-id/invalid-uuid`
+==== `:user.id/invalid-uuid`
 
 **Category:** Schema Validation
 
-**Description:** Tenant ID is not a valid UUID format
+**Description:** User ID must be a valid UUID format
 
 **Message Template:**
 [source]
 ----
-"Tenant ID must be a valid UUID"
+"User ID must be a valid UUID"
 ----
 
 **Example JSON:**
 [source,json]
 ----
 {
-  "field": "tenant-id",
-  "code": "user.tenant-id/invalid-uuid",
-  "message": "Tenant ID must be a valid UUID",
+  "field": "user-id",
+  "code": "user.id/invalid-uuid",
+  "message": "User ID must be a valid UUID",
   "params": {
-    "field-name": "Tenant ID",
+    "field-name": "User ID",
     "value": "not-a-uuid",
     "expected": "550e8400-e29b-41d4-a716-446655440000"
   },
-  "path": ["tenant-id"],
-  "suggestion": "Provide Tenant ID in valid UUID format. Expected: 550e8400-e29b-41d4-a716-446655440000",
+  "path": ["user-id"],
+  "suggestion": "Provide User ID in valid UUID format. Expected: 550e8400-e29b-41d4-a716-446655440000",
   "http_status": 422
 }
 ----
 
-==== `:user.tenant-id/forbidden`
+==== `:user.modification/forbidden`
 
 **Category:** Business Rule
 
-**Description:** Tenant ID cannot be changed after user creation
+**Description:** User ID cannot be changed after user creation
 
 **When it occurs:**
-- Attempting to update tenant-id on existing user
+- Attempting to update user ID on existing user
 - Business rule violation
 
 **Message Template:**
 [source]
 ----
-"Cannot modify Tenant ID"
+"Cannot modify User ID"
 ----
 
 **Detailed Template:**
 [source]
 ----
-"Tenant ID cannot be changed after user creation"
+"User ID cannot be changed after user creation"
 ----
 
 **Suggestion:**
 [source]
 ----
-"Tenant ID cannot be changed after user creation. Create a new user if a different tenant is needed."
+"User ID cannot be changed after user creation."
 ----
 
 **Resolution Steps:**
 
 1. Review the immutability constraint
-2. Create a new user in the target tenant if needed
+2. User ID is immutable after creation
 3. Migrate user data manually if required
 
 **Example JSON:**
 [source,json]
 ----
 {
-  "field": "tenant-id",
-  "code": "user.tenant-id/forbidden",
-  "message": "Tenant ID cannot be changed after user creation",
+  "field": "user-id",
+  "code": "user.modification/forbidden",
+  "message": "User ID cannot be changed after user creation",
   "params": {
-    "field-name": "Tenant ID",
+    "field-name": "User ID",
     "reason": "user creation"
   },
-  "path": ["tenant-id"],
-  "suggestion": "Tenant ID cannot be changed after user creation. Create a new user if a different tenant is needed.",
+  "path": ["user-id"],
+  "suggestion": "User ID cannot be changed after user creation.",
   "http_status": 403
 }
 ----
@@ -1088,20 +1088,20 @@ This section documents all error codes specific to the User module.
 |422
 |Role not in allowed set (admin, user, viewer)
 
-|`:user.tenant-id/required`
+|`:user.id/required`
 |Schema
 |422
-|Tenant ID is required
+|User ID is auto-generated
 
-|`:user.tenant-id/invalid-uuid`
+|`:user.id/invalid-uuid`
 |Schema
 |422
-|Tenant ID not valid UUID format
+|User ID not valid UUID format
 
-|`:user.tenant-id/forbidden`
+|`:user.modification/forbidden`
 |Business
 |403
-|Cannot change tenant-id after creation
+|Cannot change user-id after creation
 
 |`:user.password/too-short`
 |Schema
@@ -1139,7 +1139,7 @@ This section documents all error codes specific to the User module.
 - **Schema**: Schema/format validation (required, format, type, length)
 - **Business**: Business rule violations (duplicate, forbidden, dependency)
 - **Cross-Field**: Validation across multiple fields
-- **Context**: Context-dependent validation (role, tenant, state)
+- **Context**: Context-dependent validation (role, state)
 
 === HTTP Status Code Mapping
 
@@ -1210,15 +1210,15 @@ Cannot modify {{field-name}}
 [source,json]
 ----
 {
-  "field": "tenant-id",
+  "field": "user-id",
   "code": "forbidden",
-  "message": "Cannot modify Tenant ID",
+  "message": "Cannot modify User ID",
   "params": {
-    "field-name": "Tenant ID",
+    "field-name": "User ID",
     "reason": "after user creation"
   },
-  "path": ["tenant-id"],
-  "suggestion": "Tenant ID cannot be changed after user creation. Create a new user if needed."
+  "path": ["user-id"],
+  "suggestion": "User ID cannot be changed after user creation. Create a new user if needed."
 }
 ----
 
@@ -1408,11 +1408,11 @@ Cannot modify {{field-name}}
 }
 ----
 
-=== `:user.tenant-id/forbidden`
+=== `:user.modification/forbidden`
 
 **Category:** Business Rule
 
-**Message:** "Cannot change Tenant ID"
+**Message:** "Cannot change User ID"
 
 **Context:** User update
 
@@ -1421,7 +1421,7 @@ Cannot modify {{field-name}}
 ----
 PUT /api/users/123
 {
-  "tenantId": "different-tenant-id"
+  "userId": "123e4567-e89b-12d3-a456-426614174000"
 }
 ----
 
@@ -1429,16 +1429,16 @@ PUT /api/users/123
 [source,json]
 ----
 {
-  "field": "tenant-id",
-  "code": "user.tenant-id/forbidden",
-  "message": "Tenant ID cannot be changed after user creation",
+  "field": "user-id",
+  "code": "user.modification/forbidden",
+  "message": "User ID cannot be changed after user creation",
   "params": {
-    "current": "original-tenant-id",
-    "attempted": "different-tenant-id"
+    "current": "original-user-id",
+    "attempted": "modify-immutable-field"
   },
-  "path": ["tenant-id"],
-  "rule-id": "user.tenant-id/immutable",
-  "suggestion": "Tenant ID is immutable. Create a new user if a different tenant is needed."
+  "path": ["user-id"],
+  "rule-id": "user.id/immutable",
+  "suggestion": "User ID is immutable."
 }
 ----
 
@@ -1535,8 +1535,8 @@ Error messages can be tailored based on the operation:
 |"Email is required when creating a user"
 
 |UPDATE
-|"Tenant ID cannot be changed"
-|"Tenant ID cannot be changed during user update"
+|"User ID cannot be changed"
+|"User ID cannot be changed during user update"
 
 |DELETE
 |"User not found"
@@ -1561,16 +1561,16 @@ Messages can include role-specific guidance:
 }
 ----
 
-=== Multi-Tenant Context
+=== User Context
 
-Messages can reference tenant-specific rules:
+Messages can reference user-specific rules:
 
 [source,json]
 ----
 {
   "field": "email",
   "code": "user.email/invalid-format",
-  "message": "Email domain not allowed for this tenant",
+  "message": "Email domain not allowed",
   "params": {
     "value": "user@external.com",
     "allowed-domains": "company.com, company.net"

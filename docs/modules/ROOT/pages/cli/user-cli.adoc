@@ -12,7 +12,7 @@ The Boundary CLI provides command-line tools for managing users and sessions in 
 * **Full CRUD Operations**: Create, read, update, and delete users
 * **Session Management**: Create and invalidate user sessions
 * **Flexible Output**: Table format for humans, JSON for automation
-* **Multi-tenant Support**: All operations respect tenant boundaries
+
 * **Input Validation**: Comprehensive validation with clear error messages
 * **Exit Codes**: Standard exit codes (0=success, 1=error)
 
@@ -31,10 +31,10 @@ From the project root:
 [source,zsh]
 ----
 # Using Clojure directly
-clojure -M:cli user list --tenant-id <UUID>
+clojure -M:cli user list 
 
 # Using an alias (if configured)
-boundary user list --tenant-id <UUID>
+boundary user list 
 ----
 
 == Command Structure
@@ -75,7 +75,7 @@ Create a new user account.
 
 [source,zsh]
 ----
-boundary user create --email EMAIL --name NAME --role ROLE --tenant-id UUID [--active BOOL]
+boundary user create --email EMAIL --name NAME --role ROLE  [--active BOOL]
 ----
 
 ==== Required Options
@@ -93,8 +93,8 @@ boundary user create --email EMAIL --name NAME --role ROLE --tenant-id UUID [--a
 |`--role ROLE`
 |User role: `admin`, `user`, or `viewer`
 
-|`--tenant-id UUID`
-|Tenant UUID for multi-tenant isolation
+|``
+
 |===
 
 ==== Optional Options
@@ -117,14 +117,14 @@ boundary user create \
   --email john.doe@example.com \
   --name "John Doe" \
   --role user \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000
+  
 
 # Create admin with JSON output
 boundary user create \
   --email admin@example.com \
   --name "Admin User" \
   --role admin \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+   \
   --format json
 
 # Create inactive user
@@ -132,7 +132,7 @@ boundary user create \
   --email inactive@example.com \
   --name "Inactive User" \
   --role viewer \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+   \
   --active false
 ----
 
@@ -156,20 +156,20 @@ boundary user create \
   "name": "John Doe",
   "role": "user",
   "active": true,
-  "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
   "createdAt": "2024-10-30T20:42:00Z"
 }
 ----
 
 === List Users
 
-List all users in a tenant with optional filtering.
+List all users with optional filtering.
 
 ==== Syntax
 
 [source,zsh]
 ----
-boundary user list --tenant-id UUID [--limit N] [--offset N] [--role ROLE] [--active BOOL]
+boundary user list  [--limit N] [--offset N] [--role ROLE] [--active BOOL]
 ----
 
 ==== Required Options
@@ -178,8 +178,8 @@ boundary user list --tenant-id UUID [--limit N] [--offset N] [--role ROLE] [--ac
 |===
 |Option |Description
 
-|`--tenant-id UUID`
-|Tenant UUID to list users from
+|``
+
 |===
 
 ==== Optional Options
@@ -210,22 +210,22 @@ boundary user list --tenant-id UUID [--limit N] [--offset N] [--role ROLE] [--ac
 [source,zsh]
 ----
 # List all users (default: first 20)
-boundary user list --tenant-id 550e8400-e29b-41d4-a716-446655440000
+boundary user list 
 
 # List only admins
 boundary user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+   \
   --role admin
 
 # List inactive users with JSON output
 boundary user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+   \
   --active false \
   --format json
 
 # Pagination: second page of 10 users
 boundary user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+   \
   --limit 10 \
   --offset 10
 ----
@@ -242,10 +242,10 @@ Find a specific user by ID or email.
 boundary user find --id UUID
 
 # Find by email
-boundary user find --email EMAIL --tenant-id UUID
+boundary user find --email EMAIL 
 ----
 
-IMPORTANT: You must provide either `--id` OR both `--email` and `--tenant-id`.
+IMPORTANT: You must provide either `--id` OR `--email`.
 
 ==== Examples
 
@@ -257,7 +257,7 @@ boundary user find --id 123e4567-e89b-12d3-a456-426614174000
 # Find user by email
 boundary user find \
   --email john.doe@example.com \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000
+  
 ----
 
 === Update User
@@ -356,7 +356,7 @@ Create a new user session (login).
 
 [source,zsh]
 ----
-boundary session create --user-id UUID --tenant-id UUID [--user-agent STRING] [--ip-address IP]
+boundary session create --user-id UUID  [--user-agent STRING] [--ip-address IP]
 ----
 
 ==== Required Options
@@ -368,8 +368,8 @@ boundary session create --user-id UUID --tenant-id UUID [--user-agent STRING] [-
 |`--user-id UUID`
 |UUID of user creating session
 
-|`--tenant-id UUID`
-|Tenant UUID for isolation
+|``
+
 |===
 
 ==== Optional Options
@@ -392,12 +392,12 @@ boundary session create --user-id UUID --tenant-id UUID [--user-agent STRING] [-
 # Create basic session
 boundary session create \
   --user-id 123e4567-e89b-12d3-a456-426614174000 \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000
+  
 
 # Create session with tracking info
 boundary session create \
   --user-id 123e4567-e89b-12d3-a456-426614174000 \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+   \
   --user-agent "Mozilla/5.0" \
   --ip-address "192.168.1.100"
 ----
@@ -478,7 +478,7 @@ Example single entity:
   "name": "John Doe",
   "role": "user",
   "active": true,
-  "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
   "createdAt": "2024-10-30T20:42:00Z"
 }
 ----
@@ -546,10 +546,10 @@ Details: No user found with ID: 123e4567-e89b-12d3-a456-426614174000
 
 |`user-not-found`
 |User ID or email not found
-|Verify user exists and tenant-id is correct
+|Verify user exists
 
 |`user-exists`
-|Duplicate email in tenant
+|Duplicate email
 |Use different email or update existing user
 
 |`parse-error`
@@ -572,12 +572,12 @@ When using the CLI in scripts, always use JSON format:
 #!/bin/zsh
 
 # Create user and capture ID
-TENANT_ID="550e8400-e29b-41d4-a716-446655440000"
+# User operations
 RESULT=$(boundary user create \
   --email new@example.com \
   --name "New User" \
   --role user \
-  --tenant-id "$TENANT_ID" \
+   \
   --format json)
 
 USER_ID=$(echo "$RESULT" | jq -r '.id')
@@ -600,13 +600,13 @@ UUIDs must be in canonical format (with hyphens):
 * ✅ Good: `550e8400-e29b-41d4-a716-446655440000`
 * ❌ Bad: `550e8400e29b41d4a716446655440000`
 
-=== Multi-tenant Considerations
+=== Considerations
 
-Always specify `--tenant-id` for operations:
 
-* User email uniqueness is per-tenant
-* Listing/filtering is scoped to tenant
-* Cross-tenant operations are not supported
+
+* User email must be globally unique
+
+
 
 == Troubleshooting
 
@@ -624,7 +624,7 @@ Error: Failed to initialize database
 [source]
 ----
 Error: Invalid arguments
-Details: --tenant-id: Must be a valid UUID
+
 ----
 
 *Solution*: Ensure UUIDs include hyphens and are properly formatted
@@ -642,8 +642,8 @@ Error: User deletion not allowed
 
 When listing returns no results, verify:
 
-1. Correct tenant-id
-2. Users exist in that tenant
+1. Valid user exists
+2. Proper permissions
 3. Filters aren't too restrictive
 
 == Architecture Notes

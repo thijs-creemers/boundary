@@ -25,7 +25,6 @@
    :name "Test User"
    :role :user
    :active true
-   :tenant-id (UUID/randomUUID)
    :password-hash "$2a$12$test.hash.here"
    :created-at (Instant/now)
    :updated-at (Instant/now)
@@ -175,12 +174,10 @@
     (let [valid-user {:email "test@example.com"
                       :name "Test User"
                       :password "secure-password"
-                      :role :user
-                      :tenant-id (UUID/randomUUID)}
+                      :role :user}
           invalid-user {:email "test@example.com"
                         :name "Test User"
-                        :role :user
-                        :tenant-id (UUID/randomUUID)}] ; Missing password
+                        :role :user}] ; Missing password
 
       (is (m/validate schema/CreateUserRequest valid-user))
       (is (not (m/validate schema/CreateUserRequest invalid-user))))))

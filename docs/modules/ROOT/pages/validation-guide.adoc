@@ -158,7 +158,7 @@ Templates support these standard parameters:
 
 |`{{field-name}}`
 |Human-readable field name
-|"Email", "User Name", "Tenant ID"
+|"Email", "User Name", "User ID"
 
 |`{{value}}`  
 |Actual value provided (sanitized)
@@ -210,10 +210,10 @@ Messages adapt based on the operation being performed:
 ;; Update operation  
 (ctx/render-contextual-message
   :forbidden
-  {:field :tenant-id}
+  {:field :user-id}
   {:operation :update :entity "user" :role :user}
   {})
-;; => "Cannot modify Tenant ID during update. You have limited access. Contact your administrator if you need different permissions."
+;; => "Cannot modify User ID during update. You have limited access. Contact your administrator if you need different permissions."
 ----
 
 === Role-Based Messaging
@@ -240,18 +240,18 @@ Different messages for different user roles:
 |"Not logged in. Please log in to perform this operation."
 |===
 
-=== Multi-Tenant Context
+=== User Context
 
-Include tenant information in error messages:
+Include user information in error messages:
 
 [source,clojure]
 ----
 (ctx/render-contextual-message
   :required  
   {:field :email}
-  {:operation :create :entity "user" :tenant-id "acme-corp"}
+  {:operation :create :entity "user" :user-id "acme-corp"}
   {})
-;; => "Email is required when creating a user in tenant acme-corp."
+;; => "Email is required when creating a user  acme-corp."
 ----
 
 == REPL Examples
@@ -429,7 +429,7 @@ Follow these patterns when integrating enhanced validation into modules:
   (let [user-data (:body-params request)
         request-context {:auth (:auth request)
                         :locale (get-in request [:headers "accept-language"] "en")
-                        :tenant-id (get-in request [:auth :tenant-id])}
+                        :user-id (get-in request [:auth :user-id])}
         result (user-service/create-user system user-data request-context)]
     
     (if (:valid? result)
@@ -602,7 +602,7 @@ Follow these patterns when integrating enhanced validation into modules:
     "name": "John Doe",
     "role": "user",
     "active": true,
-    "tenantId": "acme-corp",
+    "userId": "acme-corp",
     "createdAt": "2025-11-03T15:30:00Z"
   }
 }
@@ -787,12 +787,12 @@ Follow these patterns when integrating enhanced validation into modules:
 
 ;; Validate / Explain (Malli)
 (require '[boundary.user.schema :as user-schema])
-(v/validate user-schema/CreateUserRequest {:email "a@b.co" :name "A" :role :user :tenant-id #uuid "00000000-0000-0000-0000-000000000001"})
+(v/validate user-schema/CreateUserRequest {:email "a@b.co" :name "A" :role :user :user-id #uuid "00000000-0000-0000-0000-000000000001"})
 (v/explain  user-schema/CreateUserRequest {:email "invalid"})
 
 ;; Timing
 (require '[boundary.user.core.user :as user-core])
-(v/time-call user-core/validate-user-creation-request {:email "a@b.co" :name "A" :role :user :tenant-id #uuid "00000000-0000-0000-0000-000000000001"})
+(v/time-call user-core/validate-user-creation-request {:email "a@b.co" :name "A" :role :user :user-id #uuid "00000000-0000-0000-0000-000000000001"})
 
 ;; Snapshots (deterministic EDN)
 (println (v/snapshot->edn {:status :ok} {:seed 42 :meta {:test "example"}}))

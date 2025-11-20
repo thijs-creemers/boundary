@@ -50,7 +50,7 @@ Create `src/boundary/billing/schema.clj`:
    [:user-id :uuid]
    [:amount :double]
    [:status [:enum :draft :paid :cancelled]]
-   [:tenant-id :uuid]
+   [:user-id :uuid]
    [:created-at inst?]])
 ----
 
@@ -143,7 +143,7 @@ Boundary's **multi-layer interceptor pattern** automatically handles observabili
   
   (create-invoice [_ invoice-data]
     ;; Pure business logic - interceptors handle observability automatically:
-    ;; - Logs "create-invoice" entry with correlation ID and tenant context
+    ;; - Logs "create-invoice" entry with correlation ID and user context
     ;; - Tracks "billing-operations-attempted" metric
     ;; - Times operation in "billing-operation-duration" histogram
     ;; - Reports any exceptions with full context
@@ -242,7 +242,7 @@ Create `src/boundary/billing/shell/http.clj`:
             :parameters {:body [:map
                                 [:userId :string]
                                 [:amount :double]
-                                [:tenantId :string]]}}}]])
+                                [:userId :string]]}}}]])
 ----
 
 [[step-8-cli]]
@@ -259,7 +259,7 @@ Create `src/boundary/billing/shell/cli.clj`:
   [[nil "--user-id UUID" "User ID"]
    [nil "--amount AMOUNT" "Invoice amount"
     :parse-fn #(Double/parseDouble %)]
-   [nil "--tenant-id UUID" "Tenant ID"]])
+   [nil "--user-id UUID" "User ID"]])
 
 (defn execute-invoice-create
   [service opts]

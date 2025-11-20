@@ -78,7 +78,7 @@ Frame errors as system requirements, not user failures.
 
 - "Email is required"
 - "Name is required"
-- "Tenant ID is required"
+- "User ID is required"
 
 **With Context:** `[Field Name] is required [when/for] [context]`
 
@@ -144,7 +144,7 @@ Frame errors as system requirements, not user failures.
 
 **Examples:**
 
-- "Cannot modify Tenant ID"
+- "Cannot modify user ID"
 - "Email already exists"
 - "Status transition not allowed"
 - "Billing Address requires Payment Method"
@@ -162,8 +162,8 @@ Use **Title Case** for multi-word field names in messages:
 |`:email`
 |"Email"
 
-|`:tenant-id`
-|"Tenant ID"
+
+|"User ID"
 
 |`:user-agent`
 |"User Agent"
@@ -195,8 +195,8 @@ For user-facing messages, use friendlier names when appropriate:
 |===
 |Technical |User-Friendly
 
-|`:tenant-id`
-|"Tenant ID" (API) / "Organization" (UI)
+
+|"User ID" (API) / "Organization" (UI)
 
 |`:created-at`
 |"Created At" (API) / "Date Created" (UI)
@@ -346,7 +346,7 @@ Tailor messages based on the operation:
 |"Email is required when creating a user"
 
 |UPDATE
-|"Tenant ID cannot be changed during update"
+|"User ID cannot be changed during update"
 
 |DELETE
 |"Cannot delete user: user not found"
@@ -377,9 +377,9 @@ Adjust guidance based on user role:
 "View-only access. Contact your administrator to request changes."
 ----
 
-==== Multi-Tenant Context
+==== User Context
 
-Reference tenant-specific rules when applicable:
+Reference user-specific rules when applicable:
 
 [source]
 ----
@@ -494,7 +494,7 @@ Suggest alternatives when the requested action isn't possible:
 
 [source]
 ----
-"Tenant ID cannot be changed. Create a new user if a different tenant is needed."
+"User ID cannot be changed. Create a new user if needed."
 ----
 
 [source]

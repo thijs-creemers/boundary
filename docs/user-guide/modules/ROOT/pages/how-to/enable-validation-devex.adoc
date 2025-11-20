@@ -129,7 +129,7 @@ user=> (v/snapshot->edn {:status :ok} {:seed 42})
 {:email "alice@example.com"
  :name "Alice Doe"
  :role :user
- :tenant-id #uuid "550e8400-e29b-41d4-a716-446655440000"}
+ :user-id #uuid "550e8400-e29b-41d4-a716-446655440000"}
 ----
 
 === Export Validation Graph

@@ -136,12 +136,6 @@
   [_updated-user changes]
   ;; Example business rules:
   (cond
-    ;; Cannot change tenant-id
-    (and (:tenant-id changes)
-         (not= (get-in changes [:tenant-id :from]) (get-in changes [:tenant-id :to])))
-    {:valid? false
-     :errors {:tenant-id "Cannot change tenant-id after user creation"}}
-
     ;; Cannot change email - would require verification
     (and (:email changes)
          (not= (get-in changes [:email :from]) (get-in changes [:email :to])))
@@ -262,25 +256,23 @@
       :else :bronze)))
 
 (defn calculate-user-permissions
-  "Pure function: Calculate user permissions based on role and tenant.
+  "Pure function: Calculate user permissions based on role.
 
        Args:
          user: User entity with role information
-         tenant-config: Tenant-specific configuration map
 
        Returns:
          Set of permission keywords
 
        Pure - permission calculation based on input data."
-  [user tenant-config]
+  [user]
   (let [base-permissions #{:read-profile :update-profile}
         role-permissions (case (:role user)
                            :admin #{:read-all-users :create-user :update-user :delete-user}
                            :moderator #{:read-users :update-user}
                            :user #{}
-                           #{})
-        tenant-permissions (get-in tenant-config [:role-permissions (:role user)] #{})]
-    (set/union base-permissions role-permissions tenant-permissions)))
+                           #{})]
+    (set/union base-permissions role-permissions)))
 
 (defn should-require-password-reset?
   "Pure function: Determine if user should be required to reset password.

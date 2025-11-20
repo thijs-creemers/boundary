@@ -55,9 +55,8 @@ Boundary is a **module-centric software framework** built on Clojure that implem
 - Production-ready observability and operational tooling
 
 **Non-Goals:**
-- Multi-tenancy runtime support (framework provides preparation patterns only)
 - Mobile/desktop client support (focuses on server-side interfaces, maybe later)
-- [ ] Specific domain logic (provides patterns, not implementations)
+- Specific domain logic (provides patterns, not implementations)
 - Built-in authentication providers (supports auth patterns)
 
 ## Quick Start
@@ -401,7 +400,8 @@ src/boundary/user/
     (let [validation-result (user-core/validate-user-creation-request user-data)]
       (when-not (:valid? validation-result)
         (throw (ex-info "Invalid user data" {:type :validation-error :errors (:errors validation-result)}))))
-    (let [existing-user (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data)) uniqueness-result (user-core/check-duplicate-user-decision user-data existing-user)]
+    (let [existing-user (.find-user-by-email user-repository (:email user-data))
+          uniqueness-result (user-core/check-duplicate-user-decision user-data existing-user)]
       (when (= :reject (:decision uniqueness-result))
         (throw (ex-info "User already exists" {:type :user-exists :email (:email user-data)}))))
     (let [current-time (current-timestamp)
@@ -788,7 +788,7 @@ src/boundary/user/
 ```clojure
 (defn users-page-handler [user-service config]
   (fn [request]
-    (let [users (user-ports/list-users-by-tenant user-service tenant-id options)]
+    (let [users (user-ports/list-users user-service options)]
       (html-response
         (user-ui/users-page (:users users))))))
 ```
@@ -879,23 +879,6 @@ clojure -M:test:db/h2 -n boundary.user.shell.web-handlers-test
   {:features
    {:user-web-ui {:enabled? true}}  ; Toggle web UI
    }}}
-```
-
-### Tenant Handling
-
-**Tenant Resolution:**
-```clojure
-;; Web handlers resolve tenant from header or config default
-(defn resolve-tenant-id [request config]
-  (or (get-in request [:headers "x-tenant-id"])
-      (get-in config [:active :boundary/settings :default-tenant-id])
-      "default"))
-```
-
-**Testing with Tenant:**
-```clojure
-(let [request {:headers {"x-tenant-id" "custom-tenant"}}]
-  (handler request))
 ```
 
 ### Common Patterns
@@ -1135,7 +1118,6 @@ clojure -M:build:deploy
 
 - [Observability Integration Guide](docs/OBSERVABILITY_INTEGRATION.md) - FC/IS observability framework implementation
 - [Development Decisions](docs/user-guide/DECISIONS.md) - Architectural and implementation decisions
-- [Default Tenant ID Implementation](docs/development/default-tenant-id.adoc) - Tenant handling specifications
 - [Documentation Build Guide](docs/README-DOCS.md) - Documentation structure and build process
 - [Architecture Diagrams](docs/diagrams/README.adoc) - System architecture visualizations
 

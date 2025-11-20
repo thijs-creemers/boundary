@@ -142,7 +142,7 @@ user=> (require '[integrant.repl :as ig-repl])
 user=> (ig-repl/go)
 
 # Use CLI
-clojure -M:cli user list --tenant-id <UUID>
+clojure -M:cli user list --user-id <UUID>
 
 # Check for outdated dependencies
 clojure -M:outdated

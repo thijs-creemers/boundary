@@ -35,7 +35,7 @@ The `ctx` map is threaded through the entire pipeline:
  :op               ; Operation keyword (:user/create, :billing/invoice, etc.)
  :system           ; Dependency injection map
  :correlation-id   ; Request correlation ID
- :tenant           ; Tenant context (future)
+ :user           ; User context (future)
  :now              ; Request timestamp
  :validated        ; Validated/coerced input data
  :result           ; Core function result

@@ -55,7 +55,7 @@ This completes the core user module infrastructure, establishing a robust founda
 - **✅ Enterprise-Grade Validation Framework**: Comprehensive business rule validation with environment-specific configuration
 - **✅ RFC 7807 Problem Details**: Complete compliance with context preservation and error correlation
 - **✅ Multi-Interface Consistency**: Seamless validation across HTTP, CLI, and Web interfaces
-- **✅ Business Rule Coverage**: Email domains, password policies, role restrictions, cross-field validation, tenant limits
+- **✅ Business Rule Coverage**: Email domains, password policies, role restrictions, cross-field validation, user limits
 - **✅ Standard Result Format**: Success/error result types with combinators *(Nov 3)*
 - **✅ Structured Error Maps**: Comprehensive error metadata (code, field, path, params) *(Nov 3)*
 - **✅ Error Code Catalog**: Hierarchical error codes with documentation *(Nov 3)*
@@ -72,7 +72,7 @@ This completes the core user module infrastructure, establishing a robust founda
 - **✅ No-Op Providers**: Development-friendly implementations for local testing
 - **✅ Provider Architecture**: Extensible system for production integrations (Sentry, Datadog, etc.)
 - **✅ Integrant Integration**: Full lifecycle management with proper component wiring
-- **✅ Default Tenant ID**: Development workflow improvements with consistent tenant context
+- **✅ Default Configuration**: Development workflow improvements with consistent user context
 
 ### CLI Error Reporting System *(COMPLETED: Nov 11, 2025)*
 - **✅ RFC 7807 Compliance**: HTTP error responses follow Problem Details standard
@@ -210,9 +210,9 @@ This completes the core user module infrastructure, establishing a robust founda
   - Refactored `boundary.config/ig-config` into `core-system-config` and `user-module-config`
   - Centralized DB/observability wiring and grouped user module keys together
   - All HTTP server port integration tests and full Kaocha test suite passing after refactor
-- **Default Tenant ID Configuration**: Development workflow improvements *(COMPLETED Nov 9)*
-  - Consistent tenant context for REPL development
-  - CLI operations without explicit tenant specification
+- **Default Configuration Configuration**: Development workflow improvements *(COMPLETED Nov 9)*
+  - Consistent user context for REPL development
+  - CLI operations without explicit explicit configuration
   - Test fixture standardization
 - **Dependency Updates & Infrastructure**: *(COMPLETED Nov 9)*
   - Reitit 0.9.1 → 0.9.2 for improved routing
@@ -297,7 +297,7 @@ This completes the core user module infrastructure, establishing a robust founda
   - Complete logging, metrics, and error reporting modules
   - Pluggable provider system with no-op implementations
   - Full Integrant integration and lifecycle management
-✅ Configuration management with default tenant ID support
+✅ Configuration management with default configuration support
 ✅ Development tooling and comprehensive documentation
 🟡 Production provider implementations (Datadog logging ✅ complete, metrics in progress)
 🟡 Feature module observability integration (in progress)

@@ -1,9 +1,0 @@
-{:meta
- {:case-name nil,
-  :schema-version "1.0",
-  :seed 50,
-  :test-name tenant-id-change-forbidden,
-  :test-ns user},
- :result
- {:errors {:tenant-id "Cannot change tenant-id after user creation"},
-  :valid? false}}

@@ -229,7 +229,7 @@ src/boundary/billing/
 - ✅ **Route composition** - `/web/*` routes separate from `/api/*` routes
 - ✅ **Static asset serving** - Local vendoring of HTMX and Pico CSS
 - ✅ **Feature flag integration** - Web UI controlled via `:user-web-ui.enabled?` config
-- ✅ **Tenant resolution** - Header-based with configured default fallback
+- ✅ **user resolution** - Header-based with configured default fallback
 - ✅ **Documentation alignment** - ADR and implementation plan updated
 
 === ✅ Completed: Phase 2 - User Management Web UI
@@ -270,11 +270,11 @@ src/boundary/billing/
 - ✅ **Ports and Adapters**: Web handlers call existing business logic ports only
 - ✅ **Module Integration**: Web UI fully integrated into user module HTTP infrastructure
 - ✅ **Validation**: Malli schema validation with field-level error transformation
-- ✅ **Tenant Handling**: Request header with configured default fallback
+- ✅ **User Handling**: Request header with configured default fallback
 - ✅ **Soft Delete**: Deactivate only, hidden from list by default
 
 **Testing Coverage:**
-- ✅ **Page handler tests**: Full page rendering, tenant resolution, error handling
+- ✅ **Page handler tests**: Full page rendering, user resolution, error handling
 - ✅ **HTMX handler tests**: Fragment rendering, validation, HX-Trigger headers
 - ✅ **Integration test**: Complete workflow from list to create to update to delete
 - ✅ **UI component tests**: Updated for new structure with `/web/*` URLs and HTMX attributes

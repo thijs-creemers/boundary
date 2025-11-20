@@ -149,7 +149,7 @@ All existing middleware preserved:
 ### Manual Testing (curl)
 ```
 ✅ GET /health                         → 200 OK
-✅ GET /api/users?tenantId=...         → 200 OK (JSON)
+✅ GET /api/users?userId=...         → 200 OK (JSON)
 ✅ GET /web/users                      → 401 Unauthorized (auth required)
 ✅ GET /css/app.css                    → 200 OK (text/css)
 ✅ GET /js/htmx.min.js                 → 200 OK (application/javascript)

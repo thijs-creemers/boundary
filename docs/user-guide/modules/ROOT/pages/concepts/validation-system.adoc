@@ -55,7 +55,7 @@ Schemas define data structures:
             #"^[^@]+@[^@]+\\.[^@]+$"]]
    [:name [:string {:min 1 :max 255}]]
    [:status [:enum :active :inactive :suspended]]
-   [:tenant-id :uuid]
+   [:user-id :uuid]
    [:created-at inst?]])
 
 (def UserCreationRequest
@@ -63,7 +63,7 @@ Schemas define data structures:
   [:map {:closed true}
    [:email [:re #"^[^@]+@[^@]+\\.[^@]+$"]]
    [:name [:string {:min 1 :max 255}]]
-   [:tenantId :string]])  ; camelCase for HTTP API
+   [:userId :string]])  ; camelCase for HTTP API
 ----
 
 [[schema-benefits]]
@@ -145,7 +145,7 @@ All validations return consistent structure:
 {:valid? true
  :data {:email "alice@example.com"
         :name "Alice Smith"
-        :tenant-id #uuid "..."}}
+        :user-id #uuid "..."}}
 ----
 
 **Example invalid result:**

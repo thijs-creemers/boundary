@@ -29,7 +29,6 @@
    [:last-login {:optional true} inst?]
    [:date-format {:optional true} [:enum :iso :us :eu]]
    [:time-format {:optional true} [:enum :12h :24h]]
-   [:tenant-id :uuid]
    [:avatar-url {:optional true} :string]
    [:created-at inst?]
    [:updated-at {:optional true} [:maybe inst?]]
@@ -54,7 +53,6 @@
   [:map {:title "User Session"}
    [:id :uuid]
    [:user-id :uuid]
-   [:tenant-id :uuid]
    [:session-token :string]
    [:expires-at inst?]
    [:created-at inst?]
@@ -75,7 +73,6 @@
    [:password [:string {:min 8 :max 255 :error/message "Password must be at least 8 characters"}]]
    [:role [:enum :admin :user :viewer]]
    [:active {:optional true} :boolean]
-   [:tenant-id :uuid]
    [:send-welcome {:optional true} :boolean]])
 
 (def UpdateUserRequest
@@ -108,10 +105,9 @@
    [:lastLogin {:optional true} :string] ; Instant as ISO string
    [:dateFormat {:optional true} :string] ; Enum as string
    [:timeFormat {:optional true} :string] ; Enum as string
-   [:tenantId :string] ; UUID as string
    [:avatarUrl {:optional true} :string]
    [:createdAt :string] ; Instant as ISO string
-   [:updatedAt {:optional true} :string]]) ; Instant as ISO string
+   [:updatedAt {:optional true} :string]]) ; Instant as ISO string ; Instant as ISO string
 
 ;; =============================================================================
 ;; User-Specific Transformation Functions
@@ -134,7 +130,6 @@
       (cond->
        (:id value) (assoc :id (type-conversion/uuid->string (:id value)))
        (:user-id value) (assoc :userId (type-conversion/uuid->string (:user-id value)))
-       (:tenant-id value) (assoc :tenantId (type-conversion/uuid->string (:tenant-id value)))
        (:created-at value) (assoc :createdAt (type-conversion/instant->string (:created-at value)))
        (:updated-at value) (assoc :updatedAt (type-conversion/instant->string (:updated-at value)))
        (:expires-at value) (assoc :expiresAt (type-conversion/instant->string (:expires-at value)))

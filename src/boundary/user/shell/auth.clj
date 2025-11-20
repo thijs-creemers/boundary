@@ -77,7 +77,6 @@
         claims {:sub (str (:id user))
                 :email (:email user)
                 :role (name (:role user))
-                :tenant-id (str (:tenant-id user))
                 :iat (.getEpochSecond now)
                 :exp (.getEpochSecond exp)}]
     (jwt/sign claims jwt-secret)))
@@ -142,7 +141,7 @@
      auth-service: AuthenticationService instance
      email: User email
      password: Plain text password
-     login-context: Map with :tenant-id, :ip-address, :user-agent
+     login-context: Map with :ip-address, :user-agent
      
    Returns:
      Authentication result map with :success?, :user, :session, etc."
@@ -161,7 +160,7 @@
 
           ;; Step 2: Look up user (I/O operation)
           user (when (:valid? credential-validation)
-                 (.find-user-by-email user-repository email (:tenant-id login-context)))
+                 (.find-user-by-email user-repository email))
 
           ;; Step 3: Check if login attempt should be allowed
           login-allowed? (when user
@@ -220,7 +219,6 @@
                                    (let [session-token (generate-session-token)
                                          jwt-token (create-jwt-token user (:session-duration-hours session-policy))
                                          session-data {:user-id (:id user)
-                                                       :tenant-id (:tenant-id user)
                                                        :session-token session-token
                                                        :jwt-token jwt-token
                                                        :expires-at (.plus current-time

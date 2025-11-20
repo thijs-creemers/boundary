@@ -150,13 +150,13 @@ The `boundary.shared.utils.case-conversion` namespace provides generic case tran
 
 ;; API Request Processing (camelCase -> kebab-case)
 (case-conversion/camel-case->kebab-case-map 
-  {:userId "123" :firstName "John" :tenantId "456"})
-;; => {:user-id "123" :first-name "John" :tenant-id "456"}
+  {:userId "123" :firstName "John" :userId "456"})
+;; => {:user-id "123" :first-name "John" :user-id "456"}
 
 ;; API Response Generation (kebab-case -> camelCase)
 (case-conversion/kebab-case->camel-case-map
-  {:user-id "123" :first-name "John" :tenant-id "456"})
-;; => {:userId "123" :firstName "John" :tenantId "456"}
+  {:user-id "123" :first-name "John" :user-id "456"})
+;; => {:userId "123" :firstName "John" :userId "456"}
 ----
 
 [source,clojure]
@@ -200,7 +200,7 @@ While the shared utilities provide generic transformations, domain modules can c
       case-conversion/kebab-case->camel-case-map  ; Generic conversion
       (cond->  ; Domain-specific adaptations
         (:id value) (assoc :id (type-conversion/uuid->string (:id value)))
-        (:tenant-id value) (assoc :tenantId (type-conversion/uuid->string (:tenant-id value)))
+        (:user-id value) (assoc :userId (type-conversion/uuid->string (:user-id value)))
         (:created-at value) (assoc :createdAt (type-conversion/instant->string (:created-at value)))
         (:role value) (assoc :role (type-conversion/keyword->string (:role value))))))
 ----
@@ -426,8 +426,6 @@ All shared utilities have extensive test coverage:
     (let [result (domain/transform-data sample-data)]
       (is (matches-expected-pattern? result)))))
 ----
-
-
 == Future Enhancements
 
 === Planned Improvements

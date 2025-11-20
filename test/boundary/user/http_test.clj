@@ -55,17 +55,15 @@
   (get-user-by-id [_ user-id]
     (get @state user-id))
 
-  (get-user-by-email [_ email tenant-id]
+  (get-user-by-email [_ email]
     (->> @state
          vals
-         (filter #(and (= (:email %) email)
-                       (= (:tenant-id %) tenant-id)))
+         (filter #(= (:email %) email))
          first))
 
-  (list-users-by-tenant [_ tenant-id options]
+  (list-users [_ options]
     (let [users (->> @state
                      vals
-                     (filter #(= (:tenant-id %) tenant-id))
                      (filter #(nil? (:deleted-at %))))
           total-count (count users)
           limit (or (:limit options) 20)
@@ -163,13 +161,13 @@
   (testing "POST /users - Create user successfully"
     (let [service (create-mock-service)
           handler (user-http/create-user-handler service)
-          tenant-id (UUID/randomUUID)
+          user-id (UUID/randomUUID)
           request {:parameters
                    {:body {:email "test@example.com"
                            :name "Test User"
                            :password "password123"
                            :role "user"
-                           :tenantId (str tenant-id)
+                           :userId (str user-id)
                            :active true}}}
           response (handler request)]
 
@@ -182,13 +180,13 @@
   (testing "POST /users - Creates user with correct defaults"
     (let [service (create-mock-service)
           handler (user-http/create-user-handler service)
-          tenant-id (UUID/randomUUID)
+          user-id (UUID/randomUUID)
           request {:parameters
                    {:body {:email "test2@example.com"
                            :name "Test User 2"
                            :password "password123"
                            :role "user"
-                           :tenantId (str tenant-id)}}}
+                           :userId (str user-id)}}}
           response (handler request)]
 
       (is (= 201 (:status response)))
@@ -197,12 +195,12 @@
 (deftest test-get-user-handler
   (testing "GET /users/:id - Get existing user"
     (let [service (create-mock-service)
-          tenant-id (UUID/randomUUID)
+          user-id (UUID/randomUUID)
           created-user (ports/register-user service
                                             {:email "test@example.com"
                                              :name "Test User"
                                              :role :user
-                                             :tenant-id tenant-id})
+                                             :user-id user-id})
           handler (user-http/get-user-handler service)
           request {:parameters
                    {:path {:id (str (:id created-user))}}}
@@ -235,20 +233,20 @@
 (deftest test-list-users-handler
   (testing "GET /users - List users with pagination"
     (let [service (create-mock-service)
-          tenant-id (UUID/randomUUID)
+          user-id (UUID/randomUUID)
           _ (ports/register-user service
                                  {:email "user1@example.com"
                                   :name "User 1"
                                   :role :user
-                                  :tenant-id tenant-id})
+                                  :user-id user-id})
           _ (ports/register-user service
                                  {:email "user2@example.com"
                                   :name "User 2"
                                   :role :admin
-                                  :tenant-id tenant-id})
+                                  :user-id user-id})
           handler (user-http/list-users-handler service)
           request {:parameters
-                   {:query {:tenantId (str tenant-id)
+                   {:query {:userId (str user-id)
                             :limit 10
                             :offset 0}}}
           response (handler request)]
@@ -259,20 +257,20 @@
 
   (testing "GET /users - Filter by role"
     (let [service (create-mock-service)
-          tenant-id (UUID/randomUUID)
+          user-id (UUID/randomUUID)
           _ (ports/register-user service
                                  {:email "user1@example.com"
                                   :name "User 1"
                                   :role :user
-                                  :tenant-id tenant-id})
+                                  :user-id user-id})
           _ (ports/register-user service
                                  {:email "admin1@example.com"
                                   :name "Admin 1"
                                   :role :admin
-                                  :tenant-id tenant-id})
+                                  :user-id user-id})
           handler (user-http/list-users-handler service)
           request {:parameters
-                   {:query {:tenantId (str tenant-id)
+                   {:query {:userId (str user-id)
                             :role "admin"
                             :limit 10
                             :offset 0}}}
@@ -285,12 +283,12 @@
 (deftest test-update-user-handler
   (testing "PUT /users/:id - Update user successfully"
     (let [service (create-mock-service)
-          tenant-id (UUID/randomUUID)
+          user-id (UUID/randomUUID)
           created-user (ports/register-user service
                                             {:email "test@example.com"
                                              :name "Test User"
                                              :role :user
-                                             :tenant-id tenant-id})
+                                             :user-id user-id})
           handler (user-http/update-user-handler service)
           request {:parameters
                    {:path {:id (str (:id created-user))}
@@ -325,12 +323,12 @@
 (deftest test-delete-user-handler
   (testing "DELETE /users/:id - Soft delete user successfully"
     (let [service (create-mock-service)
-          tenant-id (UUID/randomUUID)
+          user-id (UUID/randomUUID)
           created-user (ports/register-user service
                                             {:email "test@example.com"
                                              :name "Test User"
                                              :role :user
-                                             :tenant-id tenant-id})
+                                             :user-id user-id})
           handler (user-http/delete-user-handler service)
           request {:parameters
                    {:path {:id (str (:id created-user))}}}
@@ -351,11 +349,9 @@
   (testing "POST /sessions - Create session successfully"
     (let [service (create-mock-service)
           user-id (UUID/randomUUID)
-          tenant-id (UUID/randomUUID)
           handler (user-http/create-session-handler service)
           request {:parameters
                    {:body {:userId (str user-id)
-                           :tenantId (str tenant-id)
                            :deviceInfo {:userAgent "Mozilla/5.0"
                                         :ipAddress "192.168.1.1"}}}}
           response (handler request)]
@@ -369,10 +365,8 @@
   (testing "GET /sessions/:token - Valid session"
     (let [service (create-mock-service)
           user-id (UUID/randomUUID)
-          tenant-id (UUID/randomUUID)
           session (ports/authenticate-user service
                                            {:user-id user-id
-                                            :tenant-id tenant-id
                                             :user-agent "Mozilla/5.0"
                                             :ip-address "***********"})
           handler (user-http/validate-session-handler service)
@@ -408,10 +402,8 @@
   (testing "DELETE /sessions/:token - Invalidate session successfully"
     (let [service (create-mock-service)
           user-id (UUID/randomUUID)
-          tenant-id (UUID/randomUUID)
           session (ports/authenticate-user service
-                                           {:user-id user-id
-                                            :tenant-id tenant-id})
+                                           {:user-id user-id})
           handler (user-http/invalidate-session-handler service)
           request {:parameters
                    {:path {:token (:session-token session)}}}

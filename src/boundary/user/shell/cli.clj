@@ -43,9 +43,6 @@
    [nil "--role ROLE" "User role: admin, user, or viewer (required)"
     :parse-fn keyword
     :validate [#(contains? #{:admin :user :viewer} %) "Must be admin, user, or viewer"]]
-   [nil "--tenant-id UUID" "Tenant UUID (required)"
-    :parse-fn type-conv/parse-uuid-string
-    :validate [some? "Must be a valid UUID"]]
    [nil "--password PASSWORD" "User password (optional, will be hashed according to policy)"]
    [nil "--active BOOL" "User active status (default: true)"
     :default true
@@ -53,10 +50,7 @@
     :validate [some? "Must be true, false, yes, no, 1, or 0"]]])
 
 (def user-list-options
-  [[nil "--tenant-id UUID" "Tenant UUID (required)"
-    :parse-fn type-conv/parse-uuid-string
-    :validate [some? "Must be a valid UUID"]]
-   [nil "--limit N" "Maximum number of results (default: 20)"
+  [[nil "--limit N" "Maximum number of results (default: 20)"
     :default 20
     :parse-fn type-conv/parse-int
     :validate [some? "Must be a positive integer"]]
@@ -77,10 +71,7 @@
     :validate [some? "Must be a valid UUID"]]
    [nil "--email EMAIL" "User email address"
     :validate [#(re-matches #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" %)
-               "Must be a valid email address"]]
-   [nil "--tenant-id UUID" "Tenant UUID (required with --email)"
-    :parse-fn type-conv/parse-uuid-string
-    :validate [some? "Must be a valid UUID"]]])
+               "Must be a valid email address"]]])
 
 (def user-update-options
   [[nil "--id UUID" "User ID (required)"
@@ -105,9 +96,6 @@
 
 (def session-create-options
   [[nil "--user-id UUID" "User UUID (required)"
-    :parse-fn type-conv/parse-uuid-string
-    :validate [some? "Must be a valid UUID"]]
-   [nil "--tenant-id UUID" "Tenant UUID (required)"
     :parse-fn type-conv/parse-uuid-string
     :validate [some? "Must be a valid UUID"]]
    [nil "--user-agent AGENT" "User agent string"]
@@ -233,7 +221,6 @@
   [user]
   (-> user
       (update :id str)
-      (update :tenant-id str)
       (update :role #(some-> % name))
       (update :created-at format-instant-json)
       (update :updated-at format-instant-json)
@@ -246,7 +233,6 @@
   (-> session
       (update :id str)
       (update :user-id str)
-      (update :tenant-id str)
       (update :created-at format-instant-json)
       (update :expires-at format-instant-json)
       (update :last-accessed-at format-instant-json)
@@ -529,9 +515,9 @@ Global Options:
   -h, --help           Show help
 
 Examples:
-  boundary user create --email john@example.com --name \"John Doe\" --role user --tenant-id UUID
-  boundary user list --tenant-id UUID --format json
-  boundary session create --user-id UUID --tenant-id UUID
+  boundary user create --email john@example.com --name \"John Doe\" --role user
+  boundary user list --format json
+  boundary session create --user-id UUID
 
 For domain-specific help:
   boundary user --help
@@ -544,7 +530,7 @@ Usage: boundary user <command> [options]
 
 Commands:
   create    Create a new user
-  list      List users in a tenant
+  list      List users
   find      Find a user by ID or email
   update    Update user properties
   delete    Soft-delete a user
@@ -553,11 +539,9 @@ Options for 'create':
   --email EMAIL        User email address (required)
   --name NAME          User full name (required)
   --role ROLE          User role: admin, user, or viewer (required)
-  --tenant-id UUID     Tenant UUID (required)
   --active BOOL        User active status (default: true)
 
 Options for 'list':
-  --tenant-id UUID     Tenant UUID (required)
   --limit N            Maximum results (default: 20)
   --offset N           Results to skip (default: 0)
   --role ROLE          Filter by role
@@ -566,8 +550,7 @@ Options for 'list':
 Options for 'find':
   --id UUID            User ID
   --email EMAIL        User email
-  --tenant-id UUID     Tenant UUID (required with --email)
-  Note: Use --id OR (--email AND --tenant-id)
+  Note: Use --id OR --email
 
 Options for 'update':
   --id UUID            User ID (required)
@@ -580,10 +563,10 @@ Options for 'delete':
   --id UUID            User ID (required)
 
 Examples:
-  boundary user create --email john@example.com --name \"John\" --role user --tenant-id UUID
-  boundary user list --tenant-id UUID --limit 10
+  boundary user create --email john@example.com --name \"John\" --role user
+  boundary user list --limit 10
   boundary user find --id UUID
-  boundary user find --email john@example.com --tenant-id UUID
+  boundary user find --email john@example.com
   boundary user update --id UUID --role admin
   boundary user delete --id UUID")
 
@@ -599,7 +582,6 @@ Commands:
 
 Options for 'create':
   --user-id UUID       User UUID (required)
-  --tenant-id UUID     Tenant UUID (required)
   --user-agent AGENT   User agent string (optional)
   --ip-address IP      IP address (optional)
 
@@ -610,7 +592,7 @@ Options for 'list':
   --user-id UUID       User UUID (required)
 
 Examples:
-  boundary session create --user-id UUID --tenant-id UUID
+  boundary session create --user-id UUID
   boundary session invalidate --token TOKEN
   boundary session list --user-id UUID")
 

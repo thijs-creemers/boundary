@@ -689,7 +689,7 @@ user=> (reitit.core/routes router)  ; Inspect all routes and middleware
 2. **Authorization Middleware** (planned)
    - Role-based access control (RBAC)
    - Resource-level permissions
-   - Tenant isolation
+   - 
 
 3. **Rate Limiting Middleware** (planned)
    - Per-user rate limits

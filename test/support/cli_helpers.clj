@@ -25,7 +25,7 @@
          err-writer# (StringWriter.)
          result# (binding [*out* out-writer#
                            *err* err-writer#]
-                  ~@body)]
+                   ~@body)]
      {:out (str out-writer#)
       :err (str err-writer#)
       :result result#}))
@@ -43,7 +43,7 @@
         err-writer (StringWriter.)
         status (binding [*out* out-writer
                          *err* err-writer]
-                (f))]
+                 (f))]
     {:out (str out-writer)
      :err (str err-writer)
      :status status}))
@@ -83,7 +83,6 @@
           :name "Test User"
           :role :user
           :active true
-          :tenant-id (UUID/randomUUID)
           :created-at (Instant/now)
           :updated-at nil
           :deleted-at nil}
@@ -101,7 +100,6 @@
   (let [now (Instant/now)]
     (merge {:id (UUID/randomUUID)
             :user-id (UUID/randomUUID)
-            :tenant-id (UUID/randomUUID)
             :session-token "test-token-123"
             :created-at now
             :expires-at (.plusSeconds now 3600)
@@ -111,7 +109,6 @@
             :ip-address "127.0.0.1"}
            overrides)))
 
-(def sample-tenant-id (UUID/fromString "550e8400-e29b-41d4-a716-446655440000"))
 
 ;; =============================================================================
 ;; Table Assertions
@@ -135,8 +132,8 @@
   (let [lines (str/split-lines output)
         ;; Data rows are between separators, not including header
         data-lines (filter #(and (str/starts-with? % "| ")
-                                (not (str/starts-with? % "+-")))
-                          lines)]
+                                 (not (str/starts-with? % "+-")))
+                           lines)]
     (max 0 (- (count data-lines) 1)))) ; Subtract header row
 
 (defn assert-table-contains
@@ -194,7 +191,7 @@
                 (toString [_] "MockService"))
      :calls calls
      :record! (fn [fn-name & args]
-               (swap! calls conj {:fn fn-name :args args}))}))
+                (swap! calls conj {:fn fn-name :args args}))}))
 
 (defn called-with?
   "Check if mock was called with specific function and args.
@@ -208,5 +205,5 @@
      Boolean indicating if call was made"
   [calls fn-name args-pred]
   (some #(and (= fn-name (:fn %))
-             (args-pred (:args %)))
+              (args-pred (:args %)))
         @calls))

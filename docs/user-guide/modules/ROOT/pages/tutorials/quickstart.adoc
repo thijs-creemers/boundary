@@ -164,7 +164,7 @@ clojure -M:cli user create \
   --email alice@example.com \
   --name "Alice Doe" \
   --role user \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000
+  --user-id 550e8400-e29b-41d4-a716-446655440000
 ----
 
 **Expected output** (table format):
@@ -180,17 +180,17 @@ clojure -M:cli user create \
 ====
 **UUIDs as identifiers:**
 
-Boundary uses UUIDs for all entity IDs. The `tenant-id` here is a placeholder UUID. In a multi-tenant application, each organization would have its own tenant ID.
+Boundary uses UUIDs for all entity IDs. User IDs are automatically generated UUIDs.
 ====
 
 === List Users
 
-View all users for a tenant:
+View all users :
 
 [source,{shell}]
 ----
 clojure -M:cli user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000
+  --user-id 550e8400-e29b-41d4-a716-446655440000
 ----
 
 You'll see Alice in the list.
@@ -203,7 +203,7 @@ The CLI supports both table and JSON output:
 ----
 # JSON format for scripting
 clojure -M:cli user list \
-  --tenant-id 550e8400-e29b-41d4-a716-446655440000 \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
   --format json
 ----
 
@@ -253,7 +253,7 @@ curl -s -X POST "$BND_API_URL/api/users" \
     "name": "Bob Smith",
     "password": "temporary-password",
     "role": "user",
-    "tenantId": "550e8400-e29b-41d4-a716-446655440000"
+    "userId": "550e8400-e29b-41d4-a716-446655440000"
   }' | jq
 ----
 
@@ -266,7 +266,7 @@ curl -s -X POST "$BND_API_URL/api/users" \
   "name": "Bob Smith",
   "role": "user",
   "active": true,
-  "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
   "createdAt": "2025-01-06T12:45:00Z"
 }
 ----
@@ -282,7 +282,7 @@ REST API responses use `camelCase` for JSON field names, while internal code use
 
 [source,{shell}]
 ----
-curl -s "$BND_API_URL/api/users?tenantId=550e8400-e29b-41d4-a716-446655440000" | jq
+curl -s "$BND_API_URL/api/users?userId=550e8400-e29b-41d4-a716-446655440000" | jq
 ----
 
 **Response:**

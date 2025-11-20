@@ -64,7 +64,7 @@ Here's a minimal example of using the multi-database system:
                                     :name "Test User"
                                     :role :admin
                                     :active true
-                                    :tenant-id (java.util.UUID/randomUUID)})]
+                                    :user-id (java.util.UUID/randomUUID)})]
   (println "Created user:" (:id user)))
 ----
 
@@ -327,7 +327,7 @@ The system provides utilities for building common query patterns:
                  :name "John Doe"
                  :role :admin
                  :active true
-                 :tenant-id tenant-id}
+                 :user-id user-id}
       
       ;; Create
       created-user (.create-user user-repo user-data)
@@ -344,9 +344,9 @@ The system provides utilities for building common query patterns:
   (println "User lifecycle completed"))
 
 ;; Business queries
-(def admin-users (.find-active-users-by-role user-repo tenant-id :admin))
-(def user-count (.count-users-by-tenant user-repo tenant-id))
-(def recent-users (.find-users-created-since user-repo tenant-id yesterday))
+(def admin-users (.find-active-users-by-role user-repo user-id :admin))
+(def user-count (.count-users user-repo user-id))
+(def recent-users (.find-users-created-since user-repo user-id yesterday))
 
 ;; Batch operations
 (def batch-users (.create-users-batch user-repo [user1-data user2-data user3-data]))
@@ -361,7 +361,7 @@ The system provides utilities for building common query patterns:
 
 ;; Session management
 (let [session-data {:user-id user-id
-                    :tenant-id tenant-id
+                    :user-id user-id
                     :expires-at (.plusSeconds (java.time.Instant/now) 3600)
                     :user-agent "Mozilla/5.0..."
                     :ip-address "***********"}
@@ -673,7 +673,7 @@ The old `boundary.shared.shell.persistence` namespace is deprecated but still fu
     (process-item tx item)))
 
 ;; ✅ DO: Use pagination for large result sets
-(def result (.find-users-by-tenant repo tenant-id 
+(def result (.find-users repo user-id 
                                    {:limit 50 :offset (* page 50)}))
 ----
 

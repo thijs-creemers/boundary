@@ -35,8 +35,7 @@
   {:active
    {:boundary/settings
     {:name "boundary-test"
-     :version "0.1.0-test"
-     :default-tenant-id "test-tenant"}
+     :version "0.1.0-test"}
 
     :boundary/http
     (merge {:port (or port 59990)

@@ -24,8 +24,7 @@
 ;; Test Fixtures
 ;; =============================================================================
 
-(def fixed-tenant-id
-  (UUID/fromString "00000000-0000-0000-0000-000000000001"))
+
 
 (def fixed-user-id
   (UUID/fromString "00000000-0000-0000-0000-000000000002"))
@@ -36,8 +35,7 @@
 (def valid-user-request
   {:email "test@example.com"
    :name "Test User"
-   :role :user
-   :tenant-id fixed-tenant-id})
+   :role :user})
 
 ;; =============================================================================
 ;; Email Validation Snapshots
@@ -122,7 +120,7 @@
 (deftest multiple-validation-errors-snapshot
   "Snapshot of validation with multiple simultaneous errors."
   (testing "Multiple missing fields produce aggregated errors"
-    (let [request {:role :user} ; missing email, name, tenant-id
+    (let [request {:role :user} ; missing email, name
           result (user-core/validate-user-creation-request request vh/test-validation-config)]
       (snapshot-io/check-snapshot!
        result
@@ -144,28 +142,7 @@
 ;; Business Rule Validation Snapshots
 ;; =============================================================================
 
-(deftest tenant-id-change-forbidden-snapshot
-  "Snapshot of business rule violation when changing tenant-id."
-  (testing "Tenant-id change produces business rule error"
-    (let [original-tenant (UUID/fromString "00000000-0000-0000-0000-000000000003")
-          new-tenant (UUID/fromString "00000000-0000-0000-0000-000000000004")
-          current-user {:id fixed-user-id
-                        :email "test@example.com"
-                        :name "Test User"
-                        :role :user
-                        :active true
-                        :tenant-id original-tenant
-                        :created-at fixed-timestamp
-                        :updated-at nil
-                        :deleted-at nil}
-          updated-user (assoc current-user :tenant-id new-tenant)
-          changes (user-core/calculate-user-changes current-user updated-user)
-          result (user-core/validate-user-business-rules updated-user changes)]
-      (snapshot-io/check-snapshot!
-       result
-       {:ns (ns-name *ns*)
-        :test 'tenant-id-change-forbidden
-        :seed 50}))))
+
 
 (deftest email-change-forbidden-snapshot
   "Snapshot of business rule violation when changing email."
@@ -175,7 +152,6 @@
                         :name "Test User"
                         :role :user
                         :active true
-                        :tenant-id fixed-tenant-id
                         :created-at fixed-timestamp
                         :updated-at nil
                         :deleted-at nil}
@@ -213,7 +189,6 @@
                 :name "Test User"
                 :role :user
                 :active true
-                :tenant-id fixed-tenant-id
                 :created-at fixed-timestamp
                 :updated-at nil
                 :deleted-at nil}

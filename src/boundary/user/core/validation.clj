@@ -18,7 +18,7 @@
          valid-user-name? validate-name-constraint
          valid-user-role? validate-role-constraint
          valid-password? validate-password-constraint
-         validate-tenant-user-limits validate-cross-field-constraints
+         validate-cross-field-constraints
          admin-email-domain-valid? validate-enhanced-role-transition)
 
 (defn format-schema-errors
@@ -229,33 +229,8 @@
      :message (str "Password must have: " (str/join ", " violations))}))
 
 ;; =============================================================================
-;; Tenant Limits Validation
+;; User Limits Validation
 ;; =============================================================================
-
-(defn validate-tenant-user-limits
-  "Pure function: Validate that user creation doesn't exceed tenant limits.
-   
-   Args:
-     tenant-id: UUID of the tenant
-     current-user-count: Current number of users in tenant
-     validation-config: Configuration with tenant limits
-   
-   Returns:
-     {:valid? true} or {:valid? false :error {...}}
-   
-   Pure - business rule validation only."
-  [tenant-id current-user-count validation-config]
-  (let [tenant-limits (get-in validation-config [:tenant-limits])
-        max-users (get-in tenant-limits [:max-users-per-tenant] 1000)
-        tenant-specific-limit (get-in tenant-limits [:tenant-specific tenant-id :max-users] max-users)]
-    (if (>= current-user-count tenant-specific-limit)
-      {:valid? false
-       :error {:field :tenant-id
-               :code :tenant-user-limit-exceeded
-               :message (str "Tenant has reached maximum user limit of " tenant-specific-limit " users")
-               :current-count current-user-count
-               :limit tenant-specific-limit}}
-      {:valid? true})))
 
 ;; =============================================================================
 ;; Cross-Field Validation
@@ -378,14 +353,6 @@
         ;; Cross-field validation
         cross-field-result (validate-cross-field-constraints user-data validation-config)
 
-        ;; Tenant limits validation (if context provided)
-        tenant-limits-result (if (:current-user-count context)
-                               (validate-tenant-user-limits
-                                (:tenant-id user-data)
-                                (:current-user-count context)
-                                validation-config)
-                               {:valid? true})
-
         ;; Collect all errors
         all-errors (cond-> []
                      (not (:valid? schema-result))
@@ -395,10 +362,7 @@
                      (concat (:errors business-result))
 
                      (not (:valid? cross-field-result))
-                     (concat (:errors cross-field-result))
-
-                     (not (:valid? tenant-limits-result))
-                     (conj (:error tenant-limits-result)))]
+                     (concat (:errors cross-field-result)))]
 
     (if (empty? all-errors)
       {:valid? true :data user-data}

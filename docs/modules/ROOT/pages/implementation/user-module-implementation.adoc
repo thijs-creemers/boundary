@@ -43,8 +43,8 @@ The schema implementation embodies several key architectural principles:
 - String-to-type coercions for CLI input (booleans, UUIDs, enums)
 
 **🏢 Multi-Tenancy by Design**
-- All domain entities include `tenant-id` for data isolation
-- Tenant context propagation through all operations
+
+- User context propagation through all operations
 - Security-first approach to data access
 
 === Domain Entity Schemas
@@ -52,7 +52,7 @@ The schema implementation embodies several key architectural principles:
 ==== Core Entities
 
 **User Entity**
-- Complete user domain model with ID, email, name, role, and tenant isolation
+- Complete user domain model with ID, email, name, and role
 - Audit fields: `created-at`, `updated-at`, `deleted-at` for soft deletion
 - Role-based access control with `:admin`, `:user`, `:viewer` roles
 - Active/inactive status management
@@ -67,7 +67,7 @@ The schema implementation embodies several key architectural principles:
 - Secure session management with cryptographic tokens
 - Session metadata: user agent, IP address, access tracking
 - Expiration and revocation support for security
-- Tenant context for session isolation
+- User context for session isolation
 
 **UserProfile**
 - Extended user information combining core user data with preferences
@@ -180,8 +180,8 @@ The schema implementation embodies several key architectural principles:
 - Predictable data formats
 
 **✅ Multi-Tenancy Security**
-- Tenant isolation built into all domain entities
-- Automatic tenant context validation
+
+- Automatic user context validation
 - Secure data access patterns
 
 **✅ Developer Experience**
@@ -220,8 +220,8 @@ The ports implementation embodies hexagonal architecture principles:
 
 *Basic CRUD Operations:*
 - `find-user-by-id`: Single user lookup with active status filtering
-- `find-user-by-email`: Email-based lookup with tenant isolation
-- `find-users-by-tenant`: Paginated queries with filtering and sorting
+- `find-user-by-email`: Email-based lookup
+- `find-users`: Paginated queries with filtering and sorting
 - `create-user`: New user creation with automatic ID/timestamp generation
 - `update-user`: User modification with automatic timestamp updates
 - `soft-delete-user`: Safe deletion preserving data for compliance
@@ -229,7 +229,7 @@ The ports implementation embodies hexagonal architecture principles:
 
 *Business-Specific Queries:*
 - `find-active-users-by-role`: Role-based user filtering
-- `count-users-by-tenant`: Analytics and capacity planning
+- `count-users`: Analytics and capacity planning
 - `find-users-created-since`: Growth tracking and recent user analysis
 - `find-users-by-email-domain`: Organization-based user management
 
@@ -292,7 +292,7 @@ The ports implementation embodies hexagonal architecture principles:
 *Event Publishing:*
 - Structured domain events with metadata
 - Correlation ID tracking for request tracing
-- Tenant context propagation
+- User context propagation
 - Synchronous/asynchronous processing support
 
 *Event Subscription:*
@@ -354,7 +354,7 @@ The ports implementation embodies hexagonal architecture principles:
 - Efficient query patterns
 
 **🔒 Security**
-- Tenant isolation enforcement
+
 - Audit trail requirements
 - Security context propagation
 
@@ -377,7 +377,7 @@ The SQLite adapter implementation provides production-ready, concrete implementa
 - SQLite-specific type adaptations
 
 **🔒 Security and Compliance**
-- Tenant isolation enforced at database level
+
 - Soft delete implementation for data retention
 - Comprehensive audit logging
 - Cryptographically secure session tokens
@@ -393,19 +393,19 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   role TEXT NOT NULL CHECK(role IN ('admin', 'user', 'viewer')),
   active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
-  tenant_id TEXT NOT NULL,
+  
   created_at TEXT NOT NULL,
   updated_at TEXT,
   deleted_at TEXT,
   
   -- Constraints
-  UNIQUE(email, tenant_id),
+  UNIQUE(email),
   
   -- Performance Indexes
-  INDEX idx_users_tenant_id (tenant_id),
-  INDEX idx_users_email_tenant (email, tenant_id),
-  INDEX idx_users_role_tenant (role, tenant_id),
-  INDEX idx_users_active_tenant (active, tenant_id),
+  
+  INDEX idx_users_email (email),
+  INDEX idx_users_role (role),
+  INDEX idx_users_active (active),
   INDEX idx_users_created_at (created_at),
   INDEX idx_users_deleted_at (deleted_at)
 );
@@ -415,7 +415,7 @@ CREATE TABLE IF NOT EXISTS users (
 - **Text-based UUIDs**: SQLite doesn't have native UUID type
 - **Integer booleans**: SQLite boolean representation (0/1)
 - **ISO 8601 timestamps**: Text-based timestamp storage for portability
-- **Composite unique constraint**: Prevents duplicate emails within tenants
+- **Unique constraint**: Prevents duplicate emails globally
 - **Strategic indexing**: Covers common query patterns for optimal performance
 
 ==== User Sessions Table Schema
@@ -424,7 +424,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS user_sessions (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
-  tenant_id TEXT NOT NULL,
+  
   session_token TEXT NOT NULL UNIQUE,
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL,
@@ -439,7 +439,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
   -- Performance Indexes
   INDEX idx_sessions_token (session_token),
   INDEX idx_sessions_user_id (user_id),
-  INDEX idx_sessions_tenant_id (tenant_id),
+  
   INDEX idx_sessions_expires_at (expires_at),
   INDEX idx_sessions_revoked_at (revoked_at)
 );
@@ -488,12 +488,12 @@ CREATE TABLE IF NOT EXISTS user_sessions (
       (update :id uuid->string)
       (update :role keyword->string)
       (update :active boolean->int)
-      (update :tenant-id uuid->string)
+      (update :user-id uuid->string)
       (update :created-at instant->string)
       (update :updated-at instant->string)
       (update :deleted-at instant->string)
       ;; Convert kebab-case to snake_case
-      (clojure.set/rename-keys {:tenant-id :tenant_id
+      (clojure.set/rename-keys {:user-id :user_id
                                :created-at :created_at
                                :updated-at :updated_at
                                :deleted-at :deleted_at})))
@@ -504,7 +504,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 ==== SQLiteUserRepository Features
 
 **Comprehensive CRUD Operations:**
-- ✅ **Single User Queries**: Optimized lookups by ID and email with tenant isolation
+- ✅ **Single User Queries**: Optimized lookups by ID and email
 - ✅ **Advanced Filtering**: Paginated queries with role, status, and email domain filters
 - ✅ **Soft Delete Support**: Timestamp-based deletion with data preservation
 - ✅ **Batch Operations**: Transaction-safe bulk operations for data import/update
@@ -512,16 +512,16 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 **Business Query Optimizations:**
 ```clojure
 ;; Example: Role-based user query with performance optimization
-(find-active-users-by-role [_ tenant-id role]
+(find-active-users-by-role [_ role]
   (let [query {:select [:*]
                :from [:users]
                :where [:and
-                      [:= :tenant_id (uuid->string tenant-id)]
+                      [:= :id (uuid->string user-id)]
                       [:= :role (keyword->string role)]
                       [:= :active 1]
                       [:is :deleted_at nil]]
                :order-by [[:created_at :desc]]}]
-    ;; Uses idx_users_role_tenant composite index for optimal performance
+    ;; Uses idx_users_role index for optimal performance
     (map db->user-entity (execute-query! datasource query))))
 ```
 
@@ -589,9 +589,9 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 ==== Database Indexing Strategy
 
 **Multi-Column Indexes:**
-- `idx_users_email_tenant`: Email lookups within tenant scope
-- `idx_users_role_tenant`: Role-based filtering with tenant isolation
-- `idx_users_active_tenant`: Active user queries by tenant
+- `idx_users_email`: Email lookups
+- `idx_users_role`: Role-based filtering
+- `idx_users_active`: Active user queries
 
 **Single-Column Indexes:**
 - `idx_users_created_at`: Time-based user queries and sorting
@@ -720,7 +720,7 @@ The user adapter implementation leverages shared type conversion utilities from 
 - Minimal memory footprint with shared connection pooling
 
 **✅ Security and Compliance**
-- Tenant isolation enforced at database level
+
 - Cryptographically secure session management
 - Comprehensive audit logging through shared utilities
 - Soft delete for data retention compliance
@@ -753,18 +753,18 @@ The user adapter implementation leverages shared type conversion utilities from 
                  :name "John Doe"
                  :role :user
                  :active true
-                 :tenant-id tenant-id}))
+                 :user-id user-id}))
 
 ;; Create session for authentication
 (def session (ports/create-session session-repo
                {:user-id (:id new-user)
-                :tenant-id tenant-id
+                :user-id user-id
                 :expires-at (time/plus (time/instant) (time/hours 24))
                 :user-agent "Mozilla/5.0..."
                 :ip-address "192.168.1.1"}))
 
 ;; Find user by email
-(def found-user (ports/find-user-by-email user-repo "john@example.com" tenant-id))
+(def found-user (ports/find-user-by-email user-repo "john@example.com"))
 
 ;; Validate session
 (def active-session (ports/find-session-by-token session-repo (:session-token session)))
@@ -774,7 +774,7 @@ The user adapter implementation leverages shared type conversion utilities from 
 
 ```clojure
 ;; Paginated user listing with filters
-(def user-page (ports/find-users-by-tenant user-repo tenant-id
+(def user-page (ports/find-users user-repo
                  {:limit 20
                   :offset 0
                   :sort-by :created-at
@@ -783,9 +783,9 @@ The user adapter implementation leverages shared type conversion utilities from 
                   :filter-active true}))
 
 ;; Business analytics
-(def admin-count (count (ports/find-active-users-by-role user-repo tenant-id :admin)))
-(def total-users (ports/count-users-by-tenant user-repo tenant-id))
-(def recent-users (ports/find-users-created-since user-repo tenant-id 
+(def admin-count (count (ports/find-active-users-by-role user-repo :admin)))
+(def total-users (ports/count-users user-repo))
+(def recent-users (ports/find-users-created-since user-repo 
                     (time/minus (time/instant) (time/days 7))))
 ```
 
@@ -831,7 +831,7 @@ The user adapter implementation leverages shared type conversion utilities from 
 - Additional user profile fields
 - New preference categories
 - Enhanced validation rules
-- Custom tenant-specific schemas
+
 
 **Port Expansion:**
 - Additional repository query methods
@@ -882,7 +882,7 @@ Key achievements:
 - **Flexible architecture** supporting multiple adapter implementations  
 - **Comprehensive documentation** enabling team collaboration
 - **Testing-friendly design** with built-in utilities
-- **Security-first approach** with tenant isolation and audit trails
+- **Security-first approach** with audit trails
 - **Future-proof extensibility** through modular design patterns
 
 This implementation serves as a template for other modules in the Boundary framework, establishing patterns and practices that ensure consistency and quality across the entire system.

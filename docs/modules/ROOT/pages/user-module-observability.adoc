@@ -58,7 +58,7 @@ The user module now uses Boundary's multi-layer interceptor pattern for seamless
 
 **Key Benefits:**
 - **Zero Boilerplate**: No manual observability calls in business logic
-- **Automatic Context**: Correlation IDs, tenant context, user context flow seamlessly
+- **Automatic Context**: Correlation IDs, user context, user context flow seamlessly
 - **Consistent Patterns**: Standardized observability across all operations
 - **Pure Functions**: Business logic remains focused on domain concerns
 
@@ -78,7 +78,7 @@ All key operations log structured events using `boundary.logging.core`:
 * `validate-session` – session validity checks and expiry
 * `logout-user` – single-session logout
 * `logout-user-everywhere` – global logout across all sessions
-* `get-user-by-id`, `get-user-by-email`, `list-users-by-tenant`, `update-user-profile`, `deactivate-user`, `permanently-delete-user`
+* `get-user-by-id`, `get-user-by-email`, `list-users`, `update-user-profile`, `deactivate-user`, `permanently-delete-user`
 
 === Business and Audit Events
 
@@ -132,18 +132,18 @@ The user service historically emitted metrics via `boundary.metrics.core` (using
 
 === Validation and Error Metrics
 
-* `validation-errors` with tags such as `:operation`, `:tenant-id`, `:error-code`
+* `validation-errors` with tags such as `:operation`, `:error-code`
 
 === Gauge Metrics
 
 * `active-sessions-total` – total number of active sessions
-* `active-sessions-by-tenant` – active sessions per tenant (`:tenant-id` tag)
+* `active-sessions-by-user` – active sessions per user (`:user-id` tag)
 
 === Metric Tags
 
 All metrics are tagged where applicable with values such as:
 
-* `:tenant-id` – tenant identifier
+* `:user-id` – user identifier
 * `:user-id` – user identifier
 * `:operation` – operation name
 * `:reason` – failure reason (e.g. `"user-exists"`, `"system-error"`, `"expired"`, `"not-found"`)
@@ -162,7 +162,7 @@ With interceptors, error reporting is handled automatically with rich context:
   ;; Interceptors automatically:
   ;; - Report exception with full context
   ;; - Include breadcrumbs from operation lifecycle
-  ;; - Add operation tags (component, operation, tenant-id)
+  ;; - Add operation tags (component, operation, user-id)
   ;; - Sanitize sensitive data (passwords, tokens)
   ;; - Track error metrics
   (validate-credentials credentials)
@@ -200,7 +200,7 @@ Error tags consistently include:
 
 * `:component` – `"service.user"`
 * `:operation` – shell operation name (e.g. `"register-user"`)
-* `:tenant-id` – tenant identifier
+* `:user-id` – user IDentifier
 * `:user-id` – user identifier
 * `:session-token` – masked session token (where appropriate)
 
@@ -272,21 +272,21 @@ With interceptors enabled, the user service focuses purely on business logic:
   
   (register-user [this user-data]
     (let [context {:operation "register-user"
-                   :tenant-id (:tenant-id user-data)}]
+                   :user-id (:user-id user-data)}]
       ;; Add breadcrumb
       (error-reporting/add-breadcrumb 
         error-reporter
         "Starting user registration"
         "service.user"
         :info
-        {:tenant-id (:tenant-id user-data)})
+        {:user-id (:user-id user-data)})
       
       ;; Time operation with histogram
       (metrics/time-with-histogram
         metrics-emitter
         "user-operation-duration"
         {:operation-type "register"
-         :tenant-id (:tenant-id user-data)}
+         :user-id (:user-id user-data)}
         (fn []
           ;; Log with function logging wrapper
           (logging/with-function-logging
@@ -298,7 +298,7 @@ With interceptors enabled, the user service focuses purely on business logic:
               (metrics/increment-counter 
                 metrics-emitter 
                 "user-registrations-attempted"
-                {:tenant-id (:tenant-id user-data)})
+                {:user-id (:user-id user-data)})
               
               (try
                 ;; Business logic...
@@ -315,7 +315,7 @@ With interceptors enabled, the user service focuses purely on business logic:
                   (metrics/increment-counter 
                     metrics-emitter
                     "user-registrations-successful"
-                    {:tenant-id (:tenant-id user-data)})
+                    {:user-id (:user-id user-data)})
                   
                   created-user)
                 
@@ -326,7 +326,7 @@ With interceptors enabled, the user service focuses purely on business logic:
                     e
                     "User registration failed"
                     {:extra {:operation "register-user"
-                             :tenant-id (:tenant-id user-data)}
+                             :user-id (:user-id user-data)}
                      :tags {:component "service.user"
                             :operation "register-user"}})
                   
@@ -334,7 +334,7 @@ With interceptors enabled, the user service focuses purely on business logic:
                   (metrics/increment-counter 
                     metrics-emitter
                     "user-registrations-failed"
-                    {:tenant-id (:tenant-id user-data)
+                    {:user-id (:user-id user-data)
                      :reason "system-error"})
                   
                   (throw e)))))))))

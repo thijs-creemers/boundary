@@ -345,7 +345,8 @@ src/boundary/user/
     (let [validation-result (user-core/validate-user-creation-request user-data)]
       (when-not (:valid? validation-result)
         (throw (ex-info "Invalid user data" {:type :validation-error :errors (:errors validation-result)}))))
-    (let [existing-user (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data)) uniqueness-result (user-core/check-duplicate-user-decision user-data existing-user)]
+    (let [existing-user (.find-user-by-email user-repository (:email user-data))
+          uniqueness-result (user-core/check-duplicate-user-decision user-data existing-user)]
       (when (= :reject (:decision uniqueness-result))
         (throw (ex-info "User already exists" {:type :user-exists :email (:email user-data)}))))
     (let [current-time (current-timestamp) user-id (generate-user-id) prepared-user (user-core/prepare-user-for-creation user-data current-time user-id)]

@@ -29,8 +29,8 @@ Ports live in `src/boundary/<module>/ports.clj`.
   (find-user-by-id [this user-id]
     "Retrieve user by ID. Returns user entity or nil.")
   
-  (find-user-by-email [this email tenant-id]
-    "Retrieve user by email within tenant. Returns user entity or nil.")
+  (find-user-by-email [this email]
+    "Retrieve user by email . Returns user entity or nil.")
   
   (create-user [this user-entity]
     "Create new user. Returns created user with generated ID.")
@@ -78,12 +78,12 @@ Adapters live in `src/boundary/<module>/shell/persistence.clj`.
       (when result
         (db-record->user-entity result))))
   
-  (find-user-by-email [_ email tenant-id]
+  (find-user-by-email [_ email]
     (let [query {:select [:*]
                  :from [:users]
                  :where [:and
                          [:= :email email]
-                         [:= :tenant_id (str tenant-id)]
+                         [:= :user_id (str user-id)]
                          [:is :deleted_at nil]]}
           result (db/execute-one! ctx query)]
       (when result
@@ -131,7 +131,7 @@ Adapters live in `src/boundary/<module>/shell/persistence.clj`.
    :name (:name record)
    :role (keyword (:role record))
    :active (:active record)
-   :tenant-id (java.util.UUID/fromString (:tenant_id record))
+   :user-id (java.util.UUID/fromString (:user_id record))
    :created-at (:created_at record)
    :updated-at (:updated_at record)
    :deleted-at (:deleted_at record)})
@@ -144,7 +144,7 @@ Adapters live in `src/boundary/<module>/shell/persistence.clj`.
    :name (:name entity)
    :role (name (:role entity))
    :active (:active entity)
-   :tenant_id (str (:tenant-id entity))
+   :user_id (str (:user-id entity))
    :created_at (:created-at entity)
    :updated_at (:updated_at entity)
    :deleted_at (:deleted-at entity)})

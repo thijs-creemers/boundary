@@ -118,7 +118,7 @@ Malli schemas validate requests automatically.
 [source,clojure]
 ----
 :parameters {:query [:map
-                     [:tenantId :string]
+                     [:userId :string]
                      [:limit {:optional true} :int]
                      [:offset {:optional true} :int]]}
 ----
@@ -130,7 +130,7 @@ Malli schemas validate requests automatically.
                     [:email :string]
                     [:name :string]
                     [:role [:enum "admin" "user" "viewer"]]
-                    [:tenantId :string]
+                    [:userId :string]
                     [:active {:optional true} :boolean]]}
 ----
 
@@ -241,15 +241,15 @@ For listing resources with pagination:
   "GET /api/users - List users with pagination."
   [user-service]
   (fn [{{:keys [query]} :parameters}]
-    (let [tenant-id (type-conversion/string->uuid (:tenantId query))
+    (let [user-id (type-conversion/string->uuid (:userId query))
           options {:limit (or (:limit query) 20)
                    :offset (or (:offset query) 0)
                    :filter-role (when (:role query) 
                                   (keyword (:role query)))
                    :filter-active (:active query)}
           
-          result (ports/find-users-by-tenant user-service 
-                                             tenant-id 
+          result (ports/find-users user-service 
+                                             user-id 
                                              options)
           users (map schema/user-specific-kebab->camel 
                      (:users result))]
@@ -269,7 +269,7 @@ For listing resources with pagination:
        :summary "List users with pagination and filters"
        :tags ["users"]
        :parameters {:query [:map
-                            [:tenantId :string]
+                            [:userId :string]
                             [:limit {:optional true} :int]
                             [:offset {:optional true} :int]
                             [:role {:optional true} 
@@ -295,7 +295,7 @@ curl -s -X POST http://localhost:3000/api/users \
     "name": "Test User",
     "password": "temp",
     "role": "user",
-    "tenantId": "550e8400-e29b-41d4-a716-446655440000"
+    "userId": "550e8400-e29b-41d4-a716-446655440000"
   }' | jq
 
 # PUT to update

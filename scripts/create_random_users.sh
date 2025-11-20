@@ -7,12 +7,10 @@ set -e
 
 # Configuration
 API_BASE_URL="${API_BASE_URL:-http://localhost:3000}"
-TENANT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
 
 echo "========================================="
 echo "Creating 10 Random Users"
 echo "========================================="
-echo "Tenant ID: $TENANT_ID"
 echo "API Base URL: $API_BASE_URL"
 echo ""
 
@@ -36,7 +34,6 @@ for i in {1..10}; do
       \"name\": \"${FIRST} ${LAST}\",
       \"password\": \"password${i}\",
       \"role\": \"user\",
-      \"tenantId\": \"${TENANT_ID}\",
       \"active\": true
     }")
   
@@ -56,10 +53,8 @@ echo "========================================="
 echo "Retrieving Created Users"
 echo "========================================="
 
-# Retrieve all users for the tenant
-echo "Fetching all users for tenant ${TENANT_ID}..."
 RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
-  "${API_BASE_URL}/api/users?tenantId=${TENANT_ID}&limit=20")
+  "${API_BASE_URL}/api/users&limit=20")
 
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
 BODY=$(echo "$RESPONSE" | sed '$d')
@@ -72,12 +67,10 @@ else
   echo "✗ Failed to retrieve users (HTTP $HTTP_CODE)"
   echo "Response: $BODY"
 fi
-
 echo ""
 echo "========================================="
 echo "Summary"
 echo "========================================="
-echo "Tenant ID: $TENANT_ID"
 echo "You can retrieve these users again with:"
-echo "  curl -s '${API_BASE_URL}/api/users?tenantId=${TENANT_ID}' | jq '.'"
+echo "  curl -s '${API_BASE_URL}/api/users' | jq '.'"
 echo "========================================="

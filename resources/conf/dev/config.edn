@@ -11,14 +11,6 @@
    :date-time-format "yyyy-MM-dd HH:mm:ss"
    :currency/iso-code "EUR"
 
-  ;; Default tenant ID for development
-  ;; This provides a consistent tenant context for:
-  ;; - REPL development and testing
-  ;; - CLI operations without explicit tenant specification
-  ;; - Default test fixtures
-  ;; Production systems should NOT rely on defaults and must always specify tenant-id
-   :default-tenant-id #or [#env DEFAULT_TENANT_ID "26f9ab85-27e6-44df-955e-84a7dde643ff"]
-
    ;; Feature flags
    :features
    {:user-web-ui {:enabled? #or [#env BND_WEB_UI_ENABLED true]}}
@@ -40,8 +32,8 @@
     :role-restrictions {:allowed-roles #{:user :admin :manager}
                         :admin-email-domains #{} ; Empty means any domain can be admin in dev
                         :default-role :user}
-    :tenant-limits {:max-users-per-tenant 1000 ; Higher limit for dev
-                    :check-enabled? false} ; Disabled in dev for easier testing
+    :user-limits {:max-users 10000 ; Higher limit for dev
+                  :check-enabled? false} ; Disabled in dev for easier testing
     :cross-field-validation {:admin-requires-company-email? false ; Relaxed for dev
                              :manager-requires-department? false}}}
 

@@ -89,7 +89,7 @@ Boundary uses structured error codes following RFC 7807 (Problem Details) for HT
 **Common Causes:**
 
 * User role lacks required permissions
-* Cross-tenant access attempt
+* Cross-user access attempt
 * Resource access denied
 
 [[error-404]]
@@ -115,7 +115,7 @@ Boundary uses structured error codes following RFC 7807 (Problem Details) for HT
 
 * Invalid user ID
 * Resource deleted
-* Wrong tenant context
+* Wrong user context
 
 [[error-409]]
 ==== 409 Conflict
@@ -229,8 +229,8 @@ Boundary uses structured error codes following RFC 7807 (Problem Details) for HT
 |`user.role/required`
 |Role field is required
 
-|`user.tenant-id/required`
-|Tenant ID is required
+|`user.id/required`
+|User ID is required
 
 |`session.user-id/required`
 |User ID is required for session
@@ -249,8 +249,8 @@ Boundary uses structured error codes following RFC 7807 (Problem Details) for HT
 |`user.id/invalid-uuid`
 |User ID must be valid UUID
 
-|`user.tenant-id/invalid-uuid`
-|Tenant ID must be valid UUID
+|`user.id/invalid-uuid`
+|User ID must be valid UUID
 |===
 
 [[validation-enum]]
@@ -396,7 +396,7 @@ clojure -M:cli user-create \
   --email alice@example.com \
   --name "Alice" \
   --role user \
-  --tenant-id "$TENANT_ID"
+  --user-id "$USER_ID"
 
 exit_code=$?
 
