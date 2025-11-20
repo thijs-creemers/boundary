@@ -251,7 +251,18 @@
    Returns:
      Vector of Reitit route definitions for web UI"
   [user-service config]
-  [["/users" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
+  [["/register" {:get  {:handler (web-handlers/register-page-handler config)
+                        :summary "Self-service registration page"}
+                 :post {:handler (web-handlers/register-submit-handler user-service config)
+                        :summary "Submit registration form"}}]
+   ["/login" {:get  {:handler (web-handlers/login-page-handler config)
+                     :summary "Login page"}
+              :post {:handler (web-handlers/login-submit-handler user-service config)
+                     :summary "Submit login form"}}]
+   ["/logout" {:post {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
+                      :handler   (web-handlers/logout-handler user-service config)
+                      :summary   "Logout current user"}}]
+   ["/users" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
               :get {:handler (web-handlers/users-page-handler user-service config)
                     :summary "Users listing page"}
               :post {:handler (web-handlers/create-user-htmx-handler user-service config)

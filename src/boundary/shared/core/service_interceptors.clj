@@ -231,6 +231,7 @@
   (let [business-interceptor {:name :business-logic
                               :enter (fn [ctx]
                                        (let [result (business-logic-fn ctx)]
+                                         (println "DEBUG service business-logic result:" result)
                                          (assoc ctx :result result)))}]
     (concat base-service-pipeline
             custom-interceptors
@@ -276,8 +277,13 @@
         pipeline (apply create-service-pipeline business-logic-fn custom-interceptors)
         result-context (interceptor/run-pipeline context pipeline)]
 
+    (println "DEBUG execute-service-operation result-context keys:" (keys result-context))
+    (println "DEBUG execute-service-operation :result in context:" (:result result-context))
+    (when-let [ex (:exception result-context)]
+      (println "DEBUG execute-service-operation exception type/message:" (type ex) "-" (.getMessage ^Throwable ex)))
+
     ;; Return the business logic result or throw if there was an error
-    (if-let [error (:error result-context)]
+    (if-let [error (:exception result-context)]
       (throw error)
       (:result result-context))))
 

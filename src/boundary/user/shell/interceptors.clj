@@ -110,8 +110,9 @@
                                                          :role (:role user-data)
                                                          :tenant-id (:tenant-id user-data)})]
 
-                ;; Call the core service
+                ;; Call the core service; it returns the created user entity directly
                 (let [created-user (ports/register-user service user-data)]
+                  (println "DEBUG created-user from service:" (select-keys created-user [:id :email :name :role :tenant-id :created-at :updated-at :deleted-at :last-login]))
 
                   ;; Add success breadcrumb and result
                   (-> updated-context

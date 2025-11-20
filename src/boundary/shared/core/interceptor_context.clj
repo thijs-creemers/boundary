@@ -7,7 +7,8 @@
   (:require [malli.core :as m]
             [malli.error :as me]
             [malli.transform :as mt]
-            [clojure.spec.alpha :as s])
+            [clojure.spec.alpha :as s]
+            [boundary.core.http.problem-details :as problem-details])
   (:import [java.time Instant]
            [java.util UUID]))
 
@@ -308,14 +309,16 @@
   [op system args options]
   (assoc (create-initial-context op system
                                  :request {:args args :options options})
-         :interface-type :cli))
+         :interface-type :cli
+         :error-mappings problem-details/default-error-mappings))
 
 (defn create-cli-context-with-system
   "Creates context for CLI command processing with full system services."
   [op system args options]
   (assoc (create-initial-context op system
                                  :request {:args args :options options})
-         :interface-type :cli))
+         :interface-type :cli
+         :error-mappings problem-details/default-error-mappings))
 
 (defn create-service-context
   "Creates context for internal service calls."

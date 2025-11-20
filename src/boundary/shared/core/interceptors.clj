@@ -156,84 +156,136 @@
                     full-body (merge base-body extension-fields)]
                 (assoc ctx :response {:status status-code :body full-body}))))})
 
+(defn convert-exception-to-response
+  "Converts an exception in the context into an appropriate HTTP error response.
+   Uses error mappings from the context to map domain-specific error types to HTTP responses."
+  [ctx]
+  (let [exception (:exception ctx)
+        error-data (ex-data exception)
+        error-type (:type error-data)
+        error-message (ex-message exception)
+        correlation-id (:correlation-id ctx)
+        error-mappings (:error-mappings ctx)
+
+        ;; Look up the error mapping for this error type
+        [status-code title] (get error-mappings error-type [500 "Internal Server Error"])]
+
+    (cond
+      ;; Handle validation errors with enhanced field extraction
+      (= error-type :validation-error)
+      (let [errors (:errors error-data)
+            ;; Extract field-level information from validation errors
+            field-info (reduce (fn [acc error]
+                                 (let [field (:field error)
+                                       field-keyword (cond
+                                                       (keyword? field) field
+                                                       (vector? field) (first field)
+                                                       :else (keyword (str field)))]
+                                   (update acc :missing-fields (fnil conj []) field-keyword)))
+                               {:missing-fields []}
+                               errors)
+            ;; Try to get provided fields from the original data in error context
+            provided-fields (when-let [original-data (:original-data error-data)]
+                              (vec (keys original-data)))
+
+            response {:status 400
+                      :body {:type (name error-type)
+                             :title "Validation Error"
+                             :status 400
+                             :detail error-message
+                             :correlationId correlation-id
+                             :missing-fields (:missing-fields field-info)
+                             :provided-fields (or provided-fields [])
+                             :interface-type (:interface-type error-data :cli)
+                             :validation-details errors ; Include original error details
+                             :timestamp (.toString (java.time.Instant/now))}}]
+        (assoc ctx :response response))
+
+      ;; Handle user-related errors
+      (= error-type :user-not-found)
+      (let [response {:status status-code
+                      :body {:type (name error-type)
+                             :title title
+                             :status status-code
+                             :detail error-message
+                             :instance (str "/users/" (:user-id error-data))
+                             :correlationId correlation-id
+                             :user-id (str (:user-id error-data))
+                             :timestamp (.toString (java.time.Instant/now))}}]
+        (assoc ctx :response response))
+
+      ;; Handle session-related errors
+      (= error-type :session-not-found)
+      (let [response {:status status-code
+                      :body {:type (name error-type)
+                             :title title
+                             :status status-code
+                             :detail error-message
+                             :instance (str "/sessions/" (:token error-data))
+                             :correlationId correlation-id
+                             :token (str (:token error-data))
+                             :valid (:valid error-data)
+                             :timestamp (.toString (java.time.Instant/now))}}]
+        (assoc ctx :response response))
+
+      ;; Handle other domain errors with extension fields from error-data
+      error-type
+      (let [base-body {:type (name error-type)
+                       :title title
+                       :status status-code
+                       :detail error-message
+                       :correlationId correlation-id
+                       :timestamp (.toString (java.time.Instant/now))}
+            ;; Add all extension fields from error-data except :type and :message
+            ;; Convert UUID values to strings for JSON serialization
+            extension-fields (reduce-kv (fn [acc k v]
+                                          (if (instance? java.util.UUID v)
+                                            (assoc acc k (str v))
+                                            (assoc acc k v)))
+                                        {}
+                                        (dissoc error-data :type :message))
+            full-body (merge base-body extension-fields)]
+        (assoc ctx :response {:status status-code :body full-body}))
+
+      ;; Default case for unhandled error types
+      :else
+      (let [response {:status 500
+                      :body {:type "internal-server-error"
+                             :title "Internal Server Error"
+                             :status 500
+                             :detail "An unexpected error occurred while processing your request"
+                             :correlationId correlation-id
+                             :timestamp (.toString (java.time.Instant/now))}}]
+        (assoc ctx :response response)))))
+
 (def error-response-converter
   "Converts failed contexts (halted with exceptions) into proper HTTP error responses.
-   Runs in the leave phase to catch contexts that were halted by fail-with-exception.
+   Runs in both leave and error phases to catch contexts that were halted by fail-with-exception
+   or had exceptions during pipeline execution.
    
    Uses error mappings from the context to map domain-specific error types to HTTP responses."
   {:name :error-response-converter
    :leave (fn [ctx]
+            (println "DEBUG error-response-converter :leave: halt?=" (:halt? ctx) "exception=" (some? (:exception ctx)) "response=" (some? (:response ctx)))
+            (when (:exception ctx)
+              (println "DEBUG exception type:" (:type (ex-data (:exception ctx))))
+              (println "DEBUG error-mappings present:" (some? (:error-mappings ctx))))
             (if (and (:halt? ctx) (:exception ctx) (not (:response ctx)))
               ;; Context was halted with an exception but no response was set
               ;; Convert the exception into an HTTP error response using context mappings
-              (let [exception (:exception ctx)
-                    error-data (ex-data exception)
-                    error-type (:type error-data)
-                    error-message (ex-message exception)
-                    correlation-id (:correlation-id ctx)
-                    error-mappings (:error-mappings ctx)
-
-                    ;; Look up the error mapping for this error type
-                    [status-code title] (get error-mappings error-type [500 "Internal Server Error"])]
-
-                (cond
-                  ;; Handle user-related errors
-                  (= error-type :user-not-found)
-                  (let [response {:status status-code
-                                  :body {:type (name error-type)
-                                         :title title
-                                         :status status-code
-                                         :detail error-message
-                                         :instance (str "/users/" (:user-id error-data))
-                                         :correlationId correlation-id
-                                         :user-id (str (:user-id error-data))
-                                         :timestamp (.toString (java.time.Instant/now))}}]
-                    (assoc ctx :response response))
-
-                  ;; Handle session-related errors
-                  (= error-type :session-not-found)
-                  (let [response {:status status-code
-                                  :body {:type (name error-type)
-                                         :title title
-                                         :status status-code
-                                         :detail error-message
-                                         :instance (str "/sessions/" (:token error-data))
-                                         :correlationId correlation-id
-                                         :token (str (:token error-data))
-                                         :valid (:valid error-data)
-                                         :timestamp (.toString (java.time.Instant/now))}}]
-                    (assoc ctx :response response))
-
-                  ;; Handle other domain errors with extension fields from error-data
-                  error-type
-                  (let [base-body {:type (name error-type)
-                                   :title title
-                                   :status status-code
-                                   :detail error-message
-                                   :correlationId correlation-id
-                                   :timestamp (.toString (java.time.Instant/now))}
-                        ;; Add all extension fields from error-data except :type and :message
-                        ;; Convert UUID values to strings for JSON serialization
-                        extension-fields (reduce-kv (fn [acc k v]
-                                                      (if (instance? java.util.UUID v)
-                                                        (assoc acc k (str v))
-                                                        (assoc acc k v)))
-                                                    {}
-                                                    (dissoc error-data :type :message))
-                        full-body (merge base-body extension-fields)]
-                    (assoc ctx :response {:status status-code :body full-body}))
-
-                  ;; Default case for unhandled error types
-                  :else
-                  (let [response {:status 500
-                                  :body {:type "internal-server-error"
-                                         :title "Internal Server Error"
-                                         :status 500
-                                         :detail "An unexpected error occurred while processing your request"
-                                         :correlationId correlation-id
-                                         :timestamp (.toString (java.time.Instant/now))}}]
-                    (assoc ctx :response response))))
+              (convert-exception-to-response ctx)
               ;; Context is not failed or already has a response
+              ctx))
+   :error (fn [ctx]
+            (println "DEBUG error-response-converter :error: halt?=" (:halt? ctx) "exception=" (some? (:exception ctx)) "response=" (some? (:response ctx)))
+            (when (:exception ctx)
+              (println "DEBUG exception type:" (:type (ex-data (:exception ctx))))
+              (println "DEBUG error-mappings present:" (some? (:error-mappings ctx))))
+            (if (and (:exception ctx) (not (:response ctx)))
+              ;; Context has an exception from pipeline execution but no response was set
+              ;; Convert the exception into an HTTP error response using context mappings
+              (convert-exception-to-response ctx)
+              ;; Context doesn't have an exception or already has a response
               ctx))})
 
 ;; Effects Execution Interceptor
@@ -329,12 +381,43 @@
   "Shapes results into CLI response format with exit codes.
    
    This interceptor handles both :result format (with :status/:data/:errors)
-   and :response format (direct CLI response) to maintain compatibility."
+   and :response format (direct CLI response) to maintain compatibility.
+   
+   For error responses already set by error handling interceptors, converts
+   HTTP-style responses to CLI format with detailed error messages."
   {:name :response-shape-cli
    :leave (fn [ctx]
-            (if (:response ctx)
-              ;; Response already set by domain-specific interceptors
-              ctx
+            (if-let [response (:response ctx)]
+              ;; Response already set - check if it needs CLI formatting
+              (if (and (contains? response :status) (contains? response :body))
+                ;; HTTP-style error response - convert to CLI format
+                (let [body (:body response)
+                      status (:status response)
+                      exit-code (if (>= status 400) 1 0)]
+                  (if (>= status 400)
+                    ;; Error response - extract detailed error info
+                    (let [error-details (:detail body)
+                          missing-fields (:missing-fields body)
+                          provided-fields (:provided-fields body)
+                          interface-type (:interface-type body)
+
+                          ;; Build detailed error message
+                          detailed-message (str error-details
+                                                (when missing-fields
+                                                  (str "\nMissing required fields: " (clojure.string/join ", " missing-fields)))
+                                                (when provided-fields
+                                                  (str "\nProvided fields: " (clojure.string/join ", " provided-fields)))
+                                                (when interface-type
+                                                  (str "\nInterface: " (name interface-type))))]
+                      (assoc ctx :response
+                             {:exit exit-code
+                              :stderr detailed-message}))
+                    ;; Success response
+                    (assoc ctx :response
+                           {:exit exit-code
+                            :stdout (str "Success: " (pr-str body))})))
+                ;; Already CLI format - pass through
+                ctx)
               ;; Shape result for CLI (fallback)
               (let [result (:result ctx)]
                 (case (:status result)
@@ -399,7 +482,8 @@
   [& custom-interceptors]
   (vec (concat [context-interceptor
                 logging-start
-                metrics-start]
+                metrics-start
+                error-response-converter] ; Add error handling for CLI like HTTP
                custom-interceptors
                [effects-dispatch
                 logging-complete

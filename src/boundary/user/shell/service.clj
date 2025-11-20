@@ -63,52 +63,70 @@
 
   ;; User Management - Shell layer orchestrates I/O and calls pure core functions
   (register-user [this user-data]
-    (service-interceptors/execute-service-operation
-     :register-user
-     {:user-data user-data
-      :tenant-id (:tenant-id user-data)
-      :email (:email user-data)}
-     (fn [{:keys [params]}]
-       (let [user-data (:user-data params)]
-         ;; 1. Validate request using pure core function with validation config
-         (let [validation-result (user-core/validate-user-creation-request user-data validation-config)]
-           (when-not (:valid? validation-result)
-             (throw (ex-info "Invalid user data"
-                             {:type :validation-error
-                              :errors (:errors validation-result)}))))
+    (println "DEBUG register-user called with:" (select-keys user-data [:email :name :role :tenant-id :password]))
+    (let [result (service-interceptors/execute-service-operation
+                  :register-user
+                  {:user-data user-data
+                   :tenant-id (:tenant-id user-data)
+                   :email (:email user-data)}
+                  (fn [{:keys [params]}]
+                    (let [user-data (:user-data params)]
+                      ;; 1. Validate request using pure core function with validation config
+                      (println "DEBUG register-user step: before validate-user-creation-request")
+                      (let [validation-result (user-core/validate-user-creation-request user-data validation-config)]
+                        (println "DEBUG register-user step: after validate-user-creation-request" {:valid? (:valid? validation-result)})
+                        (when-not (:valid? validation-result)
+                          (throw (ex-info "Invalid user data"
+                                          {:type :validation-error
+                                           :errors (:errors validation-result)
+                                           :original-data user-data
+                                           :interface-type :cli}))))
 
-         ;; 2. Validate password policy using pure authentication core
-         (when (:password user-data)
-           (let [password-validation (auth-core/meets-password-policy? (:password user-data) (:password-policy validation-config) {:email (:email user-data)})]
-             (when-not (:valid? password-validation)
-               (throw (ex-info "Password does not meet requirements"
-                               {:type :password-policy-violation
-                                :errors (:errors password-validation)})))))
+                      ;; 2. Validate password policy using pure authentication core
+                      (println "DEBUG register-user step: before meets-password-policy?" {:has-password (boolean (:password user-data))})
+                      (when (:password user-data)
+                        (let [password-validation (auth-core/meets-password-policy? (:password user-data)
+                                                                                    (:password-policy validation-config)
+                                                                                    {:email (:email user-data)})]
+                          (println "DEBUG register-user step: after meets-password-policy?" {:valid? (:valid? password-validation)
+                                                                                             :violations (:violations password-validation)})
+                          (when-not (:valid? password-validation)
+                            ;; Surface detailed violations from password policy so callers (HTTP/CLI)
+                            ;; can show user-friendly hints about what is wrong with the password.
+                            (throw (ex-info "Password does not meet requirements"
+                                            {:type :password-policy-violation
+                                             :violations (:violations password-validation)})))))
 
-         ;; 3. Check business rules using pure core function
-         (let [existing-user (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data))
-               uniqueness-result (user-core/check-duplicate-user-decision user-data existing-user)]
-           (when (= :reject (:decision uniqueness-result))
-             (throw (ex-info "User already exists"
-                             {:type :user-exists
-                              :message (:message uniqueness-result)}))))
+                      ;; 3. Check business rules using pure core function
+                      (println "DEBUG register-user step: before check-duplicate-user-decision")
+                      (let [existing-user (.find-user-by-email user-repository (:email user-data) (:tenant-id user-data))
+                            uniqueness-result (user-core/check-duplicate-user-decision user-data existing-user)]
+                        (println "DEBUG register-user step: after check-duplicate-user-decision" {:decision (:decision uniqueness-result)})
+                        (when (= :reject (:decision uniqueness-result))
+                          (throw (ex-info "User already exists"
+                                          {:type :user-exists
+                                           :message (:message uniqueness-result)}))))
 
-         ;; 4. Hash password using auth service (shell layer I/O)
-         (let [password-hash (when (:password user-data)
-                               (auth-shell/hash-password (:password user-data)))
-               user-data-with-hash (if password-hash
-                                     (-> user-data
-                                         (assoc :password-hash password-hash)
-                                         (dissoc :password))
-                                     user-data)]
+                      ;; 4. Hash password using auth service (shell layer I/O)
+                      (println "DEBUG register-user step: before hash-password")
+                      (let [password-hash (when (:password user-data)
+                                            (auth-shell/hash-password (:password user-data)))
+                            user-data-with-hash (if password-hash
+                                                  (-> user-data
+                                                      (assoc :password-hash password-hash)
+                                                      (dissoc :password))
+                                                  user-data)]
 
-           ;; 5. Persist using impure shell persistence layer
-           (let [prepared-user (user-core/prepare-user-for-creation user-data-with-hash (current-timestamp) (generate-user-id))
-                 created-user (.create-user user-repository prepared-user)]
-             created-user))))
-     {:system {:user-repository user-repository
-               :session-repository session-repository
-               :auth-service auth-service}}))
+                        ;; 5. Persist using impure shell persistence layer
+                        (let [prepared-user (user-core/prepare-user-for-creation user-data-with-hash (current-timestamp) (generate-user-id))
+                              created-user (.create-user user-repository prepared-user)]
+                          (println "DEBUG created-user in service:" (select-keys created-user [:id :email :name :role :tenant-id :created-at]))
+                          created-user))))
+                  {:system {:user-repository user-repository
+                            :session-repository session-repository
+                            :auth-service auth-service}})]
+      (println "DEBUG register-user result from execute-service-operation:" result)
+      result))
 
   (authenticate-user [this user-credentials]
     (service-interceptors/execute-service-operation
@@ -279,7 +297,9 @@
            (when-not (:valid? validation-result)
              (throw (ex-info "Invalid user data"
                              {:type :validation-error
-                              :errors (:errors validation-result)}))))
+                              :errors (:errors validation-result)
+                              :original-data user-entity
+                              :interface-type :cli}))))
 
          ;; 2. Persist using impure shell persistence layer
          (let [updated-user (.update-user user-repository user-entity)]

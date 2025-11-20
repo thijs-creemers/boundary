@@ -17,7 +17,7 @@
   ;; - CLI operations without explicit tenant specification
   ;; - Default test fixtures
   ;; Production systems should NOT rely on defaults and must always specify tenant-id
-   :default-tenant-id #or [#env DEFAULT_TENANT_ID "00000000-0000-0000-0000-000000000001"]
+   :default-tenant-id #or [#env DEFAULT_TENANT_ID "26f9ab85-27e6-44df-955e-84a7dde643ff"]
 
    ;; Feature flags
    :features

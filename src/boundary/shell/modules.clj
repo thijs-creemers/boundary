@@ -120,7 +120,9 @@
             [nil args]))]
     (cond
       (and target-module (contains? module->runner target-module))
-      ((get module->runner target-module) cli-args)
+      (let [status ((get module->runner target-module) cli-args)]
+        ;; Ensure we always return an integer status code
+        (if (integer? status) status 1))
 
       target-module
       (do

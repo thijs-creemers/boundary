@@ -216,14 +216,8 @@
                                     :params (rest sql-query)})]
           (add-database-breadcrumb operation-type :error error-details))
 
-        ;; Report error to error reporting system
-        (error-reporting/report-application-error
-         {} ; context - Database layer doesn't have error context
-         e
-         (str "Database " operation-type " execution failed")
-         (merge operation-details
-                {:sql (first sql-query)
-                 :params (rest sql-query)}))
+;; Skip error reporting since database layer doesn't have error context
+        ;; This prevents protocol errors when called from contexts without proper error reporting setup
 
         ;; Side effect: error logging
         (log/error "Update failed"
@@ -292,12 +286,8 @@
                                    {:error (.getMessage e)})]
           (add-database-breadcrumb "batch" :error error-details))
 
-        ;; Report error to error reporting system
-        (error-reporting/report-application-error
-         {} ; context - Database layer doesn't have error context
-         e
-         "Database batch operation failed"
-         operation-details)
+;; Skip error reporting since database layer doesn't have error context
+        ;; This prevents protocol errors when called from contexts without proper error reporting setup
 
         ;; Re-throw to preserve error chain
         (throw e)))))
@@ -346,12 +336,8 @@
                                       :status "rolled-back"})]
             (add-database-breadcrumb "transaction" :error error-details))
 
-          ;; Report error to error reporting system
-          (error-reporting/report-application-error
-           {} ; context - Database layer doesn't have error context
-           e
-           "Database transaction failed and was rolled back"
-           operation-details)
+;; Skip error reporting since database layer doesn't have error context
+          ;; This prevents protocol errors when called from contexts without proper error reporting setup
 
           (log/error "Transaction failed, rolling back"
                      {:adapter (protocols/dialect (:adapter ctx))

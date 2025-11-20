@@ -245,7 +245,7 @@
      [:div.page-header
       [:h1 (:name user)]
       [:div.page-actions
-       [:a.button {:href "/web/users"} "← Back to Users"]]]
+       [:a.button {:href "/web/users"} "Back to Users"]]]
      (user-detail-form user)]
     opts))
 
@@ -266,6 +266,103 @@
      [:div.page-header
       [:h1 "Create New User"]
       [:div.page-actions
-       [:a.button {:href "/web/users"} "← Back to Users"]]]
+       [:a.button {:href "/web/users"} "Back to Users"]]]
      (create-user-form data errors)]
+    opts))
+
+;; =============================================================================
+;; Login Form & Page
+;; =============================================================================
+
+(defn login-form
+  "Login form for email/password sign-in.
+
+   Args:
+     data   - map with optional :email / :remember
+     errors - map of field keyword -> vector of error messages"
+  [data errors]
+  (let [err (fn [k]
+              (when-let [es (seq (get errors k))]
+                [:div.validation-errors
+                 (for [e es]
+                   [:p e])]))]
+    [:div#login-form
+     [:h2 "Sign in"]
+     [:form {:method "post"
+             :action "/web/login"}
+      (ui/form-field :email "Email"
+        (ui/email-input :email (:email data) {:required true})
+        (:email errors))
+      (ui/form-field :password "Password"
+        (ui/password-input :password "" {:required true})
+        (:password errors))
+      (ui/form-field :remember "Remember me"
+        (ui/checkbox :remember (boolean (:remember data)))
+        nil)
+      (ui/submit-button "Sign in" {:loading-text "Signing in..."})]]))
+
+(defn login-page
+  "Complete login page.
+
+   Args:
+     data   - form data map (may be empty)
+     errors - validation errors (may be nil)
+     opts   - page options (user context, flash messages, etc.)"
+  [& [data errors opts]]
+  (layout/page-layout
+    "Sign in"
+    [:div.login-page
+     [:div.page-header
+      [:h1 "Boundary"]
+      [:p "Sign in to manage users"]]
+     (login-form data errors)]
+    opts))
+
+;; =============================================================================
+;; Self-Service Registration Form & Page
+;; =============================================================================
+
+(defn register-form
+  "Form for self-service account creation.
+
+   Args:
+     data   - map with optional :name / :email
+     errors - map of field keyword -> vector of error messages"
+  [data errors]
+  (let [err (fn [k]
+              (when-let [es (seq (get errors k))]
+                [:div.validation-errors
+                 (for [e es]
+                   [:p e])]))]
+    [:div#register-form
+     [:h2 "Create Account"]
+     [:form {:method "post"
+             :action "/web/register"}
+      (ui/form-field :name "Name"
+        (ui/text-input :name (:name data) {:required true})
+        (:name errors))
+      (ui/form-field :email "Email"
+        (ui/email-input :email (:email data) {:required true})
+        (:email errors))
+      (ui/form-field :password "Password"
+        (ui/password-input :password "" {:required true})
+        (:password errors))
+      (ui/submit-button "Create Account" {:loading-text "Creating..."})]]))
+
+(defn register-page
+  "Complete self-service registration page.
+
+   Args:
+     data   - form data map (may be empty)
+     errors - validation errors (may be nil)
+     opts   - page options (user context, flash messages, etc.)"
+  [& [data errors opts]]
+  (layout/page-layout
+    "Create Account"
+    [:div.register-page
+     [:div.page-header
+      [:h1 "Create Account"]
+      [:div.page-actions
+       [:a.button {:href "/web/login"} "\u2190 Back to Login"]]]
+     (register-form data errors)]
     opts))

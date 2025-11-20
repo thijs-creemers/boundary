@@ -108,30 +108,17 @@
 (def persistence-error-handling
   "Handles persistence operation error reporting and recovery."
   {:name :persistence-error-handling
-   :error (fn [{:keys [operation-name params context] :as ctx}]
-            (let [error (:error ctx)
-                  error-data (ex-data error)
+   :error (fn [{:keys [operation-name params context exception] :as ctx}]
+            (let [error-data (ex-data exception)
                   error-type (or (:type error-data) "database-error")]
 
-              ;; Safe error reporting - only if error-reporter is available
-              (try
-                ;; This is a no-op in most persistence contexts
-                ;; Error reporting is typically handled at service layer
-                (error-reporting/report-application-error
-                 {} ; Empty error reporter context
-                 error
-                 (str "Database operation failed: " operation-name)
-                 {:operation operation-name
-                  :params params
-                  :context context})
-                (catch Exception _
-                  ;; Expected - persistence layer doesn't have error reporter
-                  nil))
+;; Skip error reporting at persistence layer - handled at service layer
+              ;; This prevents protocol errors when called from contexts without proper error reporting setup
 
               ;; Add structured error information to context
               (assoc ctx :error-info {:operation operation-name
                                       :error-type error-type
-                                      :error-message (.getMessage error)
+                                      :error-message (when exception (.getMessage exception))
                                       :params params})))})
 
 (def persistence-result-validation

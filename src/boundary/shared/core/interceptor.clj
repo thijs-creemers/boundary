@@ -20,18 +20,27 @@
   (:require [clojure.set :as set]))
 
 (defn execute-interceptor-fn
-  "Safely executes an interceptor function with error handling."
+  "Safely executes an interceptor function with error handling.
+
+   IMPORTANT: Preserve domain exceptions (ExceptionInfo with ex-data) so that
+   their :type/:message/:violations are still visible to higher-level handlers.
+   Only wrap non-ExceptionInfo throwables for additional interceptor context."
   [interceptor-fn ctx interceptor-name]
   (try
     (if interceptor-fn
       (interceptor-fn ctx)
       ctx)
     (catch Throwable t
-      (throw (ex-info (str "Error in interceptor: " interceptor-name)
-                      {:interceptor interceptor-name
-                       :context-keys (keys ctx)
-                       :original-exception (.getMessage t)}
-                      t)))))
+      ;; If this is already a domain ExceptionInfo with rich ex-data, rethrow it
+      ;; unchanged so callers can see the original :type and :message.
+      (if (instance? clojure.lang.ExceptionInfo t)
+        (throw t)
+        ;; For non-domain throwables, wrap with interceptor metadata
+        (throw (ex-info (str "Error in interceptor: " interceptor-name)
+                        {:interceptor interceptor-name
+                         :context-keys (keys ctx)
+                         :original-exception (.getMessage t)}
+                        t))))))
 
 (defn run-enter-phase
   "Executes the :enter phase of interceptors in forward order.

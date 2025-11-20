@@ -46,6 +46,7 @@
    [nil "--tenant-id UUID" "Tenant UUID (required)"
     :parse-fn type-conv/parse-uuid-string
     :validate [some? "Must be a valid UUID"]]
+   [nil "--password PASSWORD" "User password (optional, will be hashed according to policy)"]
    [nil "--active BOOL" "User active status (default: true)"
     :default true
     :parse-fn type-conv/parse-bool
@@ -198,7 +199,7 @@
                     [(truncate-string (str (:id user)) 36)
                      (truncate-string (:email user) 30)
                      (truncate-string (:name user) 25)
-                     (name (:role user))
+                     (or (some-> (:role user) name) "")
                      (str (:active user))
                      (format-instant (:created-at user))])
                   users)]
@@ -233,7 +234,7 @@
   (-> user
       (update :id str)
       (update :tenant-id str)
-      (update :role name)
+      (update :role #(some-> % name))
       (update :created-at format-instant-json)
       (update :updated-at format-instant-json)
       (update :deleted-at format-instant-json)
@@ -275,21 +276,35 @@
                                      :count (count data)})
             :session (format-json (session->json data))
             :session-list (format-json {:sessions (map session->json data)
-                                        :count (count data)}))
+                                        :count (count data)})
+            ;; Fallback for unknown entity types in JSON mode
+            (format-json data))
     :table (case entity-type
              :user (format-user-table [data])
              :user-list (format-user-table data)
              :session (format-session-table [data])
-             :session-list (format-session-table data))))
+             :session-list (format-session-table data)
+             ;; Fallback for unknown entity types in table mode
+             (str data))
+    ;; Default to table-style string formatting on unknown format-type
+    (str data)))
 
 (defn format-error
   "Format error message based on output format."
   [format-type error-data]
-  (case format-type
-    :json (format-json {:error error-data})
-    :table (str "Error: " (:message error-data)
-                (when-let [details (:details error-data)]
-                  (str "\nDetails: " details)))))
+  (let [message (or (:message error-data) (:detail error-data) "Unknown error")
+        details (or (:details error-data)
+                    (when (:validation-details error-data)
+                      (str "Missing fields: " (str/join ", " (:missing-fields error-data)))))]
+    (case format-type
+      :json (format-json {:error error-data})
+      :table (str "Error: " message
+                  (when details
+                    (str "\nDetails: " details)))
+      ;; Safe default: plain string formatting
+      (str "Error: " message
+           (when details
+             (str "\nDetails: " details))))))
 
 ;; =============================================================================
 ;; Command Execution
@@ -330,10 +345,39 @@
         pipeline (user-interceptors/create-user-creation-pipeline :cli)
 
         ;; Execute the pipeline
-        result-context (interceptor/run-pipeline context pipeline)]
+        result-context (interceptor/run-pipeline context pipeline)
+        response (:response result-context)]
 
-    ;; Return the response from context
-    (:response result-context)))
+    (println "DEBUG execute-user-create result-context keys:" (keys result-context))
+    (println "DEBUG execute-user-create :response:" response)
+    (println "DEBUG execute-user-create :exception:" (some? (:exception result-context)))
+    (println "DEBUG execute-user-create :halt?:" (:halt? result-context))
+
+    ;; Convert interceptor response format to CLI expected format
+    (cond
+      ;; Success case - CLI interceptor already formats correctly 
+      (and response (= (:status response) 0))
+      response
+
+      ;; Success case - HTTP-style format (status 200)
+      (and response (= (:status response) 200))
+      {:status 0
+       :entity-type :user
+       :data (:body response)}
+
+      ;; Error case - response contains error details  
+      (and response (not (#{0 200} (:status response))))
+      (let [error-body (:body response)
+            format-type (keyword (get opts :format "table"))]
+        {:status 1
+         :message (format-error format-type error-body)})
+
+      ;; Fallback - no response (shouldn't happen)
+      :else
+      {:status 1
+       :message (format-error (keyword (get opts :format "table"))
+                              {:type :internal-error
+                               :message "No response received from operation"})})))
 
 (defn execute-user-get
   "Execute user get command using interceptor pipeline."
@@ -577,6 +621,9 @@ Examples:
 (defn run-cli!
   "Main CLI entry point. Parses arguments, executes commands, and returns status.
 
+   This is module-scoped (user) CLI: we expect `<command> [options]` where
+   `<command>` is one of: create, list, find, update, delete.
+
    Args:
      service: User service instance
      args: Command-line arguments vector
@@ -588,116 +635,119 @@ Examples:
      Prints to stdout/stderr based on command and format"
   [service args]
   (try
-    (if (empty? args)
-      (do
-        (println root-help)
-        0)
-      (let [;; Parse to extract domain and verb (skip option flags and their values)
-            ;; We need to skip pairs like ["--format" "json"] and ["--help"]
-            parsed-for-domain (cli/parse-opts args global-options :in-order true)
-            global-errors (:errors parsed-for-domain)
-            domain-args (:arguments parsed-for-domain)
-            [domain-str verb-str] domain-args
-            domain (when domain-str (keyword domain-str))
-            verb (when verb-str (keyword verb-str))
+    (let [;; Parse to extract verb (skip option flags and their values)
+          ;; We need to skip pairs like ["--format" "json"] and ["--help"]
+          parsed-for-verb (cli/parse-opts args global-options :in-order true)
+          global-errors (:errors parsed-for-verb)
+          verb-args (:arguments parsed-for-verb)
+          [verb-str] verb-args
+          domain :user
+          verb (when verb-str (keyword verb-str))
 
-            ;; Check for help flags early
-            has-help-flag? (or (:help (:options parsed-for-domain))
-                               (some #(= % "--help") args))
-            help-as-verb? (= verb-str "--help")]
+          ;; Check for help flags early
+          has-help-flag? (or (:help (:options parsed-for-verb))
+                             (some #(= % "--help") args))]
+      (cond
+        ;; No args -> show user help
+        (empty? args)
+        (do
+          (println user-help)
+          0)
 
-        ;; Check for global option errors first (e.g., invalid --format value)
-        (if (seq global-errors)
-          (do
-            (binding [*out* *err*]
-              (println (format-error :table
-                                     {:type :parse-error
-                                      :message "Invalid arguments"
-                                      :details (str/join ", " global-errors)})))
-            1)
-          ;; Otherwise continue with help and command dispatch
-          (cond
-          ;; Global --help or no domain
-            (and has-help-flag? (nil? domain))
-            (do (println root-help) 0)
+        ;; Global option errors (e.g., invalid --format value)
+        (seq global-errors)
+        (do
+          (binding [*out* *err*]
+            (println (format-error :table
+                                   {:type :parse-error
+                                    :message "Invalid arguments"
+                                    :details (str/join ", " global-errors)})))
+          1)
 
-          ;; Domain-level --help: user --help or user create --help
-            (and (= domain :user) (or help-as-verb? has-help-flag?))
-            (do (println user-help) 0)
+        ;; Global --help or no command
+        (or has-help-flag? (nil? verb))
+        (do
+          (println user-help)
+          0)
 
-            (and (= domain :session) (or help-as-verb? has-help-flag?))
-            (do (println session-help) 0)
+        ;; Legacy: `help` as verb
+        (= verb :help)
+        (do
+          (println user-help)
+          0)
 
-          ;; Legacy: domain help verb
-            (and (= domain :user) (= verb :help))
-            (do (println user-help) 0)
+        ;; Execute command - parse options now
+        :else
+        (let [;; Get all args after the verb
+              verb-count 1
+              remaining-args (vec (drop verb-count args))
 
-            (and (= domain :session) (= verb :help))
-            (do (println session-help) 0)
-
-          ;; Execute command - parse options now
-            (and domain verb)
-            (let [;; Get all args after domain and verb
-                  domain-verb-count 2
-                  remaining-args (vec (drop domain-verb-count args))
-
-                 ;; Get command-specific options
-                  cmd-options (case domain
-                                :user (case verb
-                                        :create user-create-options
-                                        :list user-list-options
-                                        :find user-find-options
-                                        :update user-update-options
-                                        :delete user-delete-options
-                                        nil)
-                                :session (case verb
-                                           :create session-create-options
-                                           :invalidate session-invalidate-options
-                                           :list session-list-options
-                                           nil)
-                                nil)]
-              (if-not cmd-options
+              ;; Get command-specific options (domain is always :user here)
+              cmd-options (case verb
+                            :create user-create-options
+                            :list user-list-options
+                            :find user-find-options
+                            :update user-update-options
+                            :delete user-delete-options
+                            nil)]
+          (if-not cmd-options
+            (do
+              (binding [*out* *err*]
+                (println (format-error :table
+                                       {:type :unknown-command
+                                        :message (str "Unknown command: " (name verb))})))
+              1)
+            (let [;; Merge global options with command options
+                  all-options (into global-options cmd-options)
+                  ;; Parse with merged options
+                  parsed (cli/parse-opts remaining-args all-options)
+                  opts (:options parsed)
+                  errors (:errors parsed)
+                  format-type (keyword (get opts :format "table"))]
+              (if errors
                 (do
                   (binding [*out* *err*]
-                    (println (format-error :table
-                                           {:type :unknown-command
-                                            :message (str "Unknown command: " domain-str " " verb-str)})))
+                    (println (format-error format-type
+                                           {:type :parse-error
+                                            :message "Invalid arguments"
+                                            :details (str/join ", " errors)})))
                   1)
-                (let [;; Merge global options with command options
-                      all-options (into global-options cmd-options)
-                     ;; Parse with merged options
-                      parsed (cli/parse-opts remaining-args all-options)
-                      opts (:options parsed)
-                      errors (:errors parsed)
-                      format-type (keyword (get opts :format "table"))]
-                  (if errors
-                    (do
-                      (binding [*out* *err*]
-                        (println (format-error format-type
-                                               {:type :parse-error
-                                                :message "Invalid arguments"
-                                                :details (str/join ", " errors)})))
-                      1)
-                    (let [result (dispatch-command domain verb opts service)]
-                      (if (:message result)
-                        (println (:message result))
-                        (println (format-success format-type
-                                                 (:entity-type result)
-                                                 (:data result))))
-                      (:status result))))))
-
-            :else
-            (do (println root-help) 0)))))
-
+                (let [result (dispatch-command domain verb opts service)]
+                  (println "DEBUG CLI result map:" (select-keys result [:status :entity-type :data]))
+                  (if (:message result)
+                    (println (:message result))
+                    (println (format-success format-type
+                                             (:entity-type result)
+                                             (:data result))))
+                  (:status result))))))))
     (catch Exception e
       (let [ex-data (ex-data e)
             format-type (or (try (keyword (get-in (cli/parse-opts args global-options)
                                                   [:options :format]))
                                  (catch Exception _ :table))
                             :table)
-            error-data {:type (or (:type ex-data) :error)
-                        :message (.getMessage e)
-                        :details (dissoc ex-data :type)}]
+            ;; Prefer domain error metadata over generic wrapper messages
+            raw-type (:type ex-data)
+            original-data (:original-data ex-data)
+            domain-type (or raw-type
+                            (:type original-data)
+                            :error)
+            ;; For password-policy-violation, ensure we show the original message
+            raw-message (.getMessage e)
+            wrapped-message (:message ex-data)
+            original-message (:message original-data)
+            domain-message (or original-message wrapped-message raw-message)
+            ;; Prefer "violations" over generic data for password policy errors
+            violations (or (:violations ex-data)
+                           (:violations original-data))
+            base-details (or (dissoc ex-data :type :message :original-data)
+                             original-data)
+            domain-details (if violations
+                             (assoc base-details :violations violations)
+                             base-details)
+            error-data {:type domain-type
+                        :message domain-message
+                        :details domain-details}]
         (binding [*out* *err*]
           (println (format-error format-type error-data)))
         1))))

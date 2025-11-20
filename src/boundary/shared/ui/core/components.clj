@@ -291,7 +291,10 @@
        [:ul
         (for [[field field-errors] errors
               error field-errors]
-          [:li (str (name field) ": " error)])]
+          (let [field-label (when field (name field))]
+            [:li (if field-label
+                   (str field-label ": " error)
+                   (str error))]))]
 
        (coll? errors)
        [:ul
