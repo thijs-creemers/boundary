@@ -197,17 +197,18 @@
           pagination (db/build-pagination options)
           ordering (db/build-ordering options :created_at)
 
-          query {:select [:*]
-                 :from [:users]
-                 :where where-clause
-                 :order-by ordering
-                 :limit (:limit pagination)
-                 :offset (:offset pagination)}
+          ;; Build query - only include :where clause if we have a non-nil where-clause
+          query (cond-> {:select [:*]
+                         :from [:users]
+                         :order-by ordering
+                         :limit (:limit pagination)
+                         :offset (:offset pagination)}
+                  where-clause (assoc :where where-clause))
 
-          ;; Count query with explicit alias to ensure consistent key across databases
-          count-query {:select [[:%count.* :total]]
-                       :from [:users]
-                       :where where-clause}
+          ;; Count query - only include :where clause if we have a non-nil where-clause
+          count-query (cond-> {:select [[:%count.* :total]]
+                               :from [:users]}
+                        where-clause (assoc :where where-clause))
           users (map #(db->user-entity ctx %) (db/execute-query! ctx query))
           ;; Extract count with defensive fallback to 0
           count-result (db/execute-one! ctx count-query)

@@ -112,7 +112,7 @@
                                             (auth-shell/hash-password (:password user-data)))
                             user-data-with-hash (if password-hash
                                                   (-> user-data
-                                                      (assoc :password-hash password-hash)
+                                                      (assoc :password_hash password-hash)
                                                       (dissoc :password))
                                                   user-data)]
 
@@ -120,7 +120,8 @@
                         (let [prepared-user (user-core/prepare-user-for-creation user-data-with-hash (current-timestamp) (generate-user-id))
                               created-user (.create-user user-repository prepared-user)]
                           (println "DEBUG created-user in service:" (select-keys created-user [:id :email :name :role :created-at]))
-                          created-user))))
+                          ;; Remove sensitive data before returning
+                          (dissoc created-user :password_hash)))))
                   {:system {:user-repository user-repository
                             :session-repository session-repository
                             :auth-service auth-service}})]
@@ -147,8 +148,8 @@
                                   :errors (:errors credential-validation)}))))
 
              ;; 3. Verify password using auth service (shell layer I/O)
-             (if (and (:password-hash user)
-                      (auth-shell/verify-password password (:password-hash user)))
+             (if (and (:password_hash user)
+                      (auth-shell/verify-password password (:password_hash user)))
                (do
                  ;; 4. Check account security using pure authentication core
                  (let [login-decision (auth-core/should-allow-login-attempt? user {} (current-timestamp))]
@@ -169,7 +170,7 @@
                        (let [created-session (.create-session session-repository session-data)]
                          ;; Return authentication result with session and JWT
                          {:authenticated true
-                          :user (dissoc user :password-hash)
+                          :user (dissoc user :password_hash)
                           :session created-session
                           :jwt-token (auth-shell/create-jwt-token user 24)}))
 
@@ -249,7 +250,7 @@
              user (.find-user-by-id user-repository user-id)]
          ;; Remove sensitive data before returning
          (when user
-           (dissoc user :password-hash))))
+           (dissoc user :password_hash))))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))
@@ -263,7 +264,7 @@
              user (.find-user-by-email user-repository email)]
          ;; Remove sensitive data before returning
          (when user
-           (dissoc user :password-hash))))
+           (dissoc user :password_hash))))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))
@@ -274,9 +275,13 @@
      {:options options}
      (fn [{:keys [params]}]
        (let [{:keys [options]} params
-             users (.find-users user-repository options)]
-         ;; Remove sensitive data from all users
-         (map #(dissoc % :password-hash) users)))
+             result (.find-users user-repository options)
+             users (:users result)
+             total-count (:total-count result)
+             cleaned-users (map #(dissoc % :password_hash) users)]
+         ;; Remove sensitive data from all users and return with pagination info
+         {:users cleaned-users
+          :total-count total-count}))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))
@@ -301,7 +306,7 @@
          (let [updated-user (.update-user user-repository user-entity)]
            ;; Remove sensitive data before returning
            (when updated-user
-             (dissoc updated-user :password-hash)))))
+             (dissoc updated-user :password_hash)))))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))

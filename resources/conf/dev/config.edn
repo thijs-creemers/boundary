@@ -42,7 +42,7 @@
 
   ;; SQLite for file-based development (active)
   :boundary/sqlite
-  {:db "dev-database.db"
+  {:db "db/dev-database.db"
    :pool {:minimum-idle 1
           :maximum-pool-size 3
           :connection-timeout-ms 10000}}

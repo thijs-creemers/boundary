@@ -23,6 +23,19 @@
 - **Dependencies**: Core depends only on ports (protocols), shell implements adapters, no circular dependencies
 - **MCP Tools**: Always use clojure-mcp server for editing Clojure files to ensure balanced parentheses
 
+## Common Pitfalls
+
+### Key Naming Conventions
+- **Database vs Clojure**: Database layer returns snake_case keys (`:password_hash`, `:created_at`) while Clojure code typically uses kebab-case (`:password-hash`, `:created-at`)
+- **Critical**: Always verify actual key names when working with database results using `(keys result)` before attempting operations like `dissoc` or `select-keys`
+- **Example Bug**: Using `(dissoc user :password-hash)` will fail silently if the actual key is `:password_hash`
+- **Best Practice**: When removing sensitive data from database entities, check the exact key names returned by the persistence layer
+
+### REPL Reloading
+- **defrecord instances**: When reloading namespaces that contain `defrecord` definitions, existing instances in the system won't automatically update with new method implementations
+- **Solution**: After reloading a namespace with defrecord changes, recreate service instances or do a full system restart
+- **Quick fix**: Clear `.cpcache` directory and restart REPL for a clean reload
+- **Testing**: When testing changes to service methods, either recreate the service instance or restart the system to ensure changes take effect
 
 ## Source repository
 
