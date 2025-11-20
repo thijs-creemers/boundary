@@ -25,6 +25,7 @@
   (:require [boundary.shell.adapters.database.factory :as db-factory]
             [boundary.logging.shell.adapters.no-op :as logging-no-op]
             [boundary.metrics.shell.adapters.no-op :as metrics-no-op]
+            [boundary.logging.shell.adapters.stdout :as logging-stdout]
             [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
             [boundary.error-reporting.shell.adapters.sentry :as error-reporting-sentry]
             [boundary.shell.utils.port-manager :as port-manager]
@@ -118,6 +119,7 @@
   (log/info "Initializing logging component" {:provider (:provider config)})
   (let [logger (case (:provider config)
                  :no-op (logging-no-op/create-logging-component config)
+                 :stdout (logging-stdout/create-logging-component config)
                  ;; Future providers will be added here:
                  ;; :stdout (stdout-adapter/create-logging-component config)
                  ;; :json (json-adapter/create-logging-component config)

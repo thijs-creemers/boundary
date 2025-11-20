@@ -59,7 +59,14 @@
   ;; Using no-op providers by default - can be switched to real providers per need
 
   :boundary/logging
-  {:provider :no-op}
+  {:provider :stdout
+   :level :debug
+   :format :text
+   :colors true
+   :include-timestamp true
+   :include-level true
+   :include-thread false
+   :default-tags {:service "boundary-dev"}}
 
   :boundary/metrics
   {:provider :no-op}

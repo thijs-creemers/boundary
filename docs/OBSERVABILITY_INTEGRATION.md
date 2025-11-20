@@ -34,6 +34,12 @@ Add observability configurations to your `config.edn`:
                    :environment "development"}}
 ```
 
+> **Note:** In the Boundary dev configuration (`resources/conf/dev/config.edn`) the
+> `:boundary/logging` entry is wired to `:provider :stdout` with human-readable
+> text output. The no-op example above is a safe starting point; for local
+> development you typically want `:stdout` as shown in the observability
+> reference docs.
+
 ### 2. Component Wiring
 
 The system automatically wires observability components via Integrant:

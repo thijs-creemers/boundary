@@ -81,6 +81,127 @@ Direct API usage provides fine-grained control but requires explicit observabili
 
 == Logging Module
 
+=== Stdout logging provider
+
+The *stdout* provider is the primary development logger. It writes human-readable logs to standard output and can also emit structured JSON.
+
+Example Integrant wiring (development):
+
+[source,clojure]
+----
+{:boundary/logging
+ {:provider          :stdout
+  :level             :debug
+  :enabled           true
+  :format            :text          ;; or :json
+  :json              false          ;; alternative: :json true => :format :json
+  :colors            true           ;; ANSI colors in text mode
+  :include-timestamp true
+  :include-level     true
+  :include-thread    false
+  :default-tags      {:service "boundary-dev"}}}
+----
+
+The resulting component for `:boundary/logging` implements:
+
+* `boundary.logging.ports/ILogger`
+* `boundary.logging.ports/IAuditLogger`
+* `boundary.logging.ports/ILoggingContext`
+* `boundary.logging.ports/ILoggingConfig`
+
+Basic usage from a service:
+
+[source,clojure]
+----
+(ns my.module.service
+  (:require [boundary.logging.ports :as log]))
+
+(defrecord MyService [logger]
+  ;; ...
+  (do-something [this request]
+    (log/info logger "Handling request" {:request-id (:id request)})
+    ;; business logic here
+    ))
+----
+
+==== Example stdout output
+
+Text output (development, `:format :text`):
+
+[source,text]
+----
+INFO Handling request | request-id="123e4567" service="boundary-dev"
+----
+
+JSON output (structured, `:format :json`):
+
+[source,json]
+----
+{"level":"info",
+ "message":"Handling request",
+ "timestamp":"2025-01-01T12:34:56Z",
+ "thread":"nREPL-session-1",
+ "context":{"request-id":"123e4567","service":"boundary-dev"}}
+----
+
+These examples are representative – exact timestamps, thread names and context
+keys depend on your runtime configuration and log call.
+
+=== REPL cookbook for stdout logging
+
+For quick manual verification of log levels and formats you can create loggers directly in the REPL:
+
+[source,clojure]
+----
+(require '[boundary.logging.shell.adapters.stdout :as stdout]
+         '[boundary.logging.ports :as log])
+
+;; Plain text logger (no colors/timestamps for easy reading)
+(def text-logger
+  (stdout/create-stdout-logger {:provider :stdout
+                                :level :debug
+                                :format :text
+                                :include-timestamp false
+                                :include-level true
+                                :include-thread false
+                                :colors false
+                                :default-tags {:service "repl-test"}}))
+
+(log/debug text-logger "debug message" {:ctx "text"})
+(log/info  text-logger "info message"  {:ctx "text"})
+
+;; JSON logger via :format
+(def json-logger
+  (stdout/create-stdout-logger {:provider :stdout
+                                :level :debug
+                                :format :json
+                                :include-timestamp true
+                                :include-thread true
+                                :default-tags {:service "repl-json"}}))
+
+(log/info json-logger "json info" {:user-id "u1"})
+
+;; JSON logger via :json convenience flag
+(def json-flag-logger
+  (stdout/create-stdout-logger {:provider :stdout
+                                :level :debug
+                                :json true
+                                :include-timestamp false
+                                :include-thread false
+                                :default-tags {:service "repl-json-flag"}}))
+
+(log/info json-flag-logger "json via :json flag" {:k 1})
+
+;; Exception logging
+(let [ex (Exception. "boom")]
+  (log/error json-logger "error with exception" {:op "demo"} ex))
+
+;; Scoped context
+(log/with-context text-logger {:correlation-id "corr-123"}
+  (fn []
+    (log/info text-logger "inside context" {:user "u1"})))
+----
+
 === Namespace: `boundary.logging.ports`
 
 Defines the core protocols for logging functionality.
