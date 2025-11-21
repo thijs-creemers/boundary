@@ -1,0 +1,288 @@
+# Building Boundary Uberjar
+
+This document describes how to build and run the Boundary application as a standalone uberjar.
+
+## Prerequisites
+
+- Clojure CLI tools (1.11+)
+- Java 11 or higher
+- Git (for version numbering)
+
+## Building the Uberjar
+
+### Clean Build Artifacts
+
+```bash
+clojure -T:build clean
+```
+
+### Build Uberjar
+
+```bash
+clojure -T:build uber
+```
+
+This will:
+- Clean the `target/` directory
+- Copy source files and resources
+- Compile the main namespace for faster startup
+- Package all dependencies including database drivers (SQLite, PostgreSQL, H2, MySQL)
+- Create `target/boundary-1.2.X-standalone.jar` (where X is the git commit count)
+
+The resulting jar file is approximately 60MB and includes:
+- All Clojure source code
+- All dependencies (Integrant, Ring, Reitit, Logback, etc.)
+- Database drivers (SQLite, PostgreSQL, H2, MySQL)
+- Configuration files (logback.xml)
+- Static resources
+
+## Running the Uberjar
+
+### Server Mode (Default)
+
+Start the HTTP server:
+
+```bash
+java -jar target/boundary-1.2.X-standalone.jar
+```
+
+Or explicitly:
+
+```bash
+java -jar target/boundary-1.2.X-standalone.jar server
+```
+
+The server will:
+- Load configuration from environment or defaults
+- Initialize the database
+- Start HTTP server on port 3000 (configurable via `HTTP_PORT`)
+- Log to console and `logs/` directory
+- Run until Ctrl+C is pressed
+
+### CLI Mode
+
+Run CLI commands:
+
+```bash
+java -jar target/boundary-1.2.X-standalone.jar cli user list
+java -jar target/boundary-1.2.X-standalone.jar cli user create --email test@example.com
+```
+
+### Help
+
+Show usage information:
+
+```bash
+java -jar target/boundary-1.2.X-standalone.jar help
+```
+
+## Configuration
+
+### Environment Variables
+
+- `HTTP_PORT` - HTTP server port (default: 3000)
+- `HTTP_HOST` - HTTP server host (default: 0.0.0.0)
+- `ENV` - Environment profile (dev, prod, test)
+
+### Running in Production
+
+```bash
+ENV=prod HTTP_PORT=8080 java -jar boundary-1.2.X-standalone.jar server
+```
+
+### Database Configuration
+
+The uberjar includes all database drivers. Configure the active database in `resources/conf/{env}/config.edn`:
+
+```edn
+:boundary/sqlite {:db "production.db"}
+;; or
+:boundary/postgresql {:host "localhost" :port 5432 ...}
+```
+
+## Logging
+
+Logging is configured via `resources/logback.xml` (included in the jar).
+
+Logs are written to:
+- Console (stdout)
+- `logs/boundary.log` - Main application log
+- `logs/audit.log` - Audit events
+- `logs/security.log` - Security events
+
+To change log levels without rebuilding:
+1. Extract logback.xml from the jar
+2. Modify it
+3. Place it in the same directory as the jar
+4. Run with: `java -Dlogback.configurationFile=./logback.xml -jar boundary.jar`
+
+Or set environment variable:
+```bash
+JAVA_OPTS="-Dlogback.configurationFile=/path/to/logback.xml" java -jar boundary.jar
+```
+
+## Performance Tuning
+
+### JVM Options
+
+```bash
+java -Xmx2g -Xms512m -XX:+UseG1GC -jar boundary.jar
+```
+
+### Recommended Production Settings
+
+```bash
+java \
+  -Xmx2g \
+  -Xms512m \
+  -XX:+UseG1GC \
+  -XX:MaxGCPauseMillis=200 \
+  -Dlogback.configurationFile=/etc/boundary/logback.xml \
+  -jar boundary.jar server
+```
+
+## Docker Deployment
+
+Create a `Dockerfile`:
+
+```dockerfile
+FROM eclipse-temurin:17-jre-alpine
+
+WORKDIR /app
+
+COPY target/boundary-1.2.X-standalone.jar boundary.jar
+COPY resources/conf/prod/config.edn /app/config/config.edn
+
+ENV ENV=prod
+ENV HTTP_PORT=8080
+
+EXPOSE 8080
+
+CMD ["java", "-jar", "boundary.jar", "server"]
+```
+
+Build and run:
+
+```bash
+docker build -t boundary:latest .
+docker run -p 8080:8080 boundary:latest
+```
+
+## Systemd Service
+
+Create `/etc/systemd/system/boundary.service`:
+
+```ini
+[Unit]
+Description=Boundary HTTP Server
+After=network.target
+
+[Service]
+Type=simple
+User=boundary
+WorkingDirectory=/opt/boundary
+Environment="ENV=prod"
+Environment="HTTP_PORT=8080"
+ExecStart=/usr/bin/java -Xmx2g -jar /opt/boundary/boundary.jar server
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```bash
+sudo systemctl enable boundary
+sudo systemctl start boundary
+sudo systemctl status boundary
+```
+
+## Troubleshooting
+
+### Check Version
+
+```bash
+jar xf boundary-1.2.X-standalone.jar META-INF/MANIFEST.MF
+cat META-INF/MANIFEST.MF
+```
+
+### Verify Main Class
+
+```bash
+jar tf boundary-1.2.X-standalone.jar | grep "boundary/main"
+```
+
+### Test Database Drivers
+
+```bash
+jar tf boundary-1.2.X-standalone.jar | grep -E "(sqlite|postgresql|h2|mysql)"
+```
+
+### Enable Debug Logging
+
+```bash
+java -Dlogback.debug=true -jar boundary.jar
+```
+
+## Build Automation
+
+### CI/CD Pipeline Example (GitHub Actions)
+
+```yaml
+name: Build Uberjar
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+      - uses: DeLaGuardo/setup-clojure@12.5
+        with:
+          cli: 1.11.1.1413
+      - run: clojure -T:build uber
+      - uses: actions/upload-artifact@v3
+        with:
+          name: boundary-uberjar
+          path: target/boundary-*-standalone.jar
+```
+
+## File Size Optimization
+
+Current uberjar is ~60MB. To reduce size:
+
+1. **Exclude unused drivers** - Modify `build.clj` to include only needed drivers
+2. **Use ProGuard** - Shrink and optimize the jar
+3. **GraalVM native-image** - Compile to native binary (advanced)
+
+### Example: SQLite Only
+
+In `build.clj`, change:
+
+```clojure
+(def basis (b/create-basis {:project "deps.edn"
+                            :aliases [:db]}))
+```
+
+To:
+
+```clojure
+(def basis (b/create-basis {:project "deps.edn"
+                            :extra-deps {'org.xerial/sqlite-jdbc {:mvn/version "3.51.0.0"}}}))
+```
+
+## Support
+
+For issues or questions:
+- Check logs in `logs/` directory
+- Review configuration in `resources/conf/`
+- Consult the main README.md

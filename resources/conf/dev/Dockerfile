@@ -21,7 +21,7 @@ COPY resources ./resources
 COPY test ./test
 
 # Build application
-ARG BUILD_TARGET=uberjar
+ARG BUILD_TARGET=uber
 RUN clojure -T:build ${BUILD_TARGET}
 
 # =============================================================================

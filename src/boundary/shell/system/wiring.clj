@@ -26,6 +26,7 @@
             [boundary.logging.shell.adapters.no-op :as logging-no-op]
             [boundary.metrics.shell.adapters.no-op :as metrics-no-op]
             [boundary.logging.shell.adapters.stdout :as logging-stdout]
+            [boundary.logging.shell.adapters.slf4j :as logging-slf4j]
             [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
             [boundary.error-reporting.shell.adapters.sentry :as error-reporting-sentry]
             [boundary.shell.utils.port-manager :as port-manager]
@@ -73,12 +74,12 @@
         _ (require 'boundary.shell.interfaces.http.routes)
         routes-create-router (ns-resolve 'boundary.shell.interfaces.http.routes 'create-router)
         routes-create-handler (ns-resolve 'boundary.shell.interfaces.http.routes 'create-handler)
-        
+
         ;; Extract route vectors from structured format
         static-routes-vec (or (:static user-routes) [])
         web-routes-vec (or (:web user-routes) [])
         api-routes-vec (or (:api user-routes) [])
-        
+
         ;; Add prefixes to web and api routes since routes/create-router
         ;; grouping logic expects them to already have prefixes for /web
         ;; Static routes stay at root, web gets /web prefix, api gets /api prefix from router
@@ -86,19 +87,19 @@
                               (mapv (fn [[path opts]]
                                       [(str "/web" path) opts])
                                     web-routes-vec))
-        
+
         ;; Combine all routes - routes/create-router will handle the rest
         ;; It groups based on path prefixes: /css /js /modules /docs /web stay at root
         ;; Everything else goes under /api
         all-routes (concat static-routes-vec
                            (or web-routes-prefixed [])
                            api-routes-vec)
-        
+
         ;; Create router and handler using common infrastructure
         ;; This will apply /api prefix to api-routes-vec automatically
         router (routes-create-router config all-routes)
         handler (routes-create-handler router)]
-    
+
     (log/info "Top-level HTTP handler initialized successfully"
               {:static-routes (count static-routes-vec)
                :web-routes (count web-routes-vec)
@@ -120,10 +121,7 @@
   (let [logger (case (:provider config)
                  :no-op (logging-no-op/create-logging-component config)
                  :stdout (logging-stdout/create-logging-component config)
-                 ;; Future providers will be added here:
-                 ;; :stdout (stdout-adapter/create-logging-component config)
-                 ;; :json (json-adapter/create-logging-component config)
-                 ;; :datadog (datadog-adapter/create-logging-component config)
+                 :slf4j (logging-slf4j/create-logging-component config)
                  (do
                    (log/warn "Unknown logging provider, falling back to no-op"
                              {:provider (:provider config)})

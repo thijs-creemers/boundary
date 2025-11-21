@@ -56,17 +56,13 @@
    :port-range {:start 3000 :end 3099}}
 
   ;; Observability configurations
-  ;; Using no-op providers by default - can be switched to real providers per need
-
+  ;; Using SLF4J provider with Logback backend for unified logging
   :boundary/logging
-  {:provider :stdout
+  {:provider :slf4j
    :level :debug
-   :format :text
-   :colors true
-   :include-timestamp true
-   :include-level true
-   :include-thread false
-   :default-tags {:service "boundary-dev"}}
+   :logger-name "boundary"
+   :default-tags {:service "boundary-dev"
+                  :environment "development"}}
 
   :boundary/metrics
   {:provider :no-op}
@@ -113,11 +109,15 @@
    ;; Example observability configurations for future use
    ;; Move to :active section when you need real providers
 
-  :boundary/logging-with-file
-  {:provider :file
+  :boundary/logging-with-stdout
+  {:provider :stdout
    :level :debug
-   :file "logs/dev-service.log"
-   :format :json}
+   :format :json
+   :colors true
+   :include-timestamp true
+   :include-level true
+   :include-thread false
+   :default-tags {:service "boundary-dev"}}
 
   :boundary/metrics-with-prometheus
   {:provider :prometheus
@@ -127,6 +127,16 @@
   :boundary/error-reporting-with-sentry
   {:provider :sentry
    :dsn #env "SENTRY_DSN"
-   :environment "development"}}}
+   :environment "development"}
+
+  :boundary/logging-with-file
+  {:provider :file
+   :level :debug
+   :file "logs/dev-service.log"
+   :format :json}
+
+  :boundary/logging-no-op
+  {:provider :no-op}}}
+
 
 

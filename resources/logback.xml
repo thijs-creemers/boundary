@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  
+  <!-- Console appender with MDC context -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} %X{correlationId:--} %X{requestId:--} %X{tenantId:--} %X{userId:--} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- File appender for persistent logs -->
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>logs/boundary.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <!-- Daily rollover -->
+      <fileNamePattern>logs/boundary.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <!-- Keep 30 days of history -->
+      <maxHistory>30</maxHistory>
+      <!-- Total size cap -->
+      <totalSizeCap>1GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} corr=%X{correlationId} req=%X{requestId} tenant=%X{tenantId} user=%X{userId} audit=%X{audit} security=%X{security} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Audit-specific appender -->
+  <appender name="AUDIT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>logs/audit.log</file>
+    <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
+      <evaluator>
+        <expression>mdc.get("audit") != null</expression>
+      </evaluator>
+      <OnMismatch>DENY</OnMismatch>
+      <OnMatch>ACCEPT</OnMatch>
+    </filter>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>logs/audit.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <maxHistory>90</maxHistory> <!-- Keep audit logs longer -->
+      <totalSizeCap>5GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [AUDIT] actor=%X{actor} resource=%X{resource} action=%X{action} result=%X{result} corr=%X{correlationId} tenant=%X{tenantId} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Security event appender -->
+  <appender name="SECURITY" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>logs/security.log</file>
+    <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
+      <evaluator>
+        <expression>mdc.get("security") != null</expression>
+      </evaluator>
+      <OnMismatch>DENY</OnMismatch>
+      <OnMatch>ACCEPT</OnMatch>
+    </filter>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>logs/security.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <maxHistory>90</maxHistory>
+      <totalSizeCap>2GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [SECURITY] eventType=%X{eventType} severity=%X{severity} corr=%X{correlationId} tenant=%X{tenantId} user=%X{userId} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Async wrapper for performance -->
+  <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+    <appender-ref ref="CONSOLE" />
+    <queueSize>512</queueSize>
+    <discardingThreshold>0</discardingThreshold>
+  </appender>
+
+  <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+    <appender-ref ref="FILE" />
+    <queueSize>512</queueSize>
+    <discardingThreshold>0</discardingThreshold>
+  </appender>
+
+  <!-- Logger configurations by package -->
+  
+  <!-- Boundary application logging -->
+  <logger name="boundary" level="INFO" additivity="false">
+    <appender-ref ref="ASYNC_CONSOLE" />
+    <appender-ref ref="ASYNC_FILE" />
+    <appender-ref ref="AUDIT" />
+    <appender-ref ref="SECURITY" />
+  </logger>
+
+  <!-- Third-party library logging (reduce noise) -->
+  <logger name="org.eclipse.jetty" level="WARN" />
+  <logger name="com.zaxxer.hikari" level="WARN" />
+  <logger name="org.apache" level="WARN" />
+  <logger name="io.netty" level="WARN" />
+  
+  <!-- Database query logging (enable for debugging) -->
+  <logger name="com.github.seancorfield.next.jdbc" level="WARN" />
+  
+  <!-- Root logger (fallback for everything else) -->
+  <root level="INFO">
+    <appender-ref ref="ASYNC_CONSOLE" />
+  </root>
+
+</configuration>
