@@ -139,52 +139,52 @@
 
          ;; 1. Find user by email
          (if-let [user (.find-user-by-email user-repository email)]
-            (let [credential-validation (auth-core/validate-login-credentials user-credentials)]
-              (if-not (:valid? credential-validation)
+           (let [credential-validation (auth-core/validate-login-credentials user-credentials)]
+             (if-not (:valid? credential-validation)
                 ;; Validation failed
-                {:authenticated false
-                 :reason :invalid-credentials
-                 :errors (:errors credential-validation)}
+               {:authenticated false
+                :reason :invalid-credentials
+                :errors (:errors credential-validation)}
 
                 ;; 3. Verify password using auth service (shell layer I/O)
-                (if (and (:password_hash user)
-                         (auth-shell/verify-password password (:password_hash user)))
-               (do
+               (if (and (:password_hash user)
+                        (auth-shell/verify-password password (:password_hash user)))
+                 (do
                  ;; 4. Check account security using pure authentication core
-                 (let [login-decision (auth-core/should-allow-login-attempt? user {} (current-timestamp))]
-                   (if (:allowed? login-decision)
+                   (let [login-decision (auth-core/should-allow-login-attempt? user {} (current-timestamp))]
+                     (if (:allowed? login-decision)
                      ;; 5. Generate session data using pure functions
-                     (let [session-token (generate-secure-token)
-                           session-id (generate-user-id)
-                           current-time (current-timestamp)
-                           session-data (session-core/prepare-session-for-creation
-                                         {:user-id (:id user)
-                                          :ip-address ip-address
-                                          :user-agent user-agent}
-                                         current-time
-                                         session-id
-                                         session-token)]
+                       (let [session-token (generate-secure-token)
+                             session-id (generate-user-id)
+                             current-time (current-timestamp)
+                             session-data (session-core/prepare-session-for-creation
+                                           {:user-id (:id user)
+                                            :ip-address ip-address
+                                            :user-agent user-agent}
+                                           current-time
+                                           session-id
+                                           session-token)]
 
                        ;; 6. Persist session using impure shell persistence layer
-                       (let [created-session (.create-session session-repository session-data)]
+                         (let [created-session (.create-session session-repository session-data)]
                          ;; Return authentication result with session and JWT
-                         {:authenticated true
-                          :user (dissoc user :password_hash)
-                          :session created-session
-                          :jwt-token (auth-shell/create-jwt-token user 24)}))
+                           {:authenticated true
+                            :user (dissoc user :password_hash)
+                            :session created-session
+                            :jwt-token (auth-shell/create-jwt-token user 24)}))
 
                       ;; Login not allowed
-                      {:authenticated false
-                       :reason (:reason login-decision)
-                       :retry-after (:retry-after login-decision)})))
+                       {:authenticated false
+                        :reason (:reason login-decision)
+                        :retry-after (:retry-after login-decision)})))
 
                 ;; Password verification failed
-                {:authenticated false
-                 :reason :invalid-password})))
+                 {:authenticated false
+                  :reason :invalid-password})))
 
             ;; User not found
-            {:authenticated false
-             :reason :user-not-found})))
+           {:authenticated false
+            :reason :user-not-found})))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))
@@ -298,11 +298,15 @@
                               :original-data user-entity
                               :interface-type :cli}))))
 
-         ;; 2. Persist using impure shell persistence layer
-         (let [updated-user (.update-user user-repository user-entity)]
-           ;; Remove sensitive data before returning
-           (when updated-user
-             (dissoc updated-user :password_hash)))))
+         ;; 2. Prepare user with updated timestamp and handle active/deleted_at
+         (let [current-time (current-timestamp)
+               prepared-user (user-core/prepare-user-for-update user-entity current-time)]
+
+           ;; 3. Persist using impure shell persistence layer
+           (let [updated-user (.update-user user-repository prepared-user)]
+             ;; Remove sensitive data before returning
+             (when updated-user
+               (dissoc updated-user :password_hash))))))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))

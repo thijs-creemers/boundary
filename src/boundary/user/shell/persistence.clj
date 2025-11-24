@@ -244,15 +244,15 @@
      {:user-entity user-entity}
      (fn [{:keys [params]}]
        (let [user-entity (:user-entity params)
-             now (java.time.Instant/now)
-             updated-user (assoc user-entity :updated-at now)
-             db-user (user-entity->db ctx updated-user)
+             ;; Use updated-at and deleted-at from user-entity if provided by service layer
+             ;; This allows the service layer to control these fields based on business logic
+             db-user (user-entity->db ctx user-entity)
              query {:update :users
-                    :set (dissoc db-user :id :created_at :deleted_at)
+                    :set (dissoc db-user :id :created_at)
                     :where [:= :id (:id db-user)]}
              affected-rows (db/execute-update! ctx query)]
          (if (> affected-rows 0)
-           updated-user
+           user-entity
            (throw (ex-info "User not found or update failed"
                            {:type :user-not-found
                             :user-id (:id user-entity)})))))

@@ -7,6 +7,7 @@
    
    Pure problem details transformations are now in boundary.core.http.problem-details"
   (:require [boundary.core.http.problem-details :as core-problem]
+            [cheshire.core :as json]
             [clojure.string :as str]))
 
 ;; =============================================================================
@@ -45,58 +46,61 @@
 ;; =============================================================================
 
 (defn create-not-found-handler
-      "Create a standardized 404 Not Found handler.
+  "Create a standardized 404 Not Found handler.
 
-       Returns:
-         Ring handler function for 404 responses"
+   Returns:
+     Ring handler function for 404 responses"
   []
   (fn [_]
-    {:status  404
+    {:status 404
      :headers {"Content-Type" "application/problem+json"}
-     :body    {:type   "https://api.example.com/problems/not-found"
-               :title  "Not Found"
-               :status 404
-               :detail "The requested resource was not found"}}))
+     :body (json/generate-string
+            {:type "https://api.example.com/problems/not-found"
+             :title "Not Found"
+             :status 404
+             :detail "The requested resource was not found"})}))
 
 (defn create-method-not-allowed-handler
-      "Create a standardized 405 Method Not Allowed handler.
+  "Create a standardized 405 Method Not Allowed handler.
 
-       Args:
-         allowed-methods: Collection of allowed HTTP methods
+   Args:
+     allowed-methods: Collection of allowed HTTP methods
 
-       Returns:
-         Ring handler function for 405 responses"
+   Returns:
+     Ring handler function for 405 responses"
   [allowed-methods]
   (fn [_]
-    {:status  405
+    {:status 405
      :headers {"Content-Type" "application/problem+json"
-               "Allow"        (str/join ", " (map name allowed-methods))}
-     :body    {:type   "https://api.example.com/problems/method-not-allowed"
-               :title  "Method Not Allowed"
-               :status 405
-               :detail (str "Allowed methods: " (str/join ", " (map name allowed-methods)))}}))
+               "Allow" (str/join ", " (map name allowed-methods))}
+     :body (json/generate-string
+            {:type "https://api.example.com/problems/method-not-allowed"
+             :title "Method Not Allowed"
+             :status 405
+             :detail (str "Allowed methods: " (str/join ", " (map name allowed-methods)))})}))
 
 (defn health-check-handler
-      "Create a generic health check handler.
+  "Create a generic health check handler.
 
-       Args:
-         service-name: Name of the service
-         version: Service version (optional)
-         additional-checks: Optional function that returns additional health data
+   Args:
+     service-name: Name of the service
+     version: Service version (optional)
+     additional-checks: Optional function that returns additional health data
 
-       Returns:
-         Ring handler function for health checks"
+   Returns:
+     Ring handler function for health checks"
   ([service-name]
    (health-check-handler service-name nil nil))
   ([service-name version]
    (health-check-handler service-name version nil))
   ([service-name version additional-checks]
    (fn [_request]
-     (let [base-health {:status    "ok"
-                        :service   service-name
-                        :version   (or version "unknown")
+     (let [base-health {:status "ok"
+                        :service service-name
+                        :version (or version "unknown")
                         :timestamp (str (java.time.Instant/now))}
-           additional  (when additional-checks (additional-checks))]
+           additional (when additional-checks (additional-checks))]
        {:status 200
-        :body   (merge base-health additional)}))))
+        :headers {"Content-Type" "application/json"}
+        :body (json/generate-string (merge base-health additional))}))))
 
