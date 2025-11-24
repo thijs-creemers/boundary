@@ -13,15 +13,16 @@
      
    Returns:
      Hiccup navigation structure"
-  [& [opts]]
+   [& [opts]]
   (let [{:keys [user]} opts]
     [:nav
      [:a.logo {:href "/"} "Boundary App"]
      (if user
        [:div.user-nav
         [:span "Welcome, " (:name user)]
-        [:a {:href "/logout"} "Logout"]]
-       [:a {:href "/login"} "Login"])]))
+        [:form {:method "POST" :action "/web/logout" :style "display: inline;"}
+         [:button {:type "submit" :class "link-button"} "Logout"]]]
+       [:a {:href "/web/login"} "Login"])]))
 
 (defn page-layout
   "Main page layout wrapper.

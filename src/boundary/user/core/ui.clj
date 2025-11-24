@@ -278,7 +278,7 @@
   "Login form for email/password sign-in.
 
    Args:
-     data   - map with optional :email / :remember
+     data   - map with optional :email / :remember / :return-to
      errors - map of field keyword -> vector of error messages"
   [data errors]
   (let [err (fn [k]
@@ -290,6 +290,9 @@
      [:h2 "Sign in"]
      [:form {:method "post"
              :action "/web/login"}
+      ;; Hidden field to preserve return-to URL
+      (when (:return-to data)
+        [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
       (ui/form-field :email "Email"
         (ui/email-input :email (:email data) {:required true})
         (:email errors))
@@ -307,16 +310,19 @@
    Args:
      data   - form data map (may be empty)
      errors - validation errors (may be nil)
-     opts   - page options (user context, flash messages, etc.)"
+     opts   - page options (user context, flash messages, return-to URL, etc.)"
   [& [data errors opts]]
-  (layout/page-layout
-    "Sign in"
-    [:div.login-page
-     [:div.page-header
-      [:h1 "Boundary"]
-      [:p "Sign in to manage users"]]
-     (login-form data errors)]
-    opts))
+  (let [data-with-return (if (:return-to opts)
+                           (assoc data :return-to (:return-to opts))
+                           data)]
+    (layout/page-layout
+      "Sign in"
+      [:div.login-page
+       [:div.page-header
+        [:h1 "Boundary"]
+        [:p "Sign in to manage users"]]
+       (login-form data-with-return errors)]
+      opts)))
 
 ;; =============================================================================
 ;; Self-Service Registration Form & Page

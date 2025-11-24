@@ -317,6 +317,7 @@
    Returns:
      HTML string"
   [hiccup-data]
+  ;; Hiccup2 returns RawString, must call str to get plain String for Ring
   (str (h/html hiccup-data)))
 
 (defn htmx-attrs

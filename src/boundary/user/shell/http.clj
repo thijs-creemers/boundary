@@ -251,35 +251,36 @@
    Returns:
      Vector of Reitit route definitions for web UI"
   [user-service config]
-  [["/register" {:get {:handler (web-handlers/register-page-handler config)
-                       :summary "Self-service registration page"}
-                 :post {:handler (web-handlers/register-submit-handler user-service config)
-                        :summary "Submit registration form"}}]
-   ["/login" {:get {:handler (web-handlers/login-page-handler config)
-                    :summary "Login page"}
-              :post {:handler (web-handlers/login-submit-handler user-service config)
-                     :summary "Submit login form"}}]
-   ["/logout" {:post {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
-                      :handler (web-handlers/logout-handler user-service config)
-                      :summary "Logout current user"}}]
-   ["/users" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
-              :get {:handler (web-handlers/users-page-handler user-service config)
-                    :summary "Users listing page"}
-              :post {:handler (web-handlers/create-user-htmx-handler user-service config)
-                     :summary "Create user (HTMX fragment)"}}]
-   ["/users/new" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
-                  :get {:handler (web-handlers/create-user-page-handler config)
-                        :summary "Create user page"}}]
-   ["/users/table" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
-                    :get {:handler (web-handlers/users-table-fragment-handler user-service config)
-                          :summary "Users table fragment (HTMX refresh)"}}]
-   ["/users/:id" {:middleware [[user-middleware/flexible-authentication-middleware user-service]]
-                  :get {:handler (web-handlers/user-detail-page-handler user-service config)
-                        :summary "User detail page"}
-                  :put {:handler (web-handlers/update-user-htmx-handler user-service config)
-                        :summary "Update user (HTMX fragment)"}
-                  :delete {:handler (web-handlers/delete-user-htmx-handler user-service config)
-                           :summary "Delete user (HTMX fragment)"}}]])
+  (let [auth-middleware (user-middleware/flexible-authentication-middleware user-service)]
+    [["/register" {:get {:handler (web-handlers/register-page-handler config)
+                         :summary "Self-service registration page"}
+                   :post {:handler (web-handlers/register-submit-handler user-service config)
+                          :summary "Submit registration form"}}]
+     ["/login" {:get {:handler (web-handlers/login-page-handler config)
+                      :summary "Login page"}
+                :post {:handler (web-handlers/login-submit-handler user-service config)
+                       :summary "Submit login form"}}]
+     ["/logout" {:post {:middleware [auth-middleware]
+                        :handler (web-handlers/logout-handler user-service config)
+                        :summary "Logout current user"}}]
+     ["/users" {:middleware [auth-middleware]
+                :get {:handler (web-handlers/users-page-handler user-service config)
+                      :summary "Users listing page"}
+                :post {:handler (web-handlers/create-user-htmx-handler user-service config)
+                       :summary "Create user (HTMX fragment)"}}]
+     ["/users/new" {:middleware [auth-middleware]
+                    :get {:handler (web-handlers/create-user-page-handler config)
+                          :summary "Create user page"}}]
+     ["/users/table" {:middleware [auth-middleware]
+                      :get {:handler (web-handlers/users-table-fragment-handler user-service config)
+                            :summary "Users table fragment (HTMX refresh)"}}]
+     ["/users/:id" {:middleware [auth-middleware]
+                    :get {:handler (web-handlers/user-detail-page-handler user-service config)
+                          :summary "User detail page"}
+                    :put {:handler (web-handlers/update-user-htmx-handler user-service config)
+                          :summary "Update user (HTMX fragment)"}
+                    :delete {:handler (web-handlers/delete-user-htmx-handler user-service config)
+                             :summary "Delete user (HTMX fragment)"}}]]))
 
 ;; =============================================================================
 ;; Static Asset Routes

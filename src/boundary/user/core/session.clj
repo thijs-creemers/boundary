@@ -38,7 +38,6 @@
        (assoc :created-at current-time)
        (assoc :last-accessed-at current-time)
        (assoc :expires-at (calculate-session-expiry current-time (get session-data :remember-me false)))
-       (assoc :active true)
        (assoc :ip-address (get-in session-data [:device-info :ip-address]))
        (assoc :user-agent (get-in session-data [:device-info :user-agent]))))
   ([session-data current-time session-id token session-policy]
@@ -49,7 +48,6 @@
          (assoc :created-at current-time)
          (assoc :last-accessed-at current-time)
          (assoc :expires-at (.plusSeconds current-time (* duration-hours 3600)))
-         (assoc :active true)
          (assoc :ip-address (get-in session-data [:device-info :ip-address]))
          (assoc :user-agent (get-in session-data [:device-info :user-agent]))))))
 
@@ -77,7 +75,7 @@
 
 (defn mark-session-for-cleanup
   [session current-time]
-  (assoc session :active false))
+  (assoc session :revoked-at current-time))
 
 (defn filter-sessions-for-cleanup
   [sessions current-time]
@@ -126,8 +124,8 @@
 (defn calculate-user-session-stats
   [sessions user-id]
   (let [user-sessions (filter #(= (:user-id %) user-id) sessions)
-        active-sessions (filter :active user-sessions)
-        inactive-sessions (filter #(not (:active %)) user-sessions)]
+        active-sessions (filter #(nil? (:revoked-at %)) user-sessions)
+        inactive-sessions (filter :revoked-at user-sessions)]
     {:user-id user-id
      :total-sessions (count user-sessions)
      :active-sessions (count active-sessions)
@@ -148,8 +146,8 @@
   (and (= (:ip-address device1) (:ip-address device2))
        (or (= (:user-agent device1) (:user-agent device2))
            ;; Allow minor version differences in user agent
-           (let [ua1-base (clojure.string/replace (:user-agent device1) #"/[0-9.]+" "")
-                 ua2-base (clojure.string/replace (:user-agent device2) #"/[0-9.]+" "")]
+           (let [ua1-base (str/replace (:user-agent device1) #"/[0-9.]+" "")
+                 ua2-base (str/replace (:user-agent device2) #"/[0-9.]+" "")]
              (= ua1-base ua2-base)))))
 
 ;; =============================================================================
@@ -202,6 +200,4 @@
      
    Pure - data transformation only."
   [session current-time]
-  (-> session
-      (assoc :revoked-at current-time)
-      (assoc :active false)))
+  (assoc session :revoked-at current-time))

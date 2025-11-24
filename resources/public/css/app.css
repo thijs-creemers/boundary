@@ -51,3 +51,18 @@
 .flash-messages {
   margin-block: 0.75rem;
 }
+
+/* Link-styled button for logout form */
+.link-button {
+  background: none;
+  border: none;
+  color: var(--pico-primary, #0066cc);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.link-button:hover {
+  color: var(--pico-primary-hover, #0052a3);
+}

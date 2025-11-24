@@ -50,38 +50,66 @@
 (defn create-unauthorized-response
   "Creates standardized 401 Unauthorized response.
    
-   Args:
-     message: Error message string
-     reason: Keyword reason code
-     
-   Returns:
-     Ring response map"
-  [message reason]
-  {:status 401
-   :headers {"Content-Type" "application/json"}
-   :body {:type "authentication-required"
-          :title "Authentication Required"
-          :status 401
-          :detail message
-          :reason reason}})
-
-(defn create-forbidden-response
-  "Creates standardized 403 Forbidden response.
+   For web UI requests (path starts with /web), redirects to login page.
+   For API requests, returns JSON error response.
    
    Args:
      message: Error message string
      reason: Keyword reason code
+     request: Optional request map to determine response type
      
    Returns:
      Ring response map"
-  [message reason]
-  {:status 403
-   :headers {"Content-Type" "application/json"}
-   :body {:type "access-forbidden"
-          :title "Access Forbidden"
-          :status 403
-          :detail message
-          :reason reason}})
+  ([message reason]
+   (create-unauthorized-response message reason nil))
+   ([message reason request]
+    (if (and request (str/starts-with? (get request :uri "") "/web"))
+      ;; Web UI request - redirect to login with return-to parameter
+      (let [return-to (:uri request)
+            login-url (str "/web/login?return-to=" (java.net.URLEncoder/encode return-to "UTF-8"))]
+        {:status 302
+         :headers {"Location" login-url}
+         :body ""})
+      ;; API request - return JSON error
+      {:status 401
+       :headers {"Content-Type" "application/json"}
+       :body {:type "authentication-required"
+              :title "Authentication Required"
+              :status 401
+              :detail message
+              :reason reason}})))
+
+(defn create-forbidden-response
+  "Creates standardized 403 Forbidden response.
+   
+   For web UI requests (path starts with /web), redirects to login page.
+   For API requests, returns JSON error response.
+   
+   Args:
+     message: Error message string
+     reason: Keyword reason code
+     request: Optional request map to determine response type
+     
+   Returns:
+     Ring response map"
+  ([message reason]
+   (create-forbidden-response message reason nil))
+   ([message reason request]
+    (if (and request (str/starts-with? (get request :uri "") "/web"))
+      ;; Web UI request - redirect to login with return-to parameter (forbidden = not logged in or insufficient perms)
+      (let [return-to (:uri request)
+            login-url (str "/web/login?return-to=" (java.net.URLEncoder/encode return-to "UTF-8"))]
+        {:status 302
+         :headers {"Location" login-url}
+         :body ""})
+      ;; API request - return JSON error
+      {:status 403
+       :headers {"Content-Type" "application/json"}
+       :body {:type "access-forbidden"
+              :title "Access Forbidden"
+              :status 403
+              :detail message
+              :reason reason}})))
 
 ;; =============================================================================
 ;; JWT Authentication Middleware
@@ -112,13 +140,13 @@
                                           :auth-type :jwt)]
               (handler enriched-request))
             ;; Token invalid
-            (create-unauthorized-response "Invalid JWT token" :invalid-jwt)))
+            (create-unauthorized-response "Invalid JWT token" :invalid-jwt request)))
         (catch Exception ex
           (log/warn ex "JWT validation failed")
-          (create-unauthorized-response "JWT validation failed" :jwt-validation-error)))
+          (create-unauthorized-response "JWT validation failed" :jwt-validation-error request)))
 
       ;; No token provided
-      (create-unauthorized-response "JWT token required" :missing-jwt))))
+      (create-unauthorized-response "JWT token required" :missing-jwt request))))
 
 ;; =============================================================================
 ;; Session Authentication Middleware
@@ -140,21 +168,33 @@
   (fn [request]
     (if-let [session-token (extract-session-token request)]
       (try
+        (spit "/tmp/middleware-debug.log" 
+              (str "VALIDATING SESSION: token=" (subs session-token 0 (min 20 (count session-token))) "...\n")
+              :append true)
         (if-let [session (ports/validate-session user-service session-token)]
           ;; Session valid - add user info to request
-          (let [enriched-request (assoc request
-                                        :user {:id (:user-id session)}
-                                        :session session
-                                        :auth-type :session)]
-            (handler enriched-request))
+          (do
+            (spit "/tmp/middleware-debug.log" 
+                  (str "SESSION VALID! user-id=" (:user-id session) "\n")
+                  :append true)
+            (let [enriched-request (assoc request
+                                          :user {:id (:user-id session)}
+                                          :session session
+                                          :auth-type :session)]
+              (handler enriched-request)))
           ;; Session invalid or expired
-          (create-unauthorized-response "Invalid or expired session" :invalid-session))
+          (do
+            (spit "/tmp/middleware-debug.log" "SESSION INVALID OR EXPIRED\n" :append true)
+            (create-unauthorized-response "Invalid or expired session" :invalid-session request)))
         (catch Exception ex
+          (spit "/tmp/middleware-debug.log" 
+                (str "SESSION VALIDATION ERROR: " (.getMessage ex) "\n")
+                :append true)
           (log/warn ex "Session validation failed" {:session-token (str (take 8 session-token) "...")})
-          (create-unauthorized-response "Session validation failed" :session-validation-error)))
+          (create-unauthorized-response "Session validation failed" :session-validation-error request)))
 
       ;; No session token provided
-      (create-unauthorized-response "Session token required" :missing-session))))
+      (create-unauthorized-response "Session token required" :missing-session request))))
 
 ;; =============================================================================
 ;; Flexible Authentication Middleware
@@ -166,26 +206,55 @@
    Tries JWT first (from Authorization header), then falls back to session token.
    Adds user information to request on successful authentication.
    
+   This is a middleware factory function compatible with Reitit.
+   Call with user-service to get a middleware function.
+   
    Args:
      user-service: User service instance for session validation
-     handler: Next handler in the chain
+     handler: (optional, for direct wrapping) Handler function
      
    Returns:
-     Wrapped handler function"
-  [user-service handler]
-  (fn [request]
-    (cond
-      ;; Try JWT authentication first
-      (extract-bearer-token request)
-      ((jwt-authentication-middleware handler) request)
+     Middleware function that takes handler and returns wrapped handler
+     
+   Example:
+     ;; In Reitit routes:
+     {:middleware [[flexible-authentication-middleware user-service]]}"
+  ([user-service]
+   (spit "/tmp/middleware-debug.log" (str "1-ARITY: " (type user-service) "\n") :append true)
+   (fn [handler]
+     (spit "/tmp/middleware-debug.log" (str "WRAPPING: " (type handler) "\n") :append true)
+     (flexible-authentication-middleware user-service handler)))
+  ([user-service handler]
+   (spit "/tmp/middleware-debug.log" (str "2-ARITY: user-service=" (type user-service) " handler=" (type handler) "\n") :append true)
+   (fn [request]
+     (let [session-token (extract-session-token request)
+           bearer-token (extract-bearer-token request)]
+       (spit "/tmp/middleware-debug.log" 
+             (str "REQUEST: uri=" (:uri request) 
+                  " method=" (:request-method request)
+                  " has-session=" (boolean session-token) 
+                  " has-bearer=" (boolean bearer-token)
+                  " cookies=" (keys (:cookies request))
+                  "\n") 
+             :append true)
+       (cond
+         ;; Try JWT authentication first
+         bearer-token
+         ((jwt-authentication-middleware handler) request)
 
-      ;; Fall back to session authentication
-      (extract-session-token request)
-      ((session-authentication-middleware user-service handler) request)
+         ;; Fall back to session authentication
+         session-token
+         (do
+           (spit "/tmp/middleware-debug.log" 
+                 (str "ATTEMPTING SESSION AUTH with user-service=" (type user-service) "\n") 
+                 :append true)
+           ((session-authentication-middleware user-service handler) request))
 
-      ;; No authentication provided
-      :else
-      (create-unauthorized-response "Authentication required" :no-credentials))))
+         ;; No authentication provided
+         :else
+         (do
+           (spit "/tmp/middleware-debug.log" "NO AUTH CREDENTIALS\n" :append true)
+           (create-unauthorized-response "Authentication required" :no-credentials request)))))))
 
 ;; =============================================================================
 ;; Authorization Middleware
@@ -214,10 +283,11 @@
            (format "Role '%s' required. User has role '%s'"
                    (str/join ", " (map name required-roles))
                    (name user-role))
-           :insufficient-role)))
+           :insufficient-role
+           request)))
 
       ;; No user in request (authentication middleware not run?)
-      (create-unauthorized-response "Authentication required" :missing-user))))
+      (create-unauthorized-response "Authentication required" :missing-user request))))
 
 (defn require-admin-middleware
   "Middleware that requires admin role.
@@ -267,7 +337,7 @@
    Returns:
      Protected handler"
   [user-service handler]
-  (flexible-authentication-middleware user-service handler))
+  ((flexible-authentication-middleware user-service) handler))
 
 (defn protect-admin-only
   "Wraps handler with admin-only access control.
@@ -281,4 +351,4 @@
   [user-service handler]
   (-> handler
       require-admin-middleware
-      (flexible-authentication-middleware user-service)))
+      ((flexible-authentication-middleware user-service))))

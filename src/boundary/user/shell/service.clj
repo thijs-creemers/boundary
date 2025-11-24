@@ -139,17 +139,16 @@
 
          ;; 1. Find user by email
          (if-let [user (.find-user-by-email user-repository email)]
-           (do
-             ;; 2. Validate credentials using pure authentication core
-             (let [credential-validation (auth-core/validate-login-credentials user-credentials)]
-               (when-not (:valid? credential-validation)
-                 (throw (ex-info "Invalid credentials format"
-                                 {:type :invalid-credentials
-                                  :errors (:errors credential-validation)}))))
+            (let [credential-validation (auth-core/validate-login-credentials user-credentials)]
+              (if-not (:valid? credential-validation)
+                ;; Validation failed
+                {:authenticated false
+                 :reason :invalid-credentials
+                 :errors (:errors credential-validation)}
 
-             ;; 3. Verify password using auth service (shell layer I/O)
-             (if (and (:password_hash user)
-                      (auth-shell/verify-password password (:password_hash user)))
+                ;; 3. Verify password using auth service (shell layer I/O)
+                (if (and (:password_hash user)
+                         (auth-shell/verify-password password (:password_hash user)))
                (do
                  ;; 4. Check account security using pure authentication core
                  (let [login-decision (auth-core/should-allow-login-attempt? user {} (current-timestamp))]
@@ -174,21 +173,18 @@
                           :session created-session
                           :jwt-token (auth-shell/create-jwt-token user 24)}))
 
-                     ;; Login not allowed
-                     (throw (ex-info (:reason login-decision)
-                                     {:type :authentication-failed
-                                      :reason (:reason login-decision)
-                                      :retry-after (:retry-after login-decision)})))))
+                      ;; Login not allowed
+                      {:authenticated false
+                       :reason (:reason login-decision)
+                       :retry-after (:retry-after login-decision)})))
 
-               ;; Password verification failed
-               (throw (ex-info "Invalid credentials"
-                               {:type :authentication-failed
-                                :reason :invalid-password}))))
+                ;; Password verification failed
+                {:authenticated false
+                 :reason :invalid-password})))
 
-           ;; User not found
-           (throw (ex-info "Invalid credentials"
-                           {:type :authentication-failed
-                            :reason :user-not-found})))))
+            ;; User not found
+            {:authenticated false
+             :reason :user-not-found})))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))
