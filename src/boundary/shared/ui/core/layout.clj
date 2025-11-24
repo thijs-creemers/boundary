@@ -48,11 +48,12 @@
      [:body
       [:header.site-header
        (main-navigation {:user user})]
-      (when flash
-        [:div.flash-messages
-         (for [[type message] flash]
-           [:div {:class (str "flash " (name type))} message])])
-      [:main.main-content content]
+      [:main.main-content
+       (when flash
+         [:div.flash-messages
+          (for [[type message] flash]
+            [:div {:class (str "alert alert-" (name type))} message])])
+       content]
       (for [js-file js]
         [:script {:src js-file}])]]))
 

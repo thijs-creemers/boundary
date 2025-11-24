@@ -382,20 +382,33 @@
     (try
       (let [user-id (get-in request [:path-params :id])
             form-data (:form-params request)
+            _ (log/info "Update user form data" {:form-data form-data
+                                                  :role-value (get form-data "role")
+                                                  :active-value (get form-data "active")})
             ;; Prepare data with kebab-case keyword keys for validation
+            ;; HTML checkboxes send "on" when checked, or nothing when unchecked
             prepared-data {:name (get form-data "name")
                            :email (get form-data "email")
                            :role (when-let [role (get form-data "role")] (keyword role))
-                           :active (= "true" (get form-data "active"))}
-            [valid? validation-errors _] (validate-request-data user-schema/UpdateUserRequest prepared-data)
-            user-data (assoc prepared-data :id (UUID/fromString user-id))]
+                           :active (contains? form-data "active")}
+            _ (log/info "Prepared data for update" {:prepared-data prepared-data})
+            [valid? validation-errors _] (validate-request-data user-schema/UpdateUserRequest prepared-data)]
         (if-not valid?
-          (html-response (user-ui/user-detail-form user-data) 400)
+          (html-response (user-ui/user-detail-form (assoc prepared-data :id (UUID/fromString user-id))) 400)
           (try
-            (let [user-result (user-ports/update-user-profile user-service user-data)
-                  success-html (user-ui/user-updated-success user-result)]
-              (html-response success-html 200 {"HX-Trigger" "userUpdated"}))
+            ;; Fetch existing user and merge updates
+            (let [uuid (UUID/fromString user-id)
+                  existing-user (user-ports/get-user-by-id user-service uuid)]
+              (if-not existing-user
+                (html-response (ui/error-message "User not found") 404)
+                (let [;; Merge form data into existing user (only update provided fields)
+                      user-data (merge existing-user
+                                       (select-keys prepared-data [:name :email :role :active]))
+                      user-result (user-ports/update-user-profile user-service user-data)
+                      success-html (user-ui/user-updated-success user-result)]
+                  (html-response success-html 200 {"HX-Trigger" "userUpdated"}))))
             (catch Exception e
+              (log/error e "Error updating user")
               (html-response (ui/error-message (.getMessage e)) 500)))))
       (catch IllegalArgumentException _
         (html-response (ui/error-message "Invalid user ID") 400)))))

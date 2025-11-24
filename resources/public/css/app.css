@@ -2,54 +2,361 @@
    This file is intentionally small and generic so it can be reused across modules.
 */
 
+/* =============================================================================
+   Layout & Container
+   ============================================================================= */
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--pico-muted-border-color);
+  padding: 1rem 0;
+  margin-bottom: 2rem;
+}
+
+.site-header nav {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.site-header .logo {
+  font-size: 1.25rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--pico-primary);
+}
+
+.site-header .user-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.main-content {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 2rem 4rem 2rem;
+  flex: 1;
+  width: 100%;
+}
+
+/* =============================================================================
+   Page Header
+   ============================================================================= */
+
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-block: 1.5rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 2px solid var(--pico-muted-border-color, #e5e7eb);
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.025em;
 }
 
 .page-actions {
   display: flex;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
+
+.page-actions .button {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.15s ease;
+}
+
+.page-actions .button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* =============================================================================
+   Tables
+   ============================================================================= */
+
+#users-table-container {
+  margin-top: 2rem;
+}
+
+/* Table wrapper - clean design without side borders */
+.table-wrapper {
+  background: var(--pico-background-color, #fff);
+  overflow: visible;
+}
+
+table.data-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+table.data-table thead {
+  background: transparent !important;
+  border-bottom: 2px solid var(--pico-muted-border-color, #e5e7eb) !important;
+}
+
+table.data-table th {
+  padding: 0.75rem 1.25rem !important;
+  text-align: left !important;
+  font-weight: 600 !important;
+  font-size: 0.8125rem !important;
+  letter-spacing: 0.075em !important;
+  text-transform: uppercase !important;
+  color: #6b7280 !important;
+  white-space: nowrap !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+table.data-table th:first-child {
+  padding-left: 0 !important;
+  width: 14rem !important;
+}
+
+table.data-table th:last-child {
+  padding-right: 0 !important;
+  width: 2rem !important;
+}
+
+table.data-table tbody tr {
+  border-bottom: 1px solid var(--pico-muted-border-color, #f3f4f6) !important;
+  transition: background 0.15s ease !important;
+  background: transparent !important;
+  cursor: pointer !important;
+}
+
+table.data-table tbody tr:last-child {
+  border-bottom: none !important;
+}
+
+table.data-table tbody tr:hover {
+  background: #e0e7ff !important;
+}
+
+table.data-table td {
+  padding: 0.75rem 1.25rem !important;
+  vertical-align: middle !important;
+  color: var(--pico-color, #1f2937) !important;
+  font-size: 0.9375rem !important;
+  border: none !important;
+}
+
+table.data-table td:first-child {
+  padding-left: 0 !important;
+  font-weight: 500 !important;
+  color: #6b7280 !important;
+  font-size: 0.875rem !important;
+  white-space: nowrap !important;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace !important;
+  width: 14rem !important;
+}
+
+table.data-table td:last-child {
+  padding-right: 0 !important;
+  width: 2rem !important;
+}
+
+/* Role badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  letter-spacing: 0.025em;
+}
+
+.status-badge.active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.inactive {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Role badges */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  letter-spacing: 0.025em;
+}
+
+.role-badge.admin {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.role-badge.user {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.role-badge.viewer {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+/* =============================================================================
+   Forms
+   ============================================================================= */
+
+.form-field {
+  margin-bottom: 1.5rem;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.field-errors {
+  margin-top: 0.5rem;
+}
+
+.field-errors .error {
+  display: block;
+  color: var(--pico-del-color, #dc3545);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+form {
+  background: var(--pico-background-color);
+  padding: 2rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select,
+textarea {
+  width: 100%;
+}
+
+/* =============================================================================
+   Alerts & Messages
+   ============================================================================= */
 
 .empty-state {
-  padding: 1.5rem;
+  padding: 4rem 2rem;
   text-align: center;
-  opacity: 0.7;
+  color: #6b7280;
+  background: linear-gradient(to bottom, #f9fafb 0%, #ffffff 100%);
+  border-radius: 0.75rem;
+  margin: 1.5rem 0;
+  border: 2px dashed var(--pico-muted-border-color, #e5e7eb);
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th,
-.data-table td {
-  padding: 0.5rem 0.75rem;
+.empty-state::before {
+  content: "📭";
+  display: block;
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
 }
 
 .alert {
-  padding: 0.75rem 1rem;
-  border-radius: 0.25rem;
-  margin-block: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.5rem;
+  margin-block: 1rem;
+  border-left: 4px solid;
 }
 
 .alert-success {
-  background-color: var(--pico-primary-soft, #e0f0ff);
+  background-color: #d1e7dd;
+  border-color: #0f5132;
+  color: #0f5132;
 }
 
 .alert-error {
-  background-color: var(--pico-danger-soft, #ffe0e0);
+  background-color: #f8d7da;
+  border-color: #842029;
+  color: #842029;
 }
 
 .alert-info {
-  background-color: var(--pico-muted-border-color, #e0e0e0);
+  background-color: #cff4fc;
+  border-color: #055160;
+  color: #055160;
 }
 
 .flash-messages {
-  margin-block: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.validation-errors {
+  background: #f8d7da;
+  border: 1px solid #f5c2c7;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.validation-errors h4 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #842029;
+}
+
+.validation-errors ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.validation-errors li {
+  color: #842029;
+}
+
+/* =============================================================================
+   Buttons
+   ============================================================================= */
+
+.button, button, [role="button"] {
+  margin-bottom: 0;
+}
+
+.button.small {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.button.danger {
+  background-color: var(--pico-del-color, #dc3545);
+  border-color: var(--pico-del-color, #dc3545);
+}
+
+.button.danger:hover {
+  background-color: #bb2d3b;
+  border-color: #bb2d3b;
 }
 
 /* Link-styled button for logout form */
@@ -65,4 +372,70 @@
 
 .link-button:hover {
   color: var(--pico-primary-hover, #0052a3);
+}
+
+/* =============================================================================
+   Pages
+   ============================================================================= */
+
+.users-page,
+.user-detail-page,
+.create-user-page,
+.login-page,
+.register-page {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-page,
+.register-page {
+  max-width: 500px;
+  margin: 2rem auto;
+}
+
+.user-detail-page form,
+.create-user-page form {
+  max-width: 600px;
+}
+
+/* =============================================================================
+   Responsive
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 0 1rem 2rem 1rem;
+  }
+  
+  .site-header nav {
+    padding: 0 1rem;
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .data-table {
+    font-size: 0.875rem;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 0.75rem 0.5rem;
+  }
 }

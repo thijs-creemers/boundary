@@ -92,14 +92,18 @@
   (let [{:keys [class]} opts
         option-pairs (if (map? options)
                        (seq options)
-                       options)]
+                       options)
+        ;; Normalize selected-value to string for comparison
+        selected-str (if (keyword? selected-value) (name selected-value) (str selected-value))]
     [:select (merge {:id (name field-key)
                      :name (name field-key)}
                     (when class {:class class}))
      (for [[value label] option-pairs]
-       [:option {:value value
-                 :selected (= value selected-value)}
-        label])]))
+       (let [;; Convert value to string for HTML attribute
+             value-str (if (keyword? value) (name value) (str value))]
+         [:option {:value value-str
+                   :selected (= value-str selected-str)}
+          label]))]))
 
 (defn checkbox
   "Checkbox component.

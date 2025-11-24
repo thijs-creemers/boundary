@@ -21,18 +21,16 @@
    Returns:
      Vector of cell values for table row (some as Hiccup structures)"
   [user]
-  [(:id user)
-   (:name user)
-   (:email user)
-   (str/upper-case (name (:role user)))
-   (if (:active user) "Active" "Inactive")
-   [:div.actions
-    [:a.button.small {:href (str "/web/users/" (:id user))} "Edit"]
-    [:button.button.small.danger
-     {:hx-delete  (str "/web/users/" (:id user))
-      :hx-confirm "Deactivate this user?"
-      :hx-target  "#users-table-container"}
-     "Deactivate"]]])
+  (with-meta
+    [(:id user)
+     (:name user)
+     (:email user)
+     [:span {:class (str "role-badge " (name (:role user)))}
+      (str/capitalize (name (:role user)))]
+     [:span {:class (str "status-badge " (if (:active user) "active" "inactive"))}
+      (if (:active user) "Active" "Inactive")]
+     ""] ;; Empty actions column
+    {:onclick (str "window.location.href='/web/users/" (:id user) "'")}))
 
 (defn users-table-fragment
   "Generate just the users table container fragment (for HTMX refresh).
@@ -49,9 +47,20 @@
     :hx-target  "#users-table-container"}
    (if (empty? users)
      [:div.empty-state "No users found."]
-     (let [headers ["ID" "Name" "Email" "Role" "Status" "Actions"]
+     (let [headers ["ID" "Name" "Email" "Role" "Status" ""]
            rows    (map user-row users)]
-       (ui/data-table headers rows {:id "users-table"})))])
+       [:div.table-wrapper
+        [:table {:class "data-table" :id "users-table"}
+         [:thead
+          [:tr
+           (for [header headers]
+             [:th header])]]
+         [:tbody
+          (for [row rows]
+            (let [row-attrs (meta row)]
+              [:tr row-attrs
+               (for [cell row]
+                 [:td cell])]))]]]))])
 
 (defn users-table
   "Generate a table displaying users based on User schema.
@@ -226,8 +235,7 @@
       [:div.page-actions
        [:a.button.primary {:href "/web/users/new"} "Create User"]]]
      (users-table users)]
-    ;; Ensure user-specific CSS is loaded in addition to global defaults
-    (update opts :css (fnil into []) ["/modules/user/css/user.css"])))
+    opts))
 
 (defn user-detail-page
   "Complete user detail page.
