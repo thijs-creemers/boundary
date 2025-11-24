@@ -27,20 +27,21 @@ RUN clojure -T:build ${BUILD_TARGET}
 # =============================================================================
 # Runtime Stage  
 # =============================================================================
-FROM eclipse-temurin:17-jre-alpine AS runtime
+FROM eclipse-temurin:17-jre AS runtime
 
 # Install useful utilities for development
-RUN apk add --no-cache \
-    curl \
-    netcat-openbsd \
-    bash \
-    && rm -rf /var/cache/apk/*
+RUN apt-get update && \
+    apt-get install -y \
+        curl \
+        netcat-openbsd \
+        bash \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Create non-root user for security
-RUN addgroup -g 1001 boundary && \
-    adduser -D -s /bin/bash -u 1001 -G boundary boundary
+# Create non-root user for security (Debian/Ubuntu style)
+RUN groupadd -g 1001 boundary && \
+    useradd -m -u 1001 -g boundary -s /bin/bash boundary
 
 # Copy built application
 COPY --from=builder /app/target/*.jar ./app.jar
@@ -84,13 +85,14 @@ FROM runtime AS development
 USER root
 
 # Install development dependencies
-RUN apk add --no-cache \
-    git \
-    vim \
-    less \
-    tree \
-    htop \
-    && rm -rf /var/cache/apk/*
+RUN apt-get update && \
+    apt-get install -y \
+        git \
+        vim \
+        less \
+        tree \
+        htop \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Clojure CLI for REPL development
 RUN curl -O https://download.clojure.org/install/linux-install-1.11.1.1413.sh && \

@@ -111,9 +111,10 @@
                   :jvm-opts ["-Denv=test"]}
            :outdated {:extra-deps {olical/depot {:mvn/version "2.4.1"}}
                       :main-opts ["-m" "depot.outdated.main"]}
-           :build {:main-opts ["-m" "build"]
-                   :extra-deps {io.github.clojure/tools.build {:git/tag "v0.10.11" :git/sha "c6c670a4"}}
-                   :ns-default build}
+          :build {:main-opts ["-m" "build"]
+                  :extra-deps {org.clojure/clojure {:mvn/version "1.12.3"}
+                               io.github.clojure/tools.build {:git/tag "v0.10.11" :git/sha "c6c670a4"}}
+                  :ns-default build}
            :coverage {:extra-deps {cloverage/cloverage {:mvn/version "1.2.4"}}
                       :main-opts ["-m" "cloverage.coverage"
                                   "--src-ns-path" "src"

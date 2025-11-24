@@ -17,7 +17,8 @@ services:
       # PostgreSQL port - can be overridden via POSTGRES_PORT env var
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - boundary_pgdata:/var/lib/postgresql/data
+      # For PostgreSQL 18+, store data in pg_ctlcluster-compatible directory
+      - boundary_pgdata:/var/lib/postgresql/data/pgdata
       # Optional: Custom init scripts
       - ./resources/db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:

@@ -10,12 +10,9 @@
    All I/O and side effects happen here. Pure business logic
    is delegated to boundary.user.core.authentication."
   (:require [boundary.user.core.authentication :as auth-core]
-            [boundary.user.core.session :as session-core]
-            [boundary.user.schema :as schema]
             [buddy.hashers :as hashers]
             [buddy.sign.jwt :as jwt]
-            [clojure.tools.logging :as log]
-            [malli.core :as m])
+            [clojure.tools.logging :as log])
   (:import (java.time Instant Duration)
            (java.security SecureRandom)
            (java.util Base64)))

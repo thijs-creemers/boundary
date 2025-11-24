@@ -26,9 +26,8 @@
 
       ;; Load configuration
       (let [cfg (config/load-config)
-            ;; Get database config and convert to factory format
-            sqlite-config (get-in cfg [:active :boundary/sqlite])
-            db-conf (db-config/config->db-config :boundary/sqlite sqlite-config)
+            ;; Derive database configuration for the active adapter
+            db-conf (config/db-spec cfg)
             db-ctx (db-factory/db-context db-conf)]
 
         (try
