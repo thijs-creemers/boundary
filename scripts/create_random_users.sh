@@ -9,10 +9,38 @@ set -e
 API_BASE_URL="${API_BASE_URL:-http://localhost:3000}"
 API_VERSION="v1"
 
+# Admin credentials for authentication (required)
+if [ -z "$ADMIN_EMAIL" ] || [ -z "$ADMIN_PASSWORD" ]; then
+  echo "ERROR: ADMIN_EMAIL and ADMIN_PASSWORD must be set in the environment for authentication."
+  exit 1
+fi
+
+COOKIES_FILE="${COOKIES_FILE:-/tmp/boundary-random-users.cookies}"
+
 echo "========================================="
 echo "Creating 10 Random Users"
 echo "========================================="
 echo "API Base URL: $API_BASE_URL"
+echo "Using admin: $ADMIN_EMAIL"
+echo ""
+
+echo "Authenticating as admin..."
+LOGIN_RESPONSE=$(curl -s -w "\n%{http_code}" -c "$COOKIES_FILE" -X POST \
+  "${API_BASE_URL}/web/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "email=${ADMIN_EMAIL}" \
+  --data-urlencode "password=${ADMIN_PASSWORD}")
+
+LOGIN_CODE=$(echo "$LOGIN_RESPONSE" | tail -n1)
+LOGIN_BODY=$(echo "$LOGIN_RESPONSE" | sed '$d')
+
+if [ "$LOGIN_CODE" != "302" ]; then
+  echo "✗ Login failed (HTTP $LOGIN_CODE)"
+  echo "Response: $LOGIN_BODY"
+  exit 1
+fi
+
+echo "✓ Authenticated, session cookie stored in $COOKIES_FILE"
 echo ""
 
 # Array of random names for variety
@@ -43,12 +71,13 @@ LAST_NAMES=("Smith" "Johnson" "Williams" "Brown" "Jones" "Garcia" "Miller" "Davi
 echo "Creating users..."
 for i in {1..100}; do
   FIRST=${FIRST_NAMES[$((i-1))]}
-  LAST=${LAST_NAMES[$((i-1))]}
+  LAST=${LAST_NAMES[$((i+2))]}
   EMAIL=$(echo "${FIRST}.${LAST}@example.com" | tr '[:upper:]' '[:lower:]')
   
   echo "  [$i/100] Creating ${FIRST} ${LAST} (${EMAIL})..."
   
   RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE_URL}/api/${API_VERSION}/users" \
+    -b "$COOKIES_FILE" \
     -H "Content-Type: application/json" \
     -d "{
       \"email\": \"${EMAIL}\",
@@ -75,7 +104,8 @@ echo "Retrieving Created Users"
 echo "========================================="
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
-  "${API_BASE_URL}/api/${API_VERSION}/users&limit=20")
+  -b "$COOKIES_FILE" \
+  "${API_BASE_URL}/api/${API_VERSION}/users?limit=200")
 
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
 BODY=$(echo "$RESPONSE" | sed '$d')
@@ -92,6 +122,6 @@ echo ""
 echo "========================================="
 echo "Summary"
 echo "========================================="
-echo "You can retrieve these users again with:"
-echo "  curl -s '${API_BASE_URL}/api/${API_VERSION}/users' | jq '.'"
+echo "You can retrieve these users again with (reusing the same session cookie):"
+echo "  curl -s -b '$COOKIES_FILE' '${API_BASE_URL}/api/${API_VERSION}/users?limit=20' | jq '.'"
 echo "========================================="
