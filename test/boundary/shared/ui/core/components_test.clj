@@ -76,9 +76,9 @@
       (is (= {:name "role" :id "role"} (second result)))
       (is (= 3 (count result))) ; select tag + attributes + options
       (let [option-elements (nth result 2)]
-        (is (some #(= [:option {:value :user :selected true} "Regular User"] %)
+        (is (some #(= [:option {:value "user" :selected true} "Regular User"] %)
                   option-elements))
-        (is (some #(= [:option {:value :admin :selected false} "Administrator"] %)
+        (is (some #(= [:option {:value "admin" :selected false} "Administrator"] %)
                   option-elements)))))
 
   (testing "Select field with no selection"

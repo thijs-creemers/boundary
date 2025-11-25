@@ -64,7 +64,8 @@
    (health-routes config nil))
   ([config additional-checks]
    [["/health"
-     {:get {:summary "Health check endpoint"
+     {:no-doc true
+      :get {:summary "Health check endpoint"
             :description "Returns service health status and basic information"
             :responses {200 {:body [:map
                                     [:status :string]
@@ -78,13 +79,15 @@
                         additional-checks))}}]
 
     ["/health/ready"
-     {:get {:summary "Readiness check"
+     {:no-doc true
+      :get {:summary "Readiness check"
             :description "Returns 200 when service is ready to accept traffic"
             :responses {200 {:body [:map [:status [:enum "ready"]]]}}
             :handler (fn [_] {:status 200 :body {:status "ready"}})}}]
 
     ["/health/live"
-     {:get {:summary "Liveness check"
+     {:no-doc true
+      :get {:summary "Liveness check"
             :description "Returns 200 when service is alive"
             :responses {200 {:body [:map [:status [:enum "alive"]]]}}
             :handler (fn [_] {:status 200 :body {:status "alive"}})}}]]))
@@ -105,13 +108,24 @@
   [["/swagger.json"
     {:get {:no-doc true
            :swagger {:info {:title (get-in config [:active :boundary/settings :name] "Boundary API")
-                            :description "RESTful API for Boundary Application"
+                            :description "RESTful API for Boundary Application. Most business endpoints require authentication. Use POST /api/v1/auth/login or POST /api/v1/sessions to obtain a token, then click the Authorize button in Swagger UI and provide either 'Bearer <JWT>' or 'X-Session-Token'."
                             :version (get-in config [:active :boundary/settings :version] "1.0.0")
                             :contact {:name "Support"
                                       :email "support@boundary.example.com"}}
                      :tags [{:name "health" :description "Health check endpoints"}
                             {:name "users" :description "User management"}
-                            {:name "sessions" :description "Session management"}]}
+                            {:name "sessions" :description "Session management"}]
+                     :securityDefinitions {
+                       :BearerAuth {:type "apiKey"
+                                    :name "Authorization"
+                                    :in "header"
+                                    :description "JWT access token. Use format: 'Bearer <token>'"}
+                       :SessionToken {:type "apiKey"
+                                      :name "X-Session-Token"
+                                      :in "header"
+                                      :description "Session token. Optional alternative to Bearer auth."}}
+                     :security [{:BearerAuth []}
+                                {:SessionToken []}]}
            :handler (swagger/create-swagger-handler)}}]
 
    ["/api-docs"
@@ -193,7 +207,7 @@
                         http-middleware/wrap-request-logging
                         wrap-cookies]}
        (concat common-routes root-routes)]
-      ["/api" {:data enhanced-route-data}
+      ["/api/v1" {:data enhanced-route-data}
        api-routes]]
      {:data route-data
       :conflicts nil})))

@@ -7,6 +7,7 @@ set -e
 
 # Configuration
 API_BASE_URL="${API_BASE_URL:-http://localhost:3000}"
+API_VERSION="v1"
 
 echo "========================================="
 echo "Creating 10 Random Users"
@@ -15,19 +16,39 @@ echo "API Base URL: $API_BASE_URL"
 echo ""
 
 # Array of random names for variety
-FIRST_NAMES=("Thijs" "Armando" "Alice" "Bob" "Charlie" "Diana" "Eve" "Frank" "Grace" "Henry" "Ivy" "Jack")
-LAST_NAMES=("Smith" "Johnson" "Williams" "Brown" "Jones" "Garcia" "Miller" "Davis" "Rodriguez" "Martinez")
+FIRST_NAMES=("Thijs" "Armando" "Alice" "Bob" "Charlie" "Diana" "Eve" "Frank" "Grace" "Henry" "Ivy" "Jack"
+  "Liam" "Noah" "Oliver" "Elijah" "James" "William" "Benjamin" "Lucas" "Henry" "Alexander"
+  "Mason" "Michael" "Ethan" "Daniel" "Jacob" "Logan" "Jackson" "Levi" "Sebastian" "Mateo"
+  "Jack" "Owen" "Theodore" "Aiden" "Samuel" "Joseph" "John" "David" "Wyatt" "Matthew"
+  "Luke" "Asher" "Carter" "Julian" "Grayson" "Leo" "Jayden" "Gabriel" "Isaac" "Lincoln"
+  "Anthony" "Hudson" "Dylan" "Ezra" "Thomas" "Charles" "Christopher" "Jaxon" "Maverick" "Josiah"
+  "Elias" "Isaiah" "Andrew" "Joshua" "Nathan" "Adrian" "Ryan" "Miles" "Eli" "Nolan"
+  "Christian" "Aaron" "Cameron" "Ezekiel" "Colton" "Luca" "Landon" "Hunter" "Jonathan" "Santiago"
+  "Axel" "Easton" "Cooper" "Jeremiah" "Angel" "Roman" "Connor" "Jameson" "Robert" "Greyson"
+  "Jordan" "Ian" "Carson" "Jaxson" "Leonardo" "Nicholas" "Dominic" "Austin" "Everett" "Brooks"
+  "Xavier" "Kai" "Jose" "Parker" "Adam" "Finn" "Evan" "Elias" "Tyler" "Diego")
+LAST_NAMES=("Smith" "Johnson" "Williams" "Brown" "Jones" "Garcia" "Miller" "Davis" "Rodriguez" "Martinez"
+  "Adams" "Alberts" "Andersen" "Armstrong" "Bakker" "Barrett" "Becker" "Bergman" "Black" "Blevins"
+  "Blom" "Bowen" "Boyd" "Braun" "Brooks" "Brown" "Bryant" "Carlson" "Carter" "Clark"
+  "Coleman" "Collins" "Cooper" "Cruz" "Daniels" "Davies" "Dawson" "Dekker" "Dijkstra" "Dixon"
+  "Douglas" "Edwards" "Elliott" "Ellis" "Eriksen" "Evans" "Fischer" "Fletcher" "Ford" "Foster"
+  "García" "Gardner" "Grant" "Gray" "Greene" "Groen" "Hall" "Hansen" "Harris" "Hayes"
+  "Hendriks" "Hill" "Holmes" "Howard" "Hughes" "Jacobs" "Jensen" "Johnson" "Jones" "Jansen"
+  "Karlsson" "Keller" "Kennedy" "Kim" "Klein" "Kramer" "Lambert" "Larsson" "Lewis" "Long"
+  "López" "Martin" "Martínez" "Mason" "Meijer" "Meyer" "Mitchell" "Moore" "Morgan" "Morris"
+  "Murphy" "Nelson" "Nguyen" "O'Connor" "O'Donnell" "Olsen" "Patel" "Peters" "Porter" "Reynolds"
+  "Richards" "Roberts" "Robinson" "Sanders" "Schmidt" "Scott" "Smit" "Stevens" "Thompson" "van Dijk")
 
-# Create 10 users
+# Create 100 users
 echo "Creating users..."
-for i in {1..10}; do
+for i in {1..100}; do
   FIRST=${FIRST_NAMES[$((i-1))]}
   LAST=${LAST_NAMES[$((i-1))]}
   EMAIL=$(echo "${FIRST}.${LAST}@example.com" | tr '[:upper:]' '[:lower:]')
   
-  echo "  [$i/10] Creating ${FIRST} ${LAST} (${EMAIL})..."
+  echo "  [$i/100] Creating ${FIRST} ${LAST} (${EMAIL})..."
   
-  RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE_URL}/api/users" \
+  RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_BASE_URL}/api/${API_VERSION}/users" \
     -H "Content-Type: application/json" \
     -d "{
       \"email\": \"${EMAIL}\",
@@ -54,7 +75,7 @@ echo "Retrieving Created Users"
 echo "========================================="
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
-  "${API_BASE_URL}/api/users&limit=20")
+  "${API_BASE_URL}/api/${API_VERSION}/users&limit=20")
 
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
 BODY=$(echo "$RESPONSE" | sed '$d')
@@ -72,5 +93,5 @@ echo "========================================="
 echo "Summary"
 echo "========================================="
 echo "You can retrieve these users again with:"
-echo "  curl -s '${API_BASE_URL}/api/users' | jq '.'"
+echo "  curl -s '${API_BASE_URL}/api/${API_VERSION}/users' | jq '.'"
 echo "========================================="

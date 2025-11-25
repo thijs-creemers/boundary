@@ -56,17 +56,17 @@
       (is (contains? config :active) "Config should have :active section")
       (is (contains? config :inactive) "Config should have :inactive section")
 
-      ;; Check that SQLite is active in dev
-      (is (contains? (:active config) :boundary/sqlite)
-          "SQLite should be active in dev environment")
+      ;; In current dev config PostgreSQL is the active database
+      (is (contains? (:active config) :boundary/postgresql)
+          "PostgreSQL should be active in dev environment")
 
-      ;; Check that H2 is inactive in dev
+      ;; SQLite is available but inactive in dev
+      (is (contains? (:inactive config) :boundary/sqlite)
+          "SQLite should be inactive in dev environment")
+
+      ;; H2 is available as an inactive option in dev
       (is (contains? (:inactive config) :boundary/h2)
-          "H2 should be inactive in dev environment")
-
-      ;; Check that PostgreSQL is inactive in dev
-      (is (contains? (:inactive config) :boundary/postgresql)
-          "PostgreSQL should be inactive in dev environment"))))
+          "H2 should be inactive in dev environment"))))
 
 (deftest test-load-config-test
   (testing "Loading test configuration"

@@ -48,27 +48,49 @@
       (is (= 123 (nth row 0)))
       (is (= "John Doe" (nth row 1)))
       (is (= "john@example.com" (nth row 2)))
-      (is (= "ADMIN" (nth row 3)))
-      (is (= "Active" (nth row 4)))
-      ;; New structure: actions div with Edit button and Deactivate button
-      (let [actions (nth row 5)]
-        (is (= :div.actions (first actions)))
-        (is (= [:a.button.small {:href "/web/users/123"} "Edit"] (second actions)))
-        (is (= :button.button.small.danger (first (nth actions 2)))))))
+
+      ;; Role badge cell
+      (let [role-cell (nth row 3)]
+        (is (vector? role-cell))
+        (is (= :span (first role-cell)))
+        (is (= "role-badge admin" (get-in role-cell [1 :class])))
+        (is (= "Admin" (nth role-cell 2))))
+
+      ;; Status badge cell
+      (let [status-cell (nth row 4)]
+        (is (vector? status-cell))
+        (is (= :span (first status-cell)))
+        (is (= "status-badge active" (get-in status-cell [1 :class])))
+        (is (= "Active" (nth status-cell 2))))
+
+      ;; Actions cell currently empty string
+      (is (= "" (nth row 5)))
+
+      ;; Row metadata contains onclick navigation
+      (let [m (meta row)]
+        (is (string? (:onclick m)))
+        (is (re-find #"/web/users/123" (:onclick m))))))
 
   (testing "generates correct table row for inactive user"
     (let [row (ui/user-row inactive-user)]
-      (is (= "USER" (nth row 3)))
-      (is (= "Inactive" (nth row 4)))
-      ;; New structure: actions div with Edit button and Deactivate button
-      (let [actions (nth row 5)]
-        (is (= :div.actions (first actions)))
-        (is (= [:a.button.small {:href "/web/users/456"} "Edit"] (second actions))))))
+      ;; Role badge: user
+      (let [role-cell (nth row 3)]
+        (is (= "User" (nth role-cell 2))))
+
+      ;; Status badge: inactive
+      (let [status-cell (nth row 4)]
+        (is (= "Inactive" (nth status-cell 2)))
+        (is (= "status-badge inactive" (get-in status-cell [1 :class]))))
+
+      ;; Actions cell empty
+      (is (= "" (nth row 5)))))
 
   (testing "handles different role types"
     (let [viewer-user (assoc sample-user :role :viewer)
-          row (ui/user-row viewer-user)]
-      (is (= "VIEWER" (nth row 3))))))
+          row         (ui/user-row viewer-user)
+          role-cell   (nth row 3)]
+      ;; Capitalized label for viewer role
+      (is (= "Viewer" (nth role-cell 2))))))
 
 (deftest users-table-test
   (testing "generates table with users wrapped in container"

@@ -348,11 +348,22 @@
       (is (= 400 (:status response)))
       (is (html-contains? response "Invalid user ID"))))
 
-  (testing "handles service errors"
+  (testing "handles service errors gracefully"
     (let [user (create-test-user {})
           service (reify ports/IUserService
+                    ;; minimal no-op implementations for unused methods
+                    (register-user [_ _] (throw (UnsupportedOperationException.)))
+                    (get-user-by-id [_ _] user)
+                    (get-user-by-email [_ _] (throw (UnsupportedOperationException.)))
+                    (list-users [_ _] {:users [user] :total-count 1})
                     (update-user-profile [_ _]
-                      (throw (Exception. "Database error"))))
+                      (throw (Exception. "Database error")))
+                    (deactivate-user [_ _] (throw (UnsupportedOperationException.)))
+                    (permanently-delete-user [_ _] (throw (UnsupportedOperationException.)))
+                    (authenticate-user [_ _] (throw (UnsupportedOperationException.)))
+                    (validate-session [_ _] (throw (UnsupportedOperationException.)))
+                    (logout-user [_ _] (throw (UnsupportedOperationException.)))
+                    (logout-user-everywhere [_ _] (throw (UnsupportedOperationException.))))
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
           handler (web-handlers/update-user-htmx-handler service config)
           request {:path-params {:id (str (:id user))}

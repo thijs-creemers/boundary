@@ -48,12 +48,12 @@
      [:body
       [:header.site-header
        (main-navigation {:user user})]
-      [:main.main-content
-       (when flash
-         [:div.flash-messages
-          (for [[type message] flash]
-            [:div {:class (str "alert alert-" (name type))} message])])
-       content]
+      (let [children (cond-> []
+                       flash (conj [:div.flash-messages
+                                    (for [[type message] flash]
+                                      [:div {:class (str "alert alert-" (name type))} message])])
+                       true  (conj content))]
+        (into [:main.main-content] children))
       (for [js-file js]
         [:script {:src js-file}])]]))
 
