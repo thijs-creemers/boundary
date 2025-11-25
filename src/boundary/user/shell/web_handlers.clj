@@ -12,6 +12,7 @@
   (:require [boundary.shared.ui.core.components :as ui]
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.validation :as validation]
+            [boundary.shared.web.table :as web-table]
             [boundary.user.core.ui :as user-ui]
             [boundary.user.ports :as user-ports]
             [boundary.user.schema :as user-schema]
@@ -94,37 +95,36 @@
 (defn users-page-handler
   "Handler for the users listing page (GET /web/users).
    
-   Fetches users from the user service and renders them in a table.
-   
-   Args:
-     user-service: User service instance
-     config: Application configuration map
-     
-   Returns:
-     Ring handler function"
+   Fetches users from the user service and renders them in a table."
   [user-service config]
   (fn [request]
     (try
-      (let [users-result (user-ports/list-users user-service {:limit 100
-                                                              :offset 0})
-            page-opts {:user (get request :user)
-                       :flash (get request :flash)}
-            hiccup-result (user-ui/users-page (:users users-result) page-opts)
-            _ (clojure.tools.logging/info "users-page returned" {:type (type hiccup-result)
-                                                                 :vector? (vector? hiccup-result)
-                                                                 :map? (map? hiccup-result)})
-            response (html-response hiccup-result)
-            _ (clojure.tools.logging/info "html-response returned" {:type (type response)
-                                                                    :keys (keys response)
-                                                                    :body-type (type (:body response))
-                                                                    :body-string? (string? (:body response))})]
-        response)
+      (let [qp          (:query-params request)
+            table-query (web-table/parse-table-query
+                          qp
+                          {:default-sort      :created-at
+                           :default-dir       :desc
+                           :default-page-size 20})
+            users-result (user-ports/list-users
+                           user-service
+                           {:limit          (:limit table-query)
+                            :offset         (:offset table-query)
+                            :sort-by        (:sort table-query)
+                            :sort-direction (:dir table-query)})
+            page-opts {:user        (get request :user)
+                       :flash       (get request :flash)
+                       :table-query table-query}]
+        (html-response
+          (user-ui/users-page
+            (:users users-result)
+            (:total-count users-result)
+            page-opts)))
       (catch Exception e
         (clojure.tools.logging/error e "Error in users-page-handler")
         (html-response
-         (layout/page-layout "Error"
-                             (ui/error-message (.getMessage e)))
-         500)))))
+          (layout/page-layout "Error"
+                              (ui/error-message (.getMessage e)))
+          500)))))
 
 (defn user-detail-page-handler
   "Handler for individual user detail page (GET /web/users/:id).
@@ -321,20 +321,27 @@
 (defn users-table-fragment-handler
   "Handler for refreshing the users table (GET /web/users/table).
    
-   Returns only the table container fragment for HTMX replacement.
-   
-   Args:
-     user-service: User service instance
-     config: Application configuration map
-     
-   Returns:
-     Ring handler function"
+   Returns only the table container fragment for HTMX replacement."
   [user-service config]
   (fn [request]
     (try
-      (let [users-result (user-ports/list-users user-service {:limit 100
-                                                              :offset 0})]
-        (html-response (user-ui/users-table-fragment (:users users-result))))
+      (let [qp          (:query-params request)
+            table-query (web-table/parse-table-query
+                          qp
+                          {:default-sort      :created-at
+                           :default-dir       :desc
+                           :default-page-size 20})
+            users-result (user-ports/list-users
+                           user-service
+                           {:limit          (:limit table-query)
+                            :offset         (:offset table-query)
+                            :sort-by        (:sort table-query)
+                            :sort-direction (:dir table-query)})]
+        (html-response
+          (user-ui/users-table-fragment
+            (:users users-result)
+            table-query
+            (:total-count users-result))))
       (catch Exception e
         (html-response (ui/error-message (.getMessage e)) 500)))))
 

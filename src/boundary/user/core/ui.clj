@@ -6,6 +6,8 @@
    user-specific business logic for display and forms."
   (:require [boundary.shared.ui.core.components :as ui]
             [boundary.shared.ui.core.layout :as layout]
+            [boundary.shared.ui.core.table :as table-ui]
+            [boundary.shared.web.table :as web-table]
             [clojure.string :as str]))
 
 ;; =============================================================================
@@ -36,42 +38,141 @@
   "Generate just the users table container fragment (for HTMX refresh).
    
    Args:
-     users: Collection of User entity maps
+     users:       Collection of User entity maps
+     table-query: Normalized TableQuery (see boundary.shared.web.table)
+     total-count: Total number of users
      
    Returns:
      Hiccup structure for users table container (no page layout)"
-  [users]
-  [:div#users-table-container
-   {:hx-get     "/web/users/table"
-    :hx-trigger "userCreated from:body, userUpdated from:body, userDeleted from:body"
-    :hx-target  "#users-table-container"}
-   (if (empty? users)
-     [:div.empty-state "No users found."]
-     (let [headers ["ID" "Name" "Email" "Role" "Status" ""]
-           rows    (map user-row users)]
+  [users table-query total-count]
+  (let [{:keys [sort dir page page-size]} table-query
+        base-url  "/web/users"
+        hx-target "#users-table-container"
+        hx-url    (str base-url "?"
+                       (web-table/encode-query-params
+                         (web-table/table-query->params table-query)))
+        rows      (map user-row users)]
+    [:div#users-table-container
+     {:hx-get     hx-url
+      :hx-trigger "userCreated from:body, userUpdated from:body, userDeleted from:body"
+      :hx-target  hx-target}
+     (if (empty? users)
+       [:div.empty-state "No users found."]
        [:div.table-wrapper
         [:table {:class "data-table" :id "users-table"}
          [:thead
           [:tr
-           (for [header headers]
-             [:th header])]]
+           (table-ui/sortable-th {:label "ID"
+                                  :field :id
+                                  :current-sort sort
+                                  :current-dir dir
+                                  :base-url base-url
+                                  :page page
+                                  :page-size page-size
+                                  :hx-target hx-target
+                                  :hx-push-url? true})
+           (table-ui/sortable-th {:label "Name"
+                                  :field :name
+                                  :current-sort sort
+                                  :current-dir dir
+                                  :base-url base-url
+                                  :page page
+                                  :page-size page-size
+                                  :hx-target hx-target
+                                  :hx-push-url? true})
+           (table-ui/sortable-th {:label "Email"
+                                  :field :email
+                                  :current-sort sort
+                                  :current-dir dir
+                                  :base-url base-url
+                                  :page page
+                                  :page-size page-size
+                                  :hx-target hx-target
+                                  :hx-push-url? true})
+           [:th "Role"]
+           [:th "Status"]
+           [:th ""]]]
          [:tbody
           (for [row rows]
             (let [row-attrs (meta row)]
               [:tr row-attrs
                (for [cell row]
-                 [:td cell])]))]]]))])
+                 [:td cell])]))]]])]))
 
 (defn users-table
   "Generate a table displaying users based on User schema.
-   
-   Args:
-     users: Collection of User entity maps
-     
+
+   Arities:
+   - ([users])                         ; basic table with default sorting, no query params in hx-get
+   - ([users table-query total-count]) ; full control for paging/sorting
+
+   Args (3-arity):
+     users:       Collection of User entity maps
+     table-query: TableQuery map (sorting/paging)
+     total-count: Total number of users
+
    Returns:
      Hiccup structure for users table"
-  [users]
-  (users-table-fragment users))
+  ([users]
+   ;; Backwards-compatible helper used mainly in unit tests.
+   (let [table-query {:sort      :created-at
+                      :dir       :desc
+                      :page      1
+                      :page-size 20
+                      :offset    0
+                      :limit     20}
+         rows        (map user-row users)
+         base-url    "/web/users"
+         hx-target   "#users-table-container"]
+     [:div#users-table-container
+      {:hx-get     base-url
+       :hx-trigger "userCreated from:body, userUpdated from:body, userDeleted from:body"
+       :hx-target  hx-target}
+      (if (empty? users)
+        [:div.empty-state "No users found."]
+        [:div.table-wrapper
+         [:table {:class "data-table" :id "users-table"}
+          [:thead
+           [:tr
+            (table-ui/sortable-th {:label        "ID"
+                                   :field        :id
+                                   :current-sort (:sort table-query)
+                                   :current-dir  (:dir table-query)
+                                   :base-url     base-url
+                                   :page         (:page table-query)
+                                   :page-size    (:page-size table-query)
+                                   :hx-target    hx-target
+                                   :hx-push-url? true})
+            (table-ui/sortable-th {:label        "Name"
+                                   :field        :name
+                                   :current-sort (:sort table-query)
+                                   :current-dir  (:dir table-query)
+                                   :base-url     base-url
+                                   :page         (:page table-query)
+                                   :page-size    (:page-size table-query)
+                                   :hx-target    hx-target
+                                   :hx-push-url? true})
+            (table-ui/sortable-th {:label        "Email"
+                                   :field        :email
+                                   :current-sort (:sort table-query)
+                                   :current-dir  (:dir table-query)
+                                   :base-url     base-url
+                                   :page         (:page table-query)
+                                   :page-size    (:page-size table-query)
+                                   :hx-target    hx-target
+                                   :hx-push-url? true})
+            [:th "Role"]
+            [:th "Status"]
+            [:th ""]]]
+          [:tbody
+           (for [row rows]
+             (let [row-attrs (meta row)]
+               [:tr row-attrs
+                (for [cell row]
+                  [:td cell])]))]]])]))
+
+  ([users table-query total-count]
+   (users-table-fragment users table-query total-count)))
 
 ;; =============================================================================
 ;; User Form Components  
@@ -219,23 +320,42 @@
 
 (defn users-page
   "Complete users listing page.
-   
-   Args:
-     users: Collection of User entities
-     opts: Optional page options (user context, flash messages, etc.)
-     
+
+   Arities:
+   - ([users])                  ; infer total-count and no extra options
+   - ([users opts])             ; infer total-count, with page options
+   - ([users total-count opts]) ; full control
+
+   Args (3-arity):
+     users:       Collection of User entities
+     total-count: Total number of users
+     opts:        Optional page options (user context, flash messages, etc.)
+                  May contain :table-query for sorting/paging.
+
    Returns:
      Complete HTML page for users listing"
-  [users & [opts]]
-  (layout/page-layout
-    "Users"
-    [:div.users-page
-     [:div.page-header
-      [:h1 "Users"]
-      [:div.page-actions
-       [:a.button.primary {:href "/web/users/new"} "Create User"]]]
-     (users-table users)]
-    opts))
+  ([users]
+   (users-page users (count users) {}))
+  ([users opts]
+   (users-page users (count users) opts))
+  ([users total-count opts]
+   (let [opts        (or opts {})
+         table-query (or (:table-query opts)
+                         {:sort      :created-at
+                          :dir       :desc
+                          :page      1
+                          :page-size 20
+                          :offset    0
+                          :limit     20})]
+     (layout/page-layout
+       "Users"
+       [:div.users-page
+        [:div.page-header
+         [:h1 "Users"]
+         [:div.page-actions
+          [:a.button.primary {:href "/web/users/new"} "Create User"]]]
+        (users-table users table-query total-count)]
+       opts))))
 
 (defn user-detail-page
   "Complete user detail page.
@@ -253,7 +373,7 @@
      [:div.page-header
       [:h1 (:name user)]
       [:div.page-actions
-       [:a.button {:href "/web/users"} "Back to Users"]]]
+       [:a.button {:href "/web/users"} "← Back to Users"]]]
      (user-detail-form user)]
     opts))
 
@@ -274,7 +394,7 @@
      [:div.page-header
       [:h1 "Create New User"]
       [:div.page-actions
-       [:a.button {:href "/web/users"} "Back to Users"]]]
+       [:a.button {:href "/web/users"} "← Back to Users"]]]
      (create-user-form data errors)]
     opts))
 

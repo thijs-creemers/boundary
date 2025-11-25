@@ -135,6 +135,14 @@ table.data-table th:last-child {
   width: 2rem !important;
 }
 
+th.sortable-header {
+    cursor: pointer;
+}
+
+th.sortable-header--active {
+    font-weight: 600;
+    text-decoration: underline;
+}
 table.data-table tbody tr {
   border-bottom: 1px solid var(--pico-muted-border-color, #f3f4f6) !important;
   transition: background 0.15s ease !important;
