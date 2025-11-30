@@ -426,7 +426,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
          "(defrecord " entity-name "Service [repository]\n"
          "  ports/I" entity-name "Service\n"
          "  (create-" entity-lower " [this data]\n"
-         "    (let [prepared (core/prepare-for-creation data)]\n"
+         "    (let [prepared (core/prepare-new-" entity-lower " data (java.time.Instant/now))]\n"
          "      (.create repository prepared)))\n"
          "  (find-" entity-lower " [this id]\n"
          "    (.find-by-id repository id))\n"
@@ -479,8 +479,8 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
          "      (sql/format {:select [:*]\n"
          "                   :from [:" table-name "]\n"
          "                   :where [:= :id id]})))\n"
-         "  (list-" (template/pluralize entity-lower) " [this opts]\n"
-         "    (db/execute! db-ctx\n"
+         "  (find-all [this opts]\n"
+         "    (db/execute-query! db-ctx\n"
          "      (sql/format {:select [:*]\n"
          "                   :from [:" table-name "]\n"
          "                   :limit (:limit opts 20)})))\n"
@@ -590,10 +590,11 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
          "  (:require [clojure.test :refer [deftest testing is]]\n"
          "            [boundary." module-name ".core." entity-lower " :as core]))\n"
          "\n"
-         "(deftest prepare-for-creation-test\n"
+         "(deftest prepare-new-" entity-lower "-test\n"
          "  (testing \"prepares " entity-lower " for creation\"\n"
          "    (let [data {:name \"Test\"}\n"
-         "          result (core/prepare-for-creation data)]\n"
+         "          current-time (java.time.Instant/now)\n"
+         "          result (core/prepare-new-" entity-lower " data current-time)]\n"
          "      (is (some? result)))))\n")))
 
 (defn generate-service-test-file

@@ -17,7 +17,7 @@
                    :from [:Items]
                    :where [:= :id id]})))
   (find-all [this opts]
-    (db/execute! db-ctx
+    (db/execute-query! db-ctx
       (sql/format {:select [:*]
                    :from [:Items]
                    :limit (:limit opts 20)})))
