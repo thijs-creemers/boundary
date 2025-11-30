@@ -33,6 +33,7 @@
             [boundary.shell.utils.port-manager :as port-manager]
             ;; todo: need to find a way to decouple these dependencies an inject them in another way.
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
+            [boundary.inventory.shell.module-wiring] ;; Load inventory module init/halt methods
             [clojure.tools.logging :as log]
             [integrant.core :as ig]
             [ring.adapter.jetty :as jetty]))
@@ -69,42 +70,47 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [config user-routes]}]
+  [_ {:keys [config user-routes inventory-routes]}]
   (log/info "Initializing top-level HTTP handler with structured route composition")
   (let [;; Import routing utilities
         _ (require 'boundary.shell.interfaces.http.routes)
         routes-create-router (ns-resolve 'boundary.shell.interfaces.http.routes 'create-router)
         routes-create-handler (ns-resolve 'boundary.shell.interfaces.http.routes 'create-handler)
 
-        ;; Extract route vectors from structured format
-        static-routes-vec (or (:static user-routes) [])
-        web-routes-vec (or (:web user-routes) [])
-        api-routes-vec (or (:api user-routes) [])
+        ;; Extract route vectors from user module
+        user-static-routes (or (:static user-routes) [])
+        user-web-routes (or (:web user-routes) [])
+        user-api-routes (or (:api user-routes) [])
+        
+        ;; Extract route vectors from inventory module
+        inventory-static-routes (or (:static inventory-routes) [])
+        inventory-web-routes (or (:web inventory-routes) [])
+        inventory-api-routes (or (:api inventory-routes) [])
 
-        ;; Add prefixes to web and api routes since routes/create-router
-        ;; grouping logic expects them to already have prefixes for /web
-        ;; Static routes stay at root, web gets /web prefix, api gets /api prefix from router
-        web-routes-prefixed (when (seq web-routes-vec)
+        ;; Combine all web routes and add /web prefix
+        all-web-routes (concat user-web-routes inventory-web-routes)
+        web-routes-prefixed (when (seq all-web-routes)
                               (mapv (fn [[path opts]]
                                       [(str "/web" path) opts])
-                                    web-routes-vec))
+                                    all-web-routes))
 
-        ;; Combine all routes - routes/create-router will handle the rest
-        ;; It groups based on path prefixes: /css /js /modules /docs /web stay at root
-        ;; Everything else goes under /api
-        all-routes (concat static-routes-vec
+        ;; Combine all routes
+        all-routes (concat user-static-routes
+                           inventory-static-routes
                            (or web-routes-prefixed [])
-                           api-routes-vec)
+                           user-api-routes
+                           inventory-api-routes)
 
-        ;; Create router and handler using common infrastructure
-        ;; This will apply /api prefix to api-routes-vec automatically
+        ;; Create router and handler
         router (routes-create-router config all-routes)
         handler (routes-create-handler router)]
 
     (log/info "Top-level HTTP handler initialized successfully"
-              {:static-routes (count static-routes-vec)
-               :web-routes (count web-routes-vec)
-               :api-routes (count api-routes-vec)
+              {:user-static-routes (count user-static-routes)
+               :user-web-routes (count user-web-routes)
+               :user-api-routes (count user-api-routes)
+               :inventory-api-routes (count inventory-api-routes)
+               :inventory-web-routes (count inventory-web-routes)
                :total-routes (count all-routes)})
     handler))
 

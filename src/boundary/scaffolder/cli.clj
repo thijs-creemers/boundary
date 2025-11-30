@@ -70,8 +70,15 @@
   [field-spec]
   (let [parts (str/split field-spec #":")
         [name-str type-str & flags] parts
-        valid-types #{"string" "integer" "decimal" "boolean" "email" "uuid" "enum" "date" "datetime"}
-        type-kw (keyword type-str)]
+        valid-types #{"string" "text" "integer" "int" "decimal" "boolean" "email" "uuid" "enum" "date" "datetime" "inst" "json"}
+        ;; Map CLI type names to schema type names
+        type-mapping {"integer" :int
+                      "int" :int
+                      "date" :inst
+                      "datetime" :inst
+                      "text" :text
+                      "json" :json}
+        type-kw (get type-mapping type-str (keyword type-str))]
     (cond
       (< (count parts) 2)
       {:error (str "Invalid field spec: " field-spec " (expected format: name:type[:required][:unique])")}

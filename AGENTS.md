@@ -20,6 +20,7 @@
 - [Module Structure](#module-structure)
 - [Configuration Management](#configuration-management)
 - [Development Workflow](#development-workflow)
+- [Module Scaffolding](#module-scaffolding)
 - [Testing Strategy](#testing-strategy)
 - [Database Operations](#database-operations)
 - [Observability](#observability)
@@ -794,6 +795,242 @@ user=> (require '[boundary.user.core.user :as user-core] :reload)
 ;; Full system reset
 user=> (ig-repl/reset)
 ```
+
+---
+
+## Module Scaffolding
+
+Boundary includes a comprehensive scaffolder that generates complete, production-ready modules following FC/IS architecture patterns.
+
+### Quick Usage
+
+```bash
+# Generate a complete module
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name product \
+  --entity Product \
+  --field name:string:required \
+  --field sku:string:required:unique \
+  --field price:decimal:required \
+  --field description:text
+
+# Dry-run to preview without creating files
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name product \
+  --entity Product \
+  --field name:string:required \
+  --dry-run
+```
+
+### Field Specification Format
+
+Field specs follow the pattern: `name:type[:required][:unique]`
+
+**Supported Types:**
+- `string` - Variable length text
+- `text` - Long-form text
+- `int` / `integer` - Integer numbers
+- `decimal` - Decimal numbers
+- `boolean` - True/false values
+- `email` - Email addresses (validated)
+- `uuid` - UUID identifiers
+- `enum` - Enumeration values
+- `date` / `datetime` / `inst` - Timestamps
+- `json` - JSON/map data
+
+**Examples:**
+```bash
+--field email:email:required:unique      # Required unique email
+--field name:string:required             # Required string
+--field age:int                          # Optional integer
+--field status:enum                      # Optional enum
+--field created-date:date:required       # Required timestamp
+```
+
+### Generated Files
+
+The scaffolder generates 12 files per module:
+
+**Source Files (9):**
+1. `src/boundary/{module}/schema.clj` - Malli schemas
+2. `src/boundary/{module}/ports.clj` - Protocol definitions
+3. `src/boundary/{module}/core/{entity}.clj` - Pure business logic
+4. `src/boundary/{module}/core/ui.clj` - Hiccup UI components
+5. `src/boundary/{module}/shell/service.clj` - Service orchestration
+6. `src/boundary/{module}/shell/persistence.clj` - Database operations
+7. `src/boundary/{module}/shell/http.clj` - HTTP routes
+8. `src/boundary/{module}/shell/web_handlers.clj` - Web UI handlers
+9. `migrations/NNN_create_{entities}.sql` - Database migration
+
+**Test Files (3):**
+10. `test/boundary/{module}/core/{entity}_test.clj` - Unit tests
+11. `test/boundary/{module}/shell/{entity}_repository_test.clj` - Persistence tests
+12. `test/boundary/{module}/shell/service_test.clj` - Service integration tests
+
+### Integration Steps
+
+After generating a module, integrate it into the system:
+
+**1. Create Module Wiring**
+
+Create `src/boundary/{module}/shell/module_wiring.clj`:
+
+```clojure
+(ns boundary.{module}.shell.module-wiring
+  "Integrant wiring for the {module} module."
+  (:require [boundary.{module}.shell.persistence :as persistence]
+            [boundary.{module}.shell.service :as service]
+            [clojure.tools.logging :as log]
+            [integrant.core :as ig]))
+
+(defmethod ig/init-key :boundary/{module}-repository
+  [_ {:keys [ctx]}]
+  (log/info "Initializing {module} repository")
+  (persistence/create-repository ctx))
+
+(defmethod ig/halt-key! :boundary/{module}-repository
+  [_ _repo]
+  (log/info "{module} repository halted"))
+
+(defmethod ig/init-key :boundary/{module}-service
+  [_ {:keys [repository]}]
+  (log/info "Initializing {module} service")
+  (service/create-service repository))
+
+(defmethod ig/halt-key! :boundary/{module}-service
+  [_ _service]
+  (log/info "{module} service halted"))
+
+(defmethod ig/init-key :boundary/{module}-routes
+  [_ {:keys [service config]}]
+  (log/info "Initializing {module} routes")
+  (require 'boundary.{module}.shell.http)
+  (let [routes-fn (ns-resolve 'boundary.{module}.shell.http 'routes)]
+    (routes-fn service config)))
+
+(defmethod ig/halt-key! :boundary/{module}-routes
+  [_ _routes]
+  (log/info "{module} routes halted"))
+```
+
+**2. Add Module Configuration**
+
+In `src/boundary/config.clj`, add the module config function:
+
+```clojure
+(defn- {module}-module-config
+  "Return Integrant configuration for the {module} module."
+  [config]
+  {:boundary/{module}-repository
+   {:ctx (ig/ref :boundary/db-context)}
+   
+   :boundary/{module}-service
+   {:repository (ig/ref :boundary/{module}-repository)}
+   
+   :boundary/{module}-routes
+   {:service (ig/ref :boundary/{module}-service)
+    :config config}})
+```
+
+Then merge it into `ig-config`:
+
+```clojure
+(defn ig-config
+  [config]
+  (merge (core-system-config config)
+         (user-module-config config)
+         ({module}-module-config config)))  ; Add this line
+```
+
+**3. Wire Module into System**
+
+In `src/boundary/shell/system/wiring.clj`, add the module wiring to requires:
+
+```clojure
+(:require ...
+          [boundary.{module}.shell.module-wiring] ; Add this
+          ...)
+```
+
+**4. Update HTTP Handler**
+
+In `src/boundary/config.clj`, add the module routes to the HTTP handler:
+
+```clojure
+:boundary/http-handler
+{:config config
+ :user-routes (ig/ref :boundary/user-routes)
+ :{module}-routes (ig/ref :boundary/{module}-routes)} ; Add this
+```
+
+In `src/boundary/shell/system/wiring.clj`, update the HTTP handler to accept and compose the new routes:
+
+```clojure
+(defmethod ig/init-key :boundary/http-handler
+  [_ {:keys [config user-routes {module}-routes]}] ; Add {module}-routes
+  ...
+  ;; Extract and combine routes
+  (let [user-api-routes (or (:api user-routes) [])
+        {module}-api-routes (or (:api {module}-routes) []) ; Add this
+        ...
+        all-routes (concat ...
+                           user-api-routes
+                           {module}-api-routes)            ; Add this
+        ...))
+```
+
+**5. Run Database Migration**
+
+```bash
+# Apply the generated migration
+psql -U boundary_dev -d boundary_dev -f migrations/NNN_create_{entities}.sql
+```
+
+**6. Verify Integration**
+
+```bash
+# Lint the module
+clojure -M:clj-kondo --lint src/boundary/{module}/ test/boundary/{module}/
+
+# Run module tests
+clojure -M:test:db/h2 --focus-meta :{module}
+
+# Start the system and verify routes
+clojure -M:repl-clj
+user=> (require '[integrant.repl :as ig-repl])
+user=> (ig-repl/go)
+```
+
+### Example: Generated Inventory Module
+
+```bash
+# Generate inventory module
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name inventory \
+  --entity Item \
+  --field name:string:required \
+  --field sku:string:required:unique \
+  --field quantity:int:required \
+  --field location:string:required
+```
+
+**Result:**
+- ✅ 12 files generated
+- ✅ Zero linting errors
+- ✅ Complete FC/IS architecture
+- ✅ REST API + Web UI routes
+- ✅ Database schema with indexes
+- ✅ Comprehensive test coverage
+
+### Customizing Generated Code
+
+The scaffolder generates minimal but correct implementations. Enhance them by:
+
+1. **Add Business Logic**: Implement validation and domain rules in `core/{entity}.clj`
+2. **Enhance UI**: Add rich Hiccup templates in `core/ui.clj`
+3. **Add Features**: Extend service methods in `shell/service.clj`
+4. **Implement Queries**: Add complex queries in `shell/persistence.clj`
+5. **Add Routes**: Extend HTTP routes in `shell/http.clj`
 
 ---
 

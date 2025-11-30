@@ -638,7 +638,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
         entity (first (:entities ctx))
         entity-name (:entity-name entity)
         entity-lower (str/lower-case entity-name)]
-    (str "(ns boundary." module-name ".shell.persistence-test\n"
+    (str "(ns boundary." module-name ".shell." entity-lower "-repository-test\n"
          "  (:require [clojure.test :refer [deftest testing is]]\n"
          "            [boundary." module-name ".shell.persistence :as persistence]\n"
          "            [boundary." module-name ".ports :as ports]))\n"
