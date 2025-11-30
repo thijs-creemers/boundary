@@ -2,10 +2,11 @@
   "Main CLI entry point for Boundary framework.
    
    Provides command-line interface for enabled modules.
-   Currently only the user module is wired, but selection is driven by config."
+   Currently user and scaffolder modules are wired, with selection driven by config."
   (:require [boundary.config :as config]
             [boundary.shell.modules :as modules]
             [boundary.user.shell.cli-entry :as user-cli-entry]
+            [boundary.scaffolder.shell.cli-entry :as scaffolder-cli-entry]
             [clojure.tools.logging :as log])
   (:gen-class))
 
@@ -19,6 +20,7 @@
   (let [cfg (config/load-config)
         enabled (modules/enabled-modules cfg)
         ;; Map of module keyword to its CLI runner function
-        module->runner {:user user-cli-entry/run!}
+        module->runner {:user user-cli-entry/run!
+                        :scaffolder scaffolder-cli-entry/run-scaffolder-cli!}
         status (modules/dispatch-cli enabled module->runner args)]
     (System/exit status)))
