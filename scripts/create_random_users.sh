@@ -71,7 +71,7 @@ LAST_NAMES=("Smith" "Johnson" "Williams" "Brown" "Jones" "Garcia" "Miller" "Davi
 echo "Creating users..."
 for i in {1..100}; do
   FIRST=${FIRST_NAMES[$((i-1))]}
-  LAST=${LAST_NAMES[$((i+2))]}
+  LAST=${LAST_NAMES[$((i-1))]}
   EMAIL=$(echo "${FIRST}.${LAST}@example.com" | tr '[:upper:]' '[:lower:]')
   
   echo "  [$i/100] Creating ${FIRST} ${LAST} (${EMAIL})..."

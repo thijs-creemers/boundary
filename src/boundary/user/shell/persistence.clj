@@ -264,13 +264,15 @@
      {:user-id user-id}
      (fn [{:keys [params]}]
        (let [user-id (:user-id params)
-             now (java.time.Instant/now)
-             query {:update :users
-                    :set {:deleted_at (type-conversion/instant->string now)
-                          :updated_at (type-conversion/instant->string now)}
-                    :where [:and
-                            [:= :id (type-conversion/uuid->string user-id)]
-                            [:is :deleted_at nil]]}
+             now     (java.time.Instant/now)
+             adapter (:adapter ctx)
+             query   {:update :users
+                      :set {:deleted_at (type-conversion/instant->string now)
+                            :updated_at (type-conversion/instant->string now)
+                            :active     (protocols/boolean->db adapter false)}
+                      :where [:and
+                              [:= :id (type-conversion/uuid->string user-id)]
+                              [:is :deleted_at nil]]}
              affected-rows (db/execute-update! ctx query)]
          (> affected-rows 0)))
      {:db-ctx ctx}))

@@ -23,16 +23,18 @@
    Returns:
      Vector of cell values for table row (some as Hiccup structures)"
   [user]
-  (with-meta
-    [(:id user)
-     (:name user)
-     (:email user)
-     [:span {:class (str "role-badge " (name (:role user)))}
-      (str/capitalize (name (:role user)))]
-     [:span {:class (str "status-badge " (if (:active user) "active" "inactive"))}
-      (if (:active user) "Active" "Inactive")]
-     ""] ;; Empty actions column
-    {:onclick (str "window.location.href='/web/users/" (:id user) "'")}))
+  (let [role (:role user)
+        active? (boolean (:active user))]
+    (with-meta
+      [(:id user)
+       (:name user)
+       (:email user)
+       [:span {:class (str "role-badge " (name role))}
+        (-> role name str/capitalize)]
+       [:span {:class (str "status-badge " (if active? "active" "inactive"))}
+        (if active? "Active" "Inactive")]
+       ""]
+      {:onclick (str "window.location.href='/web/users/" (:id user) "'")})))
 
 (defn users-table-fragment
   "Generate just the users table container fragment (for HTMX refresh).
@@ -41,63 +43,96 @@
      users:       Collection of User entity maps
      table-query: Normalized TableQuery (see boundary.shared.web.table)
      total-count: Total number of users
-     
+     filters:     Optional map of parsed search filters (see boundary.shared.web.table)
+
    Returns:
      Hiccup structure for users table container (no page layout)"
-  [users table-query total-count]
-  (let [{:keys [sort dir page page-size]} table-query
-        base-url  "/web/users"
-        hx-target "#users-table-container"
-        hx-url    (str base-url "?"
-                       (web-table/encode-query-params
-                         (web-table/table-query->params table-query)))
-        rows      (map user-row users)]
-    [:div#users-table-container
-     {:hx-get     hx-url
-      :hx-trigger "userCreated from:body, userUpdated from:body, userDeleted from:body"
-      :hx-target  hx-target}
+  ([users table-query total-count]
+   (users-table-fragment users table-query total-count {}))
+  ([users table-query total-count filters]
+   (let [{:keys [sort dir page page-size]} table-query
+         base-url      "/web/users/table"
+         hx-target     "#users-table-container"
+         table-params  (web-table/table-query->params table-query)
+         filter-params (web-table/search-filters->params filters)
+         qs-map        (merge table-params filter-params)
+         hx-url        (str base-url "?" (web-table/encode-query-params qs-map))]
      (if (empty? users)
-       [:div.empty-state "No users found."]
-       [:div.table-wrapper
-        [:table {:class "data-table" :id "users-table"}
-         [:thead
-          [:tr
-           (table-ui/sortable-th {:label "ID"
-                                  :field :id
-                                  :current-sort sort
-                                  :current-dir dir
-                                  :base-url base-url
-                                  :page page
-                                  :page-size page-size
-                                  :hx-target hx-target
-                                  :hx-push-url? true})
-           (table-ui/sortable-th {:label "Name"
-                                  :field :name
-                                  :current-sort sort
-                                  :current-dir dir
-                                  :base-url base-url
-                                  :page page
-                                  :page-size page-size
-                                  :hx-target hx-target
-                                  :hx-push-url? true})
-           (table-ui/sortable-th {:label "Email"
-                                  :field :email
-                                  :current-sort sort
-                                  :current-dir dir
-                                  :base-url base-url
-                                  :page page
-                                  :page-size page-size
-                                  :hx-target hx-target
-                                  :hx-push-url? true})
-           [:th "Role"]
-           [:th "Status"]
-           [:th ""]]]
-         [:tbody
-          (for [row rows]
-            (let [row-attrs (meta row)]
+       [:div#users-table-container
+        {:hx-get     hx-url
+         :hx-trigger "userCreated from:body, userUpdated from:body, userDeleted from:body"
+         :hx-target  hx-target}
+        [:div.empty-state "No users found."]]
+        [:div#users-table-container
+         {:hx-get     hx-url
+          :hx-trigger "userCreated from:body, userUpdated from:body, userDeleted from:body"
+          :hx-target  hx-target}
+         [:form#bulk-action-form {:hx-post   "/web/users/bulk"
+                                  :hx-target "#users-table-container"
+                                  :hx-swap   "outerHTML"
+                                  :onchange  "const count = this.querySelectorAll('input[name=\"user-ids\"]:checked').length; document.getElementById('bulk-action-btn').disabled = !count;"}
+          ;; Preserve current table state and filters when posting bulk actions
+          (for [[k v] table-params]
+            [:input {:type "hidden" :name k :value v}])
+          (for [[k v] filter-params]
+            [:input {:type "hidden" :name k :value v}])
+          ;; Hidden action input for bulk operation
+          [:input {:type "hidden" :name "action" :value "deactivate"}]
+          [:div.table-wrapper
+           [:table {:class "data-table" :id "users-table"}
+            [:thead
+             [:tr
+              [:th ""]
+              (table-ui/sortable-th {:label        "ID"
+                                     :field        :id
+                                     :current-sort sort
+                                     :current-dir  dir
+                                     :base-url     base-url
+                                     :page         page
+                                     :page-size    page-size
+                                     :hx-target    hx-target
+                                     :hx-push-url? true
+                                     :extra-params filters})
+              (table-ui/sortable-th {:label        "Name"
+                                    :field        :name
+                                    :current-sort sort
+                                    :current-dir  dir
+                                    :base-url     base-url
+                                    :page         page
+                                    :page-size    page-size
+                                    :hx-target    hx-target
+                                    :hx-push-url? true
+                                    :extra-params filters})
+             (table-ui/sortable-th {:label        "Email"
+                                    :field        :email
+                                    :current-sort sort
+                                    :current-dir  dir
+                                    :base-url     base-url
+                                    :page         page
+                                    :page-size    page-size
+                                    :hx-target    hx-target
+                                    :hx-push-url? true
+                                    :extra-params filters})
+             [:th "Role"]
+             [:th ""]]]
+           [:tbody
+            (for [user users
+                  :when (nil? (:deleted-at user))
+                  :let [row       (user-row user)
+                        row-attrs (meta row)]]
               [:tr row-attrs
+               [:td
+                [:input {:type    "checkbox"
+                         :name    "user-ids"
+                         :value   (str (:id user))
+                         :onclick "event.stopPropagation();"}]]
                (for [cell row]
-                 [:td cell])]))]]])]))
+                 [:td cell])])]]
+          (table-ui/pagination {:table-query  table-query
+                                :total-count total-count
+                                :base-url    base-url
+                                :hx-target   hx-target
+                                :extra-params filters})]]]))))
 
 (defn users-table
   "Generate a table displaying users based on User schema.
@@ -105,6 +140,7 @@
    Arities:
    - ([users])                         ; basic table with default sorting, no query params in hx-get
    - ([users table-query total-count]) ; full control for paging/sorting
+   - ([users table-query total-count filters]) ; with search filters
 
    Args (3-arity):
      users:       Collection of User entity maps
@@ -121,58 +157,13 @@
                       :page-size 20
                       :offset    0
                       :limit     20}
-         rows        (map user-row users)
-         base-url    "/web/users"
-         hx-target   "#users-table-container"]
-     [:div#users-table-container
-      {:hx-get     base-url
-       :hx-trigger "userCreated from:body, userUpdated from:body, userDeleted from:body"
-       :hx-target  hx-target}
-      (if (empty? users)
-        [:div.empty-state "No users found."]
-        [:div.table-wrapper
-         [:table {:class "data-table" :id "users-table"}
-          [:thead
-           [:tr
-            (table-ui/sortable-th {:label        "ID"
-                                   :field        :id
-                                   :current-sort (:sort table-query)
-                                   :current-dir  (:dir table-query)
-                                   :base-url     base-url
-                                   :page         (:page table-query)
-                                   :page-size    (:page-size table-query)
-                                   :hx-target    hx-target
-                                   :hx-push-url? true})
-            (table-ui/sortable-th {:label        "Name"
-                                   :field        :name
-                                   :current-sort (:sort table-query)
-                                   :current-dir  (:dir table-query)
-                                   :base-url     base-url
-                                   :page         (:page table-query)
-                                   :page-size    (:page-size table-query)
-                                   :hx-target    hx-target
-                                   :hx-push-url? true})
-            (table-ui/sortable-th {:label        "Email"
-                                   :field        :email
-                                   :current-sort (:sort table-query)
-                                   :current-dir  (:dir table-query)
-                                   :base-url     base-url
-                                   :page         (:page table-query)
-                                   :page-size    (:page-size table-query)
-                                   :hx-target    hx-target
-                                   :hx-push-url? true})
-            [:th "Role"]
-            [:th "Status"]
-            [:th ""]]]
-          [:tbody
-           (for [row rows]
-             (let [row-attrs (meta row)]
-               [:tr row-attrs
-                (for [cell row]
-                  [:td cell])]))]]])]))
-
+         total-count (count users)
+         fragment    (users-table-fragment users table-query total-count {})]
+     (update fragment 1 assoc :hx-get "/web/users/table")))
   ([users table-query total-count]
-   (users-table-fragment users table-query total-count)))
+   (users-table users table-query total-count {}))
+  ([users table-query total-count filters]
+   (users-table-fragment users table-query total-count filters)))
 
 ;; =============================================================================
 ;; User Form Components  
@@ -205,7 +196,7 @@
         (:role user))
       nil)
     (ui/form-field :active "Active"
-      (ui/checkbox :active (:active user))
+      (ui/checkbox :active (boolean (:active user)))
       nil)
     (ui/submit-button "Update User" {:loading-text "Updating..."})]])
 
@@ -257,14 +248,15 @@
    Returns:
      Hiccup structure showing success message"
   [user]
-  (ui/success-message
-    [:div
-     [:h3 "User Created Successfully!"]
-     [:p "Created user: " (:name user) " (" (:email user) ")"]
-     [:div.user-details
-      [:p "Role: " (str/upper-case (name (:role user)))]
-      [:p "Status: " (if (:active user) "Active" "Inactive")]]
-     [:a.button {:href "/web/users"} "View All Users"]]))
+  (let [active? (boolean (:active user))]
+    (ui/success-message
+      [:div
+       [:h3 "User Created Successfully!"]
+       [:p "Created user: " (:name user) " (" (:email user) ")"]
+       [:div.user-details
+        [:p "Role: " (str/upper-case (name (:role user)))]
+        [:p "Status: " (if active? "Active" "Inactive")]]
+       [:a.button {:href "/web/users"} "View All Users"]])))
 
 (defn user-updated-success
   "Generate success message for user update based on User schema.
@@ -280,10 +272,8 @@
      [:h3 "User Updated Successfully!"]
      [:p "Updated user: " (:name user) " (" (:email user) ")"]
      [:div.user-details
-      [:p "Role: " (str/upper-case (name (:role user)))]
-      [:p "Status: " (if (:active user) "Active" "Inactive")]]
+      [:p "Role: " (str/upper-case (name (:role user)))]]
      [:a.button {:href (str "/web/users/" (:id user))} "View User"]]))
-
 (defn user-deleted-success
   "Generate success message for user deletion.
    
@@ -330,7 +320,7 @@
      users:       Collection of User entities
      total-count: Total number of users
      opts:        Optional page options (user context, flash messages, etc.)
-                  May contain :table-query for sorting/paging.
+                  May contain :table-query for sorting/paging and :filters.
 
    Returns:
      Complete HTML page for users listing"
@@ -341,20 +331,55 @@
   ([users total-count opts]
    (let [opts        (or opts {})
          table-query (or (:table-query opts)
-                         {:sort      :created-at
-                          :dir       :desc
-                          :page      1
-                          :page-size 20
-                          :offset    0
-                          :limit     20})]
+                       {:sort      :created-at
+                        :dir       :desc
+                        :page      1
+                        :page-size 20
+                        :offset    0
+                        :limit     20})
+         filters     (or (:filters opts) {})]
      (layout/page-layout
        "Users"
        [:div.users-page
-        [:div.page-header
-         [:h1 "Users"]
-         [:div.page-actions
-          [:a.button.primary {:href "/web/users/new"} "Create User"]]]
-        (users-table users table-query total-count)]
+         [:div.page-header
+          [:h1 "Users"]
+          [:div.page-actions
+           ;; Bulk action button (disabled by default, enabled by table selection)
+           [:button#bulk-action-btn.icon-button.danger
+            {:disabled true
+             :title "Remove selected users"
+             :onclick "document.getElementById('bulk-action-form').submit();"}
+            "🗑️"]
+           ;; Inline compact search/filter with overlay
+           [:details#search-filter-details.search-filter-inline
+            [:summary.search-toggle "🔍 Filters"]
+            [:div.search-filter-overlay
+             {:onclick "if(event.target === this) document.getElementById('search-filter-details').open = false;"}
+             [:form.search-filter-form 
+              {:method "get" 
+               :action "/web/users"
+               :onsubmit "setTimeout(() => document.getElementById('search-filter-details').open = false, 100);"}
+              [:div.filter-header
+               [:h3 "Search & Filter"]
+               [:button.close-button 
+                {:type "button" 
+                 :onclick "document.getElementById('search-filter-details').open = false;"
+                 :aria-label "Close"}
+                "×"]]
+              [:input {:type        "search"
+                       :name        "q"
+                       :placeholder "Search email..."
+                       :value       (get filters :q "")}]
+              [:select {:name "role"}
+               [:option {:value "" :selected (nil? (:role filters))} "All roles"]
+               [:option {:value "user" :selected (= "user" (:role filters))} "User"]
+               [:option {:value "admin" :selected (= "admin" (:role filters))} "Admin"]
+               [:option {:value "viewer" :selected (= "viewer" (:role filters))} "Viewer"]]
+              [:div.filter-actions
+               [:button.button.small {:type "submit"} "Apply"]
+               [:a.button.small.secondary {:href "/web/users"} "Clear"]]]]]
+           [:a.button.primary {:href "/web/users/new"} "Create User"]]]
+        (users-table users table-query total-count filters)]
        opts))))
 
 (defn user-detail-page

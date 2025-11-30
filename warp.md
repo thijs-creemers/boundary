@@ -7,10 +7,27 @@ A comprehensive reference for developing with Boundary, a module-centric Clojure
 This **Developer Guide** provides comprehensive architectural documentation, advanced development workflows, and complete technical reference.
 
 > **⚠️ Important Development Notes**
-> - Do not stage, commit or push without permission  
-> - Use the clojure-mcp server for creating correctly balanced Clojure code
-> - Always verify clojure-mcp is running and functioning before editing Clojure files
+> - Do not stage, commit or push without my explicit permission  
 > - Follow parinfer conventions for proper Clojure formatting
+
+# Clojure REPL Evaluation
+
+The command `clj-nrepl-eval` is installed on your path for evaluating Clojure code via nREPL.
+
+**Discover nREPL servers:**
+
+`clj-nrepl-eval --discover-ports`
+
+**Evaluate code:**
+
+`clj-nrepl-eval -p <port> "<clojure-code>"`
+
+With timeout (milliseconds)
+
+`clj-nrepl-eval -p <port> --timeout 5000 "<clojure-code>"`
+
+The REPL session persists between evaluations - namespaces and state are maintained.
+Always use `:reload` when requiring namespaces to pick up changes.
 
 ## Table of Contents
 

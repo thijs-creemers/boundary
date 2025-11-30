@@ -272,6 +272,10 @@
                       :summary "Users listing page"}
                 :post {:handler (web-handlers/create-user-htmx-handler user-service config)
                        :summary "Create user (HTMX fragment)"}}]
+     ["/users/bulk" {:no-doc true
+                     :middleware [auth-middleware]
+                     :post {:handler (web-handlers/bulk-update-users-htmx-handler user-service config)
+                            :summary "Bulk user operations (HTMX fragment)"}}]
      ["/users/new" {:no-doc true
                     :middleware [auth-middleware]
                     :get {:handler (web-handlers/create-user-page-handler config)

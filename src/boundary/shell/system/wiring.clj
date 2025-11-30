@@ -25,6 +25,7 @@
   (:require [boundary.shell.adapters.database.factory :as db-factory]
             [boundary.logging.shell.adapters.no-op :as logging-no-op]
             [boundary.metrics.shell.adapters.no-op :as metrics-no-op]
+            [boundary.metrics.shell.adapters.datadog :as metrics-datadog]
             [boundary.logging.shell.adapters.stdout :as logging-stdout]
             [boundary.logging.shell.adapters.slf4j :as logging-slf4j]
             [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
@@ -141,10 +142,11 @@
   [_ config]
   (log/info "Initializing metrics component" {:provider (:provider config)})
   (let [metrics (case (:provider config)
-                  :no-op (metrics-no-op/create-metrics-component config)
+                  :no-op          (metrics-no-op/create-metrics-component config)
+                  :datadog-statsd (metrics-datadog/create-datadog-metrics-component config)
                   ;; Future providers will be added here:
                   ;; :prometheus (prometheus-adapter/create-metrics-component config)
-                  ;; :datadog (datadog-adapter/create-metrics-component config)
+                  ;; :statsd (statsd-adapter/create-metrics-component config)
                   ;; :cloudwatch (cloudwatch-adapter/create-metrics-component config)
                   (do
                     (log/warn "Unknown metrics provider, falling back to no-op"

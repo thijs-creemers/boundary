@@ -122,6 +122,14 @@
    :dsn #env "SENTRY_DSN"
    :environment "development"}
 
+  :boundary/metrics-with-datadog
+  {:provider :datadog-statsd
+   :host #or [#env DD_AGENT_HOST "127.0.0.1"]
+   :port #or [#env DD_DOGSTATSD_PORT 8125]
+   :service "boundary"
+   :environment #or [#env BND_ENV "production"]
+   :global-tags ["service:boundary" "environment:production"]}
+
   :boundary/logging-with-file
   {:provider :file
    :level :debug

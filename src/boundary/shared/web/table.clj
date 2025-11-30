@@ -1,8 +1,10 @@
 (ns boundary.shared.web.table
-  "Shared helpers for table sorting and pagination across web UIs.
+  "Shared helpers for table sorting, pagination, and basic search filters across web UIs.
 
    This namespace centralizes parsing of table-related query parameters so that
-   all modules use the same semantics for sorting and paging.
+   all modules use the same semantics for sorting and paging. It also provides
+   small helpers for generic search/filter parameters that feature modules can
+   interpret according to their own needs.
 
    TableQuery shape:
    {:sort      :name        ; keyword column identifier (or default)
@@ -20,6 +22,25 @@
       (Long/parseLong s)
       (catch Exception _
         nil))))
+
+(defn parse-search-filters
+  [query-params]
+  (let [q      (get query-params "q")
+        role   (get query-params "role")
+        status (get query-params "status")]
+    (cond-> {}
+      (some-> q str/blank? not)       (assoc :q q)
+      (some-> role str/blank? not)    (assoc :role role)
+      (some-> status str/blank? not)  (assoc :status status))))
+
+(defn search-filters->params
+  "Convert parsed search/filter map back into a string-keyed param map.
+
+   Useful for building combined query strings with table-query->params."
+  [filters]
+  (into {}
+        (for [[k v] filters]
+          [(name k) (str v)])))
 
 (defn parse-table-query
   "Parse table-related query params into a normalized TableQuery map.

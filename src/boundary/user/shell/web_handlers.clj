@@ -88,6 +88,23 @@
                                    :body-length (count (str body-content))})
      response)))
 
+(defn- build-user-list-opts
+  "Build list-users options from table query and search filters.
+
+   Only active (non-deleted) users are returned."
+  [table-query filters]
+  (let [base {:limit          (:limit table-query)
+              :offset         (:offset table-query)
+              :sort-by        (:sort table-query)
+              :sort-direction (:dir table-query)
+              :filter-active  true}]
+    (cond-> base
+      (:q filters)
+      (assoc :filter-email-contains (:q filters))
+
+      (:role filters)
+      (assoc :filter-role (keyword (:role filters))))))
+
 ;; =============================================================================
 ;; Page Handlers (Full HTML)
 ;; =============================================================================
@@ -95,7 +112,8 @@
 (defn users-page-handler
   "Handler for the users listing page (GET /web/users).
    
-   Fetches users from the user service and renders them in a table."
+   Fetches users from the user service and renders them in a table, with
+   support for shared search filters (q, role, status)."
   [user-service config]
   (fn [request]
     (try
@@ -105,15 +123,13 @@
                           {:default-sort      :created-at
                            :default-dir       :desc
                            :default-page-size 20})
-            users-result (user-ports/list-users
-                           user-service
-                           {:limit          (:limit table-query)
-                            :offset         (:offset table-query)
-                            :sort-by        (:sort table-query)
-                            :sort-direction (:dir table-query)})
-            page-opts {:user        (get request :user)
-                       :flash       (get request :flash)
-                       :table-query table-query}]
+            filters     (web-table/parse-search-filters qp)
+            list-opts   (build-user-list-opts table-query filters)
+            users-result (user-ports/list-users user-service list-opts)
+            page-opts    {:user        (get request :user)
+                          :flash       (get request :flash)
+                          :table-query table-query
+                          :filters     filters}]
         (html-response
           (user-ui/users-page
             (:users users-result)
@@ -182,10 +198,16 @@
   [config]
   (fn [request]
     (let [return-to (get-in request [:query-params "return-to"])
+          ;; Check if we have a remembered email from previous login
+          remembered-email (get-in request [:cookies "remembered-email" :value])
+          initial-data (if remembered-email
+                         {:email remembered-email
+                          :remember true}
+                         {})
           page-opts {:user (get request :user)
                      :flash (get request :flash)
                      :return-to return-to}]
-      (html-response (user-ui/login-page {} {} page-opts)))))
+      (html-response (user-ui/login-page initial-data {} page-opts)))))
 
 (defn login-submit-handler
   "POST /web/login - validate credentials, authenticate, set session cookie."
@@ -216,20 +238,42 @@
             (log/info "Login attempt" {:email (:email prepared-data)
                                        :authenticated (:authenticated auth-result)
                                        :result-keys (keys auth-result)})
-            (if (:authenticated auth-result)
-              (let [session (:session auth-result)
-                    session-token (:session-token session)]
-                (log/info "Login successful, setting cookie and redirecting" 
-                         {:session-token (str (take 16 session-token) "...")
-                          :return-to return-to})
-                ;; Set session-token cookie and redirect to original URL or default
-                (-> (response/redirect return-to)
-                    (assoc-in [:cookies "session-token"]
-                              {:value session-token
-                               :http-only true
-                     ;; set :secure true when running behind HTTPS
-                               :secure false
-                               :path "/"})))
+               (if (:authenticated auth-result)
+                (let [session (:session auth-result)
+                      session-token (:session-token session)
+                      remember? (:remember prepared-data)
+                      ;; Calculate cookie max-age based on remember-me checkbox
+                      ;; 30 days if remember-me is checked, otherwise session cookie (no max-age)
+                      cookie-max-age (when remember? (* 30 24 60 60))]
+                  (log/info "Login successful, setting cookie and redirecting" 
+                           {:session-token (str (take 16 session-token) "...")
+                            :remember? remember?
+                            :cookie-max-age cookie-max-age
+                            :return-to return-to})
+                  ;; Set session-token cookie and redirect to original URL or default
+                  (-> (response/redirect return-to)
+                      (assoc-in [:cookies "session-token"]
+                                (cond-> {:value session-token
+                                         :http-only true
+                                         ;; set :secure true when running behind HTTPS
+                                         :secure false
+                                         :path "/"}
+                                  ;; Only set max-age if remember-me is checked
+                                  ;; Without max-age, cookie is a session cookie (expires when browser closes)
+                                  remember? (assoc :max-age cookie-max-age)))
+                      ;; Set or clear the remembered-email cookie
+                      (assoc-in [:cookies "remembered-email"]
+                                (if remember?
+                                  ;; Remember the email for 30 days
+                                  {:value (:email prepared-data)
+                                   :http-only false  ; Allow JavaScript to read it if needed
+                                   :secure false
+                                   :path "/"
+                                   :max-age cookie-max-age}
+                                  ;; Clear the remembered email by setting expired cookie
+                                  {:value ""
+                                   :max-age 0
+                                   :path "/"}))))
               ;; Authentication failed (e.g. wrong password)
               (do
                 (log/warn "Login failed" {:email (:email prepared-data)
@@ -317,10 +361,9 @@
 ;; =============================================================================
 ;; HTMX Fragment Handlers
 ;; =============================================================================
-
 (defn users-table-fragment-handler
   "Handler for refreshing the users table (GET /web/users/table).
-   
+
    Returns only the table container fragment for HTMX replacement."
   [user-service config]
   (fn [request]
@@ -331,18 +374,76 @@
                           {:default-sort      :created-at
                            :default-dir       :desc
                            :default-page-size 20})
-            users-result (user-ports/list-users
-                           user-service
-                           {:limit          (:limit table-query)
-                            :offset         (:offset table-query)
-                            :sort-by        (:sort table-query)
-                            :sort-direction (:dir table-query)})]
+            filters     (web-table/parse-search-filters qp)
+            list-opts   (build-user-list-opts table-query filters)
+            users-result (user-ports/list-users user-service list-opts)]
         (html-response
           (user-ui/users-table-fragment
             (:users users-result)
             table-query
-            (:total-count users-result))))
+            (:total-count users-result)
+            filters)))
       (catch Exception e
+        (html-response (ui/error-message (.getMessage e)) 500)))))
+
+(defn bulk-update-users-htmx-handler
+  "HTMX handler for bulk user operations (POST /web/users/bulk).
+
+   Supports actions like deactivate and activate for one or more users,
+   then returns the updated users table fragment using the same query
+   parameters and filters as the current view."
+  [user-service config]
+  (fn [request]
+    (try
+      (let [form-params (:form-params request)
+            ids-param   (get form-params "user-ids")
+            action      (get form-params "action")
+            ids         (cond
+                          (nil? ids-param) []
+                          (sequential? ids-param) ids-param
+                          :else [ids-param])
+            _           (log/info "Bulk user operation" {:action action
+                                                          :ids-count (count ids)})
+            ;; Merge query params from URL and hidden form fields to
+            ;; preserve current filters and table state during bulk ops
+            qp          (merge (:query-params request)
+                               (select-keys form-params ["q" "role" "status" "sort" "dir" "page" "page-size"]))
+            table-query (web-table/parse-table-query
+                          qp
+                          {:default-sort      :created-at
+                           :default-dir       :desc
+                           :default-page-size 20})
+            filters     (web-table/parse-search-filters qp)]
+        (when (or (empty? ids) (str/blank? (str action)))
+          (throw (ex-info "No users selected or action missing"
+                          {:type :bad-request})))
+        ;; Execute bulk operation (only soft-delete/remove is supported)
+        (case action
+          "deactivate"
+          (doseq [id-str ids]
+            (let [uuid (UUID/fromString id-str)]
+              (user-ports/deactivate-user user-service uuid)))
+
+          (throw (ex-info "Unsupported bulk action"
+                          {:type :bad-request
+                           :action action})))
+        ;; After bulk operation, reuse users-table-fragment-handler logic
+        (let [fragment-handler (users-table-fragment-handler user-service config)
+              get-request      {:query-params qp}]
+          (fragment-handler get-request)))
+      (catch IllegalArgumentException _
+        (html-response (ui/error-message "Invalid user ID in bulk operation") 400))
+
+      (catch clojure.lang.ExceptionInfo e
+        (let [data (ex-data e)]
+          (if (= (:type data) :bad-request)
+            (html-response (ui/error-message (.getMessage e)) 400)
+            (do
+              (log/error e "Bulk user operation failed")
+              (html-response (ui/error-message (.getMessage e)) 500)))))
+
+      (catch Exception e
+        (log/error e "Unexpected error in bulk-update-users-htmx-handler")
         (html-response (ui/error-message (.getMessage e)) 500)))))
 
 (defn create-user-htmx-handler
@@ -363,8 +464,7 @@
           prepared-data {:name (get form-data "name")
                          :email (get form-data "email")
                          :password (get form-data "password")
-                         :role (keyword (get form-data "role"))
-                         :active (= "true" (get form-data "active"))}
+                         :role (keyword (get form-data "role"))}
           [valid? validation-errors _] (validate-request-data user-schema/CreateUserRequest prepared-data)]
       (if-not valid?
         (html-response (user-ui/create-user-form prepared-data validation-errors) 400)
@@ -393,11 +493,9 @@
                                                   :role-value (get form-data "role")
                                                   :active-value (get form-data "active")})
             ;; Prepare data with kebab-case keyword keys for validation
-            ;; HTML checkboxes send "on" when checked, or nothing when unchecked
             prepared-data {:name (get form-data "name")
                            :email (get form-data "email")
-                           :role (when-let [role (get form-data "role")] (keyword role))
-                           :active (contains? form-data "active")}
+                           :role (when-let [role (get form-data "role")] (keyword role))}
             _ (log/info "Prepared data for update" {:prepared-data prepared-data})
             [valid? validation-errors _] (validate-request-data user-schema/UpdateUserRequest prepared-data)]
         (if-not valid?
@@ -410,7 +508,7 @@
                 (html-response (ui/error-message "User not found") 404)
                 (let [;; Merge form data into existing user (only update provided fields)
                       user-data (merge existing-user
-                                       (select-keys prepared-data [:name :email :role :active]))
+                                       (select-keys prepared-data [:name :email :role]))
                       user-result (user-ports/update-user-profile user-service user-data)
                       success-html (user-ui/user-updated-success user-result)]
                   (html-response success-html 200 {"HX-Trigger" "userUpdated"}))))
