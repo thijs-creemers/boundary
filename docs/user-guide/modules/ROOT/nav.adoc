@@ -15,6 +15,7 @@
 *** xref:how-to/run-tests-and-watch.adoc[Run Tests and Watch]
 *** xref:how-to/enable-validation-devex.adoc[Enable Validation DevEx]
 ** Reference
+*** xref:reference/scaffolder.adoc[Scaffolder]
 *** xref:reference/commands.adoc[Commands]
 *** xref:reference/configuration.adoc[Configuration]
 *** xref:reference/error-codes.adoc[Error Codes]
