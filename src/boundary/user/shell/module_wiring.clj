@@ -41,6 +41,21 @@
   (log/info "Session repository halted (no cleanup needed)"))
 
 ;; =============================================================================
+;; Audit Repository
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/audit-repository
+  [_ {:keys [ctx]}]
+  (log/info "Initializing audit repository")
+  (let [repo (user-persistence/create-audit-repository ctx)]
+    (log/info "Audit repository initialized")
+    repo))
+
+(defmethod ig/halt-key! :boundary/audit-repository
+  [_ _repo]
+  (log/info "Audit repository halted (no cleanup needed)"))
+
+;; =============================================================================
 ;; Authentication Service
 ;; =============================================================================
 
@@ -61,10 +76,10 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/user-service
-  [_ {:keys [user-repository session-repository validation-config auth-service]}]
+  [_ {:keys [user-repository session-repository audit-repository validation-config auth-service]}]
   (log/info "Initializing user service")
   (let [service (user-service/create-user-service
-                 user-repository session-repository validation-config auth-service)]
+                 user-repository session-repository audit-repository validation-config auth-service)]
     (log/info "User service initialized")
     service))
 

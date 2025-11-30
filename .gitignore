@@ -6,6 +6,7 @@
 /.clojure-mcp
 /.cache/
 .env
+/.archive/
 ._*
 /docs/**/*.html
 /.nrepl-port

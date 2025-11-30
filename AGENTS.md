@@ -1,83 +1,1286 @@
-# Boundary Framework - Agent Development Guide
+# Boundary Framework - Comprehensive Agent Guide
 
-## Build/Test Commands
-- **All tests**: `clojure -M:test:db/h2` (requires H2 database driver)
-- **Single test**: `clojure -M:test:db/h2 -n boundary.user.core.user-test` (by namespace)
-- **Test categories**: `clojure -M:test:db/h2 --focus-meta :unit/:integration/:contract`
-- **Test modules**: `clojure -M:test:db/h2 --focus-meta :user/:billing`
-- **Watch mode**: `clojure -M:test:db/h2 --watch --focus-meta :unit`
-- **Lint**: `clojure -M:clj-kondo --lint src test`
-- **REPL**: `clojure -M:repl-clj` then `(require '[integrant.repl :as ig-repl])` `(ig-repl/go)`
-- **Build**: `clojure -T:build clean && clojure -T:build uber`
+**AI Agent Quick Reference**: This guide provides everything an AI coding agent needs to work effectively with the Boundary Framework - from quick commands to architectural patterns.
+
+> **⚠️ CRITICAL REMINDERS**
+> - Do not stage, commit or push without explicit permission
+> - Use clojure-mcp server for editing Clojure files (ensures balanced parentheses)
+> - Always verify clojure-mcp is running before editing Clojure code
+> - Follow parinfer conventions for proper formatting
+
+## Table of Contents
+
+- [Project Overview](#project-overview)
+- [Quick Start](#quick-start)
+- [Quick Command Reference](#quick-command-reference)
+- [Code Style Guidelines](#code-style-guidelines)
+- [Common Pitfalls](#common-pitfalls)
+- [Architecture Summary](#architecture-summary)
+- [Key Technologies](#key-technologies)
+- [Module Structure](#module-structure)
+- [Configuration Management](#configuration-management)
+- [Development Workflow](#development-workflow)
+- [Testing Strategy](#testing-strategy)
+- [Database Operations](#database-operations)
+- [Observability](#observability)
+- [Web UI Development](#web-ui-development)
+- [Build and Deployment](#build-and-deployment)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Project Overview
+
+Boundary is a **module-centric software framework** built on Clojure that implements the "Functional Core / Imperative Shell" architectural paradigm.
+
+### Key Characteristics
+
+- **Module-Centric Architecture**: Each domain module (`user`, `billing`, `workflow`, `error_reporting`, `logging`, `metrics`) contains complete functionality from pure business logic to external interfaces
+- **Functional Core / Imperative Shell**: Strict separation between pure business logic (core) and side-effectful operations (shell)
+- **Multi-Interface Support**: Consistent behavior across REST API, CLI, and Web interfaces
+- **Ports and Adapters**: Hexagonal architecture enabling dependency inversion and easy testing
+- **Strategic Framework Vision**: Designed to evolve into reusable development toolchains and domain-specific frameworks
+
+### Primary User Types
+
+- **Domain Developers**: Implement business logic in functional core
+- **Platform Engineers**: Maintain shell layer and infrastructure adapters  
+- **API Integrators**: Consume REST endpoints for system integration
+- **Operators/SREs**: Manage deployment and operational tasks via CLI
+
+### Goals and Non-Goals
+
+**Goals:**
+- Architectural clarity with enforced FC/IS separation
+- Excellent developer experience with comprehensive tooling
+- Multi-interface consistency across REST, CLI, and Web
+- Domain-agnostic patterns supporting extensible business domains
+- Production-ready observability and operational tooling
+
+**Non-Goals:**
+- Mobile/desktop client support (focuses on server-side interfaces)
+- Specific domain logic (provides patterns, not implementations)
+- Built-in authentication providers (supports auth patterns)
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+**For macOS (using Homebrew):**
+```bash
+# Install required dependencies
+brew install openjdk clojure/tools/clojure
+```
+
+**For Linux (Ubuntu/Debian):**
+```bash
+# Install JDK
+sudo apt-get update
+sudo apt-get install -y default-jdk rlwrap
+
+# Install Clojure CLI
+curl -L -O https://download.clojure.org/install/linux-install-1.12.3.1577.sh
+chmod +x linux-install-*.sh && sudo ./linux-install-*.sh
+```
+
+### Getting Started
+
+```bash
+# Clone the repository
+git clone <repository-url> boundary
+cd boundary
+
+# Run tests to verify setup
+clojure -M:test:db/h2
+
+# Start a development REPL
+clojure -M:repl-clj
+
+# In the REPL, load and start the system
+user=> (require '[integrant.repl :as ig-repl])
+user=> (ig-repl/go)  ; Start the system
+```
+
+### Verify Installation
+
+```bash
+# Check if tests pass
+clojure -M:test:db/h2
+
+# Lint the codebase
+clojure -M:clj-kondo --lint src test
+
+# Check for outdated dependencies (if alias exists)
+clojure -M:outdated
+```
+
+### Clojure REPL Evaluation
+
+The command `clj-nrepl-eval` is installed on your path for evaluating Clojure code via nREPL.
+
+**Discover nREPL servers:**
+```bash
+clj-nrepl-eval --discover-ports
+```
+
+**Evaluate code:**
+```bash
+clj-nrepl-eval -p <port> "<clojure-code>"
+
+# With timeout (milliseconds)
+clj-nrepl-eval -p <port> --timeout 5000 "<clojure-code>"
+```
+
+**Note**: The REPL session persists between evaluations - namespaces and state are maintained. Always use `:reload` when requiring namespaces to pick up changes.
+
+### Clojure LSP and clj-kondo
+
+Use clj-kondo via Bash after making Clojure edits to verify syntax:
+```bash
+clojure -M:clj-kondo --lint src test
+```
+
+Use clojure-lsp CLI commands when available for operations like:
+```bash
+clojure-lsp format --dry      # Check formatting
+clojure-lsp clean-ns          # Clean up namespaces
+clojure-lsp diagnostics       # Deeper analysis
+```
+
+---
+
+## Quick Command Reference
+
+### Essential Commands
+
+```bash
+# Testing
+clojure -M:test:db/h2                              # All tests (requires H2 driver)
+clojure -M:test:db/h2 -n boundary.user.core.user-test  # Single namespace
+clojure -M:test:db/h2 --focus-meta :unit           # Unit tests only
+clojure -M:test:db/h2 --focus-meta :user           # User module tests
+clojure -M:test:db/h2 --watch --focus-meta :unit   # Watch mode
+
+# Code Quality
+clojure -M:clj-kondo --lint src test               # Lint codebase
+clojure -M:clj-kondo --config .clj-kondo/config.edn --lint src  # With config
+
+# REPL Development
+clojure -M:repl-clj                                # Start REPL
+# In REPL:
+(require '[integrant.repl :as ig-repl])
+(ig-repl/go)                                       # Start system
+(ig-repl/reset)                                    # Reload and restart
+(ig-repl/halt)                                     # Stop system
+
+# Build
+clojure -T:build clean && clojure -T:build uber    # Build uberjar
+
+# Clojure LSP & Tools
+clojure-lsp format --dry                           # Check formatting
+clojure-lsp clean-ns                               # Clean namespaces
+clojure-lsp diagnostics                            # Deeper analysis
+
+# nREPL Evaluation
+clj-nrepl-eval --discover-ports                    # Find nREPL ports
+clj-nrepl-eval -p <port> "<clojure-code>"         # Evaluate code
+```
+
+### Test Categories
+
+```bash
+# By Test Type
+clojure -M:test:db/h2 --focus-meta :unit           # Pure core functions
+clojure -M:test:db/h2 --focus-meta :integration    # Shell services
+clojure -M:test:db/h2 --focus-meta :contract       # Adapter implementations
+
+# By Module
+clojure -M:test:db/h2 --focus-meta :user           # User module
+clojure -M:test:db/h2 --focus-meta :billing        # Billing module
+```
+
+---
 
 ## Code Style Guidelines
-- **Architecture**: Strict Functional Core/Imperative Shell separation - core/* = pure functions only, shell/* = side effects
-- **Imports**: Alphabetical by namespace, separate require/import blocks, alias common namespaces (`:as str`, `:as m`)
-- **Formatting**: Use parinfer conventions, careful parenthesis placement, 2-space indentation
-- **Naming**: kebab-case for functions/vars, descriptive names, end predicates with `?`, collections plural
-- **Documentation**: Docstrings for public functions, especially pure core functions, include Args/Returns/Pure annotations
-- **Error handling**: Use `ex-info` with structured data, validate at shell boundaries, core functions return data
-- **Testing**: Pure core functions need no mocks, shell layer tests use dependency injection mocks
-- **Schema**: Malli schemas in `{module}/schema.clj`, validate at shell boundaries
-- **Modules**: Each domain module owns complete stack: core/shell/ports/schema structure
-- **Dependencies**: Core depends only on ports (protocols), shell implements adapters, no circular dependencies
-- **MCP Tools**: Always use clojure-mcp server for editing Clojure files to ensure balanced parentheses
+
+### Architecture Principles
+
+| Layer | Rules | Examples |
+|-------|-------|----------|
+| **Core** (`core/*`) | Pure functions only, no side effects | `user.clj`, `audit.clj` |
+| **Shell** (`shell/*`) | All side effects, I/O, validation | `service.clj`, `persistence.clj`, `http.clj` |
+| **Ports** (`ports.clj`) | Protocol definitions (abstractions) | `IUserService`, `IUserRepository` |
+| **Schema** (`schema.clj`) | Malli schemas for validation | `CreateUserRequest`, `UserEntity` |
+
+### Naming Conventions
+
+```clojure
+;; Functions and variables: kebab-case
+(defn calculate-user-tier [user] ...)
+(def max-login-attempts 5)
+
+;; Predicates: end with ?
+(defn active-user? [user] ...)
+
+;; Collections: plural
+(def users [...])
+(def audit-logs [...])
+
+;; Records: PascalCase
+(defrecord UserService [user-repository session-repository] ...)
+```
+
+### Import Organization
+
+```clojure
+(ns boundary.user.shell.service
+  ;; Clojure core and standard libraries first
+  (:require [clojure.string :as str]
+            [clojure.set :as set]
+            ;; Third-party libraries alphabetically
+            [malli.core :as m]
+            [taoensso.timbre :as log]
+            ;; Project namespaces alphabetically
+            [boundary.user.core.user :as user-core]
+            [boundary.user.ports :as ports]
+            [boundary.shared.core.time :as time])
+  ;; Java imports separate
+  (:import [java.util UUID]
+           [java.time Instant]))
+```
+
+### Formatting
+
+- **Indentation**: 2 spaces (never tabs)
+- **Parinfer**: Use parinfer-style formatting (careful parenthesis placement)
+- **Line length**: Prefer 80-100 characters, max 120
+- **Trailing parens**: Close on same line as last element
+
+```clojure
+;; Good
+(defn create-user
+  [user-data]
+  (let [validated (validate-user user-data)
+        prepared (prepare-user validated)]
+    (save-user prepared)))
+
+;; Bad - closing parens on separate lines
+(defn create-user
+  [user-data]
+  (let [validated (validate-user user-data)
+        prepared (prepare-user validated)
+       ]
+    (save-user prepared)
+  )
+)
+```
+
+### Documentation
+
+```clojure
+(defn calculate-membership-tier
+  "Calculate user membership tier based on account age and activity.
+   
+   Args:
+     user - User entity map with :created-at and :activity-score
+     current-date - java.time.Instant for calculation reference
+     
+   Returns:
+     Keyword - :bronze, :silver, :gold, or :platinum
+     
+   Pure: true"
+  [user current-date]
+  ...)
+```
+
+### Error Handling
+
+```clojure
+;; Core functions: return data (no exceptions for business logic)
+(defn validate-user-data
+  [user-data]
+  {:valid? false
+   :errors {:email ["Email is required"]}})
+
+;; Shell functions: use ex-info with structured data
+(when-not valid?
+  (throw (ex-info "Validation failed"
+                  {:type :validation-error
+                   :errors errors
+                   :data user-data})))
+```
+
+---
 
 ## Common Pitfalls
 
-### Key Naming Conventions
-- **Database vs Clojure**: Database layer returns snake_case keys (`:password_hash`, `:created_at`) while Clojure code typically uses kebab-case (`:password-hash`, `:created-at`)
-- **Critical**: Always verify actual key names when working with database results using `(keys result)` before attempting operations like `dissoc` or `select-keys`
-- **Example Bug**: Using `(dissoc user :password-hash)` will fail silently if the actual key is `:password_hash`
-- **Best Practice**: When removing sensitive data from database entities, check the exact key names returned by the persistence layer
+### 1. Key Naming: snake_case vs kebab-case
 
-### REPL Reloading
-- **defrecord instances**: When reloading namespaces that contain `defrecord` definitions, existing instances in the system won't automatically update with new method implementations
-- **Solution**: After reloading a namespace with defrecord changes, recreate service instances or do a full system restart
-- **Quick fix**: Clear `.cpcache` directory and restart REPL for a clean reload
-- **Testing**: When testing changes to service methods, either recreate the service instance or restart the system to ensure changes take effect
+**The Problem**: Database layer returns `snake_case` keys while Clojure code uses `kebab-case`.
 
-## Source repository
+```clojure
+;; ❌ WRONG - Looking for kebab-case in db result
+(defn render-user [user]
+  (:created-at user))  ; Returns nil if db returns :created_at
 
-** CRITICAL:
-- Do not stage, commit or push without permission  
-- Use the clojure-mcp server for creating correctly balanced Clojure code
-- Always verify clojure-mcp is running and functioning before editing Clojure files
-- Follow parinfer conventions for proper Clojure formatting
+;; ✅ CORRECT - Check actual keys first
+(keys user)  ; => (:id :email :created_at :password_hash)
 
-##  Product Requirements
-- Follow the Boundary Framework architecture and coding standards
-- Use warp.md and PRD.adoc as references for product requirements
-- Ensure all new features and bug fixes are covered by tests
-- Maintain high code quality and readability
-- Adhere to the defined module structure and dependencies
-- Use the provided build and test commands for development workflow
-- Document all public functions and modules appropriately
-- Validate all data structures using Malli schemas
-- Ensure proper error handling and logging throughout the codebase
-- Collaborate with the team for code reviews and feedback
-- Keep dependencies up to date and manage them carefully
-- Follow best practices for Clojure development and functional programming
-- Ensure compatibility with existing systems and integrations
-- Maintain a clean and organized codebase for future maintenance and scalability
-- Use version control effectively, with clear commit messages and branching strategies
-- Participate in regular team meetings and discussions to stay aligned with project goals
-- Continuously improve skills and knowledge in Clojure and related technologies
-- Stay informed about updates and changes in the Boundary Framework and related tools
-- Contribute to the overall success of the project by delivering high-quality code on time    
-- Adhere to the defined coding standards and guidelines for consistency across the codebase
-- Ensure all code changes are reviewed and approved by team members before merging
-- Use automated tools for code quality checks and continuous integration
-- Document any architectural decisions and design patterns used in the codebase
-- Follow security best practices to protect sensitive data and prevent vulnerabilities
-- Engage in knowledge sharing and mentoring within the team to foster growth and collaboration
-- Regularly refactor and improve existing code to enhance performance and maintainability
-- Stay updated with the latest trends and advancements in Clojure and functional programming
-- Participate in community events and contribute to open-source projects related to Clojure
-- Ensure all new features are backward compatible with existing functionality
-- Use feature flags or toggles for gradual rollouts of new features
-- Monitor application performance and address any issues promptly
-- Maintain a positive and collaborative team environment for effective communication and problem-solving
-- Follow the defined release process and ensure proper versioning of the codebase
-- Continuously seek feedback from users and stakeholders to improve the product
-- Stay focused on delivering value to users through high-quality features and improvements    
+;; ✅ CORRECT - Transform at persistence boundary
+(defn db->user-entity [db-record]
+  (-> db-record
+      (clojure.set/rename-keys {:created_at :created-at
+                                :password_hash :password-hash
+                                :updated_at :updated-at})))
+```
+
+**Best Practice**: Always transform keys at the `db->entity` boundary in `shell/persistence.clj`.
+
+**Recent Bug Example**: Audit table showing blank timestamps/IP addresses because UI code used `:created_at` (snake_case) instead of `:created-at` (kebab-case) that the entity transformation provided.
+
+### 2. REPL Reloading with defrecord
+
+**The Problem**: Reloading namespaces with `defrecord` doesn't update existing instances.
+
+```clojure
+;; Change UserService defrecord implementation
+(defrecord UserService [repo]
+  IUserService
+  (create-user [this data]
+    ;; NEW IMPLEMENTATION
+    ...))
+
+;; ❌ WRONG - System still has old implementation
+(ig-repl/reset)  ; Doesn't recreate defrecord instances
+
+;; ✅ CORRECT - Full system restart
+(ig-repl/halt)
+(ig-repl/go)
+
+;; OR clear cache and restart REPL
+rm -rf .cpcache
+clojure -M:repl-clj
+```
+
+### 3. Parenthesis Balancing
+
+**The Problem**: Manual editing of Clojure code often creates unbalanced parentheses.
+
+```clojure
+;; ❌ WRONG - Manual editing
+(defn process-user [user]
+  (let [validated (validate user)
+        processed (process validated)]  ; Missing closing paren
+    processed)
+
+;; ✅ CORRECT - Use clojure-mcp
+# Always use clojure-mcp server for editing Clojure files
+```
+
+**Best Practice**: Use `clojure-mcp` for all Clojure file edits. Verify it's running before editing.
+
+### 4. Validation at Wrong Layer
+
+```clojure
+;; ❌ WRONG - Validation in core
+(defn create-user-core [user-data]
+  (when-not (m/validate UserSchema user-data)  ; Side effect!
+    (throw (ex-info ...)))  ; Exceptions in pure code!
+  ...)
+
+;; ✅ CORRECT - Validation in shell
+(defn create-user-service [this user-data]
+  (let [[valid? errors data] (validate-request UserSchema user-data)]
+    (if valid?
+      (user-core/create-user data)  ; Core receives clean data
+      (throw (ex-info "Validation failed" {:errors errors})))))
+```
+
+### 5. Direct Adapter Dependencies in Core
+
+```clojure
+;; ❌ WRONG - Core depends on concrete implementation
+(ns boundary.user.core.user
+  (:require [boundary.user.shell.persistence :as db]))  ; BAD!
+
+(defn find-user [id]
+  (db/find-by-id id))  ; Core calling shell directly!
+
+;; ✅ CORRECT - Core depends on ports (protocols)
+(ns boundary.user.core.user)
+
+(defn find-user-decision [user-id existing-user]
+  (if existing-user
+    {:action :use-existing :user existing-user}
+    {:action :not-found :user-id user-id}))
+
+;; Shell orchestrates
+(ns boundary.user.shell.service
+  (:require [boundary.user.ports :as ports]
+            [boundary.user.core.user :as core]))
+
+(defn find-user [this user-id]
+  (let [existing (.find-by-id user-repository user-id)
+        decision (core/find-user-decision user-id existing)]
+    (case (:action decision)
+      :use-existing (:user decision)
+      :not-found nil)))
+```
+
+---
+
+## Architecture Summary
+
+### Functional Core / Imperative Shell (FC/IS)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  Presentation Layer                     │
+│   REST API (Ring)  │  CLI (tools.cli)  │  Web (HTMX)    │
+└─────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│              IMPERATIVE SHELL (shell/*)                 │
+│  • Side effects (I/O, network, persistence)             │
+│  • Validation and coercion (Malli)                      │
+│  • Error translation (domain → HTTP/CLI)                │
+│  • Logging, metrics, error reporting                    │
+│  • Adapter implementations                              │
+└─────────────────────────────────────────────────────────┘
+                           │
+                           ▼ (depends on)
+┌─────────────────────────────────────────────────────────┐
+│                 PORTS (ports.clj)                       │
+│  • Protocol definitions (interfaces)                    │
+│  • Abstract contracts                                   │
+│  • No implementations                                   │
+└─────────────────────────────────────────────────────────┘
+                           ▲ (implements)
+                           │
+┌─────────────────────────────────────────────────────────┐
+│              FUNCTIONAL CORE (core/*)                   │
+│  • Pure functions only (no side effects)                │
+│  • Business logic and rules                             │
+│  • Domain calculations                                  │
+│  • Testable without mocks                               │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Dependency Rules
+
+| Direction | Allowed? | Rule |
+|-----------|----------|------|
+| Shell → Core | ✅ | Shell calls core functions with validated data |
+| Core → Ports | ✅ | Core depends on abstract interfaces only |
+| Shell → Adapters | ✅ | Shell provides concrete implementations |
+| **Core → Shell** | ❌ | **NEVER** - Core must not depend on shell |
+| **Core → Adapters** | ❌ | **NEVER** - Core must not depend on concrete impls |
+
+---
+
+## Key Technologies
+
+### Core Framework Dependencies
+
+| Library | Purpose | Usage in Boundary |
+|---------|---------|-----------------|
+| **Clojure 1.12.1** | Core language | Foundation for all modules |
+| **Integrant** | System lifecycle | Component management and dependency injection |
+| **Aero** | Configuration | Environment-based config with profile overlays |
+
+### Data Management
+
+| Library | Purpose | Usage in Boundary |
+|---------|---------|-----------------|
+| **next.jdbc** | Database connectivity | PostgreSQL connections and queries |
+| **HoneySQL** | SQL generation | Type-safe SQL query building |
+| **HikariCP** | Connection pooling | Database connection management |
+| **Malli** | Schema validation | Request validation and data coercion |
+
+### Web and Interface
+
+| Library | Purpose | Usage in Boundary |
+|---------|---------|-----------------|
+| **Ring** | HTTP abstraction | Web server foundation |
+| **Reitit** | Routing | HTTP request routing |
+| **Cheshire** | JSON processing | Request/response serialization |
+| **HTMX** | Progressive enhancement | Dynamic web UI interactions |
+| **Hiccup** | HTML generation | Server-side rendering |
+
+### Development and Operations
+
+| Library | Purpose | Usage in Boundary |
+|---------|---------|-----------------|
+| **TeleMere** | Structured logging | Application logging and telemetry |
+| **tools.logging** | Logging abstraction | Legacy logging support |
+| **Kaocha** | Test runner | Test execution and reporting |
+| **clj-kondo** | Static analysis | Code linting and quality checks |
+
+### Key Technology Decisions
+
+- **Integrant over Component**: Better support for configuration-driven systems
+- **Malli over Spec**: More mature ecosystem and better error messages
+- **next.jdbc over java.jdbc**: Modern, performant database access
+- **Aero over environ**: More sophisticated configuration management
+- **HTMX over React/Vue**: Server-side rendering, no build step required
+
+---
+
+## Module Structure
+
+### Standard Module Layout
+
+```
+src/boundary/{module}/
+├── core/
+│   ├── {domain1}.clj     # Pure business logic
+│   ├── {domain2}.clj     # Pure calculations
+│   └── ui.clj            # Pure UI generation (Hiccup)
+├── shell/
+│   ├── service.clj       # Business service orchestration
+│   ├── persistence.clj   # Database adapter
+│   ├── http.clj          # REST API routes
+│   ├── cli.clj           # CLI commands
+│   └── web_handlers.clj  # Web UI handlers
+├── ports.clj             # Protocol definitions
+└── schema.clj            # Malli schemas
+
+test/boundary/{module}/
+├── core/
+│   ├── {domain1}_test.clj    # Unit tests (no mocks)
+│   └── ui_test.clj            # Pure UI tests
+└── shell/
+    ├── service_test.clj       # Integration tests (mocked deps)
+    └── persistence_test.clj   # Contract tests (real db)
+```
+
+### Example: User Module
+
+```
+src/boundary/user/
+├── core/
+│   ├── user.clj              # User business logic
+│   ├── session.clj           # Session logic
+│   ├── audit.clj             # Audit logic
+│   └── ui.clj                # UI components (Hiccup)
+├── shell/
+│   ├── service.clj           # UserService (orchestration)
+│   ├── persistence.clj       # DatabaseUserRepository
+│   ├── http.clj              # REST routes
+│   ├── cli.clj               # CLI commands
+│   └── web_handlers.clj      # Web handlers
+├── ports.clj                 # IUserService, IUserRepository
+└── schema.clj                # CreateUserRequest, UserEntity
+```
+
+---
+
+## Configuration Management
+
+Boundary uses **Aero** for sophisticated configuration management with module-centric organization and environment-based profiles.
+
+### Configuration Structure
+
+```
+resources/
+└── conf/
+    └── dev/
+        └── config.edn       # Development configuration
+```
+
+### Environment Setup
+
+```bash
+# Development environment variables
+export BND_ENV=development
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_NAME=boundary_dev
+export DB_USERNAME=boundary_dev
+export DB_PASSWORD=dev_password
+
+# Feature flags
+export BND_FEATURE_BILLING=true
+export BND_FEATURE_WORKFLOW=false
+
+# External services
+export SMTP_HOST=localhost
+export SMTP_PORT=1025  # MailHog for development
+```
+
+### Configuration Loading
+
+```clojure
+;; Load configuration in REPL
+user=> (require '[boundary.config :as config])
+user=> (def cfg (config/load-config))  ; Loads from resources/conf/dev/config.edn
+user=> (get-in cfg [:active :boundary/settings :name])  ; "boundary-dev"
+user=> (get-in cfg [:boundary/sqlite :db])  ; "dev-database.db"
+```
+
+### Current Development Configuration
+
+**Example (`resources/conf/dev/config.edn`):**
+```clojure
+{:active
+ {:boundary/settings
+  {:name              "boundary-dev"
+   :version           "0.1.0"
+   :date-format       "yyyy-MM-dd"
+   :date-time-format  "yyyy-MM-dd HH:mm:ss"
+   :currency/iso-code "EUR"}}
+
+ :boundary/sqlite
+ {:db "dev-database.db"}
+
+ :inactive  ; Available but not currently active
+ {:boundary/postgresql
+  {:host          #env "POSTGRES_HOST"
+   :port          #env "POSTGRES_PORT"
+   :dbname        #env "POSTGRES_DB"
+   :user          #env "POSTGRES_USER"
+   :password      #env "POSTGRES_PASSWORD"
+   :auto-commit   true
+   :max-pool-size 15}}}
+```
+
+### Configuration Best Practices
+
+1. **No secrets in code** - Use environment variables for sensitive data
+2. **Profile-based overrides** - Different values per environment
+3. **Validation at startup** - Fail fast with invalid configuration
+4. **Module ownership** - Each module defines its own config requirements
+
+### PostgreSQL Setup (Optional)
+
+```bash
+# Set environment variables for PostgreSQL
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5432
+export POSTGRES_DB=boundary_dev
+export POSTGRES_USER=boundary_dev
+export POSTGRES_PASSWORD=dev_password
+
+# Verify configuration in REPL
+clojure -M:repl-clj
+user=> (require '[boundary.config :as config])
+user=> (def cfg (config/load-config))
+user=> (keys (:active cfg))  ; See active configuration sections
+```
+
+---
+
+## Development Workflow
+
+### 1. Starting Development
+
+```bash
+# Start REPL
+clojure -M:repl-clj
+
+# In REPL
+user=> (require '[integrant.repl :as ig-repl])
+user=> (ig-repl/go)  ; Start system
+
+# Verify system is running
+user=> (require '[boundary.user.ports :as ports])
+user=> (ports/list-users user-service {})  ; Test service
+
+# Make changes in editor, then:
+user=> (ig-repl/reset)  ; Reload and restart
+```
+
+### 2. Adding New Functionality
+
+**Step-by-Step Process**:
+
+1. **Define Schema** (in `{module}/schema.clj`)
+   ```clojure
+   (def UpdateUserRequest
+     [:map
+      [:id :uuid]
+      [:name [:string {:min 1}]]
+      [:email :email]])
+   ```
+
+2. **Write Core Logic** (in `{module}/core/{domain}.clj`)
+   ```clojure
+   (defn prepare-user-update
+     "Pure function to prepare user update.
+      
+      Args:
+        existing-user - Current user entity
+        update-data - New data to apply
+        
+      Returns:
+        Updated user entity map
+        
+      Pure: true"
+     [existing-user update-data]
+     (merge existing-user
+            (select-keys update-data [:name :email])
+            {:updated-at (java.time.Instant/now)}))
+   ```
+
+3. **Write Unit Tests** (in `test/{module}/core/{domain}_test.clj`)
+   ```clojure
+   (deftest prepare-user-update-test
+     (testing "updates user fields"
+       (let [existing {:id #uuid "..." :name "Old" :email "old@example.com"}
+             updates {:name "New" :email "new@example.com"}
+             result (core/prepare-user-update existing updates)]
+         (is (= "New" (:name result)))
+         (is (= "new@example.com" (:email result))))))
+   ```
+
+4. **Define Port** (in `{module}/ports.clj`)
+   ```clojure
+   (defprotocol IUserService
+     (update-user [this user-id update-data]))
+   ```
+
+5. **Implement in Service** (in `{module}/shell/service.clj`)
+   ```clojure
+   (defrecord UserService [user-repository]
+     IUserService
+     (update-user [this user-id update-data]
+       (let [existing (.find-by-id user-repository user-id)]
+         (when-not existing
+           (throw (ex-info "User not found" {:user-id user-id})))
+         (let [updated (user-core/prepare-user-update existing update-data)]
+           (.update-user user-repository updated)))))
+   ```
+
+6. **Add HTTP Endpoint** (in `{module}/shell/http.clj`)
+   ```clojure
+   ["/api/users/:id" {:put {:handler (handlers/update-user user-service config)}}]
+   ```
+
+### 3. Testing Workflow
+
+```bash
+# Run tests in watch mode while developing
+clojure -M:test:db/h2 --watch --focus-meta :unit
+
+# In another terminal, run full test suite periodically
+clojure -M:test:db/h2
+
+# Before committing, run lint
+clojure -M:clj-kondo --lint src test
+```
+
+### 4. Debugging in REPL
+
+```clojure
+;; Check system state
+user=> (keys integrant.repl.state/system)
+
+;; Get service instance
+user=> (def user-service (::user/service integrant.repl.state/system))
+
+;; Test service directly
+user=> (user-ports/list-users user-service {:limit 10})
+
+;; Check database connection
+user=> (def db-ctx (::db/context integrant.repl.state/system))
+user=> (db/execute-one! db-ctx {:select [[1 :result]]})
+
+;; Reload specific namespace
+user=> (require '[boundary.user.core.user :as user-core] :reload)
+
+;; Full system reset
+user=> (ig-repl/reset)
+```
+
+---
+
+## Testing Strategy
+
+### Test Categories
+
+| Category | Location | Purpose | Characteristics |
+|----------|----------|---------|-----------------|
+| **Unit** | `test/{module}/core/*` | Pure core functions | No mocks, fast, deterministic |
+| **Integration** | `test/{module}/shell/*` | Service orchestration | Mocked dependencies |
+| **Contract** | `test/{module}/shell/*` | Adapter implementations | Real database (H2) |
+
+### Running Tests
+
+```bash
+# All tests (H2 database required)
+clojure -M:test:db/h2
+
+# By category
+clojure -M:test:db/h2 --focus-meta :unit
+clojure -M:test:db/h2 --focus-meta :integration
+clojure -M:test:db/h2 --focus-meta :contract
+
+# By module
+clojure -M:test:db/h2 --focus-meta :user
+clojure -M:test:db/h2 --focus-meta :billing
+
+# Watch mode (auto-run on file changes)
+clojure -M:test:db/h2 --watch --focus-meta :unit
+
+# Single namespace
+clojure -M:test:db/h2 -n boundary.user.core.user-test
+
+# Fail fast (stop on first failure)
+clojure -M:test:db/h2 --fail-fast
+```
+
+### Test Structure Examples
+
+**Unit Test (Pure Core)**:
+```clojure
+(ns boundary.user.core.user-test
+  (:require [clojure.test :refer [deftest testing is]]
+            [boundary.user.core.user :as user-core]))
+
+(deftest calculate-membership-tier-test
+  (testing "platinum tier for 5+ years"
+    (let [user {:created-at #inst "2018-01-01"}
+          current-date #inst "2024-01-01"
+          result (user-core/calculate-membership-tier user current-date)]
+      (is (= :platinum result)))))
+```
+
+**Integration Test (Service with Mocks)**:
+```clojure
+(ns boundary.user.shell.service-test
+  (:require [clojure.test :refer [deftest testing is]]
+            [boundary.user.shell.service :as service]
+            [boundary.user.ports :as ports]))
+
+(deftest create-user-test
+  (testing "creates user successfully"
+    (let [mock-repo (reify ports/IUserRepository
+                      (create-user [_ user] user))
+          svc (service/->UserService mock-repo nil)
+          result (ports/create-user svc valid-user-data)]
+      (is (some? result))
+      (is (= "test@example.com" (:email result))))))
+```
+
+**Contract Test (Real Database)**:
+```clojure
+(ns boundary.user.shell.persistence-test
+  {:kaocha.testable/meta {:contract true :user true}}
+  (:require [clojure.test :refer [deftest testing is use-fixtures]]
+            [boundary.user.shell.persistence :as persistence]))
+
+(use-fixtures :each test-database-fixture)
+
+(deftest find-user-by-email-test
+  (testing "finds existing user"
+    (let [repo (persistence/->DatabaseUserRepository test-db-ctx)
+          created (create-test-user! test-db-ctx)
+          found (ports/find-user-by-email repo (:email created))]
+      (is (some? found))
+      (is (= (:id created) (:id found))))))
+```
+
+---
+
+## Database Operations
+
+### Start Local PostgreSQL
+
+```bash
+# Start local PostgreSQL (via Docker)
+docker-compose -f docker/dev-compose.yml up -d postgres
+
+# Connect to database
+psql -h localhost -U boundary_dev -d boundary_dev
+
+# Stop PostgreSQL
+docker-compose -f docker/dev-compose.yml down
+```
+
+### Run Migrations
+
+```bash
+# Run migrations (if migration alias exists)
+clojure -M:migrate up
+
+# Reset test database (if alias exists)
+clojure -M:test:db:reset
+```
+
+### Database Testing in REPL
+
+```clojure
+;; Test database connection
+user=> (require '[next.jdbc :as jdbc])
+user=> (def ds (jdbc/get-datasource {:dbtype "h2:mem" :dbname "test"}))
+user=> (jdbc/execute! ds ["SELECT 1"])
+
+;; Check persistence layer
+user=> (def repo (get-in integrant.repl.state/system [::user/repository]))
+user=> (user-ports/list-users repo {:limit 1})
+```
+
+### Current Database Setup
+
+- **Development**: SQLite (`dev-database.db`) - no additional setup required
+- **Testing**: H2 in-memory database (configured in test profile)
+- **Production**: PostgreSQL (configure via environment variables)
+
+---
+
+## Observability
+
+Boundary includes built-in observability infrastructure with logging, metrics, and error reporting capabilities following the Functional Core/Imperative Shell pattern.
+
+### Multi-Layer Interceptor Pattern
+
+**Major Architecture Milestone**: Boundary implements a **multi-layer interceptor pattern** that eliminates observability boilerplate while preserving business logic integrity:
+
+**Achievements:**
+- ✅ **Service Layer**: 10/10 methods converted (64% average code reduction)
+- ✅ **Persistence Layer**: 21/21 methods converted (48% average code reduction)  
+- ✅ **Total Impact**: 31/31 methods using interceptor pattern
+- ✅ **Boilerplate Elimination**: 200+ manual observability calls removed
+- ✅ **Business Logic Preservation**: 100% functional core logic maintained
+
+**Key Technical Implementations:**
+- `execute-service-operation` interceptor for business services
+- `execute-persistence-operation` interceptor for data access
+- Automatic breadcrumb, error reporting, and logging injection
+- Clean separation between business logic and observability concerns
+
+### Quick Integration
+
+Feature modules can easily integrate observability by accepting the protocols as dependencies:
+
+```clojure
+(ns my-feature.service
+  (:require [boundary.logging.ports :as logging]
+            [boundary.metrics.ports :as metrics]
+            [boundary.error-reporting.ports :as error-reporting]))
+
+(defrecord MyFeatureService [logger metric-collector error-reporter]
+  IMyFeatureService
+  (process-request [this request]
+    (logging/info logger "Processing request" {:request-id (:id request)})
+    (metrics/increment metric-collector "requests.processed" {:feature "my-feature"})
+    
+    (try
+      ;; Business logic here
+      (let [result (do-processing request)]
+        (logging/info logger "Request processed successfully")
+        result)
+      (catch Exception e
+        (error-reporting/capture-exception error-reporter e 
+                                         {:context "process-request" 
+                                          :request-id (:id request)})
+        (throw (ex-info "Processing failed" {:request-id (:id request)} e))))))
+```
+
+### System Configuration
+
+Configure observability providers in your `config.edn`:
+
+```clojure
+{:logging {:provider :no-op  ; or :datadog
+           :level :info}
+ :metrics {:provider :no-op  ; or :datadog  
+           :namespace "boundary"}
+ :error-reporting {:provider :no-op  ; or :sentry
+                   :dsn "your-sentry-dsn"}}
+```
+
+### Available Providers
+
+- **Logging**: No-op (development), Datadog
+- **Metrics**: No-op (development), Datadog  
+- **Error Reporting**: No-op (development), Sentry
+
+See [docs/OBSERVABILITY_INTEGRATION.md](docs/OBSERVABILITY_INTEGRATION.md) for complete integration guide including custom adapters and advanced configuration.
+
+---
+
+## Web UI Development
+
+### Architecture: HTMX + Hiccup
+
+**Key Principles**:
+- Server-side rendering (Hiccup)
+- Progressive enhancement (HTMX)
+- No build step required
+- Module-integrated (UI code in domain modules)
+
+### File Organization
+
+```
+src/boundary/user/
+├── core/
+│   └── ui.clj              # Pure Hiccup generation
+└── shell/
+    ├── web_handlers.clj    # Web request handlers
+    └── http.clj            # Route composition
+
+resources/public/
+├── css/
+│   ├── pico.min.css        # Base framework
+│   └── app.css             # Custom styles
+└── js/
+    └── htmx.min.js         # HTMX library
+```
+
+### HTMX Patterns
+
+**1. Form with In-Place Update**:
+```clojure
+(defn create-user-form [data errors]
+  [:div#create-user-form {:hx-target "#create-user-form"}
+   [:form {:hx-post "/web/users"}
+    [:label "Name"]
+    [:input {:name "name" :value (:name data)}]
+    (when-let [errs (:name errors)]
+      [:span.error (first errs)])
+    [:button {:type "submit"} "Create"]]])
+```
+
+**2. Table with Event-Based Refresh**:
+```clojure
+(defn users-table [users]
+  [:div#users-table-container
+   {:hx-get "/web/users/table"
+    :hx-trigger "userCreated from:body, userUpdated from:body"
+    :hx-target "#users-table-container"}
+   [:table
+    [:thead ...]
+    [:tbody
+     (for [user users]
+       (user-row user))]]])
+```
+
+**3. Handler with Custom Event**:
+```clojure
+(defn create-user-handler [user-service config]
+  (fn [request]
+    (let [[valid? errors data] (validate-request schema request)]
+      (if valid?
+        {:status 201
+         :headers {"HX-Trigger" "userCreated"}  ; Triggers table refresh
+         :body (render-success-message)}
+        {:status 400
+         :body (render-form-with-errors data errors)}))))
+```
+
+### Routes
+
+```clojure
+;; In shell/http.clj
+["/web"
+ ["/users"
+  {:get {:handler (web-handlers/users-page user-service config)}}
+  ["/new"
+   {:get {:handler (web-handlers/new-user-form user-service config)}}]
+  ["/:id"
+   {:get {:handler (web-handlers/user-detail user-service config)}
+    :put {:handler (web-handlers/update-user-htmx user-service config)}
+    :delete {:handler (web-handlers/delete-user-htmx user-service config)}}]
+  ["/table"
+   {:get {:handler (web-handlers/users-table-fragment user-service config)}}]]]
+```
+
+### Development Workflow
+
+1. Edit UI functions in `core/ui.clj` (pure Hiccup)
+2. Edit handlers in `shell/web_handlers.clj`
+3. Run `(ig-repl/reset)` in REPL
+4. Refresh browser (no build step!)
+5. Check HTMX requests in browser console: `htmx.logAll()`
+
+---
+
+## Build and Deployment
+
+### Build Application
+
+```bash
+# Build application using build.clj
+clojure -T:build clean                 # Clean build artifacts
+clojure -T:build uber                  # Create standalone JAR
+
+# The uberjar will be created in target/ directory
+ls target/*.jar
+```
+
+### Docker Build
+
+```bash
+# Build Docker image (if Dockerfile exists)
+docker build -t boundary:latest .
+
+# Run container
+docker run -p 3000:3000 boundary:latest
+```
+
+### Environment-Specific Tasks
+
+```bash
+# Development
+export BND_ENV=development
+clojure -M:repl-clj
+
+# Testing
+export BND_ENV=test
+clojure -M:test:db/h2
+
+# Staging deployment (if configured)
+export BND_ENV=staging
+clojure -M:build:deploy
+```
+
+### Development Utilities
+
+```bash
+# Format code (if formatter configured)
+clojure -M:format
+
+# Dependency analysis
+clojure -M:deps:tree                   # Show dependency tree
+clojure -M:deps:outdated              # Check for updates
+
+# Code generation (if scaffolding exists)
+clojure -M:gen:module billing          # Create billing module structure
+clojure -M:gen:entity user profile     # Add profile entity to user module
+```
+
+---
+
+## Troubleshooting
+
+### System Won't Start
+
+```bash
+# Clean build artifacts
+rm -rf .cpcache target
+
+# Restart REPL
+clojure -M:repl-clj
+user=> (ig-repl/go)
+
+# Check for errors in config
+user=> (require '[boundary.config :as config])
+user=> (config/load-config)
+```
+
+### Tests Failing
+
+```bash
+# Run specific test with verbose output
+clojure -M:test:db/h2 -n boundary.user.core.user-test --reporter documentation
+
+# Check if database is issue
+clojure -M:test:db/h2 --focus-meta :unit  # Should pass without DB
+
+# Clear test database
+rm -f test-database.db  # If using SQLite for tests
+```
+
+### REPL Issues
+
+```clojure
+;; System stuck, won't reset
+user=> (ig-repl/halt)  ; Force stop
+user=> (ig-repl/go)    ; Fresh start
+
+;; defrecord changes not taking effect
+user=> (ig-repl/halt)
+;; Exit REPL, clear cache, restart
+$ rm -rf .cpcache
+$ clojure -M:repl-clj
+
+;; Check what's in system
+user=> (keys integrant.repl.state/system)
+```
+
+### Clojure-MCP Not Working
+
+```bash
+# Check if clojure-mcp is running
+ps aux | grep clojure-mcp
+
+# If not running, start it (method depends on your setup)
+# Verify it's accessible before editing Clojure files
+```
+
+### Database Issues
+
+```clojure
+;; Test database connection
+user=> (require '[next.jdbc :as jdbc])
+user=> (def ds (jdbc/get-datasource {:dbtype "h2:mem" :dbname "test"}))
+user=> (jdbc/execute! ds ["SELECT 1"])
+
+;; Check persistence layer
+user=> (def repo (get-in integrant.repl.state/system [::user/repository]))
+user=> (user-ports/list-users repo {:limit 1})
+```
+
+### Web UI Issues
+
+```javascript
+// In browser console
+htmx.logAll();  // Enable HTMX debug logging
+
+// Check for JavaScript errors
+// Verify HTMX is loaded
+console.log(htmx);
+
+// Check network tab for failed requests
+```
+
+---
+
+## Additional Resources
+
+### Internal Documentation
+- [warp.md](warp.md) - Full developer guide with detailed examples
+- [PRD.adoc](PRD.adoc) - Product requirements and vision
+- [docs/OBSERVABILITY_INTEGRATION.md](docs/OBSERVABILITY_INTEGRATION.md) - Logging, metrics, error reporting
+- [docs/user-guide/DECISIONS.md](docs/user-guide/DECISIONS.md) - Architectural decisions
+
+### External References
+- [Functional Core, Imperative Shell](https://www.destroyallsoftware.com/screencasts/catalog/functional-core-imperative-shell) - Original concept
+- [Hexagonal Architecture](https://alistair.cockburn.us/hexagonal-architecture/) - Ports and Adapters
+- [Clojure Documentation](https://clojure.org/guides/getting_started)
+- [Malli Documentation](https://github.com/metosin/malli)
+- [HTMX Documentation](https://htmx.org/)
+
+---
+
+## Quick Reference Card
+
+```
+╔════════════════════════════════════════════════════════════════╗
+║                  BOUNDARY FRAMEWORK CHEAT SHEET                ║
+╠════════════════════════════════════════════════════════════════╣
+║ TEST    │ clojure -M:test:db/h2 --watch --focus-meta :unit    ║
+║ LINT    │ clojure -M:clj-kondo --lint src test                ║
+║ REPL    │ clojure -M:repl-clj                                 ║
+║         │ (ig-repl/go)    (ig-repl/reset)    (ig-repl/halt)  ║
+║ BUILD   │ clojure -T:build clean && clojure -T:build uber    ║
+╠════════════════════════════════════════════════════════════════╣
+║ CORE    │ Pure functions only, no side effects               ║
+║ SHELL   │ All I/O, validation, error handling                ║
+║ PORTS   │ Protocol definitions (abstractions)                ║
+║ SCHEMA  │ Malli schemas for validation                       ║
+╠════════════════════════════════════════════════════════════════╣
+║ PITFALL │ snake_case (DB) vs kebab-case (Clojure)            ║
+║ PITFALL │ defrecord changes need full REPL restart           ║
+║ PITFALL │ Use clojure-mcp for editing Clojure files          ║
+╚════════════════════════════════════════════════════════════════╝
+```
+
+---
+
+**Last Updated**: 2024-11-30
+**Version**: 1.0.0

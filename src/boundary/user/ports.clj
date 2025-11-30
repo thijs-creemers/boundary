@@ -352,6 +352,101 @@
      Example:
        (delete-session repo session-id)"))
 
+(defprotocol IUserAuditRepository
+  "User audit log persistence for compliance and security monitoring.
+   
+   This port manages audit trail records, supporting:
+   - Recording all user-related actions and changes
+   - Querying audit history by user, actor, action type, or date range
+   - Compliance reporting and security investigations
+   - Tracking bulk operations and their impact
+   
+   Audit logs are immutable once created and provide a complete
+   history of who did what, when, and what changed."
+
+  (create-audit-log [this audit-entity]
+    "Create a new audit log entry.
+     
+     Args:
+       audit-entity: Audit log entity map conforming to schema/UserAuditLog
+                    ID and created-at will be generated if not provided
+     
+     Returns:
+       Created audit log entity with generated ID and timestamp
+     
+     Example:
+       (create-audit-log repo {:action :update
+                              :actor-id actor-uuid
+                              :actor-email \"admin@example.com\"
+                              :target-user-id user-uuid
+                              :target-user-email \"user@example.com\"
+                              :changes {:field \"role\" :old \"user\" :new \"admin\"}
+                              :result :success})")
+
+  (find-audit-logs [this options]
+    "Retrieve audit logs with filtering, sorting, and pagination.
+     
+     Args:
+       options: Map with query options:
+                {:limit 50
+                 :offset 0
+                 :sort-by :created-at
+                 :sort-direction :desc
+                 :filter-target-user-id user-uuid
+                 :filter-actor-id actor-uuid
+                 :filter-action :update
+                 :filter-result :success
+                 :filter-created-after instant
+                 :filter-created-before instant}
+     
+     Returns:
+       Map with :audit-logs (vector of audit log entities) and :total-count
+     
+     Example:
+       (find-audit-logs repo {:filter-target-user-id user-id :limit 20})")
+
+  (find-audit-logs-by-user [this user-id options]
+    "Retrieve audit logs for a specific user (as target).
+     
+     Args:
+       user-id: UUID of user to get audit trail for
+       options: Optional map with :limit, :offset, :sort-by, :sort-direction
+     
+     Returns:
+       Vector of audit log entities for the user
+     
+     Example:
+       (find-audit-logs-by-user repo user-id {:limit 50})")
+
+  (find-audit-logs-by-actor [this actor-id options]
+    "Retrieve audit logs for a specific actor (who performed actions).
+     
+     Args:
+       actor-id: UUID of actor to get action history for
+       options: Optional map with :limit, :offset, :sort-by, :sort-direction
+     
+     Returns:
+       Vector of audit log entities for the actor
+     
+     Example:
+       (find-audit-logs-by-actor repo actor-id {:limit 50})")
+
+  (count-audit-logs [this filters]
+    "Count audit logs matching filters (for pagination).
+     
+     Args:
+       filters: Optional map with filter criteria
+                {:filter-target-user-id uuid
+                 :filter-actor-id uuid
+                 :filter-action :update
+                 :filter-created-after instant}
+     
+     Returns:
+       Integer count of matching audit logs
+     
+     Example:
+       (count-audit-logs repo {:filter-action :delete})"))
+
 ;; =============================================================================
 ;; Service Layer Ports
 ;; =============================================================================
@@ -549,7 +644,64 @@
        Integer count of invalidated sessions
        
      Example:
-       (logout-user-everywhere service user-id)"))
+       (logout-user-everywhere service user-id)")
+
+  (get-user-sessions [this user-id]
+    "Get all active sessions for a user.
+     
+     Business operation to retrieve session list for management/monitoring.
+     
+     Args:
+       user-id: UUID of user to get sessions for
+     
+     Returns:
+        Vector of active session entities (non-expired, non-revoked)
+        Sessions include session-token, ip-address, user-agent, created-at, last-accessed-at
+        
+       Example:
+         (get-user-sessions service user-id)")
+
+  ;; Audit Log Query Operations
+  (list-audit-logs [this options]
+    "List audit logs with pagination, filtering, and sorting.
+     
+     Business operation to query audit trail for compliance and monitoring.
+     
+     Args:
+       options: Map with pagination/filtering options:
+                {:limit 50
+                 :offset 0
+                 :sort-by :created-at
+                 :sort-direction :desc
+                 :filter-target-user-id uuid
+                 :filter-target-email string
+                 :filter-actor-id uuid
+                 :filter-actor-email string
+                 :filter-action :create|:update|:delete|:login|etc
+                 :filter-result :success|:failure
+                 :filter-created-after instant
+                 :filter-created-before instant}
+     
+     Returns:
+       Map with :audit-logs vector and :total-count
+       
+     Example:
+       (list-audit-logs service {:limit 20 :filter-action :update})")
+
+  (get-audit-logs-for-user [this user-id options]
+    "Get audit trail for a specific user (as target).
+     
+     Business operation to retrieve user-specific audit history.
+     
+     Args:
+       user-id: UUID of user to get audit trail for
+       options: Optional map with :limit, :offset, :sort-by, :sort-direction
+     
+     Returns:
+       Vector of audit log entities for the user
+       
+     Example:
+       (get-audit-logs-for-user service user-id {:limit 50})"))
 
 ;; =============================================================================
 ;; Communication Ports

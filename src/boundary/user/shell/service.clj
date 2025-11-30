@@ -18,6 +18,7 @@
   (:require [boundary.user.core.session :as session-core]
             [boundary.user.core.user :as user-core]
             [boundary.user.core.authentication :as auth-core]
+            [boundary.user.core.audit :as audit-core]
             [boundary.user.shell.auth :as auth-shell]
             [boundary.user.ports :as ports]
             [boundary.shared.core.service-interceptors :as service-interceptors]
@@ -57,7 +58,7 @@
 ;; Database-Agnostic User Service (I/O Shell Layer)
 ;; =============================================================================
 
-(defrecord UserService [user-repository session-repository validation-config auth-service]
+(defrecord UserService [user-repository session-repository audit-repository validation-config auth-service]
 
   ports/IUserService
 
@@ -120,6 +121,20 @@
                         (let [prepared-user (user-core/prepare-user-for-creation user-data-with-hash (current-timestamp) (generate-user-id))
                               created-user (.create-user user-repository prepared-user)]
                           (println "DEBUG created-user in service:" (select-keys created-user [:id :email :name :role :created-at]))
+                          
+                          ;; 6. Create audit log entry for user creation
+                          (try
+                            (let [audit-entry (audit-core/create-user-audit-entry
+                                               nil  ; actor-id (nil for self-registration, or actor from context)
+                                               "system"  ; actor-email (system or actual actor)
+                                               created-user
+                                               nil  ; ip-address (extract from request context if available)
+                                               nil)] ; user-agent (extract from request context if available)
+                              (.create-audit-log audit-repository audit-entry))
+                            (catch Exception e
+                              ;; Log audit failure but don't fail the operation
+                              (println "WARN: Failed to create audit log:" (.getMessage e))))
+                          
                           ;; Remove sensitive data before returning
                           (dissoc created-user :password_hash)))))
                   {:system {:user-repository user-repository
@@ -141,10 +156,19 @@
           (if-let [user (.find-user-by-email user-repository email)]
             (let [credential-validation (auth-core/validate-login-credentials user-credentials)]
               (if-not (:valid? credential-validation)
-                 ;; Validation failed
-                {:authenticated false
-                 :reason :invalid-credentials
-                 :errors (:errors credential-validation)}
+                 ;; Validation failed - log failed attempt
+                (do
+                  (let [audit-entry (audit-core/login-audit-entry
+                                     (:id user)
+                                     (:email user)
+                                     ip-address
+                                     user-agent
+                                     false
+                                     "Invalid credentials format")]
+                    (.create-audit-log audit-repository audit-entry))
+                  {:authenticated false
+                   :reason :invalid-credentials
+                   :errors (:errors credential-validation)})
 
                  ;; 3. Verify password using auth service (shell layer I/O)
                 (if (and (:password_hash user)
@@ -159,8 +183,8 @@
                               current-time (current-timestamp)
                               session-data (session-core/prepare-session-for-creation
                                             {:user-id (:id user)
-                                             :ip-address ip-address
-                                             :user-agent user-agent
+                                             :device-info {:ip-address ip-address
+                                                           :user-agent user-agent}
                                              :remember-me (boolean remember)}
                                             current-time
                                             session-id
@@ -168,22 +192,51 @@
 
                         ;; 6. Persist session using impure shell persistence layer
                           (let [created-session (.create-session session-repository session-data)]
+                          
+                          ;; 7. Log successful login
+                            (let [audit-entry (audit-core/login-audit-entry
+                                               (:id user)
+                                               (:email user)
+                                               ip-address
+                                               user-agent
+                                               true
+                                               nil)]
+                              (.create-audit-log audit-repository audit-entry))
+                          
                           ;; Return authentication result with session and JWT
                             {:authenticated true
                              :user (dissoc user :password_hash)
                              :session created-session
                              :jwt-token (auth-shell/create-jwt-token user 24)}))
 
-                       ;; Login not allowed
-                        {:authenticated false
-                         :reason (:reason login-decision)
-                         :retry-after (:retry-after login-decision)})))
+                       ;; Login not allowed - log failed attempt
+                        (do
+                          (let [audit-entry (audit-core/login-audit-entry
+                                             (:id user)
+                                             (:email user)
+                                             ip-address
+                                             user-agent
+                                             false
+                                             (str "Login not allowed: " (:reason login-decision)))]
+                            (.create-audit-log audit-repository audit-entry))
+                          {:authenticated false
+                           :reason (:reason login-decision)
+                           :retry-after (:retry-after login-decision)}))))
 
-                 ;; Password verification failed
-                  {:authenticated false
-                   :reason :invalid-password})))
+                 ;; Password verification failed - log failed attempt
+                  (do
+                    (let [audit-entry (audit-core/login-audit-entry
+                                       (:id user)
+                                       (:email user)
+                                       ip-address
+                                       user-agent
+                                       false
+                                       "Invalid password")]
+                      (.create-audit-log audit-repository audit-entry))
+                    {:authenticated false
+                     :reason :invalid-password}))))
 
-             ;; User not found
+             ;; User not found - we don't log this for security (avoid enumeration)
             {:authenticated false
              :reason :user-not-found})))
      {:system {:user-repository user-repository
@@ -227,7 +280,19 @@
        (let [session-token (:session-token params)]
          ;; 1. Find and invalidate session using impure shell persistence layer
          (if-let [session (.find-session-by-token session-repository session-token)]
-           (let [invalidated-session (.invalidate-session session-repository session-token)]
+           (let [invalidated-session (.invalidate-session session-repository session-token)
+                 ;; Get user info for audit log
+                 user (.find-user-by-id user-repository (:user_id session))]
+             
+             ;; 2. Create audit log entry
+             (when user
+               (let [audit-entry (audit-core/logout-audit-entry
+                                  (:id user)
+                                  (:email user)
+                                  (:ip_address session)  ; Use IP from session
+                                  (:user_agent session))] ; Use user-agent from session
+                 (.create-audit-log audit-repository audit-entry)))
+             
              ;; Return result
              {:invalidated true :session-id (:id session)})
 
@@ -289,7 +354,9 @@
      {:user-entity user-entity
       :user-id (:id user-entity)}
      (fn [{:keys [params]}]
-       (let [user-entity (:user-entity params)]
+       (let [user-entity (:user-entity params)
+             ;; Get old user data for audit trail (before update)
+             old-user (.find-user-by-id user-repository (:id user-entity))]
          ;; 1. Validate update using pure core function
          (let [validation-result (user-core/validate-user-update-request user-entity)]
            (when-not (:valid? validation-result)
@@ -305,6 +372,21 @@
 
            ;; 3. Persist using impure shell persistence layer
            (let [updated-user (.update-user user-repository prepared-user)]
+             
+             ;; 4. Create audit log entry
+             ;; TODO: Extract actor info from context (currently using target user as actor)
+             (when (and updated-user old-user)
+               (let [audit-entry (audit-core/update-user-audit-entry
+                                  (:id updated-user)      ; actor-id (TODO: should be from context)
+                                  (:email updated-user)   ; actor-email (TODO: should be from context)
+                                  (:id updated-user)      ; target-user-id
+                                  (:email updated-user)   ; target-user-email
+                                  old-user                ; old user data
+                                  updated-user            ; new user data
+                                  nil                     ; ip-address (TODO: extract from context)
+                                  nil)]                   ; user-agent (TODO: extract from context)
+                 (.create-audit-log audit-repository audit-entry)))
+             
              ;; Remove sensitive data before returning
              (when updated-user
                (dissoc updated-user :password_hash))))))
@@ -318,10 +400,28 @@
      {:user-id user-id}
      (fn [{:keys [params]}]
        (let [user-id (:user-id params)
+             ;; Get user details before deactivation for audit trail
+             user (.find-user-by-id user-repository user-id)
              result (.soft-delete-user user-repository user-id)]
+         
+         ;; Create audit log entry
+         (when (and result user)
+           (try
+             (let [audit-entry (audit-core/deactivate-user-audit-entry
+                                nil  ; actor-id (extract from request context)
+                                "system"  ; actor-email
+                                user-id
+                                (:email user)
+                                nil  ; ip-address
+                                nil)] ; user-agent
+               (.create-audit-log audit-repository audit-entry))
+             (catch Exception e
+               (println "WARN: Failed to create audit log:" (.getMessage e)))))
+         
          (boolean result)))
      {:system {:user-repository user-repository
                :session-repository session-repository
+               :audit-repository audit-repository
                :auth-service auth-service}}))
 
   (permanently-delete-user [this user-id]
@@ -330,10 +430,28 @@
      {:user-id user-id}
      (fn [{:keys [params]}]
        (let [user-id (:user-id params)
+             ;; Get user details before deletion for audit trail
+             user (.find-user-by-id user-repository user-id)
              result (.hard-delete-user user-repository user-id)]
+         
+         ;; Create audit log entry
+         (when (and result user)
+           (try
+             (let [audit-entry (audit-core/delete-user-audit-entry
+                                nil  ; actor-id (extract from request context)
+                                "system"  ; actor-email
+                                user-id
+                                (:email user)
+                                nil  ; ip-address
+                                nil)] ; user-agent
+               (.create-audit-log audit-repository audit-entry))
+             (catch Exception e
+               (println "WARN: Failed to create audit log:" (.getMessage e)))))
+         
          (boolean result)))
      {:system {:user-repository user-repository
                :session-repository session-repository
+               :audit-repository audit-repository
                :auth-service auth-service}}))
 
   (logout-user-everywhere [this user-id]
@@ -347,7 +465,49 @@
          invalidated-count))
      {:system {:user-repository user-repository
                :session-repository session-repository
-               :auth-service auth-service}})))
+               :auth-service auth-service}}))
+
+  (get-user-sessions [this user-id]
+    (service-interceptors/execute-service-operation
+     :get-user-sessions
+     {:user-id user-id}
+     (fn [{:keys [params]}]
+       (let [user-id (:user-id params)
+             sessions (.find-sessions-by-user session-repository user-id)]
+         ;; Return sessions (no sensitive data to filter)
+          sessions))
+       {:system {:user-repository user-repository
+                 :session-repository session-repository
+                 :auth-service auth-service}}))
+
+  ;; ---------------------------------------------------------------------------
+  ;; Audit Log Query Operations
+  ;; ---------------------------------------------------------------------------
+
+  (list-audit-logs [this options]
+    (service-interceptors/execute-service-operation
+     :list-audit-logs
+     {:options options}
+     (fn [{:keys [params]}]
+       (let [options (:options params)
+             ;; Query audit repository with provided options
+             result (.find-audit-logs audit-repository options)]
+         ;; Return result map with :audit-logs and :total-count
+         result))
+     {:system {:audit-repository audit-repository}}))
+
+  (get-audit-logs-for-user [this user-id options]
+    (service-interceptors/execute-service-operation
+     :get-audit-logs-for-user
+     {:user-id user-id :options options}
+     (fn [{:keys [params]}]
+       (let [user-id (:user-id params)
+             options (:options params)
+             ;; Query audit logs for specific user
+             logs (.find-audit-logs-by-user audit-repository user-id options)]
+         ;; Return vector of audit log entities
+         logs))
+     {:system {:audit-repository audit-repository}})))
 
 ;; =============================================================================
 ;; Factory Functions
@@ -359,6 +519,7 @@
    Args:
      user-repository: Implementation of IUserRepository
      session-repository: Implementation of IUserSessionRepository
+     audit-repository: Implementation of IUserAuditRepository
      validation-config: Map containing validation policies and settings
      auth-service: Implementation of IAuthenticationService
 
@@ -366,6 +527,6 @@
      UserService instance
 
    Example:
-     (def service (create-user-service user-repo session-repo validation-cfg auth-svc))"
-  [user-repository session-repository validation-config auth-service]
-  (->UserService user-repository session-repository validation-config auth-service))
+     (def service (create-user-service user-repo session-repo audit-repo validation-cfg auth-svc))"
+  [user-repository session-repository audit-repository validation-config auth-service]
+  (->UserService user-repository session-repository audit-repository validation-config auth-service))

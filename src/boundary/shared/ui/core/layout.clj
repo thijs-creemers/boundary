@@ -17,6 +17,10 @@
   (let [{:keys [user]} opts]
     [:nav
      [:a.logo {:href "/"} "Boundary App"]
+     (when user
+       [:div.nav-links
+        [:a {:href "/web/users"} "Users"]
+        [:a {:href "/web/audit"} "Audit Trail"]])
      (if user
        [:div.user-nav
         [:span "Welcome, " (:name user)]

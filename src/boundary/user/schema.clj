@@ -25,6 +25,7 @@
    [:password-hash {:optional true} [:string {:min 60 :max 60}]] ; bcrypt hash is always 60 chars
    [:role [:enum :admin :user :viewer]]
    [:active :boolean]
+   [:send-welcome {:optional true} :boolean]
    [:login-count {:optional true} :int]
    [:last-login {:optional true} inst?]
    [:date-format {:optional true} [:enum :iso :us :eu]]
@@ -61,6 +62,25 @@
    [:user-agent {:optional true} :string]
    [:ip-address {:optional true} :string]])
 
+(def UserAuditLog
+  "Schema for User Audit Log entity - tracks all user-related actions for compliance and security.
+   
+   Captures who did what, when, and what changed for full audit trail visibility."
+  [:map {:title "User Audit Log"}
+   [:id :uuid]
+   [:action [:enum :create :update :delete :activate :deactivate :role-change :bulk-action :login :logout]]
+   [:actor-id {:optional true} [:maybe :uuid]] ; User who performed the action (nil for system actions)
+   [:actor-email {:optional true} [:maybe :string]] ; Email of actor for easy reference
+   [:target-user-id :uuid] ; User who was affected by the action
+   [:target-user-email :string] ; Email of affected user for easy reference
+   [:changes {:optional true} [:maybe :map]] ; Map of changed fields: {:field "name" :old "John" :new "Jane"}
+   [:metadata {:optional true} [:maybe :map]] ; Additional context: {:bulk-count 5, :reason "security"}
+   [:ip-address {:optional true} [:maybe :string]]
+   [:user-agent {:optional true} [:maybe :string]]
+   [:result [:enum :success :failure]]
+   [:error-message {:optional true} [:maybe :string]] ; Error details if result is :failure
+   [:created-at inst?]])
+
 ;; =============================================================================
 ;; API Request Schemas
 ;; =============================================================================
@@ -87,7 +107,9 @@
   [:map {:title "Login Request"}
    [:email [:re {:error/message "Invalid email format"} email-regex]]
    [:password [:string {:min 8 :max 255 :error/message "Password must be at least 8 characters"}]]
-   [:remember {:optional true} :boolean]])
+   [:remember {:optional true} :boolean]
+   [:ip-address {:optional true} [:maybe :string]]
+   [:user-agent {:optional true} [:maybe :string]]])
 
 ;; =============================================================================
 ;; API Response Schemas
@@ -185,7 +207,8 @@
   {:domain-entities
    {:user User
     :user-preferences UserPreferences
-    :user-session UserSession}})
+    :user-session UserSession
+    :user-audit-log UserAuditLog}})
 
 (defn get-schema
   "Retrieves a schema from the registry by category and name."

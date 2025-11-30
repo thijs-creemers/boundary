@@ -260,7 +260,7 @@
       (is (html-contains? response "Connection timeout")))))
 
 (deftest create-user-htmx-handler-test
-  (testing "creates user successfully and returns success message"
+  (testing "creates user successfully and redirects to user detail page"
     (let [service (create-mock-service)
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
           handler (web-handlers/create-user-htmx-handler service config)
@@ -274,8 +274,9 @@
       (is (= 201 (:status response)))
       (is (= "text/html; charset=utf-8" (get-in response [:headers "Content-Type"])))
       (is (has-header? response "HX-Trigger" "userCreated"))
-      (is (html-contains? response "User Created Successfully"))
-      (is (html-contains? response "New User"))))
+      ;; Now returns JavaScript redirect instead of success message
+      (is (html-contains? response "window.location.href"))
+      (is (html-contains? response "/web/users/"))))
 
   (testing "returns validation errors for invalid data"
     (let [service (create-mock-service)
@@ -306,7 +307,7 @@
       (is (html-contains? response "Email already exists")))))
 
 (deftest update-user-htmx-handler-test
-  (testing "updates user successfully and returns success message"
+  (testing "updates user successfully and re-renders form with success banner"
     (let [user (create-test-user {:name "Original Name"})
           service (create-mock-service {(:id user) user})
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
@@ -321,7 +322,9 @@
       (is (= 200 (:status response)))
       (is (= "text/html; charset=utf-8" (get-in response [:headers "Content-Type"])))
       (is (has-header? response "HX-Trigger" "userUpdated"))
-      (is (html-contains? response "User Updated Successfully"))
+      ;; Now returns success banner and form instead of separate success page
+      (is (html-contains? response "User updated successfully"))
+      (is (html-contains? response "success-banner"))
       (is (html-contains? response "Updated Name"))))
 
   (testing "returns validation errors for invalid data"

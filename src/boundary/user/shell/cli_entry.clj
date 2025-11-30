@@ -37,6 +37,7 @@
           ;; Create repositories
           (let [user-repo (user-persistence/create-user-repository db-ctx)
                 session-repo (user-persistence/create-session-repository db-ctx)
+                audit-repo (user-persistence/create-audit-repository db-ctx)
 
                 ;; Create no-op observability services for CLI
                 logger (no-op-logging/create-no-op-logger nil)
@@ -51,7 +52,7 @@
 
                 ;; Create user service with full dependencies
                 user-svc (user-service/create-user-service
-                           user-repo session-repo validation-cfg auth-svc)
+                           user-repo session-repo audit-repo validation-cfg auth-svc)
 
                 ;; Dispatch CLI commands and capture exit status
                 status (user-cli/run-cli! user-svc args)]

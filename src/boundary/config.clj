@@ -269,10 +269,20 @@
      :boundary/session-repository
      {:ctx (ig/ref :boundary/db-context)}
 
+     :boundary/audit-repository
+     {:ctx (ig/ref :boundary/db-context)}
+
+     :boundary/auth-service
+     {:user-repository (ig/ref :boundary/user-repository)
+      :session-repository (ig/ref :boundary/session-repository)
+      :auth-config {}} ; Add actual auth config if needed
+
      :boundary/user-service
      {:user-repository (ig/ref :boundary/user-repository)
       :session-repository (ig/ref :boundary/session-repository)
+      :audit-repository (ig/ref :boundary/audit-repository)
       :validation-config validation-cfg
+      :auth-service (ig/ref :boundary/auth-service)
       :logger (ig/ref :boundary/logging)
       :metrics (ig/ref :boundary/metrics)
       :error-reporter (ig/ref :boundary/error-reporting)}

@@ -654,3 +654,164 @@ textarea {
     padding: 0.75rem 0.5rem;
   }
 }
+
+/* =============================================================================
+   Session Management
+   ============================================================================= */
+
+.user-sessions-page table {
+  margin-top: 1.5rem;
+}
+
+.user-sessions-page .current-session {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.user-sessions-page .badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 0.25rem;
+  margin-left: 0.5rem;
+}
+
+.user-sessions-page .badge.current {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: rgb(37, 99, 235);
+}
+
+.user-sessions-page button.small {
+  font-size: 0.875rem;
+  padding: 0.375rem 0.75rem;
+}
+
+/* =============================================================================
+   Password Validation & Requirements
+   ============================================================================= */
+
+.password-requirements {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+}
+
+.password-requirements h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.requirements-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.requirements-list li {
+  display: flex;
+  align-items: center;
+  padding: 0.375rem 0;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.requirement-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-right: 0.5rem;
+  font-weight: bold;
+  font-size: 0.875rem;
+  border-radius: 50%;
+}
+
+.requirement-met .requirement-icon {
+  color: #059669;
+  background: #d1fae5;
+}
+
+.requirement-unmet .requirement-icon {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.requirement-met .requirement-text {
+  color: #065f46;
+}
+
+.requirement-unmet .requirement-text {
+  color: #6b7280;
+}
+
+/* Password Strength Indicator */
+.password-strength-indicator {
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.strength-meter {
+  flex: 1;
+  height: 0.5rem;
+  background: #e5e7eb;
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.strength-bar {
+  height: 100%;
+  transition: all 0.3s ease;
+  border-radius: 9999px;
+}
+
+.strength-very-weak .strength-bar {
+  width: 25%;
+  background: #dc2626;
+}
+
+.strength-weak .strength-bar {
+  width: 50%;
+  background: #f59e0b;
+}
+
+.strength-medium .strength-bar {
+  width: 75%;
+  background: #3b82f6;
+}
+
+.strength-strong .strength-bar {
+  width: 100%;
+  background: #059669;
+}
+
+.strength-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.strength-very-weak .strength-label {
+  color: #dc2626;
+}
+
+.strength-weak .strength-label {
+  color: #f59e0b;
+}
+
+.strength-medium .strength-label {
+  color: #3b82f6;
+}
+
+.strength-strong .strength-label {
+  color: #059669;
+}

@@ -100,8 +100,8 @@
                                                 :else :single)
                                  :duration-ms duration-ms})))
             ctx)
-   :error (fn [{:keys [operation-name context] :as ctx}]
-            (log/error (str "Database operation failed: " operation-name)
+   :error (fn [{:keys [operation-name context exception] :as ctx}]
+            (log/error exception (str "Database operation failed: " operation-name)
                        context)
             ctx)})
 

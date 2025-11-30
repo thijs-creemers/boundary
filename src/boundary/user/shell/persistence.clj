@@ -27,6 +27,7 @@
             [boundary.user.schema :as user-schema]
             [boundary.error-reporting.core :as error-reporting]
             [boundary.shared.core.persistence-interceptors :as persistence-interceptors]
+            [cheshire.core]
             [clojure.set]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]))
@@ -41,11 +42,13 @@
    Creates the following tables:
    - users: User accounts
    - user_sessions: User authentication sessions
+   - user_audit_log: Audit trail for user operations
    
    Includes indexes for:
    - Foreign keys (user_id)
    - Unique constraints (email, session tokens)
    - Query performance (role, active status, expiration dates)
+   - Audit trail queries (target_user_id, actor_id, created_at)
    
    Args:
      ctx: Database context
@@ -59,7 +62,8 @@
   (log/info "Initializing user schema from Malli definitions")
   (db-schema/initialize-tables-from-schemas! ctx
                                              {"users" user-schema/User
-                                              "user_sessions" user-schema/UserSession}))
+                                              "user_sessions" user-schema/UserSession
+                                              "user_audit_log" user-schema/UserAuditLog}))
 
 ;; =============================================================================
 ;; Entity Transformations
@@ -100,6 +104,7 @@
   "Transform session domain entity to database format."
   [session-entity]
   (-> session-entity
+      (dissoc :device-info) ;; Remove nested device-info before DB conversion
       (update :id type-conversion/uuid->string)
       (update :user-id type-conversion/uuid->string)
       (update :expires-at type-conversion/instant->string)
@@ -136,6 +141,72 @@
         (update :created-at type-conversion/string->instant)
         (update :last-accessed-at type-conversion/string->instant)
         (update :revoked-at type-conversion/string->instant))))
+
+(defn- audit-log-entity->db
+  "Transform audit log domain entity to database format."
+  [audit-entity]
+  (-> audit-entity
+      (update :id type-conversion/uuid->string)
+      (update :action type-conversion/keyword->string)
+      (update :actor-id #(when % (type-conversion/uuid->string %)))
+      (update :target-user-id type-conversion/uuid->string)
+      (update :result type-conversion/keyword->string)
+      (update :created-at type-conversion/instant->string)
+      ;; Convert maps to JSON strings for JSONB columns
+      (update :changes #(when % (cheshire.core/generate-string %)))
+      (update :metadata #(when % (cheshire.core/generate-string %)))
+      ;; Convert kebab-case to snake_case
+      (clojure.set/rename-keys {:actor-id :actor_id
+                                :actor-email :actor_email
+                                :target-user-id :target_user_id
+                                :target-user-email :target_user_email
+                                :ip-address :ip_address
+                                :user-agent :user_agent
+                                :error-message :error_message
+                                :created-at :created_at})))
+
+(defn- db->audit-log-entity
+  "Transform database record to audit log domain entity."
+  [db-record]
+  (letfn [(parse-json-field [value]
+            ;; Handle both TEXT (string) and JSONB/JSON (PGobject) columns
+            (when value
+              (cond
+                (string? value)
+                (cheshire.core/parse-string value true)
+                
+                ;; PostgreSQL returns PGobject for JSON/JSONB columns
+                (instance? org.postgresql.util.PGobject value)
+                (cheshire.core/parse-string (.getValue value) true)
+                
+                ;; Already a map (shouldn't happen, but handle it)
+                (map? value)
+                value
+                
+                :else
+                (throw (ex-info "Unexpected JSON field type"
+                                {:type (type value)
+                                 :value value})))))]
+    (when db-record
+      (-> db-record
+          ;; Convert snake_case to kebab-case
+          (clojure.set/rename-keys {:actor_id :actor-id
+                                    :actor_email :actor-email
+                                    :target_user_id :target-user-id
+                                    :target_user_email :target-user-email
+                                    :ip_address :ip-address
+                                    :user_agent :user-agent
+                                    :error_message :error-message
+                                    :created_at :created-at})
+          (update :id type-conversion/string->uuid)
+          (update :action type-conversion/string->keyword)
+          (update :actor-id #(when % (type-conversion/string->uuid %)))
+          (update :target-user-id type-conversion/string->uuid)
+          (update :result type-conversion/string->keyword)
+          (update :created-at type-conversion/string->instant)
+          ;; Parse JSON fields - handles both TEXT and JSONB/JSON types
+          (update :changes parse-json-field)
+          (update :metadata parse-json-field)))))
 
 ;; =============================================================================
 ;; User Repository Implementation
@@ -402,6 +473,11 @@
      {:session-entity session-entity}
      (fn [{:keys [params]}]
        (let [session-entity (:session-entity params)
+             _ (log/info "Creating session in DB" {:session-entity session-entity
+                                                    :has-user-agent (contains? session-entity :user-agent)
+                                                    :has-ip-address (contains? session-entity :ip-address)
+                                                    :user-agent (:user-agent session-entity)
+                                                    :ip-address (:ip-address session-entity)})
              now (java.time.Instant/now)
              session-with-metadata (-> session-entity
                                        (assoc :id (UUID/randomUUID))
@@ -409,7 +485,13 @@
                                        (assoc :created-at now)
                                        (assoc :last-accessed-at nil)
                                        (assoc :revoked-at nil))
+             _ (log/info "Session with metadata" {:session-with-metadata session-with-metadata
+                                                   :user-agent (:user-agent session-with-metadata)
+                                                   :ip-address (:ip-address session-with-metadata)})
              db-session (session-entity->db session-with-metadata)
+             _ (log/info "DB session format" {:db-session db-session
+                                              :user_agent (:user_agent db-session)
+                                              :ip_address (:ip_address db-session)})
              query {:insert-into :user_sessions
                     :values [db-session]}]
          (db/execute-update! ctx query)
@@ -538,7 +620,157 @@
              query {:delete-from :user_sessions
                     :where [:= :id (type-conversion/uuid->string session-id)]}
              affected-rows (db/execute-update! ctx query)]
-         (> affected-rows 0)))
+          (> affected-rows 0)))
+      {:db-ctx ctx})))
+
+;; =============================================================================
+;; Audit Log Repository Implementation
+;; =============================================================================
+
+(defrecord DatabaseUserAuditRepository [ctx]
+  ports/IUserAuditRepository
+
+  (create-audit-log [_ audit-entity]
+    (persistence-interceptors/execute-persistence-operation
+     :create-audit-log
+     {:audit-entity audit-entity}
+     (fn [{:keys [params]}]
+       (let [audit-entity (:audit-entity params)
+             now (java.time.Instant/now)
+             audit-with-metadata (-> audit-entity
+                                     (assoc :id (or (:id audit-entity) (UUID/randomUUID)))
+                                     (assoc :created-at (or (:created-at audit-entity) now)))
+             db-audit (audit-log-entity->db audit-with-metadata)
+             query {:insert-into :user_audit_log
+                    :values [db-audit]}]
+         (db/execute-update! ctx query)
+         audit-with-metadata))
+     {:db-ctx ctx}))
+
+  (find-audit-logs [_ options]
+    (persistence-interceptors/execute-persistence-operation
+     :find-audit-logs
+     {:options options}
+     (fn [{:keys [params]}]
+       (let [{:keys [limit offset sort-by sort-direction
+                     filter-target-user-id filter-actor-id filter-action
+                     filter-result filter-created-after filter-created-before]} (:options params)
+             limit (or limit 50)
+             offset (or offset 0)
+             sort-by-kebab (or sort-by :created-at)
+             ;; Convert kebab-case to snake_case for database column
+             sort-by-db (keyword (.replace (name sort-by-kebab) "-" "_"))
+             sort-direction (or sort-direction :desc)
+             where-clauses (cond-> []
+                             filter-target-user-id
+                             (conj [:= :target_user_id (type-conversion/uuid->string filter-target-user-id)])
+                             
+                             filter-actor-id
+                             (conj [:= :actor_id (type-conversion/uuid->string filter-actor-id)])
+                             
+                             filter-action
+                             (conj [:= :action (name filter-action)])
+                             
+                             filter-result
+                             (conj [:= :result (name filter-result)])
+                             
+                             filter-created-after
+                             (conj [:>= :created_at (type-conversion/instant->string filter-created-after)])
+                             
+                             filter-created-before
+                             (conj [:<= :created_at (type-conversion/instant->string filter-created-before)]))
+             where-clause (when (seq where-clauses)
+                            (if (= 1 (count where-clauses))
+                              (first where-clauses)
+                              (into [:and] where-clauses)))
+             query (cond-> {:select [:*]
+                            :from [:user_audit_log]
+                            :order-by [[sort-by-db sort-direction]]
+                            :limit limit
+                            :offset offset}
+                     where-clause (assoc :where where-clause))
+             count-query (cond-> {:select [[:%count.* :count]]
+                                  :from [:user_audit_log]}
+                           where-clause (assoc :where where-clause))
+             results (db/execute-query! ctx query)
+             total-count (:count (db/execute-one! ctx count-query))]
+         {:audit-logs (map db->audit-log-entity results)
+          :total-count total-count}))
+     {:db-ctx ctx}))
+
+  (find-audit-logs-by-user [_ user-id options]
+    (persistence-interceptors/execute-persistence-operation
+     :find-audit-logs-by-user
+     {:user-id user-id :options options}
+     (fn [{:keys [params]}]
+       (let [user-id (:user-id params)
+             {:keys [limit offset sort-by sort-direction]} (:options params)
+             limit (or limit 50)
+             offset (or offset 0)
+             sort-by-kebab (or sort-by :created-at)
+             ;; Convert kebab-case to snake_case for database column
+             sort-by-db (keyword (.replace (name sort-by-kebab) "-" "_"))
+             sort-direction (or sort-direction :desc)
+             query {:select [:*]
+                    :from [:user_audit_log]
+                    :where [:= :target_user_id (type-conversion/uuid->string user-id)]
+                    :order-by [[sort-by-db sort-direction]]
+                    :limit limit
+                    :offset offset}
+             results (db/execute-query! ctx query)]
+         (map db->audit-log-entity results)))
+     {:db-ctx ctx}))
+
+  (find-audit-logs-by-actor [_ actor-id options]
+    (persistence-interceptors/execute-persistence-operation
+     :find-audit-logs-by-actor
+     {:actor-id actor-id :options options}
+     (fn [{:keys [params]}]
+       (let [actor-id (:actor-id params)
+             {:keys [limit offset sort-by sort-direction]} (:options params)
+             limit (or limit 50)
+             offset (or offset 0)
+             sort-by-kebab (or sort-by :created-at)
+             ;; Convert kebab-case to snake_case for database column
+             sort-by-db (keyword (.replace (name sort-by-kebab) "-" "_"))
+             sort-direction (or sort-direction :desc)
+             query {:select [:*]
+                    :from [:user_audit_log]
+                    :where [:= :actor_id (type-conversion/uuid->string actor-id)]
+                    :order-by [[sort-by-db sort-direction]]
+                    :limit limit
+                    :offset offset}
+             results (db/execute-query! ctx query)]
+         (map db->audit-log-entity results)))
+     {:db-ctx ctx}))
+
+  (count-audit-logs [_ filters]
+    (persistence-interceptors/execute-persistence-operation
+     :count-audit-logs
+     {:filters filters}
+     (fn [{:keys [params]}]
+       (let [{:keys [filter-target-user-id filter-actor-id filter-action filter-created-after]} (:filters params)
+             where-clauses (cond-> []
+                             filter-target-user-id
+                             (conj [:= :target_user_id (type-conversion/uuid->string filter-target-user-id)])
+                             
+                             filter-actor-id
+                             (conj [:= :actor_id (type-conversion/uuid->string filter-actor-id)])
+                             
+                             filter-action
+                             (conj [:= :action (name filter-action)])
+                             
+                             filter-created-after
+                             (conj [:>= :created_at (type-conversion/instant->string filter-created-after)]))
+             where-clause (when (seq where-clauses)
+                            (if (= 1 (count where-clauses))
+                              (first where-clauses)
+                              (into [:and] where-clauses)))
+             query (cond-> {:select [[:%count.* :count]]
+                            :from [:user_audit_log]}
+                     where-clause (assoc :where where-clause))
+             result (db/execute-one! ctx query)]
+         (:count result)))
      {:db-ctx ctx})))
 
 ;; =============================================================================
@@ -572,3 +804,17 @@
      (create-session-repository ctx)"
   [ctx]
   (->DatabaseUserSessionRepository ctx))
+
+(defn create-audit-repository
+  "Create a user audit log repository instance using database storage.
+   
+   Args:
+     ctx: Database context from boundary.shell.adapters.database.factory
+     
+   Returns:
+     DatabaseUserAuditRepository implementing IUserAuditRepository
+     
+   Example:
+     (create-audit-repository ctx)"
+  [ctx]
+  (->DatabaseUserAuditRepository ctx))

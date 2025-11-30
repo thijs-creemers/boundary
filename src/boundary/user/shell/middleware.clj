@@ -6,10 +6,10 @@
    - Session-based authentication
    - Role-based authorization
    - Request context enrichment with user information"
-  (:require [boundary.user.shell.auth :as auth-shell]
-            [boundary.user.ports :as ports]
-            [clojure.tools.logging :as log]
-            [clojure.string :as str]))
+  (:require [boundary.user.ports :as ports]
+            [boundary.user.shell.auth :as auth-shell]
+            [clojure.string :as str]
+            [clojure.tools.logging :as log]))
 
 ;; =============================================================================
 ;; Helper Functions
@@ -42,10 +42,10 @@
      String token or nil if not found"
   [request]
   (or
-   ;; Check X-Session-Token header
-   (get-in request [:headers "x-session-token"])
-   ;; Check session-token cookie
-   (get-in request [:cookies "session-token" :value])))
+    ;; Check X-Session-Token header
+    (get-in request [:headers "x-session-token"])
+    ;; Check session-token cookie
+    (get-in request [:cookies "session-token" :value])))
 
 (defn create-unauthorized-response
   "Creates standardized 401 Unauthorized response.
@@ -62,22 +62,22 @@
      Ring response map"
   ([message reason]
    (create-unauthorized-response message reason nil))
-   ([message reason request]
-    (if (and request (str/starts-with? (get request :uri "") "/web"))
-      ;; Web UI request - redirect to login with return-to parameter
-      (let [return-to (:uri request)
-            login-url (str "/web/login?return-to=" (java.net.URLEncoder/encode return-to "UTF-8"))]
-        {:status 302
-         :headers {"Location" login-url}
-         :body ""})
-      ;; API request - return JSON error
-      {:status 401
-       :headers {"Content-Type" "application/json"}
-       :body {:type "authentication-required"
-              :title "Authentication Required"
-              :status 401
-              :detail message
-              :reason reason}})))
+  ([message reason request]
+   (if (and request (str/starts-with? (get request :uri "") "/web"))
+     ;; Web UI request - redirect to login with return-to parameter
+     (let [return-to (:uri request)
+           login-url (str "/web/login?return-to=" (java.net.URLEncoder/encode return-to "UTF-8"))]
+       {:status  302
+        :headers {"Location" login-url}
+        :body    ""})
+     ;; API request - return JSON error
+     {:status  401
+      :headers {"Content-Type" "application/json"}
+      :body    {:type   "authentication-required"
+                :title  "Authentication Required"
+                :status 401
+                :detail message
+                :reason reason}})))
 
 (defn create-forbidden-response
   "Creates standardized 403 Forbidden response.
@@ -94,22 +94,22 @@
      Ring response map"
   ([message reason]
    (create-forbidden-response message reason nil))
-   ([message reason request]
-    (if (and request (str/starts-with? (get request :uri "") "/web"))
-      ;; Web UI request - redirect to login with return-to parameter (forbidden = not logged in or insufficient perms)
-      (let [return-to (:uri request)
-            login-url (str "/web/login?return-to=" (java.net.URLEncoder/encode return-to "UTF-8"))]
-        {:status 302
-         :headers {"Location" login-url}
-         :body ""})
-      ;; API request - return JSON error
-      {:status 403
-       :headers {"Content-Type" "application/json"}
-       :body {:type "access-forbidden"
-              :title "Access Forbidden"
-              :status 403
-              :detail message
-              :reason reason}})))
+  ([message reason request]
+   (if (and request (str/starts-with? (get request :uri "") "/web"))
+     ;; Web UI request - redirect to login with return-to parameter (forbidden = not logged in or insufficient perms)
+     (let [return-to (:uri request)
+           login-url (str "/web/login?return-to=" (java.net.URLEncoder/encode return-to "UTF-8"))]
+       {:status  302
+        :headers {"Location" login-url}
+        :body    ""})
+     ;; API request - return JSON error
+     {:status  403
+      :headers {"Content-Type" "application/json"}
+      :body    {:type   "access-forbidden"
+                :title  "Access Forbidden"
+                :status 403
+                :detail message
+                :reason reason}})))
 
 ;; =============================================================================
 ;; JWT Authentication Middleware
@@ -134,10 +134,10 @@
           (if jwt-claims
             ;; Token valid - add user info to request
             (let [enriched-request (assoc request
-                                          :user {:id (:user-id jwt-claims)
-                                                 :email (:email jwt-claims)
-                                                 :role (:role jwt-claims)}
-                                          :auth-type :jwt)]
+                                     :user {:id    (:user-id jwt-claims)
+                                            :email (:email jwt-claims)
+                                            :role  (:role jwt-claims)}
+                                     :auth-type :jwt)]
               (handler enriched-request))
             ;; Token invalid
             (create-unauthorized-response "Invalid JWT token" :invalid-jwt request)))
@@ -168,28 +168,28 @@
   (fn [request]
     (if-let [session-token (extract-session-token request)]
       (try
-        (spit "/tmp/middleware-debug.log" 
-              (str "VALIDATING SESSION: token=" (subs session-token 0 (min 20 (count session-token))) "...\n")
-              :append true)
+        (spit "/tmp/middleware-debug.log"
+          (str "VALIDATING SESSION: token=" (subs session-token 0 (min 20 (count session-token))) "...\n")
+          :append true)
         (if-let [session (ports/validate-session user-service session-token)]
           ;; Session valid - add user info to request
           (do
-            (spit "/tmp/middleware-debug.log" 
-                  (str "SESSION VALID! user-id=" (:user-id session) "\n")
-                  :append true)
+            (spit "/tmp/middleware-debug.log"
+              (str "SESSION VALID! user-id=" (:user-id session) "\n")
+              :append true)
             (let [enriched-request (assoc request
-                                          :user {:id (:user-id session)}
-                                          :session session
-                                          :auth-type :session)]
+                                     :user {:id (:user-id session)}
+                                     :session session
+                                     :auth-type :session)]
               (handler enriched-request)))
           ;; Session invalid or expired
           (do
             (spit "/tmp/middleware-debug.log" "SESSION INVALID OR EXPIRED\n" :append true)
             (create-unauthorized-response "Invalid or expired session" :invalid-session request)))
         (catch Exception ex
-          (spit "/tmp/middleware-debug.log" 
-                (str "SESSION VALIDATION ERROR: " (.getMessage ex) "\n")
-                :append true)
+          (spit "/tmp/middleware-debug.log"
+            (str "SESSION VALIDATION ERROR: " (.getMessage ex) "\n")
+            :append true)
           (log/warn ex "Session validation failed" {:session-token (str (take 8 session-token) "...")})
           (create-unauthorized-response "Session validation failed" :session-validation-error request)))
 
@@ -228,15 +228,15 @@
    (spit "/tmp/middleware-debug.log" (str "2-ARITY: user-service=" (type user-service) " handler=" (type handler) "\n") :append true)
    (fn [request]
      (let [session-token (extract-session-token request)
-           bearer-token (extract-bearer-token request)]
-       (spit "/tmp/middleware-debug.log" 
-             (str "REQUEST: uri=" (:uri request) 
-                  " method=" (:request-method request)
-                  " has-session=" (boolean session-token) 
-                  " has-bearer=" (boolean bearer-token)
-                  " cookies=" (keys (:cookies request))
-                  "\n") 
-             :append true)
+           bearer-token  (extract-bearer-token request)]
+       (spit "/tmp/middleware-debug.log"
+         (str "REQUEST: uri=" (:uri request)
+           " method=" (:request-method request)
+           " has-session=" (boolean session-token)
+           " has-bearer=" (boolean bearer-token)
+           " cookies=" (keys (:cookies request))
+           "\n")
+         :append true)
        (cond
          ;; Try JWT authentication first
          bearer-token
@@ -245,9 +245,9 @@
          ;; Fall back to session authentication
          session-token
          (do
-           (spit "/tmp/middleware-debug.log" 
-                 (str "ATTEMPTING SESSION AUTH with user-service=" (type user-service) "\n") 
-                 :append true)
+           (spit "/tmp/middleware-debug.log"
+             (str "ATTEMPTING SESSION AUTH with user-service=" (type user-service) "\n")
+             :append true)
            ((session-authentication-middleware user-service handler) request))
 
          ;; No authentication provided
@@ -280,11 +280,11 @@
           (handler request)
           ;; User lacks required role
           (create-forbidden-response
-           (format "Role '%s' required. User has role '%s'"
-                   (str/join ", " (map name required-roles))
-                   (name user-role))
-           :insufficient-role
-           request)))
+            (format "Role '%s' required. User has role '%s'"
+              (str/join ", " (map name required-roles))
+              (name user-role))
+            :insufficient-role
+            request)))
 
       ;; No user in request (authentication middleware not run?)
       (create-unauthorized-response "Authentication required" :missing-user request))))
@@ -350,5 +350,5 @@
      Protected handler with authentication and admin authorization"
   [user-service handler]
   (-> handler
-      require-admin-middleware
-      ((flexible-authentication-middleware user-service))))
+    require-admin-middleware
+    ((flexible-authentication-middleware user-service))))
