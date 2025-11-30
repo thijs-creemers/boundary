@@ -17,7 +17,7 @@
   (create [this entity]
     "Create new item.")
 
-  (update [this entity]
+  (update-item [this entity]
     "Update existing item.")
 
   (delete [this id]
@@ -39,7 +39,7 @@
   (create-item [this data]
     "Create new item.")
 
-  (update-item [this id data]
+  (update-item-data [this id data]
     "Update item.")
 
   (delete-item [this id]

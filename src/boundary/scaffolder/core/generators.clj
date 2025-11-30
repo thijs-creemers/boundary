@@ -152,7 +152,7 @@
   (create [this entity]
     \"Create new %s.\")
 
-  (update [this entity]
+  (update-%s [this entity]
     \"Update existing %s.\")
 
   (delete [this id]
@@ -187,6 +187,7 @@
             entity-lower
             entity-lower
             entity-lower
+            entity-lower  ; update-%s
             entity-lower
             entity-lower
             entity-name
@@ -432,7 +433,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
          "  (list-" (template/pluralize entity-lower) " [this opts]\n"
          "    (.list-" (template/pluralize entity-lower) " repository opts))\n"
          "  (update-" entity-lower " [this id data]\n"
-         "    (.update repository (assoc data :id id)))\n"
+         "    (.update-" entity-lower " repository (assoc data :id id)))\n"
          "  (delete-" entity-lower " [this id]\n"
          "    (.delete repository id)))\n"
          "\n"
@@ -483,7 +484,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
          "      (sql/format {:select [:*]\n"
          "                   :from [:" table-name "]\n"
          "                   :limit (:limit opts 20)})))\n"
-         "  (update [this entity]\n"
+         "  (update-" entity-lower " [this entity]\n"
          "    (db/execute-one! db-ctx\n"
          "      (sql/format {:update :" table-name "\n"
          "                   :set (dissoc entity :id)\n"

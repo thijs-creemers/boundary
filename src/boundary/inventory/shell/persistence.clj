@@ -16,12 +16,12 @@
       (sql/format {:select [:*]
                    :from [:Items]
                    :where [:= :id id]})))
-  (list-items [this opts]
+  (find-all [this opts]
     (db/execute! db-ctx
       (sql/format {:select [:*]
                    :from [:Items]
                    :limit (:limit opts 20)})))
-  (update [this entity]
+  (update-item [this entity]
     (db/execute-one! db-ctx
       (sql/format {:update :Items
                    :set (dissoc entity :id)
