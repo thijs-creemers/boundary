@@ -57,7 +57,7 @@
       ;; Check result structure
       (is (true? (:success result)))
       (is (= "customer" (:module-name result)))
-      (is (= 9 (count (:files result))))
+      (is (= 12 (count (:files result))))
       
       ;; Check files were created
       (is (ports/file-exists? fs-adapter "src/boundary/customer/schema.clj"))
@@ -114,7 +114,7 @@
       
       ;; Check result
       (is (true? (:success result)))
-      (is (= 9 (count (:files result))))
+      (is (= 12 (count (:files result))))
       (is (some #(str/includes? % "Dry run") (:warnings result)))
       
       ;; Verify no files were written
