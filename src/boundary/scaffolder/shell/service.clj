@@ -26,7 +26,7 @@
             entity (first (:entities ctx))
             entity-kebab (:entity-kebab entity)
             dry-run? (:dry-run request false)
-            
+
             ;; Generate source file contents
             schema-content (generators/generate-schema-file ctx)
             ports-content (generators/generate-ports-file ctx)
@@ -37,12 +37,12 @@
             http-content (generators/generate-http-file ctx)
             web-handlers-content (generators/generate-web-handlers-file ctx)
             ui-content (generators/generate-ui-file ctx)
-            
+
             ;; Generate test file contents
             core-test-content (generators/generate-core-test-file ctx)
             persistence-test-content (generators/generate-persistence-test-file ctx)
             service-test-content (generators/generate-service-test-file ctx)
-            
+
             ;; Define file paths
             files [{:path (format "src/boundary/%s/schema.clj" module-name)
                     :content schema-content

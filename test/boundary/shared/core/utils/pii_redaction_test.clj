@@ -83,7 +83,7 @@
     (let [state (pii/build-redact-state {:redact {}})
           data  {:password "secret"
                  :nested  {:email "user@example.com"
-                          :token "abc"}
+                           :token "abc"}
                  :safe    "ok"}
           once  (pii/redact-pii data state)
           twice (pii/redact-pii once state)]

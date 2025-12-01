@@ -8,29 +8,29 @@
   ports/IItemRepository
   (create [this entity]
     (db/execute-one! db-ctx
-      (sql/format {:insert-into :Items
-                   :values [entity]
-                   :returning [:*]})))
+                     (sql/format {:insert-into :Items
+                                  :values [entity]
+                                  :returning [:*]})))
   (find-by-id [this id]
     (db/execute-one! db-ctx
-      (sql/format {:select [:*]
-                   :from [:Items]
-                   :where [:= :id id]})))
+                     (sql/format {:select [:*]
+                                  :from [:Items]
+                                  :where [:= :id id]})))
   (find-all [this opts]
     (db/execute-query! db-ctx
-      (sql/format {:select [:*]
-                   :from [:Items]
-                   :limit (:limit opts 20)})))
+                       (sql/format {:select [:*]
+                                    :from [:Items]
+                                    :limit (:limit opts 20)})))
   (update-item [this entity]
     (db/execute-one! db-ctx
-      (sql/format {:update :Items
-                   :set (dissoc entity :id)
-                   :where [:= :id (:id entity)]
-                   :returning [:*]})))
+                     (sql/format {:update :Items
+                                  :set (dissoc entity :id)
+                                  :where [:= :id (:id entity)]
+                                  :returning [:*]})))
   (delete [this id]
     (db/execute-one! db-ctx
-      (sql/format {:delete-from :Items
-                   :where [:= :id id]}))))
+                     (sql/format {:delete-from :Items
+                                  :where [:= :id id]}))))
 
 (defn create-repository [db-ctx]
   (->DatabaseItemRepository db-ctx))

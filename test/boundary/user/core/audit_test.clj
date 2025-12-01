@@ -35,7 +35,7 @@
                  target-user
                  test-ip
                  test-user-agent)]
-      
+
       (is (= :create (:action entry)))
       (is (= test-actor-id (:actor-id entry)))
       (is (= test-actor-email (:actor-email entry)))
@@ -59,7 +59,7 @@
                  target-user
                  nil
                  nil)]
-      
+
       (is (nil? (:ip-address entry)))
       (is (nil? (:user-agent entry)))
       (is (= "admin" (get-in entry [:metadata :role]))))))
@@ -81,22 +81,22 @@
                  new-values
                  test-ip
                  test-user-agent)]
-      
+
       (is (= :update (:action entry)))
       (is (= test-actor-id (:actor-id entry)))
       (is (= test-target-id (:target-user-id entry)))
       (is (= :success (:result entry)))
-      
+
       ;; Check changed fields
       (let [fields (get-in entry [:changes :fields])]
         (is (= 2 (count fields)))
         (is (= 2 (get-in entry [:metadata :field-count])))
-        
+
         ;; Find role change
         (let [role-change (first (filter #(= "role" (:field %)) fields))]
           (is (= ":user" (:old role-change)))
           (is (= ":admin" (:new role-change))))
-        
+
         ;; Find name change
         (let [name-change (first (filter #(= "name" (:field %)) fields))]
           (is (= "Old Name" (:old name-change)))
@@ -113,7 +113,7 @@
                  values
                  nil
                  nil)]
-      
+
       (let [fields (get-in entry [:changes :fields])]
         (is (= 0 (count fields)))
         (is (= 0 (get-in entry [:metadata :field-count]))))))
@@ -130,7 +130,7 @@
                  new-values
                  test-ip
                  test-user-agent)]
-      
+
       (let [fields (get-in entry [:changes :fields])]
         (is (= 1 (count fields)))
         (let [active-change (first fields)]
@@ -151,7 +151,7 @@
                  test-target-email
                  test-ip
                  test-user-agent)]
-      
+
       (is (= :deactivate (:action entry)))
       (is (= test-actor-id (:actor-id entry)))
       (is (= test-target-id (:target-user-id entry)))
@@ -166,7 +166,7 @@
                  test-target-email
                  nil
                  nil)]
-      
+
       (is (nil? (:ip-address entry)))
       (is (nil? (:user-agent entry))))))
 
@@ -183,7 +183,7 @@
                  test-target-email
                  test-ip
                  test-user-agent)]
-      
+
       (is (= :activate (:action entry)))
       (is (= test-actor-id (:actor-id entry)))
       (is (= test-target-id (:target-user-id entry)))
@@ -203,7 +203,7 @@
                  test-target-email
                  test-ip
                  test-user-agent)]
-      
+
       (is (= :delete (:action entry)))
       (is (= test-actor-id (:actor-id entry)))
       (is (= test-target-id (:target-user-id entry)))
@@ -218,7 +218,7 @@
                  test-target-email
                  test-ip
                  test-user-agent)]
-      
+
       (is (true? (get-in entry [:metadata :permanent]))))))
 
 ;; =============================================================================
@@ -236,7 +236,7 @@
                  :admin
                  test-ip
                  test-user-agent)]
-      
+
       (is (= :role-change (:action entry)))
       (is (= test-actor-id (:actor-id entry)))
       ;; Role values are converted to strings
@@ -253,7 +253,7 @@
                  :user
                  test-ip
                  test-user-agent)]
-      
+
       ;; Role values are converted to strings
       (is (= {:role {:old "admin" :new "user"}} (:changes entry))))))
 
@@ -272,7 +272,7 @@
                  test-ip
                  test-user-agent
                  {:reason "Cleanup inactive users"})]
-      
+
       (is (= :bulk-action (:action entry)))
       (is (= test-actor-id (:actor-id entry)))
       (is (= "deactivate" (get-in entry [:metadata :bulk-action-type])))
@@ -291,7 +291,7 @@
                  nil
                  nil
                  {})]
-      
+
       (let [stored-ids (get-in entry [:metadata :user-ids])]
         (is (every? string? stored-ids))))))
 
@@ -308,7 +308,7 @@
                  test-user-agent
                  true
                  nil)]
-      
+
       (is (= :login (:action entry)))
       (is (= test-target-id (:actor-id entry)))
       (is (= test-target-id (:target-user-id entry)))
@@ -326,7 +326,7 @@
                  test-user-agent
                  false
                  error-msg)]
-      
+
       (is (= :login (:action entry)))
       (is (= :failure (:result entry)))
       (is (= error-msg (:error-message entry)))))
@@ -339,7 +339,7 @@
                  test-user-agent
                  true
                  nil)]
-      
+
       (is (= test-ip (:ip-address entry)))
       (is (= test-user-agent (:user-agent entry))))))
 
@@ -354,7 +354,7 @@
                  test-target-email
                  test-ip
                  test-user-agent)]
-      
+
       (is (= :logout (:action entry)))
       (is (= test-target-id (:actor-id entry)))
       (is (= test-target-id (:target-user-id entry)))
@@ -367,7 +367,7 @@
                  test-target-email
                  nil
                  nil)]
-      
+
       (is (nil? (:ip-address entry)))
       (is (nil? (:user-agent entry))))))
 
@@ -382,7 +382,7 @@
                     :email "user@example.com"
                     :role "admin"}
           sanitized (audit/sanitize-audit-metadata metadata)]
-      
+
       (is (contains? sanitized :username))
       (is (contains? sanitized :email))
       (is (contains? sanitized :role))
@@ -397,12 +397,12 @@
                     :email "user@example.com"
                     :role "admin"}
           sanitized (audit/sanitize-audit-metadata metadata)]
-      
+
       ;; These should remain
       (is (contains? sanitized :username))
       (is (contains? sanitized :email))
       (is (contains? sanitized :role))
-      
+
       ;; These should be removed
       (is (not (contains? sanitized :password)))
       (is (not (contains? sanitized :password-hash)))

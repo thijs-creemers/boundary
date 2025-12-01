@@ -43,9 +43,9 @@
   [request]
   (or
     ;; Check X-Session-Token header
-    (get-in request [:headers "x-session-token"])
+   (get-in request [:headers "x-session-token"])
     ;; Check session-token cookie
-    (get-in request [:cookies "session-token" :value])))
+   (get-in request [:cookies "session-token" :value])))
 
 (defn create-unauthorized-response
   "Creates standardized 401 Unauthorized response.
@@ -134,10 +134,10 @@
           (if jwt-claims
             ;; Token valid - add user info to request
             (let [enriched-request (assoc request
-                                     :user {:id    (:user-id jwt-claims)
-                                            :email (:email jwt-claims)
-                                            :role  (:role jwt-claims)}
-                                     :auth-type :jwt)]
+                                          :user {:id    (:user-id jwt-claims)
+                                                 :email (:email jwt-claims)
+                                                 :role  (:role jwt-claims)}
+                                          :auth-type :jwt)]
               (handler enriched-request))
             ;; Token invalid
             (create-unauthorized-response "Invalid JWT token" :invalid-jwt request)))
@@ -169,18 +169,18 @@
     (if-let [session-token (extract-session-token request)]
       (try
         (spit "/tmp/middleware-debug.log"
-          (str "VALIDATING SESSION: token=" (subs session-token 0 (min 20 (count session-token))) "...\n")
-          :append true)
+              (str "VALIDATING SESSION: token=" (subs session-token 0 (min 20 (count session-token))) "...\n")
+              :append true)
         (if-let [session (ports/validate-session user-service session-token)]
           ;; Session valid - add user info to request
           (do
             (spit "/tmp/middleware-debug.log"
-              (str "SESSION VALID! user-id=" (:user-id session) "\n")
-              :append true)
+                  (str "SESSION VALID! user-id=" (:user-id session) "\n")
+                  :append true)
             (let [enriched-request (assoc request
-                                     :user {:id (:user-id session)}
-                                     :session session
-                                     :auth-type :session)]
+                                          :user {:id (:user-id session)}
+                                          :session session
+                                          :auth-type :session)]
               (handler enriched-request)))
           ;; Session invalid or expired
           (do
@@ -188,8 +188,8 @@
             (create-unauthorized-response "Invalid or expired session" :invalid-session request)))
         (catch Exception ex
           (spit "/tmp/middleware-debug.log"
-            (str "SESSION VALIDATION ERROR: " (.getMessage ex) "\n")
-            :append true)
+                (str "SESSION VALIDATION ERROR: " (.getMessage ex) "\n")
+                :append true)
           (log/warn ex "Session validation failed" {:session-token (str (take 8 session-token) "...")})
           (create-unauthorized-response "Session validation failed" :session-validation-error request)))
 
@@ -230,13 +230,13 @@
      (let [session-token (extract-session-token request)
            bearer-token  (extract-bearer-token request)]
        (spit "/tmp/middleware-debug.log"
-         (str "REQUEST: uri=" (:uri request)
-           " method=" (:request-method request)
-           " has-session=" (boolean session-token)
-           " has-bearer=" (boolean bearer-token)
-           " cookies=" (keys (:cookies request))
-           "\n")
-         :append true)
+             (str "REQUEST: uri=" (:uri request)
+                  " method=" (:request-method request)
+                  " has-session=" (boolean session-token)
+                  " has-bearer=" (boolean bearer-token)
+                  " cookies=" (keys (:cookies request))
+                  "\n")
+             :append true)
        (cond
          ;; Try JWT authentication first
          bearer-token
@@ -246,8 +246,8 @@
          session-token
          (do
            (spit "/tmp/middleware-debug.log"
-             (str "ATTEMPTING SESSION AUTH with user-service=" (type user-service) "\n")
-             :append true)
+                 (str "ATTEMPTING SESSION AUTH with user-service=" (type user-service) "\n")
+                 :append true)
            ((session-authentication-middleware user-service handler) request))
 
          ;; No authentication provided
@@ -280,11 +280,11 @@
           (handler request)
           ;; User lacks required role
           (create-forbidden-response
-            (format "Role '%s' required. User has role '%s'"
-              (str/join ", " (map name required-roles))
-              (name user-role))
-            :insufficient-role
-            request)))
+           (format "Role '%s' required. User has role '%s'"
+                   (str/join ", " (map name required-roles))
+                   (name user-role))
+           :insufficient-role
+           request)))
 
       ;; No user in request (authentication middleware not run?)
       (create-unauthorized-response "Authentication required" :missing-user request))))
@@ -350,5 +350,5 @@
      Protected handler with authentication and admin authorization"
   [user-service handler]
   (-> handler
-    require-admin-middleware
-    ((flexible-authentication-middleware user-service))))
+      require-admin-middleware
+      ((flexible-authentication-middleware user-service))))

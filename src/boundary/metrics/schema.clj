@@ -4,8 +4,8 @@
    This namespace defines Malli schemas for validating metrics configuration,
    ensuring proper structure and constraints for different metrics providers."
   (:require
-    [malli.core :as m]
-    [malli.transform :as mt]))
+   [malli.core :as m]
+   [malli.transform :as mt]))
 
 ;; =============================================================================
 ;; Core Metrics Configuration Schemas
@@ -323,9 +323,9 @@
 (def metrics-config-transformer
   "Transforms external configuration to internal format."
   (mt/transformer
-    mt/strip-extra-keys-transformer
-    mt/string-transformer
-    {:name :metrics-config}))
+   mt/strip-extra-keys-transformer
+   mt/string-transformer
+   {:name :metrics-config}))
 
 (defn normalize-metrics-config
   "Normalizes and validates a metrics configuration map."
@@ -334,8 +334,8 @@
     (if (validate-metrics-config normalized)
       normalized
       (throw (ex-info "Invalid metrics configuration"
-               {:errors (explain-metrics-config normalized)
-                :config config})))))
+                      {:errors (explain-metrics-config normalized)
+                       :config config})))))
 
 (defn normalize-system-metrics-config
   "Normalizes and validates a system metrics configuration map."
@@ -344,8 +344,8 @@
     (if (validate-system-metrics-config normalized)
       normalized
       (throw (ex-info "Invalid system metrics configuration"
-               {:errors (explain-system-metrics-config normalized)
-                :config config})))))
+                      {:errors (explain-system-metrics-config normalized)
+                       :config config})))))
 
 ;; =============================================================================
 ;; Schema Registry

@@ -95,19 +95,19 @@
          ;; Untyped exceptions (unit tests) use :errorContext
          context-key                  (if ex-type :context :errorContext)]
      (merge
-       {:type          (str "https://api.example.com/problems/"
-                                   (name (or ex-type :internal-error)))
-        :title         title
-        :status        status
-        :detail        (if ex-type ex-data (.getMessage ex)) ;; Use ex-data for typed errors, message for others
-        :instance      uri
-        :correlationId correlation-id
-        :errors        (or (:errors ex-data) {})}
+      {:type          (str "https://api.example.com/problems/"
+                           (name (or ex-type :internal-error)))
+       :title         title
+       :status        status
+       :detail        (if ex-type ex-data (.getMessage ex)) ;; Use ex-data for typed errors, message for others
+       :instance      uri
+       :correlationId correlation-id
+       :errors        (or (:errors ex-data) {})}
        ;; Add error context if present - key depends on exception type
-       (when (seq error-context-with-timestamp)
-         {context-key error-context-with-timestamp})
+      (when (seq error-context-with-timestamp)
+        {context-key error-context-with-timestamp})
        ;; Merge extension members at top level per RFC 7807
-       extension-members))))
+      extension-members))))
 
 (defn problem-details->response
   "Convert problem details body to Ring response map.
@@ -145,7 +145,7 @@
    (exception->problem-response ex correlation-id uri error-mappings {}))
   ([ex correlation-id uri error-mappings context]
    (-> (exception->problem-body ex correlation-id uri error-mappings context)
-     (problem-details->response))))
+       (problem-details->response))))
 
 ;; =============================================================================
 ;; Context Building Helpers
@@ -193,7 +193,7 @@
    (merge {:environment (or (System/getProperty "environment") "development")
            :timestamp   (java.time.Instant/now)
            :process-id  (str (.pid (java.lang.ProcessHandle/current)))}
-     additional-context)))
+          additional-context)))
 
 (defn enrich-context
   "Enrich existing context with additional debugging information.

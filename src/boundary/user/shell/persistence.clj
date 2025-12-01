@@ -174,15 +174,15 @@
               (cond
                 (string? value)
                 (cheshire.core/parse-string value true)
-                
+
                 ;; PostgreSQL returns PGobject for JSON/JSONB columns
                 (instance? org.postgresql.util.PGobject value)
                 (cheshire.core/parse-string (.getValue value) true)
-                
+
                 ;; Already a map (shouldn't happen, but handle it)
                 (map? value)
                 value
-                
+
                 :else
                 (throw (ex-info "Unexpected JSON field type"
                                 {:type (type value)
@@ -474,10 +474,10 @@
      (fn [{:keys [params]}]
        (let [session-entity (:session-entity params)
              _ (log/info "Creating session in DB" {:session-entity session-entity
-                                                    :has-user-agent (contains? session-entity :user-agent)
-                                                    :has-ip-address (contains? session-entity :ip-address)
-                                                    :user-agent (:user-agent session-entity)
-                                                    :ip-address (:ip-address session-entity)})
+                                                   :has-user-agent (contains? session-entity :user-agent)
+                                                   :has-ip-address (contains? session-entity :ip-address)
+                                                   :user-agent (:user-agent session-entity)
+                                                   :ip-address (:ip-address session-entity)})
              now (java.time.Instant/now)
              session-with-metadata (-> session-entity
                                        (assoc :id (UUID/randomUUID))
@@ -486,8 +486,8 @@
                                        (assoc :last-accessed-at nil)
                                        (assoc :revoked-at nil))
              _ (log/info "Session with metadata" {:session-with-metadata session-with-metadata
-                                                   :user-agent (:user-agent session-with-metadata)
-                                                   :ip-address (:ip-address session-with-metadata)})
+                                                  :user-agent (:user-agent session-with-metadata)
+                                                  :ip-address (:ip-address session-with-metadata)})
              db-session (session-entity->db session-with-metadata)
              _ (log/info "DB session format" {:db-session db-session
                                               :user_agent (:user_agent db-session)
@@ -620,8 +620,8 @@
              query {:delete-from :user_sessions
                     :where [:= :id (type-conversion/uuid->string session-id)]}
              affected-rows (db/execute-update! ctx query)]
-          (> affected-rows 0)))
-      {:db-ctx ctx})))
+         (> affected-rows 0)))
+     {:db-ctx ctx})))
 
 ;; =============================================================================
 ;; Audit Log Repository Implementation
@@ -664,19 +664,19 @@
              where-clauses (cond-> []
                              filter-target-user-id
                              (conj [:= :target_user_id (type-conversion/uuid->string filter-target-user-id)])
-                             
+
                              filter-actor-id
                              (conj [:= :actor_id (type-conversion/uuid->string filter-actor-id)])
-                             
+
                              filter-action
                              (conj [:= :action (name filter-action)])
-                             
+
                              filter-result
                              (conj [:= :result (name filter-result)])
-                             
+
                              filter-created-after
                              (conj [:>= :created_at (type-conversion/instant->string filter-created-after)])
-                             
+
                              filter-created-before
                              (conj [:<= :created_at (type-conversion/instant->string filter-created-before)]))
              where-clause (when (seq where-clauses)
@@ -753,13 +753,13 @@
              where-clauses (cond-> []
                              filter-target-user-id
                              (conj [:= :target_user_id (type-conversion/uuid->string filter-target-user-id)])
-                             
+
                              filter-actor-id
                              (conj [:= :actor_id (type-conversion/uuid->string filter-actor-id)])
-                             
+
                              filter-action
                              (conj [:= :action (name filter-action)])
-                             
+
                              filter-created-after
                              (conj [:>= :created_at (type-conversion/instant->string filter-created-after)]))
              where-clause (when (seq where-clauses)

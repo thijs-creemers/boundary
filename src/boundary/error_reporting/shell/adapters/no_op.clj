@@ -16,11 +16,11 @@
   (capture-exception [_ _] "no-op-event-id")
   (capture-exception [_ _ _] "no-op-event-id")
   (capture-exception [_ _ _ _] "no-op-event-id")
-  
+
   (capture-message [_ _ _] "no-op-event-id")
   (capture-message [_ _ _ _] "no-op-event-id")
   (capture-message [_ _ _ _ _] "no-op-event-id")
-  
+
   (capture-event [_ _] "no-op-event-id"))
 
 ;; =============================================================================
@@ -130,13 +130,13 @@
   (capture-exception [_ _] "no-op-event-id")
   (capture-exception [_ _ _] "no-op-event-id")
   (capture-exception [_ _ _ _] "no-op-event-id")
-  
+
   (capture-message [_ _ _] "no-op-event-id")
   (capture-message [_ _ _ _] "no-op-event-id")
   (capture-message [_ _ _ _ _] "no-op-event-id")
-  
+
   (capture-event [_ _] "no-op-event-id")
-  
+
   ports/IErrorContext
   (with-context [_ _ f] (f))
   (add-breadcrumb! [_ _] nil)
@@ -145,14 +145,14 @@
   (set-tags! [_ _] nil)
   (set-extra! [_ _] nil)
   (current-context [_] {})
-  
+
   ports/IErrorFilter
   (should-report? [_ _ _] false)
   (should-report-message? [_ _ _ _] false)
   (sample-rate [_ _] 0.0)
   (add-filter-rule! [_ _] nil)
   (remove-filter-rule! [_ _] false)
-  
+
   ports/IErrorReportingConfig
   (set-environment! [_ _] "development")
   (get-environment [_] "development")

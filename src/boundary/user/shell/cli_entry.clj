@@ -3,7 +3,7 @@
 
   Encapsulates user-specific CLI startup so that the top-level CLI can
   remain as module-agnostic as possible and delegate into this module."
-(:require [boundary.config :as config]
+  (:require [boundary.config :as config]
             [boundary.shell.adapters.database.config :as db-config]
             [boundary.user.shell.cli :as user-cli]
             [boundary.user.shell.persistence :as user-persistence]
@@ -48,11 +48,11 @@
                 validation-cfg (config/user-validation-config cfg)
                 auth-cfg {} ; no special auth config for CLI yet
                 auth-svc (user-auth/create-authentication-service
-                           user-repo session-repo auth-cfg)
+                          user-repo session-repo auth-cfg)
 
                 ;; Create user service with full dependencies
                 user-svc (user-service/create-user-service
-                           user-repo session-repo audit-repo validation-cfg auth-svc)
+                          user-repo session-repo audit-repo validation-cfg auth-svc)
 
                 ;; Dispatch CLI commands and capture exit status
                 status (user-cli/run-cli! user-svc args)]

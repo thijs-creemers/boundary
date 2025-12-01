@@ -16,9 +16,9 @@
     (testing "Valid data passes validation"
       (let [valid-data {:name "John" :age "25" :active "true" :role :admin}
             result     (validation/validate-with-transform
-                         TestCreateUserSchema
-                         valid-data
-                         mt/string-transformer)]
+                        TestCreateUserSchema
+                        valid-data
+                        mt/string-transformer)]
         (is (validation/validation-passed? result))
         (is (= "John" (get-in result [:data :name])))
         (is (= 25 (get-in result [:data :age])))
@@ -27,9 +27,9 @@
     (testing "Invalid data fails validation"
       (let [invalid-data {:name 123 :age "not-a-number" :role :invalid}
             result       (validation/validate-with-transform
-                           TestCreateUserSchema
-                           invalid-data
-                           mt/string-transformer)]
+                          TestCreateUserSchema
+                          invalid-data
+                          mt/string-transformer)]
         (is (not (validation/validation-passed? result)))
         (is (some? (validation/get-validation-errors result)))
         (is (nil? (validation/get-validated-data result)))))
@@ -37,9 +37,9 @@
     (testing "Transformation applied before validation"
       (let [string-data {:name "Jane" :age "30" :active "false" :role :user}
             result      (validation/validate-with-transform
-                          TestCreateUserSchema
-                          string-data
-                          mt/string-transformer)]
+                         TestCreateUserSchema
+                         string-data
+                         mt/string-transformer)]
         (is (validation/validation-passed? result))
         (is (= 30 (get-in result [:data :age])))
         (is (= false (get-in result [:data :active])))))
@@ -47,18 +47,18 @@
     (testing "Missing required fields"
       (let [incomplete-data {:name "John"}
             result          (validation/validate-with-transform
-                              TestCreateUserSchema
-                              incomplete-data
-                              mt/string-transformer)]
+                             TestCreateUserSchema
+                             incomplete-data
+                             mt/string-transformer)]
         (is (not (validation/validation-passed? result)))
         (is (some? (validation/get-validation-errors result)))))
 
     (testing "No transformer (identity transformation)"
       (let [valid-data {:name "John" :age 25 :active true :role :admin}
             result     (validation/validate-with-transform
-                         TestCreateUserSchema
-                         valid-data
-                         (mt/transformer))]
+                        TestCreateUserSchema
+                        valid-data
+                        (mt/transformer))]
         (is (validation/validation-passed? result))
         (is (= valid-data (validation/get-validated-data result)))))))
 
@@ -67,18 +67,18 @@
     (testing "String CLI args converted to proper types"
       (let [cli-args        {:name "John" :age "25" :active "true" :role "admin"}
             cli-transformer (mt/transformer
-                              mt/string-transformer
-                              {:name :cli-transform
-                               :transformers
-                               {:enum {:compile (fn [_schema _options]
-                                                  (fn [value]
-                                                    (if (string? value)
-                                                      (keyword value)
-                                                      value)))}}})
+                             mt/string-transformer
+                             {:name :cli-transform
+                              :transformers
+                              {:enum {:compile (fn [_schema _options]
+                                                 (fn [value]
+                                                   (if (string? value)
+                                                     (keyword value)
+                                                     value)))}}})
             result          (validation/validate-cli-args
-                              TestCreateUserSchema
-                              cli-args
-                              cli-transformer)]
+                             TestCreateUserSchema
+                             cli-args
+                             cli-transformer)]
         (is (validation/validation-passed? result))
         (is (= "John" (get-in result [:data :name])))
         (is (= 25 (get-in result [:data :age])))
@@ -88,18 +88,18 @@
     (testing "Invalid CLI args fail validation"
       (let [invalid-cli-args {:name "" :age "not-a-number" :role "invalid-role"}
             result           (validation/validate-cli-args
-                               TestCreateUserSchema
-                               invalid-cli-args
-                               mt/string-transformer)]
+                              TestCreateUserSchema
+                              invalid-cli-args
+                              mt/string-transformer)]
         (is (not (validation/validation-passed? result)))
         (is (some? (validation/get-validation-errors result)))))
 
     (testing "Empty CLI args"
       (let [empty-args {}
             result     (validation/validate-cli-args
-                         TestCreateUserSchema
-                         empty-args
-                         mt/string-transformer)]
+                        TestCreateUserSchema
+                        empty-args
+                        mt/string-transformer)]
         (is (not (validation/validation-passed? result)))
         (is (some? (validation/get-validation-errors result)))))))
 
@@ -108,18 +108,18 @@
     (testing "Valid request data"
       (let [request-data {:name "John" :age 25 :active true :role :admin}
             result       (validation/validate-request
-                           TestCreateUserSchema
-                           request-data
-                           (mt/transformer))]
+                          TestCreateUserSchema
+                          request-data
+                          (mt/transformer))]
         (is (validation/validation-passed? result))
         (is (= request-data (validation/get-validated-data result)))))
 
     (testing "Request with extra fields stripped"
       (let [request-data {:name "John" :age 25 :active true :role :admin :extra "field"}
             result       (validation/validate-request
-                           TestCreateUserSchema
-                           request-data
-                           mt/strip-extra-keys-transformer)]
+                          TestCreateUserSchema
+                          request-data
+                          mt/strip-extra-keys-transformer)]
         (is (validation/validation-passed? result))
         (let [validated-data (validation/get-validated-data result)]
           (is (= "John" (:name validated-data)))
@@ -128,9 +128,9 @@
     (testing "Invalid request data"
       (let [invalid-request {:name 123 :age "invalid" :role :invalid-role}
             result          (validation/validate-request
-                              TestCreateUserSchema
-                              invalid-request
-                              (mt/transformer))]
+                             TestCreateUserSchema
+                             invalid-request
+                             (mt/transformer))]
         (is (not (validation/validation-passed? result)))
         (is (some? (validation/get-validation-errors result)))))))
 
@@ -156,16 +156,16 @@
   (testing "Edge cases and error conditions"
     (testing "Nil data"
       (let [result (validation/validate-with-transform
-                     TestCreateUserSchema
-                     nil
-                     mt/string-transformer)]
+                    TestCreateUserSchema
+                    nil
+                    mt/string-transformer)]
         (is (not (validation/validation-passed? result)))))
 
     (testing "Empty map"
       (let [result (validation/validate-with-transform
-                     TestCreateUserSchema
-                     {}
-                     mt/string-transformer)]
+                    TestCreateUserSchema
+                    {}
+                    mt/string-transformer)]
         (is (not (validation/validation-passed? result)))))
 
     (testing "Malformed validation result"
@@ -185,18 +185,18 @@
                                                          (= % "0") "false"
                                                          :else %)))
             cli-transformer   (mt/transformer
-                                mt/string-transformer
-                                {:name :cli-transformer
-                                 :transformers
-                                 {:enum {:compile (fn [_schema _options]
-                                                    (fn [value]
-                                                      (if (string? value)
-                                                        (keyword value)
-                                                        value)))}}})
+                               mt/string-transformer
+                               {:name :cli-transformer
+                                :transformers
+                                {:enum {:compile (fn [_schema _options]
+                                                   (fn [value]
+                                                     (if (string? value)
+                                                       (keyword value)
+                                                       value)))}}})
             cli-result        (validation/validate-cli-args
-                                TestCreateUserSchema
-                                preprocessed-data
-                                cli-transformer)]
+                               TestCreateUserSchema
+                               preprocessed-data
+                               cli-transformer)]
 
         (is (validation/validation-passed? cli-result))
         (let [validated-data (validation/get-validated-data cli-result)]

@@ -218,7 +218,7 @@
     [:map {:title "Error Pages"}
      [:enabled {:optional true} :boolean]
      [:template-path {:optional true} [:string {:min 1 :max 500}]]
-     [:include-stack-trace {:optional true} :boolean]]]]) 
+     [:include-stack-trace {:optional true} :boolean]]]])
 
 (def AlertingConfig
   "Configuration for error-based alerting."

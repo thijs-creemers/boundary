@@ -27,11 +27,11 @@
 
 (deftest json-format-parseable
   (let [logger (stdout/create-stdout-logger {:level :debug
-                                              :format :json
-                                              :include-timestamp false
-                                              :include-level false
-                                              :include-thread false
-                                              :default-tags {:svc "tst"}})
+                                             :format :json
+                                             :include-timestamp false
+                                             :include-level false
+                                             :include-thread false
+                                             :default-tags {:svc "tst"}})
         out (with-out-str
               (.info logger "json msg" {:x 1 :y 2}))
         line (-> out str/trim)
@@ -56,10 +56,10 @@
 
 (deftest with-context-merges
   (let [logger (stdout/create-stdout-logger {:level :debug
-                                              :format :json
-                                              :include-timestamp false
-                                              :include-level false
-                                              :default-tags {:svc "tst"}})
+                                             :format :json
+                                             :include-timestamp false
+                                             :include-level false
+                                             :default-tags {:svc "tst"}})
         out (with-out-str
               (.with-context logger {:request-id "r1"}
                              (fn []
@@ -71,12 +71,12 @@
 
 (deftest exception-logging-includes-stacktrace
   (let [logger (stdout/create-stdout-logger {:level :error
-                                              :format :json
-                                              :include-timestamp false
-                                              :include-level false
-                                              :include-thread false
-                                              :max-stacktrace-elements 2
-                                              :default-tags {:svc "tst"}})
+                                             :format :json
+                                             :include-timestamp false
+                                             :include-level false
+                                             :include-thread false
+                                             :max-stacktrace-elements 2
+                                             :default-tags {:svc "tst"}})
         ex (Exception. "boom")
         out (with-out-str
               (.error logger "exception test" {:op "x"} ex))
@@ -136,7 +136,7 @@
 
 (deftest stdout-logger-level-and-config-management
   (let [logger (stdout/create-stdout-logger {:level :info
-                                              :format :text})]
+                                             :format :text})]
     ;; level management
     (is (= :info (ports/get-level logger)))
     (let [prev (ports/set-level! logger :debug)]

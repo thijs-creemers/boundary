@@ -398,7 +398,6 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
          "      [:div.item {:key (:id item)}\n"
          "       [:p (str (:id item))]])]])\n")))
 
-
 ;; =============================================================================
 ;; Service File Generator
 ;; =============================================================================
@@ -439,7 +438,6 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
          "\n"
          "(defn create-service [repository]\n"
          "  (->" entity-name "Service repository))\n")))
-
 
 ;; =============================================================================
 ;; Persistence File Generator

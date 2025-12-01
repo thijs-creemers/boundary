@@ -23,7 +23,7 @@
   (testing "converts field types to Malli schemas"
     (is (= :string (template/field-type->malli {:type :string})))
     (is (= :uuid (template/field-type->malli {:type :uuid})))
-    (is (= [:enum :active :inactive] 
+    (is (= [:enum :active :inactive]
            (template/field-type->malli {:type :enum :enum-values [:active :inactive]})))))
 
 (deftest field-type->sql-test

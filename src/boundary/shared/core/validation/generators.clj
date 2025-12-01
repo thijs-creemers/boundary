@@ -233,11 +233,11 @@
                       ;; Email-like patterns
                       (and (string? current-value) (re-find #"@" current-value))
                       "not-an-email"
-                      
+
                       ;; UUID-like strings
                       (string? current-value)
                       "not-a-valid-format"
-                      
+
                       :else
                       "invalid-format")]
     (assoc data field wrong-value)))
@@ -259,12 +259,12 @@
         wrong-value (cond
                       (number? current-value)
                       (if overflow? Integer/MAX_VALUE Integer/MIN_VALUE)
-                      
+
                       (string? current-value)
                       (if overflow?
                         (apply str (repeat 10000 "x"))
                         "")
-                      
+
                       :else
                       current-value)]
     (assoc data field wrong-value)))
@@ -325,34 +325,34 @@
               (case violation-type
                 :missing-required
                 (remove-required-field valid-data field schema)
-                
+
                 :wrong-type
                 (apply-wrong-type valid-data field schema)
-                
+
                 :wrong-format
                 (apply-wrong-format valid-data field schema)
-                
+
                 :out-of-range
                 (apply-out-of-range valid-data field schema opts)
-                
+
                 :too-long
                 (apply-out-of-range valid-data field schema (assoc opts :overflow? true))
-                
+
                 :too-short
                 (apply-out-of-range valid-data field schema (assoc opts :overflow? false))
-                
+
                 :unknown-key
                 (add-unknown-key valid-data seed)
-                
+
                 :enum-outside
                 (apply-enum-outside valid-data field schema)
-                
+
                 :boundary-underflow
                 (apply-out-of-range valid-data field schema (assoc opts :overflow? false))
-                
+
                 :boundary-overflow
                 (apply-out-of-range valid-data field schema (assoc opts :overflow? true))
-                
+
                 valid-data)]
           ;; Verify it actually fails validation
           ;; NOTE: Some violations like :unknown-key may not fail validation
@@ -437,7 +437,7 @@
                            (assoc base-data field "a")       ; Single char
                            (assoc base-data field (apply str (repeat 255 "x")))])  ; Max length
                         string-fields))
-              
+
               :else
               [base-data])]
         (vec (distinct boundaries))))))
@@ -479,7 +479,7 @@
       (case gen-type
         :valid
         (gen-valid-one schema (assoc opts :seed seed))
-        
+
         :invalid
         (let [violation (or (:violation opts)
                             (throw (ex-info ":violation required for :invalid type"

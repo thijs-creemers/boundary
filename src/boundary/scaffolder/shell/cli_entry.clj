@@ -24,7 +24,7 @@
             scaffolder-svc (scaffolder-service/create-scaffolder-service fs-adapter)
             ;; Dispatch CLI commands and capture exit status
             status (scaffolder-cli/run-cli! scaffolder-svc args)]
-        
+
         ;; Ensure we always store an integer exit status
         (reset! exit-status (if (integer? status) status 1)))
 

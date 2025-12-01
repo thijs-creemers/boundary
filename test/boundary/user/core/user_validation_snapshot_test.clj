@@ -24,8 +24,6 @@
 ;; Test Fixtures
 ;; =============================================================================
 
-
-
 (def fixed-user-id
   (UUID/fromString "00000000-0000-0000-0000-000000000002"))
 
@@ -141,8 +139,6 @@
 ;; =============================================================================
 ;; Business Rule Validation Snapshots
 ;; =============================================================================
-
-
 
 (deftest email-change-forbidden-snapshot
   "Snapshot of business rule violation when changing email."

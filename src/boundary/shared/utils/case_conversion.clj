@@ -32,12 +32,12 @@
 (defn deep-transform-keys [transform-fn m]
   (cond
     (map? m) (reduce-kv (fn [acc k v]
-                         (let [new-key (if (keyword? k)
-                                        (keyword (transform-fn (name k)))
-                                        k)]
-                           (assoc acc new-key (deep-transform-keys transform-fn v))))
-                       {}
-                       m)
+                          (let [new-key (if (keyword? k)
+                                          (keyword (transform-fn (name k)))
+                                          k)]
+                            (assoc acc new-key (deep-transform-keys transform-fn v))))
+                        {}
+                        m)
     (vector? m) (mapv #(deep-transform-keys transform-fn %) m)
     (seq? m) (map #(deep-transform-keys transform-fn %) m)
     :else m))

@@ -14,24 +14,24 @@
 (defrecord NoOpLogger []
   ports/ILogger
   (log* [_ _ _ _ _] nil)
-  
+
   (trace [_ _] nil)
   (trace [_ _ _] nil)
-  
+
   (debug [_ _] nil)
   (debug [_ _ _] nil)
-  
+
   (info [_ _] nil)
   (info [_ _ _] nil)
-  
+
   (warn [_ _] nil)
   (warn [_ _ _] nil)
   (warn [_ _ _ _] nil)
-  
+
   (error [_ _] nil)
   (error [_ _ _] nil)
   (error [_ _ _ _] nil)
-  
+
   (fatal [_ _] nil)
   (fatal [_ _ _] nil)
   (fatal [_ _ _ _] nil))
@@ -98,32 +98,32 @@
 (defrecord NoOpLoggingComponent []
   ports/ILogger
   (log* [_ _ _ _ _] nil)
-  
+
   (trace [_ _] nil)
   (trace [_ _ _] nil)
-  
+
   (debug [_ _] nil)
   (debug [_ _ _] nil)
-  
+
   (info [_ _] nil)
   (info [_ _ _] nil)
-  
+
   (warn [_ _] nil)
   (warn [_ _ _] nil)
   (warn [_ _ _ _] nil)
-  
+
   (error [_ _] nil)
   (error [_ _ _] nil)
   (error [_ _ _ _] nil)
-  
-  (fatal [_ _] nil)  
+
+  (fatal [_ _] nil)
   (fatal [_ _ _] nil)
   (fatal [_ _ _ _] nil)
-  
+
   ports/IAuditLogger
   (audit-event [_ _ _ _ _ _ _] nil)
   (security-event [_ _ _ _ _] nil)
-  
+
   ports/ILoggingContext
   (with-context [_ _ f] (f))
   (current-context [_] {}))

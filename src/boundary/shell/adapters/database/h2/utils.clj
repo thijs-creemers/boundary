@@ -117,8 +117,8 @@
                :from [:information_schema.tables]
                :where [:= :table_schema (str/upper-case default-schema)]}
         results (jdbc/execute! datasource
-                              (sql/format query {:dialect :ansi})
-                              {:builder-fn rs/as-unqualified-lower-maps})]
+                               (sql/format query {:dialect :ansi})
+                               {:builder-fn rs/as-unqualified-lower-maps})]
     (mapv #(str/lower-case (:table_name %)) results)))
 
 (defn show-indexes
@@ -136,14 +136,14 @@
    (validate-datasource datasource)
    (let [base-condition [:= :table_schema (str/upper-case default-schema)]
          where-clause (if table-name
-                       [:and base-condition [:= :table_name (str/upper-case (name table-name))]]
-                       base-condition)
+                        [:and base-condition [:= :table_name (str/upper-case (name table-name))]]
+                        base-condition)
          query {:select [:index_name :table_name :non_unique :column_name]
                 :from [:information_schema.indexes]
                 :where where-clause}
          results (jdbc/execute! datasource
-                               (sql/format query {:dialect :ansi})
-                               {:builder-fn rs/as-unqualified-lower-maps})]
+                                (sql/format query {:dialect :ansi})
+                                {:builder-fn rs/as-unqualified-lower-maps})]
      (mapv (fn [row]
              {:index-name  (str/lower-case (:index_name row))
               :table-name  (str/lower-case (:table_name row))

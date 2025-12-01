@@ -81,7 +81,7 @@
         user-static-routes (or (:static user-routes) [])
         user-web-routes (or (:web user-routes) [])
         user-api-routes (or (:api user-routes) [])
-        
+
         ;; Extract route vectors from inventory module
         inventory-static-routes (or (:static inventory-routes) [])
         inventory-web-routes (or (:web inventory-routes) [])

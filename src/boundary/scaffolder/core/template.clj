@@ -84,7 +84,7 @@
     :int :int
     :uuid :uuid
     :boolean :boolean
-    :email [:re {:error/message "Invalid email format"} 
+    :email [:re {:error/message "Invalid email format"}
             #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\.[a-zA-Z]{2,}$"]
     :enum (into [:enum] enum-values)
     :inst 'inst?

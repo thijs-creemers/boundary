@@ -82,13 +82,13 @@
     (cond
       (< (count parts) 2)
       {:error (str "Invalid field spec: " field-spec " (expected format: name:type[:required][:unique])")}
-      
+
       (not (re-matches #"^[a-z][a-z0-9-]*$" name-str))
       {:error (str "Invalid field name: " name-str " (must be lowercase kebab-case)")}
-      
+
       (not (contains? valid-types type-str))
       {:error (str "Invalid field type: " type-str " (must be one of: " (str/join ", " (sort valid-types)) ")")}
-      
+
       :else
       {:name (keyword name-str)
        :type type-kw
@@ -187,10 +187,10 @@
   (let [errors (cond-> []
                  (not (:module-name opts))
                  (conj "Missing required option: --module-name")
-                 
+
                  (not (:entity opts))
                  (conj "Missing required option: --entity")
-                 
+
                  (empty? (:field opts))
                  (conj "At least one --field is required"))]
     [(empty? errors) errors]))
@@ -210,10 +210,10 @@
                          :entities [{:name (:entity opts)
                                      :fields fields-or-errors}]
                          :interfaces {:http (:http opts)
-                                     :cli (:cli opts)
-                                     :web (:web opts)}
+                                      :cli (:cli opts)
+                                      :web (:web opts)}
                          :features {:audit (:audit opts)
-                                   :pagination (:pagination opts)}
+                                    :pagination (:pagination opts)}
                          :dry-run (:dry-run opts)}
                 result (ports/generate-module service request)]
             (if (:success result)
@@ -368,7 +368,7 @@ Examples:
           verb-args (:arguments parsed-for-verb)
           [verb-str] verb-args
           verb (when verb-str (keyword verb-str))
-          
+
           ;; Check for help flags early
           has-help-flag? (or (:help (:options parsed-for-verb))
                              (some #(= % "--help") args))]
@@ -378,31 +378,31 @@ Examples:
         (do
           (println root-help)
           0)
-        
+
         ;; Global option errors
         (seq global-errors)
         (do
           (binding [*out* *err*]
             (println (format-error :text global-errors)))
           1)
-        
+
         ;; Global --help or no command
         (or has-help-flag? (nil? verb))
         (do
           (println root-help)
           0)
-        
+
         ;; Command-specific help
         (and (= verb :generate) has-help-flag?)
         (do
           (println generate-help)
           0)
-        
+
         ;; Execute command
         :else
         (let [;; Get all args after the verb
               remaining-args (vec (drop 1 args))
-              
+
               ;; Get command-specific options
               cmd-options (case verb
                             :generate generate-options

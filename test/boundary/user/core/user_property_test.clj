@@ -221,8 +221,6 @@
 ;; Property-Based Tests: Business Rules
 ;; =============================================================================
 
-
-
 (defspec email-change-always-fails 100
   (prop/for-all [user-entity user-entity-gen
                  new-email valid-email-gen]

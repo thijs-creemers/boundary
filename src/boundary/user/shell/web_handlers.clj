@@ -119,10 +119,10 @@
     (try
       (let [qp          (:query-params request)
             table-query (web-table/parse-table-query
-                          qp
-                          {:default-sort      :created-at
-                           :default-dir       :desc
-                           :default-page-size 20})
+                         qp
+                         {:default-sort      :created-at
+                          :default-dir       :desc
+                          :default-page-size 20})
             filters     (web-table/parse-search-filters qp)
             list-opts   (build-user-list-opts table-query filters)
             users-result (user-ports/list-users user-service list-opts)
@@ -131,16 +131,16 @@
                           :table-query table-query
                           :filters     filters}]
         (html-response
-          (user-ui/users-page
-            (:users users-result)
-            (:total-count users-result)
-            page-opts)))
+         (user-ui/users-page
+          (:users users-result)
+          (:total-count users-result)
+          page-opts)))
       (catch Exception e
         (clojure.tools.logging/error e "Error in users-page-handler")
         (html-response
-          (layout/page-layout "Error"
-                              (ui/error-message (.getMessage e)))
-          500)))))
+         (layout/page-layout "Error"
+                             (ui/error-message (.getMessage e)))
+         500)))))
 
 (defn user-detail-page-handler
   "Handler for individual user detail page (GET /web/users/:id).
@@ -214,7 +214,7 @@
   [user-service config]
   (fn [request]
     (let [form-data (:form-params request)
-          raw-return-to (or (get form-data "return-to") 
+          raw-return-to (or (get form-data "return-to")
                             (get-in request [:query-params "return-to"]))
           return-to (safe-return-url raw-return-to "/web/users")
           prepared-data {:email (get form-data "email")
@@ -240,42 +240,42 @@
                                        :result-keys (keys auth-result)
                                        :ip-address (:ip-address validated-data)
                                        :user-agent (:user-agent validated-data)})
-               (if (:authenticated auth-result)
-                (let [session (:session auth-result)
-                      session-token (:session-token session)
-                      remember? (:remember validated-data)
+            (if (:authenticated auth-result)
+              (let [session (:session auth-result)
+                    session-token (:session-token session)
+                    remember? (:remember validated-data)
                       ;; Calculate cookie max-age based on remember-me checkbox
                       ;; 30 days if remember-me is checked, otherwise session cookie (no max-age)
-                      cookie-max-age (when remember? (* 30 24 60 60))]
-                  (log/info "Login successful, setting cookie and redirecting" 
-                           {:session-token (str (take 16 session-token) "...")
-                            :remember? remember?
-                            :cookie-max-age cookie-max-age
-                            :return-to return-to})
+                    cookie-max-age (when remember? (* 30 24 60 60))]
+                (log/info "Login successful, setting cookie and redirecting"
+                          {:session-token (str (take 16 session-token) "...")
+                           :remember? remember?
+                           :cookie-max-age cookie-max-age
+                           :return-to return-to})
                   ;; Set session-token cookie and redirect to original URL or default
-                  (-> (response/redirect return-to)
-                      (assoc-in [:cookies "session-token"]
-                                (cond-> {:value session-token
-                                         :http-only true
+                (-> (response/redirect return-to)
+                    (assoc-in [:cookies "session-token"]
+                              (cond-> {:value session-token
+                                       :http-only true
                                          ;; set :secure true when running behind HTTPS
-                                         :secure false
-                                         :path "/"}
+                                       :secure false
+                                       :path "/"}
                                   ;; Only set max-age if remember-me is checked
                                   ;; Without max-age, cookie is a session cookie (expires when browser closes)
-                                  remember? (assoc :max-age cookie-max-age)))
+                                remember? (assoc :max-age cookie-max-age)))
                       ;; Set or clear the remembered-email cookie
-                      (assoc-in [:cookies "remembered-email"]
-                                (if remember?
+                    (assoc-in [:cookies "remembered-email"]
+                              (if remember?
                                   ;; Remember the email for 30 days
-                                  {:value (:email validated-data)
-                                   :http-only false  ; Allow JavaScript to read it if needed
-                                   :secure false
-                                   :path "/"
-                                   :max-age cookie-max-age}
+                                {:value (:email validated-data)
+                                 :http-only false  ; Allow JavaScript to read it if needed
+                                 :secure false
+                                 :path "/"
+                                 :max-age cookie-max-age}
                                   ;; Clear the remembered email by setting expired cookie
-                                  {:value ""
-                                   :max-age 0
-                                   :path "/"}))))
+                                {:value ""
+                                 :max-age 0
+                                 :path "/"}))))
               ;; Authentication failed (e.g. wrong password)
               (do
                 (log/warn "Login failed" {:email (:email prepared-data)
@@ -300,8 +300,8 @@
   (fn [request]
     (let [session-token (or (get-in request [:cookies "session-token" :value])
                             (get-in request [:headers "x-session-token"]))]
-      (spit "/tmp/middleware-debug.log" 
-            (str "LOGOUT HANDLER CALLED: has-token=" (boolean session-token) 
+      (spit "/tmp/middleware-debug.log"
+            (str "LOGOUT HANDLER CALLED: has-token=" (boolean session-token)
                  " token=" (when session-token (subs session-token 0 (min 20 (count session-token)))) "...\n")
             :append true)
       (when session-token
@@ -310,12 +310,12 @@
           (log/info "Attempting to invalidate session" {:token (subs session-token 0 16)})
           (let [result (user-ports/logout-user user-service session-token)]
             (log/info "Session invalidation result" {:result result})
-            (spit "/tmp/middleware-debug.log" 
+            (spit "/tmp/middleware-debug.log"
                   (str "LOGOUT RESULT: " result "\n")
                   :append true))
           (catch Exception e
             (log/error e "Error during logout")
-            (spit "/tmp/middleware-debug.log" 
+            (spit "/tmp/middleware-debug.log"
                   (str "LOGOUT ERROR: " (.getMessage e) "\n")
                   :append true))))
       (-> (response/redirect "/web/login")
@@ -372,19 +372,19 @@
     (try
       (let [qp          (:query-params request)
             table-query (web-table/parse-table-query
-                          qp
-                          {:default-sort      :created-at
-                           :default-dir       :desc
-                           :default-page-size 20})
+                         qp
+                         {:default-sort      :created-at
+                          :default-dir       :desc
+                          :default-page-size 20})
             filters     (web-table/parse-search-filters qp)
             list-opts   (build-user-list-opts table-query filters)
             users-result (user-ports/list-users user-service list-opts)]
         (html-response
-          (user-ui/users-table-fragment
-            (:users users-result)
-            table-query
-            (:total-count users-result)
-            filters)))
+         (user-ui/users-table-fragment
+          (:users users-result)
+          table-query
+          (:total-count users-result)
+          filters)))
       (catch Exception e
         (html-response (ui/error-message (.getMessage e)) 500)))))
 
@@ -405,16 +405,16 @@
                           (sequential? ids-param) ids-param
                           :else [ids-param])
             _           (log/info "Bulk user operation" {:action action
-                                                          :ids-count (count ids)})
+                                                         :ids-count (count ids)})
             ;; Merge query params from URL and hidden form fields to
             ;; preserve current filters and table state during bulk ops
             qp          (merge (:query-params request)
                                (select-keys form-params ["q" "role" "status" "sort" "dir" "page" "page-size"]))
             table-query (web-table/parse-table-query
-                          qp
-                          {:default-sort      :created-at
-                           :default-dir       :desc
-                           :default-page-size 20})
+                         qp
+                         {:default-sort      :created-at
+                          :default-dir       :desc
+                          :default-page-size 20})
             filters     (web-table/parse-search-filters qp)]
         (when (or (empty? ids) (str/blank? (str action)))
           (throw (ex-info "No users selected or action missing"
@@ -524,8 +524,8 @@
       (let [user-id (get-in request [:path-params :id])
             form-data (:form-params request)
             _ (log/info "Update user form data" {:form-data form-data
-                                                  :role-value (get form-data "role")
-                                                  :active-value (get form-data "active")})
+                                                 :role-value (get form-data "role")
+                                                 :active-value (get form-data "active")})
             ;; Prepare data with kebab-case keyword keys for validation
             ;; Note: Checkbox fields are "on" when checked, absent when unchecked
             prepared-data {:name (get form-data "name")
@@ -547,12 +547,12 @@
                                        (select-keys prepared-data [:name :email :role :active]))
                       user-result (user-ports/update-user-profile user-service user-data)]
                   ;; Re-render the form with updated user data and a success indicator
-                  (html-response 
+                  (html-response
                    [:div
                     [:div.success-banner {:style "background: #d4edda; color: #155724; padding: 10px; margin-bottom: 15px; border-radius: 4px;"}
                      "✓ User updated successfully"]
                     (user-ui/user-detail-form user-result)]
-                   200 
+                   200
                    {"HX-Trigger" "userUpdated"}))))
             (catch Exception e
               (log/error e "Error updating user")
@@ -614,11 +614,11 @@
             (user-ports/permanently-delete-user user-service uuid)
             (-> (response/redirect "/web/users")
                 (assoc :flash {:success "User permanently deleted"})))))
-       (catch IllegalArgumentException _
-         (html-response (ui/error-message "Invalid user ID") 400))
-       (catch Exception e
-         (log/error e "Error permanently deleting user")
-         (html-response (ui/error-message (.getMessage e)) 500)))))
+      (catch IllegalArgumentException _
+        (html-response (ui/error-message "Invalid user ID") 400))
+      (catch Exception e
+        (log/error e "Error permanently deleting user")
+        (html-response (ui/error-message (.getMessage e)) 500)))))
 
 ;; =============================================================================
 ;; Session Management Handlers
@@ -644,7 +644,7 @@
             uuid (UUID/fromString user-id)
             user (user-ports/get-user-by-id user-service uuid)
             sessions (user-ports/get-user-sessions user-service uuid)
-            _ (log/info "Sessions retrieved:" {:count (count sessions) 
+            _ (log/info "Sessions retrieved:" {:count (count sessions)
                                                :first-session (first sessions)
                                                :session-keys (when (seq sessions) (keys (first sessions)))})
             current-token (get-in request [:cookies "session-token" :value])
@@ -703,7 +703,7 @@
             uuid (UUID/fromString user-id)
             keep-current? (= "true" (get-in request [:form-params "keep-current"]))
             current-token (when keep-current?
-                           (get-in request [:cookies "session-token" :value]))]
+                            (get-in request [:cookies "session-token" :value]))]
         (if keep-current?
           ;; Revoke all except current
           (let [sessions (user-ports/get-user-sessions user-service uuid)]
@@ -747,13 +747,13 @@
     (cond-> base
       (:action filters)
       (assoc :filter-action (keyword (:action filters)))
-      
+
       (:result filters)
       (assoc :filter-result (keyword (:result filters)))
-      
+
       (:target_email filters)
       (assoc :filter-target-email (:target_email filters))
-      
+
       (:actor_email filters)
       (assoc :filter-actor-email (:actor_email filters)))))
 
@@ -774,10 +774,10 @@
     (try
       (let [qp          (:query-params request)
             table-query (web-table/parse-table-query
-                          qp
-                          {:default-sort      :created-at
-                           :default-dir       :desc
-                           :default-page-size 50})
+                         qp
+                         {:default-sort      :created-at
+                          :default-dir       :desc
+                          :default-page-size 50})
             filters     (web-table/parse-search-filters qp)
             list-opts   (build-audit-list-opts table-query filters)
             audit-result (user-ports/list-audit-logs user-service list-opts)
@@ -786,18 +786,18 @@
                           :table-query table-query
                           :filters     filters}]
         (html-response
-          (user-ui/audit-page
-            (:audit-logs audit-result)
-            table-query
-            (:total-count audit-result)
-            filters
-            page-opts)))
+         (user-ui/audit-page
+          (:audit-logs audit-result)
+          table-query
+          (:total-count audit-result)
+          filters
+          page-opts)))
       (catch Exception e
         (log/error e "Error in audit-page-handler")
         (html-response
-          (layout/page-layout "Error"
-                              (ui/error-message (.getMessage e)))
-          500)))))
+         (layout/page-layout "Error"
+                             (ui/error-message (.getMessage e)))
+         500)))))
 
 (defn audit-table-fragment-handler
   "Handler for the audit table fragment (GET /web/audit/table).
@@ -816,21 +816,21 @@
     (try
       (let [qp          (:query-params request)
             table-query (web-table/parse-table-query
-                          qp
-                          {:default-sort      :created-at
-                           :default-dir       :desc
-                           :default-page-size 50})
+                         qp
+                         {:default-sort      :created-at
+                          :default-dir       :desc
+                          :default-page-size 50})
             filters     (web-table/parse-search-filters qp)
             list-opts   (build-audit-list-opts table-query filters)
             audit-result (user-ports/list-audit-logs user-service list-opts)
             page-opts    {:table-query table-query
                           :filters     filters}]
         (html-response
-          (user-ui/audit-logs-table
-            (:audit-logs audit-result)
-            table-query
-            (:total-count audit-result)
-            filters)))
+         (user-ui/audit-logs-table
+          (:audit-logs audit-result)
+          table-query
+          (:total-count audit-result)
+          filters)))
       (catch Exception e
         (log/error e "Error in audit-table-fragment-handler")
         (html-response (ui/error-message (.getMessage e)) 500)))))

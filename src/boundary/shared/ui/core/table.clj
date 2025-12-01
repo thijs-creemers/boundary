@@ -43,7 +43,7 @@
       :hx-target  hx-target
       :hx-push-url (when hx-push-url? "true")
       :class      (str "sortable-header"
-                    (when active? " sortable-header--active"))
+                       (when active? " sortable-header--active"))
       :role       "button"
       :tabindex   "0"}
      (str label icon)]))

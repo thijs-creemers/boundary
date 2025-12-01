@@ -23,7 +23,7 @@
 ;; =============================================================================
 
 (defn namespace-exists?
-      "Check if a namespace exists and can be loaded."
+  "Check if a namespace exists and can be loaded."
   [ns-symbol]
   (try
     (require ns-symbol)
@@ -32,7 +32,7 @@
       false)))
 
 (defn run-namespace-tests
-      "Run tests for a specific namespace, handling missing implementations gracefully."
+  "Run tests for a specific namespace, handling missing implementations gracefully."
   [ns-symbol]
   (println (str "\n" (str (repeat 80 "=")) "\n"))
   (println (str "Testing namespace: " ns-symbol))
@@ -63,7 +63,7 @@
 ;; =============================================================================
 
 (defn check-config-files
-      "Check if configuration files exist."
+  "Check if configuration files exist."
   []
   (println "\n" (str (repeat 80 "=")) "\n")
   (println "Configuration Files Check")
@@ -89,7 +89,7 @@
     @results))
 
 (defn check-implementation-files
-      "Check if implementation files exist."
+  "Check if implementation files exist."
   []
   (println "\n" (str (repeat 80 "=")) "\n")
   (println "Implementation Files Check")
@@ -124,7 +124,7 @@
 ;; =============================================================================
 
 (defn check-database-drivers
-      "Check if database JDBC drivers are available on classpath."
+  "Check if database JDBC drivers are available on classpath."
   []
   (println "\n" (str (repeat 80 "=")) "\n")
   (println "Database JDBC Drivers Check")
@@ -157,7 +157,7 @@
 ;; =============================================================================
 
 (defn run-configuration-tests
-      "Run all configuration-related tests with comprehensive reporting."
+  "Run all configuration-related tests with comprehensive reporting."
   []
   (println "🚀 Multi-Database Configuration System Test Suite")
   (println (str "Started at: " (Date.)))
@@ -240,7 +240,7 @@
 ;; =============================================================================
 
 (defn test-basic-configuration
-      "Test basic configuration loading without dependencies."
+  "Test basic configuration loading without dependencies."
   []
   (println "\n🧪 Basic Configuration Test (No Dependencies Required)")
   (println (str (repeat 60 "-")))
@@ -277,7 +277,7 @@
 ;; =============================================================================
 
 (defn -main
-      "Main entry point for test runner."
+  "Main entry point for test runner."
   [& args]
   (let [test-type (first args)]
     (case test-type
@@ -291,12 +291,12 @@
 
 ;; For REPL use
 (defn run-tests
-      "Run all configuration tests from REPL."
+  "Run all configuration tests from REPL."
   []
   (run-configuration-tests))
 
 (defn run-basic-tests
-      "Run basic configuration tests from REPL."
+  "Run basic configuration tests from REPL."
   []
   (test-basic-configuration))
 

@@ -13,7 +13,7 @@
      
    Returns:
      Hiccup navigation structure"
-   [& [opts]]
+  [& [opts]]
   (let [{:keys [user]} opts]
     [:nav
      [:a.logo {:href "/"} "Boundary App"]

@@ -10,24 +10,24 @@
 
 (def sample-config
   "Sample configuration for testing adapter creation"
-  {:active 
-   {:boundary/sqlite 
+  {:active
+   {:boundary/sqlite
     {:db "test-database.db"
      :pool {:minimum-idle 1
             :maximum-pool-size 3}}
-    
+
     :boundary/h2
     {:memory true
      :pool {:minimum-idle 1
             :maximum-pool-size 5}}
-    
+
     :boundary/postgresql
     {:host "localhost"
      :port 5432
      :dbname "test_db"
      :user "test_user"
      :password "test_password"}}
-   
+
    :inactive
    {:boundary/mysql
     {:host "localhost"
@@ -47,14 +47,14 @@
       (is (some? adapter) "Adapter should be created")
       (is (satisfies? protocols/DBAdapter adapter)
           "Should satisfy DatabaseAdapter protocol")
-      
+
       ;; Test protocol methods
       (let [dialect (protocols/dialect adapter)
             jdbc-url (protocols/jdbc-url adapter {:db "test.db"})]
         (is (= dialect :sqlite) "SQLite adapter should return :sqlite dialect")
         (is (string? jdbc-url) "JDBC URL should be a string")
         (is (.contains jdbc-url "sqlite") "SQLite JDBC URL should contain 'sqlite'"))
-      
+
       (let [dialect (protocols/dialect adapter)]
         (is (some? dialect) "Should have a dialect")))))
 
@@ -65,7 +65,7 @@
       (is (some? adapter) "Adapter should be created")
       (is (satisfies? protocols/DBAdapter adapter)
           "Should satisfy DatabaseAdapter protocol")
-      
+
       (let [dialect (protocols/dialect adapter)
             jdbc-url (protocols/jdbc-url adapter {:memory true})]
         (is (= dialect :h2) "H2 adapter should return :h2 dialect")
@@ -84,7 +84,7 @@
       (is (some? adapter) "Adapter should be created")
       (is (satisfies? protocols/DBAdapter adapter)
           "Should satisfy DatabaseAdapter protocol")
-      
+
       (let [dialect (protocols/dialect adapter)
             jdbc-url (protocols/jdbc-url adapter config)]
         (is (= dialect :postgresql) "PostgreSQL adapter should return :postgresql dialect")
@@ -102,7 +102,7 @@
       (is (some? adapter) "Adapter should be created")
       (is (satisfies? protocols/DBAdapter adapter)
           "Should satisfy DatabaseAdapter protocol")
-      
+
       (let [dialect (protocols/dialect adapter)
             jdbc-url (protocols/jdbc-url adapter config)]
         (is (= dialect :mysql) "MySQL adapter should return :mysql dialect")
@@ -111,7 +111,7 @@
 
 (deftest test-create-adapter-unknown
   (testing "Creating unknown adapter should throw"
-    (is (thrown? Exception 
+    (is (thrown? Exception
                  (factory/create-adapter :boundary/unknown {:some "config"})
                  "Should throw exception for unknown adapter type"))))
 
@@ -124,13 +124,13 @@
     (let [adapters (factory/create-active-adapters sample-config)]
       (is (map? adapters) "Should return a map of adapters")
       (is (= 3 (count adapters)) "Should have 3 active adapters")
-      
+
       ;; Check each adapter exists and is properly typed
       (is (contains? adapters :boundary/sqlite) "Should contain SQLite adapter")
-      (is (contains? adapters :boundary/h2) "Should contain H2 adapter")  
+      (is (contains? adapters :boundary/h2) "Should contain H2 adapter")
       (is (contains? adapters :boundary/postgresql) "Should contain PostgreSQL adapter")
       (is (not (contains? adapters :boundary/mysql)) "Should not contain inactive MySQL adapter")
-      
+
       ;; Check all adapters satisfy the protocol
       (doseq [[adapter-key adapter] adapters]
         (is (satisfies? protocols/DBAdapter adapter)
@@ -163,7 +163,7 @@
         (doseq [[adapter-type config] configs]
           (is (factory/valid-adapter-config? adapter-type config)
               (str "Valid config for " adapter-type " should pass validation")))))
-    
+
     (testing "Invalid configurations should fail"
       (let [invalid-configs {:boundary/sqlite {} ; missing :db
                              :boundary/postgresql {:host "localhost"} ; missing required fields
@@ -206,7 +206,7 @@
         (let [jdbc-url (protocols/jdbc-url sqlite-adapter {:db "test.db"})]
           (is (string? jdbc-url) "JDBC URL should be a string")
           (is (.contains jdbc-url "sqlite") "SQLite JDBC URL should contain 'sqlite'")))
-      
+
       (testing "H2 JDBC URL"
         (let [jdbc-url (protocols/jdbc-url h2-adapter {:memory true})]
           (is (string? jdbc-url) "JDBC URL should be a string")
@@ -218,16 +218,16 @@
 
 (deftest test-pool-configuration-handling
   (testing "Pool configuration should be properly handled"
-    (let [config-with-pool {:db "test.db" 
-                           :pool {:minimum-idle 5
-                                 :maximum-pool-size 20
-                                 :connection-timeout-ms 30000}}
+    (let [config-with-pool {:db "test.db"
+                            :pool {:minimum-idle 5
+                                   :maximum-pool-size 20
+                                   :connection-timeout-ms 30000}}
           config-without-pool {:db "test.db"}]
-      
+
       (testing "Config with explicit pool settings"
         (let [adapter (factory/create-adapter :boundary/sqlite config-with-pool)]
           (is (some? adapter) "Adapter should be created with pool config")))
-      
+
       (testing "Config without pool settings should use defaults"
         (let [adapter (factory/create-adapter :boundary/sqlite config-without-pool)]
           (is (some? adapter) "Adapter should be created without explicit pool config"))))))
@@ -239,19 +239,19 @@
 (deftest test-error-handling
   (testing "Factory should handle errors gracefully"
     (testing "Malformed configuration"
-      (is (thrown? Exception 
+      (is (thrown? Exception
                    (factory/create-adapter :boundary/sqlite "not-a-map"))
           "Should throw on non-map configuration"))
-    
+
     (testing "Null configuration"
-      (is (thrown? Exception 
+      (is (thrown? Exception
                    (factory/create-adapter :boundary/sqlite nil))
           "Should throw on null configuration"))
-    
+
     (testing "Configuration with invalid types"
-      (is (thrown? Exception 
-                   (factory/create-adapter :boundary/postgresql 
-                                         {:host 123 :port "not-a-number"}))
+      (is (thrown? Exception
+                   (factory/create-adapter :boundary/postgresql
+                                           {:host 123 :port "not-a-number"}))
           "Should throw on configuration with wrong data types"))))
 
 ;; =============================================================================
@@ -269,7 +269,7 @@
                 adapters (factory/create-active-adapters config)]
             (is (map? adapters) (str "Should create adapters map for " env))
             (is (seq adapters) (str "Should have at least one adapter for " env))
-            
+
             ; Verify all created adapters are valid
             (doseq [[adapter-key adapter] adapters]
               (is (satisfies? protocols/DBAdapter adapter)

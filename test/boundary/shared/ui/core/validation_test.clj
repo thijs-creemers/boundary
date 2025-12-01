@@ -25,7 +25,7 @@
                         :password "short"}
           explain (m/explain test-user-schema invalid-data)
           result (validation/explain->field-errors explain)]
-      
+
       (is (map? result))
       (is (contains? result :name))
       (is (contains? result :email))
@@ -41,7 +41,7 @@
                         :password "valid-password-123"}
           explain (m/explain test-user-schema invalid-data)
           result (validation/explain->field-errors explain)]
-      
+
       (is (map? result))
       (is (contains? result :email))
       (is (not (contains? result :name)))
@@ -68,13 +68,13 @@
 (deftest has-errors?-test
   (testing "returns true for non-empty error map"
     (is (true? (validation/has-errors? {:name ["error"]}))))
-  
+
   (testing "returns false for empty error map"
     (is (false? (validation/has-errors? {}))))
-  
+
   (testing "returns false for nil"
     (is (false? (validation/has-errors? nil))))
-  
+
   (testing "returns false for non-map"
     (is (false? (validation/has-errors? "not a map")))))
 
@@ -88,10 +88,10 @@
                   :email ["Invalid email"]}]
       (is (= ["Name is required"] (validation/field-error errors :name)))
       (is (= ["Invalid email"] (validation/field-error errors :email)))))
-  
+
   (testing "returns nil for non-existent field"
     (let [errors {:name ["Name is required"]}]
       (is (nil? (validation/field-error errors :email)))))
-  
+
   (testing "handles nil errors gracefully"
     (is (nil? (validation/field-error nil :name)))))

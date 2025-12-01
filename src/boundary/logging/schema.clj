@@ -4,8 +4,8 @@
    This namespace defines Malli schemas for validating logging configuration,
    ensuring proper structure and constraints for different logging providers."
   (:require
-    [malli.core :as m]
-    [malli.transform :as mt]))
+   [malli.core :as m]
+   [malli.transform :as mt]))
 
 ;; =============================================================================
 ;; Core Logging Configuration Schemas
@@ -240,9 +240,9 @@
 ;; Transformer for logging configurations to ensure proper types.
 (def logging-config-transformer
   (mt/transformer
-    mt/strip-extra-keys-transformer
-    mt/string-transformer
-    {:name :logging-config}))
+   mt/strip-extra-keys-transformer
+   mt/string-transformer
+   {:name :logging-config}))
 
 ;; Normalizes and validates a logging configuration map.
 (defn normalize-logging-config
@@ -251,8 +251,8 @@
     (if (validate-logging-config normalized)
       normalized
       (throw (ex-info "Invalid logging configuration"
-               {:errors (explain-logging-config normalized)
-                :config config})))))
+                      {:errors (explain-logging-config normalized)
+                       :config config})))))
 
 ;; Normalizes and validates a complete system logging configuration map.
 (defn normalize-system-logging-config
@@ -261,8 +261,8 @@
     (if (validate-system-logging-config normalized)
       normalized
       (throw (ex-info "Invalid system logging configuration"
-               {:errors (explain-system-logging-config normalized)
-                :config config})))))
+                      {:errors (explain-system-logging-config normalized)
+                       :config config})))))
 
 ;; =============================================================================
 ;; Schema Registry

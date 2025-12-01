@@ -30,19 +30,19 @@
   (inc-counter! [_ _] nil)
   (inc-counter! [_ _ _] nil)
   (inc-counter! [_ _ _ _] nil)
-  
+
   (set-gauge! [_ _ _] nil)
   (set-gauge! [_ _ _ _] nil)
-  
+
   (observe-histogram! [_ _ _] nil)
   (observe-histogram! [_ _ _ _] nil)
-  
+
   (observe-summary! [_ _ _] nil)
   (observe-summary! [_ _ _ _] nil)
-  
+
   (time-histogram! [_ _ f] (f))
   (time-histogram! [_ _ _ f] (f))
-  
+
   (time-summary! [_ _ f] (f))
   (time-summary! [_ _ _ f] (f)))
 
@@ -141,34 +141,34 @@
   (unregister! [_ _] false)
   (list-metrics [_] [])
   (get-metric [_ _] nil)
-  
+
   ports/IMetricsEmitter
   (inc-counter! [_ _] nil)
   (inc-counter! [_ _ _] nil)
   (inc-counter! [_ _ _ _] nil)
-  
+
   (set-gauge! [_ _ _] nil)
   (set-gauge! [_ _ _ _] nil)
-  
+
   (observe-histogram! [_ _ _] nil)
   (observe-histogram! [_ _ _ _] nil)
-  
+
   (observe-summary! [_ _ _] nil)
   (observe-summary! [_ _ _ _] nil)
-  
+
   (time-histogram! [_ _ f] (f))
   (time-histogram! [_ _ _ f] (f))
-  
+
   (time-summary! [_ _ f] (f))
   (time-summary! [_ _ _ f] (f))
-  
+
   ports/IMetricsExporter
   (export-metrics [_ _] "")
   (export-metric [_ _ _] "")
   (get-metric-values [_ _] {:type :unknown :value 0 :tags {} :timestamp (System/currentTimeMillis)})
   (reset-metrics! [_] nil)
   (flush! [_] nil)
-  
+
   ports/IMetricsConfig
   (set-default-tags! [_ _] {})
   (get-default-tags [_] {})

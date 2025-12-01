@@ -29,7 +29,7 @@
    
    This protocol handles the capture and reporting of errors, exceptions,
    and critical messages to external error tracking systems."
-  
+
   (capture-exception [this exception] [this exception context] [this exception context tags]
     "Capture and report an exception/throwable.
      
@@ -40,7 +40,7 @@
      
      Returns:
        String event ID or nil if reporting failed")
-  
+
   (capture-message [this message level] [this message level context] [this message level context tags]
     "Capture and report a message without an exception.
      
@@ -52,7 +52,7 @@
      
      Returns:
        String event ID or nil if reporting failed")
-  
+
   (capture-event [this event-map]
     "Capture a structured event map.
      
@@ -79,7 +79,7 @@
    
    This allows for correlation IDs, user context, and other metadata
    to be automatically included in all error reports within a request scope."
-  
+
   (with-context [this context-map f]
     "Execute function f with additional error reporting context.
      
@@ -92,7 +92,7 @@
      
      Returns:
        Result of calling (f)")
-  
+
   (add-breadcrumb! [this breadcrumb]
     "Add a breadcrumb to the current error context.
      
@@ -108,13 +108,13 @@
      
      Returns:
        nil (side effect only)")
-  
+
   (clear-breadcrumbs! [this]
     "Clear all breadcrumbs from the current context.
      
      Returns:
        nil (side effect only)")
-  
+
   (set-user! [this user-info]
     "Set user information for the current context.
      
@@ -128,7 +128,7 @@
      
      Returns:
        nil (side effect only)")
-  
+
   (set-tags! [this tags]
     "Set tags for the current context.
      
@@ -139,7 +139,7 @@
      
      Returns:
        nil (side effect only)")
-  
+
   (set-extra! [this extra]
     "Set extra context data for the current context.
      
@@ -150,7 +150,7 @@
      
      Returns:
        nil (side effect only)")
-  
+
   (current-context [this]
     "Get the current error reporting context.
      
@@ -166,7 +166,7 @@
    
    This allows for rate limiting, noise reduction, and conditional reporting
    based on error characteristics or system state."
-  
+
   (should-report? [this exception context]
     "Determine if an exception should be reported.
      
@@ -176,7 +176,7 @@
      
      Returns:
        Boolean indicating if error should be reported")
-  
+
   (should-report-message? [this message level context]
     "Determine if a message should be reported.
      
@@ -187,7 +187,7 @@
      
      Returns:
        Boolean indicating if message should be reported")
-  
+
   (sample-rate [this exception-type]
     "Get the sample rate for a specific exception type.
      
@@ -196,7 +196,7 @@
      
      Returns:
        Float between 0.0 and 1.0 indicating sample rate")
-  
+
   (add-filter-rule! [this rule]
     "Add a filtering rule.
      
@@ -209,7 +209,7 @@
      
      Returns:
        nil (side effect only)")
-  
+
   (remove-filter-rule! [this rule-id]
     "Remove a filtering rule.
      
@@ -228,7 +228,7 @@
    
    This allows for dynamic adjustment of error reporting behavior without
    requiring application restart."
-  
+
   (set-environment! [this environment]
     "Set the environment name for error reporting.
      
@@ -237,13 +237,13 @@
      
      Returns:
        Previous environment name")
-  
+
   (get-environment [this]
     "Get the current environment name.
      
      Returns:
        String environment name")
-  
+
   (set-release! [this release]
     "Set the application release/version for error reporting.
      
@@ -252,13 +252,13 @@
      
      Returns:
        Previous release identifier")
-  
+
   (get-release [this]
     "Get the current release identifier.
      
      Returns:
        String release identifier")
-  
+
   (set-sample-rate! [this sample-rate]
     "Set the global error reporting sample rate.
      
@@ -267,25 +267,25 @@
      
      Returns:
        Previous sample rate")
-  
+
   (get-sample-rate [this]
     "Get the current global sample rate.
      
      Returns:
        Float sample rate")
-  
+
   (enable-reporting! [this]
     "Enable error reporting.
      
      Returns:
        Previous enabled state (boolean)")
-  
+
   (disable-reporting! [this]
     "Disable error reporting.
      
      Returns:
        Previous enabled state (boolean)")
-  
+
   (reporting-enabled? [this]
     "Check if error reporting is currently enabled.
      

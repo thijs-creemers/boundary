@@ -292,24 +292,24 @@
       :config config}
 
      :boundary/http-handler
-      {:config config
-       :user-routes (ig/ref :boundary/user-routes)
-       :inventory-routes (ig/ref :boundary/inventory-routes)}
+     {:config config
+      :user-routes (ig/ref :boundary/user-routes)
+      :inventory-routes (ig/ref :boundary/inventory-routes)}
 
      :boundary/http-server
      (merge http-cfg
-             {:handler (ig/ref :boundary/http-handler)
-              :config http-cfg})}))
+            {:handler (ig/ref :boundary/http-handler)
+             :config http-cfg})}))
 
 (defn- inventory-module-config
   "Return Integrant configuration for the inventory module."
   [config]
   {:boundary/inventory-repository
    {:ctx (ig/ref :boundary/db-context)}
-   
+
    :boundary/inventory-service
    {:repository (ig/ref :boundary/inventory-repository)}
-   
+
    :boundary/inventory-routes
    {:service (ig/ref :boundary/inventory-service)
     :config config}})

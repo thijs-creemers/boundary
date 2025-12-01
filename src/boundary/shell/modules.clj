@@ -41,12 +41,12 @@
     ;    :static []}"
   [route-maps]
   (reduce
-    (fn [acc route-map]
-      {:api    (vec (concat (:api acc []) (:api route-map [])))
-       :web    (vec (concat (:web acc []) (:web route-map [])))
-       :static (vec (concat (:static acc []) (:static route-map [])))})
-    {:api [] :web [] :static []}
-    route-maps))
+   (fn [acc route-map]
+     {:api    (vec (concat (:api acc []) (:api route-map [])))
+      :web    (vec (concat (:web acc []) (:web route-map [])))
+      :static (vec (concat (:static acc []) (:static route-map [])))})
+   {:api [] :web [] :static []}
+   route-maps))
 
 (defn compose-http-handlers
   "DEPRECATED: Use structured route definitions instead.
@@ -105,7 +105,7 @@
           mod-kw
           (do
             (log/error "Requested CLI module is not enabled" {:module mod-kw
-                                                               :enabled-modules enabled-modules})
+                                                              :enabled-modules enabled-modules})
             [nil args])
 
           ;; No module token, single enabled module: default to it

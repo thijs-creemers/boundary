@@ -284,40 +284,38 @@
                       :middleware [auth-middleware]
                       :get {:handler (web-handlers/users-table-fragment-handler user-service config)
                             :summary "Users table fragment (HTMX refresh)"}}]
-      ["/users/:id/hard-delete" {:no-doc true
-                                  :middleware [auth-middleware]
-                                  :post {:handler (web-handlers/hard-delete-user-handler user-service config)
-                                         :summary "Permanently delete user (admin only)"}}]
-      ["/users/:id/sessions" {:no-doc true
-                              :middleware [auth-middleware]
-                              :get {:handler (web-handlers/user-sessions-page-handler user-service config)
-                                    :summary "User sessions management page"}}]
-      ["/users/:id/sessions/revoke-all" {:no-doc true
-                                          :middleware [auth-middleware]
-                                          :post {:handler (web-handlers/revoke-all-sessions-handler user-service config)
-                                                 :summary "Revoke all user sessions"}}]
-      ["/users/:id" {:no-doc true
-                     :middleware [auth-middleware]
-                     :get {:handler (web-handlers/user-detail-page-handler user-service config)
-                           :summary "User detail page"}
-                     :put {:handler (web-handlers/update-user-htmx-handler user-service config)
-                           :summary "Update user (HTMX fragment)"}
-                     :delete {:handler (web-handlers/delete-user-htmx-handler user-service config)
-                              :summary "Delete user (HTMX fragment)"}}]
-       ["/sessions/:token/revoke" {:no-doc true
-                                   :middleware [auth-middleware]
-                                   :post {:handler (web-handlers/revoke-session-handler user-service config)
-                                          :summary "Revoke specific session"}}]
-      ["/audit" {:no-doc true
-                 :middleware [auth-middleware]
-                 :get {:handler (web-handlers/audit-page-handler user-service config)
-                       :summary "Audit trail page"}}]
-      ["/audit/table" {:no-doc true
-                       :middleware [auth-middleware]
-                       :get {:handler (web-handlers/audit-table-fragment-handler user-service config)
-                             :summary "Audit table fragment (HTMX refresh)"}}]]))
-
-
+     ["/users/:id/hard-delete" {:no-doc true
+                                :middleware [auth-middleware]
+                                :post {:handler (web-handlers/hard-delete-user-handler user-service config)
+                                       :summary "Permanently delete user (admin only)"}}]
+     ["/users/:id/sessions" {:no-doc true
+                             :middleware [auth-middleware]
+                             :get {:handler (web-handlers/user-sessions-page-handler user-service config)
+                                   :summary "User sessions management page"}}]
+     ["/users/:id/sessions/revoke-all" {:no-doc true
+                                        :middleware [auth-middleware]
+                                        :post {:handler (web-handlers/revoke-all-sessions-handler user-service config)
+                                               :summary "Revoke all user sessions"}}]
+     ["/users/:id" {:no-doc true
+                    :middleware [auth-middleware]
+                    :get {:handler (web-handlers/user-detail-page-handler user-service config)
+                          :summary "User detail page"}
+                    :put {:handler (web-handlers/update-user-htmx-handler user-service config)
+                          :summary "Update user (HTMX fragment)"}
+                    :delete {:handler (web-handlers/delete-user-htmx-handler user-service config)
+                             :summary "Delete user (HTMX fragment)"}}]
+     ["/sessions/:token/revoke" {:no-doc true
+                                 :middleware [auth-middleware]
+                                 :post {:handler (web-handlers/revoke-session-handler user-service config)
+                                        :summary "Revoke specific session"}}]
+     ["/audit" {:no-doc true
+                :middleware [auth-middleware]
+                :get {:handler (web-handlers/audit-page-handler user-service config)
+                      :summary "Audit trail page"}}]
+     ["/audit/table" {:no-doc true
+                      :middleware [auth-middleware]
+                      :get {:handler (web-handlers/audit-table-fragment-handler user-service config)
+                            :summary "Audit table fragment (HTMX refresh)"}}]]))
 
 ;; =============================================================================
 ;; Static Asset Routes

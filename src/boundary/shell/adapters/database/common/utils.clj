@@ -132,24 +132,24 @@
   (let [adapter (:adapter ctx)
         ;; Convert kebab-case to snake_case for database fields
         kebab->snake (fn [kw]
-                      (keyword (clojure.string/replace (name kw) #"-" "_")))
+                       (keyword (clojure.string/replace (name kw) #"-" "_")))
         ;; Convert values to database-appropriate types
         convert-value (fn [value]
-                       (cond
-                         (uuid? value) (str value)
-                         (keyword? value) (name value)
-                         (sequential? value) (mapv #(cond
-                                                      (uuid? %) (str %)
-                                                      (keyword? %) (name %)
-                                                      :else %) value)
-                         (boolean? value) (protocols/boolean->db adapter value)
-                         :else value))
+                        (cond
+                          (uuid? value) (str value)
+                          (keyword? value) (name value)
+                          (sequential? value) (mapv #(cond
+                                                       (uuid? %) (str %)
+                                                       (keyword? %) (name %)
+                                                       :else %) value)
+                          (boolean? value) (protocols/boolean->db adapter value)
+                          :else value))
         ;; Transform filters to snake_case with converted values
         db-filters (when (seq filters)
-                    (reduce-kv (fn [acc k v]
-                                (assoc acc (kebab->snake k) (convert-value v)))
-                              {}
-                              filters))]
+                     (reduce-kv (fn [acc k v]
+                                  (assoc acc (kebab->snake k) (convert-value v)))
+                                {}
+                                filters))]
     ;; Use adapter's protocol method for database-specific query building
     (when db-filters
       (protocols/build-where adapter db-filters))))

@@ -119,7 +119,7 @@
    Returns:
      nil"
   [logger fn-name args context]
-  (let [entry-context (assoc context 
+  (let [entry-context (assoc context
                              :function fn-name
                              :args args
                              :event :function-entry)]
@@ -137,7 +137,7 @@
    Returns:
      result (passed through)"
   [logger fn-name result context]
-  (let [exit-context (assoc context 
+  (let [exit-context (assoc context
                             :function fn-name
                             :result result
                             :event :function-exit)]
@@ -182,7 +182,7 @@
    Returns:
      nil"
   [logger level message exception context]
-  (let [error-context (assoc context 
+  (let [error-context (assoc context
                              :exception-type (-> exception class .getSimpleName)
                              :exception-message (.getMessage exception)
                              :stack-trace (mapv str (.getStackTrace exception)))]
@@ -199,7 +199,7 @@
    Returns:
      nil"
   [logger errors context]
-  (let [validation-context (assoc context 
+  (let [validation-context (assoc context
                                   :validation-errors errors
                                   :error-count (count errors)
                                   :event :validation-error)]
@@ -218,7 +218,7 @@
    Returns:
      nil"
   [logger service-name operation error context]
-  (let [service-context (assoc context 
+  (let [service-context (assoc context
                                :service service-name
                                :operation operation
                                :error error
@@ -243,7 +243,7 @@
    Returns:
      nil"
   [logger user-id action resource result context]
-  (let [action-context (assoc context 
+  (let [action-context (assoc context
                               :user-id user-id
                               :action action
                               :resource resource
@@ -264,7 +264,7 @@
    Returns:
      nil"
   [logger event-type entity details context]
-  (let [business-context (assoc context 
+  (let [business-context (assoc context
                                 :event-type event-type
                                 :entity entity
                                 :details details
@@ -339,7 +339,7 @@
    Returns:
      nil"
   [logger metric-name value unit context]
-  (let [perf-context (assoc context 
+  (let [perf-context (assoc context
                             :metric metric-name
                             :value value
                             :unit unit
@@ -360,7 +360,7 @@
    Returns:
      nil"
   [logger method path status duration context]
-  (let [request-context (assoc context 
+  (let [request-context (assoc context
                                :http-method method
                                :http-path path
                                :http-status status

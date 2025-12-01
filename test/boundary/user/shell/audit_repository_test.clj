@@ -32,10 +32,10 @@
         adapter (h2/new-adapter)
         db-ctx {:datasource datasource :adapter adapter}]
     (reset! test-db-context db-ctx)
-    
+
     ;; Create tables manually for testing
     (jdbc/execute! datasource
-                  ["CREATE TABLE IF NOT EXISTS users (
+                   ["CREATE TABLE IF NOT EXISTS users (
                      id UUID PRIMARY KEY,
                      email VARCHAR(255) UNIQUE NOT NULL,
                      name VARCHAR(255),
@@ -45,9 +45,9 @@
                      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                      deleted_at TIMESTAMP
                    )"])
-    
+
     (jdbc/execute! datasource
-                  ["CREATE TABLE IF NOT EXISTS user_audit_log (
+                   ["CREATE TABLE IF NOT EXISTS user_audit_log (
                      id VARCHAR(36) PRIMARY KEY,
                      action TEXT NOT NULL CHECK (action IN (
                        'create', 'update', 'delete', 'activate', 'deactivate',
@@ -65,13 +65,13 @@
                      error_message TEXT,
                      created_at TEXT NOT NULL
                    )"])
-    
+
     ;; Create indexes separately
     (jdbc/execute! datasource ["CREATE INDEX IF NOT EXISTS idx_audit_action ON user_audit_log (action)"])
     (jdbc/execute! datasource ["CREATE INDEX IF NOT EXISTS idx_audit_target_user ON user_audit_log (target_user_id)"])
     (jdbc/execute! datasource ["CREATE INDEX IF NOT EXISTS idx_audit_actor ON user_audit_log (actor_id)"])
     (jdbc/execute! datasource ["CREATE INDEX IF NOT EXISTS idx_audit_created_at ON user_audit_log (created_at)"])
-    
+
     ;; Create audit repository
     (reset! test-audit-repo (persistence/create-audit-repository db-ctx))))
 
@@ -130,7 +130,7 @@
   (testing "Creates audit log entry in database"
     (let [entry (create-test-audit-entry)
           created (.create-audit-log @test-audit-repo entry)]
-      
+
       (is (some? created))
       (is (uuid? (:id created)))
       (is (inst? (:created-at created)))
@@ -140,10 +140,10 @@
 
   (testing "Creates audit log with nil optional fields"
     (let [entry (create-test-audit-entry {:ip-address nil
-                                           :user-agent nil
-                                           :metadata nil})
+                                          :user-agent nil
+                                          :metadata nil})
           created (.create-audit-log @test-audit-repo entry)]
-      
+
       (is (some? created))
       (is (nil? (:ip-address created)))
       (is (nil? (:user-agent created)))
@@ -152,7 +152,7 @@
   (testing "Creates multiple different action types"
     (let [actions [:create :update :delete :activate :deactivate :login :logout]
           entries (map #(create-test-audit-entry {:action %}) actions)]
-      
+
       (doseq [entry entries]
         (let [created (.create-audit-log @test-audit-repo entry)]
           (is (some? created))
@@ -167,7 +167,7 @@
     ;; Create test entries
     (dotimes [_ 5]
       (.create-audit-log @test-audit-repo (create-test-audit-entry)))
-    
+
     (let [result (.find-audit-logs @test-audit-repo {})]
       (is (map? result))
       (is (contains? result :audit-logs))
@@ -179,10 +179,10 @@
     ;; Create 15 test entries (5 already exist from previous test)
     (dotimes [_ 15]
       (.create-audit-log @test-audit-repo (create-test-audit-entry)))
-    
+
     (let [page1 (.find-audit-logs @test-audit-repo {:limit 10 :offset 0})
           page2 (.find-audit-logs @test-audit-repo {:limit 10 :offset 10})]
-      
+
       (is (= 20 (:total-count page1))) ;; 5 from previous test + 15 from this test
       (is (= 10 (count (:audit-logs page1))))
       (is (= 10 (count (:audit-logs page2))))))
@@ -190,23 +190,23 @@
   (testing "Filters audit logs by action"
     (let [actor-id (UUID/randomUUID)]
       ;; Create entries with different actions
-      (.create-audit-log @test-audit-repo 
-                        (create-test-audit-entry {:action :create :actor-id actor-id}))
-      (.create-audit-log @test-audit-repo 
-                        (create-test-audit-entry {:action :update :actor-id actor-id}))
-      (.create-audit-log @test-audit-repo 
-                        (create-test-audit-entry {:action :delete :actor-id actor-id}))
-      
+      (.create-audit-log @test-audit-repo
+                         (create-test-audit-entry {:action :create :actor-id actor-id}))
+      (.create-audit-log @test-audit-repo
+                         (create-test-audit-entry {:action :update :actor-id actor-id}))
+      (.create-audit-log @test-audit-repo
+                         (create-test-audit-entry {:action :delete :actor-id actor-id}))
+
       (let [create-logs (.find-audit-logs @test-audit-repo {:filter-action :create})]
         (is (>= (:total-count create-logs) 1))
         (is (every? #(= :create (:action %)) (:audit-logs create-logs))))))
 
   (testing "Filters audit logs by result"
-    (.create-audit-log @test-audit-repo 
-                      (create-test-audit-entry {:action :login :result :success}))
-    (.create-audit-log @test-audit-repo 
-                      (create-test-audit-entry {:action :login :result :failure}))
-    
+    (.create-audit-log @test-audit-repo
+                       (create-test-audit-entry {:action :login :result :success}))
+    (.create-audit-log @test-audit-repo
+                       (create-test-audit-entry {:action :login :result :failure}))
+
     (let [failed-logs (.find-audit-logs @test-audit-repo {:filter-result :failure})]
       (is (>= (:total-count failed-logs) 1))
       (is (every? #(= :failure (:result %)) (:audit-logs failed-logs))))))
@@ -219,17 +219,17 @@
   (testing "Finds audit logs for specific target user"
     (let [target-user-id (UUID/randomUUID)
           other-user-id (UUID/randomUUID)]
-      
+
       ;; Create entries for target user
       (dotimes [_ 3]
-        (.create-audit-log @test-audit-repo 
-                          (create-test-audit-entry {:target-user-id target-user-id})))
-      
+        (.create-audit-log @test-audit-repo
+                           (create-test-audit-entry {:target-user-id target-user-id})))
+
       ;; Create entries for other user
       (dotimes [_ 2]
-        (.create-audit-log @test-audit-repo 
-                          (create-test-audit-entry {:target-user-id other-user-id})))
-      
+        (.create-audit-log @test-audit-repo
+                           (create-test-audit-entry {:target-user-id other-user-id})))
+
       (let [user-logs (.find-audit-logs-by-user @test-audit-repo target-user-id {})]
         (is (= 3 (count user-logs)))
         (is (every? #(= target-user-id (:target-user-id %)) user-logs)))))
@@ -237,7 +237,7 @@
   (testing "Returns empty list for user with no audit logs"
     (let [user-id (UUID/randomUUID)
           logs (.find-audit-logs-by-user @test-audit-repo user-id {})]
-      
+
       (is (empty? logs)))))
 
 ;; =============================================================================
@@ -248,17 +248,17 @@
   (testing "Finds audit logs performed by specific actor"
     (let [actor-id (UUID/randomUUID)
           other-actor-id (UUID/randomUUID)]
-      
+
       ;; Create entries by actor
       (dotimes [_ 4]
-        (.create-audit-log @test-audit-repo 
-                          (create-test-audit-entry {:actor-id actor-id})))
-      
+        (.create-audit-log @test-audit-repo
+                           (create-test-audit-entry {:actor-id actor-id})))
+
       ;; Create entries by other actor
       (dotimes [_ 2]
-        (.create-audit-log @test-audit-repo 
-                          (create-test-audit-entry {:actor-id other-actor-id})))
-      
+        (.create-audit-log @test-audit-repo
+                           (create-test-audit-entry {:actor-id other-actor-id})))
+
       (let [actor-logs (.find-audit-logs-by-actor @test-audit-repo actor-id {})]
         (is (= 4 (count actor-logs)))
         (is (every? #(= actor-id (:actor-id %)) actor-logs)))))
@@ -267,12 +267,12 @@
     (let [actor-id (UUID/randomUUID)]
       ;; Create 10 entries
       (dotimes [_ 10]
-        (.create-audit-log @test-audit-repo 
-                          (create-test-audit-entry {:actor-id actor-id})))
-      
+        (.create-audit-log @test-audit-repo
+                           (create-test-audit-entry {:actor-id actor-id})))
+
       (let [page1 (.find-audit-logs-by-actor @test-audit-repo actor-id {:limit 5 :offset 0})
             page2 (.find-audit-logs-by-actor @test-audit-repo actor-id {:limit 5 :offset 5})]
-        
+
         (is (= 5 (count page1)))
         (is (= 5 (count page2)))))))
 
@@ -285,7 +285,7 @@
     ;; Create test entries
     (dotimes [_ 7]
       (.create-audit-log @test-audit-repo (create-test-audit-entry)))
-    
+
     (let [count-result (.count-audit-logs @test-audit-repo {})]
       (is (= 7 count-result))))
 
@@ -293,15 +293,15 @@
     (let [target-user-id (UUID/randomUUID)]
       ;; Create entries for specific user
       (dotimes [_ 3]
-        (.create-audit-log @test-audit-repo 
-                          (create-test-audit-entry {:target-user-id target-user-id
-                                                    :action :update})))
-      
+        (.create-audit-log @test-audit-repo
+                           (create-test-audit-entry {:target-user-id target-user-id
+                                                     :action :update})))
+
       ;; Create other entries
       (dotimes [_ 4]
         (.create-audit-log @test-audit-repo (create-test-audit-entry {:action :create})))
-      
-      (let [count-result (.count-audit-logs @test-audit-repo 
+
+      (let [count-result (.count-audit-logs @test-audit-repo
                                             {:filter-target-user-id target-user-id})]
         (is (= 3 count-result))))))
 
@@ -313,12 +313,12 @@
   (testing "Stores and retrieves complex metadata"
     (let [complex-metadata {:field-count 3
                             :fields [{:field "role" :old "user" :new "admin"}
-                                    {:field "name" :old "Old" :new "New"}]
+                                     {:field "name" :old "Old" :new "New"}]
                             :bulk-operation true
                             :affected-users 10}
           entry (create-test-audit-entry {:metadata complex-metadata})
           created (.create-audit-log @test-audit-repo entry)]
-      
+
       (is (some? created))
       (is (map? (:metadata created)))
       (is (= 3 (get-in created [:metadata :field-count])))
@@ -326,10 +326,10 @@
 
   (testing "Stores and retrieves complex changes"
     (let [complex-changes {:fields [{:field "email" :old "old@test.com" :new "new@test.com"}
-                                   {:field "role" :old "user" :new "admin"}]}
+                                    {:field "role" :old "user" :new "admin"}]}
           entry (create-test-audit-entry {:changes complex-changes})
           created (.create-audit-log @test-audit-repo entry)]
-      
+
       (is (some? created))
       (is (map? (:changes created)))
       (is (vector? (get-in created [:changes :fields])))
