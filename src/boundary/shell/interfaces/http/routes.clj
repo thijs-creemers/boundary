@@ -115,15 +115,14 @@
                      :tags [{:name "health" :description "Health check endpoints"}
                             {:name "users" :description "User management"}
                             {:name "sessions" :description "Session management"}]
-                     :securityDefinitions {
-                       :BearerAuth {:type "apiKey"
-                                    :name "Authorization"
-                                    :in "header"
-                                    :description "JWT access token. Use format: 'Bearer <token>'"}
-                       :SessionToken {:type "apiKey"
-                                      :name "X-Session-Token"
-                                      :in "header"
-                                      :description "Session token. Optional alternative to Bearer auth."}}
+                     :securityDefinitions {:BearerAuth {:type "apiKey"
+                                                        :name "Authorization"
+                                                        :in "header"
+                                                        :description "JWT access token. Use format: 'Bearer <token>'"}
+                                           :SessionToken {:type "apiKey"
+                                                          :name "X-Session-Token"
+                                                          :in "header"
+                                                          :description "Session token. Optional alternative to Bearer auth."}}
                      :security [{:BearerAuth []}
                                 {:SessionToken []}]}
            :handler (swagger/create-swagger-handler)}}]
@@ -281,16 +280,16 @@
          Handler wrapped with common middleware"
   ([handler]
    (wrap-common-middleware handler {}))
-   ([handler error-mappings]
-    (-> handler
-        (http-middleware/wrap-exception-handling error-mappings)
-        coercion/coerce-response-middleware
-        coercion/coerce-request-middleware
-        muuntaja/format-request-middleware
-        muuntaja/format-response-middleware
-        muuntaja/format-negotiate-middleware
-        parameters/parameters-middleware
-        wrap-cookies
-        http-middleware/wrap-request-logging
-        http-middleware/wrap-correlation-id)))
+  ([handler error-mappings]
+   (-> handler
+       (http-middleware/wrap-exception-handling error-mappings)
+       coercion/coerce-response-middleware
+       coercion/coerce-request-middleware
+       muuntaja/format-request-middleware
+       muuntaja/format-response-middleware
+       muuntaja/format-negotiate-middleware
+       parameters/parameters-middleware
+       wrap-cookies
+       http-middleware/wrap-request-logging
+       http-middleware/wrap-correlation-id)))
 
