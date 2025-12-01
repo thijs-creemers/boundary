@@ -5,7 +5,7 @@
    remain as module-agnostic as possible and delegate into this module."
   (:require [boundary.scaffolder.cli :as scaffolder-cli]
             [boundary.scaffolder.shell.service :as scaffolder-service]
-            [boundary.scaffolder.shell.file-system :as fs]
+            [boundary.shell.adapters.filesystem.core :as fs]
             [clojure.tools.logging :as log])
   (:gen-class))
 

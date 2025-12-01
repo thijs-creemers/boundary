@@ -2,7 +2,8 @@
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.string :as str]
             [boundary.scaffolder.shell.service :as service]
-            [boundary.scaffolder.shell.file-system :as fs]
+            [boundary.shell.adapters.filesystem.core :as fs]
+            [boundary.shell.adapters.filesystem.protocols :as fs-ports]
             [boundary.scaffolder.ports :as ports]
             [clojure.java.io :as io]))
 
@@ -60,18 +61,18 @@
       (is (= 12 (count (:files result))))
       
       ;; Check files were created
-      (is (ports/file-exists? fs-adapter "src/boundary/customer/schema.clj"))
-      (is (ports/file-exists? fs-adapter "src/boundary/customer/ports.clj"))
-      (is (ports/file-exists? fs-adapter "src/boundary/customer/core/customer.clj"))
-      (is (ports/file-exists? fs-adapter "src/boundary/customer/core/ui.clj"))
-      (is (ports/file-exists? fs-adapter "src/boundary/customer/shell/service.clj"))
-      (is (ports/file-exists? fs-adapter "src/boundary/customer/shell/persistence.clj"))
-      (is (ports/file-exists? fs-adapter "src/boundary/customer/shell/http.clj"))
-      (is (ports/file-exists? fs-adapter "src/boundary/customer/shell/web_handlers.clj"))
-      (is (ports/file-exists? fs-adapter "migrations/005_create_customers.sql"))
+      (is (fs-ports/file-exists? fs-adapter "src/boundary/customer/schema.clj"))
+      (is (fs-ports/file-exists? fs-adapter "src/boundary/customer/ports.clj"))
+      (is (fs-ports/file-exists? fs-adapter "src/boundary/customer/core/customer.clj"))
+      (is (fs-ports/file-exists? fs-adapter "src/boundary/customer/core/ui.clj"))
+      (is (fs-ports/file-exists? fs-adapter "src/boundary/customer/shell/service.clj"))
+      (is (fs-ports/file-exists? fs-adapter "src/boundary/customer/shell/persistence.clj"))
+      (is (fs-ports/file-exists? fs-adapter "src/boundary/customer/shell/http.clj"))
+      (is (fs-ports/file-exists? fs-adapter "src/boundary/customer/shell/web_handlers.clj"))
+      (is (fs-ports/file-exists? fs-adapter "migrations/005_create_customers.sql"))
       
       ;; Check schema file content
-      (let [schema-content (ports/read-file fs-adapter "src/boundary/customer/schema.clj")]
+      (let [schema-content (fs-ports/read-file fs-adapter "src/boundary/customer/schema.clj")]
         (is (some? schema-content))
         (is (str/includes? schema-content "(ns boundary.customer.schema"))
         (is (str/includes? schema-content "(def Customer"))
@@ -79,19 +80,19 @@
         (is (str/includes? schema-content "(def UpdateCustomerRequest")))
       
       ;; Check ports file content
-      (let [ports-content (ports/read-file fs-adapter "src/boundary/customer/ports.clj")]
+      (let [ports-content (fs-ports/read-file fs-adapter "src/boundary/customer/ports.clj")]
         (is (some? ports-content))
         (is (str/includes? ports-content "(defprotocol ICustomerRepository"))
         (is (str/includes? ports-content "(defprotocol ICustomerService")))
       
       ;; Check core file content
-      (let [core-content (ports/read-file fs-adapter "src/boundary/customer/core/customer.clj")]
+      (let [core-content (fs-ports/read-file fs-adapter "src/boundary/customer/core/customer.clj")]
         (is (some? core-content))
         (is (str/includes? core-content "(defn prepare-new-customer"))
         (is (str/includes? core-content "(defn apply-customer-update")))
       
       ;; Check migration file content
-      (let [migration-content (ports/read-file fs-adapter "migrations/005_create_customers.sql")]
+      (let [migration-content (fs-ports/read-file fs-adapter "migrations/005_create_customers.sql")]
         (is (some? migration-content))
         (is (str/includes? migration-content "CREATE TABLE IF NOT EXISTS customers"))
         (is (str/includes? migration-content "name TEXT NOT NULL"))
@@ -118,7 +119,7 @@
       (is (some #(str/includes? % "Dry run") (:warnings result)))
       
       ;; Verify no files were written
-      (is (not (ports/file-exists? fs-adapter "src/boundary/test-module/schema.clj"))))))
+      (is (not (fs-ports/file-exists? fs-adapter "src/boundary/test-module/schema.clj"))))))
 
 (deftest generate-module-validation-test
   (testing "validates request schema"

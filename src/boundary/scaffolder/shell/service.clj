@@ -6,6 +6,7 @@
             [boundary.scaffolder.schema :as schema]
             [boundary.scaffolder.core.template :as template]
             [boundary.scaffolder.core.generators :as generators]
+            [boundary.shell.adapters.filesystem.protocols :as fs-ports]
             [malli.core :as m]))
 
 (defrecord ScaffolderService [file-system]
@@ -83,7 +84,7 @@
         ;; Write files (unless dry-run)
         (when-not dry-run?
           (doseq [{:keys [path content]} files]
-            (ports/write-file file-system path content)))
+            (fs-ports/write-file file-system path content)))
 
         ;; Return result
         {:success true
