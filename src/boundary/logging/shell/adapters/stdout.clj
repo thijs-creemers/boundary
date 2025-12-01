@@ -4,10 +4,10 @@
    This adapter implements all logging protocols and provides configurable
    formatting options including plain text and JSON output with optional
    colors, timestamps, and structured context."
-   (:require
-    [boundary.logging.ports :as ports]
-    [clojure.string :as str]
-    [cheshire.core :as json])
+  (:require
+   [boundary.logging.ports :as ports]
+   [clojure.string :as str]
+   [cheshire.core :as json])
   (:import
    [java.time Instant]
    [java.time.format DateTimeFormatter]))
@@ -65,7 +65,7 @@
 
 (def ^:private iso-formatter
   "ISO 8601 timestamp formatter."
-  (DateTimeFormatter/ISO_INSTANT))
+  DateTimeFormatter/ISO_INSTANT)
 
 (defn- current-timestamp
   "Get current timestamp as ISO 8601 string.
@@ -246,10 +246,10 @@
             exception-context (when exception
                                 (format-exception exception
                                                   (or (:max-stacktrace-elements config) 50)))
-             full-context (merge-contexts base-context
-                                          dynamic-context
-                                          (merge (or context {})
-                                                 (or exception-context {})))
+            full-context (merge-contexts base-context
+                                         dynamic-context
+                                         (merge (or context {})
+                                                (or exception-context {})))
             sanitized-context (sanitize-context full-context)
             formatted (if (= (:format config :text) :json)
                         (format-json-log level message sanitized-context config)
