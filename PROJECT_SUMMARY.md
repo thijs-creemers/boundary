@@ -361,7 +361,7 @@ src/boundary/user/
 ```clojure
 (ns boundary.user.shell.persistence
   (:require [boundary.user.ports :as ports]
-            [boundary.shell.adapters.database.common.core :as db]))
+            [boundary.platform.shell.adapters.database.common.core :as db]))
 
 (defrecord DatabaseUserRepository [ctx]
   ports/IUserRepository

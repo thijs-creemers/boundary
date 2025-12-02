@@ -216,7 +216,7 @@ Boundary's **persistence layer interceptors** automatically handle database obse
   
   Interceptors automatically handle database observability."
   (:require [boundary.billing.ports :as ports]
-            [boundary.shell.adapters.database.common.core :as db]))
+            [boundary.platform.shell.adapters.database.common.core :as db]))
 
 (defrecord DatabaseInvoiceRepository [ctx]
   ports/IInvoiceRepository

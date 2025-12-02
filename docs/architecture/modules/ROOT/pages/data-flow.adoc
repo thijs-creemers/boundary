@@ -145,7 +145,7 @@ Boundary uses a multi-stage validation approach that ensures data integrity whil
 [source,clojure]
 ----
 ;; Validation pipeline implementation
-(ns boundary.shell.validation
+(ns boundary.platform.shell.validation
   "Input validation and coercion pipeline."
   (:require [malli.core :as m]
             [malli.error :as me]
@@ -250,7 +250,7 @@ Boundary uses a multi-stage validation approach that ensures data integrity whil
 [source,clojure]
 ----
 ;; Error formatting for different interfaces
-(ns boundary.shell.error-formatting
+(ns boundary.platform.shell.error-formatting
   "Error formatting strategies for different interfaces."
   (:require [clojure.tools.logging :as log]))
 
@@ -318,11 +318,11 @@ Boundary uses a multi-stage validation approach that ensures data integrity whil
 [source,clojure]
 ----
 ;; HTTP interface data flow
-(ns boundary.shell.interfaces.http.user-handlers
+(ns boundary.platform.shell.interfaces.http.user-handlers
   "HTTP handlers demonstrating complete data flow."
-  (:require [boundary.shell.services.user-service :as user-service]
-            [boundary.shell.validation :as validation]
-            [boundary.shell.error-formatting :as error-fmt]
+  (:require [boundary.platform.shell.services.user-service :as user-service]
+            [boundary.platform.shell.validation :as validation]
+            [boundary.platform.shell.error-formatting :as error-fmt]
             [boundary.schema :as schema]
             [ring.util.response :as response]
             [cheshire.core :as json]
@@ -465,11 +465,11 @@ Boundary uses a multi-stage validation approach that ensures data integrity whil
 [source,clojure]
 ----
 ;; CLI interface data flow
-(ns boundary.shell.interfaces.cli.user-commands
+(ns boundary.platform.shell.interfaces.cli.user-commands
   "CLI commands demonstrating data flow patterns."
-  (:require [boundary.shell.services.user-service :as user-service]
-            [boundary.shell.validation :as validation]
-            [boundary.shell.error-formatting :as error-fmt]
+  (:require [boundary.platform.shell.services.user-service :as user-service]
+            [boundary.platform.shell.validation :as validation]
+            [boundary.platform.shell.error-formatting :as error-fmt]
             [boundary.schema :as schema]
             [tools.cli :refer [parse-opts]]
             [clojure.tools.logging :as log]))
@@ -603,10 +603,10 @@ Boundary uses a multi-stage validation approach that ensures data integrity whil
 [source,clojure]
 ----
 ;; WebSocket interface data flow
-(ns boundary.shell.interfaces.websocket.user-events
+(ns boundary.platform.shell.interfaces.websocket.user-events
   "WebSocket handlers for real-time user events."
-  (:require [boundary.shell.services.user-service :as user-service]
-            [boundary.shell.validation :as validation]
+  (:require [boundary.platform.shell.services.user-service :as user-service]
+            [boundary.platform.shell.validation :as validation]
             [boundary.schema :as schema]
             [cheshire.core :as json]
             [clojure.tools.logging :as log]))
@@ -746,7 +746,7 @@ Boundary uses a structured approach to error handling that maintains consistency
 [source,clojure]
 ----
 ;; Error propagation example
-(ns boundary.shell.error-propagation-example
+(ns boundary.platform.shell.error-propagation-example
   "Example demonstrating error flow through layers."
   (:require [boundary.core.user :as user-core]
             [boundary.ports :as ports]
@@ -943,7 +943,7 @@ Boundary ensures consistent behavior across all interfaces through:
 [source,clojure]
 ----
 ;; Data flow monitoring example
-(ns boundary.shell.monitoring
+(ns boundary.platform.shell.monitoring
   "Data flow monitoring and metrics collection."
   (:require [clojure.tools.logging :as log]))
 

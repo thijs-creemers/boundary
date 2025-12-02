@@ -6,7 +6,7 @@
             [boundary.scaffolder.schema :as schema]
             [boundary.scaffolder.core.template :as template]
             [boundary.scaffolder.core.generators :as generators]
-            [boundary.shell.adapters.filesystem.protocols :as fs-ports]
+            [boundary.platform.shell.adapters.filesystem.protocols :as fs-ports]
             [malli.core :as m]))
 
 (defrecord ScaffolderService [file-system]

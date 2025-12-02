@@ -56,7 +56,7 @@ The HTTP request processing pipeline consists of three distinct middleware layer
 
 Applied at the outermost layer, **before** Reitit routing.
 
-**Location**: `boundary.shell.interfaces.http.routes/create-handler`
+**Location**: `boundary.platform.shell.interfaces.http.routes/create-handler`
 
 [source,clojure]
 ----
@@ -87,7 +87,7 @@ Applied at the outermost layer, **before** Reitit routing.
 
 Applied to **all routes** via Reitit's default middleware.
 
-**Location**: `boundary.shell.interfaces.http.routes/create-router`
+**Location**: `boundary.platform.shell.interfaces.http.routes/create-router`
 
 [source,clojure]
 ----
@@ -122,7 +122,7 @@ Applied to **all routes** via Reitit's default middleware.
 
 Applied **per route group** using Reitit's route data.
 
-**Location**: `boundary.shell.interfaces.http.routes/create-router`
+**Location**: `boundary.platform.shell.interfaces.http.routes/create-router`
 
 The middleware applied depends on which route group a request matches:
 
@@ -473,7 +473,7 @@ To add middleware for a new module:
 
 [source,clojure]
 ----
-;; In boundary.shell.interfaces.http.routes/create-router
+;; In boundary.platform.shell.interfaces.http.routes/create-router
 (let [billing-routes (map (fn [[path data]]
                             [path (update data :middleware 
                                          (fnil conj [])
@@ -670,7 +670,7 @@ Example with exception handling:
 
 [source,clojure]
 ----
-user=> (require '[boundary.shell.interfaces.http.routes :as routes])
+user=> (require '[boundary.platform.shell.interfaces.http.routes :as routes])
 user=> (require '[boundary.config :as config])
 user=> (def cfg (config/load-config))
 user=> (def router (routes/create-router cfg []))

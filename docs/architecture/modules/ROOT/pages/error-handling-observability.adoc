@@ -331,7 +331,7 @@ All observability modules are integrated into the system lifecycle using Integra
 [source,clojure]
 ----
 ;; System wiring with observability components
-(ns boundary.shell.system.wiring
+(ns boundary.platform.shell.system.wiring
   (:require
    [boundary.logging.shell.adapters :as logging-adapters]
    [boundary.metrics.shell.adapters :as metrics-adapters]
@@ -438,7 +438,7 @@ Each module provides production-ready shell adapters:
 [source,clojure]
 ----
 ;; Recording metrics in HTTP layer
-(ns boundary.shell.interfaces.http.middleware
+(ns boundary.platform.shell.interfaces.http.middleware
   (:require [boundary.metrics.core :as metrics]))
 
 (defn wrap-metrics [handler {:keys [metrics-emitter]}]

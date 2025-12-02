@@ -2,7 +2,7 @@
   "Tests for error reporting with enhanced context integration"
   (:require [boundary.error-reporting.core :as error-reporting]
             [boundary.error-reporting.ports :as er-ports]
-            [boundary.core.http.problem-details :as pd]
+            [boundary.platform.core.http.problem-details :as pd]
             [clojure.test :refer [deftest testing is]]
             [cheshire.core :as json])
   (:import [java.time Instant]

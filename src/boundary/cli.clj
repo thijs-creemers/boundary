@@ -4,7 +4,7 @@
    Provides command-line interface for enabled modules.
    Currently user and scaffolder modules are wired, with selection driven by config."
   (:require [boundary.config :as config]
-            [boundary.shell.modules :as modules]
+            [boundary.platform.shell.modules :as modules]
             [boundary.user.shell.cli-entry :as user-cli-entry]
             [boundary.scaffolder.shell.cli-entry :as scaffolder-cli-entry]
             [clojure.tools.logging :as log])

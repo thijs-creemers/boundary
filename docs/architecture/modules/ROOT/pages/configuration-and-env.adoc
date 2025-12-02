@@ -208,9 +208,9 @@ export API_KEY_VAULT="vault:secret/api-keys:key"
 ;; System component wiring with configuration and feature flags
 (ns boundary.system.wiring
   (:require [boundary.config :as config]
-            [boundary.shell.adapters.database :as db-adapter]
-            [boundary.shell.adapters.http :as http-adapter]
-            [boundary.shell.interfaces.http.routes :as routes]
+            [boundary.platform.shell.adapters.database :as db-adapter]
+            [boundary.platform.shell.adapters.http :as http-adapter]
+            [boundary.platform.shell.interfaces.http.routes :as routes]
             [clojure.tools.logging :as log]))
 
 (defn create-system

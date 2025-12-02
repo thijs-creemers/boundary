@@ -189,7 +189,7 @@ After reading this document, you will understand:
 (ns boundary.user.infrastructure.database
   (:require [boundary.user.ports :as ports]
             [boundary.user.schema :as user-schema]
-            [boundary.shell.adapters.database.core :as db]
+            [boundary.platform.shell.adapters.database.core :as db]
             [boundary.shared.utils.type-conversion :as type-conversion]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]))
@@ -244,7 +244,7 @@ After reading this document, you will understand:
   [ctx]
   (log/info "Initializing user schema")
   ;; Use schema-to-DDL generation
-  (boundary.shell.adapters.database.schema/initialize-tables-from-schemas! 
+  (boundary.platform.shell.adapters.database.schema/initialize-tables-from-schemas! 
     ctx {"users" user-schema/User
          "user_sessions" user-schema/UserSession}))
 ----

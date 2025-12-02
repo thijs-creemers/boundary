@@ -91,12 +91,12 @@ Comprehensive documentation of the protocol-based database adapter architecture 
 +**Last Updated:** October 24, 2025 - Refactored with protocol-based adapter architecture
 
  The dynamic driver loading system is implemented in:
--- `boundary.shell.adapters.database.driver-loader` - Core driver loading logic
--- `boundary.shell.adapters.database.integration-example` - Integration with initialization
-+- `boundary.shell.adapters.database.utils.driver-loader` - Core driver loading logic
-+- `boundary.shell.adapters.database.factory` - Database adapter factory with driver integration
-+- `boundary.shell.adapters.database.protocols` - DatabaseConnection and DatabaseMetadata protocols
-+- Database-specific adapters in `boundary.shell.adapters.database.{postgresql|sqlite|h2|mysql}/core`
+-- `boundary.platform.shell.adapters.database.driver-loader` - Core driver loading logic
+-- `boundary.platform.shell.adapters.database.integration-example` - Integration with initialization
++- `boundary.platform.shell.adapters.database.utils.driver-loader` - Core driver loading logic
++- `boundary.platform.shell.adapters.database.factory` - Database adapter factory with driver integration
++- `boundary.platform.shell.adapters.database.protocols` - DatabaseConnection and DatabaseMetadata protocols
++- Database-specific adapters in `boundary.platform.shell.adapters.database.{postgresql|sqlite|h2|mysql}/core`
 
 +**Architecture Integration:**
 +1. Configuration Analysis: System reads active databases from config

@@ -34,7 +34,7 @@
    - GET    /docs/*               - Documentation
 
    All observability is handled automatically by interceptors."
-  (:require [boundary.shell.interfaces.http.routes :as routes]
+  (:require [boundary.platform.shell.interfaces.http.routes :as routes]
             [boundary.shared.core.interceptor :as interceptor]
             [boundary.shared.core.interceptor-context :as interceptor-context]
             [boundary.user.shell.interceptors :as user-interceptors]

@@ -462,7 +462,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
     (str "(ns boundary." module-name ".shell.persistence\n"
          "  \"Persistence layer for " module-name " module.\"\n"
          "  (:require [boundary." module-name ".ports :as ports]\n"
-         "            [boundary.shell.adapters.database.common.core :as db]\n"
+         "            [boundary.platform.shell.adapters.database.common.core :as db]\n"
          "            [honey.sql :as sql]))\n"
          "\n"
          "(defrecord Database" entity-name "Repository [db-ctx]\n"

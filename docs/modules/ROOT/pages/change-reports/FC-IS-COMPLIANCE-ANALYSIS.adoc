@@ -34,34 +34,34 @@ This document analyzes the `boundary.shell` namespace against Functional Core / 
 These components are correctly in the shell layer as they handle side effects:
 
 ==== Connection Management
-* `boundary.shell.adapters.database.common.connection`
+* `boundary.platform.shell.adapters.database.common.connection`
 ** HikariCP connection pool creation (I/O: database connections)
 ** Pool lifecycle management (side effect: resource allocation)
 ** Database initialization (I/O: SQL execution)
 
 ==== Query Execution
-* `boundary.shell.adapters.database.common.execution`
+* `boundary.platform.shell.adapters.database.common.execution`
 ** Database query execution (I/O: network/disk)
 ** Transaction management (side effect: ACID guarantees)
 ** Logging of query performance (side effect: logging)
 ** Error handling and conversion (infrastructure concern)
 
 ==== Configuration Loading
-* `boundary.shell.adapters.database.config`
+* `boundary.platform.shell.adapters.database.config`
 ** File I/O for reading config.edn (side effect)
 ** Caching with atoms (side effect: state mutation)
 ** Environment variable access (I/O)
 
 ==== HTTP Middleware
-* `boundary.shell.interfaces.http.middleware`
+* `boundary.platform.shell.interfaces.http.middleware`
 ** Request/response interception (I/O boundary)
 ** Logging (side effect)
 ** Exception catching and conversion (infrastructure)
 
 ==== Adapters (All Correct)
-* `boundary.shell.adapters.database.{sqlite,postgresql,mysql,h2}.*`
-* `boundary.shell.adapters.external.*`
-* `boundary.shell.adapters.filesystem.*`
+* `boundary.platform.shell.adapters.database.{sqlite,postgresql,mysql,h2}.*`
+* `boundary.platform.shell.adapters.external.*`
+* `boundary.platform.shell.adapters.filesystem.*`
 
 === 🔴 Violations: Pure Functions in Shell
 
@@ -69,7 +69,7 @@ These functions are pure and should be moved to `boundary.core`:
 
 ==== Database Query Building (9 Functions)
 
-*Location*: `boundary.shell.adapters.database.common.query`
+*Location*: `boundary.platform.shell.adapters.database.common.query`
 
 [source,clojure]
 ----
@@ -88,7 +88,7 @@ These functions are pure and should be moved to `boundary.core`:
 
 ==== Context Validation (3 Functions)
 
-*Location*: `boundary.shell.adapters.database.common.execution`
+*Location*: `boundary.platform.shell.adapters.database.common.execution`
 
 [source,clojure]
 ----
@@ -102,7 +102,7 @@ These functions are pure and should be moved to `boundary.core`:
 
 ==== HTTP Error Mapping (3 Functions)
 
-*Location*: `boundary.shell.interfaces.http.common`
+*Location*: `boundary.platform.shell.interfaces.http.common`
 
 [source,clojure]
 ----
@@ -117,7 +117,7 @@ These functions are pure and should be moved to `boundary.core`:
 
 ==== HTTP Response Builders (3 Functions)
 
-*Location*: `boundary.shell.interfaces.http.common`
+*Location*: `boundary.platform.shell.interfaces.http.common`
 
 [source,clojure]
 ----
@@ -131,7 +131,7 @@ These functions are pure and should be moved to `boundary.core`:
 
 ==== Configuration Validation (3 Functions)
 
-*Location*: `boundary.shell.adapters.database.config`
+*Location*: `boundary.platform.shell.adapters.database.config`
 
 [source,clojure]
 ----
@@ -145,7 +145,7 @@ These functions are pure and should be moved to `boundary.core`:
 
 ==== Configuration Transformation (4 Functions)
 
-*Location*: `boundary.shell.adapters.database.config`
+*Location*: `boundary.platform.shell.adapters.database.config`
 
 [source,clojure]
 ----
@@ -369,7 +369,7 @@ src/boundary/
    
    All functions are pure predicates or validators that check data structure
    conformity without performing I/O or side effects."
-  (:require [boundary.shell.adapters.database.protocols :as protocols]))
+  (:require [boundary.platform.shell.adapters.database.protocols :as protocols]))
 
 ;; =============================================================================
 ;; Context Validation
@@ -618,18 +618,18 @@ src/boundary/
 
 === Phase 3: Update Shell to Use Core
 
-==== Step 3.1: Update `boundary.shell.adapters.database.common.execution`
+==== Step 3.1: Update `boundary.platform.shell.adapters.database.common.execution`
 
 [source,clojure]
 ----
-(ns boundary.shell.adapters.database.common.execution
+(ns boundary.platform.shell.adapters.database.common.execution
   "Query execution with I/O, logging, and error handling.
    
    This is part of the imperative shell - it performs database I/O,
    manages transactions, and handles side effects like logging."
   (:require [boundary.core.database.query :as query]      ; Pure query building
             [boundary.core.database.validation :as validation]  ; Pure validation
-            [boundary.shell.adapters.database.protocols :as protocols]
+            [boundary.platform.shell.adapters.database.protocols :as protocols]
             [clojure.tools.logging :as log]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]))
@@ -694,11 +694,11 @@ src/boundary/
 ;; Similar updates for execute-one!, execute-update!, execute-batch!, with-transaction*
 ----
 
-==== Step 3.2: Update `boundary.shell.interfaces.http.middleware`
+==== Step 3.2: Update `boundary.platform.shell.interfaces.http.middleware`
 
 [source,clojure]
 ----
-(ns boundary.shell.interfaces.http.middleware
+(ns boundary.platform.shell.interfaces.http.middleware
   "HTTP middleware for web applications (imperative shell).
    
    Middleware functions handle I/O boundaries: request/response interception,
@@ -741,24 +741,24 @@ src/boundary/
 
 ==== Database Module
 - [ ] Create `src/boundary/core/database/query.clj`
-- [ ] Move and adapt query building functions from `boundary.shell.adapters.database.common.query`
+- [ ] Move and adapt query building functions from `boundary.platform.shell.adapters.database.common.query`
 - [ ] Create `src/boundary/core/database/validation.clj`
-- [ ] Move validation predicates from `boundary.shell.adapters.database.common.execution`
-- [ ] Update `boundary.shell.adapters.database.common.execution` to use core functions
-- [ ] Delete or deprecate `boundary.shell.adapters.database.common.query`
+- [ ] Move validation predicates from `boundary.platform.shell.adapters.database.common.execution`
+- [ ] Update `boundary.platform.shell.adapters.database.common.execution` to use core functions
+- [ ] Delete or deprecate `boundary.platform.shell.adapters.database.common.query`
 - [ ] Update all tests to reference new namespaces
 
 ==== HTTP Module
 - [ ] Create `src/boundary/core/http/problem_details.clj`
-- [ ] Move exception transformation logic from `boundary.shell.interfaces.http.common`
+- [ ] Move exception transformation logic from `boundary.platform.shell.interfaces.http.common`
 - [ ] Create `src/boundary/core/http/responses.clj`
-- [ ] Move pure response builders from `boundary.shell.interfaces.http.common`
-- [ ] Update `boundary.shell.interfaces.http.middleware` to use core functions
+- [ ] Move pure response builders from `boundary.platform.shell.interfaces.http.common`
+- [ ] Update `boundary.platform.shell.interfaces.http.middleware` to use core functions
 - [ ] Update all HTTP tests
 
 ==== Configuration Module
 - [ ] Create `src/boundary/core/database/config.clj`
-- [ ] Move pure validation and transformation functions from `boundary.shell.adapters.database.config`
+- [ ] Move pure validation and transformation functions from `boundary.platform.shell.adapters.database.config`
 - [ ] Keep I/O functions (file loading, caching) in shell
 - [ ] Update shell config to use core validation functions
 

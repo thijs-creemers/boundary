@@ -29,7 +29,7 @@ The system is built on two core protocols that define all database interactions:
 
 [source,clojure]
 ----
-(ns boundary.shell.adapters.database.protocols)
+(ns boundary.platform.shell.adapters.database.protocols)
 
 (defprotocol DatabaseConnection
   "Protocol for database connection and query execution operations."
@@ -83,7 +83,7 @@ The system is built on two core protocols that define all database interactions:
 Each database adapter follows a consistent structure:
 
 ----
-boundary.shell.adapters.database.{database-name}/
+boundary.platform.shell.adapters.database.{database-name}/
 ├── core.clj        # Main adapter implementation (protocols)
 ├── connection.clj  # Connection pool management
 ├── query.clj       # Database-specific query building
@@ -97,12 +97,12 @@ Each `core.clj` implements both protocols:
 
 [source,clojure]
 ----
-(ns boundary.shell.adapters.database.postgresql.core
-  (:require [boundary.shell.adapters.database.protocols :as proto]
-            [boundary.shell.adapters.database.postgresql.connection :as conn]
-            [boundary.shell.adapters.database.postgresql.query :as query]
-            [boundary.shell.adapters.database.postgresql.metadata :as meta]
-            [boundary.shell.adapters.database.postgresql.utils :as utils]))
+(ns boundary.platform.shell.adapters.database.postgresql.core
+  (:require [boundary.platform.shell.adapters.database.protocols :as proto]
+            [boundary.platform.shell.adapters.database.postgresql.connection :as conn]
+            [boundary.platform.shell.adapters.database.postgresql.query :as query]
+            [boundary.platform.shell.adapters.database.postgresql.metadata :as meta]
+            [boundary.platform.shell.adapters.database.postgresql.utils :as utils]))
 
 (defrecord PostgreSQLAdapter [datasource config]
   proto/DatabaseConnection
@@ -144,7 +144,7 @@ Each adapter has utilities for its specific type system:
 [source,clojure]
 ----
 ;; PostgreSQL utilities - native UUID and boolean support
-(ns boundary.shell.adapters.database.postgresql.utils)
+(ns boundary.platform.shell.adapters.database.postgresql.utils)
 
 (defn uuid->db [uuid]
   "PostgreSQL has native UUID support"
@@ -161,7 +161,7 @@ Each adapter has utilities for its specific type system:
   db-value)
 
 ;; SQLite utilities - text-based storage
-(ns boundary.shell.adapters.database.sqlite.utils)
+(ns boundary.platform.shell.adapters.database.sqlite.utils)
 
 (defn uuid->db [uuid]
   "SQLite stores UUIDs as TEXT"
@@ -186,11 +186,11 @@ The factory simplifies adapter creation:
 
 [source,clojure]
 ----
-(ns boundary.shell.adapters.database.factory
-  (:require [boundary.shell.adapters.database.postgresql.core :as pg]
-            [boundary.shell.adapters.database.sqlite.core :as sqlite]
-            [boundary.shell.adapters.database.h2.core :as h2]
-            [boundary.shell.adapters.database.mysql.core :as mysql]))
+(ns boundary.platform.shell.adapters.database.factory
+  (:require [boundary.platform.shell.adapters.database.postgresql.core :as pg]
+            [boundary.platform.shell.adapters.database.sqlite.core :as sqlite]
+            [boundary.platform.shell.adapters.database.h2.core :as h2]
+            [boundary.platform.shell.adapters.database.mysql.core :as mysql]))
 
 (defn db-context
   "Create database context with adapter and datasource.
@@ -216,8 +216,8 @@ The factory simplifies adapter creation:
 
 [source,clojure]
 ----
-(require '[boundary.shell.adapters.database.factory :as dbf]
-         '[boundary.shell.adapters.database.protocols :as proto])
+(require '[boundary.platform.shell.adapters.database.factory :as dbf]
+         '[boundary.platform.shell.adapters.database.protocols :as proto])
 
 ;; Create PostgreSQL context
 (def pg-ctx (dbf/db-context 
@@ -339,7 +339,7 @@ The factory simplifies adapter creation:
 
 [source,clojure]
 ----
-(require '[boundary.shell.adapters.database.core :as db])
+(require '[boundary.platform.shell.adapters.database.core :as db])
 
 ;; SELECT query
 (db/execute-query! ctx {:select [:*]

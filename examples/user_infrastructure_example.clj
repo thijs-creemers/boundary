@@ -9,7 +9,7 @@
    Run this example to see the new architecture in action."
   (:require [boundary.user.shell.persistence :as user-persistence]
             [boundary.user.shell.service :as user-service]
-            [boundary.shell.adapters.database.factory :as db-factory]
+            [boundary.platform.shell.adapters.database.factory :as db-factory]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]))
 
@@ -136,7 +136,7 @@
 
   ;; This will work but show deprecation warnings
   (try
-    (require '[boundary.shell.adapters.database.user :as old-db-user])
+    (require '[boundary.platform.shell.adapters.database.user :as old-db-user])
 
     (let [ctx (create-example-context)]
       ;; Old-style usage (deprecated but functional)

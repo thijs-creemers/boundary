@@ -154,7 +154,7 @@ Database adapters handle data persistence using specific database technologies w
 [source,clojure]
 ----
 ;; PostgreSQL adapter implementation
-(ns boundary.shell.db
+(ns boundary.platform.shell.db
   (:require [boundary.ports :as ports]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
@@ -294,7 +294,7 @@ Email adapters can have multiple implementations for different environments and 
 [source,clojure]
 ----
 ;; SMTP email adapter
-(ns boundary.shell.email
+(ns boundary.platform.shell.email
   (:require [boundary.ports :as ports]
             [postal.core :as postal]
             [clojure.tools.logging :as log]))
@@ -357,9 +357,9 @@ Boundary uses a simple dependency injection pattern where adapters are created a
 [source,clojure]
 ----
 ;; System configuration and wiring
-(ns boundary.shell.system
-  (:require [boundary.shell.db :as db]
-            [boundary.shell.email :as email]
+(ns boundary.platform.shell.system
+  (:require [boundary.platform.shell.db :as db]
+            [boundary.platform.shell.email :as email]
             [boundary.config :as config]))
 
 (defn create-system
@@ -463,7 +463,7 @@ Contract tests ensure that all adapter implementations correctly fulfill the por
 (ns boundary.test.contracts.user-repository-test
   (:require [clojure.test :refer [deftest testing is]]
             [boundary.ports :as ports]
-            [boundary.shell.db :as db]
+            [boundary.platform.shell.db :as db]
             [boundary.test.adapters :as test-adapters]))
 
 (defn test-user-repository-contract
@@ -573,7 +573,7 @@ Sometimes you need to combine multiple adapters or add cross-cutting concerns li
 [source,clojure]
 ----
 ;; Caching decorator adapter
-(ns boundary.shell.adapters.caching
+(ns boundary.platform.shell.adapters.caching
   (:require [boundary.ports :as ports]
             [clojure.core.cache :as cache]))
 

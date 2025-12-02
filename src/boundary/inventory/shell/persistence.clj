@@ -1,7 +1,7 @@
 (ns boundary.inventory.shell.persistence
   "Persistence layer for inventory module."
   (:require [boundary.inventory.ports :as ports]
-            [boundary.shell.adapters.database.common.core :as db]
+            [boundary.platform.shell.adapters.database.common.core :as db]
             [honey.sql :as sql]))
 
 (defrecord DatabaseItemRepository [db-ctx]

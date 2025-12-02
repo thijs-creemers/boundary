@@ -10,7 +10,7 @@
    validated at the router level, not here."
   (:require [boundary.user.shell.http :as user-http]
             [boundary.user.ports :as ports]
-            [boundary.shell.interfaces.http.middleware :as middleware]
+            [boundary.platform.shell.interfaces.http.middleware :as middleware]
             [clojure.test :refer [deftest testing is]]
             [cheshire.core :as json])
   (:import [java.util UUID]

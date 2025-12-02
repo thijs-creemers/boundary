@@ -2,8 +2,8 @@
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.string :as str]
             [boundary.scaffolder.shell.service :as service]
-            [boundary.shell.adapters.filesystem.core :as fs]
-            [boundary.shell.adapters.filesystem.protocols :as fs-ports]
+            [boundary.platform.shell.adapters.filesystem.core :as fs]
+            [boundary.platform.shell.adapters.filesystem.protocols :as fs-ports]
             [boundary.scaffolder.ports :as ports]
             [clojure.java.io :as io]))
 

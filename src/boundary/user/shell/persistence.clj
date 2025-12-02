@@ -20,9 +20,9 @@
    - Shell handles all I/O and external systems
    - Clean boundary between functional and imperative code"
   (:require [boundary.shared.core.utils.type-conversion :as type-conversion]
-            [boundary.shell.adapters.database.common.core :as db]
-            [boundary.shell.adapters.database.protocols :as protocols]
-            [boundary.shell.adapters.database.utils.schema :as db-schema]
+            [boundary.platform.shell.adapters.database.common.core :as db]
+            [boundary.platform.shell.adapters.database.protocols :as protocols]
+            [boundary.platform.shell.adapters.database.utils.schema :as db-schema]
             [boundary.user.ports :as ports]
             [boundary.user.schema :as user-schema]
             [boundary.error-reporting.core :as error-reporting]
@@ -781,7 +781,7 @@
   "Create a user repository instance using database storage.
    
    Args:
-     ctx: Database context from boundary.shell.adapters.database.factory
+     ctx: Database context from boundary.platform.shell.adapters.database.factory
      
    Returns:
      DatabaseUserRepository implementing IUserRepository
@@ -795,7 +795,7 @@
   "Create a user session repository instance using database storage.
    
    Args:
-     ctx: Database context from boundary.shell.adapters.database.factory
+     ctx: Database context from boundary.platform.shell.adapters.database.factory
      
    Returns:
      DatabaseUserSessionRepository implementing IUserSessionRepository
@@ -809,7 +809,7 @@
   "Create a user audit log repository instance using database storage.
    
    Args:
-     ctx: Database context from boundary.shell.adapters.database.factory
+     ctx: Database context from boundary.platform.shell.adapters.database.factory
      
    Returns:
      DatabaseUserAuditRepository implementing IUserAuditRepository

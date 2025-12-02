@@ -56,13 +56,13 @@ Boundary uses Ring and Reitit for HTTP handling with a clean separation between 
 [source,clojure]
 ----
 ;; HTTP routing configuration with module-centric organization
-(ns boundary.shell.interfaces.http.routes
+(ns boundary.platform.shell.interfaces.http.routes
   "HTTP API routing configuration - aggregates routes from all modules."
   (:require [boundary.core.user.http :as user-http]
             [boundary.core.membership.http :as membership-http]
             [boundary.core.billing.http :as billing-http]
-            [boundary.shell.interfaces.http.middleware :as middleware]
-            [boundary.shell.interfaces.http.monitoring :as monitoring]
+            [boundary.platform.shell.interfaces.http.middleware :as middleware]
+            [boundary.platform.shell.interfaces.http.monitoring :as monitoring]
             [reitit.ring :as ring]
             [reitit.swagger :as swagger]
             [reitit.ring.middleware.parameters :as parameters]
@@ -116,7 +116,7 @@ To align with our domain-driven modular approach, HTTP handlers are organized by
 [source,clojure]
 ----
 ;; Cross-cutting HTTP handler utilities
-(ns boundary.shell.interfaces.http.common
+(ns boundary.platform.shell.interfaces.http.common
   "Common HTTP handler utilities shared across all domains."
   (:require [ring.util.response :as response]
             [clojure.tools.logging :as log]
@@ -198,7 +198,7 @@ Each module owns its complete HTTP integration including handlers, routes, and s
   "User module HTTP interface - handlers, routes, and schemas."
   (:require [boundary.core.user.user :as user-core]
             [boundary.core.user.schema :as user-schema]
-            [boundary.shell.interfaces.http.common :as http-common]
+            [boundary.platform.shell.interfaces.http.common :as http-common]
             [reitit.coercion.malli :as malli]
             [clojure.tools.logging :as log]))
 
@@ -266,7 +266,7 @@ Each module owns its complete HTTP integration including handlers, routes, and s
   "Membership module HTTP interface."
   (:require [boundary.core.membership.membership :as membership-core]
             [boundary.core.membership.schema :as membership-schema]
-            [boundary.shell.interfaces.http.common :as http-common]))
+            [boundary.platform.shell.interfaces.http.common :as http-common]))
 
 ;; Membership-specific handlers
 (defn handle-get-benefits [system]
@@ -313,7 +313,7 @@ Each module owns its complete HTTP integration including handlers, routes, and s
   "Billing module HTTP interface."
   (:require [boundary.core.billing.billing :as billing-core]
             [boundary.core.billing.schema :as billing-schema]
-            [boundary.shell.interfaces.http.common :as http-common]
+            [boundary.platform.shell.interfaces.http.common :as http-common]
             [boundary.config :as config]))
 
 ;; Feature flag check
@@ -365,7 +365,7 @@ Each module owns its complete HTTP integration including handlers, routes, and s
 **File Organization Example:**
 
 ```
-src/boundary/shell/interfaces/http/
+src/boundary.platform.shell.interfaces/http/
 ├── common.clj                    # Cross-cutting HTTP utilities
 ├── routes.clj                    # Route configuration
 ├── middleware.clj                # HTTP middleware
@@ -384,7 +384,7 @@ src/boundary/shell/interfaces/http/
 [source,clojure]
 ----
 ;; API versioning patterns
-(ns boundary.shell.interfaces.http.versioning
+(ns boundary.platform.shell.interfaces.http.versioning
   "API versioning and backward compatibility."
   (:require [clojure.tools.logging :as log]))
 
@@ -449,7 +449,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 [source,clojure]
 ----
 ;; CLI command structure and parsing
-(ns boundary.shell.interfaces.cli.commands
+(ns boundary.platform.shell.interfaces.cli.commands
   "CLI command definitions and parsing."
   (:require [boundary.user.shell.service :as user-service]
             [tools.cli :refer [parse-opts]]
@@ -703,9 +703,9 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 [source,clojure]
 ----
 ;; WebSocket integration for real-time features
-(ns boundary.shell.interfaces.websocket.handlers
+(ns boundary.platform.shell.interfaces.websocket.handlers
   "WebSocket handlers for real-time web interface communication."
-  (:require [boundary.shell.services.user-service :as user-service]
+  (:require [boundary.platform.shell.services.user-service :as user-service]
             [cheshire.core :as json]
             [clojure.tools.logging :as log]))
 
@@ -870,9 +870,9 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 [source,clojure]
 ----
 ;; Shared service functions used by all interfaces
-(ns boundary.shell.services.integration
+(ns boundary.platform.shell.services.integration
   "Service functions that ensure consistency across all interfaces."
-  (:require [boundary.shell.services.user-service :as user-service]
+  (:require [boundary.platform.shell.services.user-service :as user-service]
             [clojure.tools.logging :as log]))
 
 (defn unified-user-registration
@@ -941,7 +941,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 [source,clojure]
 ----
 ;; Consistent validation across all interfaces
-(ns boundary.shell.validation.unified
+(ns boundary.platform.shell.validation.unified
   "Unified validation logic for all interfaces."
   (:require [malli.core :as m]
             [malli.error :as me]
@@ -986,7 +986,7 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 [source,clojure]
 ----
 ;; Caching strategies for different interfaces
-(ns boundary.shell.interfaces.caching
+(ns boundary.platform.shell.interfaces.caching
   "Cross-interface caching strategies."
   (:require [clojure.core.cache :as cache]))
 

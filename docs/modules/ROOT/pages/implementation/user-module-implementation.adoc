@@ -665,7 +665,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 
 **🔄 Architectural Refactoring**
 
-The user adapter implementation leverages shared type conversion utilities from `boundary.shared.utils.type-conversion` and SQLite database utilities from `boundary.shell.adapters.database.sqlite`:
+The user adapter implementation leverages shared type conversion utilities from `boundary.shared.utils.type-conversion` and SQLite database utilities from `boundary.platform.shell.adapters.database.sqlite`:
 
 ```clojure
 ;; Before: Duplicate utility functions in each adapter

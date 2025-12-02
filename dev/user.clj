@@ -9,7 +9,7 @@
      (reset)   ; Reload code and restart
      (halt)    ; Stop the system"
   (:require [boundary.config :as config]
-            [boundary.shell.system.wiring]  ;; Load Integrant init/halt methods
+            [boundary.platform.shell.system.wiring]  ;; Load Integrant init/halt methods
             [integrant.repl :as ig-repl]
             [integrant.repl.state :as state]
             [clojure.tools.logging :as log]))

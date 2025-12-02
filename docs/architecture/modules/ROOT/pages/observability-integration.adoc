@@ -177,7 +177,7 @@ Integrate observability into HTTP handlers for comprehensive request tracking:
 [source,clojure]
 ----
 ;; HTTP handler with full observability
-(ns boundary.shell.interfaces.http.handlers.user
+(ns boundary.platform.shell.interfaces.http.handlers.user
   (:require
    [boundary.logging.core :as log]
    [boundary.metrics.core :as metrics]
@@ -312,7 +312,7 @@ Monitor calls to external services with circuit breaker patterns:
 [source,clojure]
 ----
 ;; External service client with observability
-(ns boundary.shell.adapters.external.payment-service
+(ns boundary.platform.shell.adapters.external.payment-service
   (:require
    [boundary.logging.core :as log]
    [boundary.metrics.core :as metrics]
@@ -483,7 +483,7 @@ Control observability features dynamically:
 [source,clojure]
 ----
 ;; Feature-flagged observability
-(ns boundary.shell.utils.feature-flags
+(ns boundary.platform.shell.utils.feature-flags
   (:require [boundary.logging.core :as log]))
 
 (defn with-feature-flag [flag-name default-value logger context f & args]

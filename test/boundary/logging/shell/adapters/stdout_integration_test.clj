@@ -5,7 +5,7 @@
             [integrant.core :as ig]
             [boundary.logging.ports :as ports]
             ;; Ensure Integrant init-key/ halt-key! for :boundary/logging are loaded
-            [boundary.shell.system.wiring]))
+            [boundary.platform.shell.system.wiring]))
 
 (deftest stdout-logging-component-end-to-end
   (testing "stdout logging component is initialized via Integrant and emits log output"

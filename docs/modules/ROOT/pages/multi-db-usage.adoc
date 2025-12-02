@@ -45,8 +45,8 @@ Here's a minimal example of using the multi-database system:
 
 [source,clojure]
 ----
-(require '[boundary.shell.adapters.database.factory :as dbf]
-         '[boundary.shell.adapters.database.core :as db]
+(require '[boundary.platform.shell.adapters.database.factory :as dbf]
+         '[boundary.platform.shell.adapters.database.core :as db]
          '[boundary.user.shell.multi-db-adapters :as user-adapters])
 
 ;; Create a database context
@@ -202,7 +202,7 @@ The database context is the central object that provides access to database oper
 
 [source,clojure]
 ----
-(require '[boundary.shell.adapters.database.factory :as dbf])
+(require '[boundary.platform.shell.adapters.database.factory :as dbf])
 
 ;; Create context from configuration
 (def ctx (dbf/db-context db-config))
@@ -251,7 +251,7 @@ For production applications, configure databases based on environment:
 
 [source,clojure]
 ----
-(require '[boundary.shell.adapters.database.core :as db])
+(require '[boundary.platform.shell.adapters.database.core :as db])
 
 ;; Execute a SELECT query
 (def users (db/execute-query! ctx {:select [:*]
@@ -426,9 +426,9 @@ The system provides utilities for building common query patterns:
 (db/execute-ddl! ctx "CREATE INDEX idx_users_email ON users (email)")
 
 ;; Database-specific DDL generation
-(require '[boundary.shell.adapters.database.postgresql :as pg])
-(require '[boundary.shell.adapters.database.mysql :as mysql])
-(require '[boundary.shell.adapters.database.sqlite :as sqlite])
+(require '[boundary.platform.shell.adapters.database.postgresql :as pg])
+(require '[boundary.platform.shell.adapters.database.mysql :as mysql])
+(require '[boundary.platform.shell.adapters.database.sqlite :as sqlite])
 
 ;; Get database-specific column types
 (pg/uuid-column-type)      ; => "UUID"
@@ -527,7 +527,7 @@ You can create custom database adapters by implementing the DBAdapter protocol:
 
 [source,clojure]
 ----
-(require '[boundary.shell.adapters.database.protocols :as protocols])
+(require '[boundary.platform.shell.adapters.database.protocols :as protocols])
 
 (defrecord CustomAdapter []
   protocols/DBAdapter
@@ -560,8 +560,8 @@ The old `boundary.shared.shell.persistence` namespace is deprecated but still fu
 (old-persistence/execute-query! datasource query)
 
 ;; NEW (recommended)
-(require '[boundary.shell.adapters.database.factory :as dbf]
-         '[boundary.shell.adapters.database.core :as db])
+(require '[boundary.platform.shell.adapters.database.factory :as dbf]
+         '[boundary.platform.shell.adapters.database.core :as db])
 (def ctx (dbf/db-context config))
 (db/execute-query! ctx query)
 ----

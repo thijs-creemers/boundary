@@ -497,7 +497,7 @@ Modules can depend on each other through well-defined ports:
 [source,clojure]
 ----
 ;; Example: Shell Service Component
-(ns boundary.shell.services.user-service
+(ns boundary.platform.shell.services.user-service
   "User service - orchestrates user operations between interfaces and core."
   (:require [boundary.core.user :as user-core]
             [boundary.ports :as ports]
@@ -661,7 +661,7 @@ Modules can depend on each other through well-defined ports:
 [source,clojure]
 ----
 ;; Example: Database Adapter Component
-(ns boundary.shell.adapters.database.postgresql
+(ns boundary.platform.shell.adapters.database.postgresql
   "PostgreSQL adapter implementing user repository port."
   (:require [boundary.ports :as ports]
             [next.jdbc :as jdbc]
@@ -829,9 +829,9 @@ Modules can depend on each other through well-defined ports:
 [source,clojure]
 ----
 ;; Example: HTTP Interface Component
-(ns boundary.shell.interfaces.http.handlers
+(ns boundary.platform.shell.interfaces.http.handlers
   "HTTP request handlers - translate between HTTP and service layer."
-  (:require [boundary.shell.services.user-service :as user-service]
+  (:require [boundary.platform.shell.services.user-service :as user-service]
             [ring.util.response :as response]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]))
@@ -958,12 +958,12 @@ The sequence diagram shows how components interact during a typical HTTP request
 [source,clojure]
 ----
 ;; System wiring component
-(ns boundary.shell.system.wiring
+(ns boundary.platform.shell.system.wiring
   "System component wiring and dependency injection."
-  (:require [boundary.shell.adapters.database.postgresql :as pg-adapter]
-            [boundary.shell.adapters.notifications.smtp :as smtp-adapter]
-            [boundary.shell.services.user-service :as user-service]
-            [boundary.shell.interfaces.http.server :as http-server]
+  (:require [boundary.platform.shell.adapters.database.postgresql :as pg-adapter]
+            [boundary.platform.shell.adapters.notifications.smtp :as smtp-adapter]
+            [boundary.platform.shell.services.user-service :as user-service]
+            [boundary.platform.shell.interfaces.http.server :as http-server]
             [boundary.config :as config]
             [clojure.tools.logging :as log]))
 
@@ -1033,9 +1033,9 @@ The sequence diagram shows how components interact during a typical HTTP request
 [source,clojure]
 ----
 ;; Application entry point component
-(ns boundary.shell.main
+(ns boundary.platform.shell.main
   "Application entry point and lifecycle management."
-  (:require [boundary.shell.system.wiring :as wiring]
+  (:require [boundary.platform.shell.system.wiring :as wiring]
             [clojure.tools.logging :as log])
   (:gen-class))
 
@@ -1118,9 +1118,9 @@ The sequence diagram shows how components interact during a typical HTTP request
 [source,clojure]
 ----
 ;; Service component tests - integration with mocked adapters
-(ns boundary.shell.services.user-service-test
+(ns boundary.platform.shell.services.user-service-test
   (:require [clojure.test :refer [deftest is testing]]
-            [boundary.shell.services.user-service :as user-service]
+            [boundary.platform.shell.services.user-service :as user-service]
             [boundary.test.mocks :as mocks]))
 
 (deftest register-user-test
@@ -1143,9 +1143,9 @@ The sequence diagram shows how components interact during a typical HTTP request
 [source,clojure]
 ----
 ;; Adapter component tests - integration with real external systems
-(ns boundary.shell.adapters.database.postgresql-test
+(ns boundary.platform.shell.adapters.database.postgresql-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [boundary.shell.adapters.database.postgresql :as pg-adapter]
+            [boundary.platform.shell.adapters.database.postgresql :as pg-adapter]
             [boundary.test.database :as test-db]))
 
 (use-fixtures :each test-db/with-test-database)

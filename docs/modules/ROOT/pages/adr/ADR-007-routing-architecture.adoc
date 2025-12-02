@@ -88,7 +88,7 @@ Modules return a map with three keys:
 
 ==== 2. Top-Level Route Composition
 
-System wiring (`boundary.shell.system.wiring`) composes routes:
+System wiring (`boundary.platform.shell.system.wiring`) composes routes:
 
 [source,clojure]
 ----
@@ -375,7 +375,7 @@ All endpoints functioning correctly with proper prefixes and content types.
 
 4. **Deprecation Cleanup**
    - Remove deprecated functions in next major version
-   - Clean up `boundary.shell.modules` compose-http-handlers
+   - Clean up `boundary.platform.shell.modules` compose-http-handlers
 
 === Extension Points
 

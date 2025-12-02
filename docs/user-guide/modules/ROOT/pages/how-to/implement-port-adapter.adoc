@@ -62,7 +62,7 @@ Adapters live in `src/boundary/<module>/shell/persistence.clj`.
 ----
 (ns boundary.user.shell.persistence
   (:require [boundary.user.ports :as ports]
-            [boundary.shell.adapters.database.common.core :as db]
+            [boundary.platform.shell.adapters.database.common.core :as db]
             [honey.sql :as sql]))
 
 (defrecord DatabaseUserRepository [ctx]

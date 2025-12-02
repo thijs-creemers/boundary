@@ -1,7 +1,7 @@
 (ns verify-schema
   "Quick verification script for user schema initialization."
-  (:require [boundary.shell.adapters.database.factory :as dbf]
-            ;[boundary.shell.adapters.database.core :as db]
+  (:require [boundary.platform.shell.adapters.database.factory :as dbf]
+            ;[boundary.platform.shell.adapters.database.core :as db]
             [boundary.user.shell.persistence :as user-persistence]))
 
 (defn verify-schema-creation

@@ -4,12 +4,12 @@
   Encapsulates user-specific CLI startup so that the top-level CLI can
   remain as module-agnostic as possible and delegate into this module."
   (:require [boundary.config :as config]
-            [boundary.shell.adapters.database.config :as db-config]
+            [boundary.platform.shell.adapters.database.config :as db-config]
             [boundary.user.shell.cli :as user-cli]
             [boundary.user.shell.persistence :as user-persistence]
             [boundary.user.shell.service :as user-service]
             [boundary.user.shell.auth :as user-auth]
-            [boundary.shell.adapters.database.factory :as db-factory]
+            [boundary.platform.shell.adapters.database.factory :as db-factory]
             [boundary.logging.shell.adapters.no-op :as no-op-logging]
             [boundary.metrics.shell.adapters.no-op :as no-op-metrics]
             [boundary.error-reporting.shell.adapters.no-op :as no-op-error-reporting]

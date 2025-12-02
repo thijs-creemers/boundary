@@ -1,6 +1,6 @@
 (ns boundary.core.http.problem-details-test
   "Tests for Problem Details context preservation functionality"
-  (:require [boundary.core.http.problem-details :as pd]
+  (:require [boundary.platform.core.http.problem-details :as pd]
             [clojure.test :refer [deftest testing is]]
             [cheshire.core :as json])
   (:import [java.time Instant]

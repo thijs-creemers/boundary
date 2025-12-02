@@ -55,7 +55,7 @@ The boundary.shell namespace has been successfully refactored to comply with Fun
 - ✅ No dependencies on database connections
 - ✅ Reusable across configuration loading and runtime validation
 
-==== Updated: `boundary.shell.adapters.database.common.execution`
+==== Updated: `boundary.platform.shell.adapters.database.common.execution`
 
 **Changes**:
 - Imports pure core functions: `boundary.core.database.query` and `boundary.core.database.validation`
@@ -78,7 +78,7 @@ The boundary.shell namespace has been successfully refactored to comply with Fun
   core-validation/validate-db-context)
 ```
 
-==== Updated: `boundary.shell.adapters.database.common.utils`
+==== Updated: `boundary.platform.shell.adapters.database.common.utils`
 
 **Changes**:
 - Imports `boundary.core.database.query`
@@ -89,10 +89,10 @@ The boundary.shell namespace has been successfully refactored to comply with Fun
 **Important Note**:
 `build-where-clause` continues to use the adapter protocol's `build-where` method because it contains database-specific logic (LIKE vs ILIKE for pattern matching). This is correctly placed in the adapter, not core.
 
-==== Updated: `boundary.shell.adapters.database.common.core`
+==== Updated: `boundary.platform.shell.adapters.database.common.core`
 
 **Changes**:
-- Removed reference to `boundary.shell.adapters.database.common.query` namespace
+- Removed reference to `boundary.platform.shell.adapters.database.common.query` namespace
 - Updated documentation to note pure query functions are now in `boundary.core.database.query`
 - Continues to re-export utility functions for backward compatibility
 
@@ -126,7 +126,7 @@ The boundary.shell namespace has been successfully refactored to comply with Fun
            (get-in response [:headers "Content-Type"])))))
 ```
 
-==== Updated: `boundary.shell.interfaces.http.middleware`
+==== Updated: `boundary.platform.shell.interfaces.http.middleware`
 
 **Changes**:
 - Imports `boundary.core.http.problem-details`
@@ -152,7 +152,7 @@ The boundary.shell namespace has been successfully refactored to comply with Fun
   (problem/exception->problem-response ex correlation-id uri))
 ```
 
-==== Updated: `boundary.shell.interfaces.http.common`
+==== Updated: `boundary.platform.shell.interfaces.http.common`
 
 **Changes**:
 - Imports `boundary.core.http.problem-details`
@@ -235,9 +235,9 @@ src/boundary/
 ✅ **100% Backward Compatible**
 
 All existing APIs maintained through re-exports:
-- `boundary.shell.adapters.database.common.core` - Query building functions still available
-- `boundary.shell.adapters.database.common.execution` - Validation functions still available
-- `boundary.shell.interfaces.http.common` - Problem details functions still available
+- `boundary.platform.shell.adapters.database.common.core` - Query building functions still available
+- `boundary.platform.shell.adapters.database.common.execution` - Validation functions still available
+- `boundary.platform.shell.interfaces.http.common` - Problem details functions still available
 
 **Migration Path**: Existing code continues to work without changes. New code can import directly from core for better clarity.
 
@@ -307,12 +307,12 @@ While the FC/IS refactoring is complete, the following optional improvements cou
 === Long Term (Optional)
 
 1. **Extract Configuration Transformation to Core**
-   - Move pure config validation from `boundary.shell.adapters.database.config`
+   - Move pure config validation from `boundary.platform.shell.adapters.database.config`
    - Create `boundary.core.database.config` for pure transformations
    - Keep I/O (file loading, caching) in shell
 
 2. **Create HTTP Response Builders Core Module**
-   - Extract pure response builders from `boundary.shell.interfaces.http.common`
+   - Extract pure response builders from `boundary.platform.shell.interfaces.http.common`
    - Create `boundary.core.http.responses` module
    - Move health check, 404, 405 response builders
 

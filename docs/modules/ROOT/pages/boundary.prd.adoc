@@ -566,7 +566,7 @@ Adapters provide concrete implementations of ports using specific technologies:
 
 The module-centric architecture uses dependency injection to wire concrete adapters to core functions:
 
-**System Configuration** (`boundary.shell.system.wiring`):
+**System Configuration** (`boundary.platform.shell.system.wiring`):
 [source,clojure]
 ----
 (defn create-system [config]
@@ -918,7 +918,7 @@ The Imperative Shell serves as the boundary layer that isolates the pure functio
 
 ==== Implementation Examples
 
-**HTTP Handler Pattern** (`boundary.shell.http`)
+**HTTP Handler Pattern** (`boundary.platform.shell.http`)
 [source,clojure]
 ----
 (defn handle-create-user [request repos]
@@ -941,7 +941,7 @@ The Imperative Shell serves as the boundary layer that isolates the pure functio
       {:status 500 :body (format-error-response "Internal server error")})))
 ----
 
-**Repository Adapter Pattern** (`boundary.shell.sql-db`)
+**Repository Adapter Pattern** (`boundary.platform.shell.sql-db`)
 [source,clojure]
 ----
 (defrecord PostgreSQLUserRepository [db-conn]
@@ -1703,7 +1703,7 @@ config/
 **Module-Centric Configuration Loading**:
 [source,clojure]
 ----
-(ns boundary.shell.system.config
+(ns boundary.platform.shell.system.config
   (:require [aero.core :as aero]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]))
@@ -2151,7 +2151,7 @@ config/
 **Secret Loading Strategy**:
 [source,clojure]
 ----
-(ns boundary.shell.system.secrets
+(ns boundary.platform.shell.system.secrets
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]))
 

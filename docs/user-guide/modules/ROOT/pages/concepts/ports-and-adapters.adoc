@@ -200,7 +200,7 @@ Imagine the functional core as a hexagon with **ports** as connection points:
 ----
 (ns boundary.user.shell.persistence
   (:require [boundary.user.ports :as ports]
-            [boundary.shell.adapters.database.common.core :as db]
+            [boundary.platform.shell.adapters.database.common.core :as db]
             [boundary.shared.utils.type-conversion :as type-conv]))
 
 (defrecord DatabaseUserRepository [db-ctx]

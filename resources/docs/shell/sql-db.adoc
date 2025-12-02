@@ -3,7 +3,7 @@
 :toc-title: Table of Contents
 :source-highlighter: highlight.js
 
-The `boundary.shell.sql-db` namespace provides a simple, straightforward gateway to SQL databases with schema-driven operations, comprehensive error handling, and detailed logging.
+The `boundary.platform.shell.sql-db` namespace provides a simple, straightforward gateway to SQL databases with schema-driven operations, comprehensive error handling, and detailed logging.
 
 == Overview
 

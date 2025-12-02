@@ -64,7 +64,7 @@ Changed from **module-provides-handler** to **module-provides-route-definitions*
 - Extracts `:api`, `:web`, `:static` from user-routes structure
 - Adds `/web` prefix to web routes
 - Passes routes to `routes/create-router` for `/api` prefix application
-- Removed unused `boundary.shell.modules` require
+- Removed unused `boundary.platform.shell.modules` require
 
 **Pattern:**
 ```clojure
@@ -213,7 +213,7 @@ For future modules:
 ## Known Limitations
 
 1. Static routes still defined in user module but not used (kept for documentation)
-2. `boundary.shell.modules` compose-http-handlers deprecated but not removed
+2. `boundary.platform.shell.modules` compose-http-handlers deprecated but not removed
 3. Some middleware grouping could be more explicit (works via route grouping)
 
 ## Next Steps (Optional)

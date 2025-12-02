@@ -161,5 +161,5 @@ curl -X POST http://localhost:8080/api/v1/users \
 
 *Test Coverage:*
 * **Unit Tests**: `boundary.core.user-test/create-new-user-test` covers business logic
-* **Integration Tests**: `boundary.shell.http-test/create-user-integration-test` covers full request lifecycle
+* **Integration Tests**: `boundary.platform.shell.http-test/create-user-integration-test` covers full request lifecycle
 * **Contract Tests**: Schema validation tests ensure request/response format compliance

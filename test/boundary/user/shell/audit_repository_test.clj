@@ -7,7 +7,7 @@
    - Pagination of audit results"
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [boundary.user.shell.persistence :as persistence]
-            [boundary.shell.adapters.database.h2.core :as h2]
+            [boundary.platform.shell.adapters.database.h2.core :as h2]
             [next.jdbc :as jdbc]
             [next.jdbc.connection :as connection])
   (:import (java.util UUID)

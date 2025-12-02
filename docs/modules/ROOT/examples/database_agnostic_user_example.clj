@@ -9,8 +9,8 @@
    5. Use the service for business operations
    
    The business logic is completely separated from database concerns."
-  (:require [boundary.shell.adapters.database.factory :as db-factory]
-            [boundary.shell.adapters.database.user :as db-user]
+  (:require [boundary.platform.shell.adapters.database.factory :as db-factory]
+            [boundary.platform.shell.adapters.database.user :as db-user]
             [boundary.user.shell.service :as user-service]
             [clojure.tools.logging :as log]))
 
@@ -99,7 +99,7 @@
   
   ;; 1. SEPARATION OF CONCERNS
   ;; - Business logic in boundary.user.shell.service (database-agnostic)
-  ;; - Database logic in boundary.shell.adapters.database.user
+  ;; - Database logic in boundary.platform.shell.adapters.database.user
   ;; - Domain models in boundary.user.schema
   
   ;; 2. DEPENDENCY INJECTION

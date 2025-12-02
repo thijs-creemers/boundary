@@ -97,7 +97,7 @@ clojure -M:prod   # Loads drivers based on prod config
 
 [source,clojure]
 ----
-(require '[boundary.shell.adapters.database.utils.driver-loader :as driver-loader])
+(require '[boundary.platform.shell.adapters.database.utils.driver-loader :as driver-loader])
 
 ;; Load drivers for current environment
 (driver-loader/load-drivers-for-current-environment!)
@@ -257,10 +257,10 @@ This ensures all drivers are available on the classpath, but only the ones neede
 
 The dynamic driver loading system is implemented in:
 
-* `boundary.shell.adapters.database.utils.driver-loader` - Core driver loading logic
-* `boundary.shell.adapters.database.factory` - Database adapter factory with driver integration
-* `boundary.shell.adapters.database.protocols` - DatabaseConnection and DatabaseMetadata protocols
-* Database-specific adapters in `boundary.shell.adapters.database.{postgresql|sqlite|h2|mysql}/core` 
+* `boundary.platform.shell.adapters.database.utils.driver-loader` - Core driver loading logic
+* `boundary.platform.shell.adapters.database.factory` - Database adapter factory with driver integration
+* `boundary.platform.shell.adapters.database.protocols` - DatabaseConnection and DatabaseMetadata protocols
+* Database-specific adapters in `boundary.platform.shell.adapters.database.{postgresql|sqlite|h2|mysql}/core` 
 * Environment configuration files determine which drivers to load
 
 === Key Functions

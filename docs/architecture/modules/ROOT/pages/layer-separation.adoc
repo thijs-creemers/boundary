@@ -165,7 +165,7 @@ After reading this document, you will understand:
 [source,clojure]
 ----
 ;; ✅ CORRECT: Shell orchestrates I/O and calls core
-(ns boundary.shell.user
+(ns boundary.platform.shell.user
   (:require [boundary.core.user :as user-core]
             [boundary.ports :as ports]
             [boundary.schema :as schema]
@@ -306,14 +306,14 @@ src/boundary/
   (:require [boundary.ports :as ports]))  ; Only abstract interfaces
 
 ;; ✅ CORRECT: Shell depends on core and implements adapters
-(ns boundary.shell.user
+(ns boundary.platform.shell.user
   (:require [boundary.core.user :as user-core]  ; Core business logic
             [boundary.ports :as ports]          ; Abstract interfaces
-            [boundary.shell.db :as db]))        ; Concrete adapters
+            [boundary.platform.shell.db :as db]))        ; Concrete adapters
 
 ;; ❌ WRONG: Core depending on shell
 (ns boundary.core.user
-  (:require [boundary.shell.db :as db]))        ; ❌ Core → Shell dependency
+  (:require [boundary.platform.shell.db :as db]))        ; ❌ Core → Shell dependency
 
 ;; ❌ WRONG: Core depending on concrete adapters
 (ns boundary.core.user
@@ -397,10 +397,10 @@ src/boundary/
 [source,clojure]
 ----
 ;; Integration test for shell layer
-(ns boundary.shell.user-test
+(ns boundary.platform.shell.user-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [boundary.shell.user :as user-shell]
-            [boundary.shell.db :as db]
+            [boundary.platform.shell.user :as user-shell]
+            [boundary.platform.shell.db :as db]
             [boundary.test-utils :as test-utils]))
 
 (use-fixtures :each test-utils/with-test-database)

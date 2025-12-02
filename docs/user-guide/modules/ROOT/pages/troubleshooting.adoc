@@ -51,7 +51,7 @@ echo $POSTGRES_DB
 ----
 # In REPL, initialize schema
 (require '[boundary.user.shell.persistence :as persistence])
-(require '[boundary.shell.adapters.database.factory :as db-factory])
+(require '[boundary.platform.shell.adapters.database.factory :as db-factory])
 
 (let [config (boundary.config/load-config)
       db-config (get-in config [:boundary/sqlite])

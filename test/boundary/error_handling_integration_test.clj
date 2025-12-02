@@ -1,9 +1,9 @@
 (ns boundary.error-handling-integration-test
   "End-to-end integration tests for enhanced error handling system"
-  (:require [boundary.core.http.problem-details :as pd]
-            [boundary.shell.utils.error-handling :as eh]
-            [boundary.shell.interfaces.cli.middleware :as cli-middleware]
-            [boundary.shell.interfaces.http.middleware :as http-middleware]
+(:require [boundary.platform.core.http.problem-details :as pd]
+            [boundary.platform.shell.utils.error-handling :as eh]
+            [boundary.platform.shell.interfaces.cli.middleware :as cli-middleware]
+            [boundary.platform.shell.interfaces.http.middleware :as http-middleware]
             [boundary.error-reporting.ports :as error-reporting]
             [boundary.error-reporting.core :as er-core]
             [clojure.test :refer [deftest testing is]]
