@@ -1,6 +1,6 @@
 # Boundary Framework - Development Status
 
-**Last Updated:** November 30, 2025  
+**Last Updated:** December 2, 2025  
 **Project Phase:** Alpha Development  
 **Overall Status:** 🟢 Production-Ready Module Scaffolder Complete - Automated Module Generation with Full Integration
 
@@ -339,6 +339,7 @@ This completes a major infrastructure milestone, enabling rapid expansion of the
 ✅ Module scaffolder - production-ready code generation (Nov 30)
 ✅ Shared utilities reorganized (type/case conversion, validation) (Nov 3)
 ✅ Namespace refactoring complete - all references updated (Nov 3)
+✅ Shell/platform infrastructure moved from boundary.shell.* to boundary.platform.shell.* with tests and docs updated (Dec 2)
 ✅ Validation infrastructure with DevEx improvements (Nov 3)
   - Result format, registry, error codes, message templates
   - Contextual rendering with examples

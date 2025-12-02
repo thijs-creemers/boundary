@@ -114,27 +114,28 @@ src/boundary/
 │   └── utils/
 │       ├── type_conversion.clj # Generic type conversions (UUID, Instant, etc.)
 │       └── case_conversion.clj # camelCase <-> kebab-case transformations
-├── shell/                 # 🐚 IMPERATIVE SHELL AGGREGATION
-│   ├── interfaces/        # External interface aggregators
-│   │   ├── http/
-│   │   │   ├── server.clj     # HTTP server & middleware
-│   │   │   └── routes.clj     # Aggregates module routes
-│   │   ├── cli/
-│   │   │   ├── main.clj       # CLI entry point
-│   │   │   └── commands.clj   # Aggregates module commands
-│   │   └── web/
-│   │       └── websockets.clj # Real-time interfaces
-│   ├── system/            # System wiring and lifecycle
-│   │   ├── components.clj # Component definitions
-│   │   ├── lifecycle.clj  # Start/stop management
-│   │   └── wiring.clj     # Dependency injection
-│   └── adapters/          # Shared adapter implementations
-│       ├── database/
-│       │   ├── postgresql.clj
-│       │   └── migrations.clj
-│       └── external/
-│           ├── email_smtp.clj
-│           └── notifications.clj
+├── platform/              # 🧱 PLATFORM INFRASTRUCTURE AGGREGATION
+│   └── shell/             # 🐚 Shared shell (interfaces, system wiring, shared adapters)
+│       ├── interfaces/        # External interface aggregators
+│       │   ├── http/
+│       │   │   ├── server.clj     # HTTP server & middleware
+│       │   │   └── routes.clj     # Aggregates module routes
+│       │   ├── cli/
+│       │   │   ├── main.clj       # CLI entry point
+│       │   │   └── commands.clj   # Aggregates module commands
+│       │   └── web/
+│       │       └── websockets.clj # Real-time interfaces
+│       ├── system/            # System wiring and lifecycle
+│       │   ├── components.clj # Component definitions
+│       │   ├── lifecycle.clj  # Start/stop management
+│       │   └── wiring.clj     # Dependency injection
+│       └── adapters/          # Shared adapter implementations
+│           ├── database/
+│           │   ├── postgresql.clj
+│           │   └── migrations.clj
+│           └── external/
+│               ├── email_smtp.clj
+│               └── notifications.clj
 └── config.clj             # ⚙️ Configuration management
 ```
 

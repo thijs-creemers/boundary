@@ -174,68 +174,70 @@ src/boundary/
 │   └── utils/
 │       ├── type_conversion.clj # Generic type conversions (UUID, Instant, etc.)
 │       └── case_conversion.clj # camelCase <-> kebab-case transformations
-├── shell/                 # 🐚 IMPERATIVE SHELL
-│   ├── adapters/          # I/O adapter implementations
-│   │   ├── database/      # ✨ REFACTORED Oct 24, 2025
-│   │   │   ├── protocols.clj           # DatabaseConnection & DatabaseMetadata protocols
-│   │   │   ├── factory.clj             # Database adapter factory
-│   │   │   ├── core.clj               # Database-agnostic operations
-│   │   │   ├── postgresql/
-│   │   │   │   ├── core.clj           # PostgreSQL adapter implementation
-│   │   │   │   ├── connection.clj     # Connection management
-│   │   │   │   ├── query.clj          # Query building
-│   │   │   │   ├── metadata.clj       # Schema introspection
-│   │   │   │   └── utils.clj          # Type conversion utilities
-│   │   │   ├── sqlite/
-│   │   │   │   ├── core.clj           # SQLite adapter implementation
-│   │   │   │   ├── connection.clj
-│   │   │   │   ├── query.clj
-│   │   │   │   ├── metadata.clj
-│   │   │   │   └── utils.clj
-│   │   │   ├── h2/
-│   │   │   │   ├── core.clj           # H2 adapter implementation
-│   │   │   │   ├── connection.clj
-│   │   │   │   ├── query.clj
-│   │   │   │   ├── metadata.clj
-│   │   │   │   └── utils.clj
-│   │   │   ├── mysql/
-│   │   │   │   ├── core.clj           # MySQL adapter implementation
-│   │   │   │   ├── connection.clj
-│   │   │   │   ├── query.clj
-│   │   │   │   ├── metadata.clj
-│   │   │   │   └── utils.clj
-│   │   │   └── utils/
-│   │   │       ├── schema.clj         # Schema generation utilities
-│   │   │       └── driver_loader.clj  # Dynamic driver loading
-│   │   ├── external/
-│   │   │   ├── email_smtp.clj
-│   │   │   ├── payment_stripe.clj
-│   │   │   └── notifications.clj
-│   │   └── filesystem/
-│   │       ├── config_files.clj
-│   │       └── temp_storage.clj
-│   ├── interfaces/        # External interface aggregators
-│   │   ├── http/
-│   │   │   ├── server.clj
-│   │   │   ├── middleware.clj
-│   │   │   ├── common.clj      # Shared HTTP utilities
-│   │   │   └── routes.clj      # Aggregates module routes
-│   │   ├── cli/
-│   │   │   ├── main.clj        # CLI entry point
-│   │   │   ├── parsing.clj     # Common CLI utilities
-│   │   │   └── commands.clj    # Aggregates module commands
-│   │   └── web/
-│   │       ├── websockets.clj
-│   │       └── sse.clj
-│   ├── system/            # System wiring and lifecycle
-│   │   ├── components.clj
-│   │   ├── lifecycle.clj
-│   │   └── wiring.clj
-│   └── utils/             # Shell utilities
-│       ├── logging.clj
-│       ├── metrics.clj
-│       ├── monitoring.clj
-│       └── error_handling.clj
+├── platform/              # 🧱 PLATFORM INFRASTRUCTURE
+│   ├── core/              # Shared pure platform logic (Problem Details, DB validation, etc.)
+│   └── shell/             # 🐚 SHARED IMPERATIVE SHELL
+│       ├── adapters/          # I/O adapter implementations
+│       │   ├── database/      # ✨ REFACTORED Oct 24, 2025
+│       │   │   ├── protocols.clj           # DatabaseConnection & DatabaseMetadata protocols
+│       │   │   ├── factory.clj             # Database adapter factory
+│       │   │   ├── core.clj               # Database-agnostic operations
+│       │   │   ├── postgresql/
+│       │   │   │   ├── core.clj           # PostgreSQL adapter implementation
+│       │   │   │   ├── connection.clj     # Connection management
+│       │   │   │   ├── query.clj          # Query building
+│       │   │   │   ├── metadata.clj       # Schema introspection
+│       │   │   │   └── utils.clj          # Type conversion utilities
+│       │   │   ├── sqlite/
+│       │   │   │   ├── core.clj           # SQLite adapter implementation
+│       │   │   │   ├── connection.clj
+│       │   │   │   ├── query.clj
+│       │   │   │   ├── metadata.clj
+│       │   │   │   └── utils.clj
+│       │   │   ├── h2/
+│       │   │   │   ├── core.clj           # H2 adapter implementation
+│       │   │   │   ├── connection.clj
+│       │   │   │   ├── query.clj
+│       │   │   │   ├── metadata.clj
+│       │   │   │   └── utils.clj
+│       │   │   ├── mysql/
+│       │   │   │   ├── core.clj           # MySQL adapter implementation
+│       │   │   │   ├── connection.clj
+│       │   │   │   ├── query.clj
+│       │   │   │   ├── metadata.clj
+│       │   │   │   └── utils.clj
+│       │   │   └── utils/
+│       │   │       ├── schema.clj         # Schema generation utilities
+│       │   │       └── driver_loader.clj  # Dynamic driver loading
+│       │   ├── external/
+│       │   │   ├── email_smtp.clj
+│       │   │   ├── payment_stripe.clj
+│       │   │   └── notifications.clj
+│       │   └── filesystem/
+│       │       ├── config_files.clj
+│       │       └── temp_storage.clj
+│       ├── interfaces/        # External interface aggregators
+│       │   ├── http/
+│       │   │   ├── server.clj
+│       │   │   ├── middleware.clj
+│       │   │   ├── common.clj      # Shared HTTP utilities
+│       │   │   └── routes.clj      # Aggregates module routes
+│       │   ├── cli/
+│       │   │   ├── main.clj        # CLI entry point
+│       │   │   ├── parsing.clj     # Common CLI utilities
+│       │   │   └── commands.clj    # Aggregates module commands
+│       │   └── web/
+│       │       ├── websockets.clj
+│       │       └── sse.clj
+│       ├── system/            # System wiring and lifecycle
+│       │   ├── components.clj
+│       │   ├── lifecycle.clj
+│       │   └── wiring.clj
+│       └── utils/             # Shell utilities
+│           ├── logging.clj
+│           ├── metrics.clj
+│           ├── monitoring.clj
+│           └── error_handling.clj
 └── config.clj             # ⚙️ Configuration management
 ```
 
