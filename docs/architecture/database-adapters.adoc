@@ -2,7 +2,7 @@
 
 [abstract]
 --
-This document explains the protocol-based database adapter architecture implemented in {project-name}. Completed October 24, 2025, this refactoring provides a unified, consistent interface for working with multiple database systems (SQLite, PostgreSQL, H2, MySQL) through well-defined protocols and database-specific implementations.
+This document explains the protocol-based database adapter architecture implemented in Boundary Framework. Completed October 24, 2025, this refactoring provides a unified, consistent interface for working with multiple database systems (SQLite, PostgreSQL, H2, MySQL) through well-defined protocols and database-specific implementations.
 --
 
 == Status and Overview
@@ -538,4 +538,4 @@ The protocol-based database adapter architecture provides a solid foundation for
 
 ---
 
-For detailed usage examples, see {xref-multi-db}[Multi-Database Usage Guide].
+For detailed usage examples, see link:../reference/multi-db-usage.adoc[Multi-Database Usage Guide].

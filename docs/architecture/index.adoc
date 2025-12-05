@@ -2,7 +2,7 @@
 
 == Overview
 
-This documentation provides comprehensive architectural guidance for the {project-name} framework - a **module-centric architecture** implementing the Functional Core / Imperative Shell pattern, where each domain module owns its complete functionality stack from pure business logic to external interfaces.
+This documentation provides comprehensive architectural guidance for the Boundary Framework framework - a **module-centric architecture** implementing the Functional Core / Imperative Shell pattern, where each domain module owns its complete functionality stack from pure business logic to external interfaces.
 
 [IMPORTANT]
 .P0 Gap Resolution
@@ -43,13 +43,13 @@ Consume REST endpoints for system integration
 
 === Foundation Documents
 
-{xref-overview}[**Architecture Overview**]::
+link:overview.adoc[**Architecture Overview**]::
 High-level architectural vision, FC/IS paradigm, key design decisions, and trade-offs
 
-{xref-components}[**Component Architecture**]::
+link:components.adoc[**Component Architecture**]::
 Namespace organization, module responsibilities, component interaction patterns
 
-{xref-layer-separation}[**Layer Separation Guidelines**]::
+link:layer-separation.adoc[**Layer Separation Guidelines**]::
 Explicit rules for FC/IS boundaries, dependency constraints, testing strategies
 
 **link:clean-architecture-layers.adoc[Clean Architecture Layer Separation]**::
@@ -57,13 +57,13 @@ Updated guidelines following clean architecture principles with domain-centric i
 
 === Core Patterns
 
-{xref-ports-adapters}[**Ports and Adapters**]::
+link:ports-and-adapters.adoc[**Ports and Adapters**]::
 Protocol definitions, adapter implementations, dependency injection patterns
 
-{xref-data-flow}[**Data Flow Architecture**]::
+link:data-flow.adoc[**Data Flow Architecture**]::
 End-to-end data flow, validation pipelines, error propagation patterns
 
-{xref-integration-patterns}[**Integration Patterns**]::
+link:integration-patterns.adoc[**Integration Patterns**]::
 REST API, CLI, and Web interface integration strategies
 
 **link:shared-utilities.adoc[Shared Utilities]**::
@@ -71,25 +71,25 @@ Reusable type conversion, case transformation, and validation utilities
 
 === Operational Concerns
 
-{xref-configuration}[**Configuration and Environment Management**]::
+link:configuration-and-env.adoc[**Configuration and Environment Management**]::
 Configuration sources, environment overlays, secrets management
 
-{xref-observability}[**Error Handling and Observability**]::
+link:error-handling-observability.adoc[**Error Handling and Observability**]::
 Error taxonomies, structured logging, metrics, and tracing patterns
 
 == Quick Start Guide
 
 For newcomers to the Boundary framework:
 
-1. **Start with** {xref-overview}[Architecture Overview] to understand the FC/IS paradigm
-2. **Review** {xref-layer-separation}[Layer Separation Guidelines] to understand boundaries
+1. **Start with** link:overview.adoc[Architecture Overview] to understand the FC/IS paradigm
+2. **Review** link:layer-separation.adoc[Layer Separation Guidelines] to understand boundaries
 3. **Study** **link:clean-architecture-layers.adoc[Clean Architecture Layer Separation]** for updated patterns
-4. **Study** {xref-components}[Component Architecture] for namespace organization
-5. **Implement** using patterns from {xref-ports-adapters}[Ports and Adapters]
+4. **Study** link:components.adoc[Component Architecture] for namespace organization
+5. **Implement** using patterns from link:ports-and-adapters.adoc[Ports and Adapters]
 
 == Diagrams and Visual References
 
-All architectural diagrams are maintained as PlantUML source files in `{diagrams-dir}/` and rendered automatically during documentation builds. Key diagrams include:
+All architectural diagrams are maintained as PlantUML source files in `images/` and rendered automatically during documentation builds. Key diagrams include:
 
 * **C4 Container Diagram**: System boundary and external integrations
 * **Component Overview**: Framework component interactions
@@ -98,7 +98,7 @@ All architectural diagrams are maintained as PlantUML source files in `{diagrams
 
 [TIP]
 ====
-**Diagram Updates**: When making architectural changes, update the corresponding `.puml` files in `{diagrams-dir}/` and reference them from multiple documents as needed.
+**Diagram Updates**: When making architectural changes, update the corresponding `.puml` files in `images/` and reference them from multiple documents as needed.
 ====
 
 == Contributing to Architecture Documentation
@@ -168,4 +168,4 @@ asciidoctor -r asciidoctor-diagram docs/architecture/overview.adoc
 
 ---
 
-**Next Steps:** Begin with {xref-overview}[Architecture Overview] to understand Boundary's foundational principles and design philosophy.
+**Next Steps:** Begin with link:overview.adoc[Architecture Overview] to understand Boundary's foundational principles and design philosophy.

@@ -2,7 +2,7 @@
 
 [abstract]
 --
-This document details configuration management strategies in {project-name}, covering environment-specific setup, secrets management, and system wiring patterns. It ensures the functional core remains pure while adapters receive appropriate configuration through dependency injection.
+This document details configuration management strategies in Boundary Framework, covering environment-specific setup, secrets management, and system wiring patterns. It ensures the functional core remains pure while adapters receive appropriate configuration through dependency injection.
 --
 
 == Audience and Scope
@@ -11,7 +11,7 @@ This document details configuration management strategies in {project-name}, cov
 
 **Scope:** Configuration sources, environment management, secrets handling, system startup
 
-**Prerequisites:** Understanding of {xref-components}[Component Architecture] and {xref-ports-adapters}[Ports and Adapters]
+**Prerequisites:** Understanding of link:components.adoc[Component Architecture] and link:ports-and-adapters.adoc[Ports and Adapters]
 
 == Key Takeaways
 
@@ -451,7 +451,7 @@ LOG_LEVEL=info
 
 Explore:
 
-1. **{xref-observability}[Error Handling and Observability]** - Monitoring configuration
+1. **link:error-handling-observability.adoc[Error Handling and Observability]** - Monitoring configuration
 2. **Deployment guides** - Environment-specific deployments
 
 == References

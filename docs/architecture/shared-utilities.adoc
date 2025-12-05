@@ -2,16 +2,16 @@
 
 [abstract]
 --
-This document provides comprehensive documentation for {project-name}'s shared utility modules, which provide reusable type conversion, case transformation, and validation patterns across the application. These utilities were extracted from domain modules to promote code reuse, consistency, and maintainability.
+This document provides comprehensive documentation for Boundary Framework's shared utility modules, which provide reusable type conversion, case transformation, and validation patterns across the application. These utilities were extracted from domain modules to promote code reuse, consistency, and maintainability.
 --
 
 == Audience and Scope
 
-**Primary Audience:** {audiences}
+**Primary Audience:** Domain Developers, Platform Engineers, API Integrators
 
 **Scope:** Shared utility functions, type conversions, validation patterns, and case transformations
 
-**Prerequisites:** Understanding of {xref-overview}[Architecture Overview] and basic Clojure concepts
+**Prerequisites:** Understanding of link:overview.adoc[Architecture Overview] and basic Clojure concepts
 
 == Key Takeaways
 
@@ -438,8 +438,8 @@ All shared utilities have extensive test coverage:
 
 Now that you understand shared utilities, explore how they integrate with:
 
-1. **{xref-components}[Component Architecture]** - How utilities fit into the overall architecture
-2. **{xref-data-flow}[Data Flow Architecture]** - Validation and transformation pipelines  
+1. **link:components.adoc[Component Architecture]** - How utilities fit into the overall architecture
+2. **link:data-flow.adoc[Data Flow Architecture]** - Validation and transformation pipelines  
 3. **Domain module documentation** - Specific integration examples
 
 == References

@@ -2,7 +2,7 @@
 
 [abstract]
 --
-This document details the integration patterns used in {project-name} to provide consistent behavior across REST API, CLI, and Web interfaces. It covers routing strategies, request processing patterns, response formatting, and versioning approaches that maintain architectural integrity while serving different client types.
+This document details the integration patterns used in Boundary Framework to provide consistent behavior across REST API, CLI, and Web interfaces. It covers routing strategies, request processing patterns, response formatting, and versioning approaches that maintain architectural integrity while serving different client types.
 --
 
 == Audience and Scope
@@ -11,7 +11,7 @@ This document details the integration patterns used in {project-name} to provide
 
 **Scope:** Interface-specific implementation patterns, routing strategies, versioning, backward compatibility
 
-**Prerequisites:** Understanding of {xref-data-flow}[Data Flow Architecture] and {xref-components}[Component Architecture]
+**Prerequisites:** Understanding of link:data-flow.adoc[Data Flow Architecture] and link:components.adoc[Component Architecture]
 
 == Key Takeaways
 
@@ -26,7 +26,7 @@ After reading this document, you will understand:
 == Integration Architecture Overview
 
 .Interface Integration Flow
-image::{diagrams-dir}/http-request-lifecycle.png[HTTP Request Lifecycle, 800]
+image::images/http-request-lifecycle.png[HTTP Request Lifecycle, 800]
 
 Boundary provides three primary integration interfaces, each tailored to specific use cases while maintaining consistent underlying behavior:
 
@@ -441,7 +441,7 @@ src/boundary.platform.shell.interfaces/http/
 == CLI Integration Patterns
 
 .CLI Command Processing Flow
-image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
+image::images/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 
 === Command Structure and Parsing
 
@@ -1033,8 +1033,8 @@ image::{diagrams-dir}/cli-command-lifecycle.png[CLI Command Lifecycle, 800]
 
 Now that you understand integration patterns, explore:
 
-1. **{xref-configuration}[Configuration and Environment Management]** - Environment-specific integration setup
-2. **{xref-observability}[Error Handling and Observability]** - Monitoring and debugging across interfaces
+1. **link:configuration-and-env.adoc[Configuration and Environment Management]** - Environment-specific integration setup
+2. **link:error-handling-observability.adoc[Error Handling and Observability]** - Monitoring and debugging across interfaces
 3. **Deployment considerations** - Load balancing, rate limiting, API gateways
 
 == References

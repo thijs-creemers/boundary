@@ -2,7 +2,7 @@
 
 [abstract]
 --
-This document provides a detailed breakdown of {project-name}'s component organization, namespace responsibilities, and interaction patterns. It explains how the codebase is structured to maintain clear boundaries between functional core and imperative shell layers, and how components collaborate to deliver business functionality.
+This document provides a detailed breakdown of Boundary Framework's component organization, namespace responsibilities, and interaction patterns. It explains how the codebase is structured to maintain clear boundaries between functional core and imperative shell layers, and how components collaborate to deliver business functionality.
 --
 
 == Audience and Scope
@@ -11,7 +11,7 @@ This document provides a detailed breakdown of {project-name}'s component organi
 
 **Scope:** Namespace organization, module responsibilities, component interactions, system wiring
 
-**Prerequisites:** Understanding of {xref-overview}[Architecture Overview] and {xref-layer-separation}[Layer Separation Guidelines]
+**Prerequisites:** Understanding of link:overview.adoc[Architecture Overview] and link:layer-separation.adoc[Layer Separation Guidelines]
 
 == Key Takeaways
 
@@ -925,7 +925,7 @@ Modules can depend on each other through well-defined ports:
 === Request Processing Flow
 
 .HTTP Request Processing Sequence
-image::{diagrams-dir}/http-request-lifecycle.png[HTTP Request Lifecycle, 800]
+image::images/http-request-lifecycle.png[HTTP Request Lifecycle, 800]
 
 The sequence diagram shows how components interact during a typical HTTP request:
 
@@ -1207,9 +1207,9 @@ The sequence diagram shows how components interact during a typical HTTP request
 
 Now that you understand component architecture, explore:
 
-1. **{xref-data-flow}[Data Flow Architecture]** - How data moves through components
-2. **{xref-integration-patterns}[Integration Patterns]** - Interface-specific patterns
-3. **{xref-configuration}[Configuration and Environment Management]** - Component wiring
+1. **link:data-flow.adoc[Data Flow Architecture]** - How data moves through components
+2. **link:integration-patterns.adoc[Integration Patterns]** - Interface-specific patterns
+3. **link:configuration-and-env.adoc[Configuration and Environment Management]** - Component wiring
 
 == References
 

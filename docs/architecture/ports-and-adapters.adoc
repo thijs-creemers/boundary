@@ -2,7 +2,7 @@
 
 [abstract]
 --
-This document explains the implementation of the Ports and Adapters pattern (Hexagonal Architecture) in {project-name}. It covers the definition of ports as Clojure protocols, the implementation of adapters as concrete I/O handlers, and the dependency injection patterns that enable testable, flexible architecture.
+This document explains the implementation of the Ports and Adapters pattern (Hexagonal Architecture) in Boundary Framework. It covers the definition of ports as Clojure protocols, the implementation of adapters as concrete I/O handlers, and the dependency injection patterns that enable testable, flexible architecture.
 --
 
 == Audience and Scope
@@ -11,7 +11,7 @@ This document explains the implementation of the Ports and Adapters pattern (Hex
 
 **Scope:** Port definitions, adapter implementations, dependency injection, testing strategies
 
-**Prerequisites:** Understanding of {xref-overview}[Architecture Overview] and {xref-layer-separation}[Layer Separation Guidelines]
+**Prerequisites:** Understanding of link:overview.adoc[Architecture Overview] and link:layer-separation.adoc[Layer Separation Guidelines]
 
 == Key Takeaways
 
@@ -684,9 +684,9 @@ Adapters can orchestrate multiple external services for reliability or feature c
 
 Now that you understand ports and adapters, explore:
 
-1. **{xref-data-flow}[Data Flow Architecture]** - How data flows through ports and adapters
-2. **{xref-integration-patterns}[Integration Patterns]** - Using ports and adapters in different interfaces
-3. **{xref-configuration}[Configuration and Environment Management]** - Wiring adapters based on configuration
+1. **link:data-flow.adoc[Data Flow Architecture]** - How data flows through ports and adapters
+2. **link:integration-patterns.adoc[Integration Patterns]** - Using ports and adapters in different interfaces
+3. **link:configuration-and-env.adoc[Configuration and Environment Management]** - Wiring adapters based on configuration
 
 == References
 

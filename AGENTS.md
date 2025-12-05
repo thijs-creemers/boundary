@@ -32,7 +32,7 @@
 
 ## Project Overview
 
-Boundary is a **module-centric software framework** built on Clojure that implements the "Functional Core / Imperative Shell" architectural paradigm.
+Boundary is a **module-centric software framework** built on Clojure that implements the "Functional Core / Imperative Shell" architectural paradigm. Our PRD can be found [here](docs/reference/boundary-prd.adoc).
 
 ### Key Characteristics
 
@@ -1485,8 +1485,8 @@ console.log(htmx);
 - [docs/guides/](docs/guides/) - Tutorials and how-to guides
 - [docs/OBSERVABILITY_INTEGRATION.md](docs/OBSERVABILITY_INTEGRATION.md) - Logging, metrics, error reporting
 - [docs/DECISIONS.md](docs/DECISIONS.md) - Technical and architectural decisions
-- [PRD.adoc](PRD.adoc) - Product requirements and vision
-- [warp.md](warp.md) - Full developer guide with detailed examples
+- [PRD.adoc](docs/reference/boundary-prd.adoc) - Product requirements and vision
+- [AGENTS.md](AGENTS.md) - Full developer guide with detailed examples
 
 ### External References
 - [Functional Core, Imperative Shell](https://www.destroyallsoftware.com/screencasts/catalog/functional-core-imperative-shell) - Original concept
@@ -1503,20 +1503,20 @@ console.log(htmx);
 ╔════════════════════════════════════════════════════════════════╗
 ║                  BOUNDARY FRAMEWORK CHEAT SHEET                ║
 ╠════════════════════════════════════════════════════════════════╣
-║ TEST    │ clojure -M:test:db/h2 --watch --focus-meta :unit    ║
-║ LINT    │ clojure -M:clj-kondo --lint src test                ║
-║ REPL    │ clojure -M:repl-clj                                 ║
-║         │ (ig-repl/go)    (ig-repl/reset)    (ig-repl/halt)  ║
-║ BUILD   │ clojure -T:build clean && clojure -T:build uber    ║
+║ TEST    │ clojure -M:test:db/h2 --watch --focus-meta :unit     ║
+║ LINT    │ clojure -M:clj-kondo --lint src test                 ║
+║ REPL    │ clojure -M:repl-clj                                  ║
+║         │ (ig-repl/go)    (ig-repl/reset)    (ig-repl/halt)    ║
+║ BUILD   │ clojure -T:build clean && clojure -T:build uber      ║
 ╠════════════════════════════════════════════════════════════════╣
-║ CORE    │ Pure functions only, no side effects               ║
-║ SHELL   │ All I/O, validation, error handling                ║
-║ PORTS   │ Protocol definitions (abstractions)                ║
-║ SCHEMA  │ Malli schemas for validation                       ║
+║ CORE    │ Pure functions only, no side effects                 ║
+║ SHELL   │ All I/O, validation, error handling                  ║
+║ PORTS   │ Protocol definitions (abstractions)                  ║
+║ SCHEMA  │ Malli schemas for validation                         ║
 ╠════════════════════════════════════════════════════════════════╣
-║ PITFALL │ snake_case (DB) vs kebab-case (Clojure)            ║
-║ PITFALL │ defrecord changes need full REPL restart           ║
-║ PITFALL │ Use clojure-mcp for editing Clojure files          ║
+║ PITFALL │ snake_case (DB) vs kebab-case (Clojure)              ║
+║ PITFALL │ defrecord changes need full REPL restart             ║
+║ PITFALL │ Use clojure-mcp for editing Clojure files            ║
 ╚════════════════════════════════════════════════════════════════╝
 ```
 

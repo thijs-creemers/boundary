@@ -378,9 +378,9 @@ All tests pass, including specific tests for the driver loading functionality.
 
 == Related Documentation
 
-* {xref-database-adapters}[Database Adapter Architecture] - Protocol-based adapter system
-* {xref-multi-db}[Multi-Database Usage Guide] - Working with multiple databases
-* {xref-configuration}[Configuration Management] - Environment configuration
+* link:database-adapters.adoc[Database Adapter Architecture] - Protocol-based adapter system
+* link:../reference/multi-db-usage.adoc[Multi-Database Usage Guide] - Working with multiple databases
+* link:configuration-and-env.adoc[Configuration Management] - Environment configuration
 
 == References
 
@@ -390,4 +390,4 @@ All tests pass, including specific tests for the driver loading functionality.
 
 ---
 
-For detailed usage examples and configuration patterns, see the {xref-database-adapters}[Database Adapter Architecture] documentation.
+For detailed usage examples and configuration patterns, see the link:database-adapters.adoc[Database Adapter Architecture] documentation.

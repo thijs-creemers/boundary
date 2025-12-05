@@ -2,7 +2,7 @@
 
 [abstract]
 --
-This document details how data flows through {project-name}'s architectural layers, from external interfaces to the functional core and back. It covers validation pipelines, data transformation patterns, error propagation strategies, and consistency patterns across REST API, CLI, and Web interfaces.
+This document details how data flows through Boundary Framework's architectural layers, from external interfaces to the functional core and back. It covers validation pipelines, data transformation patterns, error propagation strategies, and consistency patterns across REST API, CLI, and Web interfaces.
 --
 
 == Audience and Scope
@@ -11,7 +11,7 @@ This document details how data flows through {project-name}'s architectural laye
 
 **Scope:** Data flow patterns, validation strategies, transformation pipelines, error handling
 
-**Prerequisites:** Understanding of {xref-overview}[Architecture Overview], {xref-layer-separation}[Layer Separation Guidelines], and {xref-components}[Component Architecture]
+**Prerequisites:** Understanding of link:overview.adoc[Architecture Overview], link:layer-separation.adoc[Layer Separation Guidelines], and link:components.adoc[Component Architecture]
 
 == Key Takeaways
 
@@ -28,7 +28,7 @@ After reading this document, you will understand:
 === Request Processing Pipeline
 
 .HTTP Request Processing Lifecycle
-image::{diagrams-dir}/http-request-lifecycle.png[HTTP Request Lifecycle, 800]
+image::images/http-request-lifecycle.png[HTTP Request Lifecycle, 800]
 
 The request lifecycle shows the complete data journey through Boundary's architecture:
 
@@ -41,7 +41,7 @@ The request lifecycle shows the complete data journey through Boundary's archite
 7. **External Response** returns formatted response to client
 
 .Validation and Data Transformation Pipeline
-image::{diagrams-dir}/validation-pipeline.png[Validation Pipeline, 400]
+image::images/validation-pipeline.png[Validation Pipeline, 400]
 
 The validation pipeline ensures data integrity at the shell boundary:
 - **Raw Input** → **Parse** → **Schema Lookup** → **Type Coercion** → **Validation** → **Core Processing**
@@ -1012,9 +1012,9 @@ Boundary ensures consistent behavior across all interfaces through:
 
 Now that you understand data flow architecture, explore:
 
-1. **{xref-integration-patterns}[Integration Patterns]** - Interface-specific implementation details
-2. **{xref-configuration}[Configuration and Environment Management]** - Environment-specific data flow
-3. **{xref-observability}[Error Handling and Observability]** - Advanced error tracking and monitoring
+1. **link:integration-patterns.adoc[Integration Patterns]** - Interface-specific implementation details
+2. **link:configuration-and-env.adoc[Configuration and Environment Management]** - Environment-specific data flow
+3. **link:error-handling-observability.adoc[Error Handling and Observability]** - Advanced error tracking and monitoring
 
 == References
 

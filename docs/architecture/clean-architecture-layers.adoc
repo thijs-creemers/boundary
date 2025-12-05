@@ -2,7 +2,7 @@
 
 [abstract]
 --
-This document establishes the updated layer separation guidelines for {project-name} following clean architecture principles. It provides concrete examples of the new domain-centric module structure with proper separation between business logic, application services, and infrastructure implementations.
+This document establishes the updated layer separation guidelines for Boundary Framework following clean architecture principles. It provides concrete examples of the new domain-centric module structure with proper separation between business logic, application services, and infrastructure implementations.
 --
 
 == Audience and Scope
@@ -11,7 +11,7 @@ This document establishes the updated layer separation guidelines for {project-n
 
 **Scope:** Clean architecture boundaries, dependency injection patterns, infrastructure separation
 
-**Prerequisites:** Understanding of {xref-overview}[Architecture Overview] and {xref-layer-separation}[Layer Separation Guidelines]
+**Prerequisites:** Understanding of link:overview.adoc[Architecture Overview] and link:layer-separation.adoc[Layer Separation Guidelines]
 
 == Key Takeaways
 
@@ -389,9 +389,9 @@ note right of [Database Adapters] : Implements interfaces\nHandles transformatio
 
 Explore related documentation:
 
-1. **{xref-overview}[Architecture Overview]** - High-level architectural decisions
-2. **{xref-components}[Component Architecture]** - Detailed module implementation patterns
-3. **{xref-ports-adapters}[Ports and Adapters]** - Interface design patterns
+1. **link:overview.adoc[Architecture Overview]** - High-level architectural decisions
+2. **link:components.adoc[Component Architecture]** - Detailed module implementation patterns
+3. **link:ports-and-adapters.adoc[Ports and Adapters]** - Interface design patterns
 
 == References
 

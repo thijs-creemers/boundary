@@ -2,9 +2,9 @@
 
 [abstract]
 --
-This document outlines the implemented error handling strategies, observability patterns, and monitoring approaches in {project-name}. It describes the concrete observability infrastructure including logging, metrics, and error reporting modules that provide comprehensive monitoring and debugging capabilities across the functional core and imperative shell.
+This document outlines the implemented error handling strategies, observability patterns, and monitoring approaches in Boundary Framework. It describes the concrete observability infrastructure including logging, metrics, and error reporting modules that provide comprehensive monitoring and debugging capabilities across the functional core and imperative shell.
 
-**🎯 Framework Evolution Achievement**: {project-name} now features a sophisticated **multi-layer interceptor pattern** that eliminates observability boilerplate while preserving business logic purity. This represents a major framework maturity milestone with 31/31 methods converted and 48-64% code reduction achieved.
+**🎯 Framework Evolution Achievement**: Boundary Framework now features a sophisticated **multi-layer interceptor pattern** that eliminates observability boilerplate while preserving business logic purity. This represents a major framework maturity milestone with 31/31 methods converted and 48-64% code reduction achieved.
 --
 
 == Audience and Scope
@@ -13,7 +13,7 @@ This document outlines the implemented error handling strategies, observability 
 
 **Scope:** Implemented observability modules, error handling patterns, logging strategies, metrics collection, monitoring setup
 
-**Prerequisites:** Understanding of {xref-components}[Component Architecture] and {xref-ports-adapters}[Ports and Adapters]
+**Prerequisites:** Understanding of link:components.adoc[Component Architecture] and link:ports-and-adapters.adoc[Ports and Adapters]
 
 == Key Takeaways
 
@@ -27,7 +27,7 @@ This document outlines the implemented error handling strategies, observability 
 
 == Observability Architecture Overview
 
-{project-name} implements a comprehensive observability infrastructure organized into three core modules:
+Boundary Framework implements a comprehensive observability infrastructure organized into three core modules:
 
 * **`boundary.logging`** - Structured application and audit logging
 * **`boundary.metrics`** - Business and system metrics collection  
@@ -46,7 +46,7 @@ Each module follows the ports-and-adapters pattern with:
 ====
 **🎯 Framework Evolution Achievement**
 
-{project-name} has successfully implemented a **multi-layer interceptor pattern** that represents a significant framework maturity milestone:
+Boundary Framework has successfully implemented a **multi-layer interceptor pattern** that represents a significant framework maturity milestone:
 
 **Key Achievements:**
 - ✅ **31/31 methods converted** across service and persistence layers
@@ -612,7 +612,7 @@ Each module provides production-ready shell adapters:
 
 Explore:
 
-1. **{xref-integration}[Integration Patterns]** - Connecting observability to external systems
+1. **link:integration-patterns.adoc[Integration Patterns]** - Connecting observability to external systems
 2. **Deployment guides** - Production monitoring setup with Prometheus, Grafana, and Sentry
 
 == References

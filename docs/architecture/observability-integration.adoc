@@ -2,7 +2,7 @@
 
 [abstract]
 --
-This guide provides practical instructions for integrating observability modules into {project-name} applications. It covers step-by-step setup, configuration, and usage patterns for logging, metrics, and error reporting in both development and production environments.
+This guide provides practical instructions for integrating observability modules into Boundary Framework applications. It covers step-by-step setup, configuration, and usage patterns for logging, metrics, and error reporting in both development and production environments.
 --
 
 == Audience and Scope
@@ -11,7 +11,7 @@ This guide provides practical instructions for integrating observability modules
 
 **Scope:** Practical integration steps, configuration examples, common patterns
 
-**Prerequisites:** Understanding of {xref-error-handling-observability}[Error Handling & Observability] architecture
+**Prerequisites:** Understanding of link:error-handling-observability.adoc[Error Handling & Observability] architecture
 
 == Quick Start
 
@@ -868,7 +868,7 @@ Batch metrics for better performance:
 
 == References
 
-* **{xref-error-handling-observability}[Error Handling & Observability]** - Architecture overview
+* **link:error-handling-observability.adoc[Error Handling & Observability]** - Architecture overview
 * **Boundary Observability Integration** - `docs/OBSERVABILITY_INTEGRATION.md`
 * **System Wiring Configuration** - `src/boundary/shell/system/wiring.clj`
 * **Protocol Implementations** - `src/boundary/{logging,metrics,error-reporting}/shell/adapters.clj`

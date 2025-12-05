@@ -2,12 +2,12 @@
 
 [abstract]
 --
-This document provides a comprehensive overview of the {project-name} framework's architecture, focusing on the Functional Core / Imperative Shell (FC/IS) paradigm that separates pure business logic from side-effectful operations. It serves as the foundational reference for understanding Boundary's design philosophy, key architectural decisions, and how the framework achieves high testability, maintainability, and reliability.
+This document provides a comprehensive overview of the Boundary Framework framework's architecture, focusing on the Functional Core / Imperative Shell (FC/IS) paradigm that separates pure business logic from side-effectful operations. It serves as the foundational reference for understanding Boundary's design philosophy, key architectural decisions, and how the framework achieves high testability, maintainability, and reliability.
 --
 
 == Audience and Scope
 
-**Primary Audience:** {audiences}
+**Primary Audience:** Domain Developers, Platform Engineers, API Integrators
 
 **Scope:** High-level architectural vision, design patterns, and cross-cutting concerns
 
@@ -232,7 +232,7 @@ Within each module, Boundary implements the FC/IS architectural pattern, which p
 === High-Level System Context
 
 .Boundary Framework - C4 Container View
-image::{diagrams-dir}/c4-container.png[C4 Container Diagram, 800]
+image::images/c4-container.png[C4 Container Diagram, 800]
 
 The system serves three distinct user types through separate interfaces while maintaining a unified architectural core:
 
@@ -251,7 +251,7 @@ The system serves three distinct user types through separate interfaces while ma
 === Component Interaction Overview
 
 .Framework Component Architecture
-image::{diagrams-dir}system-component-overview.png[Component Overview, 800]
+image::imagessystem-component-overview.png[Component Overview, 800]
 
 The component diagram illustrates the key architectural elements:
 
@@ -409,10 +409,10 @@ Boundary enforces strict dependency rules to maintain architectural integrity:
 
 Now that you understand Boundary's architectural foundation, explore the detailed documentation:
 
-1. **{xref-layer-separation}[Layer Separation Guidelines]** - Detailed rules for FC/IS boundaries
-2. **{xref-components}[Component Architecture]** - Namespace organization and module structure
-3. **{xref-ports-adapters}[Ports and Adapters]** - Protocol patterns and dependency injection
-4. **{xref-data-flow}[Data Flow Architecture]** - Request processing and validation pipelines
+1. **link:layer-separation.adoc[Layer Separation Guidelines]** - Detailed rules for FC/IS boundaries
+2. **link:components.adoc[Component Architecture]** - Namespace organization and module structure
+3. **link:ports-and-adapters.adoc[Ports and Adapters]** - Protocol patterns and dependency injection
+4. **link:data-flow.adoc[Data Flow Architecture]** - Request processing and validation pipelines
 
 == References
 

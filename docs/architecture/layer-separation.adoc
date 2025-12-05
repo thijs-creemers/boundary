@@ -9,7 +9,7 @@
 The examples in this document use the older `boundary.core.user` patterns which have been superseded by `boundary.user.shell.service` and `boundary.user.infrastructure.database`.
 ====
 
-This document establishes explicit rules and guidelines for maintaining the Functional Core / Imperative Shell architectural boundaries in {project-name}. It provides concrete examples of correct and incorrect implementations, dependency constraints, and testing strategies that ensure architectural integrity.
+This document establishes explicit rules and guidelines for maintaining the Functional Core / Imperative Shell architectural boundaries in Boundary Framework. It provides concrete examples of correct and incorrect implementations, dependency constraints, and testing strategies that ensure architectural integrity.
 --
 
 == Audience and Scope
@@ -18,7 +18,7 @@ This document establishes explicit rules and guidelines for maintaining the Func
 
 **Scope:** FC/IS boundary rules, dependency constraints, code organization patterns, testing strategies
 
-**Prerequisites:** Understanding of {xref-overview}[Architecture Overview] and functional programming principles
+**Prerequisites:** Understanding of link:overview.adoc[Architecture Overview] and functional programming principles
 
 == Key Takeaways
 
@@ -576,9 +576,9 @@ src/boundary/
 
 Now that you understand the layer separation rules, explore:
 
-1. **{xref-components}[Component Architecture]** - How to organize namespaces and modules
-2. **{xref-ports-adapters}[Ports and Adapters]** - Implementing dependency inversion
-3. **{xref-data-flow}[Data Flow Architecture]** - Request processing patterns
+1. **link:components.adoc[Component Architecture]** - How to organize namespaces and modules
+2. **link:ports-and-adapters.adoc[Ports and Adapters]** - Implementing dependency inversion
+3. **link:data-flow.adoc[Data Flow Architecture]** - Request processing patterns
 
 == References
 

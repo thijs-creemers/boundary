@@ -88,13 +88,25 @@ issues and solutions
 
 Technical reference documentation for APIs, commands, and configuration.
 
+* link:reference/boundary-prd.adoc[Product Requirements Document] - Complete 
+PRD with architecture and specifications
 * link:reference/commands.adoc[Commands] - CLI command reference
+* link:reference/cli/user-cli.adoc[User CLI Reference] - User management 
+CLI commands
 * link:reference/configuration.adoc[Configuration] - Configuration
 options and structure
+* link:reference/multi-db-usage.adoc[Multi-Database Usage] - Guide for 
+using multiple database adapters
 * link:reference/error-codes.adoc[Error Codes] - System error codes and
 meanings
+* link:reference/observability-reference.adoc[Observability Reference] - 
+Logging, metrics, and error reporting API
+* link:reference/user-module-observability.adoc[User Module Observability] - 
+Observability implementation example
 * link:reference/scaffolder.adoc[Scaffolder] - Module scaffolding tool
 reference
+* link:reference/validation-guide.adoc[Validation Guide] - Complete 
+validation system developer guide
 * link:reference/validation-patterns.adoc[Validation Patterns] -
 Validation approach and patterns
 

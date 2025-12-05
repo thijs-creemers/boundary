@@ -1,0 +1,12 @@
+baseURL = "/docs/"
+title = "Boundar documentation"
+#theme = "papermod"
+
+# Broncontent in ./docs
+contentDir = "docs"
+
+# Build-output naar ./resources/public/docs
+publishDir = "resources/public/docs"
+
+[markup.asciidocExt]
+workingFolderCurrent = true
