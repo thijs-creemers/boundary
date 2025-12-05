@@ -22,6 +22,18 @@ The module scaffolder dramatically accelerates development velocity while mainta
 
 This completes a major infrastructure milestone, enabling rapid expansion of the framework with guaranteed quality and consistency.
 
+## 🧭 Roadmap Alignment (docs/roadmap.md)
+
+The high-level roadmap in `docs/roadmap.md` defines five phases for Boundary as a general-purpose framework and Django/Rails alternative. The current implementation status maps to those phases as follows:
+
+- **Phase 0 – Solidify Boundary Core (Baseline)**: 🟢 **Complete**  \n  Core FC/IS architecture, Integrant wiring, persistence abstraction (multi-DB), observability infrastructure, and a small end-to-end example (user module) are all implemented and well documented.
+- **Phase 1 – Framework-Parity Foundation**: 🟢 **Largely complete**  \n  Auth, validation, error handling (RFC 7807), background jobs architecture, observability, multi-interface patterns (HTTP/CLI/Web), and DB scaffolding foundations are in place. Remaining work focuses on polishing migrations and a more opinionated DB-first scaffolding experience.
+- **Phase 2 – Developer Productivity & Admin UX**: 🟡 **In progress**  \n  The module scaffolder is production-ready, CLI tooling exists, and Web UI patterns are implemented for the user module. Admin-style CRUD UIs and fully polished CLI/dev workflows across modules are the main missing pieces.
+- **Phase 3 – Migration Tooling & Multi-Framework Support**: 🔴 **Planned**  \n  Conceptual roadmap exists (coexistence cookbook, HTTP contract preservation, migration guides for Django/Rails), but concrete tooling and docs are not yet implemented.
+- **Phase 4 – Ecosystem & Polish**: 🔴 **Planned**  \n  Extension model, advanced persistence backends (Datomic/XTDB), and framework-level templates ("Django-class" / "Rails-class" app) are future work.
+
+This status document tracks *current implementation details*; the roadmap document captures the *target capabilities and phases*.
+
 ## ✅ What's Working
 
 ### Core Architecture

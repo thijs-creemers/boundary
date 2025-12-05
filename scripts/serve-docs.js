@@ -13,7 +13,7 @@ const { spawn } = require('child_process');
 // Configuration
 const DEFAULT_PORT = 8080;
 const PORT_RANGE_SIZE = 20; // Try ports 8080-8099
-const DOCS_DIR = path.join(__dirname, '..', 'resources', 'public', 'docs');
+const DOCS_DIR = path.join(__dirname, '..', 'docs');
 
 /**
  * Check if a port is available
@@ -48,14 +48,14 @@ async function findAvailablePort(startPort = DEFAULT_PORT) {
 function validateDocsDirectory() {
   if (!fs.existsSync(DOCS_DIR)) {
     console.error('❌ Documentation directory not found:', DOCS_DIR);
-    console.log('💡 Run "npm run build-docs" first to generate documentation');
+    console.log('💡 Ensure you are in the project root directory');
     process.exit(1);
   }
   
   const files = fs.readdirSync(DOCS_DIR);
   if (files.length === 0) {
     console.error('❌ Documentation directory is empty:', DOCS_DIR);
-    console.log('💡 Run "npm run build-docs" first to generate documentation');
+    console.log('💡 Ensure you are in the project root directory');
     process.exit(1);
   }
 }

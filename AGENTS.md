@@ -1480,10 +1480,13 @@ console.log(htmx);
 ## Additional Resources
 
 ### Internal Documentation
-- [warp.md](warp.md) - Full developer guide with detailed examples
-- [PRD.adoc](PRD.adoc) - Product requirements and vision
+- [docs/README.md](docs/README.md) - Main documentation index
+- [docs/architecture/](docs/architecture/) - Architecture patterns and design
+- [docs/guides/](docs/guides/) - Tutorials and how-to guides
 - [docs/OBSERVABILITY_INTEGRATION.md](docs/OBSERVABILITY_INTEGRATION.md) - Logging, metrics, error reporting
-- [docs/user-guide/DECISIONS.md](docs/user-guide/DECISIONS.md) - Architectural decisions
+- [docs/DECISIONS.md](docs/DECISIONS.md) - Technical and architectural decisions
+- [PRD.adoc](PRD.adoc) - Product requirements and vision
+- [warp.md](warp.md) - Full developer guide with detailed examples
 
 ### External References
 - [Functional Core, Imperative Shell](https://www.destroyallsoftware.com/screencasts/catalog/functional-core-imperative-shell) - Original concept

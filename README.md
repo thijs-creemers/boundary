@@ -4,11 +4,11 @@ A module-centric Clojure framework implementing the Functional Core / Imperative
 
 ## Quick Start
 
-**→ [User Guide](docs/user-guide/index.adoc) ←** - Get started with tutorials and practical how-to guides
+**→ [Documentation](docs/README.md) ←** - Complete documentation index
 
-**→ [Developer Guide (warp.md)](./warp.md) ←** - Comprehensive reference for development, architecture, and advanced topics
+**→ [Developer Guide (AGENTS.md)](./AGENTS.md) ←** - Comprehensive reference for development, architecture, and advanced topics
 
-The **User Guide** provides persona-based learning paths, quickstart tutorials, and step-by-step how-to guides for common tasks. The **Developer Guide** offers in-depth architectural documentation and complete development reference.
+The **[Documentation](docs/README.md)** provides architecture guides, tutorials, how-to guides, API references, and ADRs. The **Developer Guide** offers a quick reference for AI agents and developers with commands, patterns, and troubleshooting.
 
 ### Minimal Setup
 
@@ -175,37 +175,22 @@ validation:
 
 ## Documentation
 
-### Development
-- **[Developer Guide (warp.md)](./warp.md)** - Complete development reference
-- **[PRD Summary](docs/PRD-IMPROVEMENT-SUMMARY.adoc)** - Project requirements and improvements
-- **[Full PRD](docs/boundary.prd.adoc)** - Comprehensive product requirements
+**Main Documentation**: [docs/README.md](docs/README.md)
 
-### Architecture
-- **[Architecture Overview](docs/architecture/overview.adoc)** - High-level architectural decisions
-- **[Component Architecture](docs/architecture/components.adoc)** - Detailed component interactions
-- **[Data Flow](docs/architecture/data-flow.adoc)** - Request processing patterns
-- **[Ports and Adapters](docs/architecture/ports-and-adapters.adoc)** - Hexagonal architecture guide
-- **[User Module Architecture](docs/user-module-architecture.md)** - Clean architecture implementation example
+### Quick Links
+- **[Architecture](docs/architecture/)** - Architecture patterns and design principles
+- **[Guides](docs/guides/)** - Tutorials and how-to guides including [Quickstart](docs/guides/quickstart.adoc)
+- **[Reference](docs/reference/)** - Commands, configuration, error codes, and scaffolder
+- **[API Examples](docs/api/)** - Complete API implementation examples
+- **[ADRs](docs/adr/)** - Architecture Decision Records
 
-### Infrastructure & Migration
-- **[Migration Guide](docs/migration-guide.md)** - Step-by-step migration to new infrastructure
-- **[Infrastructure Examples](examples/user_infrastructure_example.clj)** - Working code examples
-- **[Refactoring Summary](INFRASTRUCTURE-REFACTOR-SUMMARY.md)** - Complete overview of changes
-- **[Dynamic Driver Loading](docs/DYNAMIC_DRIVER_LOADING.md)** - Automatic JDBC driver loading system
-- **[Observability Integration](docs/OBSERVABILITY_INTEGRATION.md)** - Complete guide for logging, metrics, and error reporting
+### Developer Resources
+- **[AGENTS.md](./AGENTS.md)** - Comprehensive developer and agent guide
+- **[warp.md](./warp.md)** - Full development reference
+- **[PRD.adoc](PRD.adoc)** - Product requirements document
 
-### Build Documentation
-
-```bash
-# Build individual documents
-asciidoctor -D build/docs docs/architecture/components.adoc
-asciidoctor -D build/docs docs/architecture/data-flow.adoc
-
-# Build all architecture docs
-``` bash
-```
-cd docs/architecture && for doc in *.adoc; do asciidoctor -D ../../build/docs "$doc"; done
-cd -
-```
-```
-```
+### Key Documentation
+- **[Observability Integration](docs/OBSERVABILITY_INTEGRATION.md)** - Logging, metrics, and error reporting
+- **[Docker Development](docs/DOCKER_DEVELOPMENT.md)** - Docker-based development setup
+- **[Decisions](docs/DECISIONS.md)** - Technical and architectural decisions
+- **[Roadmap](docs/roadmap.md)** - Project roadmap and future plans

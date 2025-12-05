@@ -1,2 +1,0 @@
-* API Reference
-** xref:post-users-example.adoc[POST /users Example]
