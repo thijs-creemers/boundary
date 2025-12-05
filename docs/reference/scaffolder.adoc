@@ -1,0 +1,636 @@
+= Scaffolder Reference
+:description: Complete reference for the Boundary Framework module scaffolder
+:keywords: scaffolder, code generation, module creation, CLI reference
+
+The Boundary Framework includes a powerful scaffolder that generates complete, production-ready modules following the Functional Core/Imperative Shell architecture pattern.
+
+== Overview
+
+The scaffolder is a CLI tool that generates all necessary files for a new module, including:
+
+* Core business logic
+* Shell service layer
+* Database persistence
+* HTTP REST API routes
+* Web UI handlers and templates
+* Malli schemas
+* Protocol definitions
+* Comprehensive tests
+* Database migrations
+
+All generated code is:
+
+* ✅ **Production-ready** - Follows established patterns
+* ✅ **Fully tested** - Includes unit, integration, and contract tests
+* ✅ **Zero lint errors** - Passes clj-kondo validation
+* ✅ **FC/IS compliant** - Strict layer separation
+* ✅ **Multi-interface** - REST API, Web UI, and CLI support
+
+== Quick Start
+
+=== Basic Usage
+
+[source,bash]
+----
+# Generate a complete module
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name product \
+  --entity Product \
+  --field name:string:required \
+  --field sku:string:required:unique \
+  --field price:decimal:required \
+  --field description:text
+----
+
+=== Dry Run Mode
+
+Preview what will be generated without creating files:
+
+[source,bash]
+----
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name product \
+  --entity Product \
+  --field name:string:required \
+  --dry-run
+----
+
+== Field Specification
+
+=== Format
+
+Fields follow this pattern:
+
+[source]
+----
+name:type[:required][:unique]
+----
+
+Where:
+
+* `name` - Field name (kebab-case recommended)
+* `type` - Data type (see supported types below)
+* `required` - Optional flag (include to make field required)
+* `unique` - Optional flag (include to add database unique constraint)
+
+=== Supported Types
+
+[cols="1,2,2,2"]
+|===
+|Type |Description |Example |Generated Malli Schema
+
+|`string`
+|Variable length text
+|`name:string:required`
+|`[:string {:min 1}]`
+
+|`text`
+|Long-form text
+|`description:text`
+|`:string`
+
+|`int` / `integer`
+|Integer numbers
+|`age:int`
+|`:int`
+
+|`decimal`
+|Decimal numbers
+|`price:decimal:required`
+|`number?`
+
+|`boolean`
+|True/false values
+|`active:boolean`
+|`:boolean`
+
+|`email`
+|Email addresses
+|`email:email:required:unique`
+|`:email`
+
+|`uuid`
+|UUID identifiers
+|`external-id:uuid:unique`
+|`:uuid`
+
+|`enum`
+|Enumeration values
+|`status:enum:required`
+|`[:enum :active :inactive]`
+
+|`date`
+|Date only
+|`birth-date:date`
+|`inst?`
+
+|`datetime`
+|Date and time
+|`created-at:datetime:required`
+|`inst?`
+
+|`inst`
+|Timestamp
+|`updated-at:inst`
+|`inst?`
+
+|`json`
+|JSON/map data
+|`metadata:json`
+|`map?`
+|===
+
+=== Field Examples
+
+[source,bash]
+----
+# Required unique email
+--field email:email:required:unique
+
+# Required string
+--field name:string:required
+
+# Optional integer
+--field age:int
+
+# Optional enum
+--field status:enum
+
+# Required timestamp
+--field created-date:datetime:required
+
+# Decimal with constraints
+--field price:decimal:required
+
+# Long text field
+--field notes:text
+
+# Boolean flag
+--field enabled:boolean
+
+# UUID reference
+--field user-id:uuid:required
+----
+
+== Generated Files
+
+The scaffolder generates 12 files per module:
+
+=== Source Files (9)
+
+[cols="1,2"]
+|===
+|File |Purpose
+
+|`src/boundary/{module}/schema.clj`
+|Malli schemas for validation
+
+|`src/boundary/{module}/ports.clj`
+|Protocol definitions (IService, IRepository)
+
+|`src/boundary/{module}/core/{entity}.clj`
+|Pure business logic functions
+
+|`src/boundary/{module}/core/ui.clj`
+|Hiccup UI component generation
+
+|`src/boundary/{module}/shell/service.clj`
+|Service orchestration layer
+
+|`src/boundary/{module}/shell/persistence.clj`
+|Database adapter implementation
+
+|`src/boundary/{module}/shell/http.clj`
+|REST API route definitions
+
+|`src/boundary/{module}/shell/web_handlers.clj`
+|Web UI request handlers
+
+|`migrations/NNN_create_{entities}.sql`
+|Database schema migration
+|===
+
+=== Test Files (3)
+
+[cols="1,2"]
+|===
+|File |Purpose
+
+|`test/boundary/{module}/core/{entity}_test.clj`
+|Unit tests for pure core functions
+
+|`test/boundary/{module}/shell/{entity}_repository_test.clj`
+|Contract tests for persistence layer
+
+|`test/boundary/{module}/shell/service_test.clj`
+|Integration tests for service layer
+|===
+
+== Integration Guide
+
+After generating a module, integrate it into the system:
+
+=== Step 1: Create Module Wiring
+
+Create `src/boundary/{module}/shell/module_wiring.clj`:
+
+[source,clojure]
+----
+(ns boundary.{module}.shell.module-wiring
+  "Integrant wiring for the {module} module."
+  (:require [boundary.{module}.shell.persistence :as persistence]
+            [boundary.{module}.shell.service :as service]
+            [clojure.tools.logging :as log]
+            [integrant.core :as ig]))
+
+(defmethod ig/init-key :boundary/{module}-repository
+  [_ {:keys [ctx]}]
+  (log/info "Initializing {module} repository")
+  (persistence/create-repository ctx))
+
+(defmethod ig/halt-key! :boundary/{module}-repository
+  [_ _repo]
+  (log/info "{module} repository halted"))
+
+(defmethod ig/init-key :boundary/{module}-service
+  [_ {:keys [repository]}]
+  (log/info "Initializing {module} service")
+  (service/create-service repository))
+
+(defmethod ig/halt-key! :boundary/{module}-service
+  [_ _service]
+  (log/info "{module} service halted"))
+
+(defmethod ig/init-key :boundary/{module}-routes
+  [_ {:keys [service config]}]
+  (log/info "Initializing {module} routes")
+  (require 'boundary.{module}.shell.http)
+  (let [routes-fn (ns-resolve 'boundary.{module}.shell.http 'routes)]
+    (routes-fn service config)))
+
+(defmethod ig/halt-key! :boundary/{module}-routes
+  [_ _routes]
+  (log/info "{module} routes halted"))
+----
+
+=== Step 2: Add Module Configuration
+
+In `src/boundary/config.clj`, add the module config function:
+
+[source,clojure]
+----
+(defn- {module}-module-config
+  "Return Integrant configuration for the {module} module."
+  [config]
+  {:boundary/{module}-repository
+   {:ctx (ig/ref :boundary/db-context)}
+   
+   :boundary/{module}-service
+   {:repository (ig/ref :boundary/{module}-repository)}
+   
+   :boundary/{module}-routes
+   {:service (ig/ref :boundary/{module}-service)
+    :config config}})
+----
+
+Then merge it into `ig-config`:
+
+[source,clojure]
+----
+(defn ig-config
+  [config]
+  (merge (core-system-config config)
+         (user-module-config config)
+         ({module}-module-config config)))  ; Add this line
+----
+
+=== Step 3: Wire Module into System
+
+In `src/boundary/shell/system/wiring.clj`, add the module wiring to requires:
+
+[source,clojure]
+----
+(:require ...
+          [boundary.{module}.shell.module-wiring] ; Add this
+          ...)
+----
+
+=== Step 4: Update HTTP Handler
+
+In `src/boundary/config.clj`, add the module routes to the HTTP handler:
+
+[source,clojure]
+----
+:boundary/http-handler
+{:config config
+ :user-routes (ig/ref :boundary/user-routes)
+ :{module}-routes (ig/ref :boundary/{module}-routes)} ; Add this
+----
+
+In `src/boundary/shell/system/wiring.clj`, update the HTTP handler to accept and compose the new routes:
+
+[source,clojure]
+----
+(defmethod ig/init-key :boundary/http-handler
+  [_ {:keys [config user-routes {module}-routes]}] ; Add {module}-routes
+  ...
+  ;; Extract and combine routes
+  (let [user-api-routes (or (:api user-routes) [])
+        {module}-api-routes (or (:api {module}-routes) []) ; Add this
+        ...
+        all-routes (concat ...
+                           user-api-routes
+                           {module}-api-routes)            ; Add this
+        ...))
+----
+
+=== Step 5: Run Database Migration
+
+[source,bash]
+----
+# Apply the generated migration
+psql -U boundary_dev -d boundary_dev -f migrations/NNN_create_{entities}.sql
+----
+
+=== Step 6: Verify Integration
+
+[source,bash]
+----
+# Lint the module
+clojure -M:clj-kondo --lint src/boundary/{module}/ test/boundary/{module}/
+
+# Run module tests
+clojure -M:test:db/h2 --focus-meta :{module}
+
+# Start the system and verify routes
+clojure -M:repl-clj
+user=> (require '[integrant.repl :as ig-repl])
+user=> (ig-repl/go)
+----
+
+== Complete Example
+
+=== Generate Inventory Module
+
+[source,bash]
+----
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name inventory \
+  --entity Item \
+  --field name:string:required \
+  --field sku:string:required:unique \
+  --field quantity:int:required \
+  --field location:string:required \
+  --field description:text
+----
+
+=== What Gets Generated
+
+**Core Logic** (`src/boundary/inventory/core/item.clj`):
+[source,clojure]
+----
+(defn prepare-new-item
+  "Prepare a new item for creation.
+   Pure function with no side effects."
+  [item-data]
+  (assoc item-data
+         :id (java.util.UUID/randomUUID)
+         :created-at (java.time.Instant/now)))
+----
+
+**Service Layer** (`src/boundary/inventory/shell/service.clj`):
+[source,clojure]
+----
+(defrecord InventoryService [item-repository]
+  IInventoryService
+  (create-item [this item-data]
+    (let [prepared (item-core/prepare-new-item item-data)]
+      (.create-item item-repository prepared))))
+----
+
+**REST API** (`src/boundary/inventory/shell/http.clj`):
+[source,clojure]
+----
+["/api/items"
+ {:get {:handler (handlers/list-items inventory-service config)}
+  :post {:handler (handlers/create-item inventory-service config)}}]
+----
+
+**Database Migration** (`migrations/NNN_create_items.sql`):
+[source,sql]
+----
+CREATE TABLE items (
+  id UUID PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  sku VARCHAR(255) NOT NULL UNIQUE,
+  quantity INTEGER NOT NULL,
+  location VARCHAR(255) NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP
+);
+
+CREATE INDEX idx_items_sku ON items(sku);
+----
+
+=== Verify the Module
+
+[source,bash]
+----
+# Run tests
+clojure -M:test:db/h2 --focus-meta :inventory
+
+# Results:
+# ✅ 15 tests passing (unit + integration + contract)
+# ✅ Zero linting errors
+# ✅ Complete CRUD operations
+# ✅ REST API + Web UI routes
+----
+
+== Customizing Generated Code
+
+The scaffolder generates minimal but correct implementations. Enhance them by:
+
+=== 1. Add Business Logic
+
+In `core/{entity}.clj`, implement validation and domain rules:
+
+[source,clojure]
+----
+(defn validate-item-quantity
+  "Validate that quantity is non-negative.
+   Returns {:valid? boolean :errors map}."
+  [item]
+  (if (>= (:quantity item) 0)
+    {:valid? true}
+    {:valid? false
+     :errors {:quantity ["Quantity cannot be negative"]}}))
+----
+
+=== 2. Enhance UI
+
+In `core/ui.clj`, add rich Hiccup templates:
+
+[source,clojure]
+----
+(defn item-card
+  "Render an item as a card with actions."
+  [item]
+  [:div.item-card
+   [:h3 (:name item)]
+   [:div.sku [:strong "SKU: "] (:sku item)]
+   [:div.quantity
+    [:strong "In Stock: "]
+    [:span {:class (quantity-class (:quantity item))}
+     (:quantity item)]]
+   [:div.actions
+    [:button {:hx-get (str "/web/items/" (:id item))} "View"]
+    [:button {:hx-delete (str "/api/items/" (:id item))} "Delete"]]])
+----
+
+=== 3. Add Complex Queries
+
+In `shell/persistence.clj`, implement advanced database operations:
+
+[source,clojure]
+----
+(defn find-low-stock-items
+  "Find items with quantity below threshold."
+  [this threshold]
+  (let [query {:select [:*]
+               :from [:items]
+               :where [:< :quantity threshold]
+               :order-by [[:quantity :asc]]}
+        results (db/execute-query! ctx query)]
+    (map db->item-entity results)))
+----
+
+=== 4. Extend Service
+
+In `shell/service.clj`, add business operations:
+
+[source,clojure]
+----
+(defn restock-item
+  "Add quantity to an item's stock."
+  [this item-id quantity-to-add]
+  (let [item (.find-by-id item-repository item-id)]
+    (when-not item
+      (throw (ex-info "Item not found" {:item-id item-id})))
+    (let [new-quantity (+ (:quantity item) quantity-to-add)
+          updated (assoc item :quantity new-quantity)]
+      (.update-item item-repository updated))))
+----
+
+== Troubleshooting
+
+=== Module Name Already Exists
+
+**Error:**
+[source]
+----
+Directory already exists: src/boundary/product
+----
+
+**Solution:**
+Choose a different module name or manually remove the existing module.
+
+=== Invalid Field Type
+
+**Error:**
+[source]
+----
+Unknown field type: varchar
+----
+
+**Solution:**
+Use supported types (string, text, int, decimal, boolean, email, uuid, enum, date, datetime, inst, json).
+
+=== Database Migration Fails
+
+**Error:**
+[source]
+----
+ERROR: relation "items" already exists
+----
+
+**Solution:**
+Either drop the existing table or modify the migration to use `CREATE TABLE IF NOT EXISTS`.
+
+=== Tests Failing After Generation
+
+**Issue:** Generated tests fail immediately.
+
+**Solution:**
+1. Verify database is running (for contract tests)
+2. Check that H2 driver is available: `clojure -M:test:db/h2`
+3. Review test output for specific errors
+
+=== Lint Errors in Generated Code
+
+**Issue:** clj-kondo reports errors in generated files.
+
+**Solution:**
+This should not happen with the current scaffolder. If it does:
+1. Report it as a bug
+2. Check if custom field types were used
+3. Verify clj-kondo configuration is correct
+
+== Advanced Usage
+
+=== Multiple Fields
+
+Generate a module with many fields:
+
+[source,bash]
+----
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name customer \
+  --entity Customer \
+  --field first-name:string:required \
+  --field last-name:string:required \
+  --field email:email:required:unique \
+  --field phone:string \
+  --field birth-date:date \
+  --field active:boolean:required \
+  --field registration-date:datetime:required \
+  --field notes:text \
+  --field metadata:json
+----
+
+=== Enum Fields
+
+For enum fields, manually edit the schema after generation:
+
+[source,clojure]
+----
+;; Generated
+(def CreateItemRequest
+  [:map
+   [:status :enum]])
+
+;; Customize to:
+(def CreateItemRequest
+  [:map
+   [:status [:enum :draft :active :inactive :archived]]])
+----
+
+=== Custom Validation
+
+Add custom validation in the schema:
+
+[source,clojure]
+----
+(def CreateItemRequest
+  [:map
+   [:sku [:string {:min 3 :max 20 :pattern #"^[A-Z0-9-]+$"}]]
+   [:price [:and number? [:> 0] [:< 1000000]]]
+   [:quantity [:int {:min 0}]]])
+----
+
+== See Also
+
+* link:../guides/create-module.adoc[Module Creation Guide]
+* link:../guides/functional-core-imperative-shell.adoc[FC/IS Architecture]
+* link:reference/malli-schemas.adoc[Malli Schema Reference]
+* link:reference/testing.adoc[Testing Guide]

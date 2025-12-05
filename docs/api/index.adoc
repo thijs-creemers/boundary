@@ -1,0 +1,7 @@
+# API Reference
+
+This section contains API documentation for the Boundary Framework.
+
+## Available APIs
+
+- link:post-users-example.adoc[POST /users Example] - User creation endpoint example

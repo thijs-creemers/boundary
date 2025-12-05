@@ -1,0 +1,83 @@
+== Architecture Decision Records (ADR)
+
+This directory contains Architecture Decision Records documenting
+significant architectural decisions made during the development of the
+Boundary Framework.
+
+=== What are ADRs?
+
+Architecture Decision Records capture important architectural decisions
+along with their context and consequences. Each ADR describes:
+
+* *Context*: The situation and problem being addressed
+* *Decision*: The chosen solution and approach
+* *Status*: Current status (Proposed, Accepted, Deprecated, Superseded)
+* *Consequences*: Implications and trade-offs of the decision
+
+=== Current ADRs
+
+==== ADR-005: Validation DevEx Foundations
+
+ADR-005-validation-devex-foundations.adoc
+
+Establishes the foundation for an excellent validation developer
+experience using Malli schemas, with clear separation between core and
+shell layers.
+
+*Key Decisions:*
+
+* Malli for schema definition and validation
+* Validation at shell layer boundaries
+* Pure core functions receive validated data
+* Consistent error reporting structure
+
+[[adr-006-web-ui-architecture-htmx--hiccup]]
+==== ADR-006: Web UI Architecture (HTMX {plus} Hiccup)
+
+ADR-006-web-ui-architecture-htmx-hiccup.adoc
+
+Defines the web UI architecture using server-side rendering with HTMX
+for progressive enhancement and Hiccup for HTML generation.
+
+*Key Decisions:*
+
+* Server-side rendering (no separate frontend build)
+* HTMX for dynamic interactions
+* Hiccup for HTML generation in core layer
+* Module-integrated UI code
+
+==== ADR-007: Routing Architecture
+
+ADR-007-routing-architecture.adoc
+
+Documents the routing architecture using Reitit with module-based route
+composition.
+
+*Key Decisions:*
+
+* Reitit for HTTP routing
+* Module-level route definitions
+* Route composition in system wiring
+* Consistent route structure across modules
+
+=== Related Documentation
+
+* link:../architecture/[Architecture] - Detailed architecture
+documentation
+* link:../guides/[Guides] - Practical implementation guides
+* link:../change-reports/[Change Reports] - Implementation summaries and refactoring reports
+* link:../DECISIONS.adoc[DECISIONS.adoc] - Additional technical decisions
+
+*Note*: Change reports in `link:../change-reports/[change-reports/]` often document the implementation details of decisions made in ADRs. For example, `ROUTING_REARCHITECTURE_SUMMARY.md` details the implementation of ADR-007.
+
+=== ADR Process
+
+When making significant architectural decisions:
+
+[arabic]
+. Create a new ADR file following the numbering convention
+. Use the ADR template structure (Context, Decision, Status,
+Consequences)
+. Discuss with the team before finalizing
+. Update this README with a summary
+. Reference the ADR in relevant code and documentation

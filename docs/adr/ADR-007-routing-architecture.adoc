@@ -1,0 +1,495 @@
+= ADR-007: Routing Architecture - Module Composition and Path Prefixing
+:revdate: 2025-11-18
+:revremark: Routing re-architecture for proper /api and /web prefixing
+:toc:
+:toclevels: 3
+
+== Status
+
+**ACCEPTED** - Implementation complete, all tests passing
+
+== Context
+
+The Boundary Framework supports three interaction modes: REST API, CLI, and Web Frontend. The HTTP routing infrastructure needed to properly support:
+
+1. **REST API endpoints** under `/api/*` prefix for external integration
+2. **Web UI endpoints** under `/web/*` prefix for browser-based interaction
+3. **Root-level endpoints** for health checks, API documentation, and static assets
+
+=== Previous State
+
+The initial routing implementation had modules exporting complete Ring handlers via `:boundary/user-http-handler`. This approach caused several issues:
+
+**Problems:**
+- `/api/users` → 500 Server Error (routes not accessible under `/api` prefix)
+- `/web/users` → Inconsistent prefixing
+- Static assets (`/css/*`, `/js/*`) → 406 Not Acceptable (content negotiation errors)
+- Route composition bypassed at top level
+- Difficult to apply consistent middleware per route group
+
+**Root Cause:**
+User module created its own complete router using `routes/create-router` internally with all routes pre-defined. The system used this handler directly via `:boundary/user-http-handler`, bypassing the intended top-level route composition and prefix application.
+
+=== Requirements
+
+1. **Path Organization**: Clear prefix-based route organization (`/api/*`, `/web/*`, root)
+2. **Module Composition**: Modules provide route definitions, system handles composition
+3. **Middleware Grouping**: Different middleware stacks for API vs Web vs Static
+4. **Backward Compatibility**: Existing functionality must continue working
+5. **Extensibility**: Easy to add new modules following same pattern
+6. **Framework Compliance**: Must follow FC/IS and module-centric patterns
+
+== Decision
+
+We will implement a **structured route composition architecture** where modules export route definitions in a standardized format, and the top-level HTTP handler composes them with appropriate prefixes and middleware.
+
+=== Core Architecture Pattern
+
+**Module-Provides-Route-Definitions** pattern:
+
+[source,clojure]
+----
+;; Module exports structured route definitions
+(defn user-routes [user-service config]
+  {:api    [["/users" {:get list-handler :post create-handler}]
+            ["/users/:id" {:get get-handler :put update-handler}]]
+   :web    [["/users" {:get users-page-handler}]
+            ["/users/new" {:get new-user-page-handler}]]
+   :static []})  ; Served at handler level, not via Reitit
+
+;; System composes routes with prefixes
+(defn compose-http-handler [config user-routes]
+  (let [api-routes (prefix-routes "/api" (:api user-routes))
+        web-routes (prefix-routes "/web" (:web user-routes))
+        all-routes (concat static-routes web-routes api-routes)
+        router (create-router config all-routes)
+        handler (create-handler router)]
+    (wrap-resource handler "public")))  ; Static files served first
+----
+
+=== Key Architectural Components
+
+==== 1. Structured Route Format
+
+Modules return a map with three keys:
+
+[source,clojure]
+----
+{:api    [["/users" {:get handler}]]      ; No /api prefix - added by system
+ :web    [["/users" {:get handler}]]      ; No /web prefix - added by system
+ :static []}                              ; Empty - served via wrap-resource
+----
+
+**Contract Rules:**
+- Routes defined WITHOUT their final prefix
+- API routes will be mounted under `/api`
+- Web routes will be mounted under `/web`
+- Static assets served outside Reitit via Ring middleware
+
+==== 2. Top-Level Route Composition
+
+System wiring (`boundary.platform.shell.system.wiring`) composes routes:
+
+[source,clojure]
+----
+(defmethod ig/init-key :boundary/http-handler
+  [_ {:keys [config user-routes]}]
+  (let [static-routes-vec (or (:static user-routes) [])
+        web-routes-vec (or (:web user-routes) [])
+        api-routes-vec (or (:api user-routes) [])
+        
+        ;; Add /web prefix to web routes
+        web-routes-prefixed (mapv (fn [[path opts]]
+                                    [(str "/web" path) opts])
+                                  web-routes-vec)
+        
+        ;; Combine all routes (API prefix added by routes/create-router)
+        all-routes (concat static-routes-vec
+                           web-routes-prefixed
+                           api-routes-vec)
+        
+        router (routes-create-router config all-routes)
+        handler (routes-create-handler router)]
+    handler))
+----
+
+==== 3. Static Asset Serving
+
+Static files served via Ring's `wrap-resource` middleware:
+
+[source,clojure]
+----
+(defn create-handler [router & opts]
+  (let [reitit-handler (ring/ring-handler router ...)]
+    ;; Wrap with resource middleware
+    ;; Serves files from resources/public/ BEFORE Reitit routing
+    ;; Bypasses content negotiation middleware
+    (wrap-resource reitit-handler "public")))
+----
+
+**Benefits:**
+- Runs BEFORE Reitit routing
+- Bypasses Muuntaja content negotiation (fixes 406 errors)
+- No Reitit middleware overhead for static files
+- Serves directly from classpath resources
+
+==== 4. Route Grouping and Middleware
+
+The `routes/create-router` function automatically groups routes:
+
+**Root-level routes** (minimal middleware):
+- `/health`, `/health/ready`, `/health/live` - Health checks
+- `/swagger.json`, `/api-docs` - API documentation
+- `/css/*`, `/js/*`, `/modules/*`, `/docs/*` - Static assets (via wrap-resource)
+- `/web/*` - Web UI (already prefixed)
+
+**API routes** (full API middleware under `/api`):
+- Content negotiation (Muuntaja)
+- Request/response coercion (Malli)
+- Exception handling with RFC 7807 Problem Details
+- Correlation ID and request logging
+
+=== Module Integration Pattern
+
+==== Module HTTP Layer (`boundary.user.shell.http`)
+
+[source,clojure]
+----
+(defn api-routes [user-service]
+  "Returns API routes WITHOUT /api prefix"
+  [["/users" {:post {:handler (create-user-handler user-service)
+                     :tags ["users"]}
+              :get {:handler (list-users-handler user-service)
+                    :tags ["users"]}}]
+   ["/users/:id" {:get {:handler (get-user-handler user-service)
+                        :tags ["users"]}}]])
+
+(defn web-ui-routes [user-service config]
+  "Returns web UI routes WITHOUT /web prefix"
+  [["/users" {:get {:handler (users-page-handler user-service config)}}]
+   ["/users/new" {:get {:handler (new-user-page-handler config)}}]])
+
+(defn user-routes [user-service config]
+  "Structured route format for top-level composition"
+  {:api (api-routes user-service)
+   :web (when web-ui-enabled? (web-ui-routes user-service config))
+   :static []})
+----
+
+==== Module Wiring (`boundary.user.shell.module-wiring`)
+
+[source,clojure]
+----
+(defmethod ig/init-key :boundary/user-routes
+  [_ {:keys [user-service config]}]
+  (log/info "Initializing user module routes (structured format)")
+  (require 'boundary.user.shell.http)
+  (let [user-routes-fn (ns-resolve 'boundary.user.shell.http 'user-routes)
+        routes (user-routes-fn user-service (or config {}))]
+    (log/info "User module routes initialized successfully" 
+              {:route-keys (keys routes)})
+    routes))
+----
+
+==== Integrant Configuration (`boundary.config`)
+
+[source,clojure]
+----
+{:boundary/user-routes
+ {:user-service (ig/ref :boundary/user-service)
+  :config config}
+
+ :boundary/http-handler
+ {:config config
+  :user-routes (ig/ref :boundary/user-routes)}
+
+ :boundary/http-server
+ {:handler (ig/ref :boundary/http-handler)
+  :port 3000
+  :host "0.0.0.0"}}
+----
+
+== Rationale
+
+=== Why Structured Route Definitions over Complete Handlers
+
+**Structured Route Definitions Advantages:**
+
+1. **Clear Separation of Concerns**: Modules define routes, system handles composition
+2. **Uniform Prefixing**: Consistent `/api` and `/web` prefixes applied at top level
+3. **Middleware Control**: System controls middleware per route group
+4. **Testability**: Routes are data structures, easily tested without HTTP server
+5. **Extensibility**: New modules follow same pattern without changes to existing modules
+6. **Debugging**: Route structure visible at system level for introspection
+
+**Complete Handler Disadvantages:**
+
+1. ❌ Modules had to know about prefixing (leaked abstraction)
+2. ❌ Difficult to apply consistent middleware across modules
+3. ❌ Route grouping logic bypassed
+4. ❌ Hard to introspect full route tree
+5. ❌ Testing required full HTTP stack
+
+=== Why wrap-resource over Reitit Static Routes
+
+**Static Asset Serving Options Considered:**
+
+1. **Reitit routes with ring/create-resource-handler**
+   - ❌ Routes go through Muuntaja content negotiation
+   - ❌ Causes 406 Not Acceptable for CSS/JS files
+   - ❌ Middleware overhead for every static file request
+
+2. **Ring wrap-resource middleware** ✅
+   - ✅ Runs BEFORE Reitit routing
+   - ✅ Bypasses all Reitit middleware
+   - ✅ Direct classpath resource serving
+   - ✅ No content negotiation issues
+   - ✅ Better performance (no routing overhead)
+
+=== Why Module-Provides-Routes Pattern
+
+This pattern aligns with Boundary's architectural principles:
+
+1. **Functional Core / Imperative Shell**
+   - Routes are data (functional)
+   - Handler creation and middleware are side effects (shell)
+
+2. **Module-Centric Architecture**
+   - Each module owns its route definitions
+   - System composes without tight coupling
+
+3. **Dependency Inversion**
+   - Modules depend on abstract route format
+   - System depends on module route interface
+   - No circular dependencies
+
+== Implementation
+
+=== Files Modified
+
+1. **src/boundary/user/shell/http.clj**
+   - Created `api-routes` function (routes without `/api` prefix)
+   - Renamed `web-routes` to `web-ui-routes` (routes without `/web` prefix)
+   - Restructured `user-routes` to return `{:api :web :static}` map
+   - Added `user-routes-flat` for backward compatibility
+   - Deprecated `create-handler`, `create-router`, `create-app`
+
+2. **src/boundary/user/shell/module_wiring.clj**
+   - Added `:boundary/user-routes` init-key
+   - Deprecated `:boundary/user-http-handler` with warnings
+   - Returns structured route format
+
+3. **src/boundary/shell/system/wiring.clj**
+   - Updated `:boundary/http-handler` to accept `:user-routes`
+   - Extracts `:api`, `:web`, `:static` from routes structure
+   - Adds `/web` prefix to web routes
+   - Composes all routes for router creation
+
+4. **src/boundary/shell/interfaces/http/routes.clj**
+   - Added `[ring.middleware.resource :refer [wrap-resource]]`
+   - Modified `create-handler` to use `wrap-resource` middleware
+   - Static files served before Reitit routing
+
+5. **src/boundary/config.clj**
+   - Changed `:boundary/http-handler` dependency to `:user-routes`
+   - Updated documentation for structured route format
+
+=== Backward Compatibility
+
+**Deprecated Components:**
+- `:boundary/user-http-handler` - Still functional, logs deprecation warning
+- `create-handler`, `create-router`, `create-app` - Marked deprecated in docs
+
+**Migration Path:**
+For existing modules or new modules:
+1. Define `api-routes` returning routes WITHOUT `/api` prefix
+2. Define `web-ui-routes` returning routes WITHOUT `/web` prefix
+3. Define `module-routes` returning `{:api [...] :web [...]}`
+4. Wire as `:boundary/<module>-routes` in Integrant
+5. System automatically applies prefixes and composes
+
+== Consequences
+
+=== Positive
+
+1. **Clear Route Organization**: `/api`, `/web`, and root clearly separated
+2. **Proper Middleware Application**: Different middleware per route group
+3. **Static Assets Working**: 406 errors resolved, files served correctly
+4. **Module Extensibility**: Easy pattern for new modules to follow
+5. **System-Level Control**: Top-level route composition and middleware
+6. **Better Testing**: Routes are data, easily unit tested
+7. **Framework Compliance**: Maintains FC/IS and module-centric patterns
+
+=== Negative
+
+1. **Breaking Change**: `:boundary/user-http-handler` replaced (deprecated but functional)
+2. **Additional Abstraction**: One more layer between module and HTTP server
+3. **Learning Curve**: Developers need to understand structured route format
+
+=== Neutral
+
+1. **Module Contract**: Requires modules to follow structured route format
+2. **Static Route Definitions**: Still defined in modules but not used (documentation)
+3. **Middleware Configuration**: Configured at system level, not per-module
+
+== Verification
+
+=== Test Results
+
+[source]
+----
+438 tests, 2283 assertions, 0 failures
+clj-kondo: 0 errors, 0 warnings
+----
+
+=== Manual Verification
+
+[source,bash]
+----
+✅ GET /health                         → 200 OK
+✅ GET /api/users?userId=...         → 200 OK (JSON)
+✅ GET /web/users                      → 401 Unauthorized (auth required)
+✅ GET /css/app.css                    → 200 OK (text/css)
+✅ GET /js/htmx.min.js                 → 200 OK (application/javascript)
+✅ GET /swagger.json                   → 200 OK (application/json)
+✅ GET /api-docs                       → 302 Redirect
+----
+
+All endpoints functioning correctly with proper prefixes and content types.
+
+== Future Considerations
+
+=== Potential Enhancements
+
+1. **Explicit Middleware Grouping**
+   - Document middleware per route group more explicitly
+   - Consider middleware profiles for different environments
+
+2. **Module Scaffolding Tool**
+   - CLI tool to generate module structure
+   - Automatically creates route files following pattern
+
+3. **Route Introspection**
+   - REPL utilities to print full route tree
+   - Development endpoint showing all routes
+
+4. **Deprecation Cleanup**
+   - Remove deprecated functions in next major version
+   - Clean up `boundary.platform.shell.modules` compose-http-handlers
+
+=== Extension Points
+
+**Adding a New Module:**
+
+[source,clojure]
+----
+;; 1. Define routes in boundary.billing.shell.http
+(defn billing-routes [billing-service config]
+  {:api (billing-api-routes billing-service)
+   :web (billing-web-routes billing-service config)
+   :static []})
+
+;; 2. Wire in boundary.billing.shell.module-wiring
+(defmethod ig/init-key :boundary/billing-routes
+  [_ {:keys [billing-service config]}]
+  (billing-http/billing-routes billing-service config))
+
+;; 3. Update system wiring to compose billing routes
+(defmethod ig/init-key :boundary/http-handler
+  [_ {:keys [config user-routes billing-routes]}]
+  ;; Compose user-routes and billing-routes...
+  )
+----
+
+== References
+
+- **ADR-006**: Web UI Architecture - HTMX + Hiccup
+- **Implementation Branch**: `feat/routing-rearchitecture-web-and-api-prefix`
+- **Summary Document**: `ROUTING_REARCHITECTURE_SUMMARY.md`
+- **Test Suite**: All 438 tests passing
+- **Ring Middleware Documentation**: https://github.com/ring-clojure/ring/wiki/Middleware
+- **Reitit Documentation**: https://cljdoc.org/d/metosin/reitit/
+
+== Appendix: Route Flow Diagram
+
+[source]
+----
+┌─────────────────────────────────────────────────────────┐
+│                    HTTP Request                          │
+│                  (e.g., GET /api/users)                  │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│              wrap-resource Middleware                    │
+│         (Try to serve from resources/public/)           │
+└────────┬───────────────────────────────────────┬────────┘
+         │ Not found                              │ Found (200)
+         ▼                                        │
+┌─────────────────────────────────────────────┐  │
+│           Reitit Router                     │  │
+│  ┌──────────────────────────────────────┐  │  │
+│  │  Root Routes (minimal middleware)   │  │  │
+│  │  - /health, /swagger.json           │  │  │
+│  │  - /web/* (already prefixed)        │  │  │
+│  └──────────────────────────────────────┘  │  │
+│  ┌──────────────────────────────────────┐  │  │
+│  │  /api Routes (full API middleware)  │  │  │
+│  │  - Content negotiation              │  │  │
+│  │  - Coercion (Malli)                 │  │  │
+│  │  - Exception handling               │  │  │
+│  └──────────────────────────────────────┘  │  │
+└────────┬────────────────────────────────────┘  │
+         │                                        │
+         ▼                                        ▼
+┌─────────────────────────────────────────────────────────┐
+│                    HTTP Response                         │
+└─────────────────────────────────────────────────────────┘
+----
+
+== Appendix: Module Route Contract
+
+=== Route Definition Structure
+
+[source,clojure]
+----
+{:api    [[<path-without-/api> <reitit-route-data>]]
+ :web    [[<path-without-/web> <reitit-route-data>]]
+ :static []}
+----
+
+=== Example Implementation
+
+[source,clojure]
+----
+(ns boundary.example.shell.http)
+
+(defn api-routes [example-service]
+  [["/items" {:get {:handler (list-items-handler example-service)
+                    :summary "List items"
+                    :tags ["items"]}
+              :post {:handler (create-item-handler example-service)
+                     :summary "Create item"
+                     :tags ["items"]}}]
+   ["/items/:id" {:get {:handler (get-item-handler example-service)
+                        :summary "Get item by ID"
+                        :tags ["items"]
+                        :parameters {:path [:map [:id :string]]}}}]])
+
+(defn web-ui-routes [example-service config]
+  [["/items" {:get {:handler (items-page-handler example-service config)
+                    :summary "Items listing page"}}]
+   ["/items/new" {:get {:handler (new-item-page-handler config)
+                        :summary "New item form"}}]])
+
+(defn example-routes [example-service config]
+  {:api (api-routes example-service)
+   :web (web-ui-routes example-service config)
+   :static []})
+----
+
+== Decision Log
+
+- **2025-11-18**: ADR created and implementation completed
+- **2025-11-18**: All tests passing, verification complete
+- **Status**: ACCEPTED and IMPLEMENTED

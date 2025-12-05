@@ -1,0 +1,1219 @@
+= Component Architecture
+
+[abstract]
+--
+This document provides a detailed breakdown of {project-name}'s component organization, namespace responsibilities, and interaction patterns. It explains how the codebase is structured to maintain clear boundaries between functional core and imperative shell layers, and how components collaborate to deliver business functionality.
+--
+
+== Audience and Scope
+
+**Primary Audience:** Domain Developers, Platform Engineers
+
+**Scope:** Namespace organization, module responsibilities, component interactions, system wiring
+
+**Prerequisites:** Understanding of {xref-overview}[Architecture Overview] and {xref-layer-separation}[Layer Separation Guidelines]
+
+== Key Takeaways
+
+After reading this document, you will understand:
+
+* ✅ **Namespace organization** and how code is structured across layers
+* ✅ **Component responsibilities** and their specific roles in the architecture
+* ✅ **Interaction patterns** between different types of components
+* ✅ **System wiring** and dependency management strategies
+* ✅ **Module boundaries** and how to maintain architectural integrity
+
+== System Component Overview
+
+.Framework Component Interaction
+
+Boundary's component architecture follows a strict layered approach where each layer has specific responsibilities and clear boundaries. The diagram above shows the main components and their interactions.
+
+=== Detailed System Component Diagram (PlantUML)
+
+[plantuml, system-component-overview, svg]
+----
+@startuml
+!define RECTANGLE class
+
+title Boundary Framework - Component Overview
+
+package "Presentation Layer" {
+  [REST API\n(Ring/Reitit)] as REST
+  [CLI\n(tools.cli)] as CLI
+  [Web Frontend\n(Replicant)] as WEB
+}
+
+package "Imperative Shell" {
+  [HTTP Handlers] as HTTP_HANDLER
+  [CLI Handlers] as CLI_HANDLER
+  [Validation\n(Malli)] as VALIDATION
+  [Error Translation] as ERROR_TRANS
+  [Configuration\n(Aero)] as CONFIG
+  [Logging\n(TeleMere)] as LOGGING
+
+  package "Shared Utilities" {
+    [Type Conversion] as TYPE_CONV
+    [Case Conversion] as CASE_CONV
+    [Generic Validation] as GEN_VALIDATION
+  }
+
+  package "Adapters" {
+    [PostgreSQL\nAdapter] as PG_ADAPTER
+    [Email\nAdapter] as EMAIL_ADAPTER
+  }
+
+  package "Ports" {
+    interface "IUserRepository" as IUSER_REPO
+    interface "IEmailService" as IEMAIL_SERVICE
+  }
+}
+
+package "Functional Core" {
+  [User Core\nFunctions] as USER_CORE
+  [Job Core\nFunctions] as JOB_CORE
+  [Business Rules\nEngine] as BIZ_RULES
+}
+
+' Presentation to Shell connections
+REST --> HTTP_HANDLER
+CLI --> CLI_HANDLER
+WEB --> HTTP_HANDLER
+
+' Shell internal connections
+HTTP_HANDLER --> VALIDATION
+CLI_HANDLER --> VALIDATION
+VALIDATION --> USER_CORE
+VALIDATION --> JOB_CORE
+
+' Shared utilities connections
+VALIDATION --> TYPE_CONV
+VALIDATION --> CASE_CONV
+VALIDATION --> GEN_VALIDATION
+HTTP_HANDLER --> TYPE_CONV
+HTTP_HANDLER --> CASE_CONV
+CLI_HANDLER --> TYPE_CONV
+
+HTTP_HANDLER --> ERROR_TRANS
+CLI_HANDLER --> ERROR_TRANS
+
+' Adapter to Port connections
+PG_ADAPTER ..|> IUSER_REPO
+EMAIL_ADAPTER ..|> IEMAIL_SERVICE
+
+' Core to Port connections
+USER_CORE --> IUSER_REPO
+USER_CORE --> IEMAIL_SERVICE
+JOB_CORE --> IUSER_REPO
+BIZ_RULES --> IUSER_REPO
+
+' Cross-cutting concerns
+CONFIG ..> HTTP_HANDLER : configures
+CONFIG ..> CLI_HANDLER : configures
+CONFIG ..> PG_ADAPTER : configures
+
+LOGGING ..> HTTP_HANDLER : logs
+LOGGING ..> CLI_HANDLER : logs
+LOGGING ..> ERROR_TRANS : logs
+
+note right of USER_CORE : Pure functions only\nNo side effects\nDeterministic
+note right of IUSER_REPO : Abstract interface\nCore depends only on this
+note left of PG_ADAPTER : Concrete implementation\nShell wires this to port
+note bottom of TYPE_CONV : Reusable utilities\nUUID, Instant, type conversions\nUsed across modules
+
+@enduml
+----
+
+== Namespace Structure and Organization
+
+=== Adopted Module-Centric Architecture
+
+✅ **Boundary implements a module-centric architecture where each domain module owns its complete functionality stack:**
+
+```
+src/boundary/
+├── user/                   # 👤 USER DOMAIN MODULE
+│   ├── core/               # Pure business logic
+│   │   ├── user.clj       # Core user functions
+│   │   ├── membership.clj  # Membership calculations
+│   │   └── preferences.clj # User preferences logic
+│   ├── ports.clj          # User-specific ports (IUserRepository, etc.)
+│   ├── schema.clj         # User domain schemas only
+│   ├── http.clj           # User HTTP handlers & routes
+│   ├── cli.clj            # User CLI commands & parsing
+│   └── shell/             # User shell components
+│       ├── adapters.clj   # User repository adapters
+│       └── service.clj    # User service orchestration
+├── billing/               # 💰 BILLING DOMAIN MODULE (feature-flagged)
+│   ├── core/
+│   │   ├── pricing.clj    # Price calculations
+│   │   ├── discounts.clj  # Discount logic
+│   │   └── invoicing.clj  # Invoice generation
+│   ├── ports.clj          # Billing ports (IPaymentProcessor, etc.)
+│   ├── schema.clj         # Billing schemas only
+│   ├── http.clj           # Billing HTTP handlers & routes
+│   ├── cli.clj            # Billing CLI commands & parsing
+│   └── shell/
+│       ├── adapters.clj   # Payment/invoice adapters
+│       └── service.clj    # Billing service
+├── workflow/              # ⚙️ WORKFLOW DOMAIN MODULE
+│   ├── core/
+│   │   ├── state_machine.clj # Process state logic
+│   │   └── transitions.clj   # State transition rules
+│   ├── ports.clj          # Workflow ports
+│   ├── schema.clj         # Workflow schemas
+│   ├── http.clj           # Workflow HTTP handlers & routes
+│   ├── cli.clj            # Workflow CLI commands & parsing
+│   └── shell/
+│       ├── adapters.clj   # Workflow adapters
+│       └── service.clj    # Workflow service
+├── shared/                # 🔗 SHARED UTILITIES
+│   ├── core/
+│   │   └── validation.clj # Generic validation patterns and utilities
+│   └── utils/
+│       ├── type_conversion.clj # Generic type conversions (UUID, Instant, etc.)
+│       └── case_conversion.clj # camelCase <-> kebab-case transformations
+├── platform/              # 🧱 PLATFORM INFRASTRUCTURE
+│   ├── core/              # Shared pure platform logic (Problem Details, DB validation, etc.)
+│   └── shell/             # 🐚 SHARED IMPERATIVE SHELL
+│       ├── adapters/          # I/O adapter implementations
+│       │   ├── database/      # ✨ REFACTORED Oct 24, 2025
+│       │   │   ├── protocols.clj           # DatabaseConnection & DatabaseMetadata protocols
+│       │   │   ├── factory.clj             # Database adapter factory
+│       │   │   ├── core.clj               # Database-agnostic operations
+│       │   │   ├── postgresql/
+│       │   │   │   ├── core.clj           # PostgreSQL adapter implementation
+│       │   │   │   ├── connection.clj     # Connection management
+│       │   │   │   ├── query.clj          # Query building
+│       │   │   │   ├── metadata.clj       # Schema introspection
+│       │   │   │   └── utils.clj          # Type conversion utilities
+│       │   │   ├── sqlite/
+│       │   │   │   ├── core.clj           # SQLite adapter implementation
+│       │   │   │   ├── connection.clj
+│       │   │   │   ├── query.clj
+│       │   │   │   ├── metadata.clj
+│       │   │   │   └── utils.clj
+│       │   │   ├── h2/
+│       │   │   │   ├── core.clj           # H2 adapter implementation
+│       │   │   │   ├── connection.clj
+│       │   │   │   ├── query.clj
+│       │   │   │   ├── metadata.clj
+│       │   │   │   └── utils.clj
+│       │   │   ├── mysql/
+│       │   │   │   ├── core.clj           # MySQL adapter implementation
+│       │   │   │   ├── connection.clj
+│       │   │   │   ├── query.clj
+│       │   │   │   ├── metadata.clj
+│       │   │   │   └── utils.clj
+│       │   │   └── utils/
+│       │   │       ├── schema.clj         # Schema generation utilities
+│       │   │       └── driver_loader.clj  # Dynamic driver loading
+│       │   ├── external/
+│       │   │   ├── email_smtp.clj
+│       │   │   ├── payment_stripe.clj
+│       │   │   └── notifications.clj
+│       │   └── filesystem/
+│       │       ├── config_files.clj
+│       │       └── temp_storage.clj
+│       ├── interfaces/        # External interface aggregators
+│       │   ├── http/
+│       │   │   ├── server.clj
+│       │   │   ├── middleware.clj
+│       │   │   ├── common.clj      # Shared HTTP utilities
+│       │   │   └── routes.clj      # Aggregates module routes
+│       │   ├── cli/
+│       │   │   ├── main.clj        # CLI entry point
+│       │   │   ├── parsing.clj     # Common CLI utilities
+│       │   │   └── commands.clj    # Aggregates module commands
+│       │   └── web/
+│       │       ├── websockets.clj
+│       │       └── sse.clj
+│       ├── system/            # System wiring and lifecycle
+│       │   ├── components.clj
+│       │   ├── lifecycle.clj
+│       │   └── wiring.clj
+│       └── utils/             # Shell utilities
+│           ├── logging.clj
+│           ├── metrics.clj
+│           ├── monitoring.clj
+│           └── error_handling.clj
+└── config.clj             # ⚙️ Configuration management
+```
+
+=== Benefits of Modular Structure
+
+**🚀 Scalability:**
+
+* Teams can work on different domains (user, billing, workflow) without conflicts
+* New domains can be added without touching existing code
+* Individual modules can be versioned and released independently
+
+**🔍 Discoverability:**
+
+* Related ports, schemas, and logic grouped together
+* Clear domain boundaries make codebase navigation intuitive
+* New developers can focus on one domain at a time
+
+**🤼 Maintainability:**
+
+* Domain-specific changes contained within their module
+* No monolithic files that become unmaintainable
+* Clear separation prevents "god objects"
+
+**📝 Code Examples:**
+
+[source,clojure]
+----
+;; USER MODULE - Simplified structure with shared utilities
+(ns boundary.user.schema
+  (:require [boundary.shared.utils.type-conversion :as type-conversion]
+            [boundary.shared.utils.case-conversion :as case-conversion]))
+
+;; Schema definitions
+(def User [:map [:id :uuid] [:email :string] [:active :boolean]])
+
+;; Transformations using shared utilities
+(defn user-specific-kebab->camel [value]
+  (-> value
+      case-conversion/kebab-case->camel-case-map  ; Shared utility
+      (cond->  ; Domain-specific adaptations
+        (:id value) (assoc :id (type-conversion/uuid->string (:id value))))))
+
+;; Validation using shared patterns
+(defn validate-user [user-data]
+  (m/validate User user-data))
+
+;; SHARED UTILITIES - Reusable across modules
+(ns boundary.shared.utils.type-conversion)
+
+;; Generic type conversions
+(defn uuid->string [uuid] (when uuid (.toString uuid)))
+(defn string->uuid [s] (when s (UUID/fromString s)))
+(defn string->boolean [value]
+  (case value "true" true "false" false value))
+----
+
+**🔄 Module Integration:**
+Modules can depend on each other through well-defined ports:
+
+[source,clojure]
+----
+;; Cross-module dependency example
+(ns boundary.billing.core.invoicing
+  (:require [boundary.user.ports :as user-ports]    ; ✓ Depend on user ports
+            [boundary.billing.core.pricing :as pricing]))
+
+(defn generate-invoice [user-repo payment-processor user-id line-items]
+  ;; Use user module through its ports
+  (let [user (user-ports/find-user-by-id user-repo user-id)
+        ;; Use billing module's core logic
+        total (pricing/calculate-total-cost line-items (:tax-rate user))]
+    {:invoice-for (:name user)
+     :total-amount total
+     :line-items line-items}))
+----
+
+== Component Types and Responsibilities
+
+=== Functional Core Components
+
+**Purpose**: Contains pure business logic, domain rules, and calculations
+
+**Characteristics**:
+
+* ✅ Pure functions only - no side effects
+* ✅ Deterministic behavior
+* ✅ Immutable data structures
+* ✅ Domain-focused naming and concepts
+* ✅ Dependencies only on other core components and ports
+
+[source,clojure]
+----
+;; Example: Core User Component
+(ns boundary.core.user
+  "Pure user domain logic and business rules."
+  (:require [boundary.ports :as ports]
+            [boundary.schema :as schema]))
+
+(defn calculate-membership-benefits
+  "Pure function: calculates membership benefits based on user data.
+  Takes all dependencies as parameters, returns immutable data."
+  [user-data membership-rules current-date]
+  (let [join-date (:joined-at user-data)
+        membership-duration (calculate-duration join-date current-date)
+        years-active (duration-to-years membership-duration)
+
+        ;; Pure business logic - no side effects
+        tier (determine-membership-tier years-active (:spending-total user-data))
+        discount-rate (get-discount-for-tier tier membership-rules)
+        perks (get-perks-for-tier tier membership-rules)
+
+        ;; Return immutable result data
+        benefits {:membership-tier tier
+                 :discount-rate discount-rate
+                 :perks perks
+                 :years-active years-active
+                 :next-tier-requirements (calculate-next-tier-requirements tier)}]
+
+    ;; Return decision data for shell to execute
+    {:user-benefits benefits
+     :effects (when (tier-upgraded? (:previous-tier user-data) tier)
+               [{:type :send-notification
+                 :template :tier-upgrade
+                 :user-id (:id user-data)
+                 :data {:new-tier tier :benefits benefits}}])}))
+
+(defn process-user-registration
+  "Core orchestration function: coordinates user registration business logic.
+  Returns data and effects for shell layer to execute."
+  [user-repo email-service registration-data current-time]
+  ;; 1. Check business rules
+  (let [existing-user (ports/find-user-by-email user-repo (:email registration-data))]
+    (cond
+      ;; Business rule: no duplicate emails
+      existing-user
+      {:decision :reject-duplicate
+       :reason "Email already registered"
+       :existing-user-id (:id existing-user)}
+
+      ;; Business rule: validate registration data
+      (not (valid-registration-data? registration-data))
+      {:decision :reject-invalid
+       :reason "Invalid registration data"
+       :validation-errors (get-validation-errors registration-data)}
+
+      ;; Happy path: create user
+      :else
+      (let [new-user (create-user-record registration-data current-time)
+            initial-benefits (calculate-membership-benefits
+                            new-user
+                            default-membership-rules
+                            current-time)]
+        {:decision :accept-registration
+         :user-data (merge new-user (:user-benefits initial-benefits))
+         :effects (concat
+                  [{:type :save-user :data new-user}
+                   {:type :send-welcome-email
+                    :email (:email new-user)
+                    :template :welcome
+                    :data {:name (:name new-user)
+                          :benefits (:user-benefits initial-benefits)}}]
+                  (:effects initial-benefits))}))))
+
+;; Private helper functions (also pure)
+(defn- determine-membership-tier [years-active total-spending]
+  (cond
+    (and (>= years-active 5) (>= total-spending 10000)) :platinum
+    (and (>= years-active 3) (>= total-spending 5000))  :gold
+    (and (>= years-active 1) (>= total-spending 1000))  :silver
+    :else                                               :bronze))
+
+(defn- calculate-duration [start-date end-date]
+  ;; Pure date calculation logic
+  (.between java.time.temporal.ChronoUnit/DAYS start-date end-date))
+----
+
+=== Port Components
+
+**Purpose**: Define abstract interfaces that the functional core needs
+
+**Characteristics**:
+
+* ✅ Clojure protocols defining capabilities
+* ✅ Business-domain focused method names
+* ✅ Technology-agnostic interfaces
+* ✅ Owned by functional core layer
+* ✅ No implementation details
+
+[source,clojure]
+----
+;; Example: Ports Definition Component
+(ns boundary.ports
+  "Abstract interfaces (ports) defining capabilities needed by core.
+  These are implemented by shell adapters.")
+
+;; User data management capabilities
+(defprotocol IUserRepository
+  "Abstract user data persistence interface."
+  (find-user-by-id [this user-id]
+    "Retrieve user by unique identifier.")
+  (find-user-by-email [this email]
+    "Retrieve user by email address.")
+  (find-users-by-tier [this membership-tier]
+    "Find all users with specific membership tier.")
+  (create-user [this user-data]
+    "Create new user record. Returns user with generated ID.")
+  (update-user [this user-data]
+    "Update existing user. Returns updated user data.")
+  (update-user-benefits [this user-id benefits]
+    "Update user's membership benefits.")
+  (get-user-statistics [this]
+    "Get aggregate user statistics for reporting."))
+
+;; Communication capabilities
+(defprotocol INotificationService
+  "Abstract notification delivery interface."
+  (send-notification [this user-id notification-type data]
+    "Send notification to user with specified data.")
+  (send-bulk-notifications [this user-ids notification-type data]
+    "Send same notification to multiple users.")
+  (get-notification-preferences [this user-id]
+    "Get user's notification preferences.")
+  (update-notification-preferences [this user-id preferences]
+    "Update user's notification preferences."))
+
+;; External service integration capabilities
+(defprotocol IPaymentProcessor
+  "Abstract payment processing interface."
+  (process-payment [this payment-data]
+    "Process payment transaction. Returns transaction result.")
+  (refund-payment [this transaction-id amount]
+    "Process refund for existing transaction.")
+  (get-payment-status [this transaction-id]
+    "Check status of payment transaction."))
+
+;; Time and ID generation capabilities
+(defprotocol ISystemServices
+  "Abstract system-level services interface."
+  (current-timestamp [this]
+    "Get current timestamp for business operations.")
+  (generate-id [this entity-type]
+    "Generate unique identifier for entity type.")
+  (generate-correlation-id [this]
+    "Generate correlation ID for request tracking."))
+----
+
+=== Shell Service Components
+
+**Purpose**: Orchestrate core functions and manage side effects
+
+**Characteristics**:
+
+* ✅ Coordinate between core functions and adapters
+* ✅ Handle input validation and output formatting
+* ✅ Manage transactions and error handling
+* ✅ Execute effects returned by core functions
+* ✅ No business logic - pure orchestration
+
+[source,clojure]
+----
+;; Example: Shell Service Component
+(ns boundary.platform.shell.services.user-service
+  "User service - orchestrates user operations between interfaces and core."
+  (:require [boundary.core.user :as user-core]
+            [boundary.ports :as ports]
+            [boundary.schema :as schema]
+            [malli.core :as m]
+            [malli.error :as me]
+            [clojure.tools.logging :as log]))
+
+(defn register-user
+  "Service function: orchestrates user registration with validation and effects."
+  [system request-data]
+  (let [{:keys [user-repository notification-service system-services]} system
+        correlation-id (ports/generate-correlation-id system-services)]
+
+    ;; 1. Input validation (Shell responsibility)
+    (log/info "Processing user registration" {:correlation-id correlation-id})
+    (if-let [validation-errors (validate-registration-request request-data)]
+      ;; Return validation errors
+      {:status :error
+       :error-type :validation-failed
+       :details validation-errors
+       :correlation-id correlation-id}
+
+      ;; 2. Call core function with validated data
+      (let [current-time (ports/current-timestamp system-services)
+            core-result (user-core/process-user-registration
+                        user-repository
+                        notification-service
+                        request-data
+                        current-time)]
+
+        ;; 3. Execute effects based on core decision (Shell responsibility)
+        (case (:decision core-result)
+          :accept-registration
+          (do
+            ;; Execute all effects
+            (doseq [effect (:effects core-result)]
+              (execute-effect system effect correlation-id))
+
+            (log/info "User registration successful"
+                     {:correlation-id correlation-id
+                      :user-id (get-in core-result [:user-data :id])})
+
+            {:status :success
+             :data {:user-id (get-in core-result [:user-data :id])
+                   :message "User registered successfully"}
+             :correlation-id correlation-id})
+
+          :reject-duplicate
+          (do
+            (log/warn "Duplicate registration attempt"
+                     {:correlation-id correlation-id
+                      :email (:email request-data)})
+            {:status :error
+             :error-type :duplicate-user
+             :message (:reason core-result)
+             :correlation-id correlation-id})
+
+          :reject-invalid
+          (do
+            (log/warn "Invalid registration data"
+                     {:correlation-id correlation-id
+                      :errors (:validation-errors core-result)})
+            {:status :error
+             :error-type :invalid-data
+             :message (:reason core-result)
+             :details (:validation-errors core-result)
+             :correlation-id correlation-id})
+
+          ;; Unknown decision
+          (do
+            (log/error "Unknown core decision"
+                      {:correlation-id correlation-id
+                       :decision (:decision core-result)})
+            {:status :error
+             :error-type :internal-error
+             :message "Internal processing error"
+             :correlation-id correlation-id}))))))
+
+(defn update-user-benefits
+  "Service function: updates user membership benefits."
+  [system user-id]
+  (let [{:keys [user-repository system-services]} system
+        correlation-id (ports/generate-correlation-id system-services)
+        current-time (ports/current-timestamp system-services)]
+
+    (log/info "Updating user benefits" {:user-id user-id :correlation-id correlation-id})
+
+    ;; Fetch current user data
+    (if-let [user-data (ports/find-user-by-id user-repository user-id)]
+      ;; Call core function to calculate new benefits
+      (let [benefits-result (user-core/calculate-membership-benefits
+                            user-data
+                            default-membership-rules
+                            current-time)]
+
+        ;; Update user with new benefits
+        (ports/update-user-benefits user-repository user-id (:user-benefits benefits-result))
+
+        ;; Execute any effects (notifications, etc.)
+        (doseq [effect (:effects benefits-result)]
+          (execute-effect system effect correlation-id))
+
+        (log/info "Benefits updated successfully" {:user-id user-id :correlation-id correlation-id})
+        {:status :success
+         :data (:user-benefits benefits-result)
+         :correlation-id correlation-id})
+
+      ;; User not found
+      (do
+        (log/warn "User not found for benefits update" {:user-id user-id :correlation-id correlation-id})
+        {:status :error
+         :error-type :user-not-found
+         :message "User not found"
+         :correlation-id correlation-id}))))
+
+;; Helper functions for effect execution
+(defn- execute-effect
+  "Execute a single effect returned by core function."
+  [system effect correlation-id]
+  (log/debug "Executing effect" {:effect-type (:type effect) :correlation-id correlation-id})
+
+  (case (:type effect)
+    :save-user
+    (ports/create-user (:user-repository system) (:data effect))
+
+    :send-welcome-email
+    (ports/send-notification (:notification-service system)
+                            (get-in effect [:data :user-id])
+                            :welcome-email
+                            (:data effect))
+
+    :send-notification
+    (ports/send-notification (:notification-service system)
+                            (:user-id effect)
+                            (:template effect)
+                            (:data effect))
+
+    ;; Unknown effect type
+    (log/warn "Unknown effect type" {:effect effect :correlation-id correlation-id})))
+
+(defn- validate-registration-request
+  "Validate registration request data. Returns errors if invalid, nil if valid."
+  [request-data]
+  (when-not (m/validate schema/UserRegistrationRequest request-data)
+    (me/humanize (m/explain schema/UserRegistrationRequest request-data))))
+----
+
+=== Adapter Components
+
+**Purpose**: Implement ports using specific technologies and external systems
+
+**Characteristics**:
+
+* ✅ Concrete implementations of port protocols
+* ✅ Handle technology-specific concerns (SQL, HTTP, etc.)
+* ✅ Transform between domain objects and external formats
+* ✅ Manage connections and error handling
+* ✅ Can be swapped for different implementations
+
+[source,clojure]
+----
+;; Example: Database Adapter Component
+(ns boundary.platform.shell.adapters.database.postgresql
+  "PostgreSQL adapter implementing user repository port."
+  (:require [boundary.ports :as ports]
+            [next.jdbc :as jdbc]
+            [honey.sql :as sql]
+            [clojure.tools.logging :as log]))
+
+(defrecord PostgreSQLUserRepository [db-spec metrics]
+  ports/IUserRepository
+
+  (find-user-by-id [this user-id]
+    (log/debug "Finding user by ID" {:user-id user-id})
+    (let [start-time (System/currentTimeMillis)
+          query (sql/format {:select [:*]
+                            :from [:users]
+                            :where [:= :id user-id]})
+          result (jdbc/execute-one! db-spec query)]
+
+      ;; Record metrics
+      (record-query-metrics metrics :find-user-by-id (- (System/currentTimeMillis) start-time))
+
+      ;; Transform database record to domain object
+      (when result
+        (db-record->domain-user result))))
+
+  (find-user-by-email [this email]
+    (log/debug "Finding user by email" {:email email})
+    (let [start-time (System/currentTimeMillis)
+          query (sql/format {:select [:*]
+                            :from [:users]
+                            :where [:= :email email]})
+          result (jdbc/execute-one! db-spec query)]
+
+      (record-query-metrics metrics :find-user-by-email (- (System/currentTimeMillis) start-time))
+
+      (when result
+        (db-record->domain-user result))))
+
+  (find-users-by-tier [this membership-tier]
+    (log/debug "Finding users by tier" {:tier membership-tier})
+    (let [start-time (System/currentTimeMillis)
+          query (sql/format {:select [:*]
+                            :from [:users]
+                            :where [:= :membership_tier (name membership-tier)]})
+          results (jdbc/execute! db-spec query)]
+
+      (record-query-metrics metrics :find-users-by-tier (- (System/currentTimeMillis) start-time))
+
+      (map db-record->domain-user results)))
+
+  (create-user [this user-data]
+    (log/info "Creating new user" {:email (:email user-data)})
+    (let [start-time (System/currentTimeMillis)
+          db-record (domain-user->db-record user-data)
+          query (sql/format {:insert-into :users
+                            :values [db-record]
+                            :returning [:*]})
+          result (jdbc/execute-one! db-spec query)]
+
+      (record-query-metrics metrics :create-user (- (System/currentTimeMillis) start-time))
+
+      (db-record->domain-user result)))
+
+  (update-user [this user-data]
+    (log/info "Updating user" {:user-id (:id user-data)})
+    (let [start-time (System/currentTimeMillis)
+          db-record (domain-user->db-record user-data)
+          query (sql/format {:update :users
+                            :set (dissoc db-record :id)
+                            :where [:= :id (:id user-data)]
+                            :returning [:*]})
+          result (jdbc/execute-one! db-spec query)]
+
+      (record-query-metrics metrics :update-user (- (System/currentTimeMillis) start-time))
+
+      (db-record->domain-user result)))
+
+  (update-user-benefits [this user-id benefits]
+    (log/info "Updating user benefits" {:user-id user-id})
+    (let [start-time (System/currentTimeMillis)
+          query (sql/format {:update :users
+                            :set {:membership_tier (name (:membership-tier benefits))
+                                 :discount_rate (:discount-rate benefits)
+                                 :perks (pr-str (:perks benefits))}
+                            :where [:= :id user-id]
+                            :returning [:*]})
+          result (jdbc/execute-one! db-spec query)]
+
+      (record-query-metrics metrics :update-user-benefits (- (System/currentTimeMillis) start-time))
+
+      (db-record->domain-user result)))
+
+  (get-user-statistics [this]
+    (log/debug "Getting user statistics")
+    (let [start-time (System/currentTimeMillis)
+          query (sql/format {:select [[:count :*] :total_users
+                                     [:%count.membership_tier :bronze] :bronze_users
+                                     [:%count.membership_tier :silver] :silver_users
+                                     [:%count.membership_tier :gold] :gold_users
+                                     [:%count.membership_tier :platinum] :platinum_users]
+                            :from [:users]
+                            :where [:= :active true]})
+          result (jdbc/execute-one! db-spec query)]
+
+      (record-query-metrics metrics :get-user-statistics (- (System/currentTimeMillis) start-time))
+
+      ;; Return statistics in domain format
+      {:total-users (:total_users result)
+       :users-by-tier {:bronze (:bronze_users result)
+                      :silver (:silver_users result)
+                      :gold (:gold_users result)
+                      :platinum (:platinum_users result)}})))
+
+;; Data transformation functions
+(defn- db-record->domain-user
+  "Transform database record to domain user object."
+  [db-record]
+  {:id (:id db-record)
+   :email (:email db-record)
+   :name (:name db-record)
+   :active? (:active db-record)
+   :membership-tier (keyword (:membership_tier db-record))
+   :discount-rate (:discount_rate db-record)
+   :perks (when (:perks db-record) (read-string (:perks db-record)))
+   :joined-at (:joined_at db-record)
+   :updated-at (:updated_at db-record)})
+
+(defn- domain-user->db-record
+  "Transform domain user object to database record."
+  [domain-user]
+  {:id (:id domain-user)
+   :email (:email domain-user)
+   :name (:name domain-user)
+   :active (:active? domain-user)
+   :membership_tier (name (:membership-tier domain-user))
+   :discount_rate (:discount-rate domain-user)
+   :perks (pr-str (:perks domain-user))
+   :joined_at (:joined-at domain-user)
+   :updated_at (:updated-at domain-user)})
+
+(defn- record-query-metrics [metrics operation duration-ms]
+  (when metrics
+    ;; Record timing and operation metrics
+    (.recordTime metrics (str "db.operation." (name operation)) duration-ms)
+    (.incrementCounter metrics (str "db.operations." (name operation)))))
+
+;; Factory function
+(defn make-postgresql-user-repository
+  "Create PostgreSQL user repository adapter."
+  [db-spec & {:keys [metrics]}]
+  (->PostgreSQLUserRepository db-spec metrics))
+----
+
+=== Interface Components
+
+**Purpose**: Handle external communication protocols (HTTP, CLI, WebSocket)
+
+**Characteristics**:
+
+* ✅ Protocol-specific request/response handling
+* ✅ Route incoming requests to appropriate services
+* ✅ Transform service results to protocol format
+* ✅ Handle protocol-specific concerns (status codes, headers, etc.)
+* ✅ No business logic - pure interface handling
+
+[source,clojure]
+----
+;; Example: HTTP Interface Component
+(ns boundary.platform.shell.interfaces.http.handlers
+  "HTTP request handlers - translate between HTTP and service layer."
+  (:require [boundary.platform.shell.services.user-service :as user-service]
+            [ring.util.response :as response]
+            [clojure.tools.logging :as log]
+            [cheshire.core :as json]))
+
+(defn handle-register-user
+  "HTTP handler for user registration endpoint."
+  [system]
+  (fn [request]
+    (let [correlation-id (or (get-in request [:headers "x-correlation-id"])
+                            (str (java.util.UUID/randomUUID)))
+          request-body (json/parse-string (slurp (:body request)) true)]
+
+      (log/info "HTTP user registration request" {:correlation-id correlation-id})
+
+      ;; Call service layer
+      (let [service-result (user-service/register-user system request-body)]
+
+        ;; Transform service result to HTTP response
+        (case (:status service-result)
+          :success
+          (-> (response/response (:data service-result))
+              (response/status 201)
+              (response/header "Content-Type" "application/json")
+              (response/header "X-Correlation-ID" correlation-id))
+
+          :error
+          (let [status-code (case (:error-type service-result)
+                             :validation-failed 400
+                             :duplicate-user 409
+                             :invalid-data 400
+                             :internal-error 500
+                             500)  ; Default
+                error-body {:error {:type (:error-type service-result)
+                                   :message (:message service-result)
+                                   :details (:details service-result)
+                                   :correlation-id correlation-id}}]
+            (-> (response/response error-body)
+                (response/status status-code)
+                (response/header "Content-Type" "application/json")
+                (response/header "X-Correlation-ID" correlation-id))))))))
+
+(defn handle-get-user-benefits
+  "HTTP handler for retrieving user benefits."
+  [system]
+  (fn [request]
+    (let [correlation-id (or (get-in request [:headers "x-correlation-id"])
+                            (str (java.util.UUID/randomUUID)))
+          user-id (get-in request [:path-params :user-id])]
+
+      (log/info "HTTP get user benefits request" {:user-id user-id :correlation-id correlation-id})
+
+      ;; Call service layer
+      (let [service-result (user-service/get-user-benefits system user-id)]
+
+        ;; Transform to HTTP response
+        (case (:status service-result)
+          :success
+          (-> (response/response (:data service-result))
+              (response/status 200)
+              (response/header "Content-Type" "application/json")
+              (response/header "X-Correlation-ID" correlation-id))
+
+          :error
+          (let [status-code (case (:error-type service-result)
+                             :user-not-found 404
+                             :internal-error 500
+                             500)
+                error-body {:error {:type (:error-type service-result)
+                                   :message (:message service-result)
+                                   :correlation-id correlation-id}}]
+            (-> (response/response error-body)
+                (response/status status-code)
+                (response/header "Content-Type" "application/json")
+                (response/header "X-Correlation-ID" correlation-id))))))))
+
+(defn health-check
+  "Health check endpoint."
+  [system]
+  (fn [request]
+    ;; Simple health check - could be expanded to check dependencies
+    (-> (response/response {:status "healthy"
+                           :timestamp (System/currentTimeMillis)
+                           :version "1.0.0"})
+        (response/status 200)
+        (response/header "Content-Type" "application/json"))))
+----
+
+== Component Interaction Patterns
+
+=== Request Processing Flow
+
+.HTTP Request Processing Sequence
+image::{diagrams-dir}/http-request-lifecycle.png[HTTP Request Lifecycle, 800]
+
+The sequence diagram shows how components interact during a typical HTTP request:
+
+1. **Interface Layer** receives and parses the request
+2. **Service Layer** orchestrates the operation
+3. **Validation** ensures data integrity at shell boundary
+4. **Core Layer** processes business logic and returns decisions
+5. **Adapter Layer** executes I/O operations based on core decisions
+6. **Interface Layer** formats and returns the response
+
+=== Component Communication Rules
+
+[cols="2,1,3,2"]
+|===
+|Communication Pattern |Allowed |Description |Example
+
+|**Interface → Service** |✅ |HTTP handlers call service functions |`user-service/register-user`
+|**Service → Core** |✅ |Services call pure core functions |`user-core/process-registration`
+|**Service → Adapter** |✅ |Services use adapters via ports |`ports/create-user`
+|**Core → Port** |✅ |Core depends on abstract interfaces |`ports/find-user-by-email`
+|**Adapter → Port** |✅ |Adapters implement port protocols |`defrecord ... IUserRepository`
+|**Core → Adapter** |❌ |Core never depends on concrete adapters |Direct database calls
+|**Core → Service** |❌ |Core never calls shell services |Calling service functions
+|**Adapter → Core** |❌ |Adapters never call core functions |Business logic in adapters
+|===
+
+== System Wiring and Dependency Management
+
+=== System Component Definition
+
+[source,clojure]
+----
+;; System wiring component
+(ns boundary.platform.shell.system.wiring
+  "System component wiring and dependency injection."
+  (:require [boundary.platform.shell.adapters.database.postgresql :as pg-adapter]
+            [boundary.platform.shell.adapters.notifications.smtp :as smtp-adapter]
+            [boundary.platform.shell.services.user-service :as user-service]
+            [boundary.platform.shell.interfaces.http.server :as http-server]
+            [boundary.config :as config]
+            [clojure.tools.logging :as log]))
+
+(defn create-system
+  "Create and wire all system components."
+  [config-profile]
+  (log/info "Creating system components" {:profile config-profile})
+
+  (let [config (config/read-config config-profile)
+
+        ;; Create adapters (implementations of ports)
+        user-repository (pg-adapter/make-postgresql-user-repository
+                        (:database config)
+                        :metrics (:metrics config))
+
+        notification-service (smtp-adapter/make-smtp-notification-service
+                             (:smtp config))
+
+        system-services (create-system-services config)
+
+        ;; Create system map with all dependencies
+        system {:config config
+               :user-repository user-repository
+               :notification-service notification-service
+               :system-services system-services}]
+
+    (log/info "System components created successfully")
+    system))
+
+(defn start-system
+  "Start all system components that require lifecycle management."
+  [system]
+  (log/info "Starting system components")
+
+  ;; Start HTTP server
+  (let [server (http-server/start-server system (:config system))]
+    (assoc system :http-server server)))
+
+(defn stop-system
+  "Stop all system components gracefully."
+  [system]
+  (log/info "Stopping system components")
+
+  ;; Stop HTTP server
+  (when-let [server (:http-server system)]
+    (http-server/stop-server server))
+
+  ;; Close database connections
+  (when-let [db-pool (get-in system [:user-repository :db-spec :datasource])]
+    (.close db-pool))
+
+  (log/info "System stopped successfully"))
+
+(defn- create-system-services [config]
+  ;; Create system services adapter
+  (reify boundary.ports/ISystemServices
+    (current-timestamp [_]
+      (java.time.Instant/now))
+    (generate-id [_ entity-type]
+      (java.util.UUID/randomUUID))
+    (generate-correlation-id [_]
+      (str (java.util.UUID/randomUUID)))))
+----
+
+=== Application Entry Point
+
+[source,clojure]
+----
+;; Application entry point component
+(ns boundary.platform.shell.main
+  "Application entry point and lifecycle management."
+  (:require [boundary.platform.shell.system.wiring :as wiring]
+            [clojure.tools.logging :as log])
+  (:gen-class))
+
+(defonce system (atom nil))
+
+(defn start-application
+  "Start the complete application system."
+  [profile]
+  (log/info "Starting Boundary application" {:profile profile})
+
+  (try
+    (let [new-system (-> (wiring/create-system profile)
+                        (wiring/start-system))]
+      (reset! system new-system)
+      (log/info "Application started successfully")
+      new-system)
+    (catch Exception e
+      (log/error e "Failed to start application")
+      (throw e))))
+
+(defn stop-application
+  "Stop the application system gracefully."
+  []
+  (log/info "Stopping Boundary application")
+
+  (when-let [current-system @system]
+    (try
+      (wiring/stop-system current-system)
+      (reset! system nil)
+      (log/info "Application stopped successfully")
+    (catch Exception e
+      (log/error e "Error during application shutdown")))))
+
+(defn -main
+  "Application entry point."
+  [& args]
+  (let [profile (or (first args) "prod")]
+    (start-application profile)
+
+    ;; Add shutdown hook
+    (.addShutdownHook (Runtime/getRuntime)
+                      (Thread. #(stop-application)))))
+----
+
+== Component Testing Strategies
+
+=== Core Component Testing
+
+[source,clojure]
+----
+;; Core component tests - pure functions, no mocks needed
+(ns boundary.core.user-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [boundary.core.user :as user-core]))
+
+(deftest calculate-membership-benefits-test
+  (testing "membership benefits calculation"
+    (let [user-data {:id 123
+                    :joined-at #inst "2020-01-01"
+                    :spending-total 7500
+                    :previous-tier :silver}
+          membership-rules {:tiers {:bronze {:min-years 0 :min-spending 0 :discount 0.05}
+                                   :silver {:min-years 1 :min-spending 1000 :discount 0.10}
+                                   :gold {:min-years 3 :min-spending 5000 :discount 0.15}
+                                   :platinum {:min-years 5 :min-spending 10000 :discount 0.20}}}
+          current-date #inst "2024-01-01"]
+
+      (let [result (user-core/calculate-membership-benefits user-data membership-rules current-date)]
+        ;; Pure function testing - straightforward assertions
+        (is (= :gold (get-in result [:user-benefits :membership-tier])))
+        (is (= 0.15 (get-in result [:user-benefits :discount-rate])))
+        (is (= 4 (get-in result [:user-benefits :years-active])))
+        ;; Should generate tier upgrade notification
+        (is (= 1 (count (:effects result))))
+        (is (= :send-notification (get-in result [:effects 0 :type])))))))
+----
+
+=== Service Component Testing
+
+[source,clojure]
+----
+;; Service component tests - integration with mocked adapters
+(ns boundary.platform.shell.services.user-service-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [boundary.platform.shell.services.user-service :as user-service]
+            [boundary.test.mocks :as mocks]))
+
+(deftest register-user-test
+  (testing "successful user registration"
+    (let [system {:user-repository (mocks/make-mock-user-repository)
+                 :notification-service (mocks/make-mock-notification-service)
+                 :system-services (mocks/make-mock-system-services)}
+          request-data {:email "test@example.com"
+                       :name "Test User"}]
+
+      (let [result (user-service/register-user system request-data)]
+        (is (= :success (:status result)))
+        (is (contains? (:data result) :user-id))
+        ;; Verify mock interactions
+        (is (= 1 (count @(get-in system [:user-repository :call-log]))))))))
+----
+
+=== Adapter Component Testing
+
+[source,clojure]
+----
+;; Adapter component tests - integration with real external systems
+(ns boundary.platform.shell.adapters.database.postgresql-test
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+            [boundary.platform.shell.adapters.database.postgresql :as pg-adapter]
+            [boundary.test.database :as test-db]))
+
+(use-fixtures :each test-db/with-test-database)
+
+(deftest postgresql-user-repository-integration-test
+  (testing "PostgreSQL adapter integration"
+    (let [repo (pg-adapter/make-postgresql-user-repository test-db/*db-spec*)
+          user-data {:email "integration@test.com"
+                    :name "Integration Test"
+                    :active? true
+                    :membership-tier :bronze}]
+
+      ;; Test create
+      (let [created-user (ports/create-user repo user-data)]
+        (is (some? (:id created-user)))
+        (is (= (:email user-data) (:email created-user)))
+
+        ;; Test find by ID
+        (let [found-user (ports/find-user-by-id repo (:id created-user))]
+          (is (= created-user found-user)))
+
+        ;; Test find by email
+        (let [found-user (ports/find-user-by-email repo (:email user-data))]
+          (is (= (:id created-user) (:id found-user))))))))
+----
+
+== Best Practices for Component Design
+
+=== Component Responsibilities
+
+1. **Single Responsibility**: Each component should have one clear purpose
+2. **Clear Boundaries**: Components should have well-defined interfaces
+3. **Loose Coupling**: Components should depend on abstractions, not implementations
+4. **High Cohesion**: Related functionality should be grouped together
+5. **Testable Design**: Components should be easy to test in isolation
+
+=== Naming Conventions
+
+[cols="2,3,2"]
+|===
+|Component Type |Naming Pattern |Example
+
+|**Core Functions** |`verb-noun` or domain-focused |`calculate-discount`, `process-order`
+|**Port Protocols** |`I` + `Domain` + `Capability` |`IUserRepository`, `IPaymentProcessor`
+|**Adapter Records** |`Technology` + `Domain` + `Capability` |`PostgreSQLUserRepository`
+|**Service Functions** |`verb-domain-entity` |`register-user`, `update-benefits`
+|**Handler Functions** |`handle-` + `action` |`handle-create-user`, `handle-payment`
+|===
+
+=== Error Handling Patterns
+
+1. **Core Components**: Return error data, never throw exceptions
+2. **Service Components**: Handle errors from core and adapters, provide correlation IDs
+3. **Adapter Components**: Transform technical errors to domain errors
+4. **Interface Components**: Transform domain errors to protocol-appropriate formats
+
+== Next Steps
+
+Now that you understand component architecture, explore:
+
+1. **{xref-data-flow}[Data Flow Architecture]** - How data moves through components
+2. **{xref-integration-patterns}[Integration Patterns]** - Interface-specific patterns
+3. **{xref-configuration}[Configuration and Environment Management]** - Component wiring
+
+== References
+
+* **"Clean Architecture" by Robert C. Martin** - Component design principles
+* **"Clojure Applied" by Ben Vandgrift and Alex Miller** - Clojure application structure
+* **"Building Microservices" by Sam Newman** - Service design patterns
+* **Clojure Protocols Documentation** - Technical reference for protocol implementation

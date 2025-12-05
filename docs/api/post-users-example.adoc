@@ -1,0 +1,100 @@
+=== POST /api/v1/users
+
+==== Purpose
+Creates a new user with the provided information and assigns them to the appropriate user context.
+
+==== Request
+
+*Method:* `POST`
+*Path:* `/api/v1/users`
+*Content-Type:* `application/json`
+
+*Request Schema:*
+[source,clojure]
+----
+{:name        {:type :string :required true :min-length 1 :max-length 100}
+ :email       {:type :email :required true :unique true}
+ :role        {:type :enum :values [:user :admin :viewer] :default :user}
+ :active      {:type :boolean :default true}
+ :metadata    {:type :map :optional true}}
+----
+
+*Example Request:*
+[source,json]
+----
+{
+  "name": "John Doe",
+  "email": "john.doe@company.com",
+  "role": "user",
+  "active": true,
+  "metadata": {
+    "department": "Engineering",
+    "hired_date": "2025-01-15"
+  }
+}
+----
+
+==== Response
+
+*Success Status:* `201 Created`
+*Content-Type:* `application/json`
+
+*Response Schema:*
+[source,clojure]
+----
+{:id          {:type :uuid}
+ :name        {:type :string}
+ :email       {:type :email}
+ :role        {:type :enum :values [:user :admin :viewer]}
+ :active      {:type :boolean}
+ :created_at  {:type :timestamp}
+ :updated_at  {:type :timestamp}
+ :user_id   {:type :uuid}
+ :metadata    {:type :map :optional true}}
+----
+
+*Example Response:*
+[source,json]
+----
+{
+  "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "name": "John Doe",
+  "email": "john.doe@company.com", 
+  "role": "user",
+  "active": true,
+  "created_at": "2025-11-07T12:30:00Z",
+  "updated_at": "2025-11-07T12:30:00Z",
+  "user_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "metadata": {
+    "department": "Engineering",
+    "hired_date": "2025-01-15"
+  }
+}
+----
+
+==== Error Responses
+
+*Validation Error:* `400 Bad Request`
+[source,json]
+----
+{
+  "error": {
+    "field": "email",
+    "code": "user.email/already-exists",
+    "message": "Email address is already registered",
+    "suggestion": "Use a different email address or update the existing user"
+  }
+}
+----
+
+*Authorization Error:* `403 Forbidden`
+[source,json]
+----
+{
+  "error": {
+    "code": "user.create/insufficient-permissions",
+    "message": "Insufficient permissions to create users",
+    "suggestion": "Contact your administrator for user creation permissions"
+  }
+}
+----

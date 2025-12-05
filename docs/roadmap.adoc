@@ -1,0 +1,369 @@
+== Boundary Framework Roadmap
+
+This roadmap describes how Boundary can evolve into a comprehensive
+alternative to mainstream web frameworks (e.g. Django, Ruby on Rails)
+_and_ provide a realistic migration path from those ecosystems.
+
+It is organised into:
+
+* High-level goals
+* Capability areas (what a full-featured framework must offer)
+* Phased roadmap (what to build in which order)
+
+'''''
+
+[[1-high-level-goals]]
+=== 1. High-level Goals
+
+* *G1 – Framework parity*: Make it possible to build new apps in
+Boundary with a feature set comparable to Django/Rails (auth, admin,
+jobs, files, emails, etc.).
+* *G2 – Migration viability*: Make it feasible to migrate existing apps
+(Django, Rails, others) incrementally using a strangler pattern, rather
+than big-bang rewrites.
+* *G3 – Maintain Boundary’s architecture values*: Keep Functional Core /
+Imperative Shell, ports/adapters, and strong observability as
+first-class concepts while adding “batteries included”.
+* *G4 – Ecosystem growth*: Provide clear extension points and templates
+so Boundary can support reusable modules and a broader ecosystem over
+time.
+
+'''''
+
+[[2-capability-areas-framework-agnostic]]
+=== 2. Capability Areas (Framework-Agnostic)
+
+These areas represent what mainstream web frameworks reliably provide.
+Boundary should have credible, opinionated answers in
+each.++\++nExisting functionality in Boundary can be referenced and
+enhanced within these categories.
+
+[[21-core-runtime--persistence]]
+==== 2.1 Core runtime & persistence
+
+* *Routing & controllers*
+** Declarative routing for HTML and JSON APIs.
+** Clear conventions for controllers/handlers.
+* *Persistence & migrations*
+* Strong _relational_ data access story (e.g. next.jdbc {plus} HoneySQL)
+with PostgreSQL (or a similar SQL database) as the default.
+* Versioned, reversible schema migrations with a CLI
+(apply/rollback/status).
+* Patterns for entities vs. DB rows (ports/adapters for persistence).
+* Optional support for bitemporal / Datalog databases (e.g. Datomic,
+XTDB) via dedicated persistence adapters and/or audit/temporal modules.
+
+[[22-auth-sessions-and-security]]
+==== 2.2 Auth, sessions, and security
+
+* *Auth baseline*
+** User accounts, hashed passwords, password reset flows.
+** Sessions or tokens; CSRF/anti-forgery support.
+** Role- or permission-based access control.
+* *Security helpers*
+** Rate limiting and login protection (e.g. brute-force defense).
+** Middleware/interceptors for security headers and CSRF.
+
+[[23-web-ui--rendering]]
+==== 2.3 Web UI & rendering
+
+* *HTML and components*
+** Hiccup templates with composable layout and components.
+** Helpers analogous to Rails partials / Django template tags.
+* *Forms & validation*
+** Helpers on top of Malli to:
+*** Generate form fields from schemas.
+*** Bind submitted values and display per-field errors.
+*** Support multi-step flows and file uploads.
+* *Progressive enhancement*
+** Recommended HTMX patterns for interactive behaviour without a heavy
+SPA stack.
+
+[[24-api-layer]]
+==== 2.4 API layer
+
+* *JSON APIs*
+** Easy declaration of JSON endpoints (versioning, content negotiation,
+error handling).
+** Request validation/coercion using schemas; structured error
+responses.
+* *Serialization patterns*
+** Conventions for mapping domain entities → API DTOs (Rails serializers
+/ DRF serializers analogues) in an FC/IS-friendly way.
+
+[[25-background-jobs--scheduling]]
+==== 2.5 Background jobs & scheduling
+
+* *Jobs and workers*
+** First-class job abstraction with named jobs, retries, backoff, and
+error reporting hooks.
+* *Scheduling*
+** Periodic jobs (cron-like), equivalent to Celery Beat / Rails
+`whenever` / ActiveJob scheduling.
+* *Backends*
+** Pluggable transports (e.g. in-process scheduler, Redis / queue-based
+workers).
+** Optionally, shared-queue patterns to coexist with legacy workers
+during migrations.
+
+[[26-files-uploads-and-storage]]
+==== 2.6 Files, uploads, and storage
+
+* *Static assets*
+** Conventions and tooling for static asset handling in dev and
+production.
+* *Uploads and media*
+** Abstraction for uploaded files (metadata {plus} storage) with
+backends (filesystem, S3-like).
+** Integration with forms and validation.
+* *Protected files*
+** Auth-aware download handlers, supporting server-offload (e.g.
+X-Accel-Redirect, pre-signed URLs).
+
+[[27-email-notifications-and-documents]]
+==== 2.7 Email, notifications, and documents
+
+* *Email*
+** Templated emails (text/HTML), translations, attachments.
+** Spooling/queueing, preview/testing, pluggable delivery backends.
+* *Notifications*
+** Ports for SMS/push/other channels, and a pattern for domain events →
+notifications.
+* *Documents*
+** Recommended approach for PDF/Docx generation (native Java libraries
+and/or Python sidecar controlled via ports).
+
+[[28-admin--back-office-ux]]
+==== 2.8 Admin / back-office UX
+
+* *Admin-style CRUD*
+** Generic CRUD UIs driven by schemas and ports:
+*** List/detail/create/update/delete.
+*** Filtering, sorting, pagination, simple actions.
+* *Permissions integration*
+** Admin access controlled via roles/permissions hooks.
+
+[[29-developer-experience--cli]]
+==== 2.9 Developer experience & CLI
+
+* *CLI*
+** A `boundary` (or similar) CLI for common workflows: dev server,
+tests, migrations, REPL, scaffolding.
+* *Scaffolding*
+** Generators for modules, entities, routes, tests, admin screens.
+* *REPL & reload*
+** Documented workflows for live coding with REPL and system reloads.
+
+[[210-testing--observability]]
+==== 2.10 Testing & observability
+
+* *Testing*
+** Recommended patterns for unit, integration, and system tests.
+** Test helpers for HTTP, DB fixtures, and background jobs.
+* *Observability*
+** Logging, metrics, tracing, and error reporting built into
+service/persistence interceptors.
+
+[[211-extensibility--ecosystem]]
+==== 2.11 Extensibility & ecosystem
+
+* *Extension model*
+** Clear way to publish and consume Boundary modules (auth providers,
+storage, payment, etc.).
+* *Configuration & wiring*
+** Conventions for Integrant wiring so modules can be easily plugged
+into systems.
+
+'''''
+
+[[3-migration-oriented-capabilities]]
+=== 3. Migration-Oriented Capabilities
+
+Beyond being a good framework on its own, Boundary should explicitly
+support migrations from existing stacks such as Django and Rails.
+
+[[31-db-first-scaffolding-from-existing-schemas]]
+==== 3.1 DB-first scaffolding from existing schemas
+
+* Point Boundary at an existing PostgreSQL (or other SQL) schema and
+generate:
+** Entity schemas (e.g. Malli),
+** Persistence adapters,
+** Optional admin CRUD screens.
+
+This is applicable to Django (ORM), Rails (ActiveRecord), and many other
+frameworks.
+
+[[32-http-contract-preservation]]
+==== 3.2 HTTP contract preservation
+
+* Ability to mirror existing HTTP contracts when desired:
+** Paths and verbs compatible with current clients.
+** JSON shapes close to existing responses.
+* Helpers for route naming and URL generation so porting from
+`reverse()`/`url++_++for`-style APIs is straightforward.
+
+[[33-coexistence-and-strangler-patterns]]
+==== 3.3 Coexistence and strangler patterns
+
+* Documented patterns and reference configs for:
+** Running Boundary alongside Django/Rails behind a single domain.
+** Path-based routing (`/api/v1` → legacy, `/api/v2` → Boundary, etc.).
+** Shared authentication (e.g. shared JWTs or session backend).
+
+[[34-behaviour-comparison-and-verification-nice-to-have]]
+==== 3.4 Behaviour comparison and verification (nice-to-have)
+
+* Guidance or tooling to:
+** Send the same request to legacy and Boundary in non-production.
+** Compare responses (status, key fields) to detect regressions.
+
+[[35-framework-specific-migration-guides]]
+==== 3.5 Framework-specific migration guides
+
+* *Django → Boundary* mapping guide:
+** Models/migrations → DB schema {plus} Boundary migrations.
+** Views/forms → schemas {plus} Hiccup/HTMX handlers.
+** DRF viewsets → Reitit JSON APIs.
+** Celery → Boundary jobs.
+** Admin → admin-style CRUD.
+** Files/emails/docs → Boundary modules for those concerns.
+* *Rails → Boundary* mapping guide:
+** ActiveRecord (models/migrations) → DB schema {plus} Boundary
+persistence.
+** Controllers → Boundary HTTP handlers.
+** ERB/Haml/partials/helpers → Hiccup components.
+** ActiveJob/Sidekiq → Boundary jobs.
+** ActionMailer → Boundary email module.
+** ActiveStorage → Boundary file/storage abstractions.
+* Future guides for other ecosystems (e.g. Laravel, Express/Node) can
+follow similar structure.
+
+'''''
+
+[[4-phased-roadmap]]
+=== 4. Phased Roadmap
+
+The roadmap below organises the capabilities into phases. Actual
+sequencing can be adjusted, but this reflects a sensible default order.
+
+[[phase-0--solidify-boundary-core-baseline]]
+==== Phase 0 – Solidify Boundary Core (Baseline)
+
+*Goal*: Boundary is a clear, well-documented FC/IS framework with a
+solid runtime.
+
+* Refine documentation and examples for:
+** FC/IS layering and Integrant wiring.
+** Routing patterns for HTML and APIs.
+** Persistence patterns (next.jdbc/HoneySQL).
+** Observability interceptor pattern.
+* Provide a small, end-to-end example app (no heavy auth/admin yet).
+
+[[phase-1--framework-parity-foundation]]
+==== Phase 1 – Framework-Parity Foundation
+
+*Goal*: Building new apps in Boundary feels comparable in power to
+Django/Rails (minus some ergonomics).
+
+Deliverables:
+
+[arabic]
+. *Auth & security*
+* Auth baseline (users, sessions/tokens, password reset).
+* CSRF/anti-forgery, security headers, rate-limiting/login protection.
+. *Migrations & DB interoperability*
+* Versioned, reversible migrations {plus} CLI.
+* DB-first scaffolding (schema inference, entity/persistence skeletons).
+* Legacy-schema support (snake++_++case ↔ kebab-case, read-only
+attachments).
+. *Web UI & forms*
+* Form helpers on Malli; standard HTMX{plus}Hiccup patterns.
+. *Background jobs & scheduling*
+* Job abstraction with retries/backoff.
+* Periodic scheduling.
+* At least one backend (e.g. Redis or in-process).
+
+[[phase-2--developer-productivity--admin-ux]]
+==== Phase 2 – Developer Productivity & Admin UX
+
+*Goal*: Day-to-day DX feels good; internal/admin UIs are easy to build.
+
+Deliverables:
+
+[arabic]
+. *CLI & scaffolding*
+* `boundary` CLI (dev server, tests, migrations, REPL, generators).
+* Generators for modules, entities, routes, tests, admin screens.
+. *Admin-style CRUD*
+* Generic admin module that can build list/detail/edit/delete screens
+from schemas {plus} ports.
+* Scaffolder integration to generate admin CRUD per module.
+. *Files & storage*
+* Static/media conventions; upload abstraction; private file serving
+helpers.
+. *Email & notifications*
+* Email module (templates, spooling, pluggable backends).
+* Basic notification ports (e.g. SMS).
+
+[[phase-3--migration-tooling--multi-framework-support]]
+==== Phase 3 – Migration Tooling & Multi-Framework Support
+
+*Goal*: Migrating mature Django/Rails apps to Boundary is realistic and
+plannable.
+
+Deliverables:
+
+[arabic]
+. *Coexistence cookbook*
+* Reverse-proxy examples for Boundary {plus} Django/Rails on one domain.
+* Shared auth pattern (JWT or session-backed).
+. *Migration helpers*
+* Behaviour comparison patterns/tools.
+* Data migration/backfill recipes for evolving schemas.
+. *Search & Elasticsearch integration*
+* Declarative index definitions; search repositories; DB ↔ ES sync
+patterns.
+. *Migration guides*
+* Written, concrete guides for Django → Boundary and Rails → Boundary.
+
+[[phase-4--ecosystem--polish]]
+==== Phase 4 – Ecosystem & Polish
+
+*Goal*: Boundary is not just a framework but an ecosystem with reusable
+modules and templates.
+
+Deliverables:
+
+[arabic]
+. *Extension model*
+* Documented pattern for publishing/consuming Boundary modules (auth
+providers, storage, observability, etc.).
+. *Advanced persistence backends (optional)*
+* Dedicated adapters and/or modules for Datomic/XTDB as optional
+persistence/audit backends, keeping PostgreSQL (or similar SQL) as the
+default.
+* Guidance on when to use relational-only vs. relational {plus}
+bitemporal store vs. primarily bitemporal store.
+. *Project templates*
+* "Django-class app" template: pre-wired with auth, admin, jobs, email,
+files, observability.
+* Optional variant focused on "Rails-class app" expectations.
+. *Guides and recipes*
+* Conceptual mapping guides (framework → Boundary).
+* Recipes for common patterns: multi-tenancy, audit logging, feature
+flags, etc.).
+
+'''''
+
+[[5-using-this-roadmap]]
+=== 5. Using This Roadmap
+
+* For *product planning*: use the phases as high-level milestones;
+prioritise Phase 1–2 items that unblock real-world apps first.
+* For *technical design*: treat each capability area (auth, jobs, admin,
+etc.) as a separate design track and keep FC/IS {plus} ports/adapters as
+non-negotiable constraints.
+* For *migration projects*: combine this roadmap with system-specific
+migration guides (e.g. a dedicated Django → Boundary doc) to build
+concrete project plans.

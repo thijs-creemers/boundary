@@ -1,0 +1,172 @@
+= Add a Domain Entity
+
+[[overview]]
+== Overview
+
+Add a new entity to Boundary by defining its schema, ports, service functions, persistence, and interfaces (REST + CLI). This guide uses a "Profile" entity as an example.
+
+[[step-1-schema]]
+== Step 1: Define Malli Schema
+
+Add to `src/boundary/<module>/schema.clj`:
+
+[source,clojure]
+----
+(def Profile
+  [:map {:closed true}
+   [:id :uuid]
+   [:user-id :uuid]
+   [:bio {:optional true} :string]
+   [:avatar-url {:optional true} :string]
+   [:preferences [:map
+                  [:theme [:enum :light :dark]]
+                  [:notifications :boolean]]]
+   [:created-at inst?]
+   [:updated-at {:optional true} inst?]])
+----
+
+[[step-2-ports]]
+== Step 2: Define Port Interface
+
+Add protocol to `src/boundary/<module>/ports.clj`:
+
+[source,clojure]
+----
+(defprotocol IProfileRepository
+  (find-profile-by-user-id [this user-id])
+  (create-profile [this profile-entity])
+  (update-profile [this profile-entity]))
+----
+
+[[step-3-service]]
+== Step 3: Add Service Functions
+
+Add to `src/boundary/<module>/shell/service.clj`:
+
+[IMPORTANT]
+====
+**🎯 Automatic Observability via Interceptors**
+
+With Boundary's **multi-layer interceptor pattern**, your service functions automatically receive comprehensive observability integration without any manual instrumentation. Focus on pure business logic - interceptors handle the observability concerns.
+====
+
+[source,clojure]
+----
+(defn create-profile
+  "Create user profile.
+  
+  Interceptors automatically handle:
+  - Entry/exit logging with correlation context
+  - Success/failure metrics (profile-operations-attempted/successful/failed)
+  - Performance timing (profile-operation-duration histogram)
+  - Exception reporting with rich context
+  - Business event logging (profile-created)"
+  [service profile-data]
+  ;; Pure business logic - no observability boilerplate needed
+  (let [validation (validate-profile-data profile-data)]
+    (when-not (:valid? validation)
+      (throw (ex-info "Invalid profile data" validation)))
+    (ports/create-profile (:profile-repo service) profile-data)))
+----
+
+[[step-4-persistence]]
+== Step 4: Implement Persistence
+
+Add adapter to `src/boundary/<module>/shell/persistence.clj`:
+
+[IMPORTANT]
+====
+**🎯 Database Layer Observability**
+
+Boundary's **persistence layer interceptors** automatically provide comprehensive database observability. Your persistence functions remain pure data access code while interceptors handle performance monitoring, connection tracking, and error reporting.
+====
+
+[source,clojure]
+----
+(defrecord DatabaseProfileRepository [ctx]
+  ports/IProfileRepository
+  
+  (find-profile-by-user-id [_ user-id]
+    ;; Pure data access - interceptors automatically provide:
+    ;; - Query execution timing
+    ;; - Connection pool metrics  
+    ;; - Query logging with parameter sanitization
+    ;; - Database exception reporting
+    (let [query {:select [:*]
+                 :from [:profiles]
+                 :where [:= :user_id (str user-id)]}
+          result (db/execute-one! ctx query)]
+      (when result
+        (db-record->profile-entity result))))
+  
+  (create-profile [_ profile-entity]
+    ;; Pure data access - interceptors handle all database observability
+    (let [with-id (assoc profile-entity :id (UUID/randomUUID))
+          query {:insert-into :profiles
+                 :values [(profile-entity->db-record with-id)]}]
+      (db/execute-update! ctx query)
+      with-id)))
+----
+
+[[step-5-rest-endpoint]]
+== Step 5: Add REST Endpoint
+
+Add to `src/boundary/<module>/shell/http.clj`:
+
+[source,clojure]
+----
+(defn get-profile-handler
+  [user-service]
+  (fn [{{:keys [path]} :parameters}]
+    (let [user-id (string->uuid (:userId path))
+          profile (ports/find-profile-by-user-id user-service user-id)]
+      (if profile
+        {:status 200 :body (kebab->camel profile)}
+        {:status 404 :body {:error "Profile not found"}}))))
+
+;; Add route
+["/users/:userId/profile"
+ {:get {:handler (get-profile-handler user-service)
+       :summary "Get user profile"
+       :parameters {:path [:map [:userId :string]]}}}]
+----
+
+[[step-6-cli]]
+== Step 6: Add CLI Command
+
+Add to `src/boundary/<module>/shell/cli.clj`:
+
+[source,clojure]
+----
+(def profile-show-options
+  [[nil "--user-id UUID" "User ID"
+    :parse-fn parse-uuid]])
+
+(defn execute-profile-show
+  [service opts]
+  (let [profile (ports/find-profile-by-user-id service (:user-id opts))]
+    (if profile
+      (format-profile-table [profile])
+      "Profile not found")))
+----
+
+[[checklist]]
+== Checklist
+
+- [ ] Schema defined with Malli
+- [ ] Port protocol created
+- [ ] Service functions implemented
+- [ ] Persistence adapter created
+- [ ] Entity conversion functions (db↔entity)
+- [ ] REST endpoint added
+- [ ] CLI command added
+- [ ] Tests written
+- [ ] Database migration created (if needed)
+
+[[learn-more]]
+== Learn More
+
+* {xref-validation}[Validation System]
+* link:implement-port-adapter.adoc[Implement Port and Adapter]
+* link:add-rest-endpoint.adoc[Add REST Endpoint]
+* {xref-arch-components}[Component Architecture]

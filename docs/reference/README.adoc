@@ -1,0 +1,43 @@
+== Reference Documentation
+
+Technical reference documentation for APIs, commands, configuration, and
+patterns.
+
+=== Command Reference
+
+* link:commands.adoc[*Commands*] - Complete CLI command reference with
+options and examples
+
+=== Configuration
+
+* link:configuration.adoc[*Configuration*] - Configuration structure,
+options, and environment variables
+
+=== Error Handling
+
+* link:error-codes.adoc[*Error Codes*] - System error codes, meanings,
+and resolution
+
+=== Tools
+
+* link:scaffolder.adoc[*Scaffolder*] - Module scaffolding tool reference
+and usage
+
+=== Patterns
+
+* link:validation-patterns.adoc[*Validation Patterns*] - Validation
+approach, patterns, and best practices
+
+=== Related Documentation
+
+* link:../guides/[Guides] - Step-by-step tutorials and how-to guides
+* link:../architecture/[Architecture] - Architectural patterns and
+design decisions
+* link:../api/[API Examples] - Complete API implementation examples
+
+=== Quick Links
+
+* link:../../AGENTS.md[AGENTS.md] - Comprehensive development guide with
+command reference
+* link:../guides/troubleshooting.adoc[Troubleshooting] - Common issues
+and solutions
