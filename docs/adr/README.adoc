@@ -60,6 +60,51 @@ composition.
 * Route composition in system wiring
 * Consistent route structure across modules
 
+==== ADR-008: Normalized Routing Abstraction
+
+ADR-008-normalized-routing-abstraction.adoc
+
+Introduces framework-agnostic route definitions using normalized EDN schema,
+enabling pluggable HTTP routers and servers through the Ports & Adapters pattern.
+
+*Key Decisions:*
+
+* Framework-agnostic normalized EDN route schema
+* IRouter and IHttpServer protocols (ports)
+* Pluggable router adapters (currently Reitit)
+* Pluggable server adapters (Ring+Jetty, Undertow, etc.)
+* Pure data in modules, framework selection via configuration
+
+==== ADR-009: Reitit as Exclusive Router Implementation
+
+ADR-009-reitit-exclusive-router.adoc
+
+Decides to use Reitit exclusively as the HTTP router implementation,
+abandoning exploration of alternative router adapters due to architectural complexity.
+
+*Key Decisions:*
+
+* Reitit as sole router implementation
+* Normalized routing format still valuable for clean module interfaces
+* IRouter protocol kept for future flexibility (single implementation)
+* Focus on feature development over infrastructure flexibility
+
+==== ADR-010: HTTP Interceptor Architecture
+
+ADR-010-http-interceptor-architecture.adoc
+
+Implements HTTP interceptor pattern providing bidirectional enter/leave/error
+semantics while maintaining Ring/Reitit compatibility for declarative
+cross-cutting concerns.
+
+*Key Decisions:*
+
+* HTTP interceptor pattern with enter/leave/error phases
+* Declarative interceptors via `:interceptors` in normalized routes
+* Automatic integration with observability services
+* Ring/Reitit compatibility via middleware adapter
+* Consistent pattern across HTTP, service, and persistence layers
+
 === Related Documentation
 
 * link:../architecture/[Architecture] - Detailed architecture

@@ -445,11 +445,214 @@
                                    :parameters {:path [:map [:token :string]]}}}]]))
 
 ;; =============================================================================
-;; User Module Routes (Structured Format)
+;; User Module Routes (Normalized Format)
+;; =============================================================================
+
+(defn normalized-api-routes
+  "Define API routes in normalized format.
+   
+   Args:
+     user-service: User service instance
+     
+   Returns:
+     Vector of normalized route maps"
+  [user-service]
+  (let [auth-middleware (user-middleware/flexible-authentication-middleware user-service)]
+    [{:path "/users"
+      :meta {:middleware [auth-middleware]}
+      :methods {:post {:handler (create-user-handler user-service)
+                       :summary "Create user"
+                       :tags ["users"]
+                       :parameters {:body [:map
+                                          [:email :string]
+                                          [:name :string]
+                                          [:password {:optional true} :string]
+                                          [:role [:enum "admin" "user" "viewer"]]
+                                          [:active {:optional true} :boolean]]}}
+                :get {:handler (list-users-handler user-service)
+                      :summary "List users with pagination and filters"
+                      :tags ["users"]
+                      :parameters {:query [:map
+                                          [:limit {:optional true} :int]
+                                          [:offset {:optional true} :int]
+                                          [:role {:optional true} [:enum "admin" "user" "viewer"]]
+                                          [:active {:optional true} :boolean]]}}}}
+     {:path "/users/:id"
+      :meta {:middleware [auth-middleware]}
+      :methods {:get {:handler (get-user-handler user-service)
+                      :summary "Get user by ID"
+                      :tags ["users"]
+                      :parameters {:path [:map [:id :string]]}}
+                :put {:handler (update-user-handler user-service)
+                      :summary "Update user"
+                      :tags ["users"]
+                      :parameters {:path [:map [:id :string]]
+                                   :body [:map
+                                         [:name {:optional true} :string]
+                                         [:role {:optional true} [:enum "admin" "user" "viewer"]]
+                                         [:active {:optional true} :boolean]]}}
+                :delete {:handler (delete-user-handler user-service)
+                         :summary "Soft delete user"
+                         :tags ["users"]
+                         :parameters {:path [:map [:id :string]]}}}}
+     {:path "/auth/login"
+      :methods {:post {:handler (login-handler user-service)
+                       :summary "Authenticate user with email/password"
+                       :tags ["authentication"]
+                       :parameters {:body [:map
+                                          [:email :string]
+                                          [:password :string]
+                                          [:deviceInfo {:optional true} [:map
+                                                                        [:userAgent {:optional true} :string]
+                                                                        [:ipAddress {:optional true} :string]]]]}}}}
+     {:path "/sessions"
+      :methods {:post {:handler (create-session-handler user-service)
+                       :summary "Create session (login by user ID)"
+                       :tags ["sessions"]
+                       :parameters {:body [:or
+                                          [:map
+                                           [:userId :string]
+                                           [:deviceInfo {:optional true} [:map
+                                                                         [:userAgent {:optional true} :string]
+                                                                         [:ipAddress {:optional true} :string]]]]
+                                          [:map
+                                           [:email :string]
+                                           [:password :string]
+                                           [:deviceInfo {:optional true} [:map
+                                                                         [:userAgent {:optional true} :string]
+                                                                         [:ipAddress {:optional true} :string]]]]]}}}}
+     {:path "/sessions/:token"
+      :methods {:get {:handler (validate-session-handler user-service)
+                      :summary "Validate session"
+                      :tags ["sessions"]
+                      :parameters {:path [:map [:token :string]]}}
+                :delete {:handler (invalidate-session-handler user-service)
+                         :summary "Invalidate session (logout)"
+                         :tags ["sessions"]
+                         :parameters {:path [:map [:token :string]]}}}}]))
+
+(defn normalized-web-routes
+  "Define web UI routes in normalized format (WITHOUT /web prefix).
+   
+   NOTE: These routes will be mounted under /web by the top-level router.
+   Do NOT include /web prefix in paths here.
+   
+   Args:
+     user-service: User service instance
+     config: Application configuration map
+     
+   Returns:
+     Vector of normalized route maps"
+  [user-service config]
+  (let [auth-middleware (user-middleware/flexible-authentication-middleware user-service)]
+    [{:path "/register"
+      :meta {:no-doc true}
+      :methods {:get {:handler (web-handlers/register-page-handler config)
+                      :summary "Self-service registration page"}
+                :post {:handler (web-handlers/register-submit-handler user-service config)
+                       :summary "Submit registration form"}}}
+     {:path "/login"
+      :meta {:no-doc true}
+      :methods {:get {:handler (web-handlers/login-page-handler config)
+                      :summary "Login page"}
+                :post {:handler (web-handlers/login-submit-handler user-service config)
+                       :summary "Submit login form"}}}
+     {:path "/logout"
+      :meta {:no-doc true}
+      :methods {:post {:middleware [auth-middleware]
+                       :handler (web-handlers/logout-handler user-service config)
+                       :summary "Logout current user"}}}
+     {:path "/users"
+      :meta {:no-doc true
+             :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/users-page-handler user-service config)
+                      :summary "Users listing page"}
+                :post {:handler (web-handlers/create-user-htmx-handler user-service config)
+                       :summary "Create user (HTMX fragment)"}}}
+     {:path "/users/bulk"
+      :meta {:no-doc true
+             :middleware [auth-middleware]}
+      :methods {:post {:handler (web-handlers/bulk-update-users-htmx-handler user-service config)
+                       :summary "Bulk user operations (HTMX fragment)"}}}
+     {:path "/users/new"
+      :meta {:no-doc true
+             :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/create-user-page-handler config)
+                      :summary "Create user page"}}}
+     {:path "/users/table"
+      :meta {:no-doc true
+             :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/users-table-fragment-handler user-service config)
+                      :summary "Users table fragment (HTMX refresh)"}}}
+     {:path "/users/:id/hard-delete"
+      :meta {:no-doc true
+             :middleware [auth-middleware]}
+      :methods {:post {:handler (web-handlers/hard-delete-user-handler user-service config)
+                       :summary "Permanently delete user (admin only)"}}}
+     {:path "/users/:id/sessions"
+      :meta {:no-doc true
+             :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/user-sessions-page-handler user-service config)
+                      :summary "User sessions management page"}}}
+     {:path "/users/:id/sessions/revoke-all"
+      :meta {:no-doc true
+             :middleware [auth-middleware]}
+      :methods {:post {:handler (web-handlers/revoke-all-sessions-handler user-service config)
+                       :summary "Revoke all user sessions"}}}
+     {:path "/users/:id"
+      :meta {:no-doc true
+             :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/user-detail-page-handler user-service config)
+                      :summary "User detail page"}
+                :put {:handler (web-handlers/update-user-htmx-handler user-service config)
+                      :summary "Update user (HTMX fragment)"}
+                :delete {:handler (web-handlers/delete-user-htmx-handler user-service config)
+                         :summary "Delete user (HTMX fragment)"}}}
+     {:path "/sessions/:token/revoke"
+      :meta {:no-doc true
+             :middleware [auth-middleware]}
+      :methods {:post {:handler (web-handlers/revoke-session-handler user-service config)
+                       :summary "Revoke specific session"}}}
+     {:path "/audit"
+      :meta {:no-doc true
+             :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/audit-page-handler user-service config)
+                      :summary "Audit trail page"}}}
+     {:path "/audit/table"
+      :meta {:no-doc true
+             :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/audit-table-fragment-handler user-service config)
+                      :summary "Audit table fragment (HTMX refresh)"}}}]))
+
+(defn user-routes-normalized
+  "Define user module routes in normalized format for top-level composition.
+   
+   Returns a map with route categories:
+   - :api - REST API routes (will be mounted under /api)
+   - :web - Web UI routes (will be mounted under /web)
+   - :static - Static asset routes (empty - served at handler level)
+   
+   Args:
+     user-service: User service instance
+     config: Application configuration map
+
+   Returns:
+     Map with keys :api, :web, :static containing normalized route vectors"
+  [user-service config]
+  (let [web-ui-enabled? (get-in config [:active :boundary/settings :features :user-web-ui :enabled?] true)]
+    {:api (normalized-api-routes user-service)
+     :web (when web-ui-enabled? (normalized-web-routes user-service config))
+     :static []}))
+
+;; =============================================================================
+;; User Module Routes (Structured Format - LEGACY REITIT)
 ;; =============================================================================
 
 (defn user-routes
   "Define user module routes in structured format for top-level composition.
+   
+   DEPRECATED: Use user-routes-normalized instead for new code.
+   This function returns routes in Reitit-specific format.
    
    Returns a map with route categories:
    - :api - REST API routes (will be mounted under /api)

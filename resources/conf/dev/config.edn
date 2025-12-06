@@ -51,15 +51,21 @@
           :maximum-pool-size 15
           :connection-timeout-ms 30000}}
 
-  ;; HTTP Server configuration
-  :boundary/http
-  {:port #or [#env HTTP_PORT 3000]
-   :host #or [#env HTTP_HOST "0.0.0.0"]
-   :join? false
-   ;; Port conflict resolution - if default port is busy, system will try higher ports
-   :port-range {:start 3000 :end 3099}}
+   ;; HTTP Server configuration
+   :boundary/http
+   {:port #or [#env HTTP_PORT 3000]
+    :host #or [#env HTTP_HOST "0.0.0.0"]
+    :join? false
+    ;; Port conflict resolution - if default port is busy, system will try higher ports
+    :port-range {:start 3000 :end 3099}}
 
-  ;; Observability configurations
+   ;; HTTP Router configuration
+   :boundary/router
+   {:adapter :reitit  ; Router implementation: :reitit, :pedestal, etc.
+    :coercion :malli  ; Coercion library: :malli, :spec, etc.
+    :middleware []}   ; Global middleware (specific middleware in routes)
+
+   ;; Observability configurations
   ;; Using SLF4J provider with Logback backend for unified logging
   :boundary/logging
   {:provider :slf4j
