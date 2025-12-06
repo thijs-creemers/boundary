@@ -869,6 +869,6 @@ Batch metrics for better performance:
 == References
 
 * **link:error-handling-observability.adoc[Error Handling & Observability]** - Architecture overview
-* **Boundary Observability Integration** - `docs/OBSERVABILITY_INTEGRATION.md`
+* **Boundary Observability Integration** - `docs/guides/integrate-observability.adoc`
 * **System Wiring Configuration** - `src/boundary/shell/system/wiring.clj`
 * **Protocol Implementations** - `src/boundary/{logging,metrics,error-reporting}/shell/adapters.clj`

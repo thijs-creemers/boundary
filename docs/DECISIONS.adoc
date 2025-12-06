@@ -43,12 +43,12 @@ Following *Diátaxis framework*:
 
 ==== Relationship with Existing Docs
 
-* *warp.md:* Remains as "Developer Guide" for comprehensive reference
+* *AGENTS.md:* Remains as "Developer Guide" for comprehensive reference
 * *User Guide:* Complementary, focused on getting started and common
 tasks
 * *Cross-linking:* Prominent bidirectional links between both guides
 * *No content moves:* This iteration adds to docs, doesn't relocate
-warp.md content
+AGENTS.md content
 
 ==== Architecture Documentation
 
@@ -96,7 +96,7 @@ data
 * Antora-based documentation site
 * Windows support
 * Multiple quickstart paths
-* Moving content from warp.md
+* Moving content from AGENTS.md
 * Comprehensive API reference (use Swagger/OpenAPI)
 * Video tutorials or screencasts
 

@@ -4,7 +4,7 @@ Thank you for your interest in contributing to Boundary! This guide will help yo
 
 ## Quick Start for Contributors
 
-**📖 Start Here**: Read the [Developer Guide (warp.md)](./warp.md) for comprehensive setup and development information.
+**📖 Start Here**: Read the [Developer Guide (AGENTS.md)](./AGENTS.md) for comprehensive setup and development information.
 
 ## Development Setup
 
@@ -117,9 +117,9 @@ clojure -M:clj-kondo --lint src test
 
 ### 📝 **Documentation Updates**
 
-#### When to Update warp.md
+#### When to Update AGENTS.md
 
-**🚨 Always update [warp.md](./warp.md) when making these changes:**
+**🚨 Always update [AGENTS.md](./AGENTS.md) when making these changes:**
 
 - [ ] **New Module Added**: Update module structure examples and lists
 - [ ] **Build System Changes**: Update command examples and build instructions  
@@ -128,7 +128,7 @@ clojure -M:clj-kondo --lint src test
 - [ ] **New Dependencies**: Update key technologies section and rationale
 - [ ] **Architecture Changes**: Update principles, dependency rules, or ADRs
 
-#### How to Update warp.md
+#### How to Update AGENTS.md
 
 1. **Use the maintenance template**: See [docs/templates/warp-maintenance-template.md](docs/templates/warp-maintenance-template.md)
 2. **Test all commands**: Ensure every command in the guide works
@@ -163,7 +163,7 @@ When adding a new domain module:
        └── service.clj
    ```
 
-2. **Update warp.md**: Add to module examples and structure section
+2. **Update AGENTS.md**: Add to module examples and structure section
 3. **Update build system**: Add to any module-specific build configurations
 4. **Add tests**: Create corresponding test structure
 5. **Update documentation**: Reference in architecture docs
@@ -187,7 +187,7 @@ All contributions must meet these standards:
 - [ ] **Architecture Compliance**: Follows FC/IS principles
 - [ ] **Tests Pass**: All existing and new tests pass
 - [ ] **Code Quality**: Passes linting with no errors
-- [ ] **Documentation**: Updates warp.md if needed
+- [ ] **Documentation**: Updates AGENTS.md if needed
 - [ ] **Schema Validation**: All inputs validated with Malli schemas
 - [ ] **Error Handling**: Proper error handling and logging
 - [ ] **Review**: Code reviewed by maintainer
@@ -215,7 +215,7 @@ Reviewers will check for:
 
 ### 📚 **Resources**
 
-- **[Developer Guide (warp.md)](./warp.md)**: Complete development reference
+- **[Developer Guide (AGENTS.md)](./AGENTS.md)**: Complete development reference
 - **[Architecture Documentation](docs/architecture/)**: Detailed architectural guides
 - **[PRD](docs/boundary.prd.adoc)**: Complete product requirements
 

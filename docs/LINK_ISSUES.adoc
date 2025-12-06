@@ -33,7 +33,7 @@ These files are referenced but not found in the new structure:
 These are intentionally outside docs/ directory:
 
 * `../PRD.adoc` → `/PRD.adoc` (project root)
-* `../warp.md` → `/warp.md` (project root)
+* `../AGENTS.md` → `/AGENTS.md` (project root)
 * `../src/boundary/shell/utils/port++_++manager.clj` (source code)
 * `REFACTORING-SUMMARY.adoc`, `TEST-FIXES-SUMMARY.adoc` (project root)
 
@@ -54,7 +54,7 @@ subdirectories that no longer exist:
 * `../validation-patterns.adoc` →
 `../reference/validation-patterns.adoc`
 * `../error-codes.adoc` → `../reference/error-codes.adoc`
-* `../../warp.md` → `../../warp.md` (already correct, verify file
+* `../../AGENTS.md` → `../../AGENTS.md` (already correct, verify file
 exists)
 . *Fix PRD references* - Verify PRD.adoc location and update links
 

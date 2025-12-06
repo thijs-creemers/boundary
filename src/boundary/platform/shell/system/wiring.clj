@@ -30,6 +30,8 @@
             [boundary.logging.shell.adapters.slf4j :as logging-slf4j]
             [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
             [boundary.error-reporting.shell.adapters.sentry :as error-reporting-sentry]
+            [boundary.platform.shell.http.reitit-router :as reitit-router]
+            [boundary.platform.shell.http.ring-jetty-server :as ring-jetty]
             [boundary.platform.shell.utils.port-manager :as port-manager]
             ;; todo: need to find a way to decouple these dependencies an inject them in another way.
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
@@ -66,52 +68,89 @@
 ;; =============================================================================
 
 ;; =============================================================================
+;; HTTP Router Adapter
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/router
+  [_ {:keys [adapter config]}]
+  (log/info "Initializing HTTP router adapter" {:adapter adapter})
+  (let [router (case adapter
+                 :reitit (reitit-router/create-reitit-router)
+                 ;; Future routers:
+                 ;; :pedestal (pedestal-router/create-pedestal-router)
+                 ;; :compojure (compojure-router/create-compojure-router)
+                 (do
+                   (log/warn "Unknown router adapter, falling back to reitit"
+                             {:adapter adapter})
+                   (reitit-router/create-reitit-router)))]
+    (log/info "HTTP router adapter initialized" {:adapter adapter})
+    router))
+
+(defmethod ig/halt-key! :boundary/router
+  [_ _router]
+  (log/info "HTTP router adapter halted"))
+
+;; =============================================================================
 ;; HTTP Handler
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [config user-routes inventory-routes]}]
-  (log/info "Initializing top-level HTTP handler with structured route composition")
-  (let [;; Import routing utilities
-        _ (require 'boundary.platform.shell.interfaces.http.routes)
-        routes-create-router (ns-resolve 'boundary.platform.shell.interfaces.http.routes 'create-router)
-        routes-create-handler (ns-resolve 'boundary.platform.shell.interfaces.http.routes 'create-handler)
+  [_ {:keys [user-routes inventory-routes router]}]
+  (log/info "Initializing top-level HTTP handler with normalized routing")
+  (require 'boundary.platform.ports.http)
+  (let [;; Import compile-routes function
+        compile-routes (ns-resolve 'boundary.platform.ports.http 'compile-routes)
 
-        ;; Extract route vectors from user module
+        ;; Extract user module routes (normalized format)
         user-static-routes (or (:static user-routes) [])
         user-web-routes (or (:web user-routes) [])
         user-api-routes (or (:api user-routes) [])
+        
+        ;; User routes are in normalized format - use directly
+        user-normalized-static (when (seq user-static-routes) user-static-routes)
+        user-normalized-web (when (seq user-web-routes)
+                             ;; Add /web prefix to web routes
+                             (mapv (fn [route]
+                                    (update route :path #(str "/web" %)))
+                                  user-web-routes))
+        user-normalized-api (when (seq user-api-routes) user-api-routes)
 
-        ;; Extract route vectors from inventory module
+        ;; Extract inventory module routes (normalized format)
         inventory-static-routes (or (:static inventory-routes) [])
         inventory-web-routes (or (:web inventory-routes) [])
         inventory-api-routes (or (:api inventory-routes) [])
+        
+        ;; Inventory routes are in normalized format - use directly
+        inventory-normalized-static (when (seq inventory-static-routes) inventory-static-routes)
+        inventory-normalized-web (when (seq inventory-web-routes)
+                                  ;; Add /web prefix to web routes
+                                  (mapv (fn [route]
+                                         (update route :path #(str "/web" %)))
+                                       inventory-web-routes))
+        inventory-normalized-api (when (seq inventory-api-routes) inventory-api-routes)
 
-        ;; Combine all web routes and add /web prefix
-        all-web-routes (concat user-web-routes inventory-web-routes)
-        web-routes-prefixed (when (seq all-web-routes)
-                              (mapv (fn [[path opts]]
-                                      [(str "/web" path) opts])
-                                    all-web-routes))
+        ;; Combine all normalized routes
+        all-normalized-routes (concat (or user-normalized-static [])
+                                     (or user-normalized-web [])
+                                     (or user-normalized-api [])
+                                     (or inventory-normalized-static [])
+                                     (or inventory-normalized-web [])
+                                     (or inventory-normalized-api []))
 
-        ;; Combine all routes
-        all-routes (concat user-static-routes
-                           inventory-static-routes
-                           (or web-routes-prefixed [])
-                           user-api-routes
-                           inventory-api-routes)
-
-        ;; Create router and handler
-        router (routes-create-router config all-routes)
-        handler (routes-create-handler router)]
+        ;; Compile routes using router adapter
+        router-config {:middleware []  ; Add any global middleware here
+                      :coercion :malli}
+        handler (compile-routes router all-normalized-routes router-config)]
 
     (log/info "Top-level HTTP handler initialized successfully"
-              {:user-static-routes (count user-static-routes)
-               :user-web-routes (count user-web-routes)
-               :user-api-routes (count user-api-routes)
-               :inventory-api-routes (count inventory-api-routes)
-               :inventory-web-routes (count inventory-web-routes)
-               :total-routes (count all-routes)})
+              {:user-routes {:static (count (or user-static-routes []))
+                            :web (count (or user-web-routes []))
+                            :api (count (or user-api-routes []))}
+               :inventory-routes {:static (count (or inventory-static-routes []))
+                                 :web (count (or inventory-web-routes []))
+                                 :api (count (or inventory-api-routes []))}
+               :total-normalized-routes (count all-normalized-routes)
+               :router-adapter (class router)})
     handler))
 
 (defmethod ig/halt-key! :boundary/http-handler

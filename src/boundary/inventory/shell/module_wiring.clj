@@ -41,11 +41,14 @@
 
 (defmethod ig/init-key :boundary/inventory-routes
   [_ {:keys [service config]}]
-  (log/info "Initializing inventory module routes")
+  (log/info "Initializing inventory module routes (normalized format)")
   (require 'boundary.inventory.shell.http)
-  (let [routes-fn (ns-resolve 'boundary.inventory.shell.http 'routes)
+  (let [routes-fn (ns-resolve 'boundary.inventory.shell.http 'inventory-routes-normalized)
         routes (routes-fn service config)]
-    (log/info "Inventory module routes initialized")
+    (log/info "Inventory module routes initialized successfully"
+              {:route-keys (keys routes)
+               :api-count (count (:api routes))
+               :web-count (count (:web routes))})
     routes))
 
 (defmethod ig/halt-key! :boundary/inventory-routes

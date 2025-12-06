@@ -617,7 +617,7 @@ Explore:
 
 == References
 
-* **Boundary Observability Integration Guide** - `docs/OBSERVABILITY_INTEGRATION.md`
+* **Boundary Observability Integration Guide** - `docs/guides/integrate-observability.adoc`
 * **System Component Wiring** - `src/boundary/shell/system/wiring.clj`
 * **Protocol Definitions** - `src/boundary/{logging,metrics,error-reporting}/ports.clj`
 * **The Twelve-Factor App** - Logging and monitoring best practices

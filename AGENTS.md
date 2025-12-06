@@ -24,6 +24,7 @@
 - [Testing Strategy](#testing-strategy)
 - [Database Operations](#database-operations)
 - [Observability](#observability)
+- [HTTP Interceptors](#http-interceptors)
 - [Web UI Development](#web-ui-development)
 - [Build and Deployment](#build-and-deployment)
 - [Troubleshooting](#troubleshooting)
@@ -1236,7 +1237,328 @@ Configure observability providers in your `config.edn`:
 - **Metrics**: No-op (development), Datadog  
 - **Error Reporting**: No-op (development), Sentry
 
-See [docs/OBSERVABILITY_INTEGRATION.md](docs/OBSERVABILITY_INTEGRATION.md) for complete integration guide including custom adapters and advanced configuration.
+See [docs/guides/integrate-observability.adoc](docs/guides/integrate-observability.adoc) for complete integration guide including custom adapters and advanced configuration.
+
+---
+
+## HTTP Interceptors
+
+### Overview
+
+HTTP interceptors provide bidirectional enter/leave/error semantics for Ring handlers, enabling declarative cross-cutting concerns like authentication, rate limiting, and audit logging.
+
+**Key Benefits**:
+- Declarative: Specify policies in route config
+- Composable: Stack multiple interceptors per route
+- Bidirectional: Process requests (enter) and responses (leave)
+- Observable: Automatic logging, metrics, error reporting
+- Testable: Easy to test in isolation
+
+### Interceptor Shape
+
+```clojure
+{:name   :my-interceptor           ; Required: Keyword identifier
+ :enter  (fn [context] ...)        ; Optional: Process request
+ :leave  (fn [context] ...)        ; Optional: Process response
+ :error  (fn [context] ...)}       ; Optional: Handle exceptions
+```
+
+**Phases**:
+- `:enter` - Process request, can short-circuit with response
+- `:leave` - Process response (runs in reverse order)
+- `:error` - Handle exceptions, produce safe response
+
+### HTTP Context
+
+Interceptors operate on a context map:
+
+```clojure
+{:request       Ring request map
+ :response      Ring response (built during pipeline)
+ :route         Route metadata from Reitit
+ :path-params   Extracted parameters
+ :system        {:logger :metrics-emitter :error-reporter}
+ :attrs         Additional attributes
+ :correlation-id Unique request ID
+ :started-at    Request timestamp}
+```
+
+### Using Interceptors in Routes
+
+**Normalized Route Format**:
+
+```clojure
+[{:path "/api/admin"
+  :methods {:post {:handler 'my.handlers/create-resource
+                   :interceptors ['my.auth/require-admin
+                                  'my.audit/log-action
+                                  'my.rate-limit/admin-limit]
+                   :summary "Create admin resource"}}}]
+```
+
+**Requirements**:
+- Router config must include `:system` with observability services
+- Interceptor symbols resolved at startup
+
+### Common Interceptor Patterns
+
+#### 1. Authentication
+
+```clojure
+(ns my.auth.interceptors)
+
+(def require-admin
+  "Require admin role."
+  {:name :require-admin
+   :enter (fn [ctx]
+            (let [user (get-in ctx [:request :session :user])]
+              (if (= "admin" (:role user))
+                ctx
+                (assoc ctx :response
+                       {:status 403
+                        :body {:error "Forbidden"}}))))})
+
+(def require-authenticated
+  "Require any authenticated user."
+  {:name :require-authenticated
+   :enter (fn [ctx]
+            (if (get-in ctx [:request :session :user])
+              ctx
+              (assoc ctx :response
+                     {:status 401
+                      :body {:error "Unauthorized"}})))})
+```
+
+#### 2. Audit Logging
+
+```clojure
+(ns my.audit.interceptors)
+
+(def log-action
+  "Log successful actions in leave phase."
+  {:name :log-action
+   :leave (fn [ctx]
+            (let [logger (get-in ctx [:system :logger])
+                  status (get-in ctx [:response :status])]
+              ;; Only log successful actions (2xx)
+              (when (and logger (< 199 status 300))
+                (.info logger "Action completed"
+                       {:user-id (get-in ctx [:request :session :user :id])
+                        :action (get-in ctx [:request :uri])
+                        :status status}))
+              ctx))})
+```
+
+#### 3. Rate Limiting
+
+```clojure
+(ns my.rate-limit.interceptors
+  (:require [my.rate-limit.core :as rate-limit]))
+
+(defn rate-limiter
+  "Rate limiting interceptor factory."
+  [limit-per-minute]
+  {:name :rate-limiter
+   :enter (fn [ctx]
+            (let [client-id (or (get-in ctx [:request :session :user :id])
+                                (get-in ctx [:request :remote-addr]))
+                  allowed? (rate-limit/check-limit client-id limit-per-minute)]
+              (if allowed?
+                ctx
+                (assoc ctx :response
+                       {:status 429
+                        :headers {"Retry-After" "60"}
+                        :body {:error "Rate limit exceeded"}}))))})
+
+(def admin-limit (rate-limiter 100))
+(def public-limit (rate-limiter 30))
+```
+
+#### 4. Request Validation
+
+```clojure
+(ns my.validation.interceptors
+  (:require [malli.core :as m]))
+
+(defn validate-body
+  "Validate request body against schema."
+  [schema]
+  {:name :validate-body
+   :enter (fn [ctx]
+            (let [body (get-in ctx [:request :body-params])
+                  valid? (m/validate schema body)]
+              (if valid?
+                ctx
+                (assoc ctx :response
+                       {:status 400
+                        :body {:error "Validation failed"
+                               :details (m/explain schema body)}}))))})
+```
+
+#### 5. Metrics Collection
+
+```clojure
+(ns my.metrics.interceptors)
+
+(def track-timing
+  "Track request timing."
+  {:name :track-timing
+   :enter (fn [ctx]
+            (assoc-in ctx [:attrs :start-time] (System/nanoTime)))
+   
+   :leave (fn [ctx]
+            (let [metrics (get-in ctx [:system :metrics-emitter])
+                  start (get-in ctx [:attrs :start-time])
+                  duration-ms (/ (- (System/nanoTime) start) 1000000.0)]
+              (when metrics
+                (.emit metrics "http.request.duration"
+                       {:value duration-ms
+                        :tags {:route (get-in ctx [:route :path])
+                               :status (get-in ctx [:response :status])}}))
+              ctx))})
+```
+
+### Testing Interceptors
+
+**Unit Test**:
+
+```clojure
+(deftest require-admin-test
+  (testing "allows admin users"
+    (let [ctx {:request {:session {:user {:role "admin"}}}}
+          result ((:enter require-admin) ctx)]
+      (is (nil? (:response result)))))
+  
+  (testing "rejects non-admin users"
+    (let [ctx {:request {:session {:user {:role "user"}}}}
+          result ((:enter require-admin) ctx)]
+      (is (= 403 (get-in result [:response :status]))))))
+```
+
+**Integration Test**:
+
+```clojure
+(deftest interceptor-pipeline-test
+  (let [router (create-reitit-router)
+        system (create-mock-system)
+        routes [{:path "/test"
+                 :methods {:get {:handler test-handler
+                                 :interceptors [auth audit]}}}]
+        config {:system system}
+        handler (ports/compile-routes router routes config)]
+    
+    (testing "auth rejects unauthenticated"
+      (let [resp (handler {:request-method :get :uri "/test"})]
+        (is (= 401 (:status resp)))))
+    
+    (testing "auth allows authenticated"
+      (let [resp (handler {:request-method :get
+                          :uri "/test"
+                          :session {:user {:role "admin"}}})]
+        (is (= 200 (:status resp)))))))
+```
+
+### Interceptor Composition
+
+**Combine Related Interceptors**:
+
+```clojure
+(defn admin-endpoint-stack
+  "Standard interceptor stack for admin endpoints."
+  []
+  [require-authenticated
+   require-admin
+   log-action
+   track-timing])
+
+;; Use in routes
+[{:path "/api/admin/users"
+  :methods {:post {:handler 'my.handlers/create-user
+                   :interceptors (admin-endpoint-stack)}}}]
+```
+
+**Higher-Order Interceptors**:
+
+```clojure
+(defn with-role
+  "Create role-checking interceptor."
+  [required-role]
+  {:name (keyword (str "require-" required-role))
+   :enter (fn [ctx]
+            (let [user-role (get-in ctx [:request :session :user :role])]
+              (if (= required-role user-role)
+                ctx
+                (assoc ctx :response
+                       {:status 403
+                        :body {:error "Insufficient permissions"}}))))})
+
+;; Use dynamically
+[{:path "/api/manager"
+  :methods {:post {:handler 'my.handlers/manager-action
+                   :interceptors [(with-role "manager")]}}}]
+```
+
+### Default Interceptors
+
+The framework provides default interceptors:
+
+```clojure
+(require '[boundary.platform.shell.http.interceptors :as http-int])
+
+;; Available defaults:
+http-int/http-request-logging      ; Log requests/responses
+http-int/http-request-metrics      ; Emit timing metrics
+http-int/http-error-reporting      ; Report exceptions
+http-int/http-correlation-header   ; Add X-Correlation-ID
+http-int/http-error-handler        ; Safe error responses
+```
+
+### Execution Order
+
+```
+Request Flow:
+  enter:  global-1 → global-2 → route-1 → route-2 → handler
+  leave:  route-2 → route-1 → global-2 → global-1 → response
+```
+
+**Tips**:
+- Auth interceptors should run early (beginning of :enter)
+- Logging/metrics should wrap everything (global)
+- Validation runs after auth but before handler
+- Audit logging in :leave phase (after success)
+
+### Performance
+
+**Typical Overhead**: ~0.25ms per request (3-5 interceptor stack)
+
+**Optimization**:
+- Minimize interceptor count
+- Short-circuit early in :enter when possible
+- Cache expensive computations in :attrs
+- Use lazy evaluation
+
+### Best Practices
+
+1. **Keep Interceptors Focused**: One responsibility per interceptor
+2. **Short-Circuit Early**: Return response in :enter to skip handler
+3. **Use :attrs for Sharing**: Store temporary data in context :attrs
+4. **Test in Isolation**: Unit test each interceptor separately
+5. **Document Side Effects**: Clearly document what each phase does
+6. **Handle Errors Gracefully**: Always provide safe fallback in :error
+
+### Common Pitfalls
+
+1. **❌ Modifying Request in :leave**: Request is immutable after handler
+2. **❌ Side Effects in :enter without :leave**: Clean up in :leave phase
+3. **❌ Throwing in :error Phase**: :error should produce response, not throw
+4. **❌ Heavy Computation in Pipeline**: Keep interceptors fast
+5. **❌ Missing System Services**: Interceptors need :system in config
+
+### See Also
+
+- [ADR-010: HTTP Interceptor Architecture](docs/adr/ADR-010-http-interceptor-architecture.adoc) - Full technical specification
+- [ADR-008: Normalized Routing](docs/adr/ADR-008-normalized-routing-abstraction.adoc) - Route format documentation
+- [Observability Guide](docs/guides/integrate-observability.adoc) - Logging, metrics, errors
 
 ---
 
@@ -1483,7 +1805,7 @@ console.log(htmx);
 - [docs/README.md](docs/README.md) - Main documentation index
 - [docs/architecture/](docs/architecture/) - Architecture patterns and design
 - [docs/guides/](docs/guides/) - Tutorials and how-to guides
-- [docs/OBSERVABILITY_INTEGRATION.md](docs/OBSERVABILITY_INTEGRATION.md) - Logging, metrics, error reporting
+- [docs/guides/integrate-observability.adoc](docs/guides/integrate-observability.adoc) - Logging, metrics, error reporting
 - [docs/DECISIONS.md](docs/DECISIONS.md) - Technical and architectural decisions
 - [PRD.adoc](docs/reference/boundary-prd.adoc) - Product requirements and vision
 - [AGENTS.md](AGENTS.md) - Full developer guide with detailed examples

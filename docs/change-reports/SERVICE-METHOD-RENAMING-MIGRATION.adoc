@@ -289,7 +289,7 @@ If you have custom code that calls `IUserService`:
 
 * link:../../../REFACTORING-SUMMARY.adoc[Main Refactoring Summary]
 * link:../../../TEST-FIXES-SUMMARY.adoc[Test Fixes Summary]
-* link:../../../warp.md[Boundary Architecture Guide]
+* link:../../../AGENTS.md[Boundary Architecture Guide]
 * link:../../architecture/ports-and-adapters.adoc[Ports and Adapters Architecture]
 * link:../../architecture/layer-separation.adoc[Layer Separation Guidelines]
 

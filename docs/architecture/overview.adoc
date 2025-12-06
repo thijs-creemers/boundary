@@ -75,74 +75,115 @@ src/boundary/
 ├── user/                   # 👤 USER DOMAIN MODULE
 │   ├── core/               # Pure business logic
 │   │   ├── user.clj       # Core user functions
-│   │   ├── membership.clj  # Membership calculations
-│   │   └── preferences.clj # User preferences logic
+│   │   ├── audit.clj      # Audit logging logic
+│   │   ├── session.clj    # Session management
+│   │   └── ui.clj         # UI components (Hiccup)
 │   ├── ports.clj          # User-specific ports (IUserRepository, etc.)
 │   ├── schema.clj         # User domain schemas only
-│   ├── http.clj           # User HTTP handlers & routes
-│   ├── cli.clj            # User CLI commands & parsing
 │   └── shell/             # User shell components
-│       ├── adapters.clj   # User repository adapters
-│       └── service.clj    # User service orchestration
-├── billing/               # 💰 BILLING DOMAIN MODULE (feature-flagged)
+│       ├── http.clj           # REST API routes
+│       ├── service.clj        # Service orchestration
+│       ├── persistence.clj    # Database operations
+│       └── web_handlers.clj   # Web UI handlers
+├── billing/               # 💰 BILLING DOMAIN MODULE
 │   ├── core/
-│   │   ├── pricing.clj    # Price calculations
-│   │   ├── discounts.clj  # Discount logic
-│   │   └── invoicing.clj  # Invoice generation
+│   │   ├── invoice.clj    # Invoice calculations
+│   │   ├── payment.clj    # Payment logic
+│   │   └── ui.clj         # UI components
 │   ├── ports.clj          # Billing ports (IPaymentProcessor, etc.)
 │   ├── schema.clj         # Billing schemas only
-│   ├── http.clj           # Billing HTTP handlers & routes
-│   ├── cli.clj            # Billing CLI commands & parsing
 │   └── shell/
-│       ├── adapters.clj   # Payment/invoice adapters
-│       └── service.clj    # Billing service
+│       ├── http.clj           # REST API routes
+│       ├── service.clj        # Billing service
+│       ├── persistence.clj    # Payment/invoice adapters
+│       └── web_handlers.clj   # Web UI handlers
 ├── workflow/              # ⚙️ WORKFLOW DOMAIN MODULE
 │   ├── core/
-│   │   ├── state_machine.clj # Process state logic
-│   │   └── transitions.clj   # State transition rules
+│   │   ├── task.clj       # Task business logic
+│   │   ├── process.clj    # Process state logic
+│   │   └── ui.clj         # UI components
 │   ├── ports.clj          # Workflow ports
 │   ├── schema.clj         # Workflow schemas
-│   ├── http.clj           # Workflow HTTP handlers & routes
-│   ├── cli.clj            # Workflow CLI commands & parsing
 │   └── shell/
-│       ├── adapters.clj   # Workflow adapters
-│       └── service.clj    # Workflow service
+│       ├── http.clj           # REST API routes
+│       ├── service.clj        # Workflow service
+│       ├── persistence.clj    # Workflow adapters
+│       └── web_handlers.clj   # Web UI handlers
+├── inventory/             # 📦 INVENTORY DOMAIN MODULE
+│   ├── core/
+│   │   ├── item.clj       # Item business logic
+│   │   └── ui.clj         # UI components
+│   ├── ports.clj          # Inventory ports (IItemRepository, IItemService)
+│   ├── schema.clj         # Inventory schemas
+│   └── shell/
+│       ├── http.clj           # REST API routes
+│       ├── service.clj        # Inventory service
+│       ├── persistence.clj    # Item repository
+│       └── web_handlers.clj   # Web UI handlers
+├── logging/               # 📝 LOGGING INFRASTRUCTURE MODULE
+│   ├── core/
+│   │   └── formatting.clj # Log formatting logic
+│   ├── ports.clj          # ILogger, IAuditLogger protocols
+│   ├── schema.clj         # Log entry schemas
+│   └── shell/
+│       ├── no_op.clj          # No-op logger for dev
+│       └── datadog.clj        # Datadog integration
+├── metrics/               # 📊 METRICS INFRASTRUCTURE MODULE
+│   ├── core/
+│   │   └── aggregation.clj # Metric aggregation logic
+│   ├── ports.clj          # IMetricsRegistry, IMetricsEmitter protocols
+│   ├── schema.clj         # Metric schemas
+│   └── shell/
+│       ├── no_op.clj          # No-op metrics for dev
+│       └── datadog.clj        # Datadog integration
+├── error_reporting/       # 🚨 ERROR REPORTING INFRASTRUCTURE MODULE
+│   ├── core/
+│   │   └── context.clj    # Error context enrichment
+│   ├── ports.clj          # IErrorReporter protocol
+│   ├── schema.clj         # Error schemas
+│   └── shell/
+│       ├── no_op.clj          # No-op reporter for dev
+│       └── sentry.clj         # Sentry integration
+├── scaffolder/            # 🏗️ CODE GENERATION MODULE
+│   ├── core/
+│   │   ├── generator.clj  # Code generation logic
+│   │   └── templates.clj  # Template engine
+│   ├── schema.clj         # Generator schemas
+│   └── shell/
+│       ├── cli_entry.clj      # CLI commands
+│       └── file_writer.clj    # File operations
 ├── shared/                # 🔗 SHARED UTILITIES
 │   ├── core/
-│   │   └── validation.clj # Generic validation patterns and utilities
-│   └── utils/
-│       ├── type_conversion.clj # Generic type conversions (UUID, Instant, etc.)
-│       └── case_conversion.clj # camelCase <-> kebab-case transformations
+│   │   ├── time.clj       # Time utilities
+│   │   └── uuid.clj       # UUID utilities
+│   └── shell/
+│       ├── interceptors.clj   # Observability interceptors
+│       └── validation.clj     # Validation utilities
 ├── platform/              # 🧱 PLATFORM INFRASTRUCTURE AGGREGATION
-│   └── shell/             # 🐚 Shared shell (interfaces, system wiring, shared adapters)
-│       ├── interfaces/        # External interface aggregators
-│       │   ├── http/
-│       │   │   ├── server.clj     # HTTP server & middleware
-│       │   │   └── routes.clj     # Aggregates module routes
-│       │   ├── cli/
-│       │   │   ├── main.clj       # CLI entry point
-│       │   │   └── commands.clj   # Aggregates module commands
-│       │   └── web/
-│       │       └── websockets.clj # Real-time interfaces
-│       ├── system/            # System wiring and lifecycle
-│       │   ├── components.clj # Component definitions
-│       │   ├── lifecycle.clj  # Start/stop management
-│       │   └── wiring.clj     # Dependency injection
-│       └── adapters/          # Shared adapter implementations
-│           ├── database/
-│           │   ├── postgresql.clj
-│           │   └── migrations.clj
-│           └── external/
-│               ├── email_smtp.clj
-│               └── notifications.clj
-└── config.clj             # ⚙️ Configuration management
+│   └── shell/             # 🐚 Shared shell (interfaces, system wiring)
+│       └── system/
+│           └── wiring.clj     # Integrant wiring
+├── core/                  # 🎯 CORE INFRASTRUCTURE (Database, DB Context)
+│   ├── db.clj            # Database operations
+│   └── db_ctx.clj        # Database context
+├── cli.clj               # 🖥️  CLI entry point
+├── main.clj              # 🚀 Application entry point
+└── config.clj            # ⚙️ Configuration management (Aero)
 ```
+
+**Module Categories:**
+
+* **Domain Modules** (`user/`, `billing/`, `workflow/`, `inventory/`): Complete business domains with core logic, ports, schemas, and shell implementations
+* **Infrastructure Modules** (`logging/`, `metrics/`, `error_reporting/`): Cross-cutting observability concerns following the same FC/IS pattern
+* **Utility Modules** (`scaffolder/`, `shared/`): Reusable tools and code generation
+* **Platform Module** (`platform/`): System-wide wiring and integration
+* **Core Infrastructure** (`core/`, `cli.clj`, `main.clj`, `config.clj`): Foundation services
 
 **Key Architectural Benefits:**
 
-* **Complete Domain Ownership**: Each module (`user/`, `billing/`, `workflow/`) contains everything needed for that domain
+* **Complete Domain Ownership**: Each domain module contains everything needed for that domain
 * **Scalable Development**: Teams can work independently on different modules without conflicts
-* **Feature Flag Integration**: Entire modules can be enabled/disabled via configuration
+* **Consistent Patterns**: Infrastructure modules (logging, metrics, error reporting) follow the same FC/IS architecture
 * **Clear Boundaries**: Related code is co-located, unrelated code is separated
 * **Strategic Evolution**: Modules can be extracted as independent libraries (`boundary-core`)
 

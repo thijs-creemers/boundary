@@ -508,7 +508,7 @@ Consider Replicant for a page/module when ALL criteria apply:
 === Technical Documentation
 - [x] Update ADR-006 to reflect module-integrated approach
 - [x] Update WEB_UI_IMPLEMENTATION_PLAN.md to match actual implementation
-- [ ] Add web UI development guide to warp.md
+- [ ] Add web UI development guide to AGENTS.md
 - [ ] Create component library usage documentation
 - [ ] Document HTMX integration patterns
 
@@ -532,7 +532,7 @@ Consider Replicant for a page/module when ALL criteria apply:
 - https://martinfowler.com/articles/practical-test-pyramid.html[Testing Pyramid] - Testing strategy guidance
 
 === Framework Documentation
-- link:../../warp.md[Developer Guide] - Project overview and development workflow
+- link:../../AGENTS.md[Developer Guide] - Project overview and development workflow
 - link:../boundary.prd.adoc[Product Requirements Document] - Product vision and requirements
 - link:../architecture/overview.adoc[Architecture Overview] - Framework architectural principles
 

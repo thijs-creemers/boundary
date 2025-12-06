@@ -1,0 +1,298 @@
+= ADR-009: Reitit as Exclusive Router Implementation
+:revdate: 2024-12-06
+:revremark: Decision to use Reitit exclusively, abandoning Pedestal adapter
+:toc:
+:toclevels: 3
+
+== Status
+
+**ACCEPTED** - Pedestal adapter abandoned, Reitit chosen as sole router implementation
+
+== Context
+
+Following ADR-008 (Normalized Routing Abstraction), we implemented a framework-agnostic route definition format with the `IRouter` protocol to enable pluggable router implementations. The goal was to support multiple routing frameworks (Reitit, Pedestal, etc.) through adapter implementations.
+
+=== Initial Plan
+
+1. ✅ Create normalized routing format (framework-agnostic)
+2. ✅ Implement Reitit adapter
+3. 🔴 Implement Pedestal adapter
+4. ⚠️ Allow router selection via configuration
+
+=== Investigation Results
+
+During implementation of the Pedestal adapter, we discovered a **fundamental architectural incompatibility** between our Ring-based abstraction and Pedestal's interceptor-chain architecture.
+
+==== Architectural Differences
+
+[cols="1,2,2"]
+|===
+| Aspect | Ring/Reitit Pattern | Pedestal Pattern
+
+| **Processing Model**
+| Function composition
+| Interceptor chains
+
+| **Request Flow**
+| `(handler request) → response`
+| Context passed through interceptor chain
+
+| **Middleware**
+| Functions wrapping handlers
+| Interceptors with `:enter`/`:leave`/`:error` functions
+
+| **Router Return Type**
+| Ring handler function `(fn [req] resp)`
+| Interceptor with context transformation
+
+| **Handler Signature**
+| `(fn [request] response)`
+| Context map: `{:request ... :response ... :route ...}`
+|===
+
+==== The Problem
+
+Our `IRouter` protocol assumes:
+
+```clojure
+(defprotocol IRouter
+  (compile-routes [this routes]
+    "Returns routes compiled to router-specific format")
+  (handle-request [this request]
+    "Ring handler: (fn [request] response)"))
+```
+
+Pedestal provides:
+
+```clojure
+;; Router is an interceptor, not a handler function
+(route/router expanded-routes)
+;; => #Interceptor{:name :io.pedestal.http.route/router}
+
+;; Interceptors transform contexts, not requests
+{:name :my-interceptor
+ :enter (fn [context] ...)   ;; Process request
+ :leave (fn [context] ...)   ;; Process response
+ :error (fn [context ex] ...)} ;; Handle errors
+```
+
+**Cannot be bridged** without:
+- Complex and leaky abstractions
+- Losing Pedestal's key benefits (async, error handling, context sharing)
+- Significant performance overhead
+- High maintenance burden
+
+=== Options Considered
+
+==== Option 1: Abandon Pedestal Adapter ⭐ **CHOSEN**
+
+**Pros:**
+- ✅ No additional complexity
+- ✅ Reitit works well for our needs
+- ✅ Maintains clean abstraction
+- ✅ No performance overhead
+- ✅ Normalized routing format still valuable (testability, clarity)
+
+**Cons:**
+- ❌ No router swapping capability
+- ❌ Less flexibility
+
+**Effort:** None (delete draft code)
+
+==== Option 2: Redesign IRouter Protocol
+
+Create protocol supporting both patterns with type detection.
+
+**Pros:**
+- ✅ Supports both architectures
+
+**Cons:**
+- ❌ Complex implementation
+- ❌ Leaky abstraction (type checks everywhere)
+- ❌ Performance overhead
+- ❌ May not support all Pedestal features
+
+**Effort:** 2-3 days
+
+==== Option 3: Pedestal Mode (Bypass Abstraction)
+
+Separate integration path for Pedestal, bypassing `IRouter`.
+
+**Pros:**
+- ✅ Uses Pedestal properly
+- ✅ No compromises on features
+
+**Cons:**
+- ❌ Two completely different code paths
+- ❌ Double maintenance burden
+- ❌ Breaks abstraction layer
+
+**Effort:** 3-5 days
+
+==== Option 4: Wrap Pedestal in Ring Adapter
+
+Force Pedestal into Ring pattern with adapter layer.
+
+**Pros:**
+- ✅ Fits existing protocol
+
+**Cons:**
+- ❌ Loses Pedestal benefits (async, proper error handling)
+- ❌ High complexity
+- ❌ Performance overhead
+- ❌ May not work correctly for all cases
+
+**Effort:** 4-5 days
+
+== Decision
+
+**We will use Reitit exclusively as our HTTP router**, abandoning the Pedestal adapter implementation.
+
+=== Rationale
+
+1. **YAGNI Principle**: We don't currently need router swapping capability
+   - No concrete use case requires different router
+   - Normalized format achieved main goal (clean route definitions)
+
+2. **Architectural Mismatch**: Pedestal requires fundamentally different approach
+   - Ring and Pedestal are incompatible paradigms
+   - Cannot bridge without significant compromises
+
+3. **Reitit is Sufficient**: Meets all current requirements
+   - Excellent performance
+   - Rich feature set (middleware, coercion, swagger)
+   - Well-maintained and documented
+   - Large community
+
+4. **Complexity Not Justified**: Other options add significant complexity
+   - No clear benefit over current solution
+   - High maintenance cost
+   - Risk of bugs in adapter layer
+
+5. **Focus on Value**: Better to invest in features than infrastructure flexibility
+   - Normalized routing format still provides testability benefits
+   - Clean module interfaces preserved
+   - Can reconsider if requirements change
+
+=== What We Keep
+
+The normalized routing abstraction (ADR-008) is **still valuable** because it provides:
+
+1. **Clean Module Interfaces**: Routes as pure data, not framework objects
+2. **Testability**: Route structure can be validated without router runtime
+3. **Documentation**: Self-documenting route schemas
+4. **Consistency**: Uniform pattern across all modules
+5. **Future Flexibility**: If we need to swap routers, normalized format provides foundation
+
+The abstraction serves as **documentation and structure**, even with single implementation.
+
+== Consequences
+
+=== Positive
+
+1. **Simpler Codebase**: One router implementation, easier to understand and maintain
+2. **Better Performance**: No abstraction overhead, direct Reitit usage
+3. **Proven Solution**: Reitit is battle-tested and reliable
+4. **Faster Development**: No need to support multiple routers
+5. **Clearer Documentation**: Single routing approach to document
+
+=== Negative
+
+1. **Framework Lock-in**: Switching routers would require more work
+2. **Lost Exploration**: Won't learn Pedestal's benefits (if any)
+
+=== Neutral
+
+1. **IRouter Protocol**: Kept for future flexibility, but currently single implementation
+2. **Normalized Format**: Remains as clean interface pattern
+3. **Migration Path**: If requirements change, we have analysis and options
+
+== Implementation
+
+=== Completed Actions
+
+1. ✅ **Deleted Pedestal adapter draft code**
+   - `src/boundary/platform/shell/http/pedestal_router.clj`
+   - `test/boundary/platform/shell/http/pedestal_router_test.clj`
+
+2. ✅ **Removed Pedestal dependencies from `deps.edn`**
+   - `io.pedestal/pedestal.service`
+   - `io.pedestal/pedestal.route`
+
+3. ✅ **Created analysis document**
+   - `docs/architecture/pedestal-adapter-analysis.adoc`
+   - Detailed comparison and options analysis
+
+4. ✅ **This ADR**
+   - Documents decision and rationale
+
+=== Configuration
+
+Router is configured via Integrant:
+
+```clojure
+;; In config.edn (implicit, no configuration needed)
+:boundary/router
+{:adapter :reitit  ;; Only option currently
+ :config {...}}
+
+;; Router adapter created in system wiring
+(defmethod ig/init-key :boundary/router [_ {:keys [config]}]
+  (reitit-router/create-router config))
+```
+
+=== Module Route Definitions
+
+Modules continue using normalized format:
+
+```clojure
+(ns boundary.user.shell.http
+  (:require [boundary.user.shell.web-handlers :as handlers]))
+
+(defn user-routes-normalized [service config]
+  {:api
+   [{:path "/api/users"
+     :name :users
+     :methods
+     {:get {:handler (handlers/list-users service config)
+            :name :list-users}
+      :post {:handler (handlers/create-user service config)
+             :name :create-user}}}]
+   
+   :web [...]
+   :static [...]})
+```
+
+== When to Reconsider
+
+This decision should be revisited if:
+
+1. **Performance Requirements Change**: Need for high-performance async processing
+2. **Pedestal-Specific Features Needed**: Requirements that only Pedestal provides
+3. **Framework Issues**: Critical bugs or maintenance problems with Reitit
+4. **Team Expertise**: Team has strong Pedestal expertise and preference
+5. **Architectural Shift**: Move away from Ring pattern entirely
+
+== References
+
+- **ADR-008**: link:ADR-008-normalized-routing-abstraction.adoc[Normalized Routing Abstraction]
+- **Analysis Document**: link:../architecture/pedestal-adapter-analysis.adoc[Pedestal Adapter Analysis]
+- **Reitit Documentation**: https://cljdoc.org/d/metosin/reitit/
+- **Pedestal Documentation**: https://pedestal.io/
+- **Reitit Adapter**: `src/boundary/platform/shell/http/reitit_router.clj`
+- **IRouter Protocol**: `src/boundary/platform/ports.clj`
+
+== Lessons Learned
+
+1. **Research First**: Should have validated Pedestal compatibility before implementation
+2. **Architectural Patterns Matter**: Can't easily bridge fundamentally different paradigms
+3. **Abstraction Costs**: Sometimes better to choose one approach and do it well
+4. **YAGNI is Real**: Don't build flexibility you don't need yet
+5. **Value of Analysis**: Deep investigation prevented wasted implementation effort
+
+---
+
+**Author**: System Architecture Team  
+**Date**: 2024-12-06  
+**Supersedes**: None  
+**Related**: ADR-008

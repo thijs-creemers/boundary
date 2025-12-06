@@ -1,0 +1,835 @@
+== Validation Developer Guide
+
+[[toc]]
+[[toctitle]]
+Table of Contents
+
+* link:#_overview[1. Overview]
+** link:#_architecture_summary[1.1. Architecture Summary]
+** link:#_key_features[1.2. Key Features]
+* link:#_feature_flag_configuration[2. Feature Flag Configuration]
+** link:#_enabling_enhanced_features[2.1. Enabling Enhanced Features]
+** link:#_feature_flag_values[2.2. Feature Flag Values]
+** link:#_checking_feature_status_in_code[2.3. Checking Feature Status in Code]
+* link:#_enhanced_error_format[3. Enhanced Error Format]
+** link:#_standard_result_structure[3.1. Standard Result Structure]
+** link:#_error_map_structure[3.2. Error Map Structure]
+** link:#_example_enhanced_error[3.3. Example Enhanced Error]
+* link:#_message_templating[4. Message Templating]
+** link:#_template_resolution[4.1. Template Resolution]
+** link:#_template_examples[4.2. Template Examples]
+** link:#_parameter_interpolation[4.3. Parameter Interpolation]
+* link:#_contextual_rendering[5. Contextual Rendering]
+** link:#_operation_context[5.1. Operation Context]
+** link:#_role_based_messaging[5.2. Role-Based Messaging]
+** link:#_user_context[5.3. User Context]
+* link:#_repl_examples[6. REPL Examples]
+** link:#_basic_usage[6.1. Basic Usage]
+** link:#_testing_enhanced_vs_legacy_behavior[6.2. Testing Enhanced vs Legacy Behavior]
+** link:#_did_you_mean_suggestions[6.3. "Did You Mean?" Suggestions]
+** link:#_example_payload_generation[6.4. Example Payload Generation]
+* link:#_integration_patterns[7. Integration Patterns]
+** link:#_module_integration_fcis_compliant[7.1. Module Integration (FC/IS Compliant)]
+*** link:#_core_layer_pure_functions[7.1.1. Core Layer (Pure Functions)]
+*** link:#_shell_layer_io_and_context[7.1.2. Shell Layer (I/O and Context)]
+** link:#_http_layer_integration[7.2. HTTP Layer Integration]
+** link:#_cli_integration[7.3. CLI Integration]
+* link:#_best_practices[8. Best Practices]
+** link:#_fcis_compliance[8.1. FC/IS Compliance]
+** link:#_error_code_stability[8.2. Error Code Stability]
+** link:#_message_quality[8.3. Message Quality]
+** link:#_testing_strategy[8.4. Testing Strategy]
+* link:#_common_pitfalls[9. Common Pitfalls]
+** link:#_environment_variable_access[9.1. Environment Variable Access]
+** link:#_breaking_backward_compatibility[9.2. Breaking Backward Compatibility]
+** link:#_context_passing_anti_patterns[9.3. Context Passing Anti-patterns]
+* link:#_json_api_examples[10. JSON API Examples]
+** link:#_successful_validation_response[10.1. Successful Validation Response]
+** link:#_enhanced_error_response[10.2. Enhanced Error Response]
+** link:#_legacy_error_response_bnd_devex_validationfalse[10.3. Legacy Error Response (BND++_++DEVEX++_++VALIDATION=false)]
+* link:#_performance_considerations[11. Performance Considerations]
+** link:#_feature_flag_overhead[11.1. Feature Flag Overhead]
+** link:#_message_rendering_cost[11.2. Message Rendering Cost]
+** link:#_memory_usage[11.3. Memory Usage]
+* link:#_migration_guide[12. Migration Guide]
+** link:#_from_legacy_to_enhanced[12.1. From Legacy to Enhanced]
+* link:#_troubleshooting[13. Troubleshooting]
+** link:#_common_issues[13.1. Common Issues]
+** link:#_debug_helpers[13.2. Debug Helpers]
+* link:#_repl_helpers_and_tooling[14. REPL Helpers and Tooling]
+** link:#_quickstart_repl[14.1. Quickstart (REPL)]
+** link:#_reading_coverage_reports[14.2. Reading Coverage Reports]
+* link:#_references[15. References]
+
+[[_overview]]
+=== link:#_overview[]1. Overview
+
+This guide provides comprehensive documentation for the Boundary framework’s validation system, including enhanced error messages, contextual rendering, and developer experience features introduced in ADR-005.
+
+[[_architecture_summary]]
+==== link:#_architecture_summary[]1.1. Architecture Summary
+
+The validation system follows Boundary’s Functional Core / Imperative Shell (FC/IS) architecture:
+
+*Functional Core (Pure):* - `boundary.shared.core.validation.messages` - Message templating and suggestion engine - `boundary.shared.core.validation.context` - Contextual message rendering - `boundary.shared.core.validation.codes` - Error code catalog - `boundary.shared.core.validation.result` - Result format utilities - `boundary.shared.core.validation.registry` - Rule registry for coverage tracking
+
+*Imperative Shell (I/O):* - `boundary.shared.core.validation` - Backward-compatible API - Feature flag reading (`BND++_++DEVEX++_++VALIDATION`) - Module-specific service integration
+
+[[_key_features]]
+==== link:#_key_features[]1.2. Key Features
+
+* *Enhanced Error Messages* - Human-readable, actionable error messages
+* *Contextual Rendering* - Role-based and operation-specific messaging
+* *"Did You Mean?" Suggestions* - Intelligent typo correction using Damerau-Levenshtein distance
+* *Example Payload Generation* - Malli-powered example generation for API errors
+* *Feature Flag Control* - Gradual rollout via `BND++_++DEVEX++_++VALIDATION` environment variable
+* *Backward Compatibility* - Legacy validation code continues working unchanged
+
+[[_feature_flag_configuration]]
+=== link:#_feature_flag_configuration[]2. Feature Flag Configuration
+
+The enhanced validation features are controlled by the `BND++_++DEVEX++_++VALIDATION` environment variable.
+
+[[_enabling_enhanced_features]]
+==== link:#_enabling_enhanced_features[]2.1. Enabling Enhanced Features
+
+[source,highlightjs,highlight]
+----
+# Enable enhanced validation features
+export BND_DEVEX_VALIDATION=true
+
+# Start your application
+clojure -M:repl-clj
+----
+
+[[_feature_flag_values]]
+==== link:#_feature_flag_values[]2.2. Feature Flag Values
+
+[width="100%",cols="25%,25%,50%",options="header",]
+|===
+|Value |Enabled? |Description
+|`true`, `1`, `yes`, `on` (case-insensitive) |✅ Yes |Enhanced features active
+|`false`, `0`, `no`, `off`, or unset |❌ No |Legacy behavior (default)
+|===
+
+[[_checking_feature_status_in_code]]
+==== link:#_checking_feature_status_in_code[]2.3. Checking Feature Status in Code
+
+[source,highlightjs,highlight]
+----
+(require '[boundary.shared.core.config.feature-flags :as flags])
+
+;; Check if enhanced validation is enabled
+(flags/enabled? :devex-validation)
+;; => true (if BND_DEVEX_VALIDATION=true)
+
+;; Get detailed flag information
+(flags/flag-info :devex-validation)
+;; => {:enabled? true
+;;     :env-var "BND_DEVEX_VALIDATION"
+;;     :description "Enable enhanced validation error messages..."
+;;     :current-value "true"}
+----
+
+[[_enhanced_error_format]]
+=== link:#_enhanced_error_format[]3. Enhanced Error Format
+
+[[_standard_result_structure]]
+==== link:#_standard_result_structure[]3.1. Standard Result Structure
+
+All enhanced validation operations return this consistent format:
+
+[source,highlightjs,highlight]
+----
+{:valid?   boolean                    ; Overall validation status
+ :data     map                        ; Validated/transformed data (if valid)
+ :errors   vector-of-error-maps       ; Validation errors (if invalid)
+ :warnings vector-of-warning-maps}    ; Non-blocking warnings (optional)
+----
+
+[[_error_map_structure]]
+==== link:#_error_map_structure[]3.2. Error Map Structure
+
+Each error follows this standardized format:
+
+[source,highlightjs,highlight]
+----
+{:field   keyword                     ; Field identifier
+ :code    keyword                     ; Error/warning code
+ :message string                      ; Human-readable message
+ :params  map                         ; Template parameters
+ :path    vector                      ; Path to error location
+ :rule-id keyword                     ; Optional: validation rule ID
+ :suggestion string                   ; Optional: "Did you mean?" suggestion
+ :next-steps string}                  ; Optional: formatted resolution steps
+----
+
+[[_example_enhanced_error]]
+==== link:#_example_enhanced_error[]3.3. Example Enhanced Error
+
+[source,highlightjs,highlight]
+----
+{:field :email
+ :code :user.email/required
+ :message "Email is required when creating a user"
+ :params {:field-name "Email" :entity "user" :operation "create"}
+ :path [:email]
+ :suggestion "Provide an email address for the user"
+ :next-steps "Next steps:\n1. Add the email field to your request\n2. Ensure the field is not null or empty\n3. Check API documentation for required fields"}
+----
+
+[[_message_templating]]
+=== link:#_message_templating[]4. Message Templating
+
+[[_template_resolution]]
+==== link:#_template_resolution[]4.1. Template Resolution
+
+Messages are resolved using a fallback chain:
+
+. *Operation-specific template* (e.g., create vs update)
+. *Role-specific template* (admin vs user vs viewer)
+. *Module-specific template* (user.email/required)
+. *Base error type template* (required)
+. *Default fallback*
+
+[[_template_examples]]
+==== link:#_template_examples[]4.2. Template Examples
+
+[source,highlightjs,highlight]
+----
+;; Basic template
+"{{field-name}} is required"
+
+;; Detailed template with context
+"{{field-name}} is required when {{operation}}ing a {{entity}}"
+
+;; Role-specific guidance
+"{{field-name}} is required. You have {{role}} access - contact your administrator if needed."
+----
+
+[[_parameter_interpolation]]
+==== link:#_parameter_interpolation[]4.3. Parameter Interpolation
+
+Templates support these standard parameters:
+
+[width="100%",cols="20%,40%,40%",options="header",]
+|===
+|Parameter |Usage |Example Value
+|`++{++field-name}` |Human-readable field name |"Email", "User Name", "User ID"
+|`++{++value}` |Actual value provided (sanitized) |`"john@example"`, `"abc"`, `"5"`
+|`++{++expected}` |Expected value or format |`"`mailto:user@domain.com[`user@domain.com`]`"`, `"admin{vbar}user{vbar}viewer"`
+|`++{++min}` / `++{++max}` |Numeric or length bounds |`"8"`, `"255"`, `"1"`, `"1000"`
+|`++{++allowed}` |List of allowed values |`"admin, user, and viewer"`
+|`++{++entity}` |Entity type being operated on |`"user"`, `"invoice"`, `"workflow"`
+|`++{++operation}` |Operation being performed |`"create"`, `"update"`, `"delete"`
+|`++{++role}` |User’s role |`"admin"`, `"user"`, `"viewer"`
+|===
+
+[[_contextual_rendering]]
+=== link:#_contextual_rendering[]5. Contextual Rendering
+
+[[_operation_context]]
+==== link:#_operation_context[]5.1. Operation Context
+
+Messages adapt based on the operation being performed:
+
+[source,highlightjs,highlight]
+----
+(require '[boundary.shared.core.validation.context :as ctx])
+
+;; Create operation
+(ctx/render-contextual-message
+  :required
+  {:field :email}
+  {:operation :create :entity "user" :role :admin}
+  {})
+;; => "Email is required when creating a user. You have full access to perform this operation."
+
+;; Update operation
+(ctx/render-contextual-message
+  :forbidden
+  {:field :user-id}
+  {:operation :update :entity "user" :role :user}
+  {})
+;; => "Cannot modify User ID during update. You have limited access. Contact your administrator if you need different permissions."
+----
+
+[[_role_based_messaging]]
+==== link:#_role_based_messaging[]5.2. Role-Based Messaging
+
+Different messages for different user roles:
+
+[width="100%",cols="34%,66%",options="header",]
+|===
+|Role |Guidance
+|`:admin` |"You have full access to perform this operation."
+|`:user` |"You have limited access. Contact your administrator if you need different permissions."
+|`:viewer` |"You have view-only access. Contact your administrator to request changes."
+|`:moderator` |"You have moderation privileges. Contact your administrator for elevated permissions."
+|`:guest` |"Not logged in. Please log in to perform this operation."
+|===
+
+[[_user_context]]
+==== link:#_user_context[]5.3. User Context
+
+Include user information in error messages:
+
+[source,highlightjs,highlight]
+----
+(ctx/render-contextual-message
+  :required
+  {:field :email}
+  {:operation :create :entity "user" :user-id "acme-corp"}
+  {})
+;; => "Email is required when creating a user  acme-corp."
+----
+
+[[_repl_examples]]
+=== link:#_repl_examples[]6. REPL Examples
+
+[[_basic_usage]]
+==== link:#_basic_usage[]6.1. Basic Usage
+
+[source,highlightjs,highlight]
+----
+;; Start REPL with enhanced validation enabled
+;; $ export BND_DEVEX_VALIDATION=true
+;; $ clojure -M:repl-clj
+
+(require '[boundary.shared.core.validation.messages :as msg])
+(require '[boundary.shared.core.validation.context :as ctx])
+(require '[boundary.shared.core.validation.codes :as codes])
+
+;; Check available error codes
+(keys (codes/get-error-codes-by-category :schema))
+;; => [:user.email/required :user.name/required :user.role/required ...]
+
+;; Render a basic message
+(msg/render-message :required {:field :email} {})
+;; => "Email is required"
+
+;; Render with contextual information
+(ctx/render-contextual-message
+  :required
+  {:field :email}
+  {:operation :create :entity "user" :role :viewer}
+  {})
+;; => "Email is required when creating a user. You have view-only access. Contact your administrator to request changes."
+----
+
+[[_testing_enhanced_vs_legacy_behavior]]
+==== link:#_testing_enhanced_vs_legacy_behavior[]6.2. Testing Enhanced vs Legacy Behavior
+
+[source,highlightjs,highlight]
+----
+(require '[boundary.shared.core.validation :as v])
+(require '[boundary.user.schema :as schema])
+
+;; Create invalid user data
+(def invalid-user {:name "John" :role :admin})  ; missing email
+
+;; Test with feature flag disabled (legacy behavior)
+(with-redefs [boundary.shared.core.validation.result/devex-validation-enabled? (constantly false)]
+  (v/validate-with-transform schema/CreateUserRequest invalid-user nil))
+;; => {:valid? false :errors #object[malli.core.ExplanationError ...]}
+
+;; Test with feature flag enabled (enhanced behavior)
+(with-redefs [boundary.shared.core.validation.result/devex-validation-enabled? (constantly true)]
+  (v/validate-with-transform schema/CreateUserRequest invalid-user nil))
+;; => {:valid? false
+;;     :errors [{:field :email
+;;               :code :invalid-format
+;;               :message "Email format is invalid"
+;;               :path [:email]
+;;               :params {...}}]}
+----
+
+[[_did_you_mean_suggestions]]
+==== link:#_did_you_mean_suggestions[]6.3. "Did You Mean?" Suggestions
+
+[source,highlightjs,highlight]
+----
+;; Suggest similar values for typos
+(msg/suggest-similar-value "admim" ["admin" "user" "viewer"] {})
+;; => "admin"
+
+;; Complete suggestion rendering
+(msg/render-suggestion
+  :invalid-value
+  {:field :role
+   :value "admim"
+   :allowed "admin, user, viewer"
+   :suggestion "admin"})
+;; => "Did you mean \"admin\"? Allowed values: admin, user, viewer"
+----
+
+[[_example_payload_generation]]
+==== link:#_example_payload_generation[]6.4. Example Payload Generation
+
+[source,highlightjs,highlight]
+----
+(require '[boundary.user.schema :as schema])
+
+;; Generate example payload for failed validation
+(ctx/generate-example-payload
+  schema/User
+  :email
+  {:include-fields [:name :role] :seed 42})
+;; => {:email "user@example.com"
+;;     :name "John Doe"
+;;     :role :user
+;;     :password "<password>"    ; Sensitive fields redacted
+;;     :api-key "<api-key>"}
+----
+
+[[_integration_patterns]]
+=== link:#_integration_patterns[]7. Integration Patterns
+
+[[_module_integration_fcis_compliant]]
+==== link:#_module_integration_fcis_compliant[]7.1. Module Integration (FC/IS Compliant)
+
+Follow these patterns when integrating enhanced validation into modules:
+
+[[_core_layer_pure_functions]]
+===== link:#_core_layer_pure_functions[]7.1.1. Core Layer (Pure Functions)
+
+[source,highlightjs,highlight]
+----
+(ns boundary.user.core.user)
+
+;; Keep existing function signatures for backward compatibility
+(defn validate-user-creation-request
+  "Legacy signature - returns legacy format"
+  [user-data]
+  (if (m/validate schema/CreateUserRequest user-data)
+    {:valid? true :data user-data}
+    {:valid? false :errors (m/explain schema/CreateUserRequest user-data)}))
+
+;; Add enhanced arity that accepts options
+(defn validate-user-creation-request
+  "Enhanced signature - supports enhanced error format when requested"
+  [user-data {:keys [enhanced? context] :or {enhanced? false}}]
+  (if enhanced?
+    ;; Enhanced path - use structured errors
+    (let [valid? (m/validate schema/CreateUserRequest user-data)]
+      (if valid?
+        (vr/success-result user-data)
+        (let [explanation (m/explain schema/CreateUserRequest user-data)
+              errors (map-malli-errors-to-enhanced-format explanation context)]
+          (vr/failure-result errors))))
+    ;; Legacy path - unchanged behavior
+    (validate-user-creation-request user-data)))
+----
+
+[[_shell_layer_io_and_context]]
+===== link:#_shell_layer_io_and_context[]7.1.2. Shell Layer (I/O and Context)
+
+[source,highlightjs,highlight]
+----
+(ns boundary.user.shell.service
+  (:require [boundary.shared.core.config.feature-flags :as flags]
+            [boundary.user.core.user :as user-core]))
+
+(defn create-user [system user-data request-context]
+  ;; Determine if enhanced features are enabled
+  (let [enhanced? (flags/enabled? :devex-validation)
+
+        ;; Build validation context from request
+        validation-context {:operation :create
+                           :entity "user"
+                           :role (get-in request-context [:auth :role] :guest)
+                           :locale (get request-context :locale :en)
+                           :interface :http
+                           :module :user}
+
+        ;; Call core with appropriate options
+        validation-result (if enhanced?
+                           (user-core/validate-user-creation-request
+                             user-data
+                             {:enhanced? true :context validation-context})
+                           (user-core/validate-user-creation-request user-data))]
+
+    ;; Handle validation result
+    (if (:valid? validation-result)
+      ;; Proceed with user creation...
+      (create-user-implementation system (:data validation-result))
+      ;; Return validation errors
+      validation-result)))
+----
+
+[[_http_layer_integration]]
+==== link:#_http_layer_integration[]7.2. HTTP Layer Integration
+
+[source,highlightjs,highlight]
+----
+(ns boundary.user.shell.http
+  (:require [boundary.user.shell.service :as user-service]))
+
+(defn create-user-handler [request]
+  (let [user-data (:body-params request)
+        request-context {:auth (:auth request)
+                        :locale (get-in request [:headers "accept-language"] "en")
+                        :user-id (get-in request [:auth :user-id])}
+        result (user-service/create-user system user-data request-context)]
+
+    (if (:valid? result)
+      ;; Success response
+      {:status 201
+       :headers {"Content-Type" "application/json"}
+       :body {:data (transform-for-api (:data result))}}
+
+      ;; Error response with enhanced error information
+      {:status 422  ; or appropriate status based on error codes
+       :headers {"Content-Type" "application/json"}
+       :body {:errors (:errors result)
+              :meta {:request-id (generate-request-id)
+                     :timestamp (java.time.Instant/now)}}})))
+----
+
+[[_cli_integration]]
+==== link:#_cli_integration[]7.3. CLI Integration
+
+[source,highlightjs,highlight]
+----
+(ns boundary.user.shell.cli
+  (:require [boundary.user.shell.service :as user-service]))
+
+(defn create-user-command [args]
+  (let [user-data (parse-cli-args args)
+        request-context {:interface :cli
+                        :role :admin  ; CLI users often have elevated permissions
+                        :locale "en"}
+        result (user-service/create-user system user-data request-context)]
+
+    (if (:valid? result)
+      ;; Success output
+      (println "✓ User created successfully")
+
+      ;; Error output with enhanced information
+      (doseq [error (:errors result)]
+        (println "✗" (:message error))
+        (when (:suggestion error)
+          (println "  💡" (:suggestion error)))
+        (when (:next-steps error)
+          (println (:next-steps error)))))))
+----
+
+[[_best_practices]]
+=== link:#_best_practices[]8. Best Practices
+
+[[_fcis_compliance]]
+==== link:#_fcis_compliance[]8.1. FC/IS Compliance
+
+*DO:* - Keep core validation functions pure (no side effects) - Pass context as parameters, never read environment in core - Use feature flags only in shell layer - Return structured data, let shell layer handle formatting
+
+*DON’T:* - Read `BND++_++DEVEX++_++VALIDATION` directly in core functions - Mix I/O operations with validation logic - Assume specific error message formatting in core - Break existing function signatures without providing legacy support
+
+[[_error_code_stability]]
+==== link:#_error_code_stability[]8.2. Error Code Stability
+
+*DO:* - Use descriptive, stable error codes (`:user.email/required`) - Document error codes in the catalog - Version error codes if breaking changes are needed - Provide migration guides for code changes
+
+*DON’T:* - Change existing error codes without deprecation process - Use generic codes when domain-specific codes exist - Create duplicate codes for the same validation
+
+[[_message_quality]]
+==== link:#_message_quality[]8.3. Message Quality
+
+*DO:* - Use clear, actionable language - Provide specific suggestions when possible - Include examples in error messages - Test messages with actual users
+
+*DON’T:* - Use technical jargon in user-facing messages - Blame users ("You provided invalid data") - Use humor or sarcasm in error messages - Write messages longer than necessary
+
+[[_testing_strategy]]
+==== link:#_testing_strategy[]8.4. Testing Strategy
+
+*DO:* - Test both legacy and enhanced code paths - Verify feature flag behavior - Test contextual rendering with different roles - Include integration tests for complete flows
+
+*DON’T:* - Test only the enhanced path - Skip backward compatibility tests - Assume feature flags work without testing - Test messages in isolation without context
+
+[[_common_pitfalls]]
+=== link:#_common_pitfalls[]9. Common Pitfalls
+
+[[_environment_variable_access]]
+==== link:#_environment_variable_access[]9.1. Environment Variable Access
+
+❌ *Wrong - Reading environment in core:*
+
+[source,highlightjs,highlight]
+----
+(defn validate-user [user]
+  (let [enhanced? (= "true" (System/getenv "BND_DEVEX_VALIDATION"))] ; BAD!
+    (if enhanced? ...)))
+----
+
+✅ *Right - Pass context from shell:*
+
+[source,highlightjs,highlight]
+----
+(defn validate-user
+  ([user] (validate-user user {}))  ; Legacy arity
+  ([user {:keys [enhanced?]}]       ; Enhanced arity
+    (if enhanced? ...)))
+----
+
+[[_breaking_backward_compatibility]]
+==== link:#_breaking_backward_compatibility[]9.2. Breaking Backward Compatibility
+
+❌ *Wrong - Changing existing signatures:*
+
+[source,highlightjs,highlight]
+----
+;; This breaks existing callers!
+(defn validate-user-creation-request [user-data context options]
+  ...)
+----
+
+✅ *Right - Adding new arities:*
+
+[source,highlightjs,highlight]
+----
+;; Existing callers continue working
+(defn validate-user-creation-request
+  ([user-data] ...)                    ; Legacy signature
+  ([user-data options] ...))           ; Enhanced signature
+----
+
+[[_context_passing_anti_patterns]]
+==== link:#_context_passing_anti_patterns[]9.3. Context Passing Anti-patterns
+
+❌ *Wrong - Global context:*
+
+[source,highlightjs,highlight]
+----
+(def ^:dynamic *validation-context* nil)  ; Avoid global state
+
+(defn validate-with-context [data]
+  (validate data *validation-context*))  ; Context should be explicit
+----
+
+✅ *Right - Explicit context:*
+
+[source,highlightjs,highlight]
+----
+(defn validate-with-context [data context]
+  ;; Context passed explicitly as parameter
+  (validate data context))
+----
+
+[[_json_api_examples]]
+=== link:#_json_api_examples[]10. JSON API Examples
+
+[[_successful_validation_response]]
+==== link:#_successful_validation_response[]10.1. Successful Validation Response
+
+[source,highlightjs,highlight]
+----
+{
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "john.doe@example.com",
+    "name": "John Doe",
+    "role": "user",
+    "active": true,
+    "userId": "acme-corp",
+    "createdAt": "2025-11-03T15:30:00Z"
+  }
+}
+----
+
+[[_enhanced_error_response]]
+==== link:#_enhanced_error_response[]10.2. Enhanced Error Response
+
+[source,highlightjs,highlight]
+----
+{
+  "errors": [
+    {
+      "field": "email",
+      "code": "user.email/required",
+      "message": "Email is required when creating a user",
+      "params": {
+        "field-name": "Email",
+        "entity": "user",
+        "operation": "create"
+      },
+      "path": ["email"],
+      "suggestion": "Provide an email address for the user",
+      "next-steps": "Next steps:\n1. Add the email field to your request\n2. Ensure the field is not null or empty\n3. Check API documentation for required fields"
+    },
+    {
+      "field": "role",
+      "code": "user.role/invalid-value",
+      "message": "Role must be one of: admin, user, viewer",
+      "params": {
+        "field-name": "Role",
+        "value": "admim",
+        "allowed": "admin, user, viewer",
+        "suggestion": "admin"
+      },
+      "path": ["role"],
+      "suggestion": "Did you mean \"admin\"? Allowed values: admin, user, viewer"
+    }
+  ],
+  "meta": {
+    "request-id": "req-123-456-789",
+    "timestamp": "2025-11-03T15:30:00Z",
+    "enhanced": true
+  }
+}
+----
+
+[[_legacy_error_response_bnd_devex_validationfalse]]
+==== link:#_legacy_error_response_bnd_devex_validationfalse[]10.3. Legacy Error Response (BND++_++DEVEX++_++VALIDATION=false)
+
+[source,highlightjs,highlight]
+----
+{
+  "errors": {
+    "email": ["required"],
+    "role": ["should be one of: admin, user, viewer"]
+  }
+}
+----
+
+[[_performance_considerations]]
+=== link:#_performance_considerations[]11. Performance Considerations
+
+[[_feature_flag_overhead]]
+==== link:#_feature_flag_overhead[]11.1. Feature Flag Overhead
+
+* Feature flag checking happens once per request in shell layer
+* No performance impact on core validation functions
+* Registry operations use concurrent maps for thread safety
+
+[[_message_rendering_cost]]
+==== link:#_message_rendering_cost[]11.2. Message Rendering Cost
+
+* Template resolution is cached per request
+* String interpolation is fast for small parameter sets
+* "Did you mean?" suggestions use optimized distance algorithms
+
+[[_memory_usage]]
+==== link:#_memory_usage[]11.3. Memory Usage
+
+* Error code catalog loaded once at startup
+* Validation registry uses weak references for rules
+* Context maps are request-scoped and garbage collected
+
+[[_migration_guide]]
+=== link:#_migration_guide[]12. Migration Guide
+
+[[_from_legacy_to_enhanced]]
+==== link:#_from_legacy_to_enhanced[]12.1. From Legacy to Enhanced
+
+. *Enable feature flag in development:* `bash export BND++_++DEVEX++_++VALIDATION=true `
+. *Test existing functionality:* `bash clojure -M:test:db/h2 `
+. *Update validation calls to include context:* ++```++clojure ;; Before (validate-user user-data)
++
+....
+;; After (optional enhanced context)
+(validate-user user-data {:enhanced? enhanced? :context ctx})
+```
+....
+. *Update error handling to support both formats:* ++```++clojure (defn handle-validation-result ++[++result++]++ (if (:valid? result) ;; Success case unchanged (handle-success (:data result))
++
+....
+    ;; Error handling supports both legacy and enhanced
+    (let [errors (:errors result)]
+      (if (map? (first errors))  ; Enhanced format
+        (handle-enhanced-errors errors)
+        (handle-legacy-errors errors)))))
+```
+....
+. *Gradually enable in production:* `bash # Start with a small percentage of requests BND++_++DEVEX++_++VALIDATION=true # Enable for all requests when ready `
+
+[[_troubleshooting]]
+=== link:#_troubleshooting[]13. Troubleshooting
+
+[[_common_issues]]
+==== link:#_common_issues[]13.1. Common Issues
+
+*Feature flag not working:* - Verify environment variable spelling: `BND++_++DEVEX++_++VALIDATION` - Check case sensitivity: `true` not `True` - Confirm application restart after setting environment
+
+*Legacy tests failing:* - Ensure backward compatibility arities are preserved - Check that legacy callers don’t receive enhanced format unexpectedly - Verify feature flag defaults to `false`
+
+*Enhanced errors not showing:* - Confirm feature flag is enabled: `(flags/enabled? :devex-validation)` - Check that validation context is being passed correctly - Verify error codes exist in catalog
+
+*Performance issues:* - Check if feature flag is being read on every validation call (should be once per request) - Monitor registry size if dynamically adding rules - Profile message rendering if handling large error sets
+
+[[_debug_helpers]]
+==== link:#_debug_helpers[]13.2. Debug Helpers
+
+[source,highlightjs,highlight]
+----
+;; Check current feature flag status
+(require '[boundary.shared.core.config.feature-flags :as flags])
+(flags/all-flags)
+
+;; Inspect error code catalog
+(require '[boundary.shared.core.validation.codes :as codes])
+(count (codes/error-code-catalog))
+(codes/get-error-codes-for-field :email)
+
+;; View registry statistics
+(require '[boundary.shared.core.validation.registry :as registry])
+(registry/registry-stats)
+(registry/get-execution-stats)
+
+;; Test message rendering
+(require '[boundary.shared.core.validation.messages :as msg])
+(msg/render-message :required {:field :email} {})
+----
+
+[[_repl_helpers_and_tooling]]
+=== link:#_repl_helpers_and_tooling[]14. REPL Helpers and Tooling
+
+[[_quickstart_repl]]
+==== link:#_quickstart_repl[]14.1. Quickstart (REPL)
+
+[source,highlightjs,highlight]
+----
+(require '[boundary.shared.tools.validation.repl :as v])
+
+;; Registry overview
+(v/stats)
+(v/list-rules)                    ; all rules
+(v/list-rules {:module :user})    ; filter by module
+(v/conflicts)                     ; potential rule conflicts
+
+;; Validate / Explain (Malli)
+(require '[boundary.user.schema :as user-schema])
+(v/validate user-schema/CreateUserRequest {:email "a@b.co" :name "A" :role :user :user-id #uuid "00000000-0000-0000-0000-000000000001"})
+(v/explain  user-schema/CreateUserRequest {:email "invalid"})
+
+;; Timing
+(require '[boundary.user.core.user :as user-core])
+(v/time-call user-core/validate-user-creation-request {:email "a@b.co" :name "A" :role :user :user-id #uuid "00000000-0000-0000-0000-000000000001"})
+
+;; Snapshots (deterministic EDN)
+(println (v/snapshot->edn {:status :ok} {:seed 42 :meta {:test "example"}}))
+
+;; GraphViz DOT export
+(spit "build/validation-user.dot" (v/rules->dot {:modules #{:user}}))
+----
+
+[[_reading_coverage_reports]]
+==== link:#_reading_coverage_reports[]14.2. Reading Coverage Reports
+
+[source,highlightjs,highlight]
+----
+(require '[clojure.edn :as edn])
+(def user-cov (edn/read-string (slurp "test/reports/coverage/user.edn")))
+(:coverage user-cov)   ; => 100.0
+(:by-module user-cov)  ; per-module breakdown
+----
+
+[[_references]]
+=== link:#_references[]15. References
+
+* link:error-codes.adoc[Error Code Catalog] - Complete list of error codes and templates
+* link:validation-patterns.adoc[Validation Patterns] - Message style guide and patterns
+* link:adr/ADR-005-validation-devex-foundations.adoc[ADR-005] - Architectural decision record
+* link:implementation/user-module-implementation.adoc[User Module Implementation] - Concrete implementation examples
+
+'''''
+
+*For questions or feedback on validation features, see the link:../AGENTS.md[Developer Guide] or contact the development team.*

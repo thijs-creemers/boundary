@@ -238,11 +238,13 @@
   (let [db-cfg (db-spec config)
         logging-cfg (logging-config config)
         metrics-cfg (metrics-config config)
-        error-reporting-cfg (error-reporting-config config)]
+        error-reporting-cfg (error-reporting-config config)
+        router-cfg (get-in config [:active :boundary/router] {:adapter :reitit})]
     {:boundary/db-context db-cfg
      :boundary/logging logging-cfg
      :boundary/metrics metrics-cfg
-     :boundary/error-reporting error-reporting-cfg}))
+     :boundary/error-reporting error-reporting-cfg
+     :boundary/router router-cfg}))
 
 (defn- user-module-config
   "Return Integrant configuration for the user module.
@@ -294,7 +296,8 @@
      :boundary/http-handler
      {:config config
       :user-routes (ig/ref :boundary/user-routes)
-      :inventory-routes (ig/ref :boundary/inventory-routes)}
+      :inventory-routes (ig/ref :boundary/inventory-routes)
+      :router (ig/ref :boundary/router)}
 
      :boundary/http-server
      (merge http-cfg
