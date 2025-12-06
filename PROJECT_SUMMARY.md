@@ -709,7 +709,7 @@ for doc in *.adoc; do asciidoctor -D ../../build/docs "$doc"; done
 cd -
 
 # Validate documentation links
-npx -y markdown-link-check -q warp.md
+npx -y markdown-link-check -q AGENTS.md
 ```
 
 ### Build and Deployment

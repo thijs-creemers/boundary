@@ -171,7 +171,7 @@ decisions
 * link:roadmap.adoc[Roadmap] - Project roadmap and future plans
 * link:DOCKER_DEVELOPMENT.adoc[Docker Development] - Docker-based
 development setup
-* link:OBSERVABILITY_INTEGRATION.adoc[Observability Integration] -
+* link:guides/integrate-observability.adoc[Observability Integration] -
 Logging, metrics, and error reporting setup
 * link:DOCUMENTATION_SERVING.adoc[Documentation Serving] - How to serve
 documentation locally

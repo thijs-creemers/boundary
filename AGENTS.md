@@ -1236,7 +1236,7 @@ Configure observability providers in your `config.edn`:
 - **Metrics**: No-op (development), Datadog  
 - **Error Reporting**: No-op (development), Sentry
 
-See [docs/OBSERVABILITY_INTEGRATION.md](docs/OBSERVABILITY_INTEGRATION.md) for complete integration guide including custom adapters and advanced configuration.
+See [docs/guides/integrate-observability.adoc](docs/guides/integrate-observability.adoc) for complete integration guide including custom adapters and advanced configuration.
 
 ---
 
@@ -1483,7 +1483,7 @@ console.log(htmx);
 - [docs/README.md](docs/README.md) - Main documentation index
 - [docs/architecture/](docs/architecture/) - Architecture patterns and design
 - [docs/guides/](docs/guides/) - Tutorials and how-to guides
-- [docs/OBSERVABILITY_INTEGRATION.md](docs/OBSERVABILITY_INTEGRATION.md) - Logging, metrics, error reporting
+- [docs/guides/integrate-observability.adoc](docs/guides/integrate-observability.adoc) - Logging, metrics, error reporting
 - [docs/DECISIONS.md](docs/DECISIONS.md) - Technical and architectural decisions
 - [PRD.adoc](docs/reference/boundary-prd.adoc) - Product requirements and vision
 - [AGENTS.md](AGENTS.md) - Full developer guide with detailed examples

@@ -45,6 +45,8 @@ configuration
 commands
 * link:enable-validation-devex.adoc[*Enable Validation DevEx*] -
 Enhanced validation developer experience
+* link:integrate-observability.adoc[*Integrate Observability*] - Add
+logging, metrics, and error reporting to modules
 
 ==== Testing and Development Workflow
 

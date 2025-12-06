@@ -186,11 +186,11 @@ validation:
 
 ### Developer Resources
 - **[AGENTS.md](./AGENTS.md)** - Comprehensive developer and agent guide
-- **[warp.md](./warp.md)** - Full development reference
+- **[AGENTS.md](./AGENTS.md)** - Full development reference
 - **[PRD.adoc](PRD.adoc)** - Product requirements document
 
 ### Key Documentation
-- **[Observability Integration](docs/OBSERVABILITY_INTEGRATION.md)** - Logging, metrics, and error reporting
+- **[Observability Integration](docs/guides/integrate-observability.adoc)** - Logging, metrics, and error reporting
 - **[Docker Development](docs/DOCKER_DEVELOPMENT.md)** - Docker-based development setup
 - **[Decisions](docs/DECISIONS.md)** - Technical and architectural decisions
 - **[Roadmap](docs/roadmap.md)** - Project roadmap and future plans

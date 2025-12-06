@@ -770,7 +770,7 @@ Coverage (user): 100.0% (6/6 rules executed)
 
 === Related Documentation
 
-- link:../../warp.md[Developer Guide] - Project overview and development workflow
+- link:../../AGENTS.md[Developer Guide] - Project overview and development workflow
 - link:../boundary.prd.adoc[Product Requirements Document] - Project vision and requirements
 
 == Notes
