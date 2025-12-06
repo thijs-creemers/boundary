@@ -1,0 +1,737 @@
+== Boundary CLI - User and Session Management
+
+[[toc]]
+[[toctitle]]
+Table of Contents
+
+* link:#_overview[1. Overview]
+** link:#_key_features[1.1. Key Features]
+* link:#_installation_and_setup[2. Installation and Setup]
+** link:#_prerequisites[2.1. Prerequisites]
+** link:#_running_the_cli[2.2. Running the CLI]
+* link:#_command_structure[3. Command Structure]
+** link:#_general_syntax[3.1. General Syntax]
+** link:#_global_options[3.2. Global Options]
+* link:#_user_management_commands[4. User Management Commands]
+** link:#_create_user[4.1. Create User]
+*** link:#_syntax[4.1.1. Syntax]
+*** link:#_required_options[4.1.2. Required Options]
+*** link:#_optional_options[4.1.3. Optional Options]
+*** link:#_examples[4.1.4. Examples]
+*** link:#_output[4.1.5. Output]
+** link:#_list_users[4.2. List Users]
+*** link:#_syntax_2[4.2.1. Syntax]
+*** link:#_required_options_2[4.2.2. Required Options]
+*** link:#_optional_options_2[4.2.3. Optional Options]
+*** link:#_examples_2[4.2.4. Examples]
+** link:#_find_user[4.3. Find User]
+*** link:#_syntax_3[4.3.1. Syntax]
+*** link:#_examples_3[4.3.2. Examples]
+** link:#_update_user[4.4. Update User]
+*** link:#_syntax_4[4.4.1. Syntax]
+*** link:#_required_options_3[4.4.2. Required Options]
+*** link:#_optional_options_3[4.4.3. Optional Options]
+*** link:#_examples_4[4.4.4. Examples]
+** link:#_delete_user[4.5. Delete User]
+*** link:#_syntax_5[4.5.1. Syntax]
+*** link:#_examples_5[4.5.2. Examples]
+* link:#_session_management_commands[5. Session Management Commands]
+** link:#_create_session[5.1. Create Session]
+*** link:#_syntax_6[5.1.1. Syntax]
+*** link:#_required_options_4[5.1.2. Required Options]
+*** link:#_optional_options_4[5.1.3. Optional Options]
+*** link:#_examples_6[5.1.4. Examples]
+** link:#_invalidate_session[5.2. Invalidate Session]
+*** link:#_syntax_7[5.2.1. Syntax]
+*** link:#_examples_7[5.2.2. Examples]
+** link:#_list_sessions[5.3. List Sessions]
+*** link:#_syntax_8[5.3.1. Syntax]
+*** link:#_examples_8[5.3.2. Examples]
+* link:#_output_formats[6. Output Formats]
+** link:#_table_format_default[6.1. Table Format (Default)]
+** link:#_json_format[6.2. JSON Format]
+* link:#_error_handling[7. Error Handling]
+** link:#_exit_codes[7.1. Exit Codes]
+** link:#_error_messages[7.2. Error Messages]
+** link:#_common_errors[7.3. Common Errors]
+* link:#_best_practices[8. Best Practices]
+** link:#_scripting_with_json[8.1. Scripting with JSON]
+** link:#_boolean_values[8.2. Boolean Values]
+** link:#_uuid_format[8.3. UUID Format]
+** link:#_considerations[8.4. Considerations]
+* link:#_troubleshooting[9. Troubleshooting]
+** link:#_database_connection_issues[9.1. Database Connection Issues]
+** link:#_invalid_uuid_format[9.2. Invalid UUID Format]
+** link:#_permission_denied[9.3. Permission Denied]
+** link:#_empty_results[9.4. Empty Results]
+* link:#_architecture_notes[10. Architecture Notes]
+* link:#_see_also[11. See Also]
+
+[[_overview]]
+=== link:#_overview[]1. Overview
+
+The Boundary CLI provides command-line tools for managing users and sessions in the Boundary framework. It supports both table-based (default) and JSON output formats, making it suitable for both interactive use and scripting.
+
+[[_key_features]]
+==== link:#_key_features[]1.1. Key Features
+
+* *Full CRUD Operations*: Create, read, update, and delete users
+* *Session Management*: Create and invalidate user sessions
+* *Flexible Output*: Table format for humans, JSON for automation
+* *Input Validation*: Comprehensive validation with clear error messages
+* *Exit Codes*: Standard exit codes (0=success, 1=error)
+
+[[_installation_and_setup]]
+=== link:#_installation_and_setup[]2. Installation and Setup
+
+[[_prerequisites]]
+==== link:#_prerequisites[]2.1. Prerequisites
+
+* Clojure 1.12.3 or higher
+* Java 11 or higher
+* Database configured (SQLite by default)
+
+[[_running_the_cli]]
+==== link:#_running_the_cli[]2.2. Running the CLI
+
+From the project root:
+
+[source,highlightjs,highlight]
+----
+# Using Clojure directly
+clojure -M:cli user list
+
+# Using an alias (if configured)
+boundary user list
+----
+
+[[_command_structure]]
+=== link:#_command_structure[]3. Command Structure
+
+[[_general_syntax]]
+==== link:#_general_syntax[]3.1. General Syntax
+
+[source,highlightjs,highlight]
+----
+boundary <domain> <command> [options]
+----
+
+Where:
+
+* `++<++domain++>++`: Either `user` or `session`
+* `++<++command++>++`: Operation to perform (create, list, find, etc.)
+* `++[++options++]++`: Command-specific flags and arguments
+
+[[_global_options]]
+==== link:#_global_options[]3.2. Global Options
+
+[width="100%",cols="25%,75%",options="header",]
+|===
+|Option |Description
+|`-f, --format FORMAT` |Output format: `table` (default) or `json`
+|`-h, --help` |Show help text
+|===
+
+[[_user_management_commands]]
+=== link:#_user_management_commands[]4. User Management Commands
+
+[[_create_user]]
+==== link:#_create_user[]4.1. Create User
+
+Create a new user account.
+
+[[_syntax]]
+===== link:#_syntax[]4.1.1. Syntax
+
+[source,highlightjs,highlight]
+----
+boundary user create --email EMAIL --name NAME --role ROLE  [--active BOOL]
+----
+
+[[_required_options]]
+===== link:#_required_options[]4.1.2. Required Options
+
+[width="100%",cols="25%,75%",options="header",]
+|===
+|Option |Description
+|`--email EMAIL` |User’s email address (must be valid format)
+|`--name NAME` |User’s full name
+|`--role ROLE` |User role: `admin`, `user`, or `viewer`
+|===
+
+[[_optional_options]]
+===== link:#_optional_options[]4.1.3. Optional Options
+
+[width="100%",cols="25%,50%,25%",options="header",]
+|===
+|Option |Description |Default
+|`--active BOOL` |User active status (true/false/yes/no/1/0) |`true`
+|===
+
+[[_examples]]
+===== link:#_examples[]4.1.4. Examples
+
+[source,highlightjs,highlight]
+----
+# Create active user with table output (default)
+boundary user create \
+  --email john.doe@example.com \
+  --name "John Doe" \
+  --role user \
+
+
+# Create admin with JSON output
+boundary user create \
+  --email admin@example.com \
+  --name "Admin User" \
+  --role admin \
+   \
+  --format json
+
+# Create inactive user
+boundary user create \
+  --email inactive@example.com \
+  --name "Inactive User" \
+  --role viewer \
+   \
+  --active false
+----
+
+[[_output]]
+===== link:#_output[]4.1.5. Output
+
+*Table format* (default):
+
+....
++--------------------------------------+----------------------+-------------+------+--------+---------------------+
+| ID                                   | Email                | Name        | Role | Active | Created             |
++--------------------------------------+----------------------+-------------+------+--------+---------------------+
+| 123e4567-e89b-12d3-a456-426614174000 | john.doe@example.com | John Doe    | user | true   | 2024-10-30 20:42:00 |
++--------------------------------------+----------------------+-------------+------+--------+---------------------+
+....
+
+*JSON format*:
+
+[source,highlightjs,highlight]
+----
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "email": "john.doe@example.com",
+  "name": "John Doe",
+  "role": "user",
+  "active": true,
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
+  "createdAt": "2024-10-30T20:42:00Z"
+}
+----
+
+[[_list_users]]
+==== link:#_list_users[]4.2. List Users
+
+List all users with optional filtering.
+
+[[_syntax_2]]
+===== link:#_syntax_2[]4.2.1. Syntax
+
+[source,highlightjs,highlight]
+----
+boundary user list  [--limit N] [--offset N] [--role ROLE] [--active BOOL]
+----
+
+[[_required_options_2]]
+===== link:#_required_options_2[]4.2.2. Required Options
+
+[width="100%",cols="25%,75%",options="header",]
+|===
+|Option |Description
+|===
+
+[[_optional_options_2]]
+===== link:#_optional_options_2[]4.2.3. Optional Options
+
+[width="100%",cols="25%,50%,25%",options="header",]
+|===
+|Option |Description |Default
+|`--limit N` |Maximum number of results |20
+|`--offset N` |Number of results to skip |0
+|`--role ROLE` |Filter by role (admin/user/viewer) |All roles
+|`--active BOOL` |Filter by active status |All statuses
+|===
+
+[[_examples_2]]
+===== link:#_examples_2[]4.2.4. Examples
+
+[source,highlightjs,highlight]
+----
+# List all users (default: first 20)
+boundary user list
+
+# List only admins
+boundary user list \
+   \
+  --role admin
+
+# List inactive users with JSON output
+boundary user list \
+   \
+  --active false \
+  --format json
+
+# Pagination: second page of 10 users
+boundary user list \
+   \
+  --limit 10 \
+  --offset 10
+----
+
+[[_find_user]]
+==== link:#_find_user[]4.3. Find User
+
+Find a specific user by ID or email.
+
+[[_syntax_3]]
+===== link:#_syntax_3[]4.3.1. Syntax
+
+[source,highlightjs,highlight]
+----
+# Find by ID
+boundary user find --id UUID
+
+# Find by email
+boundary user find --email EMAIL
+----
+
+[cols=",",]
+|===
+|__ |You must provide either `--id` OR `--email`.
+|===
+
+[[_examples_3]]
+===== link:#_examples_3[]4.3.2. Examples
+
+[source,highlightjs,highlight]
+----
+# Find user by ID
+boundary user find --id 123e4567-e89b-12d3-a456-426614174000
+
+# Find user by email
+boundary user find \
+  --email john.doe@example.com \
+----
+
+[[_update_user]]
+==== link:#_update_user[]4.4. Update User
+
+Update user properties.
+
+[[_syntax_4]]
+===== link:#_syntax_4[]4.4.1. Syntax
+
+[source,highlightjs,highlight]
+----
+boundary user update --id UUID [--name NAME] [--role ROLE] [--active BOOL]
+----
+
+[[_required_options_3]]
+===== link:#_required_options_3[]4.4.2. Required Options
+
+[width="100%",cols="25%,75%",options="header",]
+|===
+|Option |Description
+|`--id UUID` |ID of user to update
+|===
+
+[[_optional_options_3]]
+===== link:#_optional_options_3[]4.4.3. Optional Options
+
+[cols=",",]
+|===
+|__ |At least one update field must be provided.
+|===
+
+[width="100%",cols="25%,75%",options="header",]
+|===
+|Option |Description
+|`--name NAME` |New user name
+|`--role ROLE` |New user role (admin/user/viewer)
+|`--active BOOL` |New active status
+|===
+
+[[_examples_4]]
+===== link:#_examples_4[]4.4.4. Examples
+
+[source,highlightjs,highlight]
+----
+# Update user name
+boundary user update \
+  --id 123e4567-e89b-12d3-a456-426614174000 \
+  --name "John Smith"
+
+# Promote user to admin
+boundary user update \
+  --id 123e4567-e89b-12d3-a456-426614174000 \
+  --role admin
+
+# Deactivate user
+boundary user update \
+  --id 123e4567-e89b-12d3-a456-426614174000 \
+  --active false
+
+# Multiple updates
+boundary user update \
+  --id 123e4567-e89b-12d3-a456-426614174000 \
+  --name "John Administrator" \
+  --role admin \
+  --active true
+----
+
+[[_delete_user]]
+==== link:#_delete_user[]4.5. Delete User
+
+Soft-delete a user (marks as deleted but preserves data).
+
+[[_syntax_5]]
+===== link:#_syntax_5[]4.5.1. Syntax
+
+[source,highlightjs,highlight]
+----
+boundary user delete --id UUID
+----
+
+[[_examples_5]]
+===== link:#_examples_5[]4.5.2. Examples
+
+[source,highlightjs,highlight]
+----
+boundary user delete --id 123e4567-e89b-12d3-a456-426614174000
+----
+
+[cols=",",]
+|===
+|__ |Soft-deleted users cannot be recovered through the CLI. Use database tools if recovery is needed.
+|===
+
+[[_session_management_commands]]
+=== link:#_session_management_commands[]5. Session Management Commands
+
+[[_create_session]]
+==== link:#_create_session[]5.1. Create Session
+
+Create a new user session (login).
+
+[[_syntax_6]]
+===== link:#_syntax_6[]5.1.1. Syntax
+
+[source,highlightjs,highlight]
+----
+boundary session create --user-id UUID  [--user-agent STRING] [--ip-address IP]
+----
+
+[[_required_options_4]]
+===== link:#_required_options_4[]5.1.2. Required Options
+
+[width="100%",cols="25%,75%",options="header",]
+|===
+|Option |Description
+|`--user-id UUID` |UUID of user creating session
+|===
+
+[[_optional_options_4]]
+===== link:#_optional_options_4[]5.1.3. Optional Options
+
+[width="100%",cols="25%,75%",options="header",]
+|===
+|Option |Description
+|`--user-agent STRING` |User agent string for session tracking
+|`--ip-address IP` |IP address for session tracking
+|===
+
+[[_examples_6]]
+===== link:#_examples_6[]5.1.4. Examples
+
+[source,highlightjs,highlight]
+----
+# Create basic session
+boundary session create \
+  --user-id 123e4567-e89b-12d3-a456-426614174000 \
+
+
+# Create session with tracking info
+boundary session create \
+  --user-id 123e4567-e89b-12d3-a456-426614174000 \
+   \
+  --user-agent "Mozilla/5.0" \
+  --ip-address "192.168.1.100"
+----
+
+[[_invalidate_session]]
+==== link:#_invalidate_session[]5.2. Invalidate Session
+
+Invalidate a session (logout).
+
+[[_syntax_7]]
+===== link:#_syntax_7[]5.2.1. Syntax
+
+[source,highlightjs,highlight]
+----
+boundary session invalidate --token TOKEN
+----
+
+[[_examples_7]]
+===== link:#_examples_7[]5.2.2. Examples
+
+[source,highlightjs,highlight]
+----
+boundary session invalidate --token "session-token-abc123"
+----
+
+[[_list_sessions]]
+==== link:#_list_sessions[]5.3. List Sessions
+
+List all active sessions for a user.
+
+[[_syntax_8]]
+===== link:#_syntax_8[]5.3.1. Syntax
+
+[source,highlightjs,highlight]
+----
+boundary session list --user-id UUID
+----
+
+[[_examples_8]]
+===== link:#_examples_8[]5.3.2. Examples
+
+[source,highlightjs,highlight]
+----
+boundary session list --user-id 123e4567-e89b-12d3-a456-426614174000
+----
+
+[[_output_formats]]
+=== link:#_output_formats[]6. Output Formats
+
+[[_table_format_default]]
+==== link:#_table_format_default[]6.1. Table Format (Default)
+
+Table format is optimized for human readability:
+
+* Column headers clearly labeled
+* Data aligned for easy scanning
+* Truncation for long values (with ellipsis)
+* "No results found" message when empty
+
+Example:
+
+....
++--------------------------------------+----------------------+-------------+
+| ID                                   | Email                | Name        |
++--------------------------------------+----------------------+-------------+
+| 123e4567-e89b-12d3-a456-426614174000 | john.doe@example.com | John Doe    |
+| 456e7890-e89b-12d3-a456-426614174001 | jane.doe@example.com | Jane Doe    |
++--------------------------------------+----------------------+-------------+
+....
+
+[[_json_format]]
+==== link:#_json_format[]6.2. JSON Format
+
+JSON format is optimized for programmatic use:
+
+* Pretty-printed for readability
+* Consistent structure across commands
+* Lists include count and items
+* Timestamps in ISO 8601 format
+* UUIDs as strings
+
+Example single entity:
+
+[source,highlightjs,highlight]
+----
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "email": "john.doe@example.com",
+  "name": "John Doe",
+  "role": "user",
+  "active": true,
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
+  "createdAt": "2024-10-30T20:42:00Z"
+}
+----
+
+Example list:
+
+[source,highlightjs,highlight]
+----
+{
+  "users": [
+    { "id": "...", "email": "..." },
+    { "id": "...", "email": "..." }
+  ],
+  "count": 2
+}
+----
+
+[[_error_handling]]
+=== link:#_error_handling[]7. Error Handling
+
+[[_exit_codes]]
+==== link:#_exit_codes[]7.1. Exit Codes
+
+[width="100%",cols="25%,75%",options="header",]
+|===
+|Code |Meaning
+|`0` |Success
+|`1` |Error occurred (validation, not found, etc.)
+|===
+
+[[_error_messages]]
+==== link:#_error_messages[]7.2. Error Messages
+
+Errors are formatted according to the output format:
+
+*Table format* (stderr):
+
+....
+Error: User not found
+Details: No user found with ID: 123e4567-e89b-12d3-a456-426614174000
+....
+
+*JSON format* (stderr):
+
+[source,highlightjs,highlight]
+----
+{
+  "error": {
+    "type": "user-not-found",
+    "message": "User not found",
+    "details": {
+      "user-id": "123e4567-e89b-12d3-a456-426614174000"
+    }
+  }
+}
+----
+
+[[_common_errors]]
+==== link:#_common_errors[]7.3. Common Errors
+
+[width="100%",cols="20%,40%,40%",options="header",]
+|===
+|Error Type |Cause |Solution
+|`validation-error` |Invalid input (bad email, role, UUID, etc.) |Check input format and required fields
+|`user-not-found` |User ID or email not found |Verify user exists
+|`user-exists` |Duplicate email |Use different email or update existing user
+|`parse-error` |Invalid command-line arguments |Check option syntax and values
+|`unknown-command` |Invalid domain or verb |Use `--help` to see available commands
+|===
+
+[[_best_practices]]
+=== link:#_best_practices[]8. Best Practices
+
+[[_scripting_with_json]]
+==== link:#_scripting_with_json[]8.1. Scripting with JSON
+
+When using the CLI in scripts, always use JSON format:
+
+[source,highlightjs,highlight]
+----
+#!/bin/zsh
+
+# Create user and capture ID
+# User operations
+RESULT=$(boundary user create \
+  --email new@example.com \
+  --name "New User" \
+  --role user \
+   \
+  --format json)
+
+USER_ID=$(echo "$RESULT" | jq -r '.id')
+echo "Created user with ID: $USER_ID"
+----
+
+[[_boolean_values]]
+==== link:#_boolean_values[]8.2. Boolean Values
+
+The CLI accepts multiple formats for boolean values:
+
+* Truthy: `true`, `yes`, `y`, `1`
+* Falsy: `false`, `no`, `n`, `0`
+
+All are case-insensitive.
+
+[[_uuid_format]]
+==== link:#_uuid_format[]8.3. UUID Format
+
+UUIDs must be in canonical format (with hyphens):
+
+* ✅ Good: `550e8400-e29b-41d4-a716-446655440000`
+* ❌ Bad: `550e8400e29b41d4a716446655440000`
+
+[[_considerations]]
+==== link:#_considerations[]8.4. Considerations
+
+* User email must be globally unique
+
+[[_troubleshooting]]
+=== link:#_troubleshooting[]9. Troubleshooting
+
+[[_database_connection_issues]]
+==== link:#_database_connection_issues[]9.1. Database Connection Issues
+
+[source,highlightjs,highlight]
+----
+Error: Failed to initialize database
+----
+
+*Solution*: Check database configuration in `resources/conf/dev/config.edn`
+
+[[_invalid_uuid_format]]
+==== link:#_invalid_uuid_format[]9.2. Invalid UUID Format
+
+[source,highlightjs,highlight]
+----
+Error: Invalid arguments
+----
+
+*Solution*: Ensure UUIDs include hyphens and are properly formatted
+
+[[_permission_denied]]
+==== link:#_permission_denied[]9.3. Permission Denied
+
+[source,highlightjs,highlight]
+----
+Error: User deletion not allowed
+----
+
+*Solution*: Check business rules - some users may be protected from deletion
+
+[[_empty_results]]
+==== link:#_empty_results[]9.4. Empty Results
+
+When listing returns no results, verify:
+
+. Valid user exists
+. Proper permissions
+. Filters aren’t too restrictive
+
+[[_architecture_notes]]
+=== link:#_architecture_notes[]10. Architecture Notes
+
+The CLI follows Boundary’s Functional Core / Imperative Shell architecture:
+
+* *Shell Layer*: CLI parsing, formatting, I/O
+* *Service Layer*: Business logic coordination
+* *Core Layer*: Pure business rules
+
+This separation ensures:
+
+* CLI can be tested without database
+* Business logic is reusable across interfaces
+* Clear separation of concerns
+
+[[_see_also]]
+=== link:#_see_also[]11. See Also
+
+* link:../architecture/overview.adoc[Boundary Architecture Overview]
+* link:../boundary.prd.adoc[Product Requirements Document]
+* link:../../AGENTS.md[Boundary Developer Guide]
+
+_Last updated: 2025-10-30_
