@@ -95,7 +95,7 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes inventory-routes router]}]
+  [_ {:keys [user-routes inventory-routes router logger metrics-emitter error-reporter]}]
   (log/info "Initializing top-level HTTP handler with normalized routing")
   (require 'boundary.platform.ports.http)
   (let [;; Import compile-routes function
@@ -105,7 +105,7 @@
         user-static-routes (or (:static user-routes) [])
         user-web-routes (or (:web user-routes) [])
         user-api-routes (or (:api user-routes) [])
-        
+
         ;; User routes are in normalized format - use directly
         user-normalized-static (when (seq user-static-routes) user-static-routes)
         user-normalized-web (when (seq user-web-routes)
@@ -119,7 +119,7 @@
         inventory-static-routes (or (:static inventory-routes) [])
         inventory-web-routes (or (:web inventory-routes) [])
         inventory-api-routes (or (:api inventory-routes) [])
-        
+
         ;; Inventory routes are in normalized format - use directly
         inventory-normalized-static (when (seq inventory-static-routes) inventory-static-routes)
         inventory-normalized-web (when (seq inventory-web-routes)
@@ -137,9 +137,15 @@
                                      (or inventory-normalized-web [])
                                      (or inventory-normalized-api []))
 
-        ;; Compile routes using router adapter
+        ;; Build system services map for HTTP interceptors
+        system {:logger logger
+                :metrics-emitter metrics-emitter
+                :error-reporter error-reporter}
+
+        ;; Compile routes using router adapter with system services
         router-config {:middleware []  ; Add any global middleware here
-                      :coercion :malli}
+                       :coercion :malli
+                       :system system}
         handler (compile-routes router all-normalized-routes router-config)]
 
     (log/info "Top-level HTTP handler initialized successfully"
@@ -150,7 +156,8 @@
                                  :web (count (or inventory-web-routes []))
                                  :api (count (or inventory-api-routes []))}
                :total-normalized-routes (count all-normalized-routes)
-               :router-adapter (class router)})
+               :router-adapter (class router)
+               :system-services (keys system)})
     handler))
 
 (defmethod ig/halt-key! :boundary/http-handler

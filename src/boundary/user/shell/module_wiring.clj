@@ -108,19 +108,16 @@
   (log/info "User module routes halted (no cleanup needed)"))
 
 ;; =============================================================================
-;; User HTTP Handler (DEPRECATED - Legacy Support)
+;; User HTTP Handler (DEPRECATED - Legacy Support REMOVED)
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/user-http-handler
   [_ {:keys [user-service config]}]
-  (log/warn "DEPRECATED: :boundary/user-http-handler is no longer the preferred integration method.")
-  (log/warn "Please use :boundary/user-routes and top-level :boundary/http-handler instead.")
-  (log/info "Initializing user HTTP handler (legacy mode)")
-  (require 'boundary.user.shell.http)
-  (let [create-handler (ns-resolve 'boundary.user.shell.http 'create-handler)
-        handler (create-handler user-service (or config {}))]
-    (log/info "User HTTP handler initialized successfully (legacy mode)")
-    handler))
+  (throw (ex-info "DEPRECATED: :boundary/user-http-handler no longer supported"
+                  {:message "Legacy create-handler function has been removed"
+                   :migration "Use :boundary/user-routes with top-level :boundary/http-handler instead"
+                   :user-service user-service
+                   :config config})))
 
 (defmethod ig/halt-key! :boundary/user-http-handler
   [_ _handler]

@@ -311,8 +311,8 @@ In `src/boundary/shell/interfaces/http/server.clj` or similar:
 (defn create-app-routes
   [config services]
   (concat
-    (user-http/user-routes (:user-service services))
-    (billing-http/billing-routes (:billing-service services))))
+    (:api (user-http/user-routes-normalized (:user-service services) config))
+    (:api (billing-http/billing-routes-normalized (:billing-service services) config))))
 ----
 
 [[checklist]]

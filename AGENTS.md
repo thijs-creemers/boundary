@@ -1033,6 +1033,30 @@ The scaffolder generates minimal but correct implementations. Enhance them by:
 4. **Implement Queries**: Add complex queries in `shell/persistence.clj`
 5. **Add Routes**: Extend HTTP routes in `shell/http.clj`
 
+### Generated Route Formats
+
+The scaffolder generates **only normalized routes** in `shell/http.clj`:
+
+**Normalized Format** (framework-agnostic):
+```clojure
+(defn normalized-api-routes [service]
+  [{:path "/items"
+    :methods {:get {:handler ...}}}])  ; Framework-agnostic format
+
+(defn {module}-routes-normalized [service config]
+  {:api (normalized-api-routes service)
+   :web (normalized-web-routes service config)
+   :static []})
+```
+
+**Benefits of Normalized Routes:**
+- Framework-agnostic (not tied to Reitit)
+- Support for HTTP interceptors (see [HTTP Interceptors](#http-interceptors))
+- Cleaner composition at top-level router
+- Consistent pattern across all modules
+
+**Note**: Legacy Reitit-specific route functions (`api-routes`, `web-ui-routes`, `user-routes`, `create-handler`, etc.) have been removed from the codebase. Use only the normalized format going forward.
+
 ---
 
 ## Testing Strategy

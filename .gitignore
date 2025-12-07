@@ -19,3 +19,4 @@ opencode.json
 /resources/public/docs
 test-output*.txt
 /logs/
+hugo-site/

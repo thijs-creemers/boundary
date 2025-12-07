@@ -297,7 +297,10 @@
      {:config config
       :user-routes (ig/ref :boundary/user-routes)
       :inventory-routes (ig/ref :boundary/inventory-routes)
-      :router (ig/ref :boundary/router)}
+      :router (ig/ref :boundary/router)
+      :logger (ig/ref :boundary/logging)
+      :metrics-emitter (ig/ref :boundary/metrics)
+      :error-reporter (ig/ref :boundary/error-reporting)}
 
      :boundary/http-server
      (merge http-cfg
