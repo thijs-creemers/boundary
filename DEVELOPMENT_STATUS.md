@@ -1,6 +1,6 @@
 # Boundary Framework - Development Status
 
-**Last Updated:** December 6, 2025  
+**Last Updated:** December 7, 2025  
 **Project Phase:** Alpha Development  
 **Overall Status:** 🟢 HTTP Interceptor Architecture Complete - Enterprise-Grade Cross-Cutting Concerns with Normalized Routing
 
@@ -478,7 +478,7 @@ clojure -M:cli user --help
 - 🔴 **Incomplete/Needs Work**: Major gaps or issues
 - 🚧 **In Progress**: Actively being developed
 
-**Next Review:** December 7, 2025
+**Next Review:** December 14, 2025
 
 ---
 
@@ -504,3 +504,87 @@ The module scaffolder implementation represents a **transformative infrastructur
 - **Scalability**: Enables rapid expansion of domain modules without compromising quality
 
 This milestone validates the maturity of the Boundary framework's architectural patterns and establishes a foundation for rapid domain expansion while maintaining enterprise-grade quality standards.
+
+---
+
+## 📚 **Historical Development Milestones**
+
+This section consolidates completed work from previous development cycles. For detailed information, refer to the linked ADRs and documentation.
+
+### HTTP Interceptors & Normalized Routing (Dec 2025)
+**Status**: ✅ Complete  
+**Documentation**: ADR-008, ADR-009, ADR-010
+
+- Implemented bidirectional HTTP interceptors (enter/leave/error semantics)
+- Created framework-agnostic normalized routing abstraction
+- Built Reitit adapter with full interceptor support
+- Applied to user module with authentication, authorization, and audit interceptors
+- Removed 349 lines of legacy Reitit-specific code from user module
+- 507 tests passing (2643 assertions), zero linting errors
+
+### Legacy Routes Cleanup (Dec 2025)
+**Status**: ✅ Complete
+
+- Removed deprecated route functions: `web-ui-routes`, `api-routes`, `create-router`, `create-handler`, etc.
+- Retained only normalized route format (`*-routes-normalized` functions)
+- Updated all documentation to normalized format
+- Legacy module wiring now throws with migration guide
+
+### Hugo Documentation Site (Dec 2024)
+**Status**: ✅ Complete  
+**Location**: `hugo-site/`
+
+- Converted all HTML documentation to AsciiDoc format (71 pages)
+- Set up Hugo with Geekdoc theme
+- Fixed all image paths and attribute references
+- Live site available at http://localhost:1314/
+- 8 sections: Architecture, Guides, Reference, ADRs, API, Diagrams, Implementation, Change Reports
+
+### Documentation Migration & Cleanup (Nov-Dec 2024)
+**Status**: ✅ Complete
+
+- Migrated all docs from `docs/` to Hugo site structure
+- Converted HTML files to AsciiDoc
+- Fixed attribute issues (`{diagrams-dir}`, `{project-name}`, etc.)
+- Updated 16 architecture files with correct image references
+- Standardized link formats and cross-references
+
+### Web UI Implementation (Nov 2024)
+**Status**: ✅ Phase 1 Complete  
+**Documentation**: ADR-006
+
+- Implemented HTMX + Hiccup architecture (server-side rendering with progressive enhancement)
+- Created shared UI component library (9 reusable components)
+- Built complete authentication flow (login/logout with session management)
+- Integrated web handlers directly into domain modules (module-integrated approach)
+- 17 UI component tests passing (84 assertions)
+- Redirect-after-login with open redirect protection
+
+### Observability Infrastructure Reorganization (Nov 2024)
+**Status**: ✅ Complete
+
+- Reorganized observability documentation from scattered files into structured guides
+- Created comprehensive integration guide (`docs/guides/integrate-observability.adoc`)
+- Documented multi-layer interceptor pattern for service and persistence layers
+- Consolidated logging, metrics, and error reporting documentation
+- Removed redundant observability setup files
+
+### Agent System Migration (Nov 2024)
+**Status**: ✅ Complete
+
+- Migrated from WARP.md to AGENTS.md
+- Consolidated all agent instructions into single comprehensive guide
+- Added quick reference commands and common pitfalls
+- Documented FC/IS patterns, module structure, and testing strategy
+- Included scaffolder usage and HTTP interceptor patterns
+
+### Documentation Audit & Cleanup (Oct-Nov 2024)
+**Status**: ✅ Complete
+
+- Audited all 71 documentation files for consistency
+- Fixed broken cross-references and image links
+- Standardized AsciiDoc attributes usage
+- Verified all code examples and command references
+- Removed outdated or redundant documentation
+
+**Note**: The individual work summary files (e.g., `HTTP_INTERCEPTORS_COMPLETE.md`, `HUGO_DOCUMENTATION_COMPLETE.md`, etc.) have been archived as their contents are now integrated into this consolidated status document and the permanent documentation (ADRs, guides, etc.).
