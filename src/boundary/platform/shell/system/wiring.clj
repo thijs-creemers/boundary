@@ -105,7 +105,7 @@
         user-static-routes (or (:static user-routes) [])
         user-web-routes (or (:web user-routes) [])
         user-api-routes (or (:api user-routes) [])
-        
+
         ;; User routes are in normalized format - use directly
         user-normalized-static (when (seq user-static-routes) user-static-routes)
         user-normalized-web (when (seq user-web-routes)
@@ -119,7 +119,7 @@
         inventory-static-routes (or (:static inventory-routes) [])
         inventory-web-routes (or (:web inventory-routes) [])
         inventory-api-routes (or (:api inventory-routes) [])
-        
+
         ;; Inventory routes are in normalized format - use directly
         inventory-normalized-static (when (seq inventory-static-routes) inventory-static-routes)
         inventory-normalized-web (when (seq inventory-web-routes)
@@ -143,18 +143,18 @@
                 :error-reporter error-reporter}
 
         ;; Compile routes using router adapter with system services
-        router-config {:middleware []  ; Add any global middleware here
+        router-config {:middleware []}  ; Add any global middleware here
                       :coercion :malli
-                      :system system}
+                      :system system
         handler (compile-routes router all-normalized-routes router-config)]
 
     (log/info "Top-level HTTP handler initialized successfully"
-              {:user-routes {:static (count (or user-static-routes []))
+              {:user-routes {:static (count (or user-static-routes []))}
                             :web (count (or user-web-routes []))
-                            :api (count (or user-api-routes []))}
-               :inventory-routes {:static (count (or inventory-static-routes []))
+                            :api (count (or user-api-routes []))
+               :inventory-routes {:static (count (or inventory-static-routes []))}
                                  :web (count (or inventory-web-routes []))
-                                 :api (count (or inventory-api-routes []))}
+                                 :api (count (or inventory-api-routes []))
                :total-normalized-routes (count all-normalized-routes)
                :router-adapter (class router)
                :system-services (keys system)})

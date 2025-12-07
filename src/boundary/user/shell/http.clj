@@ -325,14 +325,14 @@
 
 (defn normalized-web-routes
   "Define web UI routes in normalized format (WITHOUT /web prefix).
-   
+
    NOTE: These routes will be mounted under /web by the top-level router.
    Do NOT include /web prefix in paths here.
-   
+
    Args:
      user-service: User service instance
      config: Application configuration map
-     
+
    Returns:
      Vector of normalized route maps"
   [user-service config]
@@ -419,6 +419,9 @@
 (defn user-routes-normalized
   "Define user module routes in normalized format for top-level composition.
    
+   DEPRECATED: Use user-routes-normalized instead for new code.
+   This function returns routes in Reitit-specific format.
+
    Returns a map with route categories:
    - :api - REST API routes (will be mounted under /api)
    - :web - Web UI routes (will be mounted under /web)
