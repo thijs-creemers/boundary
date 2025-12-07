@@ -143,16 +143,17 @@
                        :coercion {:body boundary.user.schema/CreateUserRequest}}}}])
   
   ;; Compile routes with selected router
-  (let [router (->ReititRouter)
-        config {:middleware ['wrap-json 'wrap-cors]}
-        handler (compile-routes router user-routes config)]
-    ;; handler is now a Ring function
-    (handler {:request-method :get :uri "/api/users"}))
+  (let [router (reitit-adapter/->ReititRouter)
+        route-config {:middleware ['wrap-json 'wrap-cors]}
+        my-handler (compile-routes router user-routes route-config)]
+    ;; my-handler is now a Ring function
+    (my-handler {:request-method :get :uri "/api/users"}))
   
   ;; Start server with compiled handler
-  (let [server-adapter (->RingJettyServer)
-        config {:port 3000 :host "0.0.0.0" :join? false}
-        server-instance (start! server-adapter handler config)]
+  (let [server-adapter (ring-jetty-adapter/->RingJettyServer)
+        my-handler (fn [req] {:status 200 :body "OK"})
+        server-config {:port 3000 :host "0.0.0.0" :join? false}
+        server-instance (start! server-adapter my-handler server-config)]
     ;; Server is now running
     ;; ... do work ...
     ;; Stop server
