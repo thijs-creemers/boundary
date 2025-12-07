@@ -3,7 +3,7 @@
 [[overview]]
 == Overview
 
-Learn how to add a new REST endpoint to Boundary using Reitit for routing, Malli for validation, and proper error handling. This guide uses the user module as an example.
+Learn how to add a new REST endpoint to Boundary using the normalized routing format, Malli for validation, and proper error handling. This guide uses the user module as an example and focuses on the framework-agnostic normalized route format.
 
 [[prerequisites]]
 == Prerequisites
@@ -58,49 +58,50 @@ Handlers live in `src/boundary/<module>/shell/http.clj`.
 
 * Takes service as argument
 * Returns a function that takes the request
-* Extracts parameters from `:parameters` (validated by Reitit)
+* Extracts parameters from `:parameters` (validated by router)
 * Calls service layer functions
 * Converts response to camelCase for JSON
 * Throws ex-info with `:type` for error handling
 
 [[step-2-route]]
-=== Step 2: Define the Route
+=== Step 2: Define the Route (Normalized Format)
 
-Add route to the module's route vector.
+Add route to the module's `normalized-api-routes` function.
 
 **Example:** Single resource route
 
 [source,clojure]
 ----
-["/users/:id" 
- {:get {:handler (get-user-handler user-service)
-       :summary "Get user by ID"
-       :tags ["users"]
-       :parameters {:path [:map [:id :string]]}}
-  
- :put {:handler (update-user-handler user-service)
-       :summary "Update user"
-       :tags ["users"]
-       :parameters {:path [:map [:id :string]]
-                    :body [:map
-                           [:name {:optional true} :string]
-                           [:role {:optional true} [:enum "admin" "user" "viewer"]]
-                           [:active {:optional true} :boolean]]}}
-  
- :delete {:handler (delete-user-handler user-service)
-          :summary "Soft delete user"
-          :tags ["users"]
-          :parameters {:path [:map [:id :string]]}}}]
+{:path "/users/:id"
+ :methods {:get {:handler (get-user-handler user-service)
+                 :summary "Get user by ID"
+                 :tags ["users"]
+                 :parameters {:path [:map [:id :string]]}}
+           
+           :put {:handler (update-user-handler user-service)
+                 :summary "Update user"
+                 :tags ["users"]
+                 :parameters {:path [:map [:id :string]]
+                              :body [:map
+                                     [:name {:optional true} :string]
+                                     [:role {:optional true} [:enum "admin" "user" "viewer"]]
+                                     [:active {:optional true} :boolean]]}}
+           
+           :delete {:handler (delete-user-handler user-service)
+                    :summary "Soft delete user"
+                    :tags ["users"]
+                    :parameters {:path [:map [:id :string]]}}}}
 ----
 
-**Route definition parts:**
+**Normalized route parts:**
 
-* **Path** - URL pattern with `:id` placeholders
-* **HTTP methods** - `:get`, `:post`, `:put`, `:delete`
+* **`:path`** - URL pattern with `:id` placeholders
+* **`:methods`** - Map of HTTP method keywords (`:get`, `:post`, `:put`, `:delete`) to handler configs
 * **`:handler`** - Function to process requests
 * **`:summary`** - Shows in API docs (Swagger)
 * **`:tags`** - Groups endpoints in docs
 * **`:parameters`** - Malli schemas for validation
+* **`:interceptors`** (optional) - HTTP interceptors for auth/audit/etc
 
 [[step-3-validation]]
 === Step 3: Add Request Validation
@@ -137,7 +138,7 @@ Malli schemas validate requests automatically.
 ====
 **Validation happens automatically!**
 
-Reitit validates requests before calling your handler. Invalid requests return 400 with error details.
+The router validates requests before calling your handler. Invalid requests return 400 with error details.
 ====
 
 [[step-4-error-handling]]
@@ -205,17 +206,22 @@ Let's add a new endpoint: `POST /api/users/:id/activate`
          :body (schema/user-specific-kebab->camel updated)}))))
 ----
 
-=== 2. Add Route
+=== 2. Add Route (Normalized Format)
 
 [source,clojure]
 ----
-;; Add to user-routes function
+;; Add to normalized-api-routes function in src/boundary/user/shell/http.clj
 
-["/users/:id/activate"
- {:post {:handler (activate-user-handler user-service)
-        :summary "Activate user"
-        :tags ["users"]
-        :parameters {:path [:map [:id :string]]}}}]
+(defn normalized-api-routes
+  [user-service]
+  [{:path "/users/:id/activate"
+    :methods {:post {:handler (activate-user-handler user-service)
+                     :summary "Activate user"
+                     :tags ["users"]
+                     :parameters {:path [:map [:id :string]]}}}}
+   
+   ;; ... other routes ...
+   ])
 ----
 
 === 3. Test It
@@ -263,17 +269,17 @@ For listing resources with pagination:
 **Route:**
 [source,clojure]
 ----
-["/users" 
- {:get {:handler (list-users-handler user-service)
-       :summary "List users with pagination and filters"
-       :tags ["users"]
-       :parameters {:query [:map
-                            [:userId :string]
-                            [:limit {:optional true} :int]
-                            [:offset {:optional true} :int]
-                            [:role {:optional true} 
-                             [:enum "admin" "user" "viewer"]]
-                            [:active {:optional true} :boolean]]}}}]
+{:path "/users" 
+ :methods {:get {:handler (list-users-handler user-service)
+                 :summary "List users with pagination and filters"
+                 :tags ["users"]
+                 :parameters {:query [:map
+                                      [:userId :string]
+                                      [:limit {:optional true} :int]
+                                      [:offset {:optional true} :int]
+                                      [:role {:optional true} 
+                                       [:enum "admin" "user" "viewer"]]
+                                      [:active {:optional true} :boolean]]}}}}
 ----
 
 [[testing-endpoints]]
@@ -323,10 +329,27 @@ Try endpoints interactively with the "Try it out" button.
 
 [source,clojure]
 ----
-["/users/:userId/sessions" 
- {:get {:handler (list-user-sessions-handler user-service)
-       :parameters {:path [:map [:userId :string]]}}}]
+{:path "/users/:userId/sessions"
+ :methods {:get {:handler (list-user-sessions-handler user-service)
+                 :parameters {:path [:map [:userId :string]]}}}}
 ----
+
+=== HTTP Interceptors (Auth, Audit, etc.)
+
+[source,clojure]
+----
+{:path "/users"
+ :methods {:post {:handler (create-user-handler user-service)
+                  :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                 'boundary.user.shell.http-interceptors/require-admin
+                                 'boundary.user.shell.http-interceptors/log-action]
+                  :summary "Create user (requires admin)"}}}
+----
+
+[TIP]
+====
+HTTP interceptors provide declarative cross-cutting concerns like authentication, authorization, and audit logging. See link:../architecture/http-interceptors.adoc[HTTP Interceptor Architecture] for details.
+====
 
 === Optional Query Parameters
 
@@ -374,7 +397,7 @@ Always convert kebab-case to camelCase for JSON:
 
 **Check:**
 1. REPL restarted: `(ig-repl/reset)`
-2. Route added to `user-routes` function
+2. Route added to `normalized-api-routes` function
 3. URL path matches exactly
 
 === Validation Errors (400)
@@ -397,5 +420,6 @@ Always convert kebab-case to camelCase for JSON:
 
 * {xref-arch-data-flow}[Data Flow Architecture] - Request lifecycle
 * {xref-validation}[Validation System] - Malli schemas
-* https://cljdoc.org/d/metosin/reitit/[Reitit Documentation^] - Routing library
+* link:../adr/ADR-008-normalized-routing-abstraction.adoc[ADR-008: Normalized Routing] - Routing architecture
+* link:../adr/ADR-010-http-interceptor-architecture.adoc[ADR-010: HTTP Interceptors] - Declarative cross-cutting concerns
 * link:../../docs/api/post-users-example.adoc[API Examples^] - More endpoint examples

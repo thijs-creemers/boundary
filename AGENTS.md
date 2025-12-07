@@ -1035,15 +1035,9 @@ The scaffolder generates minimal but correct implementations. Enhance them by:
 
 ### Generated Route Formats
 
-The scaffolder generates **both legacy Reitit routes and normalized routes** in `shell/http.clj`:
+The scaffolder generates **only normalized routes** in `shell/http.clj`:
 
-**Legacy Format** (for backward compatibility):
-```clojure
-(defn api-routes [service]
-  [["/api/items" {:get {:handler ...}}]])  ; Reitit-specific format
-```
-
-**Normalized Format** (recommended for new code):
+**Normalized Format** (framework-agnostic):
 ```clojure
 (defn normalized-api-routes [service]
   [{:path "/items"
@@ -1059,7 +1053,9 @@ The scaffolder generates **both legacy Reitit routes and normalized routes** in 
 - Framework-agnostic (not tied to Reitit)
 - Support for HTTP interceptors (see [HTTP Interceptors](#http-interceptors))
 - Cleaner composition at top-level router
-- Consistent with user module patterns
+- Consistent pattern across all modules
+
+**Note**: Legacy Reitit-specific route functions (`api-routes`, `web-ui-routes`, `user-routes`, `create-handler`, etc.) have been removed from the codebase. Use only the normalized format going forward.
 
 ---
 
