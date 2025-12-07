@@ -143,18 +143,18 @@
                 :error-reporter error-reporter}
 
         ;; Compile routes using router adapter with system services
-        router-config {:middleware []}  ; Add any global middleware here
-                      :coercion :malli
-                      :system system
+        router-config {:middleware []  ; Add any global middleware here
+                       :coercion :malli
+                       :system system}
         handler (compile-routes router all-normalized-routes router-config)]
 
     (log/info "Top-level HTTP handler initialized successfully"
-              {:user-routes {:static (count (or user-static-routes []))}
+              {:user-routes {:static (count (or user-static-routes []))
                             :web (count (or user-web-routes []))
-                            :api (count (or user-api-routes []))
-               :inventory-routes {:static (count (or inventory-static-routes []))}
+                            :api (count (or user-api-routes []))}
+               :inventory-routes {:static (count (or inventory-static-routes []))
                                  :web (count (or inventory-web-routes []))
-                                 :api (count (or inventory-api-routes []))
+                                 :api (count (or inventory-api-routes []))}
                :total-normalized-routes (count all-normalized-routes)
                :router-adapter (class router)
                :system-services (keys system)})
