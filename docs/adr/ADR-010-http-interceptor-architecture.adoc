@@ -151,7 +151,8 @@ The Reitit adapter automatically:
 1. Resolves interceptor symbols to interceptor maps
 2. Converts interceptors to Ring middleware
 3. Integrates with Reitit's middleware chain
-4. Provides observability services via `:system` config
+4. Applies the framework default HTTP interceptor stack to every matched endpoint
+5. Uses observability services via `:system` config when provided (optional; defaults to `{}`)
 
 === Example Interceptors
 
@@ -316,19 +317,20 @@ The framework provides default interceptors for common observability needs:
 
 === Usage Patterns
 
-==== Global Interceptors
+==== Default Interceptors (Automatic)
 
-Applied to all routes via router config:
+The framework applies `boundary.platform.shell.http.interceptors/default-http-interceptors` to every matched endpoint automatically.
+
+To enable observability, pass concrete services via `:system` in the router config:
 
 ```clojure
 (def config
-  {:system {:logger ... :metrics-emitter ... :error-reporter ...}
-   :global-interceptors ['boundary.platform.http/logging
-                         'boundary.platform.http/metrics
-                         'boundary.platform.http/error-reporting]})
+  {:system {:logger ... :metrics-emitter ... :error-reporter ...}})
 
 (ports/compile-routes router routes config)
 ```
+
+NOTE: Router-level additional "global interceptors" via config are a potential future enhancement. Today, use defaults + per-route `:interceptors`.
 
 ==== Per-Route Interceptors
 
@@ -341,14 +343,14 @@ Applied to specific routes via `:interceptors` key:
                                   'my.audit/log-action]}}}]
 ```
 
-==== Combining Both
+==== Combining Default and Per-Route Interceptors
 
-Global interceptors run first, then route-specific interceptors:
+Default interceptors run first, then route-specific interceptors:
 
 ```
 Execution Order:
-  enter:  global-1 → global-2 → route-1 → route-2 → handler
-  leave:  route-2 → route-1 → global-2 → global-1 → response
+  enter:  default-1 → default-2 → route-1 → route-2 → handler
+  leave:  route-2 → route-1 → default-2 → default-1 → response
 ```
 
 ==== Interceptor Composition
@@ -510,10 +512,10 @@ Throughput impact:       ~5% reduction at high load
    - Context creation and pipeline execution
    - Acceptable for most use cases
 
-4. **Requires System Services**
-   - Routes with interceptors need `:system` in config
-   - Observability services must be available
-   - More complex setup than plain Ring handlers
+4. **System Services Are Recommended**
+   - `:system` is optional (defaults to `{}`) for minimal/test setups
+   - To enable logging/metrics/error reporting, provide concrete services via `:system`
+   - Slightly more setup than plain Ring handlers when enabling observability
 
 === Risks and Mitigations
 

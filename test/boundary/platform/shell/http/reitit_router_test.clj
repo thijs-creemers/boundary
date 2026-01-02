@@ -2,36 +2,20 @@
   "Tests for Reitit router adapter."
   (:require [boundary.platform.ports.http :as ports]
             [boundary.platform.shell.http.reitit-router :as reitit]
-            [clojure.test :refer [deftest testing is use-fixtures]]))
+            [cheshire.core :as json]
+            [clojure.test :refer [deftest testing is]]))
 
 ;; =============================================================================
-;; Test Fixtures
+;; Test Helpers
 ;; =============================================================================
 
-(def ^:dynamic *test-logger* (atom []))
-(def ^:dynamic *test-metrics* (atom []))
-(def ^:dynamic *test-errors* (atom []))
-
-(defn reset-test-state! []
-  (reset! *test-logger* [])
-  (reset! *test-metrics* [])
-  (reset! *test-errors* []))
-
-(use-fixtures :each (fn [f] (reset-test-state!) (f)))
-
-;; =============================================================================
-;; Mock Observability Services
-;; =============================================================================
-
-(defn create-mock-system
-  "Create mock observability services for testing."
-  []
-  {:logger {:log (fn [level msg data] 
-                   (swap! *test-logger* conj {:level level :msg msg :data data}))}
-   :metrics-emitter {:emit (fn [metric data]
-                              (swap! *test-metrics* conj {:metric metric :data data}))}
-   :error-reporter {:report (fn [error data]
-                               (swap! *test-errors* conj {:error error :data data}))}})
+(defn response-body-as-map
+  "Return response body as a Clojure map (parses JSON string bodies when needed)."
+  [response]
+  (let [body (:body response)]
+    (cond
+      (string? body) (json/parse-string body true)
+      :else body)))
 
 ;; =============================================================================
 ;; Test Handlers
@@ -39,14 +23,14 @@
 
 (defn test-list-handler
   "Simple handler for listing items."
-  [request]
+  [_request]
   {:status 200
    :headers {"Content-Type" "application/json"}
    :body {:items ["item1" "item2"]}})
 
 (defn test-create-handler
   "Simple handler for creating items."
-  [request]
+  [_request]
   {:status 201
    :headers {"Content-Type" "application/json"}
    :body {:id "123" :message "Created"}})
@@ -61,8 +45,16 @@
 
 (defn test-delete-handler
   "Simple handler for deleting an item."
-  [request]
+  [_request]
   {:status 204})
+
+(defn test-throwing-handler
+  "Handler that throws to test default HTTP error handling."
+  [_request]
+  (throw (ex-info "boom"
+                  {:type :validation-error
+                   :message "Invalid input"
+                   :foo "bar"})))
 
 ;; =============================================================================
 ;; Test Route Specs
@@ -99,7 +91,7 @@
 
 (defn test-list-products-handler
   "Handler that returns data matching the coercion schema."
-  [request]
+  [_request]
   {:status 200
    :headers {"Content-Type" "application/json"}
    ;; Return vector of maps matching schema
@@ -235,24 +227,39 @@
           routes [{:path "/api/items"
                    :methods {:get {:handler `test-list-handler}}}]
           handler (ports/compile-routes router routes {})]
-      
-      (let [response (handler {:request-method :post
-                               :uri "/api/items"})]
-        (is (= 405 (:status response)))))))
+      (is (= 405 (:status (handler {:request-method :post
+                                    :uri "/api/items"})))))))
 
 (deftest not-found-test
   (testing "Returns 404 for unknown routes"
     (let [router (reitit/create-reitit-router)
-          handler (ports/compile-routes router simple-routes {})]
-      
-      (let [response (handler {:request-method :get
-                               :uri "/api/nonexistent"})]
-        (is (= 404 (:status response)))
-        (is (contains? (:body response) :error))))))
+          handler (ports/compile-routes router simple-routes {})
+          response (handler {:request-method :get
+                             :uri "/api/nonexistent"})]
+      (is (= 404 (:status response)))
+      (is (contains? (:body response) :error)))))
 
 ;; =============================================================================
 ;; HTTP Interceptor Tests
 ;; =============================================================================
+
+(defn add-request-header-middleware
+  "Middleware that adds a marker header to the request."
+  [handler]
+  (fn [request]
+    (handler (update request :headers (fnil assoc {}) "x-from-mw" "yes"))))
+
+(def test-interceptor-sees-middleware
+  "Test interceptor that checks if it can see request modifications from middleware."
+  {:name :test-sees-middleware
+   :enter (fn [ctx]
+            (assoc-in ctx [:attrs :saw-mw-header?]
+                      (= "yes" (get-in ctx [:request :headers "x-from-mw"]))))
+   :leave (fn [ctx]
+            (update-in ctx [:response :headers]
+                       assoc
+                       "x-saw-mw"
+                       (if (get-in ctx [:attrs :saw-mw-header?]) "true" "false")))})
 
 (def test-interceptor-enter
   "Test interceptor that modifies request in enter phase."
@@ -274,7 +281,7 @@
                    {:status 500
                     :headers {"Content-Type" "application/json"}
                     :body {:error "Interceptor caught error"
-                           :message (ex-message (:error ctx))}}))})
+                           :message (ex-message (:exception ctx))}}))})
 
 (defn routes-with-interceptors
   "Route specs with interceptor usage."
@@ -287,9 +294,7 @@
 (deftest compile-routes-with-interceptors-test
   (testing "Can compile routes with interceptors"
     (let [router (reitit/create-reitit-router)
-          system (create-mock-system)
-          config {:system system}
-          handler (ports/compile-routes router (routes-with-interceptors) config)]
+          handler (ports/compile-routes router (routes-with-interceptors) {})]
       
       (is (fn? handler))
       
@@ -297,25 +302,12 @@
         (let [response (handler {:request-method :get
                                  :uri "/api/intercepted"})]
           (is (= 200 (:status response)))
-          ;; Verify both enter and leave interceptors ran
+          ;; Verify leave interceptor ran
           (is (= "yes" (get-in response [:headers "x-test-leave"]))))))))
-
-(deftest interceptors-without-system-test
-  (testing "Throws error when interceptors used without system services"
-    (let [router (reitit/create-reitit-router)
-          routes [{:path "/test"
-                   :methods {:get {:handler `test-list-handler
-                                   :interceptors [test-interceptor-enter]}}}]]
-      
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo
-           #"System services required when using :interceptors"
-           (ports/compile-routes router routes {}))))))
 
 (deftest mixed-middleware-and-interceptors-test
   (testing "Can use both middleware and interceptors together"
     (let [router (reitit/create-reitit-router)
-          system (create-mock-system)
           ;; Middleware adds header
           test-middleware (fn [handler]
                             (fn [request]
@@ -326,8 +318,7 @@
                                    :middleware [test-middleware]
                                    :interceptors [test-interceptor-leave]
                                    :summary "Route with both"}}}]
-          config {:system system}
-          handler (ports/compile-routes router routes config)]
+          handler (ports/compile-routes router routes {})]
       
       (testing "Both middleware and interceptors execute"
         (let [response (handler {:request-method :get
@@ -335,4 +326,63 @@
           (is (= 200 (:status response)))
           (is (= "yes" (get-in response [:headers "x-middleware"])))
           (is (= "yes" (get-in response [:headers "x-test-leave"]))))))))
+
+;; =============================================================================
+;; Default HTTP Interceptor Behavior Tests
+;; =============================================================================
+
+(deftest default-interceptors-add-correlation-id-test
+  (testing "Default interceptors add/propagate X-Correlation-ID header for matched routes"
+    (let [router (reitit/create-reitit-router)
+          handler (ports/compile-routes router simple-routes {})
+          correlation-id "test-correlation-id"
+          response (handler {:request-method :get
+                             :uri "/api/items"
+                             :headers {"x-correlation-id" correlation-id}})
+          response-correlation-id (or (get-in response [:headers "X-Correlation-ID"])
+                                      (get-in response [:headers "x-correlation-id"]))]
+      (is (= 200 (:status response)))
+      (is (= correlation-id response-correlation-id)))))
+
+(deftest default-error-handler-converts-exceptions-test
+  (testing "Default interceptors convert exceptions into safe error responses"
+    (let [router (reitit/create-reitit-router)
+          routes [{:path "/api/boom"
+                   :methods {:get {:handler `test-throwing-handler}}}]
+          handler (ports/compile-routes router routes {})
+          correlation-id "test-correlation-id"
+          response (handler {:request-method :get
+                             :uri "/api/boom"
+                             :headers {"x-correlation-id" correlation-id}})
+          response-correlation-id (or (get-in response [:headers "X-Correlation-ID"])
+                                      (get-in response [:headers "x-correlation-id"]))
+          body (response-body-as-map response)]
+      (is (= 400 (:status response)))
+      (is (= correlation-id response-correlation-id))
+      (is (= "validation-error" (:error body)))
+      (is (= "Invalid input" (:message body)))
+      (is (= correlation-id (:correlation-id body)))
+      (is (= {:foo "bar"} (:details body))))))
+
+(deftest route-middleware-runs-before-interceptors-test
+  (testing "Route middleware runs before interceptors (interceptors see modified request)"
+    (let [router (reitit/create-reitit-router)
+          routes-with-middleware
+          [{:path "/api/order"
+            :meta {:middleware [add-request-header-middleware]}
+            :methods {:get {:handler `test-list-handler
+                            :interceptors [test-interceptor-sees-middleware]}}}]
+
+          routes-without-middleware
+          [{:path "/api/order"
+            :methods {:get {:handler `test-list-handler
+                            :interceptors [test-interceptor-sees-middleware]}}}]
+
+          handler-with-middleware (ports/compile-routes router routes-with-middleware {})
+          handler-without-middleware (ports/compile-routes router routes-without-middleware {})
+
+          resp-with-mw (handler-with-middleware {:request-method :get :uri "/api/order"})
+          resp-without-mw (handler-without-middleware {:request-method :get :uri "/api/order"})]
+      (is (= "true" (get-in resp-with-mw [:headers "x-saw-mw"])))
+      (is (= "false" (get-in resp-without-mw [:headers "x-saw-mw"]))))))
 

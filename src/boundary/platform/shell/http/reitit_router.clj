@@ -147,7 +147,7 @@
    Normalized format:
      {:handler 'ns/fn
       :middleware ['ns/mw1 'ns/mw2]
-      :interceptors ['ns/int1 'ns/int2]  ; NEW: HTTP interceptors
+      :interceptors ['ns/int1 'ns/int2]
       :coercion {:query ... :response ...}
       :summary \"Description\"
       :tags [\"tag1\"]
@@ -156,41 +156,47 @@
       
    Reitit format:
      {:handler (fn ...)
-      :middleware [(fn ...) (fn ...)]   ; Interceptors converted to middleware
+      :middleware [(fn ...) (fn ...)]
       :parameters {:query ...}
       :responses {200 {:body ...}}
       :summary \"Description\"
       :tags [\"tag1\"]}
    
+   Notes:
+   - HTTP interceptors run for every matched endpoint.
+   - The framework default stack is always applied.
+   - Route-specific interceptors (via :interceptors) are appended after defaults.
+   - :system is optional; if omitted, it defaults to {}.
+   
    Args:
      handler-config - Normalized handler config map
-     system - Optional observability services map (required if :interceptors present)
+     system - Optional observability services map {:logger :metrics-emitter :error-reporter}
      
    Returns:
      Reitit handler data map"
   ([handler-config]
    (convert-handler-config handler-config nil))
   
-  ([{:keys [handler middleware interceptors coercion summary tags produces consumes] :as handler-config} system]
+  ([{:keys [handler middleware interceptors coercion summary tags produces consumes]} system]
    (let [resolved-handler (resolve-handler-fn handler)
          resolved-middleware (resolve-middleware-fns middleware)
          
-         ;; Resolve interceptors and convert to middleware (if present)
-         interceptor-middleware (when (seq interceptors)
-                                  (if system
-                                    (let [resolved-interceptors (resolve-interceptors interceptors)]
-                                      [(interceptors->middleware resolved-interceptors system)])
-                                    (throw (ex-info "System services required when using :interceptors"
-                                                    {:interceptors interceptors}))))
-         
-         ;; Combine regular middleware with interceptor-generated middleware
-         all-middleware (concat resolved-middleware (or interceptor-middleware []))
-         
+         ;; Treat system services as optional; interceptors can run with {}.
+         system (or system {})
+
+         ;; Always apply default HTTP interceptors; append any route-specific interceptors.
+         resolved-route-interceptors (or (resolve-interceptors interceptors) [])
+         all-interceptors (vec (concat http-interceptors/default-http-interceptors
+                                       resolved-route-interceptors))
+         interceptor-middleware [(interceptors->middleware all-interceptors system)]
+
+         ;; Combine regular middleware with interceptor-generated middleware.
+         ;; We append interceptors last so they are closest to the resolved handler,
+         ;; while still seeing a fully prepared request (session/body/coercions).
+         all-middleware (concat resolved-middleware interceptor-middleware)
          coercion-data (convert-coercion coercion)]
-     (cond-> {:handler resolved-handler}
-       (seq all-middleware)
-       (assoc :middleware (vec all-middleware))
-       
+     (cond-> {:handler resolved-handler
+              :middleware (vec all-middleware)}
        coercion-data
        (merge coercion-data)
        
@@ -219,7 +225,7 @@
    
    Args:
      methods-map - Map of HTTP method keyword to handler config
-     system - Optional observability services map (required if handlers use :interceptors)
+     system - Optional observability services map {:logger :metrics-emitter :error-reporter} (defaults to {})
      
    Returns:
      Map of HTTP method keyword to Reitit handler data"
@@ -260,7 +266,7 @@
    
    Args:
      route-entry - Normalized route map
-     system - Optional observability services map (required if handlers use :interceptors)
+     system - Optional observability services map {:logger :metrics-emitter :error-reporter} (defaults to {})
      
    Returns:
      Reitit route vector [path data & children]"
@@ -294,7 +300,7 @@
    
    Args:
      route-specs - Vector of normalized route maps
-     system - Optional observability services map (required if handlers use :interceptors)
+     system - Optional observability services map {:logger :metrics-emitter :error-reporter} (defaults to {})
      
    Returns:
      Vector of Reitit route vectors"

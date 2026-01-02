@@ -70,7 +70,9 @@
           (finally
             (System/clearProperty "env"))))
       ;; PostgreSQL not available, skip test
-      (println "SKIPPED: test-system-initialization-dev (PostgreSQL not available)"))))
+      (do
+        (println "SKIPPED: test-system-initialization-dev (PostgreSQL not available)")
+        (is true "Skipped because PostgreSQL is not available")))))
 
 (deftest test-system-initialization-test
   (testing "System initialization for test environment"
@@ -202,7 +204,9 @@
               (let [[adapter-key _] (first active-dbs)]
                 (is (some? adapter-key) "Should have a valid adapter key"))))))
       ;; PostgreSQL not available, skip test
-      (println "SKIPPED: test-multiple-active-databases (PostgreSQL not available)"))))
+      (do
+        (println "SKIPPED: test-multiple-active-databases (PostgreSQL not available)")
+        (is true "Skipped because PostgreSQL is not available")))))
 
 ;; =============================================================================
 ;; System Lifecycle Tests
@@ -404,7 +408,9 @@
               ;; This test documents expected behavior even if it fails
               (is false (str "Environment switching should not fail: " (.getMessage e)))))))
       ;; PostgreSQL not available, skip test
-      (println "SKIPPED: test-example-functions (PostgreSQL not available)"))))
+      (do
+        (println "SKIPPED: test-example-functions (PostgreSQL not available)")
+        (is true "Skipped because PostgreSQL is not available")))))
 
 ;; Run all tests
 (defn run-integration-tests []
