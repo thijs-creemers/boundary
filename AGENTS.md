@@ -7,6 +7,7 @@
 > - Use clojure-mcp server for editing Clojure files (ensures balanced parentheses)
 > - Always verify clojure-mcp is running before editing Clojure code
 > - Follow parinfer conventions for proper formatting
+> - All documentation must be kept up to date, accurate and in the English language
 
 ## Table of Contents
 

@@ -299,18 +299,17 @@ Modules can depend on each other through well-defined ports:
 [source,clojure]
 ----
 ;; Cross-module dependency example
-(ns boundary.billing.core.invoicing
+(ns boundary.inventory.core.reservation
   (:require [boundary.user.ports :as user-ports]    ; ✓ Depend on user ports
-            [boundary.billing.core.pricing :as pricing]))
+            [boundary.inventory.core.stock :as stock]))
 
-(defn generate-invoice [user-repo payment-processor user-id line-items]
+(defn create-reservation [user-repo item-repo request]
   ;; Use user module through its ports
-  (let [user (user-ports/find-user-by-id user-repo user-id)
-        ;; Use billing module's core logic
-        total (pricing/calculate-total-cost line-items (:tax-rate user))]
-    {:invoice-for (:name user)
-     :total-amount total
-     :line-items line-items}))
+  (let [user (user-ports/find-user-by-id user-repo (:user-id request))
+        ;; Use inventory core logic
+        reserved (stock/reserve-items item-repo (:items request))]
+    {:reserved reserved
+     :user-id (:id user)}))
 ----
 
 == Component Types and Responsibilities

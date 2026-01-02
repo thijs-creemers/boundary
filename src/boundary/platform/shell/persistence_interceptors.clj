@@ -1,4 +1,4 @@
-(ns boundary.shared.core.persistence-interceptors
+(ns boundary.platform.shell.persistence-interceptors
   "Persistence-level interceptors for database operations.
    
    This namespace provides interceptor pipelines specifically designed for persistence layer operations,

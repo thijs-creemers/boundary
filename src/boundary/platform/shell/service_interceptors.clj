@@ -1,4 +1,4 @@
-(ns boundary.shared.core.service-interceptors
+(ns boundary.platform.shell.service-interceptors
   "Service-level interceptors for business logic operations.
    
    This namespace provides interceptor pipelines specifically designed for service layer operations,

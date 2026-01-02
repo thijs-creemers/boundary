@@ -6,8 +6,8 @@
    - User data transformation (normalization, type conversion)
    - User business logic invocation (register-user service call)
    - User-specific response formatting"
-  (:require [boundary.shared.core.interceptor-context :as ctx]
-            [boundary.shared.core.interceptors :as interceptors]
+(:require [boundary.shared.core.interceptor-context :as ctx]
+            [boundary.platform.shell.interceptors :as interceptors]
             [boundary.shared.core.utils.type-conversion :as type-conv]
             [boundary.user.ports :as ports]
             [boundary.user.schema :as schema]))

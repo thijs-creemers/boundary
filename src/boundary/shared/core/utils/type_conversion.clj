@@ -1,7 +1,6 @@
 (ns boundary.shared.core.utils.type-conversion
   "Generic type and case conversion utilities."
-  (:require [clojure.string :as str]
-            [clojure.tools.logging :as log])
+(:require [clojure.string :as str])
   (:import [java.util UUID]
            [java.time Instant]))
 
@@ -16,8 +15,7 @@
   (when (and s (not= s ""))
     (try
       (UUID/fromString s)
-      (catch IllegalArgumentException e
-        (log/warn "Invalid UUID string" {:uuid-string s :error (.getMessage e)})
+      (catch IllegalArgumentException _
         nil))))
 
 (defn instant->string
@@ -31,8 +29,7 @@
   (when (and s (not= s ""))
     (try
       (Instant/parse s)
-      (catch Exception e
-        (log/warn "Invalid ISO 8601 timestamp string" {:timestamp-string s :error (.getMessage e)})
+      (catch Exception _
         nil))))
 
 (defn keyword->string

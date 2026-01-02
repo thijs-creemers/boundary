@@ -98,8 +98,8 @@ Each module owns its complete vertical slice:
 
 **Unrelated code stays separated:**
 
-* Billing logic never mixes with user logic
-* Workflow state machines are independent of user sessions
+* Inventory or ordering logic never mixes with user logic
+* Workflow/state machines stay separate from user sessions
 
 [[benefit-independent-development]]
 === Independent Development
@@ -112,9 +112,9 @@ Teams can work on different modules without conflicts:
 cd src/boundary/user
 vim core/user.clj
 
-# Team B works on billing module (no conflicts)
-cd src/boundary/billing
-vim core/pricing.clj
+# Team B works on inventory module (no conflicts)
+cd src/boundary/inventory
+vim core/item.clj
 ----
 
 [[benefit-testability]]
@@ -158,11 +158,11 @@ Use port protocols for cross-module dependencies:
 
 [source,clojure]
 ----
-;; billing/core/invoice.clj needs user data
-(defn calculate-invoice
-  [user-repo invoice-data]  ; Accepts IUserRepository port
-  (let [user (ports/find-user-by-id user-repo (:user-id invoice-data))]
-    ;; Calculate invoice using user data
+;; inventory/core/stock.clj needs user data
+(defn reserve-stock
+  [user-repo reservation]  ; Accepts IUserRepository port
+  (let [user (ports/find-user-by-id user-repo (:user-id reservation))]
+    ;; perform reservation using user data
     ))
 ----
 
@@ -175,11 +175,11 @@ For loosely-coupled integration, modules can publish domain events:
 ----
 ;; User module publishes event
 (events/publish! :user/created {:user-id user-id})
-
+;; Inventory module subscribes
 ;; Billing module subscribes
 (events/subscribe! :user/created
   (fn [event]
-    (create-trial-subscription (:user-id event))))
+    (create-initial-credit (:user-id event))))
 ----
 
 NOTE: Event system is planned but not yet implemented in Boundary.
@@ -242,14 +242,14 @@ As modules mature, they can evolve:
 [[anti-pattern-mixed-domains]]
 === ❌ Mixing Domains
 
-Don't put billing logic in the user module:
+Don't put inventory logic in the user module:
 
 [source,clojure]
 ----
-;; ❌ BAD: Billing logic in user module
+;; ❌ BAD: Inventory logic in user module
 (ns boundary.user.core.user)
-
-(defn create-user-with-billing
+(defn create-user-with-inventory
+  [user-data stock-item]  ; ❌ Inventory concerns don't belong here
   [user-data payment-method]  ; ❌ Payment concerns don't belong here
   ...)
 ----
@@ -261,12 +261,12 @@ Don't put billing logic in the user module:
 
 (defn create-user [user-data]
   ...)  ; Only user concerns
-
-;; In billing module:
+;; In inventory module:
+(ns boundary.inventory.core.reservation)
 (ns boundary.billing.core.subscription)
 
-(defn create-subscription [user-id payment-method]
-  ...)  ; Only billing concerns
+(defn create-reservation [user-id item-id]
+  ...)  ; Only inventory concerns
 ----
 
 [[anti-pattern-direct-coupling]]
@@ -314,8 +314,8 @@ src/boundary/app/
 ;; ✅ GOOD: Focused modules by domain
 src/boundary/
 ├── user/                 # User management only
-├── billing/              # Billing operations only
-└── workflow/             # Process workflows only
+├── inventory/            # Inventory operations only
+└── orders/               # Order handling only
 ----
 
 [[module-checklist]]

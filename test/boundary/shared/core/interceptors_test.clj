@@ -1,7 +1,7 @@
 (ns boundary.shared.core.interceptors-test
   "Tests for universal interceptors."
   (:require [clojure.test :refer [deftest is testing]]
-            [boundary.shared.core.interceptors :as interceptors]
+[boundary.platform.shell.interceptors :as interceptors]
             [boundary.shared.core.interceptor :as ic]
             [boundary.user.ports]
             [boundary.logging.ports]

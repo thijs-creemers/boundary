@@ -68,6 +68,7 @@ REST API, CLI, and Web interface integration strategies
 
 **link:shared-utilities.adoc[Shared Utilities]**::
 Reusable type conversion, case transformation, and validation utilities
+NOTE: Legacy example domain modules (`billing`, `workflow`) have been removed from the core repository to keep Boundary domain-agnostic. Domain capabilities should be provided via pluggable providers; see ADR “Pluggable User/Auth/Authorization”.
 
 === Operational Concerns
 

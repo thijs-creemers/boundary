@@ -10,16 +10,16 @@ TIP: **Use the Scaffolder**: The recommended approach is to use Boundary's modul
 [[quick-start]]
 == Quick Start with Scaffolder
 
-Generate a complete module with a single command:
+Generate a complete module with a single command (example: `inventory`):
 
 [source,bash]
 ----
-clojure -M -m boundary.scaffolder.shell.cli-entry generate \
-  --module-name billing \
-  --entity Invoice \
-  --field user-id:uuid:required \
-  --field amount:decimal:required \
-  --field status:enum:required
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \\
+  --module-name inventory \\
+  --entity Item \\
+  --field name:string:required \\
+  --field sku:string:required:unique \\
+  --field quantity:int:required
 ----
 
 This generates:
@@ -30,6 +30,8 @@ This generates:
 - ✅ Database migration ready
 
 See link:../reference/scaffolder.adoc[Module Scaffolder Reference] for complete documentation.
+
+TIP: Legacy sample modules (`billing`, `workflow`) were removed from the core repo to keep the framework domain-agnostic. Use your own domain names (e.g., `inventory`, `product`, `orders`) when scaffolding.
 
 [[manual-creation]]
 == Manual Module Creation

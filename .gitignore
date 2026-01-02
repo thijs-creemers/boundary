@@ -20,3 +20,5 @@ opencode.json
 test-output*.txt
 /logs/
 hugo-site/
+/hugo-site/.gitmodules
+/hugo-site/.hugo_build.lock

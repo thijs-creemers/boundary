@@ -104,6 +104,18 @@ cross-cutting concerns.
 * Automatic integration with observability services
 * Ring/Reitit compatibility via middleware adapter
 * Consistent pattern across HTTP, service, and persistence layers
+==== ADR-011: Pluggable User/Auth/Authorization
+
+ADR-pluggable-auth.adoc
+
+Make user, auth, and authorization logic pluggable (like observability and database) via clear ports and swappable providers; keep the current user module only as a reference provider.
+
+*Key Decisions:*
+
+* Ports for identity (IUserDirectory), auth (IAuthService), sessions/tokens (ISessionService), authorization (IAuthorization)
+* Providers configurable (`:auth {:provider ...}`), reference provider outside core
+* HTTP/CLI interceptors call ports, not concrete user namespaces
+* Token shape and policy engine as adapters (JWT/opaque/PASETO, RBAC/OPA/etc.)
 
 === Related Documentation
 

@@ -19,9 +19,9 @@
             [boundary.user.core.user :as user-core]
             [boundary.user.core.authentication :as auth-core]
             [boundary.user.core.audit :as audit-core]
-            [boundary.user.shell.auth :as auth-shell]
+[boundary.user.shell.auth :as auth-shell]
             [boundary.user.ports :as ports]
-            [boundary.shared.core.service-interceptors :as service-interceptors]
+            [boundary.platform.shell.service-interceptors :as service-interceptors]
             [clojure.string :as str])
   (:import (java.security SecureRandom)
            (java.time Instant)

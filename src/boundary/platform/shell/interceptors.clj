@@ -1,4 +1,4 @@
-(ns boundary.shared.core.interceptors
+(ns boundary.platform.shell.interceptors
   "Universal interceptors for cross-cutting concerns.
    
    These interceptors handle common infrastructure concerns like logging,
