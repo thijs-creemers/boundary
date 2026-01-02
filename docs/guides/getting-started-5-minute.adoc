@@ -1,0 +1,264 @@
+= Getting Started in 5 Minutes
+:toc:
+:toclevels: 2
+
+[abstract]
+--
+Get up and running with Boundary in under 5 minutes using the `boundary-starter` template. This guide gets you from zero to a working system with passing tests.
+--
+
+== Quick Start
+
+=== 1. Clone the Starter Template
+
+[source,bash]
+----
+git clone https://github.com/yourusername/boundary-starter.git my-project
+cd my-project
+----
+
+=== 2. Verify Your Environment
+
+**Required:** Java 11+ and Clojure CLI
+
+[source,bash]
+----
+# Check prerequisites
+java -version    # Should show Java 11 or higher
+clojure --version  # Should show Clojure CLI tools
+
+# Install if needed (macOS)
+brew install openjdk clojure/tools/clojure
+
+# Install if needed (Linux)
+sudo apt-get install default-jdk
+curl -L -O https://download.clojure.org/install/linux-install-1.12.3.1577.sh
+chmod +x linux-install-*.sh && sudo ./linux-install-*.sh
+----
+
+=== 3. Run Tests (Verify Setup)
+
+[source,bash]
+----
+clojure -M:test:db/h2
+----
+
+**Expected Output:**
+----
+579 tests, 3049 assertions, 0 failures
+----
+
+✅ **Success!** Your environment is correctly configured.
+
+=== 4. Start the System
+
+[source,bash]
+----
+# Start REPL
+clojure -M:repl-clj
+
+# In REPL, start the system
+user=> (require '[integrant.repl :as ig-repl])
+user=> (ig-repl/go)
+:initiated
+----
+
+**System Started:**
+
+* ✅ SQLite database at `dev-database.db`
+* ✅ HTTP server on `http://localhost:3000`
+* ✅ User module loaded
+
+Leave this terminal running and open a new terminal for next steps.
+
+=== 5. Create Your First User (REST API)
+
+[source,bash]
+----
+curl -X POST http://localhost:3000/api/users \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "alice@example.com",
+    "name": "Alice Doe",
+    "password": "temporary123",
+    "role": "user",
+    "userId": "550e8400-e29b-41d4-a716-446655440000"
+  }' | jq
+----
+
+**Response:**
+[source,json]
+----
+{
+  "id": "7c1d9e8a-...",
+  "email": "alice@example.com",
+  "name": "Alice Doe",
+  "role": "user",
+  "active": true,
+  "createdAt": "2025-01-08T10:30:00Z"
+}
+----
+
+=== 6. List Users
+
+[source,bash]
+----
+curl "http://localhost:3000/api/users?userId=550e8400-e29b-41d4-a716-446655440000" | jq
+----
+
+== What Just Happened?
+
+You now have:
+
+* ✅ **Complete Framework** - Full Boundary implementation with FC/IS architecture
+* ✅ **User Module** - Complete CRUD operations (REST + Web UI)
+* ✅ **Zero-Config Database** - SQLite for development, H2 for testing
+* ✅ **Observability Built-In** - Logging, metrics, error reporting
+* ✅ **579 Passing Tests** - Comprehensive test coverage
+
+== Explore the System
+
+=== View in Browser
+
+Open http://localhost:3000/web/users to see the web interface (HTMX-powered, no build step).
+
+=== Try the CLI
+
+[source,bash]
+----
+# Create user via CLI
+clojure -M:cli user create \
+  --email bob@example.com \
+  --name "Bob Smith" \
+  --role user \
+  --user-id 550e8400-e29b-41d4-a716-446655440000
+
+# List users
+clojure -M:cli user list \
+  --user-id 550e8400-e29b-41d4-a716-446655440000
+----
+
+=== Understand the Code
+
+**User Module Structure:**
+----
+src/boundary/user/
+├── core/
+│   ├── user.clj           # Pure business logic
+│   ├── session.clj        # Session logic
+│   ├── audit.clj          # Audit logic
+│   └── ui.clj             # UI components (Hiccup)
+├── shell/
+│   ├── service.clj        # Orchestration layer
+│   ├── persistence.clj    # Database adapter
+│   ├── http.clj           # REST routes
+│   ├── cli.clj            # CLI commands
+│   └── web_handlers.clj   # Web UI handlers
+├── ports.clj              # Protocol definitions
+└── schema.clj             # Malli schemas
+----
+
+**Key Patterns:**
+
+* **Core** - Pure functions, no side effects (testable without mocks)
+* **Shell** - All I/O, validation, error handling
+* **Ports** - Abstract interfaces (dependency inversion)
+
+== Next Steps
+
+=== Create Your First Module
+
+Ready to build your own feature? Follow link:create-your-first-module.adoc[Create Your First Module] to scaffold a new domain module in 10 minutes.
+
+=== Learn the Architecture
+
+* link:functional-core-imperative-shell.adoc[FC/IS Pattern in Boundary]
+* link:modules-and-ownership.adoc[Module Organization]
+* link:ports-and-adapters.adoc[Dependency Inversion]
+
+=== Development Workflow
+
+[source,bash]
+----
+# Run tests in watch mode
+clojure -M:test:db/h2 --watch --focus-meta :unit
+
+# Reload code in REPL (without restart)
+user=> (ig-repl/reset)
+
+# Stop system
+user=> (ig-repl/halt)
+----
+
+=== Common Commands
+
+[source,bash]
+----
+# All tests
+clojure -M:test:db/h2
+
+# Unit tests only (fast)
+clojure -M:test:db/h2 --focus-meta :unit
+
+# Lint code
+clojure -M:clj-kondo --lint src test
+
+# Build uberjar
+clojure -T:build clean && clojure -T:build uber
+----
+
+== Troubleshooting
+
+=== Tests Failing
+
+[source,bash]
+----
+# Clear cache and retry
+rm -rf .cpcache target
+clojure -M:test:db/h2
+----
+
+=== REPL Won't Start
+
+[source,bash]
+----
+# Check if port 7888 is in use
+lsof -i :7888
+
+# Kill process using the port
+kill -9 <PID>
+----
+
+=== System Won't Start in REPL
+
+[source,clojure]
+----
+# Force stop and restart
+user=> (ig-repl/halt)
+user=> (ig-repl/go)
+
+# If that fails, restart REPL completely
+----
+
+=== Database Locked
+
+[source,bash]
+----
+# Remove SQLite database file
+rm dev-database.db
+
+# Restart system in REPL
+user=> (ig-repl/reset)
+----
+
+== Get Help
+
+* **Documentation**: Full guides in `docs/`
+* **Troubleshooting**: link:troubleshooting.adoc[Common Issues]
+* **Architecture**: link:../architecture/overview.adoc[Deep Dive]
+
+---
+
+**Congratulations!** You're ready to build with Boundary. 🎉
+
+Next: link:create-your-first-module.adoc[Create Your First Module →]

@@ -1,0 +1,657 @@
+= Create Your First Module in 10 Minutes
+:toc:
+:toclevels: 3
+
+[abstract]
+--
+Learn how to create a complete, production-ready domain module using Boundary's scaffolder. This tutorial walks you through creating a Product module with full CRUD operations, REST API, Web UI, and comprehensive tests.
+--
+
+== Prerequisites
+
+Before starting, ensure you have:
+
+* ✅ Boundary starter running (see link:getting-started-5-minute.adoc[5-Minute Getting Started])
+* ✅ Basic understanding of FC/IS pattern (see link:functional-core-imperative-shell.adoc[FC/IS Guide])
+* ✅ REPL running with system started (`(ig-repl/go)`)
+
+== What We're Building
+
+We'll create a **Product module** for an e-commerce system with:
+
+* Product entity (name, SKU, price, description)
+* Full CRUD operations
+* REST API endpoints
+* Web UI (HTMX-powered)
+* Database persistence (SQLite)
+* Comprehensive test coverage
+
+**Time estimate:** 10-15 minutes
+
+== Step 1: Generate the Module
+
+### Use the Scaffolder
+
+[source,bash]
+----
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name product \
+  --entity Product \
+  --field name:string:required \
+  --field sku:string:required:unique \
+  --field price:decimal:required \
+  --field description:text
+----
+
+**What just happened?**
+
+The scaffolder generated 12 files:
+
+**Source Files (9):**
+----
+src/boundary/product/
+├── schema.clj              # Malli schemas for validation
+├── ports.clj               # Protocol definitions (interfaces)
+├── core/
+│   ├── product.clj         # Pure business logic
+│   └── ui.clj              # Hiccup UI components
+└── shell/
+    ├── service.clj         # Orchestration layer
+    ├── persistence.clj     # Database adapter
+    ├── http.clj            # REST routes
+    └── web_handlers.clj    # Web UI handlers
+----
+
+**Test Files (3):**
+----
+test/boundary/product/
+├── core/
+│   └── product_test.clj            # Unit tests
+└── shell/
+    ├── product_repository_test.clj # Persistence tests
+    └── service_test.clj             # Service tests
+----
+
+**Database Migration (1):**
+----
+migrations/
+└── 005_create_products.sql         # Database schema
+----
+
+### Verify Generation
+
+[source,bash]
+----
+# Check linting (should be clean)
+clojure -M:clj-kondo --lint src/boundary/product/ test/boundary/product/
+
+# View the generated migration
+cat migrations/005_create_products.sql
+----
+
+**Expected migration:**
+[source,sql]
+----
+CREATE TABLE IF NOT EXISTS products (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  sku TEXT NOT NULL UNIQUE,
+  price REAL NOT NULL,
+  description TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+
+CREATE INDEX idx_products_sku ON products(sku);
+CREATE INDEX idx_products_active ON products(active);
+CREATE INDEX idx_products_created_at ON products(created_at);
+----
+
+== Step 2: Wire Module into System
+
+### 2.1 Create Module Wiring
+
+Create `src/boundary/product/shell/module_wiring.clj`:
+
+[source,clojure]
+----
+(ns boundary.product.shell.module-wiring
+  "Integrant wiring for the product module."
+  (:require [boundary.product.shell.persistence :as persistence]
+            [boundary.product.shell.service :as service]
+            [clojure.tools.logging :as log]
+            [integrant.core :as ig]))
+
+(defmethod ig/init-key :boundary/product-repository
+  [_ {:keys [ctx]}]
+  (log/info "Initializing product repository")
+  (persistence/create-repository ctx))
+
+(defmethod ig/halt-key! :boundary/product-repository
+  [_ _repo]
+  (log/info "Product repository halted"))
+
+(defmethod ig/init-key :boundary/product-service
+  [_ {:keys [repository]}]
+  (log/info "Initializing product service")
+  (service/create-service repository))
+
+(defmethod ig/halt-key! :boundary/product-service
+  [_ _service]
+  (log/info "Product service halted"))
+
+(defmethod ig/init-key :boundary/product-routes
+  [_ {:keys [service config]}]
+  (log/info "Initializing product routes")
+  (require 'boundary.product.shell.http)
+  (let [routes-fn (ns-resolve 'boundary.product.shell.http 'routes)]
+    (routes-fn service config)))
+
+(defmethod ig/halt-key! :boundary/product-routes
+  [_ _routes]
+  (log/info "Product routes halted"))
+----
+
+### 2.2 Add Module Configuration
+
+Edit `src/boundary/config.clj`, add the product module config function:
+
+[source,clojure]
+----
+(defn- product-module-config
+  "Return Integrant configuration for the product module."
+  [config]
+  {:boundary/product-repository
+   {:ctx (ig/ref :boundary/db-context)}
+   
+   :boundary/product-service
+   {:repository (ig/ref :boundary/product-repository)}
+   
+   :boundary/product-routes
+   {:service (ig/ref :boundary/product-service)
+    :config config}})
+----
+
+Then merge it into `ig-config`:
+
+[source,clojure]
+----
+(defn ig-config
+  "Build Integrant configuration from app config."
+  [config]
+  (merge (core-system-config config)
+         (user-module-config config)
+         (product-module-config config)))  ; Add this line
+----
+
+### 2.3 Wire Module into System
+
+Edit `src/boundary/platform/shell/system/wiring.clj`, add the module wiring to requires:
+
+[source,clojure]
+----
+(ns boundary.platform.shell.system.wiring
+  (:require ...
+            [boundary.product.shell.module-wiring]  ; Add this
+            ...))
+----
+
+### 2.4 Update HTTP Handler
+
+Edit `src/boundary/config.clj`, add product routes to HTTP handler config:
+
+[source,clojure]
+----
+:boundary/http-handler
+{:config config
+ :user-routes (ig/ref :boundary/user-routes)
+ :product-routes (ig/ref :boundary/product-routes)}  ; Add this
+----
+
+Edit `src/boundary/platform/shell/system/wiring.clj`, update the HTTP handler init-key:
+
+[source,clojure]
+----
+(defmethod ig/init-key :boundary/http-handler
+  [_ {:keys [config user-routes product-routes]}]  ; Add product-routes param
+  ...
+  (let [user-api-routes (or (:api user-routes) [])
+        product-api-routes (or (:api product-routes) [])  ; Extract product routes
+        ...
+        all-routes (concat ...
+                           user-api-routes
+                           product-api-routes)  ; Add to route composition
+        ...)))
+----
+
+## Step 3: Apply Database Migration
+
+[source,bash]
+----
+# Apply the migration to SQLite
+sqlite3 dev-database.db < migrations/005_create_products.sql
+
+# Verify table created
+sqlite3 dev-database.db "SELECT name FROM sqlite_master WHERE type='table' AND name='products';"
+----
+
+**Expected output:** `products`
+
+## Step 4: Start the System
+
+### Reload in REPL
+
+[source,clojure]
+----
+;; In your running REPL
+user=> (ig-repl/halt)
+user=> (ig-repl/go)
+
+;; You should see:
+;; "Initializing product repository"
+;; "Initializing product service"
+;; "Initializing product routes"
+----
+
+### Verify Integration
+
+Check that the module loaded successfully:
+
+[source,clojure]
+----
+user=> (keys integrant.repl.state/system)
+;; Should include:
+;; :boundary/product-repository
+;; :boundary/product-service
+;; :boundary/product-routes
+----
+
+## Step 5: Test the API
+
+### Create a Product
+
+[source,bash]
+----
+curl -X POST http://localhost:3000/api/products \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Mechanical Keyboard",
+    "sku": "KB-001",
+    "price": 129.99,
+    "description": "Premium mechanical keyboard with blue switches"
+  }' | jq
+----
+
+**Expected response:**
+[source,json]
+----
+{
+  "id": "7c1d9e8a-...",
+  "name": "Mechanical Keyboard",
+  "sku": "KB-001",
+  "price": 129.99,
+  "description": "Premium mechanical keyboard with blue switches",
+  "active": true,
+  "createdAt": "2025-01-08T10:30:00Z",
+  "updatedAt": "2025-01-08T10:30:00Z"
+}
+----
+
+### List Products
+
+[source,bash]
+----
+curl http://localhost:3000/api/products | jq
+----
+
+### Get Single Product
+
+[source,bash]
+----
+# Use the ID from create response
+curl http://localhost:3000/api/products/7c1d9e8a-... | jq
+----
+
+### Update Product
+
+[source,bash]
+----
+curl -X PUT http://localhost:3000/api/products/7c1d9e8a-... \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Premium Mechanical Keyboard",
+    "price": 149.99
+  }' | jq
+----
+
+### Delete Product (Soft Delete)
+
+[source,bash]
+----
+curl -X DELETE http://localhost:3000/api/products/7c1d9e8a-...
+----
+
+## Step 6: Test the Web UI
+
+Open http://localhost:3000/web/products in your browser.
+
+You'll see:
+* Product list table
+* "Create Product" button
+* Edit/Delete actions per row
+* No JavaScript build step required (HTMX handles interactivity)
+
+## Step 7: Run Tests
+
+[source,bash]
+----
+# Run all product module tests
+clojure -M:test:db/h2 --focus-meta :product
+
+# Expected output:
+# 15 tests, 45 assertions, 0 failures
+----
+
+**Test breakdown:**
+* **Unit tests** (`core/product_test.clj`) - Pure business logic
+* **Repository tests** (`shell/product_repository_test.clj`) - Database operations
+* **Service tests** (`shell/service_test.clj`) - Orchestration layer
+
+## Understanding the Generated Code
+
+### Core Layer (Pure Business Logic)
+
+**`src/boundary/product/core/product.clj`:**
+[source,clojure]
+----
+(defn prepare-product-for-creation
+  "Prepare product data for database insertion.
+   Pure function - no side effects."
+  [product-data]
+  (assoc product-data
+         :id (str (java.util.UUID/randomUUID))
+         :active true
+         :created-at (java.time.Instant/now)
+         :updated-at (java.time.Instant/now)))
+----
+
+**Key characteristics:**
+* Pure functions only
+* No database calls
+* No side effects
+* Easily testable without mocks
+
+### Shell Layer (Side Effects)
+
+**`src/boundary/product/shell/service.clj`:**
+[source,clojure]
+----
+(defn create-product!
+  [{:keys [repository logger metrics error-reporter]} product-data context]
+  (interceptors/execute-service-operation
+    {:operation-name "create-product"
+     :logger logger
+     :metrics metrics
+     :error-reporter error-reporter
+     :context context}
+    (fn []
+      ;; Validate
+      (let [[valid? errors data] (validate-request CreateProductRequest product-data)]
+        (when-not valid?
+          (throw (ex-info "Validation failed" {:type :validation-error :errors errors})))
+        
+        ;; Business logic
+        (let [prepared (product-core/prepare-product-for-creation data)]
+          ;; Persist
+          (.create-product repository prepared))))))
+----
+
+**Key characteristics:**
+* Handles I/O and side effects
+* Validates input
+* Orchestrates core logic
+* Automatic observability (logging, metrics, errors)
+
+### Ports Layer (Abstractions)
+
+**`src/boundary/product/ports.clj`:**
+[source,clojure]
+----
+(defprotocol IProductRepository
+  (find-by-id [this product-id]
+    "Find product by ID. Returns nil if not found.")
+  
+  (create-product [this product-entity]
+    "Create a new product. Returns created entity.")
+  
+  (update-product [this product-entity]
+    "Update existing product. Returns updated entity."))
+----
+
+**Key characteristics:**
+* Protocol definitions (interfaces)
+* No implementations
+* Enables dependency inversion
+* Easy to mock for testing
+
+## Customizing Your Module
+
+### Add Business Logic
+
+Edit `src/boundary/product/core/product.clj`:
+
+[source,clojure]
+----
+(defn calculate-discounted-price
+  "Calculate price with discount percentage."
+  [product discount-percent]
+  (let [discount-multiplier (- 1.0 (/ discount-percent 100.0))
+        original-price (:price product)]
+    (* original-price discount-multiplier)))
+
+(defn product-in-stock?
+  "Check if product is available."
+  [product inventory-count]
+  (and (:active product)
+       (> inventory-count 0)))
+----
+
+### Add Custom Validation
+
+Edit `src/boundary/product/schema.clj`:
+
+[source,clojure]
+----
+(def CreateProductRequest
+  [:map
+   [:name [:string {:min 1 :max 200}]]
+   [:sku [:string {:min 1 :max 50}]]
+   [:price [:and
+            :double
+            [:fn {:error/message "Price must be positive"}
+             (fn [price] (pos? price))]]]
+   [:description {:optional true} :string]])
+----
+
+### Add New Endpoint
+
+Edit `src/boundary/product/shell/http.clj`:
+
+[source,clojure]
+----
+(defn normalized-api-routes [service]
+  [{:path "/products"
+    :methods {:get {:handler (handlers/list-products service)}
+              :post {:handler (handlers/create-product service)}}}
+   
+   {:path "/products/:id"
+    :methods {:get {:handler (handlers/get-product service)}
+              :put {:handler (handlers/update-product service)}
+              :delete {:handler (handlers/delete-product service)}}}
+   
+   ;; Add search endpoint
+   {:path "/products/search"
+    :methods {:get {:handler (handlers/search-products service)}}}])
+----
+
+### Enhance UI
+
+Edit `src/boundary/product/core/ui.clj`:
+
+[source,clojure]
+----
+(defn product-card
+  "Product card component for grid view."
+  [product]
+  [:div.product-card
+   [:h3 (:name product)]
+   [:p.sku "SKU: " (:sku product)]
+   [:p.price "$" (format "%.2f" (:price product))]
+   [:p.description (:description product)]
+   [:div.actions
+    [:button {:hx-get (str "/web/products/" (:id product))
+              :hx-target "#product-detail"}
+     "View Details"]]])
+----
+
+## Next Steps
+
+### Add More Modules
+
+Generate additional modules for your domain:
+
+[source,bash]
+----
+# Inventory module
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name inventory \
+  --entity Item \
+  --field name:string:required \
+  --field quantity:int:required
+
+# Order module
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name order \
+  --entity Order \
+  --field customer-email:email:required \
+  --field total-amount:decimal:required \
+  --field status:enum:required
+----
+
+### Add Module Interactions
+
+Products and orders often interact. Add cross-module dependencies:
+
+[source,clojure]
+----
+;; In order module service
+(defn create-order!
+  [{:keys [order-repo product-service]} order-data]
+  ;; Verify products exist
+  (let [product-ids (:product-ids order-data)
+        products (map #(.get-product product-service %) product-ids)]
+    (when (some nil? products)
+      (throw (ex-info "Invalid products" {:type :validation-error})))
+    
+    ;; Create order...
+    ))
+----
+
+### Add Authentication/Authorization
+
+Protect your product endpoints:
+
+[source,clojure]
+----
+;; In product/shell/http.clj
+(require '[boundary.user.shell.http-interceptors :as user-int])
+
+(defn normalized-api-routes [service]
+  [{:path "/products"
+    :methods {:get {:handler (handlers/list-products service)}
+              :post {:handler (handlers/create-product service)
+                     :interceptors [user-int/require-authenticated
+                                    user-int/require-admin]}}}])
+----
+
+### Deploy to Production
+
+[source,bash]
+----
+# Build uberjar
+clojure -T:build clean && clojure -T:build uber
+
+# Run with production config
+BND_ENV=production java -jar target/boundary-standalone.jar
+----
+
+## Troubleshooting
+
+### Module Won't Start
+
+[source,clojure]
+----
+;; Check Integrant config
+user=> (require '[boundary.config :as config])
+user=> (def cfg (config/load-config))
+user=> (keys (:active cfg))
+
+;; Verify module keys exist
+user=> (get cfg :boundary/product-service)
+----
+
+### Routes Not Working
+
+[source,bash]
+----
+# Check route registration
+curl http://localhost:3000/api/products
+
+# If 404, verify HTTP handler wiring in config.clj
+----
+
+### Tests Failing
+
+[source,bash]
+----
+# Run with verbose output
+clojure -M:test:db/h2 --focus-meta :product --reporter documentation
+
+# Check for database errors
+# Verify migration was applied
+sqlite3 dev-database.db ".tables"
+----
+
+## Summary
+
+You've successfully:
+
+* ✅ Generated a complete module using the scaffolder
+* ✅ Wired the module into the system
+* ✅ Applied database migrations
+* ✅ Tested REST API endpoints
+* ✅ Viewed the web UI
+* ✅ Ran comprehensive tests
+
+**What makes this production-ready?**
+
+* **FC/IS Architecture** - Clean separation of concerns
+* **Comprehensive Tests** - Unit, integration, and contract tests
+* **Observability** - Automatic logging, metrics, error reporting
+* **Type Safety** - Malli schemas throughout
+* **Database Migrations** - Version-controlled schema changes
+* **Multi-Interface** - REST, Web UI, and CLI (easily added)
+
+## Learn More
+
+* link:functional-core-imperative-shell.adoc[Deep Dive: FC/IS Pattern]
+* link:modules-and-ownership.adoc[Module Organization]
+* link:validation-system.adoc[Advanced Validation]
+* link:integrate-observability.adoc[Observability Integration]
+* link:../architecture/overview.adoc[Architecture Overview]
+
+---
+
+**Next:** Build something amazing with Boundary! 🚀

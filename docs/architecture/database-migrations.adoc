@@ -1,0 +1,382 @@
+= Database Migrations Architecture
+:toc:
+:toclevels: 3
+
+== Overview
+
+The Boundary framework provides a reliable, easy-to-understand database migration system that follows FC/IS principles and integrates with the platform infrastructure.
+
+== Design Principles
+
+* **Single Database Target**: One database per environment (SQLite dev, H2 test, Postgres prod)
+* **SQL-First**: Default to raw SQL migrations for clarity and transparency
+* **Module-Scoped**: Migrations organized by module with global ordering
+* **DB-Level Locking**: Prevents concurrent migration runs
+* **Reversible When Feasible**: Support up/down migrations where practical
+* **Observable**: Full logging, metrics, and error reporting integration
+
+== File Structure
+
+----
+migrations/
+├── user/
+│   ├── 20241207120000_create_users_table.sql
+│   ├── 20241207120000_create_users_table_down.sql
+│   ├── 20241207121500_add_email_index.sql
+│   └── 20241207130000_add_remember_me_to_sessions.sql
+├── inventory/
+│   ├── 20241207140000_create_items_table.sql
+│   └── 20241207140000_create_items_table_down.sql
+└── billing/
+    └── 20241208100000_create_invoices_table.sql
+----
+
+=== Version Format
+
+* Timestamp-based: `YYYYMMDDhhmmss` (e.g., `20241207120000`)
+* Ensures chronological ordering across modules
+* Human-readable and sortable
+* No gaps allowed in sequence
+
+=== Naming Convention
+
+* Format: `{version}_{description}.sql`
+* Down migration: `{version}_{description}_down.sql`
+* Description: lowercase with underscores, descriptive action
+* Examples:
+  - `20241207120000_create_users_table.sql`
+  - `20241207121500_add_email_index.sql`
+  - `20241207130000_backfill_user_roles.sql`
+
+== Schema Migrations Table
+
+The `schema_migrations` table tracks applied migrations:
+
+[source,sql]
+----
+CREATE TABLE schema_migrations (
+    version VARCHAR(14) PRIMARY KEY,      -- YYYYMMDDhhmmss format
+    name VARCHAR(255) NOT NULL,           -- Migration description
+    module VARCHAR(100) NOT NULL,         -- Module name (user, inventory, etc)
+    applied_at TIMESTAMP NOT NULL,        -- When migration was applied
+    checksum VARCHAR(64) NOT NULL,        -- SHA-256 of migration file content
+    execution_time_ms INTEGER NOT NULL,   -- Execution duration
+    status VARCHAR(20) NOT NULL,          -- 'applied', 'failed', 'rolled_back'
+    db_type VARCHAR(20) NOT NULL,         -- 'sqlite', 'h2', 'postgresql'
+    error_message TEXT                    -- Error details if failed
+);
+
+CREATE INDEX idx_schema_migrations_module ON schema_migrations(module);
+CREATE INDEX idx_schema_migrations_applied_at ON schema_migrations(applied_at);
+CREATE INDEX idx_schema_migrations_status ON schema_migrations(status);
+----
+
+== Migration Lock Table
+
+Prevents concurrent migration execution:
+
+[source,sql]
+----
+CREATE TABLE schema_migrations_lock (
+    lock_id INTEGER PRIMARY KEY DEFAULT 1,  -- Single row enforced
+    locked_at TIMESTAMP,
+    locked_by VARCHAR(255),                 -- Process identifier
+    CONSTRAINT single_lock CHECK (lock_id = 1)
+);
+----
+
+== FC/IS Architecture
+
+=== Core Layer (Pure Functions)
+
+Location: `boundary.platform.migrations.core`
+
+Responsibilities:
+
+* Parse version strings and validate format
+* Calculate migration checksums (SHA-256)
+* Plan migration sequences (discover, order, filter)
+* Detect gaps and drift in migration history
+* Generate dry-run reports
+
+Pure functions only - no I/O, no side effects.
+
+=== Shell Layer (I/O & Execution)
+
+Location: `boundary.platform.migrations.shell`
+
+Responsibilities:
+
+* Discover migration files from filesystem
+* Execute SQL migrations in transactions
+* Acquire and release database locks
+* Record results in `schema_migrations` table
+* Handle errors and rollback on failure
+* Emit logs, metrics, and error reports
+
+=== Ports Layer (Protocols)
+
+Location: `boundary.platform.migrations.ports`
+
+Protocols:
+
+* `IMigrationRepository` - CRUD operations on schema_migrations
+* `IMigrationLock` - Acquire/release lock operations
+* `IMigrationExecutor` - Execute migration SQL
+
+== CLI Commands
+
+=== Status
+
+Show migration status:
+
+----
+clojure -M:cli migrate status [--module user] [--verbose]
+----
+
+Output:
+----
+Migration Status
+================
+Database: PostgreSQL (boundary_dev)
+Module: All
+
+Applied Migrations:
+  ✓ 20241207120000 user    create_users_table              2024-12-07 12:05:23
+  ✓ 20241207121500 user    add_email_index                 2024-12-07 12:15:30
+  ✓ 20241207140000 inventory create_items_table            2024-12-07 14:02:15
+
+Pending Migrations:
+  - 20241207130000 user    add_remember_me_to_sessions
+  - 20241208100000 billing create_invoices_table
+
+Summary: 3 applied, 2 pending
+----
+
+=== Up
+
+Apply pending migrations:
+
+----
+clojure -M:cli migrate up [--module user] [--dry-run] [--verbose]
+----
+
+=== Down
+
+Rollback N migrations:
+
+----
+clojure -M:cli migrate down [N] [--module user] [--dry-run]
+----
+
+Default N=1.
+
+=== To
+
+Migrate to specific version:
+
+----
+clojure -M:cli migrate to VERSION [--module user] [--dry-run]
+----
+
+=== Redo
+
+Rollback and reapply last migration:
+
+----
+clojure -M:cli migrate redo [--module user] [--dry-run]
+----
+
+=== Verify
+
+Check migration integrity:
+
+----
+clojure -M:cli migrate verify [--module user]
+----
+
+Checks:
+
+* No gaps in version sequence
+* Checksums match recorded values
+* All migration files exist
+* No duplicate versions
+
+== Database-Specific Locking
+
+=== PostgreSQL
+
+Uses advisory locks:
+
+[source,sql]
+----
+-- Acquire lock (returns true if successful)
+SELECT pg_try_advisory_lock(hashtext('boundary_migrations'));
+
+-- Release lock
+SELECT pg_advisory_unlock(hashtext('boundary_migrations'));
+----
+
+=== SQLite / H2
+
+Uses lock table with single row constraint:
+
+[source,sql]
+----
+-- Acquire lock
+INSERT INTO schema_migrations_lock (lock_id, locked_at, locked_by)
+VALUES (1, CURRENT_TIMESTAMP, 'process-id')
+ON CONFLICT (lock_id) DO NOTHING;
+
+-- Check if acquired (affected rows = 1)
+-- Release lock
+DELETE FROM schema_migrations_lock WHERE lock_id = 1;
+----
+
+== Execution Flow
+
+. **Discovery**: Scan `migrations/` directory for SQL files
+. **Parse**: Extract version, module, name from filenames
+. **Validate**: Check version format, detect duplicates and gaps
+. **Lock**: Acquire database lock (fail fast if locked)
+. **Plan**: Determine which migrations to apply based on command
+. **Checksum**: Calculate checksums for pending migrations
+. **Execute**: Run migrations in transaction, one at a time
+. **Record**: Insert into schema_migrations after each success
+. **Release**: Always release lock (even on failure)
+
+== Error Handling
+
+* **Lock Acquisition Failure**: Exit immediately with clear message
+* **SQL Syntax Error**: Rollback transaction, mark migration as failed
+* **Checksum Mismatch**: Warn and halt (migration file modified after application)
+* **Missing Down Migration**: Error on `down` command if no `_down.sql` file
+
+== Observability Integration
+
+=== Logging
+
+* Migration start/complete events with duration
+* Lock acquisition/release
+* Errors with full context
+
+=== Metrics
+
+* `db.migrations.applied` (counter)
+* `db.migrations.failed` (counter)
+* `db.migrations.duration_ms` (histogram)
+* `db.migrations.lock_wait_ms` (histogram)
+
+=== Error Reporting
+
+* Capture exceptions with migration context
+* Include: version, module, SQL file path, error message
+* Breadcrumbs for each migration step
+
+== Safety Features
+
+. **Dry-Run Mode**: Shows planned actions without execution
+. **Checksums**: Detects modified migrations
+. **Transactions**: Each migration runs in a transaction
+. **Lock Table**: Prevents concurrent runs
+. **Gap Detection**: Warns if version sequence has gaps
+. **Backup Suggestion**: Recommend pg_dump/file copy before production runs
+
+== Testing Strategy
+
+=== Unit Tests
+
+Test pure core functions:
+
+* Version parsing and validation
+* Checksum calculation
+* Migration planning and ordering
+* Gap detection logic
+
+=== Integration Tests
+
+Test with real database (H2 in-memory):
+
+* Lock acquisition/release
+* Migration execution
+* Rollback scenarios
+* Error handling
+
+=== Contract Tests
+
+Test against all supported databases:
+
+* SQLite
+* H2
+* PostgreSQL (requires Docker)
+
+== Migration Templates
+
+=== Create Table
+
+[source,sql]
+----
+-- Up migration: 20241207120000_create_users_table.sql
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+----
+
+[source,sql]
+----
+-- Down migration: 20241207120000_create_users_table_down.sql
+DROP TABLE IF EXISTS users;
+----
+
+=== Add Column
+
+[source,sql]
+----
+-- Up migration: 20241207121500_add_role_to_users.sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user';
+----
+
+[source,sql]
+----
+-- Down migration: 20241207121500_add_role_to_users_down.sql
+ALTER TABLE users DROP COLUMN IF EXISTS role;
+----
+
+=== Data Migration
+
+[source,sql]
+----
+-- Up migration: 20241207130000_backfill_user_roles.sql
+UPDATE users SET role = 'admin' WHERE email LIKE '%@admin.%';
+UPDATE users SET role = 'user' WHERE role IS NULL;
+----
+
+Note: Data migrations are often not reversible. Mark as forward-only.
+
+== Configuration
+
+In `config.edn`:
+
+[source,clojure]
+----
+{:boundary/migrations
+ {:enabled true
+  :auto-migrate? false  ;; Only in development
+  :migrations-path "migrations"
+  :lock-timeout-ms 30000}}
+----
+
+== Future Enhancements
+
+* HoneySQL migration support for complex DML
+* Code-based migrations for data transformations
+* Migration generation CLI (`migrate generate create-users-table`)
+* Backup/restore integration
+* Migration dependency graph for cross-module FKs
+* Parallel execution for independent migrations
