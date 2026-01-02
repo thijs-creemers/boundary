@@ -124,55 +124,17 @@
                              :field :password}})
 
 ;; =============================================================================
-;; Billing Module Error Codes
-;; =============================================================================
-
-(def billing-error-codes
-  "Billing module specific error codes."
-  {:billing.amount/required {:description "Amount is required"
-                             :category :schema
-                             :field :amount}
-
-   :billing.amount/out-of-range {:description "Amount is out of range"
-                                 :category :business
-                                 :field :amount}
-
-   :billing.currency/required {:description "Currency is required"
-                               :category :schema
-                               :field :currency}
-
-   :billing.currency/invalid {:description "Currency code is invalid"
-                              :category :schema
-                              :field :currency}})
-
-;; =============================================================================
-;; Workflow Module Error Codes
-;; =============================================================================
-
-(def workflow-error-codes
-  "Workflow module specific error codes."
-  {:workflow.status/required {:description "Status is required"
-                              :category :schema
-                              :field :status}
-
-   :workflow.status/invalid-value {:description "Invalid status value"
-                                   :category :schema
-                                   :field :status}
-
-   :workflow.transition/forbidden {:description "Status transition not allowed"
-                                   :category :business
-                                   :field :status}})
-
-;; =============================================================================
 ;; Complete Error Code Catalog
 ;; =============================================================================
 
 (def error-code-catalog
   "Complete catalog of all error codes."
   (merge common-error-codes
-         user-error-codes
-         billing-error-codes
-         workflow-error-codes))
+         user-error-codes))
+
+;; Note: Additional module error codes (billing, workflow, etc.) can be
+;; added here when those modules are implemented. See user-error-codes for
+;; an example of module-specific error code definitions.
 
 ;; =============================================================================
 ;; Error Code Utilities

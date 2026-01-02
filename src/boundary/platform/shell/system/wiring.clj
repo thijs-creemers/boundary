@@ -35,7 +35,6 @@
             [boundary.platform.shell.utils.port-manager :as port-manager]
             ;; todo: need to find a way to decouple these dependencies an inject them in another way.
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
-            [boundary.inventory.shell.module-wiring] ;; Load inventory module init/halt methods
             [clojure.tools.logging :as log]
             [integrant.core :as ig]
             [ring.adapter.jetty :as jetty]))
@@ -95,7 +94,7 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes inventory-routes router logger metrics-emitter error-reporter]}]
+  [_ {:keys [user-routes router logger metrics-emitter error-reporter]}]
   (log/info "Initializing top-level HTTP handler with normalized routing")
   (require 'boundary.platform.ports.http)
   (let [;; Import compile-routes function
@@ -115,27 +114,10 @@
                                   user-web-routes))
         user-normalized-api (when (seq user-api-routes) user-api-routes)
 
-        ;; Extract inventory module routes (normalized format)
-        inventory-static-routes (or (:static inventory-routes) [])
-        inventory-web-routes (or (:web inventory-routes) [])
-        inventory-api-routes (or (:api inventory-routes) [])
-
-        ;; Inventory routes are in normalized format - use directly
-        inventory-normalized-static (when (seq inventory-static-routes) inventory-static-routes)
-        inventory-normalized-web (when (seq inventory-web-routes)
-                                  ;; Add /web prefix to web routes
-                                  (mapv (fn [route]
-                                         (update route :path #(str "/web" %)))
-                                       inventory-web-routes))
-        inventory-normalized-api (when (seq inventory-api-routes) inventory-api-routes)
-
         ;; Combine all normalized routes
         all-normalized-routes (concat (or user-normalized-static [])
                                      (or user-normalized-web [])
-                                     (or user-normalized-api [])
-                                     (or inventory-normalized-static [])
-                                     (or inventory-normalized-web [])
-                                     (or inventory-normalized-api []))
+                                     (or user-normalized-api []))
 
         ;; Build system services map for HTTP interceptors
         system {:logger logger
@@ -152,9 +134,6 @@
               {:user-routes {:static (count (or user-static-routes []))
                             :web (count (or user-web-routes []))
                             :api (count (or user-api-routes []))}
-               :inventory-routes {:static (count (or inventory-static-routes []))
-                                 :web (count (or inventory-web-routes []))
-                                 :api (count (or inventory-api-routes []))}
                :total-normalized-routes (count all-normalized-routes)
                :router-adapter (class router)
                :system-services (keys system)})

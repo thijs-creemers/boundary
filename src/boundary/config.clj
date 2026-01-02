@@ -296,7 +296,6 @@
      :boundary/http-handler
      {:config config
       :user-routes (ig/ref :boundary/user-routes)
-      :inventory-routes (ig/ref :boundary/inventory-routes)
       :router (ig/ref :boundary/router)
       :logger (ig/ref :boundary/logging)
       :metrics-emitter (ig/ref :boundary/metrics)
@@ -307,25 +306,12 @@
             {:handler (ig/ref :boundary/http-handler)
              :config http-cfg})}))
 
-(defn- inventory-module-config
-  "Return Integrant configuration for the inventory module."
-  [config]
-  {:boundary/inventory-repository
-   {:ctx (ig/ref :boundary/db-context)}
-
-   :boundary/inventory-service
-   {:repository (ig/ref :boundary/inventory-repository)}
-
-   :boundary/inventory-routes
-   {:service (ig/ref :boundary/inventory-service)
-    :config config}})
-
 (defn ig-config
   "Generate Integrant configuration map from loaded config.
    
    The configuration is composed from:
    - Core system components (database, observability)
-   - Module-specific components (:user, :inventory)
+   - Module-specific components (:user)
    
    Future modules can be added by:
    1. Creating a *-module-config function (like user-module-config)
@@ -344,8 +330,7 @@
      (integrant.core/init ig-cfg)"
   [config]
   (merge (core-system-config config)
-         (user-module-config config)
-         (inventory-module-config config)))
+         (user-module-config config)))
 
 ;; =============================================================================
 ;; REPL Utilities
