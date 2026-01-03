@@ -147,22 +147,6 @@
 ;; Schema Introspection
 ;; =============================================================================
 
-(defn- get-required-keys
-  "Get required keys from map schema.
-  
-   Args:
-     schema: Malli map schema
-   
-   Returns:
-     Set of required keywords"
-  [schema]
-  (when (and schema (= :map (m/type schema)))
-    (let [children (m/children schema)]
-      (->> children
-           (remove #(get-in % [1 :optional]))
-           (map first)
-           set))))
-
 ;; =============================================================================
 ;; Invalid Data Generation - Strategies
 ;; =============================================================================

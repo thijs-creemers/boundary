@@ -22,9 +22,10 @@
           (swap! log-entries conj {:level :error :event event :data data})))
       {:log-entries log-entries})))
 
-(defn mock-metrics []
+(defn mock-metrics
   "Simple mock for metrics system. Since metrics/increment and metrics/observe 
    are currently no-ops, this just returns a simple tracking map."
+  []
   (let [metrics-data (atom [])]
     (with-meta
       {:type :mock-metrics}

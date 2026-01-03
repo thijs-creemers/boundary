@@ -113,11 +113,11 @@
       :role role
       :active true
       :password password})
-   (gen/tuple
-    valid-email-gen
-    valid-name-gen
-    role-gen
-    (gen/fmap #(str "password-" %) gen/pos-int))))
+    (gen/tuple
+     valid-email-gen
+     valid-name-gen
+     role-gen
+     (gen/fmap #(str "password-" %) (gen/large-integer* {:min 1})))))
 
 (def user-entity-gen
   "Generator for complete user entities."

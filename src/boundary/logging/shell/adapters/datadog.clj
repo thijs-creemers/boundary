@@ -153,11 +153,10 @@
         flush-batch! (fn []
                        (let [batch (transient [])]
                          (loop [entry (.poll queue)
+                                batch batch
                                 count 0]
                            (if (and entry (< count batch-size))
-                             (do
-                               (conj! batch entry)
-                               (recur (.poll queue) (inc count)))
+                             (recur (.poll queue) (conj! batch entry) (inc count))
                              (let [final-batch (persistent! batch)]
                                (when (seq final-batch)
                                  (send-log-batch api-key endpoint final-batch)))))))
