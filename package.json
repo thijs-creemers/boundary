@@ -1,11 +1,7 @@
 {
-  "name": "boundary-docs",
+  "name": "boundary-framework",
   "version": "1.0.0",
-  "description": "Boundary Framework Documentation",
-  "scripts": {
-    "serve-docs": "node scripts/serve-docs.js"
-  },
-  "devDependencies": {
-    "http-server": "^14.1.1"
-  }
+  "description": "Boundary Framework - Module-centric Clojure framework",
+  "scripts": {},
+  "devDependencies": {}
 }

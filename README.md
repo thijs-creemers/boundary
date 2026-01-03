@@ -4,11 +4,11 @@ A module-centric Clojure framework implementing the Functional Core / Imperative
 
 ## Quick Start
 
-**→ [Documentation](docs/README.md) ←** - Complete documentation index
+**→ [Documentation](https://github.com/thijs-creemers/boundary-docs) ←** - Complete documentation (separate repository)
 
 **→ [Developer Guide (AGENTS.md)](./AGENTS.md) ←** - Comprehensive reference for development, architecture, and advanced topics
 
-The **[Documentation](docs/README.md)** provides architecture guides, tutorials, how-to guides, API references, and ADRs. The **Developer Guide** offers a quick reference for AI agents and developers with commands, patterns, and troubleshooting.
+The **[Documentation](https://github.com/thijs-creemers/boundary-docs)** provides architecture guides, tutorials, how-to guides, API references, and ADRs. The **Developer Guide** offers a quick reference for AI agents and developers with commands, patterns, and troubleshooting.
 
 ### Minimal Setup
 
@@ -65,11 +65,11 @@ src/boundary/user/
 - Database-agnostic services that work with any storage implementation
 - Clear dependency flow: Infrastructure → Ports ← Services
 
-See [Architecture Documentation](docs/architecture/) for detailed technical specifications.
+See [Documentation](https://github.com/thijs-creemers/boundary-docs) for detailed technical specifications.
 
 ## Validation DevEx (quick links)
 
-- Guide: docs/validation-guide.adoc (REPL helpers, snapshots, behavior DSL, coverage)
+- Guide: [boundary-docs validation guide](https://github.com/thijs-creemers/boundary-docs/tree/main/content/reference/validation-guide.adoc)
 - Coverage reports: test/reports/coverage/user.{edn,txt}
 - Snapshot tests:
   ```zsh
@@ -175,22 +175,23 @@ validation:
 
 ## Documentation
 
-**Main Documentation**: [docs/README.md](docs/README.md)
+**Main Documentation**: [boundary-docs repository](https://github.com/thijs-creemers/boundary-docs)
 
-### Quick Links
-- **[Architecture](docs/architecture/)** - Architecture patterns and design principles
-- **[Guides](docs/guides/)** - Tutorials and how-to guides including [Quickstart](docs/guides/quickstart.adoc)
-- **[Reference](docs/reference/)** - Commands, configuration, error codes, and scaffolder
-- **[API Examples](docs/api/)** - Complete API implementation examples
-- **[ADRs](docs/adr/)** - Architecture Decision Records
+The documentation has been moved to a separate repository for better organization and independent evolution. Visit the link above for:
+
+- **Architecture** - Architecture patterns and design principles
+- **Guides** - Tutorials and how-to guides including Quickstart
+- **Reference** - Commands, configuration, error codes, and scaffolder
+- **API Examples** - Complete API implementation examples
+- **ADRs** - Architecture Decision Records
 
 ### Developer Resources
 - **[AGENTS.md](./AGENTS.md)** - Comprehensive developer and agent guide
-- **[AGENTS.md](./AGENTS.md)** - Full development reference
-- **[PRD.adoc](PRD.adoc)** - Product requirements document
+- **[BUILD.md](./BUILD.md)** - Build and deployment instructions
+- **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Contribution guidelines
+- **[PROJECT_STATUS.adoc](./PROJECT_STATUS.adoc)** - Current project status
 
-### Key Documentation
-- **[Observability Integration](docs/guides/integrate-observability.adoc)** - Logging, metrics, and error reporting
-- **[Docker Development](docs/DOCKER_DEVELOPMENT.md)** - Docker-based development setup
-- **[Decisions](docs/DECISIONS.md)** - Technical and architectural decisions
-- **[Roadmap](docs/roadmap.md)** - Project roadmap and future plans
+### Key Documentation (External)
+- **[Architecture Documentation](https://github.com/thijs-creemers/boundary-docs/tree/main/content/architecture)** - System architecture and design
+- **[Observability Integration](https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc)** - Logging, metrics, and error reporting
+- **[Roadmap](https://github.com/thijs-creemers/boundary-docs/tree/main/content/roadmap.adoc)** - Project roadmap and future plans
