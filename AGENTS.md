@@ -2,8 +2,16 @@
 
 **AI Agent Quick Reference**: This guide provides everything an AI coding agent needs to work effectively with the Boundary Framework - from quick commands to architectural patterns.
 
-> **⚠️ CRITICAL REMINDERS**
-> - Do not stage, commit or push without explicit permission
+> **🛑 CRITICAL REMINDERS - READ THESE FIRST**
+> 
+> **GIT OPERATIONS - REQUIRE EXPLICIT PERMISSION:**
+> - ❌ NEVER stage files with `git add` without asking first
+> - ❌ NEVER commit with `git commit` without explicit user permission
+> - ❌ NEVER push with `git push` without explicit user permission
+> - ✅ ALWAYS show user what changes will be committed and ASK before committing
+> - ✅ ALWAYS ask "Should I commit and push these changes?" and wait for confirmation
+> 
+> **CODE EDITING:**
 > - Use clojure-mcp server for editing Clojure files (ensures balanced parentheses)
 > - Always verify clojure-mcp is running before editing Clojure code
 > - Follow parinfer conventions for proper formatting
