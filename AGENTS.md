@@ -34,7 +34,7 @@
 
 ## Project Overview
 
-Boundary is a **module-centric software framework** built on Clojure that implements the "Functional Core / Imperative Shell" architectural paradigm. Our PRD can be found [here](docs/reference/boundary-prd.adoc).
+Boundary is a **module-centric software framework** built on Clojure that implements the "Functional Core / Imperative Shell" architectural paradigm. Our PRD can be found [here](https://github.com/thijs-creemers/boundary-docs/tree/main/content/reference/boundary-prd.adoc).
 
 ### Key Characteristics
 
@@ -1262,7 +1262,7 @@ Configure observability providers in your `config.edn`:
 - **Metrics**: No-op (development), Datadog  
 - **Error Reporting**: No-op (development), Sentry
 
-See [docs/guides/integrate-observability.adoc](docs/guides/integrate-observability.adoc) for complete integration guide including custom adapters and advanced configuration.
+See [https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc](https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc) for complete integration guide including custom adapters and advanced configuration.
 
 ---
 
@@ -1581,9 +1581,9 @@ Request Flow:
 
 ### See Also
 
-- [ADR-010: HTTP Interceptor Architecture](docs/adr/ADR-010-http-interceptor-architecture.adoc) - Full technical specification
-- [ADR-008: Normalized Routing](docs/adr/ADR-008-normalized-routing-abstraction.adoc) - Route format documentation
-- [Observability Guide](docs/guides/integrate-observability.adoc) - Logging, metrics, errors
+- [ADR-010: HTTP Interceptor Architecture](https://github.com/thijs-creemers/boundary-docs/tree/main/content/adr/ADR-010-http-interceptor-architecture.adoc) - Full technical specification
+- [ADR-008: Normalized Routing](https://github.com/thijs-creemers/boundary-docs/tree/main/content/adr/ADR-008-normalized-routing-abstraction.adoc) - Route format documentation
+- [Observability Guide](https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc) - Logging, metrics, errors
 
 ---
 
@@ -1827,12 +1827,12 @@ console.log(htmx);
 ## Additional Resources
 
 ### Internal Documentation
-- [docs/README.md](docs/README.md) - Main documentation index
-- [docs/architecture/](docs/architecture/) - Architecture patterns and design
+- [https://github.com/thijs-creemers/boundary-docs](https://github.com/thijs-creemers/boundary-docs) - Main documentation index
+- [https://github.com/thijs-creemers/boundary-docs/tree/main/content/architecture/](https://github.com/thijs-creemers/boundary-docs/tree/main/content/architecture/) - Architecture patterns and design
 - [docs/guides/](docs/guides/) - Tutorials and how-to guides
-- [docs/guides/integrate-observability.adoc](docs/guides/integrate-observability.adoc) - Logging, metrics, error reporting
+- [https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc](https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc) - Logging, metrics, error reporting
 - [docs/DECISIONS.md](docs/DECISIONS.md) - Technical and architectural decisions
-- [PRD.adoc](docs/reference/boundary-prd.adoc) - Product requirements and vision
+- [PRD.adoc](https://github.com/thijs-creemers/boundary-docs/tree/main/content/reference/boundary-prd.adoc) - Product requirements and vision
 - [AGENTS.md](AGENTS.md) - Full developer guide with detailed examples
 
 ### External References

@@ -8,7 +8,6 @@
 .env
 /.archive/
 ._*
-/docs/**/*.html
 /.nrepl-port
 opencode.json
 *.db*
@@ -16,9 +15,5 @@ opencode.json
 /build/
 /test/reports/
 /node_modules
-/resources/public/docs
 test-output*.txt
 /logs/
-hugo-site/
-/hugo-site/.gitmodules
-/hugo-site/.hugo_build.lock
