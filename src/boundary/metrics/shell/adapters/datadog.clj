@@ -37,7 +37,9 @@
    [boundary.metrics.ports :as ports]
    [boundary.metrics.schema :as schema]
    [cheshire.core :as json]
+   [clojure.string :as str]
    [clojure.tools.logging :as log]
+   [clojure.string :as str]
    [malli.core :as m])
   (:import
    [java.net DatagramSocket DatagramPacket InetAddress]
@@ -70,7 +72,7 @@
            (apply str))
 
       (vector? tags)
-      (clojure.string/join "," tags)
+      (str/join "," tags)
 
       :else
       (throw (ex-info "Tags must be either a map or vector of strings"
@@ -83,7 +85,7 @@
   (when (seq vector-tags)
     (reduce
      (fn [acc tag-str]
-       (let [[k v] (clojure.string/split tag-str #":" 2)]
+       (let [[k v] (str/split tag-str #":" 2)]
          (assoc acc (keyword k) v)))
      {}
      vector-tags)))

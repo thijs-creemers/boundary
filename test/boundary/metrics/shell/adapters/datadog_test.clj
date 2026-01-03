@@ -13,6 +13,7 @@
   (:require
    [boundary.metrics.ports :as ports]
    [boundary.metrics.shell.adapters.datadog :as datadog]
+   [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]])
   (:import
    [java.util.concurrent CountDownLatch TimeUnit]))
@@ -187,7 +188,7 @@
             (is (.contains line "test.timing:"))
             (is (.contains line "|h"))
             ;; Verify timing is reasonable (at least 5ms, less than 100ms)
-            (let [value-str (-> line (clojure.string/split #":") second (clojure.string/split #"\|") first)
+            (let [value-str (-> line (str/split #":") second (str/split #"\|") first)
                   value (Double/parseDouble value-str)]
               (is (>= value 5.0))
               (is (<= value 100.0))))))))
@@ -215,7 +216,7 @@
         (ports/inc-counter! emitter handle 1 {:env "dev" :call "only"})
         (is (= 1 (count @sent-lines)))
         (let [line (first @sent-lines)
-              tags-part (-> line (clojure.string/split #"#") second)]
+              tags-part (-> line (str/split #"#") second)]
           ;; Call tags should override metric and global
           (is (.contains tags-part "env:dev"))
           ;; Service should come from global (not overridden)
@@ -394,7 +395,7 @@
         (ports/inc-counter! emitter handle 1)
         (is (= 1 (count @sent-lines)))
         (let [line (first @sent-lines)
-              tags-part (-> line (clojure.string/split #"#") second)]
+              tags-part (-> line (str/split #"#") second)]
           (is (.contains tags-part "key1:value1"))
           (is (.contains tags-part "key2:value2")))))))
 

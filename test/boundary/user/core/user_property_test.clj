@@ -8,12 +8,13 @@
    - Business rules consistently enforced
    
    Uses generative testing to discover edge cases and ensure robustness."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [boundary.user.core.user :as user-core]
+            [boundary.user.schema :as schema]
+            [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
+            [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
-            [clojure.test.check.clojure-test :refer [defspec]]
-            [boundary.user.core.user :as user-core]
-            [boundary.user.schema :as schema]
             [malli.core :as m]
             [support.validation-helpers :as vh])
   (:import (java.time Instant)
@@ -36,7 +37,7 @@
   "Generator for valid email local parts."
   (gen/fmap
    (fn [parts]
-     (clojure.string/join "" parts))
+     (str/join "" parts))
    (gen/vector
     (gen/frequency
      [[80 (gen/fmap char (gen/choose 97 122))] ; lowercase letters (weighted higher)
@@ -87,7 +88,7 @@
   "Generator for valid user names (1-255 characters)."
   (gen/fmap
    (fn [parts]
-     (clojure.string/join " " parts))
+     (str/join " " parts))
    (gen/vector
     (gen/fmap (fn [chars] (apply str chars))
               (gen/vector (gen/fmap char (gen/choose 65 122)) 1 20))

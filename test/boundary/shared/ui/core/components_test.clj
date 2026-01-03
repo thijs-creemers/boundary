@@ -3,8 +3,9 @@
    
    Tests verify that UI component functions generate correct Hiccup structures
    with proper HTML attributes, classes, and content."
-  (:require [clojure.test :refer [deftest testing is]]
-            [boundary.shared.ui.core.components :as components]))
+  (:require [boundary.shared.ui.core.components :as components]
+            [clojure.string :as str]
+            [clojure.test :refer [deftest testing is]]))
 
 ;; =============================================================================
 ;; Input Components Tests
@@ -202,13 +203,13 @@
       (is (vector? result))
       (is (= :div (first result)))
       (is (string? (get-in result [1 :class])))
-      (is (clojure.string/includes? (get-in result [1 :class]) "success"))
+      (is (str/includes? (get-in result [1 :class]) "success"))
       (is (= "Operation completed successfully" (nth result 2)))))
 
   (testing "Success message with custom class"
     (let [result (components/success-message "Saved!" {:class "alert-success custom"})]
       (is (vector? result))
-      (is (clojure.string/includes? (get-in result [1 :class]) "custom")))))
+      (is (str/includes? (get-in result [1 :class]) "custom")))))
 
 (deftest error-message-test
   (testing "Error message generation"
@@ -216,7 +217,7 @@
       (is (vector? result))
       (is (= :div (first result)))
       (is (string? (get-in result [1 :class])))
-      (is (clojure.string/includes? (get-in result [1 :class]) "error"))
+      (is (str/includes? (get-in result [1 :class]) "error"))
       (is (= "Something went wrong" (nth result 2))))))
 
 (deftest info-message-test
@@ -225,7 +226,7 @@
       (is (vector? result))
       (is (= :div (first result)))
       (is (string? (get-in result [1 :class])))
-      (is (clojure.string/includes? (get-in result [1 :class]) "info"))
+      (is (str/includes? (get-in result [1 :class]) "info"))
       (is (= "Please note this information" (nth result 2))))))
 
 (deftest validation-errors-test
@@ -260,9 +261,9 @@
     (let [hiccup [:div {:class "container"} [:p "Hello World"]]
           result (components/render-html hiccup)]
       (is (string? result))
-      (is (clojure.string/includes? result "<div"))
-      (is (clojure.string/includes? result "class=\"container\""))
-      (is (clojure.string/includes? result "<p>Hello World</p>"))))
+      (is (str/includes? result "<div"))
+      (is (str/includes? result "class=\"container\""))
+      (is (str/includes? result "<p>Hello World</p>"))))
 
   (testing "Complex Hiccup structure rendering"
     (let [hiccup [:form {:method "post" :action "/submit"}
@@ -270,10 +271,10 @@
                   [:button {:type "submit"} "Submit"]]
           result (components/render-html hiccup)]
       (is (string? result))
-      (is (clojure.string/includes? result "<form"))
-      (is (clojure.string/includes? result "method=\"post\""))
-      (is (clojure.string/includes? result "<input"))
-      (is (clojure.string/includes? result "<button")))))
+      (is (str/includes? result "<form"))
+      (is (str/includes? result "method=\"post\""))
+      (is (str/includes? result "<input"))
+      (is (str/includes? result "<button")))))
 
 ;; =============================================================================
 ;; HTMX Integration Tests

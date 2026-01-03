@@ -3,8 +3,9 @@
    
    Tests verify that layout components generate correct page structures,
    navigation elements, and consistent styling for the application."
-  (:require [clojure.test :refer [deftest testing is]]
-            [boundary.shared.ui.core.layout :as layout]))
+  (:require [boundary.shared.ui.core.layout :as layout]
+            [clojure.string :as str]
+            [clojure.test :refer [deftest testing is]]))
 
 ;; =============================================================================
 ;; Navigation Tests
@@ -34,14 +35,14 @@
       (is (= :nav (first result)))
       ; Should contain user-specific content when user is provided
       (let [nav-html (str result)]
-        (is (clojure.string/includes? nav-html "Test User")))))
+        (is (str/includes? nav-html "Test User")))))
 
   (testing "Navigation structure contains expected links"
     (let [result (layout/main-navigation)
           nav-html (str result)]
       ; Should contain the logo/brand link and login when no user
-      (is (clojure.string/includes? nav-html "Boundary App"))
-      (is (clojure.string/includes? nav-html "Login")))))
+      (is (str/includes? nav-html "Boundary App"))
+      (is (str/includes? nav-html "Login")))))
 
 ;; =============================================================================
 ;; Page Layout Tests
@@ -82,15 +83,15 @@
       ; Should include custom CSS
       (let [head (nth result 2)
             page-html (str result)]
-        (is (clojure.string/includes? page-html "/css/custom.css"))
-        (is (clojure.string/includes? page-html "/js/custom.js")))))
+        (is (str/includes? page-html "/css/custom.css"))
+        (is (str/includes? page-html "/js/custom.js")))))
 
   (testing "Page layout includes navigation"
     (let [result (layout/page-layout "Test" [:div "Content"])]
       ; Should include navigation in the layout
       (let [page-html (str result)]
-        (is (clojure.string/includes? page-html "site-header"))
-        (is (clojure.string/includes? page-html "Boundary App"))))))
+        (is (str/includes? page-html "site-header"))
+        (is (str/includes? page-html "Boundary App"))))))
 
 ;; =============================================================================
 ;; Error Layout Tests
@@ -105,9 +106,9 @@
       (is (vector? result))
       ; Should contain error status
       (let [layout-html (str result)]
-        (is (clojure.string/includes? layout-html "404"))
-        (is (clojure.string/includes? layout-html title))
-        (is (clojure.string/includes? layout-html message)))))
+        (is (str/includes? layout-html "404"))
+        (is (str/includes? layout-html title))
+        (is (str/includes? layout-html message)))))
 
   (testing "Error layout with details"
     (let [status 500
@@ -117,8 +118,8 @@
           result (layout/error-layout status title message details)]
       (is (vector? result))
       (let [layout-html (str result)]
-        (is (clojure.string/includes? layout-html "500"))
-        (is (clojure.string/includes? layout-html details)))))
+        (is (str/includes? layout-html "500"))
+        (is (str/includes? layout-html details)))))
 
   (testing "Error layout structure"
     (let [result (layout/error-layout 403 "Forbidden" "Access denied")]
@@ -138,9 +139,9 @@
       (is (vector? result))
       ; Should contain welcome or intro content
       (let [content-html (str result)]
-        (is (or (clojure.string/includes? content-html "Welcome")
-                (clojure.string/includes? content-html "Home")
-                (clojure.string/includes? content-html "Dashboard")
+        (is (or (str/includes? content-html "Welcome")
+                (str/includes? content-html "Home")
+                (str/includes? content-html "Dashboard")
                 (seq result)))))) ; At minimum should return some content
 
   (testing "Home page structure"
@@ -161,8 +162,8 @@
           result (layout/render-error-page message status)]
       (is (string? result)) ; render-error-page returns HTML string, not vector
       ; Should include error information
-      (is (clojure.string/includes? result "404"))
-      (is (clojure.string/includes? result "Page not found"))))
+      (is (str/includes? result "404"))
+      (is (str/includes? result "Page not found"))))
 
   (testing "Error page with exception details"
     ; Test the simpler version that just takes a message
@@ -170,8 +171,8 @@
           result (layout/render-error-page message)]
       (is (string? result)) ; render-error-page returns HTML string, not vector
       ; Should handle error message appropriately
-      (is (clojure.string/includes? result "Internal server error"))
-      (is (clojure.string/includes? result "Error")))))
+      (is (str/includes? result "Internal server error"))
+      (is (str/includes? result "Error")))))
 
 ;; =============================================================================
 ;; Component Layout Tests
@@ -186,8 +187,8 @@
       (is (vector? result))
       ; Should contain modal structure
       (let [modal-html (str result)]
-        (is (clojure.string/includes? modal-html id))
-        (is (clojure.string/includes? modal-html title)))))
+        (is (str/includes? modal-html id))
+        (is (str/includes? modal-html title)))))
 
   (testing "Modal with custom options"
     (let [id "custom-modal"
@@ -199,7 +200,7 @@
       ; Should apply custom options
       (let [attrs (second result)]
         (when (map? attrs)
-          (is (or (clojure.string/includes? (:class attrs "") "large-modal")
+          (is (or (str/includes? (:class attrs "") "large-modal")
                   (string? (:id attrs)))))))))
 
 (deftest sidebar-test
@@ -209,8 +210,8 @@
       (is (vector? result))
       ; Should contain sidebar structure
       (let [sidebar-html (str result)]
-        (is (or (clojure.string/includes? sidebar-html "sidebar")
-                (clojure.string/includes? sidebar-html "Menu Item"))))))
+        (is (or (str/includes? sidebar-html "sidebar")
+                (str/includes? sidebar-html "Menu Item"))))))
 
   (testing "Sidebar with options"
     (let [content [:nav "Navigation content"]
@@ -227,9 +228,9 @@
       (is (vector? result))
       ; Should contain breadcrumb structure
       (let [crumbs-html (str result)]
-        (is (clojure.string/includes? crumbs-html "Home"))
-        (is (clojure.string/includes? crumbs-html "Users"))
-        (is (clojure.string/includes? crumbs-html "John Doe")))))
+        (is (str/includes? crumbs-html "Home"))
+        (is (str/includes? crumbs-html "Users"))
+        (is (str/includes? crumbs-html "John Doe")))))
 
   (testing "Empty breadcrumbs"
     (let [result (layout/breadcrumbs [])]
@@ -241,7 +242,7 @@
           result (layout/breadcrumbs crumbs)]
       (is (vector? result))
       (let [crumbs-html (str result)]
-        (is (clojure.string/includes? crumbs-html "Dashboard"))))))
+        (is (str/includes? crumbs-html "Dashboard"))))))
 
 (deftest card-test
   (testing "Basic card generation"
@@ -250,8 +251,8 @@
       (is (vector? result))
       ; Should wrap content in card structure
       (let [card-html (str result)]
-        (is (clojure.string/includes? card-html "Card Title"))
-        (is (clojure.string/includes? card-html "Card content")))))
+        (is (str/includes? card-html "Card Title"))
+        (is (str/includes? card-html "Card content")))))
 
   (testing "Card with custom styling"
     (let [content [:p "Simple content"]
@@ -261,7 +262,7 @@
       ; Should apply styling options
       (let [attrs (second result)]
         (when (map? attrs)
-          (is (or (clojure.string/includes? (:class attrs "") "highlight-card")
+          (is (or (str/includes? (:class attrs "") "highlight-card")
                   (string? (:class attrs)))))))))
 
 ;; =============================================================================
@@ -279,10 +280,10 @@
       (is (vector? result))
       ; Should generate complete, nested page structure
       (let [page-html (str result)]
-        (is (clojure.string/includes? page-html title))
-        (is (clojure.string/includes? page-html "Home"))
-        (is (clojure.string/includes? page-html "Main content"))
-        (is (clojure.string/includes? page-html "Confirm")))))
+        (is (str/includes? page-html title))
+        (is (str/includes? page-html "Home"))
+        (is (str/includes? page-html "Main content"))
+        (is (str/includes? page-html "Confirm")))))
 
   (testing "Error page rendering integration"
     ; Use the correct render-error-page signature (message, optional status)
@@ -291,6 +292,6 @@
           result (layout/render-error-page message status)]
       (is (string? result)) ; render-error-page returns HTML string, not vector
       ; Should be complete HTML page
-      (is (clojure.string/includes? result "html"))
-      (is (clojure.string/includes? result "404"))
-      (is (clojure.string/includes? result "Missing page")))))
+      (is (str/includes? result "html"))
+      (is (str/includes? result "404"))
+      (is (str/includes? result "Missing page")))))

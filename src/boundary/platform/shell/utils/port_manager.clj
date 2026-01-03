@@ -3,8 +3,9 @@
    
    Provides port conflict resolution, environment detection,
    and intelligent port allocation for different development scenarios."
-  (:require [clojure.tools.logging :as log]
-            [clojure.java.io :as io]))
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
+            [clojure.tools.logging :as log]))
 
 (defn port-available?
   "Check if a port is available for binding.
@@ -63,7 +64,7 @@
    (when-let [init-process (try
                              (slurp "/proc/1/comm")
                              (catch Exception _ nil))]
-     (some #(clojure.string/includes? init-process %)
+     (some #(str/includes? init-process %)
            ["docker" "container" "init"]))
     ;; Check environment variables commonly set in containers
    (some #(System/getenv %)
@@ -79,7 +80,7 @@
                 (System/getenv "ENV")
                 (System/getProperty "env")
                 "development")]
-    (contains? #{"development" "dev" "local"} (clojure.string/lower-case env))))
+    (contains? #{"development" "dev" "local"} (str/lower-case env))))
 
 (defn suggest-port-strategy
   "Suggest port allocation strategy based on environment.

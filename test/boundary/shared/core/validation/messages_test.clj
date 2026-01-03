@@ -1,6 +1,7 @@
 (ns boundary.shared.core.validation.messages-test
   "Unit tests for validation message templating and suggestion engine."
   (:require [boundary.shared.core.validation.messages :as msg]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
 
 ;; =============================================================================
@@ -47,7 +48,7 @@
       (let [many-values (map str (range 1 20))
             result (msg/format-allowed-values many-values {:max-items 5})]
         (is (.contains result "..."))
-        (is (= 5 (count (clojure.string/split result #","))))))
+        (is (= 5 (count (str/split result #","))))))
 
     (testing "Empty list"
       (is (= "" (msg/format-allowed-values [] {}))))))

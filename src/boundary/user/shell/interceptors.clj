@@ -6,11 +6,12 @@
    - User data transformation (normalization, type conversion)
    - User business logic invocation (register-user service call)
    - User-specific response formatting"
-(:require [boundary.shared.core.interceptor-context :as ctx]
-            [boundary.platform.shell.interceptors :as interceptors]
+  (:require [boundary.platform.shell.interceptors :as interceptors]
+            [boundary.shared.core.interceptor-context :as ctx]
             [boundary.shared.core.utils.type-conversion :as type-conv]
             [boundary.user.ports :as ports]
-            [boundary.user.schema :as schema]))
+            [boundary.user.schema :as schema]
+            [clojure.string :as str]))
 
 (def validate-user-creation-input
   "Validates required fields for user creation.
@@ -39,7 +40,7 @@
                   ;; Validation failed
                   (let [validation-error {:type :validation-error
                                           :message (format "Missing required fields: %s"
-                                                           (clojure.string/join ", " missing-fields))
+                                                           (str/join ", " missing-fields))
                                           :missing-fields missing-fields
                                           :provided-fields (keys input-data)
                                           :interface-type interface-type}]

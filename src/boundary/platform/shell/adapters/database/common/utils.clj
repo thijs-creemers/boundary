@@ -1,8 +1,9 @@
 (ns boundary.platform.shell.adapters.database.common.utils
   "Common database utilities and information functions."
-(:require [boundary.platform.core.database.query :as core-query]
+  (:require [boundary.platform.core.database.query :as core-query]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
-            [boundary.platform.shell.adapters.database.common.execution :as execution])
+            [boundary.platform.shell.adapters.database.common.execution :as execution]
+            [clojure.string :as str])
   (:import [com.zaxxer.hikari HikariDataSource]))
 
 ;; =============================================================================
@@ -132,7 +133,7 @@
   (let [adapter (:adapter ctx)
         ;; Convert kebab-case to snake_case for database fields
         kebab->snake (fn [kw]
-                       (keyword (clojure.string/replace (name kw) #"-" "_")))
+                       (keyword (str/replace (name kw) #"-" "_")))
         ;; Convert values to database-appropriate types
         convert-value (fn [value]
                         (cond

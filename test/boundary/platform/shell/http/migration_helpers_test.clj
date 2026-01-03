@@ -1,7 +1,8 @@
 (ns boundary.platform.shell.http.migration-helpers-test
   "Tests for Reitit to normalized route conversion helpers."
-  (:require [clojure.test :refer [deftest testing is]]
-            [boundary.platform.shell.http.migration-helpers :as helpers]))
+  (:require [boundary.platform.shell.http.migration-helpers :as helpers]
+            [clojure.string :as str]
+            [clojure.test :refer [deftest testing is]]))
 
 (deftest reitit-simple-route-conversion-test
   (testing "Converts simple Reitit route to normalized format"
@@ -66,7 +67,7 @@
           result (helpers/validate-normalized-routes routes)]
       
       (is (not (:valid? result)))
-      (is (some #(clojure.string/includes? % "missing :path") (:errors result)))))
+      (is (some #(str/includes? % "missing :path") (:errors result)))))
   
   (testing "Detects invalid path format"
     (let [routes [{:path "users"  ; Missing leading /
@@ -74,7 +75,7 @@
           result (helpers/validate-normalized-routes routes)]
       
       (is (not (:valid? result)))
-      (is (some #(clojure.string/includes? % "must start with /") (:errors result)))))
+      (is (some #(str/includes? % "must start with /") (:errors result)))))
   
   (testing "Detects missing handler"
     (let [routes [{:path "/users"
@@ -82,7 +83,7 @@
           result (helpers/validate-normalized-routes routes)]
       
       (is (not (:valid? result)))
-      (is (some #(clojure.string/includes? % "missing :handler") (:errors result))))))
+      (is (some #(str/includes? % "missing :handler") (:errors result))))))
 
 (deftest reitit-metadata-preservation-test
   (testing "Preserves non-method metadata during conversion"

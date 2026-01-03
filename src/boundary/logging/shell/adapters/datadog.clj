@@ -35,6 +35,7 @@
   (:require
    [boundary.logging.ports :as ports]
    [cheshire.core :as json]
+   [clojure.string :as str]
    [clojure.tools.logging :as log])
   (:import
    [java.time Instant]
@@ -106,13 +107,13 @@
                        (merge base-entry context)
                        base-entry)
         with-tags (if-let [tags (:tags config)]
-                    (assoc with-context :ddtags (clojure.string/join "," tags))
+                    (assoc with-context :ddtags (str/join "," tags))
                     with-context)
         with-exception (if exception
                          (assoc with-tags
                                 :error.kind (str (class exception))
                                 :error.message (.getMessage exception)
-                                :error.stack (clojure.string/join "\n"
+                                :error.stack (str/join "\n"
                                                                   (map str (.getStackTrace exception))))
                          with-tags)]
     with-exception))

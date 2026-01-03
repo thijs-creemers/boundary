@@ -5,10 +5,10 @@
    metrics, error handling, and context management across all modules."
   (:require [boundary.logging.ports :as logging]
             [boundary.metrics.ports :as metrics]
-            [boundary.error-reporting.ports :as error-reporting])
+            [boundary.error-reporting.ports :as error-reporting]
+            [clojure.string :as str])
   (:import [java.util UUID]
            [java.time Instant]))
-
 ;; Context Management Interceptors
 
 (def context-interceptor
@@ -404,9 +404,9 @@
                           ;; Build detailed error message
                           detailed-message (str error-details
                                                 (when missing-fields
-                                                  (str "\nMissing required fields: " (clojure.string/join ", " missing-fields)))
+                                                  (str "\nMissing required fields: " (str/join ", " missing-fields)))
                                                 (when provided-fields
-                                                  (str "\nProvided fields: " (clojure.string/join ", " provided-fields)))
+                                                  (str "\nProvided fields: " (str/join ", " provided-fields)))
                                                 (when interface-type
                                                   (str "\nInterface: " (name interface-type))))]
                       (assoc ctx :response
