@@ -6,8 +6,7 @@
    and follow FC/IS architectural principles."
   (:require [boundary.user.schema :as schema]
             [malli.core :as m]
-            [clojure.string :as str]
-            [clojure.set :as set]))
+            [clojure.string :as str]))
 
 ;; =============================================================================
 ;; Enhanced Domain Validation Functions

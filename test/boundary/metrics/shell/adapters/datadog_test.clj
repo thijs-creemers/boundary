@@ -12,10 +12,8 @@
    - Configuration validation"
   (:require
    [boundary.metrics.ports :as ports]
-   [boundary.metrics.schema :as schema]
    [boundary.metrics.shell.adapters.datadog :as datadog]
-   [clojure.test :refer [deftest is testing use-fixtures]]
-   [malli.core :as m])
+   [clojure.test :refer [deftest is testing use-fixtures]])
   (:import
    [java.util.concurrent CountDownLatch TimeUnit]))
 

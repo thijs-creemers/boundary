@@ -10,8 +10,7 @@
 
    All business logic lives in boundary.user.core.* and boundary.user.shell.service.
    All observability is handled automatically by interceptors."
-  (:require [boundary.user.ports :as ports]
-            [boundary.shared.core.utils.validation :as validation]
+  (:require [boundary.shared.core.utils.validation :as validation]
             [boundary.shared.core.utils.type-conversion :as type-conv]
             [boundary.shared.core.interceptor :as interceptor]
             [boundary.shared.core.interceptor-context :as interceptor-context]

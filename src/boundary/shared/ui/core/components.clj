@@ -3,8 +3,7 @@
    
    These are reusable, generic components that can be used across all domain modules.
    No domain-specific logic should be placed here - only pure presentation functions."
-  (:require [clojure.string :as str]
-            [hiccup2.core :as h]))
+  (:require [hiccup2.core :as h]))
 
 ;; =============================================================================
 ;; Form Components

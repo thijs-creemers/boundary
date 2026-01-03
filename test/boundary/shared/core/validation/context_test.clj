@@ -1,8 +1,6 @@
 (ns boundary.shared.core.validation.context-test
   (:require [clojure.test :refer [deftest is testing]]
-            [boundary.shared.core.validation.context :as ctx]
-            [boundary.shared.core.validation.codes :as codes]
-            [malli.core :as m]))
+            [boundary.shared.core.validation.context :as ctx]))
 
 (def User
   [:map

@@ -23,8 +23,6 @@
    - Context carries operation metadata and database context
    - Interceptors handle all database-related cross-cutting concerns automatically"
   (:require [boundary.shared.core.interceptor :as interceptor]
-            [boundary.shared.core.interceptor-context :as ctx]
-            [boundary.error-reporting.core :as error-reporting]
             [clojure.tools.logging :as log]
             [clojure.string :as str])
   (:import [java.time Instant]

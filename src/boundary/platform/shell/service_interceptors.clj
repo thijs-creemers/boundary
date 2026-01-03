@@ -23,11 +23,9 @@
    - Context carries operation metadata and observability services
    - Interceptors handle all cross-cutting concerns automatically"
   (:require [boundary.shared.core.interceptor :as interceptor]
-            [boundary.shared.core.interceptor-context :as ctx]
             [boundary.logging.core :as logging]
             [boundary.metrics.core :as metrics]
-            [boundary.error-reporting.core :as error-reporting]
-            [clojure.string :as str])
+            [boundary.error-reporting.core :as error-reporting])
   (:import [java.time Instant]
            [java.util UUID]))
 

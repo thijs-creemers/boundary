@@ -1,7 +1,6 @@
 (ns boundary.platform.shell.utils.error-handling-test
   "Tests for error handling utilities with context preservation"
   (:require [boundary.platform.shell.utils.error-handling :as eh]
-[boundary.platform.core.http.problem-details :as problem]
             [clojure.test :refer [deftest testing is]]
             [cheshire.core :as json])
   (:import [java.util UUID]))

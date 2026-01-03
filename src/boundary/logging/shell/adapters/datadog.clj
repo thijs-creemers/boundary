@@ -37,11 +37,9 @@
    [cheshire.core :as json]
    [clojure.tools.logging :as log])
   (:import
-   [java.time Instant ZoneOffset]
+   [java.time Instant]
    [java.time.format DateTimeFormatter]
-   [java.util.concurrent BlockingQueue LinkedBlockingQueue ScheduledExecutorService
-    Executors TimeUnit]
-   [java.util UUID]
+   [java.util.concurrent LinkedBlockingQueue Executors TimeUnit]
    [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers HttpResponse$BodyHandlers]
    [java.net URI]
    [java.nio.charset StandardCharsets]))

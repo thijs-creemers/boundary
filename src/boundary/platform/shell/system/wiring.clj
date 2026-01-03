@@ -31,7 +31,6 @@
             [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
             [boundary.error-reporting.shell.adapters.sentry :as error-reporting-sentry]
             [boundary.platform.shell.http.reitit-router :as reitit-router]
-            [boundary.platform.shell.http.ring-jetty-server :as ring-jetty]
             [boundary.platform.shell.utils.port-manager :as port-manager]
             ;; todo: need to find a way to decouple these dependencies an inject them in another way.
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods

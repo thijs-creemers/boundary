@@ -2,8 +2,7 @@
   "Tests for behavior specification DSL."
   (:require [boundary.shared.core.validation.behavior :as behavior]
             [boundary.user.schema :as user-schema]
-            [clojure.test :refer [deftest is testing]]
-            [malli.core :as m]))
+            [clojure.test :refer [deftest is testing]]))
 
 ;; Tag all tests for Phase 3
 (alter-meta! *ns* assoc :kaocha/tags [:phase3])

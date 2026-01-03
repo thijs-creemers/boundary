@@ -10,7 +10,6 @@
      java -jar boundary-standalone.jar server       # Start HTTP server explicitly
      java -jar boundary-standalone.jar cli [args]   # Run CLI commands"
   (:require [boundary.config :as config]
-            [boundary.platform.shell.system.wiring :as wiring]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [integrant.core :as ig])

@@ -1,6 +1,5 @@
 (ns boundary.inventory.shell.http
-  "HTTP routes for inventory module."
-  (:require [boundary.inventory.ports :as ports]))
+  "HTTP routes for inventory module.")
 
 ;; =============================================================================
 ;; Legacy Reitit Routes

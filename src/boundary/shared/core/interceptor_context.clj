@@ -6,8 +6,6 @@
    common runtime errors."
   (:require [malli.core :as m]
             [malli.error :as me]
-[malli.transform :as mt]
-            [clojure.spec.alpha :as s]
             [boundary.platform.core.http.problem-details :as problem-details])
   (:import [java.time Instant]
            [java.util UUID]))

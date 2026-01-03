@@ -11,11 +11,9 @@
   (:require [boundary.shared.core.validation.generators :as gen]
             [boundary.shared.core.validation.behavior :as behavior]
             [boundary.shared.core.validation.snapshot :as snapshot]
-            [boundary.shared.core.validation.snapshot-io :as snapshot-io]
             [boundary.shared.core.validation.coverage :as coverage]
             [boundary.user.schema :as user-schema]
-            [clojure.test :refer [deftest is testing use-fixtures]]
-            [malli.core :as m]))
+            [clojure.test :refer [deftest is testing use-fixtures]]))
 
 ;; Tag for Phase 3
 (alter-meta! *ns* assoc :kaocha/tags [:phase3 :integration])
