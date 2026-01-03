@@ -1,20 +1,22 @@
 = Project Status
-:revdate: 2026-01-02
+:revdate: 2026-01-03
 
 == High-Level Summary
-The Boundary framework is focused on keeping the platform domain-agnostic while reinforcing Functional Core / Imperative Shell boundaries. Recent efforts concentrated on making HTTP interceptors ubiquitous, cleaning up documentation to stay framework-centric, and ensuring the codebase reflects the new architectural directions (e.g., removal of billing/workflow sample modules).
+The Boundary framework is focused on keeping the platform domain-agnostic while reinforcing Functional Core / Imperative Shell boundaries. Recent efforts concentrated on making HTTP interceptors ubiquitous, splitting documentation into a separate repository for better maintenance, and ensuring the codebase reflects the new architectural directions (e.g., removal of billing/workflow sample modules).
 
 == Recently Completed
+* **Documentation Repository Split (2026-01-03):** Successfully split all documentation into separate `boundary-docs` repository while preserving complete git history (175 commits). Documentation now has independent CI/CD with automated Hugo deployment to GitHub Pages.
+* **Documentation Reference Updates:** Updated 28 documentation files with current module references (user/inventory instead of billing/workflow) and corrected all cross-repository links.
 * **Interceptors Everywhere:** Reitit adapter now wraps every route in the default HTTP interceptor stack, guaranteeing consistent correlation IDs, error handling, and observability hooks. Per-route interceptors still work and are appended after the defaults.
 * **Reitit Tests:** Added coverage for default correlation headers, default error handling, and middleware ordering, ensuring the adapter changes remain regression-proof.
-* **ADR Alignment:** ADR-010 now documents the “always-on” interceptor behavior and clarifies that `:system` is optional (defaults to `{}`) but recommended when real observability providers are bound.
+* **ADR Alignment:** ADR-010 now documents the "always-on" interceptor behavior and clarifies that `:system` is optional (defaults to `{}`) but recommended when real observability providers are bound.
 * **Docs Cleanup (earlier work):** Removed domain-specific billing/workflow references, kept documentation English-only, and aligned guides/architecture docs with the domain-agnostic approach.
 * **Telemetry Pureness:** Type-conversion utilities were previously refactored to stay pure (no logging side effects), reinforcing the FC/IS separation.
 
 == In Progress / Upcoming
+* **GitHub Pages Setup:** Documentation repository is ready for deployment. Requires one-time manual GitHub Pages configuration (5 minutes) to enable automated Hugo builds and deployment.
 * **Global/Configurable Interceptors (Optional Enhancement):** Evaluate whether the router config should support additional global interceptors (beyond the default stack) so modules can declare shared policies (e.g., tenancy enforcement).
 * **Repository-Wide Lint Debt:** clj-kondo currently reports many legacy warnings (unused bindings, unresolved namespaces, etc.). A structured cleanup pass would improve signal/noise for new work.
-* **Documentation Status Feed:** Reintroduce (or automate) lightweight status updates so architectural decisions and active initiatives are visible without relying on chat history.
 * **Pluggable Auth Execution:** Follow up on ADR-011 by scoping the implementation steps (ports, provider contracts, scaffolding updates, and integration tests).
 
 == Risks / Blockers
@@ -23,8 +25,14 @@ The Boundary framework is focused on keeping the platform domain-agnostic while 
 * **Observability Providers:** Only no-op providers are guaranteed in dev/test. Wiring up real providers (Datadog, Sentry) needs environment-specific instructions before production rollout.
 
 == Suggested Next Steps
-1. **Decide on Global Interceptor Config:** Extend router config to accept optional `:global-interceptors` and document execution order, or explicitly defer if scope creep.
-2. **clj-kondo Cleanup Sprint:** Triage the highest-priority lint categories (missing requires, unresolved symbols) to improve CI signal.
-3. **Pluggable Auth Plan Execution:** Break ADR-011 into deliverables (ports interface, provider registry, example fake provider, sample integration tests).
-4. **Status Automation:** Keep this `PROJECT_STATUS.adoc` up to date (weekly cadence) or automate generation from TODO/ADR metadata.
+1. **Enable GitHub Pages:** Complete one-time GitHub Pages setup for boundary-docs repository (instructions in `GITHUB_PAGES_SETUP.md` in docs repo).
+2. **Decide on Global Interceptor Config:** Extend router config to accept optional `:global-interceptors` and document execution order, or explicitly defer if scope creep.
+3. **clj-kondo Cleanup Sprint:** Triage the highest-priority lint categories (missing requires, unresolved symbols) to improve CI signal.
+4. **Pluggable Auth Plan Execution:** Break ADR-011 into deliverables (ports interface, provider registry, example fake provider, sample integration tests).
 5. **Test Infrastructure:** Evaluate Docker-based postgres fixture or embed instructions/tools so contributors can run integration tests reliably.
+
+== Documentation
+* **Main Documentation:** https://github.com/thijs-creemers/boundary-docs (separate repository)
+* **Live Docs (when deployed):** https://thijs-creemers.github.io/boundary-docs/
+* **Code Repository:** https://github.com/thijs-creemers/boundary
+* **Developer Guide:** link:AGENTS.md[AGENTS.md] (comprehensive guide for AI and human developers)
