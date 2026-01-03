@@ -42,7 +42,8 @@
    - Reitit adapter translates :interceptors → :middleware with this runner"
   (:require [boundary.shared.core.interceptor :as interceptor]
             [boundary.metrics.ports :as metrics-ports]
-            [boundary.error-reporting.core :as error-reporting])
+            [boundary.error-reporting.core :as error-reporting]
+            [clojure.string :as str])
   (:import [java.time Instant]
            [java.util UUID]))
 
@@ -127,6 +128,72 @@
      Updated context with modified body"
   [context f]
   (update-in context [:response :body] f))
+
+;; ==============================================================================
+;; Environment / Enforcement Helpers
+;; ==============================================================================
+
+(def ^:private truthy-config-values #{"1" "true" "yes" "on"})
+(def ^:private falsy-config-values #{"0" "false" "no" "off"})
+
+(defn- parse-boolean-config
+  "Parse common textual boolean values."
+  [value]
+  (when value
+    (let [token (-> value str str/lower-case str/trim)]
+      (cond
+        (truthy-config-values token) true
+        (falsy-config-values token) false
+        :else nil))))
+
+(def ^:private dev-like-environments
+  #{"dev" "development" "test" "testing" "local"})
+
+(defn- detect-environment
+  "Derive the current runtime environment."
+  [system]
+  (some-> (or (:environment system)
+              (get-in system [:config :environment])
+              (System/getenv "BND_ENV")
+              (System/getProperty "environment")
+              "development")
+          str
+          str/trim
+          str/lower-case))
+
+(defn- enforce-error-type?
+  "Return true when exceptions must include :type in ex-data."
+  [system]
+  (let [override (or (System/getenv "BOUNDARY_ENFORCE_TYPED_ERRORS")
+                     (System/getProperty "boundary.enforceTypedErrors"))
+        parsed-override (parse-boolean-config override)
+        env (detect-environment system)]
+    (if (some? parsed-override)
+      parsed-override
+      ;; Default: enforce in dev-like environments, skip in production
+      (dev-like-environments (or env "development")))))
+
+(defn- respond-missing-error-type
+  "Emit a diagnostic response for ex-info missing :type."
+  [{:keys [exception request correlation-id system] :as ctx} ex-data]
+  (when-let [logger (:logger system)]
+    (.warn logger
+           "Exception reached HTTP boundary without :type in ex-data"
+           {:exception-class (.getName (class exception))
+            :uri (:uri request)
+            :correlation-id correlation-id
+            :ex-data-keys (sort (keys ex-data))}))
+  (set-response ctx
+                {:status 500
+                 :headers {"Content-Type" "application/json"
+                           "X-Correlation-ID" correlation-id}
+                 :body {:error "missing-error-type"
+                        :message "Exceptions reaching the HTTP boundary must include :type in ex-data."
+                        :hint "Add :type to the ex-info data map (e.g., {:type :validation-error})."
+                        :correlation-id correlation-id
+                        :exception-class (.getName (class exception))
+                        :ex-data-keys (sort (keys ex-data))
+                        :uri (:uri request)}}))
 
 ;; ==============================================================================
 ;; HTTP-Specific Interceptors
@@ -216,26 +283,30 @@
 (def http-error-handler
   "Converts exceptions into safe HTTP error responses."
   {:name :http-error-handler
-   :error (fn [{:keys [exception correlation-id] :as ctx}]
-            (let [ex-data (ex-data exception)
-                  error-type (or (:type ex-data) :internal-error)
-                  status (case error-type
-                           :validation-error 400
-                           :not-found 404
-                           :unauthorized 401
-                           :forbidden 403
-                           :conflict 409
-                           500)]
-              (set-response ctx
-                            {:status status
-                             :headers {"Content-Type" "application/json"
-                                       "X-Correlation-ID" correlation-id}
-                             :body {:error (name error-type)
-                                    :message (or (:message ex-data)
-                                                (.getMessage ^Throwable exception)
-                                                "An error occurred")
-                                    :correlation-id correlation-id
-                                    :details (dissoc ex-data :type :message)}})))})
+   :error (fn [{:keys [exception correlation-id system] :as ctx}]
+            (let [ex-data (ex-data exception)]
+              (if (and (map? ex-data)
+                       (nil? (:type ex-data))
+                       (enforce-error-type? system))
+                (respond-missing-error-type ctx ex-data)
+                (let [error-type (or (:type ex-data) :internal-error)
+                      status (case error-type
+                               :validation-error 400
+                               :not-found 404
+                               :unauthorized 401
+                               :forbidden 403
+                               :conflict 409
+                               500)]
+                  (set-response ctx
+                                {:status status
+                                 :headers {"Content-Type" "application/json"
+                                           "X-Correlation-ID" correlation-id}
+                                 :body {:error (name error-type)
+                                        :message (or (:message ex-data)
+                                                     (.getMessage ^Throwable exception)
+                                                     "An error occurred")
+                                        :correlation-id correlation-id
+                                        :details (dissoc ex-data :type :message)}})))))})
 
 ;; ==============================================================================
 ;; Default HTTP Interceptor Stack

@@ -1,0 +1,30 @@
+= Project Status
+:revdate: 2026-01-02
+
+== High-Level Summary
+The Boundary framework is focused on keeping the platform domain-agnostic while reinforcing Functional Core / Imperative Shell boundaries. Recent efforts concentrated on making HTTP interceptors ubiquitous, cleaning up documentation to stay framework-centric, and ensuring the codebase reflects the new architectural directions (e.g., removal of billing/workflow sample modules).
+
+== Recently Completed
+* **Interceptors Everywhere:** Reitit adapter now wraps every route in the default HTTP interceptor stack, guaranteeing consistent correlation IDs, error handling, and observability hooks. Per-route interceptors still work and are appended after the defaults.
+* **Reitit Tests:** Added coverage for default correlation headers, default error handling, and middleware ordering, ensuring the adapter changes remain regression-proof.
+* **ADR Alignment:** ADR-010 now documents the “always-on” interceptor behavior and clarifies that `:system` is optional (defaults to `{}`) but recommended when real observability providers are bound.
+* **Docs Cleanup (earlier work):** Removed domain-specific billing/workflow references, kept documentation English-only, and aligned guides/architecture docs with the domain-agnostic approach.
+* **Telemetry Pureness:** Type-conversion utilities were previously refactored to stay pure (no logging side effects), reinforcing the FC/IS separation.
+
+== In Progress / Upcoming
+* **Global/Configurable Interceptors (Optional Enhancement):** Evaluate whether the router config should support additional global interceptors (beyond the default stack) so modules can declare shared policies (e.g., tenancy enforcement).
+* **Repository-Wide Lint Debt:** clj-kondo currently reports many legacy warnings (unused bindings, unresolved namespaces, etc.). A structured cleanup pass would improve signal/noise for new work.
+* **Documentation Status Feed:** Reintroduce (or automate) lightweight status updates so architectural decisions and active initiatives are visible without relying on chat history.
+* **Pluggable Auth Execution:** Follow up on ADR-011 by scoping the implementation steps (ports, provider contracts, scaffolding updates, and integration tests).
+
+== Risks / Blockers
+* **External Dependencies:** Several integration tests rely on local PostgreSQL; when unavailable they are skipped. Consider containerized fixtures or Testcontainers-like setup for reproducibility.
+* **Lint Noise:** Until unresolved namespace and unused binding warnings are addressed, genuine regressions may hide in the noise.
+* **Observability Providers:** Only no-op providers are guaranteed in dev/test. Wiring up real providers (Datadog, Sentry) needs environment-specific instructions before production rollout.
+
+== Suggested Next Steps
+1. **Decide on Global Interceptor Config:** Extend router config to accept optional `:global-interceptors` and document execution order, or explicitly defer if scope creep.
+2. **clj-kondo Cleanup Sprint:** Triage the highest-priority lint categories (missing requires, unresolved symbols) to improve CI signal.
+3. **Pluggable Auth Plan Execution:** Break ADR-011 into deliverables (ports interface, provider registry, example fake provider, sample integration tests).
+4. **Status Automation:** Keep this `PROJECT_STATUS.adoc` up to date (weekly cadence) or automate generation from TODO/ADR metadata.
+5. **Test Infrastructure:** Evaluate Docker-based postgres fixture or embed instructions/tools so contributors can run integration tests reliably.

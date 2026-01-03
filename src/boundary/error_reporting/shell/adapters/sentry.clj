@@ -32,7 +32,6 @@
   (:require
    [boundary.error-reporting.ports :as ports]
    [boundary.shared.core.utils.pii-redaction :as pii]
-   [clojure.string :as str]
    [clojure.tools.logging :as log]
    [sentry-clj.core :as sentry])
   (:import
@@ -224,7 +223,7 @@
 
 (defrecord SentryErrorContext [config]
   ports/IErrorContext
-  (with-context [this context-map f]
+  (with-context [_this context-map f]
     (let [original-context (get-thread-context)
           merged-context (merge original-context context-map)]
       (try
@@ -233,7 +232,7 @@
         (finally
           (set-thread-context! original-context)))))
 
-  (add-breadcrumb! [this breadcrumb]
+  (add-breadcrumb! [_this breadcrumb]
     (let [{:keys [message category level timestamp data]} breadcrumb
           sentry-breadcrumb {:message message
                              :category (or category "default")
@@ -246,11 +245,11 @@
       (merge-thread-context! {:breadcrumbs updated-breadcrumbs})
       nil))
 
-  (clear-breadcrumbs! [this]
+  (clear-breadcrumbs! [_this]
     (merge-thread-context! {:breadcrumbs []})
     nil)
 
-  (set-user! [this user-info]
+  (set-user! [_this user-info]
     (let [{:keys [id username email ip-address additional]} user-info
           sentry-user (cond-> {}
                         id (assoc :id id)
@@ -261,15 +260,15 @@
       (merge-thread-context! {:user sentry-user :user-id id})
       nil))
 
-  (set-tags! [this tags]
+  (set-tags! [_this tags]
     (merge-thread-context! {:tags tags})
     nil)
 
-  (set-extra! [this extra]
+  (set-extra! [_this extra]
     (merge-thread-context! {:extra extra})
     nil)
 
-  (current-context [this]
+  (current-context [_this]
     (get-thread-context)))
 
 ;; =============================================================================
@@ -278,25 +277,25 @@
 
 (defrecord SentryErrorFilter [config filters]
   ports/IErrorFilter
-  (should-report? [this exception context]
+  (should-report? [_this _exception _context]
     ;; For now, implement basic filtering
     ;; TODO: Implement more sophisticated filtering based on config
     true)
 
-  (should-report-message? [this message level context]
+  (should-report-message? [_this _message _level _context]
     ;; For now, implement basic filtering
     ;; TODO: Implement more sophisticated filtering based on config
     true)
 
-  (sample-rate [this exception-type]
+  (sample-rate [_this _exception-type]
     ;; Return configured sample rate or default
     (get config :sample-rate 1.0))
 
-  (add-filter-rule! [this rule]
+  (add-filter-rule! [_this _rule]
     ;; TODO: Implement dynamic filter rule addition
     (log/warn "Dynamic filter rules not yet implemented"))
 
-  (remove-filter-rule! [this rule-id]
+  (remove-filter-rule! [_this _rule-id]
     ;; TODO: Implement dynamic filter rule removal
     (log/warn "Dynamic filter rule removal not yet implemented")
     false))
@@ -307,46 +306,44 @@
 
 (defrecord SentryErrorReportingConfig [config-atom]
   ports/IErrorReportingConfig
-  (set-environment! [this environment]
+  (set-environment! [_this environment]
     (let [old-env (:environment @config-atom)]
       (swap! config-atom assoc :environment environment)
       old-env))
 
-  (get-environment [this]
+  (get-environment [_this]
     (:environment @config-atom))
 
-  (set-release! [this release]
+  (set-release! [_this release]
     (let [old-release (:release @config-atom)]
       (swap! config-atom assoc :release release)
       old-release))
 
-  (get-release [this]
+  (get-release [_this]
     (:release @config-atom))
 
-  (set-sample-rate! [this sample-rate]
+  (set-sample-rate! [_this sample-rate]
     (let [old-rate (:sample-rate @config-atom)]
       (swap! config-atom assoc :sample-rate sample-rate)
       ;; Note: Sentry doesn't support runtime sample rate changes
       ;; This would require reinitializing the client
       old-rate))
 
-  (get-sample-rate [this]
+  (get-sample-rate [_this]
     (:sample-rate @config-atom))
 
-  (enable-reporting! [this]
+  (enable-reporting! [_this]
     (let [old-enabled (:enabled @config-atom)]
       (swap! config-atom assoc :enabled true)
       old-enabled))
 
-  (disable-reporting! [this]
+  (disable-reporting! [_this]
     (let [old-enabled (:enabled @config-atom)]
       (swap! config-atom assoc :enabled false)
       old-enabled))
 
-  (reporting-enabled? [this]
+  (reporting-enabled? [_this]
     (:enabled @config-atom)))
-
-;; =============================================================================
 ;; Factory Functions
 ;; =============================================================================
 
@@ -405,69 +402,70 @@
 ;; Integrant Components
 ;; =============================================================================
 
-(defrecord SentryErrorReportingComponent [config error-reporter error-context error-filter error-config]
+(defrecord ^{:clj-kondo/ignore [:unused-binding]}
+    SentryErrorReportingComponent [config error-reporter error-context error-filter error-config]
   ports/IErrorReporter
-  (capture-exception [this exception]
+  (capture-exception [_this exception]
     (ports/capture-exception error-reporter exception))
-  (capture-exception [this exception context]
+  (capture-exception [_this exception context]
     (ports/capture-exception error-reporter exception context))
-  (capture-exception [this exception context tags]
+  (capture-exception [_this exception context tags]
     (ports/capture-exception error-reporter exception context tags))
-  (capture-message [this message level]
+  (capture-message [_this message level]
     (ports/capture-message error-reporter message level))
-  (capture-message [this message level context]
+  (capture-message [_this message level context]
     (ports/capture-message error-reporter message level context))
-  (capture-message [this message level context tags]
+  (capture-message [_this message level context tags]
     (ports/capture-message error-reporter message level context tags))
-  (capture-event [this event-map]
+  (capture-event [_this event-map]
     (ports/capture-event error-reporter event-map))
 
   ports/IErrorContext
-  (with-context [this context-map f]
+  (with-context [_this context-map f]
     (ports/with-context error-context context-map f))
-  (add-breadcrumb! [this breadcrumb]
+  (add-breadcrumb! [_this breadcrumb]
     (ports/add-breadcrumb! error-context breadcrumb))
-  (clear-breadcrumbs! [this]
+  (clear-breadcrumbs! [_this]
     (ports/clear-breadcrumbs! error-context))
-  (set-user! [this user-info]
+  (set-user! [_this user-info]
     (ports/set-user! error-context user-info))
-  (set-tags! [this tags]
+  (set-tags! [_this tags]
     (ports/set-tags! error-context tags))
-  (set-extra! [this extra]
+  (set-extra! [_this extra]
     (ports/set-extra! error-context extra))
-  (current-context [this]
+  (current-context [_this]
     (ports/current-context error-context))
 
   ports/IErrorFilter
-  (should-report? [this exception context]
+  (should-report? [_this exception context]
     (ports/should-report? error-filter exception context))
-  (should-report-message? [this message level context]
+  (should-report-message? [_this message level context]
     (ports/should-report-message? error-filter message level context))
-  (sample-rate [this exception-type]
+  (sample-rate [_this exception-type]
     (ports/sample-rate error-filter exception-type))
-  (add-filter-rule! [this rule]
+  (add-filter-rule! [_this rule]
     (ports/add-filter-rule! error-filter rule))
-  (remove-filter-rule! [this rule-id]
+  (remove-filter-rule! [_this rule-id]
     (ports/remove-filter-rule! error-filter rule-id))
 
   ports/IErrorReportingConfig
-  (set-environment! [this environment]
+  (set-environment! [_this environment]
     (ports/set-environment! error-config environment))
-  (get-environment [this]
+  (get-environment [_this]
     (ports/get-environment error-config))
-  (set-release! [this release]
+  (set-release! [_this release]
     (ports/set-release! error-config release))
-  (get-release [this]
+  (get-release [_this]
     (ports/get-release error-config))
-  (set-sample-rate! [this sample-rate]
+  (set-sample-rate! [_this sample-rate]
     (ports/set-sample-rate! error-config sample-rate))
-  (get-sample-rate [this]
+  (get-sample-rate [_this]
     (ports/get-sample-rate error-config))
-  (enable-reporting! [this]
+  (enable-reporting! [_this]
     (ports/enable-reporting! error-config))
-  (disable-reporting! [this]
+  (disable-reporting! [_this]
     (ports/disable-reporting! error-config))
-  (reporting-enabled? [this]
+  (reporting-enabled? [_this]
     (ports/reporting-enabled? error-config)))
 
 (defn create-sentry-error-reporting-component

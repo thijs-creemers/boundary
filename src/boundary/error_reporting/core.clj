@@ -5,7 +5,8 @@
    the error reporting protocols, making it easier for feature modules to
    report errors without dealing with protocol details directly."
   (:require
-   [boundary.error-reporting.ports :as ports]))
+   [boundary.error-reporting.ports :as ports]
+   [clojure.string :as str]))
 
 ;; =============================================================================
 ;; Context Management Utilities
@@ -55,7 +56,7 @@
   [context request-id method path headers]
   (assoc context
          :request-id request-id
-         :http-method (clojure.string/upper-case (name method))
+         :http-method (str/upper-case (name method))
          :http-path (str path)
          :http-headers headers))
 
@@ -160,6 +161,7 @@
         enriched-context (merge context
                                 classification
                                 {:error-type :application
+                                 :message message
                                  :timestamp (or (:timestamp context) (java.time.Instant/now))})]
     (ports/capture-exception reporter exception enriched-context)))
 
@@ -253,6 +255,7 @@
                                         reporting-context
                                         classification
                                         {:error-type :application
+                                         :message message
                                          :timestamp (System/currentTimeMillis)
                                          :enhanced-context error-context})
                            cause-chain (assoc :cause cause-chain))]
@@ -414,7 +417,7 @@
      nil"
   [context path method]
   (add-breadcrumb context
-                  (str (clojure.string/upper-case (name method)) " " path)
+                  (str (str/upper-case (name method)) " " path)
                   "navigation"
                   :info
                   {:path path :method method}))
@@ -440,7 +443,7 @@
 ;; Error Aggregation and Filtering
 ;; =============================================================================
 
-(defn create-error-fingerprint
+ (defn create-error-fingerprint
   "Creates a fingerprint for error grouping.
    
    Args:
@@ -451,7 +454,6 @@
      Fingerprint string for grouping similar errors"
   [exception context]
   (let [ex-type (-> exception class .getSimpleName)
-        ex-message (.getMessage exception)
         stack-trace-hash (hash (take 5 (.getStackTrace exception)))
         operation (get context :operation "unknown")]
     (str ex-type ":" operation ":" stack-trace-hash)))
@@ -486,7 +488,7 @@
    
    Returns:
      nil"
-  [metrics-emitter error-type severity service]
+  [metrics-emitter _error-type _severity _service]
   (when metrics-emitter
     ;; This would require the metrics component to be available
     ;; Implementation would depend on the metrics core functions

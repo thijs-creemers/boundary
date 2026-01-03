@@ -258,3 +258,52 @@
                :response {:headers {}}}
           result ((:error http-interceptors/http-correlation-header) ctx)]
       (is (= "test-123" (get-in result [:response :headers "X-Correlation-ID"]))))))
+
+;; ==============================================================================
+;; Error Type Enforcement Tests
+;; ==============================================================================
+
+(deftest http-error-handler-enforcement-test
+  (testing "detects missing :type in dev environment"
+    (let [exception (ex-info "Validation error" {:field "name" :value ""})
+          ctx {:exception exception
+               :correlation-id "test-123"
+               :request {:uri "/api/users" :request-method :post}
+               :system {}}
+          result ((:error http-interceptors/http-error-handler) ctx)]
+      ;; In dev mode (default), should respond with missing-error-type
+      (is (= 500 (get-in result [:response :status])))
+      (is (= "missing-error-type" (get-in result [:response :body :error])))))
+  
+  (testing "allows missing :type when enforcement is disabled"
+    ;; Set environment to production-like to skip enforcement
+    (let [exception (ex-info "Validation error" {:field "name"})
+          ctx {:exception exception
+               :correlation-id "test-123"
+               :request {:uri "/api/users"}
+               :system {:environment "production"}}
+          result ((:error http-interceptors/http-error-handler) ctx)]
+      (is (= 500 (get-in result [:response :status])))
+      (is (= "internal-error" (get-in result [:response :body :error])))))
+  
+  (testing "handles plain exceptions without ex-data gracefully"
+    (let [exception (Exception. "Something went wrong")
+          ctx {:exception exception
+               :correlation-id "test-123"
+               :request {:uri "/api/users"}
+               :system {}}
+          result ((:error http-interceptors/http-error-handler) ctx)]
+      ;; Plain exceptions don't have ex-data, so no enforcement check
+      (is (= 500 (get-in result [:response :status])))
+      (is (= "internal-error" (get-in result [:response :body :error])))))
+  
+  (testing "preserves explicit :type when provided"
+    (let [exception (ex-info "Auth failed" {:type :unauthorized :reason "Invalid token"})
+          ctx {:exception exception
+               :correlation-id "test-123"
+               :request {:uri "/api/users"}
+               :system {}}
+          result ((:error http-interceptors/http-error-handler) ctx)]
+      (is (= 401 (get-in result [:response :status])))
+      (is (= "unauthorized" (get-in result [:response :body :error])))
+      (is (= "Invalid token" (get-in result [:response :body :details :reason]))))))
