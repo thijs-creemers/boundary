@@ -274,9 +274,14 @@
      :boundary/audit-repository
      {:ctx (ig/ref :boundary/db-context)}
 
+     :boundary/mfa-service
+     {:user-repository (ig/ref :boundary/user-repository)
+      :mfa-config {}} ; Add actual MFA config if needed
+
      :boundary/auth-service
      {:user-repository (ig/ref :boundary/user-repository)
       :session-repository (ig/ref :boundary/session-repository)
+      :mfa-service (ig/ref :boundary/mfa-service)
       :auth-config {}} ; Add actual auth config if needed
 
      :boundary/user-service
@@ -291,6 +296,7 @@
 
      :boundary/user-routes
      {:user-service (ig/ref :boundary/user-service)
+      :mfa-service (ig/ref :boundary/mfa-service)
       :config config}
 
      :boundary/http-handler

@@ -6,10 +6,13 @@
    - JWT token creation and validation
    - Session token generation
    - Authentication coordination
+   - MFA verification
    
    All I/O and side effects happen here. Pure business logic
    is delegated to boundary.user.core.authentication."
   (:require [boundary.user.core.authentication :as auth-core]
+            [boundary.user.core.mfa :as mfa-core]
+            [boundary.user.shell.mfa :as mfa-shell]
             [buddy.hashers :as hashers]
             [buddy.sign.jwt :as jwt]
             [clojure.tools.logging :as log])
@@ -121,34 +124,35 @@
 ;; Authentication Service Coordination
 ;; =============================================================================
 
-(defrecord AuthenticationService [user-repository session-repository auth-config])
+(defrecord AuthenticationService [user-repository session-repository mfa-service auth-config])
 
 (defn create-authentication-service
   "Factory function: Create authentication service instance.
    
    Args:
      user-repository: IUserRepository implementation
-     session-repository: IUserSessionRepository implementation  
+     session-repository: IUserSessionRepository implementation
+     mfa-service: MFAService implementation  
      auth-config: Authentication configuration map
      
    Returns:
      AuthenticationService instance"
-  [user-repository session-repository auth-config]
-  (->AuthenticationService user-repository session-repository auth-config))
+  [user-repository session-repository mfa-service auth-config]
+  (->AuthenticationService user-repository session-repository mfa-service auth-config))
 
 (defn authenticate-user
-  "Coordinate user authentication with all security checks.
+  "Coordinate user authentication with all security checks including MFA.
    
    Args:
      auth-service: AuthenticationService instance
      email: User email
      password: Plain text password
-     login-context: Map with :ip-address, :user-agent
+     login-context: Map with :ip-address, :user-agent, :mfa-code (optional)
      
    Returns:
-     Authentication result map with :success?, :user, :session, etc."
+     Authentication result map with :success?, :user, :session, :requires-mfa?, etc."
   [auth-service email password login-context]
-  (let [{:keys [user-repository session-repository auth-config]} auth-service]
+  (let [{:keys [user-repository session-repository mfa-service auth-config]} auth-service]
     (log/info "Authentication attempt" {:email email :ip (:ip-address login-context)})
 
     (let [current-time (Instant/now)
@@ -176,7 +180,26 @@
           password-valid? (when (and user (:allowed? login-allowed?))
                             (verify-password password (:password-hash user)))
 
-          ;; Step 5: Handle authentication result
+          ;; Step 5: Analyze login risk
+          login-risk (when (and user password-valid?)
+                       (auth-core/analyze-login-risk
+                        user login-context
+                        (.find-sessions-by-user session-repository (:id user))))
+
+          ;; Step 6: Check MFA requirement and verification
+          mfa-code (:mfa-code login-context)
+          mfa-requirement (when (and user password-valid?)
+                            (mfa-core/determine-mfa-requirement
+                             user password-valid? mfa-code login-risk))
+
+          ;; Step 7: Verify MFA code if provided
+          mfa-verification (when (and user
+                                     password-valid?
+                                     (:mfa-enabled user)
+                                     mfa-code)
+                             (mfa-shell/verify-mfa-code mfa-service user mfa-code))
+
+          ;; Step 8: Handle authentication result
           result (cond
                    ;; Validation errors
                    (not (:valid? credential-validation))
@@ -196,22 +219,40 @@
                    (let [failure-updates (auth-core/calculate-failed-login-consequences
                                           user auth-config current-time)]
                      ;; Update user with failed login consequences (I/O)
-                     (.update-user user-repository (:id user) failure-updates)
+                     (.update-user user-repository user failure-updates)
                      (log/warn "Authentication failed - invalid password" {:email email})
                      {:success? false
                       :error :authentication-failed
                       :message "Invalid credentials"})
 
-                   ;; Successful authentication
+                   ;; MFA required but not provided
+                   (and (:requires-mfa? mfa-requirement)
+                        (nil? mfa-code))
+                   {:success? false
+                    :requires-mfa? true
+                    :message "MFA code required"
+                    :user (dissoc user :password-hash :mfa-secret :mfa-backup-codes)}
+
+                   ;; MFA code provided but invalid
+                   (and (:requires-mfa? mfa-requirement)
+                        mfa-code
+                        (not (:valid? mfa-verification)))
+                   (do
+                     (log/warn "MFA verification failed" {:email email})
+                     {:success? false
+                      :error :mfa-verification-failed
+                      :message "Invalid MFA code"})
+
+                   ;; Successful authentication (with or without MFA)
                    :else
-                   (let [;; Analyze login risk
-                         login-risk (auth-core/analyze-login-risk
-                                     user login-context
-                                     (.find-sessions-by-user-id session-repository (:id user) {:limit 30}))
+                   (let [;; If backup code was used, update user
+                         _ (when (:used-backup-code? mfa-verification)
+                             (log/info "Backup code used for MFA" {:email email})
+                             (.update-user user-repository user (:updates mfa-verification)))
 
                          ;; Update user for successful login (I/O)  
                          login-updates (auth-core/prepare-successful-login-updates user current-time)
-                         _ (.update-user user-repository (:id user) login-updates)
+                         _ (.update-user user-repository user login-updates)
 
                          ;; Determine session creation policy
                          session-policy (auth-core/should-create-session? user login-risk auth-config)
@@ -230,13 +271,16 @@
                                      (.create-session session-repository session-data)))]
 
                      (log/info "Authentication successful"
-                               {:email email :risk-score (:risk-score login-risk)
+                               {:email email 
+                                :risk-score (:risk-score login-risk)
+                                :mfa-used (:mfa-enabled user)
                                 :session-duration (:session-duration-hours session-policy)})
 
                      {:success? true
-                      :user (dissoc user :password-hash) ; Don't return password hash
+                      :user (dissoc user :password-hash :mfa-secret :mfa-backup-codes) ; Don't return sensitive data
                       :session session
                       :risk-analysis login-risk
+                      :mfa-verified? (or (not (:mfa-enabled user)) (:valid? mfa-verification))
                       :requires-additional-verification? (:requires-additional-verification? session-policy)}))]
 
       result)))

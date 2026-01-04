@@ -16,10 +16,10 @@
      
      (db-config/get-active-adapters \"dev\")     ; Get active adapters for dev env
      (db-config/adapter-active? :postgresql)    ; Check if adapter is active"
-  (:require [clojure.tools.logging :as log]
+   (:require [clojure.tools.logging :as log]
             [aero.core :as aero]
             [clojure.java.io :as io]
-            [boundary.platform.shell.adapters.database.common.connection :as connection]))
+            [boundary.platform.shell.adapters.database.factory :as factory]))
 
 ;; =============================================================================
 ;; Configuration Loading
@@ -62,6 +62,26 @@
   []
   (log/debug "Clearing configuration cache")
   (reset! *config-cache* {}))
+
+;; =============================================================================
+;; Environment Detection
+;; =============================================================================
+
+(def ^:dynamic *default-environment* "dev")
+
+(defn detect-environment
+  "Detect current environment from various sources"
+  []
+  (or (System/getProperty "env")
+      (System/getenv "ENV")
+      (System/getenv "ENVIRONMENT")
+      *default-environment*))
+
+(defn with-environment
+  "Execute function with specific environment context"
+  [env f]
+  (binding [*default-environment* env]
+    (f)))
 
 ;; =============================================================================
 ;; Database Adapter Configuration Analysis
@@ -238,7 +258,7 @@
 
    Throws:
      Exception if no active database is configured"
-  []
+   []
   (let [env (detect-environment)
         db-configs (get-active-db-configs env)]
     (when (empty? db-configs)
@@ -246,31 +266,11 @@
                       {:environment env})))
     (let [[config-key config] (first db-configs)
           ;; Create a datasource for the database configuration
-          datasource (connection/create-connection-pool config)]
+          datasource (factory/create-datasource config)]
       (assoc config
              :datasource datasource
              :database-type (name (:adapter config))
              :config-key config-key))))
-
-;; =============================================================================
-;; Environment Detection and Defaults
-;; =============================================================================
-
-(def ^:dynamic *default-environment* "dev")
-
-(defn detect-environment
-  "Detect current environment from various sources"
-  []
-  (or (System/getProperty "env")
-      (System/getenv "ENV")
-      (System/getenv "ENVIRONMENT")
-      *default-environment*))
-
-(defn with-environment
-  "Execute function with specific environment context"
-  [env f]
-  (binding [*default-environment* env]
-    (f)))
 
 ;; =============================================================================
 ;; Test Helper Functions (for compatibility with test suite)

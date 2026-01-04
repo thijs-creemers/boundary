@@ -31,6 +31,12 @@
    [:date-format {:optional true} [:enum :iso :us :eu]]
    [:time-format {:optional true} [:enum :12h :24h]]
    [:avatar-url {:optional true} :string]
+   ;; MFA fields
+   [:mfa-enabled {:optional true} :boolean]
+   [:mfa-secret {:optional true} [:maybe :string]] ; TOTP secret (base32 encoded)
+   [:mfa-backup-codes {:optional true} [:maybe [:vector :string]]] ; List of backup codes
+   [:mfa-backup-codes-used {:optional true} [:maybe [:vector :string]]] ; Used backup codes
+   [:mfa-enabled-at {:optional true} [:maybe inst?]]
    [:created-at inst?]
    [:updated-at {:optional true} [:maybe inst?]]
    [:deleted-at {:optional true} [:maybe inst?]]])
@@ -108,8 +114,30 @@
    [:email [:re {:error/message "Invalid email format"} email-regex]]
    [:password [:string {:min 8 :max 255 :error/message "Password must be at least 8 characters"}]]
    [:remember {:optional true} :boolean]
+   [:mfa-code {:optional true} [:maybe :string]] ; 6-digit TOTP code or backup code
    [:ip-address {:optional true} [:maybe :string]]
    [:user-agent {:optional true} [:maybe :string]]])
+
+(def MFASetupRequest
+  "Schema for MFA setup initiation."
+  [:map {:title "MFA Setup Request"}
+   [:user-id :uuid]])
+
+(def MFAEnableRequest
+  "Schema for enabling MFA with verification."
+  [:map {:title "MFA Enable Request"}
+   [:verification-code [:string {:min 6 :max 6 :error/message "Verification code must be 6 digits"}]]])
+
+(def MFAVerifyRequest
+  "Schema for MFA code verification."
+  [:map {:title "MFA Verify Request"}
+   [:code [:string {:min 6 :max 6 :error/message "MFA code must be 6 digits"}]]])
+
+(def MFADisableRequest
+  "Schema for disabling MFA."
+  [:map {:title "MFA Disable Request"}
+   [:password [:string {:min 8 :max 255 :error/message "Password required to disable MFA"}]]
+   [:confirmation-code {:optional true} [:maybe :string]]]) ; Current MFA code for extra security
 
 ;; =============================================================================
 ;; API Response Schemas
@@ -128,8 +156,34 @@
    [:dateFormat {:optional true} :string] ; Enum as string
    [:timeFormat {:optional true} :string] ; Enum as string
    [:avatarUrl {:optional true} :string]
+   [:mfaEnabled {:optional true} :boolean]
    [:createdAt :string] ; Instant as ISO string
-   [:updatedAt {:optional true} :string]]) ; Instant as ISO string ; Instant as ISO string
+   [:updatedAt {:optional true} :string]]) ; Instant as ISO string
+
+(def MFASetupResponse
+  "Schema for MFA setup response."
+  [:map {:title "MFA Setup Response"}
+   [:secret :string] ; Base32-encoded TOTP secret
+   [:qrCodeUrl :string] ; Data URL for QR code
+   [:backupCodes [:vector :string]] ; List of backup codes
+   [:issuer :string] ; Application name for authenticator app
+   [:accountName :string]]) ; User identifier for authenticator app
+
+(def MFAStatusResponse
+  "Schema for MFA status response."
+  [:map {:title "MFA Status Response"}
+   [:enabled :boolean]
+   [:enabledAt {:optional true} [:maybe :string]] ; ISO timestamp
+   [:backupCodesRemaining {:optional true} :int]])
+
+(def LoginResponse
+  "Schema for login response."
+  [:map {:title "Login Response"}
+   [:success :boolean]
+   [:requiresMfa {:optional true} :boolean] ; True if MFA verification needed
+   [:sessionToken {:optional true} :string] ; Only provided after successful full auth
+   [:user {:optional true} :map] ; User details after successful auth
+   [:message {:optional true} :string]])
 
 ;; =============================================================================
 ;; User-Specific Transformation Functions

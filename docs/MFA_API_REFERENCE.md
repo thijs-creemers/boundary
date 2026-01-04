@@ -1,0 +1,799 @@
+# MFA API Reference
+
+Complete API reference for Multi-Factor Authentication endpoints in Boundary Framework.
+
+## Quick Navigation
+
+- [Setup MFA](#setup-mfa) - `POST /api/auth/mfa/setup`
+- [Enable MFA](#enable-mfa) - `POST /api/auth/mfa/enable`
+- [Disable MFA](#disable-mfa) - `POST /api/auth/mfa/disable`
+- [Get MFA Status](#get-mfa-status) - `GET /api/auth/mfa/status`
+- [Login with MFA](#login-with-mfa) - `POST /api/auth/login`
+
+---
+
+## Setup MFA
+
+Initialize MFA setup for the authenticated user.
+
+### Request
+
+```http
+POST /api/auth/mfa/setup HTTP/1.1
+Host: localhost:3000
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+```
+
+**Parameters**: None
+
+**Authentication**: Required (Bearer token)
+
+### Response (Success - 200 OK)
+
+```json
+{
+  "success?": true,
+  "secret": "JBSWY3DPEHPK3PXP",
+  "qr-code-url": "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=otpauth%3A%2F%2Ftotp%2FBoundary%2520Framework%3Auser%40example.com%3Fsecret%3DJBSWY3DPEHPK3PXP%26issuer%3DBoundary%2520Framework",
+  "backup-codes": [
+    "3LTW-XRM1-GYVF",
+    "CN2K-1AWR-GDVT",
+    "9FHJ-K2LM-PQRS",
+    "7TUV-W3XY-Z4AB",
+    "5CDE-F6GH-I8JK",
+    "2LMN-O9PQ-R1ST",
+    "8UVW-X4YZ-A5BC",
+    "6DEF-G7HI-J9KL",
+    "4MNO-P2QR-S3TU",
+    "1VWX-Y8ZA-B0CD"
+  ],
+  "issuer": "Boundary Framework",
+  "account-name": "user@example.com"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success?` | boolean | Always `true` for successful response |
+| `secret` | string | Base32-encoded TOTP secret (32 characters) |
+| `qr-code-url` | string | URL to QR code image for scanning with authenticator app |
+| `backup-codes` | array[string] | 10 single-use backup codes (12 chars each: XXX-XXXX-XXXX) |
+| `issuer` | string | Application name shown in authenticator app |
+| `account-name` | string | User's email address shown in authenticator app |
+
+### Error Responses
+
+#### 401 Unauthorized
+
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid or missing authentication token"
+}
+```
+
+#### 400 Bad Request
+
+```json
+{
+  "success?": false,
+  "error": "MFA already enabled",
+  "message": "User already has MFA enabled. Disable first to re-setup."
+}
+```
+
+### Example Usage
+
+**curl**:
+```bash
+curl -X POST http://localhost:3000/api/auth/mfa/setup \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  | jq '.'
+```
+
+**JavaScript (fetch)**:
+```javascript
+fetch('http://localhost:3000/api/auth/mfa/setup', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  }
+})
+  .then(res => res.json())
+  .then(data => {
+    console.log('Secret:', data.secret);
+    console.log('QR Code:', data['qr-code-url']);
+    console.log('Backup Codes:', data['backup-codes']);
+  });
+```
+
+**Python (requests)**:
+```python
+import requests
+
+response = requests.post(
+    'http://localhost:3000/api/auth/mfa/setup',
+    headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+)
+
+data = response.json()
+print(f"Secret: {data['secret']}")
+print(f"Backup Codes: {data['backup-codes']}")
+```
+
+### Notes
+
+- Call this endpoint before enabling MFA
+- User must save backup codes securely (they won't be shown again)
+- QR code URL is valid for immediate use
+- Secret can be manually entered in authenticator app if QR scan fails
+- This endpoint does NOT enable MFA - it only prepares the setup
+
+---
+
+## Enable MFA
+
+Enable MFA after setup, requires verification code from authenticator app.
+
+### Request
+
+```http
+POST /api/auth/mfa/enable HTTP/1.1
+Host: localhost:3000
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+
+{
+  "secret": "JBSWY3DPEHPK3PXP",
+  "backupCodes": [
+    "3LTW-XRM1-GYVF",
+    "CN2K-1AWR-GDVT",
+    ...
+  ],
+  "verificationCode": "123456"
+}
+```
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `secret` | string | Yes | Secret from setup response |
+| `backupCodes` | array[string] | Yes | Backup codes from setup response (all 10) |
+| `verificationCode` | string | Yes | Current 6-digit TOTP code from authenticator app |
+
+### Response (Success - 200 OK)
+
+```json
+{
+  "success?": true
+}
+```
+
+### Error Responses
+
+#### 400 Bad Request - Invalid Code
+
+```json
+{
+  "success?": false,
+  "error": "Invalid verification code"
+}
+```
+
+#### 400 Bad Request - Validation Error
+
+```json
+{
+  "success?": false,
+  "error": "Validation failed",
+  "details": {
+    "secret": ["Secret is required"],
+    "backupCodes": ["Must provide 10 backup codes"],
+    "verificationCode": ["Verification code must be 6 digits"]
+  }
+}
+```
+
+#### 401 Unauthorized
+
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid or missing authentication token"
+}
+```
+
+### Example Usage
+
+**curl**:
+```bash
+# Get current code from authenticator app (e.g., 123456)
+
+curl -X POST http://localhost:3000/api/auth/mfa/enable \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secret": "JBSWY3DPEHPK3PXP",
+    "backupCodes": [
+      "3LTW-XRM1-GYVF",
+      "CN2K-1AWR-GDVT",
+      "9FHJ-K2LM-PQRS",
+      "7TUV-W3XY-Z4AB",
+      "5CDE-F6GH-I8JK",
+      "2LMN-O9PQ-R1ST",
+      "8UVW-X4YZ-A5BC",
+      "6DEF-G7HI-J9KL",
+      "4MNO-P2QR-S3TU",
+      "1VWX-Y8ZA-B0CD"
+    ],
+    "verificationCode": "123456"
+  }' \
+  | jq '.'
+```
+
+**JavaScript (fetch)**:
+```javascript
+const setupData = await fetch('/api/auth/mfa/setup', {
+  method: 'POST',
+  headers: { 'Authorization': `Bearer ${token}` }
+}).then(r => r.json());
+
+// User scans QR code and enters 6-digit code
+const verificationCode = prompt('Enter code from authenticator app:');
+
+const response = await fetch('/api/auth/mfa/enable', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    secret: setupData.secret,
+    backupCodes: setupData['backup-codes'],
+    verificationCode: verificationCode
+  })
+});
+
+const result = await response.json();
+if (result['success?']) {
+  alert('MFA enabled successfully!');
+}
+```
+
+### Notes
+
+- Verification code must be current (30-second window)
+- After successful enablement, all future logins require MFA code
+- Secret and backup codes are stored in database
+- Backup codes are single-use (marked as used when consumed)
+
+---
+
+## Disable MFA
+
+Disable MFA for the authenticated user.
+
+### Request
+
+```http
+POST /api/auth/mfa/disable HTTP/1.1
+Host: localhost:3000
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+```
+
+**Parameters**: None
+
+**Authentication**: Required (Bearer token)
+
+### Response (Success - 200 OK)
+
+```json
+{
+  "success?": true
+}
+```
+
+### Error Responses
+
+#### 401 Unauthorized
+
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid or missing authentication token"
+}
+```
+
+#### 400 Bad Request
+
+```json
+{
+  "success?": false,
+  "error": "MFA not enabled",
+  "message": "User does not have MFA enabled"
+}
+```
+
+### Example Usage
+
+**curl**:
+```bash
+curl -X POST http://localhost:3000/api/auth/mfa/disable \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  | jq '.'
+```
+
+**JavaScript (fetch)**:
+```javascript
+fetch('http://localhost:3000/api/auth/mfa/disable', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  }
+})
+  .then(res => res.json())
+  .then(data => {
+    if (data['success?']) {
+      console.log('MFA disabled successfully');
+    }
+  });
+```
+
+### Notes
+
+- Removes MFA requirement from user account
+- Clears secret and backup codes from database
+- User can re-enable MFA anytime by calling setup again
+- Consider requiring password confirmation in production
+
+---
+
+## Get MFA Status
+
+Check if MFA is enabled and get remaining backup codes count.
+
+### Request
+
+```http
+GET /api/auth/mfa/status HTTP/1.1
+Host: localhost:3000
+Authorization: Bearer <jwt-token>
+```
+
+**Parameters**: None
+
+**Authentication**: Required (Bearer token)
+
+### Response (MFA Enabled - 200 OK)
+
+```json
+{
+  "enabled": true,
+  "enabled-at": "2024-01-04T10:00:00Z",
+  "backup-codes-remaining": 10
+}
+```
+
+### Response (MFA Disabled - 200 OK)
+
+```json
+{
+  "enabled": false,
+  "enabled-at": null,
+  "backup-codes-remaining": 0
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | boolean | Whether MFA is currently enabled |
+| `enabled-at` | string/null | ISO 8601 timestamp when MFA was enabled, or null |
+| `backup-codes-remaining` | integer | Number of unused backup codes (0-10) |
+
+### Error Responses
+
+#### 401 Unauthorized
+
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid or missing authentication token"
+}
+```
+
+### Example Usage
+
+**curl**:
+```bash
+curl -X GET http://localhost:3000/api/auth/mfa/status \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  | jq '.'
+```
+
+**JavaScript (fetch)**:
+```javascript
+fetch('http://localhost:3000/api/auth/mfa/status', {
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+})
+  .then(res => res.json())
+  .then(data => {
+    if (data.enabled) {
+      console.log(`MFA enabled since: ${data['enabled-at']}`);
+      console.log(`Backup codes remaining: ${data['backup-codes-remaining']}`);
+    } else {
+      console.log('MFA not enabled');
+    }
+  });
+```
+
+**Python (requests)**:
+```python
+response = requests.get(
+    'http://localhost:3000/api/auth/mfa/status',
+    headers={'Authorization': f'Bearer {token}'}
+)
+
+data = response.json()
+if data['enabled']:
+    print(f"MFA enabled: {data['enabled-at']}")
+    print(f"Backup codes: {data['backup-codes-remaining']}")
+```
+
+### Notes
+
+- Use this endpoint to conditionally show/hide MFA setup UI
+- Warn users when backup codes are low (<3 remaining)
+- Consider adding backup code regeneration feature
+
+---
+
+## Login with MFA
+
+Authenticate user with email, password, and optional MFA code.
+
+### Two-Step Login Flow
+
+**Step 1**: Login with password only
+```http
+POST /api/auth/login HTTP/1.1
+Host: localhost:3000
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "securepassword123"
+}
+```
+
+**Response (MFA Required)**:
+```json
+{
+  "requires-mfa?": true,
+  "message": "MFA code required"
+}
+```
+
+**Step 2**: Login with password + MFA code
+```http
+POST /api/auth/login HTTP/1.1
+Host: localhost:3000
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "securepassword123",
+  "mfa-code": "123456"
+}
+```
+
+**Response (Success)**:
+```json
+{
+  "success": true,
+  "session-id": "550e8400-e29b-41d4-a716-446655440000",
+  "user": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "role": "user",
+    "mfa-enabled": true
+  }
+}
+```
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string | Yes | User's email address |
+| `password` | string | Yes | User's password |
+| `mfa-code` | string | No | 6-digit TOTP code or 12-char backup code |
+
+### Response Fields (Success)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | `true` for successful login |
+| `session-id` | string | UUID session identifier |
+| `user` | object | User entity (see below) |
+
+**User Object**:
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | User UUID |
+| `email` | string | User's email address |
+| `name` | string | User's display name |
+| `role` | string | User role (e.g., "user", "admin") |
+| `mfa-enabled` | boolean | Whether user has MFA enabled |
+
+### Error Responses
+
+#### 400 Bad Request - Invalid Credentials
+
+```json
+{
+  "error": "Invalid credentials",
+  "message": "Email or password incorrect"
+}
+```
+
+#### 400 Bad Request - Invalid MFA Code
+
+```json
+{
+  "error": "Invalid MFA code",
+  "message": "The provided MFA code is invalid or expired"
+}
+```
+
+#### 400 Bad Request - Validation Error
+
+```json
+{
+  "error": "Validation failed",
+  "details": {
+    "email": ["Email is required", "Email format invalid"],
+    "password": ["Password is required"]
+  }
+}
+```
+
+#### 429 Too Many Requests (Rate Limiting)
+
+```json
+{
+  "error": "Too many requests",
+  "message": "Maximum login attempts exceeded. Try again in 5 minutes.",
+  "retry-after": 300
+}
+```
+
+### Example Usage
+
+**curl (Two-Step)**:
+```bash
+# Step 1: Try password only
+RESPONSE=$(curl -s -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "securepassword123"
+  }')
+
+echo $RESPONSE | jq '.'
+
+# If requires-mfa? is true:
+# Step 2: Login with MFA code
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "securepassword123",
+    "mfa-code": "123456"
+  }' \
+  | jq '.'
+```
+
+**curl (Using Backup Code)**:
+```bash
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "securepassword123",
+    "mfa-code": "3LTW-XRM1-GYVF"
+  }' \
+  | jq '.'
+```
+
+**JavaScript (Two-Step)**:
+```javascript
+async function login(email, password, mfaCode = null) {
+  const body = { email, password };
+  if (mfaCode) {
+    body['mfa-code'] = mfaCode;
+  }
+
+  const response = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  const data = await response.json();
+
+  if (data['requires-mfa?']) {
+    // Prompt user for MFA code
+    const code = prompt('Enter MFA code from authenticator app:');
+    return login(email, password, code);
+  }
+
+  if (data.success) {
+    localStorage.setItem('session-id', data['session-id']);
+    return data.user;
+  }
+
+  throw new Error(data.error);
+}
+
+// Usage
+login('user@example.com', 'securepassword123')
+  .then(user => console.log('Logged in:', user))
+  .catch(err => console.error('Login failed:', err));
+```
+
+**Python (requests)**:
+```python
+def login(email, password, mfa_code=None):
+    payload = {
+        'email': email,
+        'password': password
+    }
+    if mfa_code:
+        payload['mfa-code'] = mfa_code
+    
+    response = requests.post(
+        'http://localhost:3000/api/auth/login',
+        json=payload
+    )
+    
+    data = response.json()
+    
+    if data.get('requires-mfa?'):
+        # Prompt for MFA code
+        mfa_code = input('Enter MFA code: ')
+        return login(email, password, mfa_code)
+    
+    if data.get('success'):
+        return data['session-id'], data['user']
+    
+    raise Exception(data.get('error'))
+
+# Usage
+try:
+    session_id, user = login('user@example.com', 'securepassword123')
+    print(f"Logged in as: {user['email']}")
+    print(f"Session ID: {session_id}")
+except Exception as e:
+    print(f"Login failed: {e}")
+```
+
+### Notes
+
+- TOTP codes are 6 digits (e.g., "123456")
+- Backup codes are 12 characters with dashes (e.g., "3LTW-XRM1-GYVF")
+- System accepts either format in `mfa-code` field
+- Backup codes are single-use (marked used after successful login)
+- Consider implementing rate limiting (5 attempts per minute recommended)
+- Session ID should be stored securely (httpOnly cookie recommended)
+
+---
+
+## Rate Limiting
+
+**Recommendation**: Implement rate limiting on MFA-related endpoints to prevent brute-force attacks.
+
+**Suggested Limits**:
+- Setup/Enable/Disable: 10 requests per minute per user
+- Login with MFA: 5 failed attempts per minute per IP
+- Status check: 60 requests per minute per user
+
+**Example nginx config**:
+```nginx
+limit_req_zone $binary_remote_addr zone=mfa_login:10m rate=5r/m;
+
+location /api/auth/login {
+    limit_req zone=mfa_login burst=3 nodelay;
+    proxy_pass http://backend;
+}
+```
+
+---
+
+## Security Best Practices
+
+### Production Checklist
+
+- [ ] Use HTTPS only (no HTTP in production)
+- [ ] Implement rate limiting on all MFA endpoints
+- [ ] Store JWT tokens in httpOnly cookies (not localStorage)
+- [ ] Add CSRF protection for state-changing operations
+- [ ] Log all MFA events (setup, enable, disable, failed attempts)
+- [ ] Monitor failed MFA attempts for suspicious activity
+- [ ] Implement account lockout after N failed attempts
+- [ ] Require password confirmation before disabling MFA
+- [ ] Warn users when backup codes are low (<3 remaining)
+- [ ] Provide account recovery flow for lost devices
+- [ ] Rotate JWT secrets regularly
+- [ ] Use encrypted database connections
+
+### Compliance
+
+- ✅ **NIST SP 800-63B**: Compliant with Level 2 authentication
+- ✅ **PCI DSS**: Supports multi-factor authentication requirements
+- ✅ **GDPR**: MFA data properly secured and deletable
+- ✅ **SOC 2**: Meets access control requirements
+
+---
+
+## Testing
+
+### Test Credentials
+
+**Development environment only**:
+
+```
+Email: test@example.com
+Password: password123
+MFA Secret: JBSWY3DPEHPK3PXP
+```
+
+**Generate TOTP code** (development):
+```bash
+# Using oathtool
+oathtool --totp -b JBSWY3DPEHPK3PXP
+
+# Or use any authenticator app with the secret
+```
+
+### Integration Tests
+
+```bash
+# Run MFA integration tests
+clojure -M:test:db/h2 --focus boundary.user.shell.mfa-test
+
+# Test full authentication flow
+clojure -M:test:db/h2 --focus boundary.user.authentication-integration-test
+```
+
+---
+
+## Additional Resources
+
+- **[MFA Setup Guide](./guides/mfa-setup.md)** - User guide with step-by-step instructions
+- **[MFA Completion Summary](../MFA_COMPLETION_SUMMARY.md)** - Technical implementation details
+- **[AGENTS.md](../AGENTS.md)** - Developer guide with architecture information
+- **[RFC 6238 - TOTP](https://datatracker.ietf.org/doc/html/rfc6238)** - TOTP specification
+- **[RFC 4648 - Base32](https://datatracker.ietf.org/doc/html/rfc4648)** - Base32 encoding
+
+---
+
+**Last Updated**: 2026-01-04  
+**Version**: 1.0.0  
+**Status**: Production Ready

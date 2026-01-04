@@ -173,6 +173,52 @@ validation:
       - docs/diagrams/validation-user.png
 ```
 
+## Security Features
+
+### Multi-Factor Authentication (MFA)
+
+Boundary includes production-ready MFA support with TOTP (Time-based One-Time Password) authentication:
+
+- **TOTP Support**: Compatible with Google Authenticator, Authy, 1Password, and other authenticator apps
+- **Backup Codes**: 10 single-use backup codes for account recovery
+- **QR Code Generation**: Easy setup via QR code scanning
+- **Seamless Integration**: Works with existing authentication flow
+- **Security Best Practices**: Cryptographically secure secret generation, Base32 encoding
+
+**Quick MFA Setup:**
+
+```bash
+# 1. Setup MFA (authenticated user)
+curl -X POST http://localhost:3000/api/auth/mfa/setup \
+  -H "Authorization: Bearer <token>"
+# Returns: secret, QR code URL, backup codes
+
+# 2. Scan QR code with authenticator app
+
+# 3. Enable MFA with verification code
+curl -X POST http://localhost:3000/api/auth/mfa/enable \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secret": "JBSWY3DPEHPK3PXP",
+    "backupCodes": ["3LTW-XRM1-GYVF", ...],
+    "verificationCode": "123456"
+  }'
+
+# 4. Login with MFA
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "password123",
+    "mfa-code": "123456"
+  }'
+```
+
+**Documentation**: See [MFA Setup Guide](./docs/guides/mfa-setup.md) for complete setup instructions and security considerations.
+
+**API Reference**: See [MFA_COMPLETION_SUMMARY.md](./MFA_COMPLETION_SUMMARY.md) for full API documentation.
+
 ## Documentation
 
 **Main Documentation**: [boundary-docs repository](https://github.com/thijs-creemers/boundary-docs)
@@ -190,6 +236,7 @@ The documentation has been moved to a separate repository for better organizatio
 - **[BUILD.md](./BUILD.md)** - Build and deployment instructions
 - **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Contribution guidelines
 - **[PROJECT_STATUS.adoc](./PROJECT_STATUS.adoc)** - Current project status
+- **[MFA Setup Guide](./docs/guides/mfa-setup.md)** - Multi-factor authentication setup
 
 ### Key Documentation (External)
 - **[Architecture Documentation](https://github.com/thijs-creemers/boundary-docs/tree/main/content/architecture)** - System architecture and design

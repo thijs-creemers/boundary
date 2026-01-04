@@ -46,6 +46,8 @@
            ;; Authentication and security
            buddy/buddy-hashers               {:mvn/version "2.0.167"}
            buddy/buddy-sign                  {:mvn/version "3.6.1-359"}
+           one-time/one-time                 {:mvn/version "0.8.0" ;; TOTP/HOTP for MFA
+                                              :exclusions [com.github.kenglxn.qrgen/javase]}
 
            ;; Web UI and Templates
            hiccup/hiccup                     {:mvn/version "2.0.0"}}

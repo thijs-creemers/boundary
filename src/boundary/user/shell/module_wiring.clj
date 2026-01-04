@@ -7,6 +7,7 @@
   (:require [boundary.user.shell.persistence :as user-persistence]
             [boundary.user.shell.service :as user-service]
             [boundary.user.shell.auth :as user-auth]
+            [boundary.user.shell.mfa :as user-mfa]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]))
 
@@ -56,14 +57,29 @@
   (log/info "Audit repository halted (no cleanup needed)"))
 
 ;; =============================================================================
+;; MFA Service
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/mfa-service
+  [_ {:keys [user-repository mfa-config]}]
+  (log/info "Initializing MFA service")
+  (let [service (user-mfa/create-mfa-service user-repository mfa-config)]
+    (log/info "MFA service initialized")
+    service))
+
+(defmethod ig/halt-key! :boundary/mfa-service
+  [_ _service]
+  (log/info "MFA service halted (no cleanup needed)"))
+
+;; =============================================================================
 ;; Authentication Service
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/auth-service
-  [_ {:keys [user-repository session-repository auth-config]}]
+  [_ {:keys [user-repository session-repository mfa-service auth-config]}]
   (log/info "Initializing authentication service")
   (let [service (user-auth/create-authentication-service
-                 user-repository session-repository auth-config)]
+                 user-repository session-repository mfa-service auth-config)]
     (log/info "Authentication service initialized")
     service))
 
@@ -92,11 +108,11 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/user-routes
-  [_ {:keys [user-service config]}]
+  [_ {:keys [user-service mfa-service config]}]
   (log/info "Initializing user module routes (normalized format)")
   (require 'boundary.user.shell.http)
   (let [user-routes-fn (ns-resolve 'boundary.user.shell.http 'user-routes-normalized)
-        routes (user-routes-fn user-service (or config {}))]
+        routes (user-routes-fn user-service mfa-service (or config {}))]
     (log/info "User module routes initialized successfully" 
               {:route-keys (keys routes)
                :api-count (count (:api routes))
