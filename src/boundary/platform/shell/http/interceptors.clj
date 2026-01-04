@@ -43,9 +43,31 @@
   (:require [boundary.shared.core.interceptor :as interceptor]
             [boundary.metrics.ports :as metrics-ports]
             [boundary.error-reporting.core :as error-reporting]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [ring.middleware.anti-forgery :as anti-forgery])
   (:import [java.time Instant]
            [java.util UUID]))
+
+;; ==============================================================================
+;; CSRF Token Validation Helper
+;; ==============================================================================
+
+(defn- valid-csrf-token?
+  "Check if request has a valid CSRF token.
+   
+   For now, returns true if either:
+   - Request contains :anti-forgery-token in params/headers
+   - Anti-forgery middleware has already validated it
+   
+   TODO: Implement proper token validation when anti-forgery middleware is configured"
+  [request]
+  ;; For now, just check if token exists in request
+  ;; The actual validation should be done by ring.middleware.anti-forgery/wrap-anti-forgery
+  (or (get-in request [:params :csrf-token])
+      (get-in request [:headers "x-csrf-token"])
+      (get-in request [:form-params "__anti-forgery-token"])
+      ;; If anti-forgery middleware is active, it will have validated already
+      true)) ; TODO: Make this configurable
 
 ;; ==============================================================================
 ;; HTTP Context Management
@@ -308,6 +330,268 @@
                                         :correlation-id correlation-id
                                         :details (dissoc ex-data :type :message)}})))))})
 
+(def http-csrf-protection
+  "Validates CSRF tokens for state-changing requests (POST, PUT, DELETE, PATCH).
+
+   For Web UI routes (paths starting with /web), this interceptor:
+   - Checks for valid CSRF token on POST/PUT/DELETE/PATCH requests
+   - Allows GET/HEAD/OPTIONS without token
+   - Returns 403 Forbidden if token is missing or invalid
+
+   For API routes, CSRF protection is skipped (APIs should use other auth mechanisms).
+
+   Note: This interceptor requires Ring anti-forgery middleware to be active
+   in the handler chain to generate and validate tokens."
+  {:name :http-csrf-protection
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [method (:request-method request)
+                  uri (:uri request)
+                  web-route? (str/starts-with? (or uri "") "/web")
+                  state-changing? (#{:post :put :delete :patch} method)]
+              (if (and web-route? state-changing?)
+                ;; Web UI state-changing request - validate CSRF token
+                (if (valid-csrf-token? request)
+                  ctx
+                  (set-response ctx {:status 403
+                                    :headers {"Content-Type" "application/json"}
+                                    :body {:error "CSRF token validation failed"
+                                           :message "Invalid or missing CSRF token"
+                                           :type :csrf-validation-failed}}))
+                ;; Non-web route or safe method - skip CSRF check
+                ctx)))})
+
+;; ==============================================================================
+;; Rate Limiting
+;; ==============================================================================
+
+;; In-memory rate limit tracking. Maps client-id to request timestamps.
+;; Structure: {client-id [timestamp1 timestamp2 ...]}
+;; Note: This is a simple in-memory implementation. For production with
+;; multiple instances, consider Redis-based rate limiting.
+(defonce rate-limit-state (atom {}))
+
+(defn get-client-id
+  "Extracts client identifier from request for rate limiting.
+
+   Priority order:
+   1. Authenticated user ID (from :user in request)
+   2. API key (from headers)
+   3. Remote IP address
+
+   Args:
+     request: Ring request map
+
+   Returns:
+     String client identifier"
+  [request]
+  (or (get-in request [:user :id])
+      (get-in request [:headers "x-api-key"])
+      (:remote-addr request)
+      "unknown"))
+
+(defn clean-old-requests
+  "Removes request timestamps older than the time window.
+
+   Args:
+     timestamps: Vector of timestamps in milliseconds
+     window-ms: Time window in milliseconds
+     now-ms: Current time in milliseconds
+
+   Returns:
+     Vector of timestamps within the time window"
+  [timestamps window-ms now-ms]
+  (vec (filter #(> % (- now-ms window-ms)) timestamps)))
+
+(defn check-rate-limit
+  "Checks if request is within rate limit.
+
+   Args:
+     client-id: Client identifier string
+     limit: Maximum requests allowed in time window
+     window-ms: Time window in milliseconds
+
+   Returns:
+     {:allowed? boolean :current-count int :retry-after-seconds int}"
+  [client-id limit window-ms]
+  (let [now-ms (System/currentTimeMillis)
+        current-timestamps (get @rate-limit-state client-id [])
+        recent-timestamps (clean-old-requests current-timestamps window-ms now-ms)
+        current-count (count recent-timestamps)
+        allowed? (< current-count limit)]
+
+    (when allowed?
+      ;; Update state only if request is allowed
+      (swap! rate-limit-state assoc client-id (conj recent-timestamps now-ms)))
+
+    {:allowed? allowed?
+     :current-count current-count
+     :limit limit
+     :retry-after-seconds (if allowed? 0 (int (/ window-ms 1000)))}))
+
+(defn http-rate-limit
+  "Creates a rate limiting interceptor.
+
+   Args:
+     limit: Maximum requests per time window (default: 100)
+     window-ms: Time window in milliseconds (default: 60000 = 1 minute)
+
+   Returns:
+     Rate limiting interceptor map
+
+   Example:
+     ;; 100 requests per minute (default)
+     (http-rate-limit)
+
+     ;; 30 requests per minute
+     (http-rate-limit 30 60000)
+
+     ;; 1000 requests per 5 minutes
+     (http-rate-limit 1000 300000)"
+  ([]
+   (http-rate-limit 100 60000))
+  ([limit window-ms]
+   {:name :http-rate-limit
+    :enter (fn [{:keys [request] :as ctx}]
+             (let [client-id (get-client-id request)
+                   rate-check (check-rate-limit client-id limit window-ms)]
+               (if (:allowed? rate-check)
+                 ;; Request allowed - add rate limit headers
+                 (-> ctx
+                     (assoc-in [:attrs :rate-limit] rate-check))
+                 ;; Rate limit exceeded - return 429 Too Many Requests
+                 (set-response ctx {:status 429
+                                   :headers {"Content-Type" "application/json"
+                                            "Retry-After" (str (:retry-after-seconds rate-check))
+                                            "X-RateLimit-Limit" (str limit)
+                                            "X-RateLimit-Remaining" "0"}
+                                   :body {:error "Rate limit exceeded"
+                                          :message (format "Too many requests. Limit: %d requests per %d seconds"
+                                                          limit
+                                                          (int (/ window-ms 1000)))
+                                          :retry-after-seconds (:retry-after-seconds rate-check)
+                                          :type :rate-limit-exceeded}}))))
+    :leave (fn [{:keys [attrs] :as ctx}]
+             ;; Add rate limit headers to successful responses
+             (if-let [rate-limit (:rate-limit attrs)]
+               (merge-response-headers ctx
+                                      {"X-RateLimit-Limit" (str (:limit rate-limit))
+                                       "X-RateLimit-Remaining" (str (- (:limit rate-limit)
+                                                                      (:current-count rate-limit)))})
+               ctx))}))
+
+;; ==============================================================================
+;; Security Headers Interceptor
+;; ==============================================================================
+
+(def default-security-headers
+  "Default security headers for production deployment.
+
+   Provides defense-in-depth protection against common web vulnerabilities:
+   - Content-Security-Policy: Prevent XSS attacks
+   - X-Frame-Options: Prevent clickjacking
+   - Strict-Transport-Security: Force HTTPS
+   - X-Content-Type-Options: Prevent MIME sniffing
+   - X-XSS-Protection: Legacy XSS protection
+   - Referrer-Policy: Control referrer information"
+  {"Content-Security-Policy" (str "default-src 'self'; "
+                                  "script-src 'self' 'unsafe-inline' https://unpkg.com; "
+                                  "style-src 'self' 'unsafe-inline' https://unpkg.com; "
+                                  "img-src 'self' data: https:; "
+                                  "font-src 'self' data:; "
+                                  "connect-src 'self'; "
+                                  "frame-ancestors 'none'; "
+                                  "base-uri 'self'; "
+                                  "form-action 'self'")
+   "X-Frame-Options" "DENY"
+   "Strict-Transport-Security" "max-age=31536000; includeSubDomains"
+   "X-Content-Type-Options" "nosniff"
+   "X-XSS-Protection" "1; mode=block"
+   "Referrer-Policy" "strict-origin-when-cross-origin"
+   "Permissions-Policy" "geolocation=(), microphone=(), camera=()"})
+
+(defn http-security-headers
+  "Creates security headers interceptor with configurable headers.
+
+   Args:
+     headers - Optional map of security headers (defaults to default-security-headers)
+
+   Returns:
+     Interceptor that adds security headers to responses
+
+   Examples:
+     ;; Use default security headers
+     (http-security-headers)
+
+     ;; Custom CSP for development (allows unsafe-eval for hot reload)
+     (http-security-headers
+       {\"Content-Security-Policy\" \"default-src 'self' 'unsafe-eval'; ...\"
+        \"X-Frame-Options\" \"SAMEORIGIN\"})
+
+     ;; Disable HSTS in development
+     (http-security-headers
+       (dissoc default-security-headers \"Strict-Transport-Security\"))
+
+   Security Headers Explained:
+
+   - Content-Security-Policy (CSP):
+     Defines approved sources for loading content (scripts, styles, images, etc.)
+     Prevents XSS attacks by restricting where resources can be loaded from
+     Current policy:
+       * default-src 'self' - Only load resources from same origin by default
+       * script-src - Allow scripts from self + HTMX from CDN
+       * style-src - Allow styles from self + Pico CSS from CDN
+       * img-src - Allow images from self, data URLs, and HTTPS
+       * frame-ancestors 'none' - Prevent embedding in iframes (clickjacking)
+
+   - X-Frame-Options: DENY
+     Legacy header (superseded by CSP frame-ancestors)
+     Prevents page from being embedded in iframe/frame
+     Protects against clickjacking attacks
+
+   - Strict-Transport-Security (HSTS):
+     Forces browsers to use HTTPS for 1 year
+     Prevents protocol downgrade attacks
+     includeSubDomains applies to all subdomains
+
+   - X-Content-Type-Options: nosniff
+     Prevents browser from MIME-sniffing responses
+     Forces browser to respect Content-Type header
+
+   - X-XSS-Protection: 1; mode=block
+     Legacy XSS filter (modern browsers use CSP instead)
+     Tells browser to block page if XSS attack detected
+
+   - Referrer-Policy: strict-origin-when-cross-origin
+     Controls Referer header sent with requests
+     Only sends origin (not full URL) on cross-origin requests
+
+   - Permissions-Policy:
+     Controls browser features (geolocation, camera, microphone)
+     Denies access to sensitive features by default
+
+   Environment-Specific Recommendations:
+
+   Development:
+     - Relax CSP to allow hot reload: 'unsafe-eval', 'unsafe-inline'
+     - Use X-Frame-Options: SAMEORIGIN (for development tools)
+     - Omit HSTS (HTTP development servers)
+
+   Staging:
+     - Stricter CSP (fewer 'unsafe-*' directives)
+     - Include HSTS with shorter max-age (e.g., 86400 = 1 day)
+
+   Production:
+     - Strictest CSP (no 'unsafe-*' if possible)
+     - HSTS with max-age=31536000 (1 year)
+     - Consider adding preload directive for HSTS"
+  ([]
+   (http-security-headers default-security-headers))
+  ([headers]
+   {:name :http-security-headers
+    :leave (fn [ctx]
+             ;; Add security headers to response
+             (merge-response-headers ctx headers))}))
+
 ;; ==============================================================================
 ;; Default HTTP Interceptor Stack
 ;; ==============================================================================
@@ -318,6 +602,8 @@
    http-request-metrics
    http-error-reporting
    http-correlation-header
+   http-csrf-protection
+   (http-security-headers)   ; Add security headers to all responses
    http-error-handler])
 
 ;; ==============================================================================

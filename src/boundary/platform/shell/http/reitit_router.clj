@@ -1,6 +1,6 @@
 (ns boundary.platform.shell.http.reitit-router
   "Reitit router adapter - converts normalized route specs to Reitit routing.
-   
+
    This adapter implements the IRouter protocol to translate framework-agnostic
    normalized route specifications into Reitit-specific route definitions."
   (:require [boundary.platform.ports.http :as ports]
@@ -11,6 +11,8 @@
             [reitit.ring.middleware.exception :as exception]
             [reitit.ring.middleware.muuntaja :as muuntaja]
             [reitit.ring.middleware.parameters :as parameters]
+            [reitit.swagger :as swagger]
+            [reitit.swagger-ui :as swagger-ui]
             [muuntaja.core :as m]))
 
 ;; =============================================================================
@@ -379,6 +381,47 @@
                                          :message "The requested content type is not supported"}})}))
 
 ;; =============================================================================
+;; Swagger Documentation Routes
+;; =============================================================================
+
+(defn- create-swagger-routes
+  "Create Swagger documentation routes.
+
+   Returns:
+     Vector of Swagger route specs:
+     - /swagger.json - OpenAPI/Swagger specification
+     - /api-docs/* - Swagger UI interface
+
+   Swagger UI will be available at:
+     http://localhost:PORT/api-docs/index.html
+
+   Configuration:
+     Swagger metadata (title, version, description) is configured via :swagger-data
+     in the router config passed to compile-routes.
+
+   Example swagger-data:
+     {:info {:title \"Boundary API\"
+             :description \"Boundary Framework REST API\"
+             :version \"0.1.0\"}
+      :tags [{:name \"users\" :description \"User management\"}
+             {:name \"inventory\" :description \"Inventory tracking\"}]}"
+  [swagger-data]
+  [["/swagger.json"
+    {:get {:no-doc true
+           :swagger {:info (:info swagger-data)
+                     :tags (:tags swagger-data)
+                     :basePath "/"
+                     :produces ["application/json"]
+                     :consumes ["application/json"]}
+           :handler (swagger/create-swagger-handler)}}]
+
+   ["/api-docs/*"
+    {:get {:no-doc true
+           :handler (swagger-ui/create-swagger-ui-handler
+                      {:url "/swagger.json"
+                       :config {:validatorUrl nil}})}}]])
+
+;; =============================================================================
 ;; IRouter Implementation
 ;; =============================================================================
 
@@ -387,19 +430,31 @@
   (compile-routes [_this route-specs config]
     (let [;; Extract observability services from config (if provided)
           system (:system config)
-          
+
+          ;; Extract Swagger configuration (optional)
+          swagger-enabled? (get config :swagger-enabled true)  ; Enabled by default
+          swagger-data (or (:swagger-data config)
+                           {:info {:title "Boundary API"
+                                   :description "Boundary Framework REST API"
+                                   :version "0.1.0"}})
+
           ;; Convert normalized routes to Reitit format
           reitit-routes (convert-all-routes route-specs system)
-          
+
+          ;; Add Swagger routes if enabled
+          all-routes (if swagger-enabled?
+                       (into (create-swagger-routes swagger-data) reitit-routes)
+                       reitit-routes)
+
           ;; Create router options
           router-opts (create-router-options config)
-          
+
           ;; Create Reitit router
-          router (ring/router reitit-routes router-opts)
-          
+          router (ring/router all-routes router-opts)
+
           ;; Create default handler for unmatched routes
           default-handler (create-default-handler)]
-      
+
       ;; Return Ring handler
       (ring/ring-handler router default-handler))))
 

@@ -53,9 +53,14 @@
 ;; =============================================================================
 
 (def ^:private jwt-secret
-  "JWT signing secret. In production, load from secure configuration."
-  ;; TODO: Load from secure configuration in production
-  "your-secret-key-change-in-production")
+  "JWT signing secret loaded from environment variable.
+
+   SECURITY: Must be set via JWT_SECRET environment variable.
+   Throws exception if not configured to prevent accidental use of default secret."
+  (or (System/getenv "JWT_SECRET")
+      (throw (ex-info "JWT_SECRET environment variable not configured. Set JWT_SECRET before starting the application."
+                      {:type :configuration-error
+                       :required-env-var "JWT_SECRET"}))))
 
 (defn create-jwt-token
   "Shell function: Create JWT token for authenticated user.

@@ -168,15 +168,11 @@
   (fn [request]
     (if-let [session-token (extract-session-token request)]
       (try
-        (spit "/tmp/middleware-debug.log"
-              (str "VALIDATING SESSION: token=" (subs session-token 0 (min 20 (count session-token))) "...\n")
-              :append true)
+        (log/debug "Validating session token")
         (if-let [session (ports/validate-session user-service session-token)]
           ;; Session valid - add user info to request
           (do
-            (spit "/tmp/middleware-debug.log"
-                  (str "SESSION VALID! user-id=" (:user-id session) "\n")
-                  :append true)
+            (log/debug "Session validation successful" {:user-id (:user-id session)})
             (let [enriched-request (assoc request
                                           :user {:id (:user-id session)}
                                           :session session
@@ -184,12 +180,9 @@
               (handler enriched-request)))
           ;; Session invalid or expired
           (do
-            (spit "/tmp/middleware-debug.log" "SESSION INVALID OR EXPIRED\n" :append true)
+            (log/debug "Session invalid or expired")
             (create-unauthorized-response "Invalid or expired session" :invalid-session request)))
         (catch Exception ex
-          (spit "/tmp/middleware-debug.log"
-                (str "SESSION VALIDATION ERROR: " (.getMessage ex) "\n")
-                :append true)
           (log/warn ex "Session validation failed" {:session-token (str (take 8 session-token) "...")})
           (create-unauthorized-response "Session validation failed" :session-validation-error request)))
 
@@ -220,23 +213,21 @@
      ;; In Reitit routes:
      {:middleware [[flexible-authentication-middleware user-service]]}"
   ([user-service]
-   (spit "/tmp/middleware-debug.log" (str "1-ARITY: " (type user-service) "\n") :append true)
+   (log/trace "Creating flexible authentication middleware" {:user-service (type user-service)})
    (fn [handler]
-     (spit "/tmp/middleware-debug.log" (str "WRAPPING: " (type handler) "\n") :append true)
+     (log/trace "Wrapping handler with flexible authentication" {:handler (type handler)})
      (flexible-authentication-middleware user-service handler)))
   ([user-service handler]
-   (spit "/tmp/middleware-debug.log" (str "2-ARITY: user-service=" (type user-service) " handler=" (type handler) "\n") :append true)
+   (log/trace "Initializing flexible authentication middleware"
+              {:user-service (type user-service) :handler (type handler)})
    (fn [request]
      (let [session-token (extract-session-token request)
            bearer-token  (extract-bearer-token request)]
-       (spit "/tmp/middleware-debug.log"
-             (str "REQUEST: uri=" (:uri request)
-                  " method=" (:request-method request)
-                  " has-session=" (boolean session-token)
-                  " has-bearer=" (boolean bearer-token)
-                  " cookies=" (keys (:cookies request))
-                  "\n")
-             :append true)
+       (log/debug "Processing authentication request"
+                  {:uri (:uri request)
+                   :method (:request-method request)
+                   :has-session (boolean session-token)
+                   :has-bearer (boolean bearer-token)})
        (cond
          ;; Try JWT authentication first
          bearer-token
@@ -245,15 +236,13 @@
          ;; Fall back to session authentication
          session-token
          (do
-           (spit "/tmp/middleware-debug.log"
-                 (str "ATTEMPTING SESSION AUTH with user-service=" (type user-service) "\n")
-                 :append true)
+           (log/debug "Attempting session authentication")
            ((session-authentication-middleware user-service handler) request))
 
          ;; No authentication provided
          :else
          (do
-           (spit "/tmp/middleware-debug.log" "NO AUTH CREDENTIALS\n" :append true)
+           (log/debug "No authentication credentials provided")
            (create-unauthorized-response "Authentication required" :no-credentials request)))))))
 
 ;; =============================================================================

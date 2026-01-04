@@ -28,6 +28,7 @@
 - [Key Technologies](#key-technologies)
 - [Module Structure](#module-structure)
 - [Configuration Management](#configuration-management)
+- [Secrets Management](#secrets-management)
 - [Development Workflow](#development-workflow)
 - [Module Scaffolding](#module-scaffolding)
 - [Testing Strategy](#testing-strategy)
@@ -681,6 +682,544 @@ user=> (require '[boundary.config :as config])
 user=> (def cfg (config/load-config))
 user=> (keys (:active cfg))  ; See active configuration sections
 ```
+
+---
+
+## Secrets Management
+
+Boundary implements a **defense-in-depth approach to secrets management**, progressing from basic environment variables to enterprise-grade secret vaults.
+
+### Secrets Management Strategy
+
+**Security Principles:**
+1. **Never commit secrets to version control** - Use `.gitignore` for sensitive files
+2. **Fail fast on missing secrets** - Application refuses to start without required configuration
+3. **Separate secrets per environment** - Development, staging, production use different secrets
+4. **Rotate secrets regularly** - Support zero-downtime secret rotation
+5. **Audit secret access** - Log when secrets are retrieved (not values)
+
+### Current Implementation: Environment Variables
+
+**Development Setup:**
+
+```bash
+# Required secrets (application fails without these)
+export JWT_SECRET="dev-secret-minimum-32-characters-long"
+export DB_PASSWORD="dev_password"
+
+# Optional secrets (have sensible defaults)
+export SMTP_PASSWORD="optional_mail_password"
+export SENTRY_DSN="optional_sentry_dsn"
+```
+
+**Reading Secrets in Code:**
+
+```clojure
+(ns boundary.user.shell.auth
+  (:require [clojure.tools.logging :as log]))
+
+;; SECURE: Fail fast if secret not configured
+(def ^:private jwt-secret
+  "JWT signing secret loaded from environment variable.
+
+   SECURITY: Must be set via JWT_SECRET environment variable.
+   Throws exception if not configured to prevent accidental use of default secret."
+  (or (System/getenv "JWT_SECRET")
+      (throw (ex-info "JWT_SECRET environment variable not configured. Set JWT_SECRET before starting the application."
+                      {:type :configuration-error
+                       :required-env-var "JWT_SECRET"}))))
+
+;; Log that secret was loaded (never log the value)
+(log/info "JWT secret loaded from environment variable")
+```
+
+**Aero Integration:**
+
+```clojure
+;; In resources/conf/dev/config.edn
+{:active
+ {:boundary/database
+  {:password #env "DB_PASSWORD"}     ; Required environment variable
+
+ :boundary/smtp
+  {:password #or [#env "SMTP_PASSWORD" "default-dev-password"]}  ; Optional with default
+
+ :boundary/auth
+  {:jwt-secret #env "JWT_SECRET"}}}  ; Required, no default
+```
+
+### Production Secrets Management
+
+#### Option 1: AWS Secrets Manager
+
+**Installation:**
+
+```clojure
+;; Add to deps.edn
+{:deps {com.amazonaws/aws-java-sdk-secretsmanager {:mvn/version "1.12.500"}}}
+```
+
+**Implementation:**
+
+```clojure
+(ns boundary.platform.shell.adapters.secrets.aws-secrets-manager
+  "AWS Secrets Manager adapter for retrieving secrets.
+
+   Supports:
+   - Secret retrieval by name
+   - Automatic credential handling (IAM roles)
+   - Caching with TTL
+   - Secret rotation without downtime"
+  (:require [clojure.tools.logging :as log]
+            [clojure.data.json :as json])
+  (:import [com.amazonaws.services.secretsmanager AWSSecretsManagerClientBuilder]
+           [com.amazonaws.services.secretsmanager.model GetSecretValueRequest]))
+
+(defn create-client
+  "Create AWS Secrets Manager client.
+
+   Uses default credential chain:
+   1. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+   2. EC2 instance profile
+   3. ECS task role"
+  []
+  (-> (AWSSecretsManagerClientBuilder/standard)
+      (.withRegion (or (System/getenv "AWS_REGION") "us-east-1"))
+      (.build)))
+
+(defn get-secret
+  "Retrieve secret value from AWS Secrets Manager.
+
+   Args:
+     client - AWS Secrets Manager client
+     secret-name - Name of secret in AWS Secrets Manager
+
+   Returns:
+     Secret value as string (for JSON secrets, parse with json/read-str)
+
+   Example:
+     (get-secret client \"prod/boundary/jwt-secret\")"
+  [client secret-name]
+  (try
+    (log/info "Retrieving secret from AWS Secrets Manager" {:secret-name secret-name})
+    (let [request (-> (GetSecretValueRequest.)
+                      (.withSecretId secret-name))
+          result (.getSecretValue client request)]
+      (.getSecretString result))
+    (catch Exception e
+      (log/error e "Failed to retrieve secret from AWS Secrets Manager"
+                 {:secret-name secret-name})
+      (throw (ex-info "Secret retrieval failed"
+                      {:type :secret-retrieval-error
+                       :secret-name secret-name}
+                      e)))))
+
+(defn load-secrets-from-aws
+  "Load all application secrets from AWS Secrets Manager.
+
+   Returns:
+     Map of secret keys to values
+
+   Example:
+     {:jwt-secret \"abc123...\"
+      :db-password \"xyz789...\"}"
+  []
+  (let [client (create-client)
+        secrets-json (get-secret client "prod/boundary/secrets")]
+    (json/read-str secrets-json :key-fn keyword)))
+```
+
+**Usage in Application:**
+
+```clojure
+(ns boundary.config
+  (:require [boundary.platform.shell.adapters.secrets.aws-secrets-manager :as aws-secrets]))
+
+(defn load-production-secrets
+  "Load secrets based on environment."
+  []
+  (case (System/getenv "BND_ENV")
+    "production" (aws-secrets/load-secrets-from-aws)
+    "staging"    (aws-secrets/load-secrets-from-aws)
+    {}))  ; Development uses environment variables
+
+(defn ig-config
+  [config]
+  (let [secrets (load-production-secrets)]
+    (merge config secrets)))
+```
+
+**AWS Secrets Manager Setup:**
+
+```bash
+# Create secret in AWS
+aws secretsmanager create-secret \
+  --name prod/boundary/secrets \
+  --secret-string '{
+    "jwt-secret": "production-jwt-secret-32-chars",
+    "db-password": "production-db-password",
+    "smtp-password": "production-smtp-password"
+  }'
+
+# Grant EC2/ECS permission to read secret
+aws secretsmanager put-resource-policy \
+  --secret-id prod/boundary/secrets \
+  --resource-policy '{
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Principal": {"AWS": "arn:aws:iam::ACCOUNT_ID:role/boundary-app-role"},
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": "*"
+    }]
+  }'
+```
+
+#### Option 2: HashiCorp Vault
+
+**Installation:**
+
+```clojure
+;; Add to deps.edn
+{:deps {vault-clj/vault-clj {:mvn/version "1.1.0"}}}
+```
+
+**Implementation:**
+
+```clojure
+(ns boundary.platform.shell.adapters.secrets.vault
+  "HashiCorp Vault adapter for secret retrieval."
+  (:require [clojure.tools.logging :as log]
+            [vault.client.http]
+            [vault.core :as vault]))
+
+(defn create-client
+  "Create Vault client with authentication.
+
+   Supports:
+   - Token authentication (VAULT_TOKEN env var)
+   - AppRole authentication (VAULT_ROLE_ID, VAULT_SECRET_ID)
+   - Kubernetes authentication (for K8s deployments)"
+  []
+  (let [vault-addr (or (System/getenv "VAULT_ADDR")
+                       "http://localhost:8200")
+        vault-token (System/getenv "VAULT_TOKEN")]
+    (when-not vault-token
+      (throw (ex-info "VAULT_TOKEN environment variable not set"
+                      {:type :configuration-error})))
+    (vault/new-client vault-addr vault-token)))
+
+(defn get-secret
+  "Retrieve secret from Vault.
+
+   Args:
+     client - Vault client
+     path - Secret path (e.g., 'secret/data/boundary/prod')
+
+   Returns:
+     Map of secret key-value pairs"
+  [client path]
+  (try
+    (log/info "Retrieving secret from Vault" {:path path})
+    (let [response (vault/read-secret client path)]
+      (:data response))
+    (catch Exception e
+      (log/error e "Failed to retrieve secret from Vault" {:path path})
+      (throw (ex-info "Vault secret retrieval failed"
+                      {:type :secret-retrieval-error
+                       :path path}
+                      e)))))
+
+(defn load-secrets-from-vault
+  "Load application secrets from Vault.
+
+   Returns:
+     Map of secret keys to values"
+  []
+  (let [client (create-client)
+        env (or (System/getenv "BND_ENV") "dev")]
+    (get-secret client (str "secret/data/boundary/" env))))
+```
+
+**Vault Setup:**
+
+```bash
+# Enable KV v2 secrets engine
+vault secrets enable -version=2 kv
+
+# Write secrets to Vault
+vault kv put secret/boundary/prod \
+  jwt-secret="production-jwt-secret-32-chars" \
+  db-password="production-db-password" \
+  smtp-password="production-smtp-password"
+
+# Create policy for boundary application
+vault policy write boundary-app - <<EOF
+path "secret/data/boundary/*" {
+  capabilities = ["read"]
+}
+EOF
+
+# Create token for application
+vault token create -policy=boundary-app -ttl=720h
+```
+
+### Configuration Validation on Startup
+
+**Validate Required Secrets:**
+
+```clojure
+(ns boundary.platform.shell.validation
+  "Startup configuration validation."
+  (:require [clojure.tools.logging :as log]))
+
+(def required-secrets
+  "List of required secrets that must be present."
+  [:jwt-secret
+   :db-password])
+
+(defn validate-secrets
+  "Validate that all required secrets are present.
+
+   Args:
+     config - Configuration map
+
+   Returns:
+     config if valid
+
+   Throws:
+     ex-info if secrets are missing"
+  [config]
+  (let [missing (remove #(get config %) required-secrets)]
+    (if (seq missing)
+      (do
+        (log/error "Missing required secrets" {:missing-secrets missing})
+        (throw (ex-info "Configuration validation failed: missing required secrets"
+                        {:type :configuration-error
+                         :missing-secrets missing})))
+      (do
+        (log/info "Configuration validation passed"
+                  {:validated-secrets (count required-secrets)})
+        config))))
+
+(defn validate-secret-format
+  "Validate secret values meet security requirements.
+
+   Example: JWT secret must be at least 32 characters"
+  [config]
+  (when-let [jwt-secret (:jwt-secret config)]
+    (when (< (count jwt-secret) 32)
+      (throw (ex-info "JWT_SECRET must be at least 32 characters"
+                      {:type :configuration-error
+                       :secret :jwt-secret
+                       :length (count jwt-secret)}))))
+  config)
+
+(defn validate-config
+  "Run all configuration validations.
+
+   Call this at application startup before starting system."
+  [config]
+  (-> config
+      validate-secrets
+      validate-secret-format))
+```
+
+**Usage:**
+
+```clojure
+(ns boundary.core
+  (:require [boundary.config :as config]
+            [boundary.platform.shell.validation :as validation]
+            [integrant.core :as ig]))
+
+(defn -main
+  [& args]
+  (let [config (config/load-config)
+        validated-config (validation/validate-config config)
+        system (ig/init (config/ig-config validated-config))]
+    ;; System started with validated configuration
+    system))
+```
+
+### Secret Rotation Without Downtime
+
+**Strategy:**
+
+1. **Dual-Value Support**: Application accepts both old and new secrets during rotation window
+2. **Gradual Migration**: Update secrets in vault, application picks up new values
+3. **Health Checks**: Verify new secrets work before removing old ones
+
+**Implementation:**
+
+```clojure
+(ns boundary.platform.shell.secrets.rotation
+  "Support for zero-downtime secret rotation."
+  (:require [clojure.tools.logging :as log]))
+
+(defn get-jwt-secret-with-fallback
+  "Get JWT secret with rotation support.
+
+   During rotation period:
+   1. Try JWT_SECRET_NEW first
+   2. Fall back to JWT_SECRET
+
+   This allows gradual migration:
+   1. Deploy with both secrets
+   2. Update vault to JWT_SECRET_NEW
+   3. Wait for tokens issued with old secret to expire
+   4. Remove JWT_SECRET, rename JWT_SECRET_NEW to JWT_SECRET"
+  []
+  (or (System/getenv "JWT_SECRET_NEW")
+      (System/getenv "JWT_SECRET")
+      (throw (ex-info "No JWT secret configured"
+                      {:type :configuration-error}))))
+
+(defn verify-jwt-token-with-rotation
+  "Verify JWT token, trying both current and previous secrets.
+
+   This allows tokens signed with old secret to remain valid
+   during rotation window."
+  [token]
+  (let [current-secret (System/getenv "JWT_SECRET")
+        previous-secret (System/getenv "JWT_SECRET_PREVIOUS")]
+    (or (try-verify-token token current-secret)
+        (when previous-secret
+          (log/info "Token verification with current secret failed, trying previous secret")
+          (try-verify-token token previous-secret))
+        (throw (ex-info "JWT verification failed with all secrets"
+                        {:type :authentication-error})))))
+```
+
+**Rotation Procedure:**
+
+```bash
+# Step 1: Generate new secret
+NEW_JWT_SECRET=$(openssl rand -base64 32)
+
+# Step 2: Deploy application with both secrets
+export JWT_SECRET="old-secret"
+export JWT_SECRET_NEW="$NEW_JWT_SECRET"
+# Deploy application (supports both secrets)
+
+# Step 3: Update Vault/Secrets Manager with new secret
+aws secretsmanager update-secret \
+  --secret-id prod/boundary/jwt-secret \
+  --secret-string "$NEW_JWT_SECRET"
+
+# Step 4: Wait for old tokens to expire (e.g., 24 hours)
+sleep 86400
+
+# Step 5: Deploy with only new secret
+export JWT_SECRET="$NEW_JWT_SECRET"
+unset JWT_SECRET_NEW
+# Deploy application (old secret removed)
+```
+
+### Best Practices
+
+#### Development Environment
+
+```bash
+# .env.example (commit to repository)
+JWT_SECRET=dev-secret-minimum-32-characters-long
+DB_PASSWORD=dev_password
+SMTP_PASSWORD=optional_mail_password
+
+# .env (DO NOT commit - add to .gitignore)
+JWT_SECRET=actual-dev-secret-32-chars-min
+DB_PASSWORD=actual_dev_password
+```
+
+#### Production Environment
+
+**AWS EC2/ECS:**
+
+```bash
+# Use IAM roles, no credentials in environment
+# Secrets retrieved from AWS Secrets Manager
+# Application logs secret retrieval (not values)
+```
+
+**Kubernetes:**
+
+```yaml
+# Use Kubernetes secrets mounted as files
+apiVersion: v1
+kind: Pod
+metadata:
+  name: boundary-app
+spec:
+  containers:
+  - name: app
+    image: boundary:latest
+    env:
+    - name: JWT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: boundary-secrets
+          key: jwt-secret
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: boundary-secrets
+          key: db-password
+```
+
+#### Security Checklist
+
+- [ ] No secrets in version control (check `.gitignore`)
+- [ ] No secrets in logs (use `[REDACTED]` when logging)
+- [ ] No secrets in error messages
+- [ ] Secrets validated at startup (fail fast)
+- [ ] Secrets rotated regularly (document schedule)
+- [ ] Different secrets per environment
+- [ ] Secret access audited
+- [ ] Encryption at rest (Vault/Secrets Manager)
+- [ ] Encryption in transit (TLS)
+- [ ] Least privilege access (IAM policies)
+
+#### Audit Logging
+
+```clojure
+(defn get-secret-with-audit
+  "Retrieve secret with audit logging.
+
+   IMPORTANT: Never log secret values, only metadata."
+  [secret-name]
+  (log/info "Secret accessed"
+            {:secret-name secret-name
+             :user (System/getProperty "user.name")
+             :timestamp (java.time.Instant/now)})
+  (get-secret-value secret-name))
+```
+
+### Migration Path
+
+**Current State → Production Ready:**
+
+1. **Phase 1: Environment Variables** ✅ (Current)
+   - Development uses `.env` files
+   - Secrets loaded via `System/getenv`
+   - Fail-fast validation
+
+2. **Phase 2: Secret Vault Integration** (Next)
+   - Implement AWS Secrets Manager adapter
+   - Add configuration for vault selection
+   - Test secret rotation procedures
+
+3. **Phase 3: Automated Rotation** (Future)
+   - Schedule automatic secret rotation
+   - Implement rotation validation
+   - Monitor rotation success/failure
+
+### See Also
+
+- [Configuration Management](#configuration-management) - How Aero config works
+- [Phase 1 Security Fixes](/PHASE1_SECURITY_FIXES.md) - JWT secret environment variable fix
+- [AWS Secrets Manager Documentation](https://docs.aws.amazon.com/secretsmanager/)
+- [HashiCorp Vault Documentation](https://www.vaultproject.io/docs)
+- [12-Factor App: Config](https://12factor.net/config)
 
 ---
 

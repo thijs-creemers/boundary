@@ -1,12 +1,13 @@
 (ns boundary.error-reporting.core
   "Core error reporting functions and utilities.
-   
+
    This namespace provides pure functions and higher-level abstractions over
    the error reporting protocols, making it easier for feature modules to
    report errors without dealing with protocol details directly."
   (:require
    [boundary.error-reporting.ports :as ports]
-   [clojure.string :as str]))
+   [clojure.string :as str]
+   [clojure.tools.logging :as log]))
 
 ;; =============================================================================
 ;; Context Management Utilities
@@ -378,7 +379,7 @@
     (report-application-error reporter exception message context)
     (catch Exception report-error
       ;; If error reporting itself fails, log it but don't fail the application
-      (println "Failed to report error:" (.getMessage report-error))
+      (log/error report-error "Failed to report error to error reporting service")
       "error-reporting-failed")))
 
 ;; =============================================================================

@@ -18,7 +18,8 @@
      (db-config/adapter-active? :postgresql)    ; Check if adapter is active"
   (:require [clojure.tools.logging :as log]
             [aero.core :as aero]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [boundary.platform.shell.adapters.database.common.connection :as connection]))
 
 ;; =============================================================================
 ;; Configuration Loading
@@ -222,6 +223,34 @@
           (map (fn [[config-key config]]
                  [config-key (config->db-config config-key config)]))
           active-configs)))
+
+(defn get-active-db-config
+  "Get the first active database configuration for environment.
+
+   This is used by the migration system which operates on a single database.
+   If multiple databases are configured, returns the first one.
+
+   Args:
+     None (uses detected environment)
+
+   Returns:
+     Database adapter configuration map with :datasource
+
+   Throws:
+     Exception if no active database is configured"
+  []
+  (let [env (detect-environment)
+        db-configs (get-active-db-configs env)]
+    (when (empty? db-configs)
+      (throw (ex-info "No active database configured"
+                      {:environment env})))
+    (let [[config-key config] (first db-configs)
+          ;; Create a datasource for the database configuration
+          datasource (connection/create-connection-pool config)]
+      (assoc config
+             :datasource datasource
+             :database-type (name (:adapter config))
+             :config-key config-key))))
 
 ;; =============================================================================
 ;; Environment Detection and Defaults

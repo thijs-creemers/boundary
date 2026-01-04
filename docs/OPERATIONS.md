@@ -1,0 +1,1108 @@
+# Boundary Framework - Operational Runbook
+
+**Version:** 1.0.0
+**Last Updated:** 2026-01-03
+**Audience:** DevOps, SRE, Operations Engineers
+
+---
+
+## Table of Contents
+
+1. [System Overview](#system-overview)
+2. [Deployment](#deployment)
+3. [Monitoring & Observability](#monitoring--observability)
+4. [Configuration Management](#configuration-management)
+5. [Database Operations](#database-operations)
+6. [Incident Response](#incident-response)
+7. [Maintenance Tasks](#maintenance-tasks)
+8. [Troubleshooting](#troubleshooting)
+9. [Security Operations](#security-operations)
+10. [Performance Tuning](#performance-tuning)
+
+---
+
+## System Overview
+
+### Architecture
+
+Boundary applications follow the **Functional Core / Imperative Shell (FC/IS)** pattern:
+
+```
+┌─────────────────────────────────────────┐
+│          HTTP Layer (Reitit)            │
+│    - Routes, Handlers, Middleware       │
+└─────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────┐
+│       Interceptors & Security           │
+│  - Auth, Rate Limiting, Observability   │
+└─────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────┐
+│        Service Layer (Shell)            │
+│  - Transaction Management, I/O          │
+└─────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────┐
+│      Business Logic (Core)              │
+│    - Pure Functions, No Side Effects    │
+└─────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────┐
+│     Adapters (Database, External)       │
+│  - PostgreSQL, SQLite, MySQL, H2        │
+└─────────────────────────────────────────┘
+```
+
+### Key Components
+
+| Component | Purpose | Critical? |
+|-----------|---------|-----------|
+| HTTP Server (Jetty) | Handles incoming requests | Yes |
+| Database (PostgreSQL) | Data persistence | Yes |
+| Logging (Datadog/Console) | Observability | Yes |
+| Metrics (DogStatsD) | Performance monitoring | No |
+| Error Reporting (Sentry) | Exception tracking | No |
+
+### System Requirements
+
+**Production Minimum:**
+- JVM: 11+ (OpenJDK or Amazon Corretto)
+- RAM: 512MB minimum, 2GB recommended
+- CPU: 1 core minimum, 2+ recommended
+- Disk: 1GB for application + database storage
+- Network: Outbound HTTPS for external services
+
+**Database:**
+- PostgreSQL 12+ (recommended for production)
+- MySQL 8+ or SQLite 3.35+ (development/testing)
+
+---
+
+## Deployment
+
+### Environment Setup
+
+#### 1. Environment Variables
+
+**Required:**
+```bash
+# Application
+ENV=production                    # Environment: dev, test, prod
+PORT=3000                        # HTTP server port
+
+# Database
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+DATABASE_POOL_SIZE=10            # Connection pool size
+DATABASE_POOL_TIMEOUT=30000      # Connection timeout (ms)
+
+# Security
+JWT_SECRET=<64-char-random-hex>  # CRITICAL: Use secrets manager
+SESSION_SECRET=<64-char-random-hex>
+```
+
+**Optional (Observability):**
+```bash
+# Datadog
+DATADOG_API_KEY=<your-api-key>
+DATADOG_SERVICE=boundary-api
+DATADOG_ENVIRONMENT=production
+DATADOG_STATSD_HOST=localhost
+DATADOG_STATSD_PORT=8125
+
+# Sentry
+SENTRY_DSN=https://...@sentry.io/...
+```
+
+#### 2. Secrets Management
+
+**CRITICAL:** Never commit secrets to version control!
+
+**Recommended Solutions:**
+- **AWS:** AWS Secrets Manager or Parameter Store
+- **Kubernetes:** Sealed Secrets or External Secrets Operator
+- **HashiCorp Vault:** Enterprise secret management
+- **Docker:** Docker secrets
+
+**Example: AWS Secrets Manager**
+```bash
+# Store secret
+aws secretsmanager create-secret \
+  --name boundary/production/jwt-secret \
+  --secret-string "$(openssl rand -hex 32)"
+
+# Retrieve in application startup
+export JWT_SECRET=$(aws secretsmanager get-secret-value \
+  --secret-id boundary/production/jwt-secret \
+  --query SecretString --output text)
+```
+
+### Deployment Methods
+
+#### A. JAR Deployment (Traditional)
+
+```bash
+# 1. Build JAR
+clojure -T:build jar
+
+# 2. Copy to server
+scp target/boundary-standalone.jar prod-server:/opt/boundary/
+
+# 3. Start service
+java -Xmx1g -Xms512m \
+  -Denv=production \
+  -jar /opt/boundary/boundary-standalone.jar
+```
+
+**Systemd Service (`/etc/systemd/system/boundary.service`):**
+```ini
+[Unit]
+Description=Boundary API Service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=boundary
+WorkingDirectory=/opt/boundary
+EnvironmentFile=/opt/boundary/config/production.env
+ExecStart=/usr/bin/java -Xmx1g -Xms512m \
+  -Denv=production \
+  -jar /opt/boundary/boundary-standalone.jar
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Manage Service:**
+```bash
+sudo systemctl start boundary
+sudo systemctl enable boundary
+sudo systemctl status boundary
+sudo journalctl -u boundary -f  # View logs
+```
+
+#### B. Docker Deployment
+
+**Dockerfile:**
+```dockerfile
+FROM clojure:temurin-17-tools-deps AS builder
+WORKDIR /app
+COPY deps.edn .
+RUN clojure -P
+COPY . .
+RUN clojure -T:build jar
+
+FROM eclipse-temurin:17-jre-alpine
+RUN addgroup -S boundary && adduser -S boundary -G boundary
+WORKDIR /app
+COPY --from=builder /app/target/boundary-standalone.jar .
+USER boundary
+EXPOSE 3000
+ENV JAVA_OPTS="-Xmx1g -Xms512m"
+CMD ["sh", "-c", "java $JAVA_OPTS -jar boundary-standalone.jar"]
+```
+
+**Build and Run:**
+```bash
+# Build image
+docker build -t boundary-api:latest .
+
+# Run container
+docker run -d \
+  --name boundary-api \
+  -p 3000:3000 \
+  -e ENV=production \
+  -e DATABASE_URL=postgresql://... \
+  -e JWT_SECRET=$JWT_SECRET \
+  --restart unless-stopped \
+  boundary-api:latest
+```
+
+#### C. Kubernetes Deployment
+
+**deployment.yaml:**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: boundary-api
+  namespace: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: boundary-api
+  template:
+    metadata:
+      labels:
+        app: boundary-api
+    spec:
+      containers:
+      - name: boundary
+        image: your-registry/boundary-api:v1.0.0
+        ports:
+        - containerPort: 3000
+        env:
+        - name: ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: boundary-secrets
+              key: database-url
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: boundary-secrets
+              key: jwt-secret
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: boundary-api
+  namespace: production
+spec:
+  selector:
+    app: boundary-api
+  ports:
+  - port: 80
+    targetPort: 3000
+  type: ClusterIP
+```
+
+### Pre-Deployment Checklist
+
+- [ ] Database migrations tested in staging
+- [ ] Environment variables configured and verified
+- [ ] Secrets rotated and stored securely
+- [ ] Health check endpoints responding
+- [ ] Monitoring/alerting configured
+- [ ] Backup strategy in place
+- [ ] Rollback plan documented
+- [ ] Load testing completed
+- [ ] Security scan passed
+
+---
+
+## Monitoring & Observability
+
+### Health Check Endpoints
+
+**Available Endpoints:**
+
+1. **`GET /health`** - Overall system health
+   ```json
+   {
+     "status": "healthy",
+     "service": "boundary-api",
+     "version": "1.0.0",
+     "timestamp": "2026-01-03T12:00:00Z"
+   }
+   ```
+
+2. **`GET /health/live`** - Liveness probe (Kubernetes)
+   ```json
+   {"status": "alive"}
+   ```
+
+3. **`GET /health/ready`** - Readiness probe (Kubernetes)
+   ```json
+   {"status": "ready"}
+   ```
+
+### Logging
+
+**Log Levels:**
+- `TRACE` - Detailed debugging information
+- `DEBUG` - General debugging information
+- `INFO` - Informational messages (default)
+- `WARN` - Warning messages (potential issues)
+- `ERROR` - Error messages (failures)
+- `FATAL` - Critical failures
+
+**Log Formats:**
+
+**Console (Development):**
+```
+2026-01-03 12:00:00 INFO  [boundary.user.service] User created user-id=123 email=user@example.com
+```
+
+**JSON (Production with Datadog):**
+```json
+{
+  "timestamp": "2026-01-03T12:00:00Z",
+  "level": "info",
+  "message": "User created",
+  "service": "boundary-api",
+  "user-id": "123",
+  "email": "user@example.com",
+  "correlation-id": "req-abc123"
+}
+```
+
+**Key Log Fields:**
+- `correlation-id` - Trace requests across services
+- `user-id` - User performing action
+- `operation` - Business operation type
+- `duration-ms` - Operation duration
+- `error.kind` / `error.message` - Exception details
+
+### Metrics (DogStatsD)
+
+**System Metrics:**
+```
+# HTTP metrics
+http.requests.count{path,method,status}
+http.request.duration{path,method}
+
+# Database metrics
+database.query.count{operation}
+database.query.duration{operation}
+database.connection.pool.active
+database.connection.pool.idle
+
+# Application metrics
+application.users.created.count
+application.sessions.active
+application.errors.count{type}
+```
+
+**Setting Up Datadog Agent:**
+```bash
+# Install agent
+DD_API_KEY=<your-key> DD_SITE="datadoghq.com" bash -c "$(curl -L https://s3.amazonaws.com/dd-agent/scripts/install_script.sh)"
+
+# Configure DogStatsD
+sudo vim /etc/datadog-agent/datadog.yaml
+# Set:
+# dogstatsd_port: 8125
+# dogstatsd_non_local_traffic: true
+
+# Restart agent
+sudo systemctl restart datadog-agent
+```
+
+### Error Reporting (Sentry)
+
+**Configuration:**
+```bash
+export SENTRY_DSN=https://...@sentry.io/...
+export SENTRY_ENVIRONMENT=production
+export SENTRY_RELEASE=v1.0.0
+```
+
+**What Gets Reported:**
+- Unhandled exceptions
+- HTTP 5xx errors
+- Database connection failures
+- Authentication failures (suspicious patterns)
+
+### Alerting Rules
+
+**Critical Alerts (Page On-Call):**
+1. **Service Down**: Health check fails for 2+ minutes
+2. **High Error Rate**: >5% of requests return 5xx in 5 minutes
+3. **Database Down**: Connection pool exhausted or DB unreachable
+4. **Disk Full**: >90% disk usage
+
+**Warning Alerts (Slack/Email):**
+1. **High Latency**: p95 response time >1000ms for 10 minutes
+2. **Memory Pressure**: JVM heap usage >80%
+3. **Failed Logins**: >50 failed login attempts in 5 minutes
+4. **Slow Queries**: Database query >5 seconds
+
+---
+
+## Configuration Management
+
+### Configuration Files
+
+**Location:** `resources/config/`
+
+**Files:**
+- `dev.edn` - Development environment
+- `test.edn` - Test environment
+- `prod.edn` - Production environment (use environment variables for secrets!)
+
+**Example Production Config:**
+```clojure
+{:boundary/settings
+ {:name "Boundary API"
+  :version "1.0.0"
+  :environment :production}
+
+ :boundary/http-server
+ {:port #env PORT
+  :host "0.0.0.0"
+  :join? true}
+
+ :boundary/database
+ {:connection-uri #env DATABASE_URL
+  :pool-size #long #env [DATABASE_POOL_SIZE 10]
+  :connection-timeout #long #env [DATABASE_POOL_TIMEOUT 30000]}
+
+ :boundary/logging
+ {:provider :datadog
+  :api-key #env DATADOG_API_KEY
+  :service #env DATADOG_SERVICE
+  :level :info}
+
+ :boundary/metrics
+ {:provider :datadog-statsd
+  :host #env [DATADOG_STATSD_HOST "localhost"]
+  :port #long #env [DATADOG_STATSD_PORT 8125]
+  :service #env DATADOG_SERVICE}
+
+ :boundary/error-reporting
+ {:provider :sentry
+  :dsn #env SENTRY_DSN
+  :environment #env SENTRY_ENVIRONMENT
+  :release #env [SENTRY_RELEASE "unknown"]}}
+```
+
+### Environment-Specific Overrides
+
+**Priority Order (highest to lowest):**
+1. Environment variables
+2. Environment-specific config file (e.g., `prod.edn`)
+3. Default values in code
+
+---
+
+## Database Operations
+
+### Migrations
+
+**Check Migration Status:**
+```bash
+clojure -M:migrate status
+```
+
+**Run Pending Migrations:**
+```bash
+# Dry run (safe)
+clojure -M:migrate migrate --dry-run
+
+# Execute migrations
+clojure -M:migrate migrate
+```
+
+**Rollback Last Migration:**
+```bash
+clojure -M:migrate rollback
+```
+
+**Create New Migration:**
+```bash
+clojure -M:migrate create add-email-verification
+
+# Edit generated files:
+# migrations/YYYYMMDD-HHMMSS-add-email-verification.up.sql
+# migrations/YYYYMMDD-HHMMSS-add-email-verification.down.sql
+```
+
+**Migration Best Practices:**
+1. **Always** test migrations in staging first
+2. **Always** write reversible migrations (`.down.sql`)
+3. **Avoid** data-destructive operations in peak hours
+4. **Use** transactions for consistency
+5. **Monitor** database performance during migration
+
+### Connection Pool Tuning
+
+**Formula for pool size:**
+```
+pool_size = ((core_count * 2) + effective_spindle_count)
+```
+
+**Example:** 4-core server with 1 SSD:
+```
+pool_size = (4 * 2) + 1 = 9 ≈ 10 connections
+```
+
+**Configuration:**
+```bash
+export DATABASE_POOL_SIZE=10
+export DATABASE_POOL_TIMEOUT=30000  # 30 seconds
+```
+
+### Database Backups
+
+**PostgreSQL Backup (Automated):**
+```bash
+#!/bin/bash
+# /opt/boundary/scripts/backup-db.sh
+
+BACKUP_DIR=/var/backups/boundary
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+DATABASE_URL=${DATABASE_URL}
+
+# Extract credentials from URL
+DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*\/\([^?]*\).*|\1|p')
+
+# Create backup
+pg_dump $DATABASE_URL | gzip > $BACKUP_DIR/boundary_${TIMESTAMP}.sql.gz
+
+# Retain only last 30 days
+find $BACKUP_DIR -name "boundary_*.sql.gz" -mtime +30 -delete
+
+# Upload to S3 (optional)
+aws s3 cp $BACKUP_DIR/boundary_${TIMESTAMP}.sql.gz \
+  s3://your-backup-bucket/boundary/
+```
+
+**Cron Schedule:**
+```cron
+# Daily at 2 AM
+0 2 * * * /opt/boundary/scripts/backup-db.sh >> /var/log/boundary-backup.log 2>&1
+```
+
+### Database Recovery
+
+**Restore from Backup:**
+```bash
+# 1. Stop application
+sudo systemctl stop boundary
+
+# 2. Drop and recreate database (DESTRUCTIVE!)
+dropdb boundary_production
+createdb boundary_production
+
+# 3. Restore backup
+gunzip -c /var/backups/boundary/boundary_20260103_020000.sql.gz | psql boundary_production
+
+# 4. Start application
+sudo systemctl start boundary
+```
+
+---
+
+## Incident Response
+
+### Severity Levels
+
+| Severity | Definition | Response Time | Examples |
+|----------|------------|---------------|----------|
+| **SEV1** | Service down, data loss | 15 minutes | Database down, app crashed |
+| **SEV2** | Degraded performance | 1 hour | High latency, partial outage |
+| **SEV3** | Minor issues | 4 hours | Slow queries, minor bugs |
+| **SEV4** | Cosmetic issues | Next business day | UI glitches |
+
+### Incident Response Playbook
+
+#### SEV1: Service Down
+
+**Symptoms:**
+- Health check returning 503/500
+- Application not responding
+- Database connection errors
+
+**Response Steps:**
+1. **Verify outage** - Check health endpoints, logs, metrics
+2. **Check dependencies** - Database, network, external services
+3. **Review recent changes** - Recent deployments, config changes
+4. **Rollback if needed** - Revert to last known good version
+5. **Restore service** - Restart app, failover database, scale up
+6. **Post-incident review** - Document root cause, prevent recurrence
+
+**Commands:**
+```bash
+# Check service status
+sudo systemctl status boundary
+sudo journalctl -u boundary --since "10 minutes ago"
+
+# Check database connectivity
+psql $DATABASE_URL -c "SELECT 1"
+
+# Restart service
+sudo systemctl restart boundary
+
+# Rollback deployment (K8s)
+kubectl rollout undo deployment/boundary-api -n production
+
+# Scale up (K8s)
+kubectl scale deployment/boundary-api --replicas=5 -n production
+```
+
+#### SEV2: High Error Rate
+
+**Symptoms:**
+- Elevated 5xx errors
+- Slow response times
+- Increased CPU/memory usage
+
+**Response Steps:**
+1. **Identify error patterns** - Check logs for specific error types
+2. **Check resources** - CPU, memory, disk, database connections
+3. **Increase capacity** - Scale horizontally or vertically
+4. **Isolate bad requests** - Rate limit, block malicious IPs
+5. **Optimize if needed** - Add caching, optimize queries
+
+**Commands:**
+```bash
+# Tail error logs
+sudo journalctl -u boundary -p err -f
+
+# Check resource usage
+top
+htop
+docker stats  # If using Docker
+
+# Check database connections
+psql $DATABASE_URL -c "SELECT count(*) FROM pg_stat_activity"
+
+# Scale up (K8s)
+kubectl scale deployment/boundary-api --replicas=10 -n production
+```
+
+### On-Call Runbook
+
+**First 5 Minutes:**
+1. Acknowledge alert in PagerDuty/Opsgenie
+2. Check #incidents Slack channel
+3. Verify outage scope (region, feature, all users)
+4. Check status page / monitoring dashboard
+5. Announce in #incidents: "Investigating [issue]"
+
+**Next 15 Minutes:**
+1. Review logs and metrics
+2. Identify root cause or probable cause
+3. Decide on mitigation strategy
+4. Execute fix or rollback
+5. Monitor recovery
+
+**Post-Incident:**
+1. Verify all services recovered
+2. Document incident timeline
+3. Schedule post-mortem meeting
+4. Update runbook with learnings
+
+---
+
+## Maintenance Tasks
+
+### Routine Maintenance Schedule
+
+**Daily:**
+- [ ] Check health dashboard
+- [ ] Review error rates and logs
+- [ ] Verify backup completion
+
+**Weekly:**
+- [ ] Review slow query logs
+- [ ] Check disk space usage
+- [ ] Review security alerts
+- [ ] Update dependencies (dev environment first)
+
+**Monthly:**
+- [ ] Review and tune database indexes
+- [ ] Rotate logs and clean up old data
+- [ ] Test backup restoration
+- [ ] Review and update documentation
+- [ ] Security vulnerability scan
+
+**Quarterly:**
+- [ ] Disaster recovery drill
+- [ ] Capacity planning review
+- [ ] Performance benchmark comparison
+- [ ] Security audit
+
+### Log Rotation
+
+**Logrotate Configuration (`/etc/logrotate.d/boundary`):**
+```
+/var/log/boundary/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 boundary boundary
+    sharedscripts
+    postrotate
+        systemctl reload boundary > /dev/null 2>&1 || true
+    endscript
+}
+```
+
+### Dependency Updates
+
+**Check for Outdated Dependencies:**
+```bash
+clojure -M:outdated
+```
+
+**Update Dependencies:**
+```bash
+# 1. Review changes in deps.edn
+# 2. Test in dev environment
+# 3. Run full test suite
+clojure -M:test
+
+# 4. Deploy to staging
+# 5. Run integration tests
+# 6. Deploy to production (during low-traffic window)
+```
+
+---
+
+## Troubleshooting
+
+### High Memory Usage
+
+**Symptoms:**
+- JVM heap usage >80%
+- `OutOfMemoryError` exceptions
+- Application slow or unresponsive
+
+**Diagnosis:**
+```bash
+# Check JVM heap usage
+jstat -gc <pid> 1000
+
+# Generate heap dump
+jmap -dump:live,format=b,file=/tmp/heap.bin <pid>
+
+# Analyze heap dump with VisualVM or Eclipse MAT
+```
+
+**Fixes:**
+1. Increase heap size: `-Xmx2g`
+2. Tune GC: `-XX:+UseG1GC -XX:MaxGCPauseMillis=200`
+3. Fix memory leaks (check for unclosed resources)
+4. Scale horizontally instead of vertically
+
+### Slow Database Queries
+
+**Symptoms:**
+- High database query duration metrics
+- Slow API response times
+- Database CPU >80%
+
+**Diagnosis:**
+```sql
+-- Find slow queries (PostgreSQL)
+SELECT
+  query,
+  calls,
+  total_time / calls as avg_time_ms,
+  total_time
+FROM pg_stat_statements
+ORDER BY total_time DESC
+LIMIT 20;
+
+-- Find missing indexes
+SELECT
+  schemaname,
+  tablename,
+  attname,
+  n_distinct,
+  correlation
+FROM pg_stats
+WHERE schemaname = 'public'
+  AND n_distinct > 100
+  AND correlation < 0.1;
+```
+
+**Fixes:**
+1. Add missing indexes
+2. Optimize query (avoid N+1, use joins)
+3. Add database caching (Redis)
+4. Archive old data
+5. Increase database resources
+
+### Connection Pool Exhausted
+
+**Symptoms:**
+- `Connection timeout` errors
+- Slow request processing
+- Health checks failing
+
+**Diagnosis:**
+```sql
+-- Check active connections
+SELECT count(*), state
+FROM pg_stat_activity
+GROUP BY state;
+
+-- Find long-running queries
+SELECT pid, now() - query_start as duration, query
+FROM pg_stat_activity
+WHERE state != 'idle'
+ORDER BY duration DESC;
+```
+
+**Fixes:**
+1. Increase pool size: `DATABASE_POOL_SIZE=20`
+2. Kill long-running queries: `SELECT pg_terminate_backend(<pid>);`
+3. Fix connection leaks (ensure connections are closed)
+4. Optimize queries to reduce connection hold time
+
+### SSL/TLS Certificate Issues
+
+**Symptoms:**
+- `Certificate expired` errors
+- HTTPS connections failing
+
+**Check Certificate Expiry:**
+```bash
+echo | openssl s_client -connect yourdomain.com:443 2>/dev/null | \
+  openssl x509 -noout -dates
+```
+
+**Renew Let's Encrypt Certificate:**
+```bash
+sudo certbot renew
+sudo systemctl reload nginx  # or your reverse proxy
+```
+
+---
+
+## Security Operations
+
+### Security Headers
+
+**Configured by Default:**
+- `Content-Security-Policy` - XSS protection
+- `X-Frame-Options: DENY` - Clickjacking protection
+- `X-Content-Type-Options: nosniff` - MIME sniffing protection
+- `Strict-Transport-Security` - Force HTTPS
+- `X-XSS-Protection: 1; mode=block` - Legacy XSS protection
+
+**Verify Headers:**
+```bash
+curl -I https://your-api.com/health
+```
+
+### Rate Limiting
+
+**Default Limits:**
+- **Public endpoints:** 100 requests/minute per IP
+- **Authenticated endpoints:** 1000 requests/minute per user
+- **Login attempts:** 5 failures per 15 minutes per IP
+
+**Monitor Rate Limit Blocks:**
+```bash
+# Check logs for rate limit violations
+sudo journalctl -u boundary | grep "rate_limit_exceeded"
+```
+
+### Rotating Secrets
+
+**JWT Secret Rotation (Zero-Downtime):**
+
+1. Generate new secret
+2. Update config to accept BOTH old and new secrets for verification
+3. Deploy application
+4. Update config to sign with NEW secret only
+5. Deploy application
+6. Remove old secret from verification after grace period
+
+**Session Token Invalidation:**
+```bash
+# Force all users to re-login
+psql $DATABASE_URL -c "DELETE FROM user_sessions WHERE created_at < NOW() - INTERVAL '1 hour'"
+```
+
+### Audit Log Review
+
+**Check Suspicious Activity:**
+```sql
+-- Failed login attempts
+SELECT email, COUNT(*) as attempts, MAX(created_at) as last_attempt
+FROM audit_events
+WHERE event_type = 'login_failed'
+  AND created_at > NOW() - INTERVAL '1 hour'
+GROUP BY email
+HAVING COUNT(*) > 10;
+
+-- Admin actions
+SELECT actor, resource, action, result, created_at
+FROM audit_events
+WHERE actor_role = 'admin'
+  AND created_at > NOW() - INTERVAL '24 hours'
+ORDER BY created_at DESC;
+```
+
+---
+
+## Performance Tuning
+
+### JVM Tuning
+
+**Recommended JVM Flags:**
+```bash
+java \
+  -Xmx2g \                          # Max heap size
+  -Xms512m \                        # Initial heap size
+  -XX:+UseG1GC \                    # G1 garbage collector
+  -XX:MaxGCPauseMillis=200 \        # Target GC pause time
+  -XX:+HeapDumpOnOutOfMemoryError \ # Dump heap on OOM
+  -XX:HeapDumpPath=/tmp/heap.bin \  # Heap dump location
+  -Denv=production \
+  -jar boundary-standalone.jar
+```
+
+### Database Optimization
+
+**PostgreSQL Settings (`postgresql.conf`):**
+```ini
+# Connections
+max_connections = 200
+
+# Memory
+shared_buffers = 1GB              # 25% of system RAM
+effective_cache_size = 3GB        # 75% of system RAM
+work_mem = 16MB                   # Per operation memory
+maintenance_work_mem = 256MB
+
+# Query Planner
+random_page_cost = 1.1            # For SSDs (default: 4.0)
+effective_io_concurrency = 200    # For SSDs (default: 1)
+
+# Logging
+log_min_duration_statement = 1000 # Log queries >1 second
+log_line_prefix = '%t [%p]: '
+```
+
+### Caching Strategy
+
+**HTTP Caching:**
+```clojure
+;; Add cache headers to static resources
+{:status 200
+ :headers {"Cache-Control" "public, max-age=31536000, immutable"}
+ :body static-resource}
+```
+
+**Application-Level Caching (Future):**
+- Redis for session storage
+- In-memory caching for configuration
+- CDN for static assets
+
+### Load Testing
+
+**Run Load Test with Apache Bench:**
+```bash
+# 1000 requests, 10 concurrent
+ab -n 1000 -c 10 http://localhost:3000/health
+
+# With authentication
+ab -n 1000 -c 10 -H "Authorization: Bearer <token>" \
+  http://localhost:3000/api/v1/users
+```
+
+**Run Load Test with k6:**
+```javascript
+// load-test.js
+import http from 'k6/http';
+import { check } from 'k6';
+
+export let options = {
+  vus: 50,        // 50 virtual users
+  duration: '5m', // 5 minutes
+};
+
+export default function() {
+  let res = http.get('http://localhost:3000/health');
+  check(res, {
+    'status is 200': (r) => r.status === 200,
+    'response time < 200ms': (r) => r.timings.duration < 200,
+  });
+}
+```
+
+```bash
+k6 run load-test.js
+```
+
+**Performance Targets:**
+- p50 latency: <100ms
+- p95 latency: <500ms
+- p99 latency: <1000ms
+- Throughput: >1000 req/sec per instance
+
+---
+
+## Appendix
+
+### Useful Commands Reference
+
+```bash
+# Application
+sudo systemctl start boundary
+sudo systemctl stop boundary
+sudo systemctl restart boundary
+sudo systemctl status boundary
+sudo journalctl -u boundary -f
+
+# Database
+psql $DATABASE_URL
+clojure -M:migrate status
+clojure -M:migrate migrate
+
+# Monitoring
+curl http://localhost:3000/health
+curl http://localhost:3000/health/ready
+curl http://localhost:3000/health/live
+
+# Docker
+docker logs -f boundary-api
+docker exec -it boundary-api /bin/sh
+docker stats boundary-api
+
+# Kubernetes
+kubectl get pods -n production
+kubectl logs -f deployment/boundary-api -n production
+kubectl describe pod <pod-name> -n production
+kubectl exec -it <pod-name> -n production -- /bin/sh
+```
+
+### Contact Information
+
+**Emergency Contacts:**
+- **On-Call Engineer:** PagerDuty rotation
+- **Engineering Lead:** [Name] - [Email] - [Phone]
+- **DevOps Lead:** [Name] - [Email] - [Phone]
+
+**Support Channels:**
+- **Slack:** #boundary-ops
+- **PagerDuty:** boundary-production
+- **Email:** ops@yourcompany.com
+
+### Related Documentation
+
+- [BUILD.md](../BUILD.md) - Build and development guide
+- [SECURITY.md](SECURITY.md) - Security policies and procedures
+- [API Documentation](http://localhost:3000/api-docs/) - Swagger UI
+- [Architecture Decision Records](../ADRs/) - Design decisions
+
+---
+
+**Document Version:** 1.0.0
+**Last Review Date:** 2026-01-03
+**Next Review Date:** 2026-04-03 (Quarterly)
