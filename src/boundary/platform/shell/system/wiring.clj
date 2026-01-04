@@ -31,6 +31,7 @@
             [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
             [boundary.error-reporting.shell.adapters.sentry :as error-reporting-sentry]
             [boundary.platform.shell.http.reitit-router :as reitit-router]
+            [boundary.platform.shell.http.versioning :as http-versioning]
             [boundary.platform.shell.utils.port-manager :as port-manager]
             ;; todo: need to find a way to decouple these dependencies an inject them in another way.
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
@@ -71,7 +72,7 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/router
-  [_ {:keys [adapter config]}]
+  [_ {:keys [adapter]}]
   (log/info "Initializing HTTP router adapter" {:adapter adapter})
   (let [router (case adapter
                  :reitit (reitit-router/create-reitit-router)
@@ -94,8 +95,8 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes inventory-routes router logger metrics-emitter error-reporter]}]
-  (log/info "Initializing top-level HTTP handler with normalized routing")
+  [_ {:keys [user-routes inventory-routes router logger metrics-emitter error-reporter config]}]
+  (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (let [;; Import compile-routes function
         compile-routes (ns-resolve 'boundary.platform.ports.http 'compile-routes)
@@ -128,13 +129,22 @@
                                        inventory-web-routes))
         inventory-normalized-api (when (seq inventory-api-routes) inventory-api-routes)
 
-        ;; Combine all normalized routes
+        ;; Combine all API routes (unversioned at this point)
+        all-api-routes (concat (or user-normalized-api [])
+                              (or inventory-normalized-api []))
+
+        ;; Apply API versioning to all API routes
+        ;; This wraps routes with /api/v1 prefix and creates backward compatibility redirects
+        versioned-api-routes (if (seq all-api-routes)
+                              (http-versioning/apply-versioning all-api-routes config)
+                              [])
+
+        ;; Combine all routes: static, web, and versioned API
         all-normalized-routes (concat (or user-normalized-static [])
                                      (or user-normalized-web [])
-                                     (or user-normalized-api [])
                                      (or inventory-normalized-static [])
                                      (or inventory-normalized-web [])
-                                     (or inventory-normalized-api []))
+                                     versioned-api-routes)
 
         ;; Build system services map for HTTP interceptors
         system {:logger logger
@@ -145,7 +155,10 @@
         router-config {:middleware []  ; Add any global middleware here
                        :coercion :malli
                        :system system}
-        handler (compile-routes router all-normalized-routes router-config)]
+        handler (compile-routes router all-normalized-routes router-config)
+
+        ;; Wrap handler with version headers middleware
+        versioned-handler (http-versioning/wrap-handler-with-version-headers handler config)]
 
     (log/info "Top-level HTTP handler initialized successfully"
               {:user-routes {:static (count (or user-static-routes []))
@@ -154,10 +167,12 @@
                :inventory-routes {:static (count (or inventory-static-routes []))
                                  :web (count (or inventory-web-routes []))
                                  :api (count (or inventory-api-routes []))}
+               :versioned-api-routes (count versioned-api-routes)
                :total-normalized-routes (count all-normalized-routes)
                :router-adapter (class router)
-               :system-services (keys system)})
-    handler))
+               :system-services (keys system)
+               :api-versioning-enabled true})
+    versioned-handler))
 
 (defmethod ig/halt-key! :boundary/http-handler
   [_ _handler]

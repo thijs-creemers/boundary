@@ -1841,6 +1841,150 @@ user=> (user-ports/list-users repo {:limit 1})
 
 ---
 
+## API Pagination
+
+Boundary provides enterprise-grade pagination for REST APIs with two strategies: offset-based (simple, page-based) and cursor-based (high performance).
+
+### Quick Start
+
+**Offset Pagination** (default):
+```bash
+# First page (default: 20 items)
+curl "http://localhost:3000/api/users?limit=20&offset=0"
+
+# Second page
+curl "http://localhost:3000/api/users?limit=20&offset=20"
+```
+
+**Response Format**:
+```json
+{
+  "users": [...],
+  "pagination": {
+    "type": "offset",
+    "total": 1000,
+    "offset": 0,
+    "limit": 20,
+    "hasNext": true,
+    "hasPrev": false,
+    "page": 1,
+    "pages": 50
+  }
+}
+```
+
+**RFC 5988 Link Headers**:
+```http
+Link: </api/users?limit=20&offset=0>; rel="first",
+      </api/users?limit=20&offset=20>; rel="next",
+      </api/users?limit=20&offset=980>; rel="last"
+```
+
+### Pagination Strategies
+
+| Strategy | Best For | Performance | Use When |
+|----------|----------|-------------|----------|
+| **Offset** | Small datasets | Degrades at high offsets | < 100K items, page jumping needed |
+| **Cursor** | Large datasets | Consistent | > 100K items, infinite scroll |
+
+**Cursor Pagination Example**:
+```bash
+# First page
+curl "http://localhost:3000/api/users?limit=20"
+
+# Use nextCursor from response
+curl "http://localhost:3000/api/users?limit=20&cursor=eyJpZCI6MTIzfQ=="
+```
+
+### Implementation
+
+**Core Pagination Functions**:
+- `boundary.platform.core.pagination.pagination/calculate-offset-pagination` - Pure pagination logic
+- `boundary.platform.core.pagination.pagination/calculate-cursor-pagination` - Cursor calculations
+- `boundary.platform.shell.pagination.link-headers/build-link-header` - RFC 5988 Link headers
+- `boundary.platform.shell.pagination.cursor/encode-cursor` - Base64 cursor encoding
+
+**Add Pagination to Repository**:
+```clojure
+(ns boundary.mymodule.shell.persistence
+  (:require [boundary.platform.core.pagination.pagination :as pagination]))
+
+(defn find-items
+  [repository {:keys [limit offset] :or {limit 20 offset 0}}]
+  (let [count-query ["SELECT COUNT(*) AS total FROM items"]
+        total (:total (jdbc/execute-one! db-ctx count-query))
+        
+        data-query ["SELECT * FROM items LIMIT ? OFFSET ?" limit offset]
+        items (jdbc/execute! db-ctx data-query)
+        
+        pagination-meta (pagination/calculate-offset-pagination total offset limit)]
+    {:items (mapv db->item-entity items)
+     :pagination pagination-meta}))
+```
+
+**Add Link Headers to HTTP Handler**:
+```clojure
+(ns boundary.mymodule.shell.http
+  (:require [boundary.platform.shell.pagination.link-headers :as link-headers]))
+
+(defn list-items-handler [service]
+  (fn [request]
+    (let [limit (parse-int (get-in request [:query-params "limit"]) 20)
+          offset (parse-int (get-in request [:query-params "offset"]) 0)
+          
+          {:keys [items pagination]} (service/find-items service {:limit limit :offset offset})
+          
+          link-header (link-headers/build-link-header
+                        (get request :uri)
+                        pagination
+                        (get request :query-params))]
+      {:status 200
+       :headers {"Link" link-header}
+       :body {:items items :pagination pagination}})))
+```
+
+### Configuration
+
+```clojure
+;; resources/conf/dev/config.edn
+{:boundary/pagination
+ {:default-limit 20
+  :max-limit 100
+  :default-type :offset
+  :enable-link-headers true}}
+```
+
+### Testing
+
+```clojure
+;; Test pagination in repository (integration test)
+(deftest pagination-test
+  (testing "returns paginated results"
+    (let [repo (create-test-repository)
+          _ (create-test-items! 25)  ; Create test data
+          
+          {:keys [items pagination]} (repo/find-items repo {:limit 20 :offset 0})]
+      
+      (is (= 20 (count items)))
+      (is (= 25 (:total pagination)))
+      (is (:hasNext pagination))
+      (is (not (:hasPrev pagination))))))
+```
+
+### Performance Guidelines
+
+- **Offset < 1,000**: Good performance (< 50ms)
+- **Offset > 10,000**: Use cursor pagination
+- **Large datasets (> 100K)**: Always use cursor pagination
+- **Cache COUNT(*) queries**: Use caching for total count (5 min TTL)
+
+### See Also
+
+- **[API Pagination Guide](docs/API_PAGINATION.md)** - Complete pagination documentation
+- **[Phase 4.4 Completion Report](docs/PHASE4_4_API_VERSIONING_PAGINATION_COMPLETION.md)** - Implementation details
+
+---
+
 ## Observability
 
 Boundary includes built-in observability infrastructure with logging, metrics, and error reporting capabilities following the Functional Core/Imperative Shell pattern.

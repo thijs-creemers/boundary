@@ -279,7 +279,7 @@
           count-query (cond-> {:select [[:%count.* :total]]
                                :from [:users]}
                         where-clause (assoc :where where-clause))
-          users (map #(db->user-entity ctx %) (db/execute-query! ctx query))
+          users (vec (map #(db->user-entity ctx %) (db/execute-query! ctx query)))
           ;; Extract count with defensive fallback to 0
           count-result (db/execute-one! ctx count-query)
           total-count (or (:total count-result)

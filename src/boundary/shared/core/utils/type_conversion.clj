@@ -10,13 +10,17 @@
   (when uuid (.toString uuid)))
 
 (defn string->uuid
-  "Convert string to UUID from storage (nil-safe)."
+  "Convert string to UUID from storage (nil-safe).
+   
+   Handles both string UUIDs and native UUID objects (e.g., from H2)."
   [s]
   (when (and s (not= s ""))
-    (try
-      (UUID/fromString s)
-      (catch IllegalArgumentException _
-        nil))))
+    (if (instance? UUID s)
+      s  ; Already a UUID, return as-is
+      (try
+        (UUID/fromString s)
+        (catch IllegalArgumentException _
+          nil)))))
 
 (defn instant->string
   "Convert Instant to ISO 8601 string for storage (nil-safe)."
@@ -24,13 +28,17 @@
   (when instant (.toString instant)))
 
 (defn string->instant
-  "Convert ISO 8601 string to Instant from storage (nil-safe)."
+  "Convert ISO 8601 string to Instant from storage (nil-safe).
+   
+   Handles both string timestamps and native Instant objects (e.g., from H2)."
   [s]
   (when (and s (not= s ""))
-    (try
-      (Instant/parse s)
-      (catch Exception _
-        nil))))
+    (if (instance? Instant s)
+      s  ; Already an Instant, return as-is
+      (try
+        (Instant/parse s)
+        (catch Exception _
+          nil)))))
 
 (defn keyword->string
   "Convert keyword to string for storage (nil-safe).

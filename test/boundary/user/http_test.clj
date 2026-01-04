@@ -252,8 +252,8 @@
           response (handler request)]
 
       (is (= 200 (:status response)))
-      (is (= 2 (count (get-in response [:body :users]))))
-      (is (= 2 (get-in response [:body :totalCount])))))
+      (is (= 2 (count (get-in response [:body :data]))))
+      (is (= 2 (get-in response [:body :pagination :total])))))
 
   (testing "GET /users - Filter by role"
     (let [service (create-mock-service)
@@ -278,7 +278,7 @@
 
       (is (= 200 (:status response)))
       ;; Note: Mock service doesn't implement filtering, would be 1 in real implementation
-      (is (number? (get-in response [:body :totalCount]))))))
+      (is (number? (get-in response [:body :pagination :total]))))))
 
 (deftest test-update-user-handler
   (testing "PUT /users/:id - Update user successfully"

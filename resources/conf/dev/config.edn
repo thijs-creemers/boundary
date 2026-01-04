@@ -65,6 +65,22 @@
     :coercion :malli  ; Coercion library: :malli, :spec, etc.
     :middleware []}   ; Global middleware (specific middleware in routes)
 
+   ;; API Versioning configuration
+   :boundary/api-versioning
+   {:default-version :v1           ; Default version when not specified
+    :latest-stable :v1              ; Latest stable version
+    :deprecated-versions #{}        ; Set of deprecated versions (e.g., #{:v0})
+    :sunset-dates {}                ; Map of version -> ISO date (e.g., {:v0 "2026-06-01"})
+    :supported-versions #{:v1}}     ; Set of all supported versions
+
+   ;; Pagination configuration
+   :boundary/pagination
+   {:default-limit 20               ; Default items per page
+    :max-limit 100                  ; Maximum items per page
+    :default-type :offset           ; Default pagination type (:offset or :cursor)
+    :cursor-ttl 3600                ; Cursor time-to-live in seconds (1 hour)
+    :enable-link-headers true}      ; Enable RFC 5988 Link headers
+
    ;; Observability configurations
   ;; Using SLF4J provider with Logback backend for unified logging
   :boundary/logging

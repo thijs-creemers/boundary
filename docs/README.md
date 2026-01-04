@@ -146,6 +146,31 @@ Security best practices for Boundary applications.
 
 ---
 
+## 📖 API Reference
+
+### [**API Pagination Guide →**](API_PAGINATION.md)
+Complete guide to using pagination in Boundary APIs.
+
+**What's covered:**
+- Offset-based pagination (simple, page-based)
+- Cursor-based pagination (high performance)
+- RFC 5988 Link headers
+- Client examples (JavaScript, Python, Clojure)
+- Performance guidelines
+- Troubleshooting
+
+### [**MFA API Reference →**](MFA_API_REFERENCE.md)
+Multi-factor authentication API documentation.
+
+**What's covered:**
+- TOTP setup and verification
+- Backup codes management
+- QR code generation
+- API endpoints and examples
+- Security best practices
+
+---
+
 ## 💡 Examples & Tutorials
 
 Learn by example with complete, working applications:
