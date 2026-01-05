@@ -175,7 +175,8 @@
                 (cheshire.core/parse-string value true)
 
                 ;; PostgreSQL returns PGobject for JSON/JSONB columns
-                (instance? org.postgresql.util.PGobject value)
+                ;; Use reflection to avoid compile-time dependency on PostgreSQL driver
+                (= "org.postgresql.util.PGobject" (.getName (class value)))
                 (cheshire.core/parse-string (.getValue value) true)
 
                 ;; Already a map (shouldn't happen, but handle it)
