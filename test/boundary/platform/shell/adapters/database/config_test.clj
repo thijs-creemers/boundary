@@ -56,13 +56,13 @@
       (is (contains? config :active) "Config should have :active section")
       (is (contains? config :inactive) "Config should have :inactive section")
 
-      ;; In current dev config PostgreSQL is the active database
-      (is (contains? (:active config) :boundary/postgresql)
-          "PostgreSQL should be active in dev environment")
+      ;; In current dev config SQLite is the active database
+      (is (contains? (:active config) :boundary/sqlite)
+          "SQLite should be active in dev environment")
 
-      ;; SQLite is available but inactive in dev
-      (is (contains? (:inactive config) :boundary/sqlite)
-          "SQLite should be inactive in dev environment")
+      ;; PostgreSQL is available but inactive in dev
+      (is (contains? (:inactive config) :boundary/postgresql)
+          "PostgreSQL should be inactive in dev environment")
 
       ;; H2 is available as an inactive option in dev
       (is (contains? (:inactive config) :boundary/h2)
