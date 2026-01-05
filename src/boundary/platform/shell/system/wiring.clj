@@ -36,6 +36,7 @@
             ;; todo: need to find a way to decouple these dependencies an inject them in another way.
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
             [boundary.inventory.shell.module-wiring] ;; Load inventory module init/halt methods
+            [cheshire.core]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]
             [ring.adapter.jetty :as jetty]))
@@ -98,8 +99,34 @@
   [_ {:keys [user-routes inventory-routes router logger metrics-emitter error-reporter config]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
+  (require 'boundary.platform.shell.interfaces.http.common)
   (let [;; Import compile-routes function
         compile-routes (ns-resolve 'boundary.platform.ports.http 'compile-routes)
+        
+        ;; Create health check handler
+        health-handler (let [health-fn (ns-resolve 'boundary.platform.shell.interfaces.http.common 'health-check-handler)]
+                        (health-fn 
+                          (get-in config [:active :boundary/settings :name] "boundary")
+                          (get-in config [:active :boundary/settings :version] "unknown")
+                          nil))
+        
+        ;; Define platform routes (health checks, etc.) in normalized format
+        platform-routes [{:path "/health"
+                         :methods {:get {:handler health-handler
+                                        :summary "Health check endpoint"
+                                        :no-doc true}}}
+                        {:path "/health/ready"
+                         :methods {:get {:handler (fn [_] {:status 200 
+                                                          :headers {"Content-Type" "application/json"}
+                                                          :body (cheshire.core/generate-string {:status "ready"})})
+                                        :summary "Readiness check"
+                                        :no-doc true}}}
+                        {:path "/health/live"
+                         :methods {:get {:handler (fn [_] {:status 200
+                                                          :headers {"Content-Type" "application/json"}
+                                                          :body (cheshire.core/generate-string {:status "alive"})})
+                                        :summary "Liveness check"
+                                        :no-doc true}}}]
 
         ;; Extract user module routes (normalized format)
         user-static-routes (or (:static user-routes) [])
@@ -139,8 +166,9 @@
                               (http-versioning/apply-versioning all-api-routes config)
                               [])
 
-        ;; Combine all routes: static, web, and versioned API
-        all-normalized-routes (concat (or user-normalized-static [])
+        ;; Combine all routes: platform, static, web, and versioned API
+        all-normalized-routes (concat platform-routes
+                                     (or user-normalized-static [])
                                      (or user-normalized-web [])
                                      (or inventory-normalized-static [])
                                      (or inventory-normalized-web [])
@@ -153,7 +181,6 @@
 
         ;; Compile routes using router adapter with system services
         router-config {:middleware []  ; Add any global middleware here
-                       :coercion :malli
                        :system system}
         handler (compile-routes router all-normalized-routes router-config)
 

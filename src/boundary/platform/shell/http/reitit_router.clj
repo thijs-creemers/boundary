@@ -3,8 +3,9 @@
 
    This adapter implements the IRouter protocol to translate framework-agnostic
    normalized route specifications into Reitit-specific route definitions."
-  (:require [boundary.platform.ports.http :as ports]
+  (:require             [boundary.platform.ports.http :as ports]
             [boundary.platform.shell.http.interceptors :as http-interceptors]
+            [cheshire.core :as json]
             [reitit.coercion.malli :as malli-coercion]
             [reitit.ring :as ring]
             [reitit.ring.coercion :as coercion]
@@ -13,6 +14,7 @@
             [reitit.ring.middleware.parameters :as parameters]
             [reitit.swagger :as swagger]
             [reitit.swagger-ui :as swagger-ui]
+            [ring.middleware.resource :refer [wrap-resource]]
             [muuntaja.core :as m]))
 
 ;; =============================================================================
@@ -179,28 +181,47 @@
   ([handler-config]
    (convert-handler-config handler-config nil))
   
-  ([{:keys [handler middleware interceptors coercion summary tags produces consumes]} system]
+  ([{:keys [handler middleware interceptors coercion parameters summary tags produces consumes no-doc responses]} system]
    (let [resolved-handler (resolve-handler-fn handler)
          resolved-middleware (resolve-middleware-fns middleware)
          
          ;; Treat system services as optional; interceptors can run with {}.
          system (or system {})
 
-         ;; Always apply default HTTP interceptors; append any route-specific interceptors.
+         ;; Skip default HTTP interceptors for internal routes (Swagger, health checks with :no-doc)
+         ;; These routes return special response formats that shouldn't go through interceptors
+         skip-interceptors? no-doc
+         
+         ;; Always apply default HTTP interceptors UNLESS route explicitly opts out;
+         ;; append any route-specific interceptors.
          resolved-route-interceptors (or (resolve-interceptors interceptors) [])
-         all-interceptors (vec (concat http-interceptors/default-http-interceptors
-                                       resolved-route-interceptors))
-         interceptor-middleware [(interceptors->middleware all-interceptors system)]
+         all-interceptors (if skip-interceptors?
+                           resolved-route-interceptors  ; Only route-specific interceptors
+                           (vec (concat http-interceptors/default-http-interceptors
+                                       resolved-route-interceptors)))
+         interceptor-middleware (when (seq all-interceptors)
+                                 [(interceptors->middleware all-interceptors system)])
 
          ;; Combine regular middleware with interceptor-generated middleware.
          ;; We append interceptors last so they are closest to the resolved handler,
          ;; while still seeing a fully prepared request (session/body/coercions).
          all-middleware (concat resolved-middleware interceptor-middleware)
+         
+         ;; Support both :coercion (normalized) and :parameters (Reitit native) formats
          coercion-data (convert-coercion coercion)]
      (cond-> {:handler resolved-handler
               :middleware (vec all-middleware)}
+       ;; Merge coercion data if present
        coercion-data
        (merge coercion-data)
+       
+       ;; Pass through :parameters if provided (Reitit native format)
+       parameters
+       (assoc :parameters parameters)
+       
+       ;; Pass through :responses if provided (Reitit native format)  
+       responses
+       (assoc :responses responses)
        
        summary
        (assoc :summary summary)
@@ -212,7 +233,10 @@
        (assoc :produces produces)
        
        (seq consumes)
-       (assoc :consumes consumes)))))
+       (assoc :consumes consumes)
+       
+       no-doc
+       (assoc :no-doc no-doc)))))
 
 (defn- convert-methods
   "Convert normalized methods map to Reitit format.
@@ -408,11 +432,7 @@
   [swagger-data]
   [["/swagger.json"
     {:get {:no-doc true
-           :swagger {:info (:info swagger-data)
-                     :tags (:tags swagger-data)
-                     :basePath "/"
-                     :produces ["application/json"]
-                     :consumes ["application/json"]}
+           :swagger swagger-data
            :handler (swagger/create-swagger-handler)}}]
 
    ["/api-docs/*"
@@ -455,8 +475,9 @@
           ;; Create default handler for unmatched routes
           default-handler (create-default-handler)]
 
-      ;; Return Ring handler
-      (ring/ring-handler router default-handler))))
+      ;; Wrap handler with static resource middleware to serve files from resources/public/
+      ;; This must be the outermost wrapper so static files are served before routing
+      (wrap-resource (ring/ring-handler router default-handler) "public"))))
 
 ;; =============================================================================
 ;; Public API

@@ -40,16 +40,11 @@
   ;; Active database configurations
   ;; Only databases listed here will be loaded and initialized
 
-  :boundary/postgresql
-  {:host     #or [#env POSTGRES_HOST "localhost"]
-   :port     5432
-   :dbname   #or [#env POSTGRES_DB "boundary_dev"]
-   :user     #or [#env POSTGRES_USER "postgres"]
-   :password #or [#env POSTGRES_PASSWORD "postgres"]
-   :auto-commit true
-   :pool {:minimum-idle 5
-          :maximum-pool-size 15
-          :connection-timeout-ms 30000}}
+  :boundary/sqlite
+  {:db "dev-database.db"
+   :pool {:minimum-idle 1
+          :maximum-pool-size 3
+          :connection-timeout-ms 10000}}
 
    ;; HTTP Server configuration
    :boundary/http
@@ -100,6 +95,17 @@
  {;; Inactive database configurations
   ;; These are available for reference but won't be loaded unless moved to :active
 
+  :boundary/postgresql
+  {:host     #or [#env POSTGRES_HOST "localhost"]
+   :port     5432
+   :dbname   #or [#env POSTGRES_DB "boundary_dev"]
+   :user     #or [#env POSTGRES_USER "postgres"]
+   :password #or [#env POSTGRES_PASSWORD "postgres"]
+   :auto-commit true
+   :pool {:minimum-idle 5
+          :maximum-pool-size 15
+          :connection-timeout-ms 30000}}
+
   :boundary/mysql
   {:host #env "MYSQL_HOST"
    :port #env "MYSQL_PORT"
@@ -109,12 +115,6 @@
    :pool {:minimum-idle 5
           :maximum-pool-size 15
           :connection-timeout-ms 30000}}
-
-  :boundary/sqlite
-  {:db "dev-database.db"
-   :pool {:minimum-idle 1
-          :maximum-pool-size 3
-          :connection-timeout-ms 10000}}
 
   :boundary/h2
   {:memory true ; For fast in-memory testing
