@@ -25,13 +25,15 @@ After completing Phase 4.5 (Full-Text Search), Boundary Framework has achieved p
 | # | Feature | Impact | Uniqueness | Enterprise | Implementation | Total |
 |---|---------|--------|------------|------------|----------------|-------|
 | **1** | Visual Admin Dashboard | 🔥🔥🔥🔥🔥 | 🔥🔥🔥🔥🔥 | 🔥🔥🔥🔥 | 🔥🔥🔥🔥 | **18/20** |
-| **2** | Real-Time Collaboration | 🔥🔥🔥🔥 | 🔥🔥🔥🔥 | 🔥🔥🔥 | 🔥🔥🔥 | **14/20** |
-| **3** | Multi-Tenancy Framework | 🔥🔥🔥🔥🔥 | 🔥🔥🔥 | 🔥🔥🔥🔥🔥 | 🔥🔥 | **15/20** |
-| 4 | File Upload & Storage | 🔥🔥🔥 | 🔥 | 🔥🔥 | 🔥🔥🔥🔥 | **10/20** |
-| 5 | GraphQL Support | 🔥🔥🔥 | 🔥🔥 | 🔥🔥 | 🔥🔥🔥 | **10/20** |
-| 6 | Automated API Testing | 🔥🔥🔥 | 🔥🔥🔥 | 🔥🔥 | 🔥🔥 | **10/20** |
+| **2** | AI-Powered Developer Experience | 🔥🔥🔥🔥🔥 | 🔥🔥🔥🔥🔥 | 🔥🔥🔥🔥 | 🔥🔥🔥🔥 | **18/20** |
+| **3** | Independent Module Deployments | 🔥🔥🔥🔥🔥 | 🔥🔥🔥🔥🔥 | 🔥🔥🔥🔥🔥 | 🔥🔥🔥 | **18/20** |
+| **4** | Real-Time Collaboration | 🔥🔥🔥🔥 | 🔥🔥🔥🔥 | 🔥🔥🔥 | 🔥🔥🔥 | **14/20** |
+| **5** | Multi-Tenancy Framework | 🔥🔥🔥🔥🔥 | 🔥🔥🔥 | 🔥🔥🔥🔥🔥 | 🔥🔥 | **15/20** |
+| 6 | File Upload & Storage | 🔥🔥🔥 | 🔥 | 🔥🔥 | 🔥🔥🔥🔥 | **10/20** |
+| 7 | GraphQL Support | 🔥🔥🔥 | 🔥🔥 | 🔥🔥 | 🔥🔥🔥 | **10/20** |
+| 8 | Automated API Testing | 🔥🔥🔥 | 🔥🔥🔥 | 🔥🔥 | 🔥🔥 | **10/20** |
 
-**Recommendation**: Start with **Visual Admin Dashboard** for maximum impact and market differentiation.
+**Recommendation**: Start with **Visual Admin Dashboard** (#1) for immediate "wow factor", then **AI-Powered DX** (#2) to revolutionize development speed, followed by **Independent Module Deployments** (#3) to showcase unique architecture.
 
 ---
 
@@ -42,7 +44,9 @@ After completing Phase 4.5 (Full-Text Search), Boundary Framework has achieved p
 **Market Reality:**
 - **Django's killer feature**: Django Admin (beloved, industry-standard)
 - **Rails's killer feature**: ActiveAdmin/Administrate (20K+ stars)
-- **Clojure's current state**: Nothing comparable exists
+- **Spring Boot**: No built-in admin (requires third-party solutions)
+- **Phoenix**: No built-in admin (manual development required)
+- **Clojure ecosystem**: Kit, Luminus have no admin UI solutions
 
 **Value Proposition:**
 - 80% reduction in admin panel development time
@@ -364,7 +368,970 @@ test/boundary/admin/
 
 ---
 
-## Feature #2: Real-Time Collaboration
+## Feature #2: AI-Powered Developer Experience ⭐ DX REVOLUTION
+
+### Why This Is a Game-Changer
+
+**The Problem:**
+- **Scaffolding is tedious**: Developers spend hours creating boilerplate (modules, entities, routes, tests)
+- **Error messages are cryptic**: Stack traces and test failures take 10+ minutes to debug
+- **Documentation is scattered**: Developers waste time searching docs, code, and StackOverflow
+- **SQL is error-prone**: Writing HoneySQL/SQL queries manually leads to bugs
+- **Tests are manual**: Writing comprehensive unit tests requires significant effort
+
+**Boundary's Solution:**
+- **AI-assisted scaffolding**: Natural language → complete module in seconds
+- **Intelligent error explainer**: Instant root cause analysis + fix suggestions + code references
+- **Code & docs Q&A**: Ask questions, get answers from local codebase + docs (offline-first)
+- **SQL copilot**: Natural language → HoneySQL + SQL + explanation
+- **Test generator**: Auto-generate unit tests from function signatures + examples
+
+**Market Reality:**
+- **GitHub Copilot**: Generic code completion (no framework awareness)
+- **ChatGPT**: Requires copy-paste, no local context, privacy concerns
+- **JetBrains AI**: IDE-specific, not REPL-integrated
+- **Cursor/Aider**: External tools, not framework-integrated
+- **Kit/Luminus**: No AI assistance
+- **Boundary**: AI deeply integrated into framework, CLI, and REPL (privacy-first, offline-capable)
+
+**Value Proposition:**
+- **50% faster scaffolding**: Natural language → production-ready module in 2 minutes (vs 10+ minutes manual)
+- **30% fewer debug cycles**: Instant error explanations reduce back-and-forth
+- **80% test coverage boost**: Auto-generated tests from examples
+- **Privacy-first**: Local models (Ollama) by default, no data leaves machine
+- **Cost-effective**: < $10/month (remote AI disabled by default)
+
+### Goals
+
+1. **AI-Assisted Scaffolder (MVP)**
+   - Natural language → module + entities + routes + schemas + tests
+   - Clarifying questions for ambiguity
+   - Dry-run mode with visual diffs
+   - `boundary ai scaffold "inventory module with items (name, sku:required:unique, quantity:int)"`
+
+2. **Intelligent Error Explainer**
+   - Analyze stack traces and test failures
+   - Root cause + probable fix + code/doc references
+   - `boundary ai explain-error <logfile>` or `boundary ai explain-error --last-test`
+   - Context-aware (knows about FC/IS, ports, schemas)
+
+3. **Test Generator**
+   - Generate unit tests from function signatures + docstrings + examples
+   - `boundary ai tests core/user.clj --for create-user --examples 3`
+   - FC/IS-aware (pure core tests, no mocks)
+
+4. **Code & Docs Q&A**
+   - Ask questions about framework, patterns, architecture
+   - Answers cite local docs + code with line numbers
+   - `boundary ai ask "How do HTTP interceptors compose?"`
+   - Offline-first (local embeddings)
+
+5. **SQL Copilot**
+   - Natural language → HoneySQL + SQL + rationale
+   - `boundary ai sql "list active users with MFA enabled, ordered by last login"`
+   - Migration assistant: `boundary ai migration add users.last_login:timestamp`
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      CLI/REPL Layer                         │
+│  • boundary ai scaffold/explain/tests/ask/sql/migration     │
+│  • Streaming UX for long operations                         │
+│  Files: boundary/ai/shell/cli.clj                          │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    Service Layer (Shell)                    │
+│  • Provider selection (local/OpenAI/Azure)                  │
+│  • Prompt assembly + redaction (secrets, PII)              │
+│  • Cost/latency budgets                                     │
+│  • Result caching                                           │
+│  Files: boundary/ai/shell/service.clj                      │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   Functional Core (Pure)                    │
+│  • Prompt template assembly                                 │
+│  • Result validation (Malli schemas)                        │
+│  • Token counting, budget checking                          │
+│  • PII redaction rules                                      │
+│  • Diff generation (safe patches)                           │
+│  Files: boundary/ai/core/prompts.clj                       │
+│         boundary/ai/core/validation.clj                    │
+│         boundary/ai/core/redaction.clj                     │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│                 Ports (Protocols/Interfaces)                │
+│  • IAIProvider (complete, chat, embed, token-usage)        │
+│  • IVectorStore (store, search embeddings)                 │
+│  • ICodePatch (generate-diff, validate-patch)              │
+│  Files: boundary/ai/ports.clj                              │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│              Adapters (Shell Implementations)               │
+│  • Local: Ollama, llama.cpp (default)                      │
+│  • Remote: OpenAI, Azure OpenAI (opt-in)                   │
+│  • VectorStore: FAISS, SQLite (embeddings)                 │
+│  Files: boundary/ai/shell/providers/ollama.clj             │
+│         boundary/ai/shell/providers/openai.clj             │
+│         boundary/ai/shell/vector_store.clj                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Architecture Principles:**
+
+1. **FC/IS Pattern:**
+   - Core: Pure prompt assembly, validation, redaction
+   - Shell: I/O with AI providers, file system, network
+
+2. **Privacy & Safety:**
+   - Default: Local models (Ollama) + local embeddings
+   - Redaction: Automatic removal of secrets, emails, UUIDs before prompts
+   - No-network mode: Strictly offline operation
+   - Approval required: All code changes shown as diffs, never auto-applied
+
+3. **Cost Control:**
+   - Budget limits: Max tokens/cost per command
+   - Prompt caching: Avoid redundant API calls
+   - Local-first: Zero cost for default usage
+
+4. **Quality Assurance:**
+   - Malli validation: Every AI response validated against schemas
+   - Golden files: Unit tests for prompt templates
+   - Deterministic mode: Temperature 0 for consistent results
+
+### Implementation Plan
+
+**Week 1: Foundation (5 days)**
+- [ ] Create `boundary/ai/` module structure
+- [ ] Define ports (`IAIProvider`, `IVectorStore`, `ICodePatch`)
+- [ ] Implement Ollama adapter (local)
+- [ ] Core: Prompt templates for scaffolding
+- [ ] Core: PII redaction rules
+- [ ] CLI: `boundary ai config --show`
+
+**Week 2: Scaffolder Copilot (5 days)**
+- [ ] Core: Scaffolding prompt templates (module + entity + routes)
+- [ ] Service: Clarifying questions logic
+- [ ] CLI: `boundary ai scaffold <description> --dry-run`
+- [ ] Integration: Generate 12 files (same as manual scaffolder)
+- [ ] Tests: Golden file tests for scaffolding prompts
+
+**Week 3: Error Explainer + Tests (5 days)**
+- [ ] Core: Error analysis prompts (stack traces + test failures)
+- [ ] Service: Code/doc reference extraction
+- [ ] CLI: `boundary ai explain-error <logfile>` or `--last-test`
+- [ ] Core: Test generation prompts (from function signatures)
+- [ ] CLI: `boundary ai tests <file> --for <function>`
+
+**Week 4: Q&A + SQL + Polish (5 days)**
+- [ ] Vector store: Local embeddings (docs + code)
+- [ ] Service: Semantic search over docs/code
+- [ ] CLI: `boundary ai ask <question>`
+- [ ] Core: SQL generation prompts (natural language → HoneySQL)
+- [ ] CLI: `boundary ai sql <description>`
+- [ ] Documentation: AI commands guide
+- [ ] Demo video: 15-minute AI DX showcase
+
+**Deliverables:**
+- [ ] `boundary/ai/` module (~2,500 lines production)
+- [ ] `test/boundary/ai/` tests (~800 lines, 100% coverage)
+- [ ] CLI commands: `scaffold`, `explain-error`, `tests`, `ask`, `sql`, `migration`
+- [ ] Documentation: `docs/AI_DX_GUIDE.md`
+- [ ] Demo video: "AI-Powered Boundary: 10x Faster Development"
+- [ ] Blog post: "How We Built Privacy-First AI into a Framework"
+
+### CLI Examples
+
+**1. AI-Assisted Scaffolding:**
+```bash
+$ boundary ai scaffold "inventory module with items: name (required), sku (unique), quantity (int), location"
+
+🤖 Analyzing request...
+✓ Module: inventory
+✓ Entity: Item
+✓ Fields: name (string, required), sku (string, unique), quantity (int), location (string)
+
+❓ Should quantity be required? [Y/n] y
+❓ Generate web UI routes? [Y/n] y
+
+🚀 Generating files (dry-run)...
+   
+📝 Files to create (12):
+   ✓ src/boundary/inventory/schema.clj
+   ✓ src/boundary/inventory/ports.clj
+   ✓ src/boundary/inventory/core/item.clj
+   ✓ src/boundary/inventory/core/ui.clj
+   ✓ src/boundary/inventory/shell/service.clj
+   ✓ src/boundary/inventory/shell/persistence.clj
+   ✓ src/boundary/inventory/shell/http.clj
+   ✓ src/boundary/inventory/shell/web_handlers.clj
+   ✓ test/boundary/inventory/core/item_test.clj
+   ✓ test/boundary/inventory/shell/service_test.clj
+   ✓ test/boundary/inventory/shell/persistence_test.clj
+   ✓ migrations/009_create_items.sql
+
+💾 Write these files? [y/N] y
+
+✅ Module created successfully!
+⚡ Run: clojure -M:test:db/h2 --focus-meta :inventory
+```
+
+**2. Intelligent Error Explainer:**
+```bash
+$ clojure -M:test:db/h2 --focus boundary.user.core.user-test
+...
+FAIL in (create-user-test)
+Expected: {:id #uuid "...", :email "test@example.com"}
+Actual: nil
+
+$ boundary ai explain-error --last-test
+
+🤖 Analyzing test failure...
+
+📍 Root Cause:
+   File: test/boundary/user/core/user_test.clj:45
+   Function `create-user` expects `:created-at` in input but test provides `:created_at` (snake_case).
+   
+   Common issue: Database layer returns snake_case (:created_at) but Clojure code uses kebab-case (:created-at).
+
+💡 Probable Fix:
+   Add transformation at persistence boundary:
+   
+   File: src/boundary/user/shell/persistence.clj:67
+   ```clojure
+   (defn db->user-entity [db-record]
+     (-> db-record
+         (clojure.set/rename-keys {:created_at :created-at
+                                   :updated_at :updated-at})))
+   ```
+
+📚 References:
+   - AGENTS.md:1234 (Common Pitfall #1: snake_case vs kebab-case)
+   - src/boundary/user/core/user.clj:89 (create-user function)
+   - test/boundary/user/core/user_test.clj:45 (failing test)
+
+⏱️ Analysis completed in 1.2s (local model)
+```
+
+**3. Test Generator:**
+```bash
+$ boundary ai tests src/boundary/user/core/user.clj --for create-user --examples 3
+
+🤖 Generating tests for `create-user`...
+
+📝 Generated tests (3):
+
+(deftest create-user-with-valid-data-test
+  (testing "creates user with valid email and name"
+    (let [user-data {:email "test@example.com" :name "Test User"}
+          result (user-core/create-user user-data)]
+      (is (some? (:id result)))
+      (is (= "test@example.com" (:email result)))
+      (is (= "Test User" (:name result))))))
+
+(deftest create-user-with-minimal-data-test
+  (testing "creates user with only required fields"
+    (let [user-data {:email "min@example.com"}
+          result (user-core/create-user user-data)]
+      (is (some? (:id result)))
+      (is (= "min@example.com" (:email result))))))
+
+(deftest create-user-normalizes-email-test
+  (testing "normalizes email to lowercase"
+    (let [user-data {:email "TEST@EXAMPLE.COM"}
+          result (user-core/create-user user-data)]
+      (is (= "test@example.com" (:email result))))))
+
+💾 Add to test/boundary/user/core/user_test.clj? [y/N] y
+
+✅ Tests added successfully!
+⚡ Run: clojure -M:test:db/h2 -n boundary.user.core.user-test
+```
+
+**4. Code & Docs Q&A:**
+```bash
+$ boundary ai ask "How do HTTP interceptors compose?"
+
+🤖 Searching local docs and code...
+
+📚 Answer:
+
+HTTP interceptors in Boundary execute in bidirectional enter/leave/error phases:
+
+**Execution Order:**
+```
+Request Flow:
+  enter:  global-1 → global-2 → route-1 → route-2 → handler
+  leave:  route-2 → route-1 → global-2 → global-1 → response
+```
+
+**Interceptor Shape:**
+```clojure
+{:name   :my-interceptor
+ :enter  (fn [context] ...)  ; Process request (can short-circuit)
+ :leave  (fn [context] ...)  ; Process response (reverse order)
+ :error  (fn [context] ...)} ; Handle exceptions
+```
+
+**Example:**
+```clojure
+;; In routes
+[{:path "/api/admin"
+  :methods {:post {:handler 'handlers/create-resource
+                   :interceptors ['auth/require-admin
+                                  'audit/log-action
+                                  'rate-limit/admin-limit]}}}]
+```
+
+**References:**
+📄 AGENTS.md:1456-1520 (HTTP Interceptors section)
+📄 docs/ADR-010-http-interceptor-architecture.adoc (Full specification)
+💻 src/boundary/platform/shell/http/interceptors.clj:45 (Implementation)
+💻 test/boundary/platform/shell/http/interceptors_test.clj:78 (Examples)
+
+⏱️ Answer generated in 0.8s (local embeddings)
+```
+
+**5. SQL Copilot:**
+```bash
+$ boundary ai sql "list all active users with MFA enabled, ordered by last login descending"
+
+🤖 Generating SQL...
+
+📊 HoneySQL:
+```clojure
+{:select [:id :email :name :last-login]
+ :from [:users]
+ :where [:and
+         [:= :active true]
+         [:= :mfa-enabled true]]
+ :order-by [[:last-login :desc]]}
+```
+
+📊 SQL:
+```sql
+SELECT id, email, name, last_login
+FROM users
+WHERE active = TRUE
+  AND mfa_enabled = TRUE
+ORDER BY last_login DESC;
+```
+
+💡 Explanation:
+   - Filters for active users (active = TRUE)
+   - Filters for MFA-enabled users (mfa_enabled = TRUE)
+   - Orders by most recent login first (DESC)
+
+⏱️ Generated in 0.5s (local model)
+
+💾 Copy to clipboard? [y/N] y
+✅ Copied to clipboard!
+```
+
+### Configuration
+
+**Default Configuration (Local-Only, Privacy-First):**
+```clojure
+;; resources/conf/dev/config.edn
+{:boundary/ai
+ {:provider :ollama                    ; Local model (default)
+  :model "codellama:13b"              ; Code-optimized model
+  :embedding-model "all-minilm:l6"    ; Lightweight embeddings
+  :max-tokens 4096                    ; Per-request limit
+  :temperature 0.0                    ; Deterministic
+  :offline-only false                 ; Allow local network (Ollama)
+  :redact-pii true                    ; Auto-redact secrets, emails
+  :cost-budget-monthly 0.0            ; $0 (local only)
+  :cache-ttl-minutes 1440             ; 24 hours
+  :vector-store :sqlite               ; Local embeddings
+  :require-approval true}}            ; Confirm before file writes
+```
+
+**Optional: Remote Providers (Opt-In):**
+```bash
+# Enable OpenAI (opt-in)
+export BOUNDARY_AI_PROVIDER=openai
+export OPENAI_API_KEY=sk-...
+export BOUNDARY_AI_COST_BUDGET_MONTHLY=10.00
+
+# Enable Azure OpenAI
+export BOUNDARY_AI_PROVIDER=azure
+export AZURE_OPENAI_ENDPOINT=https://...
+export AZURE_OPENAI_KEY=...
+```
+
+**CLI Configuration:**
+```bash
+$ boundary ai config --show
+Provider: ollama (local)
+Model: codellama:13b
+Embedding Model: all-minilm:l6
+Offline Only: false (allows local network)
+Redact PII: enabled
+Cost Budget: $0.00/month (local only)
+Cache TTL: 24 hours
+Vector Store: sqlite (local)
+Require Approval: enabled
+
+$ boundary ai config --set provider openai
+⚠️  Warning: This will send code to OpenAI's API.
+   Set OPENAI_API_KEY and BOUNDARY_AI_COST_BUDGET_MONTHLY.
+   Continue? [y/N]
+```
+
+### Success Metrics
+
+**Developer Productivity:**
+- [ ] 50% reduction in scaffolding time (10 min → 2 min)
+- [ ] 30% reduction in debug cycles (test failures resolved faster)
+- [ ] 80% increase in test coverage (auto-generated tests)
+- [ ] 70%+ adoption rate (active developers use `boundary ai` commands)
+
+**Quality & Safety:**
+- [ ] Zero secrets leaked (100% redaction success)
+- [ ] 95%+ valid AI outputs (Malli validation catches errors)
+- [ ] Zero unauthorized file writes (approval required)
+
+**Cost & Performance:**
+- [ ] < $10/month average cost (local-first strategy)
+- [ ] < 2s response time (scaffolding, Q&A)
+- [ ] < 5s response time (error analysis, test generation)
+
+### Marketing Strategy
+
+**Positioning:**
+> "Boundary: The first web framework with AI deeply integrated into the developer experience—privacy-first, offline-capable, and 10x faster."
+
+**Taglines:**
+- "AI-powered scaffolding: Natural language → production-ready module in 2 minutes"
+- "Intelligent error explanations: No more 10-minute debugging sessions"
+- "Privacy-first AI: Local models, zero data leaves your machine"
+- "The framework that learns your codebase"
+
+**Demo Video** (15 minutes):
+1. **Setup** (2 min): Install Boundary, configure Ollama
+2. **Scaffold with AI** (3 min): Natural language → complete module
+3. **Debug with AI** (3 min): Test failure → instant explanation + fix
+4. **Generate Tests** (2 min): Function → 3 unit tests in seconds
+5. **Ask Questions** (2 min): "How do interceptors work?" → instant answer with code refs
+6. **SQL Copilot** (2 min): Natural language → HoneySQL + SQL
+7. **Privacy & Config** (1 min): Local-first, offline-capable
+
+**Blog Posts:**
+1. "How We Built Privacy-First AI into a Web Framework"
+2. "AI-Powered Scaffolding: From Idea to Production in 2 Minutes"
+3. "Why We Chose Local Models (Ollama) Over OpenAI"
+4. "The Future of Framework DX: AI Assistants Built-In"
+
+**Conference Talks:**
+- **Clojure/conj**: "AI-Powered Developer Experience in Functional Programming"
+- **Strange Loop**: "Building Privacy-First AI Tools for Developers"
+- **EuroClojure**: "How AI Accelerates FC/IS Development"
+
+### Competitive Analysis
+
+| Framework | AI Scaffolding | Error Explainer | Test Gen | Q&A | Privacy-First | Framework-Integrated |
+|-----------|---------------|-----------------|----------|-----|---------------|---------------------|
+| **Boundary** | ✅ Natural Lang | ✅ Built-in | ✅ Built-in | ✅ Local | ✅ Ollama | ✅ CLI + REPL |
+| Django | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Rails | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Spring Boot | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Phoenix | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Kit | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| GitHub Copilot | ~⚠️ Generic | ❌ | ~⚠️ Generic | ❌ | ❌ Remote | ~⚠️ IDE only |
+| Cursor/Aider | ~⚠️ Generic | ~⚠️ Generic | ~⚠️ Generic | ~⚠️ | ⚠️ Optional | ❌ External |
+
+**Legend:** ✅ Built-in | ~⚠️ Generic/Partial | ❌ Not available
+
+**Boundary's Unique Advantages:**
+1. **Framework-Integrated**: AI knows about FC/IS, ports, schemas, interceptors
+2. **Privacy-First**: Local models (Ollama) by default, no data leaves machine
+3. **Offline-Capable**: Works without internet (local embeddings)
+4. **Cost-Effective**: $0/month default (local-first strategy)
+5. **Clojure-Aware**: Understands REPL workflow, parentheses, immutability
+6. **Context-Aware**: Knows your codebase (local embeddings of docs + code)
+
+---
+
+## Feature #3: Independent Module Deployments ⭐ UNIQUE DIFFERENTIATOR
+
+### Why This Is a Game-Changer
+
+**The Problem:**
+- Teams want **monolith simplicity** during development (fast, simple, easy to debug)
+- Teams need **microservice flexibility** for production scale (independent scaling, deployment, teams)
+- **Current solutions require rewriting code** to split monolith into microservices
+- Result: **Premature optimization** (microservices too early) or **scalability pain** (can't split when needed)
+
+**Boundary's Solution:**
+- **Same code runs standalone OR composed** in monolith (zero rewrites)
+- **Start simple** (monolith), **scale selectively** (extract hot modules)
+- **Truly unique**: No other framework offers protocol-driven dual-mode modules
+
+**Market Reality:**
+- **Django**: Apps can't run standalone (requires rewrites to extract)
+- **Rails**: Engines require significant refactoring to split
+- **Spring Boot**: Can modularize, but extracting requires code changes
+- **Phoenix**: Contexts are organizational, not deployment boundaries
+- **Kit/Luminus**: Modules are templates (one-time generation, not runtime)
+- **Boundary**: Modules are **deployment units** from day one (dual-mode runtime)
+
+**Value Proposition:**
+- **Zero rewrites**: Same module code runs in monolith OR as independent service
+- **Flexible deployment**: Mix monolith + standalone modules (hybrid topology)
+- **Risk reduction**: Test in monolith, deploy critical paths independently
+- **Team scaling**: Multiple teams can own and deploy independent modules
+
+### Goals
+
+1. **Dual-Mode Runtime**
+   - **Standalone Mode**: Module runs as independent microservice
+     - Own HTTP server, CLI, database connection
+     - Own observability (logs, metrics, errors)
+     - Minimal bootstrap: `java -jar boundary-user.jar`
+   - **Composed Mode**: Same module in monolith (via Integrant)
+     - In-process communication (function calls)
+     - Shared resources (database, cache)
+     - Single deployment artifact
+   - **Toggle via configuration**, not code changes
+
+2. **Inter-Module Communication**
+   - **Synchronous**: REST over HTTP with interceptors (auth, rate-limit, versioning)
+   - **Asynchronous**: Event bus with durable subscriptions (Kafka/NATS/Redis pub/sub)
+   - **Backward Compatibility**: Versioned APIs, deprecation policy per module
+
+3. **Data Ownership & Isolation**
+   - Each module owns its database schema (strict boundaries)
+   - Shared-data access via ports + pagination/search contracts
+   - Multi-tenancy: Tenant-scoped contexts per module
+
+4. **Distribution & Packaging**
+   - **Module-level artifacts**: JAR/Docker images (e.g., `boundary-user:1.2.0`)
+   - **Semantic versioning** per module
+   - **Compatibility matrix** for composed deployments
+   - **Registry support**: Internal registry or Clojars
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              Deployment Mode 1: Monolith (Default)          │
+│  • Single process, all modules loaded                       │
+│  • Integrant wires modules together                         │
+│  • In-process communication (function calls)                │
+│  • Simplest development/deployment                          │
+│  • Example: Start-up, dev environment                       │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│         Deployment Mode 2: Independent Micro-Mods            │
+│  • Each module runs as separate service                     │
+│  • HTTP/gRPC for inter-module communication                 │
+│  • Event bus for async integration                          │
+│  • Scale modules independently                              │
+│  • Example: High-scale production                           │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│          Deployment Mode 3: Hybrid (Best of Both)           │
+│  • Critical modules independent (user, payments)            │
+│  • Low-traffic modules composed (admin, reporting)          │
+│  • Flexible topology based on load patterns                 │
+│  • Example: Practical production setup                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Module Runtime Architecture:**
+
+```
+src/boundary/user/
+├── core/              # Pure business logic (SHARED - same in both modes)
+│   ├── user.clj
+│   ├── session.clj
+│   └── mfa.clj
+├── shell/             # I/O adapters (SHARED - same in both modes)
+│   ├── service.clj
+│   ├── persistence.clj
+│   └── http.clj
+├── ports.clj          # Protocols (SHARED)
+└── runtime.clj        # NEW: Standalone entrypoint
+
+;; runtime.clj - Standalone mode configuration
+(ns boundary.user.runtime
+  (:require [integrant.core :as ig]
+            [boundary.user.shell.module-wiring :as wiring])
+  (:gen-class))
+
+(defn standalone-config
+  "Configuration for standalone module deployment."
+  []
+  {:boundary/db-context {...}              ; Own DB connection
+   :boundary/user-repository {...}         ; Own persistence
+   :boundary/user-service {...}            ; Own service
+   :boundary/user-http {:port 3001}        ; Own HTTP server (port 3001)
+   :boundary/observability {...}})         ; Own logging/metrics
+
+(defn -main [& args]
+  (println "Starting User module in standalone mode on port 3001...")
+  (let [system (ig/init (standalone-config))]
+    (.addShutdownHook (Runtime/getRuntime)
+                      (Thread. #(ig/halt! system)))))
+```
+
+**Inter-Module Communication:**
+
+```clojure
+;; Port-based HTTP client for inter-module calls
+(defprotocol IModuleClient
+  "Client for calling other modules over HTTP."
+  (call-module [this module-name operation params]
+    "Call another module's operation via HTTP.
+     
+     Examples:
+       (call-module client :user :get-user {:id 123})
+       (call-module client :inventory :reserve-items {:items [...]})"))
+
+;; Event bus for async integration
+(defprotocol IEventBus
+  "Event bus for inter-module async communication."
+  (publish-event [this topic event]
+    "Publish event to topic.")
+  (subscribe [this topic handler]
+    "Subscribe to topic with handler."))
+
+;; Usage in service layer (works in BOTH modes!)
+(defn create-order-service
+  [order-repo user-client inventory-client event-bus]
+  (reify IOrderService
+    (create-order [this order-data]
+      ;; Verify user exists (inter-module call)
+      ;; In monolith: Function call
+      ;; In standalone: HTTP call to user service
+      (let [user (call-module user-client :user :get-user 
+                              {:id (:user-id order-data)})]
+        (when-not user
+          (throw (ex-info "User not found" {:user-id (:user-id order-data)})))
+        
+        ;; Reserve inventory (inter-module call)
+        (call-module inventory-client :inventory :reserve-items 
+                     {:items (:items order-data)})
+        
+        ;; Create order
+        (let [order (create-order order-repo order-data)]
+          ;; Publish event for other modules (async)
+          (publish-event event-bus "order.created" {:order-id (:id order)})
+          order)))))
+```
+
+### Deliverables
+
+**Module Structure:**
+```
+src/boundary/user/
+├── runtime.clj                    # NEW: Standalone entrypoint (200 lines)
+├── shell/
+│   ├── module_wiring.clj          # Integrant wiring (existing)
+│   ├── http_client.clj            # NEW: HTTP client for inter-module (300 lines)
+│   └── event_publisher.clj        # NEW: Event publishing (200 lines)
+
+src/boundary/platform/
+├── core/
+│   └── module_registry.clj        # NEW: Module discovery (300 lines)
+├── shell/
+│   ├── api_gateway.clj            # NEW: API gateway (500 lines)
+│   ├── event_bus.clj              # NEW: Event bus (400 lines)
+│   └── adapters/
+│       ├── kafka.clj              # Kafka event bus (300 lines)
+│       ├── redis_pubsub.clj       # Redis pub/sub (250 lines)
+│       └── nats.clj               # NATS adapter (300 lines)
+
+build/
+├── module_builder.clj             # NEW: Build module JARs (400 lines)
+└── compatibility_matrix.clj       # NEW: Version compatibility (200 lines)
+
+docker/
+├── Dockerfile.user                # NEW: User module Dockerfile
+├── Dockerfile.inventory           # NEW: Inventory module Dockerfile
+└── docker-compose-*.yml           # NEW: Topology templates
+```
+
+**Total Code**: ~2,750 lines production + ~800 lines tests
+
+### Milestones
+
+**Week 1: Module Runtime Infrastructure** (TBD)
+- [ ] Create module runtime specification
+- [ ] Implement `boundary.user.runtime` (standalone mode)
+- [ ] Implement `IModuleClient` port + in-process adapter (monolith mode)
+- [ ] Implement HTTP client adapter (standalone mode)
+- [ ] Health/readiness endpoints per module (`/health`, `/ready`)
+- [ ] Convert user module to dual-mode
+
+**Deliverables**:
+- User module runs standalone: `java -jar boundary-user.jar`
+- User module runs in monolith: Existing Integrant wiring
+- Same code, zero changes
+
+**Week 2: Inter-Module Communication** (TBD)
+- [ ] Event bus abstraction (`IEventBus` port)
+- [ ] Redis pub/sub adapter for events
+- [ ] API gateway for routing between modules
+- [ ] Versioned API contracts (OpenAPI per module)
+- [ ] Correlation ID propagation across modules
+- [ ] Convert inventory module to dual-mode
+
+**Deliverables**:
+- Modules can call each other (in-process OR HTTP)
+- Event-driven integration working
+- API gateway routes requests to modules
+
+**Week 3: Distribution & Operations** (TBD)
+- [ ] Module-level Docker builds (`Dockerfile.{module}`)
+- [ ] Compatibility matrix tooling (which versions work together)
+- [ ] Scaffolder: `boundary scaffold module-runtime --module {name}`
+- [ ] Example deployment topologies (monolith, micro-mods, hybrid)
+- [ ] Documentation + migration guide
+- [ ] Performance benchmarking (overhead of HTTP vs in-process)
+
+**Deliverables**:
+- Docker images per module
+- Scaffolder generates runtime support
+- Complete documentation
+- Example deployments
+
+### Success Metrics
+
+- [ ] Same code runs standalone OR composed (zero rewrites)
+- [ ] < 5 min to convert existing module to dual-mode
+- [ ] Module-level versioning and deployment
+- [ ] Inter-module HTTP calls < 50ms overhead vs in-process
+- [ ] Event bus throughput 10K+ events/sec
+- [ ] Scaffolder automates 90% of conversion work
+- [ ] Documentation: "Monolith to Microservices" migration guide
+
+### Configuration Example
+
+```clojure
+;; Monolith mode (config.edn)
+{:boundary/deployment-mode :monolith
+ :boundary/modules [:user :inventory :orders :admin]
+ :boundary/inter-module-comm :in-process}  ; Function calls
+
+;; Standalone mode (user module config.edn)
+{:boundary/deployment-mode :standalone
+ :boundary/module :user
+ :boundary/http {:port 3001}
+ :boundary/inter-module-comm :http         ; HTTP calls
+ :boundary/module-registry
+ {:inventory "http://inventory-service:3002"
+  :orders "http://orders-service:3003"}}
+
+;; Hybrid mode (config.edn)
+{:boundary/deployment-mode :hybrid
+ :boundary/modules-local [:admin :reporting]      ; Composed
+ :boundary/modules-remote
+ {:user "http://user-service:3001"                ; Standalone
+  :inventory "http://inventory-service:3002"      ; Standalone
+  :orders "http://orders-service:3003"}}          ; Standalone
+```
+
+### Deployment Topologies
+
+**Topology 1: Monolith (Development, Small Scale)**
+```yaml
+# docker-compose-monolith.yml
+services:
+  boundary:
+    image: boundary/monolith:1.0.0
+    environment:
+      - BND_DEPLOYMENT_MODE=monolith
+      - BND_MODULES=user,inventory,orders,admin
+    ports:
+      - "3000:3000"
+```
+
+**Topology 2: Independent Modules (Large Scale)**
+```yaml
+# docker-compose-microservices.yml
+services:
+  boundary-user:
+    image: boundary/user:1.2.0
+    environment:
+      - BND_DEPLOYMENT_MODE=standalone
+      - BND_PORT=3001
+    ports:
+      - "3001:3001"
+    deploy:
+      replicas: 5  # Scale user service independently
+  
+  boundary-inventory:
+    image: boundary/inventory:1.1.0
+    environment:
+      - BND_DEPLOYMENT_MODE=standalone
+      - BND_PORT=3002
+    ports:
+      - "3002:3002"
+    deploy:
+      replicas: 3
+  
+  boundary-orders:
+    image: boundary/orders:1.3.0
+    environment:
+      - BND_DEPLOYMENT_MODE=standalone
+      - BND_PORT=3003
+    ports:
+      - "3003:3003"
+    deploy:
+      replicas: 10  # Scale orders service independently
+```
+
+**Topology 3: Hybrid (Practical Production)**
+```yaml
+# docker-compose-hybrid.yml
+services:
+  # High-traffic modules: Standalone
+  boundary-user:
+    image: boundary/user:1.2.0
+    environment:
+      - BND_DEPLOYMENT_MODE=standalone
+    deploy:
+      replicas: 5
+  
+  boundary-orders:
+    image: boundary/orders:1.3.0
+    environment:
+      - BND_DEPLOYMENT_MODE=standalone
+    deploy:
+      replicas: 10
+  
+  # Low-traffic modules: Composed
+  boundary-core:
+    image: boundary/composed:1.0.0
+    environment:
+      - BND_DEPLOYMENT_MODE=composed
+      - BND_MODULES=admin,inventory,reporting,notifications
+```
+
+### Developer Experience
+
+```bash
+# Scaffolder generates runtime support
+$ boundary scaffold module-runtime --module user
+✓ Created src/boundary/user/runtime.clj
+✓ Created Dockerfile.user
+✓ Updated deps.edn with runtime dependencies
+✓ Module ready for standalone deployment
+
+# Run module in different modes
+$ clojure -M:run-module user              # Standalone mode (port 3001)
+Starting User module in standalone mode on port 3001...
+User service ready at http://localhost:3001
+
+$ clojure -M:compose user,inventory,orders  # Composed mode (monolith)
+Starting Boundary in composed mode with modules: user, inventory, orders...
+System ready at http://localhost:3000
+
+$ java -jar target/boundary-user.jar      # Production standalone
+Starting User module in standalone mode...
+
+# Build module-specific artifacts
+$ clojure -T:build module-jar :module user
+Building standalone JAR for user module...
+✓ Created target/boundary-user-1.2.0.jar
+
+$ docker build -f Dockerfile.user -t boundary-user:1.2.0 .
+✓ Built image: boundary-user:1.2.0
+
+# Deploy different topologies
+$ boundary deploy --topology monolith     # All modules in one process
+$ boundary deploy --topology micro        # All modules standalone
+$ boundary deploy --topology hybrid       # Mix composed + standalone
+```
+
+### Why This Is a Killer Feature
+
+1. **True Flexibility Without Rewrites:**
+   - Start simple (monolith for development)
+   - Scale selectively (extract hot modules when needed)
+   - **No code changes required** - same module runs in both modes
+   - Reduces risk of premature optimization
+
+2. **Enterprise Appeal:**
+   - Teams can grow architecture with business needs
+   - Extract modules only when justified (performance, team boundaries)
+   - Hybrid topology: Best of both worlds (simple + scalable)
+   - Different teams can own independent modules
+
+3. **Absolutely Unique Differentiator:**
+   - **No framework offers this**: Protocol-driven dual-mode modules
+   - **FC/IS makes this possible**: Pure core works anywhere, shell adapters swap seamlessly
+   - **Clojure protocols enable**: Adapter swapping (in-process ↔ HTTP)
+   - **Boundary's module architecture**: Already designed for this
+
+4. **Developer Experience:**
+   - Same development workflow (monolith simplicity, fast REPL)
+   - Production flexibility (scale critical paths independently)
+   - Scaffolder automates conversion (< 5 minutes)
+   - Test in monolith, deploy selectively
+
+5. **Reduced Risk & Complexity:**
+   - Test everything in monolith mode (fast, simple, debuggable)
+   - Deploy critical paths independently (safety, isolation)
+   - Gradually migrate (no big bang rewrite)
+   - Rollback to monolith if microservices don't pay off
+
+### Competitive Analysis
+
+| Framework | Modular | Standalone Modules | Zero Rewrite | Dual-Mode | Notes |
+|-----------|---------|-------------------|--------------|-----------|-------|
+| **Boundary** | ✅ Runtime | ✅ Yes | ✅ Yes | ✅ Yes | FC/IS enables dual-mode |
+| Django | ⚠️ Apps | ❌ No | ❌ No | ❌ No | Apps tightly coupled |
+| Rails | ⚠️ Engines | ❌ No | ❌ No | ❌ No | Engines share Rails runtime |
+| Spring Boot | ⚠️ Modules | ⚠️ Partial | ❌ No | ❌ No | Requires Spring context |
+| Phoenix | ⚠️ Contexts | ❌ No | ❌ No | ❌ No | Contexts are logical, not deployable |
+| Kit | ~⚠️ Templates | ❌ No | ❌ No | ❌ No | Modules = code generation, not runtime |
+| Luminus* | ~⚠️ Templates | ❌ No | ❌ No | ❌ No | Legacy (Kit is successor) |
+
+**Legend:** ✅ Built-in | ⚠️ Partial/3rd-party | ❌ Not available | \* Deprecated
+
+### Market Position
+
+> **"Boundary modules can run standalone OR composed in a monolith—same code, no rewrites. Start simple, scale selectively, avoid microservices premature optimization."**
+
+**Taglines:**
+- "Monolith simplicity, microservice flexibility, zero rewrites."
+- "Deploy your architecture, not rewrite it."
+- "The only framework where modules are deployment units from day one."
+
+### Marketing Strategy
+
+**Blog Post**: "Monolith to Microservices Without Rewrites: How Boundary Does It"
+- Problem: Teams face false choice (monolith OR microservices)
+- Solution: Boundary's dual-mode modules
+- Demo: 5-minute video converting user module
+- Architecture: How FC/IS + protocols enable this
+
+**Video Tutorial**: "From Monolith to Microservices in 5 Minutes"
+1. Show monolith running (all modules together)
+2. Extract user module: `boundary scaffold module-runtime --module user`
+3. Build standalone: `docker build -f Dockerfile.user`
+4. Deploy: Show user module running independently
+5. Demonstrate: Same code, zero changes
+
+**Conference Talk**: "Architecture as Configuration: Deployment Topologies Without Rewrites"
+- Abstract: How Boundary enables monolith ↔ microservices without code changes
+- Demo: Live deployment topology switching
+- Target: Clojure/conj, EuroClojure, Strange Loop, QCon
+
+**Effort:** 3 person-weeks
+
+---
+
+## Feature #3: Real-Time Collaboration
 
 ### Why This Matters
 
@@ -516,7 +1483,7 @@ rt.channel('admin:dashboard')
 
 ---
 
-## Feature #3: Multi-Tenancy Framework
+## Feature #4: Multi-Tenancy Framework
 
 ### Why This Matters
 
@@ -655,7 +1622,7 @@ CREATE POLICY user_isolation ON users
 
 ---
 
-## Feature #4: File Upload & Storage
+## Feature #5: File Upload & Storage
 
 ### Goals
 
@@ -711,7 +1678,7 @@ src/boundary/storage/
 
 ---
 
-## Feature #5: GraphQL Support (Optional)
+## Feature #6: GraphQL Support (Optional)
 
 ### Goals
 
@@ -757,7 +1724,7 @@ src/boundary/graphql/
 
 ---
 
-## Feature #6: Automated API Testing (Optional)
+## Feature #7: Automated API Testing (Optional)
 
 ### Goals
 
@@ -1049,33 +2016,195 @@ src/boundary/testing/
 
 ### After Killer Features
 
-| Capability | Boundary | Django | Rails | Spring Boot | Phoenix |
-|------------|----------|--------|-------|-------------|---------|
-| **FC/IS Architecture** | ✅ Enforced | ❌ | ❌ | ❌ | ❌ |
-| **Module-Centric** | ✅ | ❌ | ❌ | ❌ | ✅ |
-| **Auto-Admin UI** | ✅ **NEW** | ✅ | ~⚠️ (gems) | ❌ | ❌ |
-| **Real-Time** | ✅ **NEW** | ~⚠️ (channels) | ~⚠️ (cable) | ~⚠️ | ✅ |
-| **Multi-Tenancy** | ✅ **NEW** | ~⚠️ (3rd party) | ~⚠️ (gems) | ❌ | ~⚠️ |
-| **Background Jobs** | ✅ | ✅ | ✅ | ❌ | ✅ |
-| **Full-Text Search** | ✅ | ~⚠️ | ~⚠️ | ❌ | ✅ |
-| **MFA** | ✅ | ~⚠️ | ~⚠️ | ❌ | ~⚠️ |
-| **Scaffolding** | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Capability | Boundary | Django | Rails | Spring Boot | Phoenix | Kit | Luminus* |
+|------------|----------|--------|-------|-------------|---------|-----|----------|
+| **FC/IS Architecture** | ✅ Enforced | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Module-Centric** | ✅ Runtime | ❌ | ❌ | ❌ | ✅ | ~⚠️ Templates | ~⚠️ Templates |
+| **Independent Modules** | ✅ Dual-mode | ❌ | ❌ | ~⚠️ | ❌ | ❌ | ❌ |
+| **AI-Powered DX** | ✅ **NEW** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Auto-Admin UI** | ✅ **NEW** | ✅ | ~⚠️ (gems) | ❌ | ❌ | ❌ | ❌ |
+| **Real-Time** | ✅ **NEW** | ~⚠️ (channels) | ~⚠️ (cable) | ~⚠️ | ✅ | ~⚠️ (Sente) | ~⚠️ (Sente) |
+| **Multi-Tenancy** | ✅ **NEW** | ~⚠️ (3rd party) | ~⚠️ (gems) | ❌ | ~⚠️ | ❌ | ❌ |
+| **Background Jobs** | ✅ | ✅ | ✅ | ❌ | ✅ | ~⚠️ (Quartz) | ~⚠️ |
+| **Full-Text Search** | ✅ | ~⚠️ | ~⚠️ | ❌ | ✅ | ❌ | ❌ |
+| **MFA** | ✅ | ~⚠️ | ~⚠️ | ❌ | ~⚠️ | ~⚠️ (Buddy) | ~⚠️ |
+| **Scaffolding** | ✅ Complete + AI | ✅ | ✅ | ❌ | ✅ | ~⚠️ Modules | ~⚠️ Templates |
+| **File Storage** | ✅ S3/Local | ~⚠️ | ~⚠️ | ~⚠️ | ❌ | ❌ | ❌ |
+| **Distributed Cache** | ✅ Redis | ~⚠️ | ~⚠️ | ~⚠️ | ✅ | ~⚠️ (module) | ~⚠️ |
+| **API Pagination** | ✅ Cursor+Offset | ~⚠️ | ~⚠️ | ❌ | ✅ | ❌ | ❌ |
 
 **Legend:**
 - ✅ Built-in, production-ready
-- ~⚠️ Requires 3rd-party library or manual setup
+- ~⚠️ Requires 3rd-party library, module, or manual setup
 - ❌ Not available or requires significant development
+- \* Luminus is legacy; Kit is the official successor
 
 ### Value Proposition
 
-> **Boundary is the first production-ready Clojure framework with auto-generated admin UI, real-time collaboration, and multi-tenancy, enforcing Functional Core / Imperative Shell architecture for highly testable, modular systems that scale from prototype to production with confidence.**
+> **Boundary is the first production-ready Clojure framework with AI-powered development experience, auto-generated admin UI, independently deployable modules, real-time collaboration, and multi-tenancy, enforcing Functional Core / Imperative Shell architecture for highly testable, modular systems that scale from prototype to production with confidence—and from monolith to microservices without rewrites.**
+
+**Clojure Ecosystem Context:**
+- **Kit/Luminus**: Template-based code generation (one-time)
+- **Boundary**: AI-powered + runtime abstractions with dual-mode deployment (always switchable)
+- **Kit modules**: Add features to projects
+- **Boundary modules**: Deployment units that can run standalone OR composed
+
+**Why Boundary Over Kit:**
+1. **AI-Powered DX**: Natural language scaffolding, instant error explanations, auto-generated tests (no other framework has this)
+2. **FC/IS Enforcement**: Architectural guardrails for testability
+3. **Dual-Mode Modules**: Same code runs standalone (microservice) OR composed (monolith)
+4. **Production Features**: Admin UI, MFA, full-text search, background jobs (all built-in)
+5. **Zero-Rewrite Scaling**: Toggle deployment mode via config, not code changes
 
 ### Taglines
 
+- "AI-powered development: Natural language → production-ready module in 2 minutes."
 - "Build admin panels in 10 minutes, not 10 days."
+- "Privacy-first AI: Local models, $0 cost, 10x faster development."
 - "Real-time by default, multi-tenant ready."
-- "Clojure's answer to Django, Rails, and Phoenix."
+- "Clojure's answer to Django, Rails, and Phoenix—but better."
 - "Production-ready functional programming."
+- "Monolith simplicity. Microservices flexibility. Zero rewrites."
+
+---
+
+## Why Choose Boundary Over Kit?
+
+### The Kit vs Boundary Comparison
+
+**Kit** is an excellent lightweight Clojure web framework with REPL-driven module installation. However, Boundary offers several unique advantages for production applications:
+
+#### 1. Architecture Enforcement: FC/IS Pattern
+
+**Kit:**
+- No architectural enforcement
+- Developers free to organize code however they prefer
+- Can lead to inconsistent patterns across modules
+
+**Boundary:**
+- Enforces Functional Core / Imperative Shell pattern
+- Pure business logic in `core/`, side effects in `shell/`
+- 10x faster unit tests (no mocks needed)
+- 5x easier refactoring (pure functions compose easily)
+
+**Impact**: Boundary projects maintain consistency as teams grow; Kit projects require discipline.
+
+#### 2. Module System: Templates vs Runtime Abstractions
+
+**Kit Modules:**
+```clojure
+;; Install module via REPL (one-time code generation)
+user=> (kit/install-module :kit/html)
+:kit/html installed successfully!
+restart required!
+
+;; Module code is now in your project
+;; src/clj/myapp/web/routes/pages.clj (generated)
+;; Cannot run standalone, cannot switch modes
+```
+
+**Boundary Modules:**
+```clojure
+;; Module exists as runtime abstraction
+;; src/boundary/user/ (ports + core + shell)
+
+;; Run standalone (microservice)
+$ clojure -M:run-module user  # Port 3001
+
+;; Run composed (monolith)
+$ clojure -M:compose user,inventory  # Port 3000
+
+;; Same code, different deployment modes
+;; Toggle via config, NOT code changes
+```
+
+**Impact**: Kit modules are one-time templates; Boundary modules are deployment units.
+
+#### 3. Production Features: Built-in vs DIY
+
+| Feature | Kit | Boundary |
+|---------|-----|----------|
+| **Admin UI** | ❌ Manual | ✅ Auto-generated (Django-style) |
+| **Background Jobs** | ~⚠️ Quartz module | ✅ Built-in, cron + delayed |
+| **MFA (2FA)** | ~⚠️ Buddy + manual | ✅ TOTP + backup codes |
+| **Full-Text Search** | ❌ Manual | ✅ PostgreSQL-based, multi-field |
+| **File Storage** | ❌ Manual | ✅ S3 + local with abstractions |
+| **Distributed Cache** | ~⚠️ Redis module | ✅ Redis + in-memory with TTL |
+| **API Pagination** | ❌ Manual | ✅ Cursor + offset strategies |
+| **Scaffolding** | ~⚠️ Module installer | ✅ Complete modules (12 files, tests, lint-free) |
+
+**Impact**: Boundary delivers production features out-of-the-box; Kit requires integration work.
+
+#### 4. Independent Module Deployments: Boundary's Unique Feature
+
+**The Problem Kit Doesn't Solve:**
+- Start with monolith (simple, fast development)
+- Need to scale specific modules (user auth under load)
+- Options in Kit: Rewrite as microservice OR scale entire monolith
+- **Neither option is ideal**
+
+**Boundary's Solution:**
+```bash
+# Development: Monolith mode (fast, simple)
+$ clojure -M:compose user,billing,inventory
+Started on http://localhost:3000
+
+# Production: Extract high-load module (zero rewrites)
+$ docker run boundary-user:1.0        # Port 3001 (standalone)
+$ docker run boundary-app:1.0         # Port 3000 (composed: billing + inventory)
+
+# Same code in both modes
+# Inter-module calls automatically adapt (in-process OR HTTP)
+```
+
+**Why This Matters:**
+1. **Start Simple**: Monolith development (fast REPL, easy debugging)
+2. **Scale Selectively**: Extract bottleneck modules without rewrite
+3. **Reduce Risk**: Test in monolith, deploy critical paths independently
+4. **Flexibility**: Move modules back to monolith if microservices don't pay off
+
+**Impact**: Kit requires rewrite to go from monolith → microservices; Boundary just toggles config.
+
+#### 5. Testing Strategy: Pure Core = No Mocks
+
+**Kit Example (typical):**
+```clojure
+;; Testing requires mocking database, HTTP, etc.
+(deftest create-user-test
+  (with-redefs [db/insert! (fn [_ _] {:id 123})]  ; Mock database
+    (let [result (create-user {:email "test@example.com"})]
+      (is (= 123 (:id result))))))
+```
+
+**Boundary Example:**
+```clojure
+;; Core logic is pure (no mocks needed)
+(deftest prepare-user-test
+  (let [result (user-core/prepare-user {:email "test@example.com"})]
+    (is (= "test@example.com" (:email result)))
+    (is (some? (:id result)))))
+
+;; Shell layer tested separately with real database (H2 in-memory)
+```
+
+**Impact**: Boundary unit tests run 10x faster (no setup/teardown); Kit tests require mocking.
+
+#### 6. When to Choose Kit vs Boundary
+
+**Choose Kit if:**
+- Building small projects (< 5K LOC)
+- Don't need admin UI or production features
+- Prefer maximum flexibility over architectural consistency
+- Comfortable integrating third-party libraries yourself
+
+**Choose Boundary if:**
+- Building production SaaS applications
+- Need admin UI, MFA, search, background jobs out-of-the-box
+- Want architectural guardrails (FC/IS pattern)
+- Need to scale from monolith → microservices without rewrites
+- Value consistency and testability
+
+**Migration Path**: Kit projects can migrate to Boundary by refactoring into FC/IS pattern (typically 2-4 weeks for medium projects).
 
 ---
 
