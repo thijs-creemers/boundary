@@ -85,10 +85,10 @@
     (cond-> {:path path}
       (seq methods)
       (assoc :methods methods)
-      
+
       (seq meta)
       (assoc :meta meta)
-      
+
       (seq normalized-children)
       (assoc :children normalized-children))))
 
@@ -140,37 +140,37 @@
       ;; Check path
       (when-not (:path route)
         (swap! errors conj (str "Route at index " idx " missing :path")))
-      
+
       (when-not (and (string? (:path route))
                      (str/starts-with? (:path route) "/"))
         (swap! errors conj (str "Route at index " idx " path must start with /")))
-      
+
       ;; Check methods if present
       (when (:methods route)
         (when-not (map? (:methods route))
           (swap! errors conj (str "Route at index " idx " :methods must be a map")))
-        
+
         (doseq [[method config] (:methods route)]
           (when-not (#{:get :post :put :delete :patch :head :options} method)
             (swap! errors conj (str "Route at index " idx " invalid HTTP method: " method)))
-          
+
           (when-not (:handler config)
             (swap! errors conj (str "Route at index " idx " method " method " missing :handler")))))
-      
+
       ;; Recursively validate children
       (when (:children route)
         (let [child-result (validate-normalized-routes (:children route))]
           (when-not (:valid? child-result)
             (doseq [err (:errors child-result)]
               (swap! errors conj (str "Route at index " idx " child: " err)))))))
-    
+
     {:valid? (empty? @errors)
      :errors @errors}))
 
 (comment
   ;; Example: Convert Reitit routes
   (def example-reitit-routes
-    [["/users" 
+    [["/users"
       {:middleware [:auth]
        :get {:handler (fn [_] {:status 200 :body "list"})
              :summary "List users"}
@@ -179,7 +179,7 @@
       ["/:id"
        {:get {:handler (fn [_] {:status 200 :body "user"})
               :summary "Get user"}}]]])
-  
+
   (reitit-routes->normalized example-reitit-routes)
   ;; => [{:path "/users"
   ;;      :methods {:get {:handler ... :summary "List users"}
@@ -187,8 +187,8 @@
   ;;      :meta {:middleware [:auth]}
   ;;      :children [{:path "/:id"
   ;;                  :methods {:get {:handler ... :summary "Get user"}}}]}]
-  
+
   ;; Validate converted routes
   (validate-normalized-routes
-    (reitit-routes->normalized example-reitit-routes)))
+   (reitit-routes->normalized example-reitit-routes)))
   ;; => {:valid? true :errors []}

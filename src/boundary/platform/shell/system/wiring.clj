@@ -102,31 +102,31 @@
   (require 'boundary.platform.shell.interfaces.http.common)
   (let [;; Import compile-routes function
         compile-routes (ns-resolve 'boundary.platform.ports.http 'compile-routes)
-        
+
         ;; Create health check handler
         health-handler (let [health-fn (ns-resolve 'boundary.platform.shell.interfaces.http.common 'health-check-handler)]
-                        (health-fn 
+                         (health-fn
                           (get-in config [:active :boundary/settings :name] "boundary")
                           (get-in config [:active :boundary/settings :version] "unknown")
                           nil))
-        
+
         ;; Define platform routes (health checks, etc.) in normalized format
         platform-routes [{:path "/health"
-                         :methods {:get {:handler health-handler
-                                        :summary "Health check endpoint"
-                                        :no-doc true}}}
-                        {:path "/health/ready"
-                         :methods {:get {:handler (fn [_] {:status 200 
-                                                          :headers {"Content-Type" "application/json"}
-                                                          :body (cheshire.core/generate-string {:status "ready"})})
-                                        :summary "Readiness check"
-                                        :no-doc true}}}
-                        {:path "/health/live"
-                         :methods {:get {:handler (fn [_] {:status 200
-                                                          :headers {"Content-Type" "application/json"}
-                                                          :body (cheshire.core/generate-string {:status "alive"})})
-                                        :summary "Liveness check"
-                                        :no-doc true}}}]
+                          :methods {:get {:handler health-handler
+                                          :summary "Health check endpoint"
+                                          :no-doc true}}}
+                         {:path "/health/ready"
+                          :methods {:get {:handler (fn [_] {:status 200
+                                                            :headers {"Content-Type" "application/json"}
+                                                            :body (cheshire.core/generate-string {:status "ready"})})
+                                          :summary "Readiness check"
+                                          :no-doc true}}}
+                         {:path "/health/live"
+                          :methods {:get {:handler (fn [_] {:status 200
+                                                            :headers {"Content-Type" "application/json"}
+                                                            :body (cheshire.core/generate-string {:status "alive"})})
+                                          :summary "Liveness check"
+                                          :no-doc true}}}]
 
         ;; Extract user module routes (normalized format)
         user-static-routes (or (:static user-routes) [])
@@ -137,9 +137,9 @@
         user-normalized-static (when (seq user-static-routes) user-static-routes)
         user-normalized-web (when (seq user-web-routes)
                              ;; Add /web prefix to web routes
-                             (mapv (fn [route]
-                                    (update route :path #(str "/web" %)))
-                                  user-web-routes))
+                              (mapv (fn [route]
+                                      (update route :path #(str "/web" %)))
+                                    user-web-routes))
         user-normalized-api (when (seq user-api-routes) user-api-routes)
 
         ;; Extract inventory module routes (normalized format)
@@ -151,28 +151,28 @@
         inventory-normalized-static (when (seq inventory-static-routes) inventory-static-routes)
         inventory-normalized-web (when (seq inventory-web-routes)
                                   ;; Add /web prefix to web routes
-                                  (mapv (fn [route]
-                                         (update route :path #(str "/web" %)))
-                                       inventory-web-routes))
+                                   (mapv (fn [route]
+                                           (update route :path #(str "/web" %)))
+                                         inventory-web-routes))
         inventory-normalized-api (when (seq inventory-api-routes) inventory-api-routes)
 
         ;; Combine all API routes (unversioned at this point)
         all-api-routes (concat (or user-normalized-api [])
-                              (or inventory-normalized-api []))
+                               (or inventory-normalized-api []))
 
         ;; Apply API versioning to all API routes
         ;; This wraps routes with /api/v1 prefix and creates backward compatibility redirects
         versioned-api-routes (if (seq all-api-routes)
-                              (http-versioning/apply-versioning all-api-routes config)
-                              [])
+                               (http-versioning/apply-versioning all-api-routes config)
+                               [])
 
         ;; Combine all routes: platform, static, web, and versioned API
         all-normalized-routes (concat platform-routes
-                                     (or user-normalized-static [])
-                                     (or user-normalized-web [])
-                                     (or inventory-normalized-static [])
-                                     (or inventory-normalized-web [])
-                                     versioned-api-routes)
+                                      (or user-normalized-static [])
+                                      (or user-normalized-web [])
+                                      (or inventory-normalized-static [])
+                                      (or inventory-normalized-web [])
+                                      versioned-api-routes)
 
         ;; Build system services map for HTTP interceptors
         system {:logger logger
@@ -189,11 +189,11 @@
 
     (log/info "Top-level HTTP handler initialized successfully"
               {:user-routes {:static (count (or user-static-routes []))
-                            :web (count (or user-web-routes []))
-                            :api (count (or user-api-routes []))}
+                             :web (count (or user-web-routes []))
+                             :api (count (or user-api-routes []))}
                :inventory-routes {:static (count (or inventory-static-routes []))
-                                 :web (count (or inventory-web-routes []))
-                                 :api (count (or inventory-api-routes []))}
+                                  :web (count (or inventory-web-routes []))
+                                  :api (count (or inventory-api-routes []))}
                :versioned-api-routes (count versioned-api-routes)
                :total-normalized-routes (count all-normalized-routes)
                :router-adapter (class router)

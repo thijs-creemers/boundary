@@ -4,18 +4,18 @@
    This adapter implements the IRouter protocol to translate framework-agnostic
    normalized route specifications into Reitit-specific route definitions."
   (:require             [boundary.platform.ports.http :as ports]
-            [boundary.platform.shell.http.interceptors :as http-interceptors]
-            [cheshire.core :as json]
-            [reitit.coercion.malli :as malli-coercion]
-            [reitit.ring :as ring]
-            [reitit.ring.coercion :as coercion]
-            [reitit.ring.middleware.exception :as exception]
-            [reitit.ring.middleware.muuntaja :as muuntaja]
-            [reitit.ring.middleware.parameters :as parameters]
-            [reitit.swagger :as swagger]
-            [reitit.swagger-ui :as swagger-ui]
-            [ring.middleware.resource :refer [wrap-resource]]
-            [muuntaja.core :as m]))
+                        [boundary.platform.shell.http.interceptors :as http-interceptors]
+                        [cheshire.core :as json]
+                        [reitit.coercion.malli :as malli-coercion]
+                        [reitit.ring :as ring]
+                        [reitit.ring.coercion :as coercion]
+                        [reitit.ring.middleware.exception :as exception]
+                        [reitit.ring.middleware.muuntaja :as muuntaja]
+                        [reitit.ring.middleware.parameters :as parameters]
+                        [reitit.swagger :as swagger]
+                        [reitit.swagger-ui :as swagger-ui]
+                        [ring.middleware.resource :refer [wrap-resource]]
+                        [muuntaja.core :as m]))
 
 ;; =============================================================================
 ;; Symbol Resolution
@@ -73,15 +73,15 @@
                 (if (fn? resolved)
                   (resolved)  ; Call function to get interceptor
                   resolved))  ; Already an interceptor map
-              
+
               ;; Function - call to get interceptor
               (fn? spec)
               (spec)
-              
+
               ;; Map - assume it's an interceptor
               (map? spec)
               spec
-              
+
               :else
               (throw (ex-info "Invalid interceptor spec"
                               {:spec spec
@@ -138,7 +138,7 @@
       (cond-> {}
         (seq params)
         (assoc :parameters params)
-        
+
         (seq responses)
         (assoc :responses (into {}
                                 (map (fn [[status schema]]
@@ -180,33 +180,33 @@
      Reitit handler data map"
   ([handler-config]
    (convert-handler-config handler-config nil))
-  
+
   ([{:keys [handler middleware interceptors coercion parameters summary tags produces consumes no-doc responses]} system]
    (let [resolved-handler (resolve-handler-fn handler)
          resolved-middleware (resolve-middleware-fns middleware)
-         
+
          ;; Treat system services as optional; interceptors can run with {}.
          system (or system {})
 
          ;; Skip default HTTP interceptors for internal routes (Swagger, health checks with :no-doc)
          ;; These routes return special response formats that shouldn't go through interceptors
          skip-interceptors? no-doc
-         
+
          ;; Always apply default HTTP interceptors UNLESS route explicitly opts out;
          ;; append any route-specific interceptors.
          resolved-route-interceptors (or (resolve-interceptors interceptors) [])
          all-interceptors (if skip-interceptors?
-                           resolved-route-interceptors  ; Only route-specific interceptors
-                           (vec (concat http-interceptors/default-http-interceptors
-                                       resolved-route-interceptors)))
+                            resolved-route-interceptors  ; Only route-specific interceptors
+                            (vec (concat http-interceptors/default-http-interceptors
+                                         resolved-route-interceptors)))
          interceptor-middleware (when (seq all-interceptors)
-                                 [(interceptors->middleware all-interceptors system)])
+                                  [(interceptors->middleware all-interceptors system)])
 
          ;; Combine regular middleware with interceptor-generated middleware.
          ;; We append interceptors last so they are closest to the resolved handler,
          ;; while still seeing a fully prepared request (session/body/coercions).
          all-middleware (concat resolved-middleware interceptor-middleware)
-         
+
          ;; Support both :coercion (normalized) and :parameters (Reitit native) formats
          coercion-data (convert-coercion coercion)]
      (cond-> {:handler resolved-handler
@@ -214,27 +214,27 @@
        ;; Merge coercion data if present
        coercion-data
        (merge coercion-data)
-       
+
        ;; Pass through :parameters if provided (Reitit native format)
        parameters
        (assoc :parameters parameters)
-       
+
        ;; Pass through :responses if provided (Reitit native format)  
        responses
        (assoc :responses responses)
-       
+
        summary
        (assoc :summary summary)
-       
+
        (seq tags)
        (assoc :tags tags)
-       
+
        (seq produces)
        (assoc :produces produces)
-       
+
        (seq consumes)
        (assoc :consumes consumes)
-       
+
        no-doc
        (assoc :no-doc no-doc)))))
 
@@ -257,7 +257,7 @@
      Map of HTTP method keyword to Reitit handler data"
   ([methods-map]
    (convert-methods methods-map nil))
-  
+
   ([methods-map system]
    (into {}
          (map (fn [[method handler-cfg]]
@@ -298,12 +298,12 @@
      Reitit route vector [path data & children]"
   ([route-entry]
    (convert-route route-entry nil))
-  
+
   ([{:keys [path methods children meta]} system]
    (let [;; Recursively convert children
          reitit-children (when (seq children)
                            (mapv #(convert-route % system) children))]
-     
+
      (if (seq reitit-children)
        ;; Route HAS children: parent methods must be empty string child
        (let [reitit-methods (convert-methods methods system)
@@ -311,11 +311,11 @@
              parent-child (when (seq reitit-methods)
                             ["" reitit-methods])]
          ;; Build: [path meta empty-string-child ...children]
-         (into [path meta] 
+         (into [path meta]
                (if parent-child
                  (into [parent-child] reitit-children)
                  reitit-children)))
-       
+
        ;; Route has NO children: methods can be on route data directly
        (let [reitit-methods (convert-methods methods system)
              route-data (merge meta reitit-methods)]
@@ -332,7 +332,7 @@
      Vector of Reitit route vectors"
   ([route-specs]
    (convert-all-routes route-specs nil))
-  
+
   ([route-specs system]
    (mapv #(convert-route % system) route-specs)))
 
@@ -391,18 +391,18 @@
     Ring handler function"
   []
   (ring/create-default-handler
-    {:not-found (constantly {:status 404
-                             :headers {"Content-Type" "application/json"}
-                             :body {:error "Not Found"
-                                    :message "The requested resource was not found"}})
-     :method-not-allowed (constantly {:status 405
-                                      :headers {"Content-Type" "application/json"}
-                                      :body {:error "Method Not Allowed"
-                                             :message "The HTTP method is not allowed for this resource"}})
-     :not-acceptable (constantly {:status 406
-                                  :headers {"Content-Type" "application/json"}
-                                  :body {:error "Not Acceptable"
-                                         :message "The requested content type is not supported"}})}))
+   {:not-found (constantly {:status 404
+                            :headers {"Content-Type" "application/json"}
+                            :body {:error "Not Found"
+                                   :message "The requested resource was not found"}})
+    :method-not-allowed (constantly {:status 405
+                                     :headers {"Content-Type" "application/json"}
+                                     :body {:error "Method Not Allowed"
+                                            :message "The HTTP method is not allowed for this resource"}})
+    :not-acceptable (constantly {:status 406
+                                 :headers {"Content-Type" "application/json"}
+                                 :body {:error "Not Acceptable"
+                                        :message "The requested content type is not supported"}})}))
 
 ;; =============================================================================
 ;; Swagger Documentation Routes
@@ -438,8 +438,8 @@
    ["/api-docs/*"
     {:get {:no-doc true
            :handler (swagger-ui/create-swagger-ui-handler
-                      {:url "/swagger.json"
-                       :config {:validatorUrl nil}})}}]])
+                     {:url "/swagger.json"
+                      :config {:validatorUrl nil}})}}]])
 
 ;; =============================================================================
 ;; IRouter Implementation
@@ -493,7 +493,7 @@
 
 (comment
   ;; Example usage:
-  
+
   ;; Define normalized routes
   (def example-routes
     [{:path "/api/users"
@@ -522,12 +522,12 @@
                                      :coercion {:path [:map [:id :uuid]]
                                                 :response {204 nil
                                                            404 [:map [:error :string]]}}}}}]}])
-  
+
   ;; Create router and compile routes
   (let [router (create-reitit-router)
         config {:middleware ['my.app.middleware/wrap-auth]}
         handler (ports/compile-routes router example-routes config)]
-    
+
     ;; Use handler as Ring handler
     (handler {:request-method :get
               :uri "/api/users"

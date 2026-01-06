@@ -24,7 +24,7 @@
             [boundary.platform.shell.adapters.database.protocols :as protocols]
             [boundary.platform.shell.adapters.database.utils.schema :as db-schema]
             [boundary.user.ports :as ports]
-[boundary.user.schema :as user-schema]
+            [boundary.user.schema :as user-schema]
             [boundary.platform.shell.persistence-interceptors :as persistence-interceptors]
             [cheshire.core]
             [clojure.set]

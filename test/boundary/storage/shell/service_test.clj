@@ -29,7 +29,7 @@
          image-processor (when (:with-image-processor opts)
                            (img/create-image-processor {}))]
      (sut/create-storage-service {:storage storage
-                                   :image-processor image-processor}))))
+                                  :image-processor image-processor}))))
 
 (deftest upload-file-test
   (let [service (create-test-service)
@@ -59,13 +59,13 @@
 
     (testing "validates content type"
       (let [result (sut/upload-file service file-data metadata
-                                     {:allowed-types ["image/jpeg"]})]
+                                    {:allowed-types ["image/jpeg"]})]
         (is (not (:success result)))
         (is (some #(= :invalid-content-type (:code %)) (:errors result)))))
 
     (testing "validates file extension"
       (let [result (sut/upload-file service file-data metadata
-                                     {:allowed-extensions ["jpg" "png"]})]
+                                    {:allowed-extensions ["jpg" "png"]})]
         (is (not (:success result)))
         (is (some #(= :invalid-extension (:code %)) (:errors result)))))))
 

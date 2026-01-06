@@ -24,7 +24,7 @@
 (deftest create-local-storage-test
   (testing "creates storage with valid config"
     (let [storage (sut/create-local-storage {:base-path test-dir
-                                              :create-directories? true})]
+                                             :create-directories? true})]
       (is (some? storage))
       (is (.exists (io/file test-dir)))))
 
@@ -34,7 +34,7 @@
 
 (deftest store-and-retrieve-file-test
   (let [storage (sut/create-local-storage {:base-path test-dir
-                                            :url-base "http://localhost/files"})
+                                           :url-base "http://localhost/files"})
         test-content (.getBytes "Hello, World!")
         file-data {:bytes test-content
                    :content-type "text/plain"}
@@ -91,7 +91,7 @@
 
 (deftest generate-signed-url-test
   (let [storage (sut/create-local-storage {:base-path test-dir
-                                            :url-base "http://localhost/files"})
+                                           :url-base "http://localhost/files"})
         file-data {:bytes (.getBytes "test")
                    :content-type "text/plain"}
         metadata {:filename "url-test.txt"}]

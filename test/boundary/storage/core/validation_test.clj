@@ -105,9 +105,9 @@
 
     (testing "accumulates multiple errors"
       (let [result (sut/validate-file valid-file-data metadata
-                                       {:max-size 5
-                                        :allowed-types ["image/png"]
-                                        :allowed-extensions ["png"]})]
+                                      {:max-size 5
+                                       :allowed-types ["image/png"]
+                                       :allowed-extensions ["png"]})]
         (is (not (:valid? result)))
         (is (= 3 (count (:errors result))))))))
 

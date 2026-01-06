@@ -119,12 +119,12 @@
           json-str (data->json prepared)
           encoded (json->base64 json-str)]
       (log/debug "Cursor encoded successfully"
-                {:cursor-length (count encoded)})
+                 {:cursor-length (count encoded)})
       encoded)
     (catch Exception e
       (log/error "Failed to encode cursor"
-                {:cursor-data cursor-data
-                 :error (.getMessage e)})
+                 {:cursor-data cursor-data
+                  :error (.getMessage e)})
       (throw (ex-info "Cursor encoding failed"
                       {:type :cursor-encoding-error
                        :cursor-data cursor-data}
@@ -210,12 +210,12 @@
                         {:type :invalid-cursor
                          :reason :missing-fields
                          :data data})))
-      
+
       ;; Parse types
       (cond-> {:id (UUID/fromString id)
                :sort-field sort-field
                :sort-direction (keyword sort-direction)}
-        
+
         ;; Parse sort-value based on type
         (string? sort-value)
         (assoc :sort-value
@@ -225,10 +225,10 @@
                    (Instant/parse sort-value)
                    (catch Exception _ sort-value))  ; If parsing fails, keep as string
                  sort-value))
-        
+
         (not (string? sort-value))
         (assoc :sort-value sort-value)
-        
+
         ;; Parse timestamp if present
         timestamp
         (assoc :timestamp (Instant/parse timestamp))))

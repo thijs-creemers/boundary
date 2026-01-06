@@ -138,16 +138,16 @@
           latest-str (name (:latest-stable config))
           deprecated? (contains? (:deprecated-versions config) version)
           sunset-date (get (:sunset-dates config) version)
-          
+
           ;; Build version headers
           version-headers (cond-> {"X-API-Version" version-str
                                    "X-API-Version-Latest" latest-str}
                             deprecated?
                             (assoc "X-API-Deprecated" "true")
-                            
+
                             sunset-date
                             (assoc "X-API-Sunset" sunset-date))]
-      
+
       ;; Add version headers to response
       (update response :headers merge version-headers))))
 
@@ -180,15 +180,15 @@
   (let [version-str (name target-version)
         target-path (str "/api/" version-str path)
         redirect-handler (fn [request]
-                          (log/debug "Redirecting unversioned request"
-                                    {:from (:uri request)
-                                     :to target-path})
-                          {:status 307  ; Temporary Redirect (preserves method)
-                           :headers {"Location" target-path
-                                     "X-API-Deprecated-Path" "true"}
-                           :body {:message "Please use versioned API endpoint"
-                                  :location target-path
-                                  :version (name target-version)}})]
+                           (log/debug "Redirecting unversioned request"
+                                      {:from (:uri request)
+                                       :to target-path})
+                           {:status 307  ; Temporary Redirect (preserves method)
+                            :headers {"Location" target-path
+                                      "X-API-Deprecated-Path" "true"}
+                            :body {:message "Please use versioned API endpoint"
+                                   :location target-path
+                                   :version (name target-version)}})]
     {:path (str "/api" path)
      :methods {:get {:handler redirect-handler
                      :summary (str "Redirect to " target-path)}
@@ -200,8 +200,6 @@
                         :summary (str "Redirect to " target-path)}
                :patch {:handler redirect-handler
                        :summary (str "Redirect to " target-path)}}}))
-
-
 
 (defn create-backward-compatibility-routes
   "Create redirect routes for backward compatibility.
@@ -232,19 +230,19 @@
          version-str (name target-version)
          version-prefix (str "/api/" version-str)
          unversioned-paths (->> routes
-                               (map :path)
-                               (filter #(str/starts-with? % version-prefix))
-                               (map #(subs % (count version-prefix)))
-                               (into #{}))
-         
+                                (map :path)
+                                (filter #(str/starts-with? % version-prefix))
+                                (map #(subs % (count version-prefix)))
+                                (into #{}))
+
          ;; Create redirect routes
-          redirect-routes (mapv #(create-redirect-route % target-version)
+         redirect-routes (mapv #(create-redirect-route % target-version)
                                unversioned-paths)]
-      
-      (log/info "Created backward compatibility redirects"
-                {:redirect-count (count redirect-routes)
-                 :target-version target-version})
-      redirect-routes)))
+
+     (log/info "Created backward compatibility redirects"
+               {:redirect-count (count redirect-routes)
+                :target-version target-version})
+     redirect-routes)))
 
 ;; =============================================================================
 ;; High-Level API
@@ -284,24 +282,24 @@
   [api-routes config]
   (let [version-cfg (version-config config)
         default-version (:default-version version-cfg)
-        
+
         ;; Wrap routes with version prefix
         versioned-routes (wrap-routes-with-version api-routes default-version)
-        
+
         ;; Create backward compatibility redirects
         redirect-routes (create-backward-compatibility-routes
                          versioned-routes
                          default-version)
-        
+
         ;; Combine versioned and redirect routes
         all-routes (concat versioned-routes redirect-routes)]
-    
+
     (log/info "Applied API versioning"
               {:versioned-routes (count versioned-routes)
                :redirect-routes (count redirect-routes)
                :total-routes (count all-routes)
                :default-version default-version})
-    
+
     (vec all-routes)))
 
 (defn wrap-handler-with-version-headers

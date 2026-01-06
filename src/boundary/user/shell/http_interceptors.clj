@@ -71,27 +71,27 @@
                 ;; Log successful authentication check
                 (when-let [logger (:logger system)]
                   (logging/debug logger "Authentication check passed"
-                                {:user-id (get-in request [:session :user :id])
-                                 :correlation-id correlation-id}))
+                                 {:user-id (get-in request [:session :user :id])
+                                  :correlation-id correlation-id}))
                 ctx)
               (do
                 ;; Log authentication failure
                 (when-let [logger (:logger system)]
                   (logging/warn logger "Authentication required but not provided"
-                               {:uri (:uri request)
-                                :method (:request-method request)
-                                :correlation-id correlation-id}))
-                
+                                {:uri (:uri request)
+                                 :method (:request-method request)
+                                 :correlation-id correlation-id}))
+
                 ;; Increment auth failure metric
                 (when-let [metrics (:metrics-emitter system)]
                   (metrics/increment metrics "http.auth.failures"
-                                   {:reason "not-authenticated"}))
-                
+                                     {:reason "not-authenticated"}))
+
                 ;; Short-circuit with 401
                 (assoc ctx :response
                        (create-error-response 401 "unauthorized"
-                                            "Authentication required"
-                                            correlation-id)))))})
+                                              "Authentication required"
+                                              correlation-id)))))})
 
 (def require-unauthenticated
   "Requires NO authenticated user in session.
@@ -111,15 +111,15 @@
                 ;; Log attempt to access unauthenticated-only route
                 (when-let [logger (:logger system)]
                   (logging/debug logger "Already authenticated, access denied"
-                                {:user-id (get-in request [:session :user :id])
-                                 :uri (:uri request)
-                                 :correlation-id correlation-id}))
-                
+                                 {:user-id (get-in request [:session :user :id])
+                                  :uri (:uri request)
+                                  :correlation-id correlation-id}))
+
                 ;; Short-circuit with 403
                 (assoc ctx :response
                        (create-error-response 403 "forbidden"
-                                            "Already authenticated"
-                                            correlation-id)))))})
+                                              "Already authenticated"
+                                              correlation-id)))))})
 
 ;; =============================================================================
 ;; Authorization Interceptors
@@ -143,28 +143,28 @@
                   ;; Log successful authorization
                   (when-let [logger (:logger system)]
                     (logging/debug logger "Admin authorization check passed"
-                                  {:user-id (:id user)
-                                   :correlation-id correlation-id}))
+                                   {:user-id (:id user)
+                                    :correlation-id correlation-id}))
                   ctx)
                 (do
                   ;; Log authorization failure
                   (when-let [logger (:logger system)]
                     (logging/warn logger "Admin role required but not present"
-                                 {:user-id (:id user)
-                                  :user-role (:role user)
-                                  :uri (:uri request)
-                                  :correlation-id correlation-id}))
-                  
+                                  {:user-id (:id user)
+                                   :user-role (:role user)
+                                   :uri (:uri request)
+                                   :correlation-id correlation-id}))
+
                   ;; Increment auth failure metric
                   (when-let [metrics (:metrics-emitter system)]
                     (metrics/increment metrics "http.auth.failures"
-                                     {:reason "insufficient-permissions"}))
-                  
+                                       {:reason "insufficient-permissions"}))
+
                   ;; Short-circuit with 403
                   (assoc ctx :response
                          (create-error-response 403 "forbidden"
-                                              "Admin role required"
-                                              correlation-id))))))})
+                                                "Admin role required"
+                                                correlation-id))))))})
 
 (defn require-role
   "Factory function to create role-checking interceptor.
@@ -189,30 +189,30 @@
                   ;; Log successful authorization
                   (when-let [logger (:logger system)]
                     (logging/debug logger (str "Role check passed: " required-role)
-                                  {:user-id (:id user)
-                                   :correlation-id correlation-id}))
+                                   {:user-id (:id user)
+                                    :correlation-id correlation-id}))
                   ctx)
                 (do
                   ;; Log authorization failure
                   (when-let [logger (:logger system)]
                     (logging/warn logger (str "Role required: " required-role)
-                                 {:user-id (:id user)
-                                  :user-role (:role user)
-                                  :required-role required-role
-                                  :uri (:uri request)
-                                  :correlation-id correlation-id}))
-                  
+                                  {:user-id (:id user)
+                                   :user-role (:role user)
+                                   :required-role required-role
+                                   :uri (:uri request)
+                                   :correlation-id correlation-id}))
+
                   ;; Increment auth failure metric
                   (when-let [metrics (:metrics-emitter system)]
                     (metrics/increment metrics "http.auth.failures"
-                                     {:reason "insufficient-permissions"
-                                      :required-role required-role}))
-                  
+                                       {:reason "insufficient-permissions"
+                                        :required-role required-role}))
+
                   ;; Short-circuit with 403
                   (assoc ctx :response
                          (create-error-response 403 "forbidden"
-                                              (str "Role required: " required-role)
-                                              correlation-id))))))})
+                                                (str "Role required: " required-role)
+                                                correlation-id))))))})
 
 (def require-self-or-admin
   "Requires user to be accessing their own resource OR be an admin.
@@ -236,32 +236,32 @@
                   ;; Log successful authorization
                   (when-let [logger (:logger system)]
                     (logging/debug logger "Self-or-admin check passed"
-                                  {:user-id user-id
-                                   :target-id target-id
-                                   :is-admin is-admin?
-                                   :is-self is-self?
-                                   :correlation-id correlation-id}))
+                                   {:user-id user-id
+                                    :target-id target-id
+                                    :is-admin is-admin?
+                                    :is-self is-self?
+                                    :correlation-id correlation-id}))
                   ctx)
                 (do
                   ;; Log authorization failure
                   (when-let [logger (:logger system)]
                     (logging/warn logger "Access denied: not self or admin"
-                                 {:user-id user-id
-                                  :target-id target-id
-                                  :user-role (:role user)
-                                  :uri (:uri request)
-                                  :correlation-id correlation-id}))
-                  
+                                  {:user-id user-id
+                                   :target-id target-id
+                                   :user-role (:role user)
+                                   :uri (:uri request)
+                                   :correlation-id correlation-id}))
+
                   ;; Increment auth failure metric
                   (when-let [metrics (:metrics-emitter system)]
                     (metrics/increment metrics "http.auth.failures"
-                                     {:reason "not-self-or-admin"}))
-                  
+                                       {:reason "not-self-or-admin"}))
+
                   ;; Short-circuit with 403
                   (assoc ctx :response
                          (create-error-response 403 "forbidden"
-                                              "Access denied"
-                                              correlation-id))))))})
+                                                "Access denied"
+                                                correlation-id))))))})
 
 ;; =============================================================================
 ;; Audit Logging Interceptors
@@ -287,18 +287,18 @@
               (when (and (>= status 200) (< status 300))
                 (when-let [logger (:logger system)]
                   (logging/info logger "Action completed successfully"
-                               {:action (:uri request)
-                                :method (:request-method request)
-                                :user-id (:id user)
-                                :user-role (:role user)
-                                :status status
-                                :correlation-id correlation-id}))
-                
+                                {:action (:uri request)
+                                 :method (:request-method request)
+                                 :user-id (:id user)
+                                 :user-role (:role user)
+                                 :status status
+                                 :correlation-id correlation-id}))
+
                 ;; Increment successful action metric
                 (when-let [metrics (:metrics-emitter system)]
                   (metrics/increment metrics "http.actions.success"
-                                   {:action (:uri request)
-                                    :method (name (:request-method request))})))
+                                     {:action (:uri request)
+                                      :method (name (:request-method request))})))
               ctx))})
 
 (def log-all-actions
@@ -319,23 +319,23 @@
                   success? (and (>= status 200) (< status 300))]
               (when-let [logger (:logger system)]
                 (logging/info logger (if success?
-                                      "Action completed successfully"
-                                      "Action failed")
-                             {:action (:uri request)
-                              :method (:request-method request)
-                              :user-id (:id user)
-                              :user-role (:role user)
-                              :status status
-                              :success success?
-                              :correlation-id correlation-id}))
-              
+                                       "Action completed successfully"
+                                       "Action failed")
+                              {:action (:uri request)
+                               :method (:request-method request)
+                               :user-id (:id user)
+                               :user-role (:role user)
+                               :status status
+                               :success success?
+                               :correlation-id correlation-id}))
+
               ;; Increment metric
               (when-let [metrics (:metrics-emitter system)]
                 (metrics/increment metrics (if success?
-                                            "http.actions.success"
-                                            "http.actions.failure")
-                                 {:action (:uri request)
-                                  :method (name (:request-method request))}))
+                                             "http.actions.success"
+                                             "http.actions.failure")
+                                   {:action (:uri request)
+                                    :method (name (:request-method request))}))
               ctx))})
 
 ;; =============================================================================

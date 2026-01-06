@@ -21,19 +21,22 @@ git clone <repo-url> boundary
 cd boundary
 clojure -M:test                           # Run tests (auto-loads required drivers)
 clojure -M:repl-clj                       # Start REPL
-clojure -X:mcp # runs clojure-mcp server as configured in ~/.clojure/deps.edn
+```
 
-opencode setup, Auto starts mcp but startup fails when the repl is not running.
-``` json
-{"mcp":
-    "clojure-mcp": {
-      "type": "local",
-      "command": [
-        "clojure",
-        "-X:mcp"
-      ]
-    }
-}
+### Clojure Development Tools
+
+Install helpful Clojure development tools:
+
+```bash
+# Install Babashka and bbin (package manager)
+brew install babashka/brew/babashka borkdude/brew/bbin  # macOS
+# See AGENTS.md for Linux installation
+
+# Install clj-paren-repair (fix unbalanced parentheses)
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.1 --as clj-paren-repair --main-opts '["-m" "clojure-mcp-light.paren-repair"]'
+
+# Install clj-nrepl-eval (REPL evaluation from CLI)
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.1 --as clj-nrepl-eval --main-opts '["-m" "clojure-mcp-light.nrepl-eval"]'
 ```
 
 ## Architecture

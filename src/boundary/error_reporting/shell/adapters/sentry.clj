@@ -403,7 +403,7 @@
 ;; =============================================================================
 
 (defrecord ^{:clj-kondo/ignore [:unused-binding]}
-    SentryErrorReportingComponent [config error-reporter error-context error-filter error-config]
+ SentryErrorReportingComponent [config error-reporter error-context error-filter error-config]
   ports/IErrorReporter
   (capture-exception [_this exception]
     (ports/capture-exception error-reporter exception))

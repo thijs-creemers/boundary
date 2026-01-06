@@ -19,7 +19,7 @@
             [boundary.user.core.user :as user-core]
             [boundary.user.core.authentication :as auth-core]
             [boundary.user.core.audit :as audit-core]
-[boundary.user.shell.auth :as auth-shell]
+            [boundary.user.shell.auth :as auth-shell]
             [boundary.user.ports :as ports]
             [boundary.platform.shell.service-interceptors :as service-interceptors]
             [clojure.string :as str])
@@ -171,56 +171,56 @@
                   :errors (:errors credential-validation)})
 
                  ;; 3. Verify password using auth service (shell layer I/O)
-                (if (and (:password_hash user)
-                         (auth-shell/verify-password password (:password_hash user)))
+               (if (and (:password_hash user)
+                        (auth-shell/verify-password password (:password_hash user)))
                    ;; 4. Check account security using pure authentication core
-                    (let [login-decision (auth-core/should-allow-login-attempt? user {} (current-timestamp))]
-                      (if (:allowed? login-decision)
+                 (let [login-decision (auth-core/should-allow-login-attempt? user {} (current-timestamp))]
+                   (if (:allowed? login-decision)
                        ;; 5. Generate session data using pure functions
-                        (let [session-token (generate-secure-token)
-                              session-id (generate-user-id)
-                              current-time (current-timestamp)
-                              session-data (session-core/prepare-session-for-creation
-                                            {:user-id (:id user)
-                                             :device-info {:ip-address ip-address
-                                                           :user-agent user-agent}
-                                             :remember-me (boolean remember)}
-                                            current-time
-                                            session-id
-                                            session-token)]
+                     (let [session-token (generate-secure-token)
+                           session-id (generate-user-id)
+                           current-time (current-timestamp)
+                           session-data (session-core/prepare-session-for-creation
+                                         {:user-id (:id user)
+                                          :device-info {:ip-address ip-address
+                                                        :user-agent user-agent}
+                                          :remember-me (boolean remember)}
+                                         current-time
+                                         session-id
+                                         session-token)]
 
                          ;; 6. Persist session using impure shell persistence layer
-                          (let [created-session (.create-session session-repository session-data)]
+                       (let [created-session (.create-session session-repository session-data)]
 
                            ;; 7. Log successful login
-                            (let [audit-entry (audit-core/login-audit-entry
-                                               (:id user)
-                                               (:email user)
-                                               ip-address
-                                               user-agent
-                                               true
-                                               nil)]
-                              (.create-audit-log audit-repository audit-entry))
+                         (let [audit-entry (audit-core/login-audit-entry
+                                            (:id user)
+                                            (:email user)
+                                            ip-address
+                                            user-agent
+                                            true
+                                            nil)]
+                           (.create-audit-log audit-repository audit-entry))
 
                            ;; Return authentication result with session and JWT
-                            {:authenticated true
-                             :user (dissoc user :password_hash)
-                             :session created-session
-                             :jwt-token (auth-shell/create-jwt-token user 24)}))
+                         {:authenticated true
+                          :user (dissoc user :password_hash)
+                          :session created-session
+                          :jwt-token (auth-shell/create-jwt-token user 24)}))
 
                         ;; Login not allowed - log failed attempt
-                        (do
-                          (let [audit-entry (audit-core/login-audit-entry
-                                             (:id user)
-                                             (:email user)
-                                             ip-address
-                                             user-agent
-                                             false
-                                             (str "Login not allowed: " (:reason login-decision)))]
-                            (.create-audit-log audit-repository audit-entry))
-                          {:authenticated false
-                           :reason (:reason login-decision)
-                           :retry-after (:retry-after login-decision)})))
+                     (do
+                       (let [audit-entry (audit-core/login-audit-entry
+                                          (:id user)
+                                          (:email user)
+                                          ip-address
+                                          user-agent
+                                          false
+                                          (str "Login not allowed: " (:reason login-decision)))]
+                         (.create-audit-log audit-repository audit-entry))
+                       {:authenticated false
+                        :reason (:reason login-decision)
+                        :retry-after (:retry-after login-decision)})))
 
                  ;; Password verification failed - log failed attempt
                  (do

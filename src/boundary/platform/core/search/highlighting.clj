@@ -40,27 +40,27 @@
      ;=> \"[john] doe\"
      
    Pure: true"
-   ([text search-terms]
-    (highlight-matches text search-terms
+  ([text search-terms]
+   (highlight-matches text search-terms
                       (fn [term] (str "<mark>" term "</mark>"))
                       {}))
   ([text search-terms highlight-fn]
    (highlight-matches text search-terms highlight-fn {}))
-   ([text search-terms highlight-fn options]
-    (if (or (str/blank? text) (empty? search-terms))
-      text
-      (let [case-sensitive? (get options :case-sensitive? false)
-            whole-words? (get options :whole-words? true)
-            escaped-terms (map #(java.util.regex.Pattern/quote %) search-terms)
-            word-boundary (if whole-words? "\\b" "")
-            pattern-str (str word-boundary
+  ([text search-terms highlight-fn options]
+   (if (or (str/blank? text) (empty? search-terms))
+     text
+     (let [case-sensitive? (get options :case-sensitive? false)
+           whole-words? (get options :whole-words? true)
+           escaped-terms (map #(java.util.regex.Pattern/quote %) search-terms)
+           word-boundary (if whole-words? "\\b" "")
+           pattern-str (str word-boundary
                             "(" (str/join "|" escaped-terms) ")"
                             word-boundary)
-            flags (if case-sensitive?
+           flags (if case-sensitive?
                    0
                    java.util.regex.Pattern/CASE_INSENSITIVE)
-            pattern (java.util.regex.Pattern/compile pattern-str flags)]
-        (str/replace text pattern #(highlight-fn (first %)))))))
+           pattern (java.util.regex.Pattern/compile pattern-str flags)]
+       (str/replace text pattern #(highlight-fn (first %)))))))
 
 (defn highlight-field
   "Highlight matches in a specific field of a result.
@@ -80,13 +80,13 @@
      ;    :_highlights {:name \"<mark>John</mark> Doe\"}}
      
    Pure: true"
-   ([result field search-terms]
-    (highlight-field result field search-terms
+  ([result field search-terms]
+   (highlight-field result field search-terms
                     (fn [term] (str "<mark>" term "</mark>"))))
   ([result field search-terms highlight-fn]
    (let [text (get result field)
          highlighted (when text
-                      (highlight-matches text search-terms highlight-fn))]
+                       (highlight-matches text search-terms highlight-fn))]
      (if highlighted
        (assoc-in result [:_highlights field] highlighted)
        result))))
@@ -113,14 +113,14 @@
      ;                  :bio \"Software <mark>engineer</mark>\"}}
      
    Pure: true"
-   ([result fields search-terms]
-    (highlight-multiple-fields result fields search-terms
+  ([result fields search-terms]
+   (highlight-multiple-fields result fields search-terms
                               (fn [term] (str "<mark>" term "</mark>"))))
   ([result fields search-terms highlight-fn]
    (reduce (fn [r field]
-            (highlight-field r field search-terms highlight-fn))
-          result
-          fields)))
+             (highlight-field r field search-terms highlight-fn))
+           result
+           fields)))
 
 ;; ============================================================================
 ;; Snippet Extraction
@@ -147,15 +147,15 @@
   ([text search-terms case-sensitive?]
    (let [text-to-search (if case-sensitive? text (str/lower-case text))
          terms-to-search (if case-sensitive?
-                          search-terms
-                          (map str/lower-case search-terms))]
+                           search-terms
+                           (map str/lower-case search-terms))]
      (first
-       (sort-by :match-pos
-         (keep (fn [term]
-                (let [pos (.indexOf text-to-search term)]
-                  (when (>= pos 0)
-                    {:match-pos pos :matched-term term})))
-              terms-to-search))))))
+      (sort-by :match-pos
+               (keep (fn [term]
+                       (let [pos (.indexOf text-to-search term)]
+                         (when (>= pos 0)
+                           {:match-pos pos :matched-term term})))
+                     terms-to-search))))))
 
 (defn extract-snippet
   "Extract relevant snippet from text around search terms.
@@ -183,42 +183,42 @@
    (extract-snippet text search-terms 200))
   ([text search-terms max-length]
    (extract-snippet text search-terms max-length (quot max-length 2)))
-   ([text search-terms max-length context-chars]
-    (if (or (str/blank? text) (empty? search-terms))
-      (if text
-        (subs text 0 (min max-length (count text)))
-        "")
-      (let [match-info (find-first-match-position text search-terms)]
+  ([text search-terms max-length context-chars]
+   (if (or (str/blank? text) (empty? search-terms))
+     (if text
+       (subs text 0 (min max-length (count text)))
+       "")
+     (let [match-info (find-first-match-position text search-terms)]
        (if match-info
          (let [match-pos (:match-pos match-info)
                match-term (:matched-term match-info)
                match-end (+ match-pos (count match-term))
-               
+
                ;; Calculate snippet bounds
                start (max 0 (- match-pos context-chars))
                end (min (count text) (+ match-end context-chars))
-               
+
                ;; Adjust for max-length
                snippet-length (- end start)
                excess (- snippet-length max-length)
                adjusted-start (if (> excess 0)
-                               (+ start (quot excess 2))
-                               start)
+                                (+ start (quot excess 2))
+                                start)
                adjusted-end (if (> excess 0)
-                             (- end (quot excess 2))
-                             end)
-               
+                              (- end (quot excess 2))
+                              end)
+
                 ;; Extract snippet
-                snippet (subs text adjusted-start adjusted-end)
-                
+               snippet (subs text adjusted-start adjusted-end)
+
                 ;; Add ellipsis
-                prefix (when (> adjusted-start 0) "...")
-                suffix (when (< adjusted-end (count text)) "...")]
-            (str prefix snippet suffix))
+               prefix (when (> adjusted-start 0) "...")
+               suffix (when (< adjusted-end (count text)) "...")]
+           (str prefix snippet suffix))
           ;; No match found - return beginning of text
-          (let [snippet (subs text 0 (min max-length (count text)))
-                suffix (when (< max-length (count text)) "...")]
-            (str snippet suffix)))))))
+         (let [snippet (subs text 0 (min max-length (count text)))
+               suffix (when (< max-length (count text)) "...")]
+           (str snippet suffix)))))))
 
 (defn extract-snippet-with-highlight
   "Extract snippet and highlight matches in one step.
@@ -240,8 +240,8 @@
      ;=> \"...long text about <mark>John</mark> Doe who works as an <mark>engineer</mark>\"
      
    Pure: true"
-   ([text search-terms max-length]
-    (extract-snippet-with-highlight text search-terms max-length
+  ([text search-terms max-length]
+   (extract-snippet-with-highlight text search-terms max-length
                                    (fn [term] (str "<mark>" term "</mark>"))))
   ([text search-terms max-length highlight-fn]
    (let [snippet (extract-snippet text search-terms max-length)]
@@ -283,34 +283,34 @@
            text-lower (str/lower-case text)
            terms-lower (map str/lower-case search-terms)
            all-positions (mapcat (fn [term]
-                                  (loop [pos 0 positions []]
-                                    (let [match-pos (.indexOf text-lower term pos)]
-                                      (if (>= match-pos 0)
-                                        (recur (+ match-pos (count term))
-                                               (conj positions match-pos))
-                                        positions))))
-                                terms-lower)
+                                   (loop [pos 0 positions []]
+                                     (let [match-pos (.indexOf text-lower term pos)]
+                                       (if (>= match-pos 0)
+                                         (recur (+ match-pos (count term))
+                                                (conj positions match-pos))
+                                         positions))))
+                                 terms-lower)
            ;; Sort and deduplicate positions
            sorted-positions (sort (distinct all-positions))
            ;; Group positions that would result in overlapping snippets
            context-chars (quot snippet-length 2)
            grouped-positions (reduce (fn [groups pos]
-                                      (if (empty? groups)
-                                        [[pos]]
-                                        (let [last-group (last groups)
-                                              last-pos (last last-group)]
-                                          (if (< (- pos last-pos) snippet-length)
+                                       (if (empty? groups)
+                                         [[pos]]
+                                         (let [last-group (last groups)
+                                               last-pos (last last-group)]
+                                           (if (< (- pos last-pos) snippet-length)
                                             ;; Overlapping - add to last group
-                                            (conj (vec (butlast groups))
-                                                 (conj last-group pos))
+                                             (conj (vec (butlast groups))
+                                                   (conj last-group pos))
                                             ;; Not overlapping - new group
-                                            (conj groups [pos])))))
-                                    []
-                                    sorted-positions)
+                                             (conj groups [pos])))))
+                                     []
+                                     sorted-positions)
            ;; Take first position from each group, up to max-snippets
            snippet-positions (take max-snippets (map first grouped-positions))]
        (mapv (fn [pos]
-              (let [start (max 0 (- pos context-chars))
+               (let [start (max 0 (- pos context-chars))
                      end (min (count text) (+ pos context-chars))
                      snippet (subs text start end)
                      prefix (when (> start 0) "...")
@@ -338,8 +338,8 @@
      ;=> \"This is...\"
      
    Pure: true"
-   ([text max-length]
-    (truncate-text text max-length "..."))
+  ([text max-length]
+   (truncate-text text max-length "..."))
   ([text max-length ellipsis]
    (if (or (nil? text) (<= (count text) max-length))
      text
@@ -389,14 +389,14 @@
   ([text search-terms case-sensitive?]
    (let [text-to-search (if case-sensitive? text (str/lower-case text))]
      (into {}
-       (map (fn [term]
-             (let [term-to-search (if case-sensitive?
-                                   term
-                                   (str/lower-case term))
-                   matches (re-seq (re-pattern (java.util.regex.Pattern/quote term-to-search))
-                                  text-to-search)]
-               [term (count matches)]))
-           search-terms)))))
+           (map (fn [term]
+                  (let [term-to-search (if case-sensitive?
+                                         term
+                                         (str/lower-case term))
+                        matches (re-seq (re-pattern (java.util.regex.Pattern/quote term-to-search))
+                                        text-to-search)]
+                    [term (count matches)]))
+                search-terms)))))
 
 (defn calculate-match-density
   "Calculate density of search term matches in text.
@@ -421,7 +421,7 @@
     (let [text-length (count text)
           match-counts (count-matches text search-terms)
           total-match-chars (reduce-kv (fn [sum term match-count]
-                                        (+ sum (* match-count (count term))))
-                                      0
-                                      match-counts)]
+                                         (+ sum (* match-count (count term))))
+                                       0
+                                       match-counts)]
       (/ (double total-match-chars) text-length))))

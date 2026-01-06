@@ -18,7 +18,7 @@
    
    All methods should return results in a consistent format regardless
    of the underlying search technology."
-  
+
   (search
     [this query-map]
     "Execute a search query.
@@ -36,7 +36,7 @@
         :total 100
         :max-score 0.95
         :took-ms 15}")
-  
+
   (index-document
     [this index-name document]
     "Index a document for searching.
@@ -53,7 +53,7 @@
        {:indexed true
         :id \"123\"
         :index \"users\"}")
-  
+
   (delete-document
     [this index-name document-id]
     "Remove a document from the search index.
@@ -66,7 +66,7 @@
        {:deleted true
         :id \"123\"
         :index \"users\"}")
-  
+
   (update-document
     [this index-name document-id updates]
     "Update an indexed document.
@@ -80,7 +80,7 @@
        {:updated true
         :id \"123\"
         :index \"users\"}")
-  
+
   (bulk-index
     [this index-name documents]
     "Index multiple documents in bulk.
@@ -93,7 +93,7 @@
        {:indexed-count 50
         :failed-count 0
         :errors []}")
-  
+
   (create-index
     [this index-name config]
     "Create a new search index.
@@ -109,7 +109,7 @@
      Returns:
        {:created true
         :index \"users\"}")
-  
+
   (delete-index
     [this index-name]
     "Delete a search index.
@@ -120,7 +120,7 @@
      Returns:
        {:deleted true
         :index \"users\"}")
-  
+
   (get-index-stats
     [this index-name]
     "Get statistics about a search index.
@@ -144,7 +144,7 @@
    Orchestrates search operations, combines core business logic
    with search provider capabilities. Handles ranking, highlighting,
    and result transformation."
-  
+
   (search-users
     [this query options]
     "Search for users.
@@ -169,7 +169,7 @@
         :total 100
         :page {:from 0 :size 20}
         :took-ms 25}")
-  
+
   (search-items
     [this query options]
     "Search for items (inventory, products, etc.).
@@ -180,7 +180,7 @@
      
      Returns:
        Search results in same format as search-users")
-  
+
   (suggest
     [this prefix field options]
     "Get search suggestions/autocomplete.
@@ -195,7 +195,7 @@
      Returns:
        {:suggestions [\"John Doe\" \"John Smith\" \"Johnny\"]
         :count 3}")
-  
+
   (reindex-all
     [this index-name]
     "Rebuild search index from database.
@@ -207,7 +207,7 @@
        {:reindexed-count 1000
         :failed-count 0
         :duration-ms 5000}")
-  
+
   (get-search-stats
     [this]
     "Get overall search statistics.

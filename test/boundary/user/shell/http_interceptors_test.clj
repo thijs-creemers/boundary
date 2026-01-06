@@ -153,13 +153,13 @@
   (testing "authentication + authorization chain"
     (let [request {:session {:user {:id "user-123" :role "user"}}}
           ctx (create-test-context request)
-          
+
           ;; Run auth interceptor
           after-auth ((:enter http-int/require-authenticated) ctx)
-          
+
           ;; Run authz interceptor
           after-authz ((:enter http-int/require-admin) after-auth)]
-      
+
       (is (nil? (:response after-auth))
           "Auth should pass")
       (is (some? (:response after-authz))
@@ -173,17 +173,17 @@
                    :session {:user {:id "admin-123" :role "admin"}}}
           response {:status 201 :body {:id "new-user"}}
           ctx (create-test-context request)
-          
+
           ;; Run enter phase (auth + authz)
           after-auth ((:enter http-int/require-authenticated) ctx)
           after-authz ((:enter http-int/require-admin) after-auth)
-          
+
           ;; Simulate handler execution
           after-handler (assoc after-authz :response response)
-          
+
           ;; Run leave phase (audit)
           after-audit ((:leave http-int/log-action) after-handler)]
-      
+
       (is (nil? (:response after-auth))
           "Auth should pass")
       (is (nil? (:response after-authz))

@@ -16,7 +16,7 @@
      
      (db-config/get-active-adapters \"dev\")     ; Get active adapters for dev env
      (db-config/adapter-active? :postgresql)    ; Check if adapter is active"
-   (:require [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [aero.core :as aero]
             [clojure.java.io :as io]
             [boundary.platform.shell.adapters.database.factory :as factory]))
@@ -258,7 +258,7 @@
 
    Throws:
      Exception if no active database is configured"
-   []
+  []
   (let [env (detect-environment)
         db-configs (get-active-db-configs env)]
     (when (empty? db-configs)

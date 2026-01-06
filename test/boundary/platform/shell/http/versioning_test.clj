@@ -53,7 +53,7 @@
           result (versioning/version-config config)]
       (is (= :v2 (:default-version result)))
       (is (= :v2 (:latest-stable result)))))
-  
+
   (testing "Get version config with defaults when not specified"
     (let [config {}
           result (versioning/version-config config)]
@@ -62,7 +62,7 @@
       (is (= #{} (:deprecated-versions result)))
       (is (= {} (:sunset-dates result)))
       (is (= #{:v1} (:supported-versions result)))))
-  
+
   (testing "Partial config merges with defaults"
     (let [config {:active {:boundary/api-versioning
                            {:default-version :v3}}}
@@ -84,12 +84,12 @@
       (is (= 2 (count result)))
       (is (= "/api/v1/users" (:path (first result))))
       (is (= "/api/v1/items" (:path (second result))))))
-  
+
   (testing "Wrap routes with v2 prefix"
     (let [routes [{:path "/users" :methods {}}]
           result (versioning/wrap-routes-with-version routes :v2)]
       (is (= "/api/v2/users" (:path (first result))))))
-  
+
   (testing "Wrap routes preserves methods"
     (let [routes [{:path "/users"
                    :methods {:get {:handler 'list-users}
@@ -99,12 +99,12 @@
       (is (= "/api/v1/users" (:path wrapped)))
       (is (= 'list-users (get-in wrapped [:methods :get :handler])))
       (is (= 'create-user (get-in wrapped [:methods :post :handler])))))
-  
+
   (testing "Wrap empty routes returns empty vector"
     (let [result (versioning/wrap-routes-with-version [] :v1)]
       (is (vector? result))
       (is (empty? result))))
-  
+
   (testing "Wrap routes with path parameters"
     (let [routes [{:path "/users/:id" :methods {}}]
           result (versioning/wrap-routes-with-version routes :v1)]
@@ -125,7 +125,7 @@
       (is (= 200 (:status response)))
       (is (= "v1" (get-in response [:headers "X-API-Version"])))
       (is (= "v1" (get-in response [:headers "X-API-Version-Latest"])))))
-  
+
   (testing "Add deprecated header when version is deprecated"
     (let [handler (fn [_] {:status 200 :headers {} :body "test"})
           config {:latest-stable :v2
@@ -136,7 +136,7 @@
       (is (= "v1" (get-in response [:headers "X-API-Version"])))
       (is (= "v2" (get-in response [:headers "X-API-Version-Latest"])))
       (is (= "true" (get-in response [:headers "X-API-Deprecated"])))))
-  
+
   (testing "Add sunset header when sunset date exists"
     (let [handler (fn [_] {:status 200 :headers {} :body "test"})
           config {:latest-stable :v2
@@ -147,7 +147,7 @@
       (is (= "v1" (get-in response [:headers "X-API-Version"])))
       (is (= "true" (get-in response [:headers "X-API-Deprecated"])))
       (is (= "2026-06-01" (get-in response [:headers "X-API-Sunset"])))))
-  
+
   (testing "No deprecated header for current version"
     (let [handler (fn [_] {:status 200 :headers {} :body "test"})
           config {:latest-stable :v2
@@ -158,7 +158,7 @@
       (is (= "v2" (get-in response [:headers "X-API-Version"])))
       (is (= "v2" (get-in response [:headers "X-API-Version-Latest"])))
       (is (nil? (get-in response [:headers "X-API-Deprecated"])))))
-  
+
   (testing "Merge with existing headers"
     (let [handler (fn [_] {:status 200
                            :headers {"Content-Type" "application/json"
@@ -172,7 +172,7 @@
       (is (= "application/json" (get-in response [:headers "Content-Type"])))
       (is (= "value" (get-in response [:headers "X-Custom"])))
       (is (= "v1" (get-in response [:headers "X-API-Version"])))))
-  
+
   (testing "Preserve response body and status"
     (let [handler (fn [_] {:status 404
                            :headers {}
@@ -199,7 +199,7 @@
       (is (contains? (:methods route) :put))
       (is (contains? (:methods route) :delete))
       (is (contains? (:methods route) :patch))))
-  
+
   (testing "Redirect handler returns 307 status"
     (let [route (versioning/create-redirect-route "/users" :v1)
           handler (get-in route [:methods :get :handler])
@@ -207,7 +207,7 @@
       (is (= 307 (:status response)))
       (is (= "/api/v1/users" (get-in response [:headers "Location"])))
       (is (= "true" (get-in response [:headers "X-API-Deprecated-Path"])))))
-  
+
   (testing "Redirect handler includes informative body"
     (let [route (versioning/create-redirect-route "/users/:id" :v1)
           handler (get-in route [:methods :get :handler])
@@ -216,7 +216,7 @@
       (is (= "Please use versioned API endpoint" (:message (:body response))))
       (is (= "/api/v1/users/:id" (:location (:body response))))
       (is (= "v1" (:version (:body response))))))
-  
+
   (testing "All HTTP methods use same redirect handler"
     (let [route (versioning/create-redirect-route "/items" :v2)
           get-handler (get-in route [:methods :get :handler])
@@ -238,7 +238,7 @@
       ;; Should create /api/users and /api/items redirects
       (is (some #(= "/api/users" (:path %)) redirects))
       (is (some #(= "/api/items" (:path %)) redirects))))
-  
+
   (testing "Only create redirects for matching version"
     (let [versioned-routes [{:path "/api/v1/users" :methods {}}
                             {:path "/api/v2/users" :methods {}}]
@@ -247,18 +247,18 @@
       ;; Should only create redirect for v1 routes
       (is (= 1 (count redirects)))
       (is (= "/api/users" (:path (first redirects))))))
-  
+
   (testing "Handle routes with path parameters"
     (let [versioned-routes [{:path "/api/v1/users/:id" :methods {}}]
           redirects (versioning/create-backward-compatibility-routes
                      versioned-routes :v1)]
       (is (= 1 (count redirects)))
       (is (= "/api/users/:id" (:path (first redirects))))))
-  
+
   (testing "Empty routes returns empty redirects"
     (let [redirects (versioning/create-backward-compatibility-routes [] :v1)]
       (is (empty? redirects))))
-  
+
   (testing "Default version is v1"
     (let [versioned-routes [{:path "/api/v1/users" :methods {}}]
           redirects (versioning/create-backward-compatibility-routes versioned-routes)]
@@ -267,7 +267,7 @@
             handler (get-in route [:methods :get :handler])
             response (handler {:uri "/api/users"})]
         (is (= "/api/v1/users" (get-in response [:headers "Location"]))))))
-  
+
   (testing "Deduplicate paths"
     (let [versioned-routes [{:path "/api/v1/users" :methods {}}
                             {:path "/api/v1/users" :methods {}}]  ; Duplicate
@@ -293,7 +293,7 @@
       ;; Check redirect routes
       (is (some #(= "/api/users" (:path %)) result))
       (is (some #(= "/api/items" (:path %)) result))))
-  
+
   (testing "Apply versioning preserves route methods"
     (let [routes [{:path "/users"
                    :methods {:get {:handler 'list-users}
@@ -303,7 +303,7 @@
       (is (= "/api/v1/users" (:path versioned)))
       (is (= 'list-users (get-in versioned [:methods :get :handler])))
       (is (= 'create-user (get-in versioned [:methods :post :handler])))))
-  
+
   (testing "Apply versioning with different default version"
     (let [routes [{:path "/users" :methods {}}]
           config {:active {:boundary/api-versioning
@@ -318,11 +318,11 @@
             handler (get-in redirect [:methods :get :handler])
             response (handler {:uri "/api/users"})]
         (is (= "/api/v2/users" (get-in response [:headers "Location"]))))))
-  
+
   (testing "Apply versioning to empty routes"
     (let [result (versioning/apply-versioning [] sample-config)]
       (is (empty? result))))
-  
+
   (testing "Apply versioning returns vector"
     (let [routes [{:path "/users" :methods {}}]
           result (versioning/apply-versioning routes sample-config)]
@@ -337,7 +337,7 @@
       (is (= 200 (:status response)))
       (is (= "v1" (get-in response [:headers "X-API-Version"])))
       (is (= "v1" (get-in response [:headers "X-API-Version-Latest"])))))
-  
+
   (testing "Wrap handler uses config default version"
     (let [handler (fn [_] {:status 200 :headers {} :body "test"})
           config {:active {:boundary/api-versioning
@@ -347,7 +347,7 @@
           response (wrapped {:uri "/test"})]
       (is (= "v3" (get-in response [:headers "X-API-Version"])))
       (is (= "v3" (get-in response [:headers "X-API-Version-Latest"])))))
-  
+
   (testing "Wrap handler with deprecated version"
     (let [handler (fn [_] {:status 200 :headers {} :body "test"})
           wrapped (versioning/wrap-handler-with-version-headers
@@ -366,36 +366,36 @@
   (testing "Complete versioning flow with sample routes"
     (let [;; Step 1: Apply versioning to routes
           versioned-routes (versioning/apply-versioning sample-routes sample-config)
-          
+
           ;; Verify route structure
           versioned (filter #(str/includes? (:path %) "v1") versioned-routes)
           redirects (filter #(and (not (str/includes? (:path %) "v1"))
                                   (str/starts-with? (:path %) "/api/"))
                             versioned-routes)]
-      
+
       ;; Should have 3 versioned routes (users, users/:id, items)
       (is (= 3 (count versioned)))
-      
+
       ;; Should have 3 redirect routes
       (is (= 3 (count redirects)))
-      
+
       ;; Test a redirect handler
       (let [users-redirect (first (filter #(= "/api/users" (:path %)) redirects))
             get-handler (get-in users-redirect [:methods :get :handler])
             response (get-handler {:uri "/api/users"})]
         (is (= 307 (:status response)))
         (is (= "/api/v1/users" (get-in response [:headers "Location"]))))
-      
+
       ;; Test a versioned route handler
       (let [users-versioned (first (filter #(= "/api/v1/users" (:path %)) versioned))
             get-handler (get-in users-versioned [:methods :get :handler])
             response (get-handler {})]
         (is (= 200 (:status response)))
         (is (= "list users" (:body response))))))
-  
+
   (testing "Versioning with deprecated version configuration"
     (let [versioned-routes (versioning/apply-versioning sample-routes deprecated-config)
-          
+
           ;; Create a mock handler from versioned routes
           handler (fn [request]
                     (let [route (first (filter #(= (:uri request) (:path %))
@@ -406,14 +406,14 @@
                             (method-handler request)
                             {:status 405 :body "Method not allowed"}))
                         {:status 404 :body "Not found"})))
-          
+
           ;; Wrap with version headers
           wrapped-handler (versioning/wrap-handler-with-version-headers
                            handler deprecated-config)
-          
+
           ;; Test request to versioned endpoint
           response (wrapped-handler {:uri "/api/v1/users" :request-method :get})]
-      
+
       ;; Should have version headers indicating deprecation
       (is (= "v1" (get-in response [:headers "X-API-Version"])))
       (is (= "v2" (get-in response [:headers "X-API-Version-Latest"])))
@@ -431,12 +431,12 @@
       ;; Should use defaults
       (is (= :v1 (:default-version result)))
       (is (= :v1 (:latest-stable result)))))
-  
+
   (testing "Wrap routes with keyword version"
     (let [routes [{:path "/users" :methods {}}]
           result (versioning/wrap-routes-with-version routes :v123)]
       (is (= "/api/v123/users" (:path (first result))))))
-  
+
   (testing "Redirect route with complex path"
     (let [route (versioning/create-redirect-route "/users/:id/orders/:order_id" :v1)]
       (is (= "/api/users/:id/orders/:order_id" (:path route)))
@@ -444,7 +444,7 @@
             response (handler {:uri "/api/users/123/orders/456"})]
         (is (= "/api/v1/users/:id/orders/:order_id"
                (get-in response [:headers "Location"]))))))
-  
+
   (testing "Multiple deprecated versions"
     (let [handler (fn [_] {:status 200 :headers {} :body "test"})
           config {:latest-stable :v3
@@ -460,14 +460,14 @@
       ;; Different sunset dates
       (is (= "2026-01-01" (get-in response-v1 [:headers "X-API-Sunset"])))
       (is (= "2026-06-01" (get-in response-v2 [:headers "X-API-Sunset"])))))
-  
+
   (testing "Routes with leading slashes are handled correctly"
     (let [routes [{:path "/users" :methods {}}]
           result (versioning/wrap-routes-with-version routes :v1)]
       (is (= "/api/v1/users" (:path (first result))))
       ;; Should not have double slashes
       (is (not (str/includes? (:path (first result)) "//")))))
-  
+
   (testing "Empty path edge case"
     (let [routes [{:path "" :methods {}}]
           result (versioning/wrap-routes-with-version routes :v1)]

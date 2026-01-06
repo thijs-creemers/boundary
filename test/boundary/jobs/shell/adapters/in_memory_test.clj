@@ -385,9 +385,9 @@
           store (:store *system*)
           stats (:stats *system*)
           test-job (create-test-job {:job-type :send-email
-                                      :args {:to "user@example.com"
-                                             :subject "Test"}
-                                      :priority :high})]
+                                     :args {:to "user@example.com"
+                                            :subject "Test"}
+                                     :priority :high})]
 
       ;; 1. Enqueue job
       (ports/enqueue-job! queue :default test-job)

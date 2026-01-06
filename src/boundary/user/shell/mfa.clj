@@ -269,14 +269,14 @@
       (verify-totp-code code (:mfa-secret user))
       {:valid? true
        :used-backup-code? false}
-      
+
       ;; Try backup code
       (mfa-core/is-valid-backup-code? code user)
       (let [updates (mfa-core/mark-backup-code-used user code)]
         {:valid? true
          :used-backup-code? true
          :updates updates})
-      
+
       ;; Invalid code
       :else
       {:valid? false

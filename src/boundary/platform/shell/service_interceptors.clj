@@ -226,7 +226,7 @@
    Returns:
      Complete interceptor pipeline for service operation"
   [business-logic-fn & custom-interceptors]
-   (let [business-interceptor {:name :business-logic
+  (let [business-interceptor {:name :business-logic
                               :enter (fn [ctx]
                                        (let [result (business-logic-fn ctx)]
                                          (assoc ctx :result result)))}]

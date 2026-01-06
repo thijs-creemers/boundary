@@ -29,7 +29,7 @@
    Pure - business rule evaluation for MFA requirement."
   [user risk-analysis]
   (and (:mfa-enabled user)
-       (or 
+       (or
         ;; Always require MFA if enabled
         true
         ;; Could add risk-based logic here
@@ -51,19 +51,19 @@
     ;; User doesn't exist
     (nil? user)
     {:can-enable? false :reason "User not found"}
-    
+
     ;; MFA already enabled
     (:mfa-enabled user)
     {:can-enable? false :reason "MFA is already enabled"}
-    
+
     ;; User is not active
     (not (:active user))
     {:can-enable? false :reason "User account is not active"}
-    
+
     ;; User is deleted
     (:deleted-at user)
     {:can-enable? false :reason "User account is deleted"}
-    
+
     ;; Can enable MFA
     :else
     {:can-enable? true}))
@@ -83,11 +83,11 @@
     ;; User doesn't exist
     (nil? user)
     {:can-disable? false :reason "User not found"}
-    
+
     ;; MFA not enabled
     (not (:mfa-enabled user))
     {:can-disable? false :reason "MFA is not enabled"}
-    
+
     ;; Can disable MFA
     :else
     {:can-disable? true}))
@@ -147,7 +147,7 @@
   [code user]
   (let [backup-codes (or (:mfa-backup-codes user) [])
         used-codes (or (:mfa-backup-codes-used user) [])]
-    (and 
+    (and
      ;; Code exists in backup codes
      (some #(= code %) backup-codes)
      ;; Code has not been used
@@ -249,11 +249,11 @@
                  ;; Must have codes
                  (empty? backup-codes)
                  (conj "No backup codes provided")
-                 
+
                  ;; Each code must be proper length (without dashes)
                  (some #(< (count (str/replace % #"-" "")) 12) backup-codes)
                  (conj "Some backup codes are too short")
-                 
+
                  ;; Each code must be alphanumeric
                  (some #(not (re-matches #"[A-Za-z0-9-]+" %)) backup-codes)
                  (conj "Some backup codes contain invalid characters"))]
@@ -326,21 +326,21 @@
      :mfa-verified? false
      :allow-login? false
      :reason "Invalid password"}
-    
+
     ;; MFA not enabled - allow login
     (not (:mfa-enabled user))
     {:requires-mfa? false
      :mfa-verified? true
      :allow-login? true
      :reason "MFA not enabled"}
-    
+
     ;; MFA enabled but no code provided - require MFA
     (and (:mfa-enabled user) (nil? mfa-code))
     {:requires-mfa? true
      :mfa-verified? false
      :allow-login? false
      :reason "MFA code required"}
-    
+
     ;; MFA enabled and code provided - verification needed (done in shell)
     (and (:mfa-enabled user) (some? mfa-code))
     {:requires-mfa? true

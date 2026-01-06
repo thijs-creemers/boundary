@@ -287,28 +287,28 @@
   (let [errors (cond-> []
                  (nil? (:type query))
                  (conj "Missing required field: :type")
-                 
+
                  (and (#{:match :phrase :prefix :fuzzy} (:type query))
                       (nil? (:text query)))
                  (conj "Missing required field: :text")
-                 
+
                  (and (#{:match :phrase :prefix :fuzzy} (:type query))
                       (nil? (:field query)))
                  (conj "Missing required field: :field")
-                 
+
                  (and (= :bool (:type query))
                       (nil? (:clauses query)))
                  (conj "Missing required field: :clauses for bool query")
-                 
+
                  (and (:limit query)
                       (or (< (:limit query) 1)
                           (> (:limit query) 100)))
                  (conj "Limit must be between 1 and 100")
-                 
+
                  (and (:offset query)
                       (< (:offset query) 0))
                  (conj "Offset must be non-negative")
-                 
+
                  (and (= :fuzzy (:type query))
                       (:fuzziness query)
                       (not (#{0 1 2 :auto} (:fuzziness query))))

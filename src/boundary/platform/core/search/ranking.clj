@@ -65,8 +65,8 @@
     (if (zero? total)
       weights
       (into {} (map (fn [[field weight]]
-                     [field (/ weight total)])
-                   weights)))))
+                      [field (/ weight total)])
+                    weights)))))
 
 ;; ============================================================================
 ;; Recency Boost
@@ -92,10 +92,10 @@
   (cond
     (instance? java.time.Instant ts)
     ts
-    
+
     (instance? java.sql.Timestamp ts)
     (.toInstant ^java.sql.Timestamp ts)
-    
+
     (string? ts)
     (try
       ;; Try ISO-8601 format first
@@ -104,15 +104,15 @@
         ;; Try PostgreSQL format: "2024-01-01 12:00:00.123456"
         ;; Convert space to T and add Z
         (let [normalized (-> ts
-                           (str/replace #" " "T")
-                           (str "Z"))]
+                             (str/replace #" " "T")
+                             (str "Z"))]
           (java.time.Instant/parse normalized))))
-    
+
     :else
     (throw (ex-info "Unsupported timestamp format"
-                   {:type :timestamp-parse-error
-                    :value ts
-                    :class (class ts)}))))
+                    {:type :timestamp-parse-error
+                     :value ts
+                     :class (class ts)}))))
 
 (defn calculate-document-age-days
   "Calculate document age in days.
@@ -206,9 +206,9 @@
    (apply-linear-recency-boost base-score document-age-days 2.0 30))
   ([base-score document-age-days max-boost decay-days]
    (let [boost-factor (if (>= document-age-days decay-days)
-                       1.0
-                       (+ 1.0 (* (- max-boost 1.0)
-                                 (- 1.0 (/ document-age-days decay-days)))))]
+                        1.0
+                        (+ 1.0 (* (- max-boost 1.0)
+                                  (- 1.0 (/ document-age-days decay-days)))))]
      (* base-score boost-factor))))
 
 ;; ============================================================================
@@ -306,7 +306,7 @@
    Pure: true"
   [scores weights]
   (let [weighted-scores (for [[name score] scores]
-                         (* score (get weights name 1.0)))
+                          (* score (get weights name 1.0)))
         total-weight (reduce + (vals weights))]
     (if (zero? total-weight)
       0.0
@@ -372,8 +372,8 @@
    Pure: true"
   [results field direction]
   (let [comparator (if (= direction :desc)
-                    #(compare %2 %1)
-                    compare)]
+                     #(compare %2 %1)
+                     compare)]
     (sort-by field comparator results)))
 
 (defn add-rank-position
@@ -472,12 +472,12 @@
   [results field]
   (let [seen (volatile! #{})]
     (filter (fn [result]
-             (let [value (get result field)]
-               (if (contains? @seen value)
-                 false
-                 (do (vswap! seen conj value)
-                     true))))
-           results)))
+              (let [value (get result field)]
+                (if (contains? @seen value)
+                  false
+                  (do (vswap! seen conj value)
+                      true))))
+            results)))
 
 (defn diversify-results
   "Diversify results by field (reduce over-representation).
@@ -506,10 +506,10 @@
   [results field max-per-value]
   (let [counts (volatile! {})]
     (filter (fn [result]
-             (let [value (get result field)
-                   current-count (get @counts value 0)]
-               (if (< current-count max-per-value)
-                 (do (vswap! counts update value (fnil inc 0))
-                     true)
-                 false)))
-           results)))
+              (let [value (get result field)
+                    current-count (get @counts value 0)]
+                (if (< current-count max-per-value)
+                  (do (vswap! counts update value (fnil inc 0))
+                      true)
+                  false)))
+            results)))

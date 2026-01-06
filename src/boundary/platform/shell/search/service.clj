@@ -43,7 +43,7 @@
         (and (str/starts-with? trimmed "\"")
              (str/ends-with? trimmed "\""))
         (query/phrase-query field (subs trimmed 1 (dec (count trimmed))))
-        
+
         ;; Simple match (default)
         :else
         (query/match-query field trimmed)))))
@@ -104,8 +104,8 @@
               (if-let [created-at (get result recency-field)]
                 (let [age-days (ranking/calculate-document-age-days created-at current-time)
                       base-score (:score result 0.0)
-                      boosted-score (ranking/apply-linear-recency-boost 
-                                      base-score age-days max-boost decay-days)]
+                      boosted-score (ranking/apply-linear-recency-boost
+                                     base-score age-days max-boost decay-days)]
                   (assoc result :score boosted-score))
                 result))
             results))
@@ -126,12 +126,12 @@
   (if (and (not (str/blank? query-str)) (seq results))
     (let [search-terms (extract-search-terms query-str)
           highlight-fn (fn [term]
-                        (str (get highlight-config :pre-tag "<mark>")
-                             term
-                             (get highlight-config :post-tag "</mark>")))]
+                         (str (get highlight-config :pre-tag "<mark>")
+                              term
+                              (get highlight-config :post-tag "</mark>")))]
       (mapv (fn [result]
-              (highlighting/highlight-multiple-fields 
-                result fields search-terms highlight-fn))
+              (highlighting/highlight-multiple-fields
+               result fields search-terms highlight-fn))
             results))
     results))
 
@@ -141,193 +141,193 @@
 
 (defrecord SearchService [search-provider config]
   ports/ISearchService
-  
+
   (search-users [_this query-str options]
     (let [start-time (System/currentTimeMillis)
           current-time (java.time.Instant/now)]
-      
+
       (log/info "Searching users" {:query query-str :options options})
-      
+
       (try
         ;; Parse query
         (let [query-dsl (parse-query-string query-str :all)
-              
+
               ;; Build search request
               search-request (build-search-request :users query-dsl options)
-              
+
               ;; Execute search via provider
               raw-results (ports/search search-provider search-request)
-              
+
               ;; Get configuration
               users-config (get-in config [:ranking :users])
               recency-config (when (:boost-recent? options true)
-                              {:enabled? true
-                               :field (:recency-field users-config :created_at)
-                               :max-boost (:recency-max-boost users-config 2.0)
-                               :decay-days (:recency-decay-days users-config 30)})
-              
+                               {:enabled? true
+                                :field (:recency-field users-config :created_at)
+                                :max-boost (:recency-max-boost users-config 2.0)
+                                :decay-days (:recency-decay-days users-config 30)})
+
               ;; Apply recency boost
-              boosted-results (apply-recency-boost 
+              boosted-results (apply-recency-boost
                                (:results raw-results)
                                recency-config
                                current-time)
-              
+
               ;; Re-rank after boosting
               ranked-results (ranking/rank-results boosted-results)
-              
+
               ;; Add rank positions
               final-ranked (ranking/add-rank-position ranked-results)
-              
+
               ;; Apply highlighting if requested
               highlight-fields (:highlight-fields options [:name :email])
               highlighted-results (if (:highlight? options true)
-                                   (apply-highlighting 
+                                    (apply-highlighting
                                      final-ranked
                                      query-str
                                      highlight-fields
                                      (:highlighting config))
-                                   final-ranked)
-              
+                                    final-ranked)
+
               took-ms (- (System/currentTimeMillis) start-time)]
-          
-          (log/info "User search completed" 
-                   {:query query-str 
-                    :total (:total raw-results)
-                    :took-ms took-ms})
-          
+
+          (log/info "User search completed"
+                    {:query query-str
+                     :total (:total raw-results)
+                     :took-ms took-ms})
+
           {:results highlighted-results
            :total (:total raw-results)
            :max-score (:max-score raw-results)
            :page {:from (:from options 0)
                   :size (:size options 20)}
            :took-ms took-ms})
-        
+
         (catch Exception e
           (log/error e "User search failed" {:query query-str})
           (throw (ex-info "User search failed"
-                         {:type :search-error
-                          :query query-str
-                          :index :users}
-                         e))))))
-  
+                          {:type :search-error
+                           :query query-str
+                           :index :users}
+                          e))))))
+
   (search-items [_this query-str options]
     (let [start-time (System/currentTimeMillis)
           current-time (java.time.Instant/now)]
-      
+
       (log/info "Searching items" {:query query-str :options options})
-      
+
       (try
         ;; Parse query
         (let [query-dsl (parse-query-string query-str :all)
-              
+
               ;; Build search request
               search-request (build-search-request :items query-dsl options)
-              
+
               ;; Execute search via provider
               raw-results (ports/search search-provider search-request)
-              
+
               ;; Get configuration
               items-config (get-in config [:ranking :items])
               recency-config (when (:boost-recent? options true)
-                              {:enabled? true
-                               :field (:recency-field items-config :created_at)
-                               :max-boost (:recency-max-boost items-config 2.0)
-                               :decay-days (:recency-decay-days items-config 30)})
-              
+                               {:enabled? true
+                                :field (:recency-field items-config :created_at)
+                                :max-boost (:recency-max-boost items-config 2.0)
+                                :decay-days (:recency-decay-days items-config 30)})
+
               ;; Apply recency boost
-              boosted-results (apply-recency-boost 
+              boosted-results (apply-recency-boost
                                (:results raw-results)
                                recency-config
                                current-time)
-              
+
               ;; Re-rank after boosting
               ranked-results (ranking/rank-results boosted-results)
-              
+
               ;; Add rank positions
               final-ranked (ranking/add-rank-position ranked-results)
-              
+
               ;; Apply highlighting if requested
               highlight-fields (:highlight-fields options [:name :sku :location])
               highlighted-results (if (:highlight? options true)
-                                   (apply-highlighting 
+                                    (apply-highlighting
                                      final-ranked
                                      query-str
                                      highlight-fields
                                      (:highlighting config))
-                                   final-ranked)
-              
+                                    final-ranked)
+
               took-ms (- (System/currentTimeMillis) start-time)]
-          
-          (log/info "Item search completed" 
-                   {:query query-str 
-                    :total (:total raw-results)
-                    :took-ms took-ms})
-          
+
+          (log/info "Item search completed"
+                    {:query query-str
+                     :total (:total raw-results)
+                     :took-ms took-ms})
+
           {:results highlighted-results
            :total (:total raw-results)
            :max-score (:max-score raw-results)
            :page {:from (:from options 0)
                   :size (:size options 20)}
            :took-ms took-ms})
-        
+
         (catch Exception e
           (log/error e "Item search failed" {:query query-str})
           (throw (ex-info "Item search failed"
-                         {:type :search-error
-                          :query query-str
-                          :index :items}
-                         e))))))
-  
+                          {:type :search-error
+                           :query query-str
+                           :index :items}
+                          e))))))
+
   (suggest [_this prefix field options]
     (let [start-time (System/currentTimeMillis)]
-      
+
       (log/info "Getting suggestions" {:prefix prefix :field field})
-      
+
       (try
         ;; Build prefix query
         (let [index (:index options :users)
               query-dsl (query/prefix-query field prefix)
               search-request {:index index
-                             :query query-dsl
-                             :from 0
-                             :size (:limit options 10)
-                             :filters (or (:filters options) [])}
-              
+                              :query query-dsl
+                              :from 0
+                              :size (:limit options 10)
+                              :filters (or (:filters options) [])}
+
               ;; Execute search
               results (ports/search search-provider search-request)
-              
+
               ;; Extract unique field values as suggestions
               suggestions (->> (:results results)
-                              (map #(get % field))
-                              (filter some?)
-                              distinct
-                              (take (:limit options 10))
-                              vec)
-              
+                               (map #(get % field))
+                               (filter some?)
+                               distinct
+                               (take (:limit options 10))
+                               vec)
+
               took-ms (- (System/currentTimeMillis) start-time)]
-          
-          (log/info "Suggestions completed" 
-                   {:prefix prefix
-                    :count (count suggestions)
-                    :took-ms took-ms})
-          
+
+          (log/info "Suggestions completed"
+                    {:prefix prefix
+                     :count (count suggestions)
+                     :took-ms took-ms})
+
           {:suggestions suggestions
            :count (count suggestions)
            :took-ms took-ms})
-        
+
         (catch Exception e
           (log/error e "Suggestion failed" {:prefix prefix :field field})
           (throw (ex-info "Suggestion failed"
-                         {:type :suggest-error
-                          :prefix prefix
-                          :field field}
-                         e))))))
-  
+                          {:type :suggest-error
+                           :prefix prefix
+                           :field field}
+                          e))))))
+
   (reindex-all [_this index-name]
     (let [start-time (System/currentTimeMillis)]
-      
+
       (log/info "Reindexing all documents" {:index index-name})
-      
+
       (try
         ;; Get all documents from index
         ;; Note: This is a simplified implementation
@@ -336,56 +336,56 @@
         (let [;; For now, just return stats from provider
               stats (ports/get-index-stats search-provider index-name)
               took-ms (- (System/currentTimeMillis) start-time)]
-          
-          (log/info "Reindex completed" 
-                   {:index index-name
-                    :document-count (:document-count stats)
-                    :took-ms took-ms})
-          
+
+          (log/info "Reindex completed"
+                    {:index index-name
+                     :document-count (:document-count stats)
+                     :took-ms took-ms})
+
           {:reindexed-count (:document-count stats 0)
            :failed-count 0
            :duration-ms took-ms})
-        
+
         (catch Exception e
           (log/error e "Reindex failed" {:index index-name})
           (throw (ex-info "Reindex failed"
-                         {:type :reindex-error
-                          :index index-name}
-                         e))))))
-  
+                          {:type :reindex-error
+                           :index index-name}
+                          e))))))
+
   (get-search-stats [_this]
     (try
       (log/info "Getting search statistics")
-      
+
       ;; Get stats for all known indexes
       (let [indexes [:users :items]
             index-stats (map (fn [index-name]
-                              (try
-                                (let [stats (ports/get-index-stats search-provider index-name)]
-                                  {:name index-name
-                                   :document-count (:document-count stats 0)
-                                   :size-bytes (:size-bytes stats 0)
-                                   :last-updated (:last-updated stats)})
-                                (catch Exception e
-                                  (log/warn e "Failed to get stats for index" {:index index-name})
-                                  {:name index-name
-                                   :document-count 0
-                                   :size-bytes 0
-                                   :error (ex-message e)})))
-                            indexes)
+                               (try
+                                 (let [stats (ports/get-index-stats search-provider index-name)]
+                                   {:name index-name
+                                    :document-count (:document-count stats 0)
+                                    :size-bytes (:size-bytes stats 0)
+                                    :last-updated (:last-updated stats)})
+                                 (catch Exception e
+                                   (log/warn e "Failed to get stats for index" {:index index-name})
+                                   {:name index-name
+                                    :document-count 0
+                                    :size-bytes 0
+                                    :error (ex-message e)})))
+                             indexes)
             total-documents (reduce + (map :document-count index-stats))]
-        
+
         (log/info "Search statistics retrieved" {:total-documents total-documents})
-        
+
         {:indices (vec index-stats)
          :total-documents total-documents
          :total-queries-today 0})  ; TODO: Track query counts
-      
+
       (catch Exception e
         (log/error e "Failed to get search statistics")
         (throw (ex-info "Failed to get search statistics"
-                       {:type :stats-error}
-                       e))))))
+                        {:type :stats-error}
+                        e))))))
 
 ;; ============================================================================
 ;; Factory Function

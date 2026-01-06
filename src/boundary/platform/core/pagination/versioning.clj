@@ -246,11 +246,11 @@
         errors      (cond-> []
                       (not (is-valid-version? version-str))
                       (conj (str "Invalid version format: " version-str))
-                      
+
                       (and (is-valid-version? version-str)
                            (not (is-supported-version? version-str config)))
                       (conj (str "Version " version-str " is not supported"))
-                      
+
                       (is-sunset? version-str config (java.time.LocalDate/now))
                       (conj (str "Version " version-str " has been sunset")))]
     {:valid?  (empty? errors)
@@ -368,11 +368,11 @@
       ;; Add latest version if different
       (not= version latest)
       (assoc :latest-version (name latest))
-      
+
       ;; Add deprecation warning
       deprecated?
       (assoc :deprecated true)
-      
+
       ;; Add sunset date if exists
       sunset-date
       (assoc :sunset-date sunset-date))))
@@ -393,10 +393,10 @@
     (cond-> {"X-API-Version" (:version metadata)}
       (:latest-version metadata)
       (assoc "X-API-Version-Latest" (:latest-version metadata))
-      
+
       (:deprecated metadata)
       (assoc "X-API-Deprecated" "true")
-      
+
       (:sunset-date metadata)
       (assoc "X-API-Sunset" (:sunset-date metadata)))))
 

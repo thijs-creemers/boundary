@@ -1,6 +1,6 @@
 (ns boundary.shared.core.utils.type-conversion
   "Generic type and case conversion utilities."
-(:require [clojure.string :as str])
+  (:require [clojure.string :as str])
   (:import [java.util UUID]
            [java.time Instant]))
 

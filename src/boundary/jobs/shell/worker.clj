@@ -55,14 +55,14 @@
 ;; =============================================================================
 
 (defrecord WorkerState
-  [id              ; UUID
-   queue-name      ; Keyword
-   running?        ; atom: boolean
-   current-job     ; atom: job or nil
-   processed-count ; atom: integer
-   failed-count    ; atom: integer
-   started-at      ; Instant
-   last-heartbeat]) ; atom: Instant
+           [id              ; UUID
+            queue-name      ; Keyword
+            running?        ; atom: boolean
+            current-job     ; atom: job or nil
+            processed-count ; atom: integer
+            failed-count    ; atom: integer
+            started-at      ; Instant
+            last-heartbeat]) ; atom: Instant
 
 (defn- create-worker-state
   "Create initial worker state."
@@ -224,20 +224,20 @@
           (Thread/sleep poll-interval-ms)))))  ; Sleep before retrying
 
   (log/info "Worker stopped" {:worker-id (:id worker-state)
-                               :processed (:processed-count worker-state)
-                               :failed (:failed-count worker-state)}))
+                              :processed (:processed-count worker-state)
+                              :failed (:failed-count worker-state)}))
 
 ;; =============================================================================
 ;; Worker Management
 ;; =============================================================================
 
 (defrecord Worker
-  [state         ; WorkerState
-   thread        ; Thread running worker-loop
-   queue         ; IJobQueue
-   store         ; IJobStore
-   registry      ; IJobRegistry
-   config]       ; Configuration map
+           [state         ; WorkerState
+            thread        ; Thread running worker-loop
+            queue         ; IJobQueue
+            store         ; IJobStore
+            registry      ; IJobRegistry
+            config]       ; Configuration map
 
   ports/IJobWorker
 

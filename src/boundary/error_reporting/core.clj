@@ -444,7 +444,7 @@
 ;; Error Aggregation and Filtering
 ;; =============================================================================
 
- (defn create-error-fingerprint
+(defn create-error-fingerprint
   "Creates a fingerprint for error grouping.
    
    Args:

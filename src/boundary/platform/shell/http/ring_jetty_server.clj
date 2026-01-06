@@ -39,28 +39,28 @@
     (cond-> {:port port
              :host host
              :join? join?}
-      
+
       max-threads
       (assoc :max-threads max-threads)
-      
+
       min-threads
       (assoc :min-threads min-threads)
-      
+
       max-idle-time
       (assoc :max-idle-time max-idle-time)
-      
+
       ssl-port
       (assoc :ssl-port ssl-port)
-      
+
       keystore
       (assoc :keystore keystore)
-      
+
       key-password
       (assoc :key-password key-password)
-      
+
       truststore
       (assoc :truststore truststore)
-      
+
       trust-password
       (assoc :trust-password trust-password))))
 
@@ -70,25 +70,25 @@
 
 (defrecord RingJettyServer []
   ports/IHttpServer
-  
+
   (start! [_this handler config]
     (let [jetty-opts (build-jetty-options config)
           {:keys [port host ssl-port]} jetty-opts]
-      
+
       ;; Log server startup
       (log/info "Starting Ring+Jetty HTTP server"
                 {:port port
                  :host host
                  :ssl-port ssl-port
                  :join? (:join? jetty-opts)})
-      
+
       (try
         ;; Start Jetty server
         (let [server (jetty/run-jetty handler jetty-opts)]
           (log/info "Ring+Jetty HTTP server started successfully"
                     {:port port :host host})
           server)
-        
+
         (catch Exception e
           (log/error e "Failed to start Ring+Jetty HTTP server"
                      {:port port :host host})
@@ -96,7 +96,7 @@
                           {:type :server-start-failed
                            :config config}
                           e))))))
-  
+
   (stop! [_this server]
     (when server
       (log/info "Stopping Ring+Jetty HTTP server")
@@ -123,16 +123,16 @@
 
 (comment
   ;; Example usage:
-  
+
   ;; Create server
   (def server-adapter (create-ring-jetty-server))
-  
+
   ;; Create simple handler
   (def handler (fn [_request]
                  {:status 200
                   :headers {"Content-Type" "text/plain"}
                   :body "Hello World"}))
-  
+
   ;; Start server
   (def server-instance
     (ports/start! server-adapter
@@ -142,13 +142,13 @@
                    :join? false
                    :max-threads 50
                    :min-threads 8}))
-  
+
   ;; Server is now running on http://localhost:3000
   ;; Test: curl http://localhost:3000
-  
+
   ;; Stop server
   (ports/stop! server-adapter server-instance)
-  
+
   ;; Example with SSL
   (def ssl-server-instance
     (ports/start! server-adapter
@@ -159,6 +159,6 @@
                    :keystore "path/to/keystore.jks"
                    :key-password "changeit"
                    :join? false}))
-  
+
   ;; Stop SSL server
   (ports/stop! server-adapter ssl-server-instance))

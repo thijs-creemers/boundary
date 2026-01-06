@@ -84,11 +84,11 @@
                          (parse-fields (get params "highlightFields")))
    :boost-recent? (parse-bool (get params "boost_recent") true)
    :filters (when-let [filters-str (get params "filters")]
-             (try
-               (json/parse-string filters-str true)
-               (catch Exception e
-                 (log/warn "Failed to parse filters JSON" {:error (ex-message e)})
-                 [])))})
+              (try
+                (json/parse-string filters-str true)
+                (catch Exception e
+                  (log/warn "Failed to parse filters JSON" {:error (ex-message e)})
+                  [])))})
 
 ;; ============================================================================
 ;; Response Helpers
@@ -143,11 +143,11 @@
      Ring response map"
   [status title detail & [additional-fields]]
   (json-response status
-                (merge {:type "about:blank"
-                        :title title
-                        :status status
-                        :detail detail}
-                      additional-fields)))
+                 (merge {:type "about:blank"
+                         :title title
+                         :status status
+                         :detail detail}
+                        additional-fields)))
 
 (defn- bad-request-response
   "Create bad request error response (400).
@@ -195,23 +195,23 @@
   (fn [request]
     (let [params (:query-params request)
           query (get params "q")]
-      
+
       (if (str/blank? query)
         (bad-request-response "Query parameter 'q' is required")
-        
+
         (try
           (let [options (extract-search-options params)
                 ;; Limit size to max 100
                 options (update options :size #(min % 100))
                 result (ports/search-users search-service query options)]
-            
+
             (log/info "User search completed"
-                     {:query query
-                      :total (:total result)
-                      :took-ms (:took-ms result)})
-            
+                      {:query query
+                       :total (:total result)
+                       :took-ms (:took-ms result)})
+
             (success-response result))
-          
+
           (catch Exception e
             (log/error e "User search failed" {:query query})
             (internal-error-response (ex-message e))))))))
@@ -235,23 +235,23 @@
   (fn [request]
     (let [params (:query-params request)
           query (get params "q")]
-      
+
       (if (str/blank? query)
         (bad-request-response "Query parameter 'q' is required")
-        
+
         (try
           (let [options (extract-search-options params)
                 ;; Limit size to max 100
                 options (update options :size #(min % 100))
                 result (ports/search-items search-service query options)]
-            
+
             (log/info "Item search completed"
-                     {:query query
-                      :total (:total result)
-                      :took-ms (:took-ms result)})
-            
+                      {:query query
+                       :total (:total result)
+                       :took-ms (:took-ms result)})
+
             (success-response result))
-          
+
           (catch Exception e
             (log/error e "Item search failed" {:query query})
             (internal-error-response (ex-message e))))))))
@@ -276,14 +276,14 @@
           field-str (get params "field")
           index-str (get params "index" "users")
           limit (parse-int (get params "limit") 10)]
-      
+
       (cond
         (str/blank? prefix)
         (bad-request-response "Query parameter 'prefix' is required")
-        
+
         (str/blank? field-str)
         (bad-request-response "Query parameter 'field' is required")
-        
+
         :else
         (try
           (let [field (keyword field-str)
@@ -292,15 +292,15 @@
                 limit (min limit 50)
                 options {:index index :limit limit}
                 result (ports/suggest search-service prefix field options)]
-            
+
             (log/info "Suggestions completed"
-                     {:prefix prefix
-                      :field field
-                      :count (:count result)
-                      :took-ms (:took-ms result)})
-            
+                      {:prefix prefix
+                       :field field
+                       :count (:count result)
+                       :took-ms (:took-ms result)})
+
             (success-response result))
-          
+
           (catch Exception e
             (log/error e "Suggestion failed" {:prefix prefix :field field-str})
             (internal-error-response (ex-message e))))))))
@@ -318,31 +318,31 @@
   [search-service]
   (fn [request]
     (let [index-str (get-in request [:path-params :index])]
-      
+
       (if (str/blank? index-str)
         (bad-request-response "Path parameter 'index' is required")
-        
+
         (try
           (let [index (keyword index-str)]
             ;; Validate index name
             (when-not (#{:users :items} index)
               (throw (ex-info "Invalid index name"
-                            {:type :validation-error
-                             :index index-str
-                             :valid-indexes [:users :items]})))
-            
+                              {:type :validation-error
+                               :index index-str
+                               :valid-indexes [:users :items]})))
+
             (log/info "Starting reindex" {:index index})
-            
+
             (let [result (ports/reindex-all search-service index)]
-              
+
               (log/info "Reindex completed"
-                       {:index index
-                        :reindexed-count (:reindexed-count result)
-                        :failed-count (:failed-count result)
-                        :duration-ms (:duration-ms result)})
-              
+                        {:index index
+                         :reindexed-count (:reindexed-count result)
+                         :failed-count (:failed-count result)
+                         :duration-ms (:duration-ms result)})
+
               (created-response result)))
-          
+
           (catch clojure.lang.ExceptionInfo e
             (let [data (ex-data e)]
               (if (= :validation-error (:type data))
@@ -350,7 +350,7 @@
                 (do
                   (log/error e "Reindex failed" {:index index-str})
                   (internal-error-response (ex-message e))))))
-          
+
           (catch Exception e
             (log/error e "Reindex failed" {:index index-str})
             (internal-error-response (ex-message e))))))))
@@ -365,13 +365,13 @@
   (fn [_request]
     (try
       (let [result (ports/get-search-stats search-service)]
-        
+
         (log/info "Search stats retrieved"
-                 {:total-documents (:total-documents result)
-                  :indices (count (:indices result))})
-        
+                  {:total-documents (:total-documents result)
+                   :indices (count (:indices result))})
+
         (success-response result))
-      
+
       (catch Exception e
         (log/error e "Failed to retrieve search stats")
         (internal-error-response (ex-message e))))))
@@ -397,38 +397,38 @@
                     :summary "Search users with full-text search"
                     :description "Search users by name, email, or bio with highlighting and ranking"
                     :parameters {:query {:q {:type :string :required true :description "Search query"}
-                                        :from {:type :integer :default 0 :description "Pagination offset"}
-                                        :size {:type :integer :default 20 :max 100 :description "Page size"}
-                                        :highlight {:type :boolean :default true :description "Enable highlighting"}
-                                        :highlight_fields {:type :string :description "Fields to highlight (comma-separated)"}
-                                        :boost_recent {:type :boolean :default true :description "Boost recent documents"}}}}}}
-   
+                                         :from {:type :integer :default 0 :description "Pagination offset"}
+                                         :size {:type :integer :default 20 :max 100 :description "Page size"}
+                                         :highlight {:type :boolean :default true :description "Enable highlighting"}
+                                         :highlight_fields {:type :string :description "Fields to highlight (comma-separated)"}
+                                         :boost_recent {:type :boolean :default true :description "Boost recent documents"}}}}}}
+
    {:path "/search/items"
     :methods {:get {:handler (search-items-handler search-service)
                     :summary "Search items with full-text search"
                     :description "Search items by name, SKU, or location with highlighting and ranking"
                     :parameters {:query {:q {:type :string :required true :description "Search query"}
-                                        :from {:type :integer :default 0 :description "Pagination offset"}
-                                        :size {:type :integer :default 20 :max 100 :description "Page size"}
-                                        :highlight {:type :boolean :default true :description "Enable highlighting"}
-                                        :highlight_fields {:type :string :description "Fields to highlight (comma-separated)"}
-                                        :boost_recent {:type :boolean :default true :description "Boost recent documents"}}}}}}
-   
+                                         :from {:type :integer :default 0 :description "Pagination offset"}
+                                         :size {:type :integer :default 20 :max 100 :description "Page size"}
+                                         :highlight {:type :boolean :default true :description "Enable highlighting"}
+                                         :highlight_fields {:type :string :description "Fields to highlight (comma-separated)"}
+                                         :boost_recent {:type :boolean :default true :description "Boost recent documents"}}}}}}
+
    {:path "/search/suggest"
     :methods {:get {:handler (suggest-handler search-service)
                     :summary "Get autocomplete suggestions"
                     :description "Get field value suggestions based on prefix matching"
                     :parameters {:query {:prefix {:type :string :required true :description "Prefix to complete"}
-                                        :field {:type :string :required true :description "Field to search"}
-                                        :index {:type :string :default "users" :description "Index to search"}
-                                        :limit {:type :integer :default 10 :max 50 :description "Maximum suggestions"}}}}}}
-   
+                                         :field {:type :string :required true :description "Field to search"}
+                                         :index {:type :string :default "users" :description "Index to search"}
+                                         :limit {:type :integer :default 10 :max 50 :description "Maximum suggestions"}}}}}}
+
    {:path "/search/reindex/:index"
     :methods {:post {:handler (reindex-handler search-service)
                      :summary "Reindex all documents"
                      :description "Rebuild search index from database (users or items)"
                      :parameters {:path {:index {:type :string :enum ["users" "items"] :description "Index name"}}}}}}
-   
+
    {:path "/search/stats"
     :methods {:get {:handler (stats-handler search-service)
                     :summary "Get search statistics"

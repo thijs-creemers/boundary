@@ -26,7 +26,7 @@
       (is (= (:sort-value cursor-data) (:sort-value decoded)))
       (is (= (:sort-field cursor-data) (:sort-field decoded)))
       (is (= (:sort-direction cursor-data) (:sort-direction decoded)))))
-  
+
   (testing "Round-trip with UUID and Instant sort value"
     (let [cursor-data {:id (UUID/fromString "123e4567-e89b-12d3-a456-426614174000")
                        :sort-value (Instant/parse "2024-01-04T10:00:00Z")
@@ -38,7 +38,7 @@
       (is (= (:sort-value cursor-data) (:sort-value decoded)))
       (is (= (:sort-field cursor-data) (:sort-field decoded)))
       (is (= (:sort-direction cursor-data) (:sort-direction decoded)))))
-  
+
   (testing "Round-trip with UUID and integer sort value"
     (let [cursor-data {:id (UUID/fromString "123e4567-e89b-12d3-a456-426614174000")
                        :sort-value 42
@@ -50,7 +50,7 @@
       (is (= (:sort-value cursor-data) (:sort-value decoded)))
       (is (= (:sort-field cursor-data) (:sort-field decoded)))
       (is (= (:sort-direction cursor-data) (:sort-direction decoded)))))
-  
+
   (testing "Round-trip with UUID and double sort value"
     (let [cursor-data {:id (UUID/fromString "123e4567-e89b-12d3-a456-426614174000")
                        :sort-value 99.99
@@ -62,7 +62,7 @@
       (is (= (:sort-value cursor-data) (:sort-value decoded)))
       (is (= (:sort-field cursor-data) (:sort-field decoded)))
       (is (= (:sort-direction cursor-data) (:sort-direction decoded)))))
-  
+
   (testing "Round-trip with timestamp"
     (let [cursor-data {:id (UUID/fromString "123e4567-e89b-12d3-a456-426614174000")
                        :sort-value "test"
@@ -92,7 +92,7 @@
       (is (pos? (count encoded)))
       ;; Base64 string should only contain valid Base64 characters
       (is (re-matches #"[A-Za-z0-9+/=]+" encoded))))
-  
+
   (testing "Encode same data produces same cursor"
     (let [cursor-data {:id (UUID/fromString "123e4567-e89b-12d3-a456-426614174000")
                        :sort-value "test"
@@ -101,7 +101,7 @@
           encoded1 (cursor/encode-cursor cursor-data)
           encoded2 (cursor/encode-cursor cursor-data)]
       (is (= encoded1 encoded2))))
-  
+
   (testing "Encode different data produces different cursors"
     (let [cursor-data1 {:id (UUID/fromString "123e4567-e89b-12d3-a456-426614174000")
                         :sort-value "test1"
@@ -114,7 +114,7 @@
           encoded1 (cursor/encode-cursor cursor-data1)
           encoded2 (cursor/encode-cursor cursor-data2)]
       (is (not= encoded1 encoded2))))
-  
+
   (testing "Encode with all field types"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value (Instant/now)
@@ -142,13 +142,13 @@
       (is (contains? decoded :sort-value))
       (is (contains? decoded :sort-field))
       (is (keyword? (:sort-direction decoded)))))
-  
+
   (testing "Decode invalid Base64 throws exception"
     (is (thrown-with-msg?
          clojure.lang.ExceptionInfo
          #"Invalid Base64 cursor"
          (cursor/decode-cursor "!!!invalid-base64!!!"))))
-  
+
   (testing "Decode invalid JSON throws exception"
     (let [invalid-json-cursor (.encodeToString
                                (java.util.Base64/getEncoder)
@@ -157,7 +157,7 @@
            clojure.lang.ExceptionInfo
            #"Invalid JSON in cursor"
            (cursor/decode-cursor invalid-json-cursor)))))
-  
+
   (testing "Decode missing required fields throws exception"
     (let [incomplete-data {:id "123e4567-e89b-12d3-a456-426614174000"}
           json-str (json/generate-string incomplete-data)
@@ -168,7 +168,7 @@
            clojure.lang.ExceptionInfo
            #"Missing required cursor fields"
            (cursor/decode-cursor encoded)))))
-  
+
   (testing "Decode invalid UUID throws exception"
     (let [invalid-data {:id "not-a-uuid"
                         :sort-value "test"
@@ -195,16 +195,16 @@
                        :sort-direction :asc}
           encoded (cursor/encode-cursor cursor-data)]
       (is (true? (cursor/valid-cursor? encoded)))))
-  
+
   (testing "Invalid Base64 returns false"
     (is (false? (cursor/valid-cursor? "!!!invalid!!!"))))
-  
+
   (testing "Invalid JSON returns false"
     (let [invalid-json-cursor (.encodeToString
                                (java.util.Base64/getEncoder)
                                (.getBytes "{invalid}" "UTF-8"))]
       (is (false? (cursor/valid-cursor? invalid-json-cursor)))))
-  
+
   (testing "Missing fields returns false"
     (let [incomplete-data {:id "123e4567-e89b-12d3-a456-426614174000"}
           json-str (json/generate-string incomplete-data)
@@ -212,10 +212,10 @@
                    (java.util.Base64/getEncoder)
                    (.getBytes json-str "UTF-8"))]
       (is (false? (cursor/valid-cursor? encoded)))))
-  
+
   (testing "Empty string returns false"
     (is (false? (cursor/valid-cursor? ""))))
-  
+
   (testing "Nil returns false"
     (is (false? (cursor/valid-cursor? nil)))))
 
@@ -230,7 +230,7 @@
                        :timestamp (Instant/now)}
           ttl-seconds 3600]  ; 1 hour
       (is (false? (cursor/cursor-expired? cursor-data ttl-seconds)))))
-  
+
   (testing "Cursor with old timestamp is expired"
     (let [old-time (.minusSeconds (Instant/now) 7200)  ; 2 hours ago
           cursor-data {:id (UUID/randomUUID)
@@ -238,13 +238,13 @@
                        :timestamp old-time}
           ttl-seconds 3600]  ; 1 hour
       (is (true? (cursor/cursor-expired? cursor-data ttl-seconds)))))
-  
+
   (testing "Cursor without timestamp is not expired"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value "test"}
           ttl-seconds 3600]
       (is (false? (cursor/cursor-expired? cursor-data ttl-seconds)))))
-  
+
   (testing "Cursor at exact TTL boundary"
     (let [exact-time (.minusSeconds (Instant/now) 3600)
           cursor-data {:id (UUID/randomUUID)
@@ -268,7 +268,7 @@
           encoded (cursor/encode-cursor cursor-data)
           decoded (cursor/decode-cursor encoded)]
       (is (= long-string (:sort-value decoded)))))
-  
+
   (testing "Encode/decode with special characters"
     (let [special-chars "🔥 特殊字符 émoji ñ ü"
           cursor-data {:id (UUID/randomUUID)
@@ -278,7 +278,7 @@
           encoded (cursor/encode-cursor cursor-data)
           decoded (cursor/decode-cursor encoded)]
       (is (= special-chars (:sort-value decoded)))))
-  
+
   (testing "Encode/decode with nil sort-value"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value nil
@@ -287,7 +287,7 @@
           encoded (cursor/encode-cursor cursor-data)
           decoded (cursor/decode-cursor encoded)]
       (is (nil? (:sort-value decoded)))))
-  
+
   (testing "Encode/decode with boolean sort-value"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value true
@@ -296,7 +296,7 @@
           encoded (cursor/encode-cursor cursor-data)
           decoded (cursor/decode-cursor encoded)]
       (is (= true (:sort-value decoded)))))
-  
+
   (testing "Encode/decode with zero values"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value 0
@@ -305,7 +305,7 @@
           encoded (cursor/encode-cursor cursor-data)
           decoded (cursor/decode-cursor encoded)]
       (is (= 0 (:sort-value decoded)))))
-  
+
   (testing "Multiple round-trips preserve data"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value "test"
@@ -335,7 +335,7 @@
           decoded (cursor/decode-cursor encoded)]
       (is (instance? UUID (:id decoded)))
       (is (= uuid (:id decoded)))))
-  
+
   (testing "Instant type is preserved"
     (let [instant (Instant/now)
           cursor-data {:id (UUID/randomUUID)
@@ -346,7 +346,7 @@
           decoded (cursor/decode-cursor encoded)]
       (is (instance? Instant (:sort-value decoded)))
       (is (= instant (:sort-value decoded)))))
-  
+
   (testing "Keyword type is preserved for sort-direction"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value "test"
@@ -356,7 +356,7 @@
           decoded (cursor/decode-cursor encoded)]
       (is (keyword? (:sort-direction decoded)))
       (is (= :desc (:sort-direction decoded)))))
-  
+
   (testing "String type is preserved"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value "test-value"
@@ -366,7 +366,7 @@
           decoded (cursor/decode-cursor encoded)]
       (is (string? (:sort-value decoded)))
       (is (= "test-value" (:sort-value decoded)))))
-  
+
   (testing "Integer type is preserved"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value 12345
@@ -376,7 +376,7 @@
           decoded (cursor/decode-cursor encoded)]
       (is (integer? (:sort-value decoded)))
       (is (= 12345 (:sort-value decoded)))))
-  
+
   (testing "Double type is preserved"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value 123.45

@@ -75,10 +75,10 @@
   "Creates interceptor context with real observability services and error mappings."
   [operation-type user-service request]
   (-> (interceptor-context/create-http-context
-        operation-type
-        (extract-observability-services user-service)
-        request)
-    (assoc :error-mappings user-error-mappings)))
+       operation-type
+       (extract-observability-services user-service)
+       request)
+      (assoc :error-mappings user-error-mappings)))
 
 ;; =============================================================================
 ;; User Module Routes (Normalized Format)

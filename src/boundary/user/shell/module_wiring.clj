@@ -113,7 +113,7 @@
   (require 'boundary.user.shell.http)
   (let [user-routes-fn (ns-resolve 'boundary.user.shell.http 'user-routes-normalized)
         routes (user-routes-fn user-service mfa-service (or config {}))]
-    (log/info "User module routes initialized successfully" 
+    (log/info "User module routes initialized successfully"
               {:route-keys (keys routes)
                :api-count (count (:api routes))
                :web-count (count (:web routes))})

@@ -110,7 +110,7 @@
         (migrations/reset)
         (println "✅ Database reset completed\n")
         (migrations/print-status)
-        0)
+        0
         (catch Exception e
           (println "❌ Reset failed:" (.getMessage e))
           (when (:verbose opts)

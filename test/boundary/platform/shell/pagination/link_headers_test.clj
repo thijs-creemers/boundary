@@ -20,7 +20,7 @@
       (is (str/includes? result "limit=20"))
       (is (str/includes? result "offset=40"))
       (is (str/includes? result "sort=name"))))
-  
+
   (testing "Build query string with nil values filtered out"
     (let [params {:limit 20 :offset nil :sort "name"}
           result (link-headers/build-query-string params)]
@@ -28,7 +28,7 @@
       (is (str/includes? result "limit=20"))
       (is (str/includes? result "sort=name"))
       (is (not (str/includes? result "offset")))))
-  
+
   (testing "Build query string with URL-encoded values"
     (let [params {:sort "first name" :filter "status=active"}
           result (link-headers/build-query-string params)]
@@ -39,12 +39,12 @@
       ;; Equals sign should be encoded
       (is (or (str/includes? result "status%3Dactive")
               (str/includes? result "status=active")))))
-  
+
   (testing "Build query string with empty params"
     (let [result (link-headers/build-query-string {})]
       (is (string? result))
       (is (str/blank? result))))
-  
+
   (testing "Build query string with all nil values"
     (let [params {:limit nil :offset nil}
           result (link-headers/build-query-string params)]
@@ -60,14 +60,14 @@
       (is (str/starts-with? result "/api/v1/users?"))
       (is (str/includes? result "limit=20"))
       (is (str/includes? result "offset=40"))))
-  
+
   (testing "Build URL with no query parameters"
     (let [base-path "/api/v1/users"
           params {}
           result (link-headers/build-url base-path params)]
       (is (= "/api/v1/users" result))
       (is (not (str/includes? result "?")))))
-  
+
   (testing "Build URL with filtered nil parameters"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset nil}
@@ -75,7 +75,7 @@
       (is (str/starts-with? result "/api/v1/users?"))
       (is (str/includes? result "limit=20"))
       (is (not (str/includes? result "offset")))))
-  
+
   (testing "Build URL with absolute URL base"
     (let [base-path "https://api.example.com/v1/users"
           params {:limit 20}
@@ -94,7 +94,7 @@
       (is (string? result))
       (is (str/includes? result "</api/v1/users?offset=20&limit=20>"))
       (is (str/includes? result "rel=\"next\""))))
-  
+
   (testing "Build header with multiple links"
     (let [links [{:url "/api/v1/users?offset=0&limit=20" :rel :first}
                  {:url "/api/v1/users?offset=20&limit=20" :rel :next}
@@ -107,15 +107,15 @@
       (is (str/includes? result "rel=\"last\""))
       ;; Links should be separated by ", " (comma space)
       (is (>= (count (str/split result #", ")) 3))))
-  
+
   (testing "Build header with empty links returns nil"
     (let [result (link-headers/build-link-header [])]
       (is (nil? result))))
-  
+
   (testing "Build header with nil links returns nil"
     (let [result (link-headers/build-link-header nil)]
       (is (nil? result))))
-  
+
   (testing "RFC 5988 format compliance"
     (let [links [{:url "/test" :rel :next}]
           result (link-headers/build-link-header links)]
@@ -430,7 +430,7 @@
       (is (string? result))
       ;; Should still generate links even with empty base
       (is (str/includes? result "rel=\"next\""))))
-  
+
   (testing "Very large offset"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset 999980}
@@ -445,7 +445,7 @@
           result (link-headers/generate-link-header base-path params pagination-meta)]
       (is (string? result))
       (is (str/includes? result "offset=999980"))))
-  
+
   (testing "Special characters in query parameters"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset 0 :search "name with spaces"}
@@ -461,7 +461,7 @@
       ;; Spaces should be URL encoded
       (is (or (str/includes? result "name+with+spaces")
               (str/includes? result "name%20with%20spaces")))))
-  
+
   (testing "Nil pagination metadata handles gracefully"
     ;; Implementation should handle nil metadata gracefully
     ;; Either return nil or empty string, not crash
@@ -472,7 +472,7 @@
       (catch Exception _e
         ;; If it throws, that's also acceptable behavior
         (is true))))
-  
+
   (testing "Last page calculation with exact divisor"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset 0}
@@ -487,7 +487,7 @@
           last-link (first (filter #(= :last (:rel %)) links))]
       ;; Last page should be at offset 80 (100 - 20)
       (is (str/includes? (:url last-link) "offset=80"))))
-  
+
   (testing "Last page calculation with remainder"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset 0}
@@ -524,7 +524,7 @@
       (is (str/includes? result "https://api.example.com/v1/users"))
       (is (str/includes? result "sort=created_at"))
       (is (str/includes? result "filter=active"))))
-  
+
   (testing "Versioned API endpoint"
     (let [base-path "/api/v2/resources"
           params {:limit 50 :offset 100}
@@ -540,7 +540,7 @@
       (is (string? result))
       (is (str/includes? result "/api/v2/resources"))
       (is (str/includes? result "limit=50"))))
-  
+
   (testing "Nested resource endpoint"
     (let [base-path "/api/v1/users/123/orders"
           params {:limit 10 :offset 0}

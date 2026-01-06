@@ -3,7 +3,7 @@
    
    This namespace provides middleware and utilities for capturing rich error context
    across HTTP and CLI interfaces, enabling better debugging and observability."
-(:require [boundary.platform.core.http.problem-details :as problem]
+  (:require [boundary.platform.core.http.problem-details :as problem]
             [clojure.string :as str]
             [clojure.tools.logging :as log])
   (:import (java.util UUID)))

@@ -383,29 +383,29 @@
                       ;; Import pagination utilities (lazy require for performance)
                       calculate-offset-pagination (requiring-resolve 'boundary.platform.core.pagination.pagination/calculate-offset-pagination)
                       generate-link-header (requiring-resolve 'boundary.platform.shell.pagination.link-headers/generate-link-header)
-                      
+
                       limit (:limit options)
                       offset (:offset options)
                       pagination-meta (calculate-offset-pagination total-count offset limit)
-                      
+
                       ;; Build paginated response body (using pagination utility format)
                       response-body {:data formatted-users
                                      :pagination pagination-meta
                                      :meta {:version :v1
                                             :timestamp (java.time.Instant/now)}}
-                      
+
                       ;; Generate RFC 5988 Link header
                       request-uri (get-in context [:request :uri] "/api/v1/users")
                       query-params (select-keys options [:limit :offset :filter-role :filter-active])
                       link-header (generate-link-header request-uri query-params pagination-meta)
-                      
+
                       ;; Build response with Link header
                       response (cond-> {:status 200
                                         :headers {"Content-Type" "application/json"}
                                         :body response-body}
                                  link-header
                                  (assoc-in [:headers "Link"] link-header))]
-                  
+
                   (-> context
                       (assoc :response response)
                       (ctx/add-breadcrumb :operation :user-list-formatted

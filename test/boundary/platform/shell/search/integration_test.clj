@@ -94,7 +94,7 @@
       ;; Drop the column if it exists and recreate as GENERATED column
       (jdbc/execute! datasource
                      ["ALTER TABLE users DROP COLUMN IF EXISTS search_vector"])
-      
+
       (jdbc/execute! datasource
                      ["ALTER TABLE users ADD COLUMN search_vector tsvector 
                        GENERATED ALWAYS AS (
@@ -112,7 +112,7 @@
       ;; Drop the column if it exists and recreate as GENERATED column
       (jdbc/execute! datasource
                      ["ALTER TABLE items DROP COLUMN IF EXISTS search_vector"])
-      
+
       (jdbc/execute! datasource
                      ["ALTER TABLE items ADD COLUMN search_vector tsvector 
                        GENERATED ALWAYS AS (
@@ -146,8 +146,8 @@
                                   :recency-decay-days 30}}
                 :highlighting {:pre-tag "<mark>"
                                :post-tag "</mark>"
-                                :max-fragments 3
-                                :fragment-size 150}}))
+                               :max-fragments 3
+                               :fragment-size 150}}))
 
       true)))
 
@@ -280,10 +280,10 @@
     (when (postgres-available?)
       ;; Create a test user to verify search_vector is generated
       (create-test-user! {:name "John Doe" :email "john@example.com"})
-      
+
       (is (verify-tsvector-exists "users")
           "users.search_vector column should exist and be populated")
-      
+
       (is (verify-gin-index-exists "users")
           "GIN index should exist for users.search_vector"))))
 
@@ -292,10 +292,10 @@
     (when (postgres-available?)
       ;; Create a test item to verify search_vector is generated
       (create-test-item! {:name "Widget" :sku "WDG-001" :location "Warehouse A"})
-      
+
       (is (verify-tsvector-exists "items")
           "items.search_vector column should exist and be populated")
-      
+
       (is (verify-gin-index-exists "items")
           "GIN index should exist for items.search_vector"))))
 
@@ -324,12 +324,12 @@
       (create-test-user! {:name "John Smith" :email "john@example.com"})
       (create-test-user! {:name "Jane Doe" :email "jane@example.com"})
       (create-test-user! {:name "Bob Johnson" :email "bob@example.com"})
-      
+
       (let [results (ports/search-users @test-search-service "John" {})]
         (is (some? results) "Should return results")
         (is (pos? (:total results)) "Should have at least one result")
         (is (vector? (:results results)) "Results should be a vector")
-        
+
         ;; Verify result contains John
         (let [first-result (first (:results results))]
           (is (or (str/includes? (:name first-result) "John")
@@ -342,11 +342,11 @@
       (create-test-user! {:name "John Smith"
                           :email "john.smith@example.com"
                           :bio "John is a software developer"})
-      
+
       (let [results (ports/search-users @test-search-service "John" {:highlight? true})]
         (is (some? results) "Should return results")
         (is (pos? (:total results)) "Should have results")
-        
+
         (let [first-result (first (:results results))
               highlights (:_highlights first-result)]
           (is (some? highlights) "Should have highlights")
@@ -363,11 +363,11 @@
       (create-test-user! {:name "Software Developer" :email "dev@example.com"})
       (create-test-user! {:name "John Developer" :email "john@example.com"})
       (create-test-user! {:name "Developer John Smith" :email "jsmith@example.com"})
-      
+
       (let [results (ports/search-users @test-search-service "Developer" {})]
         (is (some? results) "Should return results")
         (is (>= (:total results) 3) "Should have at least 3 results")
-        
+
         ;; Verify results are sorted by score (descending)
         (let [scores (map :score (:results results))]
           (is (= scores (sort > scores))
@@ -380,17 +380,17 @@
       (dotimes [i 5]
         (create-test-user! {:name (str "Developer " i)
                             :email (str "dev" i "@example.com")}))
-      
+
       ;; First page (2 results)
       (let [page1 (ports/search-users @test-search-service "Developer" {:from 0 :size 2})]
         (is (= 2 (count (:results page1))) "First page should have 2 results")
         (is (= 5 (:total page1)) "Total should be 5")
-        
+
         ;; Second page (2 results)
         (let [page2 (ports/search-users @test-search-service "Developer" {:from 2 :size 2})]
           (is (= 2 (count (:results page2))) "Second page should have 2 results")
           (is (= 5 (:total page2)) "Total should still be 5")
-          
+
           ;; Verify pages have different results
           (let [page1-ids (set (map :id (:results page1)))
                 page2-ids (set (map :id (:results page2)))]
@@ -401,7 +401,7 @@
   (testing "Empty query returns empty results"
     (when (postgres-available?)
       (create-test-user! {:name "John Smith" :email "john@example.com"})
-      
+
       (let [results (ports/search-users @test-search-service "" {})]
         (is (some? results) "Should return results structure")
         (is (zero? (:total results)) "Should have zero results")
@@ -411,7 +411,7 @@
   (testing "Query with no matches returns empty results"
     (when (postgres-available?)
       (create-test-user! {:name "John Smith" :email "john@example.com"})
-      
+
       (let [results (ports/search-users @test-search-service "XyZzY123NonExistent" {})]
         (is (some? results) "Should return results structure")
         (is (zero? (:total results)) "Should have zero results")
@@ -422,12 +422,12 @@
     (when (postgres-available?)
       (create-test-user! {:name "O'Brien" :email "obrien@example.com"})
       (create-test-user! {:name "Smith-Jones" :email "smith-jones@example.com"})
-      
+
       ;; Search with apostrophe
       (let [results1 (ports/search-users @test-search-service "O'Brien" {})]
         (is (some? results1) "Should handle apostrophes")
         (is (pos? (:total results1)) "Should find O'Brien"))
-      
+
       ;; Search with hyphen
       (let [results2 (ports/search-users @test-search-service "Smith-Jones" {})]
         (is (some? results2) "Should handle hyphens")
@@ -439,11 +439,11 @@
       (create-test-user! {:name "John Smith" :email "john@example.com"})
       (create-test-user! {:name "Jane Smith" :email "jane@example.com"})
       (create-test-user! {:name "John Doe" :email "jdoe@example.com"})
-      
+
       (let [results (ports/search-users @test-search-service "John Smith" {})]
         (is (some? results) "Should return results")
         (is (pos? (:total results)) "Should have results")
-        
+
         ;; First result should be John Smith (both words match)
         (let [first-result (first (:results results))]
           (is (and (str/includes? (:name first-result) "John")
@@ -457,7 +457,7 @@
                           :bio "Experienced software engineer with 10 years"})
       (create-test-user! {:name "Engineer"
                           :bio "Software development and engineering"})
-      
+
       (let [results (ports/search-users @test-search-service "\"software engineer\"" {})]
         (is (some? results) "Should return results")
         (is (pos? (:total results)) "Should have results")))))
@@ -471,11 +471,11 @@
     (when (postgres-available?)
       (create-test-item! {:name "Widget" :sku "WDG-001" :location "Warehouse A"})
       (create-test-item! {:name "Gadget" :sku "GDG-001" :location "Warehouse B"})
-      
+
       (let [results (ports/search-items @test-search-service "Widget" {})]
         (is (some? results) "Should return results")
         (is (pos? (:total results)) "Should have results")
-        
+
         (let [first-result (first (:results results))]
           (is (str/includes? (:name first-result) "Widget")
               "Result should contain 'Widget'"))))))
@@ -485,11 +485,11 @@
     (when (postgres-available?)
       (create-test-item! {:name "Widget" :sku "WDG-001" :location "Warehouse A"})
       (create-test-item! {:name "Widget Pro" :sku "WDG-002" :location "Warehouse A"})
-      
+
       (let [results (ports/search-items @test-search-service "WDG-001" {})]
         (is (some? results) "Should return results")
         (is (pos? (:total results)) "Should have results")
-        
+
         (let [first-result (first (:results results))]
           (is (= "WDG-001" (:sku first-result))
               "Should find item by exact SKU"))))))
@@ -499,11 +499,11 @@
     (when (postgres-available?)
       (create-test-item! {:name "Widget" :sku "WDG-001" :location "Warehouse A"})
       (create-test-item! {:name "Gadget" :sku "GDG-001" :location "Warehouse B"})
-      
+
       (let [results (ports/search-items @test-search-service "Warehouse A" {})]
         (is (some? results) "Should return results")
         (is (pos? (:total results)) "Should have results")
-        
+
         (let [first-result (first (:results results))]
           (is (str/includes? (:location first-result) "Warehouse A")
               "Should find items in Warehouse A"))))))
@@ -520,18 +520,18 @@
         (create-test-user! {:name "Developer Smith"
                             :email "old@example.com"
                             :created_at old-date}))
-      
+
       ;; Create recent user
       (let [recent-date (.minus (Instant/now) 1 ChronoUnit/DAYS)]
         (create-test-user! {:name "Developer Jones"
                             :email "recent@example.com"
                             :created_at recent-date}))
-      
+
       ;; Search with recency boost
       (let [results (ports/search-users @test-search-service "Developer" {:boost-recent? true})]
         (is (some? results) "Should return results")
         (is (>= (:total results) 2) "Should have at least 2 results")
-        
+
         ;; Recent user should rank higher (first in results)
         (let [first-result (first (:results results))]
           (is (str/includes? (:email first-result) "recent")
@@ -549,11 +549,11 @@
         (create-test-user! {:name (str "User " i)
                             :email (str "user" i "@example.com")
                             :bio (str "Bio for user " i)}))
-      
+
       (let [start (System/nanoTime)
             results (ports/search-users @test-search-service "User" {})
             duration-ms (/ (- (System/nanoTime) start) 1000000.0)]
-        
+
         (is (some? results) "Should return results")
         (is (pos? (:total results)) "Should have results")
         (is (< duration-ms 100.0)
@@ -568,7 +568,7 @@
           (create-test-user! {:name (str "User " i)
                               :email (str "user" i "@example.com")}))
         (let [duration-ms (/ (- (System/nanoTime) start) 1000000.0)]
-          
+
           (is (< duration-ms 5000.0)
               (str "Indexing 100 users should take under 5 seconds, took " duration-ms "ms")))))))
 
@@ -580,7 +580,7 @@
   (testing "Handles very long queries without error"
     (when (postgres-available?)
       (create-test-user! {:name "John Smith" :email "john@example.com"})
-      
+
       (let [long-query (apply str (repeat 100 "developer "))]
         (is (some? (ports/search-users @test-search-service long-query {}))
             "Should handle very long query without error")))))
@@ -589,7 +589,7 @@
   (testing "Handles Unicode characters in search"
     (when (postgres-available?)
       (create-test-user! {:name "François Müller" :email "francois@example.com"})
-      
+
       (let [results (ports/search-users @test-search-service "François" {})]
         (is (some? results) "Should handle Unicode characters")
         ;; Note: PostgreSQL full-text search normalizes Unicode
@@ -600,12 +600,12 @@
   (testing "Prevents SQL injection in search queries"
     (when (postgres-available?)
       (create-test-user! {:name "John Smith" :email "john@example.com"})
-      
+
       ;; Attempt SQL injection
       (let [malicious-query "'; DROP TABLE users; --"]
         (is (some? (ports/search-users @test-search-service malicious-query {}))
             "Should handle malicious query safely")
-        
+
         ;; Verify table still exists
         (let [count-result (jdbc/execute-one! (:datasource @test-db-context)
                                               ["SELECT COUNT(*) as cnt FROM users"])]
@@ -617,14 +617,14 @@
       ;; Create test data
       (dotimes [i 10]
         (create-test-user! {:name (str "User " i) :email (str "user" i "@example.com")}))
-      
+
       ;; Run 5 concurrent searches
       (let [futures (doall
                      (for [i (range 5)]
                        (future
                          (ports/search-users @test-search-service (str "User " i) {}))))
             results (mapv deref futures)]
-        
+
         ;; All searches should succeed
         (is (= 5 (count results)) "All 5 concurrent searches should complete")
         (is (every? some? results) "All results should be non-nil")

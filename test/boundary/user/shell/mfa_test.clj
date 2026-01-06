@@ -35,11 +35,11 @@
       (find-user-by-id [_ user-id]
         (when (= user-id (:id @user-state))
           @user-state))
-      
+
       (update-user [_ user]
         (reset! user-state user)
         @user-state)
-      
+
       (find-user-by-email [_ email]
         (when (= email (:email @user-state))
           @user-state)))))
@@ -51,19 +51,19 @@
 (deftest generate-totp-secret-test
   (testing "TOTP secret generation"
     (let [secret (mfa-shell/generate-totp-secret)]
-      
+
       (testing "generates non-empty secret"
         (is (some? secret))
         (is (string? secret))
         (is (< 0 (count secret))))
-      
+
       (testing "generates Base32 encoded string"
         (is (re-matches #"[A-Z2-7]+" secret)))
-      
+
       (testing "generates secrets of appropriate length"
         ;; Base32 encoding of 20 bytes = 32 characters
         (is (>= (count secret) 16)))
-      
+
       (testing "generates unique secrets on each call"
         (let [secret2 (mfa-shell/generate-totp-secret)]
           (is (not= secret secret2)))))))
@@ -75,19 +75,19 @@
 (deftest verify-totp-code-test
   (testing "TOTP code verification"
     (let [secret (mfa-shell/generate-totp-secret)]
-      
+
       (testing "rejects invalid TOTP code"
         (is (false? (mfa-shell/verify-totp-code "000000" secret))))
-      
+
       (testing "rejects nil code"
         (is (false? (mfa-shell/verify-totp-code nil secret))))
-      
+
       (testing "rejects empty string code"
         (is (false? (mfa-shell/verify-totp-code "" secret))))
-      
+
       (testing "rejects non-numeric code"
         (is (false? (mfa-shell/verify-totp-code "ABCDEF" secret))))
-      
+
       (testing "handles invalid secret gracefully"
         (is (false? (mfa-shell/verify-totp-code "123456" "INVALID")))))))
 
@@ -98,19 +98,19 @@
 (deftest generate-backup-codes-test
   (testing "Backup code generation"
     (let [codes (mfa-shell/generate-backup-codes 10)]
-      
+
       (testing "generates requested number of codes"
         (is (= 10 (count codes))))
-      
+
       (testing "generates unique codes"
         (is (= (count codes) (count (set codes)))))
-      
+
       (testing "generates alphanumeric codes with dashes"
         (is (every? #(re-matches #"[A-Za-z0-9-]+" %) codes)))
-      
+
       (testing "generates codes of appropriate length (12+ chars without dashes)"
         (is (every? #(>= (count (clojure.string/replace % #"-" "")) 12) codes)))
-      
+
       (testing "generates different codes on each call"
         (let [codes2 (mfa-shell/generate-backup-codes 10)]
           (is (not= codes codes2)))))))
@@ -125,21 +125,21 @@
           email "test@example.com"
           issuer "Boundary"
           uri (mfa-shell/generate-totp-uri secret email issuer)]
-      
+
       (testing "generates otpauth:// URI"
         (is (some? uri))
         (is (.startsWith uri "otpauth://totp/")))
-      
+
       (testing "includes email in URI (URL-encoded)"
         (is (or (.contains uri email)
                 (.contains uri "test%40example.com"))))
-      
+
       (testing "includes issuer in URI"
         (is (.contains uri issuer)))
-      
+
       (testing "includes secret in URI"
         (is (.contains uri secret)))
-      
+
       (testing "properly encodes parameters"
         (is (.contains uri "secret="))
         (is (.contains uri "issuer="))))))
@@ -155,14 +155,14 @@
           issuer "Boundary"
           totp-uri (mfa-shell/generate-totp-uri secret email issuer)
           data-url (mfa-shell/generate-qr-code-data-url totp-uri)]
-      
+
       (testing "generates external QR code URL"
         (is (some? data-url))
         (is (string? data-url)))
-      
+
       (testing "URL points to QR service"
         (is (.contains data-url "api.qrserver.com")))
-      
+
       (testing "URL contains encoded otpauth URI"
         (is (.contains data-url "otpauth"))))))
 
@@ -176,23 +176,23 @@
           config {:issuer "TestApp"}
           service (mfa-shell/create-mfa-service mock-repo config)
           result (mfa-shell/setup-mfa service (:id test-user))]
-      
+
       (testing "setup succeeds for valid user"
         (is (some? result))
         (is (true? (:success? result))))
-      
+
       (testing "returns secret"
         (is (some? (:secret result)))
         (is (string? (:secret result))))
-      
+
       (testing "returns backup codes"
         (is (some? (:backup-codes result)))
         (is (= 10 (count (:backup-codes result)))))
-      
+
       (testing "returns QR code URL"
         (is (some? (:qr-code-url result)))
         (is (.contains (:qr-code-url result) "api.qrserver.com")))
-      
+
       (testing "user not yet enabled (requires verification)"
         (let [user (ports/find-user-by-id mock-repo (:id test-user))]
           (is (false? (:mfa-enabled user))))))))
@@ -202,20 +202,20 @@
     (let [mock-repo (create-mock-repository)
           config {:issuer "TestApp"}
           service (mfa-shell/create-mfa-service mock-repo config)
-          
+
           ;; Setup MFA
           setup-result (mfa-shell/setup-mfa service (:id test-user))
           secret (:secret setup-result)
           backup-codes (:backup-codes setup-result)
-          
+
           ;; Try to enable with invalid code
           enable-result (mfa-shell/enable-mfa service (:id test-user) secret backup-codes "000000")]
-      
-       (testing "enable fails with invalid code"
+
+      (testing "enable fails with invalid code"
         (is (some? enable-result))
         (is (false? (:success? enable-result)))
         (is (some? (:error enable-result))))
-      
+
       (testing "user remains not enabled"
         (let [user (ports/find-user-by-id mock-repo (:id test-user))]
           (is (false? (:mfa-enabled user))))))))
@@ -226,7 +226,7 @@
           config {:issuer "TestApp"}
           service (mfa-shell/create-mfa-service mock-repo config)
           status (mfa-shell/get-mfa-status service (:id test-user))]
-      
+
       (testing "status shows MFA disabled"
         (is (some? status))
         (is (false? (:enabled status)))
@@ -238,31 +238,31 @@
     (let [mock-repo (create-mock-repository)
           config {:issuer "TestApp"}
           service (mfa-shell/create-mfa-service mock-repo config)
-          
+
           ;; Setup MFA
           setup-result (mfa-shell/setup-mfa service (:id test-user))
           secret (:secret setup-result)
           backup-codes (:backup-codes setup-result)
-          
+
           ;; Create a user with MFA enabled (simulating post-enable state)
           user-with-mfa (merge test-user
-                              {:mfa-enabled true
-                               :mfa-secret secret
-                               :mfa-backup-codes backup-codes
-                               :mfa-backup-codes-used []
-                               :mfa-enabled-at (java.time.Instant/now)})]
-      
+                               {:mfa-enabled true
+                                :mfa-secret secret
+                                :mfa-backup-codes backup-codes
+                                :mfa-backup-codes-used []
+                                :mfa-enabled-at (java.time.Instant/now)})]
+
       (testing "rejects invalid TOTP code"
         (let [result (mfa-shell/verify-mfa-code service user-with-mfa "000000")]
           (is (some? result))
           (is (false? (:valid? result)))))
-      
+
       (testing "verifies valid backup code"
         (let [backup-code (first backup-codes)
               result (mfa-shell/verify-mfa-code service user-with-mfa backup-code)]
           (is (some? result))
           (is (true? (:valid? result)))))
-      
+
       (testing "rejects used backup code"
         (let [backup-code (first backup-codes)
               ;; Mark code as used
@@ -276,7 +276,7 @@
           config {:issuer "TestApp"}
           service (mfa-shell/create-mfa-service mock-repo config)
           result (mfa-shell/setup-mfa service "non-existent-user-id")]
-      
+
       (testing "returns error for missing user"
         (is (some? result))
         (is (false? (:success? result)))
@@ -289,7 +289,7 @@
           service (mfa-shell/create-mfa-service mock-repo config)
           ;; Try to enable without calling setup first
           result (mfa-shell/enable-mfa service (:id test-user) "fake-secret" ["CODE1"] "123456")]
-      
+
       (testing "returns error when MFA not properly set up"
         (is (some? result))
         (is (false? (:success? result)))
@@ -301,7 +301,7 @@
           config {:issuer "TestApp"}
           service (mfa-shell/create-mfa-service mock-repo config)
           result (mfa-shell/disable-mfa service (:id test-user))]
-      
+
       (testing "returns error when MFA not enabled"
         (is (some? result))
         (is (false? (:success? result)))

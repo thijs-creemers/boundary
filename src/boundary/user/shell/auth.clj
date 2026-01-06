@@ -194,9 +194,9 @@
 
           ;; Step 7: Verify MFA code if provided
           mfa-verification (when (and user
-                                     password-valid?
-                                     (:mfa-enabled user)
-                                     mfa-code)
+                                      password-valid?
+                                      (:mfa-enabled user)
+                                      mfa-code)
                              (mfa-shell/verify-mfa-code mfa-service user mfa-code))
 
           ;; Step 8: Handle authentication result
@@ -271,7 +271,7 @@
                                      (.create-session session-repository session-data)))]
 
                      (log/info "Authentication successful"
-                               {:email email 
+                               {:email email
                                 :risk-score (:risk-score login-risk)
                                 :mfa-used (:mfa-enabled user)
                                 :session-duration (:session-duration-hours session-policy)})

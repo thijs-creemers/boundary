@@ -23,7 +23,7 @@
         adapter (h2/new-adapter)
         db-ctx {:datasource datasource :adapter adapter}]
     (reset! test-db-context db-ctx)
-    
+
     (jdbc/execute! datasource
                    ["CREATE TABLE IF NOT EXISTS users (
                        id UUID PRIMARY KEY,
@@ -43,7 +43,7 @@
                        mfa_secret VARCHAR(255),
                        mfa_backup_codes TEXT
                      )"])
-    
+
     (reset! test-repository (user-persistence/create-user-repository db-ctx))))
 
 (defn teardown-test-db []
@@ -91,26 +91,26 @@
       ;; Create 25 test users
       (dotimes [i 25]
         (create-test-user! {:email (format "user-%03d@example.com" i)
-                           :name (format "User %03d" i)}))
-      
+                            :name (format "User %03d" i)}))
+
       ;; Test default pagination
       (let [result (ports/find-users repo {})
             users (:users result)
             total (:total-count result)]
-        
+
         (is (= 20 (count users)) "Should return 20 users (default limit)")
         (is (= 25 total) "Should have total count of 25"))
-      
+
       ;; Test custom limit
       (let [result (ports/find-users repo {:limit 10})
             users (:users result)]
-        
+
         (is (= 10 (count users)) "Should return 10 users (custom limit"))
-      
+
       ;; Test with offset
       (let [result (ports/find-users repo {:limit 10 :offset 10})
             users (:users result)
             total (:total-count result)]
-        
+
         (is (= 10 (count users)) "Should return 10 users from offset 10")
         (is (= 25 total) "Total should still be 25")))))

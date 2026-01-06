@@ -8,7 +8,7 @@ This **Developer Guide** provides comprehensive architectural documentation, adv
 
 *** Important: do not stage, commit or push without permission ***
 
-*** Important: Please use the clojure-mcp server for creating correctly balanced clojure code. Always double check if it is running an d functioning.
+*** Important: Use `clj-paren-repair` to fix unbalanced parentheses. Never manually repair delimiter errors.
 
 ## Table of Contents
 
@@ -838,8 +838,8 @@ clojure -M:build:deploy
 - [Malli Documentation](https://github.com/metosin/malli) - Schema validation library
 - [Aero Configuration](https://github.com/juxt/aero) - Configuration management
 - [next.jdbc Guide](https://github.com/seancorfield/next-jdbc) - Database connectivity
-- be careful and concise in the placement of indents and put all parenthesis etc. right. We use parinfer and that gice a ot of trouble when we write sloppy code.
-- use clojure-mcp for editing as much as possible.
+- Be careful and concise in the placement of indents and put all parenthesis etc. right. We use parinfer conventions.
+- Use `clj-paren-repair` to automatically fix unbalanced delimiters. Never manually repair parenthesis errors.
 
 #### Development Tools
 - [Kaocha Test Runner](https://github.com/lambdaisland/kaocha) - Testing framework

@@ -12,8 +12,8 @@
 > - ✅ ALWAYS ask "Should I commit and push these changes?" and wait for confirmation
 > 
 > **CODE EDITING:**
-> - Use clojure-mcp server for editing Clojure files (ensures balanced parentheses)
-> - Always verify clojure-mcp is running before editing Clojure code
+> - Use `clj-paren-repair` to fix unbalanced parentheses (never manually repair delimiters)
+> - Use `clj-nrepl-eval` for REPL evaluation during development
 > - Follow parinfer conventions for proper formatting
 > - All documentation must be kept up to date, accurate and in the English language
 
@@ -96,6 +96,34 @@ sudo apt-get install -y default-jdk rlwrap
 # Install Clojure CLI
 curl -L -O https://download.clojure.org/install/linux-install-1.12.3.1577.sh
 chmod +x linux-install-*.sh && sudo ./linux-install-*.sh
+```
+
+### Install Clojure Development Tools
+
+**Install Babashka and bbin** (required for Clojure tooling):
+```bash
+# macOS
+brew install babashka/brew/babashka borkdude/brew/bbin
+
+# Linux
+bash <(curl -s https://raw.githubusercontent.com/babashka/babashka/master/install)
+bash <(curl -s https://raw.githubusercontent.com/babashka/bbin/main/bbin)
+```
+
+**Install clj-paren-repair** (automatic parenthesis fixing):
+```bash
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.1 --as clj-paren-repair --main-opts '["-m" "clojure-mcp-light.paren-repair"]'
+
+# Verify installation
+clj-paren-repair --help
+```
+
+**Install clj-nrepl-eval** (REPL evaluation from command line):
+```bash
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.1 --as clj-nrepl-eval --main-opts '["-m" "clojure-mcp-light.nrepl-eval"]'
+
+# Verify installation
+clj-nrepl-eval --help
 ```
 
 ### Getting Started
@@ -199,6 +227,10 @@ clojure-lsp diagnostics                            # Deeper analysis
 # nREPL Evaluation
 clj-nrepl-eval --discover-ports                    # Find nREPL ports
 clj-nrepl-eval -p <port> "<clojure-code>"         # Evaluate code
+
+# Parenthesis Repair
+clj-paren-repair <file>                            # Fix one file
+clj-paren-repair <file1> <file2>                   # Fix multiple files
 ```
 
 ### Test Categories
@@ -388,11 +420,21 @@ clojure -M:repl-clj
         processed (process validated)]  ; Missing closing paren
     processed)
 
-;; ✅ CORRECT - Use clojure-mcp
-# Always use clojure-mcp server for editing Clojure files
+;; ✅ CORRECT - Use clj-paren-repair
+# Always use clj-paren-repair to fix unbalanced delimiters
 ```
 
-**Best Practice**: Use `clojure-mcp` for all Clojure file edits. Verify it's running before editing.
+**Best Practice**: Use `clj-paren-repair` for all Clojure file edits with delimiter errors.
+
+```bash
+# Fix parentheses in one or more files
+clj-paren-repair src/boundary/user/core/user.clj
+clj-paren-repair src/boundary/user/core/user.clj src/boundary/user/shell/service.clj
+
+# The tool automatically formats files with cljfmt when it processes them
+```
+
+**IMPORTANT**: Do NOT try to manually repair parenthesis errors. If you encounter unbalanced delimiters, run `clj-paren-repair` on the file instead of attempting to fix them yourself. If the tool doesn't work, report to the user that they need to fix the delimiter error manually.
 
 ### 4. Validation at Wrong Layer
 
@@ -2577,14 +2619,17 @@ $ clojure -M:repl-clj
 user=> (keys integrant.repl.state/system)
 ```
 
-### Clojure-MCP Not Working
+### Parenthesis Errors
 
 ```bash
-# Check if clojure-mcp is running
-ps aux | grep clojure-mcp
+# Fix unbalanced delimiters automatically
+clj-paren-repair src/boundary/user/core/user.clj
 
-# If not running, start it (method depends on your setup)
-# Verify it's accessible before editing Clojure files
+# Fix multiple files at once
+clj-paren-repair src/boundary/user/core/user.clj src/boundary/user/shell/service.clj
+
+# The tool automatically formats files with cljfmt
+# NEVER try to manually fix parenthesis errors - always use this tool
 ```
 
 ### Database Issues
@@ -2646,6 +2691,8 @@ console.log(htmx);
 ║ REPL    │ clojure -M:repl-clj                                  ║
 ║         │ (ig-repl/go)    (ig-repl/reset)    (ig-repl/halt)    ║
 ║ BUILD   │ clojure -T:build clean && clojure -T:build uber      ║
+║ REPAIR  │ clj-paren-repair <files>  # Fix parentheses          ║
+║ EVAL    │ clj-nrepl-eval -p <port> "<code>"  # REPL eval       ║
 ╠════════════════════════════════════════════════════════════════╣
 ║ CORE    │ Pure functions only, no side effects                 ║
 ║ SHELL   │ All I/O, validation, error handling                  ║
@@ -2654,11 +2701,11 @@ console.log(htmx);
 ╠════════════════════════════════════════════════════════════════╣
 ║ PITFALL │ snake_case (DB) vs kebab-case (Clojure)              ║
 ║ PITFALL │ defrecord changes need full REPL restart             ║
-║ PITFALL │ Use clojure-mcp for editing Clojure files            ║
+║ PITFALL │ Use clj-paren-repair for delimiter errors            ║
 ╚════════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-**Last Updated**: 2024-11-30
+**Last Updated**: 2026-01-06
 **Version**: 1.0.0

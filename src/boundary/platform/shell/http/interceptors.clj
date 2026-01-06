@@ -259,13 +259,13 @@
               ;; Future: emit timing metric when metrics backend is configured
               (let [_duration-ms (/ (- (System/nanoTime) (:start timing)) 1e6)]
                 (metrics-ports/increment metrics-emitter "http.requests"
-                                        {:method (name (:request-method request))
-                                         :status (str (:status response))})))
+                                         {:method (name (:request-method request))
+                                          :status (str (:status response))})))
             ctx)
    :error (fn [{:keys [request system] :as ctx}]
             (when-let [metrics-emitter (:metrics-emitter system)]
               (metrics-ports/increment metrics-emitter "http.requests.errors"
-                                      {:method (name (:request-method request))}))
+                                       {:method (name (:request-method request))}))
             ctx)})
 
 (def http-error-reporting
@@ -353,10 +353,10 @@
                 (if (valid-csrf-token? request)
                   ctx
                   (set-response ctx {:status 403
-                                    :headers {"Content-Type" "application/json"}
-                                    :body {:error "CSRF token validation failed"
-                                           :message "Invalid or missing CSRF token"
-                                           :type :csrf-validation-failed}}))
+                                     :headers {"Content-Type" "application/json"}
+                                     :body {:error "CSRF token validation failed"
+                                            :message "Invalid or missing CSRF token"
+                                            :type :csrf-validation-failed}}))
                 ;; Non-web route or safe method - skip CSRF check
                 ctx)))})
 
@@ -460,23 +460,23 @@
                      (assoc-in [:attrs :rate-limit] rate-check))
                  ;; Rate limit exceeded - return 429 Too Many Requests
                  (set-response ctx {:status 429
-                                   :headers {"Content-Type" "application/json"
-                                            "Retry-After" (str (:retry-after-seconds rate-check))
-                                            "X-RateLimit-Limit" (str limit)
-                                            "X-RateLimit-Remaining" "0"}
-                                   :body {:error "Rate limit exceeded"
-                                          :message (format "Too many requests. Limit: %d requests per %d seconds"
-                                                          limit
-                                                          (int (/ window-ms 1000)))
-                                          :retry-after-seconds (:retry-after-seconds rate-check)
-                                          :type :rate-limit-exceeded}}))))
+                                    :headers {"Content-Type" "application/json"
+                                              "Retry-After" (str (:retry-after-seconds rate-check))
+                                              "X-RateLimit-Limit" (str limit)
+                                              "X-RateLimit-Remaining" "0"}
+                                    :body {:error "Rate limit exceeded"
+                                           :message (format "Too many requests. Limit: %d requests per %d seconds"
+                                                            limit
+                                                            (int (/ window-ms 1000)))
+                                           :retry-after-seconds (:retry-after-seconds rate-check)
+                                           :type :rate-limit-exceeded}}))))
     :leave (fn [{:keys [attrs] :as ctx}]
              ;; Add rate limit headers to successful responses
              (if-let [rate-limit (:rate-limit attrs)]
                (merge-response-headers ctx
-                                      {"X-RateLimit-Limit" (str (:limit rate-limit))
-                                       "X-RateLimit-Remaining" (str (- (:limit rate-limit)
-                                                                      (:current-count rate-limit)))})
+                                       {"X-RateLimit-Limit" (str (:limit rate-limit))
+                                        "X-RateLimit-Remaining" (str (- (:limit rate-limit)
+                                                                        (:current-count rate-limit)))})
                ctx))}))
 
 ;; ==============================================================================
@@ -632,19 +632,19 @@
   [handler interceptors request system]
   (let [;; Create initial HTTP context
         initial-ctx (create-http-context request system)
-        
+
         ;; Create handler interceptor that bridges to Ring handler
         handler-interceptor {:name :ring-handler
                              :enter (fn [ctx]
                                       (let [response (handler (:request ctx))]
                                         (set-response ctx response)))}
-        
+
         ;; Combine interceptors with handler at the end
         full-pipeline (conj (vec interceptors) handler-interceptor)
-        
+
         ;; Run the interceptor pipeline
         final-ctx (interceptor/run-pipeline initial-ctx full-pipeline)]
-    
+
     ;; Extract and return the Ring response
     (extract-response final-ctx)))
 

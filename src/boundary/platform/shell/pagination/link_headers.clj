@@ -210,35 +210,35 @@
         last-offset (- total (rem total limit))
         last-offset (if (= last-offset total) (- total limit) last-offset)
         last-offset (max 0 last-offset)]
-    
+
     (log/debug "Building offset pagination links"
-              {:base-path base-path
-               :offset offset
-               :limit limit
-               :has-next has-next
-               :has-prev has-prev})
-    
+               {:base-path base-path
+                :offset offset
+                :limit limit
+                :has-next has-next
+                :has-prev has-prev})
+
     (cond-> []
       ;; First page
       true
       (conj {:url (build-url base-path (assoc base-params :limit limit :offset 0))
              :rel :first})
-      
+
       ;; Previous page
       has-prev
       (conj {:url (build-url base-path (assoc base-params :limit limit :offset prev-offset))
              :rel :prev})
-      
+
       ;; Self (current page)
       true
       (conj {:url (build-url base-path (assoc base-params :limit limit :offset offset))
              :rel :self})
-      
+
       ;; Next page
       has-next
       (conj {:url (build-url base-path (assoc base-params :limit limit :offset next-offset))
              :rel :next})
-      
+
       ;; Last page
       true
       (conj {:url (build-url base-path (assoc base-params :limit limit :offset last-offset))
@@ -288,26 +288,26 @@
   (let [{:keys [limit has-next has-prev next-cursor prev-cursor]} pagination-meta
         current-cursor (:cursor params)
         base-params (dissoc params :offset :cursor)]
-    
+
     (log/debug "Building cursor pagination links"
-              {:base-path base-path
-               :limit limit
-               :has-next has-next
-               :has-prev has-prev
-               :has-cursors {:next (some? next-cursor)
-                             :prev (some? prev-cursor)}})
-    
+               {:base-path base-path
+                :limit limit
+                :has-next has-next
+                :has-prev has-prev
+                :has-cursors {:next (some? next-cursor)
+                              :prev (some? prev-cursor)}})
+
     (cond-> []
       ;; Previous page
       (and has-prev prev-cursor)
       (conj {:url (build-url base-path (assoc base-params :limit limit :cursor prev-cursor))
              :rel :prev})
-      
+
       ;; Self (current page)
       current-cursor
       (conj {:url (build-url base-path (assoc base-params :limit limit :cursor current-cursor))
              :rel :self})
-      
+
       ;; Next page
       (and has-next next-cursor)
       (conj {:url (build-url base-path (assoc base-params :limit limit :cursor next-cursor))
@@ -361,9 +361,9 @@
      ;;=> \"</api/v1/users?limit=20&cursor=eyJpZCI...>; rel=\\\"next\\\", ...\""
   [base-path params pagination-meta]
   (log/debug "Generating Link header"
-            {:base-path base-path
-             :pagination-type (:type pagination-meta)})
-  
+             {:base-path base-path
+              :pagination-type (:type pagination-meta)})
+
   (let [links (case (:type pagination-meta)
                 "offset" (build-offset-links base-path params pagination-meta)
                 "cursor" (build-cursor-links base-path params pagination-meta)

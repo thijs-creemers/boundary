@@ -15,7 +15,7 @@
    - RFC 7807 Problem Details for error responses (via core)
    - Generic exception handling middleware
    - Error reporting breadcrumb integration"
-(:require [boundary.platform.core.http.problem-details :as problem]
+  (:require [boundary.platform.core.http.problem-details :as problem]
             [boundary.error-reporting.core :as error-reporting]
             [boundary.error-reporting.ports :as error-reporting-ports]
             [boundary.logging.core :as logging]

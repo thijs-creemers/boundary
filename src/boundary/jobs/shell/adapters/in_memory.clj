@@ -31,11 +31,11 @@
 ;; =============================================================================
 
 (defrecord InMemoryState
-  [jobs          ; atom: job-id -> job
-   queues        ; atom: queue-name -> {:critical [] :high [] :normal [] :low []}
-   scheduled     ; atom: sorted set of {:execute-at inst :job-id uuid}
-   failed        ; atom: vector of job-ids
-   stats])       ; atom: queue-name -> {:processed :failed :succeeded :durations}
+           [jobs          ; atom: job-id -> job
+            queues        ; atom: queue-name -> {:critical [] :high [] :normal [] :low []}
+            scheduled     ; atom: sorted set of {:execute-at inst :job-id uuid}
+            failed        ; atom: vector of job-ids
+            stats])       ; atom: queue-name -> {:processed :failed :succeeded :durations}
 
 (defn- create-state
   "Create initial state atoms."
@@ -412,11 +412,11 @@
   (reset! (:jobs state) {})
   (reset! (:queues state) {})
   (reset! (:scheduled state) (sorted-set-by
-                               (fn [a b]
-                                 (let [time-cmp (compare (:execute-at a) (:execute-at b))]
-                                   (if (zero? time-cmp)
-                                     (compare (:job-id a) (:job-id b))
-                                     time-cmp)))))
+                              (fn [a b]
+                                (let [time-cmp (compare (:execute-at a) (:execute-at b))]
+                                  (if (zero? time-cmp)
+                                    (compare (:job-id a) (:job-id b))
+                                    time-cmp)))))
   (reset! (:failed state) [])
   (reset! (:stats state) {}))
 

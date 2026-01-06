@@ -74,9 +74,9 @@
    [:queue keyword?]
    [:status WorkerStatus]
    [:current-job {:optional true} [:map
-                                    [:job-id uuid?]
-                                    [:job-type keyword?]
-                                    [:started-at inst?]]]
+                                   [:job-id uuid?]
+                                   [:job-type keyword?]
+                                   [:started-at inst?]]]
    [:processed-count [:int {:min 0}]]
    [:failed-count [:int {:min 0}]]
    [:started-at inst?]
@@ -127,11 +127,11 @@
 (def JobHandler
   "Job handler function signature."
   [:=> [:cat [:map-of keyword? any?]] [:map
-                                        [:success? :boolean]
-                                        [:result {:optional true} any?]
-                                        [:error {:optional true} [:map
-                                                                   [:message :string]
-                                                                   [:type :string]]]]])
+                                       [:success? :boolean]
+                                       [:result {:optional true} any?]
+                                       [:error {:optional true} [:map
+                                                                 [:message :string]
+                                                                 [:type :string]]]]])
 
 ;; =============================================================================
 ;; Validation Functions

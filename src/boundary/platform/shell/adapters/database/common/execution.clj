@@ -3,7 +3,7 @@
    
    This is part of the imperative shell - it performs database I/O,
    manages transactions, and handles side effects like logging."
-(:require [boundary.platform.core.database.query :as core-query]
+  (:require [boundary.platform.core.database.query :as core-query]
             [boundary.platform.core.database.validation :as core-validation]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
             [clojure.tools.logging :as log]

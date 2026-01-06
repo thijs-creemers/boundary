@@ -114,7 +114,7 @@
                                 :error.kind (str (class exception))
                                 :error.message (.getMessage exception)
                                 :error.stack (str/join "\n"
-                                                                  (map str (.getStackTrace exception))))
+                                                       (map str (.getStackTrace exception))))
                          with-tags)]
     with-exception))
 

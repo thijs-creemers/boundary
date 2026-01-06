@@ -19,7 +19,7 @@
   - ReititRouter: Converts normalized routes to Reitit format
   - PedestalRouter: Converts normalized routes to Pedestal routing table
   - MockRouter: In-memory router for testing"
-  
+
   (compile-routes [this route-specs config]
     "Compile normalized route specifications into a Ring handler.
     
@@ -62,7 +62,7 @@
   - UndertowServer: Uses Undertow web server
   - NettyServer: Uses Netty for async HTTP
   - MockServer: In-memory server for testing"
-  
+
   (start! [this handler config]
     "Start HTTP server with the given Ring handler.
     
@@ -89,7 +89,7 @@
       
     Example:
       (start! server handler {:port 3000 :host \"localhost\" :join? false})")
-  
+
   (stop! [this server]
     "Stop the HTTP server.
     
@@ -110,7 +110,7 @@
   
   Validates normalized route specifications to ensure they conform to the
   expected schema and contain all required information."
-  
+
   (validate-routes [this route-specs]
     "Validate normalized route specifications.
     
@@ -132,7 +132,7 @@
 
 (comment
   ;; Example usage:
-  
+
   ;; Define routes in module
   (def user-routes
     [{:path "/api/users"
@@ -141,14 +141,14 @@
                                  :response {:200 boundary.user.schema/UserList}}}
                 :post {:handler 'boundary.user.shell.handlers/create-user
                        :coercion {:body boundary.user.schema/CreateUserRequest}}}}])
-  
+
   ;; Compile routes with selected router
   (let [router (reitit-adapter/->ReititRouter)
         route-config {:middleware ['wrap-json 'wrap-cors]}
         my-handler (compile-routes router user-routes route-config)]
     ;; my-handler is now a Ring function
     (my-handler {:request-method :get :uri "/api/users"}))
-  
+
   ;; Start server with compiled handler
   (let [server-adapter (ring-jetty-adapter/->RingJettyServer)
         my-handler (fn [req] {:status 200 :body "OK"})

@@ -127,19 +127,19 @@
     (let [router (reitit/create-reitit-router)
           handler (ports/compile-routes router simple-routes {})]
       (is (fn? handler))
-      
+
       (testing "GET request works"
         (let [response (handler {:request-method :get
                                  :uri "/api/items"})]
           (is (= 200 (:status response)))
           (is (= {:items ["item1" "item2"]} (:body response)))))
-      
+
       (testing "POST request works"
         (let [response (handler {:request-method :post
                                  :uri "/api/items"})]
           (is (= 201 (:status response)))
           (is (= {:id "123" :message "Created"} (:body response)))))
-      
+
       (testing "Unknown route returns 404"
         (let [response (handler {:request-method :get
                                  :uri "/api/unknown"})]
@@ -149,18 +149,18 @@
   (testing "Can compile nested routes with path parameters"
     (let [router (reitit/create-reitit-router)
           handler (ports/compile-routes router nested-routes {})]
-      
+
       (testing "Parent route works"
         (let [response (handler {:request-method :get
                                  :uri "/api/users"})]
           (is (= 200 (:status response)))))
-      
+
       (testing "Child route with path param works"
         (let [response (handler {:request-method :get
                                  :uri "/api/users/123"})]
           (is (= 200 (:status response)))
           (is (= "123" (get-in response [:body :id])))))
-      
+
       (testing "DELETE on child route works"
         (let [response (handler {:request-method :delete
                                  :uri "/api/users/123"})]
@@ -170,12 +170,12 @@
   (testing "Can compile routes with Malli coercion"
     (let [router (reitit/create-reitit-router)
           handler (ports/compile-routes router routes-with-coercion {})]
-      
+
       (testing "Route with query coercion compiles"
         (let [response (handler {:request-method :get
                                  :uri "/api/products"})]
           (is (= 200 (:status response)))))
-      
+
       (testing "Route with body coercion compiles"
         (let [response (handler {:request-method :post
                                  :uri "/api/products"})]
@@ -191,7 +191,7 @@
                               (assoc-in response [:headers "X-Custom"] "test"))))
           config {:middleware [add-header-mw]}
           handler (ports/compile-routes router simple-routes config)]
-      
+
       (testing "Middleware is applied"
         (let [response (handler {:request-method :get
                                  :uri "/api/items"})]
@@ -209,7 +209,7 @@
           routes [{:path "/test"
                    :methods {:get {:handler `test-list-handler}}}]
           handler (ports/compile-routes router routes {})]
-      
+
       (testing "Resolved handler works"
         (let [response (handler {:request-method :get
                                  :uri "/test"})]
@@ -295,9 +295,9 @@
   (testing "Can compile routes with interceptors"
     (let [router (reitit/create-reitit-router)
           handler (ports/compile-routes router (routes-with-interceptors) {})]
-      
+
       (is (fn? handler))
-      
+
       (testing "Interceptors run in correct order"
         (let [response (handler {:request-method :get
                                  :uri "/api/intercepted"})]
@@ -319,7 +319,7 @@
                                    :interceptors [test-interceptor-leave]
                                    :summary "Route with both"}}}]
           handler (ports/compile-routes router routes {})]
-      
+
       (testing "Both middleware and interceptors execute"
         (let [response (handler {:request-method :get
                                  :uri "/api/mixed"})]

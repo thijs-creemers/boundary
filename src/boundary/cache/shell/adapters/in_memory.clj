@@ -29,13 +29,13 @@
 ;; =============================================================================
 
 (defrecord CacheEntry
-  [value created-at expires-at access-count last-accessed-at])
+           [value created-at expires-at access-count last-accessed-at])
 
 (defrecord InMemoryState
-  [entries         ; atom: map of key -> CacheEntry
-   stats           ; atom: {:hits :misses :evictions}
-   config          ; {:max-size :default-ttl :track-stats?}
-   namespace])     ; optional namespace prefix
+           [entries         ; atom: map of key -> CacheEntry
+            stats           ; atom: {:hits :misses :evictions}
+            config          ; {:max-size :default-ttl :track-stats?}
+            namespace])     ; optional namespace prefix
 
 (defn- create-state
   "Create initial cache state."

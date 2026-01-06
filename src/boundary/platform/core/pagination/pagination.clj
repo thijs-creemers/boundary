@@ -172,26 +172,26 @@
         limit         (or (:limit params) default-limit)
         offset        (or (:offset params) 0)
         cursor        (:cursor params)
-        
+
         errors (cond-> {}
                  (not (int? limit))
                  (assoc :limit "Must be an integer")
-                 
+
                  (and (int? limit) (< limit 1))
                  (assoc :limit "Must be at least 1")
-                 
+
                  (and (int? limit) (> limit max-limit))
                  (assoc :limit (str "Must be at most " max-limit))
-                 
+
                  (not (int? offset))
                  (assoc :offset "Must be an integer")
-                 
+
                  (and (int? offset) (< offset 0))
                  (assoc :offset "Must be non-negative")
-                 
+
                  (and cursor offset (> offset 0))
                  (assoc :cursor "Cannot use cursor and offset together"))]
-    
+
     {:valid? (empty? errors)
      :errors errors
      :params {:limit  limit
@@ -319,26 +319,26 @@
             last-offset (max 0 (- total limit))]
         (cond-> {:first {:path base-path
                          :params (merge query-params {:limit limit :offset 0})}}
-          
+
           ;; Last page (only if we have total count)
           (some? total)
           (assoc :last {:path base-path
                         :params (merge query-params {:limit limit :offset last-offset})})
-          
+
           ;; Next page
           has-next?
           (assoc :next {:path base-path
-                        :params (merge query-params 
-                                       {:limit limit 
+                        :params (merge query-params
+                                       {:limit limit
                                         :offset (+ (:offset pagination) limit)})})
-          
+
           ;; Previous page
           has-prev?
           (assoc :prev {:path base-path
                         :params (merge query-params
                                        {:limit limit
                                         :offset (max 0 (- (:offset pagination) limit))})})))
-      
+
       "cursor"
       (let [next-cursor (:next-cursor pagination)
             prev-cursor (:prev-cursor pagination)
@@ -348,12 +348,12 @@
           next-cursor
           (assoc :next {:path base-path
                         :params (merge query-params {:limit limit :cursor next-cursor})})
-          
+
           ;; Previous page
           prev-cursor
           (assoc :prev {:path base-path
                         :params (merge query-params {:limit limit :cursor prev-cursor})})))
-      
+
       ;; Unknown type
       {})))
 

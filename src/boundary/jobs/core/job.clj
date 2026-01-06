@@ -102,7 +102,7 @@
                :error error
                :updated-at now)
         (cond->
-          (not should-retry?)
+         (not should-retry?)
           (assoc :completed-at now)))))
 
 (defn cancel-job

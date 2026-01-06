@@ -60,31 +60,31 @@
     (let [text (:text query-dsl)
           terms (str/split text #"\s+")]
       (str/join " & " (map #(str % ":*") terms)))
-    
+
     :phrase
     (let [text (:text query-dsl)
           terms (str/split text #"\s+")]
       (str/join " <-> " terms))
-    
+
     :term
     (:text query-dsl)
-    
+
     :prefix
     (str (:text query-dsl) ":*")
-    
+
     :bool
     (let [must (get-in query-dsl [:clauses :must])
           should (get-in query-dsl [:clauses :should])
           must-not (get-in query-dsl [:clauses :must-not])]
       (str/join " & "
-        (concat
-          (when (seq must)
-            [(str "(" (str/join " & " (map build-tsquery must)) ")")])
-          (when (seq should)
-            [(str "(" (str/join " | " (map build-tsquery should)) ")")])
-          (when (seq must-not)
-            (map #(str "!(" (build-tsquery %) ")") must-not)))))
-    
+                (concat
+                 (when (seq must)
+                   [(str "(" (str/join " & " (map build-tsquery must)) ")")])
+                 (when (seq should)
+                   [(str "(" (str/join " | " (map build-tsquery should)) ")")])
+                 (when (seq must-not)
+                   (map #(str "!(" (build-tsquery %) ")") must-not)))))
+
     ;; Default: treat as plain text
     (str (:text query-dsl ""))))
 
@@ -128,10 +128,10 @@
         min-words (or (:min-words options) 20)
         short-word (or (:short-word options) 3)
         highlight-all (if (:highlight-all? options) "true" "false")
-        opts-str (format "MaxWords=%d,MinWords=%d,ShortWord=%d,HighlightAll=%s" 
-                        max-words min-words short-word highlight-all)]
+        opts-str (format "MaxWords=%d,MinWords=%d,ShortWord=%d,HighlightAll=%s"
+                         max-words min-words short-word highlight-all)]
     [:raw (format "ts_headline('english', %s, plainto_tsquery('english', '%s'), '%s')"
-                  (name field) 
+                  (name field)
                   (str/replace tsquery "'" "''")
                   opts-str)]))
 
@@ -152,19 +152,19 @@
      Processed result map"
   [result highlight-fields]
   (let [highlights (when (seq highlight-fields)
-                    (into {}
-                      (keep (fn [field]
-                             (when-let [hl (get result (keyword (str (name field) "_highlight")))]
-                               [field hl]))
-                           highlight-fields)))]
+                     (into {}
+                           (keep (fn [field]
+                                   (when-let [hl (get result (keyword (str (name field) "_highlight")))]
+                                     [field hl]))
+                                 highlight-fields)))]
     (-> result
         (assoc :score (or (:search_score result) (:rank result) 0.0))
         (cond-> (seq highlights)
           (assoc :_highlights highlights))
         (dissoc :search_score :rank)
         ;; Remove highlight columns from top level
-        (as-> r (apply dissoc r 
-                      (map #(keyword (str (name %) "_highlight")) highlight-fields))))))
+        (as-> r (apply dissoc r
+                       (map #(keyword (str (name %) "_highlight")) highlight-fields))))))
 
 ;; ============================================================================
 ;; PostgreSQL Search Provider
@@ -172,7 +172,7 @@
 
 (defrecord PostgresSearchProvider [db-ctx config]
   ports/ISearchProvider
-  
+
   (search [_this query-map]
     (try
       (log/debug "Executing PostgreSQL search" {:query-map query-map})
@@ -185,74 +185,74 @@
             size (:size query-map 20)
             highlight? (:highlight? query-map false)
             highlight-fields (:highlight-fields query-map [:name :bio])
-            
+
             ;; Extract raw text for plainto_tsquery (safer than build-tsquery which adds operators)
             ;; plainto_tsquery handles all special characters and doesn't require escape syntax
             raw-query-text (:text query-dsl "")
-            
+
             ;; Build HoneySQL query
             ;; ts_rank weights should be numeric [D, C, B, A] not the field->label map
             ;; Default: {0.1, 0.2, 0.4, 1.0} for D, C, B, A respectively
             weights [0.1 0.2 0.4 1.0]
-            
+
             select-fields (concat
                            [:*]
                            [[(build-rank-expression raw-query-text weights) :search_score]]
                            (when highlight?
                              (mapv (fn [field]
-                                    [(build-headline-expression field raw-query-text {})
-                                     (keyword (str (name field) "_highlight"))])
-                                  highlight-fields)))
-            
+                                     [(build-headline-expression field raw-query-text {})
+                                      (keyword (str (name field) "_highlight"))])
+                                   highlight-fields)))
+
             where-conditions (into [(build-search-condition raw-query-text)]
-                                (map (fn [{:keys [field value op]}]
-                                      [(or op :=) field value])
-                                    filters))
-            
+                                   (map (fn [{:keys [field value op]}]
+                                          [(or op :=) field value])
+                                        filters))
+
             order-by (mapv (fn [{:keys [field order]}]
-                            (if (= field :_score)
-                              [(keyword "search_score") (or order :desc)]
-                              [(keyword (name field)) (or order :asc)]))
-                          sort-spec)
-            
+                             (if (= field :_score)
+                               [(keyword "search_score") (or order :desc)]
+                               [(keyword (name field)) (or order :asc)]))
+                           sort-spec)
+
             hsql-query {:select select-fields
                         :from [(keyword index-name)]
                         :where (if (> (count where-conditions) 1)
-                                (into [:and] where-conditions)
-                                (first where-conditions))
+                                 (into [:and] where-conditions)
+                                 (first where-conditions))
                         :order-by order-by
                         :limit size
                         :offset from}
-            
+
             ;; Execute query
             [sql & params] (hsql/format hsql-query)
-            
+
             _ (log/debug "Executing search" {:index index-name :raw-query raw-query-text :sql sql})
-            
+
             ;; Execute query with proper options to return timestamps as Instant objects
             ;; and use unqualified keys
-            results (jdbc/execute! db-ctx (into [sql] params) 
-                                  {:builder-fn rs/as-unqualified-lower-maps})
-            
+            results (jdbc/execute! db-ctx (into [sql] params)
+                                   {:builder-fn rs/as-unqualified-lower-maps})
+
             ;; Count total results (without pagination)
             count-query {:select [[:%count.* :total]]
-                        :from [(keyword index-name)]
-                        :where (if (> (count where-conditions) 1)
-                                (into [:and] where-conditions)
-                                (first where-conditions))}
-            
+                         :from [(keyword index-name)]
+                         :where (if (> (count where-conditions) 1)
+                                  (into [:and] where-conditions)
+                                  (first where-conditions))}
+
             [count-sql & count-params] (hsql/format count-query)
             total-result (jdbc/execute-one! db-ctx (into [count-sql] count-params)
-                                           {:builder-fn rs/as-unqualified-lower-maps})
+                                            {:builder-fn rs/as-unqualified-lower-maps})
             total (:total total-result 0)
-            
+
             ;; Process results
             processed-results (mapv #(process-search-result % highlight-fields) results)
             max-score (when (seq processed-results)
-                       (apply max (map :score processed-results)))
-            
+                        (apply max (map :score processed-results)))
+
             took-ms (- (System/currentTimeMillis) start-time)]
-        
+
         {:results processed-results
          :total total
          :max-score (or max-score 0.0)
@@ -260,10 +260,10 @@
       (catch Exception e
         (log/error e "Search failed" {:query query-map})
         (throw (ex-info "Search execution failed"
-                       {:type :search-error
-                        :query query-map}
-                       e)))))
-  
+                        {:type :search-error
+                         :query query-map}
+                        e)))))
+
   (index-document [_this index-name document]
     (try
       (sql/insert! db-ctx (keyword index-name) document)
@@ -274,11 +274,11 @@
       (catch Exception e
         (log/error e "Failed to index document" {:index index-name :id (:id document)})
         (throw (ex-info "Document indexing failed"
-                       {:type :indexing-error
-                        :index index-name
-                        :document-id (:id document)}
-                       e)))))
-  
+                        {:type :indexing-error
+                         :index index-name
+                         :document-id (:id document)}
+                        e)))))
+
   (delete-document [_this index-name document-id]
     (try
       (sql/delete! db-ctx (keyword index-name) {:id document-id})
@@ -289,11 +289,11 @@
       (catch Exception e
         (log/error e "Failed to delete document" {:index index-name :id document-id})
         (throw (ex-info "Document deletion failed"
-                       {:type :deletion-error
-                        :index index-name
-                        :document-id document-id}
-                       e)))))
-  
+                        {:type :deletion-error
+                         :index index-name
+                         :document-id document-id}
+                        e)))))
+
   (update-document [_this index-name document-id updates]
     (try
       (sql/update! db-ctx (keyword index-name) updates {:id document-id})
@@ -304,11 +304,11 @@
       (catch Exception e
         (log/error e "Failed to update document" {:index index-name :id document-id})
         (throw (ex-info "Document update failed"
-                       {:type :update-error
-                        :index index-name
-                        :document-id document-id}
-                       e)))))
-  
+                        {:type :update-error
+                         :index index-name
+                         :document-id document-id}
+                        e)))))
+
   (bulk-index [_this index-name documents]
     (let [start-time (System/currentTimeMillis)]
       (try
@@ -316,8 +316,8 @@
           (doseq [doc documents]
             (sql/insert! tx (keyword index-name) doc)))
         (let [took-ms (- (System/currentTimeMillis) start-time)]
-          (log/info "Bulk indexed documents" 
-                   {:index index-name :count (count documents) :took-ms took-ms})
+          (log/info "Bulk indexed documents"
+                    {:index index-name :count (count documents) :took-ms took-ms})
           {:indexed-count (count documents)
            :failed-count 0
            :errors []
@@ -325,37 +325,37 @@
         (catch Exception e
           (log/error e "Bulk indexing failed" {:index index-name :count (count documents)})
           (throw (ex-info "Bulk indexing failed"
-                         {:type :bulk-indexing-error
-                          :index index-name
-                          :document-count (count documents)}
-                         e))))))
-  
+                          {:type :bulk-indexing-error
+                           :index index-name
+                           :document-count (count documents)}
+                          e))))))
+
   (create-index [_this index-name _config]
     ;; Note: In PostgreSQL, "index" is the table with search columns
     ;; This would typically be handled by migrations
-    (log/info "Index creation should be handled by migrations" 
-             {:index index-name})
+    (log/info "Index creation should be handled by migrations"
+              {:index index-name})
     {:created false
      :index index-name
      :message "Use database migrations to create search indexes"})
-  
+
   (delete-index [_this index-name]
     (log/warn "Index deletion not implemented" {:index index-name})
     {:deleted false
      :index index-name
      :message "Index deletion must be done via migrations"})
-  
+
   (get-index-stats [_this index-name]
     (try
       (let [count-query {:select [[:%count.* :total]]
-                        :from [(keyword index-name)]}
+                         :from [(keyword index-name)]}
             [sql & params] (hsql/format count-query)
             result (jdbc/execute-one! db-ctx (into [sql] params))
-            
+
             ;; Get table size
             size-query "SELECT pg_total_relation_size(?) AS size_bytes"
             size-result (jdbc/execute-one! db-ctx [size-query (name index-name)])]
-        
+
         {:index index-name
          :document-count (:total result 0)
          :size-bytes (:size_bytes size-result 0)
