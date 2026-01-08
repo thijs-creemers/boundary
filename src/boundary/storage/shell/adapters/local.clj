@@ -72,7 +72,7 @@
 (defrecord LocalFileStorage [base-path url-base logger]
   ports/IFileStorage
 
-  (store-file [this file-data metadata]
+  (store-file [_ file-data metadata]
     (try
       (let [{:keys [bytes content-type]} file-data
             {:keys [filename path]} metadata
@@ -121,7 +121,7 @@
                          :error (.getMessage e)}
                         e)))))
 
-  (retrieve-file [this file-key]
+  (retrieve-file [_ file-key]
     (try
       (let [full-path (path-join base-path file-key)
             file-path (Paths/get full-path (into-array String []))]
@@ -152,7 +152,7 @@
                           :error (.getMessage e)}))
         nil)))
 
-  (delete-file [this file-key]
+  (delete-file [_ file-key]
     (try
       (let [full-path (path-join base-path file-key)
             file-path (Paths/get full-path (into-array String []))]
@@ -175,7 +175,7 @@
                           :error (.getMessage e)}))
         false)))
 
-  (file-exists? [this file-key]
+  (file-exists? [_ file-key]
     (try
       (let [full-path (path-join base-path file-key)
             file-path (Paths/get full-path (make-array java.nio.file.LinkOption 0))]
@@ -189,7 +189,7 @@
                           :error (.getMessage e)}))
         false)))
 
-  (generate-signed-url [this file-key expiration-seconds]
+  (generate-signed-url [_ file-key expiration-seconds]
     ;; Local filesystem doesn't support signed URLs
     ;; Return the public URL if available
     (when url-base

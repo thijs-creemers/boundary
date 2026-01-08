@@ -296,19 +296,19 @@
 
   (compare-and-set! [this key expected-value new-value]
     (let [namespaced-key (add-namespace (:namespace state) key)
-          entries (:entries state)]
-      (let [result (atom false)]
-        (swap! entries
-               (fn [cache]
-                 (let [current-entry (get cache namespaced-key)
-                       current-value (:value current-entry)]
-                   (if (= current-value expected-value)
-                     (do
-                       (reset! result true)
-                       (assoc cache namespaced-key
-                              (->CacheEntry new-value (now) (:expires-at current-entry) 0 (now))))
-                     cache))))
-        @result)))
+          entries (:entries state)
+          result (atom false)]
+      (swap! entries
+             (fn [cache]
+               (let [current-entry (get cache namespaced-key)
+                     current-value (:value current-entry)]
+                 (if (= current-value expected-value)
+                   (do
+                     (reset! result true)
+                     (assoc cache namespaced-key
+                            (->CacheEntry new-value (now) (:expires-at current-entry) 0 (now))))
+                   cache))))
+      @result))
 
   ;; =============================================================================
   ;; Pattern Operations

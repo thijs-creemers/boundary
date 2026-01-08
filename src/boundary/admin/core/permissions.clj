@@ -20,9 +20,7 @@
    - Determine if user can access admin interface
    - Determine if user can perform operations on entities
    - Filter entity lists based on permissions
-   - Provide permission metadata for UI rendering"
-  (:require
-   [clojure.set :as set]))
+   - Provide permission metadata for UI rendering")
 
 ;; =============================================================================
 ;; Role-Based Permission Checks (Week 1)

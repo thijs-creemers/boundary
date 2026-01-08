@@ -137,7 +137,7 @@
 (defrecord AdminService [db-ctx schema-provider logger error-reporter]
   ports/IAdminService
 
-  (list-entities [this entity-name options]
+  (list-entities [_ entity-name options]
     (persist-interceptors/execute-persistence-operation
      :admin-list-entities
      {:entity (name entity-name)
@@ -193,7 +193,7 @@
           :total-pages total-pages}))
      db-ctx))
 
-  (get-entity [this entity-name id]
+  (get-entity [_ entity-name id]
     (persist-interceptors/execute-persistence-operation
      :admin-get-entity
      {:entity (name entity-name) :id id}
@@ -211,7 +211,7 @@
           (case-conversion/snake-case->kebab-case-map db-result)))
      db-ctx))
 
-  (create-entity [this entity-name data]
+  (create-entity [_ entity-name data]
     (persist-interceptors/execute-persistence-operation
      :admin-create-entity
      {:entity (name entity-name)}
@@ -252,7 +252,7 @@
           (case-conversion/snake-case->kebab-case-map db-result)))
      db-ctx))
 
-  (update-entity [this entity-name id data]
+  (update-entity [_ entity-name id data]
     (persist-interceptors/execute-persistence-operation
      :admin-update-entity
      {:entity (name entity-name) :id id}
@@ -292,7 +292,7 @@
           (case-conversion/snake-case->kebab-case-map db-result)))
      db-ctx))
 
-  (delete-entity [this entity-name id]
+  (delete-entity [_ entity-name id]
     (persist-interceptors/execute-persistence-operation
      :admin-delete-entity
      {:entity (name entity-name) :id id}
@@ -318,7 +318,7 @@
              (pos? (db/execute-update! db-ctx query))))))
      db-ctx))
 
-  (count-entities [this entity-name filters]
+  (count-entities [_ entity-name filters]
     (persist-interceptors/execute-persistence-operation
      :admin-count-entities
      {:entity (name entity-name)}
@@ -333,7 +333,7 @@
          (:total result 0)))
      db-ctx))
 
-  (validate-entity-data [this entity-name data]
+  (validate-entity-data [_ entity-name data]
     ; Week 1: Simple validation - check required fields present
     ; Week 2+: Full Malli schema validation
     (let [entity-config (ports/get-entity-config schema-provider entity-name)
@@ -353,7 +353,7 @@
         {:valid? true :data data}
         {:valid? false :errors errors})))
 
-  (bulk-delete-entities [this entity-name ids]
+  (bulk-delete-entities [_ entity-name ids]
     (persist-interceptors/execute-persistence-operation
      :admin-bulk-delete-entities
      {:entity (name entity-name) :count (count ids)}

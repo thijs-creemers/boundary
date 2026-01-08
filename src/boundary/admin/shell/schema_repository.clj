@@ -26,7 +26,7 @@
 (defrecord SchemaRepository [db-ctx config]
   ports/ISchemaProvider
 
-  (fetch-table-metadata [this table-name]
+  (fetch-table-metadata [_ table-name]
     "Fetch raw table metadata from database using adapter protocol.
 
      Uses the existing db-protocols/get-table-info which works across
@@ -49,7 +49,7 @@
                            :table-name table-name
                            :cause e}))))))
 
-  (get-entity-config [this entity-name]
+  (get-entity-config [_ entity-name]
     "Get complete entity configuration by merging auto-detected with manual config.
 
      Process:
@@ -65,7 +65,7 @@
       ; Add relationship detection (Week 1 stub)
       (introspection/detect-relationships merged-config)))
 
-  (list-available-entities [this]
+  (list-available-entities [_]
     "List all entities available based on discovery configuration.
 
      Discovery modes:
@@ -98,14 +98,14 @@
                          :mode mode
                          :valid-modes [:allowlist :denylist :all]})))))
 
-  (get-entity-label [this entity-name]
+  (get-entity-label [_ entity-name]
     "Get display label for entity.
 
      Tries manual config label first, falls back to humanized entity name."
     (or (get-in config [:entities entity-name :label])
         (introspection/humanize-entity-name entity-name)))
 
-  (validate-entity-exists [this entity-name]
+  (validate-entity-exists [_ entity-name]
     "Check if entity is valid and accessible.
 
      Returns true if entity is in the list of available entities."

@@ -6,28 +6,28 @@
 
 (defrecord DatabaseItemRepository [db-ctx]
   ports/IItemRepository
-  (create [this entity]
+  (create [_ entity]
     (db/execute-one! db-ctx
                      (sql/format {:insert-into :Items
                                   :values [entity]
                                   :returning [:*]})))
-  (find-by-id [this id]
+  (find-by-id [_ id]
     (db/execute-one! db-ctx
                      (sql/format {:select [:*]
                                   :from [:Items]
                                   :where [:= :id id]})))
-  (find-all [this opts]
+  (find-all [_ opts]
     (db/execute-query! db-ctx
                        (sql/format {:select [:*]
                                     :from [:Items]
                                     :limit (:limit opts 20)})))
-  (update-item [this entity]
+  (update-item [_ entity]
     (db/execute-one! db-ctx
                      (sql/format {:update :Items
                                   :set (dissoc entity :id)
                                   :where [:= :id (:id entity)]
                                   :returning [:*]})))
-  (delete [this id]
+  (delete [_ id]
     (db/execute-one! db-ctx
                      (sql/format {:delete-from :Items
                                   :where [:= :id id]}))))

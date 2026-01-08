@@ -63,7 +63,7 @@
   ports/IUserService
 
   ;; User Management - Shell layer orchestrates I/O and calls pure core functions
-  (register-user [this user-data]
+  (register-user [_ user-data]
     (println "DEBUG register-user called with:" (select-keys user-data [:email :name :role :password]))
     (let [result (service-interceptors/execute-service-operation
                   :register-user
@@ -124,13 +124,13 @@
 
                           ;; 6. Create audit log entry for user creation
                           (try
-                            (let [audit-entry (audit-core/create-user-audit-entry
-                                               nil  ; actor-id (nil for self-registration, or actor from context)
-                                               "system"  ; actor-email (system or actual actor)
-                                               created-user
-                                               nil  ; ip-address (extract from request context if available)
-                                               nil)] ; user-agent (extract from request context if available)
-                              (.create-audit-log audit-repository audit-entry))
+                            (.create-audit-log audit-repository
+                                             (audit-core/create-user-audit-entry
+                                              nil  ; actor-id (nil for self-registration, or actor from context)
+                                              "system"  ; actor-email (system or actual actor)
+                                              created-user
+                                              nil  ; ip-address (extract from request context if available)
+                                              nil)) ; user-agent (extract from request context if available)
                             (catch Exception e
                               ;; Log audit failure but don't fail the operation
                               (println "WARN: Failed to create audit log:" (.getMessage e))))
@@ -143,7 +143,7 @@
       (println "DEBUG register-user result from execute-service-operation:" result)
       result))
 
-  (authenticate-user [this user-credentials]
+  (authenticate-user [_ user-credentials]
     (service-interceptors/execute-service-operation
      :authenticate-user
      {:user-credentials user-credentials
@@ -242,7 +242,7 @@
                :session-repository session-repository
                :auth-service auth-service}}))
 
-  (validate-session [this session-token]
+  (validate-session [_ session-token]
     (service-interceptors/execute-service-operation
      :validate-session
      {:session-token session-token}
@@ -271,7 +271,7 @@
                :session-repository session-repository
                :auth-service auth-service}}))
 
-  (logout-user [this session-token]
+  (logout-user [_ session-token]
     (service-interceptors/execute-service-operation
      :logout-user
      {:session-token session-token}
@@ -302,7 +302,7 @@
                :auth-service auth-service}}))
 
   ;; Additional IUserService methods
-  (get-user-by-id [this user-id]
+  (get-user-by-id [_ user-id]
     (service-interceptors/execute-service-operation
      :get-user-by-id
      {:user-id user-id}
@@ -316,7 +316,7 @@
                :session-repository session-repository
                :auth-service auth-service}}))
 
-  (get-user-by-email [this email]
+  (get-user-by-email [_ email]
     (service-interceptors/execute-service-operation
      :get-user-by-email
      {:email email}
@@ -330,7 +330,7 @@
                :session-repository session-repository
                :auth-service auth-service}}))
 
-  (list-users [this options]
+  (list-users [_ options]
     (service-interceptors/execute-service-operation
      :list-users
      {:options options}
@@ -347,7 +347,7 @@
                :session-repository session-repository
                :auth-service auth-service}}))
 
-  (update-user-profile [this user-entity]
+  (update-user-profile [_ user-entity]
     (service-interceptors/execute-service-operation
      :update-user-profile
      {:user-entity user-entity
@@ -393,7 +393,7 @@
                :session-repository session-repository
                :auth-service auth-service}}))
 
-  (deactivate-user [this user-id]
+  (deactivate-user [_ user-id]
     (service-interceptors/execute-service-operation
      :deactivate-user
      {:user-id user-id}
@@ -423,7 +423,7 @@
                :audit-repository audit-repository
                :auth-service auth-service}}))
 
-  (permanently-delete-user [this user-id]
+  (permanently-delete-user [_ user-id]
     (service-interceptors/execute-service-operation
      :permanently-delete-user
      {:user-id user-id}
@@ -453,7 +453,7 @@
                :audit-repository audit-repository
                :auth-service auth-service}}))
 
-  (logout-user-everywhere [this user-id]
+  (logout-user-everywhere [_ user-id]
     (service-interceptors/execute-service-operation
      :logout-user-everywhere
      {:user-id user-id}
@@ -466,7 +466,7 @@
                :session-repository session-repository
                :auth-service auth-service}}))
 
-  (get-user-sessions [this user-id]
+  (get-user-sessions [_ user-id]
     (service-interceptors/execute-service-operation
      :get-user-sessions
      {:user-id user-id}
@@ -483,7 +483,7 @@
   ;; Audit Log Query Operations
   ;; ---------------------------------------------------------------------------
 
-  (list-audit-logs [this options]
+  (list-audit-logs [_ options]
     (service-interceptors/execute-service-operation
      :list-audit-logs
      {:options options}
@@ -495,7 +495,7 @@
          result))
      {:system {:audit-repository audit-repository}}))
 
-  (get-audit-logs-for-user [this user-id options]
+  (get-audit-logs-for-user [_ user-id options]
     (service-interceptors/execute-service-operation
      :get-audit-logs-for-user
      {:user-id user-id :options options}

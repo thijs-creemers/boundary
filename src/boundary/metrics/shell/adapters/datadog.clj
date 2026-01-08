@@ -153,7 +153,7 @@
 (defrecord DatadogMetricsRegistry [metrics enabled config]
   ports/IMetricsRegistry
 
-  (register-counter! [this name description tags]
+  (register-counter! [_ name description tags]
     (swap! metrics assoc name
            {:type :counter
             :description description
@@ -162,7 +162,7 @@
     (swap! enabled conj name)
     name)
 
-  (register-gauge! [this name description tags]
+  (register-gauge! [_ name description tags]
     (swap! metrics assoc name
            {:type :gauge
             :description description
@@ -171,7 +171,7 @@
     (swap! enabled conj name)
     name)
 
-  (register-histogram! [this name description buckets tags]
+  (register-histogram! [_ name description buckets tags]
     (swap! metrics assoc name
            {:type :histogram
             :description description
@@ -181,7 +181,7 @@
     (swap! enabled conj name)
     name)
 
-  (register-summary! [this name description quantiles tags]
+  (register-summary! [_ name description quantiles tags]
     (swap! metrics assoc name
            {:type :summary
             :description description
@@ -191,7 +191,7 @@
     (swap! enabled conj name)
     name)
 
-  (unregister! [this name]
+  (unregister! [_ name]
     (let [existed? (contains? @metrics name)]
       (swap! metrics dissoc name)
       (swap! enabled disj name)
@@ -205,7 +205,7 @@
                        :handle name
                        :enabled (contains? @enabled name))))))
 
-  (get-metric [this name]
+  (get-metric [_ name]
     (when-let [metric (get @metrics name)]
       (assoc metric
              :name name
@@ -219,13 +219,13 @@
 (defrecord DatadogMetricsEmitter [registry config send-fn]
   ports/IMetricsEmitter
 
-  (inc-counter! [this metric-handle]
+  (inc-counter! [_ metric-handle]
     (ports/inc-counter! this metric-handle 1 {}))
 
-  (inc-counter! [this metric-handle value]
+  (inc-counter! [_ metric-handle value]
     (ports/inc-counter! this metric-handle value {}))
 
-  (inc-counter! [this metric-handle value tags]
+  (inc-counter! [_ metric-handle value tags]
     (let [{:keys [metrics enabled]} registry
           metric (get @metrics metric-handle)
           config-val @config]
@@ -244,10 +244,10 @@
             (log/debug "Sending counter metric:" line))
           (send-fn line)))))
 
-  (set-gauge! [this metric-handle value]
+  (set-gauge! [_ metric-handle value]
     (ports/set-gauge! this metric-handle value {}))
 
-  (set-gauge! [this metric-handle value tags]
+  (set-gauge! [_ metric-handle value tags]
     (let [{:keys [metrics enabled]} registry
           metric (get @metrics metric-handle)
           config-val @config]
@@ -265,10 +265,10 @@
             (log/debug "Sending gauge metric:" line))
           (send-fn line)))))
 
-  (observe-histogram! [this metric-handle value]
+  (observe-histogram! [_ metric-handle value]
     (ports/observe-histogram! this metric-handle value {}))
 
-  (observe-histogram! [this metric-handle value tags]
+  (observe-histogram! [_ metric-handle value tags]
     (let [{:keys [metrics enabled]} registry
           metric (get @metrics metric-handle)
           config-val @config]
@@ -287,10 +287,10 @@
             (log/debug "Sending histogram metric:" line))
           (send-fn line)))))
 
-  (observe-summary! [this metric-handle value]
+  (observe-summary! [_ metric-handle value]
     (ports/observe-summary! this metric-handle value {}))
 
-  (observe-summary! [this metric-handle value tags]
+  (observe-summary! [_ metric-handle value tags]
     (let [{:keys [metrics enabled]} registry
           metric (get @metrics metric-handle)
           config-val @config]
@@ -309,20 +309,20 @@
             (log/debug "Sending summary metric:" line))
           (send-fn line)))))
 
-  (time-histogram! [this metric-handle f]
+  (time-histogram! [_ metric-handle f]
     (ports/time-histogram! this metric-handle {} f))
 
-  (time-histogram! [this metric-handle tags f]
+  (time-histogram! [_ metric-handle tags f]
     (let [start-time (System/nanoTime)
           result (f)
           duration-ms (/ (- (System/nanoTime) start-time) 1000000.0)]
       (ports/observe-histogram! this metric-handle duration-ms tags)
       result))
 
-  (time-summary! [this metric-handle f]
+  (time-summary! [_ metric-handle f]
     (ports/time-summary! this metric-handle {} f))
 
-  (time-summary! [this metric-handle tags f]
+  (time-summary! [_ metric-handle tags f]
     (let [start-time (System/nanoTime)
           result (f)
           duration-ms (/ (- (System/nanoTime) start-time) 1000000.0)]
@@ -348,7 +348,7 @@
 (defrecord DatadogMetricsExporter [registry config]
   ports/IMetricsExporter
 
-  (export-metrics [this format]
+  (export-metrics [_ format]
     (case format
       :datadog
       (let [metrics @(:metrics registry)]
@@ -374,7 +374,7 @@
 
       (throw (ex-info "Unsupported export format" {:format format}))))
 
-  (export-metric [this metric-name format]
+  (export-metric [_ metric-name format]
     (case format
       :datadog
       (if-let [metric (get @(:metrics registry) metric-name)]
@@ -398,7 +398,7 @@
 
       (throw (ex-info "Unsupported export format" {:format format}))))
 
-  (get-metric-values [this metric-name]
+  (get-metric-values [_ metric-name]
     (if-let [metric (get @(:metrics registry) metric-name)]
       (let [values @(:values metric)
             timestamp (System/currentTimeMillis)]
@@ -436,7 +436,7 @@
 (defrecord DatadogMetricsConfig [config registry]
   ports/IMetricsConfig
 
-  (set-default-tags! [this tags]
+  (set-default-tags! [_ tags]
     (let [previous (:global-tags @config)]
       (swap! config assoc :global-tags tags)
       (if (vector? previous)
@@ -449,7 +449,7 @@
         (vector-tags->map tags)
         tags)))
 
-  (set-export-interval! [this interval-ms]
+  (set-export-interval! [_ interval-ms]
     (let [previous (:export-interval @config)]
       (swap! config assoc :export-interval interval-ms)
       previous))
@@ -457,19 +457,19 @@
   (get-export-interval [this]
     (:export-interval @config))
 
-  (enable-metric! [this metric-name]
+  (enable-metric! [_ metric-name]
     (let [existed? (contains? @(:metrics registry) metric-name)]
       (when existed?
         (swap! (:enabled registry) conj metric-name))
       existed?))
 
-  (disable-metric! [this metric-name]
+  (disable-metric! [_ metric-name]
     (let [existed? (contains? @(:metrics registry) metric-name)]
       (when existed?
         (swap! (:enabled registry) disj metric-name))
       existed?))
 
-  (metric-enabled? [this metric-name]
+  (metric-enabled? [_ metric-name]
     (contains? @(:enabled registry) metric-name)))
 
 ;; =============================================================================
@@ -508,55 +508,55 @@
 
 (defrecord DatadogMetricsComponent [config registry emitter exporter metrics-config send-fn]
   ports/IMetricsRegistry
-  (register-counter! [this name description tags]
+  (register-counter! [_ name description tags]
     (ports/register-counter! registry name description tags))
-  (register-gauge! [this name description tags]
+  (register-gauge! [_ name description tags]
     (ports/register-gauge! registry name description tags))
-  (register-histogram! [this name description buckets tags]
+  (register-histogram! [_ name description buckets tags]
     (ports/register-histogram! registry name description buckets tags))
-  (register-summary! [this name description quantiles tags]
+  (register-summary! [_ name description quantiles tags]
     (ports/register-summary! registry name description quantiles tags))
-  (unregister! [this name]
+  (unregister! [_ name]
     (ports/unregister! registry name))
   (list-metrics [this]
     (ports/list-metrics registry))
-  (get-metric [this name]
+  (get-metric [_ name]
     (ports/get-metric registry name))
 
   ports/IMetricsEmitter
-  (inc-counter! [this metric-handle]
+  (inc-counter! [_ metric-handle]
     (ports/inc-counter! emitter metric-handle))
-  (inc-counter! [this metric-handle value]
+  (inc-counter! [_ metric-handle value]
     (ports/inc-counter! emitter metric-handle value))
-  (inc-counter! [this metric-handle value tags]
+  (inc-counter! [_ metric-handle value tags]
     (ports/inc-counter! emitter metric-handle value tags))
-  (set-gauge! [this metric-handle value]
+  (set-gauge! [_ metric-handle value]
     (ports/set-gauge! emitter metric-handle value))
-  (set-gauge! [this metric-handle value tags]
+  (set-gauge! [_ metric-handle value tags]
     (ports/set-gauge! emitter metric-handle value tags))
-  (observe-histogram! [this metric-handle value]
+  (observe-histogram! [_ metric-handle value]
     (ports/observe-histogram! emitter metric-handle value))
-  (observe-histogram! [this metric-handle value tags]
+  (observe-histogram! [_ metric-handle value tags]
     (ports/observe-histogram! emitter metric-handle value tags))
-  (observe-summary! [this metric-handle value]
+  (observe-summary! [_ metric-handle value]
     (ports/observe-summary! emitter metric-handle value))
-  (observe-summary! [this metric-handle value tags]
+  (observe-summary! [_ metric-handle value tags]
     (ports/observe-summary! emitter metric-handle value tags))
-  (time-histogram! [this metric-handle f]
+  (time-histogram! [_ metric-handle f]
     (ports/time-histogram! emitter metric-handle f))
-  (time-histogram! [this metric-handle tags f]
+  (time-histogram! [_ metric-handle tags f]
     (ports/time-histogram! emitter metric-handle tags f))
-  (time-summary! [this metric-handle f]
+  (time-summary! [_ metric-handle f]
     (ports/time-summary! emitter metric-handle f))
-  (time-summary! [this metric-handle tags f]
+  (time-summary! [_ metric-handle tags f]
     (ports/time-summary! emitter metric-handle tags f))
 
   ports/IMetricsExporter
-  (export-metrics [this format]
+  (export-metrics [_ format]
     (ports/export-metrics exporter format))
-  (export-metric [this metric-name format]
+  (export-metric [_ metric-name format]
     (ports/export-metric exporter metric-name format))
-  (get-metric-values [this metric-name]
+  (get-metric-values [_ metric-name]
     (ports/get-metric-values exporter metric-name))
   (reset-metrics! [this]
     (ports/reset-metrics! exporter))
@@ -564,19 +564,19 @@
     (ports/flush! exporter))
 
   ports/IMetricsConfig
-  (set-default-tags! [this tags]
+  (set-default-tags! [_ tags]
     (ports/set-default-tags! metrics-config tags))
   (get-default-tags [this]
     (ports/get-default-tags metrics-config))
-  (set-export-interval! [this interval-ms]
+  (set-export-interval! [_ interval-ms]
     (ports/set-export-interval! metrics-config interval-ms))
   (get-export-interval [this]
     (ports/get-export-interval metrics-config))
-  (enable-metric! [this metric-name]
+  (enable-metric! [_ metric-name]
     (ports/enable-metric! metrics-config metric-name))
-  (disable-metric! [this metric-name]
+  (disable-metric! [_ metric-name]
     (ports/disable-metric! metrics-config metric-name))
-  (metric-enabled? [this metric-name]
+  (metric-enabled? [_ metric-name]
     (ports/metric-enabled? metrics-config metric-name)))
 
 (defn create-datadog-metrics-component

@@ -81,7 +81,7 @@
 (defrecord S3FileStorage [bucket prefix public-read? s3-client presigner logger]
   ports/IFileStorage
 
-  (store-file [this file-data metadata]
+  (store-file [_ file-data metadata]
     (try
       (let [{:keys [bytes content-type]} file-data
             {:keys [filename path visibility]} metadata
@@ -142,7 +142,7 @@
                          :error (.getMessage e)}
                         e)))))
 
-  (retrieve-file [this file-key]
+  (retrieve-file [_ file-key]
     (try
       (let [get-request (-> (GetObjectRequest/builder)
                             (.bucket bucket)
@@ -181,7 +181,7 @@
                           :error (.getMessage e)}))
         nil)))
 
-  (delete-file [this file-key]
+  (delete-file [_ file-key]
     (try
       (let [delete-request (-> (DeleteObjectRequest/builder)
                                (.bucket bucket)
@@ -206,7 +206,7 @@
                           :error (.getMessage e)}))
         false)))
 
-  (file-exists? [this file-key]
+  (file-exists? [_ file-key]
     (try
       (let [head-request (-> (HeadObjectRequest/builder)
                              (.bucket bucket)
@@ -227,7 +227,7 @@
                           :error (.getMessage e)}))
         false)))
 
-  (generate-signed-url [this file-key expiration-seconds]
+  (generate-signed-url [_ file-key expiration-seconds]
     (try
       (let [get-request (-> (GetObjectRequest/builder)
                             (.bucket bucket)

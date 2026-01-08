@@ -155,7 +155,7 @@
 (defrecord InMemoryJobQueue [state]
   ports/IJobQueue
 
-  (enqueue-job! [this queue-name job]
+  (enqueue-job! [_ queue-name job]
     (let [job-id (:id job)]
       ;; Store job
       (swap! (:jobs state) assoc job-id job)
@@ -170,19 +170,19 @@
       (log/info "Enqueued job" {:job-id job-id :queue queue-name :priority (:priority job)})
       job-id))
 
-  (schedule-job! [this queue-name job execute-at]
+  (schedule-job! [_ queue-name job execute-at]
     (let [scheduled-job (assoc job :execute-at execute-at)]
       (ports/enqueue-job! this queue-name scheduled-job)))
 
-  (dequeue-job! [this queue-name]
+  (dequeue-job! [_ queue-name]
     (when-let [job-id (remove-from-queue! (:queues state) queue-name)]
       (get @(:jobs state) job-id)))
 
-  (peek-job [this queue-name]
+  (peek-job [_ queue-name]
     (when-let [job-id (peek-queue (:queues state) queue-name)]
       (get @(:jobs state) job-id)))
 
-  (delete-job! [this job-id]
+  (delete-job! [_ job-id]
     (let [job (get @(:jobs state) job-id)]
       (when job
         ;; Remove from jobs
@@ -192,7 +192,7 @@
         ;; Note: Can't efficiently remove from queues, but job won't be found when dequeued
         true)))
 
-  (queue-size [this queue-name]
+  (queue-size [_ queue-name]
     (queue-size-internal (:queues state) queue-name))
 
   (list-queues [this]
@@ -239,14 +239,14 @@
 (defrecord InMemoryJobStore [state]
   ports/IJobStore
 
-  (save-job! [this job]
+  (save-job! [_ job]
     (swap! (:jobs state) assoc (:id job) job)
     job)
 
-  (find-job [this job-id]
+  (find-job [_ job-id]
     (get @(:jobs state) job-id))
 
-  (update-job-status! [this job-id status result]
+  (update-job-status! [_ job-id status result]
     (when-let [job (get @(:jobs state) job-id)]
       (let [updated-job (case status
                           :running (job/start-job job)
@@ -262,7 +262,7 @@
 
         updated-job)))
 
-  (find-jobs [this filters]
+  (find-jobs [_ filters]
     (->> @(:jobs state)
          vals
          (filter (fn [job]
@@ -274,7 +274,7 @@
                             (= (:queue filters) (:queue job))))))
          vec))
 
-  (failed-jobs [this limit]
+  (failed-jobs [_ limit]
     (->> @(:failed state)
          (take limit)
          (map (fn [job-id]
@@ -282,7 +282,7 @@
          (filter some?)
          vec))
 
-  (retry-job! [this job-id]
+  (retry-job! [_ job-id]
     (when-let [job (get @(:jobs state) job-id)]
       (let [retry-config {:backoff-strategy :exponential
                           :initial-delay-ms 1000
@@ -321,7 +321,7 @@
                      queues)
        :workers []}))  ; In-memory implementation doesn't track workers
 
-  (queue-stats [this queue-name]
+  (queue-stats [_ queue-name]
     (let [queue-jobs (->> @(:jobs state)
                           vals
                           (filter #(= (:queue %) queue-name)))
@@ -336,7 +336,7 @@
        :succeeded-total (count completed-jobs)
        :avg-duration-ms avg-duration}))
 
-  (job-history [this job-type limit]
+  (job-history [_ job-type limit]
     (->> @(:jobs state)
          vals
          (filter #(= (:job-type %) job-type))

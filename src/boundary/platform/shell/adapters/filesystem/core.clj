@@ -14,29 +14,29 @@
 (defrecord FileSystemAdapter [base-path]
   fs-protocols/IFileSystemAdapter
 
-  (file-exists? [this path]
+  (file-exists? [_ path]
     (let [full-path (io/file base-path path)]
       (.exists full-path)))
 
-  (read-file [this path]
+  (read-file [_ path]
     (let [full-path (io/file base-path path)]
       (when (.exists full-path)
         (slurp full-path))))
 
-  (write-file [this path content]
+  (write-file [_ path content]
     (let [full-path (io/file base-path path)]
       ;; Create parent directories if needed
       (io/make-parents full-path)
       (spit full-path content)
       true))
 
-  (delete-file [this path]
+  (delete-file [_ path]
     (let [full-path (io/file base-path path)]
       (when (.exists full-path)
         (io/delete-file full-path)
         true)))
 
-  (list-files [this directory]
+  (list-files [_ directory]
     (let [dir (io/file base-path directory)]
       (when (.exists dir)
         (->> (.listFiles dir)
