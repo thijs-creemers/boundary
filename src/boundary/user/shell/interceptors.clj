@@ -392,7 +392,7 @@
                       response-body {:data formatted-users
                                      :pagination pagination-meta
                                      :meta {:version :v1
-                                            :timestamp (java.time.Instant/now)}}
+                                            :timestamp (type-conv/instant->string (java.time.Instant/now))}}
 
                       ;; Generate RFC 5988 Link header
                       request-uri (get-in context [:request :uri] "/api/v1/users")
