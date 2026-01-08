@@ -217,13 +217,14 @@
                    ;; Password verification failed
                    (not password-valid?)
                    (let [failure-updates (auth-core/calculate-failed-login-consequences
-                                          user auth-config current-time)]
-                     ;; Update user with failed login consequences (I/O)
-                     (.update-user user-repository user failure-updates)
-                     (log/warn "Authentication failed - invalid password" {:email email})
-                     {:success? false
-                      :error :authentication-failed
-                      :message "Invalid credentials"})
+                                           user auth-config current-time)
+                          updated-user (merge user failure-updates)]
+                      ;; Update user with failed login consequences (I/O)
+                      (.update-user user-repository updated-user)
+                      (log/warn "Authentication failed - invalid password" {:email email})
+                      {:success? false
+                       :error :authentication-failed
+                       :message "Invalid credentials"})
 
                    ;; MFA required but not provided
                    (and (:requires-mfa? mfa-requirement)
@@ -246,13 +247,18 @@
                    ;; Successful authentication (with or without MFA)
                    :else
                    (let [;; If backup code was used, update user
-                         _ (when (:used-backup-code? mfa-verification)
-                             (log/info "Backup code used for MFA" {:email email})
-                             (.update-user user-repository user (:updates mfa-verification)))
+                          user-after-mfa (if (:used-backup-code? mfa-verification)
+                                           (do
+                                             (log/info "Backup code used for MFA" {:email email})
+                                             (let [updated (merge user (:updates mfa-verification))]
+                                               (.update-user user-repository updated)
+                                               updated))
+                                           user)
 
-                         ;; Update user for successful login (I/O)  
-                         login-updates (auth-core/prepare-successful-login-updates user current-time)
-                         _ (.update-user user-repository user login-updates)
+                          ;; Update user for successful login (I/O)  
+                          login-updates (auth-core/prepare-successful-login-updates user-after-mfa current-time)
+                          updated-user (merge user-after-mfa login-updates)
+                          _ (.update-user user-repository updated-user)
 
                          ;; Determine session creation policy
                          session-policy (auth-core/should-create-session? user login-risk auth-config)

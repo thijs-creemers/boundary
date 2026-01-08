@@ -113,7 +113,7 @@
                                             (auth-shell/hash-password (:password user-data)))
                             user-data-with-hash (if password-hash
                                                   (-> user-data
-                                                      (assoc :password_hash password-hash)
+                                                      (assoc :password-hash password-hash)
                                                       (dissoc :password))
                                                   user-data)]
 
@@ -136,7 +136,7 @@
                               (println "WARN: Failed to create audit log:" (.getMessage e))))
 
                           ;; Remove sensitive data before returning
-                          (dissoc created-user :password_hash)))))
+                          (dissoc created-user :password-hash)))))
                   {:system {:user-repository user-repository
                             :session-repository session-repository
                             :auth-service auth-service}})]
@@ -171,8 +171,8 @@
                   :errors (:errors credential-validation)})
 
                  ;; 3. Verify password using auth service (shell layer I/O)
-               (if (and (:password_hash user)
-                        (auth-shell/verify-password password (:password_hash user)))
+               (if (and (:password-hash user)
+                        (auth-shell/verify-password password (:password-hash user)))
                    ;; 4. Check account security using pure authentication core
                  (let [login-decision (auth-core/should-allow-login-attempt? user {} (current-timestamp))]
                    (if (:allowed? login-decision)
@@ -204,7 +204,7 @@
 
                            ;; Return authentication result with session and JWT
                          {:authenticated true
-                          :user (dissoc user :password_hash)
+                          :user (dissoc user :password-hash)
                           :session created-session
                           :jwt-token (auth-shell/create-jwt-token user 24)}))
 
@@ -311,7 +311,7 @@
              user (.find-user-by-id user-repository user-id)]
          ;; Remove sensitive data before returning
          (when user
-           (dissoc user :password_hash))))
+           (dissoc user :password-hash))))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))
@@ -325,7 +325,7 @@
              user (.find-user-by-email user-repository email)]
          ;; Remove sensitive data before returning
          (when user
-           (dissoc user :password_hash))))
+           (dissoc user :password-hash))))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))
@@ -339,7 +339,7 @@
              result (.find-users user-repository options)
              users (:users result)
              total-count (:total-count result)
-             cleaned-users (map #(dissoc % :password_hash) users)]
+             cleaned-users (map #(dissoc % :password-hash) users)]
          ;; Remove sensitive data from all users and return with pagination info
          {:users cleaned-users
           :total-count total-count}))
@@ -388,7 +388,7 @@
 
              ;; Remove sensitive data before returning
              (when updated-user
-               (dissoc updated-user :password_hash))))))
+               (dissoc updated-user :password-hash))))))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))

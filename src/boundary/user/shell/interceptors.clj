@@ -11,7 +11,8 @@
             [boundary.shared.core.utils.type-conversion :as type-conv]
             [boundary.user.ports :as ports]
             [boundary.user.schema :as schema]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [cheshire.core :as json]))
 
 (def validate-user-creation-input
   "Validates required fields for user creation.
@@ -109,8 +110,6 @@
 
                 ;; Call the core service; it returns the created user entity directly
                 (let [created-user (ports/register-user service user-data)]
-                  (println "DEBUG created-user from service:" (select-keys created-user [:id :email :name :role :created-at :updated-at :deleted-at :last-login]))
-
                   ;; Add success breadcrumb and result
                   (-> updated-context
                       (assoc :created-user created-user)
@@ -375,33 +374,44 @@
             (let [users (:users context)
                   total-count (:total-count context)
                   options (:list-options context)
-                  interface-type (:interface-type context)]
+                  interface-type (ctx/get-interface-type context)]
 
               (case interface-type
                 :http
-                (let [formatted-users (map schema/user-specific-kebab->camel users)
+                (let [;; Format users for JSON response (handles Instant conversion)
+                      formatted-users (mapv schema/user-specific-kebab->camel users)
+
                       ;; Import pagination utilities (lazy require for performance)
                       calculate-offset-pagination (requiring-resolve 'boundary.platform.core.pagination.pagination/calculate-offset-pagination)
                       generate-link-header (requiring-resolve 'boundary.platform.shell.pagination.link-headers/generate-link-header)
 
                       limit (:limit options)
                       offset (:offset options)
-                      pagination-meta (calculate-offset-pagination total-count offset limit)
+                      pagination-raw (calculate-offset-pagination total-count offset limit)
+                      
+                      ;; Transform pagination to camelCase for JSON API
+                      pagination-meta {:type (:type pagination-raw)
+                                       :total (:total pagination-raw)
+                                       :offset (:offset pagination-raw)
+                                       :limit (:limit pagination-raw)
+                                       :hasNext (:has-next? pagination-raw)
+                                       :hasPrev (:has-prev? pagination-raw)
+                                       :page (:page pagination-raw)
+                                       :pages (:pages pagination-raw)}
 
-                      ;; Build paginated response body (using pagination utility format)
+                      ;; Build paginated response body
                       response-body {:data formatted-users
                                      :pagination pagination-meta
-                                     :meta {:version :v1
+                                     :meta {:version "v1"
                                             :timestamp (type-conv/instant->string (java.time.Instant/now))}}
 
                       ;; Generate RFC 5988 Link header
                       request-uri (get-in context [:request :uri] "/api/v1/users")
                       query-params (select-keys options [:limit :offset :filter-role :filter-active])
-                      link-header (generate-link-header request-uri query-params pagination-meta)
+                      link-header (generate-link-header request-uri query-params pagination-raw)
 
                       ;; Build response with Link header
                       response (cond-> {:status 200
-                                        :headers {"Content-Type" "application/json"}
                                         :body response-body}
                                  link-header
                                  (assoc-in [:headers "Link"] link-header))]
@@ -416,21 +426,19 @@
                                            :response-format :json})))
 
                 :cli
-                (let [formatted-users (map #(select-keys % [:id :email :name :role :active]) users)
-                      response {:status :success
-                                :data {:users formatted-users
-                                       :total-count (or total-count 0)
-                                       :limit (:limit options)
-                                       :offset (:offset options)}
-                                :message (str "Found " (count formatted-users) " users")}]
+                (let [response {:status :success
+                                :data {:users users
+                                       :total-count total-count}
+                                :message (str "Found " (count users) " users")}]
                   (-> context
                       (assoc :response response)
                       (ctx/add-breadcrumb :operation :user-list-formatted
-                                          {:user-count (count formatted-users)
+                                          {:user-count (count users)
+                                           :total-count total-count
                                            :response-format :cli}))))))})
 
 (defn create-user-list-pipeline
-  "Creates pipeline for listing all users."
+  "Creates pipeline for listing users with pagination."
   [interface-type]
   (case interface-type
     :http (interceptors/create-http-pipeline
@@ -444,200 +452,6 @@
           transform-list-users-params
           fetch-users
           format-users-list-response)))
-
-;; ==============================================================================
-;; UPDATE USER OPERATION INTERCEPTORS
-;; ==============================================================================
-
-(def validate-user-update-input
-  "Validates input for updating a user.
-   
-   HTTP: Validates path has id and body has update fields  
-   CLI: Validates opts has id and at least one update field"
-  {:name ::validate-user-update-input
-   :enter (fn [context]
-            (let [interface-type (ctx/get-interface-type context)
-                  [user-id-str update-data] (case interface-type
-                                              :http [(get-in context [:request :parameters :path :id])
-                                                     (get-in context [:request :parameters :body])]
-                                              :cli [(:id (:opts context))
-                                                    (select-keys (:opts context) [:name :role :active])])]
-
-              (cond
-                ;; User ID is required
-                (nil? user-id-str)
-                (ctx/fail-with-exception context
-                                         (ex-info "User ID is required"
-                                                  {:type :validation-error
-                                                   :field (case interface-type :http :id :cli :id)
-                                                   :message (case interface-type
-                                                              :http "User ID is required in path"
-                                                              :cli "User ID is required (--id)")
-                                                   :interface-type interface-type}))
-
-                ;; Body/opts must contain at least one update field
-                (or (nil? update-data) (empty? update-data))
-                (ctx/fail-with-exception context
-                                         (ex-info "Update data is required"
-                                                  {:type :validation-error
-                                                   :field (case interface-type :http :body :cli :opts)
-                                                   :message (case interface-type
-                                                              :http "At least one field must be provided for update"
-                                                              :cli "At least one of --name, --role, or --active is required")
-                                                   :interface-type interface-type}))
-
-                ;; Validate allowed update fields
-                (not-every? #{:name :role :active} (keys update-data))
-                (ctx/fail-with-exception context
-                                         (ex-info "Invalid update fields"
-                                                  {:type :validation-error
-                                                   :field (case interface-type :http :body :cli :opts)
-                                                   :message "Only name, role, and active fields can be updated"
-                                                   :allowed-fields [:name :role :active]
-                                                   :provided-fields (keys update-data)
-                                                   :interface-type interface-type}))
-
-                ;; All validations passed
-                :else
-                (-> context
-                    (assoc :raw-user-id user-id-str
-                           :raw-update-data update-data)
-                    (ctx/add-breadcrumb :operation :user-update-validation-success
-                                        {:user-id user-id-str
-                                         :update-fields (keys update-data)
-                                         :interface-type interface-type})))))})
-
-(def transform-user-update-data
-  "Transforms and normalizes user update data.
-   
-   HTTP: Converts userId string to UUID, processes body data
-   CLI: Uses provided UUID directly, processes opts data"
-  {:name ::transform-user-update-data
-   :enter (fn [context]
-            (let [interface-type (ctx/get-interface-type context)
-                  user-id-str (:raw-user-id context)
-                  update-data (:raw-update-data context)
-                  ;; Transform user ID (CLI already provides UUID, HTTP provides string)
-                  user-id (case interface-type
-                            :http (type-conv/string->uuid user-id-str)
-                            :cli user-id-str) ; Already a UUID from CLI parsing
-                  ;; Transform update data (same structure for both interfaces)
-                  transformed-updates (cond-> {}
-                                        (:name update-data) (assoc :name (:name update-data))
-                                        (:role update-data) (assoc :role (case interface-type
-                                                                           :http (keyword (:role update-data))
-                                                                           :cli (:role update-data))) ; Already a keyword from CLI parsing
-                                        (some? (:active update-data)) (assoc :active (:active update-data)))]
-
-              (-> context
-                  (assoc :user-id user-id
-                         :update-data transformed-updates)
-                  (ctx/add-breadcrumb :operation :user-update-transform-complete
-                                      {:user-id user-id
-                                       :updates transformed-updates
-                                       :interface-type interface-type}))))})
-
-(def fetch-current-user-for-update
-  "Fetches current user data for update validation."
-  {:name ::fetch-current-user-for-update
-   :enter (fn [context]
-            (let [user-id (:user-id context)
-                  service (ctx/get-service context)
-                  updated-context (ctx/add-breadcrumb context :operation :user-fetch-for-update-start
-                                                      {:user-id user-id})]
-
-              (let [current-user (ports/get-user-by-id service user-id)]
-                (if current-user
-                  (-> updated-context
-                      (assoc :current-user current-user)
-                      (ctx/add-breadcrumb :operation :user-fetch-for-update-success
-                                          {:user-id user-id
-                                           :current-role (:role current-user)
-                                           :current-active (:active current-user)}))
-
-                  (let [not-found-error {:type :user-not-found
-                                         :message "User not found"
-                                         :user-id user-id}]
-                    (-> updated-context
-                        (ctx/add-breadcrumb :operation :user-fetch-for-update-not-found
-                                            {:user-id user-id})
-                        (ctx/fail-with-exception (ex-info (:message not-found-error) not-found-error))))))))})
-
-(def apply-user-updates
-  "Applies updates to user and persists changes."
-  {:name ::apply-user-updates
-   :enter (fn [context]
-            (let [current-user (:current-user context)
-                  update-data (:update-data context)
-                  service (ctx/get-service context)
-                  updated-user (merge current-user update-data)
-                  updated-context (ctx/add-breadcrumb context :operation :user-update-start
-                                                      {:user-id (:id current-user)
-                                                       :changes update-data})]
-
-              (try
-                (let [result (ports/update-user-profile service updated-user)]
-                  (-> updated-context
-                      (assoc :updated-user result)
-                      (ctx/add-breadcrumb :operation :user-update-success
-                                          {:user-id (:id result)
-                                           :updated-fields (keys update-data)
-                                           :role-change (when (:role update-data)
-                                                          {:from (:role current-user)
-                                                           :to (:role result)})})))
-
-                (catch Exception ex
-                  (-> updated-context
-                      (ctx/add-breadcrumb :operation :user-update-error
-                                          {:user-id (:id current-user)
-                                           :error-type (or (:type (ex-data ex)) "unknown")
-                                           :error-message (.getMessage ex)})
-                      (ctx/fail-with-exception ex))))))})
-
-(def format-user-update-response
-  "Formats the updated user for response."
-  {:name ::format-user-update-response
-   :enter (fn [context]
-            (let [updated-user (:updated-user context)
-                  interface-type (:interface-type context)]
-
-              (case interface-type
-                :http
-                (let [response {:status 200
-                                :body (schema/user-specific-kebab->camel updated-user)}]
-                  (-> context
-                      (assoc :response response)
-                      (ctx/add-breadcrumb :operation :user-update-formatted
-                                          {:user-id (:id updated-user)
-                                           :response-format :json})))
-
-                :cli
-                (let [response {:status :success
-                                :data (select-keys updated-user [:id :email :name :role :active])
-                                :message (str "User " (:email updated-user) " updated successfully")}]
-                  (-> context
-                      (assoc :response response)
-                      (ctx/add-breadcrumb :operation :user-update-formatted
-                                          {:user-id (:id updated-user)
-                                           :response-format :cli}))))))})
-
-(defn create-user-update-pipeline
-  "Creates pipeline for updating an existing user."
-  [interface-type]
-  (case interface-type
-    :http (interceptors/create-http-pipeline
-           validate-user-update-input
-           transform-user-update-data
-           fetch-current-user-for-update
-           apply-user-updates
-           format-user-update-response)
-
-    :cli (interceptors/create-cli-pipeline
-          validate-user-update-input
-          transform-user-update-data
-          fetch-current-user-for-update
-          apply-user-updates
-          format-user-update-response)))
 
 ;; ==============================================================================
 ;; DELETE USER OPERATION INTERCEPTORS
@@ -756,6 +570,181 @@
           transform-user-delete-id
           deactivate-user-account
           format-user-delete-response)))
+
+;; ==============================================================================
+;; UPDATE USER OPERATION INTERCEPTORS
+;; ==============================================================================
+
+(def validate-user-update-input
+  "Validates input for updating a user.
+   
+   HTTP: Validates path has id parameter and body has update fields
+   CLI: Validates opts has id and update fields"
+  {:name ::validate-user-update-input
+   :enter (fn [context]
+            (let [interface-type (ctx/get-interface-type context)
+                  user-id-str (case interface-type
+                                :http (get-in context [:request :parameters :path :id])
+                                :cli (:id (:opts context)))
+                  update-data (case interface-type
+                                :http (get-in context [:request :parameters :body])
+                                :cli (dissoc (:opts context) :id))]
+
+              (cond
+                (nil? user-id-str)
+                (ctx/fail-with-exception context
+                                         (ex-info "User ID is required"
+                                                  {:type :validation-error
+                                                   :field :id
+                                                   :message (case interface-type
+                                                              :http "User ID is required in path"
+                                                              :cli "User ID is required (--id)")
+                                                   :interface-type interface-type}))
+
+                (empty? update-data)
+                (ctx/fail-with-exception context
+                                         (ex-info "No update fields provided"
+                                                  {:type :validation-error
+                                                   :message "At least one field to update is required"
+                                                   :interface-type interface-type}))
+
+                :else
+                (-> context
+                    (assoc :raw-user-id user-id-str
+                           :raw-update-data update-data)
+                    (ctx/add-breadcrumb :operation :user-update-validation-success
+                                        {:user-id user-id-str
+                                         :update-fields (keys update-data)
+                                         :interface-type interface-type})))))})
+
+(def transform-user-update-data
+  "Transforms user update data.
+   
+   HTTP: Converts string ID to UUID, normalizes field names
+   CLI: Normalizes field names"
+  {:name ::transform-user-update-data
+   :enter (fn [context]
+            (let [interface-type (ctx/get-interface-type context)
+                  user-id-str (:raw-user-id context)
+                  raw-data (:raw-update-data context)
+                  user-id (case interface-type
+                            :http (type-conv/string->uuid user-id-str)
+                            :cli user-id-str)
+                  update-data (cond-> {}
+                                (:name raw-data) (assoc :name (:name raw-data))
+                                (:role raw-data) (assoc :role (keyword (:role raw-data)))
+                                (some? (:active raw-data)) (assoc :active (:active raw-data)))]
+
+              (-> context
+                  (assoc :user-id user-id
+                         :update-data update-data)
+                  (ctx/add-breadcrumb :operation :user-update-transform-complete
+                                      {:user-id user-id
+                                       :update-fields (keys update-data)
+                                       :interface-type interface-type}))))})
+
+(def fetch-current-user-for-update
+  "Fetches the current user for update validation."
+  {:name ::fetch-current-user-for-update
+   :enter (fn [context]
+            (let [user-id (:user-id context)
+                  service (ctx/get-service context)
+                  updated-context (ctx/add-breadcrumb context :operation :user-fetch-for-update-start
+                                                      {:user-id user-id})]
+
+              (try
+                (let [existing-user (ports/get-user-by-id service user-id)]
+                  (if existing-user
+                    (-> updated-context
+                        (assoc :existing-user existing-user)
+                        (ctx/add-breadcrumb :operation :user-fetch-for-update-success
+                                            {:user-id user-id
+                                             :email (:email existing-user)}))
+                    (-> updated-context
+                        (ctx/fail-with-exception (ex-info "User not found"
+                                                          {:type :user-not-found
+                                                           :user-id user-id})))))
+
+                (catch Exception ex
+                  (-> updated-context
+                      (ctx/add-breadcrumb :operation :user-fetch-for-update-error
+                                          {:user-id user-id
+                                           :error-message (.getMessage ex)})
+                      (ctx/fail-with-exception ex))))))})
+
+(def apply-user-updates
+  "Applies updates to the user."
+  {:name ::apply-user-updates
+   :enter (fn [context]
+            (let [user-id (:user-id context)
+                  update-data (:update-data context)
+                  existing-user (:existing-user context)
+                  service (ctx/get-service context)
+                  updated-context (ctx/add-breadcrumb context :operation :user-update-apply-start
+                                                      {:user-id user-id
+                                                       :update-fields (keys update-data)})
+                  ;; Merge updates into existing user
+                  user-entity (merge existing-user update-data)]
+
+              (try
+                (let [updated-user (ports/update-user-profile service user-entity)]
+                  (-> updated-context
+                      (assoc :updated-user updated-user)
+                      (ctx/add-breadcrumb :operation :user-update-apply-success
+                                          {:user-id user-id
+                                           :email (:email updated-user)})))
+
+                (catch Exception ex
+                  (-> updated-context
+                      (ctx/add-breadcrumb :operation :user-update-apply-error
+                                          {:user-id user-id
+                                           :error-message (.getMessage ex)})
+                      (ctx/fail-with-exception ex))))))})
+
+(def format-user-update-response
+  "Formats the update response."
+  {:name ::format-user-update-response
+   :enter (fn [context]
+            (let [updated-user (:updated-user context)
+                  interface-type (ctx/get-interface-type context)]
+
+              (case interface-type
+                :http
+                (let [response {:status 200
+                                :body (schema/user-specific-kebab->camel updated-user)}]
+                  (-> context
+                      (assoc :response response)
+                      (ctx/add-breadcrumb :operation :user-update-formatted
+                                          {:user-id (:id updated-user)
+                                           :response-format :json})))
+
+                :cli
+                (let [response {:status :success
+                                :data (select-keys updated-user [:id :email :name :role :active])
+                                :message (str "User " (:email updated-user) " updated successfully")}]
+                  (-> context
+                      (assoc :response response)
+                      (ctx/add-breadcrumb :operation :user-update-formatted
+                                          {:user-id (:id updated-user)
+                                           :response-format :cli}))))))})
+
+(defn create-user-update-pipeline
+  "Creates pipeline for updating an existing user."
+  [interface-type]
+  (case interface-type
+    :http (interceptors/create-http-pipeline
+           validate-user-update-input
+           transform-user-update-data
+           fetch-current-user-for-update
+           apply-user-updates
+           format-user-update-response)
+
+    :cli (interceptors/create-cli-pipeline
+          validate-user-update-input
+          transform-user-update-data
+          fetch-current-user-for-update
+          apply-user-updates
+          format-user-update-response)))
 
 ;; ==============================================================================
 ;; SESSION MANAGEMENT INTERCEPTORS
