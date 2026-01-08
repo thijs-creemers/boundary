@@ -37,44 +37,43 @@
     :cross-field-validation {:admin-requires-company-email? false ; Relaxed for dev
                              :manager-requires-department? false}}}
 
-  ;; Active database configurations
-  ;; Only databases listed here will be loaded and initialized
-
-  :boundary/sqlite
-  {:db "dev-database.db"
-   :pool {:minimum-idle 1
-          :maximum-pool-size 3
-          :connection-timeout-ms 10000}}
+   ;; Active database configurations
+   ;; Only databases listed here will be loaded and initialized
+   :boundary/sqlite
+   {:db "dev-database.db"
+    :pool {:minimum-idle 1
+           :maximum-pool-size 3
+           :connection-timeout-ms 10000}}
 
    ;; HTTP Server configuration
-   :boundary/http
-   {:port #or [#env HTTP_PORT 3000]
-    :host #or [#env HTTP_HOST "0.0.0.0"]
-    :join? false
+  :boundary/http
+  {:port #or [#env HTTP_PORT 3000]
+   :host #or [#env HTTP_HOST "0.0.0.0"]
+   :join? false
     ;; Port conflict resolution - if default port is busy, system will try higher ports
-    :port-range {:start 3000 :end 3099}}
+   :port-range {:start 3000 :end 3099}}
 
    ;; HTTP Router configuration
-   :boundary/router
-   {:adapter :reitit  ; Router implementation: :reitit, :pedestal, etc.
-    :coercion :malli  ; Coercion library: :malli, :spec, etc.
-    :middleware []}   ; Global middleware (specific middleware in routes)
+  :boundary/router
+  {:adapter :reitit  ; Router implementation: :reitit, :pedestal, etc.
+   :coercion :malli  ; Coercion library: :malli, :spec, etc.
+   :middleware []}   ; Global middleware (specific middleware in routes)
 
    ;; API Versioning configuration
-   :boundary/api-versioning
-   {:default-version :v1           ; Default version when not specified
-    :latest-stable :v1              ; Latest stable version
-    :deprecated-versions #{}        ; Set of deprecated versions (e.g., #{:v0})
-    :sunset-dates {}                ; Map of version -> ISO date (e.g., {:v0 "2026-06-01"})
-    :supported-versions #{:v1}}     ; Set of all supported versions
+  :boundary/api-versioning
+  {:default-version :v1           ; Default version when not specified
+   :latest-stable :v1              ; Latest stable version
+   :deprecated-versions #{}        ; Set of deprecated versions (e.g., #{:v0})
+   :sunset-dates {}                ; Map of version -> ISO date (e.g., {:v0 "2026-06-01"})
+   :supported-versions #{:v1}}     ; Set of all supported versions
 
    ;; Pagination configuration
-   :boundary/pagination
-   {:default-limit 20               ; Default items per page
-    :max-limit 100                  ; Maximum items per page
-    :default-type :offset           ; Default pagination type (:offset or :cursor)
-    :cursor-ttl 3600                ; Cursor time-to-live in seconds (1 hour)
-    :enable-link-headers true}      ; Enable RFC 5988 Link headers
+  :boundary/pagination
+  {:default-limit 20               ; Default items per page
+   :max-limit 100                  ; Maximum items per page
+   :default-type :offset           ; Default pagination type (:offset or :cursor)
+   :cursor-ttl 3600                ; Cursor time-to-live in seconds (1 hour)
+   :enable-link-headers true}      ; Enable RFC 5988 Link headers
 
    ;; Observability configurations
   ;; Using SLF4J provider with Logback backend for unified logging
@@ -89,22 +88,38 @@
   {:provider :no-op}
 
   :boundary/error-reporting
-  {:provider :no-op}}
+  {:provider :no-op}
+
+  ;; Admin interface configuration
+  :boundary/admin
+  {:enabled? true
+   :base-path "/web/admin"
+   :require-role :admin
+   :entity-discovery {:mode :allowlist
+                      :allowlist #{:users}}
+   :entities {:users {:label "Users"
+                      :list-fields [:email :name :role :active :created-at]
+                      :search-fields [:email :name]
+                      :hide-fields #{:password-hash :deleted-at}
+                      :readonly-fields #{:id :created-at :updated-at}}}
+   :pagination {:default-page-size 50
+                :max-page-size 200}}}
 
  :inactive
  {;; Inactive database configurations
   ;; These are available for reference but won't be loaded unless moved to :active
 
   :boundary/postgresql
-  {:host     #or [#env POSTGRES_HOST "localhost"]
-   :port     5432
-   :dbname   #or [#env POSTGRES_DB "boundary_dev"]
-   :user     #or [#env POSTGRES_USER "postgres"]
-   :password #or [#env POSTGRES_PASSWORD "postgres"]
+  {:host #or [#env POSTGRES_HOST "localhost"]
+   :port #or [#env POSTGRES_PORT 5432]
+   :dbname #or [#env POSTGRES_DB "boundary_dev"]
+   :user #or [#env POSTGRES_USER "boundary_dev"]
+   :password #or [#env POSTGRES_PASSWORD "dev_password"]
    :auto-commit true
-   :pool {:minimum-idle 5
-          :maximum-pool-size 15
+   :pool {:minimum-idle 2
+          :maximum-pool-size 10
           :connection-timeout-ms 30000}}
+
 
   :boundary/mysql
   {:host #env "MYSQL_HOST"
@@ -160,6 +175,3 @@
 
   :boundary/logging-no-op
   {:provider :no-op}}}
-
-
-

@@ -9,10 +9,11 @@
      java -jar boundary-standalone.jar              # Start HTTP server
      java -jar boundary-standalone.jar server       # Start HTTP server explicitly
      java -jar boundary-standalone.jar cli [args]   # Run CLI commands"
-  (:require [boundary.config :as config]
-            [clojure.string :as str]
-            [clojure.tools.logging :as log]
-            [integrant.core :as ig])
+   (:require [boundary.config :as config]
+             [boundary.platform.shell.system.wiring] ; Required for Integrant init functions
+             [clojure.string :as str]
+             [clojure.tools.logging :as log]
+             [integrant.core :as ig])
   (:gen-class))
 
 (defn- print-usage

@@ -292,12 +292,17 @@
      (cond
        (map? errors)
        [:ul
-        (for [[field field-errors] errors
-              error field-errors]
-          (let [field-label (when field (name field))]
-            [:li (if field-label
-                   (str field-label ": " error)
-                   (str error))]))]
+        (for [[field field-errors] errors]
+          (let [field-label (when field (name field))
+                ;; Ensure field-errors is always a collection
+                errors-coll (cond
+                             (coll? field-errors) field-errors
+                             field-errors [field-errors]
+                             :else [])]
+            (for [error errors-coll]
+              [:li (if field-label
+                     (str field-label ": " error)
+                     (str error))])))]
 
        (coll? errors)
        [:ul

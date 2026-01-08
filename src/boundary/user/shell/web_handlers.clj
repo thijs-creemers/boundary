@@ -216,7 +216,7 @@
     (let [form-data (:form-params request)
           raw-return-to (or (get form-data "return-to")
                             (get-in request [:query-params "return-to"]))
-          return-to (safe-return-url raw-return-to "/web/users")
+          return-to (safe-return-url raw-return-to "/web/admin/users")
           prepared-data {:email (get form-data "email")
                          :password (get form-data "password")
                          :remember (= "on" (get form-data "remember"))
@@ -248,7 +248,8 @@
                       ;; 30 days if remember-me is checked, otherwise session cookie (no max-age)
                     cookie-max-age (when remember? (* 30 24 60 60))]
                 (log/info "Login successful, setting cookie and redirecting"
-                          {:session-token (str (take 16 session-token) "...")
+                          {:session-token session-token
+                           :session-token-type (type session-token)
                            :remember? remember?
                            :cookie-max-age cookie-max-age
                            :return-to return-to})

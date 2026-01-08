@@ -88,14 +88,17 @@
    Example:
      {:adapter :sqlite :database-path \"dev-database.db\"}"
   [config]
-  (let [adapter (db-adapter config)
-        adapter-key (keyword "boundary" (name adapter))
-        adapter-config (get-in config [:active adapter-key])]
+   (let [adapter (db-adapter config)
+         adapter-key (keyword "boundary" (name adapter))
+         slash-key (keyword (str "boundary/" (name adapter)))
+         adapter-config (or (get-in config [:active adapter-key])
+                           (get-in config [:active slash-key]))]
 
-    (when-not adapter-config
-      (throw (ex-info "No configuration found for active adapter"
-                      {:adapter adapter
-                       :adapter-key adapter-key})))
+     (when-not adapter-config
+       (throw (ex-info "No configuration found for active adapter"
+                       {:adapter adapter
+                        :adapter-key adapter-key
+                        :slash-key slash-key})))
 
     (case adapter
       :sqlite
@@ -303,6 +306,7 @@
      {:config config
       :user-routes (ig/ref :boundary/user-routes)
       :inventory-routes (ig/ref :boundary/inventory-routes)
+      :admin-routes (ig/ref :boundary/admin-routes)
       :router (ig/ref :boundary/router)
       :logger (ig/ref :boundary/logging)
       :metrics-emitter (ig/ref :boundary/metrics)
@@ -326,24 +330,53 @@
    {:service (ig/ref :boundary/inventory-service)
     :config config}})
 
+(defn- admin-module-config
+  "Return Integrant configuration for the admin module.
+
+   This wiring enables the auto-generated admin CRUD interface:
+   - Schema provider for database introspection
+   - Admin service for CRUD operations
+   - Admin routes for web UI
+
+   The admin module is only active if :boundary/admin is present
+   in the active config with :enabled? true."
+  [config]
+  (let [admin-cfg (get-in config [:active :boundary/admin])]
+    (when (and admin-cfg (:enabled? admin-cfg))
+      {:boundary/admin-schema-provider
+       {:db-ctx (ig/ref :boundary/db-context)
+        :config admin-cfg}
+
+       :boundary/admin-service
+       {:db-ctx (ig/ref :boundary/db-context)
+        :schema-provider (ig/ref :boundary/admin-schema-provider)
+        :logger (ig/ref :boundary/logging)
+        :error-reporter (ig/ref :boundary/error-reporting)}
+
+       :boundary/admin-routes
+       {:admin-service (ig/ref :boundary/admin-service)
+        :schema-provider (ig/ref :boundary/admin-schema-provider)
+        :user-service (ig/ref :boundary/user-service)
+        :config admin-cfg}})))
+
 (defn ig-config
   "Generate Integrant configuration map from loaded config.
-   
+
    The configuration is composed from:
    - Core system components (database, observability)
-   - Module-specific components (:user, :inventory)
-   
+   - Module-specific components (:user, :inventory, :admin)
+
    Future modules can be added by:
    1. Creating a *-module-config function (like user-module-config)
    2. Merging it into the final config map
    3. Ensuring the module's wiring namespace is required
-   
+
    Args:
      config: Configuration map from load-config
-   
+
    Returns:
      Integrant config map ready for integrant.core/init
-   
+
    Example:
      (def config (load-config))
      (def ig-cfg (ig-config config))
@@ -351,7 +384,8 @@
   [config]
   (merge (core-system-config config)
          (user-module-config config)
-         (inventory-module-config config)))
+         (inventory-module-config config)
+         (admin-module-config config)))
 
 ;; =============================================================================
 ;; REPL Utilities
