@@ -17,7 +17,7 @@
 (defprotocol IStorageService
   "Service for managing file storage operations."
 
-  (upload-file [this file-data metadata options]
+  (upload-file [_ file-data metadata options]
     "Upload a file with validation.
 
     Parameters:
@@ -28,7 +28,7 @@
     Returns:
     Storage result map or validation errors")
 
-  (upload-image [this image-bytes metadata options]
+  (upload-image [_ image-bytes metadata options]
     "Upload an image with optional processing.
 
     Parameters:
@@ -39,19 +39,19 @@
     Returns:
     Map with :original (storage result) and optional :thumbnail")
 
-  (download-file [this file-key]
+  (download-file [_ file-key]
     "Download a file by its storage key.
 
     Returns:
     File data map or nil if not found")
 
-  (remove-file [this file-key]
+  (remove-file [_ file-key]
     "Remove a file from storage.
 
     Returns:
     Boolean indicating success")
 
-  (get-file-url [this file-key expiration-seconds]
+  (get-file-url [_ file-key expiration-seconds]
     "Get a URL for accessing a file.
 
     For public files, returns direct URL.
@@ -67,7 +67,7 @@
 (defrecord StorageService [storage image-processor logger]
   IStorageService
 
-  (upload-file [this file-data metadata options]
+  (upload-file [_ file-data metadata options]
     (when logger
       (logging/info logger "Upload file started"
                     {:event ::upload-file-started
@@ -112,7 +112,7 @@
          :errors [{:code :storage-error
                    :message (.getMessage e)}]})))
 
-  (upload-image [this image-bytes metadata options]
+  (upload-image [_ image-bytes metadata options]
     (when logger
       (logging/info logger "Upload image started"
                     {:event ::upload-image-started
@@ -181,7 +181,7 @@
          :errors [{:code :storage-error
                    :message (.getMessage e)}]})))
 
-  (download-file [this file-key]
+  (download-file [_ file-key]
     (when logger
       (logging/debug logger "Download file requested"
                      {:event ::download-file-requested
@@ -208,7 +208,7 @@
                           :error (.getMessage e)}))
         nil)))
 
-  (remove-file [this file-key]
+  (remove-file [_ file-key]
     (when logger
       (logging/info logger "Remove file requested"
                     {:event ::remove-file-requested
@@ -234,7 +234,7 @@
                           :error (.getMessage e)}))
         false)))
 
-  (get-file-url [this file-key expiration-seconds]
+  (get-file-url [_ file-key expiration-seconds]
     (try
       (let [url (ports/generate-signed-url storage file-key (or expiration-seconds 3600))]
         (when logger

@@ -36,6 +36,7 @@
             ;; todo: need to find a way to decouple these dependencies an inject them in another way.
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
             [boundary.inventory.shell.module-wiring] ;; Load inventory module init/halt methods
+            [boundary.admin.shell.module-wiring] ;; Load admin module init/halt methods
             [cheshire.core]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]
@@ -96,7 +97,7 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes inventory-routes router logger metrics-emitter error-reporter config]}]
+  [_ {:keys [user-routes inventory-routes admin-routes router logger metrics-emitter error-reporter config]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)
@@ -136,9 +137,12 @@
         ;; User routes are in normalized format - use directly
         user-normalized-static (when (seq user-static-routes) user-static-routes)
         user-normalized-web (when (seq user-web-routes)
-                             ;; Add /web prefix to web routes
-                              (mapv (fn [route]
-                                      (update route :path #(str "/web" %)))
+                             ;; Add /web prefix to web routes and merge :meta into route root
+                              (mapv (fn [{:keys [path meta] :as route}]
+                                      (-> route
+                                          (dissoc :meta)
+                                          (merge meta)
+                                          (assoc :path (str "/web" path))))
                                     user-web-routes))
         user-normalized-api (when (seq user-api-routes) user-api-routes)
 
@@ -150,15 +154,45 @@
         ;; Inventory routes are in normalized format - use directly
         inventory-normalized-static (when (seq inventory-static-routes) inventory-static-routes)
         inventory-normalized-web (when (seq inventory-web-routes)
-                                  ;; Add /web prefix to web routes
-                                   (mapv (fn [route]
-                                           (update route :path #(str "/web" %)))
+                                  ;; Add /web prefix to web routes and merge :meta into route root
+                                   (mapv (fn [{:keys [path meta] :as route}]
+                                           (-> route
+                                               (dissoc :meta)
+                                               (merge meta)
+                                               (assoc :path (str "/web" path))))
                                          inventory-web-routes))
         inventory-normalized-api (when (seq inventory-api-routes) inventory-api-routes)
 
+        ;; Extract admin module routes (normalized format) - may be nil if admin disabled
+        admin-static-routes (or (:static admin-routes) [])
+        admin-web-routes (or (:web admin-routes) [])
+        admin-api-routes (or (:api admin-routes) [])
+
+        ;; Admin routes are in normalized format - use directly
+        admin-normalized-static (when (seq admin-static-routes) admin-static-routes)
+        admin-normalized-web (when (seq admin-web-routes)
+                              ;; Add /web/admin prefix to web routes and merge :meta into route root
+                               (let [transformed (mapv (fn [{:keys [path meta] :as route}]
+                                                        (let [result (-> route
+                                                                         (dissoc :meta)
+                                                                         (merge meta)
+                                                                         (assoc :path (str "/web/admin" path)))]
+                                                          (log/info "Admin route transformation"
+                                                                    {:original-path path
+                                                                     :new-path (:path result)
+                                                                     :had-meta (some? meta)
+                                                                     :has-middleware (contains? result :middleware)
+                                                                     :result-keys (keys result)})
+                                                          result))
+                                                      admin-web-routes)]
+                                 (log/info "Total admin web routes transformed" {:count (count transformed)})
+                                 transformed))
+        admin-normalized-api (when (seq admin-api-routes) admin-api-routes)
+
         ;; Combine all API routes (unversioned at this point)
         all-api-routes (concat (or user-normalized-api [])
-                               (or inventory-normalized-api []))
+                               (or inventory-normalized-api [])
+                               (or admin-normalized-api []))
 
         ;; Apply API versioning to all API routes
         ;; This wraps routes with /api/v1 prefix and creates backward compatibility redirects
@@ -172,6 +206,8 @@
                                       (or user-normalized-web [])
                                       (or inventory-normalized-static [])
                                       (or inventory-normalized-web [])
+                                      (or admin-normalized-static [])
+                                      (or admin-normalized-web [])
                                       versioned-api-routes)
 
         ;; Build system services map for HTTP interceptors
@@ -180,9 +216,19 @@
                 :error-reporter error-reporter}
 
         ;; Compile routes using router adapter with system services
-        router-config {:middleware []  ; Add any global middleware here
+        ;; Add method override middleware for HTML form PUT/DELETE support
+        router-config {:middleware [(fn [handler]
+                                       (fn [request]
+                                         (if (= :post (:request-method request))
+                                           (let [method (or (get-in request [:form-params "_method"])
+                                                            (get-in request [:params "_method"]))]
+                                             (if method
+                                               (let [override-method (keyword (clojure.string/lower-case method))]
+                                                 (handler (assoc request :request-method override-method)))
+                                               (handler request)))
+                                           (handler request))))]
                        :system system}
-        handler (compile-routes router all-normalized-routes router-config)
+         handler (compile-routes router all-normalized-routes router-config)
 
         ;; Wrap handler with version headers middleware
         versioned-handler (http-versioning/wrap-handler-with-version-headers handler config)]
@@ -194,6 +240,9 @@
                :inventory-routes {:static (count (or inventory-static-routes []))
                                   :web (count (or inventory-web-routes []))
                                   :api (count (or inventory-api-routes []))}
+               :admin-routes {:static (count (or admin-static-routes []))
+                              :web (count (or admin-web-routes []))
+                              :api (count (or admin-api-routes []))}
                :versioned-api-routes (count versioned-api-routes)
                :total-normalized-routes (count all-normalized-routes)
                :router-adapter (class router)

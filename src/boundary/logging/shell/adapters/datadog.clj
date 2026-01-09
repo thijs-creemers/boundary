@@ -183,7 +183,7 @@
 
 (defrecord DatadogLogger [config batch-processor]
   ports/ILogger
-  (log* [this level message context exception]
+  (log* [_ level message context exception]
     (try
       (let [thread-context (get-thread-context)
             merged-context (merge thread-context context)
@@ -192,40 +192,40 @@
       (catch Exception e
         (log/error e "Error in Datadog logger"))))
 
-  (trace [this message]
+  (trace [_ message]
     (ports/log* this :trace message nil nil))
-  (trace [this message context]
+  (trace [_ message context]
     (ports/log* this :trace message context nil))
 
-  (debug [this message]
+  (debug [_ message]
     (ports/log* this :debug message nil nil))
-  (debug [this message context]
+  (debug [_ message context]
     (ports/log* this :debug message context nil))
 
-  (info [this message]
+  (info [_ message]
     (ports/log* this :info message nil nil))
-  (info [this message context]
+  (info [_ message context]
     (ports/log* this :info message context nil))
 
-  (warn [this message]
+  (warn [_ message]
     (ports/log* this :warn message nil nil))
-  (warn [this message context]
+  (warn [_ message context]
     (ports/log* this :warn message context nil))
-  (warn [this message context exception]
+  (warn [_ message context exception]
     (ports/log* this :warn message context exception))
 
-  (error [this message]
+  (error [_ message]
     (ports/log* this :error message nil nil))
-  (error [this message context]
+  (error [_ message context]
     (ports/log* this :error message context nil))
-  (error [this message context exception]
+  (error [_ message context exception]
     (ports/log* this :error message context exception))
 
-  (fatal [this message]
+  (fatal [_ message]
     (ports/log* this :fatal message nil nil))
-  (fatal [this message context]
+  (fatal [_ message context]
     (ports/log* this :fatal message context nil))
-  (fatal [this message context exception]
+  (fatal [_ message context exception]
     (ports/log* this :fatal message context exception)))
 
 ;; =============================================================================
@@ -234,7 +234,7 @@
 
 (defrecord DatadogAuditLogger [logger]
   ports/IAuditLogger
-  (audit-event [this event-type actor resource action result context]
+  (audit-event [_ event-type actor resource action result context]
     (let [audit-context (merge context
                                {:audit-event-type (name event-type)
                                 :audit-actor (str actor)
@@ -246,7 +246,7 @@
                   (format "Audit: %s %s %s -> %s" actor action resource result)
                   audit-context)))
 
-  (security-event [this event-type severity details context]
+  (security-event [_ event-type severity details context]
     (let [security-context (merge context details
                                   {:security-event-type (name event-type)
                                    :security-severity (name severity)
@@ -261,7 +261,7 @@
 
 (defrecord DatadogLoggingContext []
   ports/ILoggingContext
-  (with-context [this context-map f]
+  (with-context [_ context-map f]
     (let [previous-context (get-thread-context)]
       (try
         (merge-thread-context! context-map)
@@ -278,7 +278,7 @@
 
 (defrecord DatadogLoggingConfig [config-atom]
   ports/ILoggingConfig
-  (set-level! [this level]
+  (set-level! [_ level]
     (let [old-config @config-atom
           new-config (assoc old-config :level level)]
       (reset! config-atom new-config)
@@ -287,7 +287,7 @@
   (get-level [this]
     (:level @config-atom))
 
-  (set-config! [this config-map]
+  (set-config! [_ config-map]
     (let [old-config @config-atom]
       (reset! config-atom (merge old-config config-map))
       old-config))
@@ -332,57 +332,57 @@
 
 (defrecord DatadogLoggingComponent [config logger audit-logger logging-context logging-config batch-processor]
   ports/ILogger
-  (log* [this level message context exception]
+  (log* [_ level message context exception]
     (ports/log* logger level message context exception))
-  (trace [this message]
+  (trace [_ message]
     (ports/trace logger message))
-  (trace [this message context]
+  (trace [_ message context]
     (ports/trace logger message context))
-  (debug [this message]
+  (debug [_ message]
     (ports/debug logger message))
-  (debug [this message context]
+  (debug [_ message context]
     (ports/debug logger message context))
-  (info [this message]
+  (info [_ message]
     (ports/info logger message))
-  (info [this message context]
+  (info [_ message context]
     (ports/info logger message context))
-  (warn [this message]
+  (warn [_ message]
     (ports/warn logger message))
-  (warn [this message context]
+  (warn [_ message context]
     (ports/warn logger message context))
-  (warn [this message context exception]
+  (warn [_ message context exception]
     (ports/warn logger message context exception))
-  (error [this message]
+  (error [_ message]
     (ports/error logger message))
-  (error [this message context]
+  (error [_ message context]
     (ports/error logger message context))
-  (error [this message context exception]
+  (error [_ message context exception]
     (ports/error logger message context exception))
-  (fatal [this message]
+  (fatal [_ message]
     (ports/fatal logger message))
-  (fatal [this message context]
+  (fatal [_ message context]
     (ports/fatal logger message context))
-  (fatal [this message context exception]
+  (fatal [_ message context exception]
     (ports/fatal logger message context exception))
 
   ports/IAuditLogger
-  (audit-event [this event-type actor resource action result context]
+  (audit-event [_ event-type actor resource action result context]
     (ports/audit-event audit-logger event-type actor resource action result context))
-  (security-event [this event-type severity details context]
+  (security-event [_ event-type severity details context]
     (ports/security-event audit-logger event-type severity details context))
 
   ports/ILoggingContext
-  (with-context [this context-map f]
+  (with-context [_ context-map f]
     (ports/with-context logging-context context-map f))
   (current-context [this]
     (ports/current-context logging-context))
 
   ports/ILoggingConfig
-  (set-level! [this level]
+  (set-level! [_ level]
     (ports/set-level! logging-config level))
   (get-level [this]
     (ports/get-level logging-config))
-  (set-config! [this config-map]
+  (set-config! [_ config-map]
     (ports/set-config! logging-config config-map))
   (get-config [this]
     (ports/get-config logging-config))

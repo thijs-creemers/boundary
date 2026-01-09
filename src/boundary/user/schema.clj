@@ -198,10 +198,20 @@
        (:send-welcome value) (assoc :send-welcome (:sendWelcome value))
        (:sendWelcome value) (dissoc :sendWelcome))))
 
+(def ^:private sensitive-fields
+  "Fields that should never be exposed in API responses."
+  #{:password-hash :passwordHash
+    :mfa-secret :mfaSecret
+    :mfa-backup-codes :mfaBackupCodes})
+
 (defn user-specific-kebab->camel
-  "Transforms user-specific kebab-case internal keys to camelCase API keys."
+  "Transforms user-specific kebab-case internal keys to camelCase API keys.
+   Also removes sensitive fields (password-hash, mfa-secret, mfa-backup-codes)
+   and null values for cleaner API responses."
   [value]
   (-> value
+      ;; First remove sensitive fields (check both kebab and camel case versions)
+      (#(apply dissoc % sensitive-fields))
       case-conversion/kebab-case->camel-case-map
       (cond->
        (:id value) (assoc :id (type-conversion/uuid->string (:id value)))
@@ -212,10 +222,20 @@
        (:last-accessed-at value) (assoc :lastAccessedAt (type-conversion/instant->string (:last-accessed-at value)))
        (:revoked-at value) (assoc :revokedAt (type-conversion/instant->string (:revoked-at value)))
        (:last-login value) (assoc :lastLogin (type-conversion/instant->string (:last-login value)))
+       (:mfa-enabled-at value) (assoc :mfaEnabledAt (type-conversion/instant->string (:mfa-enabled-at value)))
+       (:deleted-at value) (assoc :deletedAt (type-conversion/instant->string (:deleted-at value)))
        (:date-format value) (assoc :dateFormat (type-conversion/keyword->string (:date-format value)))
        (:time-format value) (assoc :timeFormat (type-conversion/keyword->string (:time-format value)))
        (:role value) (assoc :role (type-conversion/keyword->string (:role value)))
-       (:theme value) (assoc :theme (type-conversion/keyword->string (:theme value))))))
+       (:theme value) (assoc :theme (type-conversion/keyword->string (:theme value))))
+      ;; Additionally convert any remaining Instant objects that weren't handled above
+      (#(reduce-kv (fn [acc k v]
+                     (if (and v (instance? java.time.Instant v))
+                       (assoc acc k (type-conversion/instant->string v))
+                       acc))
+                   % %))
+      ;; Remove null values for cleaner API responses
+      (#(into {} (remove (fn [[_ v]] (nil? v)) %)))))
 
 ;; =============================================================================
 ;; Schema Transformers

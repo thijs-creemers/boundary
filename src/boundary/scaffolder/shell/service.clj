@@ -12,7 +12,7 @@
 (defrecord ScaffolderService [file-system]
   ports/IScaffolderService
 
-  (generate-module [this request]
+  (generate-module [_ request]
     (try
       ;; Validate request
       (when-not (m/validate schema/ModuleGenerationRequest request)

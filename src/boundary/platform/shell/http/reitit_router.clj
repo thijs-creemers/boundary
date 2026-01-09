@@ -15,7 +15,9 @@
                         [reitit.swagger :as swagger]
                         [reitit.swagger-ui :as swagger-ui]
                         [ring.middleware.resource :refer [wrap-resource]]
-                        [muuntaja.core :as m]))
+                        [ring.middleware.cookies :refer [wrap-cookies]]
+                        [muuntaja.core :as m]
+                        [muuntaja.middleware :as muuntaja-middleware]))
 
 ;; =============================================================================
 ;; Symbol Resolution
@@ -299,27 +301,31 @@
   ([route-entry]
    (convert-route route-entry nil))
 
-  ([{:keys [path methods children meta]} system]
-   (let [;; Recursively convert children
-         reitit-children (when (seq children)
-                           (mapv #(convert-route % system) children))]
+  ([{:keys [path methods children meta] :as route-entry} system]
+    (let [;; Extract route-level data (everything except path, methods, children)
+          ;; This includes :middleware, :auth, :name, etc.
+          route-data (dissoc route-entry :path :methods :children)
+          
+          ;; Recursively convert children
+          reitit-children (when (seq children)
+                            (mapv #(convert-route % system) children))]
 
-     (if (seq reitit-children)
-       ;; Route HAS children: parent methods must be empty string child
-       (let [reitit-methods (convert-methods methods system)
-             ;; Create empty string child route for parent methods (if any)
-             parent-child (when (seq reitit-methods)
-                            ["" reitit-methods])]
-         ;; Build: [path meta empty-string-child ...children]
-         (into [path meta]
-               (if parent-child
-                 (into [parent-child] reitit-children)
-                 reitit-children)))
+      (if (seq reitit-children)
+        ;; Route HAS children: parent methods must be empty string child
+        (let [reitit-methods (convert-methods methods system)
+              ;; Create empty string child route for parent methods (if any)
+              parent-child (when (seq reitit-methods)
+                             ["" reitit-methods])]
+          ;; Build: [path route-data empty-string-child ...children]
+          (into [path route-data]
+                (if parent-child
+                  (into [parent-child] reitit-children)
+                  reitit-children)))
 
-       ;; Route has NO children: methods can be on route data directly
-       (let [reitit-methods (convert-methods methods system)
-             route-data (merge meta reitit-methods)]
-         [path route-data])))))
+        ;; Route has NO children: methods can be on route data directly
+        (let [reitit-methods (convert-methods methods system)
+              merged-data (merge route-data reitit-methods)]
+          [path merged-data])))))
 
 (defn- convert-all-routes
   "Convert vector of normalized route specs to Reitit format.
@@ -475,9 +481,12 @@
           ;; Create default handler for unmatched routes
           default-handler (create-default-handler)]
 
-      ;; Wrap handler with static resource middleware to serve files from resources/public/
-      ;; This must be the outermost wrapper so static files are served before routing
-      (wrap-resource (ring/ring-handler router default-handler) "public"))))
+      ;; Wrap handler with middlewares (outermost last):
+      ;; 1. Cookies middleware - parse and set cookies
+      ;; 2. Static resource middleware - serve files from resources/public/
+      (-> (ring/ring-handler router default-handler)
+          (wrap-resource "public")
+          (wrap-cookies)))))
 
 ;; =============================================================================
 ;; Public API

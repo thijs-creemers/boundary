@@ -94,7 +94,7 @@
 (defrecord RedisJobQueue [^JedisPool pool]
   ports/IJobQueue
 
-  (enqueue-job! [this queue-name job]
+  (enqueue-job! [_ queue-name job]
     (with-redis pool
       (fn [^Jedis redis]
         (let [job-id (:id job)
@@ -122,11 +122,11 @@
           (log/info "Enqueued job" {:job-id job-id :queue queue-name :priority (:priority job)})
           job-id))))
 
-  (schedule-job! [this queue-name job execute-at]
+  (schedule-job! [_ queue-name job execute-at]
     (let [scheduled-job (assoc job :execute-at execute-at)]
       (ports/enqueue-job! this queue-name scheduled-job)))
 
-  (dequeue-job! [this queue-name]
+  (dequeue-job! [_ queue-name]
     (with-redis pool
       (fn [^Jedis redis]
         (let [queue-key (queue-key queue-name)
@@ -142,7 +142,7 @@
               (when job-data
                 (deserialize-job job-data))))))))
 
-  (peek-job [this queue-name]
+  (peek-job [_ queue-name]
     (with-redis pool
       (fn [^Jedis redis]
         (let [queue-key (queue-key queue-name)
@@ -153,7 +153,7 @@
               (when job-data
                 (deserialize-job job-data))))))))
 
-  (delete-job! [this job-id]
+  (delete-job! [_ job-id]
     (with-redis pool
       (fn [^Jedis redis]
         (let [job-key (job-key job-id)
@@ -162,7 +162,7 @@
           (.zrem redis (scheduled-key) (str job-id))
           (pos? result)))))
 
-  (queue-size [this queue-name]
+  (queue-size [_ queue-name]
     (with-redis pool
       (fn [^Jedis redis]
         (let [queue-key (queue-key queue-name)]
@@ -235,7 +235,7 @@
 (defrecord RedisJobStore [^JedisPool pool]
   ports/IJobStore
 
-  (save-job! [this job]
+  (save-job! [_ job]
     (with-redis pool
       (fn [^Jedis redis]
         (let [job-key (job-key (:id job))
@@ -246,7 +246,7 @@
             (.expire redis job-key (int (* 7 24 60 60))))
           job))))
 
-  (find-job [this job-id]
+  (find-job [_ job-id]
     (with-redis pool
       (fn [^Jedis redis]
         (let [job-key (job-key job-id)
@@ -254,7 +254,7 @@
           (when job-data
             (deserialize-job job-data))))))
 
-  (update-job-status! [this job-id status result]
+  (update-job-status! [_ job-id status result]
     (with-redis pool
       (fn [^Jedis redis]
         (let [job-key (job-key job-id)
@@ -276,7 +276,7 @@
 
               updated-job))))))
 
-  (find-jobs [this filters]
+  (find-jobs [_ filters]
     ;; Note: For production, consider using Redis Search module for complex queries
     ;; This implementation scans all job keys (not optimal for large datasets)
     (with-redis pool
@@ -297,7 +297,7 @@
                                   (= (:queue filters) (:queue job))))))
                vec)))))
 
-  (failed-jobs [this limit]
+  (failed-jobs [_ limit]
     (with-redis pool
       (fn [^Jedis redis]
         (let [failed-job-ids (.lrange redis (dead-letter-key) 0 (dec limit))]
@@ -311,7 +311,7 @@
                (filter some?)
                vec)))))
 
-  (retry-job! [this job-id]
+  (retry-job! [_ job-id]
     (with-redis pool
       (fn [^Jedis redis]
         (let [job-key (job-key job-id)
@@ -362,7 +362,7 @@
                          queues)
            :workers []}))))  ; TODO: Implement worker tracking
 
-  (queue-stats [this queue-name]
+  (queue-stats [_ queue-name]
     (with-redis pool
       (fn [^Jedis redis]
         (let [queue-key (queue-key queue-name)]
@@ -376,7 +376,7 @@
            :succeeded-total 0
            :avg-duration-ms nil}))))
 
-  (job-history [this job-type limit]
+  (job-history [_ job-type limit]
     (with-redis pool
       (fn [^Jedis redis]
         ;; Simplified implementation - in production, use time-series data

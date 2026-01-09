@@ -120,13 +120,13 @@
 
 (defrecord SentryErrorReporter [config]
   ports/IErrorReporter
-  (capture-exception [this exception]
+  (capture-exception [_ exception]
     (ports/capture-exception this exception nil nil))
 
-  (capture-exception [this exception context]
+  (capture-exception [_ exception context]
     (ports/capture-exception this exception context nil))
 
-  (capture-exception [this exception context tags]
+  (capture-exception [_ exception context tags]
     (try
       (let [merged-context (prepare-context context)
             sentry-context (extract-sentry-context merged-context)
@@ -149,13 +149,13 @@
         (log/error e "Failed to capture exception to Sentry")
         nil)))
 
-  (capture-message [this message level]
+  (capture-message [_ message level]
     (ports/capture-message this message level nil nil))
 
-  (capture-message [this message level context]
+  (capture-message [_ message level context]
     (ports/capture-message this message level context nil))
 
-  (capture-message [this message level context tags]
+  (capture-message [_ message level context tags]
     (try
       (let [merged-context (prepare-context context)
             sentry-context (extract-sentry-context merged-context)
@@ -180,7 +180,7 @@
         (log/error e "Failed to capture message to Sentry")
         nil)))
 
-  (capture-event [this event-map]
+  (capture-event [_ event-map]
     (try
       (let [{:keys [type exception message level context tags extra breadcrumbs]} event-map
             merged-context (prepare-context context)

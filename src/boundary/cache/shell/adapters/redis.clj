@@ -72,7 +72,7 @@
 (defrecord RedisCache [^JedisPool pool config namespace]
   ports/ICache
 
-  (get-value [this key]
+  (get-value [_ key]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)
@@ -80,10 +80,10 @@
           (when json-str
             (deserialize-value json-str))))))
 
-  (set-value! [this key value]
+  (set-value! [_ key value]
     (ports/set-value! this key value (:default-ttl config)))
 
-  (set-value! [this key value ttl-seconds]
+  (set-value! [_ key value ttl-seconds]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)
@@ -93,20 +93,20 @@
             (.set redis namespaced-key serialized))
           true))))
 
-  (delete-key! [this key]
+  (delete-key! [_ key]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)
               result (.del redis (into-array String [namespaced-key]))]
           (pos? result)))))
 
-  (exists? [this key]
+  (exists? [_ key]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)]
           (.exists redis (into-array String [namespaced-key]))))))
 
-  (ttl [this key]
+  (ttl [_ key]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)
@@ -114,7 +114,7 @@
           (when (pos? ttl)
             ttl)))))
 
-  (expire! [this key ttl-seconds]
+  (expire! [_ key ttl-seconds]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)
@@ -127,7 +127,7 @@
 
   ports/IBatchCache
 
-  (get-many [this keys]
+  (get-many [_ keys]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-keys (mapv #(add-namespace namespace %) keys)
@@ -139,10 +139,10 @@
                      [(nth keys idx) (deserialize-value value)]))
                  values))))))
 
-  (set-many! [this key-value-map]
+  (set-many! [_ key-value-map]
     (ports/set-many! this key-value-map (:default-ttl config)))
 
-  (set-many! [this key-value-map ttl-seconds]
+  (set-many! [_ key-value-map ttl-seconds]
     (with-redis pool
       (fn [^Jedis redis]
         ;; Use pipeline for efficiency
@@ -156,7 +156,7 @@
           (.sync pipeline)
           (count key-value-map)))))
 
-  (delete-many! [this keys]
+  (delete-many! [_ keys]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-keys (mapv #(add-namespace namespace %) keys)
@@ -169,28 +169,28 @@
 
   ports/IAtomicCache
 
-  (increment! [this key]
+  (increment! [_ key]
     (ports/increment! this key 1))
 
-  (increment! [this key delta]
+  (increment! [_ key delta]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)]
           (.incrBy redis namespaced-key (long delta))))))
 
-  (decrement! [this key]
+  (decrement! [_ key]
     (ports/decrement! this key 1))
 
-  (decrement! [this key delta]
+  (decrement! [_ key delta]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)]
           (.decrBy redis namespaced-key (long delta))))))
 
-  (set-if-absent! [this key value]
+  (set-if-absent! [_ key value]
     (ports/set-if-absent! this key value (:default-ttl config)))
 
-  (set-if-absent! [this key value ttl-seconds]
+  (set-if-absent! [_ key value ttl-seconds]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)
@@ -202,7 +202,7 @@
           (let [result (.set redis namespaced-key serialized params)]
             (= result "OK"))))))
 
-  (compare-and-set! [this key expected-value new-value]
+  (compare-and-set! [_ key expected-value new-value]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)]
@@ -226,7 +226,7 @@
 
   ports/IPatternCache
 
-  (keys-matching [this pattern]
+  (keys-matching [_ pattern]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-pattern (add-namespace namespace pattern)
@@ -245,13 +245,13 @@
                 (map #(strip-namespace namespace %))
                 keys)))))
 
-  (delete-matching! [this pattern]
+  (delete-matching! [_ pattern]
     (let [matching-keys (ports/keys-matching this pattern)]
       (if (seq matching-keys)
         (ports/delete-many! this matching-keys)
         0)))
 
-  (count-matching [this pattern]
+  (count-matching [_ pattern]
     (count (ports/keys-matching this pattern)))
 
   ;; =============================================================================
@@ -260,10 +260,10 @@
 
   ports/INamespacedCache
 
-  (with-namespace [this new-namespace]
+  (with-namespace [_ new-namespace]
     (->RedisCache pool config new-namespace))
 
-  (clear-namespace! [this ns]
+  (clear-namespace! [_ ns]
     (let [pattern (str ns ":*")]
       (ports/delete-matching! this pattern)))
 

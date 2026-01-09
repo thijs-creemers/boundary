@@ -120,7 +120,7 @@
 (defrecord JavaImageProcessor [logger]
   ports/IImageProcessor
 
-  (resize-image [this image-bytes dimensions]
+  (resize-image [_ image-bytes dimensions]
     (try
       (let [original (bytes->buffered-image image-bytes)
             orig-width (.getWidth original)
@@ -157,7 +157,7 @@
                          :error (.getMessage e)}
                         e)))))
 
-  (create-thumbnail [this image-bytes size]
+  (create-thumbnail [_ image-bytes size]
     (try
       (let [original (bytes->buffered-image image-bytes)
             orig-width (.getWidth original)
@@ -198,7 +198,7 @@
                          :error (.getMessage e)}
                         e)))))
 
-  (get-image-info [this image-bytes]
+  (get-image-info [_ image-bytes]
     (try
       (let [original (bytes->buffered-image image-bytes)
             width (.getWidth original)
@@ -219,7 +219,7 @@
                         {:error (.getMessage e)}
                         e)))))
 
-  (is-image? [this bytes content-type]
+  (is-image? [_ bytes content-type]
     (try
       (let [image (bytes->buffered-image bytes)]
         (boolean image))

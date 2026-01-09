@@ -8,6 +8,7 @@
             [boundary.user.shell.persistence :as user-persistence]
             [boundary.user.shell.service :as user-service]
             [boundary.user.shell.auth :as user-auth]
+            [boundary.user.shell.mfa :as user-mfa]
             [boundary.platform.shell.adapters.database.factory :as db-factory]
             [boundary.logging.shell.adapters.no-op :as no-op-logging]
             [boundary.metrics.shell.adapters.no-op :as no-op-metrics]
@@ -46,8 +47,13 @@
                 ;; Validation and auth configuration
                 validation-cfg (config/user-validation-config cfg)
                 auth-cfg {} ; no special auth config for CLI yet
+                
+                ;; Create MFA service (required by auth service)
+                mfa-svc (user-mfa/create-mfa-service user-repo {})
+                
+                ;; Create auth service with MFA support
                 auth-svc (user-auth/create-authentication-service
-                          user-repo session-repo auth-cfg)
+                          user-repo session-repo mfa-svc auth-cfg)
 
                 ;; Create user service with full dependencies
                 user-svc (user-service/create-user-service

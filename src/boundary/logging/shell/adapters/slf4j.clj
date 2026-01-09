@@ -226,63 +226,63 @@
 
 (defrecord Slf4jLogger [slf4j-logger config context-atom]
   ports/ILogger
-  (log* [this level message context exception]
+  (log* [_ level message context exception]
     (write-log slf4j-logger level message context exception config context-atom)
     nil)
 
-  (trace [this message]
+  (trace [_ message]
     (write-log slf4j-logger :trace message nil nil config context-atom)
     nil)
-  (trace [this message context]
+  (trace [_ message context]
     (write-log slf4j-logger :trace message context nil config context-atom)
     nil)
 
-  (debug [this message]
+  (debug [_ message]
     (write-log slf4j-logger :debug message nil nil config context-atom)
     nil)
-  (debug [this message context]
+  (debug [_ message context]
     (write-log slf4j-logger :debug message context nil config context-atom)
     nil)
 
-  (info [this message]
+  (info [_ message]
     (write-log slf4j-logger :info message nil nil config context-atom)
     nil)
-  (info [this message context]
+  (info [_ message context]
     (write-log slf4j-logger :info message context nil config context-atom)
     nil)
 
-  (warn [this message]
+  (warn [_ message]
     (write-log slf4j-logger :warn message nil nil config context-atom)
     nil)
-  (warn [this message context]
+  (warn [_ message context]
     (write-log slf4j-logger :warn message context nil config context-atom)
     nil)
-  (warn [this message context exception]
+  (warn [_ message context exception]
     (write-log slf4j-logger :warn message context exception config context-atom)
     nil)
 
-  (error [this message]
+  (error [_ message]
     (write-log slf4j-logger :error message nil nil config context-atom)
     nil)
-  (error [this message context]
+  (error [_ message context]
     (write-log slf4j-logger :error message context nil config context-atom)
     nil)
-  (error [this message context exception]
+  (error [_ message context exception]
     (write-log slf4j-logger :error message context exception config context-atom)
     nil)
 
-  (fatal [this message]
+  (fatal [_ message]
     (write-log slf4j-logger :fatal message nil nil config context-atom)
     nil)
-  (fatal [this message context]
+  (fatal [_ message context]
     (write-log slf4j-logger :fatal message context nil config context-atom)
     nil)
-  (fatal [this message context exception]
+  (fatal [_ message context exception]
     (write-log slf4j-logger :fatal message context exception config context-atom)
     nil)
 
   ports/IAuditLogger
-  (audit-event [this event-type actor resource action result context]
+  (audit-event [_ event-type actor resource action result context]
     (let [audit-context (assoc (or context {})
                                :event-type (name event-type)
                                :actor actor
@@ -298,7 +298,7 @@
       (write-log slf4j-logger :info audit-message audit-context nil config context-atom))
     nil)
 
-  (security-event [this event-type severity details context]
+  (security-event [_ event-type severity details context]
     (let [security-context (assoc (or context {})
                                   :event-type (name event-type)
                                   :severity (name severity)
@@ -317,7 +317,7 @@
     nil)
 
   ports/ILoggingContext
-  (with-context [this context-map f]
+  (with-context [_ context-map f]
     (let [old-context @context-atom]
       (try
         (swap! context-atom merge context-map)
@@ -329,7 +329,7 @@
     @context-atom)
 
   ports/ILoggingConfig
-  (set-level! [this level]
+  (set-level! [_ level]
     (let [old-level @(:level-atom config)]
       (reset! (:level-atom config) level)
       old-level))
@@ -337,7 +337,7 @@
   (get-level [this]
     @(:level-atom config))
 
-  (set-config! [this config-map]
+  (set-config! [_ config-map]
     (let [old-config @(:config-atom config)]
       (swap! (:config-atom config) merge config-map)
       old-config))

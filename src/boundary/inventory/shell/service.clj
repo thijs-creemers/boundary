@@ -5,16 +5,16 @@
 
 (defrecord ItemService [repository]
   ports/IItemService
-  (create-item [this data]
+  (create-item [_ data]
     (let [prepared (core/prepare-new-item data (java.time.Instant/now))]
       (.create repository prepared)))
-  (get-item [this id]
+  (get-item [_ id]
     (.find-by-id repository id))
-  (list-items [this opts]
+  (list-items [_ opts]
     (.find-all repository opts))
-  (update-item-data [this id data]
+  (update-item-data [_ id data]
     (.update-item repository (assoc data :id id)))
-  (delete-item [this id]
+  (delete-item [_ id]
     (.delete repository id)))
 
 (defn create-service [repository]

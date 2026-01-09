@@ -168,26 +168,33 @@
   (fn [request]
     (if-let [session-token (extract-session-token request)]
       (try
-        (log/debug "Validating session token")
+        (log/info "Validating session token" {:session-token session-token :uri (:uri request)})
         (if-let [session (ports/validate-session user-service session-token)]
-          ;; Session valid - add user info to request
+          ;; Session valid - fetch full user and add to request
           (do
-            (log/debug "Session validation successful" {:user-id (:user-id session)})
-            (let [enriched-request (assoc request
-                                          :user {:id (:user-id session)}
-                                          :session session
-                                          :auth-type :session)]
-              (handler enriched-request)))
+            (log/info "Session validation successful" {:user-id (:user-id session)})
+            (if-let [user (ports/get-user-by-id user-service (:user-id session))]
+              (let [enriched-request (assoc request
+                                            :user user  ; Full user object with role, email, etc.
+                                            :session session
+                                            :auth-type :session)]
+                (handler enriched-request))
+              ;; User not found (deleted after session was created?)
+              (do
+                (log/warn "Session valid but user not found" {:user-id (:user-id session)})
+                (create-unauthorized-response "User not found" :user-not-found request))))
           ;; Session invalid or expired
           (do
-            (log/debug "Session invalid or expired")
+            (log/info "Session invalid or expired" {:session-token session-token})
             (create-unauthorized-response "Invalid or expired session" :invalid-session request)))
         (catch Exception ex
           (log/warn ex "Session validation failed" {:session-token (str (take 8 session-token) "...")})
           (create-unauthorized-response "Session validation failed" :session-validation-error request)))
 
       ;; No session token provided
-      (create-unauthorized-response "Session token required" :missing-session request))))
+      (do
+        (log/info "No session token provided" {:uri (:uri request) :cookies (keys (:cookies request))})
+        (create-unauthorized-response "Session token required" :missing-session request)))))
 
 ;; =============================================================================
 ;; Flexible Authentication Middleware
@@ -217,17 +224,19 @@
    (fn [handler]
      (log/trace "Wrapping handler with flexible authentication" {:handler (type handler)})
      (flexible-authentication-middleware user-service handler)))
-  ([user-service handler]
+   ([user-service handler]
    (log/trace "Initializing flexible authentication middleware"
               {:user-service (type user-service) :handler (type handler)})
    (fn [request]
      (let [session-token (extract-session-token request)
            bearer-token  (extract-bearer-token request)]
-       (log/debug "Processing authentication request"
+       (log/info "Processing authentication request"
                   {:uri (:uri request)
                    :method (:request-method request)
                    :has-session (boolean session-token)
-                   :has-bearer (boolean bearer-token)})
+                   :has-bearer (boolean bearer-token)
+                   :cookies (keys (:cookies request))
+                   :session-token-value (when session-token (subs session-token 0 (min 8 (count session-token))))})
        (cond
          ;; Try JWT authentication first
          bearer-token
@@ -236,13 +245,15 @@
          ;; Fall back to session authentication
          session-token
          (do
-           (log/debug "Attempting session authentication")
+           (log/info "Attempting session authentication" {:token-preview (subs session-token 0 8)})
            ((session-authentication-middleware user-service handler) request))
 
          ;; No authentication provided
          :else
          (do
-           (log/debug "No authentication credentials provided")
+           (log/info "No authentication credentials provided" 
+                     {:headers-keys (keys (:headers request))
+                      :cookie-header (get-in request [:headers "cookie"])})
            (create-unauthorized-response "Authentication required" :no-credentials request)))))))
 
 ;; =============================================================================

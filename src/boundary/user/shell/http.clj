@@ -126,8 +126,8 @@
     (let [;; Create context for the operation with real observability services
           context        (create-interceptor-context :user-list user-service request)
 
-          ;; Create the interceptor pipeline for user list
-          pipeline       (user-interceptors/create-user-list-pipeline :http)
+           ;; Create the interceptor pipeline for user list
+           pipeline       (user-interceptors/create-user-list-pipeline :http)
 
           ;; Execute the pipeline
           result-context (interceptor/run-pipeline context pipeline)]

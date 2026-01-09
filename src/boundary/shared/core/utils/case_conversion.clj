@@ -141,3 +141,79 @@
     (map #(deep-transform-keys transform-fn %) data)
 
     :else data))
+
+;; =============================================================================
+;; kebab-case <-> snake_case Conversions (Database)
+;; =============================================================================
+
+(defn kebab-case->snake-case-string
+  "Convert a kebab-case string to snake_case string.
+   
+   Args:
+     s: kebab-case string
+     
+   Returns:
+     snake_case string
+     
+   Example:
+     (kebab-case->snake-case-string \"created-at\") ;; => \"created_at\""
+  [s]
+  (when s
+    (str/replace s "-" "_")))
+
+(defn snake-case->kebab-case-string
+  "Convert a snake_case string to kebab-case string.
+   
+   Args:
+     s: snake_case string
+     
+   Returns:
+     kebab-case string
+     
+   Example:
+     (snake-case->kebab-case-string \"created_at\") ;; => \"created-at\""
+  [s]
+  (when s
+    (str/replace s "_" "-")))
+
+(defn kebab-case->snake-case-map
+  "Transform kebab-case internal keys to snake_case database keys (nil-safe).
+   
+   Args:
+     m: Map with kebab-case keyword keys, or nil
+     
+   Returns:
+     Map with snake_case keyword keys, or nil if input is nil
+     
+   Example:
+     (kebab-case->snake-case-map {:created-at \"2024-01-01\" :user-id \"123\"})
+     ;; => {:created_at \"2024-01-01\" :user_id \"123\"}"
+  [m]
+  (when m
+    (reduce-kv (fn [acc k v]
+                 (let [snake-key (-> (name k)
+                                     kebab-case->snake-case-string
+                                     keyword)]
+                   (assoc acc snake-key v)))
+               {} m)))
+
+(defn snake-case->kebab-case-map
+  "Transform snake_case database keys to kebab-case internal keys (nil-safe).
+   
+   Args:
+     m: Map with snake_case keyword keys, or nil
+     
+   Returns:
+     Map with kebab-case keyword keys, or nil if input is nil
+     
+   Example:
+     (snake-case->kebab-case-map {:created_at \"2024-01-01\" :user_id \"123\"})
+     ;; => {:created-at \"2024-01-01\" :user-id \"123\"}"
+  [m]
+  (when m
+    (reduce-kv (fn [acc k v]
+                 (let [kebab-key (-> (name k)
+                                     snake-case->kebab-case-string
+                                     keyword)]
+                   (assoc acc kebab-key v)))
+               {} m)))

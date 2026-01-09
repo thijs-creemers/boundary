@@ -24,19 +24,19 @@
 (defrecord JobRegistry [handlers]  ; atom: job-type -> handler-fn
   ports/IJobRegistry
 
-  (register-handler! [this job-type handler-fn]
+  (register-handler! [_ job-type handler-fn]
     (swap! handlers assoc job-type handler-fn)
     (log/info "Registered job handler" {:job-type job-type})
     job-type)
 
-  (unregister-handler! [this job-type]
+  (unregister-handler! [_ job-type]
     (let [existed? (contains? @handlers job-type)]
       (swap! handlers dissoc job-type)
       (when existed?
         (log/info "Unregistered job handler" {:job-type job-type}))
       existed?))
 
-  (get-handler [this job-type]
+  (get-handler [_ job-type]
     (get @handlers job-type))
 
   (list-handlers [this]
@@ -241,7 +241,7 @@
 
   ports/IJobWorker
 
-  (process-job! [this job]
+  (process-job! [_ job]
     ;; Manual job processing (for testing or direct invocation)
     (let [job-id (:id job)
           job-type (:job-type job)]
@@ -254,7 +254,7 @@
   (start-worker! [this]
     (:id state))  ; Already started in create-worker
 
-  (stop-worker! [this worker-id]
+  (stop-worker! [_ worker-id]
     (when (= worker-id (:id state))
       (log/info "Stopping worker" {:worker-id worker-id})
       (reset! (:running? state) false)
@@ -262,7 +262,7 @@
         (.join thread 5000))  ; Wait up to 5 seconds for graceful shutdown
       true))
 
-  (worker-status [this worker-id]
+  (worker-status [_ worker-id]
     (when (= worker-id (:id state))
       {:id (:id state)
        :queue-name (:queue-name state)

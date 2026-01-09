@@ -87,23 +87,25 @@
   [ctx db-record]
   (when db-record
     (let [adapter (:adapter ctx)]
-      (-> db-record
-          ;; Convert snake_case to kebab-case
-          (clojure.set/rename-keys {:created_at :created-at
-                                    :updated_at :updated-at
-                                    :deleted_at :deleted-at})
-          (update :id type-conversion/string->uuid)
-          (update :role type-conversion/string->keyword)
-          (update :active #(protocols/db->boolean adapter %))
-          (update :created-at type-conversion/string->instant)
-          (update :updated-at type-conversion/string->instant)
-          (update :deleted-at type-conversion/string->instant)))))
+       (-> db-record
+           ;; Convert ALL snake_case keys to kebab-case using utility function
+           type-conversion/snake-case->kebab-case
+           ;; Type conversions
+           (update :id type-conversion/string->uuid)
+           (update :role type-conversion/string->keyword)
+           (update :active #(protocols/db->boolean adapter %))
+           (update :created-at type-conversion/string->instant)
+           (update :updated-at type-conversion/string->instant)
+           (update :deleted-at type-conversion/string->instant)
+           (update :last-login type-conversion/string->instant)
+           (update :mfa-enabled-at type-conversion/string->instant)))))
 
 (defn- session-entity->db
   "Transform session domain entity to database format."
   [session-entity]
   (-> session-entity
       (dissoc :device-info) ;; Remove nested device-info before DB conversion
+      (dissoc :remember-me) ;; Remove remember-me flag (used for expiry calculation only)
       (update :id type-conversion/uuid->string)
       (update :user-id type-conversion/uuid->string)
       (update :expires-at type-conversion/instant->string)
@@ -457,13 +459,6 @@
 ;; Session Repository Implementation
 ;; =============================================================================
 
-(defn- generate-session-token
-  "Generate cryptographically secure session token."
-  []
-  (let [uuid1 (UUID/randomUUID)
-        uuid2 (UUID/randomUUID)]
-    (str (.toString uuid1) (.toString uuid2))))
-
 (defrecord DatabaseUserSessionRepository [ctx]
   ports/IUserSessionRepository
 
@@ -473,25 +468,13 @@
      {:session-entity session-entity}
      (fn [{:keys [params]}]
        (let [session-entity (:session-entity params)
-             _ (log/info "Creating session in DB" {:session-entity session-entity
-                                                   :has-user-agent (contains? session-entity :user-agent)
-                                                   :has-ip-address (contains? session-entity :ip-address)
-                                                   :user-agent (:user-agent session-entity)
-                                                   :ip-address (:ip-address session-entity)})
              now (java.time.Instant/now)
+              ;; Preserve session-token and id from service layer, only add DB-specific metadata
              session-with-metadata (-> session-entity
-                                       (assoc :id (UUID/randomUUID))
-                                       (assoc :session-token (generate-session-token))
                                        (assoc :created-at now)
                                        (assoc :last-accessed-at nil)
                                        (assoc :revoked-at nil))
-             _ (log/info "Session with metadata" {:session-with-metadata session-with-metadata
-                                                  :user-agent (:user-agent session-with-metadata)
-                                                  :ip-address (:ip-address session-with-metadata)})
              db-session (session-entity->db session-with-metadata)
-             _ (log/info "DB session format" {:db-session db-session
-                                              :user_agent (:user_agent db-session)
-                                              :ip_address (:ip_address db-session)})
              query {:insert-into :user_sessions
                     :values [db-session]}]
          (db/execute-update! ctx query)
