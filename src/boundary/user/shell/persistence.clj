@@ -610,7 +610,7 @@
 ;; Audit Log Repository Implementation
 ;; =============================================================================
 
-(defrecord DatabaseUserAuditRepository [ctx]
+(defrecord DatabaseUserAuditRepository [ctx pagination-config]
   ports/IUserAuditRepository
 
   (create-audit-log [_ audit-entity]
@@ -638,7 +638,8 @@
        (let [{:keys [limit offset sort-by sort-direction
                      filter-target-user-id filter-actor-id filter-action
                      filter-result filter-created-after filter-created-before]} (:options params)
-             limit (or limit 50)
+             default-limit (get pagination-config :default-limit 20)
+             limit (or limit default-limit)
              offset (or offset 0)
              sort-by-kebab (or sort-by :created-at)
              ;; Convert kebab-case to snake_case for database column
@@ -688,7 +689,8 @@
      (fn [{:keys [params]}]
        (let [user-id (:user-id params)
              {:keys [limit offset sort-by sort-direction]} (:options params)
-             limit (or limit 50)
+             default-limit (get pagination-config :default-limit 20)
+             limit (or limit default-limit)
              offset (or offset 0)
              sort-by-kebab (or sort-by :created-at)
              ;; Convert kebab-case to snake_case for database column
@@ -711,7 +713,8 @@
      (fn [{:keys [params]}]
        (let [actor-id (:actor-id params)
              {:keys [limit offset sort-by sort-direction]} (:options params)
-             limit (or limit 50)
+             default-limit (get pagination-config :default-limit 20)
+             limit (or limit default-limit)
              offset (or offset 0)
              sort-by-kebab (or sort-by :created-at)
              ;; Convert kebab-case to snake_case for database column
@@ -793,11 +796,12 @@
    
    Args:
      ctx: Database context from boundary.platform.shell.adapters.database.factory
+     pagination-config: Pagination configuration map with :default-limit
      
    Returns:
      DatabaseUserAuditRepository implementing IUserAuditRepository
      
    Example:
-     (create-audit-repository ctx)"
-  [ctx]
-  (->DatabaseUserAuditRepository ctx))
+     (create-audit-repository ctx pagination-config)"
+  [ctx pagination-config]
+  (->DatabaseUserAuditRepository ctx pagination-config))

@@ -32,22 +32,25 @@
 
    Args:
      options: Map with :limit, :offset, or :page and :page-size
+     config: Admin configuration map with pagination defaults
 
    Returns:
      Map with :limit and :offset
 
    Examples:
-     (build-pagination {:limit 50 :offset 10})
-     (build-pagination {:page 2 :page-size 25})"
-  [options]
-  (let [limit (or (:limit options) (:page-size options) 50)
+     (build-pagination {:limit 20 :offset 10} config)
+     (build-pagination {:page 2 :page-size 25} config)"
+  [options config]
+  (let [default-limit (get-in config [:pagination :default-page-size] 20)
+        max-limit (get-in config [:pagination :max-page-size] 200)
+        limit (or (:limit options) (:page-size options) default-limit)
         offset (or (:offset options)
                    (when (:page options)
                      (* (dec (:page options 1))
-                        (or (:page-size options) 50)))
+                        (or (:page-size options) default-limit)))
                    0)
         ; Clamp limits to reasonable ranges
-        safe-limit (min (max limit 1) 200)
+        safe-limit (min (max limit 1) max-limit)
         safe-offset (max offset 0)]
     {:limit safe-limit
      :offset safe-offset}))
@@ -134,7 +137,7 @@
 ;; Admin Service Implementation
 ;; =============================================================================
 
-(defrecord AdminService [db-ctx schema-provider logger error-reporter]
+(defrecord AdminService [db-ctx schema-provider logger error-reporter config]
   ports/IAdminService
 
   (list-entities [_ entity-name options]
@@ -158,7 +161,7 @@
              filter-where (build-filter-where filters)
              where-clause (combine-where-clauses [search-where filter-where])
              ordering (build-ordering sort-field sort-dir default-sort)
-             pagination (build-pagination options)
+             pagination (build-pagination options config)
 
               ; Build list query
              list-query (cond-> {:select [:*]
@@ -390,8 +393,9 @@
      schema-provider: ISchemaProvider implementation
      logger: Logger instance for operation logging
      error-reporter: Error reporter for exception tracking
+     config: Admin configuration map with pagination settings
 
    Returns:
      AdminService instance implementing IAdminService"
-  [db-ctx schema-provider logger error-reporter]
-  (->AdminService db-ctx schema-provider logger error-reporter))
+  [db-ctx schema-provider logger error-reporter config]
+  (->AdminService db-ctx schema-provider logger error-reporter config))

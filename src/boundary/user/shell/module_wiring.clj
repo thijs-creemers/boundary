@@ -46,9 +46,9 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/audit-repository
-  [_ {:keys [ctx]}]
+  [_ {:keys [ctx pagination-config]}]
   (log/info "Initializing audit repository")
-  (let [repo (user-persistence/create-audit-repository ctx)]
+  (let [repo (user-persistence/create-audit-repository ctx pagination-config)]
     (log/info "Audit repository initialized")
     repo))
 

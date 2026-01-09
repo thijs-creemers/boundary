@@ -35,9 +35,10 @@
           (user-persistence/initialize-user-schema! db-ctx)
 
           ;; Create repositories
-          (let [user-repo (user-persistence/create-user-repository db-ctx)
+          (let [pagination-cfg (get-in cfg [:active :boundary/pagination] {:default-limit 20})
+                user-repo (user-persistence/create-user-repository db-ctx)
                 session-repo (user-persistence/create-session-repository db-ctx)
-                audit-repo (user-persistence/create-audit-repository db-ctx)
+                audit-repo (user-persistence/create-audit-repository db-ctx pagination-cfg)
 
                 ;; Create no-op observability services for CLI
                 logger (no-op-logging/create-no-op-logger nil)

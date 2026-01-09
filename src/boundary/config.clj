@@ -264,7 +264,8 @@
    that returns a partial Integrant map and merge it into ig-config."
   [config]
   (let [http-cfg (http-config config)
-        validation-cfg (user-validation-config config)]
+        validation-cfg (user-validation-config config)
+        pagination-cfg (get-in config [:active :boundary/pagination] {:default-limit 20 :max-limit 100})]
     {:boundary/user-db-schema
      {:ctx (ig/ref :boundary/db-context)}
 
@@ -275,7 +276,8 @@
      {:ctx (ig/ref :boundary/db-context)}
 
      :boundary/audit-repository
-     {:ctx (ig/ref :boundary/db-context)}
+     {:ctx (ig/ref :boundary/db-context)
+      :pagination-config pagination-cfg}
 
      :boundary/mfa-service
      {:user-repository (ig/ref :boundary/user-repository)
@@ -351,7 +353,8 @@
        {:db-ctx (ig/ref :boundary/db-context)
         :schema-provider (ig/ref :boundary/admin-schema-provider)
         :logger (ig/ref :boundary/logging)
-        :error-reporter (ig/ref :boundary/error-reporting)}
+        :error-reporter (ig/ref :boundary/error-reporting)
+        :config admin-cfg}
 
        :boundary/admin-routes
        {:admin-service (ig/ref :boundary/admin-service)

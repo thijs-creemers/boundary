@@ -388,6 +388,12 @@
           records (:records result)
           total-count (:total-count result)
 
+          ; Merge pagination info from result into options for UI
+          ; This ensures UI shows the actual page-size used (from config defaults)
+          table-query (merge options
+                             {:page-size (:page-size result)
+                              :page (:page-number result)})
+
           ; Get all available entities for sidebar
           entities (ports/list-available-entities schema-provider)
           entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
@@ -400,7 +406,7 @@
 
       (html-response
        (admin-ui/admin-layout
-        (admin-ui/entity-list-page entity-name records entity-config options total-count permissions options)
+        (admin-ui/entity-list-page entity-name records entity-config table-query total-count permissions options)
         {:user user
          :current-entity entity-name
          :entities entities
@@ -431,11 +437,16 @@
           records (:records result)
           total-count (:total-count result)
 
+          ; Merge pagination info from result into options for UI
+          table-query (merge options
+                             {:page-size (:page-size result)
+                              :page (:page-number result)})
+
           ; Get permissions
           permissions (permissions/get-entity-permissions user entity-name entity-config)]
 
       (htmx-fragment-response
-       (admin-ui/entity-table entity-name records entity-config options total-count permissions (:filters options))))))
+       (admin-ui/entity-table entity-name records entity-config table-query total-count permissions (:filters options))))))
 
 ;; =============================================================================
 ;; Entity Detail/Edit Handlers
