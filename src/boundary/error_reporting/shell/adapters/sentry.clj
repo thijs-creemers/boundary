@@ -120,10 +120,10 @@
 
 (defrecord SentryErrorReporter [config]
   ports/IErrorReporter
-  (capture-exception [_ exception]
+  (capture-exception [this exception]
     (ports/capture-exception this exception nil nil))
 
-  (capture-exception [_ exception context]
+  (capture-exception [this exception context]
     (ports/capture-exception this exception context nil))
 
   (capture-exception [_ exception context tags]
@@ -149,10 +149,10 @@
         (log/error e "Failed to capture exception to Sentry")
         nil)))
 
-  (capture-message [_ message level]
+  (capture-message [this message level]
     (ports/capture-message this message level nil nil))
 
-  (capture-message [_ message level context]
+  (capture-message [this message level context]
     (ports/capture-message this message level context nil))
 
   (capture-message [_ message level context tags]

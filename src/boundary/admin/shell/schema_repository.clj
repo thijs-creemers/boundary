@@ -49,7 +49,7 @@
                            :table-name table-name
                            :cause e}))))))
 
-  (get-entity-config [_ entity-name]
+  (get-entity-config [this entity-name]
     "Get complete entity configuration by merging auto-detected with manual config.
 
      Process:
@@ -105,7 +105,7 @@
     (or (get-in config [:entities entity-name :label])
         (introspection/humanize-entity-name entity-name)))
 
-  (validate-entity-exists [_ entity-name]
+  (validate-entity-exists [this entity-name]
     "Check if entity is valid and accessible.
 
      Returns true if entity is in the list of available entities."

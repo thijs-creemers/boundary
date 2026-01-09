@@ -80,7 +80,7 @@
           (when json-str
             (deserialize-value json-str))))))
 
-  (set-value! [_ key value]
+  (set-value! [this key value]
     (ports/set-value! this key value (:default-ttl config)))
 
   (set-value! [_ key value ttl-seconds]
@@ -139,7 +139,7 @@
                      [(nth keys idx) (deserialize-value value)]))
                  values))))))
 
-  (set-many! [_ key-value-map]
+  (set-many! [this key-value-map]
     (ports/set-many! this key-value-map (:default-ttl config)))
 
   (set-many! [_ key-value-map ttl-seconds]
@@ -169,7 +169,7 @@
 
   ports/IAtomicCache
 
-  (increment! [_ key]
+  (increment! [this key]
     (ports/increment! this key 1))
 
   (increment! [_ key delta]
@@ -178,7 +178,7 @@
         (let [namespaced-key (add-namespace namespace key)]
           (.incrBy redis namespaced-key (long delta))))))
 
-  (decrement! [_ key]
+  (decrement! [this key]
     (ports/decrement! this key 1))
 
   (decrement! [_ key delta]
@@ -187,7 +187,7 @@
         (let [namespaced-key (add-namespace namespace key)]
           (.decrBy redis namespaced-key (long delta))))))
 
-  (set-if-absent! [_ key value]
+  (set-if-absent! [this key value]
     (ports/set-if-absent! this key value (:default-ttl config)))
 
   (set-if-absent! [_ key value ttl-seconds]
@@ -245,13 +245,13 @@
                 (map #(strip-namespace namespace %))
                 keys)))))
 
-  (delete-matching! [_ pattern]
+  (delete-matching! [this pattern]
     (let [matching-keys (ports/keys-matching this pattern)]
       (if (seq matching-keys)
         (ports/delete-many! this matching-keys)
         0)))
 
-  (count-matching [_ pattern]
+  (count-matching [this pattern]
     (count (ports/keys-matching this pattern)))
 
   ;; =============================================================================
@@ -263,7 +263,7 @@
   (with-namespace [_ new-namespace]
     (->RedisCache pool config new-namespace))
 
-  (clear-namespace! [_ ns]
+  (clear-namespace! [this ns]
     (let [pattern (str ns ":*")]
       (ports/delete-matching! this pattern)))
 

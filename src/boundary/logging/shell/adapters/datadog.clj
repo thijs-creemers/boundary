@@ -192,40 +192,40 @@
       (catch Exception e
         (log/error e "Error in Datadog logger"))))
 
-  (trace [_ message]
+  (trace [this message]
     (ports/log* this :trace message nil nil))
-  (trace [_ message context]
+  (trace [this message context]
     (ports/log* this :trace message context nil))
 
-  (debug [_ message]
+  (debug [this message]
     (ports/log* this :debug message nil nil))
-  (debug [_ message context]
+  (debug [this message context]
     (ports/log* this :debug message context nil))
 
-  (info [_ message]
+  (info [this message]
     (ports/log* this :info message nil nil))
-  (info [_ message context]
+  (info [this message context]
     (ports/log* this :info message context nil))
 
-  (warn [_ message]
+  (warn [this message]
     (ports/log* this :warn message nil nil))
-  (warn [_ message context]
+  (warn [this message context]
     (ports/log* this :warn message context nil))
-  (warn [_ message context exception]
+  (warn [this message context exception]
     (ports/log* this :warn message context exception))
 
-  (error [_ message]
+  (error [this message]
     (ports/log* this :error message nil nil))
-  (error [_ message context]
+  (error [this message context]
     (ports/log* this :error message context nil))
-  (error [_ message context exception]
+  (error [this message context exception]
     (ports/log* this :error message context exception))
 
-  (fatal [_ message]
+  (fatal [this message]
     (ports/log* this :fatal message nil nil))
-  (fatal [_ message context]
+  (fatal [this message context]
     (ports/log* this :fatal message context nil))
-  (fatal [_ message context exception]
+  (fatal [this message context exception]
     (ports/log* this :fatal message context exception)))
 
 ;; =============================================================================

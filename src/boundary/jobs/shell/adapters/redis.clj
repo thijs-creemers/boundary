@@ -122,7 +122,7 @@
           (log/info "Enqueued job" {:job-id job-id :queue queue-name :priority (:priority job)})
           job-id))))
 
-  (schedule-job! [_ queue-name job execute-at]
+  (schedule-job! [this queue-name job execute-at]
     (let [scheduled-job (assoc job :execute-at execute-at)]
       (ports/enqueue-job! this queue-name scheduled-job)))
 

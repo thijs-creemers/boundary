@@ -17,7 +17,11 @@
   display: flex;
   min-height: 100vh;
   position: relative;
-  background: var(--bg-primary);
+  background: var(--color-neutral-50);
+}
+
+[data-theme="dark"] .admin-shell {
+  background: var(--color-neutral-900);
 }
 
 /* =============================================================================
@@ -26,7 +30,7 @@
 
 .admin-sidebar {
   width: var(--sidebar-width-expanded);
-  background: var(--sidebar-bg);
+  background: var(--bg-primary);
   border-right: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
@@ -299,16 +303,16 @@
 .admin-topbar {
   background: var(--bg-primary);
   border-bottom: 1px solid var(--border-default);
-  padding: var(--space-4) var(--space-6);
+  padding: var(--space-5) var(--space-8);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  min-height: 72px;
   position: sticky;
   top: 0;
   z-index: 30;
   backdrop-filter: blur(8px);
-  background: var(--bg-primary-translucent, var(--bg-primary));
 }
 
 .admin-topbar h1 {
@@ -316,12 +320,22 @@
   font-weight: var(--font-bold);
   color: var(--text-primary);
   margin: 0;
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
 }
 
 .admin-topbar-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+.admin-topbar-actions span {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-weight: var(--font-medium);
 }
 
 .mobile-menu-toggle {
@@ -348,9 +362,38 @@
 
 .admin-content {
   flex: 1;
-  padding: var(--space-6);
+  padding: var(--space-8);
   max-width: 100%;
   overflow-x: auto;
+  background: var(--color-neutral-50);
+  min-height: calc(100vh - 72px);
+}
+
+[data-theme="dark"] .admin-content {
+  background: var(--color-neutral-900);
+}
+
+/* Entity list page specific styling */
+.entity-list-page {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.entity-list-page .page-header-compact {
+  margin-bottom: var(--space-8);
+}
+
+/* Ensure proper spacing for tables in admin */
+.admin-content .table-wrapper {
+  margin-top: 0;
+  background: var(--bg-primary);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .admin-content .table-wrapper {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
 }
 
 /* =============================================================================
