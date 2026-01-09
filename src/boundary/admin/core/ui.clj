@@ -12,6 +12,7 @@
    - HTMX-powered dynamic updates
    - Field rendering based on entity configuration"
   (:require [boundary.shared.ui.core.components :as ui]
+            [boundary.shared.ui.core.icons :as icons]
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.table :as table-ui]
             [boundary.shared.web.table :as web-table]
@@ -22,7 +23,7 @@
 ;; =============================================================================
 
 (defn admin-sidebar
-  "Admin sidebar with entity navigation.
+  "Admin sidebar with entity navigation and icons.
 
    Args:
      entities: Vector of entity name keywords available to user
@@ -35,39 +36,96 @@
   [:aside.admin-sidebar
    [:div.admin-sidebar-header
     [:h2 "Admin Panel"]
-    [:a.button.small {:href "/web/admin"} "Dashboard"]]
+    [:div.sidebar-controls
+     [:button.sidebar-toggle {:type "button"
+                              :aria-label "Toggle sidebar"
+                              :title "Toggle sidebar (Ctrl+B)"}
+      (icons/icon :panel-left {:size 20})]
+     [:button.sidebar-pin {:type "button"
+                           :aria-label "Pin sidebar"
+                           :title "Pin sidebar open"}
+      (icons/icon :pin {:size 20})]]]
    [:nav.admin-sidebar-nav
     [:h3 "Entities"]
     [:ul.entity-list
      (for [entity entities]
        (let [entity-config (get entity-configs entity)
              label (:label entity-config (str/capitalize (name entity)))
+             icon (:icon entity-config :database)
              is-active? (= entity current-entity)]
          [:li {:class (when is-active? "active")}
-          [:a {:href (str "/web/admin/" (name entity))}
-           label]]))]]])
+          [:a {:href (str "/web/admin/" (name entity))
+               :data-label label}
+           (icons/icon icon {:size 20})
+           [:span.nav-text label]]]))]
+    [:h3 "Tools"]
+    [:ul.entity-list
+     [:li
+      [:a {:href "/web/users" :data-label "Users"}
+       (icons/icon :users {:size 20})
+       [:span.nav-text "Users"]]]
+     [:li
+      [:a {:href "/web/audit-trail" :data-label "Audit Trail"}
+       (icons/icon :clock {:size 20})
+       [:span.nav-text "Audit Trail"]]]]]
+   [:div.admin-sidebar-footer
+    [:a {:href "/web/admin"}
+     (icons/icon :home {:size 20})
+     [:span.nav-text "Dashboard"]]
+    [:a {:href "/web"}
+     (icons/icon :external-link {:size 20})
+     [:span.nav-text "Main Site"]]]])
+
+(defn admin-shell
+  "New admin shell layout with collapsible sidebar (Phase 2).
+
+   Args:
+     content: Main content (Hiccup structure)
+     opts: Map with :user, :current-entity, :entities, :entity-configs, :flash, :page-title
+
+   Returns:
+     Admin shell structure with sidebar and topbar"
+  [content opts]
+  (let [{:keys [user current-entity entities entity-configs page-title]} opts]
+    [:div.admin-shell {:data-sidebar-state "expanded"
+                       :data-sidebar-pinned "false"
+                       :data-sidebar-open "false"}
+     (admin-sidebar entities entity-configs current-entity)
+     [:div.admin-overlay]
+     [:div.admin-main
+      [:header.admin-topbar
+       [:button.mobile-menu-toggle {:type "button"
+                                    :aria-label "Open menu"}
+        (icons/icon :menu {:size 24})]
+       [:h1 (or page-title "Admin Dashboard")]
+       [:div.admin-topbar-actions
+        [:span (str "Welcome, " (:display-name user (:email user)))]]]
+      [:main.admin-content
+       content]]]))
 
 (defn admin-layout
-  "Main admin layout with sidebar and content area.
+  "Main admin layout with new shell structure (Phase 2).
 
    Args:
      content: Main content (Hiccup structure)
      opts: Map with :user, :current-entity, :entities, :entity-configs, :flash
 
    Returns:
-     Complete HTML page structure"
+     Complete HTML page structure with new admin shell"
   [content opts]
-  (let [{:keys [user current-entity entities entity-configs flash]} opts
+  (let [{:keys [user current-entity entity-configs flash]} opts
         title (if current-entity
                 (str "Admin - " (:label (get entity-configs current-entity)))
-                "Admin Dashboard")]
+                "Admin Dashboard")
+        page-title (when current-entity
+                     (:label (get entity-configs current-entity)))]
     (layout/page-layout
      title
-     [:div.admin-container
-      (admin-sidebar entities entity-configs current-entity)
-      [:div.admin-content
-       content]]
-     {:user user :flash flash})))
+     (admin-shell content (assoc opts :page-title page-title))
+     {:user user 
+      :flash flash
+      :css ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
+      :js ["/js/htmx.min.js" "/js/sidebar.js"]})))
 
 (defn admin-home
   "Admin dashboard home page content.
