@@ -162,7 +162,7 @@
 ;; =============================================================================
 
 (defn entity-search-form
-  "Search form for entity list filtering.
+  "Compact inline search form for entity list filtering.
 
    Args:
      entity-name: Keyword entity name
@@ -182,15 +182,19 @@
                :hx-push-url "true"
                :hx-trigger "submit, change from:select delay:300ms"}
         [:div.search-controls
-         [:div.search-input
-          [:input {:type "text"
-                   :name "search"
-                   :placeholder (str "Search " (str/join ", " (map name search-fields)) "...")
-                   :value (or current-search "")
-                   :autofocus true}]
-          [:button {:type "submit" :class "button primary"} "Search"]]
+         [:input {:type "text"
+                  :name "search"
+                  :placeholder (str "Search " (str/join ", " (map name search-fields)) "...")
+                  :value (or current-search "")
+                  :autofocus true
+                  :class "search-input"}]
+         [:button.icon-button {:type "submit" :aria-label "Search"}
+          (icons/icon :search {:size 20})]
          (when (seq current-search)
-           [:a.button.secondary {:href (str "/web/admin/" (name entity-name))} "Clear"])]]])))
+           [:button.icon-button.secondary {:type "button" 
+                                           :aria-label "Clear search"
+                                           :onclick (str "window.location.href='/web/admin/" (name entity-name) "';")}
+            (icons/icon :x {:size 20})])]]])))
 
 (defn render-field-value
   "Render field value for display in table or detail view.
@@ -261,17 +265,13 @@
              value (get record field)]
          [:td {:class (str "field-" (name field))}
           (render-field-value field value field-config)]))
-     [:td.row-actions
-      (when (:can-edit permissions)
-        [:a.button.small.secondary
-         {:href (str "/web/admin/" (name entity-name) "/" record-id)}
-         "Edit"])
-      (when (:can-delete permissions)
-        [:button.button.small.danger
-         {:hx-delete (str "/web/admin/" (name entity-name) "/" record-id)
-          :hx-confirm "Are you sure you want to delete this record?"
-          :hx-target "#entity-table-container"}
-         "Delete"])]]))
+      [:td.row-actions
+       (when (:can-edit permissions)
+         [:a.icon-button.secondary
+          {:href (str "/web/admin/" (name entity-name) "/" record-id)
+           :aria-label "Edit"}
+          (icons/icon :edit {:size 18})])]]))
+
 
 (defn entity-table
   "Generate entity table with sorting and pagination.
@@ -317,15 +317,17 @@
            [:input {:type "hidden" :name k :value v}])
          (for [[k v] filter-params]
            [:input {:type "hidden" :name k :value v}])
-         [:div.bulk-actions
-          [:button.button.small.secondary
-           {:type "submit"
-            :name "action"
-            :value "delete"
-            :disabled "disabled"
-            :id "bulk-delete-btn"
-            :hx-confirm "Are you sure you want to delete selected records?"}
-           "Delete Selected"]]
+          [:div.bulk-actions
+           [:button.icon-button.danger
+            {:type "submit"
+             :name "action"
+             :value "delete"
+             :disabled "disabled"
+             :id "bulk-delete-btn"
+             :aria-label "Delete selected"
+             :hx-confirm "Are you sure you want to delete selected records?"}
+            (icons/icon :trash {:size 18})]]
+
          [:table.data-table
           [:thead
            [:tr
@@ -379,17 +381,19 @@
      (when flash
        (for [[type message] flash]
          [:div {:class (str "alert alert-" (name type))} message]))
-     [:div.page-header
-      [:div.page-title
+     [:div.page-header-compact
+      [:div.page-title-section
        [:h1 label]
-       [:p.page-subtitle (str total-count " records")]]
-      [:div.page-actions
+       [:span.record-count (str total-count " records")]]
+      [:div.page-actions-section
+       (entity-search-form entity-name entity-config search filters)
        (when (:can-create permissions)
-         [:a.button.primary
-          {:href (str "/web/admin/" (name entity-name) "/new")}
-          "Create New"])]]
-     (entity-search-form entity-name entity-config search filters)
+         [:a.icon-button.primary
+          {:href (str "/web/admin/" (name entity-name) "/new")
+           :aria-label (str "Create new " label)}
+          (icons/icon :plus {:size 20})])]]
      (entity-table entity-name records entity-config table-query total-count permissions filters)]))
+
 
 ;; =============================================================================
 ;; Entity Detail/Edit Components
