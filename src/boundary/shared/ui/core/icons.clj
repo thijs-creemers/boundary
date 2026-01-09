@@ -378,6 +378,39 @@
   []
   (vec (sort (keys icon-paths))))
 
+(defn theme-toggle-button
+  "Render a theme toggle button with sun/moon icons.
+   
+   The button automatically switches between light and dark mode using
+   the ThemeManager JavaScript module loaded via theme.js.
+   
+   Args:
+     opts: Optional map with:
+           :class - Additional CSS classes
+           :size - Icon size in pixels (default 20)
+           
+   Returns:
+     Hiccup button with theme toggle functionality
+     
+   Example:
+     (theme-toggle-button)
+     (theme-toggle-button {:class \"header-action\" :size 22})"
+  ([]
+   (theme-toggle-button {}))
+  ([opts]
+   (let [{:keys [class size] :or {size 20}} opts]
+     [:button.theme-toggle
+      {:type "button"
+       :data-theme-toggle "true"
+       :aria-label "Toggle theme"
+       :class class}
+      ;; Light mode icon (sun) - shown when in dark mode
+      [:span {:data-theme-icon "light" :style "display: none;"}
+       (icon :sun {:size size :aria-label "Switch to light mode"})]
+      ;; Dark mode icon (moon) - shown when in light mode
+      [:span {:data-theme-icon "dark"}
+       (icon :moon {:size size :aria-label "Switch to dark mode"})]])))
+
 (comment
   ;; Usage examples:
   

@@ -93,13 +93,14 @@
      (admin-sidebar entities entity-configs current-entity)
      [:div.admin-overlay]
      [:div.admin-main
-      [:header.admin-topbar
-       [:button.mobile-menu-toggle {:type "button"
-                                    :aria-label "Open menu"}
-        (icons/icon :menu {:size 24})]
-       [:h1 (or page-title "Admin Dashboard")]
-       [:div.admin-topbar-actions
-        [:span (str "Welcome, " (:display-name user (:email user)))]]]
+       [:header.admin-topbar
+        [:button.mobile-menu-toggle {:type "button"
+                                     :aria-label "Open menu"}
+         (icons/icon :menu {:size 24})]
+        [:h1 (or page-title "Admin Dashboard")]
+        [:div.admin-topbar-actions
+         (icons/theme-toggle-button)
+         [:span (str "Welcome, " (:display-name user (:email user)))]]]
       [:main.admin-content
        content]]]))
 
@@ -125,7 +126,7 @@
      {:user user 
       :flash flash
       :css ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
-      :js ["/js/htmx.min.js" "/js/sidebar.js"]})))
+      :js ["/js/theme.js" "/js/htmx.min.js" "/js/sidebar.js"]})))
 
 (defn admin-home
   "Admin dashboard home page content.

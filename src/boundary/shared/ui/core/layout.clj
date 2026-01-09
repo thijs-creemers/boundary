@@ -3,7 +3,8 @@
    
    Contains page layout, navigation, and structural components that provide
    consistent look and feel across all domain modules."
-  (:require [boundary.shared.ui.core.components :as components]))
+  (:require [boundary.shared.ui.core.components :as components]
+            [boundary.shared.ui.core.icons :as icons]))
 
 (defn main-navigation
   "Main site navigation component.
@@ -24,9 +25,12 @@
      (if user
        [:div.user-nav
         [:span "Welcome, " (:name user)]
+        (icons/theme-toggle-button)
         [:form {:method "POST" :action "/web/logout" :style "display: inline;"}
          [:button {:type "submit" :class "link-button"} "Logout"]]]
-       [:a {:href "/web/login"} "Login"])]))
+       [:div.user-nav
+        (icons/theme-toggle-button)
+        [:a {:href "/web/login"} "Login"]])]))
 
 (defn page-layout
   "Main page layout wrapper.
@@ -41,7 +45,7 @@
   [title content & [opts]]
   (let [{:keys [user flash css js]
          :or {css ["/css/pico.min.css" "/css/tokens.css" "/css/app.css"]
-              js ["/js/htmx.min.js"]}} opts]
+              js ["/js/theme.js" "/js/htmx.min.js"]}} opts]
     [:html {:lang "en"}
      [:head
       [:meta {:charset "UTF-8"}]

@@ -69,10 +69,12 @@
   --border-default: var(--color-neutral-200);
   --border-strong: var(--color-neutral-300);
 
-  --sidebar-bg: var(--color-neutral-900);
-  --sidebar-text: var(--color-neutral-200);
-  --sidebar-hover: rgba(255, 255, 255, 0.1);
-  --sidebar-active: rgba(255, 255, 255, 0.15);
+  --sidebar-bg: #f8fafc;            /* Light blue-gray background */
+  --sidebar-text: var(--color-neutral-900);     /* Dark text for contrast */
+  --sidebar-text-secondary: var(--color-neutral-600);  /* Muted text */
+  --sidebar-hover: rgba(59, 130, 246, 0.08);    /* Subtle blue tint on hover */
+  --sidebar-active: rgba(59, 130, 246, 0.12);   /* Slightly stronger blue on active */
+  --sidebar-border: var(--color-neutral-200);   /* Subtle border color */
 
   /* --------------------------------------------------------------------------
      Spacing Scale (rem-based for accessibility)
