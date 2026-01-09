@@ -399,16 +399,19 @@
   (ring/create-default-handler
    {:not-found (constantly {:status 404
                             :headers {"Content-Type" "application/json"}
-                            :body {:error "Not Found"
-                                   :message "The requested resource was not found"}})
+                            :body (json/generate-string
+                                   {:error "Not Found"
+                                    :message "The requested resource was not found"})})
     :method-not-allowed (constantly {:status 405
                                      :headers {"Content-Type" "application/json"}
-                                     :body {:error "Method Not Allowed"
-                                            :message "The HTTP method is not allowed for this resource"}})
+                                     :body (json/generate-string
+                                            {:error "Method Not Allowed"
+                                             :message "The HTTP method is not allowed for this resource"})})
     :not-acceptable (constantly {:status 406
                                  :headers {"Content-Type" "application/json"}
-                                 :body {:error "Not Acceptable"
-                                        :message "The requested content type is not supported"}})}))
+                                 :body (json/generate-string
+                                        {:error "Not Acceptable"
+                                         :message "The requested content type is not supported"})})}))
 
 ;; =============================================================================
 ;; Swagger Documentation Routes
