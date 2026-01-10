@@ -20,8 +20,12 @@
      [:a.logo {:href "/"} "Boundary App"]
      (when user
        [:div.nav-links
-        [:a {:href "/web/users"} "Users"]
-        [:a {:href "/web/audit"} "Audit Trail"]])
+        [:a {:href "/web/users"} 
+         (icons/icon :users {:size 18}) 
+         [:span {:style "margin-left: 0.5rem;"} "Users"]]
+        [:a {:href "/web/audit"} 
+         (icons/icon :file-text {:size 18}) 
+         [:span {:style "margin-left: 0.5rem;"} "Audit Trail"]]])
      (if user
        [:div.user-nav
         [:span "Welcome, " (:name user)]

@@ -485,8 +485,8 @@
            "Apply to Selected"]]
            ;; Inline compact search/filter with overlay
          [:details#search-filter-details.search-filter-inline
-          [:summary.search-toggle 
-           (icons/icon :search {:size 16}) 
+          [:summary.search-toggle
+           (icons/icon :search {:size 16})
            [:span {:style "margin-left: 0.5rem;"} "Filters"]]
           [:div.search-filter-overlay
            {:onclick "if(event.target === this) document.getElementById('search-filter-details').open = false;"}
@@ -541,8 +541,8 @@
                   :action (str "/web/users/" (:id user) "/hard-delete")
                   :style "display: inline-block; margin-right: 10px;"
                   :onsubmit "return confirm('⚠️  PERMANENT DELETE\\n\\nThis will IRREVERSIBLY delete this user and ALL related data.\\n\\nThis action cannot be undone.\\n\\nAre you absolutely sure?');"}
-           [:button.button.danger {:type "submit"} 
-            (icons/icon :trash {:size 16}) 
+           [:button.button.danger {:type "submit"}
+            (icons/icon :trash {:size 16})
             [:span {:style "margin-left: 0.5rem;"} "Permanently Delete"]]])
         [:a.button.secondary {:href (str "/web/users/" (:id user) "/sessions")} "View Sessions"]
         [:a.button {:href "/web/users"} "← Back to Users"]]]
@@ -587,10 +587,12 @@
                  (for [e es]
                    [:p e])]))]
     [:div#login-form
-     [:h2 "Sign in"]
+     [:h2
+      (icons/icon :log-in {:size 24})
+      [:span {:style "margin-left: 0.5rem;"} "Sign in"]]
      [:form {:method "post"
              :action "/web/login"}
-      ;; Hidden field to preserve return-to URL
+       ;; Hidden field to preserve return-to URL
       (when (:return-to data)
         [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
       (ui/form-field :email "Email"
@@ -637,29 +639,31 @@
      password-violations - optional password violations from policy check
      policy - optional password policy configuration"
   ([data errors password-violations policy]
-   [:div#register-form
-    [:h2 "Create Account"]
-    [:form {:method "post"
-            :action "/web/register"}
-     (ui/form-field :name "Name"
-                    (ui/text-input :name (:name data) {:required true})
-                    (:name errors))
-     (ui/form-field :email "Email"
-                    (ui/email-input :email (:email data) {:required true})
-                    (:email errors))
-     ;; Password field with validation feedback
-     [:div {:class "form-field"}
-      [:label {:for "password"} "Password"]
-      (ui/password-input :password "" {:required true})
-      ;; Show password requirements if policy provided
-      (when policy
-        (password-requirements-list (or password-violations []) policy))
-      ;; Show validation errors if present
-      (when (seq (:password errors))
-        [:div.validation-errors
-         (for [err (:password errors)]
-           [:p err])])]
-     (ui/submit-button "Create Account" {:loading-text "Creating..."})]])
+    [:div#register-form
+     [:h2
+      (icons/icon :user-plus {:size 24})
+      [:span {:style "margin-left: 0.5rem;"} "Create Account"]]
+     [:form {:method "post"
+             :action "/web/register"}
+      (ui/form-field :name "Name"
+                     (ui/text-input :name (:name data) {:required true})
+                     (:name errors))
+      (ui/form-field :email "Email"
+                     (ui/email-input :email (:email data) {:required true})
+                     (:email errors))
+      ;; Password field with validation feedback
+      [:div {:class "form-field"}
+       [:label {:for "password"} "Password"]
+       (ui/password-input :password "" {:required true})
+       ;; Show password requirements if policy provided
+       (when policy
+         (password-requirements-list (or password-violations []) policy))
+       ;; Show validation errors if present
+       (when (seq (:password errors))
+         [:div.validation-errors
+          (for [err (:password errors)]
+            [:p err])])]
+      (ui/submit-button "Create Account" {:loading-text "Creating..."})]])
   ([data errors]
    (register-form data errors nil {:min-length 8 :require-numbers true})))
 
@@ -677,7 +681,9 @@
     [:div.page-header
      [:h1 "Create Account"]
      [:div.page-actions
-      [:a.button {:href "/web/login"} "\u2190 Back to Login"]]]
+      [:a.button {:href "/web/login"}
+       (icons/icon :arrow-left {:size 16})
+       [:span {:style "margin-left: 0.5rem;"} "Back to Login"]]]]
     (register-form data errors)]
    opts))
 
