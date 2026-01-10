@@ -161,6 +161,23 @@
   (when s
     (str/replace s "-" "_")))
 
+(defn kebab-case->snake-case-keyword
+  "Convert a kebab-case keyword to snake_case keyword.
+   
+   Args:
+     kw: kebab-case keyword
+     
+   Returns:
+     snake_case keyword
+     
+   Example:
+     (kebab-case->snake-case-keyword :created-at) ;; => :created_at"
+  [kw]
+  (when kw
+    (if (keyword? kw)
+      (keyword (kebab-case->snake-case-string (name kw)))
+      kw)))
+
 (defn snake-case->kebab-case-string
   "Convert a snake_case string to kebab-case string.
    

@@ -6,6 +6,7 @@
   (:require [boundary.platform.core.database.query :as core-query]
             [boundary.platform.core.database.validation :as core-validation]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
+            [boundary.shared.core.utils.case-conversion :as case-conv]
             [clojure.tools.logging :as log]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]))
@@ -90,8 +91,10 @@
 
     (try
       ;; Side effect: database I/O
-      (let [result (jdbc/execute! (:datasource ctx) sql-query
-                                  {:builder-fn rs/as-unqualified-lower-maps})
+      (let [raw-result (jdbc/execute! (:datasource ctx) sql-query
+                                      {:builder-fn rs/as-unqualified-lower-maps})
+            ;; Convert result keys from snake_case to kebab-case
+            result (mapv case-conv/snake-case->kebab-case-map raw-result)
             duration (- (System/currentTimeMillis) start-time)
             success-details (merge operation-details
                                    {:duration-ms duration

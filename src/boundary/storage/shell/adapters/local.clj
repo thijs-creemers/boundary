@@ -11,7 +11,8 @@
   (:import [java.io File]
            [java.nio.file Files Path Paths]
            [java.nio.file.attribute FileAttribute]
-           [java.security MessageDigest]))
+           [java.security MessageDigest]
+           [java.util UUID]))
 
 ;; ============================================================================
 ;; Helpers
@@ -58,11 +59,13 @@
   (let [hash (compute-sha256 bytes)
         ext (validation/get-file-extension filename)
         timestamp (System/currentTimeMillis)
-        nanos (System/nanoTime)
-        ;; Use first 16 chars of hash for directory sharding
+        ;; Use first 2 chars of hash for directory sharding to avoid too many
+        ;; files in a single directory while keeping lookups simple.
         shard (subs hash 0 2)
-        ;; Include nanos for uniqueness in concurrent scenarios
-        key-name (str timestamp "-" (mod nanos 1000000) "-" (subs hash 0 16))]
+        ;; Use a UUID to provide strong uniqueness guarantees even under
+        ;; high concurrency with identical content and filenames.
+        random-id (str (UUID/randomUUID))
+        key-name (str timestamp "-" random-id "-" (subs hash 0 16))]
     (if ext
       (path-join shard (str key-name "." ext))
       (path-join shard key-name))))

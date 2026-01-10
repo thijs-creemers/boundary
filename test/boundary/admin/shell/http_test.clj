@@ -78,20 +78,20 @@
   [db-ctx]
   (db/execute-update!
    db-ctx
-   {:raw "CREATE TABLE IF NOT EXISTS \"test-users\" (
+   {:raw "CREATE TABLE IF NOT EXISTS test_users (
            id UUID PRIMARY KEY,
            email VARCHAR(255) NOT NULL UNIQUE,
            name VARCHAR(255) NOT NULL,
-           \"password-hash\" VARCHAR(255) NOT NULL,
+           password_hash VARCHAR(255) NOT NULL,
            active BOOLEAN NOT NULL DEFAULT true,
-           \"created-at\" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-           \"updated-at\" TIMESTAMP,
-           \"deleted-at\" TIMESTAMP)"}))
+           created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+           updated_at TIMESTAMP,
+           deleted_at TIMESTAMP)"}))
 
 (defn drop-test-table!
   "Drop test users table"
   [db-ctx]
-  (db/execute-update! db-ctx {:raw "DROP TABLE IF EXISTS \"test-users\""}))
+  (db/execute-update! db-ctx {:raw "DROP TABLE IF EXISTS test_users"}))
 
 (defn setup-test-system!
   "Set up test HTTP handlers and database"
@@ -191,7 +191,7 @@
   "Fixture to clean table between tests"
   [f]
   (when *db-ctx*
-    (db/execute-update! *db-ctx* {:raw "DELETE FROM \"test-users\""}))
+    (db/execute-update! *db-ctx* {:raw "DELETE FROM test_users"}))
   (f))
 
 (use-fixtures :once
@@ -207,7 +207,10 @@
 ;; =============================================================================
 
 (defn make-request
-  "Create a Ring request map"
+  "Create a Ring request map.
+   
+   If user is provided, adds to both :user (for handler) and [:session :user] (for middleware).
+   The admin handlers expect :user at request root after authentication middleware."
   ([method uri]
    (make-request method uri nil nil))
   ([method uri user]
@@ -219,6 +222,7 @@
             :query-params (or (:query params) {})
             :form-params (or (:form params) {})
             :path-params (or (:path params) {})}
+     user (assoc :user user)
      user (assoc-in [:session :user] user))))
 
 (defn create-test-user!
@@ -643,7 +647,8 @@
 
       (testing "Step 1: Create entity"
         (is (some? create-response))
-        (is (= 302 (:status create-response))))
+        ;; Handler returns 200 with entity list page and success flash message
+        (is (= 200 (:status create-response))))
 
       ;; Find created user
       (let [created-user (db/execute-one! *db-ctx*

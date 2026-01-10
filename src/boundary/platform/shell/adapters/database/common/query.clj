@@ -1,7 +1,9 @@
 (ns boundary.platform.shell.adapters.database.common.query
   "Common query building and formatting utilities."
   (:require [boundary.platform.shell.adapters.database.protocols :as protocols]
-            [honey.sql :as sql]))
+            [boundary.shared.core.utils.case-conversion :as case-conv]
+            [honey.sql :as sql]
+            [clojure.walk :as walk]))
 
 ;; =============================================================================
 ;; Configuration Constants
@@ -23,6 +25,31 @@
 ;; HoneySQL Formatting
 ;; =============================================================================
 
+(defn- convert-identifier
+  "Convert kebab-case identifier to snake_case for database.
+   Only converts keywords and strings, leaves other values unchanged."
+  [x]
+  (cond
+    (keyword? x) (case-conv/kebab-case->snake-case-keyword x)
+    (string? x) (case-conv/kebab-case->snake-case-string x)
+    :else x))
+
+(defn- convert-query-identifiers
+  "Walk through HoneySQL query map and convert all identifiers to snake_case.
+   This handles table names, column names, etc. at the database boundary."
+  [query-map]
+  (walk/postwalk
+   (fn [x]
+     (cond
+       ;; Convert keywords (table names, column names)
+       (keyword? x) (convert-identifier x)
+       ;; Convert vectors of keywords (e.g., [:table :column])
+       (and (vector? x) (every? keyword? x))
+       (mapv convert-identifier x)
+       ;; Leave everything else unchanged
+       :else x))
+   query-map))
+
 (defn- adapter-dialect->honey-dialect
   "Map adapter dialect to HoneySQL-supported dialect.
 
@@ -39,10 +66,11 @@
 
 (defn format-sql
   "Format HoneySQL query map using adapter's dialect.
+   Converts kebab-case identifiers to snake_case at database boundary.
 
    Args:
      adapter: Database adapter
-     query-map: HoneySQL query map
+     query-map: HoneySQL query map (with kebab-case identifiers)
 
    Returns:
      Vector of [sql & params]
@@ -50,30 +78,35 @@
    Example:
      (format-sql adapter {:select [:*] :from [:users]})"
   [adapter query-map]
-  (if-let [adapter-dialect (protocols/dialect adapter)]
-    (let [honey-dialect (adapter-dialect->honey-dialect adapter-dialect)]
-      (if honey-dialect
-        (sql/format query-map {:dialect honey-dialect})
-        (sql/format query-map)))
-    (sql/format query-map)))
+  (let [converted-query (convert-query-identifiers query-map)]
+    (if-let [adapter-dialect (protocols/dialect adapter)]
+      (let [honey-dialect (adapter-dialect->honey-dialect adapter-dialect)]
+        (if honey-dialect
+          (sql/format converted-query {:dialect honey-dialect :quoted false})
+          (sql/format converted-query {:quoted false})))
+      (sql/format converted-query {:quoted false}))))
 
 (defn format-sql*
   "Format HoneySQL query map with custom options.
+   Converts kebab-case identifiers to snake_case at database boundary.
 
    Args:
      adapter: Database adapter
-     query-map: HoneySQL query map
+     query-map: HoneySQL query map (with kebab-case identifiers)
      opts: Additional formatting options
 
    Returns:
      Vector of [sql & params]"
   [adapter query-map opts]
-  (let [adapter-dialect (protocols/dialect adapter)
+  (let [converted-query (convert-query-identifiers query-map)
+        adapter-dialect (protocols/dialect adapter)
         honey-dialect (adapter-dialect->honey-dialect adapter-dialect)
+        ;; Always disable quoting and merge in dialect if present
+        base-opts (merge {:quoted false} opts)
         dialect-opts (if honey-dialect
-                       (merge opts {:dialect honey-dialect})
-                       opts)]
-    (sql/format query-map dialect-opts)))
+                       (assoc base-opts :dialect honey-dialect)
+                       base-opts)]
+    (sql/format converted-query dialect-opts)))
 
 ;; =============================================================================
 ;; Query Building Utilities

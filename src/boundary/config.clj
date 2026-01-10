@@ -265,7 +265,17 @@
   [config]
   (let [http-cfg (http-config config)
         validation-cfg (user-validation-config config)
-        pagination-cfg (get-in config [:active :boundary/pagination] {:default-limit 20 :max-limit 100})]
+        pagination-cfg (get-in config [:active :boundary/pagination] {:default-limit 20 :max-limit 100})
+        admin-enabled? (get-in config [:active :boundary/admin :enabled?])
+        http-handler-config (cond-> {:config config
+                                     :user-routes (ig/ref :boundary/user-routes)
+                                     :inventory-routes (ig/ref :boundary/inventory-routes)
+                                     :router (ig/ref :boundary/router)
+                                     :logger (ig/ref :boundary/logging)
+                                     :metrics-emitter (ig/ref :boundary/metrics)
+                                     :error-reporter (ig/ref :boundary/error-reporting)}
+                              admin-enabled?
+                              (assoc :admin-routes (ig/ref :boundary/admin-routes)))]
     {:boundary/user-db-schema
      {:ctx (ig/ref :boundary/db-context)}
 
@@ -305,14 +315,7 @@
       :config config}
 
      :boundary/http-handler
-     {:config config
-      :user-routes (ig/ref :boundary/user-routes)
-      :inventory-routes (ig/ref :boundary/inventory-routes)
-      :admin-routes (ig/ref :boundary/admin-routes)
-      :router (ig/ref :boundary/router)
-      :logger (ig/ref :boundary/logging)
-      :metrics-emitter (ig/ref :boundary/metrics)
-      :error-reporter (ig/ref :boundary/error-reporting)}
+     http-handler-config
 
      :boundary/http-server
      (merge http-cfg

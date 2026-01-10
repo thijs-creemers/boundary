@@ -14,7 +14,6 @@
     [boundary.admin.ports :as ports]
     [boundary.admin.core.ui :as admin-ui]
     [boundary.admin.core.permissions :as permissions]
-    [boundary.shared.ui.core.layout :as layout]
     [boundary.shared.ui.core.components :as ui-components]
     [boundary.shared.ui.core.validation :as ui-validation]
     [boundary.platform.core.http.problem-details :as problem-details]
@@ -768,7 +767,7 @@
             records (:records list-result)
             total-count (:total-count list-result)
             table-query {:page-size (:page-size list-result)
-                        :page (:page-number list-result)}
+                         :page (:page-number list-result)}
             permissions (permissions/get-entity-permissions user entity-name entity-config)
             
             ; Create flash message

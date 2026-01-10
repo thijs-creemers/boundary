@@ -55,6 +55,7 @@
    "timestamptz" :instant
    "datetime" :instant
    "date" :date
+   "time" :time
    "json" :json
    "jsonb" :json
    "blob" :binary
@@ -162,7 +163,8 @@
         ; Special field name heuristics
         (str/includes? field-name-lower "email") :email-input
         (str/includes? field-name-lower "password") :password-input
-        (str/includes? field-name-lower "url") :url-input
+        (or (str/includes? field-name-lower "url")
+            (str/includes? field-name-lower "website")) :url-input
         (str/includes? field-name-lower "color") :color-input
         (str/includes? field-name-lower "description") :textarea
         (str/includes? field-name-lower "bio") :textarea

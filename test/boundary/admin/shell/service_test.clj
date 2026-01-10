@@ -147,10 +147,10 @@
                     :password-hash "hash123"
                     :active active
                     :created-at (Instant/now)}]
+      ;; Note: H2 doesn't support RETURNING clause, but execute-one! works fine without it
      (db/execute-one! *db-ctx*
                       {:insert-into :test-users
-                       :values [user-data]
-                       :returning [:*]})
+                       :values [user-data]})
      user-data)))
 
 (defn create-test-item!
@@ -162,10 +162,10 @@
                    :quantity quantity
                    :price (bigdec price)
                    :created-at (Instant/now)}]
+    ;; Note: H2 doesn't support RETURNING clause, but execute-one! works fine without it
     (db/execute-one! *db-ctx*
                      {:insert-into :test-items
-                      :values [item-data]
-                      :returning [:*]})
+                      :values [item-data]})
     item-data))
 
 ;; =============================================================================
@@ -448,7 +448,7 @@
           updated (ports/update-entity *admin-service* :test-users user-id update-data)]
 
       ;; created-at should not change (it's readonly)
-      (is (= original-created-at (:created-at updated))))))
+      (is (= (inst-ms original-created-at) (inst-ms (:created-at updated)))))))
 
 ;; =============================================================================
 ;; Delete Entity Tests
