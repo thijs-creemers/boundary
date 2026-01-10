@@ -7,6 +7,7 @@
   (:require [boundary.shared.ui.core.components :as ui]
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.table :as table-ui]
+            [boundary.shared.ui.core.icons :as icons]
             [boundary.shared.web.table :as web-table]
             [clojure.string :as str]))
 
@@ -484,7 +485,9 @@
            "Apply to Selected"]]
            ;; Inline compact search/filter with overlay
          [:details#search-filter-details.search-filter-inline
-          [:summary.search-toggle "🔍 Filters"]
+          [:summary.search-toggle 
+           (icons/icon :search {:size 16}) 
+           [:span {:style "margin-left: 0.5rem;"} "Filters"]]
           [:div.search-filter-overlay
            {:onclick "if(event.target === this) document.getElementById('search-filter-details').open = false;"}
            [:form.search-filter-form
@@ -538,7 +541,9 @@
                   :action (str "/web/users/" (:id user) "/hard-delete")
                   :style "display: inline-block; margin-right: 10px;"
                   :onsubmit "return confirm('⚠️  PERMANENT DELETE\\n\\nThis will IRREVERSIBLY delete this user and ALL related data.\\n\\nThis action cannot be undone.\\n\\nAre you absolutely sure?');"}
-           [:button.button.danger {:type "submit"} "🗑️ Permanently Delete"]])
+           [:button.button.danger {:type "submit"} 
+            (icons/icon :trash {:size 16}) 
+            [:span {:style "margin-left: 0.5rem;"} "Permanently Delete"]]])
         [:a.button.secondary {:href (str "/web/users/" (:id user) "/sessions")} "View Sessions"]
         [:a.button {:href "/web/users"} "← Back to Users"]]]
       (user-detail-form user)]

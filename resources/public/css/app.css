@@ -587,11 +587,144 @@ textarea {
 }
 
 /* =============================================================================
-   Buttons
+   HTMX Loading Indicators
+   ============================================================================= */
+
+/* Hide indicators by default */
+.htmx-indicator {
+  display: none;
+}
+
+/* Show indicator when HTMX request is in progress */
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Spinner animation */
+@keyframes htmx-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.htmx-indicator svg {
+  animation: htmx-spin 1s linear infinite;
+}
+
+/* Button loading states */
+button.htmx-request,
+input[type="submit"].htmx-request {
+  opacity: 0.7;
+  cursor: wait;
+  position: relative;
+}
+
+/* Show loading text if data-loading-text is provided */
+button[data-loading-text].htmx-request::before,
+input[data-loading-text].htmx-request::before {
+  content: attr(data-loading-text);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+button[data-loading-text].htmx-request > *,
+input[data-loading-text].htmx-request > * {
+  visibility: hidden;
+}
+
+/* Skeleton loading state */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-neutral-200) 25%,
+    var(--color-neutral-100) 50%,
+    var(--color-neutral-200) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-neutral-800) 25%,
+    var(--color-neutral-700) 50%,
+    var(--color-neutral-800) 75%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Skeleton variants */
+.skeleton-text {
+  height: 1em;
+  margin-bottom: var(--space-2);
+}
+
+.skeleton-heading {
+  height: 2em;
+  margin-bottom: var(--space-4);
+}
+
+.skeleton-avatar {
+  width: var(--space-12);
+  height: var(--space-12);
+  border-radius: var(--radius-full);
+}
+
+.skeleton-button {
+  height: var(--space-10);
+  width: 120px;
+}
+
+/* =============================================================================
+   Icon Buttons
    ============================================================================= */
 
 .button, button, [role="button"] {
   margin-bottom: 0;
+  transition: all var(--transition-normal);
+  cursor: pointer;
+  position: relative;
+}
+
+/* Disabled state */
+.button:disabled,
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Loading state (HTMX compatibility) */
+.button.htmx-request,
+button.htmx-request {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+/* Active/pressed state */
+.button:active:not(:disabled),
+button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .button.small {
@@ -599,12 +732,56 @@ textarea {
   font-size: var(--text-sm);
 }
 
-.button.danger {
-  background-color: var(--color-error);
-  border-color: var(--color-error);
+/* Primary button (default Pico styling) */
+.button.primary,
+button.primary {
+  background-color: var(--color-primary-600);
+  border-color: var(--color-primary-600);
+  color: white;
 }
 
-.button.danger:hover {
+.button.primary:hover:not(:disabled),
+button.primary:hover:not(:disabled) {
+  background-color: var(--color-primary-700);
+  border-color: var(--color-primary-700);
+}
+
+/* Secondary button */
+.button.secondary,
+button.secondary {
+  background-color: var(--color-neutral-100);
+  border-color: var(--color-neutral-300);
+  color: var(--text-primary);
+}
+
+.button.secondary:hover:not(:disabled),
+button.secondary:hover:not(:disabled) {
+  background-color: var(--color-neutral-200);
+  border-color: var(--color-neutral-400);
+}
+
+[data-theme="dark"] .button.secondary,
+[data-theme="dark"] button.secondary {
+  background-color: var(--color-neutral-800);
+  border-color: var(--color-neutral-700);
+}
+
+[data-theme="dark"] .button.secondary:hover:not(:disabled),
+[data-theme="dark"] button.secondary:hover:not(:disabled) {
+  background-color: var(--color-neutral-700);
+  border-color: var(--color-neutral-600);
+}
+
+/* Danger button */
+.button.danger,
+button.danger {
+  background-color: var(--color-error);
+  border-color: var(--color-error);
+  color: white;
+}
+
+.button.danger:hover:not(:disabled),
+button.danger:hover:not(:disabled) {
   background-color: var(--color-error-dark);
   border-color: var(--color-error-dark);
 }
@@ -872,6 +1049,28 @@ textarea {
 :focus-visible {
   outline: 2px solid var(--color-primary-500);
   outline-offset: 2px;
+}
+
+/* Remove focus outline from disabled elements */
+:disabled:focus-visible,
+[aria-disabled="true"]:focus-visible {
+  outline: none;
+}
+
+/* Ensure links have focus states */
+a:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Form inputs focus states */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 0px;
+  border-color: var(--color-primary-500);
 }
 
 /* =============================================================================
