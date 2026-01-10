@@ -112,7 +112,7 @@
          :errors [{:code :storage-error
                    :message (.getMessage e)}]})))
 
-  (upload-image [_ image-bytes metadata options]
+  (upload-image [this image-bytes metadata options]
     (when logger
       (logging/info logger "Upload image started"
                     {:event ::upload-image-started

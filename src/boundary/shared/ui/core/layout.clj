@@ -3,7 +3,8 @@
    
    Contains page layout, navigation, and structural components that provide
    consistent look and feel across all domain modules."
-  (:require [boundary.shared.ui.core.components :as components]))
+  (:require [boundary.shared.ui.core.components :as components]
+            [boundary.shared.ui.core.icons :as icons]))
 
 (defn main-navigation
   "Main site navigation component.
@@ -19,14 +20,21 @@
      [:a.logo {:href "/"} "Boundary App"]
      (when user
        [:div.nav-links
-        [:a {:href "/web/users"} "Users"]
-        [:a {:href "/web/audit"} "Audit Trail"]])
+        [:a {:href "/web/users"} 
+         (icons/icon :users {:size 18}) 
+         [:span {:style "margin-left: 0.5rem;"} "Users"]]
+        [:a {:href "/web/audit"} 
+         (icons/icon :file-text {:size 18}) 
+         [:span {:style "margin-left: 0.5rem;"} "Audit Trail"]]])
      (if user
        [:div.user-nav
         [:span "Welcome, " (:name user)]
+        (icons/theme-toggle-button)
         [:form {:method "POST" :action "/web/logout" :style "display: inline;"}
          [:button {:type "submit" :class "link-button"} "Logout"]]]
-       [:a {:href "/web/login"} "Login"])]))
+       [:div.user-nav
+        (icons/theme-toggle-button)
+        [:a {:href "/web/login"} "Login"]])]))
 
 (defn page-layout
   "Main page layout wrapper.
@@ -34,14 +42,15 @@
    Args:
      title: Page title string
      content: Main page content (Hiccup structure)
-     opts: Optional map with :user, :flash, :css, :js, etc.
+     opts: Optional map with :user, :flash, :css, :js, :skip-header, etc.
      
    Returns:
      Complete HTML page structure"
   [title content & [opts]]
-  (let [{:keys [user flash css js]
-         :or {css ["/css/pico.min.css" "/css/app.css"]
-              js ["/js/htmx.min.js"]}} opts]
+  (let [{:keys [user flash css js skip-header]
+         :or {css ["/css/pico.min.css" "/css/tokens.css" "/css/app.css"]
+              js ["/js/theme.js" "/js/htmx.min.js"]
+              skip-header false}} opts]
     [:html {:lang "en"}
      [:head
       [:meta {:charset "UTF-8"}]
@@ -50,8 +59,9 @@
       (for [css-file css]
         [:link {:rel "stylesheet" :href css-file}])]
      [:body
-      [:header.site-header
-       (main-navigation {:user user})]
+      (when-not skip-header
+        [:header.site-header
+         (main-navigation {:user user})])
       (let [children (cond-> []
                        flash (conj [:div.flash-messages
                                     (for [[type message] flash]

@@ -36,11 +36,10 @@
   (:require
    [boundary.metrics.ports :as ports]
    [boundary.metrics.schema :as schema]
-   [cheshire.core :as json]
-   [clojure.string :as str]
-   [clojure.tools.logging :as log]
-   [clojure.string :as str]
-   [malli.core :as m])
+    [cheshire.core :as json]
+    [clojure.string :as str]
+    [clojure.tools.logging :as log]
+    [malli.core :as m])
   (:import
    [java.net DatagramSocket DatagramPacket InetAddress]
    [java.nio.charset StandardCharsets]
@@ -219,10 +218,10 @@
 (defrecord DatadogMetricsEmitter [registry config send-fn]
   ports/IMetricsEmitter
 
-  (inc-counter! [_ metric-handle]
+  (inc-counter! [this metric-handle]
     (ports/inc-counter! this metric-handle 1 {}))
 
-  (inc-counter! [_ metric-handle value]
+  (inc-counter! [this metric-handle value]
     (ports/inc-counter! this metric-handle value {}))
 
   (inc-counter! [_ metric-handle value tags]
@@ -244,7 +243,7 @@
             (log/debug "Sending counter metric:" line))
           (send-fn line)))))
 
-  (set-gauge! [_ metric-handle value]
+  (set-gauge! [this metric-handle value]
     (ports/set-gauge! this metric-handle value {}))
 
   (set-gauge! [_ metric-handle value tags]
@@ -265,7 +264,7 @@
             (log/debug "Sending gauge metric:" line))
           (send-fn line)))))
 
-  (observe-histogram! [_ metric-handle value]
+  (observe-histogram! [this metric-handle value]
     (ports/observe-histogram! this metric-handle value {}))
 
   (observe-histogram! [_ metric-handle value tags]
@@ -287,7 +286,7 @@
             (log/debug "Sending histogram metric:" line))
           (send-fn line)))))
 
-  (observe-summary! [_ metric-handle value]
+  (observe-summary! [this metric-handle value]
     (ports/observe-summary! this metric-handle value {}))
 
   (observe-summary! [_ metric-handle value tags]
@@ -309,20 +308,20 @@
             (log/debug "Sending summary metric:" line))
           (send-fn line)))))
 
-  (time-histogram! [_ metric-handle f]
+  (time-histogram! [this metric-handle f]
     (ports/time-histogram! this metric-handle {} f))
 
-  (time-histogram! [_ metric-handle tags f]
+  (time-histogram! [this metric-handle tags f]
     (let [start-time (System/nanoTime)
           result (f)
           duration-ms (/ (- (System/nanoTime) start-time) 1000000.0)]
       (ports/observe-histogram! this metric-handle duration-ms tags)
       result))
 
-  (time-summary! [_ metric-handle f]
+  (time-summary! [this metric-handle f]
     (ports/time-summary! this metric-handle {} f))
 
-  (time-summary! [_ metric-handle tags f]
+  (time-summary! [this metric-handle tags f]
     (let [start-time (System/nanoTime)
           result (f)
           duration-ms (/ (- (System/nanoTime) start-time) 1000000.0)]
@@ -348,7 +347,7 @@
 (defrecord DatadogMetricsExporter [registry config]
   ports/IMetricsExporter
 
-  (export-metrics [_ format]
+  (export-metrics [this format]
     (case format
       :datadog
       (let [metrics @(:metrics registry)]
@@ -374,7 +373,7 @@
 
       (throw (ex-info "Unsupported export format" {:format format}))))
 
-  (export-metric [_ metric-name format]
+  (export-metric [this metric-name format]
     (case format
       :datadog
       (if-let [metric (get @(:metrics registry) metric-name)]

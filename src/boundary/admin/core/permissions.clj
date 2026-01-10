@@ -41,8 +41,8 @@
      (has-role? {:role :user} :admin)     ;=> false
      (has-role? nil :admin)               ;=> false"
   [user required-role]
-  (and user
-       (= (:role user) required-role)))
+  (boolean (and user
+                (= (:role user) required-role))))
 
 (defn is-admin?
   "Check if user has admin role.

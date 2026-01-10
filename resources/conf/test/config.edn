@@ -17,7 +17,7 @@
   ;; Active database configurations
   ;; Test environment uses in-memory H2 for fast, isolated tests
   
-  :boundary/h2
+ :boundary/h2
   {:memory true  ; In-memory database for fast test execution
    :pool   {:minimum-idle 1
             :maximum-pool-size 5
@@ -41,7 +41,22 @@
    :dsn         #env "SENTRY_DSN"
    :environment #or [#env "APP_ENV" "test"]
    :release     #or [#env "APP_RELEASE" #env "VERSION"]
-   :sample-rate 1.0}}
+   :sample-rate 1.0}
+
+  ;; Admin interface configuration (enabled in tests to satisfy system wiring)
+  :boundary/admin
+  {:enabled?         true
+   :base-path        "/web/admin"
+   :require-role     :admin
+   :entity-discovery {:mode      :allowlist
+                      :allowlist #{:users}}
+   :entities         {:users {:label           "Users"
+                              :list-fields     [:email :name :role :created-at]
+                              :search-fields   [:email :name]
+                              :hide-fields     #{:password-hash :deleted-at}
+                              :readonly-fields #{:id :created-at :updated-at}}}
+   :pagination       {:default-page-size 20
+                      :max-page-size     200}}}
 
 
  :inactive

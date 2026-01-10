@@ -3,7 +3,9 @@
    
    All functions in this namespace are pure - they take data and return data
    without side effects. No I/O, logging, or state mutation."
-  (:require [clojure.string]
+  (:require [boundary.shared.core.utils.case-conversion :as case-conv]
+            [clojure.string]
+            [clojure.walk :as walk]
             [honey.sql :as sql]))
 
 ;; =============================================================================
@@ -50,44 +52,126 @@
 ;; Query Formatting
 ;; =============================================================================
 
+(defn- convert-identifier
+  "Convert kebab-case identifier to snake_case for database.
+   Only converts keywords, leaves strings unchanged to avoid corrupting data values.
+   
+   Pure function: deterministic string transformation.
+   
+   Args:
+     x: Identifier (keyword only - strings pass through unchanged)
+     
+   Returns:
+     snake_case identifier for keywords, original value for everything else"
+  [x]
+  (if (keyword? x)
+    (case-conv/kebab-case->snake-case-keyword x)
+    x))
+
+(defn- convert-query-identifiers
+  "Walk through HoneySQL query map and convert table/column identifiers to snake_case.
+   This handles table names, column names, etc. at the database boundary.
+   
+   IMPORTANT: Only converts VALUES (table names, column names), NOT KEYS (HoneySQL clauses).
+   HoneySQL clauses like :insert-into, :select, :from must remain kebab-case.
+   Only converts keywords, NOT strings (to avoid corrupting string data values).
+   
+   Pure function: transforms nested data structure recursively.
+   
+   Args:
+     query-map: HoneySQL query map with kebab-case identifiers
+     
+   Returns:
+     HoneySQL query map with snake_case table/column names"
+  [query-map]
+  (cond
+    ;; For maps, convert values but NOT keys (keys are HoneySQL clauses)
+    (map? query-map)
+    (reduce-kv
+     (fn [acc k v]
+       ;; Keep key as-is (HoneySQL clause like :insert-into)
+       ;; But convert the value recursively
+       (assoc acc k (convert-query-identifiers v)))
+     {}
+     query-map)
+    
+    ;; For vectors, convert identifier keywords only (not strings - those are data)
+    (vector? query-map)
+    (mapv (fn [item]
+            (cond
+              (keyword? item) (convert-identifier item)
+              ;; Don't convert strings - they might be data values
+              ;; Don't convert maps - they need recursive conversion
+              (or (map? item) (vector? item) (list? item))
+              (convert-query-identifiers item)
+              :else item))
+          query-map)
+    
+    ;; For lists (like where clauses), convert identifier keywords only
+    (list? query-map)
+    (map (fn [item]
+           (cond
+             (keyword? item) (convert-identifier item)
+             ;; Don't convert strings - they might be data values
+             (or (map? item) (vector? item) (list? item))
+             (convert-query-identifiers item)
+             :else item))
+         query-map)
+    
+    ;; For bare keywords (shouldn't happen at top level), convert
+    (keyword? query-map)
+    (convert-identifier query-map)
+    
+    ;; Leave everything else unchanged (strings, numbers, booleans, UUIDs, timestamps, etc.)
+    :else query-map))
+
 (defn format-sql
   "Format HoneySQL query map to SQL string with parameters.
+   Converts kebab-case identifiers to snake_case at database boundary.
    
    Pure function: transforms data structure to SQL without executing it.
    
    Args:
      adapter-dialect: Database dialect keyword
-     query-map: HoneySQL query map
+     query-map: HoneySQL query map (with kebab-case identifiers)
      
    Returns:
      Vector of [sql-string & parameters]
      
    Example:
      (format-sql :postgresql {:select [:*] :from [:users]})
-     => [\"SELECT * FROM users\"]"
+     => [\"SELECT * FROM users\"]
+     
+     (format-sql :postgresql {:select [:*] :from [:user-profiles]})
+     => [\"SELECT * FROM user_profiles\"]"
   [adapter-dialect query-map]
-  (if-let [honey-dialect (adapter-dialect->honey-dialect adapter-dialect)]
-    (sql/format query-map {:dialect honey-dialect})
-    (sql/format query-map)))
+  (let [converted-query (convert-query-identifiers query-map)]
+    (if-let [honey-dialect (adapter-dialect->honey-dialect adapter-dialect)]
+      (sql/format converted-query {:dialect honey-dialect :quoted false})
+      (sql/format converted-query {:quoted false}))))
 
 (defn format-sql-with-opts
   "Format HoneySQL query map with custom options.
+   Converts kebab-case identifiers to snake_case at database boundary.
    
    Pure function: transforms data with configuration.
    
    Args:
      adapter-dialect: Database dialect keyword
-     query-map: HoneySQL query map
+     query-map: HoneySQL query map (with kebab-case identifiers)
      opts: Additional HoneySQL formatting options
      
    Returns:
      Vector of [sql-string & parameters]"
   [adapter-dialect query-map opts]
-  (let [honey-dialect (adapter-dialect->honey-dialect adapter-dialect)
+  (let [converted-query (convert-query-identifiers query-map)
+        honey-dialect (adapter-dialect->honey-dialect adapter-dialect)
+        ;; Always disable quoting and merge in dialect if present
+        base-opts (merge {:quoted false} opts)
         dialect-opts (if honey-dialect
-                       (merge opts {:dialect honey-dialect})
-                       opts)]
-    (sql/format query-map dialect-opts)))
+                       (assoc base-opts :dialect honey-dialect)
+                       base-opts)]
+    (sql/format converted-query dialect-opts)))
 
 ;; =============================================================================
 ;; Query Building Utilities

@@ -14,7 +14,6 @@
     [boundary.admin.ports :as ports]
     [boundary.admin.core.ui :as admin-ui]
     [boundary.admin.core.permissions :as permissions]
-    [boundary.shared.ui.core.layout :as layout]
     [boundary.shared.ui.core.components :as ui-components]
     [boundary.shared.ui.core.validation :as ui-validation]
     [boundary.platform.core.http.problem-details :as problem-details]
@@ -121,11 +120,12 @@
         limit (when-let [l (get params "limit")] (parse-long l))
         offset (when-let [o (get params "offset")] (parse-long o))
         sort (when-let [s (get params "sort")] (keyword s))
-        sort-dir (when-let [sd (get params "sort-dir")] (keyword sd))
+        ; Accept both "dir" and "sort-dir" for backward compatibility
+        sort-dir (when-let [sd (or (get params "dir") (get params "sort-dir"))] (keyword sd))
         search (get params "search")
 
         ; Any params not in reserved keys become filters
-        reserved-keys #{"page" "page-size" "limit" "offset" "sort" "sort-dir" "search"}
+        reserved-keys #{"page" "page-size" "limit" "offset" "sort" "sort-dir" "dir" "search"}
         filter-params (apply dissoc params reserved-keys)
         filters (when (seq filter-params)
                   (into {} (map (fn [[k v]] [(keyword k) v])) filter-params))]
@@ -190,18 +190,18 @@
            field-config (get-in entity-config [:fields field-keyword])
            field-type (:type field-config :string)
 
-           ; Convert string value to appropriate type
-           typed-value (cond
-                         ; Empty strings become nil
-                         (str/blank? value) nil
+            ; Convert string value to appropriate type
+            typed-value (cond
+                          ; Empty strings become nil
+                          (str/blank? value) nil
 
-                         ; Boolean checkbox values
-                         (= field-type :boolean)
-                         (= value "true")
+                          ; Boolean checkbox values - checkboxes send "on" or "true"
+                          (= field-type :boolean)
+                          (contains? #{"on" "true" "1"} value)
 
-                         ; Integer values
-                         (= field-type :int)
-                         (parse-long value)
+                          ; Integer values
+                          (= field-type :int)
+                          (parse-long value)
 
                          ; Decimal values
                          (= field-type :decimal)
@@ -330,12 +330,8 @@
 
    Week 1: Simple redirect to first entity in list
    Week 2+: Dashboard with stats, recent activity, quick actions"
-  [admin-service schema-provider config]
+   [admin-service schema-provider config]
   (fn [request]
-    (log/info "Admin home handler called" {:uri (:uri request) :method (:request-method request)})
-    (log/info "Request user" {:user-present (contains? request :user) 
-                               :user-role (get-in request [:user :role])
-                               :user-email (get-in request [:user :email])})
     (let [user (require-admin-user! request)
           _ (log/info "After require-admin-user!" {:user-email (:email user)})
           entities (ports/list-available-entities schema-provider)]
@@ -388,6 +384,15 @@
           records (:records result)
           total-count (:total-count result)
 
+          ; Merge pagination info from result into options for UI
+          ; This ensures UI shows the actual page-size used (from config defaults)
+          ; Also ensure sort/dir are present (use defaults if not in options)
+          table-query (merge {:sort (or (:sort options) (:default-sort entity-config) :id)
+                              :dir (or (:dir options) (:sort-dir options) :asc)}
+                             options
+                             {:page-size (:page-size result)
+                              :page (:page-number result)})
+
           ; Get all available entities for sidebar
           entities (ports/list-available-entities schema-provider)
           entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
@@ -400,7 +405,7 @@
 
       (html-response
        (admin-ui/admin-layout
-        (admin-ui/entity-list-page entity-name records entity-config options total-count permissions options)
+        (admin-ui/entity-list-page entity-name records entity-config table-query total-count permissions options)
         {:user user
          :current-entity entity-name
          :entities entities
@@ -431,11 +436,18 @@
           records (:records result)
           total-count (:total-count result)
 
+          ; Merge pagination info from result into options for UI
+          table-query (merge {:sort (or (:sort options) (:default-sort entity-config) :id)
+                              :dir (or (:dir options) (:sort-dir options) :asc)}
+                             options
+                             {:page-size (:page-size result)
+                              :page (:page-number result)})
+
           ; Get permissions
           permissions (permissions/get-entity-permissions user entity-name entity-config)]
 
       (htmx-fragment-response
-       (admin-ui/entity-table entity-name records entity-config options total-count permissions (:filters options))))))
+       (admin-ui/entity-table entity-name records entity-config table-query total-count permissions (:filters options))))))
 
 ;; =============================================================================
 ;; Entity Detail/Edit Handlers
@@ -557,11 +569,32 @@
           validation-result (ports/validate-entity-data admin-service entity-name form-data)]
 
       (if (:valid? validation-result)
-        ; Create entity and redirect
-        (let [created-entity (ports/create-entity admin-service entity-name form-data)]
-          (redirect-to-entity-list entity-name
-                                   {:type :success
-                                    :message (str (:label entity-config) " created successfully")}))
+        ; Create entity and return list page
+        (let [created-entity (ports/create-entity admin-service entity-name form-data)
+              
+              ; Fetch list page data
+              entities (ports/list-available-entities schema-provider)
+              entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
+              
+              ; Get entity list with default options
+              result (ports/list-entities admin-service entity-name {})
+              records (:records result)
+              total-count (:total-count result)
+              table-query {:page-size (:page-size result)
+                          :page (:page-number result)}
+              
+              permissions (permissions/get-entity-permissions user entity-name entity-config)]
+          
+          ; Return list page HTML with success message
+          (html-response
+           (admin-ui/admin-layout
+            (admin-ui/entity-list-page entity-name records entity-config table-query total-count permissions {})
+            {:user user
+             :current-entity entity-name
+             :entities entities
+             :entity-configs entity-configs
+             :flash {:type :success
+                     :message (str (:label entity-config) " created successfully")}})))
 
         ; Validation errors - re-render form
         (let [entities (ports/list-available-entities schema-provider)
@@ -605,6 +638,7 @@
                          (:body-params request)
                          (:params request)
                          {})
+          
           form-data (parse-form-params raw-params entity-config)
 
           ; Validate data
@@ -612,10 +646,31 @@
 
       (if (:valid? validation-result)
         ; Update entity and redirect
-        (let [updated-entity (ports/update-entity admin-service entity-name id form-data)]
-          (redirect-to-entity-list entity-name
-                                   {:type :success
-                                    :message (str (:label entity-config) " updated successfully")}))
+        (let [updated-entity (ports/update-entity admin-service entity-name id form-data)
+              
+              ; Fetch list page data
+              entities (ports/list-available-entities schema-provider)
+              entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
+              
+              ; Get entity list with default options
+              result (ports/list-entities admin-service entity-name {})
+              records (:records result)
+              total-count (:total-count result)
+              table-query {:page-size (:page-size result)
+                          :page (:page-number result)}
+              
+              permissions (permissions/get-entity-permissions user entity-name entity-config)]
+          
+          ; Return list page HTML with success message
+          (html-response
+           (admin-ui/admin-layout
+            (admin-ui/entity-list-page entity-name records entity-config table-query total-count permissions {})
+            {:user user
+             :current-entity entity-name
+             :entities entities
+             :entity-configs entity-configs
+             :flash {:type :success
+                     :message (str (:label entity-config) " updated successfully")}})))
 
         ; Validation errors - re-render form
         (let [entities (ports/list-available-entities schema-provider)
@@ -697,22 +752,34 @@
 
           ; Extract IDs from form params
           id-strings (get-in request [:form-params "ids[]"])
-          ids (mapv #(UUID/fromString %) (if (string? id-strings) [id-strings] id-strings))
+          ids (when id-strings
+                (mapv #(UUID/fromString %) (if (string? id-strings) [id-strings] id-strings)))
 
           ; Bulk delete
-          result (ports/bulk-delete-entities admin-service entity-name ids)
-          success-count (:success-count result)
-          failed-count (:failed-count result)]
+          result (when (and ids (seq ids))
+                   (ports/bulk-delete-entities admin-service entity-name ids))
+          success-count (or (:success-count result) 0)
+          failed-count (or (:failed-count result) 0)]
 
-      (if (zero? failed-count)
-        ; All deleted successfully
-        (-> (ring-response/response "")
-            (ring-response/status 200)
-            (ring-response/header "HX-Trigger" "entityDeleted"))
-
-        ; Some failures
-        (-> (ring-response/response (str "Deleted " success-count ", failed " failed-count))
-            (ring-response/status 207))))))  ; Multi-Status
+      ; Return updated table regardless of success/failure
+      (let [; Fetch updated list
+            list-result (ports/list-entities admin-service entity-name {})
+            records (:records list-result)
+            total-count (:total-count list-result)
+            table-query {:page-size (:page-size list-result)
+                         :page (:page-number list-result)}
+            permissions (permissions/get-entity-permissions user entity-name entity-config)
+            
+            ; Create flash message
+            flash-msg (if (zero? failed-count)
+                       {:type :success
+                        :message (str "Successfully deleted " success-count " " (:label entity-config))}
+                       {:type :warning
+                        :message (str "Deleted " success-count ", failed " failed-count)})]
+        
+        ; Return table HTML fragment
+        (htmx-fragment-response
+         (admin-ui/entity-table entity-name records entity-config table-query total-count permissions {} flash-msg))))))
 
 ;; =============================================================================
 ;; Route Definitions

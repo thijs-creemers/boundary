@@ -24,6 +24,38 @@
            [java.time Instant]))
 
 ;; =============================================================================
+;; Database Boundary Helpers
+;; =============================================================================
+
+(defn prepare-values-for-db
+  "Convert all typed values (UUID, Instant) to strings for database storage.
+   
+   This ensures that at the database boundary, all complex types are converted
+   to their string representations. This is critical for database compatibility
+   and follows the principle that type conversions happen at system edges.
+   
+   Args:
+     m: Map with potentially typed values
+     
+   Returns:
+     Map with all UUIDs and Instants converted to strings
+     
+   Example:
+     (prepare-values-for-db {:id (UUID/randomUUID) 
+                             :created-at (Instant/now)
+                             :name \"John\"})
+     ;=> {:id \"123e4567-...\" :created-at \"2024-01-10T...\" :name \"John\"}"
+  [m]
+  (when m
+    (reduce-kv (fn [acc k v]
+                 (let [converted-value (cond
+                                         (instance? UUID v) (type-conversion/uuid->string v)
+                                         (instance? Instant v) (type-conversion/instant->string v)
+                                         :else v)]
+                   (assoc acc k converted-value)))
+               {} m)))
+
+;; =============================================================================
 ;; Query Building Helpers
 ;; =============================================================================
 
@@ -32,22 +64,25 @@
 
    Args:
      options: Map with :limit, :offset, or :page and :page-size
+     config: Admin configuration map with pagination defaults
 
    Returns:
      Map with :limit and :offset
 
    Examples:
-     (build-pagination {:limit 50 :offset 10})
-     (build-pagination {:page 2 :page-size 25})"
-  [options]
-  (let [limit (or (:limit options) (:page-size options) 50)
+     (build-pagination {:limit 20 :offset 10} config)
+     (build-pagination {:page 2 :page-size 25} config)"
+  [options config]
+  (let [default-limit (get-in config [:pagination :default-page-size] 20)
+        max-limit (get-in config [:pagination :max-page-size] 200)
+        limit (or (:limit options) (:page-size options) default-limit)
         offset (or (:offset options)
                    (when (:page options)
                      (* (dec (:page options 1))
-                        (or (:page-size options) 50)))
+                        (or (:page-size options) default-limit)))
                    0)
         ; Clamp limits to reasonable ranges
-        safe-limit (min (max limit 1) 200)
+        safe-limit (min (max limit 1) max-limit)
         safe-offset (max offset 0)]
     {:limit safe-limit
      :offset safe-offset}))
@@ -134,7 +169,7 @@
 ;; Admin Service Implementation
 ;; =============================================================================
 
-(defrecord AdminService [db-ctx schema-provider logger error-reporter]
+(defrecord AdminService [db-ctx schema-provider logger error-reporter config]
   ports/IAdminService
 
   (list-entities [_ entity-name options]
@@ -146,6 +181,7 @@
      (fn [{:keys [params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
+             soft-delete? (:soft-delete entity-config false)
              search-term (:search options)
              search-fields (:search-fields entity-config)
              filters (:filters options)
@@ -156,9 +192,11 @@
               ; Build query components
              search-where (build-search-where search-term search-fields)
              filter-where (build-filter-where filters)
-             where-clause (combine-where-clauses [search-where filter-where])
+             ; Exclude soft-deleted records if entity uses soft delete
+             soft-delete-where (when soft-delete? [:= :deleted-at nil])
+             where-clause (combine-where-clauses [search-where filter-where soft-delete-where])
              ordering (build-ordering sort-field sort-dir default-sort)
-             pagination (build-pagination options)
+             pagination (build-pagination options config)
 
               ; Build list query
              list-query (cond-> {:select [:*]
@@ -201,11 +239,16 @@
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
              primary-key (:primary-key entity-config :id)
+             soft-delete? (:soft-delete entity-config false)
              ;; Convert UUID to string for PostgreSQL compatibility
              id-str (type-conversion/uuid->string id)
-              query {:select [:*]
-                     :from [table-name]
-                     :where [:= primary-key id-str]}
+              query (cond-> {:select [:*]
+                             :from [table-name]
+                             :where [:= primary-key id-str]}
+                      ; Also check not soft-deleted if applicable
+                      soft-delete? (assoc :where [:and 
+                                                  [:= primary-key id-str]
+                                                  [:= :deleted-at nil]]))
               db-result (db/execute-one! db-ctx query)]
           ; Convert snake_case keys from database to kebab-case for internal use
           (case-conversion/snake-case->kebab-case-map db-result)))
@@ -225,15 +268,19 @@
               ; hide-fields are for display only, data can still be provided
                sanitized-data (apply dissoc data readonly-fields)
 
-               ; Add generated ID and timestamps
+               ; Add generated ID and timestamps - convert to strings at boundary
               now-str (type-conversion/instant->string (Instant/now))
               generated-id (UUID/randomUUID)
+              id-str (type-conversion/uuid->string generated-id)
               prepared-data (assoc sanitized-data
-                                   :id generated-id
+                                   :id id-str
                                    :created-at now-str)
 
+              ; Convert all typed values (UUID, Instant) to strings for database
+              db-ready-data (prepare-values-for-db prepared-data)
+              
               ; Convert kebab-case keys to snake_case for database
-              db-data (case-conversion/kebab-case->snake-case-map prepared-data)
+              db-data (case-conversion/kebab-case->snake-case-map db-ready-data)
 
               ; Insert without RETURNING (H2 compatibility)
               insert-query {:insert-into table-name
@@ -241,8 +288,6 @@
               _ (db/execute-one! db-ctx insert-query)
 
               ; Fetch the created record
-              ;; Convert UUID to string for PostgreSQL compatibility
-              id-str (type-conversion/uuid->string generated-id)
               select-query {:select [:*]
                             :from [table-name]
                             :where [:= primary-key id-str]}
@@ -270,8 +315,11 @@
               now-str (type-conversion/instant->string (Instant/now))
               prepared-data (assoc sanitized-data :updated-at now-str)
 
+              ; Convert all typed values (UUID, Instant) to strings for database
+              db-ready-data (prepare-values-for-db prepared-data)
+              
               ; Convert kebab-case keys to snake_case for database
-              db-data (case-conversion/kebab-case->snake-case-map prepared-data)
+              db-data (case-conversion/kebab-case->snake-case-map db-ready-data)
 
               ;; Convert UUID to string for PostgreSQL compatibility
               id-str (type-conversion/uuid->string id)
@@ -305,10 +353,16 @@
              id-str (type-conversion/uuid->string id)]
 
           (if soft-delete?
-             ; Soft delete: Set deleted-at timestamp
+             ; Soft delete: Set deleted-at timestamp and optionally active=false
             (let [now-str (type-conversion/instant->string (Instant/now))
+                  ;; Check if entity has an 'active' field to set on soft-delete
+                  has-active-field? (contains? (:fields entity-config) :active)
+                  soft-delete-data-kebab (cond-> {:deleted-at now-str}
+                                           has-active-field? (assoc :active false))
+                  ;; Convert to snake_case for database
+                  soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
                   query {:update table-name
-                         :set {:deleted-at now-str}
+                         :set soft-delete-data
                          :where [:= primary-key id-str]}]
               (pos? (db/execute-update! db-ctx query)))
 
@@ -325,10 +379,14 @@
      (fn [{:keys [params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
+             soft-delete? (:soft-delete entity-config false)
              filter-where (build-filter-where filters)
+             ; Exclude soft-deleted records if entity uses soft delete
+             soft-delete-where (when soft-delete? [:= :deleted-at nil])
+             where-clause (combine-where-clauses [filter-where soft-delete-where])
              query (cond-> {:select [[:%count.* :total]]
                             :from [table-name]}
-                     filter-where (assoc :where filter-where))
+                     where-clause (assoc :where where-clause))
              result (db/execute-one! db-ctx query)]
          (:total result 0)))
      db-ctx))
@@ -354,7 +412,7 @@
         {:valid? false :errors errors})))
 
   (bulk-delete-entities [_ entity-name ids]
-    (persist-interceptors/execute-persistence-operation
+     (persist-interceptors/execute-persistence-operation
      :admin-bulk-delete-entities
      {:entity (name entity-name) :count (count ids)}
      (fn [{:keys [params]}]
@@ -363,12 +421,23 @@
              primary-key (:primary-key entity-config :id)
              soft-delete? (:soft-delete entity-config false)
 
+             ;; Convert UUIDs to strings at database boundary
+             id-strings (mapv type-conversion/uuid->string ids)
+             now-str (type-conversion/instant->string (Instant/now))
+             
+             ;; Check if entity has an 'active' field to set on soft-delete
+             has-active-field? (contains? (:fields entity-config) :active)
+             soft-delete-data-kebab (cond-> {:deleted-at now-str}
+                                      has-active-field? (assoc :active false))
+             ;; Convert to snake_case for database
+             soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
+             
              query (if soft-delete?
                      {:update table-name
-                      :set {:deleted-at (Instant/now)}
-                      :where [:in primary-key ids]}
+                      :set soft-delete-data
+                      :where [:in primary-key id-strings]}
                      {:delete-from table-name
-                      :where [:in primary-key ids]})
+                      :where [:in primary-key id-strings]})
 
              affected-count (db/execute-update! db-ctx query)]
 
@@ -390,8 +459,9 @@
      schema-provider: ISchemaProvider implementation
      logger: Logger instance for operation logging
      error-reporter: Error reporter for exception tracking
+     config: Admin configuration map with pagination settings
 
    Returns:
      AdminService instance implementing IAdminService"
-  [db-ctx schema-provider logger error-reporter]
-  (->AdminService db-ctx schema-provider logger error-reporter))
+  [db-ctx schema-provider logger error-reporter config]
+  (->AdminService db-ctx schema-provider logger error-reporter config))

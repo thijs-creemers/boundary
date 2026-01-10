@@ -11,7 +11,8 @@
   (:import [java.io File]
            [java.nio.file Files Path Paths]
            [java.nio.file.attribute FileAttribute]
-           [java.security MessageDigest]))
+           [java.security MessageDigest]
+           [java.util UUID]))
 
 ;; ============================================================================
 ;; Helpers
@@ -53,14 +54,18 @@
 ;; ============================================================================
 
 (defn- generate-storage-key
-  "Generate a unique storage key based on content hash and timestamp."
+  "Generate a unique storage key based on content hash, timestamp, and random component."
   [bytes filename]
   (let [hash (compute-sha256 bytes)
         ext (validation/get-file-extension filename)
         timestamp (System/currentTimeMillis)
-        ;; Use first 16 chars of hash for directory sharding
+        ;; Use first 2 chars of hash for directory sharding to avoid too many
+        ;; files in a single directory while keeping lookups simple.
         shard (subs hash 0 2)
-        key-name (str timestamp "-" (subs hash 0 16))]
+        ;; Use a UUID to provide strong uniqueness guarantees even under
+        ;; high concurrency with identical content and filenames.
+        random-id (str (UUID/randomUUID))
+        key-name (str timestamp "-" random-id "-" (subs hash 0 16))]
     (if ext
       (path-join shard (str key-name "." ext))
       (path-join shard key-name))))
@@ -157,15 +162,17 @@
       (let [full-path (path-join base-path file-key)
             file-path (Paths/get full-path (into-array String []))]
 
-        (when (Files/exists file-path (make-array java.nio.file.LinkOption 0))
-          (Files/delete file-path)
+        (if (Files/exists file-path (make-array java.nio.file.LinkOption 0))
+          (do
+            (Files/delete file-path)
 
-          (when logger
-            (logging/info logger "File deleted"
-                          {:event ::file-deleted
-                           :key file-key}))
+            (when logger
+              (logging/info logger "File deleted"
+                            {:event ::file-deleted
+                             :key file-key}))
 
-          true))
+            true)
+          false))
 
       (catch Exception e
         (when logger
@@ -178,7 +185,7 @@
   (file-exists? [_ file-key]
     (try
       (let [full-path (path-join base-path file-key)
-            file-path (Paths/get full-path (make-array java.nio.file.LinkOption 0))]
+            file-path (Paths/get full-path (into-array String []))]
         (Files/exists file-path (make-array java.nio.file.LinkOption 0)))
 
       (catch Exception e

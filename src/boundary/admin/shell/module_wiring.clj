@@ -33,8 +33,8 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/admin-service
-  [_ {:keys [db-ctx schema-provider logger error-reporter]}]
-  (service/create-admin-service db-ctx schema-provider logger error-reporter))
+  [_ {:keys [db-ctx schema-provider logger error-reporter config]}]
+  (service/create-admin-service db-ctx schema-provider logger error-reporter config))
 
 (defmethod ig/halt-key! :boundary/admin-service
   [_ admin-service]
@@ -83,7 +83,8 @@
           {:db-ctx (ig/ref :boundary/database-context)
            :schema-provider (ig/ref :boundary/admin-schema-provider)
            :logger (ig/ref :boundary/logger)
-           :error-reporter (ig/ref :boundary/error-reporter)}
+           :error-reporter (ig/ref :boundary/error-reporter)
+           :config (ig/ref :boundary/admin)}
 
           :boundary/admin-routes
           {:admin-service (ig/ref :boundary/admin-service)
@@ -131,7 +132,8 @@
          {:db-ctx (ig/ref :boundary/database-context)
           :schema-provider (ig/ref :boundary/admin-schema-provider)
           :logger (ig/ref :boundary/logger)
-          :error-reporter (ig/ref :boundary/error-reporter)}}]
+          :error-reporter (ig/ref :boundary/error-reporter)
+          :config (ig/ref :boundary/admin)}}]
 
     (ig/init minimal-config)))
 

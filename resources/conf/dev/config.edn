@@ -5,10 +5,10 @@
  :active
  {;; Core application settings (always active)
   :boundary/settings
-  {:name "boundary-dev"
-   :version "0.1.0"
-   :date-format "yyyy-MM-dd"
-   :date-time-format "yyyy-MM-dd HH:mm:ss"
+  {:name              "boundary-dev"
+   :version           "0.1.0"
+   :date-format       "yyyy-MM-dd"
+   :date-time-format  "yyyy-MM-dd HH:mm:ss"
    :currency/iso-code "EUR"
 
    ;; Feature flags
@@ -17,71 +17,76 @@
 
    ;; User validation configuration
    :user-validation
-   {:email-domain-allowlist #{} ; Empty set means all domains allowed in dev
-    :password-policy {:min-length 6 ; More lenient for dev
-                      :max-length 128
-                      :require-uppercase? false
-                      :require-lowercase? false
-                      :require-numbers? false
-                      :require-special-chars? false
-                      :forbidden-patterns #{}}
-    :name-restrictions {:min-length 1
-                        :max-length 100
-                        :allowed-chars-regex "[\\p{L}\\s\\-'.]+" ; Supports Unicode letters including accented characters
-                        :forbidden-names #{}}
-    :role-restrictions {:allowed-roles #{:user :admin :manager}
-                        :admin-email-domains #{} ; Empty means any domain can be admin in dev
-                        :default-role :user}
-    :user-limits {:max-users 10000 ; Higher limit for dev
-                  :check-enabled? false} ; Disabled in dev for easier testing
+   {:email-domain-allowlist #{}                             ; Empty set means all domains allowed in dev
+    :password-policy        {:min-length             6      ; More lenient for dev
+                             :max-length             128
+                             :require-uppercase?     false
+                             :require-lowercase?     false
+                             :require-numbers?       false
+                             :require-special-chars? false
+                             :forbidden-patterns     #{}}
+    :name-restrictions      {:min-length          1
+                             :max-length          100
+                             :allowed-chars-regex "[\\p{L}\\s\\-'.]+" ; Supports Unicode letters including accented characters
+                             :forbidden-names     #{}}
+    :role-restrictions      {:allowed-roles       #{:user :admin :manager}
+                             :admin-email-domains #{}       ; Empty means any domain can be admin in dev
+                             :default-role        :user}
+    :user-limits            {:max-users      10000          ; Higher limit for dev
+                             :check-enabled? false}         ; Disabled in dev for easier testing
     :cross-field-validation {:admin-requires-company-email? false ; Relaxed for dev
-                             :manager-requires-department? false}}}
+                             :manager-requires-department?  false}}}
 
    ;; Active database configurations
    ;; Only databases listed here will be loaded and initialized
-   :boundary/sqlite
-   {:db "dev-database.db"
-    :pool {:minimum-idle 1
-           :maximum-pool-size 3
-           :connection-timeout-ms 10000}}
+   :boundary/postgresql
+   {:host        #or [#env POSTGRES_HOST "localhost"]
+    :port        #or [#long #or [#env POSTGRES_PORT 5432] 5432]
+    :dbname      #or [#env POSTGRES_DB "boundary_dev"]
+    :user        #or [#env POSTGRES_USER "boundary_dev"]
+    :password    #or [#env POSTGRES_PASSWORD "dev_password"]
+    :auto-commit true
+    :pool        {:minimum-idle          2
+                  :maximum-pool-size     10
+                  :connection-timeout-ms 30000}}
 
-   ;; HTTP Server configuration
+  ;; HTTP Server configuration
   :boundary/http
-  {:port #or [#env HTTP_PORT 3000]
-   :host #or [#env HTTP_HOST "0.0.0.0"]
-   :join? false
-    ;; Port conflict resolution - if default port is busy, system will try higher ports
+  {:port       #or [#env HTTP_PORT 3000]
+   :host       #or [#env HTTP_HOST "0.0.0.0"]
+   :join?      false
+   ;; Port conflict resolution - if default port is busy, system will try higher ports
    :port-range {:start 3000 :end 3099}}
 
-   ;; HTTP Router configuration
+  ;; HTTP Router configuration
   :boundary/router
-  {:adapter :reitit  ; Router implementation: :reitit, :pedestal, etc.
-   :coercion :malli  ; Coercion library: :malli, :spec, etc.
-   :middleware []}   ; Global middleware (specific middleware in routes)
+  {:adapter    :reitit                                      ; Router implementation: :reitit, :pedestal, etc.
+   :coercion   :malli                                       ; Coercion library: :malli, :spec, etc.
+   :middleware []}                                          ; Global middleware (specific middleware in routes)
 
-   ;; API Versioning configuration
+  ;; API Versioning configuration
   :boundary/api-versioning
-  {:default-version :v1           ; Default version when not specified
-   :latest-stable :v1              ; Latest stable version
-   :deprecated-versions #{}        ; Set of deprecated versions (e.g., #{:v0})
-   :sunset-dates {}                ; Map of version -> ISO date (e.g., {:v0 "2026-06-01"})
-   :supported-versions #{:v1}}     ; Set of all supported versions
+  {:default-version     :v1                                 ; Default version when not specified
+   :latest-stable       :v1                                 ; Latest stable version
+   :deprecated-versions #{}                                 ; Set of deprecated versions (e.g., #{:v0})
+   :sunset-dates        {}                                  ; Map of version -> ISO date (e.g., {:v0 "2026-06-01"})
+   :supported-versions  #{:v1}}                             ; Set of all supported versions
 
-   ;; Pagination configuration
+  ;; Pagination configuration
   :boundary/pagination
-  {:default-limit 20               ; Default items per page
-   :max-limit 100                  ; Maximum items per page
-   :default-type :offset           ; Default pagination type (:offset or :cursor)
-   :cursor-ttl 3600                ; Cursor time-to-live in seconds (1 hour)
-   :enable-link-headers true}      ; Enable RFC 5988 Link headers
+  {:default-limit       20                                  ; Default items per page
+   :max-limit           100                                 ; Maximum items per page
+   :default-type        :offset                             ; Default pagination type (:offset or :cursor)
+   :cursor-ttl          3600                                ; Cursor time-to-live in seconds (1 hour)
+   :enable-link-headers true}                               ; Enable RFC 5988 Link headers
 
-   ;; Observability configurations
+  ;; Observability configurations
   ;; Using SLF4J provider with Logback backend for unified logging
   :boundary/logging
-  {:provider :slf4j
-   :level :debug
-   :logger-name "boundary"
-   :default-tags {:service "boundary-dev"
+  {:provider     :slf4j
+   :level        :debug
+   :logger-name  "boundary"
+   :default-tags {:service     "boundary-dev"
                   :environment "development"}}
 
   :boundary/metrics
@@ -92,86 +97,80 @@
 
   ;; Admin interface configuration
   :boundary/admin
-  {:enabled? true
-   :base-path "/web/admin"
-   :require-role :admin
-   :entity-discovery {:mode :allowlist
+  {:enabled?         true
+   :base-path        "/web/admin"
+   :require-role     :admin
+   :entity-discovery {:mode      :allowlist
                       :allowlist #{:users}}
-   :entities {:users {:label "Users"
-                      :list-fields [:email :name :role :active :created-at]
-                      :search-fields [:email :name]
-                      :hide-fields #{:password-hash :deleted-at}
-                      :readonly-fields #{:id :created-at :updated-at}}}
-   :pagination {:default-page-size 50
-                :max-page-size 200}}}
+    :entities         {:users {:label           "Users"
+                               :list-fields     [:email :name :role :created-at]
+                               :search-fields   [:email :name]
+                               :hide-fields     #{:password-hash :deleted-at}
+                               :readonly-fields #{:id :created-at :updated-at}}}
+   :pagination       {:default-page-size 20
+                      :max-page-size     200}}}
 
  :inactive
  {;; Inactive database configurations
   ;; These are available for reference but won't be loaded unless moved to :active
 
-  :boundary/postgresql
-  {:host #or [#env POSTGRES_HOST "localhost"]
-   :port #or [#env POSTGRES_PORT 5432]
-   :dbname #or [#env POSTGRES_DB "boundary_dev"]
-   :user #or [#env POSTGRES_USER "boundary_dev"]
-   :password #or [#env POSTGRES_PASSWORD "dev_password"]
-   :auto-commit true
-   :pool {:minimum-idle 2
-          :maximum-pool-size 10
-          :connection-timeout-ms 30000}}
+  :boundary/sqlite
+  {:db   "dev-database.db"
+   :pool {:minimum-idle          1
+          :maximum-pool-size     3
+          :connection-timeout-ms 10000}}}}
 
+:boundary/mysql
+{:host     #env "MYSQL_HOST"
+ :port     #env "MYSQL_PORT"
+ :dbname   #env "MYSQL_DB"
+ :user     #env "MYSQL_USER"
+ :password #env "MYSQL_PASSWORD"
+ :pool     {:minimum-idle          5
+            :maximum-pool-size     15
+            :connection-timeout-ms 30000}}
 
-  :boundary/mysql
-  {:host #env "MYSQL_HOST"
-   :port #env "MYSQL_PORT"
-   :dbname #env "MYSQL_DB"
-   :user #env "MYSQL_USER"
-   :password #env "MYSQL_PASSWORD"
-   :pool {:minimum-idle 5
-          :maximum-pool-size 15
-          :connection-timeout-ms 30000}}
-
-  :boundary/h2
-  {:memory true ; For fast in-memory testing
-   :pool {:minimum-idle 1
+:boundary/h2
+{:memory true                                               ; For fast in-memory testing
+ :pool   {:minimum-idle      1
           :maximum-pool-size 10}}
 
-   ;; Example observability configurations for future use
-   ;; Move to :active section when you need real providers
+;; Example observability configurations for future use
+;; Move to :active section when you need real providers
 
-  :boundary/logging-with-stdout
-  {:provider :stdout
-   :level :debug
-   :format :json
-   :colors true
-   :include-timestamp true
-   :include-level true
-   :include-thread false
-   :default-tags {:service "boundary-dev"}}
+:boundary/logging-with-stdout
+{:provider          :stdout
+ :level             :debug
+ :format            :json
+ :colors            true
+ :include-timestamp true
+ :include-level     true
+ :include-thread    false
+ :default-tags      {:service "boundary-dev"}}
 
-  :boundary/metrics-with-prometheus
-  {:provider :prometheus
-   :port 9090
-   :path "/metrics"}
+:boundary/metrics-with-prometheus
+{:provider :prometheus
+ :port     9090
+ :path     "/metrics"}
 
-  :boundary/error-reporting-with-sentry
-  {:provider :sentry
-   :dsn #env "SENTRY_DSN"
-   :environment "development"}
+:boundary/error-reporting-with-sentry
+{:provider    :sentry
+ :dsn         #env "SENTRY_DSN"
+ :environment "development"}
 
-  :boundary/metrics-with-datadog
-  {:provider :datadog-statsd
-   :host #or [#env DD_AGENT_HOST "127.0.0.1"]
-   :port #or [#env DD_DOGSTATSD_PORT 8125]
-   :service "boundary"
-   :environment #or [#env BND_ENV "production"]
-   :global-tags ["service:boundary" "environment:production"]}
+:boundary/metrics-with-datadog
+{:provider    :datadog-statsd
+ :host        #or [#env DD_AGENT_HOST "127.0.0.1"]
+ :port        #or [#env DD_DOGSTATSD_PORT 8125]
+ :service     "boundary"
+ :environment #or [#env BND_ENV "production"]
+ :global-tags ["service:boundary" "environment:production"]}
 
-  :boundary/logging-with-file
-  {:provider :file
-   :level :debug
-   :file "logs/dev-service.log"
-   :format :json}
+:boundary/logging-with-file
+{:provider :file
+ :level    :debug
+ :file     "logs/dev-service.log"
+ :format   :json}
 
-  :boundary/logging-no-op
-  {:provider :no-op}}}
+:boundary/logging-no-op
+{:provider :no-op}

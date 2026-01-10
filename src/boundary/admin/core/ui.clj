@@ -12,6 +12,7 @@
    - HTMX-powered dynamic updates
    - Field rendering based on entity configuration"
   (:require [boundary.shared.ui.core.components :as ui]
+            [boundary.shared.ui.core.icons :as icons]
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.table :as table-ui]
             [boundary.shared.web.table :as web-table]
@@ -22,7 +23,7 @@
 ;; =============================================================================
 
 (defn admin-sidebar
-  "Admin sidebar with entity navigation.
+  "Admin sidebar with entity navigation and icons.
 
    Args:
      entities: Vector of entity name keywords available to user
@@ -35,39 +36,101 @@
   [:aside.admin-sidebar
    [:div.admin-sidebar-header
     [:h2 "Admin Panel"]
-    [:a.button.small {:href "/web/admin"} "Dashboard"]]
+    [:div.sidebar-controls
+     [:button.sidebar-toggle {:type "button"
+                              :aria-label "Toggle sidebar"
+                              :title "Toggle sidebar (Ctrl+B)"}
+      (icons/icon :panel-left {:size 20})]
+     [:button.sidebar-pin {:type "button"
+                           :aria-label "Pin sidebar"
+                           :title "Pin sidebar open"}
+      (icons/icon :pin {:size 20})]]]
    [:nav.admin-sidebar-nav
     [:h3 "Entities"]
     [:ul.entity-list
      (for [entity entities]
        (let [entity-config (get entity-configs entity)
              label (:label entity-config (str/capitalize (name entity)))
+             icon (:icon entity-config :database)
              is-active? (= entity current-entity)]
          [:li {:class (when is-active? "active")}
-          [:a {:href (str "/web/admin/" (name entity))}
-           label]]))]]])
+          [:a {:href (str "/web/admin/" (name entity))
+               :data-label label}
+           (icons/icon icon {:size 20})
+           [:span.nav-text label]]]))]
+    [:h3 "Tools"]
+    [:ul.entity-list
+     [:li
+      [:a {:href "/web/users" :data-label "Users"}
+       (icons/icon :users {:size 20})
+       [:span.nav-text "Users"]]]
+     [:li
+      [:a {:href "/web/audit-trail" :data-label "Audit Trail"}
+       (icons/icon :clock {:size 20})
+       [:span.nav-text "Audit Trail"]]]]]
+   [:div.admin-sidebar-footer
+    [:a {:href "/web/admin"}
+     (icons/icon :home {:size 20})
+     [:span.nav-text "Dashboard"]]
+    [:a {:href "/web"}
+     (icons/icon :external-link {:size 20})
+     [:span.nav-text "Main Site"]]]])
+
+(defn admin-shell
+  "New admin shell layout with collapsible sidebar (Phase 2).
+
+   Args:
+     content: Main content (Hiccup structure)
+     opts: Map with :user, :current-entity, :entities, :entity-configs, :flash, :page-title
+
+   Returns:
+     Admin shell structure with sidebar and topbar"
+  [content opts]
+  (let [{:keys [user current-entity entities entity-configs page-title]} opts]
+    [:div.admin-shell {:data-sidebar-state "expanded"
+                       :data-sidebar-pinned "false"
+                       :data-sidebar-open "false"}
+     (admin-sidebar entities entity-configs current-entity)
+     [:div.admin-overlay]
+     [:div.admin-main
+       [:header.admin-topbar
+        [:button.mobile-menu-toggle {:type "button"
+                                     :aria-label "Open menu"}
+         (icons/icon :menu {:size 24})]
+        [:h1 (or page-title "Admin Dashboard")]
+        [:div.admin-topbar-actions
+         [:span (str "Welcome, " (:display-name user (:email user)))]
+         (icons/theme-toggle-button)
+         [:form {:method "POST" :action "/web/logout" :class "logout-form"}
+          [:button {:type "submit" :class "logout-button" :aria-label "Logout"}
+           (icons/icon :log-out {:size 20})]]]]
+      [:main.admin-content
+       content]]]))
 
 (defn admin-layout
-  "Main admin layout with sidebar and content area.
+  "Main admin layout with new shell structure (Phase 2).
 
    Args:
      content: Main content (Hiccup structure)
      opts: Map with :user, :current-entity, :entities, :entity-configs, :flash
 
    Returns:
-     Complete HTML page structure"
+     Complete HTML page structure with new admin shell"
   [content opts]
-  (let [{:keys [user current-entity entities entity-configs flash]} opts
+  (let [{:keys [user current-entity entity-configs flash]} opts
         title (if current-entity
                 (str "Admin - " (:label (get entity-configs current-entity)))
-                "Admin Dashboard")]
+                "Admin Dashboard")
+        page-title (when current-entity
+                     (:label (get entity-configs current-entity)))]
     (layout/page-layout
      title
-     [:div.admin-container
-      (admin-sidebar entities entity-configs current-entity)
-      [:div.admin-content
-       content]]
-     {:user user :flash flash})))
+     (admin-shell content (assoc opts :page-title page-title))
+      {:user user
+       :flash flash
+       :skip-header true
+       :css ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
+       :js ["/js/theme.js" "/js/htmx.min.js" "/js/sidebar.js" "/js/table.js" "/js/forms.js"]})))
 
 (defn admin-home
   "Admin dashboard home page content.
@@ -103,7 +166,7 @@
 ;; =============================================================================
 
 (defn entity-search-form
-  "Search form for entity list filtering.
+  "Compact inline search form for entity list filtering.
 
    Args:
      entity-name: Keyword entity name
@@ -123,15 +186,19 @@
                :hx-push-url "true"
                :hx-trigger "submit, change from:select delay:300ms"}
         [:div.search-controls
-         [:div.search-input
-          [:input {:type "text"
-                   :name "search"
-                   :placeholder (str "Search " (str/join ", " (map name search-fields)) "...")
-                   :value (or current-search "")
-                   :autofocus true}]
-          [:button {:type "submit" :class "button primary"} "Search"]]
+         [:input {:type "text"
+                  :name "search"
+                  :placeholder (str "Search " (str/join ", " (map name search-fields)) "...")
+                  :value (or current-search "")
+                  :autofocus true
+                  :class "search-input"}]
+         [:button.icon-button {:type "submit" :aria-label "Search"}
+          (icons/icon :search {:size 20})]
          (when (seq current-search)
-           [:a.button.secondary {:href (str "/web/admin/" (name entity-name))} "Clear"])]]])))
+           [:button.icon-button.secondary {:type "button"
+                                           :aria-label "Clear search"
+                                           :onclick (str "window.location.href='/web/admin/" (name entity-name) "';")}
+            (icons/icon :x {:size 20})])]]])))
 
 (defn render-field-value
   "Render field value for display in table or detail view.
@@ -192,11 +259,12 @@
         primary-key (:primary-key entity-config :id)
         record-id (get record primary-key)]
     [:tr {:class "entity-row"}
-     [:td.row-actions
-      [:input {:type "checkbox"
-               :name "record-ids"
-               :value (str record-id)
-               :onclick "event.stopPropagation();"}]]
+      [:td.row-actions
+       [:input {:type "checkbox"
+                :name "ids[]"
+                :value (str record-id)
+                :onclick "event.stopPropagation();"
+                :onchange "const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; document.getElementById('select-all').checked = checked === document.querySelectorAll('input[name=\"ids[]\"]').length;"}]]
      (for [field list-fields]
        (let [field-config (get-in entity-config [:fields field])
              value (get record field)]
@@ -204,15 +272,10 @@
           (render-field-value field value field-config)]))
      [:td.row-actions
       (when (:can-edit permissions)
-        [:a.button.small.secondary
-         {:href (str "/web/admin/" (name entity-name) "/" record-id)}
-         "Edit"])
-      (when (:can-delete permissions)
-        [:button.button.small.danger
-         {:hx-delete (str "/web/admin/" (name entity-name) "/" record-id)
-          :hx-confirm "Are you sure you want to delete this record?"
-          :hx-target "#entity-table-container"}
-         "Delete"])]]))
+        [:a.icon-button.secondary
+         {:href (str "/web/admin/" (name entity-name) "/" record-id)
+          :aria-label "Edit"}
+         (icons/icon :edit {:size 18})])]]))
 
 (defn entity-table
   "Generate entity table with sorting and pagination.
@@ -249,7 +312,8 @@
            {:href (str "/web/admin/" (name entity-name) "/new")}
            "Create First Record"])]
        [:div.table-wrapper
-        [:form#bulk-action-form
+        ;; Form for checkbox submission (hidden inputs + table)
+        [:form#table-form
          {:hx-post (str "/web/admin/" (name entity-name) "/bulk")
           :hx-target hx-target
           :hx-swap "outerHTML"}
@@ -258,22 +322,14 @@
            [:input {:type "hidden" :name k :value v}])
          (for [[k v] filter-params]
            [:input {:type "hidden" :name k :value v}])
-         [:div.bulk-actions
-          [:button.button.small.secondary
-           {:type "submit"
-            :name "action"
-            :value "delete"
-            :disabled "disabled"
-            :id "bulk-delete-btn"
-            :hx-confirm "Are you sure you want to delete selected records?"}
-           "Delete Selected"]]
+
          [:table.data-table
           [:thead
            [:tr
-            [:th
-             [:input {:type "checkbox"
-                      :id "select-all"
-                      :onchange "document.querySelectorAll('input[name=\"record-ids\"]').forEach(cb => cb.checked = this.checked); document.getElementById('bulk-delete-btn').disabled = !this.checked;"}]]
+             [:th
+              [:input {:type "checkbox"
+                       :id "select-all"
+                       :onchange "const checkboxes = document.querySelectorAll('input[name=\"ids[]\"]'); checkboxes.forEach(cb => cb.checked = this.checked); setTimeout(() => { const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; }, 0);"}]]
             (for [field list-fields]
               (let [field-config (get-in entity-config [:fields field])
                     sortable? (:sortable field-config true)]
@@ -315,21 +371,74 @@
      Hiccup page structure"
   [entity-name records entity-config table-query total-count permissions & [opts]]
   (let [{:keys [search filters flash]} opts
-        label (:label entity-config)]
+        label (:label entity-config)
+        search-fields (:search-fields entity-config)
+        has-search? (seq search-fields)
+        search-value (:search search)]
     [:div.entity-list-page
      (when flash
        (for [[type message] flash]
          [:div {:class (str "alert alert-" (name type))} message]))
-     [:div.page-header
-      [:div.page-title
-       [:h1 label]
-       [:p.page-subtitle (str total-count " records")]]
-      [:div.page-actions
+
+     ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
+     [:div.table-toolbar-container
+      ;; Left: Bulk actions
+        [:div.table-toolbar-left
+         [:form#bulk-action-form
+          {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
+           :hx-target "#entity-table-container"
+           :hx-swap "outerHTML"
+           :hx-include "[name='ids[]']"}
+          [:button.icon-button.danger
+         {:type "submit"
+          :name "action"
+          :value "delete"
+          :disabled "disabled"
+          :id "bulk-delete-btn"
+          :form "bulk-action-form"
+          :aria-label "Delete selected"
+          :hx-confirm "Are you sure you want to delete selected records?"}
+         (icons/icon :trash {:size 18})]
+        [:span.selection-count {:id "selection-count"} "0 selected"]]]
+
+      ;; Right: Search + Create + Count
+      [:div.table-toolbar-right
+       ;; Search (no form wrapper - HTMX directly on elements)
+       (when has-search?
+         [:div.toolbar-search
+          [:input.search-input {:type "text"
+                                :name "search"
+                                :placeholder (str "Search " (str/join ", " (map name search-fields)) "...")
+                                :value (or search-value "")
+                                :hx-get (str "/web/admin/" (name entity-name) "/table")
+                                :hx-target "#entity-table-container"
+                                :hx-push-url "true"
+                                :hx-trigger "keyup changed delay:300ms, search"
+                                :hx-include "this"}]
+          [:button.icon-button {:type "button"
+                                :aria-label "Search"
+                                :hx-get (str "/web/admin/" (name entity-name) "/table")
+                                :hx-target "#entity-table-container"
+                                :hx-push-url "true"
+                                :hx-include "previous .search-input"}
+           (icons/icon :search {:size 20})]
+          (when (seq search-value)
+            [:button.icon-button.secondary {:type "button"
+                                            :aria-label "Clear search"
+                                            :onclick (str "window.location.href='/web/admin/" (name entity-name) "';")}
+             (icons/icon :x {:size 20})])])
+
+       ;; Create button
        (when (:can-create permissions)
-         [:a.button.primary
-          {:href (str "/web/admin/" (name entity-name) "/new")}
-          "Create New"])]]
-     (entity-search-form entity-name entity-config search filters)
+         [:a.icon-button.primary
+          {:href (str "/web/admin/" (name entity-name) "/new")
+           :aria-label (str "Create new " label)}
+          (icons/icon :plus {:size 20})])
+
+       ;; Record count
+       [:span.record-count {:id "total-count"} (str total-count " " label)]]]
+
+     ;; Table (THIS is the HTMX target)
      (entity-table entity-name records entity-config table-query total-count permissions filters)]))
 
 ;; =============================================================================
@@ -486,13 +595,13 @@
           [:span.error error])])]))
 
 (defn entity-form
-  "Generate entity create/edit form.
+  "Render entity create/edit form.
 
    Args:
      entity-name: Keyword entity name
      entity-config: Entity configuration map
-     record: Entity record map (nil for create)
-     errors: Optional map of field-name -> error messages
+     record: Entity record (nil for create)
+     errors: Validation errors map
      permissions: Permission flags
 
    Returns:
@@ -508,10 +617,13 @@
         form-method (if is-edit? "PUT" "POST")
         hx-attr (if is-edit? :hx-put :hx-post)]
     [:form.entity-form
-     {hx-attr form-action
-      :hx-swap "none"
-      :hx-on--after-request "if(event.detail.successful) { htmx.trigger('body', 'entityCreated'); window.location.href = '/web/admin/" (name entity-name) "'; }"}
-     ;; No longer need hidden _method field since HTMX sends proper HTTP method
+     (merge {hx-attr form-action
+             :hx-target "body"
+             :hx-swap "outerHTML"}
+            ; Update URL to list page after successful edit
+            (when is-edit?
+              {:hx-push-url (str "/web/admin/" (name entity-name))}))
+      ;; No longer need hidden _method field since HTMX sends proper HTTP method
      [:div.form-fields
       (for [field-name editable-fields]
         (let [field-config (get-in entity-config [:fields field-name])

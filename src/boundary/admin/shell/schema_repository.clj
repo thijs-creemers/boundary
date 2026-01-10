@@ -17,7 +17,8 @@
    [boundary.admin.ports :as ports]
    [boundary.admin.schema :as admin-schema]
    [boundary.admin.core.schema-introspection :as introspection]
-   [boundary.platform.shell.adapters.database.protocols :as db-protocols]))
+   [boundary.platform.shell.adapters.database.protocols :as db-protocols]
+   [boundary.shared.core.utils.case-conversion :as case-conv]))
 
 ;; =============================================================================
 ;; Schema Repository Implementation
@@ -30,12 +31,16 @@
     "Fetch raw table metadata from database using adapter protocol.
 
      Uses the existing db-protocols/get-table-info which works across
-     all database adapters (PostgreSQL, SQLite, MySQL, H2)."
+     all database adapters (PostgreSQL, SQLite, MySQL, H2).
+     
+     Converts kebab-case table names to snake_case for database lookup."
     (let [adapter (:adapter db-ctx)
           datasource (:datasource db-ctx)
-          table-name-normalized (if (keyword? table-name)
-                                  (name table-name)
-                                  table-name)]
+          ;; Convert kebab-case to snake_case at database boundary
+          table-name-str (if (keyword? table-name)
+                           (name table-name)
+                           table-name)
+          table-name-normalized (case-conv/kebab-case->snake-case-string table-name-str)]
       (try
         (let [columns (db-protocols/get-table-info adapter datasource table-name-normalized)]
           (when (empty? columns)
@@ -49,7 +54,7 @@
                            :table-name table-name
                            :cause e}))))))
 
-  (get-entity-config [_ entity-name]
+  (get-entity-config [this entity-name]
     "Get complete entity configuration by merging auto-detected with manual config.
 
      Process:
@@ -105,7 +110,7 @@
     (or (get-in config [:entities entity-name :label])
         (introspection/humanize-entity-name entity-name)))
 
-  (validate-entity-exists [_ entity-name]
+  (validate-entity-exists [this entity-name]
     "Check if entity is valid and accessible.
 
      Returns true if entity is in the list of available entities."

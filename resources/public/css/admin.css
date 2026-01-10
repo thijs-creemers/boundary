@@ -1,0 +1,586 @@
+/* Admin Layout - Collapsible Sidebar with Professional Design
+   Uses design tokens from tokens.css for consistency and dark mode support.
+   
+   Features:
+   - Collapsible sidebar (256px expanded, 64px collapsed)
+   - Pinnable state that persists
+   - Mobile drawer with overlay
+   - Smooth transitions (respects prefers-reduced-motion)
+   - Tooltips on collapsed state
+*/
+
+/* =============================================================================
+   Admin Shell Container
+   ============================================================================= */
+
+.admin-shell {
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+  background: var(--color-neutral-50);
+}
+
+[data-theme="dark"] .admin-shell {
+  background: var(--color-neutral-900);
+}
+
+/* =============================================================================
+   Sidebar - Desktop
+   ============================================================================= */
+
+.admin-sidebar {
+  width: var(--sidebar-width-expanded);
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  transition: width var(--transition-normal) ease;
+  z-index: 40;
+  overflow: hidden;
+}
+
+/* Collapsed state */
+.admin-shell[data-sidebar-state="collapsed"] .admin-sidebar {
+  width: var(--sidebar-width-collapsed);
+}
+
+/* Hide text when collapsed */
+.admin-shell[data-sidebar-state="collapsed"] .admin-sidebar .nav-text,
+.admin-shell[data-sidebar-state="collapsed"] .admin-sidebar h2,
+.admin-shell[data-sidebar-state="collapsed"] .admin-sidebar h3 {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* =============================================================================
+   Sidebar Header
+   ============================================================================= */
+
+.admin-sidebar-header {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 64px;
+}
+
+.admin-sidebar-header h2 {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.sidebar-controls {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.sidebar-toggle,
+.sidebar-pin {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  padding: 0;
+}
+
+.sidebar-toggle:hover,
+.sidebar-pin:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.sidebar-toggle:active,
+.sidebar-pin:active {
+  transform: scale(0.95);
+}
+
+/* Pin button - active state */
+.admin-shell[data-sidebar-pinned="true"] .sidebar-pin {
+  background: var(--color-primary-50);
+  color: var(--color-primary-600);
+  border-color: var(--color-primary-200);
+}
+
+[data-theme="dark"] .admin-shell[data-sidebar-pinned="true"] .sidebar-pin {
+  background: var(--color-primary-900);
+  color: var(--color-primary-400);
+  border-color: var(--color-primary-800);
+}
+
+/* Hide controls when collapsed (except toggle) */
+.admin-shell[data-sidebar-state="collapsed"] .sidebar-pin {
+  display: none;
+}
+
+/* =============================================================================
+   Sidebar Navigation
+   ============================================================================= */
+
+.admin-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-4);
+}
+
+.admin-sidebar-nav h3 {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: var(--space-4) 0 var(--space-2) 0;
+  padding: 0 var(--space-3);
+  transition: opacity var(--transition-normal);
+}
+
+.admin-sidebar-nav h3:first-child {
+  margin-top: 0;
+}
+
+.entity-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.entity-list li {
+  margin: var(--space-1) 0;
+}
+
+.entity-list a {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  position: relative;
+}
+
+.entity-list a:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.entity-list li.active a {
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+  font-weight: var(--font-medium);
+}
+
+[data-theme="dark"] .entity-list li.active a {
+  background: var(--color-primary-900);
+  color: var(--color-primary-300);
+}
+
+/* Icon styling in nav links */
+.entity-list a svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* Tooltip on collapsed state */
+.admin-shell[data-sidebar-state="collapsed"] .entity-list a {
+  justify-content: center;
+  padding: var(--space-2);
+}
+
+.admin-shell[data-sidebar-state="collapsed"] .entity-list a::after {
+  content: attr(data-label);
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-neutral-900);
+  color: var(--color-neutral-0);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+  z-index: 50;
+}
+
+[data-theme="dark"] .admin-shell[data-sidebar-state="collapsed"] .entity-list a::after {
+  background: var(--color-neutral-50);
+  color: var(--color-neutral-900);
+}
+
+.admin-shell[data-sidebar-state="collapsed"] .entity-list a:hover::after {
+  opacity: 1;
+}
+
+/* =============================================================================
+   Sidebar Footer
+   ============================================================================= */
+
+.admin-sidebar-footer {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.admin-sidebar-footer a {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  transition: all var(--transition-fast);
+}
+
+.admin-sidebar-footer a:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.admin-sidebar-footer svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.admin-shell[data-sidebar-state="collapsed"] .admin-sidebar-footer a {
+  justify-content: center;
+  padding: var(--space-2);
+}
+
+/* =============================================================================
+   Main Content Area
+   ============================================================================= */
+
+.admin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--sidebar-width-expanded);
+  transition: margin-left var(--transition-normal) ease;
+  min-width: 0; /* Prevent flex overflow */
+}
+
+.admin-shell[data-sidebar-state="collapsed"] .admin-main {
+  margin-left: var(--sidebar-width-collapsed);
+}
+
+/* =============================================================================
+   Topbar
+   ============================================================================= */
+
+.admin-topbar {
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-default);
+  padding: var(--space-5) var(--space-8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 72px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  backdrop-filter: blur(8px);
+}
+
+.admin-topbar h1 {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin: 0;
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+}
+
+.admin-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+.admin-topbar-actions > * {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.admin-topbar-actions span {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-weight: var(--font-medium);
+  line-height: var(--space-10); /* Match button height for vertical alignment */
+}
+
+.admin-topbar-actions .logout-form {
+  display: contents;
+}
+
+.admin-topbar-actions .logout-button {
+  /* Match theme-toggle styles exactly - override all Pico styles */
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-10) !important;
+  height: var(--space-10) !important;
+  padding: 0 !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-lg) !important;
+  background: var(--bg-primary) !important;
+  background-color: var(--bg-primary) !important;
+  color: var(--text-secondary) !important;
+  cursor: pointer;
+  transition: all var(--transition-normal) !important;
+  position: relative;
+  margin: 0 !important;
+  min-width: unset !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  text-align: center !important;
+}
+
+.admin-topbar-actions .logout-button svg {
+  color: inherit;
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+.admin-topbar-actions .logout-button:hover {
+  background: var(--bg-tertiary) !important;
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-strong) !important;
+  color: var(--text-primary) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.admin-topbar-actions .logout-button:active {
+  transform: translateY(0) !important;
+  box-shadow: none !important;
+}
+
+.admin-topbar-actions .logout-button:focus-visible {
+  outline: 2px solid var(--color-primary-500) !important;
+  outline-offset: 2px !important;
+  border-color: var(--color-primary-500) !important;
+}
+
+.mobile-menu-toggle {
+  display: none; /* Hidden on desktop */
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.mobile-menu-toggle:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* =============================================================================
+   Content Area
+   ============================================================================= */
+
+.admin-content {
+  flex: 1;
+  padding: var(--space-8);
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--color-neutral-50);
+  min-height: calc(100vh - 72px);
+}
+
+[data-theme="dark"] .admin-content {
+  background: var(--color-neutral-900);
+}
+
+/* Entity list page specific styling */
+.entity-list-page {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.entity-list-page .page-header-compact {
+  margin-bottom: var(--space-8);
+}
+
+/* Ensure proper spacing for tables in admin */
+.admin-content .table-wrapper {
+  margin-top: 0;
+  background: var(--bg-primary);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .admin-content .table-wrapper {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
+}
+
+/* =============================================================================
+   Mobile Drawer & Overlay
+   ============================================================================= */
+
+.admin-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 35;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.admin-shell[data-sidebar-open="true"] .admin-overlay {
+  display: block;
+  opacity: 1;
+}
+
+/* =============================================================================
+   Mobile Responsive (< 768px)
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  /* Sidebar becomes a drawer */
+  .admin-sidebar {
+    width: 288px; /* 18rem */
+    transform: translateX(-100%);
+    transition: transform var(--transition-normal) ease;
+  }
+
+  .admin-shell[data-sidebar-open="true"] .admin-sidebar {
+    transform: translateX(0);
+  }
+
+  /* No collapsed state on mobile */
+  .admin-shell[data-sidebar-state="collapsed"] .admin-sidebar {
+    width: 288px;
+  }
+
+  .admin-shell[data-sidebar-state="collapsed"] .admin-sidebar .nav-text,
+  .admin-shell[data-sidebar-state="collapsed"] .admin-sidebar h2,
+  .admin-shell[data-sidebar-state="collapsed"] .admin-sidebar h3 {
+    opacity: 1;
+    width: auto;
+  }
+
+  .admin-shell[data-sidebar-state="collapsed"] .entity-list a,
+  .admin-shell[data-sidebar-state="collapsed"] .admin-sidebar-footer a {
+    justify-content: flex-start;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .admin-shell[data-sidebar-state="collapsed"] .entity-list a::after {
+    display: none;
+  }
+
+  /* Main content takes full width */
+  .admin-main {
+    margin-left: 0;
+  }
+
+  .admin-shell[data-sidebar-state="collapsed"] .admin-main {
+    margin-left: 0;
+  }
+
+  /* Show mobile menu toggle */
+  .mobile-menu-toggle {
+    display: flex;
+  }
+
+  /* Hide desktop sidebar controls */
+  .sidebar-controls {
+    display: none;
+  }
+
+  /* Smaller padding on mobile */
+  .admin-content {
+    padding: var(--space-4);
+  }
+
+  .admin-topbar {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .admin-topbar h1 {
+    font-size: var(--text-xl);
+  }
+}
+
+/* =============================================================================
+   Reduced Motion Support
+   ============================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar,
+  .admin-main,
+  .admin-overlay,
+  .sidebar-toggle,
+  .sidebar-pin,
+  .entity-list a,
+  .admin-sidebar-footer a {
+    transition: none;
+  }
+}
+
+/* =============================================================================
+   Print Styles
+   ============================================================================= */
+
+@media print {
+  .admin-sidebar,
+  .admin-topbar,
+  .sidebar-controls {
+    display: none;
+  }
+
+  .admin-main {
+    margin-left: 0;
+  }
+
+  .admin-content {
+    padding: 0;
+  }
+}
