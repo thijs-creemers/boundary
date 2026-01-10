@@ -24,6 +24,38 @@
            [java.time Instant]))
 
 ;; =============================================================================
+;; Database Boundary Helpers
+;; =============================================================================
+
+(defn prepare-values-for-db
+  "Convert all typed values (UUID, Instant) to strings for database storage.
+   
+   This ensures that at the database boundary, all complex types are converted
+   to their string representations. This is critical for database compatibility
+   and follows the principle that type conversions happen at system edges.
+   
+   Args:
+     m: Map with potentially typed values
+     
+   Returns:
+     Map with all UUIDs and Instants converted to strings
+     
+   Example:
+     (prepare-values-for-db {:id (UUID/randomUUID) 
+                             :created-at (Instant/now)
+                             :name \"John\"})
+     ;=> {:id \"123e4567-...\" :created-at \"2024-01-10T...\" :name \"John\"}"
+  [m]
+  (when m
+    (reduce-kv (fn [acc k v]
+                 (let [converted-value (cond
+                                         (instance? UUID v) (type-conversion/uuid->string v)
+                                         (instance? Instant v) (type-conversion/instant->string v)
+                                         :else v)]
+                   (assoc acc k converted-value)))
+               {} m)))
+
+;; =============================================================================
 ;; Query Building Helpers
 ;; =============================================================================
 
@@ -228,15 +260,19 @@
               ; hide-fields are for display only, data can still be provided
                sanitized-data (apply dissoc data readonly-fields)
 
-               ; Add generated ID and timestamps
+               ; Add generated ID and timestamps - convert to strings at boundary
               now-str (type-conversion/instant->string (Instant/now))
               generated-id (UUID/randomUUID)
+              id-str (type-conversion/uuid->string generated-id)
               prepared-data (assoc sanitized-data
-                                   :id generated-id
+                                   :id id-str
                                    :created-at now-str)
 
+              ; Convert all typed values (UUID, Instant) to strings for database
+              db-ready-data (prepare-values-for-db prepared-data)
+              
               ; Convert kebab-case keys to snake_case for database
-              db-data (case-conversion/kebab-case->snake-case-map prepared-data)
+              db-data (case-conversion/kebab-case->snake-case-map db-ready-data)
 
               ; Insert without RETURNING (H2 compatibility)
               insert-query {:insert-into table-name
@@ -244,8 +280,6 @@
               _ (db/execute-one! db-ctx insert-query)
 
               ; Fetch the created record
-              ;; Convert UUID to string for PostgreSQL compatibility
-              id-str (type-conversion/uuid->string generated-id)
               select-query {:select [:*]
                             :from [table-name]
                             :where [:= primary-key id-str]}
@@ -273,8 +307,11 @@
               now-str (type-conversion/instant->string (Instant/now))
               prepared-data (assoc sanitized-data :updated-at now-str)
 
+              ; Convert all typed values (UUID, Instant) to strings for database
+              db-ready-data (prepare-values-for-db prepared-data)
+              
               ; Convert kebab-case keys to snake_case for database
-              db-data (case-conversion/kebab-case->snake-case-map prepared-data)
+              db-data (case-conversion/kebab-case->snake-case-map db-ready-data)
 
               ;; Convert UUID to string for PostgreSQL compatibility
               id-str (type-conversion/uuid->string id)
@@ -366,13 +403,15 @@
              primary-key (:primary-key entity-config :id)
              soft-delete? (:soft-delete entity-config false)
 
+             ;; Convert UUIDs to strings at database boundary
+             id-strings (mapv type-conversion/uuid->string ids)
              now-str (type-conversion/instant->string (Instant/now))
              query (if soft-delete?
                      {:update table-name
                       :set {:deleted-at now-str}
-                      :where [:in primary-key ids]}
+                      :where [:in primary-key id-strings]}
                      {:delete-from table-name
-                      :where [:in primary-key ids]})
+                      :where [:in primary-key id-strings]})
 
              affected-count (db/execute-update! db-ctx query)]
 
