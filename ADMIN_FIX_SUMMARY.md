@@ -404,4 +404,94 @@ fix(admin): Resolve form submission bugs and redirect issues
 
 ---
 
+## 🔥 CRITICAL ARCHITECTURAL FIX (2026-01-10 Update)
+
+### Bug #4: Type Conversions Not Enforced at Database Boundary
+
+**Problem**: UUID and Instant objects were being passed directly to database queries instead of being converted to strings at the boundary.
+
+**Discovery**: Bulk delete was still failing after Bug #3 fix because UUID objects in the `ids` array were not being converted to strings before being used in HoneySQL queries.
+
+**Root Cause**: Violation of FC/IS architectural principle - "Type conversions MUST happen at system edges"
+
+#### Affected Operations:
+1. **Bulk Delete**: UUID[] passed to `:where [:in ...]` clause
+2. **Create Entity**: UUID object added to data map before DB insertion  
+3. **Update Entity**: Potential UUID/Instant values in nested data fields
+
+#### The Architectural Principle:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              HTTP Layer (System Edge)                   │
+│  String → UUID/Instant (parse-form-params)              │
+└─────────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────┐
+│           Service Layer (Internal)                      │
+│  Works with rich types: UUID, Instant, etc.             │
+└─────────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────────┐
+│         Database Layer (System Edge)                    │
+│  UUID/Instant → String (prepare-values-for-db)          │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Solution Implemented:
+
+**New Helper Function** (`src/boundary/admin/shell/service.clj`):
+```clojure
+(defn prepare-values-for-db
+  "Convert all typed values (UUID, Instant) to strings for database storage.
+   
+   This ensures that at the database boundary, all complex types are converted
+   to their string representations."
+  [m]
+  (when m
+    (reduce-kv (fn [acc k v]
+                 (let [converted-value (cond
+                                         (instance? UUID v) (type-conversion/uuid->string v)
+                                         (instance? Instant v) (type-conversion/instant->string v)
+                                         :else v)]
+                   (assoc acc k converted-value)))
+               {} m)))
+```
+
+**Updated Operations**:
+1. **create-entity**: 
+   - Convert generated UUID to string immediately
+   - Call `prepare-values-for-db` before `kebab-case->snake-case-map`
+   
+2. **update-entity**: 
+   - Call `prepare-values-for-db` before `kebab-case->snake-case-map`
+   
+3. **bulk-delete**: 
+   - Convert `ids` array: `(mapv type-conversion/uuid->string ids)`
+
+#### Why This Matters:
+
+1. **Database Compatibility**: PostgreSQL, H2, and other databases have different handling of UUID/Instant types. Strings are universally compatible.
+
+2. **Explicitness**: Type conversions are visible and testable at boundaries.
+
+3. **FC/IS Architecture**: Shell handles conversions, Core works with rich types.
+
+4. **Debugging**: Easier to see exact values being sent to database.
+
+5. **Consistency**: All database operations follow the same pattern.
+
+#### Files Modified:
+- `src/boundary/admin/shell/service.clj`: Added `prepare-values-for-db` helper and updated all CRUD operations
+
+#### Testing:
+- ✅ clj-kondo: 0 errors
+- ⏳ Bulk delete: Ready for testing with UUID conversion fix
+- ⏳ Create/Update: Ready for testing with comprehensive type conversion
+
+#### Commit:
+`37f15b5` - "fix(admin): enforce type conversions at database boundary"
+
+---
+
 **End of Report**
