@@ -331,40 +331,71 @@
   flex-shrink: 0;
 }
 
+.admin-topbar-actions > * {
+  flex-shrink: 0;
+  align-self: center;
+}
+
 .admin-topbar-actions span {
   font-size: var(--text-sm);
   color: var(--text-secondary);
   white-space: nowrap;
   font-weight: var(--font-medium);
+  line-height: var(--space-10); /* Match button height for vertical alignment */
 }
 
 .admin-topbar-actions .logout-form {
-  display: inline-flex;
-  align-items: center;
-  margin: 0;
-  padding: 0;
+  display: contents;
 }
 
 .admin-topbar-actions .logout-button {
-  background: transparent;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
+  /* Match theme-toggle styles exactly - override all Pico styles */
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  padding: 0;
-  margin: 0;
+  width: var(--space-10) !important;
+  height: var(--space-10) !important;
+  padding: 0 !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-lg) !important;
+  background: var(--bg-primary) !important;
+  background-color: var(--bg-primary) !important;
+  color: var(--text-secondary) !important;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-normal) !important;
+  position: relative;
+  margin: 0 !important;
+  min-width: unset !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  text-align: center !important;
+}
+
+.admin-topbar-actions .logout-button svg {
+  color: inherit;
+  fill: currentColor;
+  stroke: currentColor;
 }
 
 .admin-topbar-actions .logout-button:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border-color: var(--border-hover);
+  background: var(--bg-tertiary) !important;
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-strong) !important;
+  color: var(--text-primary) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.admin-topbar-actions .logout-button:active {
+  transform: translateY(0) !important;
+  box-shadow: none !important;
+}
+
+.admin-topbar-actions .logout-button:focus-visible {
+  outline: 2px solid var(--color-primary-500) !important;
+  outline-offset: 2px !important;
+  border-color: var(--color-primary-500) !important;
 }
 
 .mobile-menu-toggle {

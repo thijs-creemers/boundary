@@ -894,6 +894,11 @@ textarea {
   position: relative;
 }
 
+/* Admin topbar alignment adjustment */
+.admin-topbar .theme-toggle {
+  top: 10px; /* Compensate for topbar flexbox baseline alignment */
+}
+
 .theme-toggle:hover {
   background: var(--bg-tertiary);
   border-color: var(--border-strong);
@@ -939,10 +944,10 @@ textarea {
   margin-left: var(--space-2);
 }
 
-/* Admin topbar theme toggle positioning */
-.admin-topbar .theme-toggle {
+/* Admin topbar theme toggle positioning - removed margin-left as parent uses gap */
+/* .admin-topbar .theme-toggle {
   margin-left: var(--space-2);
-}
+} */
 
 /* =============================================================================
    Icon Buttons
