@@ -331,10 +331,8 @@
 
    Week 1: Simple redirect to first entity in list
    Week 2+: Dashboard with stats, recent activity, quick actions"
-  [admin-service schema-provider config]
+   [admin-service schema-provider config]
   (fn [request]
-    (println "\n🟢 LIST HANDLER CALLED - Method:" (:request-method request) "URI:" (:uri request))
-    (flush)
     (let [user (require-admin-user! request)
           _ (log/info "After require-admin-user!" {:user-email (:email user)})
           entities (ports/list-available-entities schema-provider)]
@@ -389,7 +387,10 @@
 
           ; Merge pagination info from result into options for UI
           ; This ensures UI shows the actual page-size used (from config defaults)
-          table-query (merge options
+          ; Also ensure sort/dir are present (use defaults if not in options)
+          table-query (merge {:sort (or (:sort options) (:default-sort entity-config) :id)
+                              :dir (or (:dir options) (:sort-dir options) :asc)}
+                             options
                              {:page-size (:page-size result)
                               :page (:page-number result)})
 
@@ -437,7 +438,9 @@
           total-count (:total-count result)
 
           ; Merge pagination info from result into options for UI
-          table-query (merge options
+          table-query (merge {:sort (or (:sort options) (:default-sort entity-config) :id)
+                              :dir (or (:dir options) (:sort-dir options) :asc)}
+                             options
                              {:page-size (:page-size result)
                               :page (:page-number result)})
 
@@ -750,12 +753,14 @@
 
           ; Extract IDs from form params
           id-strings (get-in request [:form-params "ids[]"])
-          ids (mapv #(UUID/fromString %) (if (string? id-strings) [id-strings] id-strings))
+          ids (when id-strings
+                (mapv #(UUID/fromString %) (if (string? id-strings) [id-strings] id-strings)))
 
           ; Bulk delete
-          result (ports/bulk-delete-entities admin-service entity-name ids)
-          success-count (:success-count result)
-          failed-count (:failed-count result)]
+          result (when (and ids (seq ids))
+                   (ports/bulk-delete-entities admin-service entity-name ids))
+          success-count (or (:success-count result) 0)
+          failed-count (or (:failed-count result) 0)]
 
       ; Return updated table regardless of success/failure
       (let [; Fetch updated list

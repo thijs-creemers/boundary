@@ -21,14 +21,14 @@
    - Clicking toggles :dir between :asc and :desc for the same :field.
    - When changing sort field or direction, page is reset to 1.
    "
-  [{:keys [label field current-sort current-dir base-url page page-size
-           hx-target hx-push-url? extra-params]}]
-  (let [active?  (= current-sort field)
-        next-dir (if (and active? (= current-dir :asc)) :desc :asc)
-        icon     (cond
-                   (not active?) ""
-                   (= current-dir :asc) " ↑"
-                   :else " ↓")
+   [{:keys [label field current-sort current-dir base-url page page-size
+            hx-target hx-push-url? extra-params]}]
+   (let [active?  (= current-sort field)
+         next-dir (if (and active? (= current-dir :asc)) :desc :asc)
+         icon     (cond
+                    (not active?) ""
+                    (= current-dir :asc) " ↑"
+                    :else " ↓")
         page*    1
         base-q   (web-table/table-query->params
                   {:sort field :dir next-dir :page page* :page-size page-size})

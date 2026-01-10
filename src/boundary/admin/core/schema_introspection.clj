@@ -86,6 +86,7 @@
 
    Args:
      sql-type: String SQL type from database metadata
+     field-name: (Optional) Keyword field name for heuristics
 
    Returns:
      Keyword field type (:uuid, :string, :int, etc.)
@@ -96,10 +97,40 @@
      (infer-field-type \"INTEGER\")          ;=> :int
      (infer-field-type \"BOOLEAN\")          ;=> :boolean
      (infer-field-type \"TIMESTAMP\")        ;=> :instant
+     (infer-field-type \"TEXT\" :created-at) ;=> :instant (heuristic)
+     (infer-field-type \"TEXT\" :email)      ;=> :string (heuristic)
      (infer-field-type \"UNKNOWN_TYPE\")     ;=> :string"
-  [sql-type]
-  (let [normalized (normalize-sql-type sql-type)]
-    (get sql-type->field-type normalized :string)))
+  ([sql-type] (infer-field-type sql-type nil))
+  ([sql-type field-name]
+   (let [normalized (normalize-sql-type sql-type)
+         base-type (get sql-type->field-type normalized :string)]
+     ;; Apply heuristics if field is text type
+     (if (and (= base-type :text) field-name)
+       (let [name-str (name field-name)]
+         (cond
+           ;; Timestamp fields stored as text (ISO 8601 strings)
+           (or (str/ends-with? name-str "-at")
+               (str/ends-with? name-str "-date")
+               (str/ends-with? name-str "-time")
+               (= name-str "created-at")
+               (= name-str "updated-at")
+               (= name-str "deleted-at"))
+           :instant
+           
+           ;; Email fields
+           (or (str/includes? name-str "email")
+               (str/includes? name-str "mail"))
+           :string
+           
+           ;; Role/status/enum-like fields (but keep as text for now, could be enum)
+           (or (str/includes? name-str "role")
+               (str/includes? name-str "status")
+               (str/includes? name-str "type"))
+           :string
+           
+           ;; Default: keep as text for very long content
+           :else :text))
+       base-type))))
 
 ;; =============================================================================
 ;; Widget Inference - Field Types to UI Widgets
@@ -232,7 +263,47 @@
      (should-be-sortable? :int)    ;=> true
      (should-be-sortable? :json)   ;=> false"
   [field-type]
-  (contains? #{:uuid :string :int :decimal :boolean :instant :date :enum} field-type))
+  (contains? #{:uuid :string :text :int :decimal :boolean :instant :date :enum} field-type))
+
+(defn should-be-in-list-view?
+  "Determine if field should be shown in table list view.
+   
+   Some fields are better shown only in detail/edit views, not in the
+   compact table list view.
+   
+   Args:
+     field-name: Keyword field name
+     field-type: Keyword field type
+     
+   Returns:
+     Boolean true if field should be in list view
+     
+   Examples:
+     (should-be-in-list-view? :email :string)   ;=> true
+     (should-be-in-list-view? :active :boolean) ;=> false
+     (should-be-in-list-view? :notes :text)     ;=> false"
+  [field-name field-type]
+  (let [name-str (name field-name)]
+    (not (or
+          ;; Boolean flags that are better as badges or in detail view
+          (and (= field-type :boolean) 
+               (or (= field-name :active)
+                   (str/starts-with? name-str "is-")
+                   (str/starts-with? name-str "has-")
+                   (str/starts-with? name-str "send-")))
+          
+          ;; Very long text fields
+          (and (= field-type :text)
+               (or (str/includes? name-str "description")
+                   (str/includes? name-str "content")
+                   (str/includes? name-str "notes")
+                   (str/includes? name-str "body")))
+          
+          ;; Technical fields
+          (or (str/includes? name-str "hash")
+              (str/includes? name-str "secret")
+              (str/includes? name-str "token")
+              (str/includes? name-str "backup-codes"))))))
 
 ;; =============================================================================
 ;; Label Generation - Field Names to Display Labels
@@ -317,15 +388,15 @@
                             :not-null true
                             :primary-key false})"
    [column-meta]
-  (let [;; Convert database column name (snake_case) to internal field name (kebab-case)
-        field-name (-> (:name column-meta)
-                       case-conversion/snake-case->kebab-case-string
-                       keyword)
-        sql-type (:type column-meta)
-        field-type (infer-field-type sql-type)
-        widget (infer-widget-for-field field-name field-type sql-type)
-        is-primary-key? (:primary-key column-meta false)
-        is-not-null? (:not-null column-meta false)]
+   (let [;; Convert database column name (snake_case) to internal field name (kebab-case)
+         field-name (-> (:name column-meta)
+                        case-conversion/snake-case->kebab-case-string
+                        keyword)
+         sql-type (:type column-meta)
+         field-type (infer-field-type sql-type field-name)  ; Pass field-name for heuristics
+         widget (infer-widget-for-field field-name field-type sql-type)
+         is-primary-key? (:primary-key column-meta false)
+         is-not-null? (:not-null column-meta false)]
     {:name field-name
      :label (humanize-field-name field-name)
      :type field-type
@@ -387,7 +458,10 @@
                            (filter :searchable)
                            (mapv :name))
         list-fields (->> visible-fields
-                         (take 5)  ; Default to first 5 visible fields
+                         (filter (fn [field-name]
+                                   (let [field-config (get fields-by-name field-name)]
+                                     (should-be-in-list-view? field-name (:type field-config)))))
+                         (take 5)  ; Default to first 5 suitable fields
                          vec)]
     {:label (humanize-entity-name table-name)
      :table-name table-name
