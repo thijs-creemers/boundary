@@ -181,6 +181,7 @@
      (fn [{:keys [params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
+             soft-delete? (:soft-delete entity-config false)
              search-term (:search options)
              search-fields (:search-fields entity-config)
              filters (:filters options)
@@ -191,7 +192,9 @@
               ; Build query components
              search-where (build-search-where search-term search-fields)
              filter-where (build-filter-where filters)
-             where-clause (combine-where-clauses [search-where filter-where])
+             ; Exclude soft-deleted records if entity uses soft delete
+             soft-delete-where (when soft-delete? [:= :deleted-at nil])
+             where-clause (combine-where-clauses [search-where filter-where soft-delete-where])
              ordering (build-ordering sort-field sort-dir default-sort)
              pagination (build-pagination options config)
 
@@ -236,11 +239,16 @@
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
              primary-key (:primary-key entity-config :id)
+             soft-delete? (:soft-delete entity-config false)
              ;; Convert UUID to string for PostgreSQL compatibility
              id-str (type-conversion/uuid->string id)
-              query {:select [:*]
-                     :from [table-name]
-                     :where [:= primary-key id-str]}
+              query (cond-> {:select [:*]
+                             :from [table-name]
+                             :where [:= primary-key id-str]}
+                      ; Also check not soft-deleted if applicable
+                      soft-delete? (assoc :where [:and 
+                                                  [:= primary-key id-str]
+                                                  [:= :deleted-at nil]]))
               db-result (db/execute-one! db-ctx query)]
           ; Convert snake_case keys from database to kebab-case for internal use
           (case-conversion/snake-case->kebab-case-map db-result)))
@@ -345,10 +353,16 @@
              id-str (type-conversion/uuid->string id)]
 
           (if soft-delete?
-             ; Soft delete: Set deleted-at timestamp
+             ; Soft delete: Set deleted-at timestamp and optionally active=false
             (let [now-str (type-conversion/instant->string (Instant/now))
+                  ;; Check if entity has an 'active' field to set on soft-delete
+                  has-active-field? (contains? (:fields entity-config) :active)
+                  soft-delete-data-kebab (cond-> {:deleted-at now-str}
+                                           has-active-field? (assoc :active false))
+                  ;; Convert to snake_case for database
+                  soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
                   query {:update table-name
-                         :set {:deleted-at now-str}
+                         :set soft-delete-data
                          :where [:= primary-key id-str]}]
               (pos? (db/execute-update! db-ctx query)))
 
@@ -365,10 +379,14 @@
      (fn [{:keys [params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
+             soft-delete? (:soft-delete entity-config false)
              filter-where (build-filter-where filters)
+             ; Exclude soft-deleted records if entity uses soft delete
+             soft-delete-where (when soft-delete? [:= :deleted-at nil])
+             where-clause (combine-where-clauses [filter-where soft-delete-where])
              query (cond-> {:select [[:%count.* :total]]
                             :from [table-name]}
-                     filter-where (assoc :where filter-where))
+                     where-clause (assoc :where where-clause))
              result (db/execute-one! db-ctx query)]
          (:total result 0)))
      db-ctx))
@@ -394,7 +412,7 @@
         {:valid? false :errors errors})))
 
   (bulk-delete-entities [_ entity-name ids]
-    (persist-interceptors/execute-persistence-operation
+     (persist-interceptors/execute-persistence-operation
      :admin-bulk-delete-entities
      {:entity (name entity-name) :count (count ids)}
      (fn [{:keys [params]}]
@@ -406,9 +424,17 @@
              ;; Convert UUIDs to strings at database boundary
              id-strings (mapv type-conversion/uuid->string ids)
              now-str (type-conversion/instant->string (Instant/now))
+             
+             ;; Check if entity has an 'active' field to set on soft-delete
+             has-active-field? (contains? (:fields entity-config) :active)
+             soft-delete-data-kebab (cond-> {:deleted-at now-str}
+                                      has-active-field? (assoc :active false))
+             ;; Convert to snake_case for database
+             soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
+             
              query (if soft-delete?
                      {:update table-name
-                      :set {:deleted-at now-str}
+                      :set soft-delete-data
                       :where [:in primary-key id-strings]}
                      {:delete-from table-name
                       :where [:in primary-key id-strings]})
