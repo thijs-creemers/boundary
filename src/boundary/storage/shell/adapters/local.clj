@@ -53,14 +53,16 @@
 ;; ============================================================================
 
 (defn- generate-storage-key
-  "Generate a unique storage key based on content hash and timestamp."
+  "Generate a unique storage key based on content hash, timestamp, and random component."
   [bytes filename]
   (let [hash (compute-sha256 bytes)
         ext (validation/get-file-extension filename)
         timestamp (System/currentTimeMillis)
+        nanos (System/nanoTime)
         ;; Use first 16 chars of hash for directory sharding
         shard (subs hash 0 2)
-        key-name (str timestamp "-" (subs hash 0 16))]
+        ;; Include nanos for uniqueness in concurrent scenarios
+        key-name (str timestamp "-" (mod nanos 1000000) "-" (subs hash 0 16))]
     (if ext
       (path-join shard (str key-name "." ext))
       (path-join shard key-name))))
@@ -157,15 +159,17 @@
       (let [full-path (path-join base-path file-key)
             file-path (Paths/get full-path (into-array String []))]
 
-        (when (Files/exists file-path (make-array java.nio.file.LinkOption 0))
-          (Files/delete file-path)
+        (if (Files/exists file-path (make-array java.nio.file.LinkOption 0))
+          (do
+            (Files/delete file-path)
 
-          (when logger
-            (logging/info logger "File deleted"
-                          {:event ::file-deleted
-                           :key file-key}))
+            (when logger
+              (logging/info logger "File deleted"
+                            {:event ::file-deleted
+                             :key file-key}))
 
-          true))
+            true)
+          false))
 
       (catch Exception e
         (when logger
@@ -178,7 +182,7 @@
   (file-exists? [_ file-key]
     (try
       (let [full-path (path-join base-path file-key)
-            file-path (Paths/get full-path (make-array java.nio.file.LinkOption 0))]
+            file-path (Paths/get full-path (into-array String []))]
         (Files/exists file-path (make-array java.nio.file.LinkOption 0)))
 
       (catch Exception e

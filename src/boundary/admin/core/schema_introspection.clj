@@ -76,10 +76,11 @@
      (normalize-sql-type \"INTEGER\")          ;=> \"integer\"
      (normalize-sql-type \"TIMESTAMP\")        ;=> \"timestamp\""
   [sql-type]
-  (-> sql-type
-      str/lower-case
-      (str/replace #"\(.*\)" "")  ; Remove size/precision
-      str/trim))
+  (when sql-type
+    (-> sql-type
+        str/lower-case
+        (str/replace #"\(.*\)" "")  ; Remove size/precision
+        str/trim)))
 
 (defn infer-field-type
   "Infer logical field type from SQL/database type.
@@ -153,36 +154,38 @@
      (infer-widget-for-field :active :boolean \"BOOLEAN\")   ;=> :checkbox
      (infer-widget-for-field :created-at :instant \"TIMESTAMP\") ;=> :datetime-input"
   [field-name field-type sql-type]
-  (let [field-name-str (name field-name)
-        field-name-lower (str/lower-case field-name-str)]
-    (cond
-      ; Special field name heuristics
-      (str/includes? field-name-lower "email") :email-input
-      (str/includes? field-name-lower "password") :password-input
-      (str/includes? field-name-lower "url") :url-input
-      (str/includes? field-name-lower "color") :color-input
-      (str/includes? field-name-lower "description") :textarea
-      (str/includes? field-name-lower "bio") :textarea
-      (str/includes? field-name-lower "notes") :textarea
-      (str/includes? field-name-lower "content") :textarea
-      (and (str/includes? field-name-lower "date")
-           (not (str/includes? field-name-lower "at"))) :date-input
+  (if-not field-name
+    :text-input
+    (let [field-name-str (name field-name)
+          field-name-lower (str/lower-case field-name-str)]
+      (cond
+        ; Special field name heuristics
+        (str/includes? field-name-lower "email") :email-input
+        (str/includes? field-name-lower "password") :password-input
+        (str/includes? field-name-lower "url") :url-input
+        (str/includes? field-name-lower "color") :color-input
+        (str/includes? field-name-lower "description") :textarea
+        (str/includes? field-name-lower "bio") :textarea
+        (str/includes? field-name-lower "notes") :textarea
+        (str/includes? field-name-lower "content") :textarea
+        (and (str/includes? field-name-lower "date")
+             (not (str/includes? field-name-lower "at"))) :date-input
 
-      ; Type-based widget selection
-      (= field-type :uuid) :text-input
-      (= field-type :string) :text-input
-      (= field-type :text) :textarea
-      (= field-type :int) :number-input
-      (= field-type :decimal) :number-input
-      (= field-type :boolean) :checkbox
-      (= field-type :instant) :datetime-input
-      (= field-type :date) :date-input
-      (= field-type :enum) :select
-      (= field-type :json) :textarea
-      (= field-type :binary) :file-input
+        ; Type-based widget selection
+        (= field-type :uuid) :text-input
+        (= field-type :string) :text-input
+        (= field-type :text) :textarea
+        (= field-type :int) :number-input
+        (= field-type :decimal) :number-input
+        (= field-type :boolean) :checkbox
+        (= field-type :instant) :datetime-input
+        (= field-type :date) :date-input
+        (= field-type :enum) :select
+        (= field-type :json) :textarea
+        (= field-type :binary) :file-input
 
-      ; Default fallback
-      :else :text-input)))
+        ; Default fallback
+        :else :text-input))))
 
 ;; =============================================================================
 ;; Field Classification - Readonly, Hidden, Required
