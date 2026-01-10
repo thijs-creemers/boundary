@@ -348,6 +348,239 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 ---
 
+## UI/Frontend Development
+
+### Technology Stack
+
+| Technology | Purpose | Location |
+|------------|---------|----------|
+| **Hiccup** | HTML generation | `src/{module}/core/ui.clj` |
+| **HTMX** | Dynamic interactions | Inline attributes in Hiccup |
+| **Pico CSS** | Base framework | `resources/public/css/` |
+| **Lucide Icons** | Icon system | `src/boundary/shared/ui/core/icons.clj` |
+
+### UI Architecture Principles
+
+1. **Server-side rendering**: All HTML generated via Hiccup (no build step)
+2. **Progressive enhancement**: HTMX for dynamic behavior
+3. **Design tokens**: Centralized in `resources/public/css/tokens.css`
+4. **Icon library**: Use Lucide icons, never emoji in UI (CLI emoji is OK)
+
+### Common UI Patterns
+
+#### REPL Reload for UI Changes
+
+```bash
+# After modifying any ui.clj file
+clj-nrepl-eval -p <port> "(require '[integrant.repl :as ig-repl]) (ig-repl/reset)"
+```
+
+**Important**: UI changes require REPL reload to take effect.
+
+#### JavaScript in Hiccup Attributes
+
+```clojure
+;; ❌ WRONG - Inconsistent or broken logic
+[:input {:type "checkbox"
+         :onchange "if (this.checked) { /* count all */ } else { /* show 0 */ }"}]
+
+;; ❌ ALSO WRONG - Queries before DOM updates complete
+[:input {:type "checkbox"
+         :onchange "elements.forEach(el => el.checked = this.checked);
+                    const checked = document.querySelectorAll('input:checked').length;
+                    document.getElementById('count').textContent = checked + ' selected';"}]
+
+;; ✅ CORRECT - Use setTimeout to query AFTER DOM updates
+[:input {:type "checkbox"
+         :onchange "elements.forEach(el => el.checked = this.checked);
+                    setTimeout(() => {
+                      const checked = document.querySelectorAll('input:checked').length; 
+                      document.getElementById('count').textContent = checked + ' selected';
+                    }, 0);"}]
+```
+
+**Key Lesson**: When toggling multiple elements, always query the actual DOM state AFTER the update completes. Use `setTimeout(..., 0)` to defer the query to the next event loop tick, ensuring all `.checked` properties are updated first.
+
+#### Icon Usage
+
+```clojure
+;; ❌ WRONG - Using emoji
+[:button "🗑️ Delete"]
+
+;; ✅ CORRECT - Using Lucide icons
+[:button 
+ (icons/icon :trash {:size 18})
+ " Delete"]
+
+;; Available in: src/boundary/shared/ui/core/icons.clj
+```
+
+#### HTMX Loading States
+
+```clojure
+;; Add loading indicators to forms
+[:form {:hx-post "/api/endpoint"
+        :hx-indicator "#spinner"}
+ [:button "Submit"]
+ [:span#spinner.htmx-indicator "Loading..."]]
+```
+
+### UI Component Hierarchy
+
+```
+src/boundary/
+├── shared/ui/core/
+│   ├── layout.clj        # Page layouts, navigation
+│   ├── icons.clj         # Icon definitions (50+ Lucide icons)
+│   └── components.clj    # Reusable components
+├── admin/core/
+│   └── ui.clj            # Admin interface (tables, forms)
+└── {module}/core/
+    └── ui.clj            # Module-specific UI components
+```
+
+### Styling Conventions
+
+**Location**: `resources/public/css/`
+
+```
+css/
+├── tokens.css     # Design tokens (colors, spacing, typography)
+├── app.css        # Main app styles
+├── admin.css      # Admin interface styles
+└── components.css # Reusable component styles
+```
+
+**CSS Organization**:
+1. Use design tokens for all values (colors, spacing, font sizes)
+2. Component-specific styles in dedicated sections
+3. Dark mode via CSS variables (no duplicate declarations)
+4. Mobile-first responsive design
+
+**Example**:
+```css
+/* ✅ Use design tokens */
+.button {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+}
+
+/* ❌ Don't use hardcoded values */
+.button {
+  padding: 8px 16px;
+  background: #3b82f6;
+  border-radius: 6px;
+}
+```
+
+### Common UI Pitfalls
+
+#### 1. JavaScript Event Handler Logic and DOM Timing
+
+**Problem**: Select-all checkbox shows "0 selected" when checked, or count doesn't update.
+
+**Root Causes**:
+1. Using conditional logic based on trigger element state instead of querying actual DOM state
+2. Querying DOM state before the browser has finished updating all elements
+
+```clojure
+;; ❌ WRONG - Assumes state without checking
+[:input {:onchange "elements.forEach(el => el.checked = this.checked);
+                    const count = this.checked ? elements.length : 0;"}]
+
+;; ❌ ALSO WRONG - Queries before DOM updates complete
+[:input {:onchange "elements.forEach(el => el.checked = this.checked);
+                    const count = document.querySelectorAll(':checked').length;"}]
+
+;; ✅ CORRECT - Query actual state AFTER DOM updates via setTimeout
+[:input {:onchange "elements.forEach(el => el.checked = this.checked);
+                    setTimeout(() => {
+                      const count = document.querySelectorAll(':checked').length;
+                      document.getElementById('count').textContent = count + ' selected';
+                    }, 0);"}]
+```
+
+**Why**: 
+- The DOM update happens asynchronously, so always query the actual state rather than inferring it
+- Use `setTimeout(..., 0)` to defer execution until after the browser completes updating all element states
+- This pushes the query to the next event loop tick, ensuring all `.checked` properties are updated first
+
+#### 2. Inline JavaScript String Escaping
+
+**Problem**: Clojure string escaping in Hiccup attributes with complex JavaScript.
+
+**Solution**: 
+- Keep inline JavaScript simple (1-2 statements)
+- For complex logic, extract to external JS file: `resources/public/js/`
+- Use `\"` for nested quotes in Clojure strings
+
+```clojure
+;; ❌ AVOID - Complex inline JavaScript
+[:input {:onclick "var x = document.querySelector(\"#foo\"); 
+                   if (x.value == \"bar\") { /* ... */ }"}]
+
+;; ✅ BETTER - Extract to external file
+[:input {:onclick "handleClick(this)"}]
+;; Define handleClick() in resources/public/js/app.js
+```
+
+#### 3. Inconsistent Event Handlers
+
+**Problem**: Different logic for related actions (e.g., select-all vs individual checkboxes).
+
+**Solution**: Keep event handler logic consistent across related elements.
+
+```clojure
+;; Individual checkbox logic
+[:input {:onchange "const checked = document.querySelectorAll(':checked').length;
+                    updateCount(checked);"}]
+
+;; Select-all checkbox - MUST use same logic pattern
+[:input {:onchange "elements.forEach(el => el.checked = this.checked);
+                    const checked = document.querySelectorAll(':checked').length;
+                    updateCount(checked);"}]
+```
+
+**Key**: Both use `querySelectorAll(':checked')` to ensure consistency.
+
+#### 4. Icon Inconsistency
+
+**Problem**: Mixing emoji and icon library usage.
+
+**Solution**: Always use Lucide icons in UI, never emoji (emoji OK in CLI output only).
+
+```clojure
+;; ❌ WRONG - Emoji in UI
+[:button "🔍 Search"]
+
+;; ✅ CORRECT - Lucide icon
+[:button (icons/icon :search) " Search"]
+```
+
+### UI Testing Checklist
+
+When making UI changes, always test:
+
+- [ ] **Desktop view** (1920x1080)
+- [ ] **Mobile view** (375x667)
+- [ ] **Dark mode** (toggle and verify all elements)
+- [ ] **Keyboard navigation** (Tab, Enter, Escape)
+- [ ] **Loading states** (HTMX indicators work)
+- [ ] **Form validation** (error messages display)
+- [ ] **JavaScript interactions** (event handlers work correctly)
+
+### UI Development Workflow
+
+1. **Modify Hiccup** in `src/{module}/core/ui.clj`
+2. **Reload REPL** via `clj-nrepl-eval -p <port> "(ig-repl/reset)"`
+3. **Refresh browser** (Cmd+R / Ctrl+R)
+4. **Test in both light and dark mode**
+5. **Test responsive behavior** (resize window)
+6. **Commit changes** (after explicit user permission)
+
+---
+
 ## Testing Strategy
 
 | Category | Location | Purpose |

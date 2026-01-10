@@ -329,7 +329,7 @@
              [:th
               [:input {:type "checkbox"
                        :id "select-all"
-                       :onchange "document.querySelectorAll('input[name=\"ids[]\"]').forEach(cb => cb.checked = this.checked); document.getElementById('bulk-delete-btn').disabled = !this.checked; document.getElementById('selection-count').textContent = this.checked ? document.querySelectorAll('input[name=\"ids[]\"]').length + ' selected' : '0 selected';"}]]
+                       :onchange "const checkboxes = document.querySelectorAll('input[name=\"ids[]\"]'); checkboxes.forEach(cb => cb.checked = this.checked); setTimeout(() => { const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; }, 0);"}]]
             (for [field list-fields]
               (let [field-config (get-in entity-config [:fields field])
                     sortable? (:sortable field-config true)]
