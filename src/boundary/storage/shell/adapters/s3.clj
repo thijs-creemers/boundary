@@ -134,11 +134,11 @@
           (logging/error logger "Failed to store file in S3"
                          {:event ::s3-store-failed
                           :bucket bucket
-                          :filename filename
+                          :filename (:filename metadata)
                           :error (.getMessage e)}))
         (throw (ex-info "Failed to store file in S3"
                         {:bucket bucket
-                         :filename filename
+                         :filename (:filename metadata)
                          :error (.getMessage e)}
                         e)))))
 
