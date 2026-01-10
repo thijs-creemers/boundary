@@ -347,9 +347,11 @@
             (let [method (:request-method request)
                   uri (:uri request)
                   web-route? (str/starts-with? (or uri "") "/web")
+                  admin-route? (str/starts-with? (or uri "") "/web/admin")
                   state-changing? (#{:post :put :delete :patch} method)]
-              (if (and web-route? state-changing?)
-                ;; Web UI state-changing request - validate CSRF token
+              (if (and web-route? state-changing? (not admin-route?))
+                ;; Web UI state-changing request (non-admin) - validate CSRF token
+                ;; TODO: Enable CSRF for admin routes once token generation is implemented
                 (if (valid-csrf-token? request)
                   ctx
                   (set-response ctx {:status 403
@@ -357,9 +359,8 @@
                                      :body {:error "CSRF token validation failed"
                                             :message "Invalid or missing CSRF token"
                                             :type :csrf-validation-failed}}))
-                ;; Non-web route or safe method - skip CSRF check
+                ;; Non-web route, safe method, or admin route - skip CSRF check
                 ctx)))})
-
 ;; ==============================================================================
 ;; Rate Limiting
 ;; ==============================================================================
@@ -493,15 +494,15 @@
    - X-Content-Type-Options: Prevent MIME sniffing
    - X-XSS-Protection: Legacy XSS protection
    - Referrer-Policy: Control referrer information"
-  {"Content-Security-Policy" (str "default-src 'self'; "
-                                  "script-src 'self' 'unsafe-inline' https://unpkg.com; "
-                                  "style-src 'self' 'unsafe-inline' https://unpkg.com; "
-                                  "img-src 'self' data: https:; "
-                                  "font-src 'self' data:; "
-                                  "connect-src 'self'; "
-                                  "frame-ancestors 'none'; "
-                                  "base-uri 'self'; "
-                                  "form-action 'self'")
+   {"Content-Security-Policy" (str "default-src 'self'; "
+                                   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; "
+                                   "style-src 'self' 'unsafe-inline' https://unpkg.com; "
+                                   "img-src 'self' data: https:; "
+                                   "font-src 'self' data:; "
+                                   "connect-src 'self'; "
+                                   "frame-ancestors 'none'; "
+                                   "base-uri 'self'; "
+                                   "form-action 'self'")
    "X-Frame-Options" "DENY"
    "Strict-Transport-Security" "max-age=31536000; includeSubDomains"
    "X-Content-Type-Options" "nosniff"

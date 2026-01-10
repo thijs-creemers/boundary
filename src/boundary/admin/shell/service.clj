@@ -366,9 +366,10 @@
              primary-key (:primary-key entity-config :id)
              soft-delete? (:soft-delete entity-config false)
 
+             now-str (type-conversion/instant->string (Instant/now))
              query (if soft-delete?
                      {:update table-name
-                      :set {:deleted-at (Instant/now)}
+                      :set {:deleted-at now-str}
                       :where [:in primary-key ids]}
                      {:delete-from table-name
                       :where [:in primary-key ids]})

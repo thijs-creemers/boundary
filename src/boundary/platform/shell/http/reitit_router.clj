@@ -16,6 +16,7 @@
                         [reitit.swagger-ui :as swagger-ui]
                         [ring.middleware.resource :refer [wrap-resource]]
                         [ring.middleware.cookies :refer [wrap-cookies]]
+                        [ring.middleware.params :refer [wrap-params]]
                         [muuntaja.core :as m]
                         [muuntaja.middleware :as muuntaja-middleware]))
 
@@ -487,9 +488,11 @@
       ;; Wrap handler with middlewares (outermost last):
       ;; 1. Cookies middleware - parse and set cookies
       ;; 2. Static resource middleware - serve files from resources/public/
+      ;; 3. Params middleware - parse query and form params (including PUT/PATCH bodies)
       (-> (ring/ring-handler router default-handler)
           (wrap-resource "public")
-          (wrap-cookies)))))
+          (wrap-cookies)
+          (wrap-params)))))
 
 ;; =============================================================================
 ;; Public API

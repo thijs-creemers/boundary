@@ -123,10 +123,10 @@
     (layout/page-layout
      title
      (admin-shell content (assoc opts :page-title page-title))
-     {:user user
-      :flash flash
-      :css ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
-      :js ["/js/theme.js" "/js/htmx.min.js" "/js/sidebar.js"]})))
+      {:user user
+       :flash flash
+       :css ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
+       :js ["/js/theme.js" "/js/htmx.min.js" "/js/sidebar.js" "/js/table.js" "/js/forms.js"]})))
 
 (defn admin-home
   "Admin dashboard home page content.
@@ -255,11 +255,12 @@
         primary-key (:primary-key entity-config :id)
         record-id (get record primary-key)]
     [:tr {:class "entity-row"}
-     [:td.row-actions
-      [:input {:type "checkbox"
-               :name "record-ids"
-               :value (str record-id)
-               :onclick "event.stopPropagation();"}]]
+      [:td.row-actions
+       [:input {:type "checkbox"
+                :name "ids[]"
+                :value (str record-id)
+                :onclick "event.stopPropagation();"
+                :onchange "const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; document.getElementById('select-all').checked = checked === document.querySelectorAll('input[name=\"ids[]\"]').length;"}]]
      (for [field list-fields]
        (let [field-config (get-in entity-config [:fields field])
              value (get record field)]
@@ -321,10 +322,10 @@
          [:table.data-table
           [:thead
            [:tr
-            [:th
-             [:input {:type "checkbox"
-                      :id "select-all"
-                      :onchange "document.querySelectorAll('input[name=\"record-ids\"]').forEach(cb => cb.checked = this.checked); document.getElementById('bulk-delete-btn').disabled = !this.checked; document.getElementById('selection-count').textContent = this.checked ? document.querySelectorAll('input[name=\"record-ids\"]').length + ' selected' : '0 selected';"}]]
+             [:th
+              [:input {:type "checkbox"
+                       :id "select-all"
+                       :onchange "document.querySelectorAll('input[name=\"ids[]\"]').forEach(cb => cb.checked = this.checked); document.getElementById('bulk-delete-btn').disabled = !this.checked; document.getElementById('selection-count').textContent = this.checked ? document.querySelectorAll('input[name=\"ids[]\"]').length + ' selected' : '0 selected';"}]]
             (for [field list-fields]
               (let [field-config (get-in entity-config [:fields field])
                     sortable? (:sortable field-config true)]
@@ -378,12 +379,13 @@
      ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
      [:div.table-toolbar-container
       ;; Left: Bulk actions
-      [:div.table-toolbar-left
-       [:form#bulk-action-form
-        {:hx-post (str "/web/admin/" (name entity-name) "/bulk")
-         :hx-target "#entity-table-container"
-         :hx-swap "outerHTML"}
-        [:button.icon-button.danger
+        [:div.table-toolbar-left
+         [:form#bulk-action-form
+          {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
+           :hx-target "#entity-table-container"
+           :hx-swap "outerHTML"
+           :hx-include "[name='ids[]']"}
+          [:button.icon-button.danger
          {:type "submit"
           :name "action"
           :value "delete"
@@ -589,13 +591,13 @@
           [:span.error error])])]))
 
 (defn entity-form
-  "Generate entity create/edit form.
+  "Render entity create/edit form.
 
    Args:
      entity-name: Keyword entity name
      entity-config: Entity configuration map
-     record: Entity record map (nil for create)
-     errors: Optional map of field-name -> error messages
+     record: Entity record (nil for create)
+     errors: Validation errors map
      permissions: Permission flags
 
    Returns:
@@ -611,10 +613,13 @@
         form-method (if is-edit? "PUT" "POST")
         hx-attr (if is-edit? :hx-put :hx-post)]
     [:form.entity-form
-     {hx-attr form-action
-      :hx-swap "none"
-      :hx-on--after-request "if(event.detail.successful) { htmx.trigger('body', 'entityCreated'); window.location.href = '/web/admin/" (name entity-name) "'; }"}
-     ;; No longer need hidden _method field since HTMX sends proper HTTP method
+     (merge {hx-attr form-action
+             :hx-target "body"
+             :hx-swap "outerHTML"}
+            ; Update URL to list page after successful edit
+            (when is-edit?
+              {:hx-push-url (str "/web/admin/" (name entity-name))}))
+      ;; No longer need hidden _method field since HTMX sends proper HTTP method
      [:div.form-fields
       (for [field-name editable-fields]
         (let [field-config (get-in entity-config [:fields field-name])

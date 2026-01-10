@@ -72,8 +72,8 @@
     (jdbc/execute! datasource ["CREATE INDEX IF NOT EXISTS idx_audit_actor ON user_audit_log (actor_id)"])
     (jdbc/execute! datasource ["CREATE INDEX IF NOT EXISTS idx_audit_created_at ON user_audit_log (created_at)"])
 
-    ;; Create audit repository
-    (reset! test-audit-repo (persistence/create-audit-repository db-ctx))))
+    ;; Create audit repository with pagination config
+    (reset! test-audit-repo (persistence/create-audit-repository db-ctx {:default-limit 20 :max-limit 100}))))
 
 (defn teardown-test-db
   "Clean up test database."

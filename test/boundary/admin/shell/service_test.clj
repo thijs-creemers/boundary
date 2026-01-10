@@ -97,7 +97,7 @@
         logger (logging-no-op/create-logging-component {})
         error-reporter (error-reporting-no-op/create-error-reporting-component {})
         schema-provider (schema-repo/create-schema-repository db-ctx admin-config)
-        admin-service (service/create-admin-service db-ctx schema-provider logger error-reporter)]
+        admin-service (service/create-admin-service db-ctx schema-provider logger error-reporter admin-config)]
 
     (create-test-tables! db-ctx)
 
