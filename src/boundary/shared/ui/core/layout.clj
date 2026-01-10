@@ -38,14 +38,15 @@
    Args:
      title: Page title string
      content: Main page content (Hiccup structure)
-     opts: Optional map with :user, :flash, :css, :js, etc.
+     opts: Optional map with :user, :flash, :css, :js, :skip-header, etc.
      
    Returns:
      Complete HTML page structure"
   [title content & [opts]]
-  (let [{:keys [user flash css js]
+  (let [{:keys [user flash css js skip-header]
          :or {css ["/css/pico.min.css" "/css/tokens.css" "/css/app.css"]
-              js ["/js/theme.js" "/js/htmx.min.js"]}} opts]
+              js ["/js/theme.js" "/js/htmx.min.js"]
+              skip-header false}} opts]
     [:html {:lang "en"}
      [:head
       [:meta {:charset "UTF-8"}]
@@ -54,8 +55,9 @@
       (for [css-file css]
         [:link {:rel "stylesheet" :href css-file}])]
      [:body
-      [:header.site-header
-       (main-navigation {:user user})]
+      (when-not skip-header
+        [:header.site-header
+         (main-navigation {:user user})])
       (let [children (cond-> []
                        flash (conj [:div.flash-messages
                                     (for [[type message] flash]
