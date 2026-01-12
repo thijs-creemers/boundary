@@ -41,14 +41,14 @@
      Hiccup structure for profile info card"
   [user]
   [:div.profile-card
-   [:div.card-header
-    [:h2 "Profile Information"]
-    [:a.button.secondary {:href "#"
-                          :hx-get "/web/profile/edit"
-                          :hx-target "#profile-info-card"
-                          :hx-swap "outerHTML"}
-     (icons/icon :edit {:size 16})
-     " Edit"]]
+    [:div.card-header
+     [:h2 "Profile Information"]
+     [:button.button.secondary {:type "button"
+                                :hx-get "/web/profile/edit"
+                                :hx-target "#profile-info-card"
+                                :hx-swap "outerHTML"}
+      (icons/icon :edit {:size 16})
+      " Edit"]]
    [:div#profile-info-card.card-body
     [:div.info-row
      [:label "Name"]
@@ -111,14 +111,14 @@
      Hiccup structure for preferences card"
   [user]
   [:div.profile-card
-   [:div.card-header
-    [:h2 "Preferences"]
-    [:a.button.secondary {:href "#"
-                          :hx-get "/web/profile/preferences/edit"
-                          :hx-target "#preferences-card"
-                          :hx-swap "outerHTML"}
-     (icons/icon :edit {:size 16})
-     " Edit"]]
+    [:div.card-header
+     [:h2 "Preferences"]
+     [:button.button.secondary {:type "button"
+                                :hx-get "/web/profile/preferences/edit"
+                                :hx-target "#preferences-card"
+                                :hx-swap "outerHTML"}
+      (icons/icon :edit {:size 16})
+      " Edit"]]
    [:div#preferences-card.card-body
     [:div.info-row
      [:label "Date Format"]
@@ -189,13 +189,14 @@
      Hiccup structure for password change card"
   ([expanded?] (password-change-card expanded? {}))
   ([expanded? errors]
-   [:div.profile-card
-    [:div.card-header
-     [:h3 "Password"]
-     [:span.text-muted "••••••••"]]
+    [:div.profile-card
+     [:div.card-header
+      [:h2 "Password"]
+      [:span.text-muted "••••••••"]]
     (if-not expanded?
-      [:div.card-body
-       [:button.button.secondary {:hx-get "/web/profile/password/form"
+      [:div#password-section.card-body
+       [:button.button.secondary {:type "button"
+                                  :hx-get "/web/profile/password/form"
                                   :hx-target "#password-section"
                                   :hx-swap "outerHTML"}
         (icons/icon :key {:size 16})
@@ -252,9 +253,9 @@
    Returns:
      Hiccup structure for MFA status card"
   [user mfa-status]
-  [:div.profile-card.mfa-card
-   [:div.card-header
-    [:h3 "Two-Factor Authentication"]
+   [:div.profile-card
+    [:div.card-header
+     [:h2 "Two-Factor Authentication"]
     (if (:enabled mfa-status)
       [:span.status-badge.active
        (icons/icon :shield {:size 16})
@@ -274,16 +275,13 @@
          [:div.info-row
           [:label "Enabled since"]
           [:span (format-date (:enabled-at mfa-status))]])
-       [:div.info-row
-        [:label "Backup codes"]
-        [:span (:backup-codes-remaining mfa-status) " remaining"]]
-       [:div.form-actions
-        [:a.button.secondary {:href "/web/profile/mfa/backup-codes"}
-         (icons/icon :file-text {:size 16})
-         " View Backup Codes"]
-        [:a.button.danger {:href "/web/profile/mfa/disable"}
-         (icons/icon :unlock {:size 16})
-         " Disable MFA"]]]
+        [:div.info-row
+         [:label "Backup codes"]
+         [:span (:backup-codes-remaining mfa-status) " remaining"]]
+        [:div.form-actions
+         [:a.button.danger {:href "/web/profile/mfa/disable"}
+          (icons/icon :unlock {:size 16})
+          " Disable MFA"]]]
       ;; MFA is not enabled
       [:div
        [:p "Add an extra layer of security to your account by enabling two-factor authentication."]
@@ -500,24 +498,24 @@
    Returns:
      Complete HTML page for user profile"
   [user mfa-status & [opts]]
-  (layout/page-layout
-   "Profile"
-   [:div.profile-page
-    [:div.page-header
-     [:h1 "Profile"]]
-    [:div.profile-content
-     (profile-info-card user)
-     (preferences-card user)
-     [:div.profile-card
-      [:div.card-header
-       [:h2 "Security"]]
-      [:div.card-body
-       (password-change-card false)
-       (mfa-status-card user mfa-status)
-       [:div.info-row
-        [:label "Active Sessions"]
-        [:span
-         [:a {:href (str "/web/users/" (:id user) "/sessions")}
-          "Manage Sessions "
-          (icons/icon :chevron-right {:size 16})]]]]]]]
+   (layout/page-layout
+    "Profile & Security"
+    [:div.profile-page
+     [:div.page-header
+      [:h1 "Profile & Security"]]
+     [:div.profile-content
+      (profile-info-card user)
+      (preferences-card user)
+      (password-change-card false)
+      (mfa-status-card user mfa-status)
+      [:div.profile-card
+       [:div.card-header
+        [:h2 "Active Sessions"]]
+       [:div.card-body
+        [:div.info-row
+         [:label "Sessions"]
+         [:span
+          [:a {:href (str "/web/users/" (:id user) "/sessions")}
+           "Manage Sessions "
+           (icons/icon :chevron-right {:size 16})]]]]]]]
    opts))

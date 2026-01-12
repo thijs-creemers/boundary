@@ -58,20 +58,20 @@
                :data-label label}
            (icons/icon icon {:size 20})
            [:span.nav-text label]]]))]
-    [:h3 "Tools"]
-    [:ul.entity-list
-     [:li
-      [:a {:href "/web/users" :data-label "Users"}
-       (icons/icon :users {:size 20})
-       [:span.nav-text "Users"]]]
-     [:li
-      [:a {:href "/web/audit-trail" :data-label "Audit Trail"}
-       (icons/icon :clock {:size 20})
-       [:span.nav-text "Audit Trail"]]]]]
+     [:h3 "Tools"]
+     [:ul.entity-list
+      [:li
+       [:a {:href "/web/admin/user" :data-label "Users"}
+        (icons/icon :users {:size 20})
+        [:span.nav-text "Users"]]]
+      [:li
+       [:a {:href "/web/audit" :data-label "Audit Trail"}
+        (icons/icon :clock {:size 20})
+        [:span.nav-text "Audit Trail"]]]]]
    [:div.admin-sidebar-footer
-    [:a {:href "/web/admin"}
-     (icons/icon :home {:size 20})
-     [:span.nav-text "Dashboard"]]
+     [:a {:href "/web/dashboard"}
+      (icons/icon :home {:size 20})
+      [:span.nav-text "Dashboard"]]
     [:a {:href "/web"}
      (icons/icon :external-link {:size 20})
      [:span.nav-text "Main Site"]]]])
