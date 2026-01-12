@@ -408,7 +408,8 @@
   [entity-name entity-config current-filters]
   (let [filterable-fields (filter #(get-in entity-config [:fields % :filterable] true)
                                   (keys (:fields entity-config)))
-        has-active-filters? (seq current-filters)]
+        has-active-filters? (seq current-filters)
+        current-filters (or current-filters {})]
     [:div.filter-builder
      [:div.filter-builder-header
       [:span.filter-builder-title "Filters"]
@@ -815,11 +816,10 @@
        (for [[type message] flash]
          [:div {:class (str "alert alert-" (name type))} message]))
 
-      ;; Advanced filter builder (Week 2)
-     (when (seq filters)
-       (render-filter-builder entity-name entity-config filters))
+       ;; Advanced filter builder (Week 2) - Always show so users can add filters
+     (render-filter-builder entity-name entity-config filters)
 
-      ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
+       ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
      [:div.table-toolbar-container
       ;; Left: Bulk actions
       [:div.table-toolbar-left
