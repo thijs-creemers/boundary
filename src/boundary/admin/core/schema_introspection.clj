@@ -118,18 +118,18 @@
                (= name-str "updated-at")
                (= name-str "deleted-at"))
            :instant
-           
+
            ;; Email fields
            (or (str/includes? name-str "email")
                (str/includes? name-str "mail"))
            :string
-           
+
            ;; Role/status/enum-like fields (but keep as text for now, could be enum)
            (or (str/includes? name-str "role")
                (str/includes? name-str "status")
                (str/includes? name-str "type"))
            :string
-           
+
            ;; Default: keep as text for very long content
            :else :text))
        base-type))))
@@ -291,19 +291,19 @@
   (let [name-str (name field-name)]
     (not (or
           ;; Boolean flags that are better as badges or in detail view
-          (and (= field-type :boolean) 
+          (and (= field-type :boolean)
                (or (= field-name :active)
                    (str/starts-with? name-str "is-")
                    (str/starts-with? name-str "has-")
                    (str/starts-with? name-str "send-")))
-          
+
           ;; Very long text fields
           (and (= field-type :text)
                (or (str/includes? name-str "description")
                    (str/includes? name-str "content")
                    (str/includes? name-str "notes")
                    (str/includes? name-str "body")))
-          
+
           ;; Technical fields
           (or (str/includes? name-str "hash")
               (str/includes? name-str "secret")
@@ -392,16 +392,16 @@
                             :type \"VARCHAR(255)\"
                             :not-null true
                             :primary-key false})"
-   [column-meta]
-   (let [;; Convert database column name (snake_case) to internal field name (kebab-case)
-         field-name (-> (:name column-meta)
-                        case-conversion/snake-case->kebab-case-string
-                        keyword)
-         sql-type (:type column-meta)
-         field-type (infer-field-type sql-type field-name)  ; Pass field-name for heuristics
-         widget (infer-widget-for-field field-name field-type sql-type)
-         is-primary-key? (:primary-key column-meta false)
-         is-not-null? (:not-null column-meta false)]
+  [column-meta]
+  (let [;; Convert database column name (snake_case) to internal field name (kebab-case)
+        field-name (-> (:name column-meta)
+                       case-conversion/snake-case->kebab-case-string
+                       keyword)
+        sql-type (:type column-meta)
+        field-type (infer-field-type sql-type field-name)  ; Pass field-name for heuristics
+        widget (infer-widget-for-field field-name field-type sql-type)
+        is-primary-key? (:primary-key column-meta false)
+        is-not-null? (:not-null column-meta false)]
     {:name field-name
      :label (humanize-field-name field-name)
      :type field-type
@@ -551,14 +551,69 @@
     auto-config))
 
 ;; =============================================================================
-;; Relationship Detection (Week 1 Stub)
+;; Relationship Detection (Week 2)
 ;; =============================================================================
+
+(defn- pluralize
+  "Simple pluralization for entity names.
+
+   Args:
+     word: Singular word string
+
+   Returns:
+     Pluralized word
+
+   Example:
+     (pluralize \"user\") => \"users\"
+     (pluralize \"category\") => \"categories\""
+  [word]
+  (let [word-str (name word)]
+    (cond
+      ; Special cases
+      (str/ends-with? word-str "y")
+      (str (subs word-str 0 (dec (count word-str))) "ies")
+
+      (str/ends-with? word-str "s")
+      (str word-str "es")
+
+      ; Default: add 's'
+      :else
+      (str word-str "s"))))
+
+(defn- singularize
+  "Simple singularization for entity names.
+
+   Args:
+     word: Plural word string
+
+   Returns:
+     Singularized word
+
+   Example:
+     (singularize \"users\") => \"user\"
+     (singularize \"categories\") => \"category\""
+  [word]
+  (let [word-str (name word)]
+    (cond
+      ; Special cases
+      (str/ends-with? word-str "ies")
+      (str (subs word-str 0 (- (count word-str) 3)) "y")
+
+      (str/ends-with? word-str "ses")
+      (subs word-str 0 (- (count word-str) 2))
+
+      (str/ends-with? word-str "s")
+      (subs word-str 0 (dec (count word-str)))
+
+      ; No change if not plural
+      :else
+      word-str)))
 
 (defn detect-foreign-keys
   "Detect foreign key relationships from field names.
 
-   Week 1: Simple heuristic based on field naming conventions.
-   Week 2+: Use actual database foreign key constraints.
+   Week 2: Heuristic based on field naming conventions.
+   Week 3+: Could enhance with actual database foreign key constraints.
 
    Args:
      fields-by-name: Map of field-name -> field-config
@@ -567,21 +622,42 @@
      Vector of relationship maps:
      [{:field :user-id
        :references-entity :users
-       :references-field :id}]
+       :references-field :id
+       :display-field :name}]
 
    Example:
      (detect-foreign-keys {:user-id {...} :category-id {...}})"
   [fields-by-name]
-  ; Week 1: Stub implementation returns empty vector
-  ; Week 2+: Implement relationship detection based on naming conventions
-  ; Look for fields ending in -id or _id and infer entity from prefix
-  [])
+  (reduce-kv
+   (fn [acc field-name field-config]
+     (let [field-str (name field-name)]
+       (if (or (str/ends-with? field-str "-id")
+               (str/ends-with? field-str "_id"))
+         ; This is a foreign key field
+         (let [; Extract the entity name (e.g., "user-id" -> "user")
+               base-name (if (str/ends-with? field-str "-id")
+                           (subs field-str 0 (- (count field-str) 3))
+                           (subs field-str 0 (- (count field-str) 3)))
+               ; Pluralize to get entity name (e.g., "user" -> "users")
+               entity-name (keyword (pluralize base-name))
+               ; Guess display field based on common naming conventions
+               display-field (if (= base-name "user")
+                               :email  ; Users typically display by email
+                               :name)] ; Most entities have a name field
+           (conj acc {:field field-name
+                      :references-entity entity-name
+                      :references-field :id
+                      :display-field display-field}))
+         ; Not a foreign key field
+         acc)))
+   []
+   fields-by-name))
 
 (defn detect-relationships
   "Detect all relationships for an entity configuration.
 
-   Week 1: Stub that returns empty maps.
-   Week 2+: Full relationship detection implementation.
+   Week 2: Detects belongs-to relationships from foreign key fields.
+   Week 3+: Could add has-many and has-one detection.
 
    Args:
      entity-config: Entity configuration map
@@ -592,7 +668,18 @@
    Example:
      (detect-relationships {:label \"Orders\" :fields {...}})"
   [entity-config]
-  (assoc entity-config
-         :relationships {:belongs-to []
-                         :has-many []
-                         :has-one []}))
+  (let [fields (:fields entity-config)
+        foreign-keys (detect-foreign-keys fields)
+        ; Convert foreign keys to belongs-to relationships
+        belongs-to (mapv (fn [fk]
+                           {:type :belongs-to
+                            :field (:field fk)
+                            :entity (:references-entity fk)
+                            :foreign-key (:field fk)
+                            :display-field (:display-field fk)})
+                         foreign-keys)]
+    (assoc entity-config
+           :relationships {:belongs-to belongs-to
+                           :has-many []   ; Week 3+: Inverse relationships
+                           :has-one []})))  ; Week 3+: One-to-one relationships
+

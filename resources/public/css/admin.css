@@ -584,3 +584,421 @@
     padding: 0;
   }
 }
+
+/* =============================================================================
+   Inline Editing (Week 2)
+   ============================================================================= */
+
+/* Editable cells */
+.data-table td.editable {
+  cursor: pointer;
+  position: relative;
+  transition: background-color var(--transition-fast);
+}
+
+.data-table td.editable:hover {
+  background-color: var(--color-primary-50);
+}
+
+[data-theme="dark"] .data-table td.editable:hover {
+  background-color: var(--color-primary-900);
+}
+
+.data-table td.editable::after {
+  content: '✎';
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.data-table td.editable:hover::after {
+  opacity: 1;
+}
+
+/* Inline edit form */
+.inline-edit-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  min-width: 200px;
+}
+
+.inline-input {
+  flex: 1;
+  padding: var(--space-2);
+  font-size: var(--text-sm);
+  border: 1px solid var(--color-primary-500);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.inline-input:focus {
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.inline-input.error {
+  border-color: var(--color-error-500);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Inline action buttons */
+.inline-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.inline-save,
+.inline-cancel {
+  padding: var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  width: 28px;
+  height: 28px;
+}
+
+.inline-save {
+  background: var(--color-success-500);
+  color: white;
+}
+
+.inline-save:hover {
+  background: var(--color-success-600);
+  transform: scale(1.1);
+}
+
+.inline-cancel {
+  background: var(--color-neutral-200);
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .inline-cancel {
+  background: var(--color-neutral-700);
+  color: var(--text-secondary);
+}
+
+.inline-cancel:hover {
+  background: var(--color-neutral-300);
+  transform: scale(1.1);
+}
+
+[data-theme="dark"] .inline-cancel:hover {
+  background: var(--color-neutral-600);
+}
+
+/* Inline error message */
+.inline-edit-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.inline-error-message {
+  font-size: var(--text-xs);
+  color: var(--color-error-600);
+  padding: var(--space-1);
+}
+
+[data-theme="dark"] .inline-error-message {
+  color: var(--color-error-400);
+}
+
+/* Loading state for inline edit */
+.inline-edit-form.htmx-request {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.inline-edit-form.htmx-request .inline-save::after {
+  content: '';
+  display: block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid white;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Mobile: Stack inline form vertically */
+@media (max-width: 768px) {
+  .inline-edit-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inline-actions {
+    justify-content: flex-end;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .data-table td.editable,
+  .inline-input,
+  .inline-save,
+  .inline-cancel {
+    transition: none;
+  }
+
+  .inline-save:hover,
+  .inline-cancel:hover {
+    transform: none;
+  }
+
+  .inline-edit-form.htmx-request .inline-save::after {
+    animation: none;
+  }
+}
+
+/* =============================================================================
+   Advanced Filter Builder (Week 2)
+   ============================================================================= */
+
+.filter-builder {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.filter-builder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.filter-builder-title {
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+}
+
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.2s ease;
+}
+
+.text-button:hover {
+  background-color: var(--bg-hover);
+}
+
+.filter-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.filter-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.filter-field-label {
+  flex: 0 0 140px;
+  font-weight: 500;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.filter-operator-select {
+  flex: 0 0 150px;
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.filter-operator-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.filter-value-input {
+  flex: 1;
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.filter-value-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.filter-value-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.filter-value-range {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.filter-value-range .filter-value-input {
+  flex: 1;
+}
+
+.range-separator {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.filter-add-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.filter-field-select {
+  flex: 1;
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.filter-field-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Apply filters button */
+.filter-form .button.primary {
+  align-self: flex-start;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+/* Remove filter button in row */
+.filter-row .icon-button.secondary {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: var(--space-1);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .filter-builder {
+    background: var(--bg-secondary);
+    border-color: var(--border-default);
+  }
+
+  .filter-row {
+    background: var(--bg-primary);
+    border-color: var(--border-default);
+  }
+
+  .filter-operator-select,
+  .filter-value-input,
+  .filter-field-select {
+    background: var(--bg-primary);
+    border-color: var(--border-default);
+    color: var(--text-primary);
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .filter-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .filter-field-label {
+    flex: none;
+  }
+
+  .filter-operator-select,
+  .filter-value-input {
+    flex: none;
+    width: 100%;
+  }
+
+  .filter-value-range {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .range-separator {
+    text-align: center;
+  }
+}
+
+/* Loading states */
+.filter-form.htmx-request {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .text-button,
+  .filter-operator-select,
+  .filter-value-input,
+  .filter-field-select {
+    transition: none;
+  }
+}
+

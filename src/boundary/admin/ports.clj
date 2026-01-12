@@ -239,8 +239,32 @@
        - ExceptionInfo with :type :record-not-found if ID doesn't exist
        - ExceptionInfo with :type :readonly-field if trying to update readonly field
 
+      Example:
+        (update-entity service :users user-id {:name \"Updated Name\"})")
+
+  (update-entity-field [this entity-name id field value]
+    "Update a single field on an entity (for inline editing).
+
+     Validates the single field value and updates only that field.
+     More efficient than full entity update for inline editing use cases.
+
+     Args:
+       entity-name: Keyword entity name
+       id: Record ID to update
+       field: Keyword field name to update
+       value: New value for the field
+
+     Returns:
+       Updated entity record
+
+     Throws:
+       - ExceptionInfo with :type :validation-error for invalid field value
+       - ExceptionInfo with :type :entity-not-found if entity doesn't exist
+       - ExceptionInfo with :type :record-not-found if ID doesn't exist
+       - ExceptionInfo with :type :readonly-field if field is readonly
+
      Example:
-       (update-entity service :users user-id {:name \"Updated Name\"})")
+       (update-entity-field service :users user-id :name \"New Name\")")
 
   (delete-entity [this entity-name id]
     "Delete entity record (soft or hard based on schema).

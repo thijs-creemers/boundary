@@ -130,21 +130,54 @@
 (defn build-filter-where
   "Build WHERE clause for field-specific filters.
 
+   Week 1: Simple equality filters
+   Week 2: Advanced operators (gt, lt, contains, in, between, etc.)
+
    Args:
-     filters: Map of field -> value
+     filters: Map of field -> value (Week 1) or field -> filter-map (Week 2)
+              Week 1: {:role :admin :active true}
+              Week 2: {:created-at {:op :gte :value \"2024-01-01\"}
+                       :status {:op :in :values [:active :pending]}}
 
    Returns:
      HoneySQL WHERE clause (nil if no filters)
 
    Example:
      (build-filter-where {:role :admin :active true})
-     ;=> [:and [:= :role :admin] [:= :active true]]"
+     ;=> [:and [:= :role :admin] [:= :active true]]
+
+     (build-filter-where {:price {:op :gte :value 100}
+                          :status {:op :in :values [:active :pending]}})
+     ;=> [:and [:>= :price 100] [:in :status [:active :pending]]]"
   [filters]
   (when (seq filters)
-    (vec (cons :and
-               (mapv (fn [[field value]]
-                       [:= field value])
-                     filters)))))
+    (let [clauses (mapv (fn [[field filter-value]]
+                          (if (map? filter-value)
+                            ; Week 2: Advanced filter with operator
+                            (let [{:keys [op value values min max]} filter-value]
+                              (case op
+                                :eq          [:= field value]
+                                :ne          [:!= field value]
+                                :gt          [:> field value]
+                                :gte         [:>= field value]
+                                :lt          [:< field value]
+                                :lte         [:<= field value]
+                                :contains    [:like field (str "%" value "%")]
+                                :starts-with [:like field (str value "%")]
+                                :ends-with   [:like field (str "%" value)]
+                                :in          [:in field (vec values)]
+                                :not-in      [:not-in field (vec values)]
+                                :is-null     [:= field nil]
+                                :is-not-null [:!= field nil]
+                                :between     [:and [:>= field min] [:<= field max]]
+                                ; Default: equality
+                                [:= field value]))
+                            ; Week 1: Simple equality filter (backward compatible)
+                            [:= field filter-value]))
+                        filters)]
+      (if (= 1 (count clauses))
+        (first clauses)
+        (vec (cons :and clauses))))))
 
 (defn combine-where-clauses
   "Combine multiple WHERE clauses with AND.
@@ -212,19 +245,19 @@
                            where-clause (assoc :where where-clause))
 
               ; Execute queries
-              records (db/execute-query! db-ctx list-query)
-              count-result (db/execute-one! db-ctx count-query)
-              total-count (:total count-result 0)
+             records (db/execute-query! db-ctx list-query)
+             count-result (db/execute-one! db-ctx count-query)
+             total-count (:total count-result 0)
 
               ; Convert snake_case keys from database to kebab-case for internal use
-              kebab-records (mapv case-conversion/snake-case->kebab-case-map records)
+             kebab-records (mapv case-conversion/snake-case->kebab-case-map records)
 
               ; Calculate pagination metadata
-              page-size (:limit pagination)
-              page-number (inc (quot (:offset pagination) page-size))
-              total-pages (int (Math/ceil (/ total-count (double page-size))))]
+             page-size (:limit pagination)
+             page-number (inc (quot (:offset pagination) page-size))
+             total-pages (int (Math/ceil (/ total-count (double page-size))))]
 
-          {:records kebab-records
+         {:records kebab-records
           :total-count total-count
           :page-size page-size
           :page-number page-number
@@ -242,16 +275,16 @@
              soft-delete? (:soft-delete entity-config false)
              ;; Convert UUID to string for PostgreSQL compatibility
              id-str (type-conversion/uuid->string id)
-              query (cond-> {:select [:*]
-                             :from [table-name]
-                             :where [:= primary-key id-str]}
+             query (cond-> {:select [:*]
+                            :from [table-name]
+                            :where [:= primary-key id-str]}
                       ; Also check not soft-deleted if applicable
-                      soft-delete? (assoc :where [:and 
-                                                  [:= primary-key id-str]
-                                                  [:= :deleted-at nil]]))
-              db-result (db/execute-one! db-ctx query)]
+                     soft-delete? (assoc :where [:and
+                                                 [:= primary-key id-str]
+                                                 [:= :deleted-at nil]]))
+             db-result (db/execute-one! db-ctx query)]
           ; Convert snake_case keys from database to kebab-case for internal use
-          (case-conversion/snake-case->kebab-case-map db-result)))
+         (case-conversion/snake-case->kebab-case-map db-result)))
      db-ctx))
 
   (create-entity [_ entity-name data]
@@ -266,35 +299,35 @@
 
               ; Remove only readonly fields from input (not hide-fields!)
               ; hide-fields are for display only, data can still be provided
-               sanitized-data (apply dissoc data readonly-fields)
+             sanitized-data (apply dissoc data readonly-fields)
 
                ; Add generated ID and timestamps - convert to strings at boundary
-              now-str (type-conversion/instant->string (Instant/now))
-              generated-id (UUID/randomUUID)
-              id-str (type-conversion/uuid->string generated-id)
-              prepared-data (assoc sanitized-data
-                                   :id id-str
-                                   :created-at now-str)
+             now-str (type-conversion/instant->string (Instant/now))
+             generated-id (UUID/randomUUID)
+             id-str (type-conversion/uuid->string generated-id)
+             prepared-data (assoc sanitized-data
+                                  :id id-str
+                                  :created-at now-str)
 
               ; Convert all typed values (UUID, Instant) to strings for database
-              db-ready-data (prepare-values-for-db prepared-data)
-              
+             db-ready-data (prepare-values-for-db prepared-data)
+
               ; Convert kebab-case keys to snake_case for database
-              db-data (case-conversion/kebab-case->snake-case-map db-ready-data)
+             db-data (case-conversion/kebab-case->snake-case-map db-ready-data)
 
               ; Insert without RETURNING (H2 compatibility)
-              insert-query {:insert-into table-name
-                            :values [db-data]}
-              _ (db/execute-one! db-ctx insert-query)
+             insert-query {:insert-into table-name
+                           :values [db-data]}
+             _ (db/execute-one! db-ctx insert-query)
 
               ; Fetch the created record
-              select-query {:select [:*]
-                            :from [table-name]
-                            :where [:= primary-key id-str]}
-              db-result (db/execute-one! db-ctx select-query)]
+             select-query {:select [:*]
+                           :from [table-name]
+                           :where [:= primary-key id-str]}
+             db-result (db/execute-one! db-ctx select-query)]
 
           ; Convert snake_case keys from database to kebab-case for internal use
-          (case-conversion/snake-case->kebab-case-map db-result)))
+         (case-conversion/snake-case->kebab-case-map db-result)))
      db-ctx))
 
   (update-entity [_ entity-name id data]
@@ -312,32 +345,94 @@
              sanitized-data (apply dissoc data (conj readonly-fields primary-key))
 
                ; Add updated timestamp - convert to string for PostgreSQL
-              now-str (type-conversion/instant->string (Instant/now))
-              prepared-data (assoc sanitized-data :updated-at now-str)
+             now-str (type-conversion/instant->string (Instant/now))
+             prepared-data (assoc sanitized-data :updated-at now-str)
 
               ; Convert all typed values (UUID, Instant) to strings for database
-              db-ready-data (prepare-values-for-db prepared-data)
-              
+             db-ready-data (prepare-values-for-db prepared-data)
+
               ; Convert kebab-case keys to snake_case for database
-              db-data (case-conversion/kebab-case->snake-case-map db-ready-data)
+             db-data (case-conversion/kebab-case->snake-case-map db-ready-data)
 
               ;; Convert UUID to string for PostgreSQL compatibility
-              id-str (type-conversion/uuid->string id)
+             id-str (type-conversion/uuid->string id)
 
               ; Update without RETURNING (H2 compatibility)
-              update-query {:update table-name
-                            :set db-data
-                            :where [:= primary-key id-str]}
+             update-query {:update table-name
+                           :set db-data
+                           :where [:= primary-key id-str]}
              _ (db/execute-one! db-ctx update-query)
 
               ; Fetch the updated record
-              select-query {:select [:*]
-                            :from [table-name]
-                            :where [:= primary-key id-str]}
-              db-result (db/execute-one! db-ctx select-query)]
+             select-query {:select [:*]
+                           :from [table-name]
+                           :where [:= primary-key id-str]}
+             db-result (db/execute-one! db-ctx select-query)]
 
           ; Convert snake_case keys from database to kebab-case for internal use
-          (case-conversion/snake-case->kebab-case-map db-result)))
+         (case-conversion/snake-case->kebab-case-map db-result)))
+     db-ctx))
+
+  (update-entity-field [_ entity-name id field value]
+    ; Week 2: Single field update for inline editing
+    ; More efficient than full entity update - only validates and updates one field
+    (persist-interceptors/execute-persistence-operation
+     :admin-update-entity-field
+     {:entity (name entity-name) :id id :field (name field)}
+     (fn [{:keys [params]}]
+       (let [entity-config (ports/get-entity-config schema-provider entity-name)
+             table-name (:table-name entity-config)
+             primary-key (:primary-key entity-config :id)
+             readonly-fields (set (:readonly-fields entity-config))
+             field-config (get-in entity-config [:fields field])]
+
+         ; Validate field exists and is not readonly
+         (when-not field-config
+           (throw (ex-info "Field does not exist"
+                           {:type :validation-error
+                            :field field
+                            :entity entity-name})))
+
+         (when (contains? readonly-fields field)
+           (throw (ex-info "Cannot update readonly field"
+                           {:type :readonly-field
+                            :field field
+                            :entity entity-name})))
+
+         ; Validate required fields
+         (when (and (:required field-config) (nil? value))
+           (throw (ex-info "Field is required"
+                           {:type :validation-error
+                            :field field
+                            :errors {field ["Field is required"]}})))
+
+         ; Prepare single field update with updated-at timestamp
+         (let [now-str (type-conversion/instant->string (Instant/now))
+               update-data {field value :updated-at now-str}
+
+               ; Convert typed values to database format
+               db-ready-data (prepare-values-for-db update-data)
+
+               ; Convert to snake_case for database
+               db-data (case-conversion/kebab-case->snake-case-map db-ready-data)
+
+               ; Convert ID to string
+               id-str (type-conversion/uuid->string id)
+
+               ; Execute update
+               update-query {:update table-name
+                             :set db-data
+                             :where [:= primary-key id-str]}
+               _ (db/execute-one! db-ctx update-query)
+
+               ; Fetch updated record
+               select-query {:select [:*]
+                             :from [table-name]
+                             :where [:= primary-key id-str]}
+               db-result (db/execute-one! db-ctx select-query)]
+
+           ; Return kebab-case record
+           (case-conversion/snake-case->kebab-case-map db-result))))
      db-ctx))
 
   (delete-entity [_ entity-name id]
@@ -352,19 +447,19 @@
              ;; Convert UUID to string for PostgreSQL compatibility
              id-str (type-conversion/uuid->string id)]
 
-          (if soft-delete?
+         (if soft-delete?
              ; Soft delete: Set deleted-at timestamp and optionally active=false
-            (let [now-str (type-conversion/instant->string (Instant/now))
+           (let [now-str (type-conversion/instant->string (Instant/now))
                   ;; Check if entity has an 'active' field to set on soft-delete
-                  has-active-field? (contains? (:fields entity-config) :active)
-                  soft-delete-data-kebab (cond-> {:deleted-at now-str}
-                                           has-active-field? (assoc :active false))
+                 has-active-field? (contains? (:fields entity-config) :active)
+                 soft-delete-data-kebab (cond-> {:deleted-at now-str}
+                                          has-active-field? (assoc :active false))
                   ;; Convert to snake_case for database
-                  soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
-                  query {:update table-name
-                         :set soft-delete-data
-                         :where [:= primary-key id-str]}]
-              (pos? (db/execute-update! db-ctx query)))
+                 soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
+                 query {:update table-name
+                        :set soft-delete-data
+                        :where [:= primary-key id-str]}]
+             (pos? (db/execute-update! db-ctx query)))
 
             ; Hard delete: Permanent removal
            (let [query {:delete-from table-name
@@ -412,7 +507,7 @@
         {:valid? false :errors errors})))
 
   (bulk-delete-entities [_ entity-name ids]
-     (persist-interceptors/execute-persistence-operation
+    (persist-interceptors/execute-persistence-operation
      :admin-bulk-delete-entities
      {:entity (name entity-name) :count (count ids)}
      (fn [{:keys [params]}]
@@ -424,14 +519,14 @@
              ;; Convert UUIDs to strings at database boundary
              id-strings (mapv type-conversion/uuid->string ids)
              now-str (type-conversion/instant->string (Instant/now))
-             
+
              ;; Check if entity has an 'active' field to set on soft-delete
              has-active-field? (contains? (:fields entity-config) :active)
              soft-delete-data-kebab (cond-> {:deleted-at now-str}
                                       has-active-field? (assoc :active false))
              ;; Convert to snake_case for database
              soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
-             
+
              query (if soft-delete?
                      {:update table-name
                       :set soft-delete-data
@@ -445,7 +540,6 @@
           :failed-count (- (count ids) affected-count)
           :errors []}))
      db-ctx)))  ; Week 2+: Track individual failures
-
 
 ;; =============================================================================
 ;; Factory Function
