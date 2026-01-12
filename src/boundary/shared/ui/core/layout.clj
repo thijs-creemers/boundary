@@ -20,18 +20,32 @@
      [:a.logo {:href "/"} "Boundary App"]
      (when user
        [:div.nav-links
-        [:a {:href "/web/users"} 
-         (icons/icon :users {:size 18}) 
+        [:a {:href "/web/users"}
+         (icons/icon :users {:size 18})
          [:span {:style "margin-left: 0.5rem;"} "Users"]]
-        [:a {:href "/web/audit"} 
-         (icons/icon :file-text {:size 18}) 
+        [:a {:href "/web/audit"}
+         (icons/icon :file-text {:size 18})
          [:span {:style "margin-left: 0.5rem;"} "Audit Trail"]]])
      (if user
        [:div.user-nav
-        [:span "Welcome, " (:name user)]
         (icons/theme-toggle-button)
-        [:form {:method "POST" :action "/web/logout" :style "display: inline;"}
-         [:button {:type "submit" :class "link-button"} "Logout"]]]
+        [:div.user-dropdown
+         [:button.dropdown-toggle {:onclick "toggleUserDropdown()"}
+          (icons/icon :user {:size 18})
+          [:span {:style "margin-left: 0.5rem;"} (:name user)]
+          (icons/icon :chevron-down {:size 16 :style "margin-left: 0.25rem;"})]
+         [:div.dropdown-menu {:id "user-dropdown-menu" :style "display: none;"}
+          [:a.dropdown-item {:href "/web/profile"}
+           (icons/icon :user {:size 18})
+           [:span "Profile"]]
+          [:a.dropdown-item {:href "/web/profile/mfa/setup"}
+           (icons/icon :shield {:size 18})
+           [:span "Security"]]
+          [:div.dropdown-divider]
+          [:form {:method "POST" :action "/web/logout"}
+           [:button.dropdown-item {:type "submit"}
+            (icons/icon :log-out {:size 18})
+            [:span "Logout"]]]]]]
        [:div.user-nav
         (icons/theme-toggle-button)
         [:a {:href "/web/login"} "Login"]])]))
@@ -49,7 +63,7 @@
   [title content & [opts]]
   (let [{:keys [user flash css js skip-header]
          :or {css ["/css/pico.min.css" "/css/tokens.css" "/css/app.css"]
-              js ["/js/theme.js" "/js/htmx.min.js"]
+              js ["/js/theme.js" "/js/app.js" "/js/htmx.min.js"]
               skip-header false}} opts]
     [:html {:lang "en"}
      [:head

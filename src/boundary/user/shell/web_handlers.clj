@@ -14,8 +14,12 @@
             [boundary.shared.ui.core.validation :as validation]
             [boundary.shared.web.table :as web-table]
             [boundary.user.core.ui :as user-ui]
+            [boundary.user.core.profile-ui :as profile-ui]
             [boundary.user.ports :as user-ports]
             [boundary.user.schema :as user-schema]
+            [boundary.user.shell.auth :as auth]
+            [boundary.user.shell.mfa :as mfa]
+            [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [malli.core :as m]
@@ -108,6 +112,59 @@
 ;; =============================================================================
 ;; Page Handlers (Full HTML)
 ;; =============================================================================
+
+(defn home-page-handler
+  "Handler for the home/landing page (GET /).
+   
+   Redirects authenticated users to /web/dashboard, unauthenticated to /web/login.
+   
+   Args:
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [config]
+  (fn [request]
+    (let [user (:user request)]
+      (if user
+        ;; Authenticated - redirect to dashboard
+        (response/redirect "/web/dashboard")
+        ;; Not authenticated - redirect to login
+        (response/redirect "/web/login")))))
+
+(defn dashboard-page-handler
+  "Handler for the dashboard page (GET /web/dashboard).
+   
+   Shows a welcome page with quick links and account statistics.
+   
+   Args:
+     user-service: User service instance  
+     mfa-service: MFA service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [user-service mfa-service config]
+  (fn [request]
+    (try
+      (let [user (:user request)
+            user-id (:id user)
+            ;; Fetch dashboard data
+            sessions (user-ports/get-user-sessions user-service user-id)
+            active-sessions (count (filter #(nil? (:revoked-at %)) sessions))
+            mfa-status (mfa/get-mfa-status mfa-service user-id)
+            mfa-enabled? (:enabled mfa-status false)
+            dashboard-data {:active-sessions-count active-sessions
+                            :mfa-enabled mfa-enabled?}
+            page-opts {:user user
+                       :flash (get request :flash)}]
+        (html-response (user-ui/dashboard-page user dashboard-data page-opts)))
+      (catch Exception e
+        (log/error e "Error in dashboard-page-handler")
+        (html-response
+         (layout/page-layout "Error"
+                             (ui/error-message (.getMessage e)))
+         500)))))
 
 (defn users-page-handler
   "Handler for the users listing page (GET /web/users).
@@ -216,10 +273,10 @@
     (let [form-data (:form-params request)
           raw-return-to (or (get form-data "return-to")
                             (get-in request [:query-params "return-to"]))
-          return-to (safe-return-url raw-return-to "/web/admin/users")
           prepared-data {:email (get form-data "email")
                          :password (get form-data "password")
                          :remember (= "on" (get form-data "remember"))
+                         :mfa-code (get form-data "mfa-code")
                          :ip-address (:remote-addr request)
                          :user-agent (get-in request [:headers "user-agent"])}
           [valid? validation-errors validated-data]
@@ -230,17 +287,25 @@
          (user-ui/login-page prepared-data validation-errors
                              {:user (get request :user)
                               :flash (get request :flash)
-                              :return-to return-to})
+                              :return-to raw-return-to})
          400)
         (try
           ;; Use IUserService/authenticate-user with validated data
-          (let [auth-result (user-ports/authenticate-user user-service validated-data)]
+          (let [auth-result (user-ports/authenticate-user user-service validated-data)
+                user (:user auth-result)
+                ;; Determine default redirect based on user role (if authenticated)
+                default-redirect (if (and user (= :admin (:role user)))
+                                   "/web/admin/users"
+                                   "/web/dashboard")
+                return-to (safe-return-url raw-return-to default-redirect)]
             (log/info "Login attempt" {:email (:email validated-data)
                                        :authenticated (:authenticated auth-result)
                                        :result-keys (keys auth-result)
                                        :ip-address (:ip-address validated-data)
                                        :user-agent (:user-agent validated-data)})
-            (if (:authenticated auth-result)
+            (cond
+              ;; Authentication successful
+              (:authenticated auth-result)
               (let [session (:session auth-result)
                     session-token (:session-token session)
                     remember? (:remember validated-data)
@@ -252,7 +317,8 @@
                            :session-token-type (type session-token)
                            :remember? remember?
                            :cookie-max-age cookie-max-age
-                           :return-to return-to})
+                           :return-to return-to
+                           :user-role (:role user)})
                   ;; Set session-token cookie and redirect to original URL or default
                 (-> (response/redirect return-to)
                     (assoc-in [:cookies "session-token"]
@@ -277,16 +343,44 @@
                                 {:value ""
                                  :max-age 0
                                  :path "/"}))))
-              ;; Authentication failed (e.g. wrong password)
+
+              ;; MFA required - show MFA code input
+              (:requires-mfa? auth-result)
               (do
-                (log/warn "Login failed" {:email (:email prepared-data)
-                                          :reason (:reason auth-result)})
+                (log/info "MFA code required for login" {:email (:email prepared-data)})
                 (html-response
-                 (user-ui/login-page prepared-data
-                                     {:password ["Invalid email or password"]}
-                                     {:user (get request :user)
-                                      :flash (get request :flash)
-                                      :return-to return-to})
+                 (user-ui/mfa-login-page prepared-data
+                                         {}
+                                         {:user (get request :user)
+                                          :flash (get request :flash)
+                                          :return-to return-to})
+                 200))
+
+              ;; Authentication failed (e.g. wrong password or invalid MFA code)
+              :else
+              (let [error-message (cond
+                                    (= :mfa-verification-failed (:reason auth-result))
+                                    "Invalid MFA code"
+
+                                    :else
+                                    "Invalid email or password")]
+                (log/warn "Login failed" {:email (:email prepared-data)
+                                          :reason (:reason auth-result)
+                                          :message (:message auth-result)})
+                (html-response
+                 (if (:mfa-code prepared-data)
+                   ;; If MFA code was provided, show MFA page with error
+                   (user-ui/mfa-login-page prepared-data
+                                           {:mfa-code [error-message]}
+                                           {:user (get request :user)
+                                            :flash (get request :flash)
+                                            :return-to return-to})
+                   ;; Otherwise show regular login page
+                   (user-ui/login-page prepared-data
+                                       {:password [error-message]}
+                                       {:user (get request :user)
+                                        :flash (get request :flash)
+                                        :return-to return-to}))
                  401))))
           (catch Exception e
             (log/error e "Login error" {:email (:email prepared-data)})
@@ -352,9 +446,32 @@
          400)
         (try
           (let [user-result (user-ports/register-user user-service prepared-data)
-                success-html (user-ui/user-created-success user-result)]
-            ;; Show success message; user can proceed to login
-            (html-response success-html 201))
+                ;; Automatically authenticate the newly registered user
+                auth-data {:email (:email user-result)
+                           :password (get prepared-data :password)
+                           :remember false
+                           :ip-address (:remote-addr request)
+                           :user-agent (get-in request [:headers "user-agent"])}
+                auth-result (user-ports/authenticate-user user-service auth-data)]
+            (if (:authenticated auth-result)
+              (let [session (:session auth-result)
+                    session-token (:session-token session)]
+                ;; Automatically log in and redirect to profile with welcome message
+                (-> (response/redirect "/web/profile")
+                    (assoc :status 303) ; See Other
+                    (assoc :flash {:type :success
+                                   :message (str "Welcome to Boundary, " (:name user-result) "! "
+                                                 "Your account has been created successfully. "
+                                                 "Take a moment to review your profile and set up "
+                                                 "Multi-Factor Authentication for enhanced security.")})
+                    (assoc-in [:cookies "session-token"]
+                              {:value session-token
+                               :http-only true
+                               :path "/"
+                               :secure false
+                               :same-site :strict})))
+              ;; Shouldn't happen, but fallback to login page
+              (response/redirect "/web/login")))
           (catch Exception e
             (html-response
              (layout/page-layout "Registration error"
@@ -835,4 +952,403 @@
       (catch Exception e
         (log/error e "Error in audit-table-fragment-handler")
         (html-response (ui/error-message (.getMessage e)) 500)))))
+
+;; =============================================================================
+;; Profile Page Handlers
+;; =============================================================================
+
+(defn profile-page-handler
+  "Handler for the profile page (GET /web/profile).
+   
+   Displays user profile with all sections: info, preferences, security, MFA.
+   
+   Args:
+     user-service: User service instance
+     mfa-service: MFA service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [user-service mfa-service config]
+  (fn [request]
+    (try
+      (let [current-user (:user request)
+            user-id (:id current-user)
+            ;; Get fresh user data
+            user (user-ports/get-user-by-id user-service user-id)
+            ;; Get MFA status
+            mfa-status (mfa/get-mfa-status mfa-service user-id)
+            page-opts {:user current-user
+                       :flash (:flash request)}]
+        (if user
+          (html-response (profile-ui/profile-page user mfa-status page-opts))
+          (html-response
+           (layout/error-layout 404 "Profile Not Found"
+                                "Your profile could not be loaded.")
+           404)))
+      (catch Exception e
+        (log/error e "Error in profile-page-handler")
+        (html-response
+         (layout/page-layout "Error"
+                             (ui/error-message (.getMessage e)))
+         500)))))
+
+(defn profile-edit-handler
+  "Handler for profile edit submission (POST /web/profile).
+   
+   HTMX handler that updates profile and returns updated card.
+   
+   Args:
+     user-service: User service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [user-service config]
+  (fn [request]
+    (try
+      (let [current-user (:user request)
+            user-id (:id current-user)
+            form-data (:form-params request)
+            prepared-data {:name (get form-data "name")}
+            [valid? validation-errors _] (validate-request-data user-schema/UpdateUserRequest prepared-data)]
+        (if-not valid?
+          ;; Return form with errors
+          (html-response
+           (profile-ui/profile-edit-form (merge current-user prepared-data) validation-errors)
+           400)
+          (try
+            ;; Get existing user and update
+            (let [user (user-ports/get-user-by-id user-service user-id)
+                  updated-user (user-ports/update-user-profile user-service
+                                                               (merge user prepared-data))]
+              ;; Return success with updated info card
+              (html-response
+               (profile-ui/profile-info-card updated-user)))
+            (catch Exception e
+              (log/error e "Error updating profile")
+              (html-response (ui/error-message (.getMessage e)) 500)))))
+      (catch Exception e
+        (log/error e "Error in profile-edit-handler")
+        (html-response (ui/error-message (.getMessage e)) 500)))))
+
+(defn preferences-edit-handler
+  "Handler for preferences edit submission (POST /web/profile/preferences).
+   
+   HTMX handler that updates preferences and returns updated card.
+   
+   Args:
+     user-service: User service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [user-service config]
+  (fn [request]
+    (try
+      (let [current-user (:user request)
+            user-id (:id current-user)
+            form-data (:form-params request)
+            prepared-data {:date-format (keyword (get form-data "date-format"))
+                           :time-format (keyword (get form-data "time-format"))}]
+        (try
+          ;; Get existing user and update preferences
+          (let [user (user-ports/get-user-by-id user-service user-id)
+                updated-user (user-ports/update-user-profile user-service
+                                                             (merge user prepared-data))]
+            ;; Return success with updated preferences card
+            (html-response
+             (profile-ui/preferences-card updated-user)))
+          (catch Exception e
+            (log/error e "Error updating preferences")
+            (html-response (ui/error-message (.getMessage e)) 500))))
+      (catch Exception e
+        (log/error e "Error in preferences-edit-handler")
+        (html-response (ui/error-message (.getMessage e)) 500)))))
+
+;; =============================================================================
+;; Password Change Handlers
+;; =============================================================================
+
+(defn password-change-form-handler
+  "Handler to show password change form (GET /web/profile/password/form).
+   
+   HTMX handler that returns expanded password change card.
+   
+   Args:
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [config]
+  (fn [request]
+    (html-response (profile-ui/password-change-card true))))
+
+(defn password-change-handler
+  "Handler for password change submission (POST /web/profile/password).
+   
+   HTMX handler that validates and changes password.
+   
+   Args:
+     user-service: User service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [user-service config]
+  (fn [request]
+    (try
+      (let [current-user (:user request)
+            user-id (:id current-user)
+            form-data (:form-params request)
+            current-password (get form-data "current-password")
+            new-password (get form-data "new-password")
+            confirm-password (get form-data "confirm-password")]
+        ;; Validate passwords match
+        (if (not= new-password confirm-password)
+          (html-response
+           (profile-ui/password-change-card true
+                                            {:confirm-password ["Passwords do not match"]})
+           400)
+          (try
+            ;; Call service to change password
+            (user-ports/change-password user-service user-id current-password new-password)
+            ;; Return success message
+            (html-response (profile-ui/password-change-success))
+            (catch clojure.lang.ExceptionInfo e
+              (let [data (ex-data e)]
+                (case (:type data)
+                  :invalid-current-password
+                  (html-response
+                   (profile-ui/password-change-card true
+                                                    {:current-password ["Current password is incorrect"]})
+                   400)
+                  :password-policy-violation
+                  (html-response
+                   (profile-ui/password-change-card true
+                                                    {:new-password ["Password does not meet requirements"]})
+                   400)
+                  ;; Default error
+                  (html-response (ui/error-message (.getMessage e)) 500))))
+            (catch Exception e
+              (log/error e "Error changing password")
+              (html-response (ui/error-message (.getMessage e)) 500)))))
+      (catch Exception e
+        (log/error e "Error in password-change-handler")
+        (html-response (ui/error-message (.getMessage e)) 500)))))
+
+;; =============================================================================
+;; MFA Web Handlers
+;; =============================================================================
+
+(defn mfa-setup-page-handler
+  "Handler for MFA setup page (GET /web/profile/mfa/setup).
+   
+   Shows introduction and start button for MFA setup.
+   
+   Args:
+     mfa-service: MFA service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [mfa-service config]
+  (fn [request]
+    (try
+      (let [page-opts {:user (:user request)
+                       :flash (:flash request)}]
+        (html-response (profile-ui/mfa-setup-page page-opts)))
+      (catch Exception e
+        (log/error e "Error in mfa-setup-page-handler")
+        (html-response
+         (layout/page-layout "Error"
+                             (ui/error-message (.getMessage e)))
+         500)))))
+
+(defn mfa-setup-initiate-handler
+  "Handler for MFA setup initiation (POST /web/profile/mfa/setup).
+   
+   HTMX handler that generates QR code and returns setup form.
+   
+   Args:
+     mfa-service: MFA service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [mfa-service config]
+  (fn [request]
+    (try
+      (let [current-user (:user request)
+            user-id (:id current-user)
+            ;; Call MFA service to generate setup data
+            setup-result (mfa/setup-mfa mfa-service user-id)]
+        (if (:success? setup-result)
+          (let [{:keys [secret qr-code-url issuer account-name backup-codes]} setup-result]
+            ;; Return QR code step (backup codes passed via hidden form field)
+            (html-response
+             (profile-ui/mfa-qr-code-step secret qr-code-url issuer account-name backup-codes)))
+          ;; Error during setup
+          (html-response (ui/error-message (:error setup-result)) 500)))
+      (catch Exception e
+        (log/error e "Error in mfa-setup-initiate-handler")
+        (html-response (ui/error-message (.getMessage e)) 500)))))
+
+(defn mfa-verify-handler
+  "Handler for MFA code verification (POST /web/profile/mfa/verify).
+   
+   HTMX handler that verifies TOTP code and enables MFA.
+   
+   Args:
+     mfa-service: MFA service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [mfa-service config]
+  (fn [request]
+    (log/info "mfa-verify-handler called" {:mfa-service (type mfa-service)
+                                           :has-config (boolean config)})
+    (try
+      (let [current-user (:user request)
+            user-id (:id current-user)
+            form-data (:form-params request)
+            verification-code (get form-data "verification-code")
+            ;; Get setup data from form (hidden fields)
+            secret (get form-data "secret")
+            backup-codes-str (get form-data "backup-codes")
+            backup-codes (when backup-codes-str
+                           (try
+                             (edn/read-string backup-codes-str)
+                             (catch Exception e
+                               (log/warn "Failed to parse backup codes" {:error (.getMessage e)})
+                               nil)))]
+        (log/info "MFA verify request" {:user-id user-id
+                                        :verification-code verification-code
+                                        :has-secret? (boolean secret)
+                                        :has-backup-codes? (boolean backup-codes)
+                                        :backup-codes-count (when backup-codes (count backup-codes))})
+        (if (and secret backup-codes)
+          (let [;; Call MFA service to enable MFA
+                enable-result (mfa/enable-mfa mfa-service user-id secret backup-codes verification-code)]
+            (log/info "MFA enable result" {:success? (:success? enable-result)
+                                           :error (:error enable-result)})
+            (if (:success? enable-result)
+              ;; Success - show backup codes directly (HTMX response)
+              (html-response
+               (profile-ui/mfa-backup-codes-display backup-codes false
+                                                    {:user current-user
+                                                     :flash {:success "Two-factor authentication enabled successfully"}}))
+              ;; Invalid code
+              (let [qr-code-url (str "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="
+                                     (java.net.URLEncoder/encode
+                                      (str "otpauth://totp/" (get config :app-name "Boundary")
+                                           ":" (:email current-user)
+                                           "?secret=" secret
+                                           "&issuer=" (get config :app-name "Boundary"))
+                                      "UTF-8"))
+                    issuer (get config :app-name "Boundary")
+                    account-name (:email current-user)]
+                (html-response
+                 (profile-ui/mfa-qr-code-step secret qr-code-url issuer account-name backup-codes
+                                              {:verification-code ["Invalid verification code. Please try again."]})
+                 400))))
+          ;; No setup data in form
+          (html-response (ui/error-message "MFA setup data missing. Please start again.") 400)))
+      (catch Exception e
+        (log/error e "Error in mfa-verify-handler")
+        (html-response (ui/error-message (.getMessage e)) 500)))))
+
+(defn mfa-backup-codes-page-handler
+  "Handler for backup codes display page (GET /web/profile/mfa/backup-codes).
+   
+   Shows backup codes after MFA enable or regeneration.
+   
+   Args:
+     mfa-service: MFA service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [mfa-service config]
+  (fn [request]
+    (try
+      (let [flash (:flash request)
+            backup-codes (:mfa-backup-codes flash)
+            page-opts {:user (:user request)
+                       :flash flash}]
+        (if backup-codes
+          (html-response
+           (profile-ui/mfa-backup-codes-display backup-codes true page-opts))
+          ;; No backup codes in flash - redirect to profile
+          (response/redirect "/web/profile")))
+      (catch Exception e
+        (log/error e "Error in mfa-backup-codes-page-handler")
+        (html-response
+         (layout/page-layout "Error"
+                             (ui/error-message (.getMessage e)))
+         500)))))
+
+(defn mfa-disable-page-handler
+  "Handler for MFA disable confirmation page (GET /web/profile/mfa/disable).
+   
+   Shows password confirmation form to disable MFA.
+   
+   Args:
+     mfa-service: MFA service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [mfa-service config]
+  (fn [request]
+    (try
+      (let [page-opts {:user (:user request)
+                       :flash (:flash request)}]
+        (html-response (profile-ui/mfa-disable-confirm-page {} page-opts)))
+      (catch Exception e
+        (log/error e "Error in mfa-disable-page-handler")
+        (html-response
+         (layout/page-layout "Error"
+                             (ui/error-message (.getMessage e)))
+         500)))))
+
+(defn mfa-disable-handler
+  "Handler for MFA disable submission (POST /web/profile/mfa/disable).
+   
+   Verifies password and disables MFA.
+   
+   Args:
+     user-service: User service instance
+     mfa-service: MFA service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [user-service mfa-service config]
+  (fn [request]
+    (try
+      (let [current-user (:user request)
+            user-id (:id current-user)
+            form-data (:form-params request)
+            password (get form-data "password")
+            ;; Verify password first
+            user (user-ports/get-user-by-id user-service user-id)]
+        (if (auth/verify-password password (:password-hash user))
+          ;; Password correct - disable MFA
+          (let [disable-result (mfa/disable-mfa mfa-service user-id)]
+            (if (:success? disable-result)
+              (-> (response/redirect "/web/profile")
+                  (assoc :flash {:success "Two-factor authentication has been disabled"}))
+              (html-response
+               (profile-ui/mfa-disable-confirm-page {:password [(:error disable-result)]})
+               400)))
+          ;; Password incorrect
+          (html-response
+           (profile-ui/mfa-disable-confirm-page {:password ["Incorrect password"]})
+           400)))
+      (catch Exception e
+        (log/error e "Error in mfa-disable-handler")
+        (html-response (ui/error-message (.getMessage e)) 500)))))
+
 

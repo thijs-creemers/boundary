@@ -79,6 +79,11 @@
         (update :created-at type-conversion/instant->string)
         (update :updated-at type-conversion/instant->string)
         (update :deleted-at type-conversion/instant->string)
+        (update :last-login type-conversion/instant->string)
+        (update :mfa-enabled-at type-conversion/instant->string)
+        ;; Serialize MFA vector fields to JSON
+        (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
+        (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
         ;; Convert kebab-case to snake_case for database
         type-conversion/kebab-case->snake-case)))
 
@@ -87,18 +92,21 @@
   [ctx db-record]
   (when db-record
     (let [adapter (:adapter ctx)]
-       (-> db-record
+      (-> db-record
            ;; Convert ALL snake_case keys to kebab-case using utility function
-           type-conversion/snake-case->kebab-case
+          type-conversion/snake-case->kebab-case
            ;; Type conversions
-           (update :id type-conversion/string->uuid)
-           (update :role type-conversion/string->keyword)
-           (update :active #(protocols/db->boolean adapter %))
-           (update :created-at type-conversion/string->instant)
-           (update :updated-at type-conversion/string->instant)
-           (update :deleted-at type-conversion/string->instant)
-           (update :last-login type-conversion/string->instant)
-           (update :mfa-enabled-at type-conversion/string->instant)))))
+          (update :id type-conversion/string->uuid)
+          (update :role type-conversion/string->keyword)
+          (update :active #(protocols/db->boolean adapter %))
+          (update :created-at type-conversion/string->instant)
+          (update :updated-at type-conversion/string->instant)
+          (update :deleted-at type-conversion/string->instant)
+          (update :last-login type-conversion/string->instant)
+          (update :mfa-enabled-at type-conversion/string->instant)
+           ;; Deserialize MFA vector fields from JSON
+          (update :mfa-backup-codes #(when % (cheshire.core/parse-string % true)))
+          (update :mfa-backup-codes-used #(when % (cheshire.core/parse-string % true)))))))
 
 (defn- session-entity->db
   "Transform session domain entity to database format."
@@ -467,13 +475,14 @@
      :create-session
      {:session-entity session-entity}
      (fn [{:keys [params]}]
-       (let [session-entity (:session-entity params)
-             now (java.time.Instant/now)
-              ;; Preserve session-token and id from service layer, only add DB-specific metadata
-             session-with-metadata (-> session-entity
-                                       (assoc :created-at now)
-                                       (assoc :last-accessed-at nil)
-                                       (assoc :revoked-at nil))
+        (let [session-entity (:session-entity params)
+              now (java.time.Instant/now)
+               ;; Generate id if not provided, add DB-specific metadata
+              session-with-metadata (-> session-entity
+                                        (update :id #(or % (java.util.UUID/randomUUID)))
+                                        (assoc :created-at now)
+                                        (assoc :last-accessed-at nil)
+                                        (assoc :revoked-at nil))
              db-session (session-entity->db session-with-metadata)
              query {:insert-into :user_sessions
                     :values [db-session]}]

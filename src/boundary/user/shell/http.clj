@@ -127,7 +127,7 @@
           context        (create-interceptor-context :user-list user-service request)
 
            ;; Create the interceptor pipeline for user list
-           pipeline       (user-interceptors/create-user-list-pipeline :http)
+          pipeline       (user-interceptors/create-user-list-pipeline :http)
 
           ;; Execute the pipeline
           result-context (interceptor/run-pipeline context pipeline)]
@@ -456,11 +456,12 @@
 
    Args:
      user-service: User service instance
+     mfa-service: MFA service instance
      config: Application configuration map
 
    Returns:
      Vector of normalized route maps"
-  [user-service config]
+  [user-service mfa-service config]
   (let [auth-middleware (user-middleware/flexible-authentication-middleware user-service)]
     [{:path    "/register"
       :meta    {:no-doc true}
@@ -479,6 +480,11 @@
       :methods {:post {:middleware [auth-middleware]
                        :handler    (web-handlers/logout-handler user-service config)
                        :summary    "Logout current user"}}}
+     {:path    "/dashboard"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/dashboard-page-handler user-service mfa-service config)
+                      :summary "User dashboard page"}}}
      {:path    "/users"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
@@ -539,7 +545,55 @@
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:get {:handler (web-handlers/audit-table-fragment-handler user-service config)
-                      :summary "Audit table fragment (HTMX refresh)"}}}]))
+                      :summary "Audit table fragment (HTMX refresh)"}}}
+     ;; Profile routes
+     {:path    "/profile"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get  {:handler (web-handlers/profile-page-handler user-service mfa-service config)
+                       :summary "User profile page"}
+                :post {:handler (web-handlers/profile-edit-handler user-service config)
+                       :summary "Update profile (HTMX fragment)"}}}
+     {:path    "/profile/preferences"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:post {:handler (web-handlers/preferences-edit-handler user-service config)
+                       :summary "Update preferences (HTMX fragment)"}}}
+     {:path    "/profile/password/form"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/password-change-form-handler config)
+                      :summary "Show password change form (HTMX fragment)"}}}
+     {:path    "/profile/password"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:post {:handler (web-handlers/password-change-handler user-service config)
+                       :summary "Change password (HTMX fragment)"}}}
+     ;; MFA routes
+     {:path    "/profile/mfa/setup"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get  {:handler (web-handlers/mfa-setup-page-handler mfa-service config)
+                       :summary "MFA setup page"}
+                :post {:handler (web-handlers/mfa-setup-initiate-handler mfa-service config)
+                       :summary "Initiate MFA setup (HTMX fragment)"}}}
+     {:path    "/profile/mfa/verify"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:post {:handler (web-handlers/mfa-verify-handler mfa-service config)
+                       :summary "Verify MFA code (HTMX fragment)"}}}
+     {:path    "/profile/mfa/backup-codes"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/mfa-backup-codes-page-handler mfa-service config)
+                      :summary "View MFA backup codes"}}}
+     {:path    "/profile/mfa/disable"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get  {:handler (web-handlers/mfa-disable-page-handler mfa-service config)
+                       :summary "MFA disable confirmation page"}
+                :post {:handler (web-handlers/mfa-disable-handler user-service mfa-service config)
+                       :summary "Disable MFA"}}}]))
 
 (defn user-routes-normalized
   "Define user module routes in normalized format for top-level composition.
@@ -562,7 +616,7 @@
   [user-service mfa-service config]
   (let [web-ui-enabled? (get-in config [:active :boundary/settings :features :user-web-ui :enabled?] true)]
     {:api    (normalized-api-routes user-service mfa-service)
-     :web    (when web-ui-enabled? (normalized-web-routes user-service config))
+     :web    (when web-ui-enabled? (normalized-web-routes user-service mfa-service config))
      :static []}))
 
 

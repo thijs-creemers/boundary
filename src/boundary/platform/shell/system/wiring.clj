@@ -112,7 +112,17 @@
                           nil))
 
         ;; Define platform routes (health checks, etc.) in normalized format
-        platform-routes [{:path "/health"
+        platform-routes [{:path "/"
+                          :methods {:get {:handler (fn [request]
+                                                     ;; Redirect to login if not authenticated, users if authenticated
+                                                     (if (:user request)
+                                                       {:status 302
+                                                        :headers {"Location" "/web/users"}}
+                                                       {:status 302
+                                                        :headers {"Location" "/web/login"}}))
+                                          :summary "Home page (redirects to login or users)"
+                                          :no-doc true}}}
+                         {:path "/health"
                           :methods {:get {:handler health-handler
                                           :summary "Health check endpoint"
                                           :no-doc true}}}
@@ -173,18 +183,18 @@
         admin-normalized-web (when (seq admin-web-routes)
                               ;; Add /web/admin prefix to web routes and merge :meta into route root
                                (let [transformed (mapv (fn [{:keys [path meta] :as route}]
-                                                        (let [result (-> route
-                                                                         (dissoc :meta)
-                                                                         (merge meta)
-                                                                         (assoc :path (str "/web/admin" path)))]
-                                                          (log/info "Admin route transformation"
-                                                                    {:original-path path
-                                                                     :new-path (:path result)
-                                                                     :had-meta (some? meta)
-                                                                     :has-middleware (contains? result :middleware)
-                                                                     :result-keys (keys result)})
-                                                          result))
-                                                      admin-web-routes)]
+                                                         (let [result (-> route
+                                                                          (dissoc :meta)
+                                                                          (merge meta)
+                                                                          (assoc :path (str "/web/admin" path)))]
+                                                           (log/info "Admin route transformation"
+                                                                     {:original-path path
+                                                                      :new-path (:path result)
+                                                                      :had-meta (some? meta)
+                                                                      :has-middleware (contains? result :middleware)
+                                                                      :result-keys (keys result)})
+                                                           result))
+                                                       admin-web-routes)]
                                  (log/info "Total admin web routes transformed" {:count (count transformed)})
                                  transformed))
         admin-normalized-api (when (seq admin-api-routes) admin-api-routes)
@@ -218,17 +228,17 @@
         ;; Compile routes using router adapter with system services
         ;; Add method override middleware for HTML form PUT/DELETE support
         router-config {:middleware [(fn [handler]
-                                       (fn [request]
-                                         (if (= :post (:request-method request))
-                                           (let [method (or (get-in request [:form-params "_method"])
-                                                            (get-in request [:params "_method"]))]
-                                             (if method
-                                               (let [override-method (keyword (clojure.string/lower-case method))]
-                                                 (handler (assoc request :request-method override-method)))
-                                               (handler request)))
-                                           (handler request))))]
+                                      (fn [request]
+                                        (if (= :post (:request-method request))
+                                          (let [method (or (get-in request [:form-params "_method"])
+                                                           (get-in request [:params "_method"]))]
+                                            (if method
+                                              (let [override-method (keyword (clojure.string/lower-case method))]
+                                                (handler (assoc request :request-method override-method)))
+                                              (handler request)))
+                                          (handler request))))]
                        :system system}
-         handler (compile-routes router all-normalized-routes router-config)
+        handler (compile-routes router all-normalized-routes router-config)
 
         ;; Wrap handler with version headers middleware
         versioned-handler (http-versioning/wrap-handler-with-version-headers handler config)]
