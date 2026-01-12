@@ -230,6 +230,47 @@
 ;; Query Parameter Schemas
 ;; =============================================================================
 
+(def FilterOperator
+  "Schema for advanced filter operators (Week 2).
+
+   Operators for field-specific filtering with type-appropriate operations."
+  [:enum {:title "Filter Operator"
+          :description "Comparison operator for field filtering"}
+   :eq          ; Equal (=)
+   :ne          ; Not equal (!=)
+   :gt          ; Greater than (>)
+   :gte         ; Greater than or equal (>=)
+   :lt          ; Less than (<)
+   :lte         ; Less than or equal (<=)
+   :contains    ; String contains (LIKE %value%)
+   :starts-with ; String starts with (LIKE value%)
+   :ends-with   ; String ends with (LIKE %value)
+   :in          ; Value in list (IN (...))
+   :not-in      ; Value not in list (NOT IN (...))
+   :is-null     ; Field is NULL
+   :is-not-null ; Field is not NULL
+   :between])   ; Value between two values (BETWEEN x AND y)
+
+(def FieldFilter
+  "Schema for a single field filter (Week 2).
+
+   Represents a filter on one field with an operator and value(s)."
+  [:map {:title "Field Filter"}
+   [:op {:description "Filter operator"}
+    FilterOperator]
+   [:value {:optional true
+            :description "Filter value (not needed for is-null/is-not-null)"}
+    :any]
+   [:values {:optional true
+             :description "Multiple values (for :in, :not-in operators)"}
+    [:vector :any]]
+   [:min {:optional true
+          :description "Minimum value (for :between operator)"}
+    :any]
+   [:max {:optional true
+          :description "Maximum value (for :between operator)"}
+    :any]])
+
 (def ListEntitiesOptions
   "Schema for list entities query parameters."
   [:map {:title "List Entities Options"}
@@ -249,11 +290,12 @@
                :description "Sort direction"}
     [:enum :asc :desc]]
    [:search {:optional true
-             :description "Search term"}
+             :description "Search term (simple LIKE search)"}
     [:string {:min 1}]]
    [:filters {:optional true
-              :description "Field-specific filters"}
-    [:map-of :keyword :any]]])
+              :description "Advanced field-specific filters (Week 2)"}
+    [:map-of :keyword FieldFilter]]])
+
 
 ;; =============================================================================
 ;; Action Schemas

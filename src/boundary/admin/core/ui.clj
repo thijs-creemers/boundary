@@ -200,6 +200,261 @@
                                            :onclick (str "window.location.href='/web/admin/" (name entity-name) "';")}
             (icons/icon :x {:size 20})])]]])))
 
+;; =============================================================================
+;; Advanced Filter Components (Week 2)
+;; =============================================================================
+
+(defn get-operators-for-field-type
+  "Get available filter operators for a field type.
+   
+   Args:
+     field-type: Keyword field type (:string, :int, :boolean, etc.)
+   
+   Returns:
+     Vector of [operator-keyword display-label] tuples"
+  [field-type]
+  (case field-type
+    :string [[:eq "equals"]
+             [:ne "not equals"]
+             [:contains "contains"]
+             [:starts-with "starts with"]
+             [:ends-with "ends with"]
+             [:is-null "is empty"]
+             [:is-not-null "is not empty"]]
+
+    (:int :decimal) [[:eq "equals"]
+                     [:ne "not equals"]
+                     [:gt "greater than"]
+                     [:gte "greater or equal"]
+                     [:lt "less than"]
+                     [:lte "less or equal"]
+                     [:between "between"]
+                     [:is-null "is empty"]
+                     [:is-not-null "is not empty"]]
+
+    (:instant :date) [[:eq "on date"]
+                      [:ne "not on date"]
+                      [:gt "after"]
+                      [:gte "on or after"]
+                      [:lt "before"]
+                      [:lte "on or before"]
+                      [:between "between"]
+                      [:is-null "is empty"]
+                      [:is-not-null "is not empty"]]
+
+    :boolean [[:eq "equals"]]
+
+    :enum [[:eq "equals"]
+           [:ne "not equals"]
+           [:in "any of"]
+           [:not-in "none of"]]
+
+    ;; Default for unknown types
+    [[:eq "equals"]
+     [:ne "not equals"]
+     [:is-null "is empty"]
+     [:is-not-null "is not empty"]]))
+
+(defn render-filter-value-inputs
+  "Render value input(s) for a filter based on operator and field type.
+   
+   Args:
+     field-name: Keyword field name
+     field-config: Field configuration map
+     operator: Current operator keyword
+     filter-value: Current filter value map
+   
+   Returns:
+     Hiccup input structure(s)"
+  [field-name field-config operator filter-value]
+  (let [field-type (:type field-config :string)
+        options (:options field-config)]
+    (cond
+      ;; No input needed for null checks
+      (#{:is-null :is-not-null} operator)
+      nil
+
+      ;; Between needs two inputs (min/max)
+      (= operator :between)
+      [:div.filter-value-range
+       [:input.filter-value-input
+        {:type (if (#{:int :decimal} field-type) "number" "text")
+         :name (str "filters[" (name field-name) "][min]")
+         :placeholder "Min"
+         :value (get filter-value :min "")}]
+       [:span.range-separator "to"]
+       [:input.filter-value-input
+        {:type (if (#{:int :decimal} field-type) "number" "text")
+         :name (str "filters[" (name field-name) "][max]")
+         :placeholder "Max"
+         :value (get filter-value :max "")}]]
+
+      ;; Multi-select for :in and :not-in operators
+      (#{:in :not-in} operator)
+      (if options
+        ;; Enum field with predefined options - show multi-select
+        [:select.filter-value-input
+         {:name (str "filters[" (name field-name) "][values][]")
+          :multiple true
+          :size (min 5 (count options))}
+         (for [[value label] options]
+           [:option {:value (name value)
+                     :selected (some #{value} (:values filter-value))}
+            label])]
+        ;; Free-form multi-value input (comma-separated)
+        [:input.filter-value-input
+         {:type "text"
+          :name (str "filters[" (name field-name) "][values]")
+          :placeholder "value1, value2, value3"
+          :value (str/join ", " (or (:values filter-value) []))}])
+
+      ;; Boolean field - dropdown
+      (= field-type :boolean)
+      [:select.filter-value-input
+       {:name (str "filters[" (name field-name) "][value]")}
+       [:option {:value ""} "Select..."]
+       [:option {:value "true" :selected (= (:value filter-value) true)} "Yes"]
+       [:option {:value "false" :selected (= (:value filter-value) false)} "No"]]
+
+      ;; Enum field with options - dropdown
+      (and (= field-type :enum) options)
+      [:select.filter-value-input
+       {:name (str "filters[" (name field-name) "][value]")}
+       [:option {:value ""} "Select..."]
+       (for [[value label] options]
+         [:option {:value (name value)
+                   :selected (= (:value filter-value) value)}
+          label])]
+
+      ;; Date/instant fields - date input
+      (#{:instant :date} field-type)
+      [:input.filter-value-input
+       {:type "date"
+        :name (str "filters[" (name field-name) "][value]")
+        :value (or (:value filter-value) "")}]
+
+      ;; Numeric fields - number input
+      (#{:int :decimal} field-type)
+      [:input.filter-value-input
+       {:type "number"
+        :name (str "filters[" (name field-name) "][value]")
+        :placeholder "Enter value"
+        :value (or (:value filter-value) "")}]
+
+      ;; Default: text input
+      :else
+      [:input.filter-value-input
+       {:type "text"
+        :name (str "filters[" (name field-name) "][value]")
+        :placeholder "Enter value"
+        :value (or (:value filter-value) "")}])))
+
+(defn render-filter-row
+  "Render a single filter row with field, operator, value inputs.
+   
+   Args:
+     entity-name: Keyword entity name
+     field-name: Keyword field name
+     field-config: Field configuration map
+     filter-value: Current filter value map (with :op, :value, etc.)
+   
+   Returns:
+     Hiccup filter row structure"
+  [entity-name field-name field-config filter-value]
+  (let [field-type (:type field-config :string)
+        operators (get-operators-for-field-type field-type)
+        current-op (:op filter-value :eq)
+        field-label (:label field-config (str/capitalize (name field-name)))]
+    [:div.filter-row
+     ;; Field name (read-only label)
+     [:span.filter-field-label field-label]
+
+     ;; Operator selector
+     [:select.filter-operator-select
+      {:name (str "filters[" (name field-name) "][op]")
+       :hx-get (str "/web/admin/" (name entity-name) "/table")
+       :hx-target "#entity-table-container"
+       :hx-trigger "change"
+       :hx-include "closest form"}
+      (for [[op label] operators]
+        [:option {:value (name op)
+                  :selected (= current-op op)}
+         label])]
+
+     ;; Value input(s) - changes based on operator
+     (render-filter-value-inputs field-name field-config current-op filter-value)
+
+     ;; Remove filter button
+     [:button.icon-button.secondary
+      {:type "button"
+       :aria-label "Remove filter"
+       :hx-get (str "/web/admin/" (name entity-name) "/table")
+       :hx-target "#entity-table-container"
+       :hx-trigger "click"
+       :hx-vals (str "{\"remove_filter\": \"" (name field-name) "\"}")
+       :hx-include "closest form"}
+      (icons/icon :x {:size 16})]]))
+
+(defn render-filter-builder
+  "Render advanced filter builder UI.
+   
+   Args:
+     entity-name: Keyword entity name
+     entity-config: Entity configuration map
+     current-filters: Map of current filters {field-name -> filter-spec}
+   
+   Returns:
+     Hiccup filter builder structure"
+  [entity-name entity-config current-filters]
+  (let [filterable-fields (filter #(get-in entity-config [:fields % :filterable] true)
+                                  (keys (:fields entity-config)))
+        has-active-filters? (seq current-filters)]
+    [:div.filter-builder
+     [:div.filter-builder-header
+      [:span.filter-builder-title "Filters"]
+      (when has-active-filters?
+        [:button.text-button
+         {:type "button"
+          :hx-get (str "/web/admin/" (name entity-name) "/table")
+          :hx-target "#entity-table-container"
+          :hx-trigger "click"}
+         (icons/icon :x {:size 14})
+         " Clear all"])]
+
+     ;; Form wrapper for all filters
+     [:form.filter-form
+      {:hx-get (str "/web/admin/" (name entity-name) "/table")
+       :hx-target "#entity-table-container"
+       :hx-trigger "submit, change delay:500ms from:input, change from:select"
+       :hx-push-url "true"}
+
+      ;; Active filter rows
+      (when has-active-filters?
+        [:div.filter-rows
+         (for [[field-name filter-value] current-filters]
+           (when-let [field-config (get-in entity-config [:fields field-name])]
+             (render-filter-row entity-name field-name field-config filter-value)))])
+
+      ;; Add filter dropdown
+      (when (seq filterable-fields)
+        [:div.filter-add-row
+         [:select.filter-field-select
+          {:name "add_filter_field"
+           :hx-get (str "/web/admin/" (name entity-name) "/table")
+           :hx-target "#entity-table-container"
+           :hx-trigger "change"
+           :hx-include "closest form"}
+          [:option {:value ""} "+ Add filter..."]
+          (for [field-name filterable-fields
+                :when (not (contains? current-filters field-name))]
+            (let [field-config (get-in entity-config [:fields field-name])
+                  field-label (:label field-config (str/capitalize (name field-name)))]
+              [:option {:value (name field-name)} field-label]))]])
+
+      ;; Apply button (for manual submission if auto-trigger doesn't work)
+      (when has-active-filters?
+        [:button.button.primary {:type "submit"} "Apply Filters"])]]))
+
 (defn render-field-value
   "Render field value for display in table or detail view.
 
@@ -560,7 +815,11 @@
        (for [[type message] flash]
          [:div {:class (str "alert alert-" (name type))} message]))
 
-     ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
+      ;; Advanced filter builder (Week 2)
+     (when (seq filters)
+       (render-filter-builder entity-name entity-config filters))
+
+      ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
      [:div.table-toolbar-container
       ;; Left: Bulk actions
       [:div.table-toolbar-left

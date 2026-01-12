@@ -130,21 +130,54 @@
 (defn build-filter-where
   "Build WHERE clause for field-specific filters.
 
+   Week 1: Simple equality filters
+   Week 2: Advanced operators (gt, lt, contains, in, between, etc.)
+
    Args:
-     filters: Map of field -> value
+     filters: Map of field -> value (Week 1) or field -> filter-map (Week 2)
+              Week 1: {:role :admin :active true}
+              Week 2: {:created-at {:op :gte :value \"2024-01-01\"}
+                       :status {:op :in :values [:active :pending]}}
 
    Returns:
      HoneySQL WHERE clause (nil if no filters)
 
    Example:
      (build-filter-where {:role :admin :active true})
-     ;=> [:and [:= :role :admin] [:= :active true]]"
+     ;=> [:and [:= :role :admin] [:= :active true]]
+
+     (build-filter-where {:price {:op :gte :value 100}
+                          :status {:op :in :values [:active :pending]}})
+     ;=> [:and [:>= :price 100] [:in :status [:active :pending]]]"
   [filters]
   (when (seq filters)
-    (vec (cons :and
-               (mapv (fn [[field value]]
-                       [:= field value])
-                     filters)))))
+    (let [clauses (mapv (fn [[field filter-value]]
+                          (if (map? filter-value)
+                            ; Week 2: Advanced filter with operator
+                            (let [{:keys [op value values min max]} filter-value]
+                              (case op
+                                :eq          [:= field value]
+                                :ne          [:!= field value]
+                                :gt          [:> field value]
+                                :gte         [:>= field value]
+                                :lt          [:< field value]
+                                :lte         [:<= field value]
+                                :contains    [:like field (str "%" value "%")]
+                                :starts-with [:like field (str value "%")]
+                                :ends-with   [:like field (str "%" value)]
+                                :in          [:in field (vec values)]
+                                :not-in      [:not-in field (vec values)]
+                                :is-null     [:= field nil]
+                                :is-not-null [:!= field nil]
+                                :between     [:and [:>= field min] [:<= field max]]
+                                ; Default: equality
+                                [:= field value]))
+                            ; Week 1: Simple equality filter (backward compatible)
+                            [:= field filter-value]))
+                        filters)]
+      (if (= 1 (count clauses))
+        (first clauses)
+        (vec (cons :and clauses))))))
 
 (defn combine-where-clauses
   "Combine multiple WHERE clauses with AND.
