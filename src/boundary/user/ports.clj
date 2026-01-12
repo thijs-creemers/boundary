@@ -701,7 +701,30 @@
        Vector of audit log entities for the user
        
      Example:
-       (get-audit-logs-for-user service user-id {:limit 50})"))
+       (get-audit-logs-for-user service user-id {:limit 50})")
+
+  ;; Password Management Operations
+  (change-password [this user-id current-password new-password]
+    "Change user's password after verifying current password.
+     
+     Business operation that validates current password, checks new password
+     against policy, hashes and updates password, and creates audit trail.
+     
+     Args:
+       user-id: UUID of user changing password
+       current-password: Current plain text password for verification
+       new-password: New plain text password (will be hashed)
+     
+     Returns:
+       Boolean indicating success
+       
+     Throws:
+       - ExceptionInfo with :type :user-not-found if user doesn't exist
+       - ExceptionInfo with :type :invalid-current-password if current password wrong
+       - ExceptionInfo with :type :password-policy-violation if new password too weak
+       
+     Example:
+       (change-password service user-id \"OldPass123!\" \"NewSecurePass456!\")"))
 
 ;; =============================================================================
 ;; Communication Ports

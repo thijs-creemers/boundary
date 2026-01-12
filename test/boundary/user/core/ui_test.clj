@@ -187,24 +187,21 @@
 ;; =============================================================================
 
 (deftest user-created-success-test
-  (testing "generates success message with user details"
-    (let [message (ui/user-created-success sample-user)]
-      (is (vector? message))
-      (is (= :div (first message)))
-      (is (= "alert alert-success" (get-in message [1 :class])))
-      (let [content (str message)]
-        (is (re-find #"User Created Successfully!" content))
+  (testing "generates success page with user details"
+    (let [page (ui/user-created-success sample-user)]
+      (is (vector? page))
+      (is (= :html (first page)))
+      (let [content (str page)]
+        (is (re-find #"Account Created Successfully!" content))
         (is (re-find #"John Doe" content))
         (is (re-find #"john@example.com" content))
-        (is (re-find #"ADMIN" content))
         (is (re-find #"Active" content)))))
 
-  (testing "includes navigation link"
-    (let [message (ui/user-created-success sample-user)
-          content (str message)]
-      ;; New URLs: /web/users
-      (is (re-find #"/web/users" content))
-      (is (re-find #"View All Users" content)))))
+  (testing "includes sign in link"
+    (let [page (ui/user-created-success sample-user)
+          content (str page)]
+      (is (re-find #"/web/login" content))
+      (is (re-find #"Sign In" content)))))
 
 (deftest user-updated-success-test
   (testing "generates success message with user details"

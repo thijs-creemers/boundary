@@ -374,14 +374,31 @@
      Hiccup structure showing success message"
   [user]
   (let [active? (boolean (:active user))]
-    (ui/success-message
-     [:div
-      [:h3 "User Created Successfully!"]
-      [:p "Created user: " (:name user) " (" (:email user) ")"]
-      [:div.user-details
-       [:p "Role: " (str/upper-case (name (:role user)))]
-       [:p "Status: " (if active? "Active" "Inactive")]]
-      [:a.button {:href "/web/users"} "View All Users"]])))
+    (layout/page-layout
+     "Account Created"
+     [:div.register-page
+      [:div {:style "max-width: 600px; margin: 0 auto; text-align: center;"}
+       [:div {:style "background: var(--color-success-light); border: 2px solid var(--color-success); border-radius: var(--radius-xl); padding: var(--space-8); margin-bottom: var(--space-6);"}
+        [:div {:style "font-size: 4rem; margin-bottom: var(--space-4);"} "✓"]
+        [:h1 {:style "margin: 0 0 var(--space-4) 0; color: var(--color-success-dark);"} "Account Created Successfully!"]
+        [:p {:style "font-size: var(--text-lg); color: var(--text-primary); margin-bottom: var(--space-6);"}
+         "Welcome to Boundary, " [:strong (:name user)] "!"]
+        [:div {:style "background: var(--bg-primary); border-radius: var(--radius-lg); padding: var(--space-6); margin-bottom: var(--space-6);"}
+         [:p {:style "margin: 0 0 var(--space-2) 0; color: var(--text-secondary); font-size: var(--text-sm);"} "Your account has been created with the following details:"]
+         [:div {:style "text-align: left; margin-top: var(--space-4);"}
+          [:div {:style "display: flex; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--border-default);"}
+           [:span {:style "font-weight: var(--font-medium); color: var(--text-secondary);"} "Email:"]
+           [:span {:style "color: var(--text-primary);"} (:email user)]]
+          [:div {:style "display: flex; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--border-default);"}
+           [:span {:style "font-weight: var(--font-medium); color: var(--text-secondary);"} "Name:"]
+           [:span {:style "color: var(--text-primary);"} (:name user)]]
+          [:div {:style "display: flex; justify-content: space-between; padding: var(--space-3) 0;"}
+           [:span {:style "font-weight: var(--font-medium); color: var(--text-secondary);"} "Status:"]
+           [:span {:style "color: var(--color-success-dark); font-weight: var(--font-semibold);"} (if active? "Active" "Inactive")]]]]
+        [:div {:style "margin-top: var(--space-6);"}
+         [:p {:style "color: var(--text-secondary); margin-bottom: var(--space-4);"} "You can now sign in with your email and password."]
+         [:a.button.primary {:href "/web/login" :style "display: inline-block; min-width: 200px;"} "Sign In"]]]]]
+     {:skip-header false})))
 
 (defn user-updated-success
   "Generate success message for user update based on User schema.
@@ -604,7 +621,10 @@
       (ui/form-field :remember "Remember me"
                      (ui/checkbox :remember (boolean (:remember data)))
                      nil)
-      (ui/submit-button "Sign in" {:loading-text "Signing in..."})]]))
+      (ui/submit-button "Sign in" {:loading-text "Signing in..."})]
+     [:div {:style "margin-top: 1.5rem; text-align: center; padding-top: 1.5rem; border-top: 1px solid var(--border-default);"}
+      [:p {:style "color: var(--text-secondary); margin-bottom: 0.5rem;"} "Dont have an account?"]
+      [:a {:href "/web/register" :class "button secondary" :style "display: inline-block;"} "Create Account"]]]))
 
 (defn login-page
   "Complete login page.
@@ -627,6 +647,82 @@
      opts)))
 
 ;; =============================================================================
+;; MFA Login Form & Page
+;; =============================================================================
+
+(defn mfa-login-form
+  "Form for entering MFA code during login.
+
+   Args:
+     data   - map with :email, :password, :remember, :return-to
+     errors - map of field keyword -> vector of error messages"
+  [data errors]
+  (let [err (fn [k]
+              (when-let [es (seq (get errors k))]
+                [:div.validation-errors
+                 (for [e es]
+                   [:p e])]))]
+    [:div#mfa-login-form
+     [:h2
+      (icons/icon :shield {:size 24})
+      [:span {:style "margin-left: 0.5rem;"} "Two-Factor Authentication"]]
+     [:p {:style "margin-bottom: 1.5rem; color: var(--text-secondary);"}
+      "Please enter the 6-digit code from your authenticator app or use one of your backup codes."]
+     [:form {:method "post"
+             :action "/web/login"}
+      ;; Hidden fields to preserve login data
+      (when (:return-to data)
+        [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
+      [:input {:type "hidden" :name "email" :value (:email data)}]
+      [:input {:type "hidden" :name "password" :value (:password data)}]
+      (when (:remember data)
+        [:input {:type "hidden" :name "remember" :value "on"}])
+
+      ;; MFA code input
+      (ui/form-field :mfa-code "Authentication Code"
+                     [:input {:type "text"
+                              :id "mfa-code"
+                              :name "mfa-code"
+                              :placeholder "000000"
+                              :autocomplete "one-time-code"
+                              :inputmode "numeric"
+                              :pattern "[0-9]{6}"
+                              :maxlength "6"
+                              :required true
+                              :autofocus true
+                              :style "font-size: 1.2rem; letter-spacing: 0.3rem; text-align: center; font-family: monospace;"}]
+                     (:mfa-code errors))
+
+      [:div {:style "display: flex; gap: 0.5rem;"}
+       (ui/submit-button "Verify" {:loading-text "Verifying..."})
+       [:a.button.secondary {:href "/web/login"} "Cancel"]]]
+     [:div {:style "margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-default);"}
+      [:p {:style "color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;"}
+       "Lost access to your authenticator app?"]
+      [:p {:style "font-size: 0.875rem;"}
+       "Enter one of your backup codes instead of the 6-digit code."]]]))
+
+(defn mfa-login-page
+  "Complete MFA login page (shown after successful password verification).
+
+   Args:
+     data   - form data map (must contain :email and :password)
+     errors - validation errors (may be nil)
+     opts   - page options (user context, flash messages, return-to URL, etc.)"
+  [& [data errors opts]]
+  (let [data-with-return (if (:return-to opts)
+                           (assoc data :return-to (:return-to opts))
+                           data)]
+    (layout/page-layout
+     "Two-Factor Authentication"
+     [:div.mfa-login-page
+      [:div.page-header
+       [:h1 "Boundary"]
+       [:p "Two-factor authentication required"]]
+      (mfa-login-form data-with-return errors)]
+     opts)))
+
+;; =============================================================================
 ;; Self-Service Registration Form & Page
 ;; =============================================================================
 
@@ -639,31 +735,31 @@
      password-violations - optional password violations from policy check
      policy - optional password policy configuration"
   ([data errors password-violations policy]
-    [:div#register-form
-     [:h2
-      (icons/icon :user-plus {:size 24})
-      [:span {:style "margin-left: 0.5rem;"} "Create Account"]]
-     [:form {:method "post"
-             :action "/web/register"}
-      (ui/form-field :name "Name"
-                     (ui/text-input :name (:name data) {:required true})
-                     (:name errors))
-      (ui/form-field :email "Email"
-                     (ui/email-input :email (:email data) {:required true})
-                     (:email errors))
+   [:div#register-form
+    [:h2
+     (icons/icon :user-plus {:size 24})
+     [:span {:style "margin-left: 0.5rem;"} "Create Account"]]
+    [:form {:method "post"
+            :action "/web/register"}
+     (ui/form-field :name "Name"
+                    (ui/text-input :name (:name data) {:required true})
+                    (:name errors))
+     (ui/form-field :email "Email"
+                    (ui/email-input :email (:email data) {:required true})
+                    (:email errors))
       ;; Password field with validation feedback
-      [:div {:class "form-field"}
-       [:label {:for "password"} "Password"]
-       (ui/password-input :password "" {:required true})
+     [:div {:class "form-field"}
+      [:label {:for "password"} "Password"]
+      (ui/password-input :password "" {:required true})
        ;; Show password requirements if policy provided
-       (when policy
-         (password-requirements-list (or password-violations []) policy))
+      (when policy
+        (password-requirements-list (or password-violations []) policy))
        ;; Show validation errors if present
-       (when (seq (:password errors))
-         [:div.validation-errors
-          (for [err (:password errors)]
-            [:p err])])]
-      (ui/submit-button "Create Account" {:loading-text "Creating..."})]])
+      (when (seq (:password errors))
+        [:div.validation-errors
+         (for [err (:password errors)]
+           [:p err])])]
+     (ui/submit-button "Create Account" {:loading-text "Creating..."})]])
   ([data errors]
    (register-form data errors nil {:min-length 8 :require-numbers true})))
 
@@ -1083,3 +1179,117 @@
       [:div.audit-main
        (audit-logs-table audit-logs table-query total-count filters)]]]
     opts)))
+
+;; =============================================================================
+;; Dashboard Page
+;; =============================================================================
+
+(defn- format-date-relative
+  "Format date relative to now (e.g., 'today', '2 days ago', 'never').
+   
+   Args:
+     instant - java.time.Instant or nil
+     
+   Returns:
+     String describing relative time"
+  [instant]
+  (if-not instant
+    "never"
+    (let [now (java.time.Instant/now)
+          duration (.between java.time.Duration instant now)
+          seconds (.getSeconds duration)]
+      (cond
+        (< seconds 60) "just now"
+        (< seconds 3600) (str (quot seconds 60) " minutes ago")
+        (< seconds 86400) (str (quot seconds 3600) " hours ago")
+        (< seconds 172800) "yesterday"
+        (< seconds 604800) (str (quot seconds 86400) " days ago")
+        :else (-> instant str (clojure.string/split #"T") first)))))
+
+(defn- format-date-short
+  "Format date in short format (YYYY-MM-DD).
+   
+   Args:
+     instant - java.time.Instant or nil
+     
+   Returns:
+     String in YYYY-MM-DD format or 'N/A'"
+  [instant]
+  (if instant
+    (-> instant str (clojure.string/split #"T") first)
+    "N/A"))
+
+(defn dashboard-page
+  "User dashboard/welcome page with account statistics.
+   
+   Args:
+     user - authenticated user entity
+     dashboard-data - map containing:
+       :active-sessions-count - number of active sessions
+       :mfa-enabled - boolean indicating MFA status
+     opts - page options (flash messages, etc.)
+     
+   Returns:
+     Complete page hiccup
+     
+   Pure: false"
+  [user dashboard-data opts]
+  (let [active-sessions (:active-sessions-count dashboard-data 0)
+        mfa-enabled? (:mfa-enabled dashboard-data false)
+        login-count (:login-count user 0)
+        last-login (:last-login user)
+        created-at (:created-at user)]
+    (layout/page-layout
+     "Dashboard"
+     [:div.dashboard-page
+      [:div.welcome-section
+       [:h1 "Welcome, " (:name user)]
+       [:p.subtitle "You're logged into Boundary Framework"]]
+
+      ;; Account Stats Summary
+      [:div.dashboard-stats
+       [:div.stat-card
+        [:div.stat-icon (icons/icon :calendar {:size 20})]
+        [:div.stat-content
+         [:div.stat-label "Member since"]
+         [:div.stat-value (format-date-short created-at)]]]
+       [:div.stat-card
+        [:div.stat-icon (icons/icon :log-in {:size 20})]
+        [:div.stat-content
+         [:div.stat-label "Total logins"]
+         [:div.stat-value (str login-count)]]]
+       [:div.stat-card
+        [:div.stat-icon (icons/icon :clock {:size 20})]
+        [:div.stat-content
+         [:div.stat-label "Last login"]
+         [:div.stat-value (format-date-relative last-login)]]]
+       [:div.stat-card
+        [:div.stat-icon {:class (if mfa-enabled? "text-success" "text-warning")}
+         (icons/icon :shield {:size 20})]
+        [:div.stat-content
+         [:div.stat-label "Two-Factor Auth"]
+         [:div.stat-value {:class (if mfa-enabled? "text-success" "text-warning")}
+          (if mfa-enabled? "Enabled" "Disabled")]]]]
+
+      ;; Action Cards
+      [:div.dashboard-cards
+       [:div.dashboard-card
+        [:div.card-icon (icons/icon :user {:size 32})]
+        [:h2 "Your Profile"]
+        [:p "View and manage your account settings"]
+        [:a.button.secondary {:href "/web/profile"} "View Profile"]]
+
+       [:div.dashboard-card
+        [:div.card-icon (icons/icon :lock {:size 32})]
+        [:h2 "Active Sessions"]
+        [:p (str "You have " active-sessions " active session"
+                 (when (not= active-sessions 1) "s"))]
+        [:a.button.secondary {:href (str "/web/users/" (:id user) "/sessions")}
+         "Manage Sessions"]]
+
+       [:div.dashboard-card
+        [:div.card-icon (icons/icon :shield {:size 32})]
+        [:h2 "Security Settings"]
+        [:p "Manage your password, two-factor authentication, and active sessions"]
+        [:a.button.secondary {:href "/web/profile"} "View Security Settings"]]]]
+     opts)))

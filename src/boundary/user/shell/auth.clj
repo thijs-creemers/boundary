@@ -261,20 +261,22 @@
                           _ (.update-user user-repository updated-user)
 
                          ;; Determine session creation policy
-                         session-policy (auth-core/should-create-session? user login-risk auth-config)
+                          session-policy (auth-core/should-create-session? user login-risk auth-config)
 
-                         ;; Create session if policy allows
-                         session (when (:create-session? session-policy)
-                                   (let [session-token (generate-session-token)
-                                         jwt-token (create-jwt-token user (:session-duration-hours session-policy))
-                                         session-data {:user-id (:id user)
-                                                       :session-token session-token
-                                                       :jwt-token jwt-token
-                                                       :expires-at (.plus current-time
-                                                                          (Duration/ofHours (:session-duration-hours session-policy)))
-                                                       :user-agent (:user-agent login-context)
-                                                       :ip-address (:ip-address login-context)}]
-                                     (.create-session session-repository session-data)))]
+                          ;; Create session if policy allows
+                          session (when (:create-session? session-policy)
+                                    (let [session-token (generate-session-token)
+                                          jwt-token (create-jwt-token user (:session-duration-hours session-policy))
+                                          session-data {:user-id (:id user)
+                                                        :session-token session-token
+                                                        ;; jwt-token is NOT stored in DB, only returned to client
+                                                        :expires-at (.plus current-time
+                                                                           (Duration/ofHours (:session-duration-hours session-policy)))
+                                                        :user-agent (:user-agent login-context)
+                                                        :ip-address (:ip-address login-context)}
+                                          created-session (.create-session session-repository session-data)]
+                                      ;; Add jwt-token to returned session (not persisted)
+                                      (assoc created-session :jwt-token jwt-token)))]
 
                      (log/info "Authentication successful"
                                {:email email

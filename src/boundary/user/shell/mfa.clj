@@ -11,7 +11,8 @@
    is delegated to boundary.user.core.mfa."
   (:require [boundary.user.core.mfa :as mfa-core]
             [one-time.core :as otp]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [clojure.tools.logging :as log])
   (:import (java.security SecureRandom)
            (java.util Base64)
            (java.net URLEncoder)
@@ -210,8 +211,14 @@
               ;; Enable MFA
               (let [current-time (Instant/now)
                     updates (mfa-core/prepare-mfa-enablement
-                             user secret backup-codes current-time)]
-                (.update-user user-repository user-id updates)
+                             user secret backup-codes current-time)
+                    updated-user (merge user updates)
+                    _ (clojure.tools.logging/info "Updating user with MFA" 
+                                                   {:user-id (:id user)
+                                                    :mfa-enabled (:mfa-enabled updated-user)
+                                                    :has-secret (boolean (:mfa-secret updated-user))
+                                                    :backup-codes-count (count (:mfa-backup-codes updated-user))})]
+                (.update-user user-repository updated-user)
                 {:success? true})
               ;; Invalid verification code
               {:success? false
@@ -240,8 +247,9 @@
         (let [can-disable (mfa-core/can-disable-mfa? user)]
           (if (:can-disable? can-disable)
             ;; Disable MFA
-            (let [updates (mfa-core/prepare-mfa-disablement user)]
-              (.update-user user-repository user-id updates)
+            (let [updates (mfa-core/prepare-mfa-disablement user)
+                  updated-user (merge user updates)]
+              (.update-user user-repository updated-user)
               {:success? true})
             ;; Cannot disable MFA
             {:success? false
