@@ -58,20 +58,20 @@
                :data-label label}
            (icons/icon icon {:size 20})
            [:span.nav-text label]]]))]
-     [:h3 "Tools"]
-     [:ul.entity-list
-      [:li
-       [:a {:href "/web/admin/user" :data-label "Users"}
-        (icons/icon :users {:size 20})
-        [:span.nav-text "Users"]]]
-      [:li
-       [:a {:href "/web/audit" :data-label "Audit Trail"}
-        (icons/icon :clock {:size 20})
-        [:span.nav-text "Audit Trail"]]]]]
+    [:h3 "Tools"]
+    [:ul.entity-list
+     [:li
+      [:a {:href "/web/admin/user" :data-label "Users"}
+       (icons/icon :users {:size 20})
+       [:span.nav-text "Users"]]]
+     [:li
+      [:a {:href "/web/audit" :data-label "Audit Trail"}
+       (icons/icon :clock {:size 20})
+       [:span.nav-text "Audit Trail"]]]]]
    [:div.admin-sidebar-footer
-     [:a {:href "/web/dashboard"}
-      (icons/icon :home {:size 20})
-      [:span.nav-text "Dashboard"]]
+    [:a {:href "/web/dashboard"}
+     (icons/icon :home {:size 20})
+     [:span.nav-text "Dashboard"]]
     [:a {:href "/web"}
      (icons/icon :external-link {:size 20})
      [:span.nav-text "Main Site"]]]])
@@ -93,17 +93,17 @@
      (admin-sidebar entities entity-configs current-entity)
      [:div.admin-overlay]
      [:div.admin-main
-       [:header.admin-topbar
-        [:button.mobile-menu-toggle {:type "button"
-                                     :aria-label "Open menu"}
-         (icons/icon :menu {:size 24})]
-        [:h1 (or page-title "Admin Dashboard")]
-        [:div.admin-topbar-actions
-         [:span (str "Welcome, " (:display-name user (:email user)))]
-         (icons/theme-toggle-button)
-         [:form {:method "POST" :action "/web/logout" :class "logout-form"}
-          [:button {:type "submit" :class "logout-button" :aria-label "Logout"}
-           (icons/icon :log-out {:size 20})]]]]
+      [:header.admin-topbar
+       [:button.mobile-menu-toggle {:type "button"
+                                    :aria-label "Open menu"}
+        (icons/icon :menu {:size 24})]
+       [:h1 (or page-title "Admin Dashboard")]
+       [:div.admin-topbar-actions
+        [:span (str "Welcome, " (:display-name user (:email user)))]
+        (icons/theme-toggle-button)
+        [:form {:method "POST" :action "/web/logout" :class "logout-form"}
+         [:button {:type "submit" :class "logout-button" :aria-label "Logout"}
+          (icons/icon :log-out {:size 20})]]]]
       [:main.admin-content
        content]]]))
 
@@ -126,11 +126,11 @@
     (layout/page-layout
      title
      (admin-shell content (assoc opts :page-title page-title))
-      {:user user
-       :flash flash
-       :skip-header true
-       :css ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
-       :js ["/js/theme.js" "/js/htmx.min.js" "/js/sidebar.js" "/js/table.js" "/js/forms.js"]})))
+     {:user user
+      :flash flash
+      :skip-header true
+      :css ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
+      :js ["/js/theme.js" "/js/htmx.min.js" "/js/sidebar.js" "/js/table.js" "/js/forms.js"]})))
 
 (defn admin-home
   "Admin dashboard home page content.
@@ -257,25 +257,205 @@
   [entity-name record entity-config permissions]
   (let [list-fields (:list-fields entity-config)
         primary-key (:primary-key entity-config :id)
-        record-id (get record primary-key)]
+        record-id (get record primary-key)
+        readonly-fields (set (:readonly-fields entity-config))]
     [:tr {:class "entity-row"}
-      [:td.row-actions
-       [:input {:type "checkbox"
-                :name "ids[]"
-                :value (str record-id)
-                :onclick "event.stopPropagation();"
-                :onchange "const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; document.getElementById('select-all').checked = checked === document.querySelectorAll('input[name=\"ids[]\"]').length;"}]]
+     [:td.row-actions
+      [:input {:type "checkbox"
+               :name "ids[]"
+               :value (str record-id)
+               :onclick "event.stopPropagation();"
+               :onchange "const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; document.getElementById('select-all').checked = checked === document.querySelectorAll('input[name=\"ids[]\"]').length;"}]]
      (for [field list-fields]
        (let [field-config (get-in entity-config [:fields field])
-             value (get record field)]
-         [:td {:class (str "field-" (name field))}
-          (render-field-value field value field-config)]))
+             value (get record field)
+             editable? (and (:can-edit permissions)
+                            (not (contains? readonly-fields field))
+                            (not= field primary-key))]
+         (if editable?
+           ; Editable cell with double-click to edit (Week 2)
+           [:td {:class (str "field-" (name field) " editable")
+                 :hx-get (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/edit")
+                 :hx-trigger "dblclick"
+                 :hx-target "this"
+                 :hx-swap "innerHTML"
+                 :title "Double-click to edit"}
+            (render-field-value field value field-config)]
+           ; Non-editable cell
+           [:td {:class (str "field-" (name field))}
+            (render-field-value field value field-config)])))
      [:td.row-actions
       (when (:can-edit permissions)
         [:a.icon-button.secondary
          {:href (str "/web/admin/" (name entity-name) "/" record-id)
           :aria-label "Edit"}
          (icons/icon :edit {:size 18})])]]))
+
+;; =============================================================================
+;; Inline Editing Components (Week 2)
+;; =============================================================================
+
+(defn render-inline-edit-cell
+  "Render an editable table cell (normal display mode).
+
+   Args:
+     entity-name: Keyword entity name
+     record-id: Record ID
+     field: Keyword field name
+     value: Current field value
+     field-config: Field configuration map
+
+   Returns:
+     Hiccup td element"
+  [entity-name record-id field value field-config]
+  [:td {:class (str "field-" (name field) " editable")
+        :hx-get (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/edit")
+        :hx-trigger "dblclick"
+        :hx-target "this"
+        :hx-swap "innerHTML"
+        :title "Double-click to edit"}
+   (render-field-value field value field-config)])
+
+(defn render-inline-edit-form
+  "Render inline edit form for a single field.
+
+   Args:
+     entity-name: Keyword entity name
+     record-id: Record ID
+     field: Keyword field name
+     value: Current field value
+     field-config: Field configuration map
+
+   Returns:
+     Hiccup form structure"
+  [entity-name record-id field value field-config]
+  (let [widget-type (:widget field-config :text-input)
+        field-type (:type field-config :string)
+        required? (:required field-config false)
+        cancel-url (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/cancel")]
+    [:form.inline-edit-form
+     {:hx-patch (str "/web/admin/" (name entity-name) "/" record-id "/" (name field))
+      :hx-target "closest td"
+      :hx-swap "outerHTML"
+      :onsubmit "event.preventDefault(); htmx.trigger(this, 'submit');"}
+
+     ; Render appropriate input widget
+     (cond
+       (= widget-type :checkbox)
+       [:input {:type "checkbox"
+                :name (name field)
+                :checked (boolean value)
+                :autofocus true}]
+
+       (= widget-type :textarea)
+       [:textarea.inline-input
+        {:name (name field)
+         :required required?
+         :autofocus true
+         :rows 2}
+        (str value)]
+
+       (= widget-type :number-input)
+       [:input.inline-input
+        {:type "number"
+         :name (name field)
+         :value (str value)
+         :required required?
+         :autofocus true}]
+
+       ; Default: text input
+       :else
+       [:input.inline-input
+        {:type "text"
+         :name (name field)
+         :value (str value)
+         :required required?
+         :autofocus true}])
+
+     ; Action buttons
+     [:span.inline-actions
+      [:button.inline-save {:type "submit" :title "Save"}
+       (icons/icon :check {:size 14})]
+      [:button.inline-cancel
+       {:type "button"
+        :title "Cancel"
+        :hx-get (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/cancel")
+        :hx-target "closest td"
+        :hx-swap "outerHTML"}
+       (icons/icon :x {:size 14})]]]))
+
+(defn render-inline-edit-form-with-error
+  "Render inline edit form with validation error.
+
+   Args:
+     entity-name: Keyword entity name
+     record-id: Record ID
+     field: Keyword field name
+     value: Current (invalid) field value
+     field-config: Field configuration map
+     errors: Collection of error messages
+
+   Returns:
+     Hiccup form structure with error display"
+  [entity-name record-id field value field-config errors]
+  (let [widget-type (:widget field-config :text-input)
+        field-type (:type field-config :string)
+        required? (:required field-config false)]
+    [:div.inline-edit-error
+     [:form.inline-edit-form
+      {:hx-patch (str "/web/admin/" (name entity-name) "/" record-id "/" (name field))
+       :hx-target "closest td"
+       :hx-swap "outerHTML"}
+
+      ; Render input with error class
+      (cond
+        (= widget-type :checkbox)
+        [:input {:type "checkbox"
+                 :name (name field)
+                 :checked (boolean value)
+                 :class "error"
+                 :autofocus true}]
+
+        (= widget-type :textarea)
+        [:textarea.inline-input.error
+         {:name (name field)
+          :required required?
+          :autofocus true
+          :rows 2}
+         (str value)]
+
+        (= widget-type :number-input)
+        [:input.inline-input.error
+         {:type "number"
+          :name (name field)
+          :value (str value)
+          :required required?
+          :autofocus true}]
+
+        ; Default: text input
+        :else
+        [:input.inline-input.error
+         {:type "text"
+          :name (name field)
+          :value (str value)
+          :required required?
+          :autofocus true}])
+
+      ; Action buttons
+      [:span.inline-actions
+       [:button.inline-save {:type "submit" :title "Save"}
+        (icons/icon :check {:size 14})]
+       [:button.inline-cancel
+        {:type "button"
+         :title "Cancel"
+         :hx-get (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/cancel")
+         :hx-target "closest td"
+         :hx-swap "outerHTML"}
+        (icons/icon :x {:size 14})]]]
+
+     ; Error message
+     [:div.inline-error-message
+      (str/join ", " errors)]]))
 
 (defn entity-table
   "Generate entity table with sorting and pagination.
@@ -326,10 +506,10 @@
          [:table.data-table
           [:thead
            [:tr
-             [:th
-              [:input {:type "checkbox"
-                       :id "select-all"
-                       :onchange "const checkboxes = document.querySelectorAll('input[name=\"ids[]\"]'); checkboxes.forEach(cb => cb.checked = this.checked); setTimeout(() => { const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; }, 0);"}]]
+            [:th
+             [:input {:type "checkbox"
+                      :id "select-all"
+                      :onchange "const checkboxes = document.querySelectorAll('input[name=\"ids[]\"]'); checkboxes.forEach(cb => cb.checked = this.checked); setTimeout(() => { const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; }, 0);"}]]
             (for [field list-fields]
               (let [field-config (get-in entity-config [:fields field])
                     sortable? (:sortable field-config true)]
@@ -383,13 +563,13 @@
      ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
      [:div.table-toolbar-container
       ;; Left: Bulk actions
-        [:div.table-toolbar-left
-         [:form#bulk-action-form
-          {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
-           :hx-target "#entity-table-container"
-           :hx-swap "outerHTML"
-           :hx-include "[name='ids[]']"}
-          [:button.icon-button.danger
+      [:div.table-toolbar-left
+       [:form#bulk-action-form
+        {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
+         :hx-target "#entity-table-container"
+         :hx-swap "outerHTML"
+         :hx-include "[name='ids[]']"}
+        [:button.icon-button.danger
          {:type "submit"
           :name "action"
           :value "delete"

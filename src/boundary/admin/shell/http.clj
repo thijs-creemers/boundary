@@ -10,17 +10,17 @@
 
    All routes require authentication and admin role.
    Routes follow normalized format for consistent interceptor application."
-   (:require
-    [boundary.admin.ports :as ports]
-    [boundary.admin.core.ui :as admin-ui]
-    [boundary.admin.core.permissions :as permissions]
-    [boundary.shared.ui.core.components :as ui-components]
-    [boundary.shared.ui.core.validation :as ui-validation]
-    [boundary.platform.core.http.problem-details :as problem-details]
-    [boundary.user.shell.middleware :as user-middleware]
-    [clojure.string :as str]
-    [clojure.tools.logging :as log]
-    [ring.util.response :as ring-response])
+  (:require
+   [boundary.admin.ports :as ports]
+   [boundary.admin.core.ui :as admin-ui]
+   [boundary.admin.core.permissions :as permissions]
+   [boundary.shared.ui.core.components :as ui-components]
+   [boundary.shared.ui.core.validation :as ui-validation]
+   [boundary.platform.core.http.problem-details :as problem-details]
+   [boundary.user.shell.middleware :as user-middleware]
+   [clojure.string :as str]
+   [clojure.tools.logging :as log]
+   [ring.util.response :as ring-response])
   (:import [java.util UUID]))
 
 ;; =============================================================================
@@ -191,17 +191,17 @@
            field-type (:type field-config :string)
 
             ; Convert string value to appropriate type
-            typed-value (cond
+           typed-value (cond
                           ; Empty strings become nil
-                          (str/blank? value) nil
+                         (str/blank? value) nil
 
                           ; Boolean checkbox values - checkboxes send "on" or "true"
-                          (= field-type :boolean)
-                          (contains? #{"on" "true" "1"} value)
+                         (= field-type :boolean)
+                         (contains? #{"on" "true" "1"} value)
 
                           ; Integer values
-                          (= field-type :int)
-                          (parse-long value)
+                         (= field-type :int)
+                         (parse-long value)
 
                          ; Decimal values
                          (= field-type :decimal)
@@ -330,7 +330,7 @@
 
    Week 1: Simple redirect to first entity in list
    Week 2+: Dashboard with stats, recent activity, quick actions"
-   [admin-service schema-provider config]
+  [admin-service schema-provider config]
   (fn [request]
     (let [user (require-admin-user! request)
           _ (log/info "After require-admin-user!" {:user-email (:email user)})
@@ -571,20 +571,20 @@
       (if (:valid? validation-result)
         ; Create entity and return list page
         (let [created-entity (ports/create-entity admin-service entity-name form-data)
-              
+
               ; Fetch list page data
               entities (ports/list-available-entities schema-provider)
               entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
-              
+
               ; Get entity list with default options
               result (ports/list-entities admin-service entity-name {})
               records (:records result)
               total-count (:total-count result)
               table-query {:page-size (:page-size result)
-                          :page (:page-number result)}
-              
+                           :page (:page-number result)}
+
               permissions (permissions/get-entity-permissions user entity-name entity-config)]
-          
+
           ; Return list page HTML with success message
           (html-response
            (admin-ui/admin-layout
@@ -638,7 +638,7 @@
                          (:body-params request)
                          (:params request)
                          {})
-          
+
           form-data (parse-form-params raw-params entity-config)
 
           ; Validate data
@@ -647,20 +647,20 @@
       (if (:valid? validation-result)
         ; Update entity and redirect
         (let [updated-entity (ports/update-entity admin-service entity-name id form-data)
-              
+
               ; Fetch list page data
               entities (ports/list-available-entities schema-provider)
               entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
-              
+
               ; Get entity list with default options
               result (ports/list-entities admin-service entity-name {})
               records (:records result)
               total-count (:total-count result)
               table-query {:page-size (:page-size result)
-                          :page (:page-number result)}
-              
+                           :page (:page-number result)}
+
               permissions (permissions/get-entity-permissions user entity-name entity-config)]
-          
+
           ; Return list page HTML with success message
           (html-response
            (admin-ui/admin-layout
@@ -769,17 +769,183 @@
             table-query {:page-size (:page-size list-result)
                          :page (:page-number list-result)}
             permissions (permissions/get-entity-permissions user entity-name entity-config)
-            
+
             ; Create flash message
             flash-msg (if (zero? failed-count)
-                       {:type :success
-                        :message (str "Successfully deleted " success-count " " (:label entity-config))}
-                       {:type :warning
-                        :message (str "Deleted " success-count ", failed " failed-count)})]
-        
-        ; Return table HTML fragment
+                        {:type :success
+                         :message (str "Successfully deleted " success-count " " (:label entity-config))}
+                        {:type :warning
+                         :message (str "Deleted " success-count ", failed " failed-count)})]
+
+         ; Return table HTML fragment
         (htmx-fragment-response
          (admin-ui/entity-table entity-name records entity-config table-query total-count permissions {} flash-msg))))))
+
+;; =============================================================================
+;; Inline Editing Handlers (Week 2)
+;; =============================================================================
+
+(defn parse-field-value
+  "Parse a single field value from string to appropriate type.
+
+   Helper function for inline editing - extracts type conversion logic
+   from parse-form-params.
+
+   Args:
+     value: String value from form
+     field-config: Field configuration map
+
+   Returns:
+     Typed value or nil"
+  [value field-config]
+  (let [field-type (:type field-config :string)]
+    (cond
+      ; Empty strings become nil
+      (str/blank? value) nil
+
+      ; Boolean checkbox values
+      (= field-type :boolean)
+      (contains? #{"on" "true" "1"} value)
+
+      ; Integer values
+      (= field-type :int)
+      (parse-long value)
+
+      ; Decimal values
+      (= field-type :decimal)
+      (bigdec value)
+
+      ; UUID values
+      (= field-type :uuid)
+      (UUID/fromString value)
+
+      ; Default: keep as string
+      :else value)))
+
+(defn inline-edit-widget-handler
+  "Handler for GET /:entity/:id/:field/edit - returns inline edit form.
+
+   Returns HTMX fragment with form widget for editing a single field."
+  [admin-service schema-provider config]
+  (fn [request]
+    (let [user (require-admin-user! request)
+          entity-name (get-entity-name request)
+          id (get-entity-id request)
+          field (keyword (get-in request [:path-params :field]))
+
+          ; Verify entity is accessible
+          _ (when-not (ports/validate-entity-exists schema-provider entity-name)
+              (throw (ex-info "Entity not allowed"
+                              {:type :entity-not-allowed
+                               :entity-name entity-name})))
+
+          entity-config (ports/get-entity-config schema-provider entity-name)
+          field-config (get-in entity-config [:fields field])
+
+          ; Check permissions
+          _ (permissions/assert-can-edit-entity! user entity-name entity-config)
+
+          ; Verify field exists and is not readonly
+          _ (when-not field-config
+              (throw (ex-info "Field not found"
+                              {:type :not-found
+                               :field field})))
+
+          readonly-fields (set (:readonly-fields entity-config))
+          _ (when (contains? readonly-fields field)
+              (throw (ex-info "Cannot edit readonly field"
+                              {:type :forbidden
+                               :field field})))
+
+          ; Get current record
+          record (ports/get-entity admin-service entity-name id)
+          current-value (get record field)]
+
+      ; Return inline edit form fragment
+      (html-response
+       (admin-ui/render-inline-edit-form entity-name id field current-value field-config)))))
+
+(defn update-field-handler
+  "Handler for PATCH /:entity/:id/:field - updates single field.
+
+   Validates and updates single field, returns updated cell HTML."
+  [admin-service schema-provider config]
+  (fn [request]
+    (let [user (require-admin-user! request)
+          entity-name (get-entity-name request)
+          id (get-entity-id request)
+          field (keyword (get-in request [:path-params :field]))
+
+          ; Verify entity is accessible
+          _ (when-not (ports/validate-entity-exists schema-provider entity-name)
+              (throw (ex-info "Entity not allowed"
+                              {:type :entity-not-allowed
+                               :entity-name entity-name})))
+
+          entity-config (ports/get-entity-config schema-provider entity-name)
+          field-config (get-in entity-config [:fields field])
+
+          ; Check permissions
+          _ (permissions/assert-can-edit-entity! user entity-name entity-config)
+
+          ; Get new value from form
+          raw-params (or (:form-params request)
+                         (:body-params request)
+                         (:params request)
+                         {})
+
+          ; Parse the field value using the same logic as full form parsing
+          field-value (get raw-params (name field))
+          parsed-value (parse-field-value field-value field-config)]
+
+      (try
+        ; Update single field
+        (let [updated-record (ports/update-entity-field admin-service entity-name id field parsed-value)
+              new-value (get updated-record field)]
+
+          ; Return updated cell HTML with success indicator
+          (-> (html-response
+               (admin-ui/render-inline-edit-cell entity-name id field new-value field-config))
+              (ring-response/header "HX-Trigger" "entityUpdated")))
+
+        (catch Exception e
+          (let [error-data (ex-data e)]
+            (if (= (:type error-data) :validation-error)
+              ; Return inline form with error message
+              (html-response
+               (admin-ui/render-inline-edit-form-with-error
+                entity-name id field parsed-value field-config
+                (get-in error-data [:errors field] ["Validation failed"])))
+              ; Re-throw other errors
+              (throw e))))))))
+
+(defn cancel-inline-edit-handler
+  "Handler for GET /:entity/:id/:field/cancel - cancels inline edit.
+
+   Returns the original cell HTML without changes."
+  [admin-service schema-provider config]
+  (fn [request]
+    (let [user (require-admin-user! request)
+          entity-name (get-entity-name request)
+          id (get-entity-id request)
+          field (keyword (get-in request [:path-params :field]))
+
+          ; Verify entity is accessible
+          _ (when-not (ports/validate-entity-exists schema-provider entity-name)
+              (throw (ex-info "Entity not allowed"
+                              {:type :entity-not-allowed
+                               :entity-name entity-name})))
+
+          entity-config (ports/get-entity-config schema-provider entity-name)
+          field-config (get-in entity-config [:fields field])
+
+          ; Get current record
+          record (ports/get-entity admin-service entity-name id)
+          current-value (get record field)]
+
+      ; Return original cell HTML
+      (html-response
+       (admin-ui/render-inline-edit-cell entity-name id field current-value field-config)))))
 
 ;; =============================================================================
 ;; Route Definitions
@@ -799,7 +965,7 @@
       :methods {:get {:handler (admin-home-handler admin-service schema-provider config)
                       :summary "Admin home page"}}}
 
-     ;; More specific routes first (to avoid matching /:id patterns)
+      ;; More specific routes first (to avoid matching /:id patterns)
      {:path "/:entity/new"
       :meta {:middleware [auth-middleware]}
       :methods {:get {:handler (new-entity-handler admin-service schema-provider config)
@@ -815,7 +981,23 @@
       :methods {:post {:handler (bulk-delete-handler admin-service schema-provider config)
                        :summary "Bulk delete entities"}}}
 
-     ;; General routes with path params last
+      ;; Inline editing routes (Week 2)
+     {:path "/:entity/:id/:field/edit"
+      :meta {:middleware [auth-middleware]}
+      :methods {:get {:handler (inline-edit-widget-handler admin-service schema-provider config)
+                      :summary "Get inline edit form for field"}}}
+
+     {:path "/:entity/:id/:field/cancel"
+      :meta {:middleware [auth-middleware]}
+      :methods {:get {:handler (cancel-inline-edit-handler admin-service schema-provider config)
+                      :summary "Cancel inline edit"}}}
+
+     {:path "/:entity/:id/:field"
+      :meta {:middleware [auth-middleware]}
+      :methods {:patch {:handler (update-field-handler admin-service schema-provider config)
+                        :summary "Update single field (inline edit)"}}}
+
+      ;; General routes with path params last
      {:path "/:entity"
       :meta {:middleware [auth-middleware]}
       :methods {:get {:handler (entity-list-handler admin-service schema-provider config)

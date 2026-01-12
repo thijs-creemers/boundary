@@ -584,3 +584,191 @@
     padding: 0;
   }
 }
+
+/* =============================================================================
+   Inline Editing (Week 2)
+   ============================================================================= */
+
+/* Editable cells */
+.data-table td.editable {
+  cursor: pointer;
+  position: relative;
+  transition: background-color var(--transition-fast);
+}
+
+.data-table td.editable:hover {
+  background-color: var(--color-primary-50);
+}
+
+[data-theme="dark"] .data-table td.editable:hover {
+  background-color: var(--color-primary-900);
+}
+
+.data-table td.editable::after {
+  content: '✎';
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.data-table td.editable:hover::after {
+  opacity: 1;
+}
+
+/* Inline edit form */
+.inline-edit-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  min-width: 200px;
+}
+
+.inline-input {
+  flex: 1;
+  padding: var(--space-2);
+  font-size: var(--text-sm);
+  border: 1px solid var(--color-primary-500);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.inline-input:focus {
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.inline-input.error {
+  border-color: var(--color-error-500);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Inline action buttons */
+.inline-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.inline-save,
+.inline-cancel {
+  padding: var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  width: 28px;
+  height: 28px;
+}
+
+.inline-save {
+  background: var(--color-success-500);
+  color: white;
+}
+
+.inline-save:hover {
+  background: var(--color-success-600);
+  transform: scale(1.1);
+}
+
+.inline-cancel {
+  background: var(--color-neutral-200);
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .inline-cancel {
+  background: var(--color-neutral-700);
+  color: var(--text-secondary);
+}
+
+.inline-cancel:hover {
+  background: var(--color-neutral-300);
+  transform: scale(1.1);
+}
+
+[data-theme="dark"] .inline-cancel:hover {
+  background: var(--color-neutral-600);
+}
+
+/* Inline error message */
+.inline-edit-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.inline-error-message {
+  font-size: var(--text-xs);
+  color: var(--color-error-600);
+  padding: var(--space-1);
+}
+
+[data-theme="dark"] .inline-error-message {
+  color: var(--color-error-400);
+}
+
+/* Loading state for inline edit */
+.inline-edit-form.htmx-request {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.inline-edit-form.htmx-request .inline-save::after {
+  content: '';
+  display: block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid white;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Mobile: Stack inline form vertically */
+@media (max-width: 768px) {
+  .inline-edit-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inline-actions {
+    justify-content: flex-end;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .data-table td.editable,
+  .inline-input,
+  .inline-save,
+  .inline-cancel {
+    transition: none;
+  }
+
+  .inline-save:hover,
+  .inline-cancel:hover {
+    transform: none;
+  }
+
+  .inline-edit-form.htmx-request .inline-save::after {
+    animation: none;
+  }
+}
+
