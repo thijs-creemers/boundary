@@ -485,34 +485,8 @@
                 :middleware [auth-middleware]}
       :methods {:get {:handler (web-handlers/dashboard-page-handler user-service mfa-service config)
                       :summary "User dashboard page"}}}
-     {:path    "/users"
-      :meta    {:no-doc     true
-                :middleware [auth-middleware]}
-      :methods {:get  {:handler (web-handlers/users-page-handler user-service config)
-                       :summary "Users listing page"}
-                :post {:handler (web-handlers/create-user-htmx-handler user-service config)
-                       :summary "Create user (HTMX fragment)"}}}
-     {:path    "/users/bulk"
-      :meta    {:no-doc     true
-                :middleware [auth-middleware]}
-      :methods {:post {:handler (web-handlers/bulk-update-users-htmx-handler user-service config)
-                       :summary "Bulk user operations (HTMX fragment)"}}}
-     {:path    "/users/new"
-      :meta    {:no-doc     true
-                :middleware [auth-middleware]}
-      :methods {:get {:handler (web-handlers/create-user-page-handler config)
-                      :summary "Create user page"}}}
-     {:path    "/users/table"
-      :meta    {:no-doc     true
-                :middleware [auth-middleware]}
-      :methods {:get {:handler (web-handlers/users-table-fragment-handler user-service config)
-                      :summary "Users table fragment (HTMX refresh)"}}}
-     {:path    "/users/:id/hard-delete"
-      :meta    {:no-doc     true
-                :middleware [auth-middleware]}
-      :methods {:post {:handler (web-handlers/hard-delete-user-handler user-service config)
-                       :summary "Permanently delete user (admin only)"}}}
-     {:path    "/users/:id/sessions"
+      ;; Session management routes (user-specific, not duplicated in admin)
+      {:path    "/users/:id/sessions"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:get {:handler (web-handlers/user-sessions-page-handler user-service config)
@@ -522,20 +496,12 @@
                 :middleware [auth-middleware]}
       :methods {:post {:handler (web-handlers/revoke-all-sessions-handler user-service config)
                        :summary "Revoke all user sessions"}}}
-     {:path    "/users/:id"
-      :meta    {:no-doc     true
-                :middleware [auth-middleware]}
-      :methods {:get    {:handler (web-handlers/user-detail-page-handler user-service config)
-                         :summary "User detail page"}
-                :put    {:handler (web-handlers/update-user-htmx-handler user-service config)
-                         :summary "Update user (HTMX fragment)"}
-                :delete {:handler (web-handlers/delete-user-htmx-handler user-service config)
-                         :summary "Delete user (HTMX fragment)"}}}
      {:path    "/sessions/:token/revoke"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:post {:handler (web-handlers/revoke-session-handler user-service config)
                        :summary "Revoke specific session"}}}
+     ;; Audit trail routes
      {:path    "/audit"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
@@ -546,15 +512,25 @@
                 :middleware [auth-middleware]}
       :methods {:get {:handler (web-handlers/audit-table-fragment-handler user-service config)
                       :summary "Audit table fragment (HTMX refresh)"}}}
-     ;; Profile routes
-     {:path    "/profile"
-      :meta    {:no-doc     true
-                :middleware [auth-middleware]}
-      :methods {:get  {:handler (web-handlers/profile-page-handler user-service mfa-service config)
-                       :summary "User profile page"}
-                :post {:handler (web-handlers/profile-edit-handler user-service config)
-                       :summary "Update profile (HTMX fragment)"}}}
-     {:path    "/profile/preferences"
+      ;; Profile routes
+      {:path    "/profile"
+       :meta    {:no-doc     true
+                 :middleware [auth-middleware]}
+       :methods {:get  {:handler (web-handlers/profile-page-handler user-service mfa-service config)
+                        :summary "User profile page"}
+                 :post {:handler (web-handlers/profile-edit-handler user-service config)
+                        :summary "Update profile (HTMX fragment)"}}}
+      {:path    "/profile/edit"
+       :meta    {:no-doc     true
+                 :middleware [auth-middleware]}
+       :methods {:get {:handler (web-handlers/profile-edit-form-handler user-service config)
+                       :summary "Show profile edit form (HTMX fragment)"}}}
+      {:path    "/profile/preferences/edit"
+       :meta    {:no-doc     true
+                 :middleware [auth-middleware]}
+       :methods {:get {:handler (web-handlers/preferences-edit-form-handler user-service config)
+                       :summary "Show preferences edit form (HTMX fragment)"}}}
+      {:path    "/profile/preferences"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:post {:handler (web-handlers/preferences-edit-handler user-service config)

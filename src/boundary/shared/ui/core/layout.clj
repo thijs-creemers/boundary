@@ -17,15 +17,12 @@
   [& [opts]]
   (let [{:keys [user]} opts]
     [:nav
-     [:a.logo {:href "/"} "Boundary App"]
-     (when user
-       [:div.nav-links
-        [:a {:href "/web/users"}
-         (icons/icon :users {:size 18})
-         [:span {:style "margin-left: 0.5rem;"} "Users"]]
-        [:a {:href "/web/audit"}
-         (icons/icon :file-text {:size 18})
-         [:span {:style "margin-left: 0.5rem;"} "Audit Trail"]]])
+     [:a.logo {:href (if user "/web/dashboard" "/")} "Boundary App"]
+      (when user
+        [:div.nav-links
+         [:a {:href "/web/audit"}
+          (icons/icon :file-text {:size 18})
+          [:span {:style "margin-left: 0.5rem;"} "Audit Trail"]]])
      (if user
        [:div.user-nav
         (icons/theme-toggle-button)
@@ -34,18 +31,15 @@
           (icons/icon :user {:size 18})
           [:span {:style "margin-left: 0.5rem;"} (:name user)]
           (icons/icon :chevron-down {:size 16 :style "margin-left: 0.25rem;"})]
-         [:div.dropdown-menu {:id "user-dropdown-menu" :style "display: none;"}
-          [:a.dropdown-item {:href "/web/profile"}
-           (icons/icon :user {:size 18})
-           [:span "Profile"]]
-          [:a.dropdown-item {:href "/web/profile/mfa/setup"}
-           (icons/icon :shield {:size 18})
-           [:span "Security"]]
-          [:div.dropdown-divider]
-          [:form {:method "POST" :action "/web/logout"}
-           [:button.dropdown-item {:type "submit"}
-            (icons/icon :log-out {:size 18})
-            [:span "Logout"]]]]]]
+          [:div.dropdown-menu {:id "user-dropdown-menu" :style "display: none;"}
+           [:a.dropdown-item {:href "/web/profile"}
+            (icons/icon :user {:size 18})
+            [:span "Profile & Security"]]
+           [:div.dropdown-divider]
+           [:form {:method "POST" :action "/web/logout"}
+            [:button.dropdown-item {:type "submit"}
+             (icons/icon :log-out {:size 18})
+             [:span "Logout"]]]]]]
        [:div.user-nav
         (icons/theme-toggle-button)
         [:a {:href "/web/login"} "Login"]])]))

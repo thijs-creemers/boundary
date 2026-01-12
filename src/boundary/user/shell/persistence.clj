@@ -81,6 +81,9 @@
         (update :deleted-at type-conversion/instant->string)
         (update :last-login type-conversion/instant->string)
         (update :mfa-enabled-at type-conversion/instant->string)
+        ;; Convert enum fields to strings
+        (update :date-format type-conversion/keyword->string)
+        (update :time-format type-conversion/keyword->string)
         ;; Serialize MFA vector fields to JSON
         (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
         (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
@@ -104,9 +107,12 @@
           (update :deleted-at type-conversion/string->instant)
           (update :last-login type-conversion/string->instant)
           (update :mfa-enabled-at type-conversion/string->instant)
+          ;; Convert enum fields to keywords
+          (update :date-format type-conversion/string->keyword)
+          (update :time-format type-conversion/string->keyword)
            ;; Deserialize MFA vector fields from JSON
-          (update :mfa-backup-codes #(when % (cheshire.core/parse-string % true)))
-          (update :mfa-backup-codes-used #(when % (cheshire.core/parse-string % true)))))))
+          (update :mfa-backup-codes #(when % (vec (cheshire.core/parse-string % true))))
+          (update :mfa-backup-codes-used #(when % (vec (cheshire.core/parse-string % true))))))))
 
 (defn- session-entity->db
   "Transform session domain entity to database format."

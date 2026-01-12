@@ -92,6 +92,24 @@
                                    :body-length (count (str body-content))})
      response)))
 
+(defn- remove-nil-values
+  "Remove keys with nil values from a map.
+   
+   This is needed because optional schema fields like :boolean or :int
+   don't accept nil values - they must either be present with the correct
+   type or completely absent from the map.
+   
+   Fields with [:maybe ...] in the schema CAN have nil values and should
+   be kept (e.g., :mfa-secret, :updated-at, :deleted-at).
+   
+   Args:
+     m: Map to filter
+     
+   Returns:
+     Map with nil values removed"
+  [m]
+  (into {} (filter (fn [[_ v]] (some? v)) m)))
+
 (defn- build-user-list-opts
   "Build list-users options from table query and search filters.
 
@@ -988,10 +1006,35 @@
            404)))
       (catch Exception e
         (log/error e "Error in profile-page-handler")
-        (html-response
-         (layout/page-layout "Error"
-                             (ui/error-message (.getMessage e)))
-         500)))))
+         (html-response
+          (layout/page-layout "Error"
+                              (ui/error-message (.getMessage e)))
+          500)))))
+
+(defn profile-edit-form-handler
+  "Handler to show profile edit form (GET /web/profile/edit).
+   
+   HTMX handler that returns the edit form fragment.
+   
+   Args:
+     user-service: User service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [user-service config]
+  (fn [request]
+    (try
+      (let [current-user (:user request)
+            user-id (:id current-user)
+            ;; Get fresh user data
+            user (user-ports/get-user-by-id user-service user-id)]
+        (if user
+          (html-response (profile-ui/profile-edit-form user))
+          (html-response (ui/error-message "User not found") 404)))
+      (catch Exception e
+        (log/error e "Error in profile-edit-form-handler")
+        (html-response (ui/error-message (.getMessage e)) 500)))))
 
 (defn profile-edit-handler
   "Handler for profile edit submission (POST /web/profile).
@@ -1020,8 +1063,10 @@
           (try
             ;; Get existing user and update
             (let [user (user-ports/get-user-by-id user-service user-id)
+                  ;; Remove nil values to avoid schema validation errors for optional fields
+                  clean-user (remove-nil-values user)
                   updated-user (user-ports/update-user-profile user-service
-                                                               (merge user prepared-data))]
+                                                               (merge clean-user prepared-data))]
               ;; Return success with updated info card
               (html-response
                (profile-ui/profile-info-card updated-user)))
@@ -1029,7 +1074,32 @@
               (log/error e "Error updating profile")
               (html-response (ui/error-message (.getMessage e)) 500)))))
       (catch Exception e
-        (log/error e "Error in profile-edit-handler")
+         (log/error e "Error in profile-edit-handler")
+         (html-response (ui/error-message (.getMessage e)) 500)))))
+
+(defn preferences-edit-form-handler
+  "Handler to show preferences edit form (GET /web/profile/preferences/edit).
+   
+   HTMX handler that returns the edit form fragment.
+   
+   Args:
+     user-service: User service instance
+     config: Application configuration map
+     
+   Returns:
+     Ring handler function"
+  [user-service config]
+  (fn [request]
+    (try
+      (let [current-user (:user request)
+            user-id (:id current-user)
+            ;; Get fresh user data
+            user (user-ports/get-user-by-id user-service user-id)]
+        (if user
+          (html-response (profile-ui/preferences-edit-form user))
+          (html-response (ui/error-message "User not found") 404)))
+      (catch Exception e
+        (log/error e "Error in preferences-edit-form-handler")
         (html-response (ui/error-message (.getMessage e)) 500)))))
 
 (defn preferences-edit-handler
@@ -1054,8 +1124,10 @@
         (try
           ;; Get existing user and update preferences
           (let [user (user-ports/get-user-by-id user-service user-id)
+                ;; Remove nil values to avoid schema validation errors for optional fields
+                clean-user (remove-nil-values user)
                 updated-user (user-ports/update-user-profile user-service
-                                                             (merge user prepared-data))]
+                                                             (merge clean-user prepared-data))]
             ;; Return success with updated preferences card
             (html-response
              (profile-ui/preferences-card updated-user)))

@@ -1271,25 +1271,27 @@
          [:div.stat-value {:class (if mfa-enabled? "text-success" "text-warning")}
           (if mfa-enabled? "Enabled" "Disabled")]]]]
 
-      ;; Action Cards
-      [:div.dashboard-cards
-       [:div.dashboard-card
-        [:div.card-icon (icons/icon :user {:size 32})]
-        [:h2 "Your Profile"]
-        [:p "View and manage your account settings"]
-        [:a.button.secondary {:href "/web/profile"} "View Profile"]]
+       ;; Action Cards
+       [:div.dashboard-cards
+        [:div.dashboard-card
+         [:div.card-icon (icons/icon :user {:size 32})]
+         [:h2 "Profile & Security"]
+         [:p "Manage your profile, password, two-factor authentication, and preferences"]
+         [:a.button.secondary {:href "/web/profile"} "View Profile"]]
 
-       [:div.dashboard-card
-        [:div.card-icon (icons/icon :lock {:size 32})]
-        [:h2 "Active Sessions"]
-        [:p (str "You have " active-sessions " active session"
-                 (when (not= active-sessions 1) "s"))]
-        [:a.button.secondary {:href (str "/web/users/" (:id user) "/sessions")}
-         "Manage Sessions"]]
+        [:div.dashboard-card
+         [:div.card-icon (icons/icon :lock {:size 32})]
+         [:h2 "Active Sessions"]
+         [:p (str "You have " active-sessions " active session"
+                  (when (not= active-sessions 1) "s"))]
+         [:a.button.secondary {:href (str "/web/users/" (:id user) "/sessions")}
+          "Manage Sessions"]]
 
-       [:div.dashboard-card
-        [:div.card-icon (icons/icon :shield {:size 32})]
-        [:h2 "Security Settings"]
-        [:p "Manage your password, two-factor authentication, and active sessions"]
-        [:a.button.secondary {:href "/web/profile"} "View Security Settings"]]]]
+        ;; Admin Panel card - only for admin users
+        (when (= :admin (:role user))
+          [:div.dashboard-card
+           [:div.card-icon (icons/icon :shield {:size 32})]
+           [:h2 "Admin Panel"]
+           [:p "Manage users, view audit trails, and configure system settings"]
+           [:a.button.secondary {:href "/web/admin/"} "Go to Admin Panel"]])]]
      opts)))
