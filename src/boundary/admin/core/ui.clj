@@ -369,13 +369,13 @@
      ;; Field name (read-only label)
      [:span.filter-field-label field-label]
 
-     ;; Operator selector
-     [:select.filter-operator-select
-      {:name (str "filters[" (name field-name) "][op]")
-       :hx-get (str "/web/admin/" (name entity-name) "/table")
-       :hx-target "#entity-table-container"
-       :hx-trigger "change"
-       :hx-include "closest form"}
+      ;; Operator selector
+      [:select.filter-operator-select
+       {:name (str "filters[" (name field-name) "][op]")
+        :hx-get (str "/web/admin/" (name entity-name) "/table")
+        :hx-target "#filter-table-container"
+        :hx-trigger "change"
+        :hx-include "closest form"}
       (for [[op label] operators]
         [:option {:value (name op)
                   :selected (= current-op op)}
@@ -384,15 +384,15 @@
      ;; Value input(s) - changes based on operator
      (render-filter-value-inputs field-name field-config current-op filter-value)
 
-     ;; Remove filter button
-     [:button.icon-button.secondary
-      {:type "button"
-       :aria-label "Remove filter"
-       :hx-get (str "/web/admin/" (name entity-name) "/table")
-       :hx-target "#entity-table-container"
-       :hx-trigger "click"
-       :hx-vals (str "{\"remove_filter\": \"" (name field-name) "\"}")
-       :hx-include "closest form"}
+      ;; Remove filter button
+      [:button.icon-button.secondary
+       {:type "button"
+        :aria-label "Remove filter"
+        :hx-get (str "/web/admin/" (name entity-name) "/table")
+        :hx-target "#filter-table-container"
+        :hx-trigger "click"
+        :hx-vals (str "{\"remove_filter\": \"" (name field-name) "\"}")
+        :hx-include "closest form"}
       (icons/icon :x {:size 16})]]))
 
 (defn render-filter-builder
@@ -411,23 +411,23 @@
         has-active-filters? (seq current-filters)
         current-filters (or current-filters {})]
     [:div.filter-builder
-     [:div.filter-builder-header
-      [:span.filter-builder-title "Filters"]
-      (when has-active-filters?
-        [:button.text-button
-         {:type "button"
-          :hx-get (str "/web/admin/" (name entity-name) "/table")
-          :hx-target "#entity-table-container"
-          :hx-trigger "click"}
-         (icons/icon :x {:size 14})
-         " Clear all"])]
+      [:div.filter-builder-header
+       [:span.filter-builder-title "Filters"]
+       (when has-active-filters?
+         [:button.text-button
+          {:type "button"
+           :hx-get (str "/web/admin/" (name entity-name) "/table")
+           :hx-target "#filter-table-container"
+           :hx-trigger "click"}
+          (icons/icon :x {:size 14})
+          " Clear all"])]
 
-     ;; Form wrapper for all filters
-     [:form.filter-form
-      {:hx-get (str "/web/admin/" (name entity-name) "/table")
-       :hx-target "#entity-table-container"
-       :hx-trigger "submit, change delay:500ms from:input, change from:select"
-       :hx-push-url "true"}
+      ;; Form wrapper for all filters
+      [:form.filter-form
+       {:hx-get (str "/web/admin/" (name entity-name) "/table")
+        :hx-target "#filter-table-container"
+        :hx-trigger "submit, change delay:500ms from:input, change from:select"
+        :hx-push-url "true"}
 
       ;; Active filter rows
       (when has-active-filters?
@@ -438,19 +438,19 @@
 
       ;; Add filter dropdown
       (when (seq filterable-fields)
-        [:div.filter-add-row
-         [:select.filter-field-select
-          {:name "add_filter_field"
-           :hx-get (str "/web/admin/" (name entity-name) "/table")
-           :hx-target "#entity-table-container"
-           :hx-trigger "change"
-           :hx-include "closest form"}
-          [:option {:value ""} "+ Add filter..."]
-          (for [field-name filterable-fields
-                :when (not (contains? current-filters field-name))]
-            (let [field-config (get-in entity-config [:fields field-name])
-                  field-label (:label field-config (str/capitalize (name field-name)))]
-              [:option {:value (name field-name)} field-label]))]])
+         [:div.filter-add-row
+          [:select.filter-field-select
+           {:name "add_filter_field"
+            :hx-get (str "/web/admin/" (name entity-name) "/table")
+            :hx-target "#filter-table-container"
+            :hx-trigger "change"
+            :hx-include "closest form"}
+           [:option {:value ""} "+ Add filter..."]
+           (for [field-name filterable-fields
+                 :when (not (contains? current-filters field-name))]
+             (let [field-config (get-in entity-config [:fields field-name])
+                   field-label (:label field-config (str/capitalize (name field-name)))]
+               [:option {:value (name field-name)} field-label]))]])
 
       ;; Apply button (for manual submission if auto-trigger doesn't work)
       (when has-active-filters?
@@ -813,11 +813,8 @@
         search-value (:search search)]
     [:div.entity-list-page
      (when flash
-       (for [[type message] flash]
-         [:div {:class (str "alert alert-" (name type))} message]))
-
-       ;; Advanced filter builder (Week 2) - Always show so users can add filters
-     (render-filter-builder entity-name entity-config filters)
+        (for [[type message] flash]
+          [:div {:class (str "alert alert-" (name type))} message]))
 
        ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
      [:div.table-toolbar-container
@@ -877,8 +874,12 @@
        ;; Record count
        [:span.record-count {:id "total-count"} (str total-count " " label)]]]
 
-     ;; Table (THIS is the HTMX target)
-     (entity-table entity-name records entity-config table-query total-count permissions filters)]))
+      ;; Filter builder + Table wrapper (THIS is the HTMX target for filter updates)
+     [:div#filter-table-container
+      ;; Filter builder (will be updated by HTMX)
+      (render-filter-builder entity-name entity-config filters)
+      ;; Table (will also be updated by HTMX)
+      (entity-table entity-name records entity-config table-query total-count permissions filters)]]))
 
 ;; =============================================================================
 ;; Entity Detail/Edit Components

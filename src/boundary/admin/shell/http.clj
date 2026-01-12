@@ -519,7 +519,11 @@
           permissions (permissions/get-entity-permissions user entity-name entity-config)]
 
       (htmx-fragment-response
-       (admin-ui/entity-table entity-name records entity-config table-query total-count permissions (:filters options))))))
+       [:div#filter-table-container
+        ;; Filter builder (will be updated by HTMX)
+        (admin-ui/render-filter-builder entity-name entity-config (:filters options))
+        ;; Table (will also be updated by HTMX)
+        (admin-ui/entity-table entity-name records entity-config table-query total-count permissions (:filters options))]))))
 
 ;; =============================================================================
 ;; Entity Detail/Edit Handlers
