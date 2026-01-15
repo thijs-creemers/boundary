@@ -199,6 +199,100 @@
         (vec (cons :and non-nil-clauses))))))
 
 ;; =============================================================================
+;; Relationship Enrichment (Week 3)
+;; =============================================================================
+
+(defn fetch-related-entities-batch
+  "Fetch related entity display values in batch to avoid N+1 queries.
+   
+   Args:
+     db-ctx: Database context
+     schema-provider: Schema provider for entity configuration
+     related-entity: Keyword entity name (e.g., :users)
+     display-field: Field to display (e.g., :email, :name)
+     ids: Collection of foreign key IDs
+   
+   Returns:
+     Map of {id -> display-value}
+   
+   Example:
+     (fetch-related-entities-batch db-ctx schema :users :email [\"id1\" \"id2\"])
+     ;=> {\"id1\" \"john@example.com\", \"id2\" \"jane@example.com\"}"
+  [db-ctx schema-provider related-entity display-field ids]
+  (when (seq ids)
+    (let [entity-config (ports/get-entity-config schema-provider related-entity)
+          table-name (:table-name entity-config)
+          primary-key (:primary-key entity-config :id)
+          ; Convert to snake_case for database query
+          snake-primary-key (case-conversion/kebab-case->snake-case-keyword primary-key)
+          snake-display-field (case-conversion/kebab-case->snake-case-keyword display-field)
+          query {:select [snake-primary-key snake-display-field]
+                 :from [table-name]
+                 :where [:in snake-primary-key (vec ids)]}
+          results (db/execute-query! db-ctx query)]
+      ; Convert results back to kebab-case and build lookup map
+      (into {} (map (fn [row]
+                      (let [kebab-row (case-conversion/snake-case->kebab-case-map row)]
+                        [(get kebab-row primary-key)
+                         (get kebab-row display-field)]))
+                    results)))))
+
+(defn enrich-records-with-relationships
+  "Enrich records with related entity display values.
+   
+   Week 3: Adds :_related/* keys to records with FK display values.
+   Uses batch queries to avoid N+1 query problem.
+   
+   Args:
+     db-ctx: Database context
+     schema-provider: Schema provider
+     entity-name: Current entity name (e.g., :sessions)
+     records: Collection of entity records (already kebab-cased)
+   
+   Returns:
+     Records enriched with :_related/* namespaced keys
+   
+   Example:
+     Input:  [{:id \"1\" :user-id \"user-123\"}]
+     Output: [{:id \"1\" 
+               :user-id \"user-123\"
+               :_related/users {:id \"user-123\" 
+                                :display \"john@example.com\"
+                                :entity :users}}]"
+  [db-ctx schema-provider entity-name records]
+  (let [entity-config (ports/get-entity-config schema-provider entity-name)
+        belongs-to (get-in entity-config [:relationships :belongs-to] [])]
+    (if (empty? belongs-to)
+      records  ; No relationships, return as-is
+      (reduce
+       (fn [enriched-records relationship]
+         (let [{:keys [field entity display-field]} relationship
+               ; Collect all unique FK IDs from records (filter out nils)
+               fk-ids (into #{} (keep field enriched-records))
+               ; Batch fetch related entity display values
+               display-map (fetch-related-entities-batch db-ctx schema-provider entity display-field fk-ids)
+               ; Namespace key: :_related/users, :_related/categories, etc.
+               related-key (keyword "_related" (name entity))]
+           ; Enrich each record with related data
+           (mapv (fn [record]
+                   (if-let [fk-value (get record field)]
+                     (if-let [display-value (get display-map fk-value)]
+                       ; Related entity found
+                       (assoc record related-key {:id fk-value
+                                                  :display display-value
+                                                  :entity entity})
+                       ; FK value exists but related entity not found (deleted/missing)
+                       (assoc record related-key {:id fk-value
+                                                  :display nil
+                                                  :entity entity
+                                                  :missing? true}))
+                     ; No FK value in this record
+                     record))
+                 enriched-records)))
+       records
+       belongs-to))))
+
+;; =============================================================================
 ;; Admin Service Implementation
 ;; =============================================================================
 
@@ -252,12 +346,15 @@
               ; Convert snake_case keys from database to kebab-case for internal use
              kebab-records (mapv case-conversion/snake-case->kebab-case-map records)
 
+              ; Week 3: Enrich records with related entity display values
+             enriched-records (enrich-records-with-relationships db-ctx schema-provider entity-name kebab-records)
+
               ; Calculate pagination metadata
              page-size (:limit pagination)
              page-number (inc (quot (:offset pagination) page-size))
              total-pages (int (Math/ceil (/ total-count (double page-size))))]
 
-         {:records kebab-records
+         {:records enriched-records
           :total-count total-count
           :page-size page-size
           :page-number page-number

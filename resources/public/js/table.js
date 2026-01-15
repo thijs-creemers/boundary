@@ -21,7 +21,9 @@
 
     // Update selection count and button state
     function updateSelectionState() {
-      const checkedCount = Array.from(rowCheckboxes).filter(cb => cb.checked).length;
+      // Re-query to get current state (in case checkboxes were replaced)
+      const currentCheckboxes = document.querySelectorAll('input[name="record-ids"]');
+      const checkedCount = Array.from(currentCheckboxes).filter(cb => cb.checked).length;
       
       // Update count text
       selectionCount.textContent = `${checkedCount} selected`;
@@ -34,10 +36,18 @@
       }
     }
 
+    // Remove old event listeners by cloning elements (if they exist)
+    // This prevents duplicate listeners from causing issues
+    if (selectAllCheckbox && selectAllCheckbox._hasListener) {
+      return; // Already initialized, don't re-attach
+    }
+
     // Handle select-all checkbox
     if (selectAllCheckbox) {
-      selectAllCheckbox.addEventListener('change', function() {
-        rowCheckboxes.forEach(cb => {
+      selectAllCheckbox._hasListener = true;
+      selectAllCheckbox.addEventListener('change', function(e) {
+        const currentCheckboxes = document.querySelectorAll('input[name="record-ids"]');
+        currentCheckboxes.forEach(cb => {
           cb.checked = this.checked;
         });
         updateSelectionState();
@@ -46,16 +56,21 @@
 
     // Handle individual row checkboxes
     rowCheckboxes.forEach(checkbox => {
-      checkbox.addEventListener('change', function() {
-        // Update select-all checkbox state
-        if (selectAllCheckbox) {
-          const allChecked = Array.from(rowCheckboxes).every(cb => cb.checked);
-          const someChecked = Array.from(rowCheckboxes).some(cb => cb.checked);
-          selectAllCheckbox.checked = allChecked;
-          selectAllCheckbox.indeterminate = someChecked && !allChecked;
-        }
-        updateSelectionState();
-      });
+      if (!checkbox._hasListener) {
+        checkbox._hasListener = true;
+        checkbox.addEventListener('change', function(e) {
+          // Update select-all checkbox state
+          const currentCheckboxes = document.querySelectorAll('input[name="record-ids"]');
+          const currentSelectAll = document.getElementById('select-all');
+          if (currentSelectAll) {
+            const allChecked = Array.from(currentCheckboxes).every(cb => cb.checked);
+            const someChecked = Array.from(currentCheckboxes).some(cb => cb.checked);
+            currentSelectAll.checked = allChecked;
+            currentSelectAll.indeterminate = someChecked && !allChecked;
+          }
+          updateSelectionState();
+        });
+      }
     });
 
     // Initialize state

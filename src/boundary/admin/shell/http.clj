@@ -826,8 +826,8 @@
           ; Check permissions
           _ (permissions/assert-can-delete-entity! user entity-name entity-config)
 
-          ; Extract IDs from form params
-          id-strings (get-in request [:form-params "ids[]"])
+          ; Extract IDs from form params (checkboxes named 'record-ids')
+          id-strings (get-in request [:form-params "record-ids"])
           ids (when id-strings
                 (mapv #(UUID/fromString %) (if (string? id-strings) [id-strings] id-strings)))
 

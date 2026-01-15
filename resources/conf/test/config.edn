@@ -49,12 +49,18 @@
    :base-path        "/web/admin"
    :require-role     :admin
    :entity-discovery {:mode      :allowlist
-                      :allowlist #{:users}}
+                      :allowlist #{:users :user-sessions}}
    :entities         {:users {:label           "Users"
                               :list-fields     [:email :name :role :created-at]
                               :search-fields   [:email :name]
                               :hide-fields     #{:password-hash :deleted-at}
-                              :readonly-fields #{:id :created-at :updated-at}}}
+                              :readonly-fields #{:id :created-at :updated-at}}
+                      :user-sessions {:label           "User Sessions"
+                                      :table-name      :user-sessions
+                                      :list-fields     [:user-id :session-token]
+                                      :search-fields   [:session-token]
+                                      :hide-fields     #{:revoked-at}
+                                      :readonly-fields #{:id :user-id :session-token :created-at :last-accessed-at}}}
    :pagination       {:default-page-size 20
                       :max-page-size     200}}}
 

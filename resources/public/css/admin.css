@@ -1002,3 +1002,79 @@
   }
 }
 
+/* =============================================================================
+   Foreign Key Links (Week 3)
+   ============================================================================= */
+
+/* FK link styling - visually distinct from regular links */
+.fk-link {
+  color: var(--color-primary-600);
+  text-decoration: none;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.fk-link:hover {
+  color: var(--color-primary-700);
+  background-color: var(--color-primary-50);
+  text-decoration: underline;
+}
+
+.fk-link:active {
+  transform: translateY(1px);
+}
+
+/* Dark mode FK links */
+[data-theme="dark"] .fk-link {
+  color: var(--color-primary-400);
+}
+
+[data-theme="dark"] .fk-link:hover {
+  color: var(--color-primary-300);
+  background-color: var(--color-primary-900);
+}
+
+/* Missing/deleted FK indicator */
+.fk-missing {
+  color: var(--text-tertiary);
+  font-style: italic;
+  font-size: var(--text-sm);
+}
+
+.fk-missing::before {
+  content: '⚠ ';
+  color: var(--color-warning-500);
+}
+
+/* Ensure FK links don't break table layout */
+.data-table td .fk-link {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .fk-link {
+    font-size: var(--text-sm);
+    padding: var(--space-1);
+  }
+}
+
+/* Reduced motion support for FK links */
+@media (prefers-reduced-motion: reduce) {
+  .fk-link {
+    transition: none;
+  }
+  
+  .fk-link:active {
+    transform: none;
+  }
+}
+

@@ -370,12 +370,12 @@
      [:span.filter-field-label field-label]
 
       ;; Operator selector
-      [:select.filter-operator-select
-       {:name (str "filters[" (name field-name) "][op]")
-        :hx-get (str "/web/admin/" (name entity-name) "/table")
-        :hx-target "#filter-table-container"
-        :hx-trigger "change"
-        :hx-include "closest form"}
+     [:select.filter-operator-select
+      {:name (str "filters[" (name field-name) "][op]")
+       :hx-get (str "/web/admin/" (name entity-name) "/table")
+       :hx-target "#filter-table-container"
+       :hx-trigger "change"
+       :hx-include "closest form"}
       (for [[op label] operators]
         [:option {:value (name op)
                   :selected (= current-op op)}
@@ -385,14 +385,14 @@
      (render-filter-value-inputs field-name field-config current-op filter-value)
 
       ;; Remove filter button
-      [:button.icon-button.secondary
-       {:type "button"
-        :aria-label "Remove filter"
-        :hx-get (str "/web/admin/" (name entity-name) "/table")
-        :hx-target "#filter-table-container"
-        :hx-trigger "click"
-        :hx-vals (str "{\"remove_filter\": \"" (name field-name) "\"}")
-        :hx-include "closest form"}
+     [:button.icon-button.secondary
+      {:type "button"
+       :aria-label "Remove filter"
+       :hx-get (str "/web/admin/" (name entity-name) "/table")
+       :hx-target "#filter-table-container"
+       :hx-trigger "click"
+       :hx-vals (str "{\"remove_filter\": \"" (name field-name) "\"}")
+       :hx-include "closest form"}
       (icons/icon :x {:size 16})]]))
 
 (defn render-filter-builder
@@ -411,23 +411,23 @@
         has-active-filters? (seq current-filters)
         current-filters (or current-filters {})]
     [:div.filter-builder
-      [:div.filter-builder-header
-       [:span.filter-builder-title "Filters"]
-       (when has-active-filters?
-         [:button.text-button
-          {:type "button"
-           :hx-get (str "/web/admin/" (name entity-name) "/table")
-           :hx-target "#filter-table-container"
-           :hx-trigger "click"}
-          (icons/icon :x {:size 14})
-          " Clear all"])]
+     [:div.filter-builder-header
+      [:span.filter-builder-title "Filters"]
+      (when has-active-filters?
+        [:button.text-button
+         {:type "button"
+          :hx-get (str "/web/admin/" (name entity-name) "/table")
+          :hx-target "#filter-table-container"
+          :hx-trigger "click"}
+         (icons/icon :x {:size 14})
+         " Clear all"])]
 
       ;; Form wrapper for all filters
-      [:form.filter-form
-       {:hx-get (str "/web/admin/" (name entity-name) "/table")
-        :hx-target "#filter-table-container"
-        :hx-trigger "submit, change delay:500ms from:input, change from:select"
-        :hx-push-url "true"}
+     [:form.filter-form
+      {:hx-get (str "/web/admin/" (name entity-name) "/table")
+       :hx-target "#filter-table-container"
+       :hx-trigger "submit, change delay:500ms from:input, change from:select"
+       :hx-push-url "true"}
 
       ;; Active filter rows
       (when has-active-filters?
@@ -438,19 +438,19 @@
 
       ;; Add filter dropdown
       (when (seq filterable-fields)
-         [:div.filter-add-row
-          [:select.filter-field-select
-           {:name "add_filter_field"
-            :hx-get (str "/web/admin/" (name entity-name) "/table")
-            :hx-target "#filter-table-container"
-            :hx-trigger "change"
-            :hx-include "closest form"}
-           [:option {:value ""} "+ Add filter..."]
-           (for [field-name filterable-fields
-                 :when (not (contains? current-filters field-name))]
-             (let [field-config (get-in entity-config [:fields field-name])
-                   field-label (:label field-config (str/capitalize (name field-name)))]
-               [:option {:value (name field-name)} field-label]))]])
+        [:div.filter-add-row
+         [:select.filter-field-select
+          {:name "add_filter_field"
+           :hx-get (str "/web/admin/" (name entity-name) "/table")
+           :hx-target "#filter-table-container"
+           :hx-trigger "change"
+           :hx-include "closest form"}
+          [:option {:value ""} "+ Add filter..."]
+          (for [field-name filterable-fields
+                :when (not (contains? current-filters field-name))]
+            (let [field-config (get-in entity-config [:fields field-name])
+                  field-label (:label field-config (str/capitalize (name field-name)))]
+              [:option {:value (name field-name)} field-label]))]])
 
       ;; Apply button (for manual submission if auto-trigger doesn't work)
       (when has-active-filters?
@@ -459,45 +459,89 @@
 (defn render-field-value
   "Render field value for display in table or detail view.
 
+   Week 3: Enhanced to display related entity names for foreign key fields.
+
    Args:
      field-name: Keyword field name
      value: Field value to render
      field-config: Field configuration map
+     record: Full record map (optional, for FK enrichment)
+     entity-config: Entity configuration map (optional, for FK detection)
 
    Returns:
      Hiccup structure or string for display"
-  [field-name value field-config]
-  (let [field-type (:type field-config :string)]
-    (cond
-      (nil? value)
-      [:span.null-value "—"]
+  ([field-name value field-config]
+   (render-field-value field-name value field-config nil nil))
+  ([field-name value field-config record entity-config]
+   ; Defensive: if field-config is nil, return string representation
+   (if (nil? field-config)
+     (str value)
+     (let [field-type (:type field-config :string)
+           ; Week 3: Check if this field is a foreign key
+           is-fk? (and entity-config
+                       record
+                       (some #(= (:field %) field-name)
+                             (get-in entity-config [:relationships :belongs-to])))]
+       (cond
+         (nil? value)
+         [:span.null-value "—"]
 
-      (= field-type :boolean)
-      [:span {:class (str "badge " (if value "badge-success" "badge-secondary"))}
-       (if value "Yes" "No")]
+         ; Week 3: Foreign key field - render related entity display value
+         is-fk?
+         (let [; Find the relationship config for this field
+               relationship (some #(when (= (:field %) field-name) %)
+                                  (get-in entity-config [:relationships :belongs-to]))
+               related-entity (:entity relationship)
+               related-key (keyword "_related" (name related-entity))
+               related-data (get record related-key)]
+           (cond
+             ; No enriched data (shouldn't happen if service layer works correctly)
+             (nil? related-data)
+             [:span.uuid-value (str value)]
+             
+             ; Related entity was deleted
+             (:missing? related-data)
+             [:span.fk-missing
+              {:title (str "ID: " value)}
+              (str value " (deleted)")]
+             
+             ; Related entity found - render as link
+             :else
+             (let [display-value (:display related-data)]
+               (if (and display-value (not (map? display-value)))
+                 [:a.fk-link
+                  {:href (str "/web/admin/" (name related-entity) "/" (:id related-data))
+                   :title (str "ID: " value)}
+                  (str display-value)]
+                 ; Fallback if display value is missing or invalid
+                 [:span.uuid-value (str value)]))))
 
-      (= field-type :instant)
-      (str value)
+         (= field-type :boolean)
+         [:span {:class (str "badge " (if value "badge-success" "badge-secondary"))}
+          (if value "Yes" "No")]
 
-      (= field-type :date)
-      (str value)
+         (= field-type :instant)
+         (str value)
 
-      (= field-type :uuid)
-      [:span.uuid-value (str value)]
+         (= field-type :date)
+         (str value)
 
-      (= field-type :enum)
-      [:span.enum-badge (str/capitalize (name value))]
+         (= field-type :uuid)
+         [:span.uuid-value (str value)]
 
-      (= field-type :json)
-      [:code (str value)]
+         (= field-type :enum)
+         [:span.enum-badge (str/capitalize (name value))]
 
-      (string? value)
-      (if (> (count value) 50)
-        (str (subs value 0 47) "...")
-        value)
+         (= field-type :json)
+         [:code (str value)]
 
-      :else
-      (str value))))
+         (string? value)
+         (if (> (count value) 50)
+           (str (subs value 0 47) "...")
+           value)
+
+         :else
+         (str value))))))
 
 (defn entity-table-row
   "Generate entity table row.
@@ -515,13 +559,12 @@
         primary-key (:primary-key entity-config :id)
         record-id (get record primary-key)
         readonly-fields (set (:readonly-fields entity-config))]
-    [:tr {:class "entity-row"}
-     [:td.row-actions
-      [:input {:type "checkbox"
-               :name "ids[]"
-               :value (str record-id)
-               :onclick "event.stopPropagation();"
-               :onchange "const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; document.getElementById('select-all').checked = checked === document.querySelectorAll('input[name=\"ids[]\"]').length;"}]]
+      [:tr {:class "entity-row"}
+       [:td.row-actions
+        [:input {:type "checkbox"
+                 :name "record-ids"
+                 :value (str record-id)
+                 :onclick "event.stopPropagation();"}]]
      (for [field list-fields]
        (let [field-config (get-in entity-config [:fields field])
              value (get record field)
@@ -529,17 +572,17 @@
                             (not (contains? readonly-fields field))
                             (not= field primary-key))]
          (if editable?
-           ; Editable cell with double-click to edit (Week 2)
+            ; Editable cell with double-click to edit (Week 2)
            [:td {:class (str "field-" (name field) " editable")
                  :hx-get (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/edit")
                  :hx-trigger "dblclick"
                  :hx-target "this"
                  :hx-swap "innerHTML"
                  :title "Double-click to edit"}
-            (render-field-value field value field-config)]
-           ; Non-editable cell
+            (render-field-value field value field-config record entity-config)]
+            ; Non-editable cell
            [:td {:class (str "field-" (name field))}
-            (render-field-value field value field-config)])))
+            (render-field-value field value field-config record entity-config)])))
      [:td.row-actions
       (when (:can-edit permissions)
         [:a.icon-button.secondary
@@ -747,25 +790,21 @@
           [:a.button.primary
            {:href (str "/web/admin/" (name entity-name) "/new")}
            "Create First Record"])]
-       [:div.table-wrapper
-        ;; Form for checkbox submission (hidden inputs + table)
-        [:form#table-form
-         {:hx-post (str "/web/admin/" (name entity-name) "/bulk")
-          :hx-target hx-target
-          :hx-swap "outerHTML"}
-         ;; Preserve table state
-         (for [[k v] table-params]
-           [:input {:type "hidden" :name k :value v}])
-         (for [[k v] filter-params]
-           [:input {:type "hidden" :name k :value v}])
+        [:div.table-wrapper
+         ;; Container for checkboxes and table (no form needed - bulk-action-form uses hx-include)
+         [:div#table-form
+          ;; Hidden inputs to preserve table state for potential future use
+          (for [[k v] table-params]
+            [:input {:type "hidden" :name k :value v}])
+          (for [[k v] filter-params]
+            [:input {:type "hidden" :name k :value v}])
 
          [:table.data-table
           [:thead
-           [:tr
-            [:th
-             [:input {:type "checkbox"
-                      :id "select-all"
-                      :onchange "const checkboxes = document.querySelectorAll('input[name=\"ids[]\"]'); checkboxes.forEach(cb => cb.checked = this.checked); setTimeout(() => { const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; }, 0);"}]]
+            [:tr
+              [:th
+               [:input {:type "checkbox"
+                        :id "select-all"}]]
             (for [field list-fields]
               (let [field-config (get-in entity-config [:fields field])
                     sortable? (:sortable field-config true)]
@@ -813,29 +852,29 @@
         search-value (:search search)]
     [:div.entity-list-page
      (when flash
-        (for [[type message] flash]
-          [:div {:class (str "alert alert-" (name type))} message]))
+       (for [[type message] flash]
+         [:div {:class (str "alert alert-" (name type))} message]))
 
        ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
      [:div.table-toolbar-container
       ;; Left: Bulk actions
-      [:div.table-toolbar-left
-       [:form#bulk-action-form
-        {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
-         :hx-target "#entity-table-container"
-         :hx-swap "outerHTML"
-         :hx-include "[name='ids[]']"}
-        [:button.icon-button.danger
-         {:type "submit"
-          :name "action"
-          :value "delete"
-          :disabled "disabled"
-          :id "bulk-delete-btn"
-          :form "bulk-action-form"
-          :aria-label "Delete selected"
-          :hx-confirm "Are you sure you want to delete selected records?"}
-         (icons/icon :trash {:size 18})]
-        [:span.selection-count {:id "selection-count"} "0 selected"]]]
+       [:div.table-toolbar-left
+        [:form#bulk-action-form
+         {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
+          :hx-target "#entity-table-container"
+          :hx-swap "outerHTML"
+          :hx-include "[name='record-ids']:checked"}
+         [:button.icon-button.danger
+          {:type "submit"
+           :name "action"
+           :value "delete"
+           :disabled "disabled"
+           :id "bulk-delete-btn"
+           :form "bulk-action-form"
+           :aria-label "Delete selected"
+           :hx-confirm "Are you sure you want to delete selected records?"}
+          (icons/icon :trash {:size 18})]
+         [:span.selection-count {:id "selection-count"} "0 selected"]]]
 
       ;; Right: Search + Create + Count
       [:div.table-toolbar-right
