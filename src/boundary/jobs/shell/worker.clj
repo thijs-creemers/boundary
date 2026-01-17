@@ -13,9 +13,8 @@
             [boundary.jobs.core.job :as job]
             [boundary.jobs.schema :as schema]
             [clojure.tools.logging :as log])
-  (:import [java.util UUID]
-           [java.time Instant]
-           [java.util.concurrent TimeUnit]))
+(:import [java.util UUID]
+           [java.time Instant]))
 
 ;; =============================================================================
 ;; Job Handler Registry
@@ -39,7 +38,7 @@
   (get-handler [_ job-type]
     (get @handlers job-type))
 
-  (list-handlers [this]
+  (list-handlers [_this]
     (vec (keys @handlers))))
 
 (defn create-job-registry
@@ -251,7 +250,7 @@
          :error {:message (str "No handler registered for job type: " job-type)
                  :type "NoHandlerError"}})))
 
-  (start-worker! [this]
+  (start-worker! [_this]
     (:id state))  ; Already started in create-worker
 
   (stop-worker! [_ worker-id]

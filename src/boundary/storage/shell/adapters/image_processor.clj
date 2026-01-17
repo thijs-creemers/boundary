@@ -6,7 +6,7 @@
   (:require [boundary.storage.ports :as ports]
             [boundary.storage.core.validation :as validation]
             [boundary.logging.ports :as logging])
-  (:import [java.awt Image Graphics2D RenderingHints]
+(:import [java.awt RenderingHints]
            [java.awt.image BufferedImage]
            [java.io ByteArrayInputStream ByteArrayOutputStream]
            [javax.imageio ImageIO]))

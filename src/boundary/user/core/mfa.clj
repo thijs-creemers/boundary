@@ -9,8 +9,7 @@
    
    All functions are pure and deterministic - no I/O operations.
    TOTP generation and cryptographic operations are handled in the shell layer."
-  (:require [clojure.string :as str])
-  (:import (java.time Instant Duration)))
+(:require [clojure.string :as str]))
 
 ;; =============================================================================
 ;; MFA Business Rules

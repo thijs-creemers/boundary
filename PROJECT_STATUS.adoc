@@ -1,5 +1,5 @@
 = Project Status
-:revdate: 2026-01-05
+:revdate: 2026-01-17
 
 == High-Level Summary
 The Boundary framework has achieved **full Phase 4 completion**, delivering all planned competitive features from the strategic roadmap. The framework now features enterprise-grade security, complete competitive feature parity (background jobs, distributed caching, file storage, API versioning/pagination, MFA, and full-text search), and maintains strict Functional Core / Imperative Shell architectural boundaries throughout.
@@ -71,7 +71,7 @@ The Boundary framework has achieved **full Phase 4 completion**, delivering all 
 * **HTTP API:** RESTful endpoints (upload, download, delete, URL generation) with multipart support
 * **Service Layer:** Orchestrates validation, storage, and image processing
 * **Dependencies:** AWS SDK v2.30.11 and S3 transfer manager added to deps.edn
-* **Test Coverage:** 23 tests, 95.5% pass rate (110 assertions), core functionality fully operational
+* **Test Coverage:** 23 tests, 100% pass rate (110 assertions), all edge cases resolved
 * **Documentation:** Complete README with usage examples, configuration guides, API docs, security best practices
 
 === Phase 3: Developer Experience ✅ 80% COMPLETE
@@ -104,14 +104,15 @@ The Boundary framework has achieved **full Phase 4 completion**, delivering all 
   ** Demonstrates all FC/IS patterns
 
 ==== Remaining Phase 3 Work 🚧
-* **GitHub Pages Deployment** (5 minutes)
-  ** Documentation site ready for deployment
-  ** Requires one-time GitHub Pages configuration
-  ** Automated Hugo builds configured
-* **Scaffolding Enhancements** (1-2 days)
-  ** `boundary scaffold field` - Add field to existing entity
-  ** `boundary scaffold endpoint` - Add single endpoint to module
-  ** `boundary scaffold adapter` - Add new adapter implementation
+* **GitHub Pages Deployment** ✅ COMPLETE (2026-01-17)
+  ** Documentation live at https://thijs-creemers.github.io/boundary-docs/
+  ** Automated Hugo builds via GitHub Actions
+* **Scaffolding Enhancements** ✅ COMPLETE (2026-01-17)
+  ** `boundary scaffolder field` - Add field to existing entity (generates migration + schema instructions)
+  ** `boundary scaffolder endpoint` - Add single endpoint to module (generates http.clj instructions)
+  ** `boundary scaffolder adapter` - Generate new adapter implementation file
+  ** Full CLI integration with help text, validation, and dry-run support
+  ** 8 tests, 64 assertions, all passing
 * **Additional Examples** (2-4 days each)
   ** Blog application with HTMX web UI
   ** E-commerce API with payment integration
@@ -145,7 +146,7 @@ The Boundary framework has achieved **full Phase 4 completion**, delivering all 
 |**Phase 3**
 |Developer Experience
 |🚧 IN PROGRESS
-|80%
+|90%
 
 |**Phase 4**
 |Competitive Features
@@ -161,33 +162,31 @@ The Boundary framework has achieved **full Phase 4 completion**, delivering all 
 == In Progress / Upcoming
 
 === Immediate Priorities
-* **Phase 3: Developer Experience** (80% Complete - Finishing touches)
+* **Phase 3: Developer Experience** (90% Complete - Nearly done)
   ** ✅ DONE: 5-Minute Quickstart Guide
   ** ✅ DONE: Documentation Hub & Navigation
   ** ✅ DONE: IDE Setup Guides (VSCode, IntelliJ, Emacs, Vim)
   ** ✅ DONE: Todo-API Example Application
-  ** 🚧 TODO: GitHub Pages deployment (5 minutes)
-  ** 🚧 TODO: Scaffolding enhancements (field/endpoint/adapter commands)
+  ** ✅ DONE: GitHub Pages deployment
+  ** ✅ DONE: Scaffolding enhancements (field/endpoint/adapter commands)
   ** 📋 PLANNED: Additional example applications (blog, e-commerce)
-* **Storage Module Refinements** - Address minor test failures
-  ** file-exists? edge cases
-  ** Concurrent upload timing issues
+* **Storage Module Refinements** - ✅ All tests passing (23 tests, 110 assertions)
 * **Phase 5: Strategic Positioning** - Begin market positioning work
   ** Performance benchmarks against Django, Rails, Spring Boot
   ** Case studies and example applications
   ** Developer advocacy and content creation
 
 === Secondary Priorities
-* **GitHub Pages Setup:** Documentation repository ready for deployment. Requires one-time manual GitHub Pages configuration (5 minutes) to enable automated Hugo builds.
+* **GitHub Pages Setup:** ✅ DONE - Documentation live at https://thijs-creemers.github.io/boundary-docs/
 * **Global/Configurable Interceptors (Optional):** Evaluate whether router config should support additional global interceptors for shared policies (tenancy enforcement, etc.)
-* **Repository-Wide Lint Debt:** clj-kondo currently reports legacy warnings (unused bindings, unresolved namespaces). Structured cleanup would improve signal/noise.
+* **Repository-Wide Lint Debt:** 🚧 IN PROGRESS - Reduced from 478 to 228 warnings (52% reduction). Fixed unresolved namespaces, redundant lets, unused imports, and many unused bindings.
 
 == Risks / Blockers
 
 * **External Dependencies:** Several integration tests rely on local PostgreSQL; when unavailable they are skipped. Consider containerized fixtures or Testcontainers-like setup for reproducibility.
-* **Lint Noise:** Until unresolved namespace and unused binding warnings are addressed, genuine regressions may hide in the noise.
+* **Lint Noise:** ✅ IMPROVED - Unresolved namespace errors fixed. Warnings reduced from 478 to 228 (52% reduction). Remaining 228 warnings are low-priority unused bindings.
 * **Observability Providers:** Only no-op providers are guaranteed in dev/test. Wiring up real providers (Datadog, Sentry) needs environment-specific instructions before production rollout.
-* **Storage Module Edge Cases:** Minor test failures in concurrent upload scenarios and file-exists? edge cases (non-blocking for single-file operations)
+* **Storage Module Edge Cases:** ✅ RESOLVED - All 23 tests passing with 110 assertions
 
 == Suggested Next Steps
 
@@ -202,7 +201,7 @@ The Boundary framework has achieved **full Phase 4 completion**, delivering all 
    ** Configure default search indexes in migrations
    ** Wire MFA into authentication flows (HTTP layer integration)
 4. **Storage Test Refinements:** Fix minor edge cases in local adapter tests
-5. **clj-kondo Cleanup Sprint:** Triage high-priority lint categories
+5. **clj-kondo Cleanup Sprint:** ✅ 52% complete - 478 → 228 warnings. Continue with remaining unused bindings
 6. **Test Infrastructure:** Evaluate Docker-based postgres fixture
 7. **Phase 5 Preparation:**
    ** Performance benchmarking suite

@@ -141,7 +141,7 @@
      
    Returns:
      Ring handler function"
-  [config]
+  [_config]
   (fn [request]
     (let [user (:user request)]
       (if user
@@ -258,7 +258,7 @@
      
    Returns:
      Ring handler function"
-  [config]
+  [_config]
   (fn [request]
     (let [page-opts {:user (get request :user)
                      :flash (get request :flash)}]
@@ -270,7 +270,7 @@
 
 (defn login-page-handler
   "GET /web/login - render login page."
-  [config]
+  [_config]
   (fn [request]
     (let [return-to (get-in request [:query-params "return-to"])
           ;; Check if we have a remembered email from previous login
@@ -437,7 +437,7 @@
 
 (defn register-page-handler
   "GET /web/register - render self-service registration page."
-  [config]
+  [_config]
   (fn [request]
     (let [page-opts {:user (get request :user)
                      :flash (get request :flash)}]
@@ -1152,7 +1152,7 @@
      
    Returns:
      Ring handler function"
-  [config]
+  [_config]
   (fn [request]
     (html-response (profile-ui/password-change-card true))))
 

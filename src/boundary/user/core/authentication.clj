@@ -12,7 +12,7 @@
   (:require [boundary.user.schema :as schema]
             [clojure.string :as str]
             [malli.core :as m])
-  (:import (java.time Instant Duration)))
+(:import (java.time Duration)))
 
 ;; =============================================================================
 ;; Authentication Business Rules

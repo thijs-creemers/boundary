@@ -269,7 +269,7 @@
         (finally
           (set-thread-context! previous-context)))))
 
-  (current-context [this]
+  (current-context [_this]
     (get-thread-context)))
 
 ;; =============================================================================
@@ -284,7 +284,7 @@
       (reset! config-atom new-config)
       (:level old-config)))
 
-  (get-level [this]
+  (get-level [_this]
     (:level @config-atom))
 
   (set-config! [_ config-map]
@@ -292,7 +292,7 @@
       (reset! config-atom (merge old-config config-map))
       old-config))
 
-  (get-config [this]
+  (get-config [_this]
     @config-atom))
 
 ;; =============================================================================
@@ -317,7 +317,7 @@
 
 (defn create-datadog-logging-context
   "Create a Datadog logging context instance."
-  [config]
+  [_config]
   (->DatadogLoggingContext))
 
 (defn create-datadog-logging-config
@@ -374,21 +374,21 @@
   ports/ILoggingContext
   (with-context [_ context-map f]
     (ports/with-context logging-context context-map f))
-  (current-context [this]
+  (current-context [_this]
     (ports/current-context logging-context))
 
   ports/ILoggingConfig
   (set-level! [_ level]
     (ports/set-level! logging-config level))
-  (get-level [this]
+  (get-level [_this]
     (ports/get-level logging-config))
   (set-config! [_ config-map]
     (ports/set-config! logging-config config-map))
-  (get-config [this]
+  (get-config [_this]
     (ports/get-config logging-config))
 
   java.io.Closeable
-  (close [this]
+  (close [_this]
     ((:shutdown! batch-processor))))
 
 (defn create-datadog-logging-component

@@ -19,13 +19,13 @@
    - Strings: For cache values (JSON serialized)
    - TTL: Built-in Redis expiration
    - Atomic ops: INCR, DECR, SETNX, etc."
-  (:require [boundary.cache.ports :as ports]
+(:require [boundary.cache.ports :as ports]
             [boundary.cache.schema :as schema]
             [cheshire.core :as json]
+            [clojure.string :as str]
             [clojure.tools.logging :as log])
-  (:import [redis.clients.jedis Jedis JedisPool JedisPoolConfig ScanParams]
-           [redis.clients.jedis.params SetParams]
-           [java.util ArrayList]))
+(:import [redis.clients.jedis Jedis JedisPool JedisPoolConfig ScanParams]
+           [redis.clients.jedis.params SetParams]))
 
 ;; =============================================================================
 ;; Helper Functions
@@ -273,16 +273,16 @@
 
   ports/ICacheStats
 
-  (cache-stats [this]
+  (cache-stats [_this]
     (with-redis pool
       (fn [^Jedis redis]
         (let [info (.info redis "stats")
               ;; Parse Redis INFO output
-              stats-map (into {}
+stats-map (into {}
                               (map (fn [line]
-                                     (let [[k v] (clojure.string/split line #":")]
+                                     (let [[k v] (str/split line #":")]
                                        [(keyword k) v]))
-                                   (clojure.string/split-lines info)))
+                                   (str/split-lines info)))
               hits (Long/parseLong (get stats-map :keyspace_hits "0"))
               misses (Long/parseLong (get stats-map :keyspace_misses "0"))
               total-requests (+ hits misses)
@@ -296,7 +296,7 @@
            :memory-usage nil
            :evictions nil}))))
 
-  (clear-stats! [this]
+  (clear-stats! [_this]
     (with-redis pool
       (fn [^Jedis redis]
         (.configResetStat redis)
@@ -308,14 +308,14 @@
 
   ports/ICacheManagement
 
-  (flush-all! [this]
+  (flush-all! [_this]
     (with-redis pool
       (fn [^Jedis redis]
         (let [size (.dbSize redis)]
           (.flushDB redis)
           size))))
 
-  (ping [this]
+  (ping [_this]
     (try
       (with-redis pool
         (fn [^Jedis redis]
@@ -324,7 +324,7 @@
         (log/error e "Redis ping failed")
         false)))
 
-  (close! [this]
+  (close! [_this]
     (try
       (.close pool)
       true

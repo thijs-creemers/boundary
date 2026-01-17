@@ -2,9 +2,10 @@
   "HTTP handlers for file upload and download operations.
 
   Provides Ring-compatible handlers for file operations."
-  (:require [boundary.storage.shell.service :as service]
+(:require [boundary.storage.shell.service :as service]
             [boundary.platform.core.http.problem-details :as problem-details]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [clojure.string :as str])
   (:import [java.io ByteArrayOutputStream]))
 
 ;; ============================================================================
@@ -78,10 +79,10 @@
           ;; Extract validation options from query params
           max-size (when-let [ms (get query-params "max-size")]
                      (Integer/parseInt ms))
-          allowed-types (when-let [types (get query-params "allowed-types")]
-                          (clojure.string/split types #","))
+allowed-types (when-let [types (get query-params "allowed-types")]
+                          (str/split types #","))
           allowed-extensions (when-let [exts (get query-params "allowed-extensions")]
-                               (clojure.string/split exts #","))]
+                               (str/split exts #","))]
 
       (if-not file
         (problem-details/bad-request

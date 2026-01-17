@@ -1,0 +1,9 @@
+{:server {:port 3099
+          :join? false}
+
+ :database {:dbtype "sqlite"
+            :dbname ":memory:"}
+
+ :blog {:name "Test Blog"
+        :description "Test blog instance"
+        :posts-per-page 5}}

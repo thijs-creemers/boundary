@@ -1,0 +1,264 @@
+/* Blog-specific styles for the Boundary blog example */
+
+/* =============================================================================
+   Flash Messages
+   ============================================================================= */
+
+.flash {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}
+
+.flash-success {
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  color: #155724;
+}
+
+.flash-error {
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+}
+
+.flash-info {
+  background-color: #d1ecf1;
+  border: 1px solid #bee5eb;
+  color: #0c5460;
+}
+
+/* =============================================================================
+   Post Cards
+   ============================================================================= */
+
+.post-card {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--pico-muted-border-color, #dee2e6);
+}
+
+.post-card:last-child {
+  border-bottom: none;
+}
+
+.post-card h2 {
+  margin-bottom: 0.5rem;
+}
+
+.post-card h2 a {
+  text-decoration: none;
+}
+
+.post-card h2 a:hover {
+  text-decoration: underline;
+}
+
+.post-meta {
+  color: var(--pico-muted-color, #6c757d);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.reading-time {
+  margin-left: 0.5rem;
+}
+
+.excerpt {
+  color: var(--pico-secondary, #495057);
+}
+
+.post-card footer {
+  margin-top: 1rem;
+}
+
+/* =============================================================================
+   Post Detail
+   ============================================================================= */
+
+.post-detail header {
+  margin-bottom: 2rem;
+}
+
+.post-detail h1 {
+  margin-bottom: 0.5rem;
+}
+
+.post-content {
+  line-height: 1.8;
+}
+
+.post-content p {
+  margin-bottom: 1.5rem;
+}
+
+.edit-link {
+  margin-left: 1rem;
+  font-size: 0.875rem;
+}
+
+.draft-notice {
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  padding: 1rem;
+  margin-top: 2rem;
+}
+
+/* =============================================================================
+   Badges
+   ============================================================================= */
+
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.badge.draft {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.badge.published {
+  background-color: #28a745;
+  color: #fff;
+}
+
+/* =============================================================================
+   Forms
+   ============================================================================= */
+
+.post-form {
+  max-width: 800px;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.form-group input[type="text"],
+.form-group textarea {
+  width: 100%;
+}
+
+.form-group input[type="checkbox"] {
+  width: auto;
+  margin-right: 0.5rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.form-errors {
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-errors ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #721c24;
+}
+
+/* =============================================================================
+   Dashboard
+   ============================================================================= */
+
+.dashboard-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.posts-table {
+  width: 100%;
+}
+
+.posts-table th,
+.posts-table td {
+  text-align: left;
+  padding: 0.75rem;
+}
+
+.posts-table th {
+  border-bottom: 2px solid var(--pico-muted-border-color, #dee2e6);
+}
+
+.posts-table td {
+  border-bottom: 1px solid var(--pico-muted-border-color, #dee2e6);
+}
+
+.posts-table .actions {
+  white-space: nowrap;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--pico-primary, #1095c1);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+}
+
+.link-button:hover {
+  color: var(--pico-primary-hover, #0d7ea2);
+}
+
+/* =============================================================================
+   Empty State
+   ============================================================================= */
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--pico-muted-color, #6c757d);
+}
+
+.empty-state p {
+  margin-bottom: 1.5rem;
+}
+
+/* =============================================================================
+   Navigation
+   ============================================================================= */
+
+nav a.active {
+  font-weight: 600;
+}
+
+/* =============================================================================
+   Responsive
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  .posts-table {
+    font-size: 0.875rem;
+  }
+  
+  .posts-table th:nth-child(3),
+  .posts-table td:nth-child(3) {
+    display: none;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+}

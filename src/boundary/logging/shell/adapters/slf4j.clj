@@ -325,7 +325,7 @@
         (finally
           (reset! context-atom old-context)))))
 
-  (current-context [this]
+  (current-context [_this]
     @context-atom)
 
   ports/ILoggingConfig
@@ -334,7 +334,7 @@
       (reset! (:level-atom config) level)
       old-level))
 
-  (get-level [this]
+  (get-level [_this]
     @(:level-atom config))
 
   (set-config! [_ config-map]
@@ -342,7 +342,7 @@
       (swap! (:config-atom config) merge config-map)
       old-config))
 
-  (get-config [this]
+  (get-config [_this]
     @(:config-atom config)))
 
 ;; =============================================================================

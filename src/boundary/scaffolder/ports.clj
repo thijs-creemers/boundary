@@ -31,4 +31,53 @@
         :warnings []}
        
      Example:
-       (generate-module service {:module-name \"customer\" ...})"))
+       (generate-module service {:module-name \"customer\" ...})")
+
+  (add-field [this request]
+    "Add a field to an existing entity.
+     
+     Args:
+       request: Map with:
+                {:module-name \"billing\"
+                 :entity \"Invoice\"
+                 :field {:name :discount :type :decimal :required true}
+                 :dry-run false}
+     
+     Returns:
+       Map with :success, :files (migration + schema patch info), :errors
+       
+     Example:
+       (add-field service {:module-name \"billing\" :entity \"Invoice\" ...})")
+
+  (add-endpoint [this request]
+    "Add an endpoint to an existing module.
+     
+     Args:
+       request: Map with:
+                {:module-name \"billing\"
+                 :path \"/invoices/:id/send\"
+                 :method :post
+                 :handler-name \"send-invoice\"
+                 :dry-run false}
+     
+     Returns:
+       Map with :success, :files (route definition), :errors
+       
+     Example:
+       (add-endpoint service {:module-name \"billing\" :path \"/send\" ...})")
+
+  (add-adapter [this request]
+    "Generate a new adapter implementation for a port.
+     
+     Args:
+       request: Map with:
+                {:module-name \"cache\"
+                 :port \"ICache\"
+                 :adapter-name \"redis\"
+                 :dry-run false}
+     
+     Returns:
+       Map with :success, :files (adapter file), :errors
+       
+     Example:
+       (add-adapter service {:module-name \"cache\" :port \"ICache\" ...})"))

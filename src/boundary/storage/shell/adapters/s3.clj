@@ -7,7 +7,7 @@
             [boundary.storage.core.validation :as validation]
             [boundary.logging.ports :as logging]
             [clojure.string :as str])
-  (:import [software.amazon.awssdk.core.sync RequestBody]
+(:import [software.amazon.awssdk.core.sync RequestBody]
            [software.amazon.awssdk.regions Region]
            [software.amazon.awssdk.services.s3 S3Client S3Configuration]
            [software.amazon.awssdk.services.s3.model
@@ -15,13 +15,12 @@
             HeadObjectRequest NoSuchKeyException ObjectCannedACL]
            [software.amazon.awssdk.services.s3.presigner S3Presigner]
            [software.amazon.awssdk.services.s3.presigner.model
-            GetObjectPresignRequest PresignedGetObjectRequest]
+            GetObjectPresignRequest]
            [software.amazon.awssdk.auth.credentials
             AwsBasicCredentials StaticCredentialsProvider
             DefaultCredentialsProvider]
            [java.net URI]
-           [java.time Duration]
-           [java.io ByteArrayInputStream]))
+           [java.time Duration]))
 
 ;; ============================================================================
 ;; S3 Client Configuration

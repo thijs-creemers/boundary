@@ -51,6 +51,73 @@
     :default false]])
 
 ;; =============================================================================
+;; Field Command Options (add field to existing entity)
+;; =============================================================================
+
+(def field-options
+  [[nil "--module-name NAME" "Module name (lowercase, kebab-case) (required)"
+    :validate [#(re-matches #"^[a-z][a-z0-9-]*$" %)
+               "Must be lowercase with hyphens only"]]
+   [nil "--entity NAME" "Entity name (PascalCase) (required)"
+    :validate [#(re-matches #"^[A-Z][a-zA-Z0-9]*$" %)
+               "Must be PascalCase"]]
+   [nil "--name NAME" "Field name (kebab-case) (required)"
+    :validate [#(re-matches #"^[a-z][a-z0-9-]*$" %)
+               "Must be lowercase with hyphens only"]]
+   [nil "--type TYPE" "Field type (required)"
+    :validate [#(contains? #{"string" "text" "integer" "int" "decimal" "boolean" 
+                             "email" "uuid" "enum" "date" "datetime" "inst" "json"} %)
+               "Must be a valid field type"]]
+   [nil "--required" "Field cannot be null"
+    :default false]
+   [nil "--unique" "Field must be unique"
+    :default false]
+   [nil "--dry-run" "Show what would be generated without creating files"
+    :default false]])
+
+;; =============================================================================
+;; Endpoint Command Options (add endpoint to existing module)
+;; =============================================================================
+
+(def endpoint-options
+  [[nil "--module-name NAME" "Module name (lowercase, kebab-case) (required)"
+    :validate [#(re-matches #"^[a-z][a-z0-9-]*$" %)
+               "Must be lowercase with hyphens only"]]
+   [nil "--path PATH" "URL path for the endpoint (required)"
+    :validate [#(re-matches #"^/.*$" %)
+               "Must start with /"]]
+   [nil "--method METHOD" "HTTP method (GET, POST, PUT, DELETE, PATCH) (required)"
+    :parse-fn str/upper-case
+    :validate [#(contains? #{"GET" "POST" "PUT" "DELETE" "PATCH"} %)
+               "Must be GET, POST, PUT, DELETE, or PATCH"]]
+   [nil "--handler-name NAME" "Handler function name (kebab-case) (required)"
+    :validate [#(re-matches #"^[a-z][a-z0-9-]*$" %)
+               "Must be lowercase with hyphens only"]]
+   [nil "--dry-run" "Show what would be generated without creating files"
+    :default false]])
+
+;; =============================================================================
+;; Adapter Command Options (generate new adapter implementation)
+;; =============================================================================
+
+(def adapter-options
+  [[nil "--module-name NAME" "Module name (lowercase, kebab-case) (required)"
+    :validate [#(re-matches #"^[a-z][a-z0-9-]*$" %)
+               "Must be lowercase with hyphens only"]]
+   [nil "--port NAME" "Protocol/port name (PascalCase) (required)"
+    :validate [#(re-matches #"^I?[A-Z][a-zA-Z0-9]*$" %)
+               "Must be PascalCase (optionally prefixed with I)"]]
+   [nil "--adapter-name NAME" "Adapter name (kebab-case) (required)"
+    :validate [#(re-matches #"^[a-z][a-z0-9-]*$" %)
+               "Must be lowercase with hyphens only"]]
+   [nil "--method SPEC" "Method specification: name:arg1,arg2,... (can be repeated)"
+    :multi true
+    :default []
+    :update-fn conj]
+   [nil "--dry-run" "Show what would be generated without creating files"
+    :default false]])
+
+;; =============================================================================
 ;; Field Parsing
 ;; =============================================================================
 
@@ -195,6 +262,58 @@
                  (conj "At least one --field is required"))]
     [(empty? errors) errors]))
 
+(defn validate-field-options
+  "Validate required options for field command."
+  [opts]
+  (let [errors (cond-> []
+                 (not (:module-name opts))
+                 (conj "Missing required option: --module-name")
+                 (not (:entity opts))
+                 (conj "Missing required option: --entity")
+                 (not (:name opts))
+                 (conj "Missing required option: --name")
+                 (not (:type opts))
+                 (conj "Missing required option: --type"))]
+    [(empty? errors) errors]))
+
+(defn validate-endpoint-options
+  "Validate required options for endpoint command."
+  [opts]
+  (let [errors (cond-> []
+                 (not (:module-name opts))
+                 (conj "Missing required option: --module-name")
+                 (not (:path opts))
+                 (conj "Missing required option: --path")
+                 (not (:method opts))
+                 (conj "Missing required option: --method")
+                 (not (:handler-name opts))
+                 (conj "Missing required option: --handler-name"))]
+    [(empty? errors) errors]))
+
+(defn validate-adapter-options
+  "Validate required options for adapter command."
+  [opts]
+  (let [errors (cond-> []
+                 (not (:module-name opts))
+                 (conj "Missing required option: --module-name")
+                 (not (:port opts))
+                 (conj "Missing required option: --port")
+                 (not (:adapter-name opts))
+                 (conj "Missing required option: --adapter-name"))]
+    [(empty? errors) errors]))
+
+(defn parse-method-spec
+  "Parse a method specification string into a method map.
+   Format: name:arg1,arg2,...
+   Returns: {:name "name" :args ["arg1" "arg2"]}"
+  [method-spec]
+  (let [parts (str/split method-spec #":" 2)
+        [name-str args-str] parts
+        args (if args-str 
+               (str/split args-str #",")
+               [])]
+    {:name name-str :args (vec args)}))
+
 (defn execute-generate
   "Execute generate command."
   [service opts]
@@ -222,6 +341,71 @@
               {:status 1
                :errors (:errors result)})))))))
 
+(defn execute-field
+  "Execute field command - add a field to an existing entity."
+  [service opts]
+  (let [[valid? errors] (validate-field-options opts)]
+    (if-not valid?
+      {:status 1
+       :errors errors}
+      (let [type-mapping {"integer" :int "int" :int "date" :inst 
+                          "datetime" :inst "text" :text "json" :json}
+            field-type (get type-mapping (:type opts) (keyword (:type opts)))
+            request {:module-name (:module-name opts)
+                     :entity (:entity opts)
+                     :field {:name (keyword (:name opts))
+                             :type field-type
+                             :required (:required opts false)
+                             :unique (:unique opts false)}
+                     :dry-run (:dry-run opts)}
+            result (ports/add-field service request)]
+        (if (:success result)
+          {:status 0
+           :result result}
+          {:status 1
+           :errors (:errors result)})))))
+
+(defn execute-endpoint
+  "Execute endpoint command - add an endpoint to an existing module."
+  [service opts]
+  (let [[valid? errors] (validate-endpoint-options opts)]
+    (if-not valid?
+      {:status 1
+       :errors errors}
+      (let [request {:module-name (:module-name opts)
+                     :path (:path opts)
+                     :method (keyword (str/lower-case (:method opts)))
+                     :handler-name (:handler-name opts)
+                     :dry-run (:dry-run opts)}
+            result (ports/add-endpoint service request)]
+        (if (:success result)
+          {:status 0
+           :result result}
+          {:status 1
+           :errors (:errors result)})))))
+
+(defn execute-adapter
+  "Execute adapter command - generate a new adapter implementation."
+  [service opts]
+  (let [[valid? errors] (validate-adapter-options opts)]
+    (if-not valid?
+      {:status 1
+       :errors errors}
+      (let [methods (if (seq (:method opts))
+                      (mapv parse-method-spec (:method opts))
+                      [{:name "example-method" :args ["arg1"]}])
+            request {:module-name (:module-name opts)
+                     :port (:port opts)
+                     :adapter-name (:adapter-name opts)
+                     :methods methods
+                     :dry-run (:dry-run opts)}
+            result (ports/add-adapter service request)]
+        (if (:success result)
+          {:status 0
+           :result result}
+          {:status 1
+           :errors (:errors result)})))))
+
 ;; =============================================================================
 ;; Command Dispatch
 ;; =============================================================================
@@ -230,7 +414,7 @@
   "Dispatch command to appropriate executor.
   
    Args:
-     verb: :generate, :list, :help
+     verb: :generate, :field, :endpoint, :adapter, :help
      opts: Parsed command options
      service: Scaffolder service instance
      
@@ -239,6 +423,9 @@
   [verb opts service]
   (case verb
     :generate (execute-generate service opts)
+    :field (execute-field service opts)
+    :endpoint (execute-endpoint service opts)
+    :adapter (execute-adapter service opts)
     (throw (ex-info (str "Unknown scaffolder command: " (name verb))
                     {:type :unknown-command
                      :message (str "Unknown command: " (name verb))}))))
@@ -254,6 +441,9 @@ Usage: boundary scaffolder <command> [options]
 
 Commands:
   generate    Generate a new module with full FC/IS structure
+  field       Add a field to an existing entity (creates migration)
+  endpoint    Add an endpoint to an existing module (shows instructions)
+  adapter     Generate a new adapter implementation
 
 Global Options:
   -f, --format FORMAT  Output format: text (default) or json
@@ -265,8 +455,17 @@ Examples:
     --field sku:string:required:unique \\
     --field price:decimal:required
 
+  boundary scaffolder field --module-name product --entity Product \\
+    --name description --type text
+
+  boundary scaffolder endpoint --module-name product \\
+    --path /products/export --method GET --handler-name export-products
+
+  boundary scaffolder adapter --module-name notifications \\
+    --port INotificationSender --adapter-name slack
+
 For command-specific help:
-  boundary scaffolder generate --help")
+  boundary scaffolder <command> --help")
 
 (def generate-help
   "Generate Module Command
@@ -344,6 +543,110 @@ Examples:
     --field amount:decimal:required \\
     --dry-run")
 
+(def field-help
+  "Add Field Command
+
+Usage: boundary scaffolder field [options]
+
+Adds a new field to an existing entity by generating:
+  - An ALTER TABLE migration to add the column
+  - Instructions for updating the schema.clj file
+
+Required Options:
+  --module-name NAME   Module name (lowercase, e.g., 'product')
+  --entity NAME        Entity name (PascalCase, e.g., 'Product')
+  --name NAME          Field name (kebab-case, e.g., 'description')
+  --type TYPE          Field type (string, text, integer, etc.)
+
+Optional Flags:
+  --required           Field cannot be null
+  --unique             Field must be unique
+  --dry-run            Show what would be generated
+
+Examples:
+  # Add a description field
+  boundary scaffolder field \\
+    --module-name product \\
+    --entity Product \\
+    --name description \\
+    --type text
+
+  # Add a required unique field
+  boundary scaffolder field \\
+    --module-name customer \\
+    --entity Customer \\
+    --name tax-id \\
+    --type string \\
+    --required \\
+    --unique")
+
+(def endpoint-help
+  "Add Endpoint Command
+
+Usage: boundary scaffolder endpoint [options]
+
+Generates instructions for adding a new endpoint to an existing module.
+You will need to manually add the code to the http.clj file.
+
+Required Options:
+  --module-name NAME     Module name (lowercase, e.g., 'product')
+  --path PATH            URL path (e.g., '/products/export')
+  --method METHOD        HTTP method (GET, POST, PUT, DELETE, PATCH)
+  --handler-name NAME    Handler function name (e.g., 'export-products')
+
+Optional:
+  --dry-run              Show what would be generated
+
+Examples:
+  # Add a custom export endpoint
+  boundary scaffolder endpoint \\
+    --module-name product \\
+    --path /products/export \\
+    --method GET \\
+    --handler-name export-products
+
+  # Add a bulk delete endpoint
+  boundary scaffolder endpoint \\
+    --module-name customer \\
+    --path /customers/bulk-delete \\
+    --method POST \\
+    --handler-name bulk-delete-customers")
+
+(def adapter-help
+  "Add Adapter Command
+
+Usage: boundary scaffolder adapter [options]
+
+Generates a new adapter implementation for a port/protocol.
+Useful for adding alternative implementations (e.g., different storage backends,
+notification providers, etc.)
+
+Required Options:
+  --module-name NAME     Module name (lowercase, e.g., 'notifications')
+  --port NAME            Protocol/port name (e.g., 'INotificationSender')
+  --adapter-name NAME    Adapter name (kebab-case, e.g., 'slack')
+
+Optional:
+  --method SPEC          Method specification: name:arg1,arg2,... (can repeat)
+  --dry-run              Show what would be generated
+
+Examples:
+  # Generate a Slack notification adapter
+  boundary scaffolder adapter \\
+    --module-name notifications \\
+    --port INotificationSender \\
+    --adapter-name slack \\
+    --method send-notification:user-id,message \\
+    --method send-bulk:user-ids,message
+
+  # Generate an S3 storage adapter
+  boundary scaffolder adapter \\
+    --module-name storage \\
+    --port IFileStorage \\
+    --adapter-name s3 \\
+    --method store-file:path,content \\
+    --method retrieve-file:path")
+
 ;; =============================================================================
 ;; Main CLI Entry Point
 ;; =============================================================================
@@ -398,6 +701,21 @@ Examples:
           (println generate-help)
           0)
 
+        (and (= verb :field) has-help-flag?)
+        (do
+          (println field-help)
+          0)
+
+        (and (= verb :endpoint) has-help-flag?)
+        (do
+          (println endpoint-help)
+          0)
+
+        (and (= verb :adapter) has-help-flag?)
+        (do
+          (println adapter-help)
+          0)
+
         ;; Execute command
         :else
         (let [;; Get all args after the verb
@@ -406,6 +724,9 @@ Examples:
               ;; Get command-specific options
               cmd-options (case verb
                             :generate generate-options
+                            :field field-options
+                            :endpoint endpoint-options
+                            :adapter adapter-options
                             nil)]
           (if-not cmd-options
             (do

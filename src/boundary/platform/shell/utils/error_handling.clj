@@ -3,7 +3,8 @@
    
    This namespace provides middleware and utilities for capturing rich error context
    across HTTP and CLI interfaces, enabling better debugging and observability."
-  (:require [boundary.platform.core.http.problem-details :as problem]
+(:require [boundary.platform.core.http.problem-details :as problem]
+            [clojure.pprint :as pprint]
             [clojure.string :as str]
             [clojure.tools.logging :as log])
   (:import (java.util UUID)))
@@ -207,7 +208,7 @@
                              (dissoc ex-data :cli-context :original-data))
             data-text (when (seq display-data)
                         (str "Exception Data:\n"
-                             (with-out-str (clojure.pprint/pprint display-data))))]
+(with-out-str (pprint/pprint display-data))))]
         (format "%s\n\nContext:\n%s\n%s"
                 base-message
                 (str/join "\n" all-context-lines)
@@ -218,5 +219,5 @@
         (if (seq display-data)
           (format "%s\nData: %s"
                   base-message
-                  (with-out-str (clojure.pprint/pprint display-data)))
+                  (with-out-str (pprint/pprint display-data)))
           base-message)))))

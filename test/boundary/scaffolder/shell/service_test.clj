@@ -134,3 +134,133 @@
       ;; Check error result
       (is (false? (:success result)))
       (is (seq (:errors result))))))
+
+;; =============================================================================
+;; add-field command tests
+;; =============================================================================
+
+(deftest add-field-test
+  (testing "generates migration for adding a field"
+    (let [fs-adapter (fs/create-file-system-adapter test-output-dir)
+          svc (service/create-scaffolder-service fs-adapter)
+          
+          request {:module-name "product"
+                   :entity "Product"
+                   :field {:name :description
+                           :type :text
+                           :required false
+                           :unique false}
+                   :dry-run false}
+          
+          result (ports/add-field svc request)]
+      
+      (is (true? (:success result)))
+      (is (= "product" (:module-name result)))
+      (is (= 2 (count (:files result))))
+      
+      ;; Check migration file was created
+      (let [migration-file (first (filter #(str/starts-with? (:path %) "migrations/") 
+                                          (:files result)))]
+        (is (some? migration-file))
+        (is (str/includes? (:path migration-file) "add_description_to_products.sql"))
+        (is (str/includes? (:content migration-file) "ALTER TABLE"))
+        (is (str/includes? (:content migration-file) "ADD COLUMN description"))))))
+
+(deftest add-field-dry-run-test
+  (testing "dry run does not write migration file"
+    (let [fs-adapter (fs/create-file-system-adapter test-output-dir)
+          svc (service/create-scaffolder-service fs-adapter)
+          
+          request {:module-name "product"
+                   :entity "Product"
+                   :field {:name :sku
+                           :type :string
+                           :required true
+                           :unique true}
+                   :dry-run true}
+          
+          result (ports/add-field svc request)]
+      
+      (is (true? (:success result)))
+      (is (some #(str/includes? % "Dry run") (:warnings result))))))
+
+;; =============================================================================
+;; add-endpoint command tests
+;; =============================================================================
+
+(deftest add-endpoint-test
+  (testing "generates endpoint instructions"
+    (let [fs-adapter (fs/create-file-system-adapter test-output-dir)
+          svc (service/create-scaffolder-service fs-adapter)
+          
+          request {:module-name "product"
+                   :path "/products/export"
+                   :method :get
+                   :handler-name "export-products"
+                   :dry-run false}
+          
+          result (ports/add-endpoint svc request)]
+      
+      (is (true? (:success result)))
+      (is (= "product" (:module-name result)))
+      (is (= 1 (count (:files result))))
+      
+      ;; Check instructions content
+      (let [http-file (first (:files result))]
+        (is (str/ends-with? (:path http-file) "http.clj"))
+        (is (str/includes? (:content http-file) "/products/export"))
+        (is (str/includes? (:content http-file) ":get"))
+        (is (str/includes? (:content http-file) "export-products"))))))
+
+;; =============================================================================
+;; add-adapter command tests
+;; =============================================================================
+
+(deftest add-adapter-test
+  (testing "generates adapter implementation file"
+    (let [fs-adapter (fs/create-file-system-adapter test-output-dir)
+          svc (service/create-scaffolder-service fs-adapter)
+          
+          request {:module-name "notifications"
+                   :port "INotificationSender"
+                   :adapter-name "slack"
+                   :methods [{:name "send-notification" :args ["user-id" "message"]}
+                             {:name "send-bulk" :args ["user-ids" "message"]}]
+                   :dry-run false}
+          
+          result (ports/add-adapter svc request)]
+      
+      (is (true? (:success result)))
+      (is (= "notifications" (:module-name result)))
+      (is (= 1 (count (:files result))))
+      
+      ;; Check adapter file was created
+      (let [adapter-file (first (:files result))]
+        (is (str/ends-with? (:path adapter-file) "slack.clj"))
+        (is (str/includes? (:path adapter-file) "adapters/"))
+        (is (fs-ports/file-exists? fs-adapter (:path adapter-file)))
+        
+        ;; Check file content
+        (let [content (fs-ports/read-file fs-adapter (:path adapter-file))]
+          (is (str/includes? content "defrecord Slack")) ;; Record name is based on adapter-name
+          (is (str/includes? content "INotificationSender"))
+          (is (str/includes? content "send-notification"))
+          (is (str/includes? content "send-bulk")))))))
+
+(deftest add-adapter-dry-run-test
+  (testing "dry run does not write adapter file"
+    (let [fs-adapter (fs/create-file-system-adapter test-output-dir)
+          svc (service/create-scaffolder-service fs-adapter)
+          
+          request {:module-name "storage"
+                   :port "IFileStorage"
+                   :adapter-name "s3"
+                   :methods [{:name "store-file" :args ["path" "content"]}]
+                   :dry-run true}
+          
+          result (ports/add-adapter svc request)]
+      
+      (is (true? (:success result)))
+      (is (some #(str/includes? % "Dry run") (:warnings result)))
+      (is (not (fs-ports/file-exists? fs-adapter 
+                                       "src/boundary/storage/shell/adapters/s3.clj"))))))

@@ -23,8 +23,7 @@
             [boundary.jobs.core.job :as job]
             [boundary.jobs.schema :as schema]
             [clojure.tools.logging :as log])
-  (:import [java.time Instant]
-           [java.util UUID]))
+(:import [java.time Instant]))
 
 ;; =============================================================================
 ;; State Management
@@ -195,7 +194,7 @@
   (queue-size [_ queue-name]
     (queue-size-internal (:queues state) queue-name))
 
-  (list-queues [this]
+(list-queues [_this]
     (vec (keys @(:queues state))))
 
   (process-scheduled-jobs! [this]
@@ -309,7 +308,7 @@
 (defrecord InMemoryJobStats [state]
   ports/IJobStats
 
-  (job-stats [this]
+(job-stats [this]
     (let [all-jobs (vals @(:jobs state))
           queues (keys @(:queues state))]
       {:total-processed (count (filter #(#{:completed :failed} (:status %)) all-jobs))

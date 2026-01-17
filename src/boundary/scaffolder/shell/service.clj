@@ -2,12 +2,26 @@
   "Scaffolder service implementation for module generation.
    
    Orchestrates template rendering and file generation."
-  (:require [boundary.scaffolder.ports :as ports]
+(:require [boundary.scaffolder.ports :as ports]
             [boundary.scaffolder.schema :as schema]
             [boundary.scaffolder.core.template :as template]
             [boundary.scaffolder.core.generators :as generators]
             [boundary.platform.shell.adapters.filesystem.protocols :as fs-ports]
+            [clojure.string :as str]
             [malli.core :as m]))
+
+(defn- get-next-migration-number
+  "Get the next migration number based on existing migrations."
+  [file-system]
+  (try
+    (let [files (fs-ports/list-files file-system "migrations")
+          numbers (keep #(when-let [m (re-find #"^(\d+)" %)] 
+                          (Integer/parseInt (second m))) 
+                       (or files []))
+          max-num (if (seq numbers) (apply max numbers) 0)]
+      (format "%03d" (inc max-num)))
+    (catch Exception _
+      "006")))
 
 (defrecord ScaffolderService [file-system]
   ports/IScaffolderService
@@ -98,7 +112,107 @@
         {:success false
          :module-name (:module-name request)
          :files []
-         :errors [(str "Generation failed: " (.getMessage e))]}))))
+         :errors [(str "Generation failed: " (.getMessage e))]})))
+
+  (add-field [this request]
+    (try
+      (let [{:keys [module-name entity field dry-run]} request
+            migration-number (get-next-migration-number (:file-system this))
+            
+            ;; Generate migration content
+            migration-content (generators/generate-add-field-migration 
+                               module-name entity field migration-number)
+            
+            ;; Generate schema instructions
+            schema-instructions (generators/generate-add-field-schema-comment
+                                 module-name entity field)
+            
+            ;; Define files
+            field-name-snake (template/kebab->snake (name (:name field)))
+            table-name (template/kebab->snake (template/pluralize (str/lower-case entity)))
+            files [{:path (format "migrations/%s_add_%s_to_%s.sql" 
+                                  migration-number field-name-snake table-name)
+                    :content migration-content
+                    :action :create}
+                   {:path (format "src/boundary/%s/schema.clj" module-name)
+                    :content schema-instructions
+                    :action :update}]]
+        
+        ;; Write migration file (unless dry-run)
+        (when-not dry-run
+          (fs-ports/write-file (:file-system this) 
+                               (:path (first files)) 
+                               (:content (first files))))
+        
+        {:success true
+         :module-name module-name
+         :files files
+         :warnings (if dry-run
+                     ["Dry run - no files were written"
+                      "Manual schema update required - see instructions in output"]
+                     ["Manual schema update required - see instructions above"])})
+      
+      (catch Exception e
+        {:success false
+         :module-name (:module-name request)
+         :files []
+         :errors [(str "Add field failed: " (.getMessage e))]})))
+  
+  (add-endpoint [_this request]
+    (try
+      (let [{:keys [module-name path method handler-name dry-run]} request
+            
+            ;; Generate endpoint definition instructions
+            endpoint-content (generators/generate-endpoint-definition
+                              module-name path method handler-name)
+            
+            files [{:path (format "src/boundary/%s/shell/http.clj" module-name)
+                    :content endpoint-content
+                    :action :update}]]
+        
+        {:success true
+         :module-name module-name
+         :files files
+         :warnings ["Manual code update required - see instructions in output"
+                    (when dry-run "Dry run - showing what to add")]})
+      
+      (catch Exception e
+        {:success false
+         :module-name (:module-name request)
+         :files []
+         :errors [(str "Add endpoint failed: " (.getMessage e))]})))
+  
+  (add-adapter [this request]
+    (try
+      (let [{:keys [module-name port adapter-name methods dry-run]} request
+            
+            ;; Generate adapter file content
+            adapter-content (generators/generate-adapter-file
+                             module-name port adapter-name 
+                             (or methods [{:name "example-method" :args ["arg1"]}]))
+            
+            adapter-path (format "src/boundary/%s/shell/adapters/%s.clj" 
+                                 module-name adapter-name)
+            files [{:path adapter-path
+                    :content adapter-content
+                    :action :create}]]
+        
+        ;; Write adapter file (unless dry-run)
+        (when-not dry-run
+          (fs-ports/write-file (:file-system this) adapter-path adapter-content))
+        
+        {:success true
+         :module-name module-name
+         :files files
+         :warnings (if dry-run
+                     ["Dry run - no files were written"]
+                     ["Implement TODO methods in the generated adapter"])})
+      
+      (catch Exception e
+        {:success false
+         :module-name (:module-name request)
+         :files []
+         :errors [(str "Add adapter failed: " (.getMessage e))]}))))
 
 (defn create-scaffolder-service
   "Create a new scaffolder service.

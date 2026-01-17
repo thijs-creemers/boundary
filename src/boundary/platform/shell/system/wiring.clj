@@ -22,7 +22,7 @@
      (def cfg (config/ig-config (config/load-config)))
      (def system (ig/init cfg))
      (ig/halt! system)"
-  (:require [boundary.platform.shell.adapters.database.factory :as db-factory]
+(:require [boundary.platform.shell.adapters.database.factory :as db-factory]
             [boundary.logging.shell.adapters.no-op :as logging-no-op]
             [boundary.metrics.shell.adapters.no-op :as metrics-no-op]
             [boundary.metrics.shell.adapters.datadog :as metrics-datadog]
@@ -38,6 +38,7 @@
             [boundary.inventory.shell.module-wiring] ;; Load inventory module init/halt methods
             [boundary.admin.shell.module-wiring] ;; Load admin module init/halt methods
             [cheshire.core]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]
             [ring.adapter.jetty :as jetty]))
@@ -233,7 +234,7 @@
                                           (let [method (or (get-in request [:form-params "_method"])
                                                            (get-in request [:params "_method"]))]
                                             (if method
-                                              (let [override-method (keyword (clojure.string/lower-case method))]
+(let [override-method (keyword (str/lower-case method))]
                                                 (handler (assoc request :request-method override-method)))
                                               (handler request)))
                                           (handler request))))]

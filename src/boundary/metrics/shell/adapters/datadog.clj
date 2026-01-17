@@ -196,7 +196,7 @@
       (swap! enabled disj name)
       existed?))
 
-  (list-metrics [this]
+  (list-metrics [_this]
     (->> @metrics
          (map (fn [[name metric]]
                 (assoc metric
@@ -417,14 +417,14 @@
                                  :timestamp timestamp}))
       (throw (ex-info "Metric not found" {:metric-name metric-name}))))
 
-  (reset-metrics! [this]
+  (reset-metrics! [_this]
     (doseq [[_ metric] @(:metrics registry)]
       (case (:type metric)
         :counter (reset! (:values metric) 0)
         :gauge (reset! (:values metric) nil)
         (:histogram :summary) (reset! (:values metric) []))))
 
-  (flush! [this]
+  (flush! [_this]
     ;; No-op for UDP DogStatsD - fire and forget
     nil))
 
@@ -442,7 +442,7 @@
         (vector-tags->map previous)
         previous)))
 
-  (get-default-tags [this]
+  (get-default-tags [_this]
     (let [tags (:global-tags @config)]
       (if (vector? tags)
         (vector-tags->map tags)
@@ -453,7 +453,7 @@
       (swap! config assoc :export-interval interval-ms)
       previous))
 
-  (get-export-interval [this]
+  (get-export-interval [_this]
     (:export-interval @config))
 
   (enable-metric! [_ metric-name]
@@ -517,7 +517,7 @@
     (ports/register-summary! registry name description quantiles tags))
   (unregister! [_ name]
     (ports/unregister! registry name))
-  (list-metrics [this]
+  (list-metrics [_this]
     (ports/list-metrics registry))
   (get-metric [_ name]
     (ports/get-metric registry name))
@@ -557,19 +557,19 @@
     (ports/export-metric exporter metric-name format))
   (get-metric-values [_ metric-name]
     (ports/get-metric-values exporter metric-name))
-  (reset-metrics! [this]
+  (reset-metrics! [_this]
     (ports/reset-metrics! exporter))
-  (flush! [this]
+  (flush! [_this]
     (ports/flush! exporter))
 
   ports/IMetricsConfig
   (set-default-tags! [_ tags]
     (ports/set-default-tags! metrics-config tags))
-  (get-default-tags [this]
+  (get-default-tags [_this]
     (ports/get-default-tags metrics-config))
   (set-export-interval! [_ interval-ms]
     (ports/set-export-interval! metrics-config interval-ms))
-  (get-export-interval [this]
+  (get-export-interval [_this]
     (ports/get-export-interval metrics-config))
   (enable-metric! [_ metric-name]
     (ports/enable-metric! metrics-config metric-name))

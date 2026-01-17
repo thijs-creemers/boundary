@@ -171,7 +171,7 @@
              (.llen redis queue-key)
              (.llen redis (str queue-key ":low")))))))
 
-  (list-queues [this]
+  (list-queues [_this]
     (with-redis pool
       (fn [^Jedis redis]
         (let [keys (.keys redis "queue:*")]
@@ -344,7 +344,7 @@
 (defrecord RedisJobStats [^JedisPool pool]
   ports/IJobStats
 
-  (job-stats [this]
+(job-stats [this]
     (with-redis pool
       (fn [^Jedis redis]
         (let [queue-keys (.keys redis "queue:*")

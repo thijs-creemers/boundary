@@ -3,9 +3,8 @@
    
    Provides concrete implementation of IFileSystemAdapter protocol
    using Java I/O for local filesystem access."
-  (:require [boundary.platform.shell.adapters.filesystem.protocols :as fs-protocols]
-            [clojure.java.io :as io])
-  (:import [java.io File]))
+(:require [boundary.platform.shell.adapters.filesystem.protocols :as fs-protocols]
+            [clojure.java.io :as io]))
 
 ;; =============================================================================
 ;; File System Adapter Implementation

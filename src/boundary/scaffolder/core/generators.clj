@@ -708,3 +708,184 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
          "  (testing \"creates " entity-lower " in database\"\n"
          "    ;; Test requires database context\n"
          "    (is true)))\n")))
+
+;; =============================================================================
+;; Incremental Generators - Add Field
+;; =============================================================================
+
+(defn generate-add-field-migration
+  "Generate ALTER TABLE migration for adding a field.
+   
+   Args:
+     module-name - Module name
+     entity-name - Entity name (PascalCase)
+     field - Field definition map {:name :type :required :unique}
+     migration-number - Migration sequence number (e.g., \"006\")
+   
+   Returns:
+     String content for migration SQL
+   
+   Pure: true"
+  [module-name entity-name field migration-number]
+  (let [table-name (template/kebab->snake (template/pluralize (str/lower-case entity-name)))
+        field-ctx (template/build-field-context field)
+        field-name (:field-name-snake field-ctx)
+        sql-type (:sql-type field-ctx)
+        not-null (if (:field-required field-ctx) " NOT NULL" "")
+        unique-clause (if (:field-unique field-ctx) " UNIQUE" "")]
+    (format "-- Migration %s: Add %s to %s table
+
+ALTER TABLE %s ADD COLUMN %s %s%s%s;
+"
+            migration-number
+            field-name
+            table-name
+            table-name
+            field-name
+            sql-type
+            not-null
+            unique-clause)))
+
+(defn generate-add-field-schema-comment
+  "Generate schema addition comment/instructions for adding a field.
+   
+   Args:
+     module-name - Module name
+     entity-name - Entity name
+     field - Field definition map
+   
+   Returns:
+     String with instructions for manual schema update
+   
+   Pure: true"
+  [module-name entity-name field]
+  (let [field-ctx (template/build-field-context field)
+        field-name (keyword (:field-name-kebab field-ctx))
+        malli-type (:malli-type field-ctx)
+        required (:field-required field-ctx)]
+    (format ";; Add to src/boundary/%s/schema.clj in the %s schema:
+;;
+;; %s
+;;
+;; Then add to Create%sRequest and Update%sRequest schemas as well.
+"
+            module-name
+            entity-name
+            (if required
+              (format "[%s %s]" field-name malli-type)
+              (format "[%s {:optional true} %s]" field-name malli-type))
+            entity-name
+            entity-name)))
+
+;; =============================================================================
+;; Incremental Generators - Add Endpoint
+;; =============================================================================
+
+(defn generate-endpoint-definition
+  "Generate a single endpoint definition for adding to http.clj.
+   
+   Args:
+     module-name - Module name
+     path - Route path (e.g., \"/invoices/:id/send\")
+     method - HTTP method keyword (e.g., :post)
+     handler-name - Handler function name (e.g., \"send-invoice\")
+   
+   Returns:
+     String content for endpoint definition (normalized format)
+   
+   Pure: true"
+  [module-name path method handler-name]
+  (let [method-str (name method)]
+    (format ";; Add to normalized-api-routes in src/boundary/%s/shell/http.clj:
+;;
+;; {:path \"%s\"
+;;  :methods {:%s {:handler %s-handler
+;;                 :summary \"%s endpoint\"}}}
+;;
+;; Then create the handler function:
+;;
+;; (defn %s-handler [service]
+;;   (fn [request]
+;;     {:status 200
+;;      :body {:message \"Success\"}}))
+"
+            module-name
+            path
+            method-str
+            handler-name
+            (str/replace handler-name "-" " ")
+            handler-name)))
+
+;; =============================================================================
+;; Incremental Generators - Add Adapter
+;; =============================================================================
+
+(defn generate-adapter-file
+  "Generate a complete adapter implementation file.
+   
+   Args:
+     module-name - Module name (e.g., \"cache\")
+     port-name - Port protocol name (e.g., \"ICache\")
+     adapter-name - Adapter name (e.g., \"redis\")
+     methods - Vector of method specs [{:name \"get-value\" :args [\"key\"]}]
+   
+   Returns:
+     String content for adapter.clj file
+   
+   Pure: true"
+  [module-name port-name adapter-name methods]
+  (let [adapter-pascal (template/kebab->pascal adapter-name)
+        record-name (str adapter-pascal (template/kebab->pascal module-name))
+        methods-str (str/join "\n\n"
+                              (map (fn [{:keys [name args returns]}]
+                                     (let [args-str (str/join " " (cons "_this" args))]
+                                       (format "  (%s [%s]\n    ;; TODO: Implement %s\n    (throw (ex-info \"Not implemented\" {:method :%s})))"
+                                               name args-str name name)))
+                                   methods))]
+    (format "(ns boundary.%s.shell.adapters.%s
+  \"%s adapter implementation for %s.
+   
+   TODO: Implement all methods of the %s protocol.\"
+  (:require [boundary.%s.ports :as ports]))
+
+;; =============================================================================
+;; %s Adapter Implementation
+;; =============================================================================
+
+(defrecord %s [config]
+  ports/%s
+
+%s)
+
+;; =============================================================================
+;; Factory Functions
+;; =============================================================================
+
+(defn create-%s-%s
+  \"Create %s %s adapter instance.
+   
+   Args:
+     config - Configuration map
+   
+   Returns:
+     %s instance implementing %s\"
+  [config]
+  (->%s config))
+"
+            module-name
+            adapter-name
+            (str/capitalize adapter-name)
+            module-name
+            port-name
+            module-name
+            (str/capitalize adapter-name)
+            record-name
+            port-name
+            methods-str
+            adapter-name
+            module-name
+            (str/capitalize adapter-name)
+            module-name
+            record-name
+            port-name
+            record-name)))

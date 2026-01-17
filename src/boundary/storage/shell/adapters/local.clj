@@ -8,8 +8,7 @@
             [boundary.logging.ports :as logging]
             [clojure.java.io :as io]
             [clojure.string :as str])
-  (:import [java.io File]
-           [java.nio.file Files Path Paths]
+(:import [java.nio.file Files Path Paths]
            [java.nio.file.attribute FileAttribute]
            [java.security MessageDigest]
            [java.util UUID]))

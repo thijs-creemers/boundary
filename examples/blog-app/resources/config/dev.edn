@@ -1,0 +1,9 @@
+{:server {:port 3001
+          :join? false}
+
+ :database {:dbtype "sqlite"
+            :dbname "blog-dev.db"}
+
+ :blog {:name "My Boundary Blog"
+        :description "A blog built with Boundary Framework"
+        :posts-per-page 10}}

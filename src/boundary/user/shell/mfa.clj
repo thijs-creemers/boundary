@@ -162,27 +162,27 @@
       :backup-codes vector (if successful)
       :error string (if failed)}"
   [mfa-service user-id]
-  (let [{:keys [user-repository config]} mfa-service]
+(let [{:keys [user-repository config]} mfa-service]
     (try
-      (let [user (.find-user-by-id user-repository user-id)]
-        (let [can-enable (mfa-core/can-enable-mfa? user)]
-          (if (:can-enable? can-enable)
-            ;; Generate MFA setup data
-            (let [secret (generate-totp-secret)
-                  backup-codes (generate-backup-codes 10)
-                  issuer (get config :issuer "Boundary Framework")
-                  account-name (:email user)
-                  totp-uri (generate-totp-uri secret account-name issuer)
-                  qr-code-url (generate-qr-code-data-url totp-uri)]
-              {:success? true
-               :secret secret
-               :qr-code-url qr-code-url
-               :backup-codes backup-codes
-               :issuer issuer
-               :account-name account-name})
-            ;; Cannot enable MFA
-            {:success? false
-             :error (:reason can-enable)})))
+      (let [user (.find-user-by-id user-repository user-id)
+            can-enable (mfa-core/can-enable-mfa? user)]
+        (if (:can-enable? can-enable)
+          ;; Generate MFA setup data
+          (let [secret (generate-totp-secret)
+                backup-codes (generate-backup-codes 10)
+                issuer (get config :issuer "Boundary Framework")
+                account-name (:email user)
+                totp-uri (generate-totp-uri secret account-name issuer)
+                qr-code-url (generate-qr-code-data-url totp-uri)]
+            {:success? true
+             :secret secret
+             :qr-code-url qr-code-url
+             :backup-codes backup-codes
+             :issuer issuer
+             :account-name account-name})
+          ;; Cannot enable MFA
+          {:success? false
+           :error (:reason can-enable)}))
       (catch Exception e
         {:success? false
          :error (str "Failed to set up MFA: " (.getMessage e))}))))
@@ -201,31 +201,31 @@
      {:success? boolean
       :error string (if failed)}"
   [mfa-service user-id secret backup-codes verification-code]
-  (let [{:keys [user-repository]} mfa-service]
+(let [{:keys [user-repository]} mfa-service]
     (try
-      (let [user (.find-user-by-id user-repository user-id)]
-        (let [can-enable (mfa-core/can-enable-mfa? user)]
-          (if (:can-enable? can-enable)
-            ;; Verify the code before enabling
-            (if (verify-totp-code verification-code secret)
-              ;; Enable MFA
-              (let [current-time (Instant/now)
-                    updates (mfa-core/prepare-mfa-enablement
-                             user secret backup-codes current-time)
-                    updated-user (merge user updates)
-                    _ (clojure.tools.logging/info "Updating user with MFA" 
-                                                   {:user-id (:id user)
-                                                    :mfa-enabled (:mfa-enabled updated-user)
-                                                    :has-secret (boolean (:mfa-secret updated-user))
-                                                    :backup-codes-count (count (:mfa-backup-codes updated-user))})]
-                (.update-user user-repository updated-user)
-                {:success? true})
-              ;; Invalid verification code
-              {:success? false
-               :error "Invalid verification code"})
-            ;; Cannot enable MFA
+      (let [user (.find-user-by-id user-repository user-id)
+            can-enable (mfa-core/can-enable-mfa? user)]
+        (if (:can-enable? can-enable)
+          ;; Verify the code before enabling
+          (if (verify-totp-code verification-code secret)
+            ;; Enable MFA
+            (let [current-time (Instant/now)
+                  updates (mfa-core/prepare-mfa-enablement
+                           user secret backup-codes current-time)
+                  updated-user (merge user updates)]
+              (log/info "Updating user with MFA" 
+                        {:user-id (:id user)
+                         :mfa-enabled (:mfa-enabled updated-user)
+                         :has-secret (boolean (:mfa-secret updated-user))
+                         :backup-codes-count (count (:mfa-backup-codes updated-user))})
+              (.update-user user-repository updated-user)
+              {:success? true})
+            ;; Invalid verification code
             {:success? false
-             :error (:reason can-enable)})))
+             :error "Invalid verification code"})
+          ;; Cannot enable MFA
+          {:success? false
+           :error (:reason can-enable)}))
       (catch Exception e
         {:success? false
          :error (str "Failed to enable MFA: " (.getMessage e))}))))
@@ -241,19 +241,19 @@
      {:success? boolean
       :error string (if failed)}"
   [mfa-service user-id]
-  (let [{:keys [user-repository]} mfa-service]
+(let [{:keys [user-repository]} mfa-service]
     (try
-      (let [user (.find-user-by-id user-repository user-id)]
-        (let [can-disable (mfa-core/can-disable-mfa? user)]
-          (if (:can-disable? can-disable)
-            ;; Disable MFA
-            (let [updates (mfa-core/prepare-mfa-disablement user)
-                  updated-user (merge user updates)]
-              (.update-user user-repository updated-user)
-              {:success? true})
-            ;; Cannot disable MFA
-            {:success? false
-             :error (:reason can-disable)})))
+      (let [user (.find-user-by-id user-repository user-id)
+            can-disable (mfa-core/can-disable-mfa? user)]
+        (if (:can-disable? can-disable)
+          ;; Disable MFA
+          (let [updates (mfa-core/prepare-mfa-disablement user)
+                updated-user (merge user updates)]
+            (.update-user user-repository updated-user)
+            {:success? true})
+          ;; Cannot disable MFA
+          {:success? false
+           :error (:reason can-disable)}))
       (catch Exception e
         {:success? false
          :error (str "Failed to disable MFA: " (.getMessage e))}))))

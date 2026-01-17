@@ -358,7 +358,7 @@
 
   ports/ICacheStats
 
-  (cache-stats [this]
+  (cache-stats [_this]
     (let [entries @(:entries state)
           stats @(:stats state)
           total-requests (+ (:hits stats) (:misses stats))
@@ -372,7 +372,7 @@
        :evictions (:evictions stats)
        :memory-usage nil}))  ; Not available for in-memory
 
-  (clear-stats! [this]
+  (clear-stats! [_this]
     (reset! (:stats state) {:hits 0 :misses 0 :evictions 0})
     true)
 
@@ -382,16 +382,16 @@
 
   ports/ICacheManagement
 
-  (flush-all! [this]
+  (flush-all! [_this]
     (let [entries (:entries state)
           size (count @entries)]
       (reset! entries {})
       size))
 
-  (ping [this]
+  (ping [_this]
     true)  ; In-memory cache is always available
 
-  (close! [this]
+  (close! [_this]
     true))  ; Nothing to close for in-memory cache
 
 ;; =============================================================================
