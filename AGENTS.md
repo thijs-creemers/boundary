@@ -159,6 +159,45 @@ clojure -M:clj-kondo --lint src test
 (ig-repl/go)
 ```
 
+### Debugging Workflow
+
+When encountering 500 errors or unexpected behavior:
+
+1. **Check logs first** - Errors are logged with stack traces:
+   ```bash
+   tail -100 logs/boundary.log | grep -A 10 "ERROR"
+   ```
+
+2. **Add temporary logging** - Use `println` for quick debugging:
+   ```clojure
+   (println "DEBUG:" {:field value :other other-value})
+   ```
+   Output appears in REPL/server stdout, not log files.
+
+3. **Test in isolation via REPL** - Bypass HTTP layer to test services directly:
+   ```clojure
+   (def admin-svc (get integrant.repl.state/system :boundary/admin-service))
+   (admin-ports/update-entity admin-svc :users uuid {:name "Test"})
+   ```
+
+4. **Check actual HTTP request data** - Add temporary logging in handlers:
+   ```clojure
+   (println "DEBUG request:" 
+            {:method (:request-method request)
+             :params (:params request)
+             :headers (select-keys (:headers request) ["hx-request"])})
+   ```
+
+5. **Verify database state** - Query directly via REPL:
+   ```clojure
+   (def ds (get-in integrant.repl.state/system [:boundary/db-context :datasource]))
+   (jdbc/execute! ds ["SELECT * FROM users WHERE id = ?" uuid])
+   ```
+
+6. **Remove debug logging before committing** - Clean up all `println` statements.
+
+**Key Principle**: Start from the innermost layer (core/database) and work outward to HTTP layer. Don't debug through the full stack if you can isolate the issue.
+
 ---
 
 ## Common Pitfalls
@@ -220,6 +259,249 @@ clj-paren-repair src/boundary/user/core/user.clj
 (ns boundary.user.core.user)
 (defn find-user-decision [user-id existing-user] ...)  ; Pure logic
 ```
+
+### 6. Schema-Database Mismatch
+
+**Problem**: Fields referenced in business logic but missing from database/schema.
+
+**Root Cause**: Adding logic that uses new fields without:
+1. Adding fields to Malli schema
+2. Adding database columns
+3. Adding field transformations in persistence layer
+
+**Detection**: 
+- 500 errors with cryptic messages
+- `nil` values for expected fields
+- SQL errors about missing columns
+
+**Solution**:
+```clojure
+;; ALWAYS follow this checklist when adding new fields:
+
+;; 1. Add to Malli schema (src/{module}/schema.clj)
+[:failed-login-count {:optional true} :int]
+[:lockout-until {:optional true} [:maybe inst?]]
+
+;; 2. Add to persistence layer transformations (src/{module}/shell/persistence.clj)
+;; In entity->db:
+(update :lockout-until type-conversion/instant->string)
+;; In db->entity:
+(update :lockout-until type-conversion/string->instant)
+
+;; 3. Verify database has columns (or add migration)
+ALTER TABLE users ADD COLUMN failed_login_count INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN lockout_until TEXT;
+```
+
+**Prevention**: When referencing a new field in code, immediately check:
+1. Does it exist in the schema?
+2. Does the database table have the column?
+3. Are transformations in place (for types like inst, decimal, etc.)?
+
+### 7. Form Parsing - Array Values from Checkboxes
+
+**Problem**: Checkboxes using hidden field + checkbox pattern submit as arrays `["false", "true"]`.
+
+**Symptom**: `ClassCastException: PersistentVector cannot be cast to CharSequence`
+
+**Root Cause**: HTML forms with this pattern:
+```html
+<input type="hidden" name="active" value="false">
+<input type="checkbox" name="active" value="true" checked>
+```
+Both values are submitted when checkbox is checked, resulting in an array.
+
+**Solution**: Normalize array values in form parsing:
+```clojure
+(defn parse-form-params [params entity-config]
+  (reduce-kv
+    (fn [acc field-name value]
+      (let [; Handle array values - take the last value
+            normalized-value (if (vector? value)
+                              (last value)
+                              value)]
+        ; ... rest of parsing logic using normalized-value
+        ))
+    {}
+    params))
+```
+
+**Prevention**: Always assume form values might be arrays (Ring can submit multiple values for same field name).
+
+### 8. Flash Messages - Map vs Sequence Confusion
+
+**Problem**: Iterating over flash message map produces invalid Hiccup.
+
+**Symptom**: `IllegalArgumentException: No implementation of method: :write-body-to-stream`
+
+**Root Cause**: Code expecting sequence of messages, but receiving single map:
+```clojure
+;; ❌ WRONG - Iterating over map structure
+(for [[type message] flash]  ; flash is {:type :error :message "..."}
+  [:div {:class (str "alert-" type)} message])
+;; Produces: [:div {:class "alert-type"} :error] [:div {:class "alert-message"} "..."]
+```
+
+**Solution**: Access map keys directly:
+```clojure
+;; ✅ CORRECT - Direct map access
+(when flash
+  [:div {:class (str "alert alert-" (name (:type flash)))} 
+   (:message flash)])
+```
+
+**Prevention**: Be explicit about data structure contracts. If flash is a map, document it and access it as a map. Don't iterate over maps unless you truly want key-value pairs.
+
+### 9. HTMX Target Mismatch - Fragment Nesting
+
+**Problem**: HTMX replaces target with response that contains duplicate parent elements.
+
+**Symptom**: Clicking table header to sort adds extra filter box to page.
+
+**Root Cause**: 
+- HTMX targets `#entity-table-container`
+- Server returns `#filter-table-container` (which contains filter builder + table)
+- HTMX replaces table with entire filter-table container
+- Result: Nested duplicate filter builders
+
+**Solution**: Ensure HTMX response matches the target selector:
+```clojure
+;; ❌ WRONG - Returning parent container when targeting child
+(defn table-fragment-handler [request]
+  (htmx-fragment-response
+    [:div#filter-table-container     ; Parent
+     (render-filter-builder ...)     ; Filter
+     [:div#entity-table-container    ; Child (the actual target)
+      (render-table ...)]]))
+
+;; ✅ CORRECT - Return exactly what's targeted
+(defn table-fragment-handler [request]
+  (htmx-fragment-response
+    [:div#entity-table-container     ; Match the hx-target
+     (render-table ...)]))
+```
+
+**Prevention**: 
+- HTMX target selector should match the root element of the response
+- Use `hx-target="#foo"` → response should have `[:div#foo ...]` as root
+- Keep filter UI outside HTMX-updated regions if it shouldn't change
+
+### 10. Direct Navigation to HTMX Fragment Endpoints
+
+**Problem**: Refreshing page on HTMX fragment URL shows unstyled HTML.
+
+**Symptom**: URL changes to `/web/admin/users/table?sort=...`, page loses CSS.
+
+**Root Cause**: HTMX `hx-push-url` updates browser history with fragment endpoint URLs. When user refreshes, browser requests fragment (HTML without layout) as a full page.
+
+**Solution**: Detect non-HTMX requests and redirect to full page:
+```clojure
+(defn entity-table-fragment-handler [request]
+  (let [is-htmx? (get-in request [:headers "hx-request"])]
+    ; Redirect non-HTMX requests back to full page
+    (when-not is-htmx?
+      (let [query-string (:query-string request)
+            redirect-url (str "/web/admin/users" 
+                             (when query-string (str "?" query-string)))]
+        (throw (ex-info "Redirect to full page"
+                        {:type :redirect
+                         :location redirect-url
+                         :status 303}))))
+    ; ... normal fragment response
+    ))
+```
+
+**Prevention**: 
+- Always check `hx-request` header in fragment-only endpoints
+- Redirect non-HTMX requests to corresponding full page routes
+- Preserve query parameters in redirect for proper state restoration
+- Ensure error interceptor handles `:redirect` type with proper HTTP redirects
+
+### 11. Exception Handling - Missing :type in ex-data
+
+**Problem**: Exceptions without `:type` in ex-data trigger generic 500 errors.
+
+**Symptom**: Log warning "Exception reached HTTP boundary without :type in ex-data"
+
+**Root Cause**: Throwing exceptions from Java methods or using `ex-info` without `:type`:
+```clojure
+;; ❌ WRONG - No :type in ex-data
+(parse-long "invalid")  ; Throws NumberFormatException (no ex-data)
+(UUID/fromString "bad") ; Throws IllegalArgumentException (no ex-data)
+(throw (ex-info "Error" {:field :foo}))  ; Missing :type
+```
+
+**Solution**: Wrap external calls in try-catch with typed errors:
+```clojure
+;; ✅ CORRECT - Wrap in try-catch with :type
+(try
+  (parse-long value)
+  (catch NumberFormatException _
+    (throw (ex-info "Invalid integer value"
+                    {:type :validation-error
+                     :field field-keyword
+                     :value value
+                     :message "Must be a valid integer"}))))
+```
+
+**Prevention**:
+- ALL `ex-info` calls MUST include `:type` key
+- Wrap calls to Java methods that can throw (parse-long, UUID/fromString, bigdec, etc.)
+- Use validation-error, not-found, unauthorized, forbidden, conflict, or internal-error as types
+- Add new types to error interceptor's case statement if needed
+
+### 12. Java Interop - Static vs Instance Methods
+
+**Problem**: Incorrect Java method invocation syntax causes runtime errors.
+
+**Symptom**: `IllegalArgumentException: No matching method <method-name> found taking N args for class java.lang.Class`
+
+**Root Cause**: Using instance method syntax (`.method`) for static methods or vice versa:
+```clojure
+;; ❌ WRONG - Using instance syntax for static method
+(.between java.time.Duration instant now)
+;; Error: No matching method between found taking 2 args
+
+;; ❌ WRONG - Using static syntax for instance method
+(java.time.Instant/getSeconds my-instant)
+;; Error: No matching field or method getSeconds
+```
+
+**Solution**: Use correct syntax for static vs instance methods:
+```clojure
+;; ✅ CORRECT - Static method using ClassName/method
+(java.time.Duration/between instant now)
+
+;; ✅ CORRECT - Instance method using .method
+(.getSeconds duration)
+```
+
+**Common Java Interop Patterns**:
+```clojure
+;; Static methods (ClassName/method)
+(java.time.Instant/now)
+(java.util.UUID/randomUUID)
+(java.lang.Math/abs -5)
+(java.time.Duration/between start end)
+
+;; Instance methods (.method object)
+(.toString my-object)
+(.getSeconds duration)
+(.format instant formatter)
+
+;; Static fields (ClassName/FIELD)
+java.time.temporal.ChronoUnit/DAYS
+
+;; Instance fields (.field object)
+(.length my-string)
+```
+
+**Prevention**:
+- Check Java documentation to identify static vs instance methods
+- Static methods in Java docs: `public static Duration between(Temporal start, Temporal end)`
+- Instance methods in Java docs: `public long getSeconds()`
+- Use IDE or REPL to verify before committing
+- Test changes via REPL immediately after editing
 
 ---
 
