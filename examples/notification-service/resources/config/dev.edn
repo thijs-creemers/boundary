@@ -1,0 +1,14 @@
+{:server {:port 3003
+          :join? false}
+
+ :bus {:buffer-size 1000
+       :worker-count 2}
+
+ :notification {:channels {:email {:enabled true
+                                   :from "noreply@example.com"}
+                           :sms {:enabled true
+                                 :from "+31612345678"}
+                           :push {:enabled true}}
+                :retry {:max-attempts 3
+                        :base-delay-ms 1000
+                        :max-delay-ms 300000}}}

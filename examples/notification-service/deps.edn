@@ -1,0 +1,51 @@
+{:paths ["src" "resources"]
+
+ :deps {;; Boundary framework (local development)
+        boundary/boundary {:local/root "../.."}
+
+        ;; Web server
+        ring/ring-core {:mvn/version "1.15.3"}
+        ring/ring-jetty-adapter {:mvn/version "1.15.3"}
+
+        ;; Routing
+        metosin/reitit {:mvn/version "0.10.0"}
+
+        ;; Configuration
+        aero/aero {:mvn/version "1.1.6"}
+
+        ;; System lifecycle
+        integrant/integrant {:mvn/version "1.0.1"}
+
+        ;; Validation
+        metosin/malli {:mvn/version "0.20.0"}
+
+        ;; JSON
+        cheshire/cheshire {:mvn/version "6.1.0"}
+
+        ;; Async
+        org.clojure/core.async {:mvn/version "1.8.741"}
+
+        ;; Logging
+        ch.qos.logback/logback-classic {:mvn/version "1.5.24"}}
+
+ :aliases
+ {:dev
+  {:extra-paths ["test"]
+   :extra-deps  {integrant/repl {:mvn/version "0.5.0"}}}
+
+  :repl-clj
+  {:extra-paths ["dev"]
+   :extra-deps  {integrant/repl    {:mvn/version "0.5.0"}
+                 nrepl/nrepl       {:mvn/version "1.5.2"}
+                 cider/cider-nrepl {:mvn/version "0.58.0"}}
+   :main-opts   ["-m" "nrepl.cmdline"
+                 "--middleware" "[cider.nrepl/cider-middleware]"
+                 "--port" "7891"]}
+
+  :test
+  {:extra-paths ["test"]
+   :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
+   :main-opts   ["-m" "kaocha.runner"]}
+
+  :run
+  {:main-opts ["-m" "notification.main"]}}}

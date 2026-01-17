@@ -1,0 +1,10 @@
+{:server {:port 3002
+          :join? false}
+
+ :database {:dbtype "sqlite"
+            :dbname "ecommerce-dev.db"}
+
+ :payment {:provider :mock
+           :webhook-secret "whsec_test_secret_for_development"
+           ;; In production, this would be real Stripe keys
+           :api-key "sk_test_mock_key"}}

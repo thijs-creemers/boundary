@@ -1,0 +1,364 @@
+= Notification Service
+:toc: left
+:toclevels: 3
+:icons: font
+
+Event-driven notification microservice demonstrating pub/sub patterns with the Boundary Framework.
+
+== Overview
+
+This example demonstrates:
+
+* **Event-driven architecture** - Pub/sub message bus with topic subscriptions
+* **Notification templates** - Mustache-style template rendering
+* **Retry logic** - Exponential backoff for failed deliveries
+* **Multi-channel support** - Email, SMS, and push notifications (mocked)
+* **Functional Core / Imperative Shell** - Clean architecture throughout
+
+== Architecture
+
+[source,text]
+----
+┌─────────────────────────────────────────────────────────────────┐
+│                    External Event Sources                       │
+│            (Orders, Payments, Shipments, etc.)                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │  Event Ingress  │  POST /api/events
+                    │   (HTTP API)    │
+                    └─────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Message Bus                                │
+│              (In-memory pub/sub with core.async)                │
+│                                                                 │
+│  Topics: :order/placed, :payment/received, :shipment/sent, ...  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Event Handlers                              │
+│                                                                 │
+│  ┌─────────────┐  ┌─────────────────┐  ┌───────────────────┐    │
+│  │   Order     │  │    Payment      │  │    Shipment       │    │
+│  │  Handler    │  │    Handler      │  │    Handler        │    │
+│  └─────────────┘  └─────────────────┘  └───────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                 Notification Service                            │
+│                                                                 │
+│  ┌──────────────┐  ┌─────────────────┐  ┌──────────────────┐    │
+│  │   Template   │  │    Sender       │  │    Retry         │    │
+│  │   Renderer   │  │  (Email/SMS)    │  │    Manager       │    │
+│  └──────────────┘  └─────────────────┘  └──────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+----
+
+== Quick Start
+
+[source,bash]
+----
+# Navigate to the notification service directory
+cd examples/notification-service
+
+# Start the server
+clojure -M -m notification.main
+
+# Server runs on http://localhost:3003
+----
+
+== Event Types
+
+Supported event types and their notification mappings:
+
+[cols="1,1,2"]
+|===
+|Event Type |Template |Description
+
+|`:order/placed`
+|`order-confirmation`
+|Customer places a new order
+
+|`:order/confirmed`
+|`order-confirmed`
+|Order is confirmed by the system
+
+|`:order/cancelled`
+|`order-cancelled`
+|Order is cancelled
+
+|`:payment/received`
+|`payment-receipt`
+|Payment successfully processed
+
+|`:payment/failed`
+|`payment-failed`
+|Payment attempt failed
+
+|`:payment/refunded`
+|`refund-confirmation`
+|Refund processed
+
+|`:shipment/sent`
+|`shipping-update`
+|Order has shipped
+
+|`:shipment/delivered`
+|`delivery-confirmation`
+|Order delivered
+
+|`:shipment/returned`
+|`return-received`
+|Return received at warehouse
+|===
+
+== API Reference
+
+=== Events
+
+==== Publish Event
+
+[source,bash]
+----
+POST /api/events
+Content-Type: application/json
+
+{
+  "type": "order/placed",
+  "payload": {
+    "order-number": "ORD-12345",
+    "customer-name": "John Doe",
+    "customer-email": "john@example.com",
+    "total-cents": 9999,
+    "currency": "EUR"
+  }
+}
+----
+
+Response:
+[source,json]
+----
+{
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "type": "order/placed",
+    "status": "processed"
+  },
+  "message": "Event published"
+}
+----
+
+==== List Events
+
+[source,bash]
+----
+GET /api/events
+GET /api/events?status=processed&limit=10
+----
+
+==== Get Event
+
+[source,bash]
+----
+GET /api/events/:id
+----
+
+=== Notifications
+
+==== List Notifications
+
+[source,bash]
+----
+GET /api/notifications
+GET /api/notifications?status=sent&channel=email
+----
+
+==== Get Notification
+
+[source,bash]
+----
+GET /api/notifications/:id
+----
+
+==== Retry Failed Notification
+
+[source,bash]
+----
+POST /api/notifications/:id/retry
+----
+
+=== Health Check
+
+[source,bash]
+----
+GET /health
+----
+
+== Event Flow Example
+
+[source,bash]
+----
+# 1. Publish an order placed event
+curl -X POST http://localhost:3003/api/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "order/placed",
+    "payload": {
+      "order-number": "ORD-001",
+      "customer-name": "Jane Smith",
+      "customer-email": "jane@example.com",
+      "total-cents": 4999,
+      "currency": "EUR"
+    }
+  }'
+
+# Console output shows:
+# [Handler] Processing order.placed: <uuid>
+# [email] Sent to jane@example.com: Order Confirmation - ORD-001
+
+# 2. Check notifications
+curl http://localhost:3003/api/notifications
+
+# 3. Publish payment received
+curl -X POST http://localhost:3003/api/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "payment/received",
+    "payload": {
+      "order-number": "ORD-001",
+      "customer-email": "jane@example.com",
+      "amount-cents": 4999,
+      "currency": "EUR",
+      "payment-method": "Credit Card"
+    }
+  }'
+
+# 4. Publish shipment
+curl -X POST http://localhost:3003/api/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "shipment/sent",
+    "payload": {
+      "order-number": "ORD-001",
+      "customer-email": "jane@example.com",
+      "tracking-number": "TRK123456789",
+      "carrier": "PostNL",
+      "estimated-delivery": "2026-01-20"
+    }
+  }'
+----
+
+== Retry Logic
+
+Failed notifications are automatically marked for retry using exponential backoff:
+
+[source,text]
+----
+Attempt 1: 1 second delay
+Attempt 2: 2 second delay
+Attempt 3: 4 second delay
+...
+Max delay: 60 seconds
+Max attempts: 3
+----
+
+Manual retry:
+[source,bash]
+----
+POST /api/notifications/:id/retry
+----
+
+== Configuration
+
+Configuration via environment or `config.edn`:
+
+[source,clojure]
+----
+{:http {:port 3003}
+ :notification {:channels {:email {:enabled true}
+                           :sms   {:enabled true}
+                           :push  {:enabled true}}
+                :retry {:max-attempts 3
+                        :base-delay-ms 1000
+                        :max-delay-ms 60000}}}
+----
+
+== Testing
+
+[source,bash]
+----
+# Run all tests
+clojure -M:test
+
+# Run with watch mode
+clojure -M:test --watch
+----
+
+== Module Structure
+
+[source,text]
+----
+src/notification/
+├── shared/
+│   ├── bus.clj               # In-memory pub/sub message bus
+│   └── retry.clj             # Exponential backoff retry logic
+│
+├── event/
+│   ├── schema.clj            # Event validation schemas
+│   ├── ports.clj             # Event service protocols
+│   ├── core/
+│   │   └── event.clj         # Event routing, validation (pure)
+│   └── shell/
+│       ├── store.clj         # In-memory event store
+│       ├── service.clj       # Event service implementation
+│       └── http.clj          # Event API handlers
+│
+├── notification/
+│   ├── schema.clj            # Notification schemas
+│   ├── ports.clj             # Notification protocols
+│   ├── core/
+│   │   └── notification.clj  # Templates, status transitions (pure)
+│   └── shell/
+│       ├── store.clj         # Notification persistence
+│       ├── sender.clj        # Mock notification sender
+│       ├── service.clj       # Notification service
+│       └── http.clj          # Notification API
+│
+├── handler/
+│   ├── order.clj             # Order event handlers
+│   ├── payment.clj           # Payment event handlers
+│   └── shipment.clj          # Shipment event handlers
+│
+├── system.clj                # Integrant system config
+└── main.clj                  # Entry point
+
+test/notification/
+├── event_test.clj            # Event routing tests
+├── notification_test.clj     # Template and status tests
+└── retry_test.clj            # Backoff calculation tests
+----
+
+== Production Considerations
+
+For production deployment:
+
+1. **Message Bus**: Replace in-memory bus with Kafka, RabbitMQ, or SQS
+2. **Notification Sender**: Integrate with actual providers:
+   - Email: SendGrid, Amazon SES, Postmark
+   - SMS: Twilio, Nexmo, MessageBird
+   - Push: Firebase Cloud Messaging, Apple Push Notification
+3. **Persistence**: Replace in-memory stores with PostgreSQL or MongoDB
+4. **Retry Processing**: Add background worker for scheduled retries
+5. **Dead Letter Queue**: Store permanently failed notifications for investigation
+6. **Idempotency**: Add idempotency keys to prevent duplicate notifications
+
+== See Also
+
+* link:../ecommerce-api/README.adoc[E-commerce API Example] - REST API with state machine
+* link:../blog-app/README.adoc[Blog Application Example] - Full-stack web application
+* link:../../docs/AGENTS_FULL.md[Full Agent Guide] - Complete framework reference

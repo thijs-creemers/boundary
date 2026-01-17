@@ -1,0 +1,6 @@
+{:database {:dbtype "sqlite"
+            :dbname ":memory:"}
+
+ :payment {:provider :mock
+           :webhook-secret "whsec_test_secret"
+           :api-key "sk_test_mock_key"}}

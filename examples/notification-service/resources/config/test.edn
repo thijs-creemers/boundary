@@ -1,0 +1,9 @@
+{:bus {:buffer-size 100
+       :worker-count 1}
+
+ :notification {:channels {:email {:enabled true}
+                           :sms {:enabled false}
+                           :push {:enabled false}}
+                :retry {:max-attempts 3
+                        :base-delay-ms 100
+                        :max-delay-ms 1000}}}
