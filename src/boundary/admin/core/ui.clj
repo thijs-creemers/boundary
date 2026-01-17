@@ -857,6 +857,10 @@
 
        ;; Actions row (delete + create buttons)
       [:div.toolbar-row-actions
+        ;; Record count display
+       [:span.record-count
+        (str total-count " " label)]
+
         ;; Delete button (always visible, disabled when nothing selected)
        [:form#bulk-action-form
         {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
@@ -874,11 +878,12 @@
           :hx-confirm "Are you sure you want to delete selected records?"}
          (icons/icon :trash {:size 18})]]
 
-        ;; Create button
-       [:a.icon-button.primary
-        {:href (str "/web/admin/" (name entity-name) "/new")
-         :aria-label (str "Create new " (name entity-name))}
-        (icons/icon :plus {:size 20})]]]
+        ;; Create button (only when user has permission)
+       (when (:can-create permissions)
+         [:a.icon-button.primary
+          {:href (str "/web/admin/" (name entity-name) "/new")
+           :aria-label (str "Create new " (name entity-name))}
+          (icons/icon :plus {:size 20})])]]
 
        ;; Filter builder + Table wrapper (THIS is the HTMX target for filter updates)
      [:div#filter-table-container

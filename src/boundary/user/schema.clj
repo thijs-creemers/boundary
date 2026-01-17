@@ -188,6 +188,17 @@
    [:user {:optional true} :map] ; User details after successful auth
    [:message {:optional true} :string]])
 
+(def MFARequiredResponse
+  "Response when MFA verification is required.
+   Returned after successful password verification when user has MFA enabled."
+  [:map {:title "MFA Required Response"}
+   [:requiresMfa [:= true]]
+   [:message :string]
+   [:user [:map
+           [:id :string]
+           [:email :string]
+           [:name :string]]]])
+
 ;; =============================================================================
 ;; User-Specific Transformation Functions
 ;; =============================================================================
