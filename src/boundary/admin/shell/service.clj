@@ -106,7 +106,7 @@
     [[field direction]]))
 
 (defn build-search-where
-  "Build WHERE clause for text search across multiple fields.
+  "Build WHERE clause for case-insensitive text search across multiple fields.
 
    Args:
      search-term: String to search for
@@ -117,14 +117,14 @@
 
    Example:
      (build-search-where john [:email :name])
-     => [:or [:like :email percent-john-percent]
-             [:like :name percent-john-percent]]"
+     => [:or [:ilike :email percent-john-percent]
+             [:ilike :name percent-john-percent]]"
   [search-term search-fields]
   (when (and search-term (seq search-fields))
     (let [search-pattern (str "%" search-term "%")]
       (vec (cons :or
                  (mapv (fn [field]
-                         [:like field search-pattern])
+                         [:ilike field search-pattern])
                        search-fields))))))
 
 (defn build-filter-where
@@ -162,9 +162,9 @@
                                 :gte         [:>= field value]
                                 :lt          [:< field value]
                                 :lte         [:<= field value]
-                                :contains    [:like field (str "%" value "%")]
-                                :starts-with [:like field (str value "%")]
-                                :ends-with   [:like field (str "%" value)]
+                                :contains    [:ilike field (str "%" value "%")]
+                                :starts-with [:ilike field (str value "%")]
+                                :ends-with   [:ilike field (str "%" value)]
                                 :in          [:in field (vec values)]
                                 :not-in      [:not-in field (vec values)]
                                 :is-null     [:= field nil]
