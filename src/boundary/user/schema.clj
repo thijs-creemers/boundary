@@ -37,6 +37,9 @@
    [:mfa-backup-codes {:optional true} [:maybe [:vector :string]]] ; List of backup codes
    [:mfa-backup-codes-used {:optional true} [:maybe [:vector :string]]] ; Used backup codes
    [:mfa-enabled-at {:optional true} [:maybe inst?]]
+   ;; Account security fields
+   [:failed-login-count {:optional true} :int] ; Number of consecutive failed login attempts
+   [:lockout-until {:optional true} [:maybe inst?]] ; Account lockout expiration after failed login attempts
    [:created-at inst?]
    [:updated-at {:optional true} [:maybe inst?]]
    [:deleted-at {:optional true} [:maybe inst?]]])

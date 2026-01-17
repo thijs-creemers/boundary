@@ -70,12 +70,16 @@
       (when-not skip-header
         [:header.site-header
          (main-navigation {:user user})])
-      (let [children (cond-> []
-                       flash (conj [:div.flash-messages
-                                    (for [[type message] flash]
-                                      [:div {:class (str "alert alert-" (name type))} message])])
-                       true  (conj content))]
-        (into [:main.main-content] children))
+        (let [children (cond-> []
+                         flash (conj [:div.flash-messages
+                                      (let [flash-type (or (:type flash)
+                                                           (first (keys flash))) ; Old format: {:error "msg"}
+                                            flash-msg (or (:message flash)
+                                                          (first (vals flash)))] ; Old format: {:error "msg"}
+                                        [:div {:class (str "alert alert-" (name flash-type))} 
+                                         flash-msg])])
+                         true  (conj content))]
+          (into [:main.main-content] children))
       (for [js-file js]
         [:script {:src js-file}])]]))
 

@@ -256,41 +256,70 @@
      (parse-form-params {price 19.99 quantity 5} entity-config)
      => {:price 19.99 :quantity 5}"
   [params entity-config]
-  (reduce-kv
-   (fn [acc field-name value]
-     (let [field-keyword (keyword field-name)
-           field-config (get-in entity-config [:fields field-keyword])
-           field-type (:type field-config :string)
+   (reduce-kv
+    (fn [acc field-name value]
+      (let [field-keyword (keyword field-name)
+            field-config (get-in entity-config [:fields field-keyword])
+            field-type (:type field-config :string)
+            
+            ; Handle array values (e.g., from checkbox + hidden field pattern)
+            ; Take the last value when multiple values are submitted
+            normalized-value (if (vector? value)
+                              (last value)
+                              value)
 
-            ; Convert string value to appropriate type
-           typed-value (cond
-                          ; Empty strings become nil
-                         (str/blank? value) nil
+             ; Convert string value to appropriate type
+            typed-value (cond
+                           ; Empty strings become nil
+                          (str/blank? normalized-value) nil
 
-                          ; Boolean checkbox values - checkboxes send "on" or "true"
-                         (= field-type :boolean)
-                         (contains? #{"on" "true" "1"} value)
+                           ; Boolean checkbox values
+                           ; Checked: sends "true" (from value attribute)
+                           ; Unchecked: sends "false" (from hidden field)
+                          (= field-type :boolean)
+                          (= normalized-value "true")
 
-                          ; Integer values
-                         (= field-type :int)
-                         (parse-long value)
+                           ; Integer values - wrap in try/catch for invalid input
+                          (= field-type :int)
+                          (try
+                            (parse-long normalized-value)
+                            (catch NumberFormatException _
+                              (throw (ex-info "Invalid integer value"
+                                              {:type :validation-error
+                                               :field field-keyword
+                                               :value normalized-value
+                                               :message (str "Field '" (name field-keyword) "' must be a valid integer")}))))
 
-                         ; Decimal values
-                         (= field-type :decimal)
-                         (bigdec value)
+                           ; Decimal values - wrap in try/catch for invalid input
+                          (= field-type :decimal)
+                          (try
+                            (bigdec normalized-value)
+                            (catch NumberFormatException _
+                              (throw (ex-info "Invalid decimal value"
+                                              {:type :validation-error
+                                               :field field-keyword
+                                               :value normalized-value
+                                               :message (str "Field '" (name field-keyword) "' must be a valid decimal")}))))
 
-                         ; UUID values
-                         (= field-type :uuid)
-                         (UUID/fromString value)
+                           ; UUID values - wrap in try/catch for invalid input
+                          (= field-type :uuid)
+                          (try
+                            (UUID/fromString normalized-value)
+                            (catch IllegalArgumentException _
+                              (throw (ex-info "Invalid UUID value"
+                                              {:type :validation-error
+                                               :field field-keyword
+                                               :value normalized-value
+                                               :message (str "Field '" (name field-keyword) "' must be a valid UUID")}))))
 
-                         ; Default: keep as string
-                         :else value)]
+                           ; Default: keep as string
+                          :else normalized-value)]
 
-       (if typed-value
-         (assoc acc field-keyword typed-value)
-         acc)))
-   {}
-   params))
+        (if (or typed-value (= field-type :boolean))
+          (assoc acc field-keyword typed-value)
+          acc)))
+    {}
+    params))
 
 ;; =============================================================================
 ;; Handler Helpers
@@ -493,6 +522,19 @@
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
+          
+          ; Check if this is an HTMX request or direct browser navigation
+          is-htmx? (get-in request [:headers "hx-request"])
+          
+          ; If not HTMX, redirect to main entity page with query params
+          _ (when-not is-htmx?
+              (let [query-string (:query-string request)
+                    redirect-url (str "/web/admin/" (name entity-name)
+                                     (when query-string (str "?" query-string)))]
+                (throw (ex-info "Redirect to full page"
+                                {:type :redirect
+                                 :location redirect-url
+                                 :status 303}))))
 
           ; Verify entity is accessible
           _ (when-not (ports/validate-entity-exists schema-provider entity-name)
@@ -518,12 +560,11 @@
           ; Get permissions
           permissions (permissions/get-entity-permissions user entity-name entity-config)]
 
-      (htmx-fragment-response
-       [:div#filter-table-container
-        ;; Filter builder (will be updated by HTMX)
-        (admin-ui/render-filter-builder entity-name entity-config (:filters options))
-        ;; Table (will also be updated by HTMX)
-        (admin-ui/entity-table entity-name records entity-config table-query total-count permissions (:filters options))]))))
+       ; Return just the table container (not the filter builder)
+       ; The table will be replaced by HTMX when sorting/paginating
+       (htmx-fragment-response
+        (admin-ui/entity-table entity-name records entity-config table-query total-count permissions (:filters options))))))
+
 
 ;; =============================================================================
 ;; Entity Detail/Edit Handlers

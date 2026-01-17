@@ -311,24 +311,31 @@
                        (nil? (:type ex-data))
                        (enforce-error-type? system))
                 (respond-missing-error-type ctx ex-data)
-                (let [error-type (or (:type ex-data) :internal-error)
-                      status (case error-type
-                               :validation-error 400
-                               :not-found 404
-                               :unauthorized 401
-                               :forbidden 403
-                               :conflict 409
-                               500)]
-                  (set-response ctx
-                                {:status status
-                                 :headers {"Content-Type" "application/json"
-                                           "X-Correlation-ID" correlation-id}
-                                 :body {:error (name error-type)
-                                        :message (or (:message ex-data)
-                                                     (.getMessage ^Throwable exception)
-                                                     "An error occurred")
-                                        :correlation-id correlation-id
-                                        :details (dissoc ex-data :type :message)}})))))})
+                (let [error-type (or (:type ex-data) :internal-error)]
+                  ;; Handle redirects specially
+                  (if (= error-type :redirect)
+                    (set-response ctx
+                                  {:status (or (:status ex-data) 302)
+                                   :headers {"Location" (:location ex-data)}
+                                   :body ""})
+                    ;; Handle errors
+                    (let [status (case error-type
+                                   :validation-error 400
+                                   :not-found 404
+                                   :unauthorized 401
+                                   :forbidden 403
+                                   :conflict 409
+                                   500)]
+                      (set-response ctx
+                                    {:status status
+                                     :headers {"Content-Type" "application/json"
+                                               "X-Correlation-ID" correlation-id}
+                                     :body {:error (name error-type)
+                                            :message (or (:message ex-data)
+                                                         (.getMessage ^Throwable exception)
+                                                         "An error occurred")
+                                            :correlation-id correlation-id
+                                            :details (dissoc ex-data :type :message)}})))))))})
 
 (def http-csrf-protection
   "Validates CSRF tokens for state-changing requests (POST, PUT, DELETE, PATCH).

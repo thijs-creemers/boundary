@@ -81,6 +81,7 @@
         (update :deleted-at type-conversion/instant->string)
         (update :last-login type-conversion/instant->string)
         (update :mfa-enabled-at type-conversion/instant->string)
+        (update :lockout-until type-conversion/instant->string)
         ;; Convert enum fields to strings
         (update :date-format type-conversion/keyword->string)
         (update :time-format type-conversion/keyword->string)
@@ -107,6 +108,7 @@
           (update :deleted-at type-conversion/string->instant)
           (update :last-login type-conversion/string->instant)
           (update :mfa-enabled-at type-conversion/string->instant)
+          (update :lockout-until type-conversion/string->instant)
           ;; Convert enum fields to keywords
           (update :date-format type-conversion/string->keyword)
           (update :time-format type-conversion/string->keyword)
@@ -439,7 +441,7 @@
                                                 (assoc :updated-at nil)
                                                 (assoc :deleted-at nil)))
                                           user-entities)
-                 db-users (map #(user-entity->db tx %) users-with-metadata)]
+                  db-users (map #(user-entity->db ctx %) users-with-metadata)]
              (doseq [db-user db-users]
                (let [query {:insert-into :users
                             :values [db-user]}]
@@ -456,12 +458,12 @@
          (db/with-transaction [tx ctx]
            (let [now (java.time.Instant/now)
                  updated-users (map #(assoc % :updated-at now) user-entities)]
-             (doseq [user updated-users]
-               (let [db-user (user-entity->db tx user)
-                     query {:update :users
-                            :set (dissoc db-user :id :created_at :deleted_at)
-                            :where [:= :id (:id db-user)]}
-                     affected-rows (db/execute-update! tx query)]
+              (doseq [user updated-users]
+                (let [db-user (user-entity->db ctx user)
+                      query {:update :users
+                             :set (dissoc db-user :id :created_at :deleted_at)
+                             :where [:= :id (:id db-user)]}
+                      affected-rows (db/execute-update! tx query)]
                  (when (= affected-rows 0)
                    (throw (ex-info "User not found in batch update"
                                    {:type :user-not-found

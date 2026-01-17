@@ -91,19 +91,30 @@
 (deftest checkbox-test
   (testing "Checked checkbox generation"
     (let [result (components/checkbox :active true)]
-      (is (= [:input {:type "checkbox" :name "active" :id "active" :checked true}]
-             result))))
+      (is (list? result))
+      (is (= 2 (count result)))
+      (is (= [:input {:type "hidden" :name "active" :value "false"}]
+             (first result)))
+      (is (= [:input {:type "checkbox" :name "active" :id "active" :value "true" :checked true}]
+             (second result)))))
 
   (testing "Unchecked checkbox generation"
     (let [result (components/checkbox :notifications false)]
-      (is (= [:input {:type "checkbox" :name "notifications" :id "notifications"}]
-             result))))
+      (is (list? result))
+      (is (= 2 (count result)))
+      (is (= [:input {:type "hidden" :name "notifications" :value "false"}]
+             (first result)))
+      (is (= [:input {:type "checkbox" :name "notifications" :id "notifications" :value "true"}]
+             (second result)))))
 
   (testing "Checkbox with additional attributes"
     (let [result (components/checkbox :terms true {:value "accepted" :required true})]
-      (is (= [:input {:type "checkbox" :name "terms" :id "terms" :checked true
-                      :value "accepted" :required true}]
-             result)))))
+      (is (list? result))
+      (is (= 2 (count result)))
+      (is (= [:input {:type "hidden" :name "terms" :value "false"}]
+             (first result)))
+      (is (= [:input {:type "checkbox" :name "terms" :id "terms" :value "accepted" :checked true :required true}]
+             (second result))))))
 
 ;; =============================================================================
 ;; Form Structure Tests

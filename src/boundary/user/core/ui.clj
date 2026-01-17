@@ -26,16 +26,13 @@
   [user]
   (let [role (:role user)
         active? (boolean (:active user))]
-    (with-meta
-      [(:id user)
-       (:name user)
-       (:email user)
-       [:span {:class (str "role-badge " (name role))}
-        (-> role name str/capitalize)]
-       [:span {:class (str "status-badge " (if active? "active" "inactive"))}
-        (if active? "Active" "Inactive")]
-       ""]
-      {:onclick (str "window.location.href='/web/users/" (:id user) "'")})))
+    [(:id user)
+     (:name user)
+     (:email user)
+     [:span {:class (str "role-badge " (name role))}
+      (-> role name str/capitalize)]
+     [:span {:class (str "status-badge " (if active? "active" "inactive"))}
+      (if active? "Active" "Inactive")]]))
 
 (defn users-table-fragment
   "Generate just the users table container fragment (for HTMX refresh).
@@ -83,7 +80,7 @@
           [:table {:class "data-table" :id "users-table"}
            [:thead
             [:tr
-             [:th ""]
+             [:th.checkbox-header ""]
              (table-ui/sortable-th {:label        "ID"
                                     :field        :id
                                     :current-sort sort
@@ -115,14 +112,13 @@
                                     :hx-push-url? true
                                     :extra-params filters})
              [:th "Role"]
-             [:th ""]]]
+             [:th "Status"]]]
            [:tbody
             (for [user users
                   :when (nil? (:deleted-at user))
-                  :let [row       (user-row user)
-                        row-attrs (meta row)]]
-              [:tr row-attrs
-               [:td
+                  :let [row (user-row user)]]
+              [:tr {:onclick (str "window.location.href='/web/users/" (:id user) "'")}
+               [:td.checkbox-cell
                 [:input {:type    "checkbox"
                          :name    "user-ids"
                          :value   (str (:id user))
@@ -1196,7 +1192,7 @@
   (if-not instant
     "never"
     (let [now (java.time.Instant/now)
-          duration (.between java.time.Duration instant now)
+          duration (java.time.Duration/between instant now)
           seconds (.getSeconds duration)]
       (cond
         (< seconds 60) "just now"
