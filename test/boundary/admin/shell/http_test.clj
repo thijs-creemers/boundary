@@ -218,7 +218,7 @@
   ([method uri user params]
    (cond-> {:request-method method
             :uri uri
-            :headers {}
+            :headers (or (:headers params) {})
             :query-params (or (:query params) {})
             :form-params (or (:form params) {})
             :path-params (or (:path params) {})}
@@ -394,7 +394,8 @@
 
     (testing "Admin can fetch table fragment"
       (let [request (make-request :get "/web/admin/test-users/table" admin-user
-                                  {:path {:entity "test-users"}})
+                                  {:path {:entity "test-users"}
+                                   :headers {"hx-request" "true"}})
             response (*handler* request)]
         (is (some? response))
         (is (= 200 (:status response)))

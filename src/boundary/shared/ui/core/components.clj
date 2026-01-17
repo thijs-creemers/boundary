@@ -105,7 +105,7 @@
           label]))]))
 
 (defn checkbox
-  "Checkbox component.
+  "Checkbox component with hidden field for unchecked state.
    
    Args:
      field-key: Keyword for checkbox name/id
@@ -113,14 +113,20 @@
      opts: Optional map with additional attributes like :value, :required, :class
      
    Returns:
-     Hiccup checkbox input element"
+     Hiccup checkbox input elements (hidden + checkbox) as a list"
   [field-key checked? & [opts]]
-  (let [base-attrs {:type "checkbox"
-                    :id (name field-key)
-                    :name (name field-key)}
+  (let [field-name (name field-key)
+        base-attrs {:type "checkbox"
+                    :id field-name
+                    :name field-name
+                    :value "true"}
         ;; Only add :checked attribute if the checkbox is checked
         checked-attrs (when checked? {:checked true})]
-    [:input (merge base-attrs checked-attrs opts)]))
+    (list
+     ;; Hidden field ensures "false" is sent when checkbox is unchecked
+     [:input {:type "hidden" :name field-name :value "false"}]
+     ;; Checkbox - when checked, its value="true" overrides the hidden false
+     [:input (merge base-attrs checked-attrs opts)])))
 
 (defn form-field
   "Form field wrapper with label and error display.

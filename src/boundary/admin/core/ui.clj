@@ -130,7 +130,7 @@
       :flash flash
       :skip-header true
       :css ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
-      :js ["/js/theme.js" "/js/htmx.min.js" "/js/sidebar.js" "/js/table.js" "/js/forms.js"]})))
+      :js ["/js/theme.js" "/js/htmx.min.js" "/js/sidebar.js" "/js/table.js" "/js/forms.js" "/js/keyboard.js"]})))
 
 (defn admin-home
   "Admin dashboard home page content.
@@ -184,7 +184,7 @@
        [:form {:hx-get (str "/web/admin/" (name entity-name) "/table")
                :hx-target "#entity-table-container"
                :hx-push-url "true"
-               :hx-trigger "submit, change from:select delay:300ms"}
+               :hx-trigger "submit"}
         [:div.search-controls
          [:input {:type "text"
                   :name "search"
@@ -370,12 +370,12 @@
      [:span.filter-field-label field-label]
 
       ;; Operator selector
-      [:select.filter-operator-select
-       {:name (str "filters[" (name field-name) "][op]")
-        :hx-get (str "/web/admin/" (name entity-name) "/table")
-        :hx-target "#filter-table-container"
-        :hx-trigger "change"
-        :hx-include "closest form"}
+     [:select.filter-operator-select
+      {:name (str "filters[" (name field-name) "][op]")
+       :hx-get (str "/web/admin/" (name entity-name) "/table")
+       :hx-target "#filter-table-container"
+       :hx-trigger "change"
+       :hx-include "closest form"}
       (for [[op label] operators]
         [:option {:value (name op)
                   :selected (= current-op op)}
@@ -385,14 +385,14 @@
      (render-filter-value-inputs field-name field-config current-op filter-value)
 
       ;; Remove filter button
-      [:button.icon-button.secondary
-       {:type "button"
-        :aria-label "Remove filter"
-        :hx-get (str "/web/admin/" (name entity-name) "/table")
-        :hx-target "#filter-table-container"
-        :hx-trigger "click"
-        :hx-vals (str "{\"remove_filter\": \"" (name field-name) "\"}")
-        :hx-include "closest form"}
+     [:button.icon-button.secondary
+      {:type "button"
+       :aria-label "Remove filter"
+       :hx-get (str "/web/admin/" (name entity-name) "/table")
+       :hx-target "#filter-table-container"
+       :hx-trigger "click"
+       :hx-vals (str "{\"remove_filter\": \"" (name field-name) "\"}")
+       :hx-include "closest form"}
       (icons/icon :x {:size 16})]]))
 
 (defn render-filter-builder
@@ -411,23 +411,23 @@
         has-active-filters? (seq current-filters)
         current-filters (or current-filters {})]
     [:div.filter-builder
-      [:div.filter-builder-header
-       [:span.filter-builder-title "Filters"]
-       (when has-active-filters?
-         [:button.text-button
-          {:type "button"
-           :hx-get (str "/web/admin/" (name entity-name) "/table")
-           :hx-target "#filter-table-container"
-           :hx-trigger "click"}
-          (icons/icon :x {:size 14})
-          " Clear all"])]
+     [:div.filter-builder-header
+      [:span.filter-builder-title "Filters"]
+      (when has-active-filters?
+        [:button.text-button
+         {:type "button"
+          :hx-get (str "/web/admin/" (name entity-name) "/table")
+          :hx-target "#filter-table-container"
+          :hx-trigger "click"}
+         (icons/icon :x {:size 14})
+         " Clear all"])]
 
       ;; Form wrapper for all filters
-      [:form.filter-form
-       {:hx-get (str "/web/admin/" (name entity-name) "/table")
-        :hx-target "#filter-table-container"
-        :hx-trigger "submit, change delay:500ms from:input, change from:select"
-        :hx-push-url "true"}
+     [:form.filter-form
+      {:hx-get (str "/web/admin/" (name entity-name) "/table")
+       :hx-target "#filter-table-container"
+       :hx-trigger "submit, change delay:500ms from:find input, change from:find select"
+       :hx-push-url "true"}
 
       ;; Active filter rows
       (when has-active-filters?
@@ -438,19 +438,19 @@
 
       ;; Add filter dropdown
       (when (seq filterable-fields)
-         [:div.filter-add-row
-          [:select.filter-field-select
-           {:name "add_filter_field"
-            :hx-get (str "/web/admin/" (name entity-name) "/table")
-            :hx-target "#filter-table-container"
-            :hx-trigger "change"
-            :hx-include "closest form"}
-           [:option {:value ""} "+ Add filter..."]
-           (for [field-name filterable-fields
-                 :when (not (contains? current-filters field-name))]
-             (let [field-config (get-in entity-config [:fields field-name])
-                   field-label (:label field-config (str/capitalize (name field-name)))]
-               [:option {:value (name field-name)} field-label]))]])
+        [:div.filter-add-row
+         [:select.filter-field-select
+          {:name "add_filter_field"
+           :hx-get (str "/web/admin/" (name entity-name) "/table")
+           :hx-target "#filter-table-container"
+           :hx-trigger "change"
+           :hx-include "closest form"}
+          [:option {:value ""} "+ Add filter..."]
+          (for [field-name filterable-fields
+                :when (not (contains? current-filters field-name))]
+            (let [field-config (get-in entity-config [:fields field-name])
+                  field-label (:label field-config (str/capitalize (name field-name)))]
+              [:option {:value (name field-name)} field-label]))]])
 
       ;; Apply button (for manual submission if auto-trigger doesn't work)
       (when has-active-filters?
@@ -516,7 +516,7 @@
         record-id (get record primary-key)
         readonly-fields (set (:readonly-fields entity-config))]
     [:tr {:class "entity-row"}
-     [:td.row-actions
+     [:td.checkbox-cell
       [:input {:type "checkbox"
                :name "ids[]"
                :value (str record-id)
@@ -540,7 +540,7 @@
            ; Non-editable cell
            [:td {:class (str "field-" (name field))}
             (render-field-value field value field-config)])))
-     [:td.row-actions
+     [:td.actions-cell
       (when (:can-edit permissions)
         [:a.icon-button.secondary
          {:href (str "/web/admin/" (name entity-name) "/" record-id)
@@ -759,32 +759,38 @@
          (for [[k v] filter-params]
            [:input {:type "hidden" :name k :value v}])
 
-         [:table.data-table
-          [:thead
-           [:tr
-            [:th
-             [:input {:type "checkbox"
-                      :id "select-all"
-                      :onchange "const checkboxes = document.querySelectorAll('input[name=\"ids[]\"]'); checkboxes.forEach(cb => cb.checked = this.checked); setTimeout(() => { const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; }, 0);"}]]
-            (for [field list-fields]
-              (let [field-config (get-in entity-config [:fields field])
-                    sortable? (:sortable field-config true)]
-                (if sortable?
-                  (table-ui/sortable-th {:label (:label field-config (str/capitalize (name field)))
-                                         :field field
-                                         :current-sort sort
-                                         :current-dir dir
-                                         :base-url base-url
-                                         :page page
-                                         :page-size page-size
-                                         :hx-target hx-target
-                                         :hx-push-url? true
-                                         :extra-params filters})
-                  [:th (:label field-config (str/capitalize (name field)))])))
-            [:th "Actions"]]]
-          [:tbody
-           (for [record records]
-             (entity-table-row entity-name record entity-config permissions))]]]
+          [:table.data-table
+           ;; Explicit column widths for table-layout: fixed
+           [:colgroup
+            [:col {:style "width: 48px;"}]  ; Checkbox
+            (for [_ list-fields]
+              [:col])  ; Auto-width for data columns
+            [:col {:style "width: 80px;"}]]  ; Actions
+           [:thead
+            [:tr
+             [:th
+              [:input {:type "checkbox"
+                       :id "select-all"
+                       :onchange "const checkboxes = document.querySelectorAll('input[name=\"ids[]\"]'); checkboxes.forEach(cb => cb.checked = this.checked); setTimeout(() => { const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; }, 0);"}]]
+             (for [field list-fields]
+               (let [field-config (get-in entity-config [:fields field])
+                     sortable? (:sortable field-config true)]
+                 (if sortable?
+                   (table-ui/sortable-th {:label (:label field-config (str/capitalize (name field)))
+                                          :field field
+                                          :current-sort sort
+                                          :current-dir dir
+                                          :base-url base-url
+                                          :page page
+                                          :page-size page-size
+                                          :hx-target hx-target
+                                          :hx-push-url? true
+                                          :extra-params filters})
+                   [:th (:label field-config (str/capitalize (name field)))])))
+             [:th "Actions"]]]
+           [:tbody
+            (for [record records]
+              (entity-table-row entity-name record entity-config permissions))]]]
         (table-ui/pagination {:table-query table-query
                               :total-count total-count
                               :base-url base-url
@@ -813,8 +819,8 @@
         search-value (:search search)]
     [:div.entity-list-page
      (when flash
-        (for [[type message] flash]
-          [:div {:class (str "alert alert-" (name type))} message]))
+       (for [[type message] flash]
+         [:div {:class (str "alert alert-" (name type))} message]))
 
        ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
      [:div.table-toolbar-container
@@ -959,10 +965,10 @@
 
        ;; Boolean input
        (= widget-type :checkbox)
-       [:div.checkbox-wrapper
+       (list
         (ui/checkbox field-name value {:required required? :disabled readonly?})
         (when help-text
-          [:span.help-text help-text])]
+          [:span.help-text help-text]))
 
        ;; Select/dropdown
        (= widget-type :select)
@@ -1097,11 +1103,15 @@
         page-title (if is-edit?
                      (str "Edit " label)
                      (str "Create " label))]
-    [:div.entity-detail-page
-     (when flash
-       (for [[type message] flash]
-         [:div {:class (str "alert alert-" (name type))} message]))
-     [:div.page-header
+      [:div.entity-detail-page
+       (when flash
+         (let [flash-type (or (:type flash)
+                              (first (keys flash))) ; Old format: {:error "msg"}
+               flash-msg (or (:message flash)
+                             (first (vals flash)))] ; Old format: {:error "msg"}
+           [:div {:class (str "alert alert-" (name flash-type))} 
+            flash-msg]))
+      [:div.page-header
       [:div.breadcrumbs
        [:a {:href "/web/admin"} "Admin"]
        " / "

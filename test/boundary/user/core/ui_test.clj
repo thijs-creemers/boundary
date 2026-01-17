@@ -44,7 +44,7 @@
   (testing "generates correct table row for active user"
     (let [row (ui/user-row sample-user)]
       (is (vector? row))
-      (is (= 6 (count row)))
+      (is (= 5 (count row)))
       (is (= 123 (nth row 0)))
       (is (= "John Doe" (nth row 1)))
       (is (= "john@example.com" (nth row 2)))
@@ -61,15 +61,7 @@
         (is (vector? status-cell))
         (is (= :span (first status-cell)))
         (is (= "status-badge active" (get-in status-cell [1 :class])))
-        (is (= "Active" (nth status-cell 2))))
-
-      ;; Actions cell currently empty string
-      (is (= "" (nth row 5)))
-
-      ;; Row metadata contains onclick navigation
-      (let [m (meta row)]
-        (is (string? (:onclick m)))
-        (is (re-find #"/web/users/123" (:onclick m))))))
+        (is (= "Active" (nth status-cell 2))))))
 
   (testing "generates correct table row for inactive user"
     (let [row (ui/user-row inactive-user)]
@@ -80,10 +72,7 @@
       ;; Status badge: inactive
       (let [status-cell (nth row 4)]
         (is (= "Inactive" (nth status-cell 2)))
-        (is (= "status-badge inactive" (get-in status-cell [1 :class]))))
-
-      ;; Actions cell empty
-      (is (= "" (nth row 5)))))
+        (is (= "status-badge inactive" (get-in status-cell [1 :class]))))))
 
   (testing "handles different role types"
     (let [viewer-user (assoc sample-user :role :viewer)
