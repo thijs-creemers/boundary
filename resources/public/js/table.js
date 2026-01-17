@@ -13,25 +13,17 @@
   // Initialize table interactions when DOM is ready
   function initTableInteractions() {
     const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
-    const selectionCount = document.getElementById('selection-count');
     const selectAllCheckbox = document.getElementById('select-all');
-    const rowCheckboxes = document.querySelectorAll('input[name="record-ids"]');
+    const rowCheckboxes = document.querySelectorAll('input[name="ids[]"]');
 
-    if (!bulkDeleteBtn || !selectionCount) return; // Not on a list page
+    if (!bulkDeleteBtn) return; // Not on a list page
 
-    // Update selection count and button state
+    // Update button state based on selection
     function updateSelectionState() {
       const checkedCount = Array.from(rowCheckboxes).filter(cb => cb.checked).length;
       
-      // Update count text
-      selectionCount.textContent = `${checkedCount} selected`;
-      
-      // Enable/disable bulk delete button
-      if (checkedCount > 0) {
-        bulkDeleteBtn.disabled = false;
-      } else {
-        bulkDeleteBtn.disabled = true;
-      }
+      // Simply enable/disable the button (no visibility toggling)
+      bulkDeleteBtn.disabled = checkedCount === 0;
     }
 
     // Handle select-all checkbox

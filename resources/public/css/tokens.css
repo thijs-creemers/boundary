@@ -104,7 +104,7 @@
      Layout Dimensions (Stitch Admin)
      -------------------------------------------------------------------------- */
   --nav-width: 200px;             /* Fixed sidebar width */
-  --topbar-height: 48px;          /* Compact topbar */
+  --topbar-height: 64px;          /* Comfortable topbar height */
   --content-max-width: 1400px;    /* Max content width */
   --content-padding: var(--space-4); /* Default padding */
   --table-row-height: 40px;       /* Compact table rows */

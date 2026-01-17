@@ -86,7 +86,8 @@
     (when show-pages?
       [:div.table-pagination
        [:div.page-info
-        (str "Showing " from "–" to " of " total-count)]
+        [:span.hide-mobile "Showing "]
+        (str from "–" to " of " total-count)]
        [:nav.pagination-nav
         [:button {:type       "button"
                   :hx-get     (mk-url prev-page)
@@ -95,7 +96,8 @@
                   :disabled   (<= page 1)}
          "Previous"]
         [:span.page-status
-         (str "Page " page " of " total-pages)]
+         [:span.hide-mobile "Page "]
+         (str page " of " total-pages)]
         [:button {:type       "button"
                   :hx-get     (mk-url next-page)
                   :hx-target  hx-target

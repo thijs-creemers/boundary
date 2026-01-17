@@ -22,26 +22,38 @@
 
 ```bash
 # Testing
-clojure -M:test:db/h2                              # All tests
+clojure -M:test:db/h2                              # All tests (H2 in-memory)
 clojure -M:test:db/h2 --watch --focus-meta :unit   # Watch unit tests
+clojure -M:test:db/h2 --focus-meta :integration    # Integration tests
+clojure -M:test:db/h2 --focus-meta :contract       # Database contract tests
+clojure -M:test:db/h2 --focus-meta :user           # Run specific module tests
+clojure -M:test:db/h2 -n boundary.user.core.user-test  # Single test namespace
+
+# Update validation snapshots
+UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
 
 # Code Quality
 clojure -M:clj-kondo --lint src test               # Lint codebase
 
 # REPL Development
-clojure -M:repl-clj                                # Start REPL
+clojure -M:repl-clj                                # Start REPL (nREPL on port 7888)
 # In REPL:
 (require '[integrant.repl :as ig-repl])
 (ig-repl/go)                                       # Start system
 (ig-repl/reset)                                    # Reload and restart
+(ig-repl/halt)                                     # Stop system
 
 # Tools
 clj-nrepl-eval --discover-ports                    # Find nREPL ports
-clj-nrepl-eval -p <port> "<code>"                  # Evaluate code
+clj-nrepl-eval -p 7888 "(+ 1 2)"                   # Evaluate code via nREPL
 clj-paren-repair <file>                            # Fix parentheses
 
 # Build
 clojure -T:build clean && clojure -T:build uber    # Build uberjar
+java -jar target/boundary-*.jar server             # Run standalone jar
+
+# Database Migrations
+clojure -M:migrate up                              # Run migrations
 ```
 
 ### Architecture Quick Facts
@@ -85,17 +97,21 @@ src/boundary/{module}/
 | **API (at boundary only)** | camelCase | `passwordHash`, `createdAt` |
 
 ```clojure
-;; ❌ WRONG - snake_case in service layer
-(defn login [user password]
-  (verify-password password (:password_hash user)))  ; BUG!
+;; ✅ CORRECT - Convert ONLY at persistence boundary using shared utilities
+(require '[boundary.shared.core.utils.case-conversion :as cc])
 
-;; ✅ CORRECT - kebab-case everywhere internally
-(defn login [user password]
-  (verify-password password (:password-hash user)))
+;; At persistence boundary - DB to Clojure
+(cc/snake-case->kebab-case-map db-record)
 
-;; ✅ CORRECT - Convert ONLY at persistence boundary
-(defn db->entity [db-row]
-  (snake-case->kebab-case-map db-row))  ; boundary.shared.core.utils.case-conversion
+;; At persistence boundary - Clojure to DB
+(cc/kebab-case->snake-case-map entity)
+
+;; Alternative: Manual transformation
+(defn db->user-entity [db-record]
+  (-> db-record
+      (set/rename-keys {:created_at :created-at
+                        :password_hash :password-hash
+                        :updated_at :updated-at})))
 ```
 
 **Why**: Recent bug caused authentication failures because service layer used `:password_hash` but entities had `:password-hash`.
@@ -599,8 +615,24 @@ curl -X POST http://localhost:3000/api/auth/login \
      (let [user (user-core/prepare-user (:user-data params))]
        (.create-user repository user)))))
 
-;; Result: Automatic breadcrumbs, error reporting, logging
+;; Persistence layer - use interceptor
+(defn find-user-by-email [this email]
+  (persistence-interceptors/execute-persistence-operation
+   logger error-reporter
+   "find-user-by-email"
+   {:email email}
+   (fn []
+     ;; Database query here
+     (jdbc/execute-one! ctx query))))
+
+;; Result: Automatic breadcrumbs, error reporting, logging, metrics
 ```
+
+**Benefits**:
+- 31/31 methods converted in user module
+- ~50% code reduction
+- Consistent error handling and logging
+- Automatic metrics collection
 
 **Providers**: No-op (development), Datadog, Sentry
 
@@ -617,16 +649,29 @@ curl -X POST http://localhost:3000/api/auth/login \
    :enter (fn [ctx]
             (if (admin? (get-in ctx [:request :session :user]))
               ctx
-              (assoc ctx :response {:status 403 :body {:error "Forbidden"}})))})
+              (assoc ctx :response {:status 403 :body {:error "Forbidden"}})))
+   :leave (fn [ctx]
+            ;; Response processing (optional)
+            ctx)
+   :error (fn [ctx error]
+            ;; Exception handling (optional)
+            (assoc ctx :response {:status 500 :body {:error "Internal error"}}))})
 
-;; Use in routes
+;; Normalized route format with interceptors
 [{:path "/api/admin"
   :methods {:post {:handler 'handlers/create-resource
                    :interceptors ['auth/require-admin
-                                  'audit/log-action]}}}]
+                                  'audit/log-action
+                                  'rate-limit/admin-limit]
+                   :summary "Create admin resource"}}}]
 ```
 
-**Built-in**: Request logging, metrics, error reporting, correlation IDs
+**Interceptor Phases**:
+- `:enter` - Request processing (auth, validation, transformation)
+- `:leave` - Response processing (audit, metrics, transformation)
+- `:error` - Exception handling (custom error responses)
+
+**Built-in Interceptors**: Request logging, metrics, error reporting, correlation IDs
 
 ---
 
@@ -877,6 +922,31 @@ clojure -M:test:db/h2 --focus-meta :integration # Mocked I/O
 clojure -M:test:db/h2 --focus-meta :contract    # Real database
 ```
 
+### Validation Snapshot Testing
+
+The framework includes snapshot-based validation testing:
+
+```bash
+# Generate validation graph (requires graphviz)
+clojure -M:repl-clj <<'EOF'
+(require '[boundary.shared.tools.validation.repl :as v])
+(spit "build/validation-user.dot" (v/rules->dot {:modules #{:user}}))
+(System/exit 0)
+EOF
+
+dot -Tpng build/validation-user.dot -o docs/diagrams/validation-user.png
+
+# View coverage reports
+cat test/reports/coverage/user.txt
+cat test/reports/coverage/user.edn
+```
+
+### Test Database Configuration
+
+- **Development**: SQLite (`dev-database.db`)
+- **Testing**: H2 in-memory (configured via `:test` alias)
+- All database drivers loaded via `:db` alias
+
 ---
 
 ## Troubleshooting
@@ -958,5 +1028,5 @@ clj-paren-repair <file>
 
 ---
 
-**Last Updated**: 2026-01-08
-**Version**: 2.0.0 (Streamlined)
+**Last Updated**: 2026-01-17
+**Version**: 2.1.0 (Enhanced with CLAUDE.md patterns)

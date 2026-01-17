@@ -521,9 +521,10 @@
                :name "ids[]"
                :value (str record-id)
                :onclick "event.stopPropagation();"
-               :onchange "const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; document.getElementById('select-all').checked = checked === document.querySelectorAll('input[name=\"ids[]\"]').length;"}]]
+               :onchange "const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('bulk-delete-btn').disabled = checked === 0; document.getElementById('select-all').checked = checked === document.querySelectorAll('input[name=\"ids[]\"]').length;"}]]
      (for [field list-fields]
        (let [field-config (get-in entity-config [:fields field])
+             field-label (:label field-config (str/capitalize (name field)))
              value (get record field)
              editable? (and (:can-edit permissions)
                             (not (contains? readonly-fields field))
@@ -531,6 +532,7 @@
          (if editable?
            ; Editable cell with double-click to edit (Week 2)
            [:td {:class (str "field-" (name field) " editable")
+                 :data-label field-label
                  :hx-get (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/edit")
                  :hx-trigger "dblclick"
                  :hx-target "this"
@@ -538,7 +540,8 @@
                  :title "Double-click to edit"}
             (render-field-value field value field-config)]
            ; Non-editable cell
-           [:td {:class (str "field-" (name field))}
+           [:td {:class (str "field-" (name field))
+                 :data-label field-label}
             (render-field-value field value field-config)])))
      [:td.actions-cell
       (when (:can-edit permissions)
@@ -564,13 +567,15 @@
    Returns:
      Hiccup td element"
   [entity-name record-id field value field-config]
-  [:td {:class (str "field-" (name field) " editable")
-        :hx-get (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/edit")
-        :hx-trigger "dblclick"
-        :hx-target "this"
-        :hx-swap "innerHTML"
-        :title "Double-click to edit"}
-   (render-field-value field value field-config)])
+  (let [field-label (:label field-config (str/capitalize (name field)))]
+    [:td {:class (str "field-" (name field) " editable")
+          :data-label field-label
+          :hx-get (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/edit")
+          :hx-trigger "dblclick"
+          :hx-target "this"
+          :hx-swap "innerHTML"
+          :title "Double-click to edit"}
+     (render-field-value field value field-config)]))
 
 (defn render-inline-edit-form
   "Render inline edit form for a single field.
@@ -759,38 +764,38 @@
          (for [[k v] filter-params]
            [:input {:type "hidden" :name k :value v}])
 
-          [:table.data-table
+         [:table.data-table
            ;; Explicit column widths for table-layout: fixed
-           [:colgroup
-            [:col {:style "width: 48px;"}]  ; Checkbox
-            (for [_ list-fields]
-              [:col])  ; Auto-width for data columns
-            [:col {:style "width: 80px;"}]]  ; Actions
-           [:thead
-            [:tr
-             [:th
-              [:input {:type "checkbox"
-                       :id "select-all"
-                       :onchange "const checkboxes = document.querySelectorAll('input[name=\"ids[]\"]'); checkboxes.forEach(cb => cb.checked = this.checked); setTimeout(() => { const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('selection-count').textContent = checked + ' selected'; document.getElementById('bulk-delete-btn').disabled = checked === 0; }, 0);"}]]
-             (for [field list-fields]
-               (let [field-config (get-in entity-config [:fields field])
-                     sortable? (:sortable field-config true)]
-                 (if sortable?
-                   (table-ui/sortable-th {:label (:label field-config (str/capitalize (name field)))
-                                          :field field
-                                          :current-sort sort
-                                          :current-dir dir
-                                          :base-url base-url
-                                          :page page
-                                          :page-size page-size
-                                          :hx-target hx-target
-                                          :hx-push-url? true
-                                          :extra-params filters})
-                   [:th (:label field-config (str/capitalize (name field)))])))
-             [:th "Actions"]]]
-           [:tbody
-            (for [record records]
-              (entity-table-row entity-name record entity-config permissions))]]]
+          [:colgroup
+           [:col {:style "width: 48px;"}]  ; Checkbox
+           (for [_ list-fields]
+             [:col])  ; Auto-width for data columns
+           [:col {:style "width: 80px;"}]]  ; Actions
+          [:thead
+           [:tr
+            [:th
+             [:input {:type "checkbox"
+                      :id "select-all"
+                      :onchange "const checkboxes = document.querySelectorAll('input[name=\"ids[]\"]'); checkboxes.forEach(cb => cb.checked = this.checked); setTimeout(() => { const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('bulk-delete-btn').disabled = checked === 0; }, 0);"}]]
+            (for [field list-fields]
+              (let [field-config (get-in entity-config [:fields field])
+                    sortable? (:sortable field-config true)]
+                (if sortable?
+                  (table-ui/sortable-th {:label (:label field-config (str/capitalize (name field)))
+                                         :field field
+                                         :current-sort sort
+                                         :current-dir dir
+                                         :base-url base-url
+                                         :page page
+                                         :page-size page-size
+                                         :hx-target hx-target
+                                         :hx-push-url? true
+                                         :extra-params filters})
+                  [:th (:label field-config (str/capitalize (name field)))])))
+            [:th "Actions"]]]
+          [:tbody
+           (for [record records]
+             (entity-table-row entity-name record entity-config permissions))]]]
         (table-ui/pagination {:table-query table-query
                               :total-count total-count
                               :base-url base-url
@@ -824,28 +829,8 @@
 
        ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
      [:div.table-toolbar-container
-      ;; Left: Bulk actions
-      [:div.table-toolbar-left
-       [:form#bulk-action-form
-        {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
-         :hx-target "#entity-table-container"
-         :hx-swap "outerHTML"
-         :hx-include "[name='ids[]']"}
-        [:button.icon-button.danger
-         {:type "submit"
-          :name "action"
-          :value "delete"
-          :disabled "disabled"
-          :id "bulk-delete-btn"
-          :form "bulk-action-form"
-          :aria-label "Delete selected"
-          :hx-confirm "Are you sure you want to delete selected records?"}
-         (icons/icon :trash {:size 18})]
-        [:span.selection-count {:id "selection-count"} "0 selected"]]]
-
-      ;; Right: Search + Create + Count
-      [:div.table-toolbar-right
-       ;; Search (no form wrapper - HTMX directly on elements)
+       ;; Search bar (separate row)
+      [:div.toolbar-row-search
        (when has-search?
          [:div.toolbar-search
           [:input.search-input {:type "text"
@@ -868,19 +853,34 @@
             [:button.icon-button.secondary {:type "button"
                                             :aria-label "Clear search"
                                             :onclick (str "window.location.href='/web/admin/" (name entity-name) "';")}
-             (icons/icon :x {:size 20})])])
+             (icons/icon :x {:size 20})])])]
 
-       ;; Create button
-       (when (:can-create permissions)
-         [:a.icon-button.primary
-          {:href (str "/web/admin/" (name entity-name) "/new")
-           :aria-label (str "Create new " label)}
-          (icons/icon :plus {:size 20})])
+       ;; Actions row (delete + create buttons)
+      [:div.toolbar-row-actions
+        ;; Delete button (always visible, disabled when nothing selected)
+       [:form#bulk-action-form
+        {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
+         :hx-target "#entity-table-container"
+         :hx-swap "outerHTML"
+         :hx-include "[name='ids[]']"}
+        [:button.icon-button.danger
+         {:type "submit"
+          :name "action"
+          :value "delete"
+          :disabled "disabled"
+          :id "bulk-delete-btn"
+          :form "bulk-action-form"
+          :aria-label "Delete selected"
+          :hx-confirm "Are you sure you want to delete selected records?"}
+         (icons/icon :trash {:size 18})]]
 
-       ;; Record count
-       [:span.record-count {:id "total-count"} (str total-count " " label)]]]
+        ;; Create button
+       [:a.icon-button.primary
+        {:href (str "/web/admin/" (name entity-name) "/new")
+         :aria-label (str "Create new " (name entity-name))}
+        (icons/icon :plus {:size 20})]]]
 
-      ;; Filter builder + Table wrapper (THIS is the HTMX target for filter updates)
+       ;; Filter builder + Table wrapper (THIS is the HTMX target for filter updates)
      [:div#filter-table-container
       ;; Filter builder (will be updated by HTMX)
       (render-filter-builder entity-name entity-config filters)
@@ -890,6 +890,19 @@
 ;; =============================================================================
 ;; Entity Detail/Edit Components
 ;; =============================================================================
+
+(defn- field-width-class
+  "Determine CSS width class for a form field based on widget type.
+   
+   Args:
+     widget-type: Keyword widget type
+   
+   Returns:
+     String CSS class ('full-width' or 'half-width')"
+  [widget-type]
+  (if (#{:textarea :file-input :hidden} widget-type)
+    "full-width"
+    "half-width"))
 
 (defn render-field-widget
   "Render input widget for field based on its configuration.
@@ -913,8 +926,10 @@
         field-type (:type field-config :string)
         min (:min field-config)
         max (:max field-config)
-        pattern (:pattern field-config)]
-    [:div.form-field {:class (when (seq errors) "has-errors")}
+        pattern (:pattern field-config)
+        width-class (field-width-class widget-type)
+        has-errors? (seq errors)]
+    [:div.form-field {:class (str width-class (when has-errors? " has-errors"))}
      [:label {:for (name field-name)}
       label
       (when required? [:span.required " *"])]
@@ -1103,15 +1118,15 @@
         page-title (if is-edit?
                      (str "Edit " label)
                      (str "Create " label))]
-      [:div.entity-detail-page
-       (when flash
-         (let [flash-type (or (:type flash)
-                              (first (keys flash))) ; Old format: {:error "msg"}
-               flash-msg (or (:message flash)
-                             (first (vals flash)))] ; Old format: {:error "msg"}
-           [:div {:class (str "alert alert-" (name flash-type))} 
-            flash-msg]))
-      [:div.page-header
+    [:div.entity-detail-page
+     (when flash
+       (let [flash-type (or (:type flash)
+                            (first (keys flash))) ; Old format: {:error "msg"}
+             flash-msg (or (:message flash)
+                           (first (vals flash)))] ; Old format: {:error "msg"}
+         [:div {:class (str "alert alert-" (name flash-type))}
+          flash-msg]))
+     [:div.page-header
       [:div.breadcrumbs
        [:a {:href "/web/admin"} "Admin"]
        " / "

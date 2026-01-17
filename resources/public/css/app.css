@@ -285,8 +285,8 @@ body {
 }
 
 .page-actions .icon-button.danger:hover:not(:disabled) {
-  background: var(--color-error-light);
-  border-color: var(--color-error);
+  background: var(--status-error-bg);
+  border-color: var(--status-error);
 }
 
 .page-actions .icon-button:disabled {
@@ -399,7 +399,7 @@ body {
   border: none;
   font-size: var(--text-3xl);
   line-height: 1;
-  color: var(--text-tertiary);
+  color: var(--text-faint);
   cursor: pointer;
   padding: 0;
   width: var(--space-8);
@@ -603,15 +603,15 @@ tr:hover td.row-actions .icon-button {
 }
 
 .status-badge.active {
-  background: var(--color-success-100);
-  color: var(--color-success-700);
-  border: 1px solid var(--color-success-500);
+  background: var(--status-success-bg);
+  color: var(--status-success);
+  border: 1px solid var(--status-success-border);
 }
 
 .status-badge.inactive {
-  background: var(--color-error-100);
-  color: var(--color-error-700);
-  border: 1px solid var(--color-error-500);
+  background: var(--status-error-bg);
+  color: var(--status-error);
+  border: 1px solid var(--status-error-border);
 }
 
 /* Role badges */
@@ -627,9 +627,9 @@ tr:hover td.row-actions .icon-button {
 }
 
 .role-badge.admin {
-  background: var(--color-info-100);
-  color: var(--color-info-700);
-  border: 1px solid var(--color-info-500);
+  background: var(--status-info-bg);
+  color: var(--status-info);
+  border: 1px solid var(--status-info-border);
 }
 
 .role-badge.user {
@@ -672,7 +672,7 @@ form {
 
 .form-field label.required::after {
   content: " *";
-  color: var(--color-error-500);
+  color: var(--status-error);
 }
 
 /* Input fields - mobile-first sizing */
@@ -721,7 +721,7 @@ textarea:focus {
 input.error,
 select.error,
 textarea.error {
-  border-color: var(--color-error-500);
+  border-color: var(--status-error);
 }
 
 input.error:focus,
@@ -734,7 +734,7 @@ textarea.error:focus {
 input.success,
 select.success,
 textarea.success {
-  border-color: var(--color-success-500);
+  border-color: var(--status-success);
 }
 
 /* Disabled state */
@@ -742,7 +742,7 @@ input:disabled,
 select:disabled,
 textarea:disabled {
   background: var(--bg-tertiary);
-  color: var(--text-tertiary);
+  color: var(--text-faint);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -782,7 +782,7 @@ input[type="radio"] {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  color: var(--color-error-600);
+  color: var(--status-error);
   font-size: var(--text-sm);
   margin-top: var(--space-1);
   line-height: var(--line-height-snug);
@@ -871,7 +871,7 @@ input[type="radio"] {
 .empty-state {
   padding: var(--space-12) var(--space-6);
   text-align: center;
-  color: var(--text-tertiary);
+  color: var(--text-faint);
   background: linear-gradient(to bottom, var(--bg-secondary) 0%, var(--bg-primary) 100%);
   border-radius: var(--radius-lg);
   margin: var(--space-6) 0;
@@ -894,7 +894,7 @@ input[type="radio"] {
 
 .empty-state p {
   font-size: var(--text-sm);
-  color: var(--text-tertiary);
+  color: var(--text-faint);
 }
 
 /* Alert messages */
@@ -919,57 +919,57 @@ input[type="radio"] {
 }
 
 .alert-success {
-  background-color: var(--color-success-100);
-  border-color: var(--color-success-600);
-  color: var(--color-success-900);
+  background-color: var(--status-success-bg);
+  border-color: var(--status-success);
+  color: var(--status-success);
 }
 
 .alert-success::before {
   content: "✓";
   font-size: var(--text-lg);
   font-weight: var(--font-bold);
-  color: var(--color-success-600);
+  color: var(--status-success);
   line-height: 1;
 }
 
 .alert-error {
-  background-color: var(--color-error-100);
-  border-color: var(--color-error-600);
-  color: var(--color-error-900);
+  background-color: var(--status-error-bg);
+  border-color: var(--status-error);
+  color: var(--status-error);
 }
 
 .alert-error::before {
   content: "✕";
   font-size: var(--text-lg);
   font-weight: var(--font-bold);
-  color: var(--color-error-600);
+  color: var(--status-error);
   line-height: 1;
 }
 
 .alert-warning {
-  background-color: var(--color-warning-100);
-  border-color: var(--color-warning-600);
-  color: var(--color-warning-900);
+  background-color: var(--status-warning-bg);
+  border-color: var(--status-warning);
+  color: var(--status-warning);
 }
 
 .alert-warning::before {
   content: "⚠";
   font-size: var(--text-lg);
-  color: var(--color-warning-600);
+  color: var(--status-warning);
   line-height: 1;
 }
 
 .alert-info {
-  background-color: var(--color-info-100);
-  border-color: var(--color-info-600);
-  color: var(--color-info-900);
+  background-color: var(--status-info-bg);
+  border-color: var(--status-info);
+  color: var(--status-info);
 }
 
 .alert-info::before {
   content: "ℹ";
   font-size: var(--text-lg);
   font-weight: var(--font-bold);
-  color: var(--color-info-600);
+  color: var(--status-info);
   line-height: 1;
 }
 
@@ -983,8 +983,8 @@ input[type="radio"] {
 
 /* Validation errors summary */
 .validation-errors {
-  background: var(--color-error-100);
-  border: 1px solid var(--color-error-500);
+  background: var(--status-error-bg);
+  border: 1px solid var(--status-error-border);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
   margin-bottom: var(--space-6);
@@ -993,7 +993,7 @@ input[type="radio"] {
 .validation-errors h4 {
   margin-top: 0;
   margin-bottom: var(--space-3);
-  color: var(--color-error-700);
+  color: var(--status-error);
   font-size: var(--text-base);
   font-weight: var(--font-semibold);
 }
@@ -1004,7 +1004,7 @@ input[type="radio"] {
 }
 
 .validation-errors li {
-  color: var(--color-error-700);
+  color: var(--status-error);
   margin-bottom: var(--space-1);
   line-height: var(--line-height-relaxed);
 }
@@ -1238,35 +1238,37 @@ button.secondary:hover:not(:disabled) {
 /* Danger button */
 .button.danger,
 button.danger {
-  background-color: var(--color-error-600);
-  border-color: var(--color-error-600);
+  background-color: var(--status-error);
+  border-color: var(--status-error);
   color: white;
   box-shadow: var(--shadow-sm);
 }
 
 .button.danger:hover:not(:disabled),
 button.danger:hover:not(:disabled) {
-  background-color: var(--color-error-700);
-  border-color: var(--color-error-700);
+  background-color: var(--status-error);
+  border-color: var(--status-error);
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
+  filter: brightness(0.9);
 }
 
 /* Success button */
 .button.success,
 button.success {
-  background-color: var(--color-success-600);
-  border-color: var(--color-success-600);
+  background-color: var(--status-success);
+  border-color: var(--status-success);
   color: white;
   box-shadow: var(--shadow-sm);
 }
 
 .button.success:hover:not(:disabled),
 button.success:hover:not(:disabled) {
-  background-color: var(--color-success-700);
-  border-color: var(--color-success-700);
+  background-color: var(--status-success);
+  border-color: var(--status-success);
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
+  filter: brightness(0.9);
 }
 
 /* Ghost/outline button */
@@ -1363,9 +1365,9 @@ button.full-width {
 }
 
 .icon-button.danger:hover:not(:disabled) {
-  background: var(--color-error-100);
-  border-color: var(--color-error-500);
-  color: var(--color-error-700);
+  background: var(--status-error-bg);
+  border-color: var(--status-error-border);
+  color: var(--status-error);
 }
 
 .icon-button:disabled {
@@ -1598,13 +1600,13 @@ button.full-width {
 }
 
 .modal-confirm.modal-danger .modal-icon {
-  background: var(--color-error-100);
-  color: var(--color-error-600);
+  background: var(--status-error-bg);
+  color: var(--status-error);
 }
 
 .modal-confirm.modal-warning .modal-icon {
-  background: var(--color-warning-100);
-  color: var(--color-warning-600);
+  background: var(--status-warning-bg);
+  color: var(--status-warning);
 }
 
 /* =============================================================================
@@ -1708,9 +1710,12 @@ button.full-width {
   background: var(--bg-primary);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  padding: var(--space-5);
+  padding: var(--space-4);
   border: 1px solid var(--border-default);
   transition: all var(--transition-normal);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
 }
 
 .stat-card:hover {
@@ -1718,32 +1723,41 @@ button.full-width {
   box-shadow: var(--shadow-lg);
 }
 
-.stat-card .stat-label {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  font-weight: var(--font-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: var(--space-2);
-}
-
-.stat-card .stat-value {
-  font-size: var(--text-3xl);
-  font-weight: var(--font-bold);
-  color: var(--color-primary-600);
-  line-height: var(--line-height-tight);
-}
-
 .stat-card .stat-icon {
-  width: var(--space-12);
-  height: var(--space-12);
+  width: var(--space-10);
+  height: var(--space-10);
+  min-width: var(--space-10);
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--color-primary-100);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   color: var(--color-primary-600);
-  margin-bottom: var(--space-3);
+  flex-shrink: 0;
+}
+
+.stat-card .stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-card .stat-label {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-card .stat-value {
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  line-height: var(--line-height-tight);
+  word-break: break-word;
 }
 
 /* Card grid for responsive layouts */
@@ -1758,6 +1772,14 @@ button.full-width {
   .card {
     padding: var(--space-6);
     border-radius: var(--radius-xl);
+  }
+  
+  .stat-card {
+    padding: var(--space-5);
+  }
+  
+  .stat-card .stat-value {
+    font-size: var(--text-2xl);
   }
   
   .card-grid {
@@ -1854,21 +1876,21 @@ button.full-width {
 }
 
 .requirement-met .requirement-icon {
-  color: var(--color-success);
-  background: var(--color-success-light);
+  color: var(--status-success);
+  background: var(--status-success-bg);
 }
 
 .requirement-unmet .requirement-icon {
-  color: var(--color-error);
-  background: var(--color-error-light);
+  color: var(--status-error);
+  background: var(--status-error-bg);
 }
 
 .requirement-met .requirement-text {
-  color: var(--color-success-dark);
+  color: var(--status-success);
 }
 
 .requirement-unmet .requirement-text {
-  color: var(--text-tertiary);
+  color: var(--text-faint);
 }
 
 /* Password Strength Indicator */
@@ -1896,22 +1918,22 @@ button.full-width {
 
 .strength-very-weak .strength-bar {
   width: 25%;
-  background: var(--color-error);
+  background: var(--status-error);
 }
 
 .strength-weak .strength-bar {
   width: 50%;
-  background: var(--color-warning);
+  background: var(--status-warning);
 }
 
 .strength-medium .strength-bar {
   width: 75%;
-  background: var(--color-info);
+  background: var(--status-info);
 }
 
 .strength-strong .strength-bar {
   width: 100%;
-  background: var(--color-success);
+  background: var(--status-success);
 }
 
 .strength-label {
@@ -1923,19 +1945,19 @@ button.full-width {
 }
 
 .strength-very-weak .strength-label {
-  color: var(--color-error);
+  color: var(--status-error);
 }
 
 .strength-weak .strength-label {
-  color: var(--color-warning);
+  color: var(--status-warning);
 }
 
 .strength-medium .strength-label {
-  color: var(--color-info);
+  color: var(--status-info);
 }
 
 .strength-strong .strength-label {
-  color: var(--color-success);
+  color: var(--status-success);
 }
 
 /* =============================================================================
@@ -2004,9 +2026,7 @@ select:focus-visible {
 }
 
 /* Admin topbar alignment adjustment */
-.admin-topbar .theme-toggle {
-  top: 10px; /* Compensate for topbar flexbox baseline alignment */
-}
+/* Removed: top: 10px hack no longer needed with proper flexbox alignment */
 
 .theme-toggle:hover {
   background: var(--bg-tertiary);
@@ -2051,6 +2071,7 @@ select:focus-visible {
 /* Header theme toggle positioning */
 .site-header .theme-toggle {
   margin-left: var(--space-2);
+  margin-bottom: 0; /* Override Pico CSS button margin */
 }
 
 /* Admin topbar theme toggle positioning - removed margin-left as parent uses gap */
@@ -2139,15 +2160,15 @@ select:focus-visible {
 }
 
 .icon-button.danger {
-  color: var(--color-error);
+  color: var(--status-error);
   background: var(--bg-primary);
   border-color: var(--border-default);
 }
 
 .icon-button.danger:hover:not(:disabled) {
-  background: var(--color-error-light);
-  border-color: var(--color-error);
-  color: var(--color-error-dark);
+  background: var(--status-error-bg);
+  border-color: var(--status-error);
+  color: var(--status-error);
 }
 
 /* =============================================================================
@@ -2299,7 +2320,7 @@ select:focus-visible {
 }
 
 .search-input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-faint);
 }
 
 .icon-button {
@@ -2332,23 +2353,125 @@ select:focus-visible {
     align-items: stretch;
     gap: var(--space-3);
     padding: var(--space-3);
+    position: relative;
   }
 
-  .table-toolbar-left,
-  .table-toolbar-right {
+  /* =============================================================================
+     Mobile Toolbar Layout - Clean and simple
+     - Row 1: Search bar (full width)
+     - Row 2: Delete button + Create button (both always visible)
+     ============================================================================= */
+  
+  /* Row 1: Search bar - full width at top */
+  .toolbar-row-search {
     width: 100%;
-    justify-content: space-between;
+    margin-bottom: var(--space-3);
   }
 
   .toolbar-search {
     width: 100%;
-    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
   }
 
   .search-input {
     flex: 1;
-    width: auto;
-    min-width: 0;
+    width: 100%;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    font-size: var(--text-base);
+  }
+
+  /* Search and clear buttons - perfectly aligned with input */
+  .toolbar-search .icon-button {
+    width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0;
+    flex-shrink: 0;
+  }
+
+  .toolbar-search .icon-button svg {
+    display: block;
+    margin: auto;
+  }
+
+  /* Row 2: Actions - Delete + Create buttons, both always visible */
+  .toolbar-row-actions {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 48px;
+  }
+
+  /* Bulk action form - always visible, no extra spacing */
+  .toolbar-row-actions form {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Delete button - always visible, just disabled when no selection */
+  .toolbar-row-actions .icon-button.danger {
+    width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    border-radius: var(--radius-md);
+    flex-shrink: 0;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0;
+  }
+
+  /* Disabled state for delete button */
+  .toolbar-row-actions .icon-button.danger:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Create button - always visible */
+  .toolbar-row-actions > .icon-button.primary {
+    flex-shrink: 0;
+    width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0;
+  }
+
+  /* Icon buttons - consistent touch-friendly size and perfect centering */
+  .table-toolbar-container .icon-button {
+    width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  /* Ensure SVG icons are perfectly centered */
+  .table-toolbar-container .icon-button svg {
+    display: block;
+    margin: auto;
   }
 }
 
@@ -2385,7 +2508,7 @@ select:focus-visible {
 }
 
 .entity-search-form .search-input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-faint);
 }
 
 /* =============================================================================
@@ -2418,7 +2541,7 @@ select:focus-visible {
 
 .page-title-section .record-count {
   font-size: var(--text-base);
-  color: var(--text-tertiary);
+  color: var(--text-faint);
   font-weight: var(--font-normal);
 }
 
@@ -2473,7 +2596,7 @@ select:focus-visible {
 }
 
 .entity-search-form .search-input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-faint);
 }
 
 .page-actions-section .entity-search-form {
@@ -2593,7 +2716,7 @@ select:focus-visible {
   transition: all var(--transition-normal);
   font-weight: var(--font-medium);
   color: var(--text-primary);
-  margin-bottom: 0;
+  margin-bottom: 0; /* Override Pico CSS button margin */
 }
 
 .dropdown-toggle:hover {
@@ -2740,13 +2863,13 @@ select:focus-visible {
 }
 
 .mfa-status-card.enabled {
-  background: var(--color-success-100);
-  border-color: var(--color-success-500);
+  background: var(--status-success-bg);
+  border-color: var(--status-success);
 }
 
 .mfa-status-card.disabled {
-  background: var(--color-warning-100);
-  border-color: var(--color-warning-500);
+  background: var(--status-warning-bg);
+  border-color: var(--status-warning);
 }
 
 .mfa-status-info {
@@ -2937,13 +3060,13 @@ select:focus-visible {
 }
 
 .welcome-section {
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--space-6);
   text-align: center;
-  padding: var(--space-6) 0;
+  padding: var(--space-4) 0;
 }
 
 .welcome-section h1 {
-  font-size: var(--text-3xl);
+  font-size: var(--text-2xl);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   margin-bottom: var(--space-2);
@@ -2951,7 +3074,7 @@ select:focus-visible {
 }
 
 .welcome-section .subtitle {
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   color: var(--text-secondary);
   margin: 0;
   line-height: var(--line-height-relaxed);
@@ -2962,7 +3085,7 @@ select:focus-visible {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-4);
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--space-6);
 }
 
 /* Dashboard action cards */
@@ -2970,14 +3093,14 @@ select:focus-visible {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-4);
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--space-6);
 }
 
 .dashboard-card {
   background: var(--bg-primary);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  padding: var(--space-6);
+  padding: var(--space-5);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3019,8 +3142,66 @@ select:focus-visible {
   width: 100%;
 }
 
-/* Tablet: 2-column grids */
+/* Mobile: Enforce single column layout */
+@media (max-width: 767px) {
+  .dashboard-stats {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-3);
+  }
+  
+  .dashboard-cards {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-3);
+  }
+  
+  .dashboard-card {
+    padding: var(--space-4);
+  }
+  
+  .dashboard-card h2 {
+    font-size: var(--text-lg);
+  }
+  
+  .dashboard-card p {
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-4);
+  }
+}
+
+/* Tablet and up: dashboard grids */
 @media (min-width: 768px) {
+  .welcome-section {
+    margin-bottom: var(--space-10);
+    padding: var(--space-6) 0;
+  }
+  
+  .welcome-section h1 {
+    font-size: var(--text-3xl);
+  }
+  
+  .welcome-section .subtitle {
+    font-size: var(--text-base);
+  }
+  
+  /* Stat cards: always 4 columns on >= 768px */
+  .dashboard-stats {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-6);
+  }
+  
+  /* Dashboard action cards: always 3 columns on >= 768px */
+  .dashboard-cards {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-6);
+  }
+  
+  .dashboard-card {
+    padding: var(--space-7);
+  }
+}
+
+/* Desktop: larger typography & spacing for welcome section */
+@media (min-width: 1024px) {
   .welcome-section {
     margin-bottom: var(--space-12);
     padding: var(--space-8) 0;
@@ -3034,29 +3215,8 @@ select:focus-visible {
     font-size: var(--text-lg);
   }
   
-  .dashboard-stats {
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-6);
-  }
-  
-  .dashboard-cards {
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-6);
-  }
-  
   .dashboard-card {
     padding: var(--space-8);
-  }
-}
-
-/* Desktop: 4-column stats, 3-column cards */
-@media (min-width: 1024px) {
-  .dashboard-stats {
-    grid-template-columns: repeat(4, 1fr);
-  }
-  
-  .dashboard-cards {
-    grid-template-columns: repeat(3, 1fr);
   }
 }
 
