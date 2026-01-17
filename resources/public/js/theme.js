@@ -246,11 +246,11 @@ function updateToggleButton(button) {
   
   if (lightIcon && darkIcon) {
     if (isDark) {
-      lightIcon.style.display = 'block';
-      darkIcon.style.display = 'none';
+      lightIcon.style.cssText = 'display: flex; position: relative; flex: 1; align-items: center; justify-content: center;';
+      darkIcon.style.cssText = 'display: none; position: absolute;';
     } else {
-      lightIcon.style.display = 'none';
-      darkIcon.style.display = 'block';
+      lightIcon.style.cssText = 'display: none; position: absolute;';
+      darkIcon.style.cssText = 'display: flex; position: relative; flex: 1; align-items: center; justify-content: center;';
     }
   }
 }

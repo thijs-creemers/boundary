@@ -1,9 +1,12 @@
+/.claude/
 /.calva/
 /.clj-kondo/
 /.cpcache/
 /.idea/
 /.lsp/
 /.clojure-mcp
+/.mcp.json
+/CLAUDE.md
 /.cache/
 .env
 /.archive/

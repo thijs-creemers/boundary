@@ -336,6 +336,7 @@
   color: var(--text-muted);
   cursor: pointer;
   transition: background-color var(--transition-fast), color var(--transition-fast);
+  flex-shrink: 0;
 }
 
 .admin-topbar-actions .logout-button:hover,
@@ -536,6 +537,71 @@
 }
 
 /* =============================================================================
+   Table Pagination
+   ============================================================================= */
+
+.table-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.page-info {
+  color: var(--text-muted);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  transform: translateY(-7px);
+}
+
+.pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.pagination-nav button {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  min-width: 80px;
+}
+
+.pagination-nav button:hover:not(:disabled) {
+  background: var(--surface-1);
+  border-color: var(--border-strong);
+}
+
+.pagination-nav button:disabled {
+  color: var(--text-faint);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.page-status {
+  color: var(--text-muted);
+  font-weight: var(--font-medium);
+  padding: 0 var(--space-2);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  transform: translateY(-7px);
+}
+
+/* Add space after "Showing" and "Page" text */
+.hide-mobile {
+  margin-right: 0.25em; /* Relative to font size */
+}
+
+/* =============================================================================
    Mobile Drawer & Overlay
    ============================================================================= */
 
@@ -555,6 +621,28 @@
 .admin-shell[data-sidebar-open="true"] .admin-overlay {
   display: block;
   opacity: 1;
+}
+
+/* =============================================================================
+   Tablet Responsive (769px - 1024px)
+   ============================================================================= */
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Reduce padding on tablet */
+  .admin-content {
+    padding: var(--space-4);
+  }
+
+  /* Hide less critical columns on tablet */
+  .admin-content .data-table th.hide-tablet,
+  .admin-content .data-table td.hide-tablet {
+    display: none;
+  }
+
+  /* Slightly smaller table text */
+  .admin-content .data-table {
+    font-size: var(--text-xs);
+  }
 }
 
 /* =============================================================================
@@ -592,12 +680,371 @@
     padding: var(--space-3);
   }
 
+  /* Topbar - increase height and perfect alignment for mobile */
   .admin-topbar {
-    padding: 0 var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    height: 64px; /* Larger for mobile touch targets */
+    gap: var(--space-3);
+  }
+
+  /* Unified icon button style for mobile header - applies to all icon buttons */
+  .mobile-menu-toggle,
+  .admin-topbar-actions .theme-toggle,
+  .admin-topbar-actions .logout-button {
+    width: 44px !important;
+    height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex-shrink: 0;
+    /* Consistent appearance */
+    background: transparent !important;
+    border: 1px solid var(--border-default) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--text-muted) !important;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), 
+                color var(--transition-fast),
+                border-color var(--transition-fast);
+  }
+
+  .mobile-menu-toggle:hover,
+  .admin-topbar-actions .theme-toggle:hover,
+  .admin-topbar-actions .logout-button:hover {
+    background: var(--surface-2) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-strong) !important;
+  }
+
+  .mobile-menu-toggle svg,
+  .admin-topbar-actions .theme-toggle svg,
+  .admin-topbar-actions .logout-button svg {
+    display: block;
+    margin: auto;
+  }
+
+  /* Page title - perfect vertical centering */
+  .admin-topbar h1 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    line-height: 1.2;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    height: 44px; /* Match button height */
+  }
+
+  /* Actions container - perfect alignment */
+  .admin-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    height: 44px;
+  }
+
+  /* Welcome text - vertically centered (only direct child spans, not button contents) */
+  .admin-topbar-actions > span {
+    font-size: var(--text-sm);
+    line-height: 1.2; /* Slightly increased for better optical centering */
+    display: flex;
+    align-items: center;
+    height: 44px;
+    /* Subtle upward shift to optically align with icon centers */
+    transform: translateY(-1px);
+  }
+
+  /* Theme toggle icon spans - use flexbox centering for SVG */
+  .admin-topbar-actions .theme-toggle span {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
   }
 
   /* Hide breadcrumbs on mobile, show page title */
   .admin-breadcrumbs {
+    display: none;
+  }
+
+  /* =============================================================================
+     Mobile Responsive Tables - Card Layout
+     ============================================================================= */
+
+  /* Hide desktop table structure on mobile */
+  .admin-content .data-table thead {
+    display: none;
+  }
+
+  .admin-content .data-table,
+  .admin-content .data-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  /* Convert rows to cards */
+  .admin-content .data-table tbody tr {
+    display: block;
+    margin-bottom: var(--space-4);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-0);
+    padding: var(--space-3);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .admin-content .data-table tbody tr:hover {
+    background: var(--surface-0);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Stack cells vertically */
+  .admin-content .data-table td {
+    display: block;
+    width: 100%;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border-subtle);
+    height: auto;
+    white-space: normal;
+    text-overflow: initial;
+    overflow: visible;
+  }
+
+  .admin-content .data-table td:last-child {
+    border-bottom: none;
+  }
+
+  /* Add field labels before values using CSS pseudo-elements */
+  .admin-content .data-table td:not(.checkbox-cell):not(.actions-cell)::before {
+    content: attr(data-label);
+    display: block;
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: var(--space-1);
+  }
+
+  /* Checkbox cell - position at top right */
+  .admin-content .data-table td.checkbox-cell {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    width: auto;
+    padding: 0;
+    border: none;
+  }
+
+  /* Make row container position relative for absolute checkbox */
+  .admin-content .data-table tbody tr {
+    position: relative;
+    padding-top: calc(var(--space-3) + 24px); /* Space for checkbox */
+  }
+
+  /* Actions cell - full width at bottom */
+  .admin-content .data-table td.actions-cell {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-3) 0 0 0;
+    margin-top: var(--space-2);
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: none;
+  }
+
+  .admin-content .data-table td.actions-cell::before {
+    display: none; /* No label for actions */
+  }
+
+  /* Status badges - full width on mobile */
+  .status-badge {
+    display: inline-block;
+  }
+
+  /* Inline editing on mobile - full width inputs */
+  .inline-edit-form {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 100%;
+  }
+
+  .inline-input {
+    width: 100%;
+    min-height: 44px; /* Touch-friendly */
+  }
+
+  .inline-actions {
+    justify-content: flex-end;
+    margin-top: var(--space-2);
+  }
+
+  /* Row actions menu - larger touch target */
+  .row-actions-menu {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Editable cells - remove hover effect on mobile (no hover state) */
+  .data-table td.editable:hover {
+    background: transparent;
+  }
+
+  /* Ensure field values have proper spacing */
+  .admin-content .data-table td .status-badge,
+  .admin-content .data-table td code,
+  .admin-content .data-table td a {
+    margin-top: var(--space-1);
+  }
+
+  /* =============================================================================
+     Mobile Form Enhancements
+     ============================================================================= */
+
+  /* Single column layout on mobile (default grid behavior) */
+  .form-fields {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  /* All fields full-width on mobile */
+  .form-field.full-width,
+  .form-field.half-width {
+    grid-column: 1;
+  }
+
+  /* Larger tap targets for form controls */
+  .form-field input:not([type="checkbox"]):not([type="radio"]),
+  .form-field select {
+    min-height: 48px; /* Larger on mobile */
+    font-size: var(--text-base);
+  }
+
+  /* Form actions stack on mobile */
+  .form-actions {
+    flex-direction: column-reverse;
+    gap: var(--space-2);
+  }
+
+  .form-actions .button,
+  .form-actions a.button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Checkboxes and radio buttons - larger touch targets */
+  .form-field input[type="checkbox"],
+  .form-field input[type="radio"] {
+    min-width: 24px;
+    min-height: 24px;
+  }
+
+  /* =============================================================================
+     Mobile Filter Builder
+     ============================================================================= */
+
+  /* Stack filter rows vertically on mobile */
+  .filter-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  /* Field label full-width on mobile */
+  .filter-field-label {
+    flex: 1 1 auto;
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+    padding-bottom: var(--space-1);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  /* Operator and value section - vertical stack */
+  .filter-operator-select,
+  .filter-value-input,
+  .filter-field-select {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 48px; /* Touch-friendly */
+    font-size: var(--text-base);
+  }
+
+  /* Range inputs stack vertically on mobile */
+  .filter-value-range {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .range-separator {
+    text-align: center;
+    padding: var(--space-1) 0;
+  }
+
+  /* Remove button - full width at bottom */
+  .filter-row .icon-button {
+    width: 100%;
+    height: 48px;
+    margin-top: var(--space-2);
+    justify-content: center;
+    gap: var(--space-2);
+  }
+
+  .filter-row .icon-button::after {
+    content: " Remove filter";
+    font-size: var(--text-sm);
+  }
+
+  /* Add filter dropdown - full width */
+  .filter-add-row {
+    width: 100%;
+  }
+
+  .filter-add-row .filter-field-select {
+    width: 100%;
+  }
+
+  /* Apply filters button - full width */
+  .filter-form .button.primary {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+  }
+
+  /* Filter builder padding */
+  .filter-builder {
+    padding: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+
+  /* Pagination - reduce gap on mobile for better space efficiency */
+  .table-pagination {
+    padding: var(--space-3);
+    font-size: var(--text-xs);
+  }
+
+  .pagination-nav {
+    gap: var(--space-2);
+  }
+
+  .pagination-nav button {
+    min-width: 70px;
+    padding: var(--space-2);
+    font-size: var(--text-xs);
+  }
+
+  .page-status {
+    padding: 0 var(--space-1);
+    font-size: var(--text-xs);
+  }
+
+  /* Hide "Showing" and "Page" text on mobile */
+  .hide-mobile {
     display: none;
   }
 }
@@ -976,8 +1423,34 @@ button:focus-visible {
    Forms - Stitch Style
    ============================================================================= */
 
+/* Form container with responsive grid */
+.form-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+/* Desktop: Two-column layout */
+@media (min-width: 769px) {
+  .form-fields {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-4) var(--space-5);
+  }
+
+  /* Full-width fields span both columns */
+  .form-field.full-width {
+    grid-column: 1 / -1;
+  }
+
+  /* Half-width fields take single column (default) */
+  .form-field.half-width {
+    grid-column: span 1;
+  }
+}
+
+/* Individual form field */
 .form-field {
-  margin-bottom: var(--space-4);
+  margin-bottom: 0; /* Grid gap handles spacing */
 }
 
 .form-field label {
@@ -1004,6 +1477,7 @@ button:focus-visible {
   background: var(--surface-0);
   color: var(--text-primary);
   transition: border-color var(--transition-fast);
+  min-height: 44px; /* Touch-friendly minimum */
 }
 
 .form-field input:not([type="checkbox"]):not([type="radio"]):focus,
@@ -1030,6 +1504,57 @@ button:focus-visible {
   font-size: var(--text-xs);
   color: var(--text-muted);
   margin-top: var(--space-1);
+}
+
+/* Form field groups (optional - for future use) */
+.form-field-group {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: inherit;
+  gap: inherit;
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.form-field-group > h3 {
+  grid-column: 1 / -1;
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-3) 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-default);
+}
+
+/* Textarea auto-resize support */
+.form-field textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Select dropdowns - improve styling */
+.form-field select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23666' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  padding-right: calc(var(--space-3) + 24px);
+}
+
+/* Dark mode select arrow */
+[data-theme="dark"] .form-field select {
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23aaa' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Date/time inputs - improve mobile appearance */
+@media (max-width: 768px) {
+  .form-field input[type="date"],
+  .form-field input[type="datetime-local"],
+  .form-field input[type="time"] {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
 }
 
 .form-actions {

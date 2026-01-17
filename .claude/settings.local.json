@@ -8,7 +8,12 @@
       "Bash(JWT_SECRET=\"test-secret-for-testing-only\" clojure -M:test:*)",
       "Bash(find:*)",
       "Bash(ls:*)",
-      "Bash(JWT_SECRET=\"test-secret-for-testing-only\" bin/kaocha:*)"
+      "Bash(JWT_SECRET=\"test-secret-for-testing-only\" bin/kaocha:*)",
+      "Bash(clojure -Sdescribe:*)",
+      "Bash(clojure -M:test:db/h2:*)",
+      "Bash(clojure -M:test:nonexistent:*)",
+      "Bash(grep:*)",
+      "Bash(clojure -Srepro -M:test:db/h2:*)"
     ]
   },
   "enabledMcpjsonServers": [
