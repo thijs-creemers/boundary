@@ -55,11 +55,12 @@
 ;; JWT Token Operations (Side Effects)
 ;; =============================================================================
 
-(def ^:private jwt-secret
-  "JWT signing secret loaded from environment variable.
+(defn- get-jwt-secret
+  "Get JWT signing secret from environment variable.
 
    SECURITY: Must be set via JWT_SECRET environment variable.
    Throws exception if not configured to prevent accidental use of default secret."
+  []
   (or (System/getenv "JWT_SECRET")
       (throw (ex-info "JWT_SECRET environment variable not configured. Set JWT_SECRET before starting the application."
                       {:type :configuration-error
@@ -84,7 +85,7 @@
                 :role (name (:role user))
                 :iat (.getEpochSecond now)
                 :exp (.getEpochSecond exp)}]
-    (jwt/sign claims jwt-secret)))
+    (jwt/sign claims (get-jwt-secret))))
 
 (defn validate-jwt-token
   "Shell function: Validate and decode JWT token.
@@ -98,7 +99,7 @@
    Side effects: Crypto operations"
   [token]
   (try
-    (let [claims (jwt/unsign token jwt-secret)]
+    (let [claims (jwt/unsign token (get-jwt-secret))]
       {:valid? true :claims claims})
     (catch Exception e
       {:valid? false :error (.getMessage e)})))
