@@ -18,7 +18,7 @@
    [boundary.admin.schema :as admin-schema]
    [boundary.admin.core.schema-introspection :as introspection]
    [boundary.platform.shell.adapters.database.protocols :as db-protocols]
-   [boundary.shared.core.utils.case-conversion :as case-conv]))
+   [boundary.core.utils.case-conversion :as case-conv]))
 
 ;; =============================================================================
 ;; Schema Repository Implementation

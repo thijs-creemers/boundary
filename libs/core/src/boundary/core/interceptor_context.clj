@@ -6,8 +6,7 @@
    common runtime errors."
   (:require [malli.core :as m]
             [malli.error :as me]
-            [boundary.platform.core.http.problem-details :as problem-details])
-)
+            [boundary.platform.core.http.problem-details :as problem-details]))
 
 ;; Core context schemas
 

@@ -5,8 +5,8 @@
   behavior DSL. We intentionally assert only on the expected status to keep
   the tests robust against internal error structure changes."
   (:require [clojure.test :refer [deftest testing is]]
-            [boundary.shared.core.validation.behavior :as behavior]
-            [boundary.shared.core.validation.coverage :as coverage]
+            [boundary.core.validation.behavior :as behavior]
+            [boundary.core.validation.coverage :as coverage]
             [clojure.java.io :as io]
             [boundary.user.core.user :as user-core]
             [support.validation-helpers :as vh])

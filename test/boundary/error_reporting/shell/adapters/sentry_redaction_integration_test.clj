@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest testing is]]
             [boundary.error-reporting.shell.adapters.sentry :as sentry-adapter]
             [boundary.error-reporting.ports :as ports]
-            [boundary.shared.core.utils.pii-redaction :as pii]
+            [boundary.core.utils.pii-redaction :as pii]
             [sentry-clj.core :as sentry]))
 
 (def test-config

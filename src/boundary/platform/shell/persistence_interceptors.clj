@@ -22,7 +22,7 @@
    - Persistence interceptors wrap database operations
    - Context carries operation metadata and database context
    - Interceptors handle all database-related cross-cutting concerns automatically"
-  (:require [boundary.shared.core.interceptor :as interceptor]
+  (:require [boundary.core.interceptor :as interceptor]
             [clojure.tools.logging :as log]
             [clojure.string :as str])
   (:import [java.time Instant]

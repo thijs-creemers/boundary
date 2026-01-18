@@ -31,7 +31,7 @@
         :debug false}))"
   (:require
    [boundary.error-reporting.ports :as ports]
-   [boundary.shared.core.utils.pii-redaction :as pii]
+   [boundary.core.utils.pii-redaction :as pii]
    [clojure.tools.logging :as log]
    [sentry-clj.core :as sentry])
   (:import

@@ -10,10 +10,10 @@
 
    All business logic lives in boundary.user.core.* and boundary.user.shell.service.
    All observability is handled automatically by interceptors."
-  (:require [boundary.shared.core.utils.validation :as validation]
-            [boundary.shared.core.utils.type-conversion :as type-conv]
-            [boundary.shared.core.interceptor :as interceptor]
-            [boundary.shared.core.interceptor-context :as interceptor-context]
+  (:require [boundary.core.utils.validation :as validation]
+            [boundary.core.utils.type-conversion :as type-conv]
+            [boundary.core.interceptor :as interceptor]
+            [boundary.core.interceptor-context :as interceptor-context]
             [boundary.user.shell.interceptors :as user-interceptors]
             [cheshire.core :as json]
             [clojure.string :as str]

@@ -40,7 +40,7 @@
    Integration with Normalized Routes:
    - Normalized routes can specify :interceptors vector
    - Reitit adapter translates :interceptors → :middleware with this runner"
-  (:require [boundary.shared.core.interceptor :as interceptor]
+  (:require [boundary.core.interceptor :as interceptor]
             [boundary.metrics.ports :as metrics-ports]
             [boundary.error-reporting.core :as error-reporting]
             [clojure.string :as str]

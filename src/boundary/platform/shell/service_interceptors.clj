@@ -22,7 +22,7 @@
    - Service interceptors wrap pure business logic functions
    - Context carries operation metadata and observability services
    - Interceptors handle all cross-cutting concerns automatically"
-  (:require [boundary.shared.core.interceptor :as interceptor]
+  (:require [boundary.core.interceptor :as interceptor]
             [boundary.logging.core :as logging]
             [boundary.metrics.core :as metrics]
             [boundary.error-reporting.core :as error-reporting])

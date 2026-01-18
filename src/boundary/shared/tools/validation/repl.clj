@@ -4,8 +4,8 @@
 
   Pure helpers prefer returning data/strings; any I/O (writing files) is left to the caller."
   (:require [malli.core :as m]
-            [boundary.shared.core.validation.registry :as reg]
-            [boundary.shared.core.validation.snapshot :as snap]
+            [boundary.core.validation.registry :as reg]
+            [boundary.core.validation.snapshot :as snap]
             [clojure.string :as str]))
 
 ;; ----------------------------------------------------------------------------

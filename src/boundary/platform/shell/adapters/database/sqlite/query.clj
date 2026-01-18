@@ -1,6 +1,6 @@
 (ns boundary.platform.shell.adapters.database.sqlite.query
   "SQLite query building utilities."
-  (:require [boundary.shared.core.utils.type-conversion :as tc]))
+  (:require [boundary.core.utils.type-conversion :as tc]))
 
 ;; =============================================================================
 ;; Query Building

@@ -1,6 +1,6 @@
 (ns boundary.shared.utils.case-conversion-test
   "Unit tests for boundary.shared.utils.case-conversion namespace."
-  (:require [boundary.shared.core.utils.case-conversion :as case-conversion]
+  (:require [boundary.core.utils.case-conversion :as case-conversion]
             [clojure.test :refer [deftest is testing]]))
 
 (deftest camel-case->kebab-case-map-test

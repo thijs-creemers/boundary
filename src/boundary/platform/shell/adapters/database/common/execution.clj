@@ -6,7 +6,7 @@
   (:require [boundary.platform.core.database.query :as core-query]
             [boundary.platform.core.database.validation :as core-validation]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
-            [boundary.shared.core.utils.case-conversion :as case-conv]
+            [boundary.core.utils.case-conversion :as case-conv]
             [clojure.tools.logging :as log]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]))

@@ -10,7 +10,7 @@
    
    See: src/boundary/shared/core/validation/snapshot.clj for snapshot utilities"
   (:require [clojure.test :refer [deftest testing use-fixtures]]
-            [boundary.shared.core.validation.snapshot-io :as snapshot-io]
+            [boundary.core.validation.snapshot-io :as snapshot-io]
             [boundary.user.core.user :as user-core]
             [support.validation-helpers :as vh])
   (:import (java.util UUID)
