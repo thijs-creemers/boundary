@@ -17,8 +17,8 @@
             [boundary.admin.shell.schema-repository :as schema-repo]
             [boundary.platform.shell.adapters.database.factory :as db-factory]
             [boundary.platform.shell.adapters.database.common.execution :as db]
-            [boundary.logging.shell.adapters.no-op :as logging-no-op]
-            [boundary.error-reporting.shell.adapters.no-op :as error-reporting-no-op]
+            [boundary.observability.logging.shell.adapters.no-op :as logging-no-op]
+            [boundary.observability.errors.shell.adapters.no-op :as error-reporting-no-op]
             [boundary.shared.ui.core.components :as ui-components]
             [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.string :as str])

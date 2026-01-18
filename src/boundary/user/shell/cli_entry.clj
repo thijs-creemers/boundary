@@ -10,9 +10,9 @@
             [boundary.user.shell.auth :as user-auth]
             [boundary.user.shell.mfa :as user-mfa]
             [boundary.platform.shell.adapters.database.factory :as db-factory]
-            [boundary.logging.shell.adapters.no-op :as no-op-logging]
-            [boundary.metrics.shell.adapters.no-op :as no-op-metrics]
-            [boundary.error-reporting.shell.adapters.no-op :as no-op-error-reporting]
+            [boundary.observability.logging.shell.adapters.no-op :as no-op-logging]
+            [boundary.observability.metrics.shell.adapters.no-op :as no-op-metrics]
+            [boundary.observability.errors.shell.adapters.no-op :as no-op-error-reporting]
             [clojure.tools.logging :as log]))
 
 (defn run!

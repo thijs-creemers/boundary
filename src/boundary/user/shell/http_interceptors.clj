@@ -23,8 +23,8 @@
                      :interceptors ['user.http-interceptors/require-authenticated
                                     'user.http-interceptors/require-admin
                                     'user.http-interceptors/log-action]}}}"
-  (:require [boundary.logging.ports :as logging]
-            [boundary.metrics.ports :as metrics]))
+  (:require [boundary.observability.logging.ports :as logging]
+            [boundary.observability.metrics.ports :as metrics]))
 
 ;; =============================================================================
 ;; Helper Functions

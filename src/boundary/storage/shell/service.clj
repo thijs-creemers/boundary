@@ -8,7 +8,7 @@
   (:require [boundary.storage.ports :as ports]
             [boundary.storage.schema :as schema]
             [boundary.storage.core.validation :as validation]
-            [boundary.logging.ports :as logging]))
+            [boundary.observability.logging.ports :as logging]))
 
 ;; ============================================================================
 ;; Service Protocol

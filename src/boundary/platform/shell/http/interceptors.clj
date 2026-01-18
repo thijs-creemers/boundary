@@ -41,8 +41,8 @@
    - Normalized routes can specify :interceptors vector
    - Reitit adapter translates :interceptors → :middleware with this runner"
   (:require [boundary.core.interceptor :as interceptor]
-            [boundary.metrics.ports :as metrics-ports]
-            [boundary.error-reporting.core :as error-reporting]
+            [boundary.observability.metrics.ports :as metrics-ports]
+            [boundary.observability.errors.core :as error-reporting]
             [clojure.string :as str]
             [ring.middleware.anti-forgery :as anti-forgery])
   (:import [java.time Instant]
