@@ -37,18 +37,18 @@
     :cross-field-validation {:admin-requires-company-email? false ; Relaxed for dev
                              :manager-requires-department?  false}}}
 
-   ;; Active database configurations
-   ;; Only databases listed here will be loaded and initialized
-   :boundary/postgresql
-   {:host        #or [#env POSTGRES_HOST "localhost"]
-    :port        #or [#long #or [#env POSTGRES_PORT 5432] 5432]
-    :dbname      #or [#env POSTGRES_DB "boundary_dev"]
-    :user        #or [#env POSTGRES_USER "boundary_dev"]
-    :password    #or [#env POSTGRES_PASSWORD "dev_password"]
-    :auto-commit true
-    :pool        {:minimum-idle          2
-                  :maximum-pool-size     10
-                  :connection-timeout-ms 30000}}
+  ;; Active database configurations
+  ;; Only databases listed here will be loaded and initialized
+  :boundary/postgresql
+  {:host        #or [#env POSTGRES_HOST "localhost"]
+   :port        #or [#long #or [#env POSTGRES_PORT 5432] 5432]
+   :dbname      #or [#env POSTGRES_DB "boundary_dev"]
+   :user        #or [#env POSTGRES_USER "boundary_dev"]
+   :password    #or [#env POSTGRES_PASSWORD "dev_password"]
+   :auto-commit true
+   :pool        {:minimum-idle          2
+                 :maximum-pool-size     10
+                 :connection-timeout-ms 30000}}
 
   ;; HTTP Server configuration
   :boundary/http
@@ -102,11 +102,7 @@
    :require-role     :admin
    :entity-discovery {:mode      :allowlist
                       :allowlist #{:users}}
-    :entities         {:users {:label           "Users"
-                               :list-fields     [:email :name :role :created-at]
-                               :search-fields   [:email :name]
-                               :hide-fields     #{:password-hash :deleted-at}
-                               :readonly-fields #{:id :created-at :updated-at}}}
+   :entities         #merge [#include "admin/users.edn"]
    :pagination       {:default-page-size 20
                       :max-page-size     200}}}
 

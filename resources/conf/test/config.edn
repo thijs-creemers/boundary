@@ -1,11 +1,9 @@
-{
- ;; =============================================================================
+{ ;; =============================================================================
  ;; Test Environment Configuration
  ;; =============================================================================
- 
+
  :active
- {
-  ;; Core application settings (always active)
+ {  ;; Core application settings (always active)
   :boundary/settings
   {:name              "boundary-test"
    :version           "0.1.0"
@@ -16,13 +14,13 @@
 
   ;; Active database configurations
   ;; Test environment uses in-memory H2 for fast, isolated tests
-  
- :boundary/h2
+
+  :boundary/h2
   {:memory true  ; In-memory database for fast test execution
    :pool   {:minimum-idle 1
             :maximum-pool-size 5
             :connection-timeout-ms 5000}}
- 
+
   ;; Test logging configuration
   :boundary/logging
   {:level     :debug  ; Verbose logging for debugging tests
@@ -50,20 +48,14 @@
    :require-role     :admin
    :entity-discovery {:mode      :allowlist
                       :allowlist #{:users}}
-   :entities         {:users {:label           "Users"
-                              :list-fields     [:email :name :role :created-at]
-                              :search-fields   [:email :name]
-                              :hide-fields     #{:password-hash :deleted-at}
-                              :readonly-fields #{:id :created-at :updated-at}}}
+   :entities         #merge [#include "admin/users.edn"]
    :pagination       {:default-page-size 20
                       :max-page-size     200}}}
 
-
  :inactive
- {
-  ;; Alternative test database configurations
+ {  ;; Alternative test database configurations
   ;; These can be activated for integration testing or specific test scenarios
-  
+
   :boundary/sqlite
   {:memory true  ; In-memory SQLite for compatibility testing
    :pool {:minimum-idle 1

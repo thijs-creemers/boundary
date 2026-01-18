@@ -1,5 +1,5 @@
 = Project Status
-:revdate: 2026-01-17
+:revdate: 2026-01-18
 
 == High-Level Summary
 The Boundary framework has achieved **full Phase 4 completion**, delivering all planned competitive features from the strategic roadmap. The framework now features enterprise-grade security with MFA fully integrated into the authentication flow, complete competitive feature parity (background jobs, distributed caching, file storage, API versioning/pagination, MFA, and full-text search), and maintains strict Functional Core / Imperative Shell architectural boundaries throughout.
@@ -137,6 +137,7 @@ The Boundary framework has achieved **full Phase 4 completion**, delivering all 
 
 
 * **MFA Login Flow Integration (2026-01-17):** MFA fully wired into authentication HTTP interceptors. Login flow now supports two-phase authentication with `mfaCode` parameter, returning `requiresMfa: true` response when MFA verification is needed. Supports both email/password and userId authentication methods.
+* **Modular Admin Entity Configuration (2026-01-18):** Admin entity configurations moved from centralized `config.edn` to per-module files in `resources/conf/{env}/admin/{module}.edn`. Uses Aero's `#include` and `#merge` capabilities for clean module ownership. Future modules can add entity configs independently without modifying shared configuration.
 * **Documentation Repository Split (2026-01-03):** Successfully split all documentation into separate `boundary-docs` repository while preserving complete git history (175 commits). Documentation now has independent CI/CD with automated Hugo deployment to GitHub Pages.
 * **Documentation Reference Updates:** Updated 28 documentation files with current module references (user/inventory instead of billing/workflow) and corrected all cross-repository links.
 * **Interceptors Everywhere:** Reitit adapter now wraps every route in the default HTTP interceptor stack, guaranteeing consistent correlation IDs, error handling, and observability hooks. Per-route interceptors still work and are appended after the defaults.
