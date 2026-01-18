@@ -573,6 +573,41 @@ export DB_PASSWORD="dev_password"
 
 **Configuration File**: `resources/conf/dev/config.edn`
 
+### Admin Entity Configuration
+
+Admin entity configurations are modular - each module owns its entity config in `resources/conf/{env}/admin/{module}.edn`:
+
+```
+resources/conf/dev/
+├── config.edn              ← Main config, uses #include
+└── admin/
+    └── users.edn           ← User module's entity config
+```
+
+**Main config uses Aero's `#include`**:
+```clojure
+:boundary/admin
+{:enabled?         true
+ :entities         #merge [#include "admin/users.edn"]
+ :pagination       {...}}
+```
+
+**Module entity file** (`admin/users.edn`):
+```clojure
+{:users
+ {:label           "Users"
+  :list-fields     [:email :name :role :created-at]
+  :search-fields   [:email :name]
+  :hide-fields     #{:password-hash :deleted-at}
+  :readonly-fields #{:id :created-at :updated-at}}}
+```
+
+**Adding new modules**: Create `admin/{module}.edn` and add to the `#merge` vector:
+```clojure
+:entities #merge [#include "admin/users.edn"
+                  #include "admin/inventory.edn"]
+```
+
 ---
 
 ## Security Features

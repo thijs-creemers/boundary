@@ -356,7 +356,7 @@
                                         :ipAddress "192.168.1.1"}}}}
           response (handler request)]
 
-      (is (= 201 (:status response)))
+      (is (= 200 (:status response)))
       (is (some? (get-in response [:body :sessionToken])))
       (is (some? (get-in response [:body :expiresAt])))
       (is (= (str user-id) (get-in response [:body :userId]))))))

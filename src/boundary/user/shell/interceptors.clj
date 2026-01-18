@@ -11,8 +11,7 @@
             [boundary.shared.core.utils.type-conversion :as type-conv]
             [boundary.user.ports :as ports]
             [boundary.user.schema :as schema]
-            [clojure.string :as str]
-            [cheshire.core :as json]))
+            [clojure.string :as str]))
 
 (def validate-user-creation-input
   "Validates required fields for user creation.
@@ -388,7 +387,7 @@
                       limit (:limit options)
                       offset (:offset options)
                       pagination-raw (calculate-offset-pagination total-count offset limit)
-                      
+
                       ;; Transform pagination to camelCase for JSON API
                       pagination-meta {:type (:type pagination-raw)
                                        :total (:total pagination-raw)
@@ -840,9 +839,9 @@
 
 (def transform-session-creation-data
   "Transforms and normalizes session creation data.
-   
-   HTTP: Supports both userId and email/password flows, extracts device info
-   CLI: Uses provided data, handles both user-id and email/password flows"
+
+   HTTP: Supports both userId and email/password flows, extracts device info and MFA code
+   CLI: Uses provided data, handles both user-id and email/password flows with MFA support"
   {:name ::transform-session-creation-data
    :enter (fn [context]
             (let [interface-type (ctx/get-interface-type context)
@@ -853,6 +852,7 @@
                                          (:userId body) (assoc :user-id (type-conv/string->uuid (:userId body)))
                                          (:email body) (assoc :email (:email body))
                                          (:password body) (assoc :password (:password body))
+                                         (:mfaCode body) (assoc :mfa-code (:mfaCode body))
                                          true (assoc :user-agent (get-in body [:deviceInfo :userAgent] "Unknown")
                                                      :ip-address (get-in body [:deviceInfo :ipAddress] "Unknown")))
 
@@ -860,6 +860,7 @@
                                         (:user-id body) (assoc :user-id (:user-id body))
                                         (:email body) (assoc :email (:email body))
                                         (:password body) (assoc :password (:password body))
+                                        (:mfa-code body) (assoc :mfa-code (:mfa-code body))
                                         true (assoc :user-agent "CLI"
                                                     :ip-address "127.0.0.1")))]
 
@@ -868,12 +869,18 @@
                   (ctx/add-breadcrumb :operation :session-create-transform-complete
                                       {:user-id (:user-id session-data)
                                        :has-email (some? (:email session-data))
+                                       :has-mfa-code (some? (:mfa-code session-data))
                                        :auth-type (if (:email session-data) :email-password :user-id)
                                        :user-agent (:user-agent session-data)
                                        :interface-type interface-type}))))})
 
 (def authenticate-user-session
-  "Authenticates user and creates session."
+  "Authenticates user and creates session.
+
+   Returns either:
+   - A session with :token when authentication succeeds
+   - A map with :requires-mfa? true when MFA verification is needed
+   - Throws exception on authentication failure"
   {:name ::authenticate-user-session
    :enter (fn [context]
             (let [session-data (:session-data context)
@@ -882,15 +889,15 @@
                                                       {:user-id (:user-id session-data)})]
 
               (try
-                (let [session (ports/authenticate-user service session-data)
-                      masked-token (str (take 8 (:token session)) "...")]
-
-                  (-> updated-context
-                      (assoc :session session)
+                (let [auth-result (ports/authenticate-user service session-data)]
+                  ;; Normal authentication success - session with token
+                  (let [masked-token (str (take 8 (:token auth-result)) "...")]
+                    (-> updated-context
+                      (assoc :session auth-result)
                       (ctx/add-breadcrumb :operation :user-authenticate-success
-                                          {:user-id (:user-id session)
-                                           :session-token masked-token
-                                           :expires-at (:expires-at session)})))
+                        {:user-id (:user-id auth-result)
+                         :session-token masked-token
+                         :expires-at (:expires-at auth-result)}))))
 
                 (catch Exception ex
                   (-> updated-context
@@ -901,31 +908,64 @@
                       (ctx/fail-with-exception ex))))))})
 
 (def format-session-creation-response
-  "Formats the created session for response."
+  "Formats the created session or MFA-required response.
+
+   Handles three cases:
+   - MFA required: Returns 200 with requiresMfa flag and limited user info
+   - Authentication success: Returns 200 with session token and user details
+   - CLI: Returns appropriate status and data for command-line interface"
   {:name ::format-session-creation-response
    :enter (fn [context]
-            (let [session (:session context)
+            (let [auth-result (:session context)
                   interface-type (:interface-type context)]
 
               (case interface-type
                 :http
-                (let [response {:status 201
-                                :body (schema/user-specific-kebab->camel session)}]
-                  (-> context
-                      (assoc :response response)
-                      (ctx/add-breadcrumb :operation :session-create-formatted
-                                          {:user-id (:user-id session)
-                                           :response-format :json})))
+                (if (:requires-mfa? auth-result)
+                  ;; MFA required - return 200 with requiresMfa flag
+                  (let [user (:user auth-result)
+                        response {:status 200
+                                  :body {:requiresMfa true
+                                         :message "MFA code required"
+                                         :user {:id (str (:id user))
+                                                :email (:email user)
+                                                :name (:name user)}}}]
+                    (-> context
+                        (assoc :response response)
+                        (ctx/add-breadcrumb :operation :mfa-required-response
+                                            {:user-id (:id user)
+                                             :response-format :json})))
+                  ;; Normal authentication success - return session
+                  (let [response {:status 200
+                                  :body (schema/user-specific-kebab->camel auth-result)}]
+                    (-> context
+                        (assoc :response response)
+                        (ctx/add-breadcrumb :operation :session-create-formatted
+                                            {:user-id (get-in auth-result [:user :id])
+                                             :response-format :json}))))
 
                 :cli
-                (let [response {:status :success
-                                :data (select-keys session [:user-id :token :expires-at])
-                                :message "Session created successfully"}]
-                  (-> context
-                      (assoc :response response)
-                      (ctx/add-breadcrumb :operation :session-create-formatted
-                                          {:user-id (:user-id session)
-                                           :response-format :cli}))))))})
+                (if (:requires-mfa? auth-result)
+                  ;; MFA required for CLI
+                  (let [user (:user auth-result)
+                        response {:status :mfa-required
+                                  :data {:user-id (:id user)
+                                         :email (:email user)}
+                                  :message "MFA code required. Please provide mfa-code parameter."}]
+                    (-> context
+                        (assoc :response response)
+                        (ctx/add-breadcrumb :operation :mfa-required-response
+                                            {:user-id (:id user)
+                                             :response-format :cli})))
+                  ;; Normal authentication success for CLI
+                  (let [response {:status :success
+                                  :data (select-keys auth-result [:user-id :session-token :expires-at])
+                                  :message "Session created successfully"}]
+                    (-> context
+                        (assoc :response response)
+                        (ctx/add-breadcrumb :operation :session-create-formatted
+                                            {:user-id (get-in auth-result [:user :id])
+                                             :response-format :cli})))))))})
 
 (defn create-session-creation-pipeline
   "Creates pipeline for creating a session (login)."
