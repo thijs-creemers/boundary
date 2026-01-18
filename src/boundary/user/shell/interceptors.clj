@@ -11,8 +11,7 @@
             [boundary.shared.core.utils.type-conversion :as type-conv]
             [boundary.user.ports :as ports]
             [boundary.user.schema :as schema]
-            [clojure.string :as str]
-            [cheshire.core :as json]))
+            [clojure.string :as str]))
 
 (def validate-user-creation-input
   "Validates required fields for user creation.
@@ -891,21 +890,14 @@
 
               (try
                 (let [auth-result (ports/authenticate-user service session-data)]
-                  ;; Check if MFA is required (password verified but MFA code needed)
-                  (if (:requires-mfa? auth-result)
+                  ;; Normal authentication success - session with token
+                  (let [masked-token (str (take 8 (:token auth-result)) "...")]
                     (-> updated-context
-                        (assoc :session auth-result)
-                        (ctx/add-breadcrumb :operation :user-authenticate-mfa-required
-                                            {:user-id (get-in auth-result [:user :id])
-                                             :requires-mfa true}))
-                    ;; Normal authentication success - session with token
-                    (let [masked-token (str (take 8 (:token auth-result)) "...")]
-                      (-> updated-context
-                          (assoc :session auth-result)
-                          (ctx/add-breadcrumb :operation :user-authenticate-success
-                                              {:user-id (:user-id auth-result)
-                                               :session-token masked-token
-                                               :expires-at (:expires-at auth-result)})))))
+                      (assoc :session auth-result)
+                      (ctx/add-breadcrumb :operation :user-authenticate-success
+                        {:user-id (:user-id auth-result)
+                         :session-token masked-token
+                         :expires-at (:expires-at auth-result)}))))
 
                 (catch Exception ex
                   (-> updated-context
@@ -949,7 +941,7 @@
                     (-> context
                         (assoc :response response)
                         (ctx/add-breadcrumb :operation :session-create-formatted
-                                            {:user-id (:user-id auth-result)
+                                            {:user-id (get-in auth-result [:user :id])
                                              :response-format :json}))))
 
                 :cli
@@ -967,12 +959,12 @@
                                              :response-format :cli})))
                   ;; Normal authentication success for CLI
                   (let [response {:status :success
-                                  :data (select-keys auth-result [:user-id :token :expires-at])
+                                  :data (select-keys auth-result [:user-id :session-token :expires-at])
                                   :message "Session created successfully"}]
                     (-> context
                         (assoc :response response)
                         (ctx/add-breadcrumb :operation :session-create-formatted
-                                            {:user-id (:user-id auth-result)
+                                            {:user-id (get-in auth-result [:user :id])
                                              :response-format :cli})))))))})
 
 (defn create-session-creation-pipeline
