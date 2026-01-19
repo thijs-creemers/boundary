@@ -1,6 +1,6 @@
 (ns boundary.shared.ui.core.table
   "Shared table UI helpers (sorting, paging) for Hiccup-based web UIs."
-  (:require [boundary.shared.web.table :as web-table]))
+  (:require [boundary.platform.shell.web.table :as web-table]))
 
 (defn sortable-th
   "Reusable sortable table header cell.

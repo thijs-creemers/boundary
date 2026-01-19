@@ -15,7 +15,7 @@
             [boundary.shared.ui.core.icons :as icons]
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.table :as table-ui]
-            [boundary.shared.web.table :as web-table]
+            [boundary.platform.shell.web.table :as web-table]
             [clojure.string :as str]))
 
 ;; =============================================================================

@@ -12,7 +12,7 @@
   (:require [boundary.shared.ui.core.components :as ui]
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.validation :as validation]
-            [boundary.shared.web.table :as web-table]
+            [boundary.platform.shell.web.table :as web-table]
             [boundary.user.core.ui :as user-ui]
             [boundary.user.core.profile-ui :as profile-ui]
             [boundary.user.ports :as user-ports]

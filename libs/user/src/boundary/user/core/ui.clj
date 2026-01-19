@@ -8,7 +8,7 @@
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.table :as table-ui]
             [boundary.shared.ui.core.icons :as icons]
-            [boundary.shared.web.table :as web-table]
+            [boundary.platform.shell.web.table :as web-table]
             [clojure.string :as str]))
 
 ;; =============================================================================
@@ -39,9 +39,9 @@
    
    Args:
      users:       Collection of User entity maps
-     table-query: Normalized TableQuery (see boundary.shared.web.table)
+     table-query: Normalized TableQuery (see boundary.platform.shell.web.table)
      total-count: Total number of users
-     filters:     Optional map of parsed search filters (see boundary.shared.web.table)
+     filters:     Optional map of parsed search filters (see boundary.platform.shell.web.table)
 
    Returns:
      Hiccup structure for users table container (no page layout)"
