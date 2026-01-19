@@ -1,39 +1,297 @@
 # boundary/storage
 
-**Status:** In Development  
-**Version:** 0.1.0-SNAPSHOT
+[![Status](https://img.shields.io/badge/status-in%20development-yellow)]()
+[![Clojure](https://img.shields.io/badge/clojure-1.12+-blue)]()
+[![License](https://img.shields.io/badge/license-EPL--2.0-green)]()
 
-File storage abstraction with local filesystem and S3 backends.
+File storage abstraction with local filesystem and S3 backends, including upload validation and image processing.
 
 ## Installation
 
+**deps.edn** (recommended):
 ```clojure
-{:deps {boundary/storage {:mvn/version "0.1.0"}}}
+{:deps {io.github.thijs-creemers/boundary-storage {:mvn/version "0.1.0"}}}
+```
+
+**Leiningen**:
+```clojure
+[io.github.thijs-creemers/boundary-storage "0.1.0"]
 ```
 
 ## Features
 
-- **Storage Protocol**: Abstract storage interface
-- **Local Adapter**: Filesystem-based storage
-- **S3 Adapter**: AWS S3 integration
-- **Image Processing**: Basic image utilities
-- **Upload Validation**: File type and size validation
+| Feature | Description |
+|---------|-------------|
+| **Storage Protocol** | Abstract storage interface for multiple backends |
+| **Local Adapter** | Filesystem-based storage for development |
+| **S3 Adapter** | AWS S3 integration for production |
+| **Upload Validation** | File type, size, and content validation |
+| **Image Processing** | Basic resize and thumbnail generation |
+| **Path Generation** | Configurable path strategies (date-based, UUID, etc.) |
+
+## Requirements
+
+- Clojure 1.12+
+- boundary/platform
+- boundary/core
 
 ## Quick Start
 
+### Local Storage
+
 ```clojure
 (ns myapp.storage
-  (:require [boundary.storage.core :as storage]))
+  (:require [boundary.storage.shell.adapters.local :as local]))
 
-;; Local storage
-(def store (storage/local-storage {:base-path "/uploads"}))
+;; Create local storage adapter
+(def store (local/create-adapter
+  {:base-path "/var/uploads"
+   :url-prefix "/uploads"}))
 
-;; S3 storage
-(def store (storage/s3-storage {:bucket "my-bucket" :region "us-east-1"}))
+;; Store file
+(storage/put store "avatars/user-123.jpg" file-bytes)
+;; => {:path "avatars/user-123.jpg" :size 12345 :url "/uploads/avatars/user-123.jpg"}
 
-(storage/put store "avatar.jpg" file-data)
+;; Get file
+(storage/get store "avatars/user-123.jpg")
+;; => #<byte[] ...>
+
+;; Delete file
+(storage/delete store "avatars/user-123.jpg")
+
+;; Check existence
+(storage/exists? store "avatars/user-123.jpg")
+;; => true
+```
+
+### S3 Storage
+
+```clojure
+(ns myapp.storage
+  (:require [boundary.storage.shell.adapters.s3 :as s3]))
+
+;; Create S3 storage adapter
+(def store (s3/create-adapter
+  {:bucket "my-app-uploads"
+   :region "us-east-1"
+   :access-key #env AWS_ACCESS_KEY
+   :secret-key #env AWS_SECRET_KEY
+   :url-prefix "https://my-app-uploads.s3.amazonaws.com"}))
+
+;; Same API as local storage
+(storage/put store "avatars/user-123.jpg" file-bytes
+  {:content-type "image/jpeg"
+   :acl :public-read})
+```
+
+### Configuration
+
+```clojure
+;; config.edn
+{:boundary/storage
+ #profile
+ {:development
+  {:adapter :local
+   :base-path "uploads"
+   :url-prefix "/uploads"}
+  
+  :production
+  {:adapter :s3
+   :bucket #env STORAGE_BUCKET
+   :region #env AWS_REGION
+   :url-prefix #env STORAGE_URL_PREFIX}}}
+```
+
+### Upload Validation
+
+```clojure
+(ns myapp.uploads
+  (:require [boundary.storage.core.validation :as v]))
+
+;; Define allowed uploads
+(def image-rules
+  {:allowed-types #{"image/jpeg" "image/png" "image/gif" "image/webp"}
+   :max-size (* 5 1024 1024)  ; 5 MB
+   :min-size 100})            ; 100 bytes
+
+;; Validate upload
+(v/validate-upload file-data image-rules)
+;; => {:valid? true} or {:valid? false :error "File too large"}
+
+;; Validate with detailed errors
+(v/validate-upload! file-data image-rules)
+;; Throws ex-info on validation failure
+```
+
+### Path Generation
+
+```clojure
+(ns myapp.paths
+  (:require [boundary.storage.core.path :as path]))
+
+;; Date-based paths (good for many files)
+(path/generate :date-based {:prefix "uploads" :extension "jpg"})
+;; => "uploads/2024/01/15/a1b2c3d4.jpg"
+
+;; UUID-based paths
+(path/generate :uuid {:prefix "avatars" :extension "jpg"})
+;; => "avatars/550e8400-e29b-41d4-a716-446655440000.jpg"
+
+;; Custom path
+(path/generate :custom {:template "users/{user-id}/avatar.{ext}"
+                        :user-id "123"
+                        :ext "jpg"})
+;; => "users/123/avatar.jpg"
+```
+
+### Image Processing
+
+```clojure
+(ns myapp.images
+  (:require [boundary.storage.core.image :as image]))
+
+;; Resize image
+(image/resize file-bytes {:width 200 :height 200 :mode :cover})
+
+;; Generate thumbnail
+(image/thumbnail file-bytes {:size 100})
+
+;; Get image dimensions
+(image/dimensions file-bytes)
+;; => {:width 1920 :height 1080}
+```
+
+### HTTP Upload Handler
+
+```clojure
+(ns myapp.handlers
+  (:require [boundary.storage.ports :as storage-ports]
+            [boundary.storage.core.validation :as v]))
+
+(defn upload-avatar [request]
+  (let [file (get-in request [:multipart-params "file"])
+        user-id (get-in request [:session :user-id])]
+    
+    ;; Validate
+    (v/validate-upload! file {:allowed-types #{"image/jpeg" "image/png"}
+                              :max-size (* 2 1024 1024)})
+    
+    ;; Store
+    (let [path (str "avatars/" user-id ".jpg")
+          result (storage-ports/put storage path (:tempfile file))]
+      {:status 200
+       :body {:url (:url result)}})))
+```
+
+## Module Structure
+
+```
+src/boundary/storage/
+├── core/
+│   ├── validation.clj       # Upload validation (pure)
+│   ├── path.clj             # Path generation (pure)
+│   └── image.clj            # Image utilities (pure)
+├── ports.clj                # Storage protocol
+└── shell/
+    ├── adapters/
+    │   ├── local.clj        # Local filesystem adapter
+    │   └── s3.clj           # AWS S3 adapter
+    └── module-wiring.clj    # Integrant config
+```
+
+## Storage Protocol
+
+```clojure
+(defprotocol StorageAdapter
+  (put [this path data] [this path data opts]
+    "Store data at path, returns {:path :size :url}")
+  
+  (get [this path]
+    "Retrieve data from path, returns bytes or nil")
+  
+  (delete [this path]
+    "Delete data at path, returns true/false")
+  
+  (exists? [this path]
+    "Check if path exists, returns true/false")
+  
+  (list-files [this prefix]
+    "List files with prefix, returns seq of paths")
+  
+  (url [this path]
+    "Get public URL for path"))
+```
+
+## Dependencies
+
+| Dependency | Version | Purpose |
+|------------|---------|---------|
+| `boundary/platform` | 0.1.0 | Configuration, database |
+| `aws-sdk/s3` | 2.39.5 | S3 client |
+| `aws-sdk/s3-transfer-manager` | 2.39.5 | Efficient uploads |
+
+## S3 Configuration
+
+For S3 storage, configure AWS credentials via:
+
+1. **Environment variables** (recommended for production):
+   ```bash
+   export AWS_ACCESS_KEY_ID=...
+   export AWS_SECRET_ACCESS_KEY=...
+   export AWS_REGION=us-east-1
+   ```
+
+2. **Configuration file** (development):
+   ```clojure
+   {:boundary/storage
+    {:adapter :s3
+     :bucket "my-bucket"
+     :region "us-east-1"
+     :access-key "AKIA..."
+     :secret-key "..."}}
+   ```
+
+3. **IAM Role** (EC2, ECS, Lambda):
+   ```clojure
+   {:boundary/storage
+    {:adapter :s3
+     :bucket "my-bucket"
+     :region "us-east-1"
+     :use-instance-credentials? true}}
+   ```
+
+## Relationship to Other Libraries
+
+```
+┌─────────────────────────────────────────┐
+│            Your Application             │
+└─────────────────┬───────────────────────┘
+                  │ uses
+                  ▼
+┌─────────────────────────────────────────┐
+│            boundary/storage             │
+│        (local, S3, validation)          │
+└─────────────────┬───────────────────────┘
+                  │ depends on
+                  ▼
+┌─────────────────────────────────────────┐
+│           boundary/platform             │
+└─────────────────────────────────────────┘
+```
+
+## Development
+
+```bash
+# Run tests
+cd libs/storage
+clojure -M:test
+
+# Lint
+clojure -M:clj-kondo --lint src test
 ```
 
 ## License
 
-See root [LICENSE](../../LICENSE)
+Copyright © 2024-2026 Thijs Creemers
+
+Distributed under the Eclipse Public License version 2.0.

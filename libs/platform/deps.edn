@@ -39,5 +39,6 @@
   :clj-kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2025.10.23"}}
               :main-opts ["-m" "clj-kondo.main"]}
   
-  :build {:replace-deps {io.github.clojure/tools.build {:git/tag "v0.10.11" :git/sha "c6c670a4"}}
+  :build {:replace-deps {io.github.clojure/tools.build {:git/tag "v0.10.11" :git/sha "c6c670a4"}
+                        slipset/deps-deploy {:mvn/version "0.2.2"}}
           :ns-default build}}}
