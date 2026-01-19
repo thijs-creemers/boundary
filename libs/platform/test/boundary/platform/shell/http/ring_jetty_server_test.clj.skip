@@ -1,0 +1,181 @@
+(ns boundary.platform.shell.http.ring-jetty-server-test
+  "Tests for Ring+Jetty server adapter."
+  (:require [boundary.platform.ports.http :as ports]
+            [boundary.platform.shell.http.ring-jetty-server :as jetty-server]
+            [clj-http.client :as http]
+            [clojure.test :refer [deftest testing is use-fixtures]]))
+
+;; =============================================================================
+;; Test Fixtures
+;; =============================================================================
+
+(def test-port 9876)
+
+(def test-handler
+  "Simple test handler for server tests."
+  (fn [request]
+    {:status 200
+     :headers {"Content-Type" "application/json"}
+     :body (str "{\"path\":\"" (:uri request) "\","
+                "\"method\":\"" (name (:request-method request)) "\"}")}))
+
+;; =============================================================================
+;; Server Tests
+;; =============================================================================
+
+(deftest create-server-test
+  (testing "Can create Ring+Jetty server instance"
+    (let [server (jetty-server/create-ring-jetty-server)]
+      (is (some? server))
+      (is (satisfies? ports/IHttpServer server)))))
+
+(deftest start-and-stop-server-test
+  (testing "Can start and stop HTTP server"
+    (let [server-adapter (jetty-server/create-ring-jetty-server)
+          config {:port test-port
+                  :host "localhost"
+                  :join? false}]
+      
+      (testing "Server starts successfully"
+        (let [server-instance (ports/start! server-adapter test-handler config)]
+          (is (some? server-instance))
+          
+          ;; Give server a moment to start
+          (Thread/sleep 500)
+          
+          (testing "Server responds to requests"
+            (let [response (http/get (str "http://localhost:" test-port "/test")
+                                     {:throw-exceptions false})]
+              (is (= 200 (:status response)))
+              (is (= "application/json" (get-in response [:headers "Content-Type"])))
+              (is (.contains (:body response) "/test"))))
+          
+          (testing "Server stops successfully"
+            (ports/stop! server-adapter server-instance)
+            
+            ;; Give server a moment to stop
+            (Thread/sleep 500)
+            
+            (testing "Server no longer responds after stop"
+              (try
+                (http/get (str "http://localhost:" test-port "/test")
+                          {:throw-exceptions true})
+                (is false "Should have thrown connection exception")
+                (catch Exception e
+                  (is true "Connection refused as expected"))))))))))
+
+(deftest server-with-different-ports-test
+  (testing "Can start servers on different ports"
+    (let [server-adapter (jetty-server/create-ring-jetty-server)
+          port1 (+ test-port 1)
+          port2 (+ test-port 2)
+          config1 {:port port1 :host "localhost" :join? false}
+          config2 {:port port2 :host "localhost" :join? false}]
+      
+      (let [server1 (ports/start! server-adapter test-handler config1)
+            server2 (ports/start! server-adapter test-handler config2)]
+        
+        ;; Give servers time to start
+        (Thread/sleep 500)
+        
+        (try
+          (testing "Both servers respond"
+            (let [response1 (http/get (str "http://localhost:" port1 "/test1")
+                                      {:throw-exceptions false})
+                  response2 (http/get (str "http://localhost:" port2 "/test2")
+                                      {:throw-exceptions false})]
+              (is (= 200 (:status response1)))
+              (is (= 200 (:status response2)))
+              (is (.contains (:body response1) "/test1"))
+              (is (.contains (:body response2) "/test2"))))
+          
+          (finally
+            ;; Clean up
+            (ports/stop! server-adapter server1)
+            (ports/stop! server-adapter server2)
+            (Thread/sleep 500)))))))
+
+(deftest server-configuration-test
+  (testing "Server respects configuration options"
+    (let [server-adapter (jetty-server/create-ring-jetty-server)
+          port (+ test-port 3)
+          config {:port port
+                  :host "localhost"
+                  :join? false
+                  :max-threads 10
+                  :min-threads 2}
+          server-instance (ports/start! server-adapter test-handler config)]
+      
+      ;; Give server time to start
+      (Thread/sleep 500)
+      
+      (try
+        (testing "Server is accessible on configured port"
+          (let [response (http/get (str "http://localhost:" port "/")
+                                   {:throw-exceptions false})]
+            (is (= 200 (:status response)))))
+        
+        (finally
+          (ports/stop! server-adapter server-instance)
+          (Thread/sleep 500))))))
+
+(deftest server-with-handler-returning-different-status-codes-test
+  (testing "Server correctly returns different status codes"
+    (let [server-adapter (jetty-server/create-ring-jetty-server)
+          port (+ test-port 4)
+          multi-status-handler (fn [request]
+                                 (case (:uri request)
+                                   "/ok" {:status 200 :body "OK"}
+                                   "/created" {:status 201 :body "Created"}
+                                   "/no-content" {:status 204}
+                                   "/not-found" {:status 404 :body "Not Found"}
+                                   "/error" {:status 500 :body "Error"}
+                                   {:status 200 :body "Default"}))
+          config {:port port :host "localhost" :join? false}
+          server-instance (ports/start! server-adapter multi-status-handler config)]
+      
+      ;; Give server time to start
+      (Thread/sleep 500)
+      
+      (try
+        (testing "200 OK"
+          (let [response (http/get (str "http://localhost:" port "/ok")
+                                   {:throw-exceptions false})]
+            (is (= 200 (:status response)))
+            (is (= "OK" (:body response)))))
+        
+        (testing "201 Created"
+          (let [response (http/get (str "http://localhost:" port "/created")
+                                   {:throw-exceptions false})]
+            (is (= 201 (:status response)))
+            (is (= "Created" (:body response)))))
+        
+        (testing "204 No Content"
+          (let [response (http/get (str "http://localhost:" port "/no-content")
+                                   {:throw-exceptions false})]
+            (is (= 204 (:status response)))))
+        
+        (testing "404 Not Found"
+          (let [response (http/get (str "http://localhost:" port "/not-found")
+                                   {:throw-exceptions false})]
+            (is (= 404 (:status response)))
+            (is (= "Not Found" (:body response)))))
+        
+        (testing "500 Internal Server Error"
+          (let [response (http/get (str "http://localhost:" port "/error")
+                                   {:throw-exceptions false})]
+            (is (= 500 (:status response)))
+            (is (= "Error" (:body response)))))
+        
+        (finally
+          (ports/stop! server-adapter server-instance)
+          (Thread/sleep 500))))))
+
+;; =============================================================================
+;; Error Handling Tests
+;; =============================================================================
+
+(deftest server-stop-without-start-test
+  (testing "Stopping nil server does not throw"
+    (let [server-adapter (jetty-server/create-ring-jetty-server)]
+      (is (nil? (ports/stop! server-adapter nil))))))
