@@ -415,7 +415,7 @@
   ;; => "00000000-0000-0000-0000-000000000001" (or value from DEFAULT_TENANT_ID env var)
 
   ;; Use default tenant ID in REPL development
-  (require '[boundary.shared.core.utils.type-conversion :as tc])
+  (require '[boundary.core.utils.type-conversion :as tc])
   (def tenant-id (tc/string->uuid (default-tenant-id config)))
   ;; => #uuid "00000000-0000-0000-0000-000000000001"
 

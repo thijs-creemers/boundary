@@ -1,7 +1,7 @@
 (ns boundary.shared.utils.type-conversion-test
   "Unit tests for boundary.shared.utils.type-conversion namespace."
   (:require [clojure.test :refer [deftest is testing]]
-            [boundary.shared.core.utils.type-conversion :as type-conversion])
+            [boundary.core.utils.type-conversion :as type-conversion])
   (:import [java.util UUID]
            [java.time Instant]))
 

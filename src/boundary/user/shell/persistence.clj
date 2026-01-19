@@ -19,7 +19,7 @@
    - Core contains pure business logic (no I/O)
    - Shell handles all I/O and external systems
    - Clean boundary between functional and imperative code"
-  (:require [boundary.shared.core.utils.type-conversion :as type-conversion]
+  (:require [boundary.core.utils.type-conversion :as type-conversion]
             [boundary.platform.shell.adapters.database.common.core :as db]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
             [boundary.platform.shell.adapters.database.utils.schema :as db-schema]

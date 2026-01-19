@@ -3,7 +3,7 @@
    
    All functions in this namespace are pure - they take data and return data
    without side effects. No I/O, logging, or state mutation."
-  (:require [boundary.shared.core.utils.case-conversion :as case-conv]
+  (:require [boundary.core.utils.case-conversion :as case-conv]
             [clojure.string]
             [clojure.walk :as walk]
             [honey.sql :as sql]))

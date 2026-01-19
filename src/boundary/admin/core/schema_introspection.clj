@@ -14,7 +14,7 @@
   (:require
    [clojure.string :as str]
    [boundary.admin.schema :as schema]
-   [boundary.shared.core.utils.case-conversion :as case-conversion]))
+   [boundary.core.utils.case-conversion :as case-conversion]))
 
 ;; =============================================================================
 ;; Type Mapping - SQL Types to Logical Field Types

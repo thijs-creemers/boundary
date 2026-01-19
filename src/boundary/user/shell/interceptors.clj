@@ -7,8 +7,8 @@
    - User business logic invocation (register-user service call)
    - User-specific response formatting"
   (:require [boundary.platform.shell.interceptors :as interceptors]
-            [boundary.shared.core.interceptor-context :as ctx]
-            [boundary.shared.core.utils.type-conversion :as type-conv]
+            [boundary.core.interceptor-context :as ctx]
+            [boundary.core.utils.type-conversion :as type-conv]
             [boundary.user.ports :as ports]
             [boundary.user.schema :as schema]
             [clojure.string :as str]))

@@ -1,0 +1,447 @@
+# ADR-001: Split Boundary Monolith into Modular Libraries
+
+**Status:** Accepted  
+**Date:** 2026-01-18  
+**Deciders:** Boundary Core Team  
+**Context:** Planning Phase  
+
+---
+
+## Context and Problem Statement
+
+The Boundary framework currently exists as a monolithic codebase where all components (user management, admin interface, platform infrastructure, utilities) are tightly bundled. While this simplifies initial development, it creates several problems for external adoption and long-term maintainability:
+
+1. **All-or-Nothing Dependency**: Users must include the entire framework even if they only need core utilities or database infrastructure
+2. **Difficult to Extend**: Third-party developers cannot easily depend on specific Boundary components without pulling in unrelated code
+3. **Publishing Challenges**: Cannot publish to Clojars as a single artifact without bloating user dependencies
+4. **Maintenance Complexity**: Changes to core utilities require releasing entire framework
+5. **Limited Flexibility**: Users who want custom authentication cannot easily swap out the user module while keeping platform infrastructure
+
+The goal is to transform Boundary from an application into a **framework foundation** that others can build upon, while maintaining the cohesive "batteries-included" experience for users who want the full stack.
+
+---
+
+## Decision Drivers
+
+### Technical Drivers
+- **Modularity**: Enable dependency on individual components
+- **Separation of Concerns**: Clear boundaries between infrastructure, domain logic, and utilities
+- **Extensibility**: Third-party modules should integrate seamlessly
+- **Performance**: No degradation from modular architecture
+
+### User Experience Drivers
+- **Ease of Adoption**: Simple getting-started path for new users
+- **Flexibility**: Advanced users can pick and choose components
+- **Migration Path**: Existing users can upgrade without major rewrites
+- **Documentation**: Clear understanding of what each library provides
+
+### Operational Drivers
+- **Maintainability**: Independent versioning and testing of components
+- **Release Velocity**: Update individual libraries without coordinated releases
+- **Community Contributions**: Clear entry points for contributors
+- **Long-term Evolution**: Architecture that supports growth
+
+---
+
+## Considered Options
+
+### Option 1: Keep Monolith (Status Quo)
+
+**Structure:**
+- Single repository
+- Single artifact: `boundary/boundary`
+- All components bundled together
+
+**Pros:**
+- No migration needed
+- Simple dependency management
+- Easy coordinated releases
+- Works well for internal use
+
+**Cons:**
+- Cannot publish to Clojars effectively (too large)
+- Users must depend on everything
+- No flexibility for custom implementations
+- Difficult for third-party extensions
+- Maintenance complexity grows with size
+
+**Verdict:** ❌ Rejected - Does not support open-source distribution goals
+
+---
+
+### Option 2: Coarse-Grained Split (3 Libraries)
+
+**Structure:**
+```
+boundary/boundary        - Everything (platform + modules + utils)
+boundary/boundary-dev    - Development tools only
+boundary/boundary-cli    - CLI tools only
+```
+
+**Pros:**
+- Simple dependency graph
+- Easy version coordination
+- Minimal migration effort
+- Low maintenance overhead
+
+**Cons:**
+- Still all-or-nothing for most users
+- Cannot customize authentication without forking
+- Large dependency footprint
+- Limited flexibility
+
+**Verdict:** ❌ Rejected - Insufficient modularity
+
+---
+
+### Option 3: Fine-Grained Split (10+ Libraries)
+
+**Structure:**
+```
+boundary/core            - Minimal utilities
+boundary/database        - Database adapters only
+boundary/http            - HTTP routing only
+boundary/pagination      - Pagination only
+boundary/search          - Search only
+boundary/logging         - Logging only
+boundary/metrics         - Metrics only
+boundary/errors          - Error reporting only
+boundary/user            - User management
+boundary/admin           - Admin interface
+boundary/storage         - File storage
+boundary/external        - External services
+boundary/scaffolder      - Code generator
+```
+
+**Pros:**
+- Maximum flexibility
+- Smallest possible dependencies
+- Independent versioning
+- Granular testing
+
+**Cons:**
+- Complex dependency graph
+- Version coordination nightmare
+- Steeper learning curve
+- Higher maintenance burden
+- Many artifacts to publish
+
+**Verdict:** ❌ Rejected - Too complex for practical use
+
+---
+
+### Option 4: Medium-Grained Split (8 Libraries) ✅ SELECTED
+
+**Structure:**
+```
+boundary/core            - Validation, utils, interceptors
+boundary/observability   - Logging, metrics, error reporting
+boundary/platform        - Database, HTTP, pagination, search
+boundary/user            - User management, auth, MFA
+boundary/admin           - Admin CRUD + shared UI
+boundary/storage         - File storage adapters
+boundary/external        - External service adapters
+boundary/scaffolder      - Code generation tool
+```
+
+**Pros:**
+- Good balance of modularity and simplicity
+- Clear separation of concerns
+- Logical dependency hierarchy
+- Manageable maintenance overhead
+- Users can choose infrastructure vs full stack
+- Reasonable number of artifacts (~8)
+
+**Cons:**
+- Some version coordination needed
+- Migration required for existing users
+- More repos/artifacts than monolith
+
+**Verdict:** ✅ **SELECTED** - Best balance of all factors
+
+---
+
+## Decision Outcome
+
+**Chosen Option:** Medium-Grained Split (8 Libraries)
+
+We will split Boundary into 8 independently publishable Clojars artifacts with the following dependency hierarchy:
+
+```
+                    Application Code
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+    admin            user           scaffolder
+        │                │                │
+        └────────┬───────┘                │
+                 │                        │
+              platform                    │
+                 │                        │
+           observability                  │
+                 │                        │
+                 └────────────────────────┘
+                              │
+                            core
+```
+
+### Rationale
+
+1. **Core Infrastructure Grouping**: Platform groups together tightly-coupled infrastructure (database, HTTP, pagination, search) that most users want together
+
+2. **Observability as Unified Stack**: Logging, metrics, and error reporting are typically configured together and have similar adapter patterns
+
+3. **Domain Modules Stay Separate**: User and admin are distinct features that users may want independently
+
+4. **Specialized Libraries Separated**: Storage and external service adapters are optional for many applications
+
+5. **Dev Tools Isolated**: Scaffolder has no runtime dependencies and should be a dev-only dependency
+
+### Implementation Strategy
+
+**Repository Structure:** Monorepo
+- Single GitHub repository with `libs/` directory
+- Coordinated releases with synchronized versions
+- Unified CI/CD pipeline
+- Examples and documentation in same repo
+
+**Publishing Strategy:**
+- Group ID: `boundary` (fallback to `io.github.boundary` if unavailable)
+- Synchronized versioning: All libs share version number (e.g., `0.1.0`)
+- Initial release as `0.x.x` to allow breaking changes
+- Post-1.0: Standard semantic versioning guarantees
+
+**Module Registration:**
+- Dynamic module registration pattern to avoid hard-coded dependencies
+- Modules self-register on namespace load
+- Platform provides registry and discovery mechanism
+
+---
+
+## Consequences
+
+### Positive Consequences
+
+1. **Flexibility for Users**
+   - Use full framework: `{boundary/admin {:mvn/version "0.1.0"}}`
+   - Platform only: `{boundary/platform {:mvn/version "0.1.0"}}`
+   - Core utils only: `{boundary/core {:mvn/version "0.1.0"}}`
+
+2. **Clear Extension Points**
+   - Third-party modules can depend on `boundary/platform`
+   - Custom auth implementations can replace `boundary/user`
+   - Custom admin interfaces can use `boundary/ui` components
+
+3. **Better Testing**
+   - Each library can be tested independently
+   - Integration tests verify cross-library compatibility
+   - CI runs faster with parallel testing
+
+4. **Improved Documentation**
+   - Each library has focused documentation
+   - Clear API boundaries
+   - Easier to understand what each component does
+
+5. **Community Growth**
+   - Lower barrier to contribution (focus on one library)
+   - Third-party ecosystem can flourish
+   - Clear ownership boundaries
+
+### Negative Consequences
+
+1. **Migration Required**
+   - Existing users must update namespace requires
+   - Module registration pattern changes
+   - Some workflow changes (explicit module loading)
+
+2. **Version Coordination**
+   - All libraries must be released together
+   - Dependency updates affect multiple libraries
+   - Testing across libraries required
+
+3. **Increased Complexity**
+   - More artifacts to publish
+   - More documentation to maintain
+   - Learning curve for library structure
+
+4. **Initial Setup Overhead**
+   - 6 weeks of focused work required
+   - Testing across all libraries
+   - Documentation updates
+
+### Mitigation Strategies
+
+**For Migration:**
+- Comprehensive migration guide with before/after examples
+- Automated migration script for namespace renames
+- Example applications demonstrating new structure
+- Support channel for migration questions
+
+**For Complexity:**
+- Clear dependency diagram in documentation
+- Starter templates with common configurations
+- Single "get everything" dependency option (`boundary/admin`)
+
+**For Maintenance:**
+- Automated release process
+- Coordinated version bumping script
+- CI pipeline for cross-library testing
+- Monorepo structure for easier development
+
+---
+
+## Technical Details
+
+### Dynamic Module Registration
+
+**Problem:** Platform library cannot hard-code requires for domain modules (creates circular dependency).
+
+**Solution:** Module self-registration pattern:
+
+```clojure
+;; In boundary.platform.system.modules (platform library)
+(defonce registered-modules (atom {}))
+
+(defn register-module! [module-key wiring-ns-sym]
+  (swap! registered-modules assoc module-key wiring-ns-sym))
+
+(defn load-registered-modules! []
+  (doseq [[_ ns-sym] @registered-modules]
+    (require ns-sym)))
+
+;; In boundary.user.shell.module-wiring (user library)
+(ns boundary.user.shell.module-wiring
+  (:require [boundary.platform.system.modules :as modules]))
+
+;; Self-register on namespace load
+(modules/register-module! :user 'boundary.user.shell.module-wiring)
+
+;; In application code
+(ns myapp.main
+  (:require [boundary.user.shell.module-wiring]  ; Triggers registration
+            [boundary.platform.system.wiring]))   ; Uses registered modules
+```
+
+### Namespace Renames
+
+**Breaking Changes:**
+
+| Old | New | Reason |
+|-----|-----|--------|
+| `boundary.shared.core.*` | `boundary.core.*` | "shared" is unclear; "core" indicates foundation |
+| `boundary.shared.ui.*` | `boundary.ui.*` | Move to admin library, remove "shared" |
+| `boundary.logging.*` | `boundary.observability.logging.*` | Group with metrics/errors |
+| `boundary.metrics.*` | `boundary.observability.metrics.*` | Group with logging/errors |
+| `boundary.error_reporting.*` | `boundary.observability.errors.*` | Group with logging/metrics |
+
+**Non-Breaking:**
+- `boundary.platform.*` stays the same
+- `boundary.user.*` stays the same
+- `boundary.admin.*` stays the same
+
+### Dependency Management
+
+**Development (Monorepo):**
+```clojure
+;; Use :local/root for development
+{:deps {boundary/core {:local/root "../core"}
+        boundary/platform {:local/root "../platform"}}}
+```
+
+**Production (Published):**
+```clojure
+;; Use :mvn/version for production
+{:deps {boundary/core {:mvn/version "0.1.0"}
+        boundary/platform {:mvn/version "0.1.0"}}}
+```
+
+**Build Process:**
+- Script updates all `:local/root` to `:mvn/version` before publishing
+- Verifies all version numbers match
+- Runs full test suite before publishing
+
+---
+
+## Related Decisions
+
+- **ADR-007**: Structured Route Definitions (HTTP module architecture)
+- **ADR-010**: HTTP Interceptor Architecture (interceptor patterns)
+- Future ADR: API versioning strategy
+- Future ADR: Database adapter plugin system
+
+---
+
+## Alternatives Considered and Rejected
+
+### Git Submodules Approach
+
+Use git submodules for each library in separate repos.
+
+**Rejected because:**
+- Complex workflow for contributors
+- Difficult to test cross-repo changes
+- Version coordination nightmare
+- Submodule management is error-prone
+
+### Leiningen Multi-Project
+
+Use Leiningen's checkouts or multi-project features.
+
+**Rejected because:**
+- tools.deps is now standard for Clojure
+- Better CI/CD integration with deps.edn
+- Simpler dependency management
+
+### Single Artifact with Exclusions
+
+Publish single artifact but allow users to exclude namespaces.
+
+**Rejected because:**
+- Cannot exclude transitive dependencies
+- Still bundles everything in artifact
+- No true modularity
+
+---
+
+## References
+
+- [Clojars Publishing Guide](https://github.com/clojars/clojars-web/wiki/Pushing)
+- [tools.deps Guide](https://clojure.org/guides/deps_and_cli)
+- [Semantic Versioning](https://semver.org/)
+- [Monorepo vs Polyrepo Discussion](https://github.com/joelparkerhenderson/monorepo-vs-polyrepo)
+
+---
+
+## Approval
+
+**Approved by:** Boundary Core Team  
+**Date:** 2026-01-18  
+**Implementation Owner:** [TBD]  
+**Expected Completion:** 6 weeks from approval
+
+---
+
+## Notes
+
+### Open Questions
+
+1. **Clojars Group Name**: Is `boundary` available? Fallback to `io.github.boundary`
+2. **Version Strategy Post-1.0**: Should libraries version independently after 1.0?
+3. **Database Driver Strategy**: Should platform bundle a default driver?
+4. **UI Component Library**: Should `boundary.ui` become a separate library?
+
+### Future Considerations
+
+1. **Plugin System**: Consider formal plugin API for third-party modules
+2. **Version Independence**: Post-1.0, evaluate decoupling library versions
+3. **Additional Libraries**: 
+   - `boundary/jobs` for background job processing
+   - `boundary/cache` for caching abstractions
+   - `boundary/search-advanced` for Elasticsearch/Solr integration
+4. **Performance Optimizations**: AOT compilation options for production
+
+---
+
+**Document Version:** 1.0  
+**Last Updated:** 2026-01-18  
+**Status:** Accepted

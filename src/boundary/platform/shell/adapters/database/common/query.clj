@@ -1,7 +1,7 @@
 (ns boundary.platform.shell.adapters.database.common.query
   "Common query building and formatting utilities."
   (:require [boundary.platform.shell.adapters.database.protocols :as protocols]
-            [boundary.shared.core.utils.case-conversion :as case-conv]
+            [boundary.core.utils.case-conversion :as case-conv]
             [honey.sql :as sql]
             [clojure.walk :as walk]))
 

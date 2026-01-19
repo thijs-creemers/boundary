@@ -34,8 +34,8 @@
    - GET    /docs/*               - Documentation
 
    All observability is handled automatically by interceptors."
-  (:require [boundary.shared.core.interceptor :as interceptor]
-            [boundary.shared.core.interceptor-context :as interceptor-context]
+  (:require [boundary.core.interceptor :as interceptor]
+            [boundary.core.interceptor-context :as interceptor-context]
             [boundary.user.shell.http-interceptors]
             [boundary.user.shell.interceptors :as user-interceptors]
             [boundary.user.shell.middleware :as user-middleware]

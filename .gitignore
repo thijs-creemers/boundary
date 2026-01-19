@@ -1,22 +1,32 @@
-/.claude/
-/.calva/
-/.clj-kondo/
-/.cpcache/
-/.idea/
-/.lsp/
-/.clojure-mcp
-/.mcp.json
-/CLAUDE.md
-/.cache/
+# Build artifacts
+target/
+*.jar
+*.class
+
+# Clojure cache
+.cpcache/
+.nrepl-port
+.clj-kondo/.cache/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Database
+*.db
+*.db-journal
+
+# Environment
 .env
-/.archive/
-._*
-/.nrepl-port
-opencode.json
-*.db*
-/target
-/build/
-/test/reports/
-/node_modules
-test-output*.txt
-/logs/
+.env.local

@@ -8,10 +8,10 @@
   4. Coverage reporting for validation completeness
 
   All features work together to provide comprehensive validation testing."
-  (:require [boundary.shared.core.validation.generators :as gen]
-            [boundary.shared.core.validation.behavior :as behavior]
-            [boundary.shared.core.validation.snapshot :as snapshot]
-            [boundary.shared.core.validation.coverage :as coverage]
+  (:require [boundary.core.validation.generators :as gen]
+            [boundary.core.validation.behavior :as behavior]
+            [boundary.core.validation.snapshot :as snapshot]
+            [boundary.core.validation.coverage :as coverage]
             [boundary.user.schema :as user-schema]
             [clojure.test :refer [deftest is testing use-fixtures]]))
 

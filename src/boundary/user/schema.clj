@@ -2,8 +2,8 @@
   (:require
    [malli.core :as m]
    [malli.transform :as mt]
-   [boundary.shared.core.utils.type-conversion :as type-conversion]
-   [boundary.shared.core.utils.case-conversion :as case-conversion]))
+   [boundary.core.utils.type-conversion :as type-conversion]
+   [boundary.core.utils.case-conversion :as case-conversion]))
 
 ;; =============================================================================
 ;; Domain Entity Schemas

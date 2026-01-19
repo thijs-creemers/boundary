@@ -16,8 +16,8 @@
    [boundary.admin.core.permissions :as permissions]
    [boundary.platform.shell.adapters.database.common.execution :as db]
    [boundary.platform.shell.persistence-interceptors :as persist-interceptors]
-   [boundary.shared.core.utils.type-conversion :as type-conversion]
-   [boundary.shared.core.utils.case-conversion :as case-conversion]
+   [boundary.core.utils.type-conversion :as type-conversion]
+   [boundary.core.utils.case-conversion :as case-conversion]
    [honey.sql :as sql]
    [clojure.string :as str])
   (:import [java.util UUID]
