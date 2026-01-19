@@ -272,7 +272,7 @@ resources/scaffolder/templates/
 
 ```
 ┌─────────────────────────────────────────┐
-│         Development Tooling            │
+│         Development Tooling             │
 └─────────────────┬───────────────────────┘
                   │ uses
                   ▼
