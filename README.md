@@ -62,6 +62,22 @@ For development, the root `deps.edn` includes all library paths:
 # Run all tests across all libraries
 clojure -M:test:db/h2
 
+# Run tests for a specific library
+clojure -M:test:db/h2 :core           # Core library
+clojure -M:test:db/h2 :platform       # Platform library
+clojure -M:test:db/h2 :user           # User library
+clojure -M:test:db/h2 :admin          # Admin library
+clojure -M:test:db/h2 :storage        # Storage library
+clojure -M:test:db/h2 :scaffolder     # Scaffolder library
+clojure -M:test:db/h2 :observability  # Observability library
+
+# Watch mode for development
+clojure -M:test:db/h2 --watch :core
+
+# Run tests by category
+clojure -M:test:db/h2 --focus-meta :unit         # Unit tests only
+clojure -M:test:db/h2 --focus-meta :integration  # Integration tests
+
 # Build a specific library JAR
 cd libs/core && clojure -T:build jar
 ```

@@ -4,8 +4,8 @@
             [boundary.platform.shell.interceptors :as interceptors]
             [boundary.core.interceptor :as ic]
             [boundary.user.ports]
-            [boundary.logging.ports]
-            [boundary.error-reporting.ports])
+            [boundary.observability.logging.ports]
+            [boundary.observability.errors.ports])
   (:import [java.time Instant]))
 
 ;; Mock implementations for testing
@@ -13,7 +13,7 @@
 (defn mock-logger []
   (let [log-entries (atom [])]
     (with-meta
-      (reify boundary.logging.ports/ILogger
+      (reify boundary.observability.logging.ports/ILogger
         (info [_ event data]
           (swap! log-entries conj {:level :info :event event :data data}))
         (warn [_ event data]
@@ -34,7 +34,7 @@
 (defn mock-error-reporter []
   (let [errors (atom [])]
     (with-meta
-      (reify boundary.error-reporting.ports/IErrorReporter
+      (reify boundary.observability.errors.ports/IErrorReporter
         (capture-exception [_ exception context]
           (swap! errors conj {:exception exception :context context})))
       {:errors errors})))
