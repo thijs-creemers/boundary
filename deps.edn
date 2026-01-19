@@ -1,5 +1,12 @@
 ;; deps.edn
-{:paths   ["src" "test" "resources"]                        ;; Tell Clojure where to find source and resource files
+{:paths   ["src" "test" "resources"                           ;; Monolith paths
+           "libs/core/src" "libs/core/test"                 ;; Phase 1: Core library
+           "libs/observability/src" "libs/observability/test" ;; Phase 2: Observability
+           "libs/platform/src" "libs/platform/test"         ;; Phase 3: Platform
+           "libs/user/src" "libs/user/test"                 ;; Phase 4: User
+           "libs/admin/src" "libs/admin/test"               ;; Phase 5: Admin
+           "libs/storage/src" "libs/storage/test"           ;; Phase 6: Storage
+           "libs/scaffolder/src" "libs/scaffolder/test"]    ;; Phase 8: Scaffolder
 
  :deps    {org.clojure/clojure               {:mvn/version "1.12.4"}
            cheshire/cheshire                 {:mvn/version "6.1.0"} ;; process json
