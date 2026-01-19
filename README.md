@@ -2,6 +2,72 @@
 
 A module-centric Clojure framework implementing the Functional Core / Imperative Shell architectural paradigm.
 
+## Library Architecture
+
+Boundary is organized as a **monorepo** with 7 independently publishable libraries:
+
+| Library | Description | Maven Artifact |
+|---------|-------------|----------------|
+| **[core](libs/core/)** | Foundation: validation, utilities, interceptors | `io.github.thijs-creemers/boundary-core` |
+| **[observability](libs/observability/)** | Logging, metrics, error reporting | `io.github.thijs-creemers/boundary-observability` |
+| **[platform](libs/platform/)** | HTTP, database, CLI infrastructure | `io.github.thijs-creemers/boundary-platform` |
+| **[user](libs/user/)** | Authentication, authorization, MFA | `io.github.thijs-creemers/boundary-user` |
+| **[admin](libs/admin/)** | Auto-CRUD admin interface | `io.github.thijs-creemers/boundary-admin` |
+| **[storage](libs/storage/)** | File storage (local & S3) | `io.github.thijs-creemers/boundary-storage` |
+| **[scaffolder](libs/scaffolder/)** | Module code generator | `io.github.thijs-creemers/boundary-scaffolder` |
+
+### Dependency Graph
+
+```
+┌─────────────┐     ┌─────────────┐
+│  scaffolder │     │   storage   │
+└──────┬──────┘     └──────┬──────┘
+       │                   │
+       ▼                   ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│    core     │◄────│  platform   │◄────│    user     │
+└─────────────┘     └──────┬──────┘     └──────┬──────┘
+       ▲                   │                   │
+       │                   ▼                   │
+       │           ┌─────────────┐             │
+       └───────────│observability│             │
+                   └─────────────┘             │
+                                               ▼
+                                        ┌─────────────┐
+                                        │    admin    │
+                                        └─────────────┘
+```
+
+### Using Individual Libraries
+
+Each library can be used independently via deps.edn:
+
+```clojure
+;; Use just core for validation
+{:deps {io.github.thijs-creemers/boundary-core {:mvn/version "0.1.0"}}}
+
+;; Use platform for full web application support
+{:deps {io.github.thijs-creemers/boundary-platform {:mvn/version "0.1.0"}}}
+
+;; Use the full stack
+{:deps {io.github.thijs-creemers/boundary-user {:mvn/version "0.1.0"}
+        io.github.thijs-creemers/boundary-admin {:mvn/version "0.1.0"}}}
+```
+
+### Local Development
+
+For development, the root `deps.edn` includes all library paths:
+
+```bash
+# Run all tests across all libraries
+clojure -M:test:db/h2
+
+# Build a specific library JAR
+cd libs/core && clojure -T:build jar
+```
+
+See [PUBLISHING_GUIDE.md](docs/PUBLISHING_GUIDE.md) for publishing to Clojars.
+
 ## Quick Start
 
 **→ [Documentation](https://github.com/thijs-creemers/boundary-docs) ←** - Complete documentation (separate repository)
@@ -41,32 +107,35 @@ bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.1 --as 
 
 ## Architecture
 
-Boundary implements a **clean architecture** pattern with proper separation of concerns. Each domain module (`user`, `billing`, `workflow`) follows a layered structure:
+Boundary implements a **clean architecture** pattern with proper separation of concerns using the **Functional Core / Imperative Shell** paradigm.
 
 ### Core Principles
-- **Domain Layer**: Pure business entities and validation rules (Malli schemas)
-- **Ports Layer**: Repository interfaces and contracts
-- **Application Layer**: Database-agnostic business services using dependency injection
-- **Infrastructure Layer**: Database adapters, external APIs, and I/O implementations
+- **Functional Core**: Pure business logic with no side effects (in `core/` directories)
+- **Imperative Shell**: I/O, validation, adapters (in `shell/` directories)
+- **Ports**: Protocol definitions for dependency injection
 - **Multi-Interface Support**: Consistent behavior across REST, CLI, and Web
-- **RFC 7807 Error Handling**: Standardized HTTP error responses with proper context separation
+- **RFC 7807 Error Handling**: Standardized HTTP error responses
 
-### User Module Example
+### Module Structure (Example: User Library)
 ```
-src/boundary/user/
+libs/user/src/boundary/user/
 ├── schema.clj              # Domain entities (Malli schemas)
-├── ports.clj               # Repository interfaces
-├── shell/
-│   └── service.clj         # Database-agnostic business services
-└── infrastructure/
-    └── database.clj        # Database-specific implementations
+├── ports.clj               # Repository interfaces (protocols)
+├── core/
+│   ├── user.clj            # Pure business logic
+│   ├── authentication.clj  # Auth logic (pure)
+│   └── mfa.clj             # MFA logic (pure)
+└── shell/
+    ├── service.clj         # Service orchestration
+    ├── persistence.clj     # Database adapter
+    └── http.clj            # HTTP handlers
 ```
 
 **Key Benefits:**
 - Business logic completely separated from infrastructure
 - Easy to test with mocked dependencies
-- Database-agnostic services that work with any storage implementation
-- Clear dependency flow: Infrastructure → Ports ← Services
+- Each library can be used independently
+- Clear dependency flow: Shell → Ports ← Core
 
 See [Documentation](https://github.com/thijs-creemers/boundary-docs) for detailed technical specifications.
 
