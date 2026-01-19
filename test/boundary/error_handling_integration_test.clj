@@ -4,8 +4,8 @@
             [boundary.platform.shell.utils.error-handling :as eh]
             [boundary.platform.shell.interfaces.cli.middleware :as cli-middleware]
             [boundary.platform.shell.interfaces.http.middleware :as http-middleware]
-            [boundary.error-reporting.ports :as error-reporting]
-            [boundary.error-reporting.core :as er-core]
+            [boundary.observability.errors.ports :as error-reporting]
+            [boundary.observability.errors.core :as er-core]
             [clojure.test :refer [deftest testing is]]
             [cheshire.core :as json]
             [clojure.string :as str])

@@ -16,9 +16,9 @@
    - Generic exception handling middleware
    - Error reporting breadcrumb integration"
   (:require [boundary.platform.core.http.problem-details :as problem]
-            [boundary.error-reporting.core :as error-reporting]
-            [boundary.error-reporting.ports :as error-reporting-ports]
-            [boundary.logging.core :as logging]
+            [boundary.observability.errors.core :as error-reporting]
+            [boundary.observability.errors.ports :as error-reporting-ports]
+            [boundary.observability.logging.core :as logging]
             [clojure.tools.logging :as log])
   (:import (java.util UUID)))
 

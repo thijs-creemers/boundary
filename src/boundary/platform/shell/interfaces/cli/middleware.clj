@@ -15,7 +15,7 @@
    - Structured command execution logging with observability context
    - Command timing and error reporting with enhanced context
    - Error reporting breadcrumb integration"
-  (:require [boundary.logging.core :as logging]
+  (:require [boundary.observability.logging.core :as logging]
             [boundary.platform.shell.utils.error-handling :as error-handling]
             [clojure.tools.logging :as log])
   (:import (java.util UUID)))

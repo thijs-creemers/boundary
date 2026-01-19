@@ -5,7 +5,7 @@
   No external dependencies required."
   (:require [boundary.storage.ports :as ports]
             [boundary.storage.core.validation :as validation]
-            [boundary.logging.ports :as logging])
+            [boundary.observability.logging.ports :as logging])
 (:import [java.awt RenderingHints]
            [java.awt.image BufferedImage]
            [java.io ByteArrayInputStream ByteArrayOutputStream]

@@ -5,7 +5,7 @@
   Suitable for production deployments requiring scalable object storage."
   (:require [boundary.storage.ports :as ports]
             [boundary.storage.core.validation :as validation]
-            [boundary.logging.ports :as logging]
+            [boundary.observability.logging.ports :as logging]
             [clojure.string :as str])
 (:import [software.amazon.awssdk.core.sync RequestBody]
            [software.amazon.awssdk.regions Region]

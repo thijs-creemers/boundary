@@ -5,7 +5,7 @@
   Suitable for development and single-server deployments."
   (:require [boundary.storage.ports :as ports]
             [boundary.storage.core.validation :as validation]
-            [boundary.logging.ports :as logging]
+            [boundary.observability.logging.ports :as logging]
             [clojure.java.io :as io]
             [clojure.string :as str])
 (:import [java.nio.file Files Path Paths]

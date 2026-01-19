@@ -3,9 +3,9 @@
    
    These interceptors handle common infrastructure concerns like logging,
    metrics, error handling, and context management across all modules."
-  (:require [boundary.logging.ports :as logging]
-            [boundary.metrics.ports :as metrics]
-            [boundary.error-reporting.ports :as error-reporting]
+  (:require [boundary.observability.logging.ports :as logging]
+            [boundary.observability.metrics.ports :as metrics]
+            [boundary.observability.errors.ports :as error-reporting]
             [clojure.string :as str])
   (:import [java.util UUID]
            [java.time Instant]))
