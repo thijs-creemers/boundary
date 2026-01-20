@@ -361,4 +361,4 @@ For production deployment:
 
 * link:../ecommerce-api/README.adoc[E-commerce API Example] - REST API with state machine
 * link:../blog-app/README.adoc[Blog Application Example] - Full-stack web application
-* link:../../docs/AGENTS_FULL.md[Full Agent Guide] - Complete framework reference
+* link:../../AGENTS.md[Developer Guide] - Complete framework reference

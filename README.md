@@ -2,21 +2,27 @@
 
 A module-centric Clojure framework implementing the Functional Core / Imperative Shell architectural paradigm.
 
+## Documentation
+
+| Resource | Description |
+|----------|-------------|
+| **[Documentation](https://github.com/thijs-creemers/boundary-docs)** | Complete documentation: architecture, tutorials, API reference, ADRs |
+| **[AGENTS.md](./AGENTS.md)** | Developer guide: commands, patterns, conventions, troubleshooting |
+| **[PUBLISHING_GUIDE.md](docs/PUBLISHING_GUIDE.md)** | Publishing libraries to Clojars |
+
 ## Library Architecture
 
 Boundary is organized as a **monorepo** with 7 independently publishable libraries:
 
-| Library | Description | Maven Artifact |
-|---------|-------------|----------------|
-| **[core](libs/core/)** | Foundation: validation, utilities, interceptors | `io.github.thijs-creemers/boundary-core` |
-| **[observability](libs/observability/)** | Logging, metrics, error reporting | `io.github.thijs-creemers/boundary-observability` |
-| **[platform](libs/platform/)** | HTTP, database, CLI infrastructure | `io.github.thijs-creemers/boundary-platform` |
-| **[user](libs/user/)** | Authentication, authorization, MFA | `io.github.thijs-creemers/boundary-user` |
-| **[admin](libs/admin/)** | Auto-CRUD admin interface | `io.github.thijs-creemers/boundary-admin` |
-| **[storage](libs/storage/)** | File storage (local & S3) | `io.github.thijs-creemers/boundary-storage` |
-| **[scaffolder](libs/scaffolder/)** | Module code generator | `io.github.thijs-creemers/boundary-scaffolder` |
-
-### Dependency Graph
+| Library | Description |
+|---------|-------------|
+| **[core](libs/core/)** | Foundation: validation, utilities, interceptors |
+| **[observability](libs/observability/)** | Logging, metrics, error reporting |
+| **[platform](libs/platform/)** | HTTP, database, CLI infrastructure |
+| **[user](libs/user/)** | Authentication, authorization, MFA |
+| **[admin](libs/admin/)** | Auto-CRUD admin interface |
+| **[storage](libs/storage/)** | File storage (local & S3) |
+| **[scaffolder](libs/scaffolder/)** | Module code generator |
 
 ```
 ┌─────────────┐     ┌─────────────┐
@@ -38,9 +44,20 @@ Boundary is organized as a **monorepo** with 7 independently publishable librari
                                         └─────────────┘
 ```
 
-### Using Individual Libraries
+## Quick Start
 
-Each library can be used independently via deps.edn:
+```bash
+# Prerequisites: JDK and Clojure CLI
+brew install openjdk clojure/tools/clojure  # macOS
+
+# Clone and verify
+git clone <repo-url> boundary
+cd boundary
+clojure -M:test                              # Run tests
+clojure -M:repl-clj                          # Start REPL
+```
+
+### Using Individual Libraries
 
 ```clojure
 ;; Use just core for validation
@@ -54,279 +71,33 @@ Each library can be used independently via deps.edn:
         io.github.thijs-creemers/boundary-admin {:mvn/version "0.1.0"}}}
 ```
 
-### Local Development
+## Essential Commands
 
-For development, the root `deps.edn` includes all library paths:
-
-```bash
-# Run all tests across all libraries
-clojure -M:test:db/h2
-
-# Run tests for a specific library
-clojure -M:test:db/h2 :core           # Core library
-clojure -M:test:db/h2 :platform       # Platform library
-clojure -M:test:db/h2 :user           # User library
-clojure -M:test:db/h2 :admin          # Admin library
-clojure -M:test:db/h2 :storage        # Storage library
-clojure -M:test:db/h2 :scaffolder     # Scaffolder library
-clojure -M:test:db/h2 :observability  # Observability library
-
-# Watch mode for development
-clojure -M:test:db/h2 --watch :core
-
-# Run tests by category
-clojure -M:test:db/h2 --focus-meta :unit         # Unit tests only
-clojure -M:test:db/h2 --focus-meta :integration  # Integration tests
-
-# Build a specific library JAR
-cd libs/core && clojure -T:build jar
-```
-
-See [PUBLISHING_GUIDE.md](docs/PUBLISHING_GUIDE.md) for publishing to Clojars.
-
-## Quick Start
-
-**→ [Documentation](https://github.com/thijs-creemers/boundary-docs) ←** - Complete documentation (separate repository)
-
-**→ [Developer Guide (AGENTS.md)](./AGENTS.md) ←** - Comprehensive reference for development, architecture, and advanced topics
-
-The **[Documentation](https://github.com/thijs-creemers/boundary-docs)** provides architecture guides, tutorials, how-to guides, API references, and ADRs. The **Developer Guide** offers a quick reference for AI agents and developers with commands, patterns, and troubleshooting.
-
-### Minimal Setup
-
-```zsh
-# Prerequisites: JDK and Clojure CLI
-brew install openjdk clojure/tools/clojure  # macOS
-
-# Clone and verify
-git clone <repo-url> boundary
-cd boundary
-clojure -M:test                           # Run tests (auto-loads required drivers)
-clojure -M:repl-clj                       # Start REPL
-```
-
-### Clojure Development Tools
-
-Install helpful Clojure development tools:
+See **[AGENTS.md](./AGENTS.md)** for the complete command reference.
 
 ```bash
-# Install Babashka and bbin (package manager)
-brew install babashka/brew/babashka borkdude/brew/bbin  # macOS
-# See AGENTS.md for Linux installation
+# Testing
+clojure -M:test:db/h2                        # All tests
+clojure -M:test:db/h2 :core                  # Core library
+clojure -M:test:db/h2 :user                  # User library
 
-# Install clj-paren-repair (fix unbalanced parentheses)
-bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.1 --as clj-paren-repair --main-opts '["-m" "clojure-mcp-light.paren-repair"]'
+# Code quality
+clojure -M:clj-kondo --lint libs/*/src       # Lint all code
 
-# Install clj-nrepl-eval (REPL evaluation from CLI)
-bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.1 --as clj-nrepl-eval --main-opts '["-m" "clojure-mcp-light.nrepl-eval"]'
+# REPL
+clojure -M:repl-clj                          # Start nREPL on port 7888
 ```
 
 ## Architecture
 
-Boundary implements a **clean architecture** pattern with proper separation of concerns using the **Functional Core / Imperative Shell** paradigm.
+Boundary implements the **Functional Core / Imperative Shell** paradigm:
 
-### Core Principles
-- **Functional Core**: Pure business logic with no side effects (in `core/` directories)
-- **Imperative Shell**: I/O, validation, adapters (in `shell/` directories)
-- **Ports**: Protocol definitions for dependency injection
-- **Multi-Interface Support**: Consistent behavior across REST, CLI, and Web
-- **RFC 7807 Error Handling**: Standardized HTTP error responses
+- **Functional Core** (`core/`): Pure business logic, no side effects
+- **Imperative Shell** (`shell/`): I/O, validation, adapters
+- **Ports** (`ports.clj`): Protocol definitions for dependency injection
 
-### Module Structure (Example: User Library)
-```
-libs/user/src/boundary/user/
-├── schema.clj              # Domain entities (Malli schemas)
-├── ports.clj               # Repository interfaces (protocols)
-├── core/
-│   ├── user.clj            # Pure business logic
-│   ├── authentication.clj  # Auth logic (pure)
-│   └── mfa.clj             # MFA logic (pure)
-└── shell/
-    ├── service.clj         # Service orchestration
-    ├── persistence.clj     # Database adapter
-    └── http.clj            # HTTP handlers
-```
+See the **[Documentation](https://github.com/thijs-creemers/boundary-docs)** for detailed architecture guides.
 
-**Key Benefits:**
-- Business logic completely separated from infrastructure
-- Easy to test with mocked dependencies
-- Each library can be used independently
-- Clear dependency flow: Shell → Ports ← Core
+## License
 
-See [Documentation](https://github.com/thijs-creemers/boundary-docs) for detailed technical specifications.
-
-## Validation DevEx (quick links)
-
-- Guide: [boundary-docs validation guide](https://github.com/thijs-creemers/boundary-docs/tree/main/content/reference/validation-guide.adoc)
-- Coverage reports: test/reports/coverage/user.{edn,txt}
-- Snapshot tests:
-  ```zsh
-  UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
-  clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
-  ```
-- GraphViz export:
-  ```clojure
-  (require '[boundary.shared.tools.validation.repl :as v])
-  (spit "build/validation-user.dot" (v/rules->dot {:modules #{:user}}))
-  ```
-
-## Screenshots
-
-- Validation rules (GraphViz)
-
-  ![Validation Rules Graph](docs/diagrams/validation-user.png)
-
-  Generate locally:
-  ```zsh
-  # Generate DOT from REPL helpers
-  clojure -M:repl-clj <<'EOF'
-  (require '[boundary.shared.tools.validation.repl :as v])
-  (spit "build/validation-user.dot" (v/rules->dot {:modules #{:user}}))
-  (System/exit 0)
-  EOF
-
-  # Render PNG (requires graphviz `dot`)
-  dot -Tpng build/validation-user.dot -o docs/diagrams/validation-user.png
-  ```
-
-- Coverage summary (text artifact)
-
-  See: `test/reports/coverage/user.txt` (generated by behavior specs)
-
-## CI snippets
-
-### GitHub Actions
-
-```yaml
-name: validation
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-  workflow_dispatch:
-    inputs:
-      updateSnapshots:
-        description: "Update snapshots"
-        type: boolean
-        default: false
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-      - name: Cache Maven
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/deps.edn') }}
-      - name: Run tests (with optional snapshot update)
-        env:
-          UPDATE_SNAPSHOTS: ${{ inputs.updateSnapshots && 'true' || '' }}
-        run: |
-          clojure -M:test:db/h2
-      - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-user
-          path: |
-            test/reports/coverage/user.edn
-            test/reports/coverage/user.txt
-      - name: Upload validation graph (if present)
-        if: ${{ hashFiles('docs/diagrams/validation-user.png') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: validation-graph
-          path: docs/diagrams/validation-user.png
-```
-
-### GitLab CI
-
-```yaml
-stages: [test]
-validation:
-  image: clojure:temurin-21-tools-deps
-  variables:
-    UPDATE_SNAPSHOTS: "${UPDATE_SNAPSHOTS}"
-  script:
-    - clojure -M:test:db/h2
-  artifacts:
-    when: always
-    paths:
-      - test/reports/coverage/user.edn
-      - test/reports/coverage/user.txt
-      - docs/diagrams/validation-user.png
-```
-
-## Security Features
-
-### Multi-Factor Authentication (MFA)
-
-Boundary includes production-ready MFA support with TOTP (Time-based One-Time Password) authentication:
-
-- **TOTP Support**: Compatible with Google Authenticator, Authy, 1Password, and other authenticator apps
-- **Backup Codes**: 10 single-use backup codes for account recovery
-- **QR Code Generation**: Easy setup via QR code scanning
-- **Seamless Integration**: Works with existing authentication flow
-- **Security Best Practices**: Cryptographically secure secret generation, Base32 encoding
-
-**Quick MFA Setup:**
-
-```bash
-# 1. Setup MFA (authenticated user)
-curl -X POST http://localhost:3000/api/auth/mfa/setup \
-  -H "Authorization: Bearer <token>"
-# Returns: secret, QR code URL, backup codes
-
-# 2. Scan QR code with authenticator app
-
-# 3. Enable MFA with verification code
-curl -X POST http://localhost:3000/api/auth/mfa/enable \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "secret": "JBSWY3DPEHPK3PXP",
-    "backupCodes": ["3LTW-XRM1-GYVF", ...],
-    "verificationCode": "123456"
-  }'
-
-# 4. Login with MFA
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "password123",
-    "mfa-code": "123456"
-  }'
-```
-
-**Documentation**: See [MFA Setup Guide](./docs/guides/mfa-setup.md) for complete setup instructions and security considerations.
-
-**API Reference**: See [MFA_COMPLETION_SUMMARY.md](./MFA_COMPLETION_SUMMARY.md) for full API documentation.
-
-## Documentation
-
-**Main Documentation**: [boundary-docs repository](https://github.com/thijs-creemers/boundary-docs)
-
-The documentation has been moved to a separate repository for better organization and independent evolution. Visit the link above for:
-
-- **Architecture** - Architecture patterns and design principles
-- **Guides** - Tutorials and how-to guides including Quickstart
-- **Reference** - Commands, configuration, error codes, and scaffolder
-- **API Examples** - Complete API implementation examples
-- **ADRs** - Architecture Decision Records
-
-### Developer Resources
-- **[AGENTS.md](./AGENTS.md)** - Comprehensive developer and agent guide
-- **[BUILD.md](./BUILD.md)** - Build and deployment instructions
-- **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Contribution guidelines
-- **[PROJECT_STATUS.adoc](./PROJECT_STATUS.adoc)** - Current project status
-- **[MFA Setup Guide](./docs/guides/mfa-setup.md)** - Multi-factor authentication setup
-
-### Key Documentation (External)
-- **[Architecture Documentation](https://github.com/thijs-creemers/boundary-docs/tree/main/content/architecture)** - System architecture and design
-- **[Observability Integration](https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc)** - Logging, metrics, and error reporting
-- **[Roadmap](https://github.com/thijs-creemers/boundary-docs/tree/main/content/roadmap.adoc)** - Project roadmap and future plans
+Copyright 2024-2025 Thijs Creemers. All rights reserved.

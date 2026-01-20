@@ -272,7 +272,7 @@ When encountering 500 errors or unexpected behavior:
 **Solution**:
 ```bash
 # ALWAYS use the tool, never manually fix
-clj-paren-repair src/boundary/user/core/user.clj
+clj-paren-repair libs/user/src/boundary/user/core/user.clj
 ```
 
 ### 4. Validation in Wrong Layer
@@ -581,7 +581,7 @@ clojure -M -m boundary.scaffolder.shell.cli-entry generate \
 # - Zero linting errors, complete FC/IS architecture
 ```
 
-**Integration Steps**: See [Module Scaffolding Guide](docs/guides/module-scaffolding.md)
+**Integration Steps**: See [Scaffolder README](libs/scaffolder/README.md)
 
 ---
 
@@ -743,10 +743,10 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 | Technology | Purpose | Location |
 |------------|---------|----------|
-| **Hiccup** | HTML generation | `src/{module}/core/ui.clj` |
+| **Hiccup** | HTML generation | `libs/{library}/src/boundary/{library}/core/ui.clj` |
 | **HTMX** | Dynamic interactions | Inline attributes in Hiccup |
 | **Pico CSS** | Base framework | `resources/public/css/` |
-| **Lucide Icons** | Icon system | `src/boundary/shared/ui/core/icons.clj` |
+| **Lucide Icons** | Icon system | `libs/admin/src/boundary/shared/ui/core/icons.clj` |
 
 ### UI Architecture Principles
 
@@ -801,7 +801,7 @@ clj-nrepl-eval -p <port> "(require '[integrant.repl :as ig-repl]) (ig-repl/reset
  (icons/icon :trash {:size 18})
  " Delete"]
 
-;; Available in: src/boundary/shared/ui/core/icons.clj
+;; Available in: libs/admin/src/boundary/shared/ui/core/icons.clj
 ```
 
 #### HTMX Loading States
@@ -817,15 +817,16 @@ clj-nrepl-eval -p <port> "(require '[integrant.repl :as ig-repl]) (ig-repl/reset
 ### UI Component Hierarchy
 
 ```
-src/boundary/
+libs/admin/src/boundary/
 ├── shared/ui/core/
 │   ├── layout.clj        # Page layouts, navigation
 │   ├── icons.clj         # Icon definitions (50+ Lucide icons)
 │   └── components.clj    # Reusable components
 ├── admin/core/
 │   └── ui.clj            # Admin interface (tables, forms)
-└── {module}/core/
-    └── ui.clj            # Module-specific UI components
+
+libs/{module}/src/boundary/{module}/core/
+└── ui.clj                # Module-specific UI components
 ```
 
 ### Styling Conventions
@@ -1060,9 +1061,9 @@ clj-paren-repair <file>
 
 **For in-depth information, see:**
 
-- **[Full Agent Guide](docs/AGENTS_FULL.md)** - Complete 2,774-line reference
+- **[Full Agent Guide](docs/archive/AGENTS_FULL.md)** - Legacy comprehensive reference (pre-library-split)
 - **[Architecture Guide](https://github.com/thijs-creemers/boundary-docs/tree/main/content/architecture/)** - FC/IS patterns, design decisions
-- **[Module Scaffolding](docs/guides/module-scaffolding.md)** - Complete scaffolding workflow
+- **[Module Scaffolding](libs/scaffolder/README.md)** - Complete scaffolding workflow
 - **[MFA Setup Guide](docs/guides/mfa-setup.md)** - Multi-factor authentication
 - **[API Pagination](docs/API_PAGINATION.md)** - Offset and cursor pagination
 - **[Observability Integration](https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc)** - Custom adapters, configuration

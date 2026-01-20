@@ -44,6 +44,41 @@ jobs:
             libs/scaffolder/src
   
   # =============================================================================
+  # Documentation drift check (warn-only)
+  # =============================================================================
+  docs-lint:
+    name: Docs Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+      
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+      
+      - name: Run docs-lint
+        run: clojure -M:dev -m boundary.tools.docs-lint
+      
+      - name: Upload docs-lint report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: docs-lint-report
+          path: build/docs-lint/
+          retention-days: 14
+  
+  # =============================================================================
   # Test individual libraries
   # =============================================================================
   test-core:
