@@ -24,9 +24,18 @@ logs/
 *.log
 
 # Database
+db/
 *.db
 *.db-journal
 
 # Environment
 .env
 .env.local
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# ===

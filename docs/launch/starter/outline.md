@@ -1,0 +1,103 @@
+Title: Boundary Starter Repo Outline
+
+Purpose
+- Provide a clean template for teams to try Boundary in minutes.
+- Showcase FC/IS, SSR/HTMX, admin, MFA, tests, and observability with minimal setup.
+
+Repository Structure
+
+```
+boundary-starter/
+├── src/boundary/
+│   ├── app.clj                # Entrypoint wiring (Integrant)
+│   ├── shared/
+│   │   ├── core/              # Utilities (case conversion, etc.)
+│   │   └── ui/core/           # Layout, icons, components
+│   ├── user/                  # Example module (auth + admin)
+│   │   ├── core/              # Pure domain logic
+│   │   ├── shell/             # Services, HTTP, persistence
+│   │   ├── ports.clj          # Protocols
+│   │   └── schema.clj         # Malli schemas
+│   └── product/               # Example CRUD module (scaffolded)
+│       ├── core/
+│       ├── shell/
+│       ├── ports.clj
+│       └── schema.clj
+├── resources/
+│   ├── conf/dev/config.edn    # Aero + Integrant config with #include admin entity configs
+│   ├── conf/dev/admin/users.edn
+│   ├── conf/dev/admin/product.edn
+│   ├── public/css/            # tokens.css, app.css, admin.css
+│   └── public/js/             # Optional helper JS
+├── test/
+│   ├── boundary/user/core/*_test.clj
+│   ├── boundary/user/shell/*_test.clj
+│   └── boundary/product/core/*_test.clj
+├── deps.edn                   # Clojure CLI deps (Integrant, Malli, HTMX/Hiccup, next.jdbc)
+├── README.md                  # Quickstart and how to explore
+└── Dockerfile                 # Minimal container build
+```
+
+Features Included
+- Admin interface configured with `resources/conf/dev/admin/*.edn`
+- MFA endpoints and flows (setup, enable, login)
+- Observability interceptor providers (dev no‑op by default)
+- Scaffolder included for adding modules
+- H2 in-memory for tests, SQLite for dev, Postgres-ready for prod
+
+Quickstart (README excerpt)
+
+```
+# Quickstart
+export BND_ENV=development
+export JWT_SECRET="dev-secret-minimum-32-characters"
+clojure -M:repl-clj
+(require '[integrant.repl :as ig-repl])
+(ig-repl/go)
+# Visit http://localhost:3000
+```
+
+Add a module (scaffold)
+
+```
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name product \
+  --entity Product \
+  --field name:string:required \
+  --field sku:string:required:unique \
+  --field price:decimal:required
+clojure -M:migrate up
+```
+
+Tests and validation
+
+```
+clojure -M:test:db/h2 --watch --focus-meta :unit
+clojure -M:test:db/h2
+```
+
+Deploy
+
+```
+clojure -T:build clean && clojure -T:build uber
+java -jar target/boundary-*.jar server
+```
+
+MFA demo
+
+```
+curl -X POST http://localhost:3000/api/auth/mfa/setup -H "Authorization: Bearer <token>"
+curl -X POST http://localhost:3000/api/auth/mfa/enable -H "Authorization: Bearer <token>" -d '{"secret":"...","verificationCode":"123456"}'
+curl -X POST http://localhost:3000/api/auth/login -d '{"email":"user@example.com","password":"...","mfa-code":"123456"}'
+```
+
+Out-of-the-box Defaults
+- SQLite dev, H2 test, Postgres prod
+- Ports/Core/Shell separation enforced by scaffolder and conventions
+- SSR/HTMX patterns with admin UI
+- Interceptor-based observability
+
+Next Steps
+- Publish starter to GitHub and update all `TODO:starter-repo-url` links
+- Record demo using this repo
+- Iterate based on soft launch feedback
