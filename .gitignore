@@ -6,7 +6,8 @@ target/
 # Clojure cache
 .cpcache/
 .nrepl-port
-.clj-kondo/.cache/
+.cache
+.clj-kondo/
 
 # IDE
 .idea/
@@ -38,4 +39,3 @@ npm-debug.log
 yarn-error.log
 pnpm-debug.log
 
-# ===
