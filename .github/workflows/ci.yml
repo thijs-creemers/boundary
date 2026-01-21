@@ -68,7 +68,7 @@ jobs:
           restore-keys: ${{ runner.os }}-clojure-
       
       - name: Run docs-lint
-        run: clojure -M:dev -m boundary.tools.docs-lint
+        run: clojure -M:docs-lint
       
       - name: Upload docs-lint report
         uses: actions/upload-artifact@v4
@@ -104,7 +104,7 @@ jobs:
           restore-keys: ${{ runner.os }}-clojure-
       
       - name: Run tests
-        run: clojure -M:test:db/h2 :core
+        run: clojure -M:test :core
   
   test-observability:
     name: Test boundary/observability
@@ -129,7 +129,7 @@ jobs:
           restore-keys: ${{ runner.os }}-clojure-
       
       - name: Run tests
-        run: clojure -M:test:db/h2 :observability
+        run: clojure -M:test :observability
   
   test-platform:
     name: Test boundary/platform
@@ -154,7 +154,7 @@ jobs:
           restore-keys: ${{ runner.os }}-clojure-
       
       - name: Run tests
-        run: clojure -M:test:db/h2 :platform
+        run: clojure -M:test :platform
   
   test-user:
     name: Test boundary/user
@@ -181,7 +181,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :user
+        run: clojure -M:test :user
   
   test-admin:
     name: Test boundary/admin
@@ -206,7 +206,7 @@ jobs:
           restore-keys: ${{ runner.os }}-clojure-
       
       - name: Run tests
-        run: clojure -M:test:db/h2 :admin
+        run: clojure -M:test :admin
   
   # =============================================================================
   # Summary job
