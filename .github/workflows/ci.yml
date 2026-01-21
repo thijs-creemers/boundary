@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@master
@@ -23,7 +23,7 @@ jobs:
           cli: 1.11.1.1347
       
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.m2/repository
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@master
@@ -59,7 +59,7 @@ jobs:
           cli: 1.11.1.1347
       
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.m2/repository
@@ -71,7 +71,7 @@ jobs:
         run: clojure -M:dev -m boundary.tools.docs-lint
       
       - name: Upload docs-lint report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: docs-lint-report
@@ -79,7 +79,7 @@ jobs:
           retention-days: 14
   
   # =============================================================================
-  # Test individual libraries
+  # Test individual libraries (run from root to ensure all dependencies available)
   # =============================================================================
   test-core:
     name: Test boundary/core
@@ -87,7 +87,7 @@ jobs:
     needs: lint
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@master
@@ -95,17 +95,16 @@ jobs:
           cli: 1.11.1.1347
       
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.m2/repository
             ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('libs/core/deps.edn') }}
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
       
       - name: Run tests
-        working-directory: libs/core
-        run: clojure -M:test
+        run: clojure -M:test:db/h2 :core
   
   test-observability:
     name: Test boundary/observability
@@ -113,7 +112,7 @@ jobs:
     needs: [lint, test-core]
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@master
@@ -121,17 +120,16 @@ jobs:
           cli: 1.11.1.1347
       
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.m2/repository
             ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('libs/observability/deps.edn') }}
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
       
       - name: Run tests
-        working-directory: libs/observability
-        run: clojure -M:test
+        run: clojure -M:test:db/h2 :observability
   
   test-platform:
     name: Test boundary/platform
@@ -139,7 +137,7 @@ jobs:
     needs: [lint, test-observability]
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@master
@@ -147,17 +145,16 @@ jobs:
           cli: 1.11.1.1347
       
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.m2/repository
             ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('libs/platform/deps.edn') }}
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
       
       - name: Run tests
-        working-directory: libs/platform
-        run: clojure -M:test
+        run: clojure -M:test:db/h2 :platform
   
   test-user:
     name: Test boundary/user
@@ -165,7 +162,7 @@ jobs:
     needs: [lint, test-platform]
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@master
@@ -173,17 +170,18 @@ jobs:
           cli: 1.11.1.1347
       
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.m2/repository
             ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('libs/user/deps.edn') }}
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
       
       - name: Run tests
-        working-directory: libs/user
-        run: clojure -M:test
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :user
   
   test-admin:
     name: Test boundary/admin
@@ -191,7 +189,7 @@ jobs:
     needs: [lint, test-user]
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@master
@@ -199,17 +197,16 @@ jobs:
           cli: 1.11.1.1347
       
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.m2/repository
             ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('libs/admin/deps.edn') }}
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
       
       - name: Run tests
-        working-directory: libs/admin
-        run: clojure -M:test
+        run: clojure -M:test:db/h2 :admin
   
   # =============================================================================
   # Summary job
