@@ -33,7 +33,7 @@ jobs:
       
       - name: Lint with clj-kondo
         run: |
-          clojure -M:dev:clj-kondo --lint \
+          clojure -M:clj-kondo --lint \
             libs/core/src \
             libs/observability/src \
             libs/platform/src \
