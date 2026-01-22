@@ -6,7 +6,8 @@ target/
 # Clojure cache
 .cpcache/
 .nrepl-port
-.clj-kondo/.cache/
+.clj-kondo
+.lsp
 
 # IDE
 .idea/
