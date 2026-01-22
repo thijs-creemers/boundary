@@ -5,8 +5,8 @@
             [boundary.jobs.shell.adapters.in-memory :as in-memory]
             [boundary.jobs.core.job :as job]
             [boundary.jobs.ports :as ports])
-  (:import [java.time Instant Duration]
-           [java.util UUID]))
+  (:import [java.util UUID]
+           [java.time Instant]))
 
 ;; =============================================================================
 ;; Test Fixtures
@@ -59,14 +59,14 @@
 
 (deftest register-handler-test
   (testing "Register job handler"
-    (let [handler-fn (fn [args] {:success? true :result "ok"})
+    (let [handler-fn (fn [_args] {:success? true :result "ok"})
           job-type (ports/register-handler! *registry* :send-email handler-fn)]
       (is (= :send-email job-type))
       (is (= handler-fn (ports/get-handler *registry* :send-email))))))
 
 (deftest unregister-handler-test
   (testing "Unregister job handler"
-    (let [handler-fn (fn [args] {:success? true})]
+    (let [handler-fn (fn [_args] {:success? true})]
       (ports/register-handler! *registry* :send-email handler-fn)
       (is (true? (ports/unregister-handler! *registry* :send-email)))
       (is (nil? (ports/get-handler *registry* :send-email)))
@@ -131,7 +131,7 @@
     (let [queue (:queue *system*)
           store (:store *system*)
           attempt-count (atom 0)
-          handler-fn (fn [args]
+          handler-fn (fn [_args]
                        (swap! attempt-count inc)
                        {:success? false
                         :error {:message "Simulated failure"
@@ -221,7 +221,7 @@
   (testing "Worker status tracking"
     (let [queue (:queue *system*)
           store (:store *system*)
-          handler-fn (fn [args]
+          handler-fn (fn [_args]
                        (Thread/sleep 100)  ; Simulate work
                        {:success? true})]
 
@@ -283,95 +283,95 @@
             (is (every? #(= :running (:status %)) statuses)))
 
           (finally
-            (worker/stop-worker-pool! workers))))))
+            (worker/stop-worker-pool! workers)))))))
 
-  (deftest worker-graceful-shutdown-test
-    (testing "Worker shuts down gracefully"
-      (let [queue (:queue *system*)
-            store (:store *system*)
-            handler-fn (fn [args]
-                         (Thread/sleep 100)
-                         {:success? true})]
+(deftest worker-graceful-shutdown-test
+  (testing "Worker shuts down gracefully"
+    (let [queue (:queue *system*)
+          store (:store *system*)
+          handler-fn (fn [_args]
+                       (Thread/sleep 100)
+                       {:success? true})]
 
-      ;; Register handler
-        (ports/register-handler! *registry* :test-job handler-fn)
+    ;; Register handler
+      (ports/register-handler! *registry* :test-job handler-fn)
 
-      ;; Start worker
+    ;; Start worker
+      (let [worker-instance (worker/create-worker
+                             {:queue-name :default :poll-interval-ms 100}
+                             queue store *registry*)
+            worker-id (:id (:state worker-instance))]
+
+      ;; Enqueue a job
+        (ports/enqueue-job! queue :default (create-test-job))
+
+        (Thread/sleep 200)  ; Let worker start processing
+
+      ;; Stop worker
+        (let [stopped? (ports/stop-worker! worker-instance worker-id)]
+          (is (true? stopped?))
+
+        ;; Verify worker is stopped
+          (let [status (ports/worker-status worker-instance worker-id)]
+            (is (= :stopped (:status status)))))))))
+
+(deftest manual-job-processing-test
+  (testing "Manual job processing with process-job!"
+    (let [queue (:queue *system*)
+          store (:store *system*)
+          handler-fn (fn [args] {:success? true :result (str "Processed: " (:value args))})]
+
+    ;; Register handler
+      (ports/register-handler! *registry* :test-job handler-fn)
+
+    ;; Create worker (but don't rely on automatic processing)
+      (let [worker-instance (worker/create-worker
+                             {:queue-name :default :poll-interval-ms 10000}  ; Long interval
+                             queue store *registry*)
+            test-job (create-test-job {:args {:value "manual"}})]
+
+        (try
+        ;; Process job manually
+          (let [result (ports/process-job! worker-instance test-job)]
+            (is (true? (:success? result)))
+            (is (= "Processed: manual" (:result result))))
+
+          (finally
+            (ports/stop-worker! worker-instance (:id (:state worker-instance)))))))))
+
+(deftest worker-processes-scheduled-jobs-test
+  (testing "Worker processes scheduled jobs when due"
+    (let [queue (:queue *system*)
+          store (:store *system*)
+          processed (atom false)
+          handler-fn (fn [_args]
+                       (reset! processed true)
+                       {:success? true})]
+
+     ;; Register handler
+      (ports/register-handler! *registry* :test-job handler-fn)
+
+     ;; Schedule a job for immediate execution (past time)
+      (let [past-time (.minusSeconds (Instant/now) 5)
+            scheduled-job (create-test-job {:execute-at past-time})]
+        (ports/enqueue-job! queue :default scheduled-job)
+
+       ;; Verify job is in scheduled queue, not execution queue
+        (is (zero? (ports/queue-size queue :default)))
+
+       ;; Start worker (should process scheduled jobs)
         (let [worker-instance (worker/create-worker
-                               {:queue-name :default :poll-interval-ms 100}
-                               queue store *registry*)
-              worker-id (:id (:state worker-instance))]
-
-        ;; Enqueue a job
-          (ports/enqueue-job! queue :default (create-test-job))
-
-          (Thread/sleep 200)  ; Let worker start processing
-
-        ;; Stop worker
-          (let [stopped? (ports/stop-worker! worker-instance worker-id)]
-            (is (true? stopped?))
-
-          ;; Verify worker is stopped
-            (let [status (ports/worker-status worker-instance worker-id)]
-              (is (= :stopped (:status status)))))))))
-
-  (deftest manual-job-processing-test
-    (testing "Manual job processing with process-job!"
-      (let [queue (:queue *system*)
-            store (:store *system*)
-            handler-fn (fn [args] {:success? true :result (str "Processed: " (:value args))})]
-
-      ;; Register handler
-        (ports/register-handler! *registry* :test-job handler-fn)
-
-      ;; Create worker (but don't rely on automatic processing)
-        (let [worker-instance (worker/create-worker
-                               {:queue-name :default :poll-interval-ms 10000}  ; Long interval
-                               queue store *registry*)
-              test-job (create-test-job {:args {:value "manual"}})]
-
+                               {:queue-name :default
+                                :poll-interval-ms 100
+                                :scheduled-interval-ms 200}
+                               queue store *registry*)]
           (try
-          ;; Process job manually
-            (let [result (ports/process-job! worker-instance test-job)]
-              (is (true? (:success? result)))
-              (is (= "Processed: manual" (:result result))))
+           ;; Wait for job to be processed
+            (is (wait-for #(deref processed) 5000))
+
+           ;; Verify job was completed
+            (let [completed-job (ports/find-job store (:id scheduled-job))]
+              (is (= :completed (:status completed-job))))
 
             (finally
-              (ports/stop-worker! worker-instance (:id (:state worker-instance)))))))))
-
-  (deftest worker-processes-scheduled-jobs-test
-    (testing "Worker processes scheduled jobs when due"
-      (let [queue (:queue *system*)
-            store (:store *system*)
-            processed (atom false)
-            handler-fn (fn [args]
-                         (reset! processed true)
-                         {:success? true})]
-
-      ;; Register handler
-        (ports/register-handler! *registry* :test-job handler-fn)
-
-      ;; Schedule a job for immediate execution (past time)
-        (let [past-time (.minusSeconds (Instant/now) 5)
-              scheduled-job (create-test-job {:execute-at past-time})]
-          (ports/enqueue-job! queue :default scheduled-job)
-
-        ;; Verify job is in scheduled queue, not execution queue
-          (is (zero? (ports/queue-size queue :default)))
-
-        ;; Start worker (should process scheduled jobs)
-          (let [worker-instance (worker/create-worker
-                                 {:queue-name :default
-                                  :poll-interval-ms 100
-                                  :scheduled-interval-ms 200}
-                                 queue store *registry*)]
-            (try
-            ;; Wait for job to be processed
-              (is (wait-for #(deref processed) 5000))
-
-            ;; Verify job was completed
-              (let [completed-job (ports/find-job store (:id scheduled-job))]
-                (is (= :completed (:status completed-job))))
-
-              (finally
-                (ports/stop-worker! worker-instance (:id (:state worker-instance)))))))))))
+              (ports/stop-worker! worker-instance (:id (:state worker-instance))))))))))

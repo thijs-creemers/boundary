@@ -4,7 +4,7 @@
             [boundary.jobs.shell.adapters.in-memory :as in-memory]
             [boundary.jobs.core.job :as job]
             [boundary.jobs.ports :as ports])
-  (:import [java.time Instant Duration]
+  (:import [java.time Instant]
            [java.util UUID]))
 
 ;; =============================================================================
@@ -290,7 +290,6 @@
 (deftest retry-job-test
   (testing "Retry failed job"
     (let [store (:store *system*)
-          queue (:queue *system*)
           test-job (create-test-job {:max-retries 3})]
 
       ;; Fail the job
@@ -334,8 +333,7 @@
 
 (deftest job-stats-test
   (testing "Get overall job statistics"
-    (let [queue (:queue *system*)
-          store (:store *system*)
+    (let [store (:store *system*)
           stats (:stats *system*)
           job1 (create-test-job)
           job2 (create-test-job {:max-retries 0})]  ; No retries so it actually fails

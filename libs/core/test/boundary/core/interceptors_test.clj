@@ -4,8 +4,8 @@
             [boundary.platform.shell.interceptors :as interceptors]
             [boundary.core.interceptor :as ic]
             [boundary.user.ports]
-            [boundary.logging.ports]
-            [boundary.error-reporting.ports])
+            [boundary.observability.logging.ports]
+            [boundary.observability.errors.ports])
   (:import [java.time Instant]))
 
 ;; Mock implementations for testing
@@ -13,7 +13,7 @@
 (defn mock-logger []
   (let [log-entries (atom [])]
     (with-meta
-      (reify boundary.logging.ports/ILogger
+      (reify boundary.observability.logging.ports/ILogger
         (info [_ event data]
           (swap! log-entries conj {:level :info :event event :data data}))
         (warn [_ event data]
@@ -34,7 +34,7 @@
 (defn mock-error-reporter []
   (let [errors (atom [])]
     (with-meta
-      (reify boundary.error-reporting.ports/IErrorReporter
+      (reify boundary.observability.errors.ports/IErrorReporter
         (capture-exception [_ exception context]
           (swap! errors conj {:exception exception :context context})))
       {:errors errors})))
@@ -127,7 +127,7 @@
                :timing {:start (System/nanoTime)}
                :result {:status :error}
                :effect-errors [{:effect {} :error "test error"}]}
-          result-ctx ((:leave interceptors/logging-complete) ctx)]
+          _result-ctx ((:leave interceptors/logging-complete) ctx)]
 
       (let [logs (get-log-entries logger)]
         (is (= 1 (count logs)))
@@ -253,7 +253,7 @@
   (testing "handles effect execution errors"
     (let [failing-repo (reify
                          boundary.user.ports/IUserRepository
-                         (create-user [_ user] (throw (ex-info "Database error" {})))
+                         (create-user [_ _user] (throw (ex-info "Database error" {})))
                          (find-user-by-id [_ _] nil)
                          (find-user-by-email [_ _] nil)
                          (find-users [_ _] {:users [] :total-count 0})

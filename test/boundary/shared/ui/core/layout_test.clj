@@ -81,17 +81,15 @@
       (is (vector? result))
       (is (= :html (first result)))
       ; Should include custom CSS
-      (let [head (nth result 2)
-            page-html (str result)]
+      (let [page-html (str result)]
         (is (str/includes? page-html "/css/custom.css"))
         (is (str/includes? page-html "/js/custom.js")))))
 
   (testing "Page layout includes navigation"
-    (let [result (layout/page-layout "Test" [:div "Content"])]
-      ; Should include navigation in the layout
-      (let [page-html (str result)]
-        (is (str/includes? page-html "site-header"))
-        (is (str/includes? page-html "Boundary App"))))))
+    (let [result (layout/page-layout "Test" [:div "Content"])
+          page-html (str result)]
+      (is (str/includes? page-html "site-header"))
+      (is (str/includes? page-html "Boundary App")))))
 
 ;; =============================================================================
 ;; Error Layout Tests

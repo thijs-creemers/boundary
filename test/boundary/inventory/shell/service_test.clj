@@ -6,7 +6,11 @@
 (deftest create-item-test
   (testing "creates item via service"
     (let [mock-repo (reify ports/IItemRepository
-                      (create [_ entity] entity))
+                      (find-by-id [_ _id] nil)
+                      (find-all [_ _options] [])
+                      (create [_ entity] entity)
+                      (update-item [_ _entity] nil)
+                      (delete [_ _id] nil))
           svc (service/create-service mock-repo)
           result (ports/create-item svc {:name "Test"})]
       (is (some? result)))))
