@@ -63,8 +63,8 @@
 (def service-operation-start
   "Initializes service operation with observability setup."
   {:name :service-operation-start
-   :enter (fn [{:keys [operation operation-name params system context] :as ctx}]
-            (let [{:keys [logger metrics-emitter error-reporter]} system]
+   :enter (fn [{:keys [_operation operation-name params system context] :as ctx}]
+            (let [{:keys [_logger _metrics-emitter error-reporter]} system]
 
               ;; Add error reporting breadcrumb
               (when error-reporter
@@ -177,7 +177,7 @@
                  (str operation-name "-completed")
                  entity-type
                  context
-                 (merge params (when result {:result-summary (str "Operation completed")})))
+                 (merge params (when result {:result-summary "Operation completed"})))
 
                 ;; Audit logging for user actions
                 (when user-id

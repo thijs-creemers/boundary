@@ -162,7 +162,7 @@
      
    Returns:
      Ring handler function"
-  [user-service mfa-service config]
+  [user-service mfa-service _config]
   (fn [request]
     (try
       (let [user (:user request)
@@ -189,7 +189,7 @@
    
    Fetches users from the user service and renders them in a table, with
    support for shared search filters (q, role, status)."
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [qp          (:query-params request)
@@ -226,7 +226,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [user-id (get-in request [:path-params :id])
@@ -286,7 +286,7 @@
 
 (defn login-submit-handler
   "POST /web/login - validate credentials, authenticate, set session cookie."
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (let [form-data (:form-params request)
           raw-return-to (or (get form-data "return-to")
@@ -445,7 +445,7 @@
 
 (defn register-submit-handler
   "POST /web/register - validate data, create user account."
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (let [form-data (:form-params request)
           prepared-data {:name (get form-data "name")
@@ -503,7 +503,7 @@
   "Handler for refreshing the users table (GET /web/users/table).
 
    Returns only the table container fragment for HTMX replacement."
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [qp          (:query-params request)
@@ -546,12 +546,12 @@
             ;; preserve current filters and table state during bulk ops
             qp          (merge (:query-params request)
                                (select-keys form-params ["q" "role" "status" "sort" "dir" "page" "page-size"]))
-            table-query (web-table/parse-table-query
+            _table-query (web-table/parse-table-query
                          qp
                          {:default-sort      :created-at
                           :default-dir       :desc
                           :default-page-size 20})
-            filters     (web-table/parse-search-filters qp)]
+            _filters     (web-table/parse-search-filters qp)]
         (when (or (empty? ids) (str/blank? (str action)))
           (throw (ex-info "No users selected or action missing"
                           {:type :bad-request})))
@@ -622,7 +622,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (let [form-data (:form-params request)
           ;; Prepare data with kebab-case keyword keys for validation
@@ -654,7 +654,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [user-id (get-in request [:path-params :id])
@@ -669,7 +669,7 @@
                            :role (when-let [role (get form-data "role")] (keyword role))
                            :active (= "on" (get form-data "active"))}
             _ (log/info "Prepared data for update" {:prepared-data prepared-data})
-            [valid? validation-errors _] (validate-request-data user-schema/UpdateUserRequest prepared-data)]
+            [valid? _validation-errors _] (validate-request-data user-schema/UpdateUserRequest prepared-data)]
         (if-not valid?
           (html-response (user-ui/user-detail-form (assoc prepared-data :id (UUID/fromString user-id))) 400)
           (try
@@ -707,7 +707,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [user-id (get-in request [:path-params :id])
@@ -734,7 +734,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [user-id (get-in request [:path-params :id])
@@ -772,7 +772,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [user-id (get-in request [:path-params :id])
@@ -809,7 +809,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [session-token (get-in request [:path-params :token])
@@ -832,7 +832,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [user-id (get-in request [:path-params :id])
@@ -905,7 +905,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [qp          (:query-params request)
@@ -947,7 +947,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [qp          (:query-params request)
@@ -959,7 +959,7 @@
             filters     (web-table/parse-search-filters qp)
             list-opts   (build-audit-list-opts table-query filters)
             audit-result (user-ports/list-audit-logs user-service list-opts)
-            page-opts    {:table-query table-query
+            _page-opts    {:table-query table-query
                           :filters     filters}]
         (html-response
          (user-ui/audit-logs-table
@@ -987,7 +987,7 @@
      
    Returns:
      Ring handler function"
-  [user-service mfa-service config]
+  [user-service mfa-service _config]
   (fn [request]
     (try
       (let [current-user (:user request)
@@ -1022,7 +1022,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [current-user (:user request)
@@ -1047,7 +1047,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [current-user (:user request)
@@ -1088,7 +1088,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [current-user (:user request)
@@ -1113,7 +1113,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [current-user (:user request)
@@ -1153,7 +1153,7 @@
    Returns:
      Ring handler function"
   [_config]
-  (fn [request]
+  (fn [_request]
     (html-response (profile-ui/password-change-card true))))
 
 (defn password-change-handler
@@ -1167,7 +1167,7 @@
      
    Returns:
      Ring handler function"
-  [user-service config]
+  [user-service _config]
   (fn [request]
     (try
       (let [current-user (:user request)
@@ -1222,9 +1222,9 @@
      mfa-service: MFA service instance
      config: Application configuration map
      
-   Returns:
+    Returns:
      Ring handler function"
-  [mfa-service config]
+  [_mfa-service _config]
   (fn [request]
     (try
       (let [page-opts {:user (:user request)
@@ -1248,7 +1248,7 @@
      
    Returns:
      Ring handler function"
-  [mfa-service config]
+  [mfa-service _config]
   (fn [request]
     (try
       (let [current-user (:user request)
@@ -1340,9 +1340,9 @@
      mfa-service: MFA service instance
      config: Application configuration map
      
-   Returns:
+    Returns:
      Ring handler function"
-  [mfa-service config]
+  [_mfa-service _config]
   (fn [request]
     (try
       (let [flash (:flash request)
@@ -1370,9 +1370,9 @@
      mfa-service: MFA service instance
      config: Application configuration map
      
-   Returns:
+    Returns:
      Ring handler function"
-  [mfa-service config]
+  [_mfa-service _config]
   (fn [request]
     (try
       (let [page-opts {:user (:user request)
@@ -1397,7 +1397,7 @@
      
    Returns:
      Ring handler function"
-  [user-service mfa-service config]
+  [user-service mfa-service _config]
   (fn [request]
     (try
       (let [current-user (:user request)

@@ -14,12 +14,20 @@
   (let [log-entries (atom [])]
     (with-meta
       (reify boundary.observability.logging.ports/ILogger
+        (log* [_ _level _message _context _exception] nil)
+        (trace [_ _message] nil)
+        (trace [_ _message _context] nil)
+        (debug [_ _message] nil)
+        (debug [_ _message _context] nil)
         (info [_ event data]
           (swap! log-entries conj {:level :info :event event :data data}))
         (warn [_ event data]
           (swap! log-entries conj {:level :warn :event event :data data}))
         (error [_ event data]
-          (swap! log-entries conj {:level :error :event event :data data})))
+          (swap! log-entries conj {:level :error :event event :data data}))
+        (fatal [_ _message] nil)
+        (fatal [_ _message _context] nil)
+        (fatal [_ _message _context _exception] nil))
       {:log-entries log-entries})))
 
 (defn mock-metrics
@@ -36,7 +44,11 @@
     (with-meta
       (reify boundary.observability.errors.ports/IErrorReporter
         (capture-exception [_ exception context]
-          (swap! errors conj {:exception exception :context context})))
+          (swap! errors conj {:exception exception :context context}))
+        (capture-message [_ _message _level] nil)
+        (capture-message [_ _message _level _context] nil)
+        (capture-message [_ _message _level _context _tags] nil)
+        (capture-event [_ _event-map] nil))
       {:errors errors})))
 
 (defn get-log-entries [mock-logger]
@@ -129,11 +141,10 @@
                :effect-errors [{:effect {} :error "test error"}]}
           _result-ctx ((:leave interceptors/logging-complete) ctx)]
 
-      (let [logs (get-log-entries logger)]
-        (is (= 1 (count logs)))
-        (is (= :warn (:level (first logs))))
-        (is (= "operation-completed-with-errors" (:event (first logs))))
-        (is (= 1 (get-in (first logs) [:data :effect-errors]))))))
+      (is (= 1 (count (get-log-entries logger))))
+      (is (= :warn (:level (first (get-log-entries logger)))))
+      (is (= "operation-completed-with-errors" (:event (first (get-log-entries logger)))))
+      (is (= 1 (get-in (first (get-log-entries logger)) [:data :effect-errors])))))
 
   (testing "logging-error logs exceptions"
     (let [logger (mock-logger)

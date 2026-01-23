@@ -341,8 +341,8 @@
      {:valid? true :data processed-data} or 
      {:valid? false :errors [...]}
    
-   Pure - orchestrates all validation functions."
-  [user-data validation-config context]
+    Pure - orchestrates all validation functions."
+  [user-data validation-config _context]
   (let [;; Schema validation first
         schema-result (if (m/validate schema/CreateUserRequest user-data)
                         {:valid? true}

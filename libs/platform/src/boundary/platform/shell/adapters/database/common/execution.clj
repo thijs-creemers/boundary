@@ -40,7 +40,7 @@
      operation: String describing the database operation
      status: :start, :success, or :error
      details: Map with operation details"
-  [operation status details]
+  [_operation _status _details]
   ;; Skip breadcrumb addition since database layer doesn't have error context
   ;; This prevents protocol errors when called from contexts without proper error reporting setup
   nil)

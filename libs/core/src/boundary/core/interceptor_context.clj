@@ -273,7 +273,7 @@
 
 (defn add-breadcrumb
   "Adds a breadcrumb for observability tracking."
-  [context category action details]
+  [context _category _action _details]
   ;; TODO: Implement actual breadcrumb recording when error-reporting is set up
   ;; For now, just return the context unchanged
   context)

@@ -33,15 +33,15 @@ jobs:
       
       - name: Lint with clj-kondo
         run: |
-#          clojure -M:clj-kondo --lint \
-#            libs/core/src \
-#            libs/observability/src \
-#            libs/platform/src \
-#            libs/user/src \
-#            libs/admin/src \
-#            libs/storage/src \
-#            libs/external/src \
-#            libs/scaffolder/src
+          clojure -M:clj-kondo --lint \
+            libs/core/src \
+            libs/observability/src \
+            libs/platform/src \
+            libs/user/src \
+            libs/admin/src \
+            libs/storage/src \
+            libs/external/src \
+            libs/scaffolder/src
   
   # =============================================================================
   # Documentation drift check (warn-only)

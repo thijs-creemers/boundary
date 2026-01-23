@@ -159,12 +159,12 @@
     (is (false? (ports/set-if-absent! *cache* :key1 "value2")))
     (is (= "value1" (ports/get-value *cache* :key1)))))
 
-(deftest compare-and-set-test
-  (testing "Compare and set atomic operation"
+(deftest compare-and-swap-test
+  (testing "Compare and swap atomic operation"
     (ports/set-value! *cache* :key1 "old-value")
-    (is (true? (ports/compare-and-set! *cache* :key1 "old-value" "new-value")))
+    (is (true? (ports/compare-and-swap! *cache* :key1 "old-value" "new-value")))
     (is (= "new-value" (ports/get-value *cache* :key1)))
-    (is (false? (ports/compare-and-set! *cache* :key1 "old-value" "newer-value")))
+    (is (false? (ports/compare-and-swap! *cache* :key1 "old-value" "newer-value")))
     (is (= "new-value" (ports/get-value *cache* :key1)))))
 
 ;; =============================================================================

@@ -9,8 +9,7 @@
             [boundary.core.validation.coverage :as coverage]
             [clojure.java.io :as io]
             [boundary.user.core.user :as user-core]
-            [support.validation-helpers :as vh])
-  (:import (java.util UUID)))
+            [support.validation-helpers :as vh]))
 
 ;; Tag for Phase 3
 (alter-meta! *ns* assoc :kaocha/tags [:phase3 :behavior])
@@ -95,7 +94,7 @@
 (deftest user-create-behavior-suite
   (testing "User Create behavior scenarios"
     (doseq [sc scenarios]
-      (let [[test-name f] (first (behavior/compile-scenarios [sc] {}))
+      (let [[_test-name f] (first (behavior/compile-scenarios [sc] {}))
             exec (f)]
         (when (:all-passed? exec)
           (when-let [rid (:rule-id sc)]

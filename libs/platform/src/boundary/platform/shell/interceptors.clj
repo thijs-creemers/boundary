@@ -125,6 +125,7 @@
                 :context-keys (keys (dissoc ctx :system :exception))}))
             ctx)})
 
+
 (def error-normalize
   "Generic error normalization interceptor that works with context error mappings.
    This runs in the :error phase when actual exceptions are thrown during pipeline execution."
@@ -134,28 +135,25 @@
                   error-type (or (:type error-data) :internal-server-error) ; Default if no type
                   error-message (ex-message exception)
                   error-mappings (or (:error-mappings ctx) {}) ; Default empty mappings
-
                   ;; Look up the error mapping for this error type
-                  [status-code title] (get error-mappings error-type [500 "Internal Server Error"])]
-
-              ;; Create generic error response using mappings
-              (let [base-body {:type (name error-type)
-                               :title title
-                               :status status-code
-                               :detail error-message
-                               :correlation-id correlation-id ; Use kebab-case to match test
-                               :timestamp (.toString (java.time.Instant/now))}
-                    ;; Add all extension fields from error-data except :type and :message
-                    ;; Convert UUID values to strings for JSON serialization
-                    extension-fields (reduce-kv (fn [acc k v]
-                                                  (if (instance? java.util.UUID v)
-                                                    (assoc acc k (str v))
-                                                    (assoc acc k v)))
-                                                {}
-                                                (dissoc error-data :type :message))
-                    full-body (merge base-body extension-fields)]
-                (assoc ctx :response {:status status-code :body full-body}))))})
-
+                  [status-code title] (get error-mappings error-type [500 "Internal Server Error"])
+                  ;; Create generic error response using mappings
+                  base-body {:type (name error-type)
+                             :title title
+                             :status status-code
+                             :detail error-message
+                             :correlation-id correlation-id ; Use kebab-case to match test
+                             :timestamp (.toString (java.time.Instant/now))}
+                  ;; Add all extension fields from error-data except :type and :message
+                  ;; Convert UUID values to strings for JSON serialization
+                  extension-fields (reduce-kv (fn [acc k v]
+                                                (if (instance? java.util.UUID v)
+                                                  (assoc acc k (str v))
+                                                  (assoc acc k v)))
+                                              {}
+                                              (dissoc error-data :type :message))
+                  full-body (merge base-body extension-fields)]
+              (assoc ctx :response {:status status-code :body full-body})))})
 (defn convert-exception-to-response
   "Converts an exception in the context into an appropriate HTTP error response.
    Uses error mappings from the context to map domain-specific error types to HTTP responses."
@@ -166,7 +164,6 @@
         error-message (ex-message exception)
         correlation-id (:correlation-id ctx)
         error-mappings (:error-mappings ctx)
-
         ;; Look up the error mapping for this error type
         [status-code title] (get error-mappings error-type [500 "Internal Server Error"])]
 

@@ -2,8 +2,7 @@
   "Simple tests to verify test infrastructure works"
   (:require [boundary.user.core.user :as user-core]
             [clojure.test :refer [deftest testing is]]
-            [support.validation-helpers :as vh])
-  (:import [java.util UUID]))
+            [support.validation-helpers :as vh]))
 
 ;; Tag this namespace for Kaocha metadata-based filters
 (alter-meta! *ns* assoc :user true)

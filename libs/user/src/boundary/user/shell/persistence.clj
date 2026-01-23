@@ -431,17 +431,17 @@
      :create-users-batch
      {:user-entities user-entities}
      (fn [{:keys [params]}]
-       (let [user-entities (:user-entities params)]
-         (db/with-transaction [tx ctx]
-           (let [now (java.time.Instant/now)
-                 users-with-metadata (map (fn [user]
-                                            (-> user
-                                                (assoc :id (UUID/randomUUID))
-                                                (assoc :created-at now)
-                                                (assoc :updated-at nil)
-                                                (assoc :deleted-at nil)))
-                                          user-entities)
-                  db-users (map #(user-entity->db ctx %) users-with-metadata)]
+        (let [user-entities (:user-entities params)]
+          (db/with-transaction [tx ctx]
+            (let [now (java.time.Instant/now)
+                  users-with-metadata (map (fn [user]
+                                             (-> user
+                                                 (assoc :id (UUID/randomUUID))
+                                                 (assoc :created-at now)
+                                                 (assoc :updated-at nil)
+                                                 (assoc :deleted-at nil)))
+                                           user-entities)
+                   db-users (map #(user-entity->db tx %) users-with-metadata)]
              (doseq [db-user db-users]
                (let [query {:insert-into :users
                             :values [db-user]}]

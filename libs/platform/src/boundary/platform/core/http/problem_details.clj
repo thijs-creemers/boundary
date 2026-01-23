@@ -208,3 +208,64 @@
      Merged context map with additional-context taking precedence"
   [base-context additional-context]
   (merge base-context additional-context))
+
+;; =============================================================================
+;; Convenience Response Builders
+;; =============================================================================
+
+(defn bad-request
+  "Create a 400 Bad Request problem details response.
+   
+   Args:
+     detail: Human-readable description of the error
+     extensions: Optional map of extension members
+     
+   Returns:
+     Ring response map with RFC 7807 problem details"
+  ([detail]
+   (bad-request detail {}))
+  ([detail extensions]
+   (problem-details->response
+    (merge {:type   "https://api.example.com/problems/bad-request"
+            :title  "Bad Request"
+            :status 400
+            :detail detail}
+           extensions))))
+
+(defn not-found
+  "Create a 404 Not Found problem details response.
+   
+   Args:
+     detail: Human-readable description of what was not found
+     extensions: Optional map of extension members
+     
+   Returns:
+     Ring response map with RFC 7807 problem details"
+  ([detail]
+   (not-found detail {}))
+  ([detail extensions]
+   (problem-details->response
+    (merge {:type   "https://api.example.com/problems/not-found"
+            :title  "Not Found"
+            :status 404
+            :detail detail}
+           extensions))))
+
+(defn internal-server-error
+  "Create a 500 Internal Server Error problem details response.
+   
+   Args:
+     detail: Human-readable description of the error
+     extensions: Optional map of extension members
+     
+   Returns:
+     Ring response map with RFC 7807 problem details"
+  ([detail]
+   (internal-server-error detail {}))
+  ([detail extensions]
+   (problem-details->response
+    (merge {:type   "https://api.example.com/problems/internal-error"
+            :title  "Internal Server Error"
+            :status 500
+            :detail detail}
+           extensions))))

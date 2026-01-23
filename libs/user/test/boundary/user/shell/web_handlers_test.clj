@@ -50,6 +50,12 @@
   (get-user-by-id [_ user-id]
     (get @state user-id))
 
+  (get-user-by-email [_ email]
+    (->> @state
+         vals
+         (filter #(= (:email %) email))
+         first))
+
   (list-users [_ options]
     (let [users (->> @state
                      vals
@@ -81,7 +87,74 @@
           true)
         (throw (ex-info "User not found"
                         {:type :user-not-found
-                         :user-id user-id}))))))
+                         :user-id user-id})))))
+
+  (permanently-delete-user [_ user-id]
+    (if (get @state user-id)
+      (do
+        (swap! state dissoc user-id)
+        true)
+      (throw (ex-info "User not found"
+                      {:type :user-not-found
+                       :user-id user-id}))))
+
+  (authenticate-user [_ session-data]
+    (let [session-id (UUID/randomUUID)
+          now (Instant/now)
+          session-token (str (UUID/randomUUID) (UUID/randomUUID))
+          expires-at (.plusSeconds now 3600)
+          session (assoc session-data
+                         :id session-id
+                         :session-token session-token
+                         :created-at now
+                         :expires-at expires-at
+                         :last-accessed-at nil
+                         :revoked-at nil)]
+      (swap! state assoc-in [:sessions session-token] session)
+      session))
+
+  (validate-session [_ session-token]
+    (let [session (get-in @state [:sessions session-token])
+          now (Instant/now)]
+      (when (and session
+                 (nil? (:revoked-at session))
+                 (.isAfter (:expires-at session) now))
+        session)))
+
+  (logout-user [_ session-token]
+    (if (get-in @state [:sessions session-token])
+      (do
+        (swap! state assoc-in [:sessions session-token :revoked-at] (Instant/now))
+        true)
+      false))
+
+  (logout-user-everywhere [_ user-id]
+    (let [sessions (get-in @state [:sessions])
+          user-sessions (filter #(= (:user-id (val %)) user-id) sessions)
+          cnt (count user-sessions)]
+      (doseq [[token _] user-sessions]
+        (swap! state assoc-in [:sessions token :revoked-at] (Instant/now)))
+      cnt))
+
+  (get-user-sessions [_ user-id]
+    (let [sessions (get-in @state [:sessions])
+          now (Instant/now)]
+      (->> sessions
+           vals
+           (filter #(and (= (:user-id %) user-id)
+                         (nil? (:revoked-at %))
+                         (.isAfter (:expires-at %) now)))
+           vec)))
+
+  (list-audit-logs [_ _options]
+    {:audit-logs []
+     :total-count 0})
+
+  (get-audit-logs-for-user [_ _user-id _options]
+    [])
+
+  (change-password [_ _user-id _current-password _new-password]
+    true))
 
 (defn create-mock-service
   "Create a mock user service with initial state."
@@ -149,8 +222,22 @@
 
   (testing "handles service errors gracefully"
     (let [service (reify ports/IUserService
+                    (register-user [_ _] (throw (UnsupportedOperationException.)))
+                    (get-user-by-id [_ _] nil)
+                    (get-user-by-email [_ _] nil)
                     (list-users [_ _]
-                      (throw (Exception. "Database connection failed"))))
+                      (throw (Exception. "Database connection failed")))
+                    (update-user-profile [_ _] (throw (UnsupportedOperationException.)))
+                    (deactivate-user [_ _] (throw (UnsupportedOperationException.)))
+                    (permanently-delete-user [_ _] (throw (UnsupportedOperationException.)))
+                    (authenticate-user [_ _] (throw (UnsupportedOperationException.)))
+                    (validate-session [_ _] nil)
+                    (logout-user [_ _] false)
+                    (logout-user-everywhere [_ _] 0)
+                    (get-user-sessions [_ _] [])
+                    (list-audit-logs [_ _] {:audit-logs [] :total-count 0})
+                    (get-audit-logs-for-user [_ _ _] [])
+                    (change-password [_ _ _ _] false))
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
           handler (web-handlers/users-page-handler service config)
           request {}
@@ -196,8 +283,22 @@
   (testing "handles service errors gracefully"
     (let [user (create-test-user {})
           service (reify ports/IUserService
+                    (register-user [_ _] (throw (UnsupportedOperationException.)))
                     (get-user-by-id [_ _]
-                      (throw (Exception. "Database error"))))
+                      (throw (Exception. "Database error")))
+                    (get-user-by-email [_ _] nil)
+                    (list-users [_ _] {:users [] :total-count 0})
+                    (update-user-profile [_ _] (throw (UnsupportedOperationException.)))
+                    (deactivate-user [_ _] (throw (UnsupportedOperationException.)))
+                    (permanently-delete-user [_ _] (throw (UnsupportedOperationException.)))
+                    (authenticate-user [_ _] (throw (UnsupportedOperationException.)))
+                    (validate-session [_ _] nil)
+                    (logout-user [_ _] false)
+                    (logout-user-everywhere [_ _] 0)
+                    (get-user-sessions [_ _] [])
+                    (list-audit-logs [_ _] {:audit-logs [] :total-count 0})
+                    (get-audit-logs-for-user [_ _ _] [])
+                    (change-password [_ _ _ _] false))
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
           handler (web-handlers/user-detail-page-handler service config)
           request {:path-params {:id (str (:id user))}}
@@ -249,8 +350,22 @@
 
   (testing "handles errors"
     (let [service (reify ports/IUserService
+                    (register-user [_ _] (throw (UnsupportedOperationException.)))
+                    (get-user-by-id [_ _] nil)
+                    (get-user-by-email [_ _] nil)
                     (list-users [_ _]
-                      (throw (Exception. "Connection timeout"))))
+                      (throw (Exception. "Connection timeout")))
+                    (update-user-profile [_ _] (throw (UnsupportedOperationException.)))
+                    (deactivate-user [_ _] (throw (UnsupportedOperationException.)))
+                    (permanently-delete-user [_ _] (throw (UnsupportedOperationException.)))
+                    (authenticate-user [_ _] (throw (UnsupportedOperationException.)))
+                    (validate-session [_ _] nil)
+                    (logout-user [_ _] false)
+                    (logout-user-everywhere [_ _] 0)
+                    (get-user-sessions [_ _] [])
+                    (list-audit-logs [_ _] {:audit-logs [] :total-count 0})
+                    (get-audit-logs-for-user [_ _ _] [])
+                    (change-password [_ _ _ _] false))
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
           handler (web-handlers/users-table-fragment-handler service config)
           request {}
@@ -293,7 +408,21 @@
   (testing "handles service errors"
     (let [service (reify ports/IUserService
                     (register-user [_ _]
-                      (throw (Exception. "Email already exists"))))
+                      (throw (Exception. "Email already exists")))
+                    (get-user-by-id [_ _] nil)
+                    (get-user-by-email [_ _] nil)
+                    (list-users [_ _] {:users [] :total-count 0})
+                    (update-user-profile [_ _] (throw (UnsupportedOperationException.)))
+                    (deactivate-user [_ _] (throw (UnsupportedOperationException.)))
+                    (permanently-delete-user [_ _] (throw (UnsupportedOperationException.)))
+                    (authenticate-user [_ _] (throw (UnsupportedOperationException.)))
+                    (validate-session [_ _] nil)
+                    (logout-user [_ _] false)
+                    (logout-user-everywhere [_ _] 0)
+                    (get-user-sessions [_ _] [])
+                    (list-audit-logs [_ _] {:audit-logs [] :total-count 0})
+                    (get-audit-logs-for-user [_ _ _] [])
+                    (change-password [_ _ _ _] false))
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
           handler (web-handlers/create-user-htmx-handler service config)
           request {:form-params {"name" "Test User"
@@ -364,9 +493,13 @@
                     (deactivate-user [_ _] (throw (UnsupportedOperationException.)))
                     (permanently-delete-user [_ _] (throw (UnsupportedOperationException.)))
                     (authenticate-user [_ _] (throw (UnsupportedOperationException.)))
-                    (validate-session [_ _] (throw (UnsupportedOperationException.)))
-                    (logout-user [_ _] (throw (UnsupportedOperationException.)))
-                    (logout-user-everywhere [_ _] (throw (UnsupportedOperationException.))))
+                    (validate-session [_ _] nil)
+                    (logout-user [_ _] false)
+                    (logout-user-everywhere [_ _] 0)
+                    (get-user-sessions [_ _] [])
+                    (list-audit-logs [_ _] {:audit-logs [] :total-count 0})
+                    (get-audit-logs-for-user [_ _ _] [])
+                    (change-password [_ _ _ _] false))
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
           handler (web-handlers/update-user-htmx-handler service config)
           request {:path-params {:id (str (:id user))}
@@ -407,8 +540,22 @@
   (testing "handles service errors"
     (let [user (create-test-user {})
           service (reify ports/IUserService
+                    (register-user [_ _] nil)
+                    (get-user-by-id [_ _] nil)
+                    (get-user-by-email [_ _] nil)
+                    (list-users [_ _] nil)
+                    (update-user-profile [_ _] nil)
                     (deactivate-user [_ _]
-                      (throw (Exception. "Cannot delete user with active sessions"))))
+                      (throw (Exception. "Cannot delete user with active sessions")))
+                    (permanently-delete-user [_ _] nil)
+                    (authenticate-user [_ _] nil)
+                    (validate-session [_ _] nil)
+                    (logout-user [_ _] nil)
+                    (logout-user-everywhere [_ _] nil)
+                    (get-user-sessions [_ _] nil)
+                    (list-audit-logs [_ _] nil)
+                    (get-audit-logs-for-user [_ _ _] nil)
+                    (change-password [_ _ _ _] nil))
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
           handler (web-handlers/delete-user-htmx-handler service config)
           request {:path-params {:id (str (:id user))}}

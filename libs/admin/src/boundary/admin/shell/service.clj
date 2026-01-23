@@ -13,13 +13,10 @@
    - Handle soft/hard deletes based on schema"
   (:require
    [boundary.admin.ports :as ports]
-   [boundary.admin.core.permissions :as permissions]
    [boundary.platform.shell.adapters.database.common.execution :as db]
    [boundary.platform.shell.persistence-interceptors :as persist-interceptors]
    [boundary.core.utils.type-conversion :as type-conversion]
-   [boundary.core.utils.case-conversion :as case-conversion]
-   [honey.sql :as sql]
-   [clojure.string :as str])
+   [boundary.core.utils.case-conversion :as case-conversion])
   (:import [java.util UUID]
            [java.time Instant]))
 
@@ -211,7 +208,7 @@
      {:entity (name entity-name)
       :limit (:limit options)
       :offset (:offset options)}
-     (fn [{:keys [params]}]
+     (fn [{:keys [_params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
              soft-delete? (:soft-delete entity-config false)
@@ -268,7 +265,7 @@
     (persist-interceptors/execute-persistence-operation
      :admin-get-entity
      {:entity (name entity-name) :id id}
-     (fn [{:keys [params]}]
+     (fn [{:keys [_params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
              primary-key (:primary-key entity-config :id)
@@ -291,7 +288,7 @@
     (persist-interceptors/execute-persistence-operation
      :admin-create-entity
      {:entity (name entity-name)}
-     (fn [{:keys [params]}]
+     (fn [{:keys [_params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
              primary-key (:primary-key entity-config :id)
@@ -334,7 +331,7 @@
     (persist-interceptors/execute-persistence-operation
      :admin-update-entity
      {:entity (name entity-name) :id id}
-     (fn [{:keys [params]}]
+     (fn [{:keys [_params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
              primary-key (:primary-key entity-config :id)
@@ -379,7 +376,7 @@
     (persist-interceptors/execute-persistence-operation
      :admin-update-entity-field
      {:entity (name entity-name) :id id :field (name field)}
-     (fn [{:keys [params]}]
+     (fn [{:keys [_params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
              primary-key (:primary-key entity-config :id)
@@ -439,7 +436,7 @@
     (persist-interceptors/execute-persistence-operation
      :admin-delete-entity
      {:entity (name entity-name) :id id}
-     (fn [{:keys [params]}]
+     (fn [{:keys [_params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
              primary-key (:primary-key entity-config :id)
@@ -471,7 +468,7 @@
     (persist-interceptors/execute-persistence-operation
      :admin-count-entities
      {:entity (name entity-name)}
-     (fn [{:keys [params]}]
+     (fn [{:keys [_params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
              soft-delete? (:soft-delete entity-config false)
@@ -498,7 +495,7 @@
                     (if (and (:required field-config)
                              (not (contains? readonly-fields field-name))
                              (nil? (get data field-name)))
-                      (assoc errs field-name [(str "Field is required")])
+                      (assoc errs field-name ["Field is required"])
                       errs))
                   {}
                   fields)]
@@ -510,7 +507,7 @@
     (persist-interceptors/execute-persistence-operation
      :admin-bulk-delete-entities
      {:entity (name entity-name) :count (count ids)}
-     (fn [{:keys [params]}]
+     (fn [{:keys [_params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
              table-name (:table-name entity-config)
              primary-key (:primary-key entity-config :id)

@@ -66,7 +66,7 @@
     (cond
       (map? tags)
       (->> tags
-           (map (fn [[k v]] (str (name k) ":" (str v))))
+           (map (fn [[k v]] (str (name k) ":" v)))
            (interpose ",")
            (apply str))
 
@@ -115,9 +115,9 @@
     ;; If global-tags is a vector of strings, return it combined with formatted maps
     (vector? global-tags)
     (let [metric-formatted (when (seq metric-tags)
-                             (map (fn [[k v]] (str (name k) ":" (str v))) metric-tags))
+                             (map (fn [[k v]] (str (name k) ":" v)) metric-tags))
           call-formatted (when (seq call-tags)
-                           (map (fn [[k v]] (str (name k) ":" (str v))) call-tags))]
+                           (map (fn [[k v]] (str (name k) ":" v)) call-tags))]
       (vec (concat global-tags metric-formatted call-formatted)))
 
     ;; If global-tags is a map (or nil), merge normally

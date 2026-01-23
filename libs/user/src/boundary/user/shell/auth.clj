@@ -308,8 +308,8 @@
    Returns:
      User entity with password-hash field populated
      
-   Side effects: Password hashing, I/O operations"
-  [user-data user-repository]
+    Side effects: Password hashing, I/O operations"
+  [user-data _user-repository]
   (let [password (:password user-data)
         password-hash (hash-password password)
         user-without-password (dissoc user-data :password)

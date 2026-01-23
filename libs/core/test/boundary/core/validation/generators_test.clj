@@ -251,7 +251,7 @@
 
 (deftest ^:phase3 gen-for-rule-requires-violation-test
   (testing "Throws when violation not provided for invalid type"
-    (let [resolver (fn [rule-id] user-schema/CreateUserRequest)]
+    (let [resolver (fn [_rule-id] user-schema/CreateUserRequest)]
       (is (thrown-with-msg? Exception
                             #":violation required for :invalid type"
                             (gen/gen-for-rule :user.email/required
@@ -286,7 +286,7 @@
 
 (deftest ^:phase3 gen-for-module-requires-list-rules-test
   (testing "Throws when list-rules function not provided"
-    (let [resolver (fn [rule-id] user-schema/CreateUserRequest)]
+    (let [resolver (fn [_rule-id] user-schema/CreateUserRequest)]
       (is (thrown-with-msg? Exception
                             #":list-rules function required"
                             (gen/gen-for-module :user

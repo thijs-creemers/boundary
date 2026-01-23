@@ -149,16 +149,16 @@
     Returns:
       true if value was set, false if key already exists")
 
-  (compare-and-set! [this key expected-value new-value]
-    "Atomically set value if current value matches expected.
+  (compare-and-swap! [this key expected-value new-value]
+    "Atomically set value only if current value equals expected value (CAS).
 
     Args:
       key - Cache key
-      expected-value - Expected current value
-      new-value - New value to set
+      expected-value - Value to compare against current value
+      new-value - Value to set if comparison succeeds
 
     Returns:
-      true if successful, false if current value doesn't match"))
+      true if value was updated, false if current value didn't match expected"))
 
 ;; =============================================================================
 ;; Pattern Operations

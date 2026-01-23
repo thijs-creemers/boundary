@@ -6,7 +6,6 @@
   (:require [boundary.storage.ports :as ports]
             [boundary.storage.core.validation :as validation]
             [boundary.observability.logging.ports :as logging]
-            [clojure.java.io :as io]
             [clojure.string :as str])
 (:import [java.nio.file Files Path Paths]
            [java.nio.file.attribute FileAttribute]
@@ -134,7 +133,7 @@
           (let [bytes (Files/readAllBytes file-path)
                 size (alength bytes)
                 ;; Try to determine content type from extension
-                ext (validation/get-file-extension file-key)
+                _ext (validation/get-file-extension file-key)
                 content-type (or (validation/mime-type-from-extension file-key)
                                  "application/octet-stream")]
 
@@ -195,7 +194,7 @@
                           :error (.getMessage e)}))
         false)))
 
-  (generate-signed-url [_ file-key expiration-seconds]
+  (generate-signed-url [_ file-key _expiration-seconds]
     ;; Local filesystem doesn't support signed URLs
     ;; Return the public URL if available
     (when url-base

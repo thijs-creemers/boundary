@@ -19,12 +19,11 @@
    - Strings: For cache values (JSON serialized)
    - TTL: Built-in Redis expiration
    - Atomic ops: INCR, DECR, SETNX, etc."
-(:require [boundary.cache.ports :as ports]
-            [boundary.cache.schema :as schema]
+  (:require [boundary.cache.ports :as ports]
             [cheshire.core :as json]
             [clojure.string :as str]
             [clojure.tools.logging :as log])
-(:import [redis.clients.jedis Jedis JedisPool JedisPoolConfig ScanParams]
+  (:import [redis.clients.jedis Jedis JedisPool JedisPoolConfig ScanParams]
            [redis.clients.jedis.params SetParams]))
 
 ;; =============================================================================
@@ -202,7 +201,7 @@
           (let [result (.set redis namespaced-key serialized params)]
             (= result "OK"))))))
 
-  (compare-and-set! [_ key expected-value new-value]
+  (compare-and-swap! [_ key expected-value new-value]
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)]
@@ -278,7 +277,7 @@
       (fn [^Jedis redis]
         (let [info (.info redis "stats")
               ;; Parse Redis INFO output
-stats-map (into {}
+              stats-map (into {}
                               (map (fn [line]
                                      (let [[k v] (str/split line #":")]
                                        [(keyword k) v]))

@@ -102,7 +102,7 @@
      (can-access-admin? nil nil)               ;=> false"
   ([user]
    (can-access-admin? user nil))
-  ([user admin-config]
+  ([user _admin-config]
    ; Week 1: Simple admin role check
    ; Week 2+: Check against admin-config :require-role
    (is-admin? user)))
@@ -169,7 +169,7 @@
      (can-view-entity? {:role :user} :users nil)    ;=> false"
   ([user entity-name]
    (can-view-entity? user entity-name nil))
-  ([user entity-name entity-config]
+  ([user _entity-name _entity-config]
    ; Week 1: Admin can view all entities
    ; Week 2+: Check entity-config :permissions :view
    (is-admin? user)))
@@ -193,7 +193,7 @@
      (can-create-entity? {:role :user} :users nil)    ;=> false"
   ([user entity-name]
    (can-create-entity? user entity-name nil))
-  ([user entity-name entity-config]
+  ([user _entity-name _entity-config]
    ; Week 1: Admin can create in all entities
    ; Week 2+: Check entity-config :permissions :create
    (is-admin? user)))
@@ -220,7 +220,7 @@
    (can-edit-entity? user entity-name nil nil))
   ([user entity-name entity-config]
    (can-edit-entity? user entity-name entity-config nil))
-  ([user entity-name entity-config record]
+  ([user _entity-name _entity-config _record]
    ; Week 1: Admin can edit all entities
    ; Week 2+: Check entity-config :permissions :edit
    ;          Check record-level permissions (e.g., user can only edit own records)
@@ -248,7 +248,7 @@
    (can-delete-entity? user entity-name nil nil))
   ([user entity-name entity-config]
    (can-delete-entity? user entity-name entity-config nil))
-  ([user entity-name entity-config record]
+  ([user _entity-name _entity-config _record]
    ; Week 1: Admin can delete from all entities
    ; Week 2+: Check entity-config :permissions :delete
    ;          Check for protected records (e.g., system users)
@@ -304,7 +304,7 @@
      ;=> []"
   ([user entity-names]
    (filter-visible-entities user entity-names nil))
-  ([user entity-names entity-configs]
+  ([user entity-names _entity-configs]
    (if (is-admin? user)
      (vec entity-names)
      [])))

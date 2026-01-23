@@ -3,8 +3,7 @@
             [clojure.java.io :as io]
             [boundary.storage.shell.service :as sut]
             [boundary.storage.shell.adapters.local :as local]
-            [boundary.storage.shell.adapters.image-processor :as img]
-            [boundary.storage.ports :as ports]))
+            [boundary.storage.shell.adapters.image-processor :as img]))
 
 (def test-dir "target/test-service-storage")
 

@@ -318,7 +318,7 @@
    
    This version demonstrates the interceptor-based approach that eliminates
    manual observability boilerplate while providing comprehensive tracking."
-  [service error-reporter opts]
+  [service _error-reporter opts]
   (let [;; Create context for the operation
         context (create-cli-interceptor-context
                  :user-create
@@ -366,7 +366,7 @@
 
 (defn execute-user-get
   "Execute user get command using interceptor pipeline."
-  [service error-reporter opts]
+  [service _error-reporter opts]
   (let [context (create-cli-interceptor-context
                  :user-get
                  service
@@ -378,7 +378,7 @@
 
 (defn execute-user-list
   "Execute user list command using interceptor pipeline."
-  [service error-reporter opts]
+  [service _error-reporter opts]
   (let [context (create-cli-interceptor-context
                  :user-list
                  service
@@ -390,7 +390,7 @@
 
 (defn execute-user-update
   "Execute user update command using interceptor pipeline."
-  [service error-reporter opts]
+  [service _error-reporter opts]
   (let [context (create-cli-interceptor-context
                  :user-update
                  service
@@ -402,7 +402,7 @@
 
 (defn execute-user-delete
   "Execute user delete command using interceptor pipeline."
-  [service error-reporter opts]
+  [service _error-reporter opts]
   (let [context (create-cli-interceptor-context
                  :user-delete
                  service
@@ -414,7 +414,7 @@
 
 (defn execute-session-create
   "Execute session create command using interceptor pipeline."
-  [service error-reporter opts]
+  [service _error-reporter opts]
   (let [context (create-cli-interceptor-context
                  :session-create
                  service
@@ -426,7 +426,7 @@
 
 (defn execute-session-validate-v2
   "Execute session validate command using interceptor pipeline."
-  [service error-reporter opts]
+  [service _error-reporter opts]
   (let [context (create-cli-interceptor-context
                  :session-validate
                  service
@@ -438,7 +438,7 @@
 
 (defn execute-session-invalidate
   "Execute session invalidate command using interceptor pipeline."
-  [service error-reporter opts]
+  [service _error-reporter opts]
   (let [context (create-cli-interceptor-context
                  :session-invalidate
                  service
@@ -450,7 +450,7 @@
 
 (defn execute-session-list
   "Execute session list command - NOT IMPLEMENTED"
-  [service error-reporter opts]
+  [_service _error-reporter _opts]
   ;; TODO: Implement session list functionality
   ;; This would require:
   ;; 1. Creating session list interceptors in user-interceptors.clj

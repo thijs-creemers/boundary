@@ -20,7 +20,7 @@
   (let [cfg (config/load-config)
         enabled (modules/enabled-modules cfg)
         ;; Map of module keyword to its CLI runner function
-        module->runner {:user user-cli-entry/run!
+        module->runner {:user user-cli-entry/run-cli!
                         :scaffolder scaffolder-cli-entry/run-scaffolder-cli!}
         status (modules/dispatch-cli enabled module->runner args)]
     (System/exit status)))

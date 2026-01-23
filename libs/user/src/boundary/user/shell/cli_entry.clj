@@ -15,7 +15,7 @@
             [boundary.observability.errors.shell.adapters.no-op :as no-op-error-reporting]
             [clojure.tools.logging :as log]))
 
-(defn run!
+(defn run-cli!
   "Run the user module CLI for the given command-line arguments.
 
   Returns an integer exit status. Does not call System/exit."
@@ -41,9 +41,10 @@
                 audit-repo (user-persistence/create-audit-repository db-ctx pagination-cfg)
 
                 ;; Create no-op observability services for CLI
-                logger (no-op-logging/create-no-op-logger nil)
-                metrics (no-op-metrics/create-metrics-emitter nil)
-                error-reporter (no-op-error-reporting/create-error-reporter nil)
+                ;; (available for future use if needed)
+                _logger (no-op-logging/create-no-op-logger nil)
+                _metrics (no-op-metrics/create-metrics-emitter nil)
+                _error-reporter (no-op-error-reporting/create-error-reporter nil)
 
                 ;; Validation and auth configuration
                 validation-cfg (config/user-validation-config cfg)

@@ -6,7 +6,6 @@
   represents the imperative shell that coordinates pure validation logic
   with side-effectful storage operations."
   (:require [boundary.storage.ports :as ports]
-            [boundary.storage.schema :as schema]
             [boundary.storage.core.validation :as validation]
             [boundary.observability.logging.ports :as logging]))
 
@@ -120,7 +119,7 @@
                      :options options}))
 
     (try
-      (let [{:keys [resize create-thumbnail thumbnail-size]} options
+      (let [{:keys [create-thumbnail thumbnail-size]} options
             thumbnail-size (or thumbnail-size 200)
 
             ;; Upload original image

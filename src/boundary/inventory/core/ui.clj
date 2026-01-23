@@ -3,7 +3,7 @@
 
 (defn item-list-page
   "Generate item listing page."
-  [items opts]
+  [items _opts]
   [:div.page
    [:h1 "Items"]
    [:div.items

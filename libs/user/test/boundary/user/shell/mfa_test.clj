@@ -7,10 +7,8 @@
    valid time-based codes in tests. Real verification is tested in integration tests."
   {:kaocha.testable/meta {:integration true :user true}}
   (:require [clojure.test :refer [deftest testing is]]
-            [clojure.string :as str]
             [boundary.user.shell.mfa :as mfa-shell]
-            [boundary.user.ports :as ports])
-  (:import [java.time Instant]))
+            [boundary.user.ports :as ports]))
 
 ;; =============================================================================
 ;; Test Fixtures
@@ -42,7 +40,38 @@
 
       (find-user-by-email [_ email]
         (when (= email (:email @user-state))
-          @user-state)))))
+          @user-state))
+
+      (find-users [_ _options]
+        {:users [@user-state] :total-count 1})
+
+      (create-user [_ user-entity]
+        (reset! user-state user-entity)
+        @user-state)
+
+      (soft-delete-user [_ _user-id]
+        true)
+
+      (hard-delete-user [_ _user-id]
+        true)
+
+      (find-active-users-by-role [_ _role]
+        [@user-state])
+
+      (count-users [_]
+        1)
+
+      (find-users-created-since [_ _since-date]
+        [@user-state])
+
+      (find-users-by-email-domain [_ _email-domain]
+        [@user-state])
+
+      (create-users-batch [_ user-entities]
+        user-entities)
+
+      (update-users-batch [_ user-entities]
+        user-entities))))
 
 ;; =============================================================================
 ;; TOTP Secret Generation Tests

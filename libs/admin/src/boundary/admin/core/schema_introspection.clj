@@ -13,7 +13,6 @@
    - Generate sensible defaults for labels and field ordering"
   (:require
    [clojure.string :as str]
-   [boundary.admin.schema :as schema]
    [boundary.core.utils.case-conversion :as case-conversion]))
 
 ;; =============================================================================
@@ -153,8 +152,8 @@
      (infer-widget-for-field :email :string \"VARCHAR\")     ;=> :email-input
      (infer-widget-for-field :password :string \"VARCHAR\")  ;=> :password-input
      (infer-widget-for-field :active :boolean \"BOOLEAN\")   ;=> :checkbox
-     (infer-widget-for-field :created-at :instant \"TIMESTAMP\") ;=> :datetime-input"
-  [field-name field-type sql-type]
+      (infer-widget-for-field :created-at :instant \"TIMESTAMP\") ;=> :datetime-input"
+  [field-name field-type _sql-type]
   (if-not field-name
     :text-input
     (let [field-name-str (name field-name)
@@ -305,10 +304,10 @@
                    (str/includes? name-str "body")))
 
           ;; Technical fields
-          (or (str/includes? name-str "hash")
-              (str/includes? name-str "secret")
-              (str/includes? name-str "token")
-              (str/includes? name-str "backup-codes"))))))
+          (str/includes? name-str "hash")
+          (str/includes? name-str "secret")
+          (str/includes? name-str "token")
+          (str/includes? name-str "backup-codes")))))
 
 ;; =============================================================================
 ;; Label Generation - Field Names to Display Labels
@@ -580,35 +579,6 @@
       :else
       (str word-str "s"))))
 
-(defn- singularize
-  "Simple singularization for entity names.
-
-   Args:
-     word: Plural word string
-
-   Returns:
-     Singularized word
-
-   Example:
-     (singularize \"users\") => \"user\"
-     (singularize \"categories\") => \"category\""
-  [word]
-  (let [word-str (name word)]
-    (cond
-      ; Special cases
-      (str/ends-with? word-str "ies")
-      (str (subs word-str 0 (- (count word-str) 3)) "y")
-
-      (str/ends-with? word-str "ses")
-      (subs word-str 0 (- (count word-str) 2))
-
-      (str/ends-with? word-str "s")
-      (subs word-str 0 (dec (count word-str)))
-
-      ; No change if not plural
-      :else
-      word-str)))
-
 (defn detect-foreign-keys
   "Detect foreign key relationships from field names.
 
@@ -626,10 +596,10 @@
        :display-field :name}]
 
    Example:
-     (detect-foreign-keys {:user-id {...} :category-id {...}})"
+      (detect-foreign-keys {:user-id {...} :category-id {...}})"
   [fields-by-name]
   (reduce-kv
-   (fn [acc field-name field-config]
+   (fn [acc field-name _field-config]
      (let [field-str (name field-name)]
        (if (or (str/ends-with? field-str "-id")
                (str/ends-with? field-str "_id"))

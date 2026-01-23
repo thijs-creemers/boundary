@@ -21,7 +21,7 @@
    - Clicking toggles :dir between :asc and :desc for the same :field.
    - When changing sort field or direction, page is reset to 1.
    "
-   [{:keys [label field current-sort current-dir base-url page page-size
+   [{:keys [label field current-sort current-dir base-url _page page-size
             hx-target hx-push-url? extra-params]}]
    (let [active?  (= current-sort field)
          next-dir (if (and active? (= current-dir :asc)) :desc :asc)

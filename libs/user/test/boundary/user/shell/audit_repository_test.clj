@@ -11,7 +11,6 @@
             [next.jdbc :as jdbc]
             [next.jdbc.connection :as connection])
   (:import (java.util UUID)
-           (java.time Instant)
            (com.zaxxer.hikari HikariDataSource)))
 
 ;; =============================================================================

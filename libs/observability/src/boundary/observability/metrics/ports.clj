@@ -313,13 +313,13 @@
 (defn increment
   "Convenience function for incrementing counters.
    For now, this is a no-op placeholder until metrics infrastructure is set up."
-  [metrics-collector metric-name tags]
+  [_metrics-collector _metric-name _tags]
   ;; TODO: Implement when metrics infrastructure is available
   nil)
 
 (defn observe
   "Convenience function for observing histogram/summary values.
    For now, this is a no-op placeholder until metrics infrastructure is set up."
-  [metrics-collector metric-name value tags]
+  [_metrics-collector _metric-name _value _tags]
   ;; TODO: Implement when metrics infrastructure is available
   nil)

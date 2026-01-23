@@ -156,9 +156,9 @@
    Returns:
      Vector of table names as keywords
 
-   Note: Implementation depends on database type - will need to query
+    Note: Implementation depends on database type - will need to query
          information_schema or similar."
-  [db-ctx]
+  [_db-ctx]
   ; Week 2+: Implement database-specific table listing
   ; PostgreSQL: SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'
   ; SQLite: SELECT name FROM sqlite_master WHERE type='table'

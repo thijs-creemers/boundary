@@ -172,7 +172,7 @@ Production-grade distributed caching for the Boundary Framework, providing high-
 ;; Optimistic locking pattern
 (let [current-value (cache/get-value cache :inventory:widget)
       new-value (dec current-value)]
-  (if (cache/compare-and-set! cache :inventory:widget current-value new-value)
+  (if (cache/compare-and-swap! cache :inventory:widget current-value new-value)
     (println "Successfully decremented inventory")
     (println "Inventory changed, retry needed")))
 ```

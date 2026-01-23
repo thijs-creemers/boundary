@@ -283,7 +283,7 @@
 (deftest test-double-initialization
   (testing "Double initialization should handle gracefully"
     (integration/initialize-databases! "test")
-    (let [first-state (integration/current-state)]
+    (let [_first-state (integration/current-state)]
 
       ;; Initialize again
       (integration/initialize-databases! "test")
@@ -330,7 +330,7 @@
 
             ;; Verify adapters match what's in the active config
             (let [active-config-keys (keys (:active config))
-                  adapter-keys (keys active-adapters)
+                  _adapter-keys (keys active-adapters)
                   supported-keys (set (factory/list-available-adapters))
                   db-adapter-keys (filter supported-keys active-config-keys)]
 

@@ -344,10 +344,9 @@
     (let [config {:entity-discovery {:mode :allowlist
                                      :allowlist #{}}
                   :entities {}}
-          repo (schema-repo/create-schema-repository *db-ctx* config)]
-
-      (let [entities (ports/list-available-entities repo)]
-        (is (= 0 (count entities)))))))
+          repo (schema-repo/create-schema-repository *db-ctx* config)
+          entities (ports/list-available-entities repo)]
+      (is (= 0 (count entities))))))
 
 (deftest list-available-entities-unsupported-modes-test
   (testing "Denylist mode not yet implemented (Week 2+)"
@@ -408,11 +407,10 @@
       (let [config {:entity-discovery {:mode :allowlist
                                        :allowlist #{:simple-table}}
                     :entities {}}
-            repo (schema-repo/create-schema-repository *db-ctx* config)]
-
-        (let [label (ports/get-entity-label repo :simple-table)]
-          (is (string? label))
-          (is (> (count label) 0)))))))
+            repo (schema-repo/create-schema-repository *db-ctx* config)
+            label (ports/get-entity-label repo :simple-table)]
+        (is (string? label))
+        (is (> (count label) 0))))))
 
 ;; =============================================================================
 ;; Multi-Database Support Tests

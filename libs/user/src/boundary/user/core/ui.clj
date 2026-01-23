@@ -591,10 +591,10 @@
   "Login form for email/password sign-in.
 
    Args:
-     data   - map with optional :email / :remember / :return-to
-     errors - map of field keyword -> vector of error messages"
+      data   - map with optional :email / :remember / :return-to
+      errors - map of field keyword -> vector of error messages"
   [data errors]
-  (let [err (fn [k]
+  (let [_err (fn [k]
               (when-let [es (seq (get errors k))]
                 [:div.validation-errors
                  (for [e es]
@@ -650,10 +650,10 @@
   "Form for entering MFA code during login.
 
    Args:
-     data   - map with :email, :password, :remember, :return-to
-     errors - map of field keyword -> vector of error messages"
+      data   - map with :email, :password, :remember, :return-to
+      errors - map of field keyword -> vector of error messages"
   [data errors]
-  (let [err (fn [k]
+  (let [_err (fn [k]
               (when-let [es (seq (get errors k))]
                 [:div.validation-errors
                  (for [e es]

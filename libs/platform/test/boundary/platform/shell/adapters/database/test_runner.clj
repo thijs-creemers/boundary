@@ -34,9 +34,9 @@
 (defn run-namespace-tests
   "Run tests for a specific namespace, handling missing implementations gracefully."
   [ns-symbol]
-  (println (str "\n" (str (repeat 80 "=")) "\n"))
+  (println (str "\n" (apply str (repeat 80 "=")) "\n"))
   (println (str "Testing namespace: " ns-symbol))
-  (println (str (str (repeat 80 "=")) "\n"))
+  (println (str (apply str (repeat 80 "=")) "\n"))
 
   (if (namespace-exists? ns-symbol)
     (try
@@ -83,7 +83,7 @@
           (println (str "❌ MISSING: " config-file))
           (swap! results update :missing inc))))
 
-    (println (str "\nConfiguration files summary:"))
+    (println "\nConfiguration files summary:")
     (println (str "  Found: " (:found @results)))
     (println (str "  Missing: " (:missing @results)))
     @results))
@@ -114,7 +114,7 @@
           (println (str "❌ MISSING: " impl-file))
           (swap! results update :missing inc))))
 
-    (println (str "\nImplementation files summary:"))
+    (println "\nImplementation files summary:")
     (println (str "  Found: " (:found @results)))
     (println (str "  Missing: " (:missing @results)))
     @results))
@@ -145,7 +145,7 @@
           (println (str "❌ MISSING: " db-name " (" driver-class ")"))
           (swap! results update :missing inc))))
 
-    (println (str "\nJDBC drivers summary:"))
+    (println "\nJDBC drivers summary:")
     (println (str "  Available: " (:available @results)))
     (println (str "  Missing: " (:missing @results)))
     (println "\nNote: Missing drivers are expected with conditional dependency system.")
@@ -263,7 +263,7 @@
                 (println (str "  ✅ Config structure valid (active: " (count (:active config))
                               ", inactive: " (count (:inactive config)) ")"))
                 (println "  ❌ Invalid config structure"))))
-          (println (str "  ❌ Config file missing")))
+          (println "  ❌ Config file missing"))
         (catch Exception e
           (println (str "  ❌ Error: " (.getMessage e))))))
 

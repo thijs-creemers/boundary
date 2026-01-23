@@ -10,10 +10,8 @@
    - Job handler registry
    - Comprehensive error handling"
   (:require [boundary.jobs.ports :as ports]
-            [boundary.jobs.core.job :as job]
-            [boundary.jobs.schema :as schema]
             [clojure.tools.logging :as log])
-(:import [java.util UUID]
+  (:import [java.util UUID]
            [java.time Instant]))
 
 ;; =============================================================================
@@ -137,13 +135,13 @@
                 (ports/update-job-status! store job-id :failed (:error result))
                 (swap! (:failed-count worker-state) inc)
                 (log/warn "Job failed" {:job-id job-id :error (:error result)}))))
-          (do
-            ;; No handler registered
-            (let [error {:message (str "No handler registered for job type: " job-type)
-                         :type "NoHandlerError"}]
-              (ports/update-job-status! store job-id :failed error)
-              (swap! (:failed-count worker-state) inc)
-              (log/error "No handler for job type" {:job-id job-id :job-type job-type}))))
+
+          ;; No handler registered
+          (let [error {:message (str "No handler registered for job type: " job-type)
+                       :type "NoHandlerError"}]
+            (ports/update-job-status! store job-id :failed error)
+            (swap! (:failed-count worker-state) inc)
+            (log/error "No handler for job type" {:job-id job-id :job-type job-type})))
 
         (catch Exception e
           ;; Unexpected error during processing
@@ -214,7 +212,7 @@
             ;; No jobs available, sleep before polling again
             (Thread/sleep poll-interval-ms)))
 
-        (catch InterruptedException e
+        (catch InterruptedException _e
           (log/info "Worker interrupted, shutting down" {:worker-id (:id worker-state)})
           (reset! (:running? worker-state) false))
 
@@ -242,7 +240,7 @@
 
   (process-job! [_ job]
     ;; Manual job processing (for testing or direct invocation)
-    (let [job-id (:id job)
+    (let [_job-id (:id job)
           job-type (:job-type job)]
       (if-let [handler-fn (ports/get-handler registry job-type)]
         (execute-job-handler handler-fn (:args job))

@@ -260,7 +260,7 @@
 (deftest test-concurrent-config-loading
   (testing "Configuration loading should be thread-safe"
     (let [results (atom [])
-          threads (for [i (range 10)]
+          threads (for [_i (range 10)]
                     (Thread. #(swap! results conj (config/load-config "dev"))))]
 
       ; Start all threads

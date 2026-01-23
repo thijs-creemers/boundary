@@ -1,7 +1,6 @@
 (ns boundary.jobs.schema
   "Malli schemas for background job processing."
-  (:require [malli.core :as m]
-            [malli.util :as mu]))
+  (:require [malli.core :as m]))
 
 ;; =============================================================================
 ;; Job Status

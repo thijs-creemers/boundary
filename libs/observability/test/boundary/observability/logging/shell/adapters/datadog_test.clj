@@ -7,8 +7,7 @@
    [clojure.test :refer [deftest testing is use-fixtures]]
    [boundary.observability.logging.shell.adapters.datadog :as datadog-adapter]
    [boundary.observability.logging.ports :as ports])
-  (:import
-   [java.util.concurrent BlockingQueue]))
+)
 
 ;; Test configuration
 (def test-config
@@ -102,8 +101,7 @@
 
 (deftest audit-logger-protocol-test
   (testing "implements IAuditLogger protocol methods"
-    (let [audit-logger (datadog-adapter/create-datadog-audit-logger test-config)
-          test-event {:event-type "user-login" :user-id "123" :timestamp "2024-01-01T00:00:00Z"}]
+    (let [audit-logger (datadog-adapter/create-datadog-audit-logger test-config)]
 
       (testing "audit event logging"
         (is (nil? (ports/audit-event audit-logger :user-action "user-123" "invoice-456" :create :success {:additional "context"})))

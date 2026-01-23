@@ -5,8 +5,7 @@
   {:kaocha.testable/meta {:integration true :search true}}
   (:require [clojure.test :refer [deftest testing is]]
             [boundary.platform.shell.search.service :as svc]
-            [boundary.platform.search.ports :as ports]
-            [boundary.platform.core.search.query :as query])
+            [boundary.platform.search.ports :as ports])
   (:import [java.time Instant]
            [java.time.temporal ChronoUnit]))
 
@@ -20,8 +19,8 @@
   (search [_this query-map]
     ;; Return mock results based on query
     (let [index (:index query-map)
-          from (:from query-map 0)
-          size (:size query-map 20)]
+          _from (:from query-map 0)
+          _size (:size query-map 20)]
       (case index
         :users
         {:results [{:id "user-1"
@@ -76,17 +75,17 @@
      :id document-id
      :index index-name})
 
-  (update-document [_this index-name document-id updates]
+  (update-document [_this index-name document-id _updates]
     {:updated true
      :id document-id
      :index index-name})
 
-  (bulk-index [_this index-name documents]
+  (bulk-index [_this _index-name documents]
     {:indexed-count (count documents)
      :failed-count 0
      :errors []})
 
-  (create-index [_this index-name config]
+  (create-index [_this index-name _config]
     {:created true
      :index index-name})
 
@@ -179,10 +178,9 @@
   (testing "sorts results by score descending"
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)
-          result (ports/search-users service "John" {})]
-
-      (let [scores (map :score (:results result))]
-        (is (= scores (sort > scores))))))
+          result (ports/search-users service "John" {})
+          scores (map :score (:results result))]
+      (is (= scores (sort > scores)))))
 
   (testing "includes pagination info"
     (let [provider (create-mock-provider)
@@ -217,25 +215,23 @@
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)
           result (ports/search-users service "example"
-                                     {:highlight-fields [:email]})]
-
-      (let [first-result (first (:results result))]
-        (is (contains? (:_highlights first-result) :email))))))
+                                     {:highlight-fields [:email]})
+          first-result (first (:results result))]
+      (is (contains? (:_highlights first-result) :email)))))
 
 (deftest search-users-recency-boost-test
   (testing "applies recency boost by default"
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)
-          result (ports/search-users service "John" {:boost-recent? true})]
-
-      ;; Newer documents should have higher scores after boosting
-      ;; Mock returns user-1 (0 days old, score 0.95)
-      ;;             user-2 (15 days old, score 0.85)
-      ;;             user-3 (60 days old, score 0.75)
-      ;; After recency boost, user-1 should get 2x boost
-      (let [scores (map :score (:results result))]
-        (is (> (first scores) 0.95))  ; Boosted
-        (is (= scores (sort > scores))))))
+          result (ports/search-users service "John" {:boost-recent? true})
+          ;; Newer documents should have higher scores after boosting
+          ;; Mock returns user-1 (0 days old, score 0.95)
+          ;;             user-2 (15 days old, score 0.85)
+          ;;             user-3 (60 days old, score 0.75)
+          ;; After recency boost, user-1 should get 2x boost
+          scores (map :score (:results result))]
+      (is (> (first scores) 0.95))  ; Boosted
+      (is (= scores (sort > scores)))))
 
   (testing "skips recency boost when disabled"
     (let [provider (create-mock-provider)
@@ -260,7 +256,14 @@
     (let [failing-provider (reify ports/ISearchProvider
                              (search [_this _query-map]
                                (throw (ex-info "Provider error"
-                                               {:type :provider-error}))))
+                                               {:type :provider-error})))
+                             (index-document [_this _index _doc] nil)
+                             (delete-document [_this _index _id] nil)
+                             (update-document [_this _index _id _updates] nil)
+                             (bulk-index [_this _index _docs] nil)
+                             (create-index [_this _index _config] nil)
+                             (delete-index [_this _index] nil)
+                             (get-index-stats [_this _index] nil))
           service (svc/create-search-service failing-provider test-config)]
 
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
@@ -287,19 +290,25 @@
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)
           result (ports/search-items service "Widget"
-                                     {:highlight-fields [:name :sku :location]})]
-
-      (let [first-result (first (:results result))]
-        (is (contains? (:_highlights first-result) :name))
-        ;; SKU and location may not match "Widget" in this test
-        ))))
+                                     {:highlight-fields [:name :sku :location]})
+          first-result (first (:results result))]
+      (is (contains? (:_highlights first-result) :name))
+      ;; SKU and location may not match "Widget" in this test
+      )))
 
 (deftest search-items-error-handling-test
   (testing "handles item search errors"
     (let [failing-provider (reify ports/ISearchProvider
                              (search [_this _query-map]
                                (throw (ex-info "Provider error"
-                                               {:type :provider-error}))))
+                                               {:type :provider-error})))
+                             (index-document [_this _index _doc] nil)
+                             (delete-document [_this _index _id] nil)
+                             (update-document [_this _index _id _updates] nil)
+                             (bulk-index [_this _index _docs] nil)
+                             (create-index [_this _index _config] nil)
+                             (delete-index [_this _index] nil)
+                             (get-index-stats [_this _index] nil))
           service (svc/create-search-service failing-provider test-config)]
 
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
@@ -332,7 +341,14 @@
     (let [failing-provider (reify ports/ISearchProvider
                              (search [_this _query-map]
                                (throw (ex-info "Provider error"
-                                               {:type :provider-error}))))
+                                               {:type :provider-error})))
+                             (index-document [_this _index _doc] nil)
+                             (delete-document [_this _index _id] nil)
+                             (update-document [_this _index _id _updates] nil)
+                             (bulk-index [_this _index _docs] nil)
+                             (create-index [_this _index _config] nil)
+                             (delete-index [_this _index] nil)
+                             (get-index-stats [_this _index] nil))
           service (svc/create-search-service failing-provider test-config)]
 
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
@@ -358,6 +374,13 @@
 
   (testing "handles reindex errors"
     (let [failing-provider (reify ports/ISearchProvider
+                             (search [_this _query-map] nil)
+                             (index-document [_this _index _doc] nil)
+                             (delete-document [_this _index _id] nil)
+                             (update-document [_this _index _id _updates] nil)
+                             (bulk-index [_this _index _docs] nil)
+                             (create-index [_this _index _config] nil)
+                             (delete-index [_this _index] nil)
                              (get-index-stats [_this _index-name]
                                (throw (ex-info "Provider error"
                                                {:type :provider-error}))))
@@ -386,6 +409,13 @@
 
   (testing "handles stats errors gracefully"
     (let [failing-provider (reify ports/ISearchProvider
+                             (search [_this _query-map] nil)
+                             (index-document [_this _index _doc] nil)
+                             (delete-document [_this _index _id] nil)
+                             (update-document [_this _index _id _updates] nil)
+                             (bulk-index [_this _index _docs] nil)
+                             (create-index [_this _index _config] nil)
+                             (delete-index [_this _index] nil)
                              (get-index-stats [_this index-name]
                                (if (= index-name :users)
                                  (throw (ex-info "Provider error"
@@ -430,8 +460,7 @@
                          :highlighting {:pre-tag "<em class=\"highlight\">"
                                         :post-tag "</em>"}}
           service (svc/create-search-service provider custom-config)
-          result (ports/search-users service "John" {})]
-
-      (let [highlighted-name (get-in (first (:results result))
-                                     [:_highlights :name])]
-        (is (re-find #"<em class=\"highlight\">John</em>" highlighted-name))))))
+          result (ports/search-users service "John" {})
+          highlighted-name (get-in (first (:results result))
+                                   [:_highlights :name])]
+      (is (re-find #"<em class=\"highlight\">John</em>" highlighted-name)))))
