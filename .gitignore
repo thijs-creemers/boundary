@@ -8,6 +8,7 @@ target/
 .nrepl-port
 .cache
 .clj-kondo/
+.clojure-mcp/
 
 # IDE
 .idea/

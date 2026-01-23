@@ -23,7 +23,7 @@ Prerequisites
   - clojure -M:repl-clj
   - (require '[integrant.repl :as ig-repl])
   - (ig-repl/go)
-- The server listens on port 3000 (auto-fallbacks 3001–3099 if busy).
+- The server listens on port 3000.
 - Make a change and reload:
   - (ig-repl/reset)
 

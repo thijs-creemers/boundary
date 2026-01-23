@@ -40,8 +40,8 @@
 (defn routes [entities]
   (ring/ring-handler
     (ring/router
-      [["/" {:get (fn [_] (-> (home-page) resp/response (resp/content-type "text/html")))}]
-       ["/admin" {:get (fn [_] (-> (admin-page entities) resp/response (resp/content-type "text/html")))}]])
+      [["/" {:get (fn [_] (-> (home-page) resp/response (resp/content-type "text/html; charset=utf-8")))}]
+       ["/admin" {:get (fn [_] (-> (admin-page entities) resp/response (resp/content-type "text/html; charset=utf-8")))}]])
     (ring/create-default-handler)))
 
 (defmethod ig/init-key :boundary/server [_ {:keys [port admin]}]

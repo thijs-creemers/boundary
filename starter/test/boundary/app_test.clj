@@ -1,8 +1,7 @@
 (ns boundary.app-test
   (:require [clojure.test :refer [deftest is testing]]
             [boundary.app :as app]
-            [ring.mock.request :as mock]
-            [ring.util.response :as resp]))
+            [ring.mock.request :as mock]))
 
 (deftest routes-respond
   (let [entities {:users {:label "Users"}
