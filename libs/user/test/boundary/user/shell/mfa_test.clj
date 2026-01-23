@@ -6,7 +6,8 @@
    Note: TOTP code verification tests are limited because we cannot easily generate
    valid time-based codes in tests. Real verification is tested in integration tests."
   {:kaocha.testable/meta {:integration true :user true}}
-  (:require [clojure.test :refer [deftest testing is]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest testing is]]
             [boundary.user.shell.mfa :as mfa-shell]
             [boundary.user.ports :as ports]))
 
@@ -138,7 +139,7 @@
         (is (every? #(re-matches #"[A-Za-z0-9-]+" %) codes)))
 
       (testing "generates codes of appropriate length (12+ chars without dashes)"
-        (is (every? #(>= (count (clojure.string/replace % #"-" "")) 12) codes)))
+        (is (every? #(>= (count (str/replace % #"-" "")) 12) codes)))
 
       (testing "generates different codes on each call"
         (let [codes2 (mfa-shell/generate-backup-codes 10)]

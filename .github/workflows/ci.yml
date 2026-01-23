@@ -31,6 +31,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
       
+      - name: Clear clj-kondo cache
+        run: rm -rf .clj-kondo/.cache/* 2>/dev/null || true
+      
       - name: Lint with clj-kondo
         run: |
           clojure -M:clj-kondo --lint \
