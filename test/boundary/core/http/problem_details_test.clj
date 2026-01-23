@@ -164,11 +164,9 @@
   (testing "includes correlation-id in headers when present in context"
     (let [exception (create-test-exception)
           context {:correlation-id "test-correlation-123"}
-          response (pd/exception->problem-response exception "test-correlation-123" nil {} context)]
-
-      ;; Parse the JSON body since it's a string
-      (let [body (json/parse-string (:body response))]
-        (is (= "test-correlation-123" (get body "correlationId"))))))
+          response (pd/exception->problem-response exception "test-correlation-123" nil {} context)
+          body (json/parse-string (:body response))]
+      (is (= "test-correlation-123" (get body "correlationId")))))
 
   (testing "sets correct content type"
     (let [exception (create-test-exception)

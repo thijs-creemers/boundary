@@ -8,8 +8,7 @@
    - Relationship detection (Week 1 stub, Week 2+ full implementation)
    - Entity config merging (auto-detected + manual overrides)"
   (:require [boundary.admin.core.schema-introspection :as introspection]
-            [clojure.test :refer [deftest is testing]])
-  (:import [java.time Instant]))
+            [clojure.test :refer [deftest is testing]]))
 
 ^{:kaocha.testable/meta {:unit true :admin true}}
 

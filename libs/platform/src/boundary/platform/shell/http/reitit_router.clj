@@ -17,8 +17,7 @@
                         [ring.middleware.resource :refer [wrap-resource]]
                         [ring.middleware.cookies :refer [wrap-cookies]]
                         [ring.middleware.params :refer [wrap-params]]
-                        [muuntaja.core :as m]
-                        [muuntaja.middleware :as muuntaja-middleware]))
+                        [muuntaja.core :as m]))
 
 ;; =============================================================================
 ;; Symbol Resolution

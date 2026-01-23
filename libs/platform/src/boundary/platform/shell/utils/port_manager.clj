@@ -17,7 +17,7 @@
      true if port is available, false otherwise"
   [port]
   (try
-    (with-open [socket (java.net.ServerSocket. port)]
+    (with-open [_socket (java.net.ServerSocket. port)]
       true)
     (catch java.io.IOException _
       false)))

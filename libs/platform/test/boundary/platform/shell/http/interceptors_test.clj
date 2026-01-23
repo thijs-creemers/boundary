@@ -80,7 +80,7 @@
 (deftest run-http-interceptors-happy-path-test
   (testing "runs interceptors and handler successfully"
     (let [{:keys [system]} (create-mock-system)
-          handler (fn [req] {:status 200 :body "OK"})
+          handler (fn [_req] {:status 200 :body "OK"})
           request {:request-method :get :uri "/api/users"}
 
           enter-called (atom [])
@@ -108,7 +108,7 @@
 (deftest run-http-interceptors-error-handling-test
   (testing "catches handler exceptions and runs error phase"
     (let [{:keys [system]} (create-mock-system)
-          handler (fn [req] (throw (ex-info "Handler error" {:type :validation-error})))
+          handler (fn [_req] (throw (ex-info "Handler error" {:type :validation-error})))
           request {:request-method :get :uri "/api/users"}
 
           error-called (atom [])
@@ -130,7 +130,7 @@
 (deftest run-http-interceptors-ordering-test
   (testing "executes enter in forward order, leave in reverse"
     (let [{:keys [system]} (create-mock-system)
-          handler (fn [req] {:status 200 :body "OK"})
+          handler (fn [_req] {:status 200 :body "OK"})
           request {:request-method :get :uri "/api/users"}
 
           execution-order (atom [])
@@ -155,7 +155,7 @@
 (deftest run-http-interceptors-context-propagation-test
   (testing "context changes propagate through pipeline"
     (let [{:keys [system]} (create-mock-system)
-          handler (fn [req] {:status 200 :body "OK"})
+          handler (fn [_req] {:status 200 :body "OK"})
           request {:request-method :get :uri "/api/users"}
 
           add-attr-interceptor {:name :add-attr
@@ -180,7 +180,7 @@
 (deftest wrap-http-interceptors-test
   (testing "wraps handler with interceptors as middleware"
     (let [{:keys [system]} (create-mock-system)
-          handler (fn [req] {:status 200 :body "OK"})
+          handler (fn [_req] {:status 200 :body "OK"})
 
           test-interceptor {:name :test
                             :enter (fn [ctx]
@@ -199,7 +199,7 @@
 (deftest interceptor-middleware-test
   (testing "creates middleware function from interceptors"
     (let [{:keys [system]} (create-mock-system)
-          handler (fn [req] {:status 200 :body "OK"})
+          handler (fn [_req] {:status 200 :body "OK"})
 
           test-interceptor {:name :test
                             :leave (fn [ctx]

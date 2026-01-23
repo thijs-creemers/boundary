@@ -25,15 +25,11 @@
    Returns:
      Boolean - true if MFA should be required
      
-   Pure - business rule evaluation for MFA requirement."
-  [user risk-analysis]
-  (and (:mfa-enabled user)
-       (or
-        ;; Always require MFA if enabled
-        true
-        ;; Could add risk-based logic here
-        ;; (:requires-mfa? risk-analysis)
-        )))
+    Pure - business rule evaluation for MFA requirement."
+  [user _risk-analysis]
+  ;; Always require MFA if enabled
+  ;; Could add risk-based logic here using risk-analysis
+  (:mfa-enabled user))
 
 (defn can-enable-mfa?
   "Pure function: Check if user can enable MFA.
@@ -103,8 +99,8 @@
    Returns:
      Map of field updates to apply to user
      
-   Pure - data transformation for MFA setup."
-  [user mfa-secret backup-codes current-time]
+    Pure - data transformation for MFA setup."
+  [_user mfa-secret backup-codes current-time]
   {:mfa-enabled true
    :mfa-secret mfa-secret
    :mfa-backup-codes backup-codes
@@ -120,8 +116,8 @@
    Returns:
      Map of field updates to apply to user
      
-   Pure - data transformation for MFA removal."
-  [user]
+    Pure - data transformation for MFA removal."
+  [_user]
   {:mfa-enabled false
    :mfa-secret nil
    :mfa-backup-codes nil
@@ -316,8 +312,8 @@
       :allow-login? boolean
       :reason optional-string}
      
-   Pure - MFA login flow decision logic."
-  [user password-valid? mfa-code risk-analysis]
+    Pure - MFA login flow decision logic."
+  [user password-valid? mfa-code _risk-analysis]
   (cond
     ;; Password invalid - don't proceed
     (not password-valid?)

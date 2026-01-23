@@ -11,9 +11,7 @@
             [boundary.platform.shell.search.http :as search-http]
             [boundary.platform.search.ports :as ports]
             [cheshire.core :as json]
-            [clojure.string :as str])
-  (:import [java.time Instant]
-           [java.time.temporal ChronoUnit]))
+            [clojure.string :as str]))
 
 ;; ============================================================================
 ;; Test Helpers
@@ -39,7 +37,7 @@
 (defrecord MockSearchService [state]
   ports/ISearchService
 
-  (search-users [_this query-str options]
+  (search-users [_this _query-str options]
     {:results [{:id "user-1"
                 :name "John Doe"
                 :email "john@example.com"
@@ -58,7 +56,7 @@
             :size (:size options 20)}
      :took-ms 15})
 
-  (search-items [_this query-str options]
+  (search-items [_this _query-str options]
     {:results [{:id "item-1"
                 :name "Widget A"
                 :sku "WID-001"
@@ -70,12 +68,12 @@
             :size (:size options 20)}
      :took-ms 10})
 
-  (suggest [_this prefix field options]
+  (suggest [_this _prefix _field _options]
     {:suggestions ["John Doe" "John Smith" "Johnny"]
      :count 3
      :took-ms 5})
 
-  (reindex-all [_this index-name]
+  (reindex-all [_this _index-name]
     {:reindexed-count 1000
      :failed-count 0
      :duration-ms 5000})
@@ -156,7 +154,7 @@
           request {:query-params {"q" "John"
                                   "highlight" "false"}}
           response (call-handler handler request)
-          body (parse-json-body response)]
+          _body (parse-json-body response)]
 
       (is (= 200 (:status response))))))
 
@@ -206,7 +204,7 @@
           handler (search-http/search-users-handler service)
           request {:query-params {"q" ""}}
           response (call-handler handler request)
-          body (parse-json-body response)]
+          _body (parse-json-body response)]
 
       (is (= 400 (:status response))))))
 
@@ -215,7 +213,11 @@
     (let [failing-service (reify ports/ISearchService
                             (search-users [_this _query _options]
                               (throw (ex-info "Search failed"
-                                              {:type :search-error}))))
+                                              {:type :search-error})))
+                            (search-items [_this _query _options] nil)
+                            (suggest [_this _prefix _field _options] nil)
+                            (reindex-all [_this _index] nil)
+                            (get-search-stats [_this] nil))
           handler (search-http/search-users-handler failing-service)
           request {:query-params {"q" "John"}}
           response (call-handler handler request)
@@ -247,20 +249,24 @@
           handler (search-http/search-items-handler service)
           request {:query-params {}}
           response (call-handler handler request)
-          body (parse-json-body response)]
+          _body (parse-json-body response)]
 
       (is (= 400 (:status response))))))
 
 (deftest search-items-error-test
   (testing "returns 500 on service error"
     (let [failing-service (reify ports/ISearchService
+                            (search-users [_this _query _options] nil)
                             (search-items [_this _query _options]
                               (throw (ex-info "Search failed"
-                                              {:type :search-error}))))
+                                              {:type :search-error})))
+                            (suggest [_this _prefix _field _options] nil)
+                            (reindex-all [_this _index] nil)
+                            (get-search-stats [_this] nil))
           handler (search-http/search-items-handler failing-service)
           request {:query-params {"q" "Widget"}}
           response (call-handler handler request)
-          body (parse-json-body response)]
+          _body (parse-json-body response)]
 
       (is (= 500 (:status response))))))
 
@@ -338,14 +344,18 @@
 (deftest suggest-error-test
   (testing "returns 500 on service error"
     (let [failing-service (reify ports/ISearchService
+                            (search-users [_this _query _options] nil)
+                            (search-items [_this _query _options] nil)
                             (suggest [_this _prefix _field _options]
                               (throw (ex-info "Suggest failed"
-                                              {:type :suggest-error}))))
+                                              {:type :suggest-error})))
+                            (reindex-all [_this _index] nil)
+                            (get-search-stats [_this] nil))
           handler (search-http/suggest-handler failing-service)
           request {:query-params {"prefix" "Jo"
                                   "field" "name"}}
           response (call-handler handler request)
-          body (parse-json-body response)]
+          _body (parse-json-body response)]
 
       (is (= 500 (:status response))))))
 
@@ -370,7 +380,7 @@
           handler (search-http/reindex-handler service)
           request {:path-params {:index "items"}}
           response (call-handler handler request)
-          body (parse-json-body response)]
+          _body (parse-json-body response)]
 
       (is (= 201 (:status response))))))
 
@@ -392,20 +402,24 @@
           handler (search-http/reindex-handler service)
           request {:path-params {}}
           response (call-handler handler request)
-          body (parse-json-body response)]
+          _body (parse-json-body response)]
 
       (is (= 400 (:status response))))))
 
 (deftest reindex-error-test
   (testing "returns 500 on service error"
     (let [failing-service (reify ports/ISearchService
+                            (search-users [_this _query _options] nil)
+                            (search-items [_this _query _options] nil)
+                            (suggest [_this _prefix _field _options] nil)
                             (reindex-all [_this _index]
                               (throw (ex-info "Reindex failed"
-                                              {:type :reindex-error}))))
+                                              {:type :reindex-error})))
+                            (get-search-stats [_this] nil))
           handler (search-http/reindex-handler failing-service)
           request {:path-params {:index "users"}}
           response (call-handler handler request)
-          body (parse-json-body response)]
+          _body (parse-json-body response)]
 
       (is (= 500 (:status response))))))
 
@@ -429,13 +443,17 @@
 (deftest stats-error-test
   (testing "returns 500 on service error"
     (let [failing-service (reify ports/ISearchService
+                            (search-users [_this _query _options] nil)
+                            (search-items [_this _query _options] nil)
+                            (suggest [_this _prefix _field _options] nil)
+                            (reindex-all [_this _index] nil)
                             (get-search-stats [_this]
                               (throw (ex-info "Stats failed"
                                               {:type :stats-error}))))
           handler (search-http/stats-handler failing-service)
           request {}
           response (call-handler handler request)
-          body (parse-json-body response)]
+          _body (parse-json-body response)]
 
       (is (= 500 (:status response))))))
 

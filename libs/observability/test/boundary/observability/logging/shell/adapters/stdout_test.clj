@@ -1,5 +1,5 @@
 (ns boundary.observability.logging.shell.adapters.stdout-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is]]
             [boundary.observability.logging.shell.adapters.stdout :as stdout]
             [boundary.observability.logging.ports :as ports]
             [clojure.string :as str]

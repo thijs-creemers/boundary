@@ -43,8 +43,7 @@
   (:require [boundary.core.interceptor :as interceptor]
             [boundary.observability.metrics.ports :as metrics-ports]
             [boundary.observability.errors.core :as error-reporting]
-            [clojure.string :as str]
-            [ring.middleware.anti-forgery :as anti-forgery])
+            [clojure.string :as str])
   (:import [java.time Instant]
            [java.util UUID]))
 

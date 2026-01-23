@@ -31,6 +31,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
       
+      - name: Clear clj-kondo cache
+        run: rm -rf .clj-kondo/.cache/* 2>/dev/null || true
+      
       - name: Lint with clj-kondo
         run: |
           clojure -M:clj-kondo --lint \
@@ -109,7 +112,6 @@ jobs:
   test-observability:
     name: Test boundary/observability
     runs-on: ubuntu-latest
-    needs: [lint, test-core]
     
     steps:
       - uses: actions/checkout@v4
@@ -126,6 +128,18 @@ jobs:
             ~/.m2/repository
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+      
+      - name: Run docs-lint
+        run: clojure -M:docs-lint
+      
+      - name: Upload docs-lint report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docs-lint-report
+          path: build/docs-lint/
+          retention-days: 14
           restore-keys: ${{ runner.os }}-clojure-
       
       - name: Run tests
@@ -183,10 +197,13 @@ jobs:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
         run: clojure -M:test :user
   
-  test-admin:
-    name: Test boundary/admin
+  # =============================================================================
+  # Run all tests from root project
+  # =============================================================================
+  test:
+    name: Test All Libraries
     runs-on: ubuntu-latest
-    needs: [lint, test-user]
+    needs: lint
     
     steps:
       - uses: actions/checkout@v4
@@ -205,6 +222,10 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
       
+      - name: Run all tests
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters-long"
+        run: clojure -M:test
       - name: Run tests
         run: clojure -M:test :admin
   

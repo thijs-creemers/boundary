@@ -114,9 +114,8 @@
                  nil
                  nil)]
 
-      (let [fields (get-in entry [:changes :fields])]
-        (is (= 0 (count fields)))
-        (is (= 0 (get-in entry [:metadata :field-count]))))))
+      (is (= 0 (count (get-in entry [:changes :fields]))))
+      (is (= 0 (get-in entry [:metadata :field-count]))))
 
   (testing "Creates audit entry with only some fields changed"
     (let [old-values {:role :user :name "Name" :active true}
@@ -131,12 +130,11 @@
                  test-ip
                  test-user-agent)]
 
-      (let [fields (get-in entry [:changes :fields])]
-        (is (= 1 (count fields)))
-        (let [active-change (first fields)]
-          (is (= "active" (:field active-change)))
-          (is (= "true" (:old active-change)))
-          (is (= "false" (:new active-change))))))))
+      (is (= 1 (count (get-in entry [:changes :fields]))))
+      (let [active-change (first (get-in entry [:changes :fields]))]
+        (is (= "active" (:field active-change)))
+        (is (= "true" (:old active-change)))
+        (is (= "false" (:new active-change))))))))
 
 ;; =============================================================================
 ;; Deactivate User Audit Entry Tests
@@ -290,10 +288,9 @@
                  user-ids
                  nil
                  nil
-                 {})]
-
-      (let [stored-ids (get-in entry [:metadata :user-ids])]
-        (is (every? string? stored-ids))))))
+                 {})
+          stored-ids (get-in entry [:metadata :user-ids])]
+      (is (every? string? stored-ids)))))
 
 ;; =============================================================================
 ;; Login Audit Entry Tests

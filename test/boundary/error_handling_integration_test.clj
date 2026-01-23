@@ -9,8 +9,7 @@
             [clojure.test :refer [deftest testing is]]
             [cheshire.core :as json]
             [clojure.string :as str])
-  (:import [java.util UUID]
-           [java.time Instant]))
+  (:import [java.util UUID]))
 
 ;; =============================================================================
 ;; Test Infrastructure
@@ -101,8 +100,7 @@
 
 (deftest test-http-error-handling-end-to-end
   (testing "complete HTTP error handling flow with context and reporting"
-    (let [mock-error-service (create-mock-error-service)
-          user-id (UUID/randomUUID)
+    (let [user-id (UUID/randomUUID)
           tenant-id (UUID/randomUUID)
           correlation-id "integration-test-correlation-123"
 
@@ -357,7 +355,7 @@
 
       (try
         (cli-middleware/with-cli-error-reporting cli-context operation-with-reporting)
-        (catch Exception e
+        (catch Exception _e
           (let [reported-errors (get-reported-errors mock-error-service)
                 error-data (first reported-errors)]
 
@@ -452,35 +450,33 @@
                                (let [context (:error-context req)]
                                  (er-core/report-application-error
                                   mock-error-service exception "Deletion cascade failed" context)
-                                 (throw exception)))]
+                                 (throw exception)))
+          response (-> full-stack-handler
+                       http-middleware/wrap-correlation-id
+                       eh/wrap-error-context
+                       (eh/wrap-enhanced-exception-handling {})
+                       (#(% request)))]
 
-      (let [response (-> full-stack-handler
-                         http-middleware/wrap-correlation-id
-                         eh/wrap-error-context
-                         (eh/wrap-enhanced-exception-handling {})
-                         (#(% request)))]
+      (is (= 500 (:status response)))
+      (is (= request-id (get-in response [:headers "X-Correlation-ID"])))
 
-        (is (= 500 (:status response)))
-        (is (= request-id (get-in response [:headers "X-Correlation-ID"])))
+      (let [response-body (parse-response-with-timestamps (:body response))
+            reported-errors (get-reported-errors mock-error-service)
+            error-data (first reported-errors)
+            response-context (:context response-body)
+            reported-context (:context error-data)]
 
-        (let [response-body (parse-response-with-timestamps (:body response))
-              reported-errors (get-reported-errors mock-error-service)
-              error-data (first reported-errors)]
+        (is (= 1 (count reported-errors)))
 
-          (is (= 1 (count reported-errors)))
+        (is (= "Internal Server Error" (:title response-body)))
+        (is (= "Deletion cascade failed" (:message error-data)))
 
-          (is (= "Internal Server Error" (:title response-body)))
-          (is (= "Deletion cascade failed" (:message error-data)))
+        (is (= (str user-id) (:user-id response-context) (:user-id reported-context)))
+        (is (= (str tenant-id) (:tenant-id response-context) (:tenant-id reported-context)))
+        (is (= request-id (:trace-id response-context) (:trace-id reported-context)))
+        (is (= "DELETE" (:method response-context) (:method reported-context)))
+        (is (= "/api/users/456" (:uri response-context) (:uri reported-context)))
 
-          (let [response-context (:context response-body)
-                reported-context (:context error-data)]
-
-            (is (= (str user-id) (:user-id response-context) (:user-id reported-context)))
-            (is (= (str tenant-id) (:tenant-id response-context) (:tenant-id reported-context)))
-            (is (= request-id (:trace-id response-context) (:trace-id reported-context)))
-            (is (= "DELETE" (:method response-context) (:method reported-context)))
-            (is (= "/api/users/456" (:uri response-context) (:uri reported-context)))
-
-            (is (inst? (:timestamp response-context)))
-            (is (inst? (:timestamp reported-context)))
-            (is (= (:environment response-context) (:environment reported-context)))))))))
+        (is (inst? (:timestamp response-context)))
+        (is (inst? (:timestamp reported-context)))
+        (is (= (:environment response-context) (:environment reported-context)))))))

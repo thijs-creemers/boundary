@@ -65,7 +65,7 @@
      nil - side effects only"
   ([datasource db-config]
    (initialize! datasource db-config []))
-  ([datasource db-config custom-pragmas]
+  ([datasource _db-config custom-pragmas]
    (validate-datasource datasource)
    (let [all-pragmas   (concat default-sqlite-pragmas custom-pragmas)
          success-count (atom 0)

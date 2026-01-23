@@ -13,8 +13,7 @@
      init            - Initialize migration system"
   (:require [boundary.platform.shell.database.migrations :as migrations]
             [clojure.tools.cli :as cli]
-            [clojure.string :as str]
-            [clojure.tools.logging :as log])
+            [clojure.string :as str])
   (:gen-class))
 
 ;; =============================================================================
@@ -175,7 +174,7 @@
 (defn -main
   "Main CLI entry point for migration commands."
   [& args]
-  (let [{:keys [options arguments summary errors]} (cli/parse-opts args cli-options :in-order true)
+  (let [{:keys [options arguments errors]} (cli/parse-opts args cli-options :in-order true)
         command (first arguments)
         command-args (rest arguments)]
 

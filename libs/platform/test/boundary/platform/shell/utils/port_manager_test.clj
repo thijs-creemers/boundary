@@ -1,8 +1,8 @@
 (ns boundary.platform.shell.utils.port-manager-test
   "Tests for port allocation and conflict resolution"
   (:require [boundary.platform.shell.utils.port-manager :as pm]
-            [clojure.test :refer [deftest testing is are]])
-  (:import [java.net ServerSocket BindException]))
+            [clojure.test :refer [deftest testing is]])
+  (:import [java.net ServerSocket]))
 
 ;; =============================================================================
 ;; Test Helpers

@@ -47,8 +47,8 @@
      {:allowed? true} or 
      {:allowed? false :reason string :retry-after optional-instant}
      
-   Pure - business rule evaluation for login attempts."
-  [user login-config current-time]
+    Pure - business rule evaluation for login attempts."
+  [user _login-config current-time]
   (cond
     ;; User doesn't exist
     (nil? user)

@@ -25,18 +25,17 @@
             (let [interface-type (ctx/get-interface-type context)
                   input-data (case interface-type
                                :http (get-in context [:request :parameters :body])
-                               :cli (:opts context))]
+                               :cli (:opts context))
+                  ;; Required fields by interface
+                  required-fields (case interface-type
+                                    :http [:email :name :role]
+                                    :cli [:email :name :role])
+                  optional-fields (case interface-type
+                                    :http [:password]
+                                    :cli [:password])
+                  missing-fields (remove #(get input-data %) required-fields)]
 
-              ;; Required fields by interface
-              (let [required-fields (case interface-type
-                                      :http [:email :name :role]
-                                      :cli [:email :name :role])
-                    optional-fields (case interface-type
-                                      :http [:password]
-                                      :cli [:password])
-                    missing-fields (remove #(get input-data %) required-fields)]
-
-                (if (seq missing-fields)
+              (if (seq missing-fields)
                   ;; Validation failed
                   (let [validation-error {:type :validation-error
                                           :message (format "Missing required fields: %s"
@@ -53,7 +52,7 @@
                                       {:required-fields required-fields
                                        :optional-fields optional-fields
                                        :provided-fields (keys input-data)
-                                       :has-password (some? (:password input-data))})))))})
+                                       :has-password (some? (:password input-data))}))))})
 
 (def transform-user-creation-data
   "Transforms and normalizes user creation input data.
@@ -100,23 +99,20 @@
   {:name ::invoke-user-registration
    :enter (fn [context]
             (let [user-data (:user-data context)
-                  service (ctx/get-service context)]
-
-              ;; Add operation start breadcrumb
-              (let [updated-context (ctx/add-breadcrumb context :operation :user-registration-start
-                                                        {:email (:email user-data)
-                                                         :role (:role user-data)})]
-
-                ;; Call the core service; it returns the created user entity directly
-                (let [created-user (ports/register-user service user-data)]
-                  ;; Add success breadcrumb and result
-                  (-> updated-context
-                      (assoc :created-user created-user)
-                      (ctx/add-breadcrumb :operation :user-registration-success
-                                          {:user-id (:id created-user)
-                                           :email (:email created-user)
-                                           :role (:role created-user)}))))))})
-
+                  service (ctx/get-service context)
+                  ;; Add operation start breadcrumb
+                  updated-context (ctx/add-breadcrumb context :operation :user-registration-start
+                                                      {:email (:email user-data)
+                                                       :role (:role user-data)})
+                  ;; Call the core service; it returns the created user entity directly
+                  created-user (ports/register-user service user-data)]
+              ;; Add success breadcrumb and result
+              (-> updated-context
+                  (assoc :created-user created-user)
+                  (ctx/add-breadcrumb :operation :user-registration-success
+                                      {:user-id (:id created-user)
+                                       :email (:email created-user)
+                                       :role (:role created-user)}))))})
 (def format-user-creation-response
   "Formats the successful user creation response based on interface type.
    
@@ -889,15 +885,15 @@
                                                       {:user-id (:user-id session-data)})]
 
               (try
-                (let [auth-result (ports/authenticate-user service session-data)]
-                  ;; Normal authentication success - session with token
-                  (let [masked-token (str (take 8 (:token auth-result)) "...")]
-                    (-> updated-context
+                (let [auth-result (ports/authenticate-user service session-data)
+                      ;; Normal authentication success - session with token
+                      masked-token (str (take 8 (:token auth-result)) "...")]
+                  (-> updated-context
                       (assoc :session auth-result)
                       (ctx/add-breadcrumb :operation :user-authenticate-success
-                        {:user-id (:user-id auth-result)
-                         :session-token masked-token
-                         :expires-at (:expires-at auth-result)}))))
+                                          {:user-id (:user-id auth-result)
+                                           :session-token masked-token
+                                           :expires-at (:expires-at auth-result)})))
 
                 (catch Exception ex
                   (-> updated-context

@@ -3,9 +3,7 @@
   (:require [boundary.platform.shell.interfaces.cli.middleware :as cli-middleware]
             [boundary.platform.shell.utils.error-handling :as eh]
             [clojure.test :refer [deftest testing is]]
-            [clojure.string :as str])
-  (:import [java.time Instant]
-           [java.util UUID]))
+            [clojure.string :as str]))
 
 ;; =============================================================================
 ;; Test Helpers

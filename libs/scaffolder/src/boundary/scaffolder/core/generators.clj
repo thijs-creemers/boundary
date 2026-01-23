@@ -220,7 +220,7 @@
   [ctx]
   (let [module-name (:module-name ctx)
         entity (first (:entities ctx))
-        entity-name (:entity-name entity)
+        _entity-name (:entity-name entity)
         entity-lower (:entity-lower entity)
         entity-kebab (:entity-kebab entity)]
     (format "(ns boundary.%s.core.%s
@@ -726,7 +726,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
      String content for migration SQL
    
    Pure: true"
-  [module-name entity-name field migration-number]
+   [_module-name entity-name field migration-number]
   (let [table-name (template/kebab->snake (template/pluralize (str/lower-case entity-name)))
         field-ctx (template/build-field-context field)
         field-name (:field-name-snake field-ctx)
@@ -837,7 +837,7 @@ ALTER TABLE %s ADD COLUMN %s %s%s%s;
   (let [adapter-pascal (template/kebab->pascal adapter-name)
         record-name (str adapter-pascal (template/kebab->pascal module-name))
         methods-str (str/join "\n\n"
-                              (map (fn [{:keys [name args returns]}]
+                              (map (fn [{:keys [name args _returns]}]
                                      (let [args-str (str/join " " (cons "_this" args))]
                                        (format "  (%s [%s]\n    ;; TODO: Implement %s\n    (throw (ex-info \"Not implemented\" {:method :%s})))"
                                                name args-str name name)))

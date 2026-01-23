@@ -283,7 +283,7 @@
    
    Returns:
      nil"
-  [emitter action user-id success]
+  [emitter action _user-id success]
   (let [tags {:action (name action)
               :success (str success)}]
     (count-events emitter "user-action" tags)

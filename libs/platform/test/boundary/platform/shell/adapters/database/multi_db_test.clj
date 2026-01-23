@@ -4,7 +4,7 @@
    NOTE: These tests are currently disabled as they use an old protocol API.
    The new adapter system uses a different protocol interface.
    TODO: Rewrite these tests to use the new DBAdapter protocol."
-  (:require [clojure.test :refer :all]))
+  (:require [clojure.test :refer [deftest is testing]]))
 
 ;; TODO: Rewrite these tests for the new DBAdapter protocol
 ;; The following tests use the old protocol API and need to be updated
@@ -13,6 +13,7 @@
   (testing "Placeholder test while multi-db tests are being rewritten"
     (is true "Multi-db tests are temporarily disabled - see comment block below")))
 
+#_:clj-kondo/ignore
 (comment
 
 ;; =============================================================================

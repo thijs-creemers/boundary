@@ -174,9 +174,9 @@
      current-search: Current search term (optional)
      current-filters: Current filter values (optional)
 
-   Returns:
-     Hiccup search form structure"
-  [entity-name entity-config current-search current-filters]
+    Returns:
+      Hiccup search form structure"
+  [entity-name entity-config current-search _current-filters]
   (let [search-fields (:search-fields entity-config)
         has-search? (seq search-fields)]
     (when has-search?
@@ -464,9 +464,9 @@
      value: Field value to render
      field-config: Field configuration map
 
-   Returns:
-     Hiccup structure or string for display"
-  [field-name value field-config]
+    Returns:
+      Hiccup structure or string for display"
+  [_field-name value field-config]
   (let [field-type (:type field-config :string)]
     (cond
       (nil? value)
@@ -591,9 +591,9 @@
      Hiccup form structure"
   [entity-name record-id field value field-config]
   (let [widget-type (:widget field-config :text-input)
-        field-type (:type field-config :string)
+        _field-type (:type field-config :string)
         required? (:required field-config false)
-        cancel-url (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/cancel")]
+        _cancel-url (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/cancel")]
     [:form.inline-edit-form
      {:hx-patch (str "/web/admin/" (name entity-name) "/" record-id "/" (name field))
       :hx-target "closest td"
@@ -660,7 +660,7 @@
      Hiccup form structure with error display"
   [entity-name record-id field value field-config errors]
   (let [widget-type (:widget field-config :text-input)
-        field-type (:type field-config :string)
+        _field-type (:type field-config :string)
         required? (:required field-config false)]
     [:div.inline-edit-error
      [:form.inline-edit-form
@@ -1070,17 +1070,17 @@
      errors: Validation errors map
      permissions: Permission flags
 
-   Returns:
-     Hiccup form structure"
-  [entity-name entity-config record errors permissions]
+    Returns:
+      Hiccup form structure"
+  [entity-name entity-config record errors _permissions]
   (let [editable-fields (:editable-fields entity-config)
         primary-key (:primary-key entity-config :id)
         record-id (get record primary-key)
         is-edit? (some? record)
-        form-action (if is-edit?
-                      (str "/web/admin/" (name entity-name) "/" record-id)
-                      (str "/web/admin/" (name entity-name)))
-        form-method (if is-edit? "PUT" "POST")
+         form-action (if is-edit?
+                       (str "/web/admin/" (name entity-name) "/" record-id)
+                       (str "/web/admin/" (name entity-name)))
+         _form-method (if is-edit? "PUT" "POST")
         hx-attr (if is-edit? :hx-put :hx-post)]
     [:form.entity-form
      (merge {hx-attr form-action

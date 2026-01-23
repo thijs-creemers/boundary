@@ -82,7 +82,7 @@
    {:status 422
     :type "https://boundary.app/errors/invalid-entity-data"
     :title "Invalid Entity Data"
-    :detail-fn (fn [ex-data] "Entity data failed validation")
+    :detail-fn (fn [_ex-data] "Entity data failed validation")
     :errors-fn (fn [ex-data] (:errors ex-data))}})
 
 (def combined-error-mappings
@@ -429,9 +429,9 @@
 (defn admin-home-handler
   "Handler for admin home page - shows dashboard or first entity.
 
-   Week 1: Simple redirect to first entity in list
-   Week 2+: Dashboard with stats, recent activity, quick actions"
-  [admin-service schema-provider config]
+    Week 1: Simple redirect to first entity in list
+    Week 2+: Dashboard with stats, recent activity, quick actions"
+  [_admin-service schema-provider _config]
   (fn [request]
     (let [user (require-admin-user! request)
           _ (log/info "After require-admin-user!" {:user-email (:email user)})
@@ -462,11 +462,11 @@
   "Handler for entity list page with table, search, pagination.
 
    Supports:
-   - Text search across configured search-fields
-   - Column sorting (ascending/descending)
-   - Pagination (page-based)
-   - Field filters"
-  [admin-service schema-provider config]
+    - Text search across configured search-fields
+    - Column sorting (ascending/descending)
+    - Pagination (page-based)
+    - Field filters"
+  [admin-service schema-provider _config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -516,9 +516,9 @@
 (defn entity-table-fragment-handler
   "HTMX handler for entity table fragment.
 
-   Returns just the table HTML for dynamic updates.
-   Used when sorting, filtering, or paginating without full page reload."
-  [admin-service schema-provider config]
+    Returns just the table HTML for dynamic updates.
+    Used when sorting, filtering, or paginating without full page reload."
+  [admin-service schema-provider _config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -574,7 +574,7 @@
   "Handler for entity detail/edit page.
 
    Shows form for editing existing entity."
-  [admin-service schema-provider config]
+  [admin-service schema-provider _config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -620,7 +620,7 @@
   "Handler for new entity creation form.
 
    Shows empty form for creating new entity."
-  [admin-service schema-provider config]
+  [_admin-service schema-provider _config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -659,7 +659,7 @@
   "Handler for creating new entity.
 
    Validates form data, creates entity, redirects to list with flash message."
-  [admin-service schema-provider config]
+  [admin-service schema-provider _config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -687,7 +687,7 @@
 
       (if (:valid? validation-result)
         ; Create entity and return list page
-        (let [created-entity (ports/create-entity admin-service entity-name form-data)
+        (let [_created-entity (ports/create-entity admin-service entity-name form-data)
 
               ; Fetch list page data
               entities (ports/list-available-entities schema-provider)
@@ -733,7 +733,7 @@
   "Handler for updating existing entity.
 
    Validates form data, updates entity, redirects to list with flash message."
-  [admin-service schema-provider config]
+  [admin-service schema-provider _config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -763,7 +763,7 @@
 
       (if (:valid? validation-result)
         ; Update entity and redirect
-        (let [updated-entity (ports/update-entity admin-service entity-name id form-data)
+        (let [_updated-entity (ports/update-entity admin-service entity-name id form-data)
 
               ; Fetch list page data
               entities (ports/list-available-entities schema-provider)
@@ -816,7 +816,7 @@
 
    Soft or hard delete based on entity schema configuration.
    Returns HTMX fragment triggering table refresh."
-  [admin-service schema-provider config]
+  [admin-service schema-provider _config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -851,7 +851,7 @@
 
    Expects form with 'ids[]' parameter containing entity IDs.
    Returns HTMX fragment triggering table refresh."
-  [admin-service schema-provider config]
+  [admin-service schema-provider _config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -876,27 +876,26 @@
           result (when (and ids (seq ids))
                    (ports/bulk-delete-entities admin-service entity-name ids))
           success-count (or (:success-count result) 0)
-          failed-count (or (:failed-count result) 0)]
+          failed-count (or (:failed-count result) 0)
 
-      ; Return updated table regardless of success/failure
-      (let [; Fetch updated list
-            list-result (ports/list-entities admin-service entity-name {})
-            records (:records list-result)
-            total-count (:total-count list-result)
-            table-query {:page-size (:page-size list-result)
-                         :page (:page-number list-result)}
-            permissions (permissions/get-entity-permissions user entity-name entity-config)
+          ; Fetch updated list
+          list-result (ports/list-entities admin-service entity-name {})
+          records (:records list-result)
+          total-count (:total-count list-result)
+          table-query {:page-size (:page-size list-result)
+                       :page (:page-number list-result)}
+          permissions (permissions/get-entity-permissions user entity-name entity-config)
 
-            ; Create flash message
-            flash-msg (if (zero? failed-count)
-                        {:type :success
-                         :message (str "Successfully deleted " success-count " " (:label entity-config))}
-                        {:type :warning
-                         :message (str "Deleted " success-count ", failed " failed-count)})]
+          ; Create flash message
+          flash-msg (if (zero? failed-count)
+                      {:type :success
+                       :message (str "Successfully deleted " success-count " " (:label entity-config))}
+                      {:type :warning
+                       :message (str "Deleted " success-count ", failed " failed-count)})]
 
-         ; Return table HTML fragment
-        (htmx-fragment-response
-         (admin-ui/entity-table entity-name records entity-config table-query total-count permissions {} flash-msg))))))
+      ; Return table HTML fragment
+      (htmx-fragment-response
+       (admin-ui/entity-table entity-name records entity-config table-query total-count permissions {} flash-msg)))))
 
 ;; =============================================================================
 ;; Inline Editing Handlers (Week 2)
@@ -943,7 +942,7 @@
   "Handler for GET /:entity/:id/:field/edit - returns inline edit form.
 
    Returns HTMX fragment with form widget for editing a single field."
-  [admin-service schema-provider config]
+  [admin-service schema-provider _config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -986,7 +985,7 @@
   "Handler for PATCH /:entity/:id/:field - updates single field.
 
    Validates and updates single field, returns updated cell HTML."
-  [admin-service schema-provider config]
+  [admin-service schema-provider _config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -1040,9 +1039,9 @@
   "Handler for GET /:entity/:id/:field/cancel - cancels inline edit.
 
    Returns the original cell HTML without changes."
-  [admin-service schema-provider config]
+  [admin-service schema-provider _config]
   (fn [request]
-    (let [user (require-admin-user! request)
+    (let [_user (require-admin-user! request)
           entity-name (get-entity-name request)
           id (get-entity-id request)
           field (keyword (get-in request [:path-params :field]))

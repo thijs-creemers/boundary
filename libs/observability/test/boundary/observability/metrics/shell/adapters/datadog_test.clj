@@ -14,9 +14,7 @@
    [boundary.observability.metrics.ports :as ports]
    [boundary.observability.metrics.shell.adapters.datadog :as datadog]
    [clojure.string :as str]
-   [clojure.test :refer [deftest is testing use-fixtures]])
-  (:import
-   [java.util.concurrent CountDownLatch TimeUnit]))
+   [clojure.test :refer [deftest is testing]]))
 
 ;; =============================================================================
 ;; Test Fixtures and Utilities
@@ -45,16 +43,13 @@
   "Create test components with mock sender."
   ([]
    (create-test-components test-config))
-  ([config]
-   (let [{:keys [sender lines]} (create-mock-sender)
-         host (:host config)
-         port (:port config 8125)
-         max-packet-size (:max-packet-size config 1432)
-         config-atom (atom config)
-         registry (datadog/create-datadog-metrics-registry config-atom)
-         emitter (#'datadog/->DatadogMetricsEmitter registry config-atom sender)
-         exporter (datadog/create-datadog-metrics-exporter registry config-atom)
-         metrics-config (datadog/create-datadog-metrics-config config registry)]
+   ([config]
+    (let [{:keys [sender lines]} (create-mock-sender)
+          config-atom (atom config)
+          registry (datadog/create-datadog-metrics-registry config-atom)
+          emitter (#'datadog/->DatadogMetricsEmitter registry config-atom sender)
+          exporter (datadog/create-datadog-metrics-exporter registry config-atom)
+          metrics-config (datadog/create-datadog-metrics-config config registry)]
      {:registry registry
       :emitter emitter
       :exporter exporter
@@ -67,46 +62,46 @@
 
 (deftest test-metrics-registry
   (testing "Counter registration"
-    (let [{:keys [registry]} (create-test-components)]
-      (let [handle (ports/register-counter! registry :test.counter "Test counter" {:team "test"})]
-        (is (= :test.counter handle))
-        (let [metric (ports/get-metric registry :test.counter)]
-          (is (= :counter (:type metric)))
-          (is (= "Test counter" (:description metric)))
-          (is (= {:team "test"} (:tags metric)))
-          (is (:enabled metric))))))
+    (let [{:keys [registry]} (create-test-components)
+          handle (ports/register-counter! registry :test.counter "Test counter" {:team "test"})]
+      (is (= :test.counter handle))
+      (let [metric (ports/get-metric registry :test.counter)]
+        (is (= :counter (:type metric)))
+        (is (= "Test counter" (:description metric)))
+        (is (= {:team "test"} (:tags metric)))
+        (is (:enabled metric)))))
 
   (testing "Gauge registration"
-    (let [{:keys [registry]} (create-test-components)]
-      (let [handle (ports/register-gauge! registry :test.gauge "Test gauge" {:team "test"})]
-        (is (= :test.gauge handle))
-        (let [metric (ports/get-metric registry :test.gauge)]
-          (is (= :gauge (:type metric)))
-          (is (= "Test gauge" (:description metric)))
-          (is (= {:team "test"} (:tags metric)))
-          (is (:enabled metric))))))
+    (let [{:keys [registry]} (create-test-components)
+          handle (ports/register-gauge! registry :test.gauge "Test gauge" {:team "test"})]
+      (is (= :test.gauge handle))
+      (let [metric (ports/get-metric registry :test.gauge)]
+        (is (= :gauge (:type metric)))
+        (is (= "Test gauge" (:description metric)))
+        (is (= {:team "test"} (:tags metric)))
+        (is (:enabled metric)))))
 
   (testing "Histogram registration"
-    (let [{:keys [registry]} (create-test-components)]
-      (let [handle (ports/register-histogram! registry :test.histogram "Test histogram" [0.1 0.5 1.0] {:team "test"})]
-        (is (= :test.histogram handle))
-        (let [metric (ports/get-metric registry :test.histogram)]
-          (is (= :histogram (:type metric)))
-          (is (= "Test histogram" (:description metric)))
-          (is (= [0.1 0.5 1.0] (:buckets metric)))
-          (is (= {:team "test"} (:tags metric)))
-          (is (:enabled metric))))))
+    (let [{:keys [registry]} (create-test-components)
+          handle (ports/register-histogram! registry :test.histogram "Test histogram" [0.1 0.5 1.0] {:team "test"})]
+      (is (= :test.histogram handle))
+      (let [metric (ports/get-metric registry :test.histogram)]
+        (is (= :histogram (:type metric)))
+        (is (= "Test histogram" (:description metric)))
+        (is (= [0.1 0.5 1.0] (:buckets metric)))
+        (is (= {:team "test"} (:tags metric)))
+        (is (:enabled metric)))))
 
   (testing "Summary registration"
-    (let [{:keys [registry]} (create-test-components)]
-      (let [handle (ports/register-summary! registry :test.summary "Test summary" [0.5 0.95 0.99] {:team "test"})]
-        (is (= :test.summary handle))
-        (let [metric (ports/get-metric registry :test.summary)]
-          (is (= :summary (:type metric)))
-          (is (= "Test summary" (:description metric)))
-          (is (= [0.5 0.95 0.99] (:quantiles metric)))
-          (is (= {:team "test"} (:tags metric)))
-          (is (:enabled metric))))))
+    (let [{:keys [registry]} (create-test-components)
+          handle (ports/register-summary! registry :test.summary "Test summary" [0.5 0.95 0.99] {:team "test"})]
+      (is (= :test.summary handle))
+      (let [metric (ports/get-metric registry :test.summary)]
+        (is (= :summary (:type metric)))
+        (is (= "Test summary" (:description metric)))
+        (is (= [0.5 0.95 0.99] (:quantiles metric)))
+        (is (= {:team "test"} (:tags metric)))
+        (is (:enabled metric)))))
 
   (testing "Metric unregistration"
     (let [{:keys [registry]} (create-test-components)]
@@ -131,78 +126,78 @@
 
 (deftest test-metrics-emitter
   (testing "Counter increment"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-counter! registry :test.counter "Test counter" {:metric "tag"})]
-        (ports/inc-counter! emitter handle)
-        (is (= 1 (count @sent-lines)))
-        (is (.contains (first @sent-lines) "test.counter:1|c"))
-        (is (.contains (first @sent-lines) "#service:test-service,environment:test,metric:tag")))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-counter! registry :test.counter "Test counter" {:metric "tag"})]
+      (ports/inc-counter! emitter handle)
+      (is (= 1 (count @sent-lines)))
+      (is (.contains (first @sent-lines) "test.counter:1|c"))
+      (is (.contains (first @sent-lines) "#service:test-service,environment:test,metric:tag"))))
 
   (testing "Counter increment with value"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-counter! registry :test.counter "Test counter" {})]
-        (ports/inc-counter! emitter handle 5)
-        (is (= 1 (count @sent-lines)))
-        (is (.contains (first @sent-lines) "test.counter:5|c")))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-counter! registry :test.counter "Test counter" {})]
+      (ports/inc-counter! emitter handle 5)
+      (is (= 1 (count @sent-lines)))
+      (is (.contains (first @sent-lines) "test.counter:5|c"))))
 
   (testing "Counter increment with tags"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-counter! registry :test.counter "Test counter" {:metric "tag"})]
-        (ports/inc-counter! emitter handle 3 {:call "tag"})
-        (is (= 1 (count @sent-lines)))
-        (let [line (first @sent-lines)]
-          (is (.contains line "test.counter:3|c"))
-          (is (.contains line "service:test-service"))
-          (is (.contains line "environment:test"))
-          (is (.contains line "metric:tag"))
-          (is (.contains line "call:tag"))))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-counter! registry :test.counter "Test counter" {:metric "tag"})]
+      (ports/inc-counter! emitter handle 3 {:call "tag"})
+      (is (= 1 (count @sent-lines)))
+      (let [line (first @sent-lines)]
+        (is (.contains line "test.counter:3|c"))
+        (is (.contains line "service:test-service"))
+        (is (.contains line "environment:test"))
+        (is (.contains line "metric:tag"))
+        (is (.contains line "call:tag")))))
 
   (testing "Gauge set"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-gauge! registry :test.gauge "Test gauge" {})]
-        (ports/set-gauge! emitter handle 42.5)
-        (is (= 1 (count @sent-lines)))
-        (is (.contains (first @sent-lines) "test.gauge:42.5|g")))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-gauge! registry :test.gauge "Test gauge" {})]
+      (ports/set-gauge! emitter handle 42.5)
+      (is (= 1 (count @sent-lines)))
+      (is (.contains (first @sent-lines) "test.gauge:42.5|g"))))
 
   (testing "Histogram observe"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-histogram! registry :test.histogram "Test histogram" [0.1 0.5 1.0] {})]
-        (ports/observe-histogram! emitter handle 0.75)
-        (is (= 1 (count @sent-lines)))
-        (is (.contains (first @sent-lines) "test.histogram:0.75|h")))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-histogram! registry :test.histogram "Test histogram" [0.1 0.5 1.0] {})]
+      (ports/observe-histogram! emitter handle 0.75)
+      (is (= 1 (count @sent-lines)))
+      (is (.contains (first @sent-lines) "test.histogram:0.75|h"))))
 
   (testing "Summary observe"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-summary! registry :test.summary "Test summary" [0.5 0.95 0.99] {})]
-        (ports/observe-summary! emitter handle 1.25)
-        (is (= 1 (count @sent-lines)))
-        (is (.contains (first @sent-lines) "test.summary:1.25|h")))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-summary! registry :test.summary "Test summary" [0.5 0.95 0.99] {})]
+      (ports/observe-summary! emitter handle 1.25)
+      (is (= 1 (count @sent-lines)))
+      (is (.contains (first @sent-lines) "test.summary:1.25|h"))))
 
   (testing "Timing histogram"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-histogram! registry :test.timing "Test timing" [] {})]
-        (let [result (ports/time-histogram! emitter handle (fn [] (Thread/sleep 10) "result"))]
-          (is (= "result" result))
-          (is (= 1 (count @sent-lines)))
-          (let [line (first @sent-lines)]
-            (is (.contains line "test.timing:"))
-            (is (.contains line "|h"))
-            ;; Verify timing is reasonable (at least 5ms, less than 100ms)
-            (let [value-str (-> line (str/split #":") second (str/split #"\|") first)
-                  value (Double/parseDouble value-str)]
-              (is (>= value 5.0))
-              (is (<= value 100.0))))))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-histogram! registry :test.timing "Test timing" [] {})
+          result (ports/time-histogram! emitter handle (fn [] (Thread/sleep 10) "result"))]
+      (is (= "result" result))
+      (is (= 1 (count @sent-lines)))
+      (let [line (first @sent-lines)]
+        (is (.contains line "test.timing:"))
+        (is (.contains line "|h"))
+        ;; Verify timing is reasonable (at least 5ms, less than 100ms)
+        (let [value-str (-> line (str/split #":") second (str/split #"\|") first)
+              value (Double/parseDouble value-str)]
+          (is (>= value 5.0))
+          (is (<= value 100.0))))))
 
   (testing "Timing summary"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-summary! registry :test.timing "Test timing" [0.5 0.95] {})]
-        (let [result (ports/time-summary! emitter handle {:operation "test"} (fn [] (Thread/sleep 5) 123))]
-          (is (= 123 result))
-          (is (= 1 (count @sent-lines)))
-          (let [line (first @sent-lines)]
-            (is (.contains line "test.timing:"))
-            (is (.contains line "|h"))
-            (is (.contains line "operation:test"))))))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-summary! registry :test.timing "Test timing" [0.5 0.95] {})
+          result (ports/time-summary! emitter handle {:operation "test"} (fn [] (Thread/sleep 5) 123))]
+      (is (= 123 result))
+      (is (= 1 (count @sent-lines)))
+      (let [line (first @sent-lines)]
+        (is (.contains line "test.timing:"))
+        (is (.contains line "|h"))
+        (is (.contains line "operation:test"))))))
 
 ;; =============================================================================
 ;; Tag Merging Tests
@@ -211,20 +206,20 @@
 (deftest test-tag-merging
   (testing "Tag precedence: global < metric < call"
     (let [config (assoc test-config :global-tags {:env "prod" :service "test" :global "only"})
-          {:keys [registry emitter sent-lines]} (create-test-components config)]
-      (let [handle (ports/register-counter! registry :test.counter "Test" {:env "staging" :metric "only"})]
-        (ports/inc-counter! emitter handle 1 {:env "dev" :call "only"})
-        (is (= 1 (count @sent-lines)))
-        (let [line (first @sent-lines)
-              tags-part (-> line (str/split #"#") second)]
-          ;; Call tags should override metric and global
-          (is (.contains tags-part "env:dev"))
-          ;; Service should come from global (not overridden)
-          (is (.contains tags-part "service:test"))
-          ;; Unique tags from each level should be present
-          (is (.contains tags-part "global:only"))
-          (is (.contains tags-part "metric:only"))
-          (is (.contains tags-part "call:only")))))))
+          {:keys [registry emitter sent-lines]} (create-test-components config)
+          handle (ports/register-counter! registry :test.counter "Test" {:env "staging" :metric "only"})]
+      (ports/inc-counter! emitter handle 1 {:env "dev" :call "only"})
+      (is (= 1 (count @sent-lines)))
+      (let [line (first @sent-lines)
+            tags-part (-> line (str/split #"#") second)]
+        ;; Call tags should override metric and global
+        (is (.contains tags-part "env:dev"))
+        ;; Service should come from global (not overridden)
+        (is (.contains tags-part "service:test"))
+        ;; Unique tags from each level should be present
+        (is (.contains tags-part "global:only"))
+        (is (.contains tags-part "metric:only"))
+        (is (.contains tags-part "call:only"))))))
 
 ;; =============================================================================
 ;; Sampling Tests
@@ -232,33 +227,33 @@
 
 (deftest test-sampling
   (testing "No sampling (rate = 1.0)"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-counter! registry :test.counter "Test" {})]
-        (dotimes [_ 10]
-          (ports/inc-counter! emitter handle))
-        (is (= 10 (count @sent-lines))))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-counter! registry :test.counter "Test" {})]
+      (dotimes [_ 10]
+        (ports/inc-counter! emitter handle))
+      (is (= 10 (count @sent-lines)))))
 
   (testing "Sample rate annotation"
     (let [config (assoc test-config :sample-rate 0.5)
-          {:keys [registry emitter sent-lines]} (create-test-components config)]
-      (let [handle (ports/register-counter! registry :test.counter "Test" {})]
-        ;; Force at least one sample by calling many times
-        (dotimes [_ 100]
-          (ports/inc-counter! emitter handle))
-        ;; Should have some samples (not zero, not all)
-        (is (> (count @sent-lines) 0))
-        (is (< (count @sent-lines) 100))
-        ;; Lines should contain sample rate annotation
-        (is (every? #(.contains % "|@0.5") @sent-lines)))))
+          {:keys [registry emitter sent-lines]} (create-test-components config)
+          handle (ports/register-counter! registry :test.counter "Test" {})]
+      ;; Force at least one sample by calling many times
+      (dotimes [_ 100]
+        (ports/inc-counter! emitter handle))
+      ;; Should have some samples (not zero, not all)
+      (is (> (count @sent-lines) 0))
+      (is (< (count @sent-lines) 100))
+      ;; Lines should contain sample rate annotation
+      (is (every? #(.contains % "|@0.5") @sent-lines))))
 
   (testing "Gauge not sampled"
     (let [config (assoc test-config :sample-rate 0.5)
-          {:keys [registry emitter sent-lines]} (create-test-components config)]
-      (let [handle (ports/register-gauge! registry :test.gauge "Test" {})]
-        (ports/set-gauge! emitter handle 42)
-        (is (= 1 (count @sent-lines)))
-        ;; Gauge should not have sample rate annotation
-        (is (not (.contains (first @sent-lines) "@0.5")))))))
+          {:keys [registry emitter sent-lines]} (create-test-components config)
+          handle (ports/register-gauge! registry :test.gauge "Test" {})]
+      (ports/set-gauge! emitter handle 42)
+      (is (= 1 (count @sent-lines)))
+      ;; Gauge should not have sample rate annotation
+      (is (not (.contains (first @sent-lines) "@0.5"))))))
 
 ;; =============================================================================
 ;; Enable/Disable Tests
@@ -266,18 +261,18 @@
 
 (deftest test-metric-enable-disable
   (testing "Disabled metric does not emit"
-    (let [{:keys [registry emitter config sent-lines]} (create-test-components)]
-      (let [handle (ports/register-counter! registry :test.counter "Test" {})]
-        (ports/inc-counter! emitter handle)
-        (is (= 1 (count @sent-lines)))
+    (let [{:keys [registry emitter config sent-lines]} (create-test-components)
+          handle (ports/register-counter! registry :test.counter "Test" {})]
+      (ports/inc-counter! emitter handle)
+      (is (= 1 (count @sent-lines)))
 
-        (ports/disable-metric! config :test.counter)
-        (ports/inc-counter! emitter handle)
-        (is (= 1 (count @sent-lines))) ;; No new lines
+      (ports/disable-metric! config :test.counter)
+      (ports/inc-counter! emitter handle)
+      (is (= 1 (count @sent-lines))) ;; No new lines
 
-        (ports/enable-metric! config :test.counter)
-        (ports/inc-counter! emitter handle)
-        (is (= 2 (count @sent-lines)))))) ;; New line added
+      (ports/enable-metric! config :test.counter)
+      (ports/inc-counter! emitter handle)
+      (is (= 2 (count @sent-lines))))) ;; New line added
 
   (testing "Metric enabled check"
     (let [{:keys [registry config]} (create-test-components)]
@@ -294,52 +289,52 @@
 
 (deftest test-metrics-exporter
   (testing "Export all metrics"
-    (let [{:keys [registry emitter exporter]} (create-test-components)]
-      (let [counter-handle (ports/register-counter! registry :test.counter "Test counter" {})
-            gauge-handle (ports/register-gauge! registry :test.gauge "Test gauge" {})]
-        (ports/inc-counter! emitter counter-handle 5)
-        (ports/set-gauge! emitter gauge-handle 42)
+    (let [{:keys [registry emitter exporter]} (create-test-components)
+          counter-handle (ports/register-counter! registry :test.counter "Test counter" {})
+          gauge-handle (ports/register-gauge! registry :test.gauge "Test gauge" {})]
+      (ports/inc-counter! emitter counter-handle 5)
+      (ports/set-gauge! emitter gauge-handle 42)
 
-        (let [export (ports/export-metrics exporter :datadog)]
-          (is (= 2 (count export)))
-          (is (some #(= :test.counter (:name %)) export))
-          (is (some #(= :test.gauge (:name %)) export))))))
+      (let [export (ports/export-metrics exporter :datadog)]
+        (is (= 2 (count export)))
+        (is (some #(= :test.counter (:name %)) export))
+        (is (some #(= :test.gauge (:name %)) export)))))
 
   (testing "Export single metric"
-    (let [{:keys [registry emitter exporter]} (create-test-components)]
-      (let [handle (ports/register-counter! registry :test.counter "Test counter" {})]
-        (ports/inc-counter! emitter handle 3)
+    (let [{:keys [registry emitter exporter]} (create-test-components)
+          handle (ports/register-counter! registry :test.counter "Test counter" {})]
+      (ports/inc-counter! emitter handle 3)
 
-        (let [export (ports/export-metric exporter :test.counter :datadog)]
-          (is (= :test.counter (:name export)))
-          (is (= :counter (:type export)))
-          (is (= 3 (:value export)))))))
+      (let [export (ports/export-metric exporter :test.counter :datadog)]
+        (is (= :test.counter (:name export)))
+        (is (= :counter (:type export)))
+        (is (= 3 (:value export))))))
 
   (testing "Get metric values"
-    (let [{:keys [registry emitter exporter]} (create-test-components)]
-      (let [handle (ports/register-histogram! registry :test.histogram "Test histogram" [] {})]
-        (ports/observe-histogram! emitter handle 1.0)
-        (ports/observe-histogram! emitter handle 2.0)
-        (ports/observe-histogram! emitter handle 3.0)
+    (let [{:keys [registry emitter exporter]} (create-test-components)
+          handle (ports/register-histogram! registry :test.histogram "Test histogram" [] {})]
+      (ports/observe-histogram! emitter handle 1.0)
+      (ports/observe-histogram! emitter handle 2.0)
+      (ports/observe-histogram! emitter handle 3.0)
 
-        (let [values (ports/get-metric-values exporter :test.histogram)]
-          (is (= :histogram (:type values)))
-          (is (= [1.0 2.0 3.0] (:values values)))
-          (is (= {:count 3 :sum 6.0 :min 1.0 :max 3.0 :avg 2.0} (:stats values)))))))
+      (let [values (ports/get-metric-values exporter :test.histogram)]
+        (is (= :histogram (:type values)))
+        (is (= [1.0 2.0 3.0] (:values values)))
+        (is (= {:count 3 :sum 6.0 :min 1.0 :max 3.0 :avg 2.0} (:stats values))))))
 
   (testing "Reset metrics"
-    (let [{:keys [registry emitter exporter]} (create-test-components)]
-      (let [counter-handle (ports/register-counter! registry :test.counter "Test counter" {})
-            gauge-handle (ports/register-gauge! registry :test.gauge "Test gauge" {})]
-        (ports/inc-counter! emitter counter-handle 5)
-        (ports/set-gauge! emitter gauge-handle 42)
+    (let [{:keys [registry emitter exporter]} (create-test-components)
+          counter-handle (ports/register-counter! registry :test.counter "Test counter" {})
+          gauge-handle (ports/register-gauge! registry :test.gauge "Test gauge" {})]
+      (ports/inc-counter! emitter counter-handle 5)
+      (ports/set-gauge! emitter gauge-handle 42)
 
-        (ports/reset-metrics! exporter)
+      (ports/reset-metrics! exporter)
 
-        (let [counter-values (ports/get-metric-values exporter :test.counter)
-              gauge-values (ports/get-metric-values exporter :test.gauge)]
-          (is (= 0 (:value counter-values)))
-          (is (nil? (:value gauge-values))))))))
+      (let [counter-values (ports/get-metric-values exporter :test.counter)
+            gauge-values (ports/get-metric-values exporter :test.gauge)]
+        (is (= 0 (:value counter-values)))
+        (is (nil? (:value gauge-values)))))))
 
 ;; =============================================================================
 ;; Configuration Tests
@@ -366,38 +361,38 @@
 
 (deftest test-dogstatsd-protocol
   (testing "Counter line format"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-counter! registry :my.counter "Test" {})]
-        (ports/inc-counter! emitter handle 5)
-        (is (= 1 (count @sent-lines)))
-        (let [line (first @sent-lines)]
-          (is (.startsWith line "my.counter:5|c"))))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-counter! registry :my.counter "Test" {})]
+      (ports/inc-counter! emitter handle 5)
+      (is (= 1 (count @sent-lines)))
+      (let [line (first @sent-lines)]
+        (is (.startsWith line "my.counter:5|c")))))
 
   (testing "Gauge line format"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-gauge! registry :my.gauge "Test" {})]
-        (ports/set-gauge! emitter handle 42.5)
-        (is (= 1 (count @sent-lines)))
-        (let [line (first @sent-lines)]
-          (is (.startsWith line "my.gauge:42.5|g"))))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-gauge! registry :my.gauge "Test" {})]
+      (ports/set-gauge! emitter handle 42.5)
+      (is (= 1 (count @sent-lines)))
+      (let [line (first @sent-lines)]
+        (is (.startsWith line "my.gauge:42.5|g")))))
 
   (testing "Histogram line format"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-histogram! registry :my.histogram "Test" [] {})]
-        (ports/observe-histogram! emitter handle 1.25)
-        (is (= 1 (count @sent-lines)))
-        (let [line (first @sent-lines)]
-          (is (.startsWith line "my.histogram:1.25|h"))))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-histogram! registry :my.histogram "Test" [] {})]
+      (ports/observe-histogram! emitter handle 1.25)
+      (is (= 1 (count @sent-lines)))
+      (let [line (first @sent-lines)]
+        (is (.startsWith line "my.histogram:1.25|h")))))
 
   (testing "Tags format"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-counter! registry :my.counter "Test" {:key1 "value1" :key2 "value2"})]
-        (ports/inc-counter! emitter handle 1)
-        (is (= 1 (count @sent-lines)))
-        (let [line (first @sent-lines)
-              tags-part (-> line (str/split #"#") second)]
-          (is (.contains tags-part "key1:value1"))
-          (is (.contains tags-part "key2:value2")))))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-counter! registry :my.counter "Test" {:key1 "value1" :key2 "value2"})]
+      (ports/inc-counter! emitter handle 1)
+      (is (= 1 (count @sent-lines)))
+      (let [line (first @sent-lines)
+            tags-part (-> line (str/split #"#") second)]
+        (is (.contains tags-part "key1:value1"))
+        (is (.contains tags-part "key2:value2"))))))
 
 ;; =============================================================================
 ;; Component Integration Tests
@@ -449,10 +444,10 @@
       (is (= 0 (count @sent-lines)))))
 
   (testing "Wrong metric type operations are no-ops"
-    (let [{:keys [registry emitter sent-lines]} (create-test-components)]
-      (let [handle (ports/register-counter! registry :test.counter "Test" {})]
-        (ports/set-gauge! emitter handle 42) ;; Wrong operation for counter
-        (is (= 0 (count @sent-lines))))))
+    (let [{:keys [registry emitter sent-lines]} (create-test-components)
+          handle (ports/register-counter! registry :test.counter "Test" {})]
+      (ports/set-gauge! emitter handle 42) ;; Wrong operation for counter
+      (is (= 0 (count @sent-lines)))))
 
   (testing "Export non-existent metric throws"
     (let [{:keys [exporter]} (create-test-components)]

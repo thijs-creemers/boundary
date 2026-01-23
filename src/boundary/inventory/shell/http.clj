@@ -5,15 +5,15 @@
 ;; Legacy Reitit Routes
 ;; =============================================================================
 
-(defn api-routes [service]
-  [["/api/items" {:get {:handler (fn [req] {:status 200 :body []})}
-                  :post {:handler (fn [req] {:status 201 :body {}})}}]
-   ["/api/items/:id" {:get {:handler (fn [req] {:status 200 :body {}})}
-                      :put {:handler (fn [req] {:status 200 :body {}})}
-                      :delete {:handler (fn [req] {:status 204})}}]])
+(defn api-routes [_service]
+  [["/api/items" {:get {:handler (fn [_req] {:status 200 :body []})}
+                  :post {:handler (fn [_req] {:status 201 :body {}})}}]
+   ["/api/items/:id" {:get {:handler (fn [_req] {:status 200 :body {}})}
+                      :put {:handler (fn [_req] {:status 200 :body {}})}
+                      :delete {:handler (fn [_req] {:status 204})}}]])
 
-(defn web-routes [service config]
-  [["/web/items" {:get {:handler (fn [req] {:status 200 :body "<html><body>Web UI</body></html>"})}}]])
+(defn web-routes [_service _config]
+  [["/web/items" {:get {:handler (fn [_req] {:status 200 :body "<html><body>Web UI</body></html>"})}}]])
 
 (defn routes [service config]
   (vec (concat (api-routes service) (web-routes service config))))
@@ -30,14 +30,14 @@
      
    Returns:
      Vector of normalized route maps"
-  [service]
+  [_service]
   [{:path "/items"
-    :methods {:get {:handler (fn [req] {:status 200 :body []})}
-              :post {:handler (fn [req] {:status 201 :body {}})}}}
+    :methods {:get {:handler (fn [_req] {:status 200 :body []})}
+              :post {:handler (fn [_req] {:status 201 :body {}})}}}
    {:path "/items/:id"
-    :methods {:get {:handler (fn [req] {:status 200 :body {}})}
-              :put {:handler (fn [req] {:status 200 :body {}})}
-              :delete {:handler (fn [req] {:status 204})}}}])
+    :methods {:get {:handler (fn [_req] {:status 200 :body {}})}
+              :put {:handler (fn [_req] {:status 200 :body {}})}
+              :delete {:handler (fn [_req] {:status 204})}}}])
 
 (defn normalized-web-routes
   "Define web UI routes in normalized format (WITHOUT /web prefix).
@@ -51,9 +51,9 @@
      
    Returns:
      Vector of normalized route maps"
-  [service config]
+  [_service _config]
   [{:path "/items"
-    :methods {:get {:handler (fn [req] {:status 200 :body "<html><body>Web UI</body></html>"})}}}])
+    :methods {:get {:handler (fn [_req] {:status 200 :body "<html><body>Web UI</body></html>"})}}}])
 
 (defn inventory-routes-normalized
   "Define inventory module routes in normalized format for top-level composition.

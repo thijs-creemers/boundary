@@ -184,9 +184,9 @@
   - options: Map with :max-size, :allowed-types, :allowed-extensions
 
   Returns validation result map with all errors if any."
-  [{:keys [bytes content-type size] :as file-data}
-   {:keys [filename] :as file-metadata}
-   {:keys [max-size allowed-types allowed-extensions] :as options}]
+  [{:keys [bytes content-type size] :as _file-data}
+   {:keys [filename] :as _file-metadata}
+   {:keys [max-size allowed-types allowed-extensions] :as _options}]
   (let [file-size (or size (alength bytes))
         validations [(validate-file-size file-size max-size)
                      (validate-content-type content-type allowed-types)

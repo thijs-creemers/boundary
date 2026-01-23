@@ -168,11 +168,11 @@
       (db/execute-update! ctx {:delete-from :test_users})
 
       ;; Test successful transaction
-      (db/with-transaction [tx ctx]
-        (db/execute-update! tx {:insert-into :test_users
-                                :values [{:id user-id-1 :email "tx1@test.com" :name "TX User 1"}]})
-        (db/execute-update! tx {:insert-into :test_users
-                                :values [{:id user-id-2 :email "tx2@test.com" :name "TX User 2"}]}))
+      (db/with-transaction [tx-ctx ctx]
+        (db/execute-update! tx-ctx {:insert-into :test_users
+                                    :values [{:id user-id-1 :email "tx1@test.com" :name "TX User 1"}]})
+        (db/execute-update! tx-ctx {:insert-into :test_users
+                                    :values [{:id user-id-2 :email "tx2@test.com" :name "TX User 2"}]}))
 
       ;; Verify both records were committed
       (is (= 2 (count (db/execute-query! ctx {:select [:*] :from [:test_users]}))))
@@ -182,9 +182,9 @@
 
       ;; Test rollback on exception
       (is (thrown? java.lang.Exception
-                   (db/with-transaction [tx ctx]
-                     (db/execute-update! tx {:insert-into :test_users
-                                             :values [{:id user-id-1 :email "rollback@test.com" :name "Rollback User"}]})
+                   (db/with-transaction [tx-ctx ctx]
+                     (db/execute-update! tx-ctx {:insert-into :test_users
+                                                 :values [{:id user-id-1 :email "rollback@test.com" :name "Rollback User"}]})
                      (throw (RuntimeException. "Intentional failure")))))
 
       ;; Verify no records were committed due to rollback
@@ -359,16 +359,15 @@
                           :values [{:id user-id-1 :email "batch1@test.com" :name "Batch User 1"}]}
                          {:insert-into :test_users
                           :values [{:id user-id-2 :email "batch2@test.com" :name "Batch User 2"}]}
-                         {:select [[:%count.* :count]] :from [:test_users]}]]
+                         {:select [[:%count.* :count]] :from [:test_users]}]
+          results (db/execute-batch! ctx batch-queries)]
+      (is (= 3 (count results)))
 
-      (let [results (db/execute-batch! ctx batch-queries)]
-        (is (= 3 (count results)))
-
-        ;; First two should be update counts, last should be query result
-        (is (= 1 (first results))) ; First insert affected 1 row
-        (is (= 1 (second results))) ; Second insert affected 1 row
-        (is (vector? (nth results 2))) ; Third is query result
-        (is (= 2 (:count (first (nth results 2))))))))) ; Should have 2 total users
+      ;; First two should be update counts, last should be query result
+      (is (= 1 (first results))) ; First insert affected 1 row
+      (is (= 1 (second results))) ; Second insert affected 1 row
+      (is (vector? (nth results 2))) ; Third is query result
+      (is (= 2 (:count (first (nth results 2))))))))
 
 ;; =============================================================================
 ;; Performance and Logging Tests
@@ -428,8 +427,7 @@
                             (db/execute-one! ctx {:select [:email] :from [:test_users] :where [:= :id user-id]})))]
 
       ;; Test with H2 (our test database)
-      (let [result (test-query-fn @test-ctx)]
-        (is (= "cross@db.test" (:email result)))))))
+      (is (= "cross@db.test" (:email (test-query-fn @test-ctx)))))))
 
 (deftest test-database-info
   (testing "Database info provides useful metadata"

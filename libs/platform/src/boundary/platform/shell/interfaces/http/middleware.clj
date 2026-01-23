@@ -150,7 +150,7 @@
    Returns:
      Ring middleware function"
   ([handler] (wrap-observability-context handler nil))
-  ([handler logger]
+  ([handler _logger]
    (fn [request]
      (let [{:keys [correlation-id tenant-id user-id request-method uri]} request
            base-context (cond-> {}

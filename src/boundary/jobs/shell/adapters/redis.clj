@@ -15,7 +15,6 @@
    - Atomic operations"
   (:require [boundary.jobs.ports :as ports]
             [boundary.jobs.core.job :as job]
-            [boundary.jobs.schema :as schema]
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
   (:import [redis.clients.jedis Jedis JedisPool JedisPoolConfig]
@@ -44,11 +43,6 @@
   "Generate Redis key for dead letter queue."
   []
   "jobs:failed")
-
-(defn- stats-key
-  "Generate Redis key for statistics."
-  [queue-name]
-  (str "stats:" (name queue-name)))
 
 ;; =============================================================================
 ;; Job Serialization
@@ -90,6 +84,9 @@
 ;; =============================================================================
 ;; Job Queue Implementation
 ;; =============================================================================
+
+;; Forward declaration for use in protocol implementation
+(declare process-scheduled-jobs-internal!)
 
 (defrecord RedisJobQueue [^JedisPool pool]
   ports/IJobQueue
@@ -179,13 +176,16 @@
                (map #(second (re-find #"queue:([^:]+)" %)))
                (filter some?)
                (map keyword)
-               vec))))))
+               vec)))))
+
+  (process-scheduled-jobs! [this]
+    (process-scheduled-jobs-internal! this)))
 
 ;; =============================================================================
 ;; Scheduled Job Processor
 ;; =============================================================================
 
-(defn process-scheduled-jobs!
+(defn- process-scheduled-jobs-internal!
   "Move scheduled jobs that are due to execution queues.
 
    This should be called periodically (e.g., every 5 seconds) by a worker.
@@ -344,7 +344,7 @@
 (defrecord RedisJobStats [^JedisPool pool]
   ports/IJobStats
 
-(job-stats [this]
+  (job-stats [this]
     (with-redis pool
       (fn [^Jedis redis]
         (let [queue-keys (.keys redis "queue:*")
@@ -379,7 +379,7 @@
   (job-history [_ job-type limit]
     (with-redis pool
       (fn [^Jedis redis]
-        ;; Simplified implementation - in production, use time-series data
+       ;; Simplified implementation - in production, use time-series data
         (let [job-keys (.keys redis "job:*")]
           (->> job-keys
                (map (fn [key]

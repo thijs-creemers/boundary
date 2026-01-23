@@ -54,7 +54,7 @@
       (let [code-int (Integer/parseInt (str/trim code))]
         (boolean (otp/is-valid-totp-token? code-int secret)))
       false) ; Explicit false instead of nil when inputs invalid
-    (catch Exception e
+    (catch Exception _e
       false)))
 
 (defn generate-totp-uri
@@ -270,9 +270,8 @@
      {:valid? boolean
       :used-backup-code? boolean
       :updates map (if backup code used)}"
-  [mfa-service user code]
-  (let [{:keys [user-repository]} mfa-service]
-    (cond
+  [_mfa-service user code]
+  (cond
       ;; Try TOTP verification first
       (verify-totp-code code (:mfa-secret user))
       {:valid? true
@@ -288,7 +287,7 @@
       ;; Invalid code
       :else
       {:valid? false
-       :used-backup-code? false})))
+       :used-backup-code? false}))
 
 (defn get-mfa-status
   "Get MFA status for a user.

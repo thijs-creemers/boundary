@@ -115,28 +115,27 @@
                                                   (-> user-data
                                                       (assoc :password-hash password-hash)
                                                       (dissoc :password))
-                                                  user-data)]
+                                                  user-data)
+                            ;; 5. Persist using impure shell persistence layer
+                            prepared-user (user-core/prepare-user-for-creation user-data-with-hash (current-timestamp) (generate-user-id))
+                            created-user (.create-user user-repository prepared-user)]
+                        (println "DEBUG created-user in service:" (select-keys created-user [:id :email :name :role :created-at]))
 
-                        ;; 5. Persist using impure shell persistence layer
-                        (let [prepared-user (user-core/prepare-user-for-creation user-data-with-hash (current-timestamp) (generate-user-id))
-                              created-user (.create-user user-repository prepared-user)]
-                          (println "DEBUG created-user in service:" (select-keys created-user [:id :email :name :role :created-at]))
+                        ;; 6. Create audit log entry for user creation
+                        (try
+                          (.create-audit-log audit-repository
+                                             (audit-core/create-user-audit-entry
+                                              nil  ; actor-id (nil for self-registration, or actor from context)
+                                              "system"  ; actor-email (system or actual actor)
+                                              created-user
+                                              nil  ; ip-address (extract from request context if available)
+                                              nil)) ; user-agent (extract from request context if available)
+                          (catch Exception e
+                            ;; Log audit failure but don't fail the operation
+                            (println "WARN: Failed to create audit log:" (.getMessage e))))
 
-                          ;; 6. Create audit log entry for user creation
-                          (try
-                            (.create-audit-log audit-repository
-                                               (audit-core/create-user-audit-entry
-                                                nil  ; actor-id (nil for self-registration, or actor from context)
-                                                "system"  ; actor-email (system or actual actor)
-                                                created-user
-                                                nil  ; ip-address (extract from request context if available)
-                                                nil)) ; user-agent (extract from request context if available)
-                            (catch Exception e
-                              ;; Log audit failure but don't fail the operation
-                              (println "WARN: Failed to create audit log:" (.getMessage e))))
-
-                          ;; Remove sensitive data before returning
-                          (dissoc created-user :password-hash)))))
+                        ;; Remove sensitive data before returning
+                        (dissoc created-user :password-hash))))
                   {:system {:user-repository user-repository
                             :session-repository session-repository
                             :auth-service auth-service}})]
@@ -246,7 +245,7 @@
        (let [session-token (:session-token params)]
          ;; 1. Find and invalidate session using impure shell persistence layer
          (if-let [session (.find-session-by-token session-repository session-token)]
-           (let [invalidated-session (.invalidate-session session-repository session-token)
+            (let [_invalidated-session (.invalidate-session session-repository session-token)
                  ;; Get user info for audit log
                  user (.find-user-by-id user-repository (:user_id session))]
 
@@ -334,28 +333,27 @@
 
          ;; 2. Prepare user with updated timestamp and handle active/deleted_at
          (let [current-time (current-timestamp)
-               prepared-user (user-core/prepare-user-for-update user-entity current-time)]
+               prepared-user (user-core/prepare-user-for-update user-entity current-time)
+               ;; 3. Persist using impure shell persistence layer
+               updated-user (.update-user user-repository prepared-user)]
 
-           ;; 3. Persist using impure shell persistence layer
-           (let [updated-user (.update-user user-repository prepared-user)]
+           ;; 4. Create audit log entry
+           ;; TODO: Extract actor info from context (currently using target user as actor)
+           (when (and updated-user old-user)
+             (let [audit-entry (audit-core/update-user-audit-entry
+                                (:id updated-user)      ; actor-id (TODO: should be from context)
+                                (:email updated-user)   ; actor-email (TODO: should be from context)
+                                (:id updated-user)      ; target-user-id
+                                (:email updated-user)   ; target-user-email
+                                old-user                ; old user data
+                                updated-user            ; new user data
+                                nil                     ; ip-address (TODO: extract from context)
+                                nil)]                   ; user-agent (TODO: extract from context)
+               (.create-audit-log audit-repository audit-entry)))
 
-             ;; 4. Create audit log entry
-             ;; TODO: Extract actor info from context (currently using target user as actor)
-             (when (and updated-user old-user)
-               (let [audit-entry (audit-core/update-user-audit-entry
-                                  (:id updated-user)      ; actor-id (TODO: should be from context)
-                                  (:email updated-user)   ; actor-email (TODO: should be from context)
-                                  (:id updated-user)      ; target-user-id
-                                  (:email updated-user)   ; target-user-email
-                                  old-user                ; old user data
-                                  updated-user            ; new user data
-                                  nil                     ; ip-address (TODO: extract from context)
-                                  nil)]                   ; user-agent (TODO: extract from context)
-                 (.create-audit-log audit-repository audit-entry)))
-
-             ;; Remove sensitive data before returning
-             (when updated-user
-               (dissoc updated-user :password-hash))))))
+           ;; Remove sensitive data before returning
+           (when updated-user
+             (dissoc updated-user :password-hash)))))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))

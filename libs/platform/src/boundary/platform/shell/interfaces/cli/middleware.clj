@@ -163,16 +163,16 @@
                            :event :cli-command-start}
                           context)))
 
-       (try
-         (let [result (f service cli-opts context)
-               duration (- (System/currentTimeMillis) start-time)
-               final-context (assoc context
-                                    :duration-ms duration
-                                    :outcome :success
-                                    :event :cli-command-complete)
-               success-details (merge command-details
-                                      {:duration-ms duration
-                                       :outcome "success"})]
+        (try
+          (let [result (f service cli-opts context)
+                duration (- (System/currentTimeMillis) start-time)
+                final-context (assoc context
+                                     :duration-ms duration
+                                     :outcome :success
+                                     :event :cli-command-complete)
+                _success-details (merge command-details
+                                        {:duration-ms duration
+                                         :outcome "success"})]
 
 ;; Note: breadcrumb tracking removed - should be handled by error reporting services
 
@@ -183,18 +183,18 @@
 
            result)
 
-         (catch Exception ex
-           (let [duration (- (System/currentTimeMillis) start-time)
-                 error-context (assoc context
-                                      :duration-ms duration
-                                      :outcome :error
-                                      :error (.getMessage ex)
-                                      :event :cli-command-error)
-                 error-details (merge command-details
-                                      {:duration-ms duration
-                                       :outcome "error"
+          (catch Exception ex
+            (let [duration (- (System/currentTimeMillis) start-time)
+                  error-context (assoc context
+                                       :duration-ms duration
+                                       :outcome :error
                                        :error (.getMessage ex)
-                                       :exception-type (.getSimpleName (class ex))})]
+                                       :event :cli-command-error)
+                  _error-details (merge command-details
+                                        {:duration-ms duration
+                                         :outcome "error"
+                                         :error (.getMessage ex)
+                                         :exception-type (.getSimpleName (class ex))})]
 
 ;; Note: breadcrumb tracking removed - should be handled by error reporting services
 

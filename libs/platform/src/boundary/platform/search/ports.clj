@@ -236,7 +236,7 @@
    
    Returns:
      Implementation of ISearchService"
-  [search-provider config]
-  ;; Implementation provided in shell layer
-  (throw (ex-info "create-search-service must be implemented in shell layer"
-                  {:type :not-implemented})))
+   [_search-provider _config]
+   ;; Implementation provided in shell layer
+   (throw (ex-info "create-search-service must be implemented in shell layer"
+                   {:type :not-implemented})))

@@ -4,7 +4,7 @@
             [boundary.platform.shell.system.wiring]
             [boundary.user.shell.module-wiring]
             [boundary.platform.shell.utils.port-manager :as port-manager]
-            [clojure.test :refer [deftest testing is use-fixtures]]
+            [clojure.test :refer [deftest testing is]]
             [integrant.core :as ig]
             [clojure.tools.logging :as log])
   (:import [java.net ServerSocket BindException]))

@@ -24,7 +24,7 @@
   (schema-repo/create-schema-repository db-ctx config))
 
 (defmethod ig/halt-key! :boundary/admin-schema-provider
-  [_ schema-provider]
+  [_ _schema-provider]
   ; No cleanup needed - stateless component
   nil)
 
@@ -37,7 +37,7 @@
   (service/create-admin-service db-ctx schema-provider logger error-reporter config))
 
 (defmethod ig/halt-key! :boundary/admin-service
-  [_ admin-service]
+  [_ _admin-service]
   ; No cleanup needed - stateless component
   nil)
 
@@ -51,7 +51,7 @@
   (http/admin-routes-normalized admin-service schema-provider config user-service))
 
 (defmethod ig/halt-key! :boundary/admin-routes
-  [_ routes]
+  [_ _routes]
   ; No cleanup needed - routes are just data
   nil)
 
@@ -141,7 +141,7 @@
   ; REPL workflow examples
 
   ; 1. Start minimal admin system for testing
-  (require '[integrant.repl :as ig-repl])
+  #_(require '[integrant.repl :as ig-repl])
 
   (def test-config
     {:enabled? true

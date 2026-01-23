@@ -44,9 +44,9 @@
 
    Returns:
      nil - side effects only"
-  [datasource db-config]
-  (validate-datasource datasource)
-  (log/debug "Initializing H2 connection settings")
+   [datasource _db-config]
+   (validate-datasource datasource)
+   (log/debug "Initializing H2 connection settings")
   (try
     ;; Set timezone to UTC for consistency
     (jdbc/execute! datasource ["SET TIME ZONE '+00:00'"])

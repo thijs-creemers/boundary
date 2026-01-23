@@ -274,10 +274,10 @@
           (is (= "alice@example.com" (last emails))))))
 
     (testing "Sort by name ascending"
-      (let [result (ports/list-entities *admin-service* :test-users {:sort :name :sort-dir :asc})]
-        (let [names (mapv :name (:records result))]
-          (is (= "Alice" (first names)))
-          (is (= "Charlie" (last names))))))))
+      (let [result (ports/list-entities *admin-service* :test-users {:sort :name :sort-dir :asc})
+            names (mapv :name (:records result))]
+        (is (= "Alice" (first names)))
+        (is (= "Charlie" (last names)))))))
 
 (deftest list-entities-search-test
   (testing "List entities with text search"

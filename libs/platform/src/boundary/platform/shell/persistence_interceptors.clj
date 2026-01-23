@@ -62,7 +62,7 @@
 (def persistence-operation-start
   "Initializes persistence operation with timing and breadcrumb."
   {:name :persistence-operation-start
-   :enter (fn [{:keys [operation operation-name params context] :as ctx}]
+   :enter (fn [{:keys [_operation operation-name params context] :as ctx}]
             ;; Log debug info for database operation
             (log/debug (str "Starting persistence operation: " operation-name)
                        (merge context params))
@@ -106,7 +106,7 @@
 (def persistence-error-handling
   "Handles persistence operation error reporting and recovery."
   {:name :persistence-error-handling
-   :error (fn [{:keys [operation-name params context exception] :as ctx}]
+   :error (fn [{:keys [operation-name params _context exception] :as ctx}]
             (let [error-data (ex-data exception)
                   error-type (or (:type error-data) "database-error")]
 

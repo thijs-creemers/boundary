@@ -130,6 +130,7 @@
       (validate-routes validator [{:path \"/api/users\" ...}])
       ;; => {:valid? true :errors [] :warnings []}"))
 
+#_:clj-kondo/ignore
 (comment
   ;; Example usage:
 
@@ -151,7 +152,7 @@
 
   ;; Start server with compiled handler
   (let [server-adapter (ring-jetty-adapter/->RingJettyServer)
-        my-handler (fn [req] {:status 200 :body "OK"})
+        my-handler (fn [_req] {:status 200 :body "OK"})
         server-config {:port 3000 :host "0.0.0.0" :join? false}
         server-instance (start! server-adapter my-handler server-config)]
     ;; Server is now running

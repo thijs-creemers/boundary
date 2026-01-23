@@ -4,7 +4,6 @@
   Implements IImageProcessor using Java's built-in image processing capabilities.
   No external dependencies required."
   (:require [boundary.storage.ports :as ports]
-            [boundary.storage.core.validation :as validation]
             [boundary.observability.logging.ports :as logging])
 (:import [java.awt RenderingHints]
            [java.awt.image BufferedImage]
@@ -219,7 +218,7 @@
                         {:error (.getMessage e)}
                         e)))))
 
-  (is-image? [_ bytes content-type]
+  (is-image? [_ bytes _content-type]
     (try
       (let [image (bytes->buffered-image bytes)]
         (boolean image))

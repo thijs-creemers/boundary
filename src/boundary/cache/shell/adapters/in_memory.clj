@@ -20,7 +20,6 @@
    - Production use (no persistence)
    - High-memory workloads (limited by JVM heap)"
   (:require [boundary.cache.ports :as ports]
-            [boundary.cache.schema :as schema]
             [clojure.string :as str])
   (:import [java.time Instant Duration]))
 
@@ -85,15 +84,6 @@
   (when ttl-seconds
     (.plusSeconds (now) ttl-seconds)))
 
-(defn- clean-expired!
-  "Remove expired entries from cache."
-  [entries-atom]
-  (swap! entries-atom
-         (fn [entries]
-           (into {}
-                 (remove (fn [[_ entry]] (expired? entry))
-                         entries)))))
-
 (defn- record-hit!
   "Record cache hit in statistics."
   [stats-atom track-stats?]
@@ -147,7 +137,7 @@
 (defrecord InMemoryCache [state]
   ports/ICache
 
-  (get-value [this key]
+  (get-value [_this key]
     (let [namespaced-key (add-namespace (:namespace state) key)
           entries (:entries state)
           entry (get @entries namespaced-key)]
@@ -177,7 +167,7 @@
   (set-value! [this key value]
     (ports/set-value! this key value (:default-ttl (:config state))))
 
-  (set-value! [this key value ttl-seconds]
+  (set-value! [_this key value ttl-seconds]
     (let [namespaced-key (add-namespace (:namespace state) key)
           entries (:entries state)
           entry (->CacheEntry
@@ -190,7 +180,7 @@
       (maybe-evict! entries (:stats state) (:config state))
       true))
 
-  (delete-key! [this key]
+  (delete-key! [_this key]
     (let [namespaced-key (add-namespace (:namespace state) key)
           entries (:entries state)]
       (if (contains? @entries namespaced-key)
@@ -199,13 +189,13 @@
           true)
         false)))
 
-  (exists? [this key]
+  (exists? [_this key]
     (let [namespaced-key (add-namespace (:namespace state) key)
           entries (:entries state)
           entry (get @entries namespaced-key)]
       (boolean (and entry (not (expired? entry))))))
 
-  (ttl [this key]
+  (ttl [_this key]
     (let [namespaced-key (add-namespace (:namespace state) key)
           entries (:entries state)
           entry (get @entries namespaced-key)]
@@ -213,10 +203,10 @@
         (when-let [expires-at (:expires-at entry)]
           (.getSeconds (Duration/between (now) expires-at))))))
 
-  (expire! [this key ttl-seconds]
+  (expire! [_this key ttl-seconds]
     (let [namespaced-key (add-namespace (:namespace state) key)
           entries (:entries state)]
-      (if-let [entry (get @entries namespaced-key)]
+      (if-let [_entry (get @entries namespaced-key)]
         (do
           (swap! entries assoc-in [namespaced-key :expires-at]
                  (calculate-expires-at ttl-seconds))
@@ -261,7 +251,7 @@
   (increment! [this key]
     (ports/increment! this key 1))
 
-  (increment! [this key delta]
+  (increment! [_this key delta]
     (let [namespaced-key (add-namespace (:namespace state) key)
           entries (:entries state)]
       (-> (swap! entries
@@ -294,7 +284,7 @@
           (ports/set-value! this key value ttl-seconds)
           true))))
 
-  (compare-and-set! [this key expected-value new-value]
+  (compare-and-swap! [_this key expected-value new-value]
     (let [namespaced-key (add-namespace (:namespace state) key)
           entries (:entries state)
           result (atom false)]
@@ -316,7 +306,7 @@
 
   ports/IPatternCache
 
-  (keys-matching [this pattern]
+  (keys-matching [_this pattern]
     (let [namespaced-pattern (add-namespace (:namespace state) pattern)
           regex (wildcard-pattern->regex namespaced-pattern)
           entries (:entries state)
@@ -340,7 +330,7 @@
 
   ports/INamespacedCache
 
-  (with-namespace [this namespace]
+  (with-namespace [_this namespace]
     (->InMemoryCache
      (->InMemoryState
       (:entries state)

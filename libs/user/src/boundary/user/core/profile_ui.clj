@@ -250,9 +250,9 @@
      user: User entity map
      mfa-status: MFA status map from mfa-service
      
-   Returns:
-     Hiccup structure for MFA status card"
-  [user mfa-status]
+    Returns:
+      Hiccup structure for MFA status card"
+  [_user mfa-status]
    [:div.profile-card
     [:div.card-header
      [:h2 "Two-Factor Authentication"]
@@ -343,7 +343,7 @@
    (mfa-qr-code-step secret qr-code-url issuer account-name [] {}))
   ([secret qr-code-url issuer account-name backup-codes]
    (mfa-qr-code-step secret qr-code-url issuer account-name backup-codes {}))
-  ([secret qr-code-url issuer account-name backup-codes errors]
+  ([secret qr-code-url _issuer _account-name backup-codes errors]
    [:div.mfa-setup-steps
     [:div.mfa-step
      [:h3 "Step 1: Scan QR Code"]

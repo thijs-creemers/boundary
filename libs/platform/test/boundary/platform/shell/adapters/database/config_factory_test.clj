@@ -1,6 +1,7 @@
 (ns boundary.platform.shell.adapters.database.config-factory-test
   "Tests for database adapter factory and creation logic."
   (:require [clojure.test :refer [deftest is testing]]
+            [boundary.platform.shell.adapters.database.config :as config]
             [boundary.platform.shell.adapters.database.config-factory :as factory]
             [boundary.platform.shell.adapters.database.protocols :as protocols]))
 
@@ -265,7 +266,7 @@
       (testing (str "Environment: " env)
         (try
           ; Load real config (this might fail if config loading isn't implemented)
-          (let [config (boundary.platform.shell.adapters.database.config/load-config env)
+          (let [config (config/load-config env)
                 adapters (factory/create-active-adapters config)]
             (is (map? adapters) (str "Should create adapters map for " env))
             (is (seq adapters) (str "Should have at least one adapter for " env))

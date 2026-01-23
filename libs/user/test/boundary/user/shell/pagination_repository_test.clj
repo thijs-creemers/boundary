@@ -3,7 +3,6 @@
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [boundary.user.ports :as ports]
             [boundary.user.shell.persistence :as user-persistence]
-            [boundary.platform.core.pagination.pagination :as pagination]
             [boundary.platform.shell.adapters.database.h2.core :as h2]
             [next.jdbc :as jdbc]
             [next.jdbc.connection :as connection])

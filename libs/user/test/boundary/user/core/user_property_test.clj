@@ -11,7 +11,6 @@
   (:require [boundary.user.core.user :as user-core]
             [boundary.user.schema :as schema]
             [clojure.string :as str]
-            [clojure.test :refer [deftest is testing]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]

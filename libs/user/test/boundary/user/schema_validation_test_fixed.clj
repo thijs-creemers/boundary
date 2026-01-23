@@ -1,6 +1,6 @@
 (ns boundary.user.schema-validation-test-fixed
   (:require
-   [clojure.test :refer :all]
+   [clojure.test :refer [deftest is testing]]
    [boundary.user.schema :as schema]))
 
 (def valid-user

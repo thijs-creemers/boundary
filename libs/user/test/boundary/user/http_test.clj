@@ -139,7 +139,27 @@
           count (count user-sessions)]
       (doseq [[token _] user-sessions]
         (swap! state assoc-in [:sessions token :revoked-at] (Instant/now)))
-      count)))
+      count))
+
+  (get-user-sessions [_ user-id]
+    (let [sessions (get-in @state [:sessions])
+          now (Instant/now)]
+      (->> sessions
+           vals
+           (filter #(and (= (:user-id %) user-id)
+                         (nil? (:revoked-at %))
+                         (.isAfter (:expires-at %) now)))
+           vec)))
+
+  (list-audit-logs [_ _options]
+    {:audit-logs []
+     :total-count 0})
+
+  (get-audit-logs-for-user [_ _user-id _options]
+    [])
+
+  (change-password [_ _user-id _current-password _new-password]
+    true))
 
 (defn create-mock-service
   []

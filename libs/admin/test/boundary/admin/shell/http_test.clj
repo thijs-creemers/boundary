@@ -108,16 +108,16 @@
                   ;; Match route and call handler
                   (let [path (:uri request)
                         method (:request-method request)
-                        base-path (get admin-config :base-path "")]
-                    ;; Strip base path if present to get normalized path
-                    ;; If stripping results in empty string, treat as root "/"
-                    (let [stripped-path (if (and (not (str/blank? base-path))
-                                                (.startsWith path base-path))
-                                          (subs path (count base-path))
-                                          path)
-                          normalized-path (if (str/blank? stripped-path) "/" stripped-path)]
-                      (try
-                        (or
+                        base-path (get admin-config :base-path "")
+                        ;; Strip base path if present to get normalized path
+                        ;; If stripping results in empty string, treat as root "/"
+                        stripped-path (if (and (not (str/blank? base-path))
+                                               (.startsWith path base-path))
+                                        (subs path (count base-path))
+                                        path)
+                        normalized-path (if (str/blank? stripped-path) "/" stripped-path)]
+                    (try
+                      (or
                          ;; Iterate through routes IN ORDER (important for specificity)
                          (some (fn [route]
                                 (let [route-path (:path route)
@@ -167,7 +167,7 @@
                               :else
                               {:status 500
                                :headers {"Content-Type" "text/html"}
-                               :body (str "Internal Server Error: " (.getMessage e))})))))))]
+                               :body (str "Internal Server Error: " (.getMessage e))}))))))]
 
     (create-test-table! db-ctx)
 

@@ -3,8 +3,7 @@
             [clojure.java.io :as io]
             [boundary.storage.shell.adapters.local :as sut]
             [boundary.storage.ports :as ports])
-  (:import [java.nio.file Files Paths]
-           [java.nio.file.attribute FileAttribute]))
+)
 
 (def test-dir "target/test-storage")
 
