@@ -1,12 +1,87 @@
 = Project Status
-:revdate: 2026-01-18
+:revdate: 2026-01-19
 
 == High-Level Summary
-The Boundary framework has achieved **full Phase 4 completion**, delivering all planned competitive features from the strategic roadmap. The framework now features enterprise-grade security with MFA fully integrated into the authentication flow, complete competitive feature parity (background jobs, distributed caching, file storage, API versioning/pagination, MFA, and full-text search), and maintains strict Functional Core / Imperative Shell architectural boundaries throughout.
+The Boundary framework has completed the **Library Split Project**, successfully reorganizing the monolithic codebase into 7 independently publishable libraries. The framework maintains all competitive features (background jobs, distributed caching, file storage, API versioning/pagination, MFA, and full-text search), enterprise-grade security, and strict Functional Core / Imperative Shell architectural boundaries throughout.
 
-**Current Production Readiness Rating: 9.0/10** (up from 6.6/10 → 8.5/10 → 9.0/10)
+**Current Production Readiness Rating: 9.5/10** (up from 6.6/10 → 8.5/10 → 9.0/10 → 9.5/10)
+
+== Library Split Project: COMPLETE
+
+The monolith has been successfully split into 7 independent libraries under `libs/`:
+
+[cols="1,2,1"]
+|===
+|Library |Description |Maven Artifact
+
+|**core**
+|Validation, utilities, interceptors
+|`io.github.thijs-creemers/boundary-core`
+
+|**observability**
+|Logging, metrics, error reporting
+|`io.github.thijs-creemers/boundary-observability`
+
+|**platform**
+|HTTP, database, CLI infrastructure
+|`io.github.thijs-creemers/boundary-platform`
+
+|**user**
+|Authentication, authorization, MFA
+|`io.github.thijs-creemers/boundary-user`
+
+|**admin**
+|Auto-CRUD admin interface
+|`io.github.thijs-creemers/boundary-admin`
+
+|**storage**
+|File storage (local & S3)
+|`io.github.thijs-creemers/boundary-storage`
+
+|**scaffolder**
+|Module code generator
+|`io.github.thijs-creemers/boundary-scaffolder`
+|===
+
+=== Library Statistics
+
+* **Total Files Migrated:** 238
+* **Total Lines of Code:** ~43,078
+* **Test Results:** 1,604 tests, 9,313 assertions, 0 failures
+* **Release Tag:** v0.1.0
+
+=== Dependency Graph
+
+----
+┌─────────────┐     ┌─────────────┐
+│  scaffolder │     │   storage   │
+└──────┬──────┘     └──────┬──────┘
+       │                   │
+       ▼                   ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│    core     │◄────│  platform   │◄────│    user     │
+└─────────────┘     └──────┬──────┘     └──────┬──────┘
+       ▲                   │                   │
+       │                   ▼                   │
+       │           ┌─────────────┐             │
+       └───────────│observability│             │
+                   └─────────────┘             │
+                                               ▼
+                                        ┌─────────────┐
+                                        │    admin    │
+                                        └─────────────┘
+----
 
 == Recently Completed (Major Milestones)
+
+=== Library Split Project ✅ COMPLETE (2026-01-19)
+* **Monorepo Architecture:** Successfully split monolith into 7 independent libraries
+* **238 Files Migrated:** Organized into `libs/{library}/src` and `libs/{library}/test`
+* **Full Test Coverage:** 1,604 tests, 9,313 assertions, 0 failures
+* **Independent Publishing:** Each library has its own `deps.edn` and `build.clj` for Clojars publishing
+* **Documentation:** Complete publishing guide in `docs/PUBLISHING_GUIDE.md`
+* **Release Tag:** v0.1.0 created and pushed
+* **Kaocha Configuration:** Updated `tests.edn` with per-library test suites
 
 === Phase 1: Critical Security Fixes ✅ COMPLETE
 * **JWT Secret Security (2026-01-05):** Hardcoded JWT secret eliminated, now requires `JWT_SECRET` environment variable with proper validation and error messages at startup
@@ -172,6 +247,11 @@ The Boundary framework has achieved **full Phase 4 completion**, delivering all 
 |✅ COMPLETE
 |100% (6/6)
 
+|**Library Split**
+|Monorepo Architecture (7 libraries)
+|✅ COMPLETE
+|100%
+
 |**Phase 5**
 |Strategic Positioning
 |📋 PLANNED
@@ -235,14 +315,22 @@ The Boundary framework has achieved **full Phase 4 completion**, delivering all 
 * **Test Coverage:** ✅ Comprehensive tests (>160 total tests, >95% pass rate)
 
 === Code Statistics
+* **Library Split:**
+  ** **core:** 29 files, ~8,000 lines (validation, utilities, interceptors)
+  ** **observability:** 24 files, ~3,500 lines (logging, metrics, error reporting)
+  ** **platform:** 107 files, ~15,000 lines (HTTP, database, CLI infrastructure)
+  ** **user:** 38 files, ~6,000 lines (authentication, authorization, MFA)
+  ** **admin:** 20 files, ~5,161 lines (auto-CRUD admin interface)
+  ** **storage:** 11 files, ~2,813 lines (file storage - local & S3)
+  ** **scaffolder:** 9 files, ~2,604 lines (module code generator)
+  ** **Total:** 238 files, ~43,078 lines extracted to libraries
 * **Background Jobs Module:** ~2,500 lines production + tests
 * **Distributed Caching Module:** ~2,200 lines production + tests
 * **File Storage Module:** ~2,700 lines production + tests
 * **Pagination/Versioning:** ~1,500 lines production + tests
 * **MFA Module:** ~750 lines production + tests (23 tests, includes HTTP integration)
 * **Full-Text Search Module:** ~1,800 lines production + tests (112 tests)
-* **Total New Code:** ~11,350 lines of production-ready, tested code
-* **Test Coverage:** All modules have >90% test coverage (>160 total tests)
+* **Test Coverage:** 1,604 tests, 9,313 assertions (all modules >90% coverage)
 
 === Competitive Feature Parity
 
@@ -315,9 +403,15 @@ The Boundary framework has achieved **full Phase 4 completion**, delivering all 
 * **Live Docs (when deployed):** https://thijs-creemers.github.io/boundary-docs/
 * **Code Repository:** https://github.com/thijs-creemers/boundary
 * **Developer Guide:** link:AGENTS.md[AGENTS.md] (comprehensive guide for AI and human developers)
-* **Module Documentation:**
-  ** link:src/boundary/jobs/README.md[Background Jobs]
-  ** link:src/boundary/cache/README.md[Distributed Caching]
-  ** link:src/boundary/storage/README.md[File Storage]
-  ** MFA: `src/boundary/user/core/mfa.clj` and `src/boundary/user/shell/mfa.clj`
-  ** Full-Text Search: `src/boundary/platform/search/` (ports) and `src/boundary/platform/shell/search/` (implementations)
+* **Library Documentation:**
+  ** link:libs/core/README.md[Core Library]
+  ** link:libs/observability/README.md[Observability Library]
+  ** link:libs/platform/README.md[Platform Library]
+  ** link:libs/user/README.md[User Library]
+  ** link:libs/admin/README.md[Admin Library]
+  ** link:libs/storage/README.md[Storage Library]
+  ** link:libs/scaffolder/README.md[Scaffolder Library]
+* **Publishing Guide:** link:docs/PUBLISHING_GUIDE.md[Publishing to Clojars]
+* **Library Split Documentation:**
+  ** link:docs/adr/ADR-001-library-split.md[ADR-001: Library Split Decision]
+  ** link:docs/PHASE_11_COMPLETION.md[Phase 11 Completion Report]

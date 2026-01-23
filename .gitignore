@@ -28,6 +28,7 @@ logs/
 test/reports/
 
 # Database
+db/
 *.db
 *.db-journal
 
@@ -35,3 +36,10 @@ test/reports/
 .env
 .env.local
 .mcp.json
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+

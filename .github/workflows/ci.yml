@@ -82,6 +82,122 @@ jobs:
           retention-days: 14
   
   # =============================================================================
+  # Test individual libraries (run from root to ensure all dependencies available)
+  # =============================================================================
+  test-core:
+    name: Test boundary/core
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+      
+      - name: Run tests
+        run: clojure -M:test :core
+  
+  test-observability:
+    name: Test boundary/observability
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+      
+      - name: Run docs-lint
+        run: clojure -M:docs-lint
+      
+      - name: Upload docs-lint report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docs-lint-report
+          path: build/docs-lint/
+          retention-days: 14
+          restore-keys: ${{ runner.os }}-clojure-
+      
+      - name: Run tests
+        run: clojure -M:test :observability
+  
+  test-platform:
+    name: Test boundary/platform
+    runs-on: ubuntu-latest
+    needs: [lint, test-observability]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+      
+      - name: Run tests
+        run: clojure -M:test :platform
+  
+  test-user:
+    name: Test boundary/user
+    runs-on: ubuntu-latest
+    needs: [lint, test-platform]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+      
+      - name: Run tests
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test :user
+  
+  # =============================================================================
   # Run all tests from root project
   # =============================================================================
   test:
@@ -110,3 +226,24 @@ jobs:
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters-long"
         run: clojure -M:test
+      - name: Run tests
+        run: clojure -M:test :admin
+  
+  # =============================================================================
+  # Summary job
+  # =============================================================================
+  test-summary:
+    name: All Tests Passed
+    runs-on: ubuntu-latest
+    needs: [test-core, test-observability, test-platform, test-user, test-admin]
+    
+    steps:
+      - name: Summary
+        run: |
+          echo "✅ All library tests passed!"
+          echo "Libraries tested:"
+          echo "  - boundary/core"
+          echo "  - boundary/observability"
+          echo "  - boundary/platform"
+          echo "  - boundary/user"
+          echo "  - boundary/admin"

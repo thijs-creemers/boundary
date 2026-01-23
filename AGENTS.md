@@ -21,19 +21,33 @@
 ### Essential Commands
 
 ```bash
-# Testing
+# Testing - All tests across all libraries
 clojure -M:test:db/h2                              # All tests (H2 in-memory)
-clojure -M:test:db/h2 --watch --focus-meta :unit   # Watch unit tests
+JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2  # With JWT secret
+
+# Testing - Per-library test suites
+clojure -M:test:db/h2 :core                        # Core library tests
+clojure -M:test:db/h2 :observability               # Observability library tests
+clojure -M:test:db/h2 :platform                    # Platform library tests
+clojure -M:test:db/h2 :user                        # User library tests
+clojure -M:test:db/h2 :admin                       # Admin library tests
+clojure -M:test:db/h2 :storage                     # Storage library tests
+clojure -M:test:db/h2 :scaffolder                  # Scaffolder library tests
+
+# Testing - By metadata category
+clojure -M:test:db/h2 --focus-meta :unit           # Unit tests only
 clojure -M:test:db/h2 --focus-meta :integration    # Integration tests
 clojure -M:test:db/h2 --focus-meta :contract       # Database contract tests
-clojure -M:test:db/h2 --focus-meta :user           # Run specific module tests
-clojure -M:test:db/h2 -n boundary.user.core.user-test  # Single test namespace
+
+# Testing - Watch mode and specific namespaces
+clojure -M:test:db/h2 --watch :core                # Watch core library tests
+clojure -M:test:db/h2 --focus boundary.core.validation-test  # Single namespace
 
 # Update validation snapshots
 UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
 
 # Code Quality
-clojure -M:clj-kondo --lint src test               # Lint codebase
+clojure -M:clj-kondo --lint src test libs/*/src libs/*/test  # Lint all code
 
 # REPL Development
 clojure -M:repl-clj                                # Start REPL (nREPL on port 7888)
@@ -77,11 +91,21 @@ clojure -M:migrate up                              # Run migrations
 
 **Module Structure:**
 ```
-src/boundary/{module}/
+libs/{library}/src/boundary/{library}/
 ├── core/          # Pure business logic
 ├── shell/         # I/O, validation, adapters
 ├── ports.clj      # Protocol definitions
 └── schema.clj     # Malli validation schemas
+
+# Library structure (monorepo)
+libs/
+├── core/          # Foundation: validation, utilities, interceptors
+├── observability/ # Logging, metrics, error reporting
+├── platform/      # HTTP, database, CLI infrastructure
+├── user/          # Authentication, authorization, MFA
+├── admin/         # Auto-CRUD admin interface
+├── storage/       # File storage (local & S3)
+└── scaffolder/    # Module code generator
 ```
 
 ---
@@ -138,12 +162,12 @@ src/boundary/{module}/
 
 ### Adding New Functionality
 
-1. **Define schema** in `{module}/schema.clj`
-2. **Write core logic** in `{module}/core/{domain}.clj` (pure functions)
-3. **Write unit tests** in `test/{module}/core/{domain}_test.clj`
-4. **Define port** in `{module}/ports.clj` (protocol)
-5. **Implement in service** in `{module}/shell/service.clj`
-6. **Add HTTP endpoint** in `{module}/shell/http.clj`
+1. **Define schema** in `libs/{library}/src/boundary/{library}/schema.clj`
+2. **Write core logic** in `libs/{library}/src/boundary/{library}/core/{domain}.clj` (pure functions)
+3. **Write unit tests** in `libs/{library}/test/boundary/{library}/core/{domain}_test.clj`
+4. **Define port** in `libs/{library}/src/boundary/{library}/ports.clj` (protocol)
+5. **Implement in service** in `libs/{library}/src/boundary/{library}/shell/service.clj`
+6. **Add HTTP endpoint** in `libs/{library}/src/boundary/{library}/shell/http.clj`
 
 ### Testing Workflow
 
@@ -151,11 +175,14 @@ src/boundary/{module}/
 # Watch mode while developing
 clojure -M:test:db/h2 --watch --focus-meta :unit
 
+# Watch specific library
+clojure -M:test:db/h2 --watch :core
+
 # Full test suite before committing
 clojure -M:test:db/h2
 
 # Lint before committing
-clojure -M:clj-kondo --lint src test
+clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
 ```
 
 ### REPL Debugging
@@ -245,7 +272,7 @@ When encountering 500 errors or unexpected behavior:
 **Solution**:
 ```bash
 # ALWAYS use the tool, never manually fix
-clj-paren-repair src/boundary/user/core/user.clj
+clj-paren-repair libs/user/src/boundary/user/core/user.clj
 ```
 
 ### 4. Validation in Wrong Layer
@@ -554,7 +581,7 @@ clojure -M -m boundary.scaffolder.shell.cli-entry generate \
 # - Zero linting errors, complete FC/IS architecture
 ```
 
-**Integration Steps**: See [Module Scaffolding Guide](docs/guides/module-scaffolding.md)
+**Integration Steps**: See [Scaffolder README](libs/scaffolder/README.md)
 
 ---
 
@@ -716,10 +743,10 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 | Technology | Purpose | Location |
 |------------|---------|----------|
-| **Hiccup** | HTML generation | `src/{module}/core/ui.clj` |
+| **Hiccup** | HTML generation | `libs/{library}/src/boundary/{library}/core/ui.clj` |
 | **HTMX** | Dynamic interactions | Inline attributes in Hiccup |
 | **Pico CSS** | Base framework | `resources/public/css/` |
-| **Lucide Icons** | Icon system | `src/boundary/shared/ui/core/icons.clj` |
+| **Lucide Icons** | Icon system | `libs/admin/src/boundary/shared/ui/core/icons.clj` |
 
 ### UI Architecture Principles
 
@@ -774,7 +801,7 @@ clj-nrepl-eval -p <port> "(require '[integrant.repl :as ig-repl]) (ig-repl/reset
  (icons/icon :trash {:size 18})
  " Delete"]
 
-;; Available in: src/boundary/shared/ui/core/icons.clj
+;; Available in: libs/admin/src/boundary/shared/ui/core/icons.clj
 ```
 
 #### HTMX Loading States
@@ -790,15 +817,16 @@ clj-nrepl-eval -p <port> "(require '[integrant.repl :as ig-repl]) (ig-repl/reset
 ### UI Component Hierarchy
 
 ```
-src/boundary/
+libs/admin/src/boundary/
 ├── shared/ui/core/
 │   ├── layout.clj        # Page layouts, navigation
 │   ├── icons.clj         # Icon definitions (50+ Lucide icons)
 │   └── components.clj    # Reusable components
 ├── admin/core/
 │   └── ui.clj            # Admin interface (tables, forms)
-└── {module}/core/
-    └── ui.clj            # Module-specific UI components
+
+libs/{module}/src/boundary/{module}/core/
+└── ui.clj                # Module-specific UI components
 ```
 
 ### Styling Conventions
@@ -947,14 +975,23 @@ When making UI changes, always test:
 
 | Category | Location | Purpose |
 |----------|----------|---------|
-| **Unit** | `test/{module}/core/*` | Pure functions, no mocks |
-| **Integration** | `test/{module}/shell/*` | Service with mocked deps |
-| **Contract** | `test/{module}/shell/*` | Adapters with real DB |
+| **Unit** | `libs/{library}/test/{library}/core/*` | Pure functions, no mocks |
+| **Integration** | `libs/{library}/test/{library}/shell/*` | Service with mocked deps |
+| **Contract** | `libs/{library}/test/{library}/shell/*` | Adapters with real DB |
 
 ```bash
-clojure -M:test:db/h2 --focus-meta :unit        # Fast, no I/O
-clojure -M:test:db/h2 --focus-meta :integration # Mocked I/O
-clojure -M:test:db/h2 --focus-meta :contract    # Real database
+# Run all tests
+clojure -M:test:db/h2
+
+# Run specific library tests
+clojure -M:test:db/h2 :core                        # Core library
+clojure -M:test:db/h2 :user                        # User library
+clojure -M:test:db/h2 :platform                    # Platform library
+
+# Run by metadata
+clojure -M:test:db/h2 --focus-meta :unit           # Fast, no I/O
+clojure -M:test:db/h2 --focus-meta :integration    # Mocked I/O
+clojure -M:test:db/h2 --focus-meta :contract       # Real database
 ```
 
 ### Validation Snapshot Testing
@@ -1024,9 +1061,9 @@ clj-paren-repair <file>
 
 **For in-depth information, see:**
 
-- **[Full Agent Guide](docs/AGENTS_FULL.md)** - Complete 2,774-line reference
+- **[Full Agent Guide](docs/archive/AGENTS_FULL.md)** - Legacy comprehensive reference (pre-library-split)
 - **[Architecture Guide](https://github.com/thijs-creemers/boundary-docs/tree/main/content/architecture/)** - FC/IS patterns, design decisions
-- **[Module Scaffolding](docs/guides/module-scaffolding.md)** - Complete scaffolding workflow
+- **[Module Scaffolding](libs/scaffolder/README.md)** - Complete scaffolding workflow
 - **[MFA Setup Guide](docs/guides/mfa-setup.md)** - Multi-factor authentication
 - **[API Pagination](docs/API_PAGINATION.md)** - Offset and cursor pagination
 - **[Observability Integration](https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc)** - Custom adapters, configuration
@@ -1041,13 +1078,19 @@ clj-paren-repair <file>
 ╔════════════════════════════════════════════════════════════════╗
 ║                  BOUNDARY FRAMEWORK CHEAT SHEET                ║
 ╠════════════════════════════════════════════════════════════════╣
-║ TEST    │ clojure -M:test:db/h2 --watch --focus-meta :unit     ║
-║ LINT    │ clojure -M:clj-kondo --lint src test                 ║
+║ TEST    │ clojure -M:test:db/h2                 # All tests    ║
+║         │ clojure -M:test:db/h2 :core           # Core library ║
+║         │ clojure -M:test:db/h2 :user           # User library ║
+║         │ clojure -M:test:db/h2 --watch :core   # Watch mode   ║
+║ LINT    │ clojure -M:clj-kondo --lint libs/*/src               ║
 ║ REPL    │ clojure -M:repl-clj                                  ║
 ║         │ (ig-repl/go)    (ig-repl/reset)    (ig-repl/halt)    ║
 ║ BUILD   │ clojure -T:build clean && clojure -T:build uber      ║
 ║ REPAIR  │ clj-paren-repair <files>  # Fix parentheses          ║
 ║ EVAL    │ clj-nrepl-eval -p <port> "<code>"  # REPL eval       ║
+╠════════════════════════════════════════════════════════════════╣
+║ LIBS    │ libs/core, observability, platform, user, admin,    ║
+║         │ storage, scaffolder                                  ║
 ╠════════════════════════════════════════════════════════════════╣
 ║ CORE    │ Pure functions only, no side effects                 ║
 ║ SHELL   │ All I/O, validation, error handling                  ║
@@ -1063,5 +1106,5 @@ clj-paren-repair <file>
 
 ---
 
-**Last Updated**: 2026-01-17
-**Version**: 2.1.0 (Enhanced with CLAUDE.md patterns)
+**Last Updated**: 2026-01-19
+**Version**: 2.2.0 (Library Split Complete)
