@@ -1,0 +1,9 @@
+{:lint-as {boundary.platform.shell.adapters.database.common.core/with-transaction clojure.core/with-open
+           boundary.platform.shell.adapters.database.sqlite.core/with-transaction clojure.core/with-open
+           boundary.platform.shell.adapters.database.h2.core/with-transaction clojure.core/with-open
+           clojure.test.check.clojure-test/defspec clojure.core/def}
+ :linters {:unresolved-symbol {:exclude [(boundary.platform.shell.adapters.database.common.core/with-transaction [tx])]}}
+ :config-in-ns {boundary.user.ports {:linters {:redefined-var {:level :off}}}
+                build {:linters {:redefined-var {:level :off}}}
+                hooks.com.github.seancorfield.next-jdbc {:linters {:redefined-var {:level :off}}}
+                hiccup.hooks {:linters {:redefined-var {:level :off}}}}}

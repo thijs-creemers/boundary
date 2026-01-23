@@ -6,7 +6,9 @@ target/
 # Clojure cache
 .cpcache/
 .nrepl-port
-.clj-kondo
+.clj-kondo/*
+!.clj-kondo/config.edn
+**/.clj-kondo/
 .lsp
 
 # IDE
@@ -23,6 +25,7 @@ Thumbs.db
 # Logs
 logs/
 *.log
+test/reports/
 
 # Database
 *.db
@@ -31,3 +34,4 @@ logs/
 # Environment
 .env
 .env.local
+.mcp.json
