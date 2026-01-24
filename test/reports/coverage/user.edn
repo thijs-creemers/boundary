@@ -1,1 +1,0 @@
-{:coverage 100.0, :total 5, :executed 5, :missing [], :timestamp "2026-01-24T07:22:03.407371Z", :by-module {:user {:coverage 100.0, :total 5, :executed 5, :missing []}}, :metadata {:module :user}}

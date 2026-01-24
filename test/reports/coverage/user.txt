@@ -1,6 +1,0 @@
-Validation Coverage Report
-========================
-Overall: 100.0% (5/5)
-
-By Module:
-  user: 100.0% (5/5)

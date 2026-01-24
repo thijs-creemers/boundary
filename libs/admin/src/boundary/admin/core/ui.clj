@@ -15,6 +15,7 @@
             [boundary.shared.ui.core.icons :as icons]
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.table :as table-ui]
+            [boundary.shared.ui.core.alpine :as alpine]
             [boundary.platform.shell.web.table :as web-table]
             [clojure.string :as str]))
 
@@ -33,17 +34,21 @@
    Returns:
      Hiccup sidebar structure with entity list"
   [entities entity-configs current-entity]
-  [:aside.admin-sidebar
+  ;; Alpine.js sidebar - hover expand/collapse via $store.sidebar
+  [:aside.admin-sidebar (alpine/sidebar-attrs)
    [:div.admin-sidebar-header
     [:h2 "Admin Panel"]
     [:div.sidebar-controls
      [:button.sidebar-toggle {:type "button"
                               :aria-label "Toggle sidebar"
-                              :title "Toggle sidebar (Ctrl+B)"}
+                              :title "Toggle sidebar (Ctrl+B)"
+                              (keyword "@click") "$store.sidebar.toggle()"}
       (icons/icon :panel-left {:size 20})]
      [:button.sidebar-pin {:type "button"
                            :aria-label "Pin sidebar"
-                           :title "Pin sidebar open"}
+                           :title "Pin sidebar open"
+                           (keyword "@click") "$store.sidebar.togglePin()"
+                           :x-bind:aria-pressed "$store.sidebar.pinned"}
       (icons/icon :pin {:size 20})]]]
    [:nav.admin-sidebar-nav
     [:h3 "Entities"]
@@ -54,25 +59,31 @@
              icon (:icon entity-config :database)
              is-active? (= entity current-entity)]
          [:li {:class (when is-active? "active")}
-          [:a {:href (str "/web/admin/" (name entity))
-               :data-label label}
+          ;; Auto-close mobile drawer when navigating
+          [:a (merge {:href (str "/web/admin/" (name entity))
+                      :data-label label}
+                     (alpine/sidebar-nav-link-attrs))
            (icons/icon icon {:size 20})
            [:span.nav-text label]]]))]
     [:h3 "Tools"]
     [:ul.entity-list
      [:li
-      [:a {:href "/web/admin/user" :data-label "Users"}
+      [:a (merge {:href "/web/admin/user" :data-label "Users"}
+                 (alpine/sidebar-nav-link-attrs))
        (icons/icon :users {:size 20})
        [:span.nav-text "Users"]]]
      [:li
-      [:a {:href "/web/audit" :data-label "Audit Trail"}
+      [:a (merge {:href "/web/audit" :data-label "Audit Trail"}
+                 (alpine/sidebar-nav-link-attrs))
        (icons/icon :clock {:size 20})
        [:span.nav-text "Audit Trail"]]]]]
    [:div.admin-sidebar-footer
-    [:a {:href "/web/dashboard"}
+    [:a (merge {:href "/web/dashboard"}
+               (alpine/sidebar-nav-link-attrs))
      (icons/icon :home {:size 20})
      [:span.nav-text "Dashboard"]]
-    [:a {:href "/web"}
+    [:a (merge {:href "/web"}
+               (alpine/sidebar-nav-link-attrs))
      (icons/icon :external-link {:size 20})
      [:span.nav-text "Main Site"]]]])
 
@@ -87,25 +98,29 @@
      Admin shell structure with sidebar and topbar"
   [content opts]
   (let [{:keys [user current-entity entities entity-configs page-title]} opts]
-    [:div.admin-shell {:data-sidebar-state "expanded"
-                       :data-sidebar-pinned "false"
-                       :data-sidebar-open "false"}
-     (admin-sidebar entities entity-configs current-entity)
-     [:div.admin-overlay]
-     [:div.admin-main
-      [:header.admin-topbar
-       [:button.mobile-menu-toggle {:type "button"
-                                    :aria-label "Open menu"}
-        (icons/icon :menu {:size 24})]
-       [:h1 (or page-title "Admin Dashboard")]
-       [:div.admin-topbar-actions
-        [:span (str "Welcome, " (:display-name user (:email user)))]
-        (icons/theme-toggle-button)
-        [:form {:method "POST" :action "/web/logout" :class "logout-form"}
-         [:button {:type "submit" :class "logout-button" :aria-label "Logout"}
-          (icons/icon :log-out {:size 20})]]]]
-      [:main.admin-content
-       content]]]))
+    ;; Alpine.js sidebar shell - replaces sidebar.js
+    ;; State is persisted to localStorage via $store.sidebar
+    [:<>
+     ;; Initialize Alpine store for sidebar state management
+     (alpine/sidebar-store-init)
+     [:div.admin-shell (alpine/sidebar-shell-attrs)
+      (admin-sidebar entities entity-configs current-entity)
+      [:div.admin-overlay (alpine/sidebar-overlay-attrs)]
+      [:div.admin-main
+       [:header.admin-topbar
+        [:button.mobile-menu-toggle (merge {:type "button"
+                                            :aria-label "Open menu"}
+                                           (alpine/mobile-menu-toggle-attrs))
+         (icons/icon :menu {:size 24})]
+        [:h1 (or page-title "Admin Dashboard")]
+        [:div.admin-topbar-actions
+         [:span (str "Welcome, " (:display-name user (:email user)))]
+         (icons/theme-toggle-button)
+         [:form {:method "POST" :action "/web/logout" :class "logout-form"}
+          [:button {:type "submit" :class "logout-button" :aria-label "Logout"}
+           (icons/icon :log-out {:size 20})]]]]
+       [:main.admin-content
+        content]]]]))
 
 (defn admin-layout
   "Main admin layout with new shell structure (Phase 2).
@@ -130,7 +145,8 @@
       :flash flash
       :skip-header true
       :css ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
-      :js ["/js/theme.js" "/js/htmx.min.js" "/js/sidebar.js" "/js/table.js" "/js/forms.js" "/js/keyboard.js"]})))
+      ;; Alpine.js must load BEFORE HTMX for proper MutationObserver setup
+      :js ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js" "/js/forms.js" "/js/keyboard.js"]})))
 
 (defn admin-home
   "Admin dashboard home page content.
@@ -517,11 +533,9 @@
         readonly-fields (set (:readonly-fields entity-config))]
     [:tr {:class "entity-row"}
      [:td.checkbox-cell
-      [:input {:type "checkbox"
-               :name "ids[]"
-               :value (str record-id)
-               :onclick "event.stopPropagation();"
-               :onchange "const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('bulk-delete-btn').disabled = checked === 0; document.getElementById('select-all').checked = checked === document.querySelectorAll('input[name=\"ids[]\"]').length;"}]]
+      ;; Alpine.js row checkbox with x-model binding to selectedIds array
+      [:input (merge (alpine/row-checkbox-attrs record-id)
+                     {(keyword "@click.stop") true})]]
      (for [field list-fields]
        (let [field-config (get-in entity-config [:fields field])
              field-label (:label field-config (str/capitalize (name field)))
@@ -741,6 +755,8 @@
         qs-map (merge table-params filter-params)
         hx-url (str base-url "?" (web-table/encode-query-params qs-map))
         list-fields (:list-fields entity-config)]
+    ;; Table container - Alpine.js scope is at parent entity-list-page level
+    ;; MutationObserver automatically handles HTMX DOM updates (no afterSwap needed)
     [:div#entity-table-container
      {:hx-get hx-url
       :hx-trigger "entityCreated from:body, entityUpdated from:body, entityDeleted from:body"
@@ -774,9 +790,8 @@
           [:thead
            [:tr
             [:th
-             [:input {:type "checkbox"
-                      :id "select-all"
-                      :onchange "const checkboxes = document.querySelectorAll('input[name=\"ids[]\"]'); checkboxes.forEach(cb => cb.checked = this.checked); setTimeout(() => { const checked = document.querySelectorAll('input[name=\"ids[]\"]:checked').length; document.getElementById('bulk-delete-btn').disabled = checked === 0; }, 0);"}]]
+             ;; Alpine.js select-all checkbox with reactive binding
+             [:input (alpine/select-all-checkbox-attrs)]]
             (for [field list-fields]
               (let [field-config (get-in entity-config [:fields field])
                     sortable? (:sortable field-config true)]
@@ -822,7 +837,9 @@
         search-fields (:search-fields entity-config)
         has-search? (seq search-fields)
         search-value (:search search)]
-    [:div.entity-list-page
+    ;; Alpine.js bulk selection scope - wraps toolbar and table
+    ;; selectedIds array is shared between delete button and checkboxes
+    [:div.entity-list-page (alpine/bulk-selection-attrs)
      (when flash
        (for [[type message] flash]
          [:div {:class (str "alert alert-" (name type))} message]))
@@ -861,21 +878,21 @@
        [:span.record-count
         (str total-count " " label)]
 
-        ;; Delete button (always visible, disabled when nothing selected)
+        ;; Delete button - Alpine.js reactively disables when nothing selected
        [:form#bulk-action-form
         {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
          :hx-target "#entity-table-container"
          :hx-swap "outerHTML"
          :hx-include "[name='ids[]']"}
         [:button.icon-button.danger
-         {:type "submit"
-          :name "action"
-          :value "delete"
-          :disabled "disabled"
-          :id "bulk-delete-btn"
-          :form "bulk-action-form"
-          :aria-label "Delete selected"
-          :hx-confirm "Are you sure you want to delete selected records?"}
+         (merge (alpine/delete-button-attrs)
+                {:type "submit"
+                 :name "action"
+                 :value "delete"
+                 :id "bulk-delete-btn"
+                 :form "bulk-action-form"
+                 :aria-label "Delete selected"
+                 :hx-confirm "Are you sure you want to delete selected records?"})
          (icons/icon :trash {:size 18})]]
 
         ;; Create button (only when user has permission)
@@ -1077,10 +1094,10 @@
         primary-key (:primary-key entity-config :id)
         record-id (get record primary-key)
         is-edit? (some? record)
-         form-action (if is-edit?
-                       (str "/web/admin/" (name entity-name) "/" record-id)
-                       (str "/web/admin/" (name entity-name)))
-         _form-method (if is-edit? "PUT" "POST")
+        form-action (if is-edit?
+                      (str "/web/admin/" (name entity-name) "/" record-id)
+                      (str "/web/admin/" (name entity-name)))
+        _form-method (if is-edit? "PUT" "POST")
         hx-attr (if is-edit? :hx-put :hx-post)]
     [:form.entity-form
      (merge {hx-attr form-action
