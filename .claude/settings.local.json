@@ -14,7 +14,8 @@
       "Bash(clojure -M:test:nonexistent:*)",
       "Bash(grep:*)",
       "Bash(clojure -Srepro -M:test:db/h2:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(clojure -M:clj-kondo:*)"
     ]
   },
   "enabledMcpjsonServers": [
