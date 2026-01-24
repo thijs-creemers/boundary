@@ -3,9 +3,9 @@
 
    Contains page layout, navigation, and structural components that provide
    consistent look and feel across all domain modules."
-  (:require [boundary.shared.ui.core.components :as components]
-            [boundary.shared.ui.core.icons :as icons]
-            [boundary.shared.ui.core.alpine :as alpine]))
+  (:require [boundary.shared.ui.core.alpine :as alpine]
+            [boundary.shared.ui.core.components :as components]
+            [boundary.shared.ui.core.icons :as icons]))
 
 (defn main-navigation
   "Main site navigation component.
@@ -22,8 +22,8 @@
      (when user
        [:div.nav-links
         [:a {:href "/web/audit"}
-         (icons/icon :file-text {:size 18})
-         [:span {:style "margin-left: 0.5rem;"} "Audit Trail"]]])
+          (icons/icon :file-text {:size 18})
+          [:span {:style "margin-left: 0.5rem;"} "Audit Trail"]]])
      (if user
        [:div.user-nav
         (icons/theme-toggle-button)
@@ -33,9 +33,9 @@
           (icons/icon :user {:size 18})
           [:span {:style "margin-left: 0.5rem;"} (:name user)]
           (icons/icon :chevron-down {:size 16 :style "margin-left: 0.25rem;"})]
-         [:div.dropdown-menu (merge {:x-show "open"
+         [:div.dropdown-menu (merge {:x-show  "open"
                                      :x-cloak true}
-                                    (alpine/x-transition {:origin "top right"}))
+                               (alpine/x-transition {:origin "top right"}))
           [:a.dropdown-item {:href "/web/profile"}
            (icons/icon :user {:size 18})
            [:span "Profile & Security"]]
@@ -60,10 +60,10 @@
      Complete HTML page structure"
   [title content & [opts]]
   (let [{:keys [user flash css js skip-header]
-         :or {css ["/css/pico.min.css" "/css/tokens.css" "/css/app.css"]
-              ;; Alpine.js must load BEFORE HTMX for proper MutationObserver setup
-              js ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]
-              skip-header false}} opts]
+         :or   {css         ["/css/pico.min.css" "/css/tokens.css" "/css/app.css"]
+                ;; Alpine.js must load BEFORE HTMX for proper MutationObserver setup
+                js          ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]
+                skip-header false}} opts]
     [:html {:lang "en"}
      [:head
       [:meta {:charset "UTF-8"}]
@@ -76,14 +76,14 @@
         [:header.site-header
          (main-navigation {:user user})])
       (let [children (cond-> []
-                       flash (conj [:div.flash-messages
-                                    (let [flash-type (or (:type flash)
-                                                         (first (keys flash))) ; Old format: {:error "msg"}
-                                          flash-msg (or (:message flash)
-                                                        (first (vals flash)))] ; Old format: {:error "msg"}
-                                      [:div {:class (str "alert alert-" (name flash-type))}
-                                       flash-msg])])
-                       true  (conj content))]
+                             flash (conj [:div.flash-messages
+                                          (let [flash-type (or (:type flash)
+                                                               (first (keys flash)))
+                                                flash-msg  (or (:message flash)
+                                                               (first (vals flash)))]
+                                            [:div {:class (str "alert alert-" (name flash-type))}
+                                             flash-msg])])
+                             true (conj content))]
         (into [:main.main-content] children))
       (for [js-file js]
         [:script {:src js-file}])]]))
@@ -141,7 +141,7 @@
    (render-error-page message 500))
   ([message status]
    (components/render-html
-    (error-layout status "Error" message))))
+     (error-layout status "Error" message))))
 
 (defn modal
   "Generic modal dialog component.
@@ -156,7 +156,7 @@
      Hiccup modal structure"
   [id title content & [opts]]
   (let [{:keys [closable size]
-         :or {closable true size "medium"}} opts]
+         :or   {closable true size "medium"}} opts]
     [:div.modal {:id id :class (str "modal-" size)}
      [:div.modal-backdrop]
      [:div.modal-content
@@ -177,7 +177,7 @@
      Hiccup sidebar structure"
   [content & [opts]]
   (let [{:keys [position collapsed]
-         :or {position "left"}} opts]
+         :or   {position "left"}} opts]
     [:aside.sidebar {:class (str "sidebar-" position (when collapsed " collapsed"))}
      content]))
 

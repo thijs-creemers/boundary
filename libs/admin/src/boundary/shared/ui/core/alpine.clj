@@ -22,6 +22,37 @@
 ;; Core Attribute Helpers
 ;; =============================================================================
 
+(defn- clj->js-str
+  "Convert a Clojure value to JavaScript literal syntax.
+
+   Handles:
+   - nil -> null
+   - booleans -> true/false
+   - numbers -> as-is
+   - strings -> quoted strings
+   - keywords -> unquoted property names (when used as map keys)
+   - vectors -> arrays
+   - maps -> objects"
+  [v]
+  (cond
+    (nil? v) "null"
+    (boolean? v) (str v)
+    (number? v) (str v)
+    (string? v) (pr-str v)
+    (keyword? v) (name v)
+    (symbol? v) (name v)
+    (vector? v) (str "[" (str/join ", " (map clj->js-str v)) "]")
+    (sequential? v) (str "[" (str/join ", " (map clj->js-str v)) "]")
+    (map? v) (str "{"
+                  (str/join ", "
+                            (map (fn [[k val]]
+                                   (str (if (keyword? k) (name k) (clj->js-str k))
+                                        ": "
+                                        (clj->js-str val)))
+                                 v))
+                  "}")
+    :else (str v)))
+
 (defn x-data
   "Generate x-data attribute for Alpine component initialization.
 
@@ -33,14 +64,14 @@
 
    Example:
      (x-data {:open false})
-     => {:x-data \"{open: false}\"}"
+     => {:x-data \"{open: false}\"}
+
+     (x-data {:items [1 2 3] :nested {:a true}})
+     => {:x-data \"{items: [1, 2, 3], nested: {a: true}}\"}"
   [state]
   {:x-data (if (string? state)
              state
-             (-> (pr-str state)
-                 (str/replace #":(\w+)" "$1")  ; Remove keyword colons
-                 (str/replace "true" "true")
-                 (str/replace "false" "false")))})
+             (clj->js-str state))})
 
 (defn x-show
   "Generate x-show attribute for conditional visibility.
@@ -226,9 +257,9 @@
      Map of attributes for the select-all checkbox"
   []
   {:type "checkbox"
-   :x-bind:checked "selectedIds.length === document.querySelectorAll('input[name=\"ids[]\"]').length && selectedIds.length > 0"
-   :x-bind:indeterminate "selectedIds.length > 0 && selectedIds.length < document.querySelectorAll('input[name=\"ids[]\"]').length"
-   (keyword "@change") "selectedIds = $event.target.checked ? [...document.querySelectorAll('input[name=\"ids[]\"]')].map(cb => cb.value) : []"})
+   :x-bind:checked "selectedIds.length > 0 && selectedIds.length === $root.querySelectorAll('input[name=\"ids[]\"]').length"
+   :x-bind:indeterminate "selectedIds.length > 0 && selectedIds.length < $root.querySelectorAll('input[name=\"ids[]\"]').length"
+   (keyword "@change") "selectedIds = $event.target.checked ? [...$root.querySelectorAll('input[name=\"ids[]\"]')].map(cb => cb.value) : []"})
 
 (defn row-checkbox-attrs
   "Row checkbox attributes for bulk selection.
