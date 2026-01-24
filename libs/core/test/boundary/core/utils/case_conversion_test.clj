@@ -1,5 +1,5 @@
-(ns boundary.shared.utils.case-conversion-test
-  "Unit tests for boundary.shared.utils.case-conversion namespace."
+(ns boundary.core.utils.case-conversion-test
+  "Unit tests for boundary.core.utils.case-conversion namespace."
   (:require [boundary.core.utils.case-conversion :as case-conversion]
             [clojure.test :refer [deftest is testing]]))
 
