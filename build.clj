@@ -11,6 +11,18 @@
 
 (def uber-file (format "target/%s-%s-standalone.jar" (name lib) version))
 
+;; All source directories including libs
+(def all-src-dirs ["src" "resources"
+                   "libs/core/src"
+                   "libs/observability/src"
+                   "libs/platform/src"
+                   "libs/user/src"
+                   "libs/admin/src"
+                   "libs/storage/src"
+                   "libs/scaffolder/src"
+                   "libs/cache/src"
+                   "libs/jobs/src"])
+
 (defn clean
   "Remove compiled artifacts."
   [_]
@@ -25,13 +37,13 @@
   (println (str "  Version: " version))
   (println (str "  Output:  " uber-file))
 
-  ;; Copy source and resources
-  (b/copy-dir {:src-dirs ["src" "resources"]
+  ;; Copy source and resources from all libs
+  (b/copy-dir {:src-dirs all-src-dirs
                :target-dir class-dir})
 
   ;; Compile Clojure namespaces for better startup time
   (b/compile-clj {:basis basis
-                  :src-dirs ["src"]
+                  :src-dirs all-src-dirs
                   :class-dir class-dir
                   :ns-compile '[boundary.main]})
 

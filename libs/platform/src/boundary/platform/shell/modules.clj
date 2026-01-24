@@ -3,8 +3,8 @@
 
   This namespace provides utilities to:
   - Determine which modules are enabled based on configuration.
-  - Compose route definitions from multiple modules (new pattern).
-  - Legacy HTTP handler composition (deprecated).
+  - Compose route definitions from multiple modules.
+  - Dispatch CLI commands to module-specific runners.
 
   For now, only the `:user` module is supported."
   (:require [clojure.tools.logging :as log]))
@@ -47,30 +47,6 @@
       :static (vec (concat (:static acc []) (:static route-map [])))})
    {:api [] :web [] :static []}
    route-maps))
-
-(defn compose-http-handlers
-  "DEPRECATED: Use structured route definitions instead.
-
-  Compose HTTP handlers from module-provided handlers.
-
-  Arguments:
-    enabled-modules: vector of module keywords, e.g. [:user :billing]
-    handlers: map from module keyword to Ring handler.
-
-  For now, we only support the :user module and simply return its handler.
-  In the future, this can be extended to build a combined router or apply
-  module-specific routing prefixes.
-
-  NOTE: This function is deprecated as of ADR-007. Use compose-module-routes
-  with structured route definitions instead."
-  [enabled-modules handlers]
-  (log/warn "compose-http-handlers is DEPRECATED - use structured route definitions (ADR-007)"
-            {:enabled-modules enabled-modules})
-  (let [handler (or (get handlers :user)
-                    (first (vals handlers)))]
-    (when (nil? handler)
-      (log/warn "No HTTP handlers available for enabled modules" {:enabled-modules enabled-modules}))
-    handler))
 
 (defn dispatch-cli
   "Dispatch CLI based on enabled modules.

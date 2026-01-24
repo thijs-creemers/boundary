@@ -6,7 +6,9 @@
            "libs/user/src" "libs/user/test"                 ;; Phase 4: User
            "libs/admin/src" "libs/admin/test"               ;; Phase 5: Admin
            "libs/storage/src" "libs/storage/test"           ;; Phase 6: Storage
-           "libs/scaffolder/src" "libs/scaffolder/test"]    ;; Phase 8: Scaffolder
+           "libs/scaffolder/src" "libs/scaffolder/test"     ;; Phase 8: Scaffolder
+           "libs/cache/src" "libs/cache/test"               ;; Phase 9: Cache
+           "libs/jobs/src" "libs/jobs/test"]                ;; Phase 10: Jobs
 
  :deps    {org.clojure/clojure               {:mvn/version "1.12.4"}
            cheshire/cheshire                 {:mvn/version "6.1.0"} ;; process json
@@ -60,7 +62,10 @@
 
            ;; File Storage - AWS SDK for S3
            software.amazon.awssdk/s3         {:mvn/version "2.39.5"}
-           software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.39.5"}}
+           software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.39.5"}
+
+           ;; Redis client for cache and jobs libs
+           redis.clients/jedis               {:mvn/version "7.1.0"}}
 
  :aliases {;; =============================================================================
            ;; Development and REPL aliases

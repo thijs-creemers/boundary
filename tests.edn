@@ -7,7 +7,9 @@
                        "libs/user/src"
                        "libs/admin/src"
                        "libs/storage/src"
-                       "libs/scaffolder/src"]
+                       "libs/scaffolder/src"
+                       "libs/cache/src"
+                       "libs/jobs/src"]
 
  :tests [;; Run all tests (default)
          {:id :unit
@@ -18,7 +20,9 @@
                        "libs/user/test"
                        "libs/admin/test"
                        "libs/storage/test"
-                       "libs/scaffolder/test"]
+                       "libs/scaffolder/test"
+                       "libs/cache/test"
+                       "libs/jobs/test"]
           :ns-patterns ["boundary.*-test"]
           :randomize? true}
 
@@ -50,7 +54,15 @@
 
          {:id :scaffolder
           :test-paths ["libs/scaffolder/test"]
-          :ns-patterns ["boundary.scaffolder.*-test"]}]
+          :ns-patterns ["boundary.scaffolder.*-test"]}
+
+         {:id :cache
+          :test-paths ["libs/cache/test"]
+          :ns-patterns ["boundary.cache.*-test"]}
+
+         {:id :jobs
+          :test-paths ["libs/jobs/test"]
+          :ns-patterns ["boundary.jobs.*-test"]}]
 
  :plugins [:kaocha.plugin/randomize
            :kaocha.plugin/filter
