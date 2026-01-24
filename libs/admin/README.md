@@ -28,6 +28,8 @@ Auto-generated CRUD admin interface with database schema introspection, filterin
 | **Sorting** | Click-to-sort column headers |
 | **Pagination** | Built-in pagination for large datasets |
 | **Role-based Access** | Restrict access by user role |
+| **Field Ordering** | Configure preferred field order in forms |
+| **Field Grouping** | Group related fields with section headings |
 | **Shared UI Components** | Reusable Hiccup components and Lucide icons |
 | **HTMX Integration** | Dynamic updates without full page reloads |
 
@@ -92,7 +94,46 @@ Auto-generated CRUD admin interface with database schema introspection, filterin
 | `:readonly-fields` | set | Fields that cannot be edited |
 | `:field-types` | map | Override field type detection |
 | `:field-labels` | map | Custom labels for fields |
+| `:field-order` | vector | Preferred order of fields in forms |
+| `:field-groups` | vector | Group fields with section headings |
+| `:ui` | map | Entity-level UI config overrides |
 | `:actions` | vector | Custom actions (`:view`, `:edit`, `:delete`) |
+
+### Field Ordering
+
+Control the order of fields in forms and detail views:
+
+```clojure
+{:users
+ {:field-order [:email :name :role :active :created-at :updated-at]}}
+```
+
+Fields listed in `:field-order` appear first in the specified order. Fields not listed appear after in their original order.
+
+### Field Grouping
+
+Group related fields together with section headings:
+
+```clojure
+{:users
+ {:field-groups
+  [{:id :identity :label "Identity" :fields [:email :name]}
+   {:id :access :label "Access" :fields [:role :active]}
+   {:id :meta :label "Metadata" :fields [:created-at :updated-at]}]}}
+```
+
+Fields not assigned to any group appear in an "Other" section. Customize this label:
+
+```clojure
+;; Global configuration (in :boundary/admin)
+{:ui {:field-grouping {:other-label "Additional Fields"}}}
+
+;; Or per-entity override
+{:users
+ {:ui {:field-grouping {:other-label "Advanced"}}}}
+```
+
+**Note**: Groups only contain editable fields. Empty groups are automatically excluded.
 
 ### Custom Actions
 

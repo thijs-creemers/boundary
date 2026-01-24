@@ -523,9 +523,9 @@
         record-id (get record primary-key)
         readonly-fields (set (:readonly-fields entity-config))]
     [:tr {:class "entity-row"}
-      [:td.checkbox-cell
+     [:td.checkbox-cell
        ;; Alpine.js row checkbox with x-model binding to selectedIds array
-       [:input (alpine/row-checkbox-attrs record-id)]]
+      [:input (alpine/row-checkbox-attrs record-id)]]
      (for [field list-fields]
        (let [field-config (get-in entity-config [:fields field])
              field-label (:label field-config (str/capitalize (name field)))
@@ -754,16 +754,16 @@
     [:div#entity-table-container
      {:hx-get hx-url
       :hx-trigger "entityCreated from:body, entityUpdated from:body, entityDeleted from:body"
-       :hx-target hx-target}
-      (if (empty? records)
-        [:div.empty-state
-         [:div.empty-state-icon
-          (icons/icon :inbox {:size 48})]
-         [:p "No records found."]
-         (when (:can-create permissions)
-           [:a.button.primary
-            {:href (str "/web/admin/" (name entity-name) "/new")}
-            "Create First Record"])]
+      :hx-target hx-target}
+     (if (empty? records)
+       [:div.empty-state
+        [:div.empty-state-icon
+         (icons/icon :inbox {:size 48})]
+        [:p "No records found."]
+        (when (:can-create permissions)
+          [:a.button.primary
+           {:href (str "/web/admin/" (name entity-name) "/new")}
+           "Create First Record"])]
        [:div.table-wrapper
         ;; Form for checkbox submission (hidden inputs + table)
         [:form#table-form
@@ -836,9 +836,9 @@
     ;; Alpine.js bulk selection scope - wraps toolbar and table
     ;; selectedIds array is shared between delete button and checkboxes
     [:div.entity-list-page (alpine/bulk-selection-attrs)
-      (when flash
-        (for [[type message] flash]
-          [:div {:class (str "alert alert-" (name type))} message]))
+     (when flash
+       (for [[type message] flash]
+         [:div {:class (str "alert alert-" (name type))} message]))
 
      [:section.entity-list-hero
       [:div.entity-list-hero-inner
@@ -856,66 +856,66 @@
            [:span "New " (str/capitalize (name entity-name))]])]]]
 
        ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
-      [:div.table-toolbar-container
+     [:div.table-toolbar-container
         ;; Search bar (separate row)
-       [:div.toolbar-row-search
-        (when has-search?
-          [:div.toolbar-search
-           [:input.search-input {:type "text"
-                                 :name "search"
-                                 :placeholder (str "Search " (str/join ", " (map name search-fields)) "...")
-                                 :value (or search-value "")
-                                 :hx-get (str "/web/admin/" (name entity-name) "/table")
-                                 :hx-target "#entity-table-container"
-                                 :hx-push-url "true"
-                                 :hx-trigger "keyup changed delay:300ms, search"
-                                 :hx-include "this"}]
-           [:button.icon-button {:type "button"
-                                 :aria-label "Search"
-                                 :hx-get (str "/web/admin/" (name entity-name) "/table")
-                                 :hx-target "#entity-table-container"
-                                 :hx-push-url "true"
-                                 :hx-include "previous .search-input"}
-            (icons/icon :search {:size 20})]
-           (when (seq search-value)
-             [:button.icon-button.secondary {:type "button"
-                                             :aria-label "Clear search"
-                                             :onclick (str "window.location.href='/web/admin/" (name entity-name) "';")}
-              (icons/icon :x {:size 20})])])]
+      [:div.toolbar-row-search
+       (when has-search?
+         [:div.toolbar-search
+          [:input.search-input {:type "text"
+                                :name "search"
+                                :placeholder (str "Search " (str/join ", " (map name search-fields)) "...")
+                                :value (or search-value "")
+                                :hx-get (str "/web/admin/" (name entity-name) "/table")
+                                :hx-target "#entity-table-container"
+                                :hx-push-url "true"
+                                :hx-trigger "keyup changed delay:300ms, search"
+                                :hx-include "this"}]
+          [:button.icon-button {:type "button"
+                                :aria-label "Search"
+                                :hx-get (str "/web/admin/" (name entity-name) "/table")
+                                :hx-target "#entity-table-container"
+                                :hx-push-url "true"
+                                :hx-include "previous .search-input"}
+           (icons/icon :search {:size 20})]
+          (when (seq search-value)
+            [:button.icon-button.secondary {:type "button"
+                                            :aria-label "Clear search"
+                                            :onclick (str "window.location.href='/web/admin/" (name entity-name) "';")}
+             (icons/icon :x {:size 20})])])]
 
        ;; Actions row (delete + create buttons)
-       [:div.toolbar-row-actions
-        [:div.record-meta
-         [:span.record-count
-          (str total-count " " label)]
-         [:span.selection-count
-          {:x-show "selectedIds.length > 0"
-           :x-text "selectedIds.length + ' selected'"}]]
+      [:div.toolbar-row-actions
+       [:div.record-meta
+        [:span.record-count
+         (str total-count " " label)]
+        [:span.selection-count
+         {:x-show "selectedIds.length > 0"
+          :x-text "selectedIds.length + ' selected'"}]]
 
          ;; Delete button - Alpine.js reactively disables when nothing selected
-        [:form#bulk-action-form
-         {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
-          :hx-target "#entity-table-container"
-          :hx-swap "outerHTML"
-          :hx-include "[name='ids[]']"}
-         [:button.icon-button.danger
-          (merge (alpine/delete-button-attrs)
-                 {:type "submit"
-                  :name "action"
-                  :value "delete"
-                  :id "bulk-delete-btn"
-                  :form "bulk-action-form"
-                  :aria-label "Delete selected"
-                  :hx-confirm "Are you sure you want to delete selected records?"})
-          (icons/icon :trash {:size 18})]]
+       [:form#bulk-action-form
+        {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
+         :hx-target "#entity-table-container"
+         :hx-swap "outerHTML"
+         :hx-include "[name='ids[]']"}
+        [:button.icon-button.danger
+         (merge (alpine/delete-button-attrs)
+                {:type "submit"
+                 :name "action"
+                 :value "delete"
+                 :id "bulk-delete-btn"
+                 :form "bulk-action-form"
+                 :aria-label "Delete selected"
+                 :hx-confirm "Are you sure you want to delete selected records?"})
+         (icons/icon :trash {:size 18})]]
 
-        [:div.toolbar-actions
-         [:button.icon-button.ghost {:type "button"
-                                     :aria-label "Refresh list"
-                                     :hx-get (str "/web/admin/" (name entity-name) "/table")
-                                     :hx-target "#entity-table-container"
-                                     :hx-push-url "true"}
-          (icons/icon :refresh {:size 18})]]]]
+       [:div.toolbar-actions
+        [:button.icon-button.ghost {:type "button"
+                                    :aria-label "Refresh list"
+                                    :hx-get (str "/web/admin/" (name entity-name) "/table")
+                                    :hx-target "#entity-table-container"
+                                    :hx-push-url "true"}
+         (icons/icon :refresh {:size 18})]]]]
 
        ;; Filter builder + Table wrapper (THIS is the HTMX target for filter updates)
      [:div#filter-table-container
@@ -1094,6 +1094,68 @@
         (for [error errors]
           [:span.error error])])]))
 
+;; =============================================================================
+;; Field Grouping Helpers
+;; =============================================================================
+
+(defn- compute-field-groups
+  "Compute field groups for form rendering.
+
+   Takes configured :field-groups and :editable-fields and returns a vector
+   of group maps with only the fields that are actually editable.
+   Ungrouped editable fields are appended as a final 'Other' group.
+
+   Args:
+     entity-config: Entity configuration map with :field-groups, :editable-fields, :ui
+
+   Returns:
+     Vector of group maps: [{:id :identity :label \"Identity\" :fields [:email :name]} ...]
+     Each group only contains fields that are in :editable-fields.
+     Returns nil if no :field-groups configured (use flat rendering)."
+  [entity-config]
+  (when-let [field-groups (:field-groups entity-config)]
+    (let [editable-set (set (:editable-fields entity-config []))
+          ;; Filter each group's fields to only include editable ones
+          groups-with-editable (for [group field-groups
+                                     :let [editable-in-group (filterv editable-set (:fields group))]
+                                     ;; Only include groups that have at least one editable field
+                                     :when (seq editable-in-group)]
+                                 (assoc group :fields editable-in-group))
+          ;; Collect all fields that are in configured groups
+          grouped-fields (set (mapcat :fields groups-with-editable))
+          ;; Find ungrouped editable fields (preserve order from editable-fields)
+          ungrouped-fields (filterv #(not (grouped-fields %))
+                                    (:editable-fields entity-config []))]
+      (if (seq ungrouped-fields)
+        ;; Append "Other" group for ungrouped fields
+        (let [other-label (get-in entity-config [:ui :field-grouping :other-label] "Other")]
+          (conj (vec groups-with-editable)
+                {:id :other
+                 :label other-label
+                 :fields ungrouped-fields}))
+        ;; All fields are grouped
+        (vec groups-with-editable)))))
+
+(defn- render-field-group
+  "Render a single field group with heading and fields.
+
+   Args:
+     group: Group map with :id, :label, :fields
+     entity-config: Entity configuration map
+     record: Entity record (nil for create)
+     errors: Validation errors map
+
+   Returns:
+     Hiccup fieldset/group structure"
+  [group entity-config record errors]
+  [:div.form-field-group {:data-group-id (name (:id group))}
+   [:h3 (:label group)]
+   (for [field-name (:fields group)]
+     (let [field-config (get-in entity-config [:fields field-name])
+           field-value (get record field-name)
+           field-errors (get errors field-name)]
+       (render-field-widget field-name field-value field-config field-errors)))])
+
 (defn entity-form
   "Render entity create/edit form.
 
@@ -1105,9 +1167,14 @@
      permissions: Permission flags
 
     Returns:
-      Hiccup form structure"
+      Hiccup form structure
+
+   Notes:
+     If :field-groups is configured, renders fields in grouped sections.
+     Otherwise, renders flat list of editable fields."
   [entity-name entity-config record errors _permissions]
   (let [editable-fields (:editable-fields entity-config)
+        field-groups (compute-field-groups entity-config)
         primary-key (:primary-key entity-config :id)
         record-id (get record primary-key)
         is-edit? (some? record)
@@ -1130,16 +1197,23 @@
              "hx-on::afterRequest" (str "if (event.detail.successful) { localStorage.setItem('"
                                         optional-details-key
                                         "', 'false'); }")}
-            ; Update URL to list page after successful edit
+            ;; Update URL to list page after successful edit
             (when is-edit?
               {:hx-push-url (str "/web/admin/" (name entity-name))}))
-      ;; No longer need hidden _method field since HTMX sends proper HTTP method
+     ;; No longer need hidden _method field since HTMX sends proper HTTP method
      [:div.form-card
       [:div.form-card-body
        [:div.form-meta
         [:span.form-meta-label "Required fields are marked with *"]]
-       (if (and (seq required-fields) (seq optional-fields))
-         ;; Use wrapper div instead of fragment [:<>] for Hiccup compatibility
+       (cond
+         ;; Priority 1: Use configured field groups if present
+         field-groups
+         [:div.form-sections
+          (for [group field-groups]
+            (render-field-group group entity-config record errors))]
+
+         ;; Priority 2: Split into required/optional sections if both exist
+         (and (seq required-fields) (seq optional-fields))
          [:div.form-sections
           [:div.form-section
            [:div.form-section-header
@@ -1172,6 +1246,9 @@
                     field-value (get record field-name)
                     field-errors (get errors field-name)]
                 (render-field-widget field-name field-value field-config field-errors)))]]]
+
+         ;; Priority 3: Flat rendering (all fields in one section)
+         :else
          [:div.form-fields
           (for [field-name editable-fields]
             (let [field-config (get-in entity-config [:fields field-name])

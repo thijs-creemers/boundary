@@ -366,3 +366,69 @@
     ;; Week 2+: Add composite key support
     (testing "Week 1 limitation: composite keys not fully supported"
       (is true)))) ; Placeholder
+
+;; =============================================================================
+;; Field Ordering Tests
+;; =============================================================================
+
+(deftest apply-field-order-test
+  (testing "Field ordering with :field-order"
+    (testing "Reorders fields according to :field-order"
+      (is (= [:a :b :c :d]
+             (introspection/apply-field-order [:c :a :b :d] [:a :b]))))
+
+    (testing "Fields not in :field-order are appended in original order"
+      (is (= [:role :email :name :active]
+             (introspection/apply-field-order [:email :name :role :active] [:role :email]))))
+
+    (testing "Empty :field-order returns original fields"
+      (is (= [:a :b :c]
+             (introspection/apply-field-order [:a :b :c] []))))
+
+    (testing "Nil :field-order returns original fields"
+      (is (= [:a :b :c]
+             (introspection/apply-field-order [:a :b :c] nil))))
+
+    (testing "Fields in :field-order that don't exist are ignored"
+      (is (= [:b :a :c]
+             (introspection/apply-field-order [:a :b :c] [:x :b :y]))))
+
+    (testing "All fields in :field-order produces exact order"
+      (is (= [:c :b :a]
+             (introspection/apply-field-order [:a :b :c] [:c :b :a]))))
+
+    (testing "Empty fields vector returns empty"
+      (is (= []
+             (introspection/apply-field-order [] [:a :b :c]))))))
+
+(deftest apply-field-order-to-config-test
+  (testing "Applying field order to entity config"
+    (testing "Reorders :editable-fields and :detail-fields"
+      (let [config {:editable-fields [:c :a :b]
+                    :detail-fields [:c :a :b :d]
+                    :field-order [:a :b :c]}
+            result (introspection/apply-field-order-to-config config)]
+        (is (= [:a :b :c] (:editable-fields result)))
+        (is (= [:a :b :c :d] (:detail-fields result)))))
+
+    (testing "No-op when :field-order is not present"
+      (let [config {:editable-fields [:c :a :b]
+                    :detail-fields [:c :a :b :d]}
+            result (introspection/apply-field-order-to-config config)]
+        (is (= [:c :a :b] (:editable-fields result)))
+        (is (= [:c :a :b :d] (:detail-fields result)))))
+
+    (testing "Handles nil :editable-fields gracefully"
+      (let [config {:field-order [:a :b]}
+            result (introspection/apply-field-order-to-config config)]
+        (is (= [] (:editable-fields result)))))
+
+    (testing "Preserves other config keys"
+      (let [config {:editable-fields [:c :a :b]
+                    :detail-fields [:c :a :b]
+                    :field-order [:a :b :c]
+                    :label "Test Entity"
+                    :table-name :test}
+            result (introspection/apply-field-order-to-config config)]
+        (is (= "Test Entity" (:label result)))
+        (is (= :test (:table-name result)))))))

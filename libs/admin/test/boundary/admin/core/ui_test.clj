@@ -888,3 +888,110 @@
         ;; Should show "Yes"/"No" text, not just color
         (is (str/includes? (str active-result) "Yes"))
         (is (str/includes? (str inactive-result) "No"))))))
+
+;; =============================================================================
+;; Field Grouping Tests
+;; =============================================================================
+
+(def sample-grouped-entity-config
+  "Sample entity configuration with field groups"
+  {:label "Users"
+   :primary-key :id
+   :editable-fields [:email :name :role :active :bio]
+   :field-groups [{:id :identity
+                   :label "Identity"
+                   :fields [:email :name]}
+                  {:id :access
+                   :label "Access Control"
+                   :fields [:role :active]}]
+   :ui {:field-grouping {:other-label "Additional Info"}}
+   :fields {:id {:type :uuid :label "ID"}
+            :email {:type :string :label "Email" :required true}
+            :name {:type :string :label "Name" :required true}
+            :role {:type :string :label "Role"}
+            :active {:type :boolean :label "Active"}
+            :bio {:type :text :label "Biography"}}})
+
+(deftest entity-form-grouped-rendering-test
+  (testing "Entity form renders field groups when :field-groups is configured"
+    (let [form (ui/entity-form :users sample-grouped-entity-config nil nil sample-permissions)
+          form-str (str form)]
+
+      (testing "Renders group headings"
+        (is (str/includes? form-str "Identity"))
+        (is (str/includes? form-str "Access Control")))
+
+      (testing "Renders 'Other' group for ungrouped fields"
+        ;; :bio is not in any configured group, should be in "Additional Info" group
+        (is (str/includes? form-str "Additional Info")))
+
+      (testing "Contains form-field-group divs"
+        (is (str/includes? form-str "form-field-group")))
+
+      (testing "Contains all editable fields"
+        (is (str/includes? form-str "email"))
+        (is (str/includes? form-str "name"))
+        (is (str/includes? form-str "role"))
+        (is (str/includes? form-str "active"))
+        (is (str/includes? form-str "bio"))))))
+
+(deftest entity-form-flat-rendering-test
+  (testing "Entity form renders flat fields when no :field-groups configured"
+    (let [form (ui/entity-form :users sample-entity-config nil nil sample-permissions)
+          form-str (str form)]
+
+      (testing "Does not render group headings"
+        ;; sample-entity-config has no :field-groups
+        (is (not (str/includes? form-str "form-field-group"))))
+
+      (testing "Contains all editable fields"
+        (is (str/includes? form-str "email"))
+        (is (str/includes? form-str "name"))
+        (is (str/includes? form-str "active"))))))
+
+(deftest field-grouping-other-label-test
+  (testing "Other group uses configured label"
+    (testing "Uses entity-level override"
+      (let [config (assoc sample-grouped-entity-config
+                          :ui {:field-grouping {:other-label "Extra Fields"}})
+            form (ui/entity-form :users config nil nil sample-permissions)
+            form-str (str form)]
+        (is (str/includes? form-str "Extra Fields"))))
+
+    (testing "Uses default 'Other' when not configured"
+      (let [config (-> sample-grouped-entity-config
+                       (dissoc :ui)
+                       ;; Add a field that's not in any group
+                       (assoc :editable-fields [:email :name :role :active :bio]))
+            form (ui/entity-form :users config nil nil sample-permissions)
+            form-str (str form)]
+        ;; Should use default "Other"
+        (is (str/includes? form-str "Other"))))))
+
+(deftest field-grouping-filters-non-editable-test
+  (testing "Groups only contain editable fields"
+    (let [;; Config where :role is in a group but NOT in editable-fields
+          config (-> sample-grouped-entity-config
+                     (assoc :editable-fields [:email :name :active :bio]))
+          form (ui/entity-form :users config nil nil sample-permissions)
+          form-str (str form)]
+      ;; Identity group should still render (has :email :name)
+      (is (str/includes? form-str "Identity"))
+      ;; Access Control should still render (has :active)
+      (is (str/includes? form-str "Access Control"))
+      ;; :role is NOT editable, so it should not appear in the form
+      ;; Note: we're checking that the role INPUT doesn't appear
+      ;; The word "role" might appear elsewhere (like in the :role keyword as data)
+      (is (not (str/includes? form-str ":name \"role\""))))))
+
+(deftest field-grouping-empty-groups-excluded-test
+  (testing "Groups with no editable fields are not rendered"
+    (let [;; Config where Access Control group's fields are not editable
+          config (-> sample-grouped-entity-config
+                     (assoc :editable-fields [:email :name :bio]))
+          form (ui/entity-form :users config nil nil sample-permissions)
+          form-str (str form)]
+      ;; Identity group should render
+      (is (str/includes? form-str "Identity"))
+      ;; Access Control group should NOT render (no editable fields)
+      (is (not (str/includes? form-str "Access Control"))))))

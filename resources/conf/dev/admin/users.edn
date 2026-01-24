@@ -3,4 +3,12 @@
   :list-fields     [:email :name :role :created-at]
   :search-fields   [:email :name]
   :hide-fields     #{:password-hash :deleted-at}
-  :readonly-fields #{:id :created-at :updated-at}}}
+  :readonly-fields #{:id :created-at :updated-at}
+  
+  ;; Field ordering - fields appear in this order, others follow
+  :field-order     [:email :name :role :active :created-at :updated-at]
+  
+  ;; Field grouping - organize form fields into sections
+  :field-groups
+  [{:id :identity :label "Identity" :fields [:email :name]}
+   {:id :access   :label "Access"   :fields [:role :active]}]}}
