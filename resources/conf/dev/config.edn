@@ -114,59 +114,59 @@
   {:db   "dev-database.db"
    :pool {:minimum-idle          1
           :maximum-pool-size     3
-          :connection-timeout-ms 10000}}}}
+          :connection-timeout-ms 10000}}
 
-:boundary/mysql
-{:host     #env "MYSQL_HOST"
- :port     #env "MYSQL_PORT"
- :dbname   #env "MYSQL_DB"
- :user     #env "MYSQL_USER"
- :password #env "MYSQL_PASSWORD"
- :pool     {:minimum-idle          5
-            :maximum-pool-size     15
-            :connection-timeout-ms 30000}}
+  :boundary/mysql
+  {:host     #env "MYSQL_HOST"
+   :port     #env "MYSQL_PORT"
+   :dbname   #env "MYSQL_DB"
+   :user     #env "MYSQL_USER"
+   :password #env "MYSQL_PASSWORD"
+   :pool     {:minimum-idle          5
+              :maximum-pool-size     15
+              :connection-timeout-ms 30000}}
 
-:boundary/h2
-{:memory true                                               ; For fast in-memory testing
- :pool   {:minimum-idle      1
-          :maximum-pool-size 10}}
+  :boundary/h2
+  {:memory true                                               ; For fast in-memory testing
+   :pool   {:minimum-idle      1
+            :maximum-pool-size 10}}
 
-;; Example observability configurations for future use
-;; Move to :active section when you need real providers
+  ;; Example observability configurations for future use
+  ;; Move to :active section when you need real providers
 
-:boundary/logging-with-stdout
-{:provider          :stdout
- :level             :debug
- :format            :json
- :colors            true
- :include-timestamp true
- :include-level     true
- :include-thread    false
- :default-tags      {:service "boundary-dev"}}
+  :boundary/logging-with-stdout
+  {:provider          :stdout
+   :level             :debug
+   :format            :json
+   :colors            true
+   :include-timestamp true
+   :include-level     true
+   :include-thread    false
+   :default-tags      {:service "boundary-dev"}}
 
-:boundary/metrics-with-prometheus
-{:provider :prometheus
- :port     9090
- :path     "/metrics"}
+  :boundary/metrics-with-prometheus
+  {:provider :prometheus
+   :port     9090
+   :path     "/metrics"}
 
-:boundary/error-reporting-with-sentry
-{:provider    :sentry
- :dsn         #env "SENTRY_DSN"
- :environment "development"}
+  :boundary/error-reporting-with-sentry
+  {:provider    :sentry
+   :dsn         #env "SENTRY_DSN"
+   :environment "development"}
 
-:boundary/metrics-with-datadog
-{:provider    :datadog-statsd
- :host        #or [#env DD_AGENT_HOST "127.0.0.1"]
- :port        #or [#env DD_DOGSTATSD_PORT 8125]
- :service     "boundary"
- :environment #or [#env BND_ENV "production"]
- :global-tags ["service:boundary" "environment:production"]}
+  :boundary/metrics-with-datadog
+  {:provider    :datadog-statsd
+   :host        #or [#env DD_AGENT_HOST "127.0.0.1"]
+   :port        #or [#env DD_DOGSTATSD_PORT 8125]
+   :service     "boundary"
+   :environment #or [#env BND_ENV "production"]
+   :global-tags ["service:boundary" "environment:production"]}
 
-:boundary/logging-with-file
-{:provider :file
- :level    :debug
- :file     "logs/dev-service.log"
- :format   :json}
+  :boundary/logging-with-file
+  {:provider :file
+   :level    :debug
+   :file     "logs/dev-service.log"
+   :format   :json}
 
-:boundary/logging-no-op
-{:provider :no-op}
+  :boundary/logging-no-op
+  {:provider :no-op}}}

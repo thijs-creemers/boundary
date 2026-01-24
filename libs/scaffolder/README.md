@@ -74,29 +74,29 @@ resources/migrations/
 
 ### `generate` Command
 
-| Option | Description | Example |
-|--------|-------------|---------|
-| `--module-name` | Module name (kebab-case) | `--module-name order-item` |
-| `--entity` | Entity name (PascalCase) | `--entity OrderItem` |
-| `--field` | Field definition (repeatable) | `--field name:string:required` |
-| `--output-dir` | Output directory | `--output-dir src` |
-| `--dry-run` | Preview without writing | `--dry-run` |
-| `--force` | Overwrite existing files | `--force` |
+| Option          | Description                  | Example                        |
+|-----------------|------------------------------|--------------------------------|
+| `--module-name` | Module name (kebab-case)     | `--module-name order-item`     |
+| `--entity`      | Entity name (PascalCase)     | `--entity OrderItem`           |
+| `--field`       | Field definition (repeatable)| `--field name:string:required` |
+| `--output-dir`  | Output directory             | `--output-dir src`             |
+| `--dry-run`     | Preview without writing      | `--dry-run`                    |
+| `--force`       | Overwrite existing files     | `--force`                      |
 
 ### Field Definitions
 
 Format: `name:type[:modifier...]`
 
 **Types**:
-| Type | Clojure Type | Database Type |
-|------|--------------|---------------|
-| `string` | `:string` | `TEXT` |
-| `int` | `:int` | `INTEGER` |
-| `decimal` | `[:fn decimal?]` | `DECIMAL(19,4)` |
-| `boolean` | `:boolean` | `BOOLEAN` |
-| `uuid` | `:uuid` | `TEXT` |
-| `instant` | `inst?` | `TEXT` |
-| `date` | `inst?` | `TEXT` |
+| Type      | Clojure Type       | Database Type   |
+|-----------|--------------------| ----------------|
+| `string`  | `:string`          | `TEXT`          |
+| `int`     | `:int`             | `INTEGER`       |
+| `decimal` | `[:fn decimal?]`   | `DECIMAL(19,4)` |
+| `boolean` | `:boolean`         | `BOOLEAN`       |
+| `uuid`    | `:uuid`            | `TEXT`          |
+| `instant` | `inst?`            | `TEXT`          |
+| `date`    | `inst?`            | `TEXT`          |
 
 **Modifiers**:
 | Modifier | Description |
