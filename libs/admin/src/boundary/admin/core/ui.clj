@@ -88,8 +88,8 @@
   (let [{:keys [user current-entity entities entity-configs page-title]} opts]
     ;; Alpine.js sidebar shell - replaces sidebar.js
     ;; State is persisted to localStorage via $store.sidebar
-    ;; Note: Using a wrapper div instead of fragment [:<>] for Hiccup compatibility
-    [:div
+    ;; Note: Using a wrapper div instead of fragment [:<>] for Hiccup compatibility with Alpine.js initialization
+    [:div.hiccup-fragment-wrapper
      ;; Initialize Alpine store for sidebar state management
      (alpine/sidebar-store-init)
      [:div.admin-shell (alpine/sidebar-shell-attrs)
@@ -135,7 +135,7 @@
      {:user user
       :flash flash
       :skip-header true
-      :css ["/css/pico.min.css" "/css/tokens.css" "/css/app.css" "/css/admin.css"]
+      :css ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
       ;; Alpine.js must load BEFORE HTMX for proper MutationObserver setup
       :js ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js" "/js/forms.js" "/js/keyboard.js"]})))
 

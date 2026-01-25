@@ -275,7 +275,7 @@
    :name "ids[]"
    :value (str id)
    :x-model "selectedIds"
-   :x-on:click.stop "$event.stopPropagation()"})
+   :x-on:click.stop ""})
 
 (defn delete-button-attrs
   "Delete button attributes that disables when nothing selected.
@@ -308,7 +308,7 @@
          if (Alpine.$persist) {
            return Alpine.$persist(value).as(key);
          }
-
+         console.warn('Alpine.js $persist plugin not found; sidebar state will not be persisted.');
          return value;
        };
 

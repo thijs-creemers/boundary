@@ -437,8 +437,8 @@
    (let [{:keys [size class variant]
           :or {size 32 variant :full}} opts
          suffix (if (= variant :icon) "-icon" "")
-         light-src (str "/assets/boudary-light-512" suffix ".png")
-         dark-src (str "/assets/boudary-dark-512" suffix ".png")
+         light-src (str "/assets/boundary-light-512" suffix ".png")
+         dark-src (str "/assets/boundary-dark-512" suffix ".png")
          img-style (str "height: " size "px; width: auto;")]
      [:span.brand-logo
       {:class class}
