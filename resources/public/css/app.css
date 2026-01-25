@@ -879,12 +879,18 @@ input[type="radio"] {
   border: 2px dashed var(--border-default);
 }
 
-.empty-state::before {
-  content: "📭";
-  display: block;
-  font-size: var(--text-4xl);
+/* Empty state icon - use inline SVG via Hiccup, not CSS emoji */
+.empty-state-icon {
+  display: flex;
+  justify-content: center;
   margin-bottom: var(--space-4);
+  color: var(--text-faint);
   opacity: 0.5;
+}
+
+.empty-state-icon svg {
+  width: 48px;
+  height: 48px;
 }
 
 .empty-state h3 {
@@ -2056,6 +2062,25 @@ select:focus-visible {
   transition: opacity var(--transition-normal), transform var(--transition-normal);
 }
 
+.admin-topbar-actions .theme-toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+}
+
+.admin-topbar-actions .logout-button {
+  width: 36px;
+  height: 36px;
+  line-height: 0;
+}
+
+.admin-topbar-actions .logout-button svg,
+.admin-topbar-actions .theme-toggle svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.25;
+}
+
 /* Animate icon change */
 [data-theme="dark"] .theme-toggle [data-theme-icon="dark"],
 [data-theme="light"] .theme-toggle [data-theme-icon="light"] {
@@ -2079,6 +2104,50 @@ select:focus-visible {
 /* .admin-topbar .theme-toggle {
   margin-left: var(--space-2);
 } */
+
+/* =============================================================================
+   Brand Logo (Light/Dark Theme Switching)
+   ============================================================================= */
+
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.brand-logo img {
+  /* Width auto-scales with height set via inline style */
+  object-fit: contain;
+}
+
+/* Light mode: show light logo (dark text), hide dark logo */
+.brand-logo-light {
+  display: block !important;
+}
+
+.brand-logo-dark {
+  display: none !important;
+}
+
+/* Dark mode: show dark logo (light text), hide light logo */
+[data-theme="dark"] .brand-logo-light {
+  display: none !important;
+}
+
+[data-theme="dark"] .brand-logo-dark {
+  display: block !important;
+}
+
+/* Also support prefers-color-scheme when no data-theme is set */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .brand-logo-light {
+    display: none !important;
+  }
+  
+  :root:not([data-theme="light"]) .brand-logo-dark {
+    display: block !important;
+  }
+}
 
 /* =============================================================================
    Icon Buttons
@@ -2265,6 +2334,18 @@ select:focus-visible {
   margin: 0;
   padding: 0;
   white-space: nowrap;
+}
+
+/* Admin list overrides (app.css loads after admin.css) */
+.entity-list-page .selection-count {
+  height: auto;
+  line-height: 1.4;
+  padding: var(--space-1) var(--space-3);
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--accent-secondary);
+  border-radius: var(--radius-full);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.02em;
 }
 
 .record-count {
@@ -3571,4 +3652,3 @@ textarea:focus-visible,
 [data-theme="dark"] textarea:focus-visible {
   outline-color: var(--accent-primary);
 }
-

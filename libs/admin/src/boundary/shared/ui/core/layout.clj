@@ -18,7 +18,8 @@
   [& [opts]]
   (let [{:keys [user]} opts]
     [:nav
-     [:a.logo {:href (if user "/web/dashboard" "/")} "Boundary App"]
+     [:a.logo {:href (if user "/web/dashboard" "/")}
+      (icons/brand-logo {:size 140})]
      (when user
        [:div.nav-links
         [:a {:href "/web/audit"}

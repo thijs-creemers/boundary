@@ -1,6 +1,7 @@
 (ns boundary.shared.ui.core.table
   "Shared table UI helpers (sorting, paging) for Hiccup-based web UIs."
-  (:require [boundary.platform.shell.web.table :as web-table]))
+  (:require [boundary.platform.shell.web.table :as web-table]
+            [boundary.shared.ui.core.icons :as icons]))
 
 (defn sortable-th
   "Reusable sortable table header cell.
@@ -25,27 +26,31 @@
             hx-target hx-push-url? extra-params]}]
    (let [active?  (= current-sort field)
          next-dir (if (and active? (= current-dir :asc)) :desc :asc)
-         icon     (cond
-                    (not active?) ""
-                    (= current-dir :asc) " ↑"
-                    :else " ↓")
-        page*    1
-        base-q   (web-table/table-query->params
-                  {:sort field :dir next-dir :page page* :page-size page-size})
+         icon-key (cond
+                    (not active?) nil
+                    (= current-dir :asc) :chevron-up
+                    :else :chevron-down)
+         page*    1
+         base-q   (web-table/table-query->params
+                   {:sort field :dir next-dir :page page* :page-size page-size})
         extra-q  (into {}
                        (for [[k v] extra-params]
                          [(name k) (str v)]))
         qs-map   (merge base-q extra-q)
         url      (str base-url "?" (web-table/encode-query-params qs-map))]
-    [:th
-     {:hx-get     url
-      :hx-target  hx-target
-      :hx-push-url (when hx-push-url? "true")
-      :class      (str "sortable-header"
-                       (when active? " sortable-header--active"))
-      :role       "button"
-      :tabindex   "0"}
-     (str label icon)]))
+     [:th
+      {:hx-get     url
+       :hx-target  hx-target
+       :hx-push-url (when hx-push-url? "true")
+       :class      (str "sortable-header"
+                        (when active? " sortable-header--active")
+                        (when active? (str " sort-dir-" (name current-dir))))
+       :role       "button"
+       :tabindex   "0"}
+      [:span.sort-label label]
+      (when icon-key
+        [:span.sort-icon
+         (icons/icon icon-key {:size 12})])]))
 
 (defn pagination
   "Render pagination controls for a table.

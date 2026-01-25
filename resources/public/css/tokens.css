@@ -5,15 +5,31 @@
 
 :root {
   /* --------------------------------------------------------------------------
-     Accent Colors (2 only - used sparingly)
+     Brand Colors (from Boundary Brand Guide)
+     Core: #1E3A5F (deep navy) - primary actions, focus rings
+     Shell: #3A7F3F (forest green) - secondary actions, success states
+     Observability: #4B5563 (slate gray) - neutral accents
+     -------------------------------------------------------------------------- */
+  --brand-core: #1E3A5F;          /* Deep navy - primary brand color */
+  --brand-core-light: #2d4a73;    /* Lighter variant for hover */
+  --brand-core-subtle: rgba(30, 58, 95, 0.08); /* Subtle backgrounds */
+  
+  --brand-shell: #3A7F3F;         /* Forest green - secondary brand color */
+  --brand-shell-light: #4a9f4f;   /* Lighter variant for hover */
+  --brand-shell-subtle: rgba(58, 127, 63, 0.08); /* Subtle backgrounds */
+  
+  --brand-observability: #4B5563; /* Slate gray - neutral accent */
+
+  /* --------------------------------------------------------------------------
+     Accent Colors (mapped from brand)
      Contrast ratios verified: 4.5:1+ on white, 4.5:1+ on dark
      -------------------------------------------------------------------------- */
-  --accent-primary: #0891b2;      /* Cyan-600 - Primary actions, focus rings */
-  --accent-primary-hover: #0e7490; /* Cyan-700 - Hover state */
-  --accent-primary-light: #ecfeff; /* Cyan-50 - Subtle backgrounds */
+  --accent-primary: var(--brand-core);
+  --accent-primary-hover: var(--brand-core-light);
+  --accent-primary-light: var(--brand-core-subtle);
 
-  --accent-secondary: #6366f1;    /* Indigo-500 - Secondary actions, links */
-  --accent-secondary-hover: #4f46e5; /* Indigo-600 - Hover state */
+  --accent-secondary: var(--brand-shell);
+  --accent-secondary-hover: var(--brand-shell-light)
 
   /* --------------------------------------------------------------------------
      Surface Colors (Light Mode)
@@ -167,13 +183,22 @@
    ============================================================================= */
 
 [data-theme="dark"] {
-  /* Accent colors - brighter for dark backgrounds */
-  --accent-primary: #22d3ee;      /* Cyan-400 */
-  --accent-primary-hover: #67e8f9; /* Cyan-300 */
-  --accent-primary-light: rgba(34, 211, 238, 0.15);
+  /* Brand colors - lighter variants for dark backgrounds */
+  --brand-core: #5b8fbf;          /* Lighter navy for dark mode */
+  --brand-core-light: #7ba8d4;
+  --brand-core-subtle: rgba(91, 143, 191, 0.15);
+  
+  --brand-shell: #6abf6f;         /* Lighter green for dark mode */
+  --brand-shell-light: #8fd993;
+  --brand-shell-subtle: rgba(106, 191, 111, 0.15);
 
-  --accent-secondary: #818cf8;    /* Indigo-400 */
-  --accent-secondary-hover: #a5b4fc; /* Indigo-300 */
+  /* Accent colors - mapped from brand */
+  --accent-primary: var(--brand-core);
+  --accent-primary-hover: var(--brand-core-light);
+  --accent-primary-light: var(--brand-core-subtle);
+
+  --accent-secondary: var(--brand-shell);
+  --accent-secondary-hover: var(--brand-shell-light)
 
   /* Surfaces - deep navy */
   --surface-0: #0f172a;           /* Slate-900 */
@@ -229,11 +254,19 @@
 /* System preference dark mode */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --accent-primary: #22d3ee;
-    --accent-primary-hover: #67e8f9;
-    --accent-primary-light: rgba(34, 211, 238, 0.15);
-    --accent-secondary: #818cf8;
-    --accent-secondary-hover: #a5b4fc;
+    /* Brand colors - lighter variants for dark backgrounds */
+    --brand-core: #5b8fbf;
+    --brand-core-light: #7ba8d4;
+    --brand-core-subtle: rgba(91, 143, 191, 0.15);
+    --brand-shell: #6abf6f;
+    --brand-shell-light: #8fd993;
+    --brand-shell-subtle: rgba(106, 191, 111, 0.15);
+    /* Accent colors - mapped from brand */
+    --accent-primary: var(--brand-core);
+    --accent-primary-hover: var(--brand-core-light);
+    --accent-primary-light: var(--brand-core-subtle);
+    --accent-secondary: var(--brand-shell);
+    --accent-secondary-hover: var(--brand-shell-light);
     --surface-0: #0f172a;
     --surface-1: #1e293b;
     --surface-2: #334155;
