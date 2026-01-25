@@ -64,19 +64,7 @@
                       :data-label label}
                      (alpine/sidebar-nav-link-attrs))
            (icons/icon icon {:size 20})
-           [:span.nav-text label]]]))]
-    [:h3 "Tools"]
-    [:ul.entity-list
-     [:li
-      [:a (merge {:href "/web/admin/user" :data-label "Users"}
-                 (alpine/sidebar-nav-link-attrs))
-       (icons/icon :users {:size 20})
-       [:span.nav-text "Users"]]]
-     [:li
-      [:a (merge {:href "/web/audit" :data-label "Audit Trail"}
-                 (alpine/sidebar-nav-link-attrs))
-       (icons/icon :clock {:size 20})
-       [:span.nav-text "Audit Trail"]]]]]
+           [:span.nav-text label]]]))]]
    [:div.admin-sidebar-footer
     [:a (merge {:href "/web/dashboard"}
                (alpine/sidebar-nav-link-attrs))

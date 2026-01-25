@@ -361,11 +361,7 @@
       (is (str/includes? (str sidebar) "/web/admin/orders"))
 
       ;; Current entity should have active class
-      (is (str/includes? (str sidebar) "active"))
-
-      ;; Should have Tools section
-      (is (str/includes? (str sidebar) "Tools"))
-      (is (str/includes? (str sidebar) "Audit Trail")))))
+      (is (str/includes? (str sidebar) "active")))))
 
 (deftest admin-shell-test
   (testing "Admin shell layout with sidebar and topbar"
