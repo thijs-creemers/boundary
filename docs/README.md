@@ -95,7 +95,7 @@ Configure databases for development and production.
 - Connection pooling
 - Migration strategies
 
-#### [**Authentication Guide →**](guides/AUTHENTICATION.md) *(Coming Soon)*
+#### [**Authentication Guide →**](guides/AUTHENTICATION.md)
 Implement authentication and authorization in your app.
 
 - JWT-based authentication
@@ -457,10 +457,10 @@ docs/
 |----------|--------|----------|-----|
 | QUICKSTART.md | ✅ Complete | P0 | Done |
 | OPERATIONS.md | ✅ Complete | P0 | Done |
-| IDE_SETUP.md | 🟡 In Progress | P1 | Phase 3 |
+| IDE_SETUP.md | ✅ Complete | P1 | Phase 3 |
 | TUTORIAL.md | 📝 Planned | P1 | Phase 3 |
 | guides/DATABASE_SETUP.md | 📝 Planned | P2 | Phase 3 |
-| guides/AUTHENTICATION.md | 📝 Planned | P2 | Phase 4 |
+| guides/AUTHENTICATION.md | ✅ Complete | P2 | Phase 4 |
 | guides/TESTING.md | 📝 Planned | P2 | Phase 4 |
 | Examples (todo-api, blog) | 📝 Planned | P1 | Phase 3 |
 
