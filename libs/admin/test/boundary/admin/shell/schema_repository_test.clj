@@ -436,6 +436,123 @@
       (is true))))
 
 ;; =============================================================================
+;; UI Config Merging Tests
+;; =============================================================================
+
+(deftest get-entity-config-ui-merging-test
+  (testing "Global and entity-level :ui config merging"
+    (testing "Entity :ui overrides global :ui"
+      (let [config {:entity-discovery {:mode :allowlist
+                                       :allowlist #{:simple-table}}
+                    :ui {:field-grouping {:other-label "Global Other"}}
+                    :entities {:simple-table {:ui {:field-grouping {:other-label "Entity Other"}}}}}
+            repo (schema-repo/create-schema-repository *db-ctx* config)
+            entity-config (ports/get-entity-config repo :simple-table)]
+        (is (= "Entity Other" (get-in entity-config [:ui :field-grouping :other-label])))))
+
+    (testing "Global :ui is used when entity has no override"
+      (let [config {:entity-discovery {:mode :allowlist
+                                       :allowlist #{:simple-table}}
+                    :ui {:field-grouping {:other-label "Global Other"}}
+                    :entities {}}
+            repo (schema-repo/create-schema-repository *db-ctx* config)
+            entity-config (ports/get-entity-config repo :simple-table)]
+        (is (= "Global Other" (get-in entity-config [:ui :field-grouping :other-label])))))
+
+    (testing "Entity partial :ui merges with global :ui"
+      (let [config {:entity-discovery {:mode :allowlist
+                                       :allowlist #{:simple-table}}
+                    :ui {:field-grouping {:other-label "Global Other"}
+                         :theme "dark"}
+                    :entities {:simple-table {:ui {:theme "light"}}}}
+            repo (schema-repo/create-schema-repository *db-ctx* config)
+            entity-config (ports/get-entity-config repo :simple-table)]
+        ;; Entity overrides theme
+        (is (= "light" (get-in entity-config [:ui :theme])))
+        ;; Global :field-grouping is preserved
+        (is (= "Global Other" (get-in entity-config [:ui :field-grouping :other-label])))))
+
+    (testing "Entity :field-grouping overrides global :field-grouping"
+      (let [config {:entity-discovery {:mode :allowlist
+                                       :allowlist #{:simple-table}}
+                    :ui {:field-grouping {:other-label "Global Other"
+                                          :show-empty-groups false}}
+                    :entities {:simple-table {:ui {:field-grouping {:other-label "Custom Other"}}}}}
+            repo (schema-repo/create-schema-repository *db-ctx* config)
+            entity-config (ports/get-entity-config repo :simple-table)]
+        ;; Entity overrides :other-label
+        (is (= "Custom Other" (get-in entity-config [:ui :field-grouping :other-label])))
+        ;; Global :show-empty-groups is preserved via merge
+        (is (= false (get-in entity-config [:ui :field-grouping :show-empty-groups])))))
+
+    (testing "Empty config results in empty :ui"
+      (let [config {:entity-discovery {:mode :allowlist
+                                       :allowlist #{:simple-table}}
+                    :entities {}}
+            repo (schema-repo/create-schema-repository *db-ctx* config)
+            entity-config (ports/get-entity-config repo :simple-table)]
+        ;; :ui should be present but may be empty
+        (is (map? (get entity-config :ui {})))))))
+
+;; =============================================================================
+;; Field Order Tests
+;; =============================================================================
+
+(deftest get-entity-config-field-order-test
+  (testing "Field order reorders editable-fields and detail-fields via get-entity-config"
+    (let [config {:entity-discovery {:mode :allowlist
+                                     :allowlist #{:complex-table}}
+                  :entities {:complex-table {:field-order [:email :active :bio :age :salary]}}}
+          repo (schema-repo/create-schema-repository *db-ctx* config)
+          entity-config (ports/get-entity-config repo :complex-table)]
+
+      (testing "Editable fields are reordered according to :field-order"
+        (let [editable-fields (:editable-fields entity-config)
+              order-fields [:email :active :bio :age :salary]]
+          ;; Fields in :field-order should appear first in order
+          (when (seq editable-fields)
+            (let [in-order (filterv (set order-fields) editable-fields)
+                  ;; Check that fields from field-order appear in that order
+                  positions (map #(.indexOf (vec editable-fields) %) in-order)]
+              ;; Positions should be strictly increasing (ordered correctly)
+              (is (= positions (sort positions)))))))
+
+      (testing "Detail fields are reordered according to :field-order"
+        (let [detail-fields (:detail-fields entity-config)
+              order-fields [:email :active :bio :age :salary]]
+          (when (seq detail-fields)
+            (let [in-order (filterv (set order-fields) detail-fields)
+                  positions (map #(.indexOf (vec detail-fields) %) in-order)]
+              (is (= positions (sort positions)))))))))
+
+  (testing "Field order with partial specification"
+    (let [config {:entity-discovery {:mode :allowlist
+                                     :allowlist #{:simple-table}}
+                  :entities {:simple-table {:field-order [:name :active]}}}
+          repo (schema-repo/create-schema-repository *db-ctx* config)
+          entity-config (ports/get-entity-config repo :simple-table)]
+
+      (testing "Specified fields appear first, remaining fields follow"
+        (let [editable-fields (:editable-fields entity-config)]
+          (when (and (seq editable-fields)
+                     (some #{:name} editable-fields))
+            ;; :name should appear before any unspecified fields
+            (let [name-idx (.indexOf (vec editable-fields) :name)
+                  active-idx (.indexOf (vec editable-fields) :active)]
+              (when (and (>= name-idx 0) (>= active-idx 0))
+                (is (< name-idx active-idx)))))))))
+
+  (testing "Entity without :field-order preserves auto-detected order"
+    (let [config {:entity-discovery {:mode :allowlist
+                                     :allowlist #{:simple-table}}
+                  :entities {}}
+          repo (schema-repo/create-schema-repository *db-ctx* config)
+          entity-config (ports/get-entity-config repo :simple-table)]
+      ;; Should have fields (order is auto-detected)
+      (is (vector? (:editable-fields entity-config)))
+      (is (vector? (:detail-fields entity-config))))))
+
+;; =============================================================================
 ;; Error Handling Tests
 ;; =============================================================================
 

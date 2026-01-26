@@ -550,6 +550,65 @@
     auto-config))
 
 ;; =============================================================================
+;; Field Ordering
+;; =============================================================================
+
+(defn apply-field-order
+  "Apply preferred field ordering to a vector of fields.
+
+   Uses stable sorting: fields in :field-order come first (in that order),
+   remaining fields are appended in their original order.
+
+   Args:
+     fields: Vector of field keywords to reorder
+     field-order: Optional vector of preferred field order
+
+   Returns:
+     Reordered vector of field keywords
+
+   Example:
+     (apply-field-order [:c :a :b :d] [:a :b])
+     ;=> [:a :b :c :d]
+
+     (apply-field-order [:email :name :role :active] [:role :email])
+     ;=> [:role :email :name :active]"
+  [fields field-order]
+  (if (seq field-order)
+    (let [field-set (set fields)
+          ;; Fields from field-order that exist in fields (in order)
+          ordered (filterv field-set field-order)
+          ;; Remaining fields not in field-order (preserve original order)
+          ordered-set (set ordered)
+          remaining (filterv #(not (ordered-set %)) fields)]
+      (into ordered remaining))
+    fields))
+
+(defn apply-field-order-to-config
+  "Apply :field-order to :editable-fields and :detail-fields in entity config.
+
+   If :field-order is present in the config, reorders :editable-fields and
+   :detail-fields accordingly. Does not modify :list-fields (those have their
+   own explicit ordering).
+
+   Args:
+     entity-config: Entity configuration map
+
+   Returns:
+     Entity configuration with reordered field vectors
+
+   Example:
+     (apply-field-order-to-config
+       {:editable-fields [:c :a :b]
+        :detail-fields [:c :a :b :d]
+        :field-order [:a :b :c]})"
+  [entity-config]
+  (if-let [field-order (:field-order entity-config)]
+    (-> entity-config
+        (update :editable-fields #(apply-field-order % field-order))
+        (update :detail-fields #(apply-field-order % field-order)))
+    entity-config))
+
+;; =============================================================================
 ;; Relationship Detection (Week 2)
 ;; =============================================================================
 

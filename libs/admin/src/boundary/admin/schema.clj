@@ -143,6 +143,38 @@
                   :description "Placeholder text for inputs"}
     :string]])
 
+(def FieldGroupingConfig
+  "Schema for field grouping configuration.
+
+   Controls how ungrouped fields are labeled in grouped forms."
+  [:map {:title "Field Grouping Configuration"
+         :closed true}
+   [:other-label {:optional true
+                  :description "Label for the 'other' group containing ungrouped fields (default: 'Other')"}
+    :string]])
+
+(def UIConfig
+  "Schema for UI-specific configuration.
+
+   Controls visual and layout options for forms and views."
+  [:map {:title "UI Configuration"
+         :closed true}
+   [:field-grouping {:optional true
+                     :description "Field grouping display configuration"}
+    FieldGroupingConfig]])
+
+(def FieldGroup
+  "Schema for a single field group.
+
+   Defines a logical grouping of fields for forms and detail views."
+  [:map {:title "Field Group"}
+   [:id {:description "Unique identifier for the group"}
+    :keyword]
+   [:label {:description "Display label for the group header"}
+    :string]
+   [:fields {:description "Ordered vector of field names in this group"}
+    [:vector :keyword]]])
+
 (def EntityConfig
   "Schema for entity configuration.
 
@@ -177,6 +209,12 @@
    [:fields {:optional true
              :description "Field-specific configuration overrides"}
     [:map-of :keyword FieldConfig]]
+   [:field-order {:optional true
+                  :description "Preferred ordering of fields in forms and detail views"}
+    [:vector :keyword]]
+   [:field-groups {:optional true
+                   :description "Logical groupings of fields for forms and detail views"}
+    [:vector FieldGroup]]
    [:default-sort {:optional true
                    :description "Default sort field"}
     :keyword]
@@ -191,7 +229,10 @@
     :string]
    [:soft-delete {:optional true
                   :description "Whether entity supports soft delete (has deleted-at column)"}
-    :boolean]])
+    :boolean]
+   [:ui {:optional true
+         :description "UI-specific configuration overrides for this entity"}
+    UIConfig]])
 
 (def AdminConfig
   "Schema for complete admin module configuration.
@@ -211,6 +252,9 @@
     [:map-of :keyword EntityConfig]]
    [:pagination {:description "Pagination settings"}
     PaginationConfig]
+   [:ui {:optional true
+         :description "Global UI configuration (can be overridden per-entity)"}
+    UIConfig]
    [:theme {:optional true
             :description "UI theme configuration"}
     [:map {:closed true}
@@ -395,6 +439,7 @@
                       :allowlist #{}}
    :pagination {:default-page-size 50
                 :max-page-size 200}
+   :ui {:field-grouping {:other-label "Other"}}
    :features {:bulk-actions true
               :export-csv false
               :import-csv false

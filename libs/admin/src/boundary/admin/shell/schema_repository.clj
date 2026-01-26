@@ -62,13 +62,26 @@
      2. Parse metadata into auto-detected configuration
      3. Get manual config overrides from admin config (if any)
      4. Merge auto-detected with manual overrides
-     5. Return complete entity configuration"
+     5. Inject effective UI config (admin global + entity override)
+     6. Apply field ordering if :field-order is specified
+     7. Return complete entity configuration"
     (let [table-metadata (ports/fetch-table-metadata this entity-name)
           auto-config (introspection/parse-table-metadata entity-name table-metadata)
           manual-config (get-in config [:entities entity-name])
-          merged-config (introspection/build-entity-config auto-config manual-config)]
-      ; Add relationship detection (Week 1 stub)
-      (introspection/detect-relationships merged-config)))
+          merged-config (introspection/build-entity-config auto-config manual-config)
+          ;; Compute effective UI config: entity overrides admin global
+          admin-ui (get config :ui {})
+          entity-ui (get merged-config :ui {})
+          ;; Deep merge: entity field-grouping overrides admin field-grouping
+          effective-field-grouping (merge (get admin-ui :field-grouping {})
+                                          (get entity-ui :field-grouping {}))
+          effective-ui (-> (merge admin-ui entity-ui)
+                           (assoc :field-grouping effective-field-grouping))
+          config-with-ui (assoc merged-config :ui effective-ui)
+          ;; Apply field ordering if specified
+          ordered-config (introspection/apply-field-order-to-config config-with-ui)]
+      ;; Add relationship detection (Week 1 stub)
+      (introspection/detect-relationships ordered-config)))
 
   (list-available-entities [_]
     "List all entities available based on discovery configuration.
