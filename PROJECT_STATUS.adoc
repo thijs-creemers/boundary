@@ -268,7 +268,7 @@ The monolith has been successfully split into 10 independent libraries under `li
 |100% (6/6)
 
 |**Library Split**
-|Monorepo Architecture (7 libraries)
+|Monorepo Architecture (10 libraries)
 |✅ COMPLETE
 |100%
 
