@@ -12,7 +12,7 @@ A module-centric Clojure framework implementing the Functional Core / Imperative
 
 ## Library Architecture
 
-Boundary is organized as a **monorepo** with 7 independently publishable libraries:
+Boundary is organized as a **monorepo** with 10 independently publishable libraries:
 
 | Library | Description |
 |---------|-------------|
@@ -23,25 +23,34 @@ Boundary is organized as a **monorepo** with 7 independently publishable librari
 | **[admin](libs/admin/)** | Auto-CRUD admin interface |
 | **[storage](libs/storage/)** | File storage (local & S3) |
 | **[scaffolder](libs/scaffolder/)** | Module code generator |
+| **[cache](libs/cache/)** | Distributed caching (Redis/in-memory) |
+| **[jobs](libs/jobs/)** | Background job processing |
+| **[external](libs/external/)** | External service adapters (In Development) |
 
 ```
-┌─────────────┐     ┌─────────────┐
-│  scaffolder │     │   storage   │
-└──────┬──────┘     └──────┬──────┘
-       │                   │
-       ▼                   ▼
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│    core     │◄────│  platform   │◄────│    user     │
-└─────────────┘     └──────┬──────┘     └──────┬──────┘
-       ▲                   │                   │
-       │                   ▼                   │
-       │           ┌─────────────┐             │
-       └───────────│observability│             │
-                   └─────────────┘             │
-                                               ▼
-                                        ┌─────────────┐
-                                        │    admin    │
-                                        └─────────────┘
+│  scaffolder │     │   storage   │     │    cache    │
+└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+       │                   │                   │
+       ▼                   ▼                   ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│    jobs     │     │  external   │     │    core     │◄────┐
+└──────┬──────┘     └──────┬──────┘     └─────────────┘     │
+       │                   │                   ▲             │
+       ▼                   ▼                   │             │
+       │           ┌─────────────┐     ┌──────┴──────┐      │
+       └──────────►│  platform   │────►│    user     │      │
+                   └──────┬──────┘     └──────┬──────┘      │
+                          │                   │             │
+                          ▼                   │             │
+                  ┌─────────────┐             │             │
+                  │observability│◄────────────┘             │
+                  └─────────────┘                           │
+                          │                                 │
+                          ▼                                 │
+                   ┌─────────────┐                          │
+                   │    admin    │──────────────────────────┘
+                   └─────────────┘
 ```
 
 ## Quick Start
