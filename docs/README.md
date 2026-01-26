@@ -517,5 +517,5 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for full guidelines.
 
 **Happy coding with Boundary!** 🚀
 
-*Last updated: 2026-01-03*
+*Last updated: 2026-01-26*
 *Documentation version: 1.0.0*
