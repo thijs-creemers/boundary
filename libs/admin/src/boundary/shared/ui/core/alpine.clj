@@ -16,7 +16,8 @@
    - x-model: Two-way data binding
    - $persist: LocalStorage persistence
    - $store: Global reactive stores"
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [hiccup2.core :as h]))
 
 ;; =============================================================================
 ;; Core Attribute Helpers
@@ -273,7 +274,8 @@
   {:type "checkbox"
    :name "ids[]"
    :value (str id)
-   :x-model "selectedIds"})
+   :x-model "selectedIds"
+   :x-on:click.stop ""})
 
 (defn delete-button-attrs
   "Delete button attributes that disables when nothing selected.
@@ -300,41 +302,50 @@
      Hiccup script element with store initialization"
   []
   [:script
-   "document.addEventListener('alpine:init', () => {
-      Alpine.store('sidebar', {
-        state: Alpine.$persist('expanded').as('boundary-admin-sidebar-state'),
-        pinned: Alpine.$persist(false).as('boundary-admin-sidebar-pinned'),
-        mobileOpen: false,
+   (h/raw
+    "document.addEventListener('alpine:init', () => {
+       const persist = (value, key) => {
+         if (Alpine.$persist) {
+           return Alpine.$persist(value).as(key);
+         }
+         console.warn('Alpine.js $persist plugin not found; sidebar state will not be persisted.');
+         return value;
+       };
 
-        toggle() {
-          this.state = this.state === 'expanded' ? 'collapsed' : 'expanded';
-        },
+       Alpine.store('sidebar', {
+         state: persist('expanded', 'boundary-admin-sidebar-state'),
+         pinned: persist(false, 'boundary-admin-sidebar-pinned'),
+         mobileOpen: false,
 
-        togglePin() {
-          this.pinned = !this.pinned;
-        },
+         toggle() {
+           this.state = this.state === 'expanded' ? 'collapsed' : 'expanded';
+         },
 
-        expand() {
-          if (!this.pinned && window.innerWidth > 768) {
-            this.state = 'expanded';
-          }
-        },
+         togglePin() {
+           this.pinned = !this.pinned;
+         },
 
-        collapse() {
-          if (!this.pinned && window.innerWidth > 768) {
-            this.state = 'collapsed';
-          }
-        },
+         expand() {
+           if (!this.pinned && window.innerWidth > 768) {
+             this.state = 'expanded';
+           }
+         },
 
-        toggleMobile() {
-          this.mobileOpen = !this.mobileOpen;
-        },
+         collapse() {
+           if (!this.pinned && window.innerWidth > 768) {
+             this.state = 'collapsed';
+           }
+         },
 
-        closeMobile() {
-          this.mobileOpen = false;
-        }
-      });
-    });"])
+         toggleMobile() {
+           this.mobileOpen = !this.mobileOpen;
+         },
+
+         closeMobile() {
+           this.mobileOpen = false;
+         }
+       });
+     });")])
 
 (defn sidebar-shell-attrs
   "Admin shell attributes for sidebar state binding.
@@ -342,7 +353,7 @@
    Returns:
      Map of Alpine attributes for admin-shell div"
   []
-  {:x-data true
+  {:x-data "{}"
    :x-bind:data-sidebar-state "$store.sidebar.state"
    :x-bind:data-sidebar-pinned "$store.sidebar.pinned"
    :x-bind:data-sidebar-open "$store.sidebar.mobileOpen"

@@ -132,25 +132,28 @@
         (is (not (auth-shell/verify-password "wrong-password" hashed-password))))))
 
   (testing "JWT token operations"
-    (let [test-user-for-jwt (dissoc test-user :password-hash)
-          jwt-token (auth-shell/create-jwt-token test-user-for-jwt 24)]
+    ;; Mock JWT_SECRET for testing since it's required from environment
+    (with-redefs-fn {#'boundary.user.shell.auth/get-jwt-secret 
+                     (constantly "test-secret-minimum-32-characters-long-for-testing")}
+      #(let [test-user-for-jwt (dissoc test-user :password-hash)
+             jwt-token (auth-shell/create-jwt-token test-user-for-jwt 24)]
 
-      (testing "create-jwt-token produces valid JWT"
-        (is (string? jwt-token))
-        (is (> (count jwt-token) 100)) ; JWTs are typically long
-        (is (.contains jwt-token "."))) ; JWTs have dots as separators
+         (testing "create-jwt-token produces valid JWT"
+           (is (string? jwt-token))
+           (is (> (count jwt-token) 100)) ; JWTs are typically long
+           (is (.contains jwt-token "."))) ; JWTs have dots as separators
 
-      (testing "verify-jwt-token validates JWT correctly"
-        (let [result (auth-shell/validate-jwt-token jwt-token)]
-          (is (:valid? result))
-          (is (= (str (:id test-user)) (get-in result [:claims :sub])))
-          (is (= (:email test-user) (get-in result [:claims :email])))
-          (is (= (name (:role test-user)) (get-in result [:claims :role]))))
+         (testing "verify-jwt-token validates JWT correctly"
+           (let [result (auth-shell/validate-jwt-token jwt-token)]
+             (is (:valid? result))
+             (is (= (str (:id test-user)) (get-in result [:claims :sub])))
+             (is (= (:email test-user) (get-in result [:claims :email])))
+             (is (= (name (:role test-user)) (get-in result [:claims :role]))))
 
-        (testing "rejects invalid JWT"
-          (let [result (auth-shell/validate-jwt-token "invalid-jwt-token")]
-            (is (not (:valid? result)))
-            (is (:error result))))))))
+           (testing "rejects invalid JWT"
+             (let [result (auth-shell/validate-jwt-token "invalid-jwt-token")]
+               (is (not (:valid? result)))
+               (is (:error result)))))))))
 
 ;; =============================================================================
 ;; Schema Validation Tests

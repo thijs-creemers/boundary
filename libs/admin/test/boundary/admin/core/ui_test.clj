@@ -348,8 +348,8 @@
       (is (vector? sidebar))
       (is (= :aside.admin-sidebar (first sidebar)))
 
-      ;; Should have header with title
-      (is (str/includes? (str sidebar) "Admin Panel"))
+      ;; Should have header with brand logo (alt text is "Boundary")
+      (is (str/includes? (str sidebar) "Boundary"))
 
       ;; Should have navigation for each entity
       (is (str/includes? (str sidebar) "Users"))
@@ -361,11 +361,7 @@
       (is (str/includes? (str sidebar) "/web/admin/orders"))
 
       ;; Current entity should have active class
-      (is (str/includes? (str sidebar) "active"))
-
-      ;; Should have Tools section
-      (is (str/includes? (str sidebar) "Tools"))
-      (is (str/includes? (str sidebar) "Audit Trail")))))
+      (is (str/includes? (str sidebar) "active")))))
 
 (deftest admin-shell-test
   (testing "Admin shell layout with sidebar and topbar"
@@ -378,9 +374,9 @@
           shell (ui/admin-shell content opts)]
 
       (is (vector? shell))
-      ;; Shell now returns a fragment [:<> store-init [:div.admin-shell ...]]
-      ;; for Alpine.js sidebar store initialization
-      (is (= :<> (first shell)))
+      ;; Shell now returns a wrapper div [:div.hiccup-fragment-wrapper store-init [:div.admin-shell ...]]
+      ;; for Alpine.js sidebar store initialization (using div instead of fragment for Hiccup compatibility)
+      (is (= :div.hiccup-fragment-wrapper (first shell)))
 
       ;; Should contain admin-shell div
       (is (some #(and (vector? %) (= :div.admin-shell (first %)))

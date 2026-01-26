@@ -411,6 +411,48 @@
       [:span {:data-theme-icon "dark"}
        (icon :moon {:size size :aria-label "Switch to dark mode"})]])))
 
+(defn brand-logo
+  "Render the Boundary brand logo with automatic light/dark theme switching.
+   
+   Uses CSS to show the appropriate logo variant based on the current theme.
+   In light mode, shows the dark logo (dark text on light background).
+   In dark mode, shows the light logo (light text on dark background).
+   
+   Args:
+     opts: Optional map with:
+           :size - Height in pixels (default 32, max-width auto-scales)
+           :class - Additional CSS classes
+           :variant - :full (default) or :icon for icon-only version
+           
+   Returns:
+     Hiccup span with both logo images, CSS controls visibility
+     
+   Example:
+     (brand-logo)
+     (brand-logo {:size 40 :class \"sidebar-logo\"})
+     (brand-logo {:variant :icon})"
+  ([]
+   (brand-logo {}))
+  ([opts]
+   (let [{:keys [size class variant]
+          :or {size 32 variant :full}} opts
+         suffix (if (= variant :icon) "-icon" "")
+         light-src (str "/assets/boundary-light-512" suffix ".png")
+         dark-src (str "/assets/boundary-dark-512" suffix ".png")
+         img-style (str "height: " size "px; width: auto;")]
+     [:span.brand-logo
+      {:class class}
+      ;; Light theme logo (dark text) - shown when data-theme="light" or no theme set
+      [:img.brand-logo-light
+       {:src light-src
+        :alt "Boundary"
+        :style img-style}]
+      ;; Dark theme logo (light text) - shown when data-theme="dark"
+      [:img.brand-logo-dark
+       {:src dark-src
+        :alt "Boundary"
+        :style img-style}]])))
+
 (comment
   ;; Usage examples:
   
@@ -429,4 +471,8 @@
   ;; List all available icons
   (available-icons)
   ;=> [:alert-circle :arrow-down :arrow-up :arrow-up-down :calendar ...]
+  
+  ;; Brand logo
+  (brand-logo)
+  (brand-logo {:size 40 :class "header-logo"})
   )

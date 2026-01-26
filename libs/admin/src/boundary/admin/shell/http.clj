@@ -15,6 +15,7 @@
    [boundary.admin.core.ui :as admin-ui]
    [boundary.admin.core.permissions :as permissions]
    [boundary.shared.ui.core.components :as ui-components]
+   [boundary.shared.ui.core.icons :as icons]
    [boundary.shared.ui.core.validation :as ui-validation]
    [boundary.platform.core.http.problem-details :as problem-details]
    [boundary.user.shell.middleware :as user-middleware]
@@ -444,11 +445,13 @@
           (ring-response/redirect (str "/web/admin/" (name (first entities)))))
 
         ; No entities configured
-        (html-response
-         (admin-ui/admin-layout
-          [:div.empty-state
-           [:h2 "No Entities Configured"]
-           [:p "Add entities to the :boundary/admin :entity-discovery :allowlist in your config."]]
+         (html-response
+          (admin-ui/admin-layout
+           [:div.empty-state
+            [:div.empty-state-icon
+             (icons/icon :database {:size 48})]
+            [:h2 "No Entities Configured"]
+            [:p "Add entities to the :boundary/admin :entity-discovery :allowlist in your config."]]
           {:user user
            :current-entity nil
            :entities []

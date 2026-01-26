@@ -19,9 +19,7 @@
    All findings are warnings (exit code 0)."
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
-            [clojure.edn :as edn]
-            [clojure.set :as set]))
-
+            [clojure.edn :as edn]))
 ;; =============================================================================
 ;; Configuration
 ;; =============================================================================
