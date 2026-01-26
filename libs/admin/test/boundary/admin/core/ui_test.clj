@@ -374,9 +374,9 @@
           shell (ui/admin-shell content opts)]
 
       (is (vector? shell))
-      ;; Shell now returns a wrapper div [:div store-init [:div.admin-shell ...]]
+      ;; Shell now returns a wrapper div [:div.hiccup-fragment-wrapper store-init [:div.admin-shell ...]]
       ;; for Alpine.js sidebar store initialization (using div instead of fragment for Hiccup compatibility)
-      (is (= :div (first shell)))
+      (is (= :div.hiccup-fragment-wrapper (first shell)))
 
       ;; Should contain admin-shell div
       (is (some #(and (vector? %) (= :div.admin-shell (first %)))

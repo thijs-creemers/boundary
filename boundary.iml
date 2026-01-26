@@ -6,6 +6,33 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/dev" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/admin/resources" type="java-resource" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/admin/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/admin/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/cache/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/cache/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/core/resources" type="java-resource" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/core/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/external/resources" type="java-resource" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/external/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/external/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/jobs/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/jobs/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/observability/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/observability/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/platform/resources" type="java-resource" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/platform/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/platform/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/scaffolder/resources" type="java-resource" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/scaffolder/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/scaffolder/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/storage/resources" type="java-resource" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/storage/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/storage/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/user/resources" type="java-resource" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/user/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/user/test" isTestSource="true" />
     </content>
   </component>
   <component name="BuildSystem">
