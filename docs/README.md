@@ -85,7 +85,7 @@ Configure your editor for the best Boundary development experience.
 - Debugging configuration
 - Recommended extensions
 
-#### [**Database Setup Guide →**](DATABASE_SETUP.md) *(Coming Soon)*
+#### [**Database Setup Guide →**](guides/DATABASE_SETUP.md) *(Coming Soon)*
 Configure databases for development and production.
 
 - SQLite (easiest, for development)
@@ -95,7 +95,7 @@ Configure databases for development and production.
 - Connection pooling
 - Migration strategies
 
-#### [**Authentication Guide →**](AUTHENTICATION.md) *(Coming Soon)*
+#### [**Authentication Guide →**](guides/AUTHENTICATION.md) *(Coming Soon)*
 Implement authentication and authorization in your app.
 
 - JWT-based authentication
@@ -104,7 +104,7 @@ Implement authentication and authorization in your app.
 - MFA setup
 - OAuth2 integration
 
-#### [**Testing Guide →**](TESTING.md) *(Coming Soon)*
+#### [**Testing Guide →**](guides/TESTING.md) *(Coming Soon)*
 Write comprehensive tests for your Boundary application.
 
 - Unit testing pure functions
@@ -459,9 +459,9 @@ docs/
 | OPERATIONS.md | ✅ Complete | P0 | Done |
 | IDE_SETUP.md | 🟡 In Progress | P1 | Phase 3 |
 | TUTORIAL.md | 📝 Planned | P1 | Phase 3 |
-| DATABASE_SETUP.md | 📝 Planned | P2 | Phase 3 |
-| AUTHENTICATION.md | 📝 Planned | P2 | Phase 4 |
-| TESTING.md | 📝 Planned | P2 | Phase 4 |
+| guides/DATABASE_SETUP.md | 📝 Planned | P2 | Phase 3 |
+| guides/AUTHENTICATION.md | 📝 Planned | P2 | Phase 4 |
+| guides/TESTING.md | 📝 Planned | P2 | Phase 4 |
 | Examples (todo-api, blog) | 📝 Planned | P1 | Phase 3 |
 
 **Legend:**
@@ -485,7 +485,7 @@ Different learning paths depending on your goal:
 1. [Quickstart Guide](QUICKSTART.md)
 2. [Full Tutorial](TUTORIAL.md)
 3. [IDE Setup](IDE_SETUP.md)
-4. [Testing Guide](TESTING.md)
+4. [Testing Guide](guides/TESTING.md)
 5. [Example: todo-api](../examples/todo-api/)
 
 ### Path 3: "I want to understand the architecture" (1-2 hours)
@@ -497,7 +497,7 @@ Different learning paths depending on your goal:
 ### Path 4: "I want to deploy to production" (4 hours)
 1. [Operations Runbook](OPERATIONS.md)
 2. [Security Guide](SECURITY.md)
-3. [Database Setup](DATABASE_SETUP.md)
+3. [Database Setup](guides/DATABASE_SETUP.md)
 4. [Configuration Guide](CONFIGURATION.md)
 5. [Example: microservice](../examples/microservice/)
 
