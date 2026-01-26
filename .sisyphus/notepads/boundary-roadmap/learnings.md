@@ -47,3 +47,13 @@ Always use Aero's `#env` and `#or` tags for database configuration to ensure a s
  :host     #or [#env DB_HOST "localhost"]
  :password #env DB_PASSWORD}
 ```
+
+## Testing Guide Creation (2026-01-26)
+
+- Successfully created `docs/guides/TESTING.md` with over 500 lines of comprehensive documentation.
+- **Three-Tier Strategy**: Documented Unit (Core/Pure), Integration (Shell/Service), and Contract (Boundary/HTTP) layers.
+- **Metadata Patterns**: Reinforced use of `:unit`, `:integration`, and `:contract` for efficient test filtering.
+- **Snapshot Testing**: Documented the `UPDATE_SNAPSHOTS=true` workflow for stabilizing validation logic.
+- **Accessibility Integration**: Included specific patterns for testing ARIA labels and semantic HTML, ensuring high UI quality.
+- **HTMX Testing**: Added guidance on testing HTMX-specific response headers and fragment returns.
+- **Watch Mode**: Emphasized the use of `--watch` for a tight TDD loop.
