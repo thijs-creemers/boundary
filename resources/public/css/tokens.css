@@ -29,7 +29,7 @@
   --accent-primary-light: var(--brand-core-subtle);
 
   --accent-secondary: var(--brand-shell);
-  --accent-secondary-hover: var(--brand-shell-light)
+  --accent-secondary-hover: var(--brand-shell-light);
 
   /* --------------------------------------------------------------------------
      Surface Colors (Light Mode)
@@ -198,7 +198,7 @@
   --accent-primary-light: var(--brand-core-subtle);
 
   --accent-secondary: var(--brand-shell);
-  --accent-secondary-hover: var(--brand-shell-light)
+  --accent-secondary-hover: var(--brand-shell-light);
 
   /* Surfaces - deep navy */
   --surface-0: #0f172a;           /* Slate-900 */
