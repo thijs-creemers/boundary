@@ -76,15 +76,19 @@ Cmd+Alt+C Cmd+Alt+J (Mac)
 4. You'll see "REPL connected" in bottom right
 
 **3. Start Boundary System**
-```clojure
-;; In any .clj file, evaluate these (Ctrl+Alt+C Ctrl+Alt+E):
-(require '[integrant.repl :as ig-repl])
-(require '[boundary.system])
 
-(ig-repl/set-prep! #(boundary.system/system-config))
-(ig-repl/go)
+Once connected, you can start the system using the convenience functions in the `user` namespace (automatically loaded via `dev/repl/user.clj`):
+
+```clojure
+(go)
 ;; => :started
 ```
+
+**Useful system commands:**
+- `(go)` - Start the system
+- `(reset)` - Reload changed code and restart the system
+- `(halt)` - Stop the system
+- `(system)` - View the running system components
 
 **Verify it works:**
 ```bash
@@ -185,11 +189,10 @@ rm -rf .cpcache/
 **Issue: Code not loading**
 ```clojure
 ;; Reload namespace
-(require 'boundary.user.core :reload)
+(require 'boundary.user.core.user :reload)
 
-;; Or use refresh
-(require '[clojure.tools.namespace.repl :refer [refresh]])
-(refresh)
+;; Or use refresh (already included in dev/repl/user.clj)
+(reset)
 ```
 
 ---
@@ -244,10 +247,7 @@ brew install --cask intellij-idea     # Ultimate Edition (paid)
 2. Wait for REPL to start
 3. In REPL window:
 ```clojure
-(require '[integrant.repl :as ig-repl])
-(require '[boundary.system])
-(ig-repl/set-prep! #(boundary.system/system-config))
-(ig-repl/go)
+(go)
 ```
 
 ### Essential Keyboard Shortcuts
@@ -383,12 +383,8 @@ M-x cider-jack-in
 
 **3. Start Boundary System**
 ```clojure
-;; In any .clj file, evaluate (C-c C-c on each form):
-(require '[integrant.repl :as ig-repl])
-(require '[boundary.system])
-
-(ig-repl/set-prep! #(boundary.system/system-config))
-(ig-repl/go)
+;; In any .clj file, evaluate:
+(go)
 ```
 
 ### Essential Key Bindings
@@ -583,12 +579,7 @@ vim src/boundary/user/core.clj
 **4. Start Boundary System**
 ```vim
 " Evaluate in REPL (cpp = eval paragraph/top-level form):
-cpp on each form:
-
-(require '[integrant.repl :as ig-repl])
-(require '[boundary.system])
-(ig-repl/set-prep! #(boundary.system/system-config))
-(ig-repl/go)
+(go)
 ```
 
 ### Essential Key Bindings
@@ -789,4 +780,4 @@ Once your IDE is set up:
 
 **Your IDE is ready! Start building with Boundary.** 🚀
 
-*Last updated: 2026-01-03*
+*Last updated: 2026-01-26*
