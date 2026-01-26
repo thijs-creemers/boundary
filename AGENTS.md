@@ -105,7 +105,10 @@ libs/
 ├── user/          # Authentication, authorization, MFA
 ├── admin/         # Auto-CRUD admin interface
 ├── storage/       # File storage (local & S3)
-└── scaffolder/    # Module code generator
+├── scaffolder/    # Module code generator
+├── cache/         # Distributed caching (Redis/in-memory)
+├── jobs/          # Background job processing
+└── external/      # External service adapters (In Development)
 ```
 
 ---
