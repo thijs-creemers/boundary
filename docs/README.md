@@ -85,7 +85,7 @@ Configure your editor for the best Boundary development experience.
 - Debugging configuration
 - Recommended extensions
 
-#### [**Database Setup Guide →**](guides/DATABASE_SETUP.md) *(Coming Soon)*
+#### [**Database Setup Guide →**](guides/DATABASE_SETUP.md)
 Configure databases for development and production.
 
 - SQLite (easiest, for development)
@@ -104,7 +104,7 @@ Implement authentication and authorization in your app.
 - MFA setup
 - OAuth2 integration
 
-#### [**Testing Guide →**](guides/TESTING.md) *(Coming Soon)*
+#### [**Testing Guide →**](guides/TESTING.md)
 Write comprehensive tests for your Boundary application.
 
 - Unit testing pure functions
@@ -458,10 +458,10 @@ docs/
 | QUICKSTART.md | ✅ Complete | P0 | Done |
 | OPERATIONS.md | ✅ Complete | P0 | Done |
 | IDE_SETUP.md | ✅ Complete | P1 | Phase 3 |
-| TUTORIAL.md | 📝 Planned | P1 | Phase 3 |
-| guides/DATABASE_SETUP.md | 📝 Planned | P2 | Phase 3 |
+| TUTORIAL.md | ✅ Complete | P1 | Phase 3 |
+| guides/DATABASE_SETUP.md | ✅ Complete | P2 | Phase 3 |
 | guides/AUTHENTICATION.md | ✅ Complete | P2 | Phase 4 |
-| guides/TESTING.md | 📝 Planned | P2 | Phase 4 |
+| guides/TESTING.md | ✅ Complete | P2 | Phase 4 |
 | Examples (todo-api, blog) | 📝 Planned | P1 | Phase 3 |
 
 **Legend:**
