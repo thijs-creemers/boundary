@@ -452,7 +452,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 2.2. Create project template resources
+- [x] 2.2. Create project template resources
 
   **What to do**:
   - Create `resources/scaffolder/project-templates/starter/` directory (does not exist yet - this task creates it)
