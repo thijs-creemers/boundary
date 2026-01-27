@@ -23,7 +23,7 @@
      true if valid email format, false otherwise"
   [email]
   (and (string? email)
-       (re-matches email-address-pattern email)))
+       (boolean (re-matches email-address-pattern email))))
 
 (defn validate-recipients
   "Validate recipient email addresses (pure function).

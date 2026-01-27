@@ -453,3 +453,62 @@ See `libs/external/` for similar optional dependency patterns used for:
 - Twilio integration
 - Other external service adapters
 
+
+## 2026-01-27: Email Module Test Suite Complete
+
+### Task 3.6 - Email Module Tests
+
+**Created comprehensive test suite for email module:**
+
+1. **Unit Tests** (`libs/email/test/boundary/email/core/email_test.clj`):
+   - 11 tests, 89 assertions, all passing
+   - Tests all core functions: validation, preparation, formatting, headers
+   - 100% coverage of pure functions in core layer
+   - Edge cases: empty strings, nil values, invalid emails, multiple recipients
+
+2. **Integration Tests** (`libs/email/test/boundary/email/shell/adapters/smtp_test.clj`):
+   - 9 tests, 54 assertions, all passing
+   - SMTP adapter creation with various configs (TLS, SSL, auth)
+   - Error handling for invalid hosts, connection refused
+   - Complete workflow: prepare → validate → send
+   - Protocol implementation verification
+
+3. **Test Configuration**:
+   - Added email paths to `tests.edn` and `deps.edn`
+   - Added `:email` test suite to kaocha config
+   - Added `javax.mail` dependency (version 1.6.2)
+   - Metadata filtering works: `^:unit` and `^:integration`
+
+4. **Key Fixes**:
+   - Fixed `valid-email-address?` to return boolean instead of matched string
+   - Fixed SSL test to explicitly disable TLS (defaults apply)
+   - Removed unused imports (linting warnings)
+
+5. **Test Results**:
+   ```
+   Total: 20 tests, 143 assertions, 0 failures
+   Unit: 11 tests, 89 assertions
+   Integration: 9 tests, 54 assertions
+   Linting: 0 errors, 0 warnings
+   ```
+
+6. **Test Patterns Followed**:
+   - Used `deftest` with `^:unit` or `^:integration` metadata
+   - Used `testing` blocks for descriptive test sections
+   - No mocks in unit tests (pure functions)
+   - Integration tests use invalid hosts (no real SMTP in CI)
+   - Included commented-out tests for real SMTP servers (requires MailHog/etc)
+
+**Commands:**
+```bash
+clojure -M:test :email                    # All tests
+clojure -M:test :email --focus-meta :unit # Unit only
+clojure -M:test :email --focus-meta :integration # Integration only
+clojure -M:clj-kondo --lint libs/email/src libs/email/test
+```
+
+**Dependencies Added:**
+- `com.sun.mail/javax.mail {:mvn/version "1.6.2"}` in both:
+  - `libs/email/deps.edn`
+  - Root `deps.edn`
+

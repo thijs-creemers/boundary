@@ -9,7 +9,8 @@
                        "libs/storage/src"
                        "libs/scaffolder/src"
                        "libs/cache/src"
-                       "libs/jobs/src"]
+                       "libs/jobs/src"
+                       "libs/email/src"]
 
  :tests [;; Run all tests (default)
          {:id :unit
@@ -22,7 +23,8 @@
                        "libs/storage/test"
                        "libs/scaffolder/test"
                        "libs/cache/test"
-                       "libs/jobs/test"]
+                       "libs/jobs/test"
+                       "libs/email/test"]
           :ns-patterns ["boundary.*-test"]
           :randomize? true}
 
@@ -62,7 +64,11 @@
 
          {:id :jobs
           :test-paths ["libs/jobs/test"]
-          :ns-patterns ["boundary.jobs.*-test"]}]
+          :ns-patterns ["boundary.jobs.*-test"]}
+
+         {:id :email
+          :test-paths ["libs/email/test"]
+          :ns-patterns ["boundary.email.*-test"]}]
 
  :plugins [:kaocha.plugin/randomize
            :kaocha.plugin/filter

@@ -8,7 +8,8 @@
            "libs/storage/src" "libs/storage/test"           ;; Phase 6: Storage
            "libs/scaffolder/src" "libs/scaffolder/test"     ;; Phase 8: Scaffolder
            "libs/cache/src" "libs/cache/test"               ;; Phase 9: Cache
-           "libs/jobs/src" "libs/jobs/test"]                ;; Phase 10: Jobs
+           "libs/jobs/src" "libs/jobs/test"                 ;; Phase 10: Jobs
+           "libs/email/src" "libs/email/test"]              ;; Phase 11: Email
 
  :deps    {org.clojure/clojure               {:mvn/version "1.12.4"}
            cheshire/cheshire                 {:mvn/version "6.1.0"} ;; process json
@@ -65,7 +66,10 @@
            software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.39.5"}
 
            ;; Redis client for cache and jobs libs
-           redis.clients/jedis               {:mvn/version "7.1.0"}}
+           redis.clients/jedis               {:mvn/version "7.1.0"}
+
+           ;; Email - javax.mail for SMTP
+           com.sun.mail/javax.mail           {:mvn/version "1.6.2"}}
 
  :aliases {;; =============================================================================
            ;; Development and REPL aliases
