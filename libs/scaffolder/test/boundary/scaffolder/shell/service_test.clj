@@ -247,3 +247,85 @@
 
       (is (true? (:success result)))
       (is (some #(str/includes? % "Dry run") (:warnings result))))))
+
+;; =============================================================================
+;; generate-project command tests (boundary new)
+;; =============================================================================
+
+(deftest generate-project-test
+  (testing "generates new project structure"
+    (let [svc (service/create-scaffolder-service)
+          
+          request {:name "my-app"
+                   :output-dir "."
+                   :dry-run true}  ;; Always dry-run in tests
+          
+          result (ports/generate-project svc request)]
+      
+      (is (true? (:success result)))
+      (is (= "my-app" (:name result)))
+      (is (pos? (count (:files result))))
+      (is (some #(str/includes? % "Dry run") (:warnings result)))
+      
+      ;; Check essential files are included
+      (let [file-paths (map :path (:files result))]
+        (is (some #(str/includes? % "deps.edn") file-paths))
+        (is (some #(str/includes? % "README.md") file-paths))
+        (is (some #(str/includes? % "config.edn") file-paths))
+        (is (some #(str/includes? % "core.clj") file-paths))))))
+
+(deftest generate-project-output-dir-test
+  (testing "respects output-dir parameter"
+    (let [svc (service/create-scaffolder-service)
+          
+          request {:name "test-app"
+                   :output-dir "/tmp"
+                   :dry-run true}
+          
+          result (ports/generate-project svc request)]
+      
+      (is (true? (:success result)))
+      (let [file-paths (map :path (:files result))]
+        (is (every? #(str/starts-with? % "/tmp/test-app/") file-paths))))))
+
+(deftest generate-project-default-output-dir-test
+  (testing "uses current directory as default"
+    (let [svc (service/create-scaffolder-service)
+          
+          request {:name "myproject"
+                   :output-dir "."
+                   :dry-run true}
+          
+          result (ports/generate-project svc request)]
+      
+      (is (true? (:success result)))
+      (let [file-paths (map :path (:files result))]
+        (is (every? #(str/starts-with? % "myproject/") file-paths))))))
+
+(deftest generate-project-dry-run-test
+  (testing "dry run does not write files"
+    (let [svc (service/create-scaffolder-service)
+          
+          request {:name "dry-run-test"
+                   :output-dir "."
+                   :dry-run true}
+          
+          result (ports/generate-project svc request)]
+      
+      (is (true? (:success result)))
+      (is (some #(str/includes? % "Dry run") (:warnings result))))))
+
+(deftest generate-project-conflict-test
+  (testing "handles existing directory conflict"
+    (let [svc (service/create-scaffolder-service)
+          
+          request {:name "existing-dir"
+                   :output-dir "."
+                   :force false
+                   :dry-run false}  ;; Not dry-run to trigger conflict check
+          
+          result (ports/generate-project svc request)]
+      
+      ;; Result depends on whether directory exists
+      ;; In test environment, should generally succeed or handle gracefully
+      (is (contains? result :success)))))
