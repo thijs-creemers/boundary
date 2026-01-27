@@ -75,3 +75,7 @@ Always use Aero's `#env` and `#or` tags for database configuration to ensure a s
 4. Generated projects are self-contained and fully functional
 
 **Verification**: `cd /tmp/testapp3 && clojure -P` succeeds (downloads all deps without errors)
+## Documentation Patterns
+- When adding a new command to a CLI tool, update the Features table, Quick Start, and CLI Options sections in the README.
+- Use tables for flag documentation and code blocks for usage examples.
+- Include 'Next Steps' to guide users after they run the command.

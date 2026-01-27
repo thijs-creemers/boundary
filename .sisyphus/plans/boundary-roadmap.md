@@ -560,7 +560,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 2.5. Update scaffolder README with `new` command documentation
+- [x] 2.5. Update scaffolder README with `new` command documentation
 
   **What to do**:
   - Add `new` command section to `libs/scaffolder/README.md`

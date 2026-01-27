@@ -18,12 +18,47 @@ Code generation tool for creating new Boundary modules following the Functional 
 
 | Feature | Description |
 |---------|-------------|
+| **Project Generation** | Create new Boundary starter projects |
 | **Module Generation** | Scaffold complete modules with FC/IS architecture |
 | **Entity Templates** | Generate entity CRUD with validation schemas |
 | **Migration Generation** | Create database migrations |
 | **Test Scaffolding** | Generate unit, integration, and contract tests |
 | **CLI Interface** | Easy-to-use command-line tool |
 | **Customizable** | Template system for custom patterns |
+
+## Creating a New Project
+
+Use the `new` command to generate a starter project with full Integrant wiring, database setup, and a production-ready structure.
+
+```bash
+clojure -M:dev -m boundary.scaffolder.shell.cli-entry new --name myapp
+```
+
+Generated projects are self-contained and use SQLite by default, making them ready to run immediately.
+
+### Generated Project Structure
+
+```
+myapp/
+├── deps.edn                      # Dependencies (Integrant, Ring, SQLite, etc.)
+├── README.md                     # Project documentation with REPL workflow
+├── src/myapp/
+│   └── app.clj                   # Integrant system with database & HTTP server
+└── resources/conf/dev/config.edn # Configuration (SQLite by default)
+```
+
+**Features included:**
+- ✓ Full Integrant system lifecycle
+- ✓ Database connection pooling (SQLite)
+- ✓ HTTP server setup (Ring/Jetty)
+- ✓ Component-based architecture
+- ✓ Comprehensive README with development guide
+
+**Next Steps:**
+1. `cd myapp`
+2. Run `clojure -M:repl` to start the development environment
+3. Run `(ig-repl/go)` in the REPL to start the system
+4. Check the generated `README.md` for a full development workflow guide
 
 ## Requirements
 
@@ -32,7 +67,14 @@ Code generation tool for creating new Boundary modules following the Functional 
 
 ## Quick Start
 
-### Generate a Module
+### 1. Create a New Project
+
+```bash
+clojure -M:dev -m boundary.scaffolder.shell.cli-entry new --name myapp
+cd myapp
+```
+
+### 2. Generate a Module
 
 ```bash
 clojure -M:dev -m boundary.scaffolder.shell.cli-entry generate \
@@ -71,6 +113,29 @@ resources/migrations/
 ```
 
 ## CLI Options
+
+### `new` Command
+
+Used to generate a new starter project.
+
+| Option         | Description                  | Example                 |
+|----------------|------------------------------|-------------------------|
+| `--name`       | Project name (required)      | `--name myapp`          |
+| `--output-dir` | Output directory (optional)  | `--output-dir /tmp`     |
+| `--dry-run`    | Preview without writing      | `--dry-run`             |
+
+**Examples:**
+
+```bash
+# Basic usage
+clojure -M:dev -m boundary.scaffolder.shell.cli-entry new --name myapp
+
+# Custom output directory
+clojure -M:dev -m boundary.scaffolder.shell.cli-entry new --name myapp --output-dir ./projects
+
+# Dry run (preview only)
+clojure -M:dev -m boundary.scaffolder.shell.cli-entry new --name myapp --dry-run
+```
 
 ### `generate` Command
 
