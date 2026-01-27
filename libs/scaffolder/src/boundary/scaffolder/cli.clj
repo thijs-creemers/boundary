@@ -47,6 +47,25 @@
     :default true]
    [nil "--pagination" "Enable pagination support (default: true)"
     :default true]
+   [nil "--output-dir DIR" "Output directory (default: current directory)"
+    :default "."]
+   [nil "--force" "Overwrite existing files"
+    :default false]
+   [nil "--dry-run" "Show what would be generated without creating files"
+    :default false]])
+
+;; =============================================================================
+;; New Command Options (bootstrap new project)
+;; =============================================================================
+
+(def new-options
+  [[nil "--name NAME" "Project name (lowercase, kebab-case) (required)"
+    :validate [#(re-matches #"^[a-z][a-z0-9-]*$" %)
+               "Must be lowercase with hyphens only"]]
+   [nil "--output-dir DIR" "Output directory (default: current directory)"
+    :default "."]
+   [nil "--force" "Overwrite existing files"
+    :default false]
    [nil "--dry-run" "Show what would be generated without creating files"
     :default false]])
 
@@ -65,7 +84,7 @@
     :validate [#(re-matches #"^[a-z][a-z0-9-]*$" %)
                "Must be lowercase with hyphens only"]]
    [nil "--type TYPE" "Field type (required)"
-    :validate [#(contains? #{"string" "text" "integer" "int" "decimal" "boolean" 
+    :validate [#(contains? #{"string" "text" "integer" "int" "decimal" "boolean"
                              "email" "uuid" "enum" "date" "datetime" "inst" "json"} %)
                "Must be a valid field type"]]
    [nil "--required" "Field cannot be null"
@@ -305,14 +324,40 @@
 (defn parse-method-spec
   "Parse a method specification string into a method map.
    Format: name:arg1,arg2,...
-   Returns: {:name "name" :args ["arg1" "arg2"]}"
+   Returns: {:name \"name\" :args [\"arg1\" \"arg2\"]}"
   [method-spec]
   (let [parts (str/split method-spec #":" 2)
         [name-str args-str] parts
-        args (if args-str 
+        args (if args-str
                (str/split args-str #",")
                [])]
     {:name name-str :args (vec args)}))
+
+(defn validate-new-options
+  "Validate required options for new command."
+  [opts]
+  (let [errors (cond-> []
+                 (not (:name opts))
+                 (conj "Missing required option: --name"))]
+    [(empty? errors) errors]))
+
+(defn execute-new
+  "Execute new project command."
+  [service opts]
+  (let [[valid? errors] (validate-new-options opts)]
+    (if-not valid?
+      {:status 1
+       :errors errors}
+      (let [request {:name (:name opts)
+                     :output-dir (:output-dir opts)
+                     :force (:force opts)
+                     :dry-run (:dry-run opts)}
+            result (ports/generate-project service request)]
+        (if (:success result)
+          {:status 0
+           :result result}
+          {:status 1
+           :errors (:errors result)})))))
 
 (defn execute-generate
   "Execute generate command."
@@ -333,6 +378,8 @@
                                       :web (:web opts)}
                          :features {:audit (:audit opts)
                                     :pagination (:pagination opts)}
+                         :output-dir (:output-dir opts)
+                         :force (:force opts)
                          :dry-run (:dry-run opts)}
                 result (ports/generate-module service request)]
             (if (:success result)
@@ -348,7 +395,7 @@
     (if-not valid?
       {:status 1
        :errors errors}
-      (let [type-mapping {"integer" :int "int" :int "date" :inst 
+      (let [type-mapping {"integer" :int "int" :int "date" :inst
                           "datetime" :inst "text" :text "json" :json}
             field-type (get type-mapping (:type opts) (keyword (:type opts)))
             request {:module-name (:module-name opts)
@@ -414,7 +461,7 @@
   "Dispatch command to appropriate executor.
   
    Args:
-     verb: :generate, :field, :endpoint, :adapter, :help
+     verb: :generate, :new, :field, :endpoint, :adapter, :help
      opts: Parsed command options
      service: Scaffolder service instance
      
@@ -423,6 +470,7 @@
   [verb opts service]
   (case verb
     :generate (execute-generate service opts)
+    :new (execute-new service opts)
     :field (execute-field service opts)
     :endpoint (execute-endpoint service opts)
     :adapter (execute-adapter service opts)
@@ -440,6 +488,7 @@
 Usage: boundary scaffolder <command> [options]
 
 Commands:
+  new         Bootstrap a new Boundary project
   generate    Generate a new module with full FC/IS structure
   field       Add a field to an existing entity (creates migration)
   endpoint    Add an endpoint to an existing module (shows instructions)
@@ -450,6 +499,8 @@ Global Options:
   -h, --help           Show help
 
 Examples:
+  boundary scaffolder new --name my-app
+
   boundary scaffolder generate --module-name product --entity Product \\
     --field name:string:required \\
     --field sku:string:required:unique \\
@@ -466,6 +517,29 @@ Examples:
 
 For command-specific help:
   boundary scaffolder <command> --help")
+
+(def new-help
+  "Bootstrap New Project Command
+
+Usage: boundary scaffolder new [options]
+
+Bootstraps a new Boundary project following the Functional Core / Imperative Shell
+architecture.
+
+Required Options:
+  --name NAME          Project name (lowercase, kebab-case)
+
+Other Options:
+  --output-dir DIR     Output directory (default: current directory)
+  --force              Overwrite existing files
+  --dry-run            Show what would be generated without creating files
+
+Examples:
+  # Bootstrap a new project in the current directory
+  boundary scaffolder new --name my-awesome-app
+
+  # Bootstrap a new project in a specific directory
+  boundary scaffolder new --name my-app --output-dir ./projects/my-app")
 
 (def generate-help
   "Generate Module Command
@@ -696,6 +770,11 @@ Examples:
           0)
 
         ;; Command-specific help
+        (and (= verb :new) has-help-flag?)
+        (do
+          (println new-help)
+          0)
+
         (and (= verb :generate) has-help-flag?)
         (do
           (println generate-help)
@@ -723,6 +802,7 @@ Examples:
 
               ;; Get command-specific options
               cmd-options (case verb
+                            :new new-options
                             :generate generate-options
                             :field field-options
                             :endpoint endpoint-options

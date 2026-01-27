@@ -79,5 +79,21 @@
      Returns:
        Map with :success, :files (adapter file), :errors
        
+      Example:
+        (add-adapter service {:module-name \"cache\" :port \"ICache\" ...})")
+
+  (generate-project [this request]
+    "Generate a complete new project from template.
+     
+     Args:
+       request: Map with:
+                {:name \"my-app\"
+                 :output-dir \".\"
+                 :force false
+                 :dry-run false}
+     
+     Returns:
+       Map with :success, :name, :files, :errors
+       
      Example:
-       (add-adapter service {:module-name \"cache\" :port \"ICache\" ...})"))
+       (generate-project service {:name \"my-app\"})"))

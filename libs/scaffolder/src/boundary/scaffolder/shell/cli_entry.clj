@@ -5,7 +5,6 @@
    remain as module-agnostic as possible and delegate into this module."
   (:require [boundary.scaffolder.cli :as scaffolder-cli]
             [boundary.scaffolder.shell.service :as scaffolder-service]
-            [boundary.platform.shell.adapters.filesystem.core :as fs]
             [clojure.tools.logging :as log])
   (:gen-class))
 
@@ -18,10 +17,8 @@
     (try
       (log/info "Starting Boundary Scaffolder CLI" {:args args})
 
-      ;; Create file system adapter (writing to current directory)
-      (let [fs-adapter (fs/create-file-system-adapter ".")
-            ;; Create scaffolder service
-            scaffolder-svc (scaffolder-service/create-scaffolder-service fs-adapter)
+      ;; Create scaffolder service (no filesystem adapter needed)
+      (let [scaffolder-svc (scaffolder-service/create-scaffolder-service)
             ;; Dispatch CLI commands and capture exit status
             status (scaffolder-cli/run-cli! scaffolder-svc args)]
 

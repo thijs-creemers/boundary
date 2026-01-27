@@ -710,6 +710,89 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
          "    (is true)))\n")))
 
 ;; =============================================================================
+;; Project Generator
+;; =============================================================================
+
+(defn generate-project-deps
+  "Generate deps.edn for a new project.
+   
+   Args:
+     name - Project name
+     
+   Returns:
+     String content for deps.edn"
+  [name]
+  (format "{:paths [\"src\" \"resources\"]
+ :deps {org.clojure/clojure {:mvn/version \"1.12.0\"}
+        io.github.thijs-creemers/boundary-core {:mvn/version \"0.1.0\"}
+        io.github.thijs-creemers/boundary-platform {:mvn/version \"0.1.0\"}}
+ :aliases
+ {:dev {:extra-paths [\"test\"]
+        :extra-deps {org.clojure/tools.namespace {:mvn/version \"1.5.0\"}
+                     io.github.thijs-creemers/boundary-scaffolder {:mvn/version \"0.1.0\"}}}
+  :test {:extra-paths [\"test\"]
+         :extra-deps {lambdaisland/kaocha {:mvn/version \"1.91.1392\"}}}
+  :repl {:extra-deps {nrepl/nrepl {:mvn/version \"1.1.0\"}
+                      cider/cider-nrepl {:mvn/version \"0.45.0\"}}}}}
+"
+          name))
+
+(defn generate-project-readme
+  "Generate README.md for a new project."
+  [name]
+  (format "# %s
+
+A new Boundary project.
+
+## Getting Started
+
+1. Install dependencies: `clojure -P`
+2. Start REPL: `clojure -M:repl`
+3. Generate your first module:
+   ```bash
+   clojure -M:dev -m boundary.scaffolder.shell.cli-entry generate \\
+     --module-name user --entity User --field email:string:required:unique
+   ```
+
+## Architecture
+
+This project follows the **Functional Core / Imperative Shell** architecture pattern.
+"
+          name))
+
+(defn generate-project-config
+  "Generate initial config.edn for a new project."
+  []
+  "{:boundary/settings
+  {:env #env BND_ENV
+   :modules []}
+
+ :boundary/db
+  {:adapter \"sqlite\"
+   :dbname \"dev-database.db\"}
+
+ :boundary/http
+  {:port 3000}
+}
+")
+
+(defn generate-project-main
+  "Generate core.clj for a new project."
+  [name]
+  (let [ns-name (str/replace name "-" ".")]
+    (format "(ns %s.core
+  \"Main entry point for %s.\"
+  (:require [boundary.platform.shell.system :as system]
+            [integrant.core :as ig]))
+
+(defn -main [& args]
+  (let [config (system/load-config)]
+    (ig/init config)))
+"
+            ns-name
+            name)))
+
+;; =============================================================================
 ;; Incremental Generators - Add Field
 ;; =============================================================================
 

@@ -6,15 +6,17 @@
             [boundary.scaffolder.schema :as schema]
             [boundary.scaffolder.core.template :as template]
             [boundary.scaffolder.core.generators :as generators]
-            [boundary.platform.shell.adapters.filesystem.protocols :as fs-ports]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [malli.core :as m]))
 
 (defn- get-next-migration-number
   "Get the next migration number based on existing migrations."
-  [file-system]
+  []
   (try
-    (let [files (fs-ports/list-files file-system "migrations")
+    (let [migrations-dir (io/file "resources/migrations")
+          files (when (.exists migrations-dir) 
+                  (map #(.getName %) (.listFiles migrations-dir)))
           numbers (keep #(when-let [m (re-find #"^(\d+)" %)] 
                           (Integer/parseInt (second m))) 
                        (or files []))
@@ -23,7 +25,7 @@
     (catch Exception _
       "006")))
 
-(defrecord ScaffolderService [file-system]
+(defrecord ScaffolderService []
   ports/IScaffolderService
 
   (generate-module [_ request]
@@ -98,7 +100,9 @@
         ;; Write files (unless dry-run)
         (when-not dry-run?
           (doseq [{:keys [path content]} files]
-            (fs-ports/write-file file-system path content)))
+            (let [file (io/file path)]
+              (.mkdirs (.getParentFile file))
+              (spit file content))))
 
         ;; Return result
         {:success true
@@ -114,10 +118,10 @@
          :files []
          :errors [(str "Generation failed: " (.getMessage e))]})))
 
-  (add-field [this request]
+  (add-field [_this request]
     (try
       (let [{:keys [module-name entity field dry-run]} request
-            migration-number (get-next-migration-number (:file-system this))
+            migration-number (get-next-migration-number)
             
             ;; Generate migration content
             migration-content (generators/generate-add-field-migration 
@@ -140,9 +144,9 @@
         
         ;; Write migration file (unless dry-run)
         (when-not dry-run
-          (fs-ports/write-file (:file-system this) 
-                               (:path (first files)) 
-                               (:content (first files))))
+          (let [file (io/file (:path (first files)))]
+            (.mkdirs (.getParentFile file))
+            (spit file (:content (first files)))))
         
         {:success true
          :module-name module-name
@@ -182,7 +186,7 @@
          :files []
          :errors [(str "Add endpoint failed: " (.getMessage e))]})))
   
-  (add-adapter [this request]
+  (add-adapter [_this request]
     (try
       (let [{:keys [module-name port adapter-name methods dry-run]} request
             
@@ -199,7 +203,9 @@
         
         ;; Write adapter file (unless dry-run)
         (when-not dry-run
-          (fs-ports/write-file (:file-system this) adapter-path adapter-content))
+          (let [file (io/file adapter-path)]
+            (.mkdirs (.getParentFile file))
+            (spit file adapter-content)))
         
         {:success true
          :module-name module-name
@@ -212,15 +218,63 @@
         {:success false
          :module-name (:module-name request)
          :files []
-         :errors [(str "Add adapter failed: " (.getMessage e))]}))))
+         :errors [(str "Add adapter failed: " (.getMessage e))]})))
+
+  (generate-project [_this request]
+    (try
+      (let [{:keys [name output-dir force dry-run]} request
+            project-root (if (= output-dir ".") name (str output-dir "/" name))
+            
+            ;; Generate file contents
+            deps-content (generators/generate-project-deps name)
+            readme-content (generators/generate-project-readme name)
+            config-content (generators/generate-project-config)
+            main-content (generators/generate-project-main name)
+            
+            files [{:path (str project-root "/deps.edn")
+                    :content deps-content
+                    :action :create}
+                   {:path (str project-root "/README.md")
+                    :content readme-content
+                    :action :create}
+                   {:path (str project-root "/resources/config.edn")
+                    :content config-content
+                    :action :create}
+                   {:path (format "%s/src/%s/core.clj" 
+                                  project-root (str/replace name "-" "/"))
+                    :content main-content
+                    :action :create}]]
+        
+        ;; Check for existing directory if not forcing
+        (when (and (not force) 
+                   (not dry-run)
+                   (.exists (io/file project-root)))
+          (throw (ex-info (str "Directory already exists: " project-root)
+                          {:type :conflict :path project-root})))
+        
+        ;; Write files (unless dry-run)
+        (when-not dry-run
+          (doseq [{:keys [path content]} files]
+            (let [file (io/file path)]
+              (.mkdirs (.getParentFile file))
+              (spit file content))))
+        
+        {:success true
+         :name name
+         :files files
+         :warnings (if dry-run
+                     ["Dry run - no files were written"]
+                     [])})
+      (catch Exception e
+        {:success false
+         :name (:name request)
+         :files []
+         :errors [(str "Project generation failed: " (.getMessage e))]}))))
 
 (defn create-scaffolder-service
   "Create a new scaffolder service.
    
-   Args:
-     file-system - IFileSystemAdapter implementation
-   
    Returns:
      ScaffolderService instance"
-  [file-system]
-  (->ScaffolderService file-system))
+  []
+  (->ScaffolderService))
