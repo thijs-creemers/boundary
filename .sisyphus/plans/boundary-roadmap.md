@@ -497,7 +497,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 2.3. Add tests for `boundary new` command
+- [x] 2.3. Add tests for `boundary new` command
 
   **What to do**:
   - Write unit tests for template generation (pure functions)
