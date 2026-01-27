@@ -618,7 +618,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 3.2. Implement email core layer (pure functions)
+- [x] 3.2. Implement email core layer (pure functions)
 
   **What to do**:
   - Create `libs/email/src/boundary/email/core/email.clj`

@@ -79,3 +79,86 @@ Always use Aero's `#env` and `#or` tags for database configuration to ensure a s
 - When adding a new command to a CLI tool, update the Features table, Quick Start, and CLI Options sections in the README.
 - Use tables for flag documentation and code blocks for usage examples.
 - Include 'Next Steps' to guide users after they run the command.
+
+## [2026-01-27] Phase 2 Complete - Starter Templates CLI
+
+**Summary**: Successfully implemented `boundary new` command for generating starter projects.
+
+**Accomplishments**:
+1. Implemented `new` command with flags: `--name`, `--output-dir`, `--dry-run`
+2. Created production-quality inline generators (deps, README, config, main)
+3. Generated projects are self-contained with published dependencies only
+4. Full Integrant wiring: database pooling, HTTP server, component lifecycle
+5. Comprehensive documentation in scaffolder README
+6. All tests passing (20 tests, 103 assertions, 0 failures)
+
+**Key Learnings**:
+- Keep inline generator pattern but use high-quality content
+- Generated projects use SQLite by default for zero-config quickstart
+- Config path: `resources/conf/dev/config.edn` (proper Aero structure)
+- Main file: `src/{name}/app.clj` (not `core.clj`)
+- Subagent reliability is inconsistent - always verify immediately
+
+**Files Modified**:
+- `libs/scaffolder/src/boundary/scaffolder/cli.clj` (+85 lines)
+- `libs/scaffolder/src/boundary/scaffolder/core/generators.clj` (updated 4 functions)
+- `libs/scaffolder/src/boundary/scaffolder/ports.clj` (+17 lines)
+- `libs/scaffolder/src/boundary/scaffolder/shell/service.clj` (+50 lines)
+- `libs/scaffolder/test/boundary/scaffolder/shell/service_test.clj` (+5 tests)
+- `libs/scaffolder/README.md` (+66 lines documentation)
+
+**Commits**: 4 atomic commits
+- `feat(scaffolder): add boundary new command for project creation`
+- `test(scaffolder): add tests for boundary new command`
+- `fix(scaffolder): update project generators to use production-quality templates`
+- `docs(scaffolder): document boundary new command`
+
+## [2026-01-27] Task 3.2 Complete - Email Core Layer
+
+**Summary**: Implemented pure email processing functions in `libs/email/src/boundary/email/core/email.clj`.
+
+**Functions Implemented** (231 lines total):
+1. **Email Address Validation**:
+   - `valid-email-address?` - Basic RFC 5322 pattern validation
+   - `validate-recipients` - Batch validation, returns valid/invalid split
+   
+2. **Header Formatting**:
+   - `format-headers` - Normalize headers to kebab-case keywords
+   
+3. **Email Preparation**:
+   - `normalize-recipients` - Convert string or vector to normalized vector
+   - `prepare-email` - Create email map with ID, timestamps, normalized recipients
+   
+4. **Email Validation**:
+   - `validate-email` - Complete email structure validation with error messages
+   
+5. **Email Utilities**:
+   - `email-summary` - Create summary for logging/monitoring
+   - `add-reply-to` - Add Reply-To header
+   - `add-cc` - Add CC recipients
+   - `add-bcc` - Add BCC recipients
+
+**Schemas Defined** (108 lines in `schema.clj`):
+- `EmailAddress` - Email address string with pattern validation
+- `Attachment` - Attachment with filename, content-type, content, size
+- `Email` - Complete email with all fields
+- `SendEmailInput` - Input schema (to can be string or vector)
+- `EmailValidationResult` - Validation result structure
+- `RecipientValidationResult` - Recipient validation result structure
+- `EmailSummary` - Summary for logging/monitoring
+
+**Key Design Decisions**:
+- All functions are pure (no I/O, no side effects)
+- Recipients normalized to vector internally (accept string or vector as input)
+- Headers stored as kebab-case keywords (`:reply-to`, `:content-type`)
+- Basic RFC 5322 email pattern (not full spec)
+- Email IDs generated via `java.util.UUID/randomUUID`
+- Timestamps via `java.time.Instant/now`
+
+**Verification**:
+- ✅ Line counts: 231 lines (email.clj), 108 lines (schema.clj)
+- ✅ Linting: 0 errors, 0 warnings
+- ✅ All functions properly documented with docstrings
+- ✅ Code quality matches framework standards (kebab-case, comprehensive docstrings)
+
+**Next**: Task 3.3 - Implement email ports (protocols)
