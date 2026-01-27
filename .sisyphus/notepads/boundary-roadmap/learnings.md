@@ -294,3 +294,162 @@ clojure -M:clj-kondo --lint libs/email/src
 - Task 3.6: Email service implementation (shell layer)
 - Task 3.7: Write comprehensive tests (unit + integration)
 
+
+## 2026-01-27: Email Jobs Integration (Task 3.5)
+
+**Implementation**: Created `libs/email/src/boundary/email/shell/jobs_integration.clj`
+
+### Optional Dependency Pattern with `requiring-resolve`
+
+Successfully implemented jobs module as an optional dependency using Clojure's `requiring-resolve`:
+
+**Pattern**:
+```clojure
+(if-let [fn-var (requiring-resolve 'namespace/function)]
+  (fn-var arg1 arg2)  ; Use if available
+  (throw (ex-info "Module not available"
+                  {:type :missing-dependency
+                   :module "module-name"})))
+```
+
+**Key Benefits**:
+- No hard `:require` in namespace declaration
+- Graceful error messages when dependency missing
+- Standard Clojure idiom for optional features
+- Zero overhead when jobs module not present
+
+**Applied to**:
+1. `queue-email-job!` - Uses `requiring-resolve` for `boundary.jobs.ports/enqueue-job!`
+2. `register-email-job-handler!` - Uses `requiring-resolve` for `boundary.jobs.ports/register-handler!`
+
+### Job Handler Contract
+
+Implemented `process-email-job` following jobs module conventions:
+
+**Handler Signature**:
+```clojure
+(defn handler [job-args] 
+  {:success? boolean
+   :result map      ; On success
+   :error map})     ; On failure
+```
+
+**Job Args Structure**:
+```clojure
+{:email {:id UUID
+         :to ["email@example.com"]
+         :from "sender@example.com"
+         :subject "..."
+         :body "..."}
+ :sender-config {:host "smtp.example.com"
+                 :port 587
+                 :username "..."
+                 :password "..."
+                 :tls? true
+                 :ssl? false}}
+```
+
+**Result on Success**:
+```clojure
+{:success? true
+ :result {:email-id #uuid "..."
+          :message-id "<msg-123@smtp.example.com>"
+          :sent-at #inst "2026-01-27T..."}}
+```
+
+**Result on Failure**:
+```clojure
+{:success? false
+ :error {:message "Connection timeout"
+         :type "SmtpError"
+         :stacktrace "..."}}
+```
+
+### Configuration Extraction Pattern
+
+**Challenge**: Job handlers need sender config, but don't have access to Integrant system.
+
+**Solution**: Extract config from `SmtpEmailSender` instance and store in job args:
+
+```clojure
+(defn queue-email-job! [job-queue email-sender email]
+  (let [sender-config {:host (:host email-sender)
+                       :port (:port email-sender)
+                       :username (:username email-sender)
+                       :password (:password email-sender)
+                       :tls? (:tls? email-sender)
+                       :ssl? (:ssl? email-sender)}]
+    ;; Store config in job args
+    (enqueue-fn job-queue :emails
+                {:job-type :send-email
+                 :args {:email email
+                        :sender-config sender-config}})))
+```
+
+**Job handler recreates sender**:
+```clojure
+(defn process-email-job [job-args]
+  (let [{:keys [email sender-config]} job-args
+        smtp-sender (smtp/create-smtp-sender sender-config)]
+    (ports/send-email! smtp-sender email)))
+```
+
+**Why This Works**:
+- Job args must be serializable (for Redis storage)
+- Config is plain data (maps, strings, numbers)
+- Sender creation is cheap (no pooling yet)
+- Each job gets isolated sender instance
+
+### Queue Selection
+
+Used `:emails` queue name (not `:default`):
+```clojure
+(enqueue-fn job-queue :emails job)
+```
+
+**Rationale**:
+- Separates email jobs from other job types
+- Allows dedicated worker pools for emails
+- Enables priority tuning for email queue
+- Matches jobs module best practices
+
+### Error Handling
+
+**Missing Dependency Errors**:
+- Type: `:missing-dependency`
+- Module: `"boundary-jobs"`
+- Documentation link included
+- Clear instructions to add to `deps.edn`
+
+**Job Execution Errors**:
+- Wrapped in try-catch with full stack trace
+- Propagates SMTP errors from email sender
+- Logged at appropriate levels (debug/info/error)
+
+### File Statistics
+
+- **Lines**: 226 total
+- **Functions**: 3 public (`queue-email-job!`, `process-email-job`, `register-email-job-handler!`)
+- **Dependencies**: 4 requires (ports, smtp, stacktrace, logging)
+- **Linting**: ✅ 0 errors, 0 warnings
+
+### Verification
+
+```bash
+clojure -M:clj-kondo --lint libs/email/src
+# linting took 112ms, errors: 0, warnings: 0
+```
+
+### Next Steps
+
+- Task 3.6: Document email module in README
+- Task 3.7: Add comprehensive integration tests
+- Task 3.8: Implement email queue with retry logic
+
+### Related Patterns
+
+See `libs/external/` for similar optional dependency patterns used for:
+- Stripe integration
+- Twilio integration
+- Other external service adapters
+

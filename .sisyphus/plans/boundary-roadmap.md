@@ -706,7 +706,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 3.5. Integrate email with jobs module for async sending
+- [x] 3.5. Integrate email with jobs module for async sending
 
   **What to do**:
   - Create `libs/email/src/boundary/email/shell/jobs_integration.clj`
