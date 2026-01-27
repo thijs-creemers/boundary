@@ -162,3 +162,36 @@ Always use Aero's `#env` and `#or` tags for database configuration to ensure a s
 - ✅ Code quality matches framework standards (kebab-case, comprehensive docstrings)
 
 **Next**: Task 3.3 - Implement email ports (protocols)
+
+## [2026-01-27] Task 3.3 Complete - Email Ports
+
+**Summary**: Implemented protocol definitions in `libs/email/src/boundary/email/ports.clj`.
+
+**Protocols Defined** (96 lines total):
+1. **EmailSenderProtocol** - Email sending operations:
+   - `send-email!` - Synchronous email sending (blocks until sent)
+   - `send-email-async!` - Asynchronous email sending (returns future/promise)
+
+2. **EmailQueueProtocol** - Email queue management:
+   - `queue-email!` - Add email to queue for processing
+   - `process-queue!` - Process next email in queue
+   - `queue-size` - Get number of queued emails
+   - `peek-queue` - Peek at next email without removing
+
+**Key Design Decisions**:
+- Protocol names use PascalCase: `EmailSenderProtocol`, `EmailQueueProtocol`
+- Method names use kebab-case with `!` suffix for side effects
+- All methods have comprehensive docstrings with Args and Returns sections
+- Return values are maps with `:success?` or similar boolean + details
+- Queue operations include error handling (`:error` map on failure)
+
+**Pattern Followed**: Jobs module ports (`libs/jobs/src/boundary/jobs/ports.clj`)
+
+**Subagent Issue**: Subagent failed TWICE to complete this task (claimed completion but no file changes). Orchestrator completed manually.
+
+**Verification**:
+- ✅ Line count: 96 lines
+- ✅ Linting: 0 errors, 0 warnings
+- ✅ All methods properly documented
+
+**Next**: Task 3.4 - Implement SMTP adapter

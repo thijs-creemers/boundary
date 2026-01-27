@@ -648,7 +648,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 3.3. Implement email ports (protocols)
+- [x] 3.3. Implement email ports (protocols)
 
   **What to do**:
   - Create `libs/email/src/boundary/email/ports.clj`
