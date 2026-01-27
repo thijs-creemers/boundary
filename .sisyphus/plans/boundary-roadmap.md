@@ -674,7 +674,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 3.4. Implement SMTP adapter (shell layer)
+- [x] 3.4. Implement SMTP adapter (shell layer)
 
   **What to do**:
   - Create `libs/email/src/boundary/email/shell/smtp_adapter.clj`

@@ -195,3 +195,102 @@ Always use Aero's `#env` and `#or` tags for database configuration to ensure a s
 - ✅ All methods properly documented
 
 **Next**: Task 3.4 - Implement SMTP adapter
+
+## Task 3.4: SMTP Email Adapter - 2026-01-27
+
+### Implementation Summary
+Created `libs/email/src/boundary/email/shell/adapters/smtp.clj` (281 lines):
+- ✅ `SmtpEmailSender` defrecord with config fields (host, port, username, password, tls?, ssl?)
+- ✅ Implements `EmailSenderProtocol` (send-email!, send-email-async!)
+- ✅ Uses javax.mail for SMTP (Session, MimeMessage, Transport)
+- ✅ Comprehensive error handling with typed errors
+- ✅ Support for TLS/STARTTLS and SSL
+- ✅ Support for CC/BCC headers
+- ✅ Support for Reply-To header
+- ✅ Zero linting errors/warnings
+
+### Key Patterns Applied
+
+**Adapter Pattern:**
+```clojure
+(defrecord SmtpEmailSender [host port username password tls? ssl?])
+
+(extend-protocol ports/EmailSenderProtocol
+  SmtpEmailSender
+  (send-email! [this email] ...)
+  (send-email-async! [this email] (future (send-email! this email))))
+```
+
+**javax.mail Integration:**
+- Properties-based session configuration
+- Custom Authenticator for SMTP auth (proxy pattern)
+- MimeMessage construction from email map
+- Transport.send for synchronous sending
+- Proper exception handling (MessagingException vs Exception)
+
+**Error Handling:**
+```clojure
+{:success? false
+ :error {:message "..."
+         :type "SmtpError"
+         :provider-error {:class "..." :cause "..."}}}
+```
+
+**Import Pattern for Nested Java Classes:**
+```clojure
+(:import [javax.mail Session Transport ...]
+         [javax.mail Message$RecipientType]  ; Nested class
+         [javax.mail.internet InternetAddress MimeMessage]
+         [java.util Properties])
+```
+
+**Constructor with Defaults:**
+```clojure
+(defn create-smtp-sender
+  [{:keys [host port username password tls? ssl?]
+    :or {tls? true ssl? false}}]
+  {:pre [(string? host) (some? port)]}  ; Validation
+  (->SmtpEmailSender host port username password tls? ssl?))
+```
+
+### Common SMTP Configurations Documented
+- Gmail (port 587, TLS)
+- Amazon SES (port 587, TLS)
+- Mailgun (port 587, TLS)
+- SendGrid (port 587, TLS)
+- Local dev (Mailhog/MailCatcher - port 1025, no TLS)
+
+### Technical Gotchas
+
+**Java Interop:**
+- Nested class: `Message$RecipientType/TO` (requires separate import)
+- InternetAddress array for Reply-To: `(into-array InternetAddress [...])`
+- Properties must use .put (mutable API)
+- Transport.send is static method (not instance method)
+
+**Message ID Handling:**
+```clojure
+(let [message-id (try
+                   (.getMessageID message)
+                   (catch Exception _
+                     (str (:id email))))]  ; Fallback
+  {:success? true :message-id message-id})
+```
+
+**Async Implementation:**
+Simply wraps sync in future (no special async SMTP support needed)
+
+### Files Created
+- `libs/email/src/boundary/email/shell/adapters/smtp.clj` (281 lines)
+
+### Verification Results
+```
+clojure -M:clj-kondo --lint libs/email/src
+# linting took 98ms, errors: 0, warnings: 0
+```
+
+### Next Tasks
+- Task 3.5: In-memory email adapter (for testing)
+- Task 3.6: Email service implementation (shell layer)
+- Task 3.7: Write comprehensive tests (unit + integration)
+
