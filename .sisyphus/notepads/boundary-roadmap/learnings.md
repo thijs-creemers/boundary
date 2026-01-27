@@ -57,3 +57,21 @@ Always use Aero's `#env` and `#or` tags for database configuration to ensure a s
 - **Accessibility Integration**: Included specific patterns for testing ARIA labels and semantic HTML, ensuring high UI quality.
 - **HTMX Testing**: Added guidance on testing HTMX-specific response headers and fragment returns.
 - **Watch Mode**: Emphasized the use of `--watch` for a tight TDD loop.
+
+## [2026-01-27] Task 2.4 - Fixed Project Generators
+
+**Problem**: Generated projects referenced unpublished libraries and had minimal content.
+
+**Solution**: Updated inline generators to use template file content:
+- `generate-project-deps`: Now includes full dependency list (Integrant, Ring, Reitit, SQLite, etc.)
+- `generate-project-readme`: Comprehensive guide with REPL workflow and testing instructions  
+- `generate-project-config`: Proper Integrant wiring with database, HTTP server, and handler components
+- `generate-project-main`: Full Integrant system with database pooling, HTTP server lifecycle
+
+**Key Changes**:
+1. Changed output from `core.clj` to `app.clj` to match conventions
+2. Config path: `resources/conf/dev/config.edn` (not `resources/config.edn`)
+3. All dependencies are published to Maven Central/Clojars
+4. Generated projects are self-contained and fully functional
+
+**Verification**: `cd /tmp/testapp3 && clojure -P` succeeds (downloads all deps without errors)

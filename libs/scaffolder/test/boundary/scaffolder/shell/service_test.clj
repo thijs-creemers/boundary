@@ -272,7 +272,7 @@
         (is (some #(str/includes? % "deps.edn") file-paths))
         (is (some #(str/includes? % "README.md") file-paths))
         (is (some #(str/includes? % "config.edn") file-paths))
-        (is (some #(str/includes? % "core.clj") file-paths))))))
+        (is (some #(str/includes? % "app.clj") file-paths))))))
 
 (deftest generate-project-output-dir-test
   (testing "respects output-dir parameter"

@@ -1,0 +1,11 @@
+{:boundary/settings
+  {:env #env BND_ENV
+   :modules []}
+
+ :boundary/db
+  {:adapter "sqlite"
+   :dbname "dev-database.db"}
+
+ :boundary/http
+  {:port 3000}
+}

@@ -722,75 +722,305 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
    Returns:
      String content for deps.edn"
   [name]
-  (format "{:paths [\"src\" \"resources\"]
- :deps {org.clojure/clojure {:mvn/version \"1.12.0\"}
-        io.github.thijs-creemers/boundary-core {:mvn/version \"0.1.0\"}
-        io.github.thijs-creemers/boundary-platform {:mvn/version \"0.1.0\"}}
+  (format ";; deps.edn - %s project dependencies
+{:paths [\"src\" \"resources\"]
+
+ :deps {org.clojure/clojure               {:mvn/version \"1.12.4\"}
+        
+        ;; Environment / Lifecycle
+        integrant/integrant               {:mvn/version \"1.0.1\"}
+        integrant/repl                    {:mvn/version \"0.5.0\"}
+        aero/aero                         {:mvn/version \"1.1.6\"}
+        
+        ;; HTTP Server
+        ring/ring-core                    {:mvn/version \"1.15.3\"}
+        ring/ring-jetty-adapter           {:mvn/version \"1.15.3\"}
+        metosin/reitit-ring               {:mvn/version \"0.9.2\"}
+        
+        ;; Database
+        com.github.seancorfield/next.jdbc {:mvn/version \"1.3.1086\"}
+        com.github.seancorfield/honeysql  {:mvn/version \"2.7.1364\"}
+        com.zaxxer/HikariCP               {:mvn/version \"7.0.2\"}
+        org.xerial/sqlite-jdbc            {:mvn/version \"3.48.0.0\"}
+        
+        ;; Validation
+        metosin/malli                     {:mvn/version \"0.20.0\"}
+        
+        ;; UI (Server-Side Rendering)
+        hiccup/hiccup                     {:mvn/version \"2.0.0-RC3\"}
+        
+        ;; Logging
+        org.clojure/tools.logging         {:mvn/version \"1.3.1\"}
+        ch.qos.logback/logback-classic    {:mvn/version \"1.5.23\"}}
+
  :aliases
- {:dev {:extra-paths [\"test\"]
-        :extra-deps {org.clojure/tools.namespace {:mvn/version \"1.5.0\"}
-                     io.github.thijs-creemers/boundary-scaffolder {:mvn/version \"0.1.0\"}}}
-  :test {:extra-paths [\"test\"]
-         :extra-deps {lambdaisland/kaocha {:mvn/version \"1.91.1392\"}}}
-  :repl {:extra-deps {nrepl/nrepl {:mvn/version \"1.1.0\"}
-                      cider/cider-nrepl {:mvn/version \"0.45.0\"}}}}}
+ {:test
+  {:extra-paths [\"test\"]
+   :extra-deps  {lambdaisland/kaocha {:mvn/version \"1.95.1463\"}
+                 org.clojure/test.check {:mvn/version \"1.1.1\"}}
+   :main-opts   [\"-m\" \"kaocha.runner\"]}
+  
+  :repl
+  {:extra-deps {nrepl/nrepl {:mvn/version \"1.3.0\"}
+                cider/cider-nrepl {:mvn/version \"0.52.1\"}}
+   :main-opts  [\"-m\" \"nrepl.cmdline\"
+                \"--middleware\" \"[cider.nrepl/cider-middleware]\"
+                \"--interactive\"]}
+  
+  :build
+  {:deps {io.github.clojure/tools.build {:mvn/version \"0.10.9\"}}
+   :ns-default build}}}
 "
           name))
 
 (defn generate-project-readme
   "Generate README.md for a new project."
   [name]
-  (format "# %s
+  (let [name-snake (str/replace name "-" "_")]
+    (format "# %s
 
-A new Boundary project.
+A Clojure web application built with the Boundary Framework.
 
-## Getting Started
+## Quick Start
 
-1. Install dependencies: `clojure -P`
-2. Start REPL: `clojure -M:repl`
-3. Generate your first module:
-   ```bash
-   clojure -M:dev -m boundary.scaffolder.shell.cli-entry generate \\
-     --module-name user --entity User --field email:string:required:unique
-   ```
+### Prerequisites
+
+- JDK 21 or later
+- Clojure CLI tools
+
+### Running Locally
+
+```bash
+# Start REPL
+clojure -M:repl
+
+# In REPL:
+(require '[integrant.repl :as ig-repl])
+(ig-repl/go)
+
+# Visit http://localhost:3000
+```
+
+### Running Tests
+
+```bash
+clojure -M:test
+```
+
+## Project Structure
+
+```
+%s/
+├── src/%s/
+│   └── app.clj              # Application entrypoint and wiring
+├── resources/
+│   └── conf/dev/config.edn  # Configuration (SQLite by default)
+├── test/
+├── deps.edn                 # Dependencies
+└── README.md                # This file
+```
+
+## Development Workflow
+
+### REPL
+
+The recommended development workflow uses Integrant REPL:
+
+```clojure
+(require '[integrant.repl :as ig-repl])
+
+;; Start system
+(ig-repl/go)
+
+;; Reload and restart after code changes
+(ig-repl/reset)
+
+;; Stop system
+(ig-repl/halt)
+```
+
+### Adding Features
+
+Use the Boundary scaffolder to generate new modules:
+
+```bash
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \\
+  --module-name product \\
+  --entity Product \\
+  --field name:string:required \\
+  --field price:decimal:required
+```
+
+## Configuration
+
+Configuration is in `resources/conf/dev/config.edn` using Aero and Integrant.
+
+By default, the project uses SQLite with no setup required. The database file is created automatically at `dev-database.db`.
+
+## Testing
+
+```bash
+# Run all tests
+clojure -M:test
+
+# Watch mode
+clojure -M:test --watch
+
+# Run specific test namespace
+clojure -M:test --focus %s.app-test
+```
 
 ## Architecture
 
-This project follows the **Functional Core / Imperative Shell** architecture pattern.
+This project follows the **Functional Core / Imperative Shell** (FC/IS) architectural pattern:
+
+- **Core** (`core/`): Pure business logic, no side effects
+- **Shell** (`shell/`): I/O, HTTP, database, side effects
+- **Ports** (`ports.clj`): Protocol definitions for dependency injection
+
+## License
+
+Copyright © 2024-2026
+
+Distributed under the Eclipse Public License version 2.0.
 "
-          name))
+            name name name name-snake)))
 
 (defn generate-project-config
   "Generate initial config.edn for a new project."
-  []
-  "{:boundary/settings
-  {:env #env BND_ENV
-   :modules []}
+  [name]
+  (format ";; config.edn - Development configuration for %s
+{:boundary/app
+ {:name \"%s\"
+  :version \"0.1.0\"
+  :env :development}
 
- :boundary/db
-  {:adapter \"sqlite\"
-   :dbname \"dev-database.db\"}
+ :boundary/db-context
+ {:datasource
+  {:jdbcUrl \"jdbc:sqlite:dev-database.db\"
+   :driverClassName \"org.sqlite.JDBC\"
+   :maximumPoolSize 5
+   :connectionTimeout 30000}}
 
- :boundary/http
-  {:port 3000}
-}
-")
+ :boundary/http-server
+ {:port 3000
+  :host \"0.0.0.0\"
+  :handler #ig/ref :boundary/handler}
+
+ :boundary/handler
+ {:routes [[\"/health\" {:get {:handler (fn [_] {:status 200 :body {:status \"ok\"}})}}]
+           [\"/\" {:get {:handler (fn [_] {:status 200 :body \"%s is running\"})}}]]}}
+"
+          name name name))
 
 (defn generate-project-main
-  "Generate core.clj for a new project."
+  "Generate app.clj for a new project."
   [name]
-  (let [ns-name (str/replace name "-" ".")]
-    (format "(ns %s.core
-  \"Main entry point for %s.\"
-  (:require [boundary.platform.shell.system :as system]
-            [integrant.core :as ig]))
+  (let [ns-name (str/replace name "-" "_")]
+    (format "(ns %s.app
+  \"Application entrypoint and Integrant system wiring.\"
+  (:require [aero.core :as aero]
+            [clojure.java.io :as io]
+            [integrant.core :as ig]
+            [integrant.repl :as ig-repl]
+            [ring.adapter.jetty :as jetty]
+            [reitit.ring :as ring]
+            [next.jdbc :as jdbc]
+            [next.jdbc.connection :as connection]
+            [com.zaxxer.hikari.HikariDataSource])
+  (:import [com.zaxxer.hikari HikariDataSource])
+  (:gen-class))
 
-(defn -main [& args]
-  (let [config (system/load-config)]
-    (ig/init config)))
+;; =============================================================================
+;; Configuration Loading
+;; =============================================================================
+
+(defn load-config
+  \"Load configuration using Aero.\"
+  []
+  (aero/read-config (io/resource \"conf/dev/config.edn\")))
+
+;; =============================================================================
+;; Integrant Component: Database Context
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/db-context
+  [_ {:keys [datasource]}]
+  (println \"Starting database connection pool...\")
+  (let [ds (connection/->pool HikariDataSource datasource)]
+    {:datasource ds}))
+
+(defmethod ig/halt-key! :boundary/db-context
+  [_ {:keys [datasource]}]
+  (println \"Stopping database connection pool...\")
+  (.close ^HikariDataSource datasource))
+
+;; =============================================================================
+;; Integrant Component: HTTP Handler
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/handler
+  [_ {:keys [routes]}]
+  (println \"Creating HTTP handler...\")
+  (ring/ring-handler
+    (ring/router routes)))
+
+;; =============================================================================
+;; Integrant Component: HTTP Server
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/http-server
+  [_ {:keys [port host handler]}]
+  (println (str \"Starting HTTP server on \" host \":\" port \"...\"))
+  (jetty/run-jetty handler
+                   {:port port
+                    :host host
+                    :join? false}))
+
+(defmethod ig/halt-key! :boundary/http-server
+  [_ server]
+  (println \"Stopping HTTP server...\")
+  (.stop server))
+
+;; =============================================================================
+;; System Initialization
+;; =============================================================================
+
+(defn start-system!
+  \"Start the Integrant system.\"
+  []
+  (let [config (load-config)]
+    (ig-repl/set-prep! (constantly config))
+    (ig-repl/go)))
+
+(defn -main
+  \"Application entrypoint.\"
+  [& args]
+  (start-system!)
+  (println \"%s started successfully.\"))
+
+;; =============================================================================
+;; REPL Development Helpers
+;; =============================================================================
+
+(comment
+  ;; Start system
+  (start-system!)
+  
+  ;; Reload and restart
+  (ig-repl/reset)
+  
+  ;; Stop system
+  (ig-repl/halt)
+  
+  ;; Get database connection
+  (def db (get-in integrant.repl.state/system [:boundary/db-context :datasource]))
+  
+  ;; Test query
+  (jdbc/execute! db [\"SELECT 1\"])
+  )
 "
-            ns-name
-            name)))
+            ns-name name)))
 
 ;; =============================================================================
 ;; Incremental Generators - Add Field

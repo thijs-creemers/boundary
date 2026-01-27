@@ -228,7 +228,7 @@
             ;; Generate file contents
             deps-content (generators/generate-project-deps name)
             readme-content (generators/generate-project-readme name)
-            config-content (generators/generate-project-config)
+            config-content (generators/generate-project-config name)
             main-content (generators/generate-project-main name)
             
             files [{:path (str project-root "/deps.edn")
@@ -237,10 +237,10 @@
                    {:path (str project-root "/README.md")
                     :content readme-content
                     :action :create}
-                   {:path (str project-root "/resources/config.edn")
+                   {:path (str project-root "/resources/conf/dev/config.edn")
                     :content config-content
                     :action :create}
-                   {:path (format "%s/src/%s/core.clj" 
+                   {:path (format "%s/src/%s/app.clj" 
                                   project-root (str/replace name "-" "/"))
                     :content main-content
                     :action :create}]]

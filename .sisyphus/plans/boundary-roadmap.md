@@ -525,7 +525,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 2.4. Verify generated project is fully functional
+- [x] 2.4. Verify generated project is fully functional
 
   **What to do**:
   - Run `boundary new testapp` in temp directory
