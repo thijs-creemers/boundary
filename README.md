@@ -62,12 +62,20 @@ Get started in **3 commands** using the [**boundary-starter**](https://github.co
 ```bash
 git clone https://github.com/thijs-creemers/boundary-starter
 cd boundary-starter
-clojure -M:repl-clj
 
-# In REPL:
+# Required environment variables for JWT auth / app environment:
+# Customize these values as needed for your setup.
+export JWT_SECRET="change-me-dev-secret-min-32-chars"
+export BND_ENV="development"
+
+clojure -M:repl-clj
+```
+
+In the REPL:
+```clojure
 (require '[integrant.repl :as ig-repl])
 (ig-repl/go)
-# Visit http://localhost:3000
+;; Visit http://localhost:3000
 ```
 
 **What you get:**
