@@ -1108,7 +1108,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 5.6. Add realtime module tests
+- [x] 5.6. Add realtime module tests
 
   **What to do**:
   - Create unit tests for core layer (message parsing)
