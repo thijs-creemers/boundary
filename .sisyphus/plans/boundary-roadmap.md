@@ -1029,7 +1029,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 5.4. Implement WebSocket handler (shell layer)
+- [x] 5.4. Implement WebSocket handler (shell layer)
 
   **What to do**:
   - Create `libs/realtime/src/boundary/realtime/shell/websocket_handler.clj`
