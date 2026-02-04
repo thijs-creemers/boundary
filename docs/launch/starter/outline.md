@@ -98,6 +98,6 @@ Out-of-the-box Defaults
 - Interceptor-based observability
 
 Next Steps
-- Publish starter to GitHub and update all `TODO:starter-repo-url` links
+- Publish starter to GitHub: https://github.com/thijs-creemers/boundary-starter
 - Record demo using this repo
 - Iterate based on soft launch feedback

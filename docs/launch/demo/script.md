@@ -6,7 +6,7 @@ Audience
 
 Prereqs (on screen briefly)
 - Java 17+, Clojure CLI installed
-- Repo cloned: TODO:starter-repo-url
+- Repo cloned: https://github.com/thijs-creemers/boundary-starter
 - Env: BND_ENV=development, JWT_SECRET set
 
 Structure
@@ -68,5 +68,5 @@ Recording tips
 
 Follow‑ups (links to include in description)
 - Quickstart: docs/launch/posts/quickstart.md
-- Starter repo: TODO:starter-repo-url
-- Docs home: TODO:docs-site-url
+- Starter repo: https://github.com/thijs-creemers/boundary-starter
+- Docs home: https://github.com/thijs-creemers/boundary-docs
