@@ -916,7 +916,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ### PHASE 5: Real-time/WebSocket Module (Weeks 11-12)
 
-- [ ] 5.0. Create WebSocket architecture mini-document
+- [x] 5.0. Create WebSocket architecture mini-document
 
   **What to do**:
   - Before implementation, write `docs/adr/ADR-003-websocket-architecture.md`
