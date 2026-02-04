@@ -21,11 +21,11 @@
   Returns:
     Map of query parameters {\"token\" \"abc\" \"foo\" \"bar\"}"
   [query-string]
-  (when query-string
+  (when (and query-string (not= query-string ""))
     (into {}
           (for [pair (str/split query-string #"&")
                 :let [[k v] (str/split pair #"=" 2)]
-                :when k]
+                :when (and k (not= k ""))]
             [k (or v "")]))))
 
 (defn extract-token-from-query

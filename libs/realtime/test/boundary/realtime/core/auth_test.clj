@@ -15,7 +15,7 @@
     (is (nil? (auth/parse-query-string nil))))
   
   (testing "parsing empty query string"
-    (is (= {} (auth/parse-query-string "")))))
+    (is (nil? (auth/parse-query-string "")))))
 
 (deftest extract-token-from-query-test
   (testing "extracting token from query params"
