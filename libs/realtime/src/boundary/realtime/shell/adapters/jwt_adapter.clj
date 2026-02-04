@@ -1,16 +1,22 @@
 (ns boundary.realtime.shell.adapters.jwt-adapter
   "JWT verification adapter that delegates to boundary/user module.
-  
-  Wraps boundary.user.shell.auth/validate-jwt-token to provide IJWTVerifier
-  protocol implementation. Avoids direct dependency from core layer to user module.
-  
-  Responsibilities (Shell/I/O):
-  - Call user module for JWT verification (I/O - external dependency)
-  - Transform user module response to expected format
-  - Handle verification errors"
+   
+   Wraps boundary.user.shell.auth/validate-jwt-token to provide IJWTVerifier
+   protocol implementation. Avoids direct dependency from core layer to user module.
+   
+   Responsibilities (Shell/I/O):
+   - Call user module for JWT verification (I/O - external dependency)
+   - Transform user module response to expected format
+   - Handle verification errors"
   (:require [boundary.realtime.ports :as ports]
-            [boundary.user.shell.auth :as user-auth]
             [clojure.tools.logging :as log]))
+
+;; Require user module optionally to avoid hard dependency
+(try
+  (require '[boundary.user.shell.auth :as user-auth])
+  (catch Exception _e
+    ;; User module not available - UserJWTAdapter will throw at runtime if used
+    nil))
 
 ;; =============================================================================
 ;; User Module JWT Adapter
@@ -20,23 +26,30 @@
   ports/IJWTVerifier
 
   (verify-jwt [this token]
-    ;; Delegate to user module for JWT verification
-    (let [result (user-auth/validate-jwt-token token)]
-      (if (:valid? result)
-        ;; Transform claims to expected format
-        (let [claims (:claims result)]
-          {:user-id (java.util.UUID/fromString (:sub claims))
-           :email (:email claims)
-           :roles #{(keyword (:role claims))} ; Convert single role to set
-           :permissions #{} ; User module doesn't track permissions yet
-           :exp (:exp claims)
-           :iat (:iat claims)})
-        ;; JWT invalid - throw unauthorized exception
-        (do
-          (log/warn "JWT verification failed" {:error (:error result)})
-          (throw (ex-info "Unauthorized: Invalid JWT token"
-                          {:type :unauthorized
-                           :message (:error result "Invalid or expired token")})))))))
+    ;; Check if user module is available
+    (if-not (resolve 'boundary.user.shell.auth/validate-jwt-token)
+      (throw (ex-info "User module not available - cannot verify JWT"
+                      {:type :internal-error
+                       :message "boundary.user.shell.auth/validate-jwt-token not found"}))
+      ;; Delegate to user module for JWT verification
+      (let [user-auth-ns (the-ns 'boundary.user.shell.auth)
+            validate-fn (ns-resolve user-auth-ns 'validate-jwt-token)
+            result (validate-fn token)]
+        (if (:valid? result)
+          ;; Transform claims to expected format
+          (let [claims (:claims result)]
+            {:user-id (java.util.UUID/fromString (:sub claims))
+             :email (:email claims)
+             :roles #{(keyword (:role claims))} ; Convert single role to set
+             :permissions #{} ; User module doesn't track permissions yet
+             :exp (:exp claims)
+             :iat (:iat claims)})
+          ;; JWT invalid - throw unauthorized exception
+          (do
+            (log/warn "JWT verification failed" {:error (:error result)})
+            (throw (ex-info "Unauthorized: Invalid JWT token"
+                            {:type :unauthorized
+                             :message (:error result "Invalid or expired token")}))))))))
 
 ;; =============================================================================
 ;; Test Adapter (for testing without user module)
