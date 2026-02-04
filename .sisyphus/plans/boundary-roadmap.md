@@ -1003,7 +1003,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 5.3. Implement realtime ports (protocols)
+- [x] 5.3. Implement realtime ports (protocols)
 
   **What to do**:
   - Create `libs/realtime/src/boundary/realtime/ports.clj`
