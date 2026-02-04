@@ -9,6 +9,7 @@
   - JWT authentication (delegates to user module)
   - Message routing (uses core routing logic)
   - Connection registry management
+  - Pub/sub topic management
   - Logging and error handling
   
   Does NOT contain:
@@ -40,7 +41,7 @@
 ;; Realtime Service (Shell Layer)
 ;; =============================================================================
 
-(defrecord RealtimeService [connection-registry jwt-verifier logger error-reporter]
+(defrecord RealtimeService [connection-registry jwt-verifier pubsub-manager logger error-reporter]
   ports/IRealtimeService
 
   (connect [this ws-connection query-params]
@@ -96,10 +97,14 @@
       ;; 1. Get connection for logging
       (let [connection (ports/find-connection connection-registry connection-id)]
 
-        ;; 2. Remove from registry
+        ;; 2. Clean up pub/sub subscriptions (if pubsub-manager exists)
+        (when pubsub-manager
+          (ports/unsubscribe-from-all-topics pubsub-manager connection-id))
+
+        ;; 3. Remove from registry
         (ports/unregister connection-registry connection-id)
 
-        ;; 3. Log disconnection
+        ;; 4. Log disconnection
         (when connection
           (log/info "WebSocket connection closed"
                     {:connection-id connection-id
@@ -244,7 +249,44 @@
         (log/error e "Error sending message to connection"
                    {:connection-id connection-id
                     :message-type (:type message)})
-        false))))
+        false)))
+
+  (publish-to-topic [this topic message]
+    ;; Shell: Publish message to all topic subscribers
+    (try
+      ;; 1. Add timestamp if missing
+      (let [message-with-timestamp (if (:timestamp message)
+                                     message
+                                     (assoc message :timestamp (current-timestamp)))
+
+            ;; 2. Get topic subscribers (from pubsub-manager)
+            subscriber-ids (if pubsub-manager
+                             (ports/get-topic-subscribers pubsub-manager topic)
+                             #{})
+
+            ;; 3. Send to each subscriber (I/O)
+            send-count (atom 0)]
+
+        (doseq [connection-id subscriber-ids]
+          ;; Get connection from registry to access ws-adapter
+          (when-let [connection (ports/find-connection connection-registry connection-id)]
+            ;; Note: need to add find-ws-adapter method to registry protocol
+            ;; For now, use send-to-connection which already handles this
+            (when (ports/send-to-connection this connection-id message-with-timestamp)
+              (swap! send-count inc))))
+
+        ;; 4. Log publish event
+        (log/debug "Published message to topic"
+                   {:topic topic
+                    :message-type (:type message)
+                    :subscriber-count @send-count})
+
+        @send-count)
+      (catch Exception e
+        (log/error e "Error publishing message to topic"
+                   {:topic topic
+                    :message-type (:type message)})
+        0))))
 
 ;; =============================================================================
 ;; Factory Functions
@@ -256,10 +298,11 @@
   Args:
     connection-registry - IConnectionRegistry implementation
     jwt-verifier - IJWTVerifier implementation
+    pubsub-manager - IPubSubManager implementation (optional, for topic support)
     logger - Logger instance (optional, uses clojure.tools.logging)
     error-reporter - Error reporter instance (optional)
   
   Returns:
     RealtimeService instance implementing IRealtimeService"
-  [connection-registry jwt-verifier & {:keys [logger error-reporter]}]
-  (->RealtimeService connection-registry jwt-verifier logger error-reporter))
+  [connection-registry jwt-verifier & {:keys [pubsub-manager logger error-reporter]}]
+  (->RealtimeService connection-registry jwt-verifier pubsub-manager logger error-reporter))

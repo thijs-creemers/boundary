@@ -514,28 +514,127 @@ Send message to a specific connection (for job progress tracking):
 
 ---
 
+## Topic-Based Pub/Sub (v0.1.0)
+
+### Decision
+Implement in-memory topic-based publish/subscribe messaging for dynamic routing.
+
+### Context
+Initial design excluded rooms/channels to keep complexity low. However, many real-world use cases require dynamic topic subscriptions:
+- Chat rooms and game lobbies
+- Entity-specific updates (e.g., "order:123", "user:456")
+- Arbitrary topic routing without pre-defined roles
+
+### Architecture
+
+**Core Layer (Pure Functions):**
+```clojure
+;; core/pubsub.clj - Pure subscription management
+(defn subscribe [subscriptions connection-id topic]
+  (update subscriptions topic (fnil conj #{}) connection-id))
+
+(defn get-subscribers [subscriptions topic]
+  (get subscriptions topic #{}))
+```
+
+**Shell Layer (I/O):**
+```clojure
+;; shell/pubsub_manager.clj - Atom-based storage
+(defrecord AtomPubSubManager [state]  ; state = atom of {topic #{conn-ids}}
+  ports/IPubSubManager
+  (subscribe-to-topic [this connection-id topic]
+    (swap! state pubsub-core/subscribe connection-id topic)))
+```
+
+**Service Integration:**
+```clojure
+;; shell/service.clj
+(defn publish-to-topic [this topic message]
+  (let [subscribers (ports/get-topic-subscribers pubsub-manager topic)]
+    (doseq [conn-id subscribers]
+      (when-let [ws-adapter (get-ws-adapter conn-id)]
+        (ports/send-message ws-adapter message)))
+    (count subscribers)))
+```
+
+### Data Structure
+```clojure
+;; Subscriptions map: {topic-name #{connection-id-1 connection-id-2 ...}}
+{"order:123"     #{#uuid "conn-1" #uuid "conn-2"}
+ "chat:general"  #{#uuid "conn-2" #uuid "conn-3"}
+ "user:456"      #{#uuid "conn-1"}}
+```
+
+### Protocol Definition
+```clojure
+(defprotocol IPubSubManager
+  "Manage topic subscriptions for pub/sub messaging."
+  (subscribe-to-topic [this connection-id topic]
+    "Subscribe connection to topic. Returns nil.")
+  (unsubscribe-from-topic [this connection-id topic]
+    "Unsubscribe connection from specific topic. Returns nil.")
+  (unsubscribe-from-all-topics [this connection-id]
+    "Remove connection from all topics (cleanup on disconnect). Returns nil.")
+  (get-topic-subscribers [this topic]
+    "Get set of connection IDs subscribed to topic.")
+  (get-connection-subscriptions [this connection-id]
+    "Get set of topics connection is subscribed to.")
+  (topic-count [this]
+    "Count number of active topics.")
+  (subscription-count [this]
+    "Count total number of subscriptions across all topics."))
+```
+
+### Automatic Cleanup
+Subscriptions are automatically removed when a connection disconnects:
+
+```clojure
+(defn disconnect [this connection-id]
+  ;; Clean up subscriptions on disconnect
+  (when pubsub-manager
+    (ports/unsubscribe-from-all-topics pubsub-manager connection-id))
+  ;; ... rest of disconnect logic
+  )
+```
+
+### Trade-offs
+
+**Benefits:**
+- ✅ Simple in-memory implementation (no external dependencies)
+- ✅ Fast O(1) topic lookup and subscription operations
+- ✅ Dynamic topic creation (no pre-definition required)
+- ✅ Automatic cleanup on disconnect
+- ✅ Pure core functions (fully testable)
+
+**Limitations:**
+- ❌ Single-server only (no cross-server pub/sub)
+- ❌ Lost on server restart (no persistence)
+- ❌ Memory usage grows with topic count
+
+### Future Enhancements (v0.2.0)
+For multi-server deployments, implement Redis-backed pub/sub:
+
+```clojure
+;; Future: Redis adapter for cross-server pub/sub
+(defrecord RedisPubSubManager [redis-conn]
+  ports/IPubSubManager
+  (subscribe-to-topic [this connection-id topic]
+    (redis/sadd redis-conn (str "topic:" topic) connection-id)
+    (redis/subscribe redis-conn topic)))
+```
+
+This allows horizontal scaling while maintaining the same protocol interface.
+
+---
+
 ## Explicit Non-Goals (Phase 5)
 
-### No Rooms/Channels
+### No Advanced Presence Tracking
 **Not implementing:**
-- `join-room`, `leave-room` APIs
-- Room-based message routing
-- Per-room connection lists
-
-**Rationale:**
-- Adds significant complexity (~300 extra LOC)
-- Most use cases satisfied by user/role routing
-- Can be added in Phase 6+ if demand exists
-
-**Workaround for room-like behavior:**
-- Use role-based routing: `send-to-role :chatroom-123 message`
-- Use metadata in connection: `{:metadata {:room "chatroom-123"}}`
-
-### No Presence Tracking
-**Not implementing:**
-- "Who's online" queries
-- Online/offline events
-- Last-seen timestamps
+- "Who's online" queries with rich metadata
+- Online/offline events with activity status
+- Last-seen timestamps with timezone support
+- Typing indicators
 
 **Rationale:**
 - Requires heartbeat/ping mechanisms
@@ -545,6 +644,7 @@ Send message to a specific connection (for job progress tracking):
 **Workaround:**
 - Query active connections: `(count (ports/all-connections registry))`
 - Store last-activity in user module (HTTP-based)
+- Basic presence can be inferred from topic subscriptions
 
 ### No Redis Pub/Sub
 **Not implementing:**
@@ -665,19 +765,20 @@ Track connection and message statistics:
 
 ## Migration Path
 
-### Phase 5 (Current)
-- Minimal WebSocket implementation
-- JWT authentication
-- Point-to-point and broadcast messaging
-- Single-server deployment
+### Phase 5 (Current - v0.1.0)
+- ✅ Minimal WebSocket implementation
+- ✅ JWT authentication
+- ✅ Point-to-point and broadcast messaging
+- ✅ Role-based routing
+- ✅ Topic-based pub/sub (in-memory)
+- ✅ Single-server deployment
 
 ### Phase 6+ (Future Enhancements)
-- **Rooms/Channels**: If demand exists, add room abstraction
-- **Presence Tracking**: Heartbeat and online/offline events
-- **Redis Pub/Sub**: Multi-server scaling via Redis adapter
-- **EDN Support**: Binary message format for Clojure clients
-- **Compression**: Message compression for large payloads
-- **Reconnection Logic**: Automatic reconnect with backoff
+- **Redis Pub/Sub**: Multi-server scaling via Redis adapter (v0.2.0)
+- **Advanced Presence Tracking**: Heartbeat and online/offline events with rich metadata (v0.3.0)
+- **EDN Support**: Binary message format for Clojure clients (v0.3.0)
+- **Compression**: Message compression for large payloads (v0.4.0)
+- **Reconnection Logic**: Automatic reconnect with backoff (v0.4.0)
 
 ---
 

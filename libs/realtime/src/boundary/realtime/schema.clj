@@ -5,7 +5,8 @@
   - Connection state
   - WebSocket messages
   - Authentication tokens
-  - Routing metadata"
+  - Routing metadata
+  - Pub/sub topics and subscriptions"
   (:require [malli.core :as m]))
 
 ;; Connection Schemas
@@ -103,3 +104,55 @@
   "Explain why message validation failed."
   [message]
   (m/explain Message message))
+
+;; Pub/Sub Schemas
+
+(def Topic
+  "Schema for pub/sub topic name."
+  [:string {:min 1, :max 255}])
+
+(def Subscription
+  "Schema for topic subscription record."
+  [:map
+   [:connection-id :uuid]
+   [:topic Topic]
+   [:created-at inst?]])
+
+(def SubscriptionInput
+  "Schema for creating new subscription."
+  [:map
+   [:connection-id :uuid]
+   [:topic Topic]])
+
+(def Subscriptions
+  "Schema for subscriptions data structure.
+   Map of topic name to set of connection IDs."
+  [:map-of Topic [:set :uuid]])
+
+;; Pub/Sub validation functions
+
+(defn valid-topic?
+  "Check if topic name is valid."
+  [topic]
+  (m/validate Topic topic))
+
+(defn valid-subscription?
+  "Check if subscription is valid."
+  [subscription]
+  (m/validate Subscription subscription))
+
+(defn valid-subscriptions?
+  "Check if subscriptions data structure is valid."
+  [subscriptions]
+  (m/validate Subscriptions subscriptions))
+
+(defn explain-topic
+  "Explain why topic validation failed."
+  [topic]
+  (m/explain Topic topic))
+
+(defn explain-subscription
+  "Explain why subscription validation failed."
+  [subscription]
+  (m/explain Subscription subscription))
+

@@ -9,6 +9,7 @@ Similar to **Phoenix Channels** (Elixir) or **Socket.io** (Node.js), this module
 - ✅ Broadcast messaging (send to all connections)
 - ✅ Role-based routing (send to users with specific role)
 - ✅ Connection-specific messaging (for job progress tracking)
+- ✅ Topic-based pub/sub (subscribe to arbitrary topics)
 - ✅ Pure functional core (FC/IS pattern)
 - ✅ Pluggable adapters (test and production)
 - ✅ Integration with boundary/user authentication
@@ -177,6 +178,69 @@ ws.onclose = () => {
 | **send-to-role** | Admin-only alerts, moderator notifications | "New report requires review" |
 | **broadcast** | System-wide announcements | "Server maintenance starting" |
 | **send-to-connection** | Job-specific progress tracking | Upload progress for specific tab |
+| **publish-to-topic** | Topic-based pub/sub messaging | Chat rooms, entity-specific updates |
+
+### Topic-Based Pub/Sub
+
+**NEW in v0.1.0**: Connections can subscribe to arbitrary topics and receive messages published to those topics.
+
+**Use Cases:**
+- **Chat rooms / Game lobbies**: `topic = "chat:general"`, `"lobby:game-123"`
+- **Entity-specific updates**: `topic = "order:456"`, `"user:789:notifications"`
+- **Dynamic routing**: No need to pre-define topics - create them on-the-fly
+
+**Server-side setup:**
+
+```clojure
+(require '[boundary.realtime.shell.pubsub-manager :as pubsub-mgr])
+
+;; Create pub/sub manager
+(def pubsub-manager (pubsub-mgr/create-pubsub-manager))
+
+;; Create service with pub/sub support
+(def realtime-svc (realtime-service/create-realtime-service
+                    connection-registry
+                    jwt-verifier
+                    :pubsub-manager pubsub-manager))
+
+;; Subscribe connection to topic (after connection established)
+(ports/subscribe-to-topic pubsub-manager connection-id "order:123")
+
+;; Publish message to all subscribers
+(ports/publish-to-topic realtime-svc "order:123"
+  {:type "order-updated"
+   :status "shipped"
+   :tracking-number "ABC123"})
+;; => Returns count of connections that received the message
+```
+
+**Client-side subscription** (JavaScript):
+
+```javascript
+// After WebSocket connection established
+ws.send(JSON.stringify({
+  action: "subscribe",
+  topic: "order:123"
+}));
+
+// Listen for topic messages
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if (msg.type === 'order-updated') {
+    updateOrderUI(msg);
+  }
+};
+
+// Unsubscribe when done
+ws.send(JSON.stringify({
+  action: "unsubscribe",
+  topic: "order:123"
+}));
+```
+
+**Note**: Client-side subscribe/unsubscribe commands require custom message handlers on the server (not included - implement as needed for your application).
+
+**Automatic cleanup**: When a connection disconnects, it's automatically unsubscribed from all topics.
 
 ### Connection Lifecycle
 
@@ -764,16 +828,18 @@ libs/realtime/
 │   ├── core/                          # Pure business logic
 │   │   ├── connection.clj             # Connection state management (pure)
 │   │   ├── message.clj                # Message routing logic (pure)
+│   │   ├── pubsub.clj                 # Topic subscription logic (pure)
 │   │   └── auth.clj                   # JWT validation logic (pure)
 │   ├── ports.clj                      # Protocol definitions
 │   ├── schema.clj                     # Malli schemas
 │   └── shell/                         # I/O adapters
 │       ├── service.clj                # Shell orchestration
 │       ├── connection_registry.clj    # Connection storage (atom)
+│       ├── pubsub_manager.clj         # Topic subscription storage (atom)
 │       └── adapters/
 │           ├── websocket_adapter.clj  # WebSocket I/O
 │           └── jwt_adapter.clj        # JWT verification
-└── test/                              # Tests (104 tests, 305 assertions)
+└── test/                              # Tests (134 tests, 409 assertions)
 ```
 
 ### Functional Core / Imperative Shell
@@ -781,12 +847,14 @@ libs/realtime/
 **Core Responsibilities (Pure):**
 - Connection state management (create, update, filter)
 - Message routing logic (determine recipients)
+- Topic subscription management (subscribe, unsubscribe, query)
 - JWT token validation decisions
 - No I/O, no side effects, fully testable
 
 **Shell Responsibilities (I/O):**
 - WebSocket send/receive operations
 - Connection registry (stateful atom)
+- Pub/sub manager (stateful atom)
 - JWT verification (delegates to user module)
 - Logging, error handling, time dependencies
 
@@ -832,10 +900,11 @@ Client Receives Message
 - **Workaround**: Implement at application level if needed
 - **Future**: Presence API planned for v0.3.0
 
-**No Rooms/Channels:**
-- ❌ **No topic-based routing**: Cannot subscribe to arbitrary topics
-- **Alternative**: Use role-based routing or metadata filtering
-- **Future**: Pub/sub channels planned for v0.3.0
+**Single-Server Pub/Sub:**
+- ✅ **Topic-based routing available**: Connections can subscribe to arbitrary topics
+- ❌ **No multi-server pub/sub**: Topics are per-server instance only
+- **Workaround**: Use sticky sessions or limit to single server
+- **Future**: Redis-backed pub/sub for multi-server planned for v0.2.0
 
 **Authentication:**
 - ⚠️ **JWT only**: No support for session cookies or API keys
@@ -871,8 +940,8 @@ clojure -M:test --focus-meta :unit
 ```
 
 **Coverage:**
-- 48 unit tests
-- Tests for connection management, message routing, JWT validation
+- 58 unit tests (48 original + 10 pub/sub)
+- Tests for connection management, message routing, JWT validation, pub/sub
 - All tests pure (no mocks needed)
 
 ### Integration Tests
@@ -885,8 +954,8 @@ clojure -M:test --focus-meta :integration
 ```
 
 **Coverage:**
-- 67 integration tests
-- Tests for service orchestration, registry behavior, adapters
+- 76 integration tests (56 original + 20 pub/sub)
+- Tests for service orchestration, registry behavior, adapters, pub/sub manager
 - Uses test adapters (no real WebSockets or JWT verification)
 
 ### All Tests
@@ -896,7 +965,7 @@ cd libs/realtime
 clojure -M:test
 ```
 
-**Result**: 104 tests, 305 assertions, 0 failures
+**Result**: 134 tests, 409 assertions, 0 failures
 
 ---
 

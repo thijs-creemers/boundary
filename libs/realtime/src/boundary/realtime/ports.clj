@@ -128,8 +128,36 @@
       true if sent, false if connection not found
     
     Side Effects:
-      - Sends message over WebSocket if connection exists
-      - Logs send event (debug level)"))
+      - Sends message over WebSocket to specific connection
+      - Logs send event (debug level)")
+
+  (publish-to-topic [this topic message]
+    "Publish message to all connections subscribed to topic.
+    
+    Topic-based pub/sub messaging. Connections must subscribe to topic first
+    via IPubSubManager. Used for:
+      - Room-based messaging (e.g., chat rooms, game lobbies)
+      - Entity-specific updates (e.g., 'order:123', 'user:456:notifications')
+      - Dynamic routing without pre-defined roles
+    
+    Args:
+      topic - Topic name string (e.g., 'order:123', 'chat:general')
+      message - Message map with:
+                :type - Message type keyword
+                :payload - Message data
+                :timestamp - Optional timestamp (auto-added if missing)
+    
+    Returns:
+      Number of connections message was sent to (integer >= 0)
+    
+    Side Effects:
+      - Sends message over WebSocket to all topic subscribers
+      - Logs publish event (debug level)
+    
+    Example:
+      (publish-to-topic service \"order:123\"
+        {:type \"order-updated\"
+         :payload {:status \"shipped\"}})"))
 
 ;; =============================================================================
 ;; Connection Registry Ports
@@ -342,3 +370,134 @@
         - Invalid signature
         - Malformed token
         - Missing required claims"))
+
+;; =============================================================================
+;; Pub/Sub Port
+;; =============================================================================
+
+(defprotocol IPubSubManager
+  "Pub/sub topic management for WebSocket connections.
+  
+   Enables topic-based message routing where connections can subscribe to
+   arbitrary topics and receive messages published to those topics. Useful
+   for:
+     - Room-based messaging (e.g., chat rooms, game lobbies)
+     - Entity-specific updates (e.g., 'order:123', 'user:456:notifications')
+     - Dynamic routing without pre-defined roles
+   
+   Single-server implementation using in-memory atom. Multi-server support
+   would require Redis pub/sub (deferred to v0.2.0).
+   
+   Implemented by:
+     - AtomPubSubManager (in-memory subscriptions using atom)
+     - TestPubSubManager (mock for testing)"
+
+  (subscribe-to-topic [this connection-id topic]
+    "Subscribe connection to topic.
+    
+     Adds connection to topic's subscriber set. Connection will receive all
+     messages published to this topic until unsubscribed or disconnected.
+     
+     Same connection can subscribe to multiple topics. Subscribing twice to
+     same topic is idempotent (no duplicate subscriptions).
+     
+     Args:
+       connection-id - UUID of WebSocket connection
+       topic - Topic name string (e.g., 'order:123', 'chat:general')
+     
+     Returns:
+       nil
+     
+     Side Effects:
+       - Updates subscriptions atom
+       - Logs subscription event
+     
+     Example:
+       (subscribe-to-topic mgr #uuid \"123...\" \"order:456\")
+       ; Connection 123 now receives messages published to 'order:456'")
+
+  (unsubscribe-from-topic [this connection-id topic]
+    "Unsubscribe connection from topic.
+    
+     Removes connection from topic's subscriber set. Connection will no
+     longer receive messages published to this topic.
+     
+     Idempotent - safe to call even if connection not subscribed.
+     
+     Args:
+       connection-id - UUID of WebSocket connection
+       topic - Topic name string
+     
+     Returns:
+       nil
+     
+     Side Effects:
+       - Updates subscriptions atom
+       - Logs unsubscription event")
+
+  (unsubscribe-from-all-topics [this connection-id]
+    "Unsubscribe connection from all topics.
+    
+     Removes connection from all topic subscriptions. Called automatically
+     when connection disconnects to clean up resources.
+     
+     Args:
+       connection-id - UUID of WebSocket connection
+     
+     Returns:
+       nil
+     
+     Side Effects:
+       - Updates subscriptions atom (removes from all topics)
+       - Logs cleanup event")
+
+  (get-topic-subscribers [this topic]
+    "Get all connection IDs subscribed to topic.
+    
+     Used by publish-to-topic to determine which connections should receive
+     the message.
+     
+     Args:
+       topic - Topic name string
+     
+     Returns:
+       Set of connection UUIDs (empty set if topic has no subscribers)
+     
+     Example:
+       (get-topic-subscribers mgr \"order:123\")
+       => #{#uuid \"111...\" #uuid \"222...\"}")
+
+  (get-connection-subscriptions [this connection-id]
+    "Get all topics connection is subscribed to.
+    
+     Useful for debugging and admin interfaces to see what topics a
+     connection is listening to.
+     
+     Args:
+       connection-id - UUID of WebSocket connection
+     
+     Returns:
+       Set of topic name strings
+     
+     Example:
+       (get-connection-subscriptions mgr #uuid \"123...\")
+       => #{\"order:456\" \"user:123:notifications\"}")
+
+  (topic-count [this]
+    "Count number of active topics.
+    
+     Topics with zero subscribers are automatically cleaned up, so this
+     returns count of topics with at least one subscriber.
+     
+     Returns:
+       Integer count of active topics")
+
+  (subscription-count [this]
+    "Count total number of subscriptions.
+    
+     Note: Same connection can be subscribed to multiple topics, so this
+     may be greater than connection count.
+     
+     Returns:
+       Integer count of total subscriptions"))
+

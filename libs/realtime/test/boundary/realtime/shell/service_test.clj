@@ -9,6 +9,7 @@
             [boundary.realtime.shell.connection-registry :as registry]
             [boundary.realtime.shell.adapters.websocket-adapter :as ws]
             [boundary.realtime.shell.adapters.jwt-adapter :as jwt]
+            [boundary.realtime.shell.pubsub-manager :as pubsub-mgr]
             [boundary.realtime.ports :as ports]))
 
 ;; =============================================================================
@@ -20,17 +21,23 @@
 
 (defn create-test-service
   "Create service with test adapters for integration testing."
-  []
-  (let [connection-registry (registry/create-in-memory-registry)
-        jwt-adapter (jwt/create-test-jwt-adapter
-                     {:expected-token "valid-token"
-                      :user-id test-user-id
-                      :email "test@example.com"
-                      :roles #{:user}})
-        service (service/create-realtime-service connection-registry jwt-adapter)]
-    {:service service
-     :registry connection-registry
-     :jwt-adapter jwt-adapter}))
+  ([]
+   (create-test-service nil))
+  ([pubsub-manager]
+   (let [connection-registry (registry/create-in-memory-registry)
+         jwt-adapter (jwt/create-test-jwt-adapter
+                      {:expected-token "valid-token"
+                       :user-id test-user-id
+                       :email "test@example.com"
+                       :roles #{:user}})
+         service (service/create-realtime-service 
+                   connection-registry 
+                   jwt-adapter
+                   :pubsub-manager pubsub-manager)]
+     {:service service
+      :registry connection-registry
+      :jwt-adapter jwt-adapter
+      :pubsub-manager pubsub-manager})))
 
 (defn create-test-ws-adapter
   "Create test WebSocket adapter with unique connection ID."
@@ -297,3 +304,138 @@
       (testing "original timestamp preserved"
         (let [sent-msg (first @(:sent-messages ws-adapter))]
           (is (= custom-timestamp (:timestamp sent-msg))))))))
+
+;; =============================================================================
+;; Pub/Sub Integration Tests
+;; =============================================================================
+
+(deftest publish-to-topic-with-subscribers-test
+  (testing "publishing message to topic with subscribers"
+    (let [pubsub-manager (pubsub-mgr/create-pubsub-manager)
+          {:keys [service]} (create-test-service pubsub-manager)
+          ws-adapter-1 (create-test-ws-adapter)
+          ws-adapter-2 (create-test-ws-adapter)
+          
+          conn-id-1 (ports/connect service ws-adapter-1 {"token" "valid-token"})
+          conn-id-2 (ports/connect service ws-adapter-2 {"token" "valid-token"})]
+      
+      ;; Subscribe both connections to topic
+      (ports/subscribe-to-topic pubsub-manager conn-id-1 "order:123")
+      (ports/subscribe-to-topic pubsub-manager conn-id-2 "order:123")
+      
+      ;; Publish message to topic
+      (let [message {:type "order-updated" :status "shipped"}
+            subscriber-count (ports/publish-to-topic service "order:123" message)]
+        
+        (testing "returns count of subscribers"
+          (is (= 2 subscriber-count)))
+        
+        (testing "message sent to all subscribers"
+          (is (= 1 (count @(:sent-messages ws-adapter-1))))
+          (is (= 1 (count @(:sent-messages ws-adapter-2))))
+          
+          (let [msg-1 (first @(:sent-messages ws-adapter-1))
+                msg-2 (first @(:sent-messages ws-adapter-2))]
+            (is (= "order-updated" (:type msg-1)))
+            (is (= "shipped" (:status msg-1)))
+            (is (= msg-1 msg-2))))))))
+
+(deftest publish-to-topic-without-subscribers-test
+  (testing "publishing message to topic with no subscribers"
+    (let [pubsub-manager (pubsub-mgr/create-pubsub-manager)
+          {:keys [service]} (create-test-service pubsub-manager)]
+      
+      ;; Publish to topic with no subscribers
+      (let [message {:type "test" :content "test"}
+            subscriber-count (ports/publish-to-topic service "empty-topic" message)]
+        
+        (testing "returns 0 subscribers"
+          (is (= 0 subscriber-count)))))))
+
+(deftest publish-to-topic-partial-subscribers-test
+  (testing "publishing to topic with only some connections subscribed"
+    (let [pubsub-manager (pubsub-mgr/create-pubsub-manager)
+          {:keys [service]} (create-test-service pubsub-manager)
+          ws-adapter-1 (create-test-ws-adapter)
+          ws-adapter-2 (create-test-ws-adapter)
+          
+          conn-id-1 (ports/connect service ws-adapter-1 {"token" "valid-token"})
+          _conn-id-2 (ports/connect service ws-adapter-2 {"token" "valid-token"})]
+      
+      ;; Only subscribe first connection
+      (ports/subscribe-to-topic pubsub-manager conn-id-1 "notifications")
+      
+      ;; Publish message
+      (let [message {:type "notification" :content "New message"}
+            subscriber-count (ports/publish-to-topic service "notifications" message)]
+        
+        (testing "returns count of subscribed connections only"
+          (is (= 1 subscriber-count)))
+        
+        (testing "message sent only to subscriber"
+          (is (= 1 (count @(:sent-messages ws-adapter-1))))
+          (is (= 0 (count @(:sent-messages ws-adapter-2)))))))))
+
+(deftest disconnect-unsubscribes-from-all-topics-test
+  (testing "disconnect removes subscriptions from all topics"
+    (let [pubsub-manager (pubsub-mgr/create-pubsub-manager)
+          {:keys [service]} (create-test-service pubsub-manager)
+          ws-adapter (create-test-ws-adapter)
+          
+          conn-id (ports/connect service ws-adapter {"token" "valid-token"})]
+      
+      ;; Subscribe to multiple topics
+      (ports/subscribe-to-topic pubsub-manager conn-id "topic-1")
+      (ports/subscribe-to-topic pubsub-manager conn-id "topic-2")
+      (ports/subscribe-to-topic pubsub-manager conn-id "topic-3")
+      
+      (testing "connection subscribed to topics before disconnect"
+        (is (= 3 (count (ports/get-connection-subscriptions pubsub-manager conn-id)))))
+      
+      ;; Disconnect
+      (ports/disconnect service conn-id)
+      
+      (testing "connection unsubscribed from all topics after disconnect"
+        (is (= 0 (count (ports/get-connection-subscriptions pubsub-manager conn-id)))))
+      
+      (testing "topics have no subscribers"
+        (is (= 0 (count (ports/get-topic-subscribers pubsub-manager "topic-1"))))
+        (is (= 0 (count (ports/get-topic-subscribers pubsub-manager "topic-2"))))
+        (is (= 0 (count (ports/get-topic-subscribers pubsub-manager "topic-3"))))))))
+
+(deftest service-without-pubsub-manager-test
+  (testing "service works without pubsub manager (backward compatibility)"
+    (let [{:keys [service]} (create-test-service nil)
+          ws-adapter (create-test-ws-adapter)]
+      
+      ;; Should be able to connect and send messages normally
+      (let [conn-id (ports/connect service ws-adapter {"token" "valid-token"})]
+        (testing "connection established"
+          (is (uuid? conn-id)))
+        
+        (testing "can send to user"
+          (let [sent-count (ports/send-to-user service test-user-id {:type "test"})]
+            (is (= 1 sent-count))))
+        
+        (testing "can disconnect"
+          (ports/disconnect service conn-id)
+          (is true))))))
+
+(deftest publish-adds-timestamp-test
+  (testing "publish-to-topic adds timestamp if missing"
+    (let [pubsub-manager (pubsub-mgr/create-pubsub-manager)
+          {:keys [service]} (create-test-service pubsub-manager)
+          ws-adapter (create-test-ws-adapter)
+          
+          conn-id (ports/connect service ws-adapter {"token" "valid-token"})]
+      
+      ;; Subscribe to topic
+      (ports/subscribe-to-topic pubsub-manager conn-id "test-topic")
+      
+      ;; Publish message without timestamp
+      (let [message {:type "test" :content "test"}]
+        (ports/publish-to-topic service "test-topic" message)
+        
+        (testing "timestamp added to published message"
+          (let [sent-msg (first @(:sent-messages ws-adapter))]
+            (is (some? (:timestamp sent-msg)))))))))

@@ -1077,7 +1077,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 5.5. Implement in-memory pub/sub (shell layer)
+- [x] 5.5. Implement in-memory pub/sub (shell layer)
 
   **What to do**:
   - Create `libs/realtime/src/boundary/realtime/shell/pubsub.clj`
