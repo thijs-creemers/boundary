@@ -67,6 +67,6 @@ Recording tips
 - Have migrations and scaffolder ready to avoid delays.
 
 Follow‑ups (links to include in description)
-- Quickstart: docs/launch/posts/quickstart.md
+- Quickstart: https://github.com/thijs-creemers/boundary-docs/blob/main/docs/launch/posts/quickstart.md
 - Starter repo: https://github.com/thijs-creemers/boundary-starter
 - Docs home: https://github.com/thijs-creemers/boundary-docs
