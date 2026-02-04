@@ -975,7 +975,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 5.2. Implement realtime core layer (pure functions)
+- [x] 5.2. Implement realtime core layer (pure functions)
 
   **What to do**:
   - Create `libs/realtime/src/boundary/realtime/core/messages.clj`
