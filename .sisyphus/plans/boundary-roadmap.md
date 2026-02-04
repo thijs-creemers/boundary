@@ -886,7 +886,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 4.3. Update main README with starter repo link
+- [x] 4.3. Update main README with starter repo link
 
   **What to do**:
   - Add "Quick Start" section to main `README.md`
