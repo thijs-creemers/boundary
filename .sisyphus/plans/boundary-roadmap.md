@@ -916,7 +916,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ### PHASE 5: Real-time/WebSocket Module (Weeks 11-12)
 
-- [ ] 5.0. Create WebSocket architecture mini-document
+- [x] 5.0. Create WebSocket architecture mini-document
 
   **What to do**:
   - Before implementation, write `docs/adr/ADR-003-websocket-architecture.md`
@@ -947,7 +947,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 5.1. Create libs/realtime directory structure
+- [x] 5.1. Create libs/realtime directory structure
 
   **What to do**:
   - Create `libs/realtime/` following existing library pattern
@@ -975,7 +975,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 5.2. Implement realtime core layer (pure functions)
+- [x] 5.2. Implement realtime core layer (pure functions)
 
   **What to do**:
   - Create `libs/realtime/src/boundary/realtime/core/messages.clj`
@@ -1003,7 +1003,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 5.3. Implement realtime ports (protocols)
+- [x] 5.3. Implement realtime ports (protocols)
 
   **What to do**:
   - Create `libs/realtime/src/boundary/realtime/ports.clj`
@@ -1029,7 +1029,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 5.4. Implement WebSocket handler (shell layer)
+- [x] 5.4. Implement WebSocket handler (shell layer)
 
   **What to do**:
   - Create `libs/realtime/src/boundary/realtime/shell/websocket_handler.clj`
@@ -1077,7 +1077,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 5.5. Implement in-memory pub/sub (shell layer)
+- [x] 5.5. Implement in-memory pub/sub (shell layer)
 
   **What to do**:
   - Create `libs/realtime/src/boundary/realtime/shell/pubsub.clj`
@@ -1108,7 +1108,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 5.6. Add realtime module tests
+- [x] 5.6. Add realtime module tests
 
   **What to do**:
   - Create unit tests for core layer (message parsing)
@@ -1136,7 +1136,7 @@ Phase 6 (Week 13) ────────────────────�
 
 ---
 
-- [ ] 5.7. Complete realtime module README
+- [x] 5.7. Complete realtime module README
 
   **What to do**:
   - Write comprehensive README matching `libs/jobs/README.md` quality
