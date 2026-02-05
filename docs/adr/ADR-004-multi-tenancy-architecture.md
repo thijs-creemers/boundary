@@ -245,7 +245,7 @@ https://widgets-inc.myapp.com → tenant_widgets_inc schema
 {
   "user_id": "user-123",
   "tenant_id": "tenant-abc",
-  "exp": 1738751234
+  "exp": "<unix_timestamp_expiry_generated_at_runtime>"
 }
 ```
 
