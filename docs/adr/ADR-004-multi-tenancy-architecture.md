@@ -394,7 +394,7 @@ CREATE TABLE orders (
      :schema-name (str "tenant_" (str/replace tenant-slug "-" "_"))}))
 
 (defn valid-slug? [slug]
-  (re-matches #"^[a-z0-9][a-z0-9-]{1,98}[a-z0-9]$" slug))
+  (re-matches #"^[a-z0-9][a-z0-9\-]{1,98}[a-z0-9]$" slug))
 ```
 
 **Service Layer:**
