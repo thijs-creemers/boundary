@@ -1,5 +1,5 @@
 ;; deps.edn
-{:paths   ["src" "test" "resources"                           ;; Monolith paths
+{ :paths   ["src" "test" "resources"                           ;; Monolith paths
            "libs/core/src" "libs/core/test"                 ;; Phase 1: Core library
            "libs/observability/src" "libs/observability/test" ;; Phase 2: Observability
            "libs/platform/src" "libs/platform/test"         ;; Phase 3: Platform
@@ -9,7 +9,8 @@
            "libs/scaffolder/src" "libs/scaffolder/test"     ;; Phase 8: Scaffolder
            "libs/cache/src" "libs/cache/test"               ;; Phase 9: Cache
            "libs/jobs/src" "libs/jobs/test"                 ;; Phase 10: Jobs
-           "libs/email/src" "libs/email/test"]              ;; Phase 11: Email
+           "libs/email/src" "libs/email/test"               ;; Phase 11: Email
+           "libs/tenant/src" "libs/tenant/test"]            ;; Phase 7: Tenant
 
  :deps    {org.clojure/clojure               {:mvn/version "1.12.4"}
            cheshire/cheshire                 {:mvn/version "6.1.0"} ;; process json
