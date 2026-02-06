@@ -24,23 +24,35 @@
     (reset! test-db-context db-ctx)
 
     (jdbc/execute! datasource
-                   ["CREATE TABLE IF NOT EXISTS users (
+                   ["CREATE TABLE IF NOT EXISTS auth_users (
                        id UUID PRIMARY KEY,
                        email VARCHAR(255) NOT NULL UNIQUE,
-                       name VARCHAR(255) NOT NULL,
                        password_hash VARCHAR(255),
-                       role VARCHAR(50) NOT NULL,
                        active BOOLEAN NOT NULL DEFAULT true,
-                       created_at TIMESTAMP NOT NULL,
-                       updated_at TIMESTAMP NOT NULL,
-                       deleted_at TIMESTAMP,
-                       last_login TIMESTAMP,
-                       login_count INTEGER NOT NULL DEFAULT 0,
-                       failed_login_count INTEGER NOT NULL DEFAULT 0,
-                       lockout_until TIMESTAMP,
                        mfa_enabled BOOLEAN NOT NULL DEFAULT false,
                        mfa_secret VARCHAR(255),
-                       mfa_backup_codes TEXT
+                       mfa_backup_codes TEXT,
+                       mfa_backup_codes_used TEXT,
+                       mfa_enabled_at TIMESTAMP,
+                       failed_login_count INTEGER NOT NULL DEFAULT 0,
+                       lockout_until TIMESTAMP,
+                       created_at TIMESTAMP NOT NULL,
+                       updated_at TIMESTAMP,
+                       deleted_at TIMESTAMP
+                     )"])
+    
+    (jdbc/execute! datasource
+                   ["CREATE TABLE IF NOT EXISTS users (
+                       id UUID PRIMARY KEY,
+                       tenant_id UUID,
+                       name VARCHAR(255) NOT NULL,
+                       role VARCHAR(50) NOT NULL,
+                       avatar_url VARCHAR(500),
+                       login_count INTEGER NOT NULL DEFAULT 0,
+                       last_login TIMESTAMP,
+                       date_format VARCHAR(50),
+                       time_format VARCHAR(50),
+                       FOREIGN KEY (id) REFERENCES auth_users(id)
                      )"])
 
     (reset! test-repository (user-persistence/create-user-repository db-ctx))))
@@ -56,13 +68,15 @@
 
 (defn clean-test-database! []
   (when-let [db-ctx @test-db-context]
-    (jdbc/execute! (:datasource db-ctx) ["DELETE FROM users"])))
+    (jdbc/execute! (:datasource db-ctx) ["DELETE FROM users"])
+    (jdbc/execute! (:datasource db-ctx) ["DELETE FROM auth_users"])))
 
 (use-fixtures :each (fn [f] (clean-test-database!) (f)))
 
 (defn create-test-user! [user-data]
   (let [db-ctx @test-db-context
-        user (merge {:id (UUID/randomUUID)
+        user-id (UUID/randomUUID)
+        user (merge {:id user-id
                      :email (str "user-" (UUID/randomUUID) "@example.com")
                      :name "Test User"
                      :password-hash "$2a$12$test.hash"
@@ -72,16 +86,27 @@
                      :updated-at (Instant/now)
                      :login-count 0
                      :failed-login-count 0
-                     :mfa-enabled false}
+                     :mfa-enabled false
+                     :tenant-id nil}
                     user-data)]
+    ;; Insert into auth_users first
     (jdbc/execute-one!
      (:datasource db-ctx)
-     ["INSERT INTO users (id, email, name, password_hash, role, active,
-                          created_at, updated_at, login_count, failed_login_count, mfa_enabled)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-      (:id user) (:email user) (:name user) (:password-hash user) (:role user)
-      (:active user) (:created-at user) (:updated-at user)
-      (:login-count user) (:failed-login-count user) (:mfa-enabled user)])
+     ["INSERT INTO auth_users (id, email, password_hash, active,
+                                mfa_enabled, failed_login_count,
+                                created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      (:id user) (:email user) (:password-hash user) (:active user)
+      (:mfa-enabled user) (:failed-login-count user)
+      (:created-at user) (:updated-at user)])
+    
+    ;; Insert into users (profile)
+    (jdbc/execute-one!
+     (:datasource db-ctx)
+     ["INSERT INTO users (id, tenant_id, name, role, login_count)
+       VALUES (?, ?, ?, ?, ?)"
+      (:id user) (:tenant-id user) (:name user) (:role user)
+      (:login-count user)])
     user))
 
 (deftest repository-pagination-test

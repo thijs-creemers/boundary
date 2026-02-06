@@ -5,6 +5,7 @@
   components so that shared system wiring does not depend directly on
   user shell namespaces."
   (:require [boundary.user.shell.persistence :as user-persistence]
+            [boundary.user.shell.auth-persistence :as auth-persistence]
             [boundary.user.shell.service :as user-service]
             [boundary.user.shell.auth :as user-auth]
             [boundary.user.shell.mfa :as user-mfa]
@@ -25,6 +26,21 @@
 (defmethod ig/halt-key! :boundary/user-repository
   [_ _repo]
   (log/info "User repository halted (no cleanup needed)"))
+
+;; =============================================================================
+;; Auth User Repository
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/auth-user-repository
+  [_ {:keys [ctx]}]
+  (log/info "Initializing auth user repository")
+  (let [repo (auth-persistence/create-auth-user-repository ctx)]
+    (log/info "Auth user repository initialized")
+    repo))
+
+(defmethod ig/halt-key! :boundary/auth-user-repository
+  [_ _repo]
+  (log/info "Auth user repository halted (no cleanup needed)"))
 
 ;; =============================================================================
 ;; Session Repository
