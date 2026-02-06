@@ -27,7 +27,8 @@
             [boundary.user.schema :as user-schema]
             [boundary.platform.shell.persistence-interceptors :as persistence-interceptors]
             [cheshire.core]
-            [clojure.set]
+            [clojure.set :as set]
+            [clojure.walk]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]))
 
@@ -39,7 +40,8 @@
   "Initialize database schema for user entities using Malli schema definitions.
    
    Creates the following tables:
-   - users: User accounts
+   - auth_users: Global authentication records (email, password, MFA, lockout)
+   - users: Tenant-specific user profiles (name, role, avatar, preferences)
    - user_sessions: User authentication sessions
    - user_audit_log: Audit trail for user operations
    
@@ -48,6 +50,9 @@
    - Unique constraints (email, session tokens)
    - Query performance (role, active status, expiration dates)
    - Audit trail queries (target_user_id, actor_id, created_at)
+   
+   Note: This creates the split-table architecture for multi-tenancy support.
+   Auth data lives in public.auth_users, profile data in tenant-specific users table.
    
    Args:
      ctx: Database context
@@ -58,38 +63,16 @@
    Example:
      (initialize-user-schema! ctx)"
   [ctx]
-  (log/info "Initializing user schema from Malli definitions")
+  (log/info "Initializing user schema from Malli definitions (split-table architecture)")
   (db-schema/initialize-tables-from-schemas! ctx
-                                             {"users" user-schema/User
+                                             {"auth_users" user-schema/AuthUser
+                                              "users" user-schema/TenantUser
                                               "user_sessions" user-schema/UserSession
                                               "user_audit_log" user-schema/UserAuditLog}))
 
 ;; =============================================================================
 ;; Entity Transformations
 ;; =============================================================================
-
-(defn- user-entity->db
-  "Transform user domain entity to database format using adapter-specific conversions."
-  [ctx user-entity]
-  (let [adapter (:adapter ctx)]
-    (-> user-entity
-        (update :id type-conversion/uuid->string)
-        (update :role type-conversion/keyword->string)
-        (update :active #(protocols/boolean->db adapter %))
-        (update :created-at type-conversion/instant->string)
-        (update :updated-at type-conversion/instant->string)
-        (update :deleted-at type-conversion/instant->string)
-        (update :last-login type-conversion/instant->string)
-        (update :mfa-enabled-at type-conversion/instant->string)
-        (update :lockout-until type-conversion/instant->string)
-        ;; Convert enum fields to strings
-        (update :date-format type-conversion/keyword->string)
-        (update :time-format type-conversion/keyword->string)
-        ;; Serialize MFA vector fields to JSON
-        (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
-        (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
-        ;; Convert kebab-case to snake_case for database
-        type-conversion/kebab-case->snake-case)))
 
 (defn- db->user-entity
   "Transform database record to user domain entity."
@@ -240,11 +223,33 @@
      {:user-id user-id}
      (fn [{:keys [params]}]
        (let [user-id (:user-id params)
-             query {:select [:*]
-                    :from [:users]
+             query {:select [:a.id
+                             :a.email
+                             :a.password_hash
+                             :a.active
+                             :a.mfa_enabled
+                             :a.mfa_secret
+                             :a.mfa_backup_codes
+                             :a.mfa_backup_codes_used
+                             :a.mfa_enabled_at
+                             :a.failed_login_count
+                             :a.lockout_until
+                             :a.created_at
+                             :a.updated_at
+                             :a.deleted_at
+                             :u.tenant_id
+                             :u.name
+                             :u.role
+                             :u.avatar_url
+                             :u.login_count
+                             :u.last_login
+                             :u.date_format
+                             :u.time_format]
+                    :from [[:auth_users :a]]
+                    :join [[:users :u] [:= :a.id :u.id]]
                     :where [:and
-                            [:= :id (type-conversion/uuid->string user-id)]
-                            [:is :deleted_at nil]]}
+                            [:= :a.id (type-conversion/uuid->string user-id)]
+                            [:is :a.deleted_at nil]]}
              result (db/execute-one! ctx query)
              user-entity (db->user-entity ctx result)]
          user-entity))
@@ -256,11 +261,33 @@
      {:email email}
      (fn [{:keys [params]}]
        (let [email (:email params)
-             filters {:email email :deleted_at nil}
-             where-clause (db/build-where-clause ctx filters)
-             query {:select [:*]
-                    :from [:users]
-                    :where where-clause}
+             query {:select [:a.id
+                             :a.email
+                             :a.password_hash
+                             :a.active
+                             :a.mfa_enabled
+                             :a.mfa_secret
+                             :a.mfa_backup_codes
+                             :a.mfa_backup_codes_used
+                             :a.mfa_enabled_at
+                             :a.failed_login_count
+                             :a.lockout_until
+                             :a.created_at
+                             :a.updated_at
+                             :a.deleted_at
+                             :u.tenant_id
+                             :u.name
+                             :u.role
+                             :u.avatar_url
+                             :u.login_count
+                             :u.last_login
+                             :u.date_format
+                             :u.time_format]
+                    :from [[:auth_users :a]]
+                    :join [[:users :u] [:= :a.id :u.id]]
+                    :where [:and
+                            [:= :a.email email]
+                            [:is :a.deleted_at nil]]}
              result (db/execute-one! ctx query)
              user-entity (db->user-entity ctx result)]
          user-entity))
@@ -269,35 +296,83 @@
   (find-users [_ options]
     (log/debug "Finding users" {:options options})
     (let [;; Build filters with kebab-case (query builder handles all conversions)
-          base-filters {}
-          filters (cond-> base-filters
-                    (not (:include-deleted? options)) (assoc :deleted-at nil)
-                    (:filter-role options) (assoc :role (:filter-role options))
-                    (contains? options :filter-active) (assoc :active (:filter-active options)))
-          ;; Enhanced query builder handles: type conversion, case conversion, and boolean conversion
-          where-base (db/build-where-clause ctx filters)
-          ;; Handle email LIKE separately (special case not covered by standard filters)
-          where-clause (if-let [pattern (:filter-email-contains options)]
-                         (if where-base
-                           [:and where-base [:like :email (str "%" pattern "%")]]
-                           [:like :email (str "%" pattern "%")])
-                         where-base)
-          ;; Build pagination & ordering
-          pagination (db/build-pagination options)
-          ordering (db/build-ordering options :created_at)
+          ;; Note: Some filters apply to auth_users (active, deleted_at, email)
+          ;; and some to users table (role, tenant_id)
+          
+          ;; Build separate filters for auth_users and users tables
+          auth-filters (cond-> {}
+                         (not (:include-deleted? options)) (assoc :deleted-at nil)
+                         (contains? options :filter-active) (assoc :active (:filter-active options)))
 
-          ;; Build query - only include :where clause if we have a non-nil where-clause
-          query (cond-> {:select [:*]
-                         :from [:users]
+          profile-filters (cond-> {}
+                            (:filter-role options) (assoc :role (:filter-role options))
+                            (:filter-tenant-id options) (assoc :tenant-id (:filter-tenant-id options)))
+
+          ;; Build WHERE clauses for each table
+          auth-where (when (seq auth-filters)
+                       (db/build-where-clause ctx auth-filters))
+          profile-where (when (seq profile-filters)
+                          (db/build-where-clause ctx profile-filters))
+
+          ;; Combine WHERE clauses with table aliases
+          where-parts (cond-> []
+                        auth-where (conj (clojure.walk/postwalk
+                                          #(if (keyword? %) (keyword "a" (name %)) %)
+                                          auth-where))
+                        profile-where (conj (clojure.walk/postwalk
+                                             #(if (keyword? %) (keyword "u" (name %)) %)
+                                             profile-where)))
+
+          ;; Handle email LIKE separately (on auth_users table)
+          where-parts (if-let [pattern (:filter-email-contains options)]
+                        (conj where-parts [:like :a.email (str "%" pattern "%")])
+                        where-parts)
+
+          where-clause (when (seq where-parts)
+                         (if (= 1 (count where-parts))
+                           (first where-parts)
+                           (into [:and] where-parts)))
+
+          ;; Build pagination & ordering (default to a.created_at)
+          pagination (db/build-pagination options)
+          ordering (db/build-ordering options :a.created_at)
+
+          ;; Build query with JOIN - select all fields from both tables
+          query (cond-> {:select [:a.id
+                                  :a.email
+                                  :a.password_hash
+                                  :a.active
+                                  :a.mfa_enabled
+                                  :a.mfa_secret
+                                  :a.mfa_backup_codes
+                                  :a.mfa_backup_codes_used
+                                  :a.mfa_enabled_at
+                                  :a.failed_login_count
+                                  :a.lockout_until
+                                  :a.created_at
+                                  :a.updated_at
+                                  :a.deleted_at
+                                  :u.tenant_id
+                                  :u.name
+                                  :u.role
+                                  :u.avatar_url
+                                  :u.login_count
+                                  :u.last_login
+                                  :u.date_format
+                                  :u.time_format]
+                         :from [[:auth_users :a]]
+                         :join [[:users :u] [:= :a.id :u.id]]
                          :order-by ordering
                          :limit (:limit pagination)
                          :offset (:offset pagination)}
                   where-clause (assoc :where where-clause))
 
-          ;; Count query - only include :where clause if we have a non-nil where-clause
+          ;; Count query with JOIN
           count-query (cond-> {:select [[:%count.* :total]]
-                               :from [:users]}
+                               :from [[:auth_users :a]]
+                               :join [[:users :u] [:= :a.id :u.id]]}
                         where-clause (assoc :where where-clause))
+
           users (vec (map #(db->user-entity ctx %) (db/execute-query! ctx query)))
           ;; Extract count with defensive fallback to 0
           count-result (db/execute-one! ctx count-query)
@@ -315,15 +390,77 @@
      (fn [{:keys [params]}]
        (let [user-entity (:user-entity params)
              now (java.time.Instant/now)
+             user-id (UUID/randomUUID)
+
+             ;; Add metadata to full entity
              user-with-metadata (-> user-entity
-                                    (assoc :id (UUID/randomUUID))
+                                    (assoc :id user-id)
                                     (assoc :created-at now)
                                     (assoc :updated-at nil)
                                     (assoc :deleted-at nil))
-             db-user (user-entity->db ctx user-with-metadata)
-             query {:insert-into :users
-                    :values [db-user]}]
-         (db/execute-update! ctx query)
+
+             ;; Split into auth and profile fields
+             auth-fields (select-keys user-with-metadata
+                                      [:id :email :password-hash :active
+                                       :mfa-enabled :mfa-secret :mfa-backup-codes
+                                       :mfa-backup-codes-used :mfa-enabled-at
+                                       :failed-login-count :lockout-until
+                                       :created-at :updated-at :deleted-at])
+
+             profile-fields (select-keys user-with-metadata
+                                         [:id :tenant-id :name :role :avatar-url
+                                          :login-count :last-login
+                                          :date-format :time-format])
+
+             adapter (:adapter ctx)]
+
+         ;; Use transaction to ensure atomicity
+         (db/with-transaction [tx ctx]
+           ;; 1. Insert into auth_users first (establishes the ID)
+           (let [db-auth (-> auth-fields
+                             (update :id type-conversion/uuid->string)
+                             (update :active #(protocols/boolean->db adapter %))
+                             (update :created-at type-conversion/instant->string)
+                             (update :updated-at type-conversion/instant->string)
+                             (update :deleted-at type-conversion/instant->string)
+                             (update :mfa-enabled-at type-conversion/instant->string)
+                             (update :lockout-until type-conversion/instant->string)
+                             (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
+                             (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
+                             (set/rename-keys {:password-hash :password_hash
+                                               :mfa-enabled :mfa_enabled
+                                               :mfa-secret :mfa_secret
+                                               :mfa-backup-codes :mfa_backup_codes
+                                               :mfa-backup-codes-used :mfa_backup_codes_used
+                                               :mfa-enabled-at :mfa_enabled_at
+                                               :failed-login-count :failed_login_count
+                                               :lockout-until :lockout_until
+                                               :created-at :created_at
+                                               :updated-at :updated_at
+                                               :deleted-at :deleted_at}))
+                 auth-query {:insert-into :auth_users
+                             :values [db-auth]}]
+             (db/execute-update! tx auth-query))
+
+           ;; 2. Insert into users (profile data with FK to auth_users.id)
+           (let [db-profile (-> profile-fields
+                                (update :id type-conversion/uuid->string)
+                                (update :tenant-id type-conversion/uuid->string)
+                                (update :role type-conversion/keyword->string)
+                                (update :last-login type-conversion/instant->string)
+                                (update :date-format type-conversion/keyword->string)
+                                (update :time-format type-conversion/keyword->string)
+                                (set/rename-keys {:tenant-id :tenant_id
+                                                  :avatar-url :avatar_url
+                                                  :login-count :login_count
+                                                  :last-login :last_login
+                                                  :date-format :date_format
+                                                  :time-format :time_format}))
+                 profile-query {:insert-into :users
+                                :values [db-profile]}]
+             (db/execute-update! tx profile-query)))
+
+         ;; Return the full user entity
          user-with-metadata))
      {:db-ctx ctx}))
 
@@ -333,18 +470,125 @@
      {:user-entity user-entity}
      (fn [{:keys [params]}]
        (let [user-entity (:user-entity params)
-             ;; Use updated-at and deleted-at from user-entity if provided by service layer
-             ;; This allows the service layer to control these fields based on business logic
-             db-user (user-entity->db ctx user-entity)
-             query {:update :users
-                    :set (dissoc db-user :id :created_at)
-                    :where [:= :id (:id db-user)]}
-             affected-rows (db/execute-update! ctx query)]
-         (if (> affected-rows 0)
-           user-entity
-           (throw (ex-info "User not found or update failed"
-                           {:type :user-not-found
-                            :user-id (:id user-entity)})))))
+             user-id (:id user-entity)
+             adapter (:adapter ctx)
+
+             ;; Define which fields belong to each table
+             auth-field-keys #{:email :password-hash :active :mfa-enabled :mfa-secret
+                               :mfa-backup-codes :mfa-backup-codes-used :mfa-enabled-at
+                               :failed-login-count :lockout-until :updated-at :deleted-at}
+
+             profile-field-keys #{:tenant-id :name :role :avatar-url :login-count
+                                  :last-login :date-format :time-format}
+
+             ;; Split updates into auth and profile fields
+             auth-updates (select-keys user-entity auth-field-keys)
+             profile-updates (select-keys user-entity profile-field-keys)
+
+             has-auth-updates? (seq auth-updates)
+             has-profile-updates? (seq profile-updates)]
+
+         ;; Use transaction if updating both tables
+         (if (and has-auth-updates? has-profile-updates?)
+           (db/with-transaction [tx ctx]
+             ;; Update auth_users
+             (when has-auth-updates?
+               (let [db-auth (-> auth-updates
+                                 (update :active #(when % (protocols/boolean->db adapter %)))
+                                 (update :updated-at type-conversion/instant->string)
+                                 (update :deleted-at type-conversion/instant->string)
+                                 (update :mfa-enabled-at type-conversion/instant->string)
+                                 (update :lockout-until type-conversion/instant->string)
+                                 (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
+                                 (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
+                                 (set/rename-keys {:password-hash :password_hash
+                                                   :mfa-enabled :mfa_enabled
+                                                   :mfa-secret :mfa_secret
+                                                   :mfa-backup-codes :mfa_backup_codes
+                                                   :mfa-backup-codes-used :mfa_backup_codes_used
+                                                   :mfa-enabled-at :mfa_enabled_at
+                                                   :failed-login-count :failed_login_count
+                                                   :lockout-until :lockout_until
+                                                   :updated-at :updated_at
+                                                   :deleted-at :deleted_at}))
+                     query {:update :auth_users
+                            :set db-auth
+                            :where [:= :id (type-conversion/uuid->string user-id)]}]
+                 (db/execute-update! tx query)))
+
+             ;; Update users
+             (when has-profile-updates?
+               (let [db-profile (-> profile-updates
+                                    (update :tenant-id type-conversion/uuid->string)
+                                    (update :role type-conversion/keyword->string)
+                                    (update :last-login type-conversion/instant->string)
+                                    (update :date-format type-conversion/keyword->string)
+                                    (update :time-format type-conversion/keyword->string)
+                                    (set/rename-keys {:tenant-id :tenant_id
+                                                      :avatar-url :avatar_url
+                                                      :login-count :login_count
+                                                      :last-login :last_login
+                                                      :date-format :date_format
+                                                      :time-format :time_format}))
+                     query {:update :users
+                            :set db-profile
+                            :where [:= :id (type-conversion/uuid->string user-id)]}]
+                 (db/execute-update! tx query))))
+
+           ;; Single table update (no transaction needed)
+           (cond
+             has-auth-updates?
+             (let [db-auth (-> auth-updates
+                               (update :active #(when % (protocols/boolean->db adapter %)))
+                               (update :updated-at type-conversion/instant->string)
+                               (update :deleted-at type-conversion/instant->string)
+                               (update :mfa-enabled-at type-conversion/instant->string)
+                               (update :lockout-until type-conversion/instant->string)
+                               (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
+                               (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
+                               (set/rename-keys {:password-hash :password_hash
+                                                 :mfa-enabled :mfa_enabled
+                                                 :mfa-secret :mfa_secret
+                                                 :mfa-backup-codes :mfa_backup_codes
+                                                 :mfa-backup-codes-used :mfa_backup_codes_used
+                                                 :mfa-enabled-at :mfa_enabled_at
+                                                 :failed-login-count :failed_login_count
+                                                 :lockout-until :lockout_until
+                                                 :updated-at :updated_at
+                                                 :deleted-at :deleted_at}))
+                   query {:update :auth_users
+                          :set db-auth
+                          :where [:= :id (type-conversion/uuid->string user-id)]}
+                   affected-rows (db/execute-update! ctx query)]
+               (when (= affected-rows 0)
+                 (throw (ex-info "User not found or update failed"
+                                 {:type :user-not-found
+                                  :user-id user-id}))))
+
+             has-profile-updates?
+             (let [db-profile (-> profile-updates
+                                  (update :tenant-id type-conversion/uuid->string)
+                                  (update :role type-conversion/keyword->string)
+                                  (update :last-login type-conversion/instant->string)
+                                  (update :date-format type-conversion/keyword->string)
+                                  (update :time-format type-conversion/keyword->string)
+                                  (set/rename-keys {:tenant-id :tenant_id
+                                                    :avatar-url :avatar_url
+                                                    :login-count :login_count
+                                                    :last-login :last_login
+                                                    :date-format :date_format
+                                                    :time-format :time_format}))
+                   query {:update :users
+                          :set db-profile
+                          :where [:= :id (type-conversion/uuid->string user-id)]}
+                   affected-rows (db/execute-update! ctx query)]
+               (when (= affected-rows 0)
+                 (throw (ex-info "User not found or update failed"
+                                 {:type :user-not-found
+                                  :user-id user-id}))))))
+
+         ;; Return the updated user entity
+         user-entity))
      {:db-ctx ctx}))
 
   (soft-delete-user [_ user-id]
@@ -355,7 +599,9 @@
        (let [user-id (:user-id params)
              now     (java.time.Instant/now)
              adapter (:adapter ctx)
-             query   {:update :users
+             ;; Soft delete only needs to update auth_users (master record)
+             ;; The deleted_at flag in auth_users controls visibility across both tables
+             query   {:update :auth_users
                       :set {:deleted_at (type-conversion/instant->string now)
                             :updated_at (type-conversion/instant->string now)
                             :active     (protocols/boolean->db adapter false)}
@@ -371,31 +617,67 @@
      :hard-delete-user
      {:user-id user-id}
      (fn [{:keys [params]}]
-       (let [user-id (:user-id params)
-             query {:delete-from :users
-                    :where [:= :id (type-conversion/uuid->string user-id)]}
-             affected-rows (db/execute-update! ctx query)]
-         (> affected-rows 0)))
+       (let [user-id (:user-id params)]
+         ;; Use transaction to delete from both tables
+         ;; Must delete from users first (child with FK constraint)
+         (db/with-transaction [tx ctx]
+           (let [user-id-str (type-conversion/uuid->string user-id)
+
+                 ;; Delete from users table first (FK constraint)
+                 profile-query {:delete-from :users
+                                :where [:= :id user-id-str]}
+                 _profile-affected (db/execute-update! tx profile-query)
+
+                 ;; Then delete from auth_users (parent table)
+                 auth-query {:delete-from :auth_users
+                             :where [:= :id user-id-str]}
+                 auth-affected (db/execute-update! tx auth-query)]
+
+             ;; Return true if we deleted at least the auth record
+             (> auth-affected 0)))))
      {:db-ctx ctx}))
 
   ;; Business-Specific Queries
   (find-active-users-by-role [_ role]
     (log/debug "Finding active users by role" {:role role})
     (let [adapter (:adapter ctx)
-          query {:select [:*]
-                 :from [:users]
+          query {:select [:a.id
+                          :a.email
+                          :a.password_hash
+                          :a.active
+                          :a.mfa_enabled
+                          :a.mfa_secret
+                          :a.mfa_backup_codes
+                          :a.mfa_backup_codes_used
+                          :a.mfa_enabled_at
+                          :a.failed_login_count
+                          :a.lockout_until
+                          :a.created_at
+                          :a.updated_at
+                          :a.deleted_at
+                          :u.tenant_id
+                          :u.name
+                          :u.role
+                          :u.avatar_url
+                          :u.login_count
+                          :u.last_login
+                          :u.date_format
+                          :u.time_format]
+                 :from [[:auth_users :a]]
+                 :join [[:users :u] [:= :a.id :u.id]]
                  :where [:and
-                         [:= :role (type-conversion/keyword->string role)]
-                         [:= :active (protocols/boolean->db adapter true)]
-                         [:is :deleted_at nil]]
-                 :order-by [[:created_at :desc]]}
+                         [:= :u.role (type-conversion/keyword->string role)]
+                         [:= :a.active (protocols/boolean->db adapter true)]
+                         [:is :a.deleted_at nil]]
+                 :order-by [[:a.created_at :desc]]}
           results (db/execute-query! ctx query)]
       (map #(db->user-entity ctx %) results)))
 
   (count-users [_]
     (log/debug "Counting users")
-    (let [query {:select [[:%count.* :total]]
-                 :from [:users]
+    (let [;; Count from auth_users (master table for user records)
+          query {:select [[:%count.* :total]]
+                 :from [:auth_users]
                  :where [:is :deleted_at nil]}
           result (db/execute-one! ctx query)]
       (or (:total result)
@@ -405,23 +687,67 @@
 
   (find-users-created-since [_ since-date]
     (log/debug "Finding users created since" {:since-date since-date})
-    (let [query {:select [:*]
-                 :from [:users]
+    (let [query {:select [:a.id
+                          :a.email
+                          :a.password_hash
+                          :a.active
+                          :a.mfa_enabled
+                          :a.mfa_secret
+                          :a.mfa_backup_codes
+                          :a.mfa_backup_codes_used
+                          :a.mfa_enabled_at
+                          :a.failed_login_count
+                          :a.lockout_until
+                          :a.created_at
+                          :a.updated_at
+                          :a.deleted_at
+                          :u.tenant_id
+                          :u.name
+                          :u.role
+                          :u.avatar_url
+                          :u.login_count
+                          :u.last_login
+                          :u.date_format
+                          :u.time_format]
+                 :from [[:auth_users :a]]
+                 :join [[:users :u] [:= :a.id :u.id]]
                  :where [:and
-                         [:>= :created_at (type-conversion/instant->string since-date)]
-                         [:is :deleted_at nil]]
-                 :order-by [[:created_at :desc]]}
+                         [:>= :a.created_at (type-conversion/instant->string since-date)]
+                         [:is :a.deleted_at nil]]
+                 :order-by [[:a.created_at :desc]]}
           results (db/execute-query! ctx query)]
       (map #(db->user-entity ctx %) results)))
 
   (find-users-by-email-domain [_ email-domain]
     (log/debug "Finding users by email domain" {:email-domain email-domain})
-    (let [query {:select [:*]
-                 :from [:users]
+    (let [query {:select [:a.id
+                          :a.email
+                          :a.password_hash
+                          :a.active
+                          :a.mfa_enabled
+                          :a.mfa_secret
+                          :a.mfa_backup_codes
+                          :a.mfa_backup_codes_used
+                          :a.mfa_enabled_at
+                          :a.failed_login_count
+                          :a.lockout_until
+                          :a.created_at
+                          :a.updated_at
+                          :a.deleted_at
+                          :u.tenant_id
+                          :u.name
+                          :u.role
+                          :u.avatar_url
+                          :u.login_count
+                          :u.last_login
+                          :u.date_format
+                          :u.time_format]
+                 :from [[:auth_users :a]]
+                 :join [[:users :u] [:= :a.id :u.id]]
                  :where [:and
-                         [:like :email (str "%@" email-domain)]
-                         [:is :deleted_at nil]]
-                 :order-by [[:created_at :desc]]}
+                         [:like :a.email (str "%@" email-domain)]
+                         [:is :a.deleted_at nil]]
+                 :order-by [[:a.created_at :desc]]}
           results (db/execute-query! ctx query)]
       (map #(db->user-entity ctx %) results)))
 
@@ -431,21 +757,81 @@
      :create-users-batch
      {:user-entities user-entities}
      (fn [{:keys [params]}]
-        (let [user-entities (:user-entities params)]
-          (db/with-transaction [tx ctx]
-            (let [now (java.time.Instant/now)
-                  users-with-metadata (map (fn [user]
-                                             (-> user
-                                                 (assoc :id (UUID/randomUUID))
-                                                 (assoc :created-at now)
-                                                 (assoc :updated-at nil)
-                                                 (assoc :deleted-at nil)))
-                                           user-entities)
-                   db-users (map #(user-entity->db tx %) users-with-metadata)]
-             (doseq [db-user db-users]
-               (let [query {:insert-into :users
-                            :values [db-user]}]
-                 (db/execute-update! tx query)))
+       (let [user-entities (:user-entities params)
+             adapter (:adapter ctx)]
+         (db/with-transaction [tx ctx]
+           (let [now (java.time.Instant/now)
+                 users-with-metadata (map (fn [user]
+                                            (-> user
+                                                (assoc :id (UUID/randomUUID))
+                                                (assoc :created-at now)
+                                                (assoc :updated-at nil)
+                                                (assoc :deleted-at nil)))
+                                          user-entities)]
+              ;; Insert all users into both tables
+             (doseq [user users-with-metadata]
+                ;; Split into auth and profile fields
+               (let [auth-fields (select-keys user
+                                              [:id :email :password-hash :active
+                                               :mfa-enabled :mfa-secret :mfa-backup-codes
+                                               :mfa-backup-codes-used :mfa-enabled-at
+                                               :failed-login-count :lockout-until
+                                               :created-at :updated-at :deleted-at])
+
+                     profile-fields (select-keys user
+                                                 [:id :tenant-id :name :role :avatar-url
+                                                  :login-count :last-login
+                                                  :date-format :time-format])
+
+                      ;; Convert auth fields to DB format
+                     db-auth (-> auth-fields
+                                 (update :id type-conversion/uuid->string)
+                                 (update :active #(protocols/boolean->db adapter %))
+                                 (update :created-at type-conversion/instant->string)
+                                 (update :updated-at type-conversion/instant->string)
+                                 (update :deleted-at type-conversion/instant->string)
+                                 (update :mfa-enabled-at type-conversion/instant->string)
+                                 (update :lockout-until type-conversion/instant->string)
+                                 (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
+                                 (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
+                                 (set/rename-keys {:password-hash :password_hash
+                                                   :mfa-enabled :mfa_enabled
+                                                   :mfa-secret :mfa_secret
+                                                   :mfa-backup-codes :mfa_backup_codes
+                                                   :mfa-backup-codes-used :mfa_backup_codes_used
+                                                   :mfa-enabled-at :mfa_enabled_at
+                                                   :failed-login-count :failed_login_count
+                                                   :lockout-until :lockout_until
+                                                   :created-at :created_at
+                                                   :updated-at :updated_at
+                                                   :deleted-at :deleted_at}))
+
+                      ;; Convert profile fields to DB format
+                     db-profile (-> profile-fields
+                                    (update :id type-conversion/uuid->string)
+                                    (update :tenant-id type-conversion/uuid->string)
+                                    (update :role type-conversion/keyword->string)
+                                    (update :last-login type-conversion/instant->string)
+                                    (update :date-format type-conversion/keyword->string)
+                                    (update :time-format type-conversion/keyword->string)
+                                    (set/rename-keys {:tenant-id :tenant_id
+                                                      :avatar-url :avatar_url
+                                                      :login-count :login_count
+                                                      :last-login :last_login
+                                                      :date-format :date_format
+                                                      :time-format :time_format}))
+
+                      ;; Insert into auth_users
+                     auth-query {:insert-into :auth_users
+                                 :values [db-auth]}
+
+                      ;; Insert into users
+                     profile-query {:insert-into :users
+                                    :values [db-profile]}]
+
+                 (db/execute-update! tx auth-query)
+                 (db/execute-update! tx profile-query)))
+
              users-with-metadata))))
      {:db-ctx ctx}))
 
@@ -454,20 +840,79 @@
      :update-users-batch
      {:user-entities user-entities}
      (fn [{:keys [params]}]
-       (let [user-entities (:user-entities params)]
+       (let [user-entities (:user-entities params)
+             adapter (:adapter ctx)]
          (db/with-transaction [tx ctx]
            (let [now (java.time.Instant/now)
-                 updated-users (map #(assoc % :updated-at now) user-entities)]
-              (doseq [user updated-users]
-                (let [db-user (user-entity->db ctx user)
-                      query {:update :users
-                             :set (dissoc db-user :id :created_at :deleted_at)
-                             :where [:= :id (:id db-user)]}
-                      affected-rows (db/execute-update! tx query)]
-                 (when (= affected-rows 0)
-                   (throw (ex-info "User not found in batch update"
-                                   {:type :user-not-found
-                                    :user-id (:id user)})))))
+                 updated-users (map #(assoc % :updated-at now) user-entities)
+
+                 ;; Define field sets
+                 auth-field-keys #{:email :password-hash :active :mfa-enabled :mfa-secret
+                                   :mfa-backup-codes :mfa-backup-codes-used :mfa-enabled-at
+                                   :failed-login-count :lockout-until :updated-at :deleted-at}
+
+                 profile-field-keys #{:tenant-id :name :role :avatar-url :login-count
+                                      :last-login :date-format :time-format}]
+
+             (doseq [user updated-users]
+               (let [user-id (:id user)
+
+                     ;; Split updates
+                     auth-updates (select-keys user auth-field-keys)
+                     profile-updates (select-keys user profile-field-keys)]
+
+                 ;; Update auth_users if needed
+                 (when (seq auth-updates)
+                   (let [db-auth (-> auth-updates
+                                     (update :active #(when % (protocols/boolean->db adapter %)))
+                                     (update :updated-at type-conversion/instant->string)
+                                     (update :deleted-at type-conversion/instant->string)
+                                     (update :mfa-enabled-at type-conversion/instant->string)
+                                     (update :lockout-until type-conversion/instant->string)
+                                     (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
+                                     (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
+                                     (set/rename-keys {:password-hash :password_hash
+                                                       :mfa-enabled :mfa_enabled
+                                                       :mfa-secret :mfa_secret
+                                                       :mfa-backup-codes :mfa_backup_codes
+                                                       :mfa-backup-codes-used :mfa_backup_codes_used
+                                                       :mfa-enabled-at :mfa_enabled_at
+                                                       :failed-login-count :failed_login_count
+                                                       :lockout-until :lockout_until
+                                                       :updated-at :updated_at
+                                                       :deleted-at :deleted_at}))
+                         query {:update :auth_users
+                                :set db-auth
+                                :where [:= :id (type-conversion/uuid->string user-id)]}
+                         affected-rows (db/execute-update! tx query)]
+                     (when (= affected-rows 0)
+                       (throw (ex-info "User not found in batch update (auth_users)"
+                                       {:type :user-not-found
+                                        :user-id user-id})))))
+
+                 ;; Update users if needed
+                 (when (seq profile-updates)
+                   (let [db-profile (-> profile-updates
+                                        (update :tenant-id type-conversion/uuid->string)
+                                        (update :role type-conversion/keyword->string)
+                                        (update :last-login type-conversion/instant->string)
+                                        (update :date-format type-conversion/keyword->string)
+                                        (update :time-format type-conversion/keyword->string)
+                                        (set/rename-keys {:tenant-id :tenant_id
+                                                          :avatar-url :avatar_url
+                                                          :login-count :login_count
+                                                          :last-login :last_login
+                                                          :date-format :date_format
+                                                          :time-format :time_format}))
+                         query {:update :users
+                                :set db-profile
+                                :where [:= :id (type-conversion/uuid->string user-id)]}
+                         affected-rows (db/execute-update! tx query)]
+                     (when (= affected-rows 0)
+                       (throw (ex-info "User not found in batch update (users)"
+                                       {:type :user-not-found
+                                        :user-id user-id})))))))
+
              updated-users))))
      {:db-ctx ctx})))
 
@@ -483,14 +928,14 @@
      :create-session
      {:session-entity session-entity}
      (fn [{:keys [params]}]
-        (let [session-entity (:session-entity params)
-              now (java.time.Instant/now)
+       (let [session-entity (:session-entity params)
+             now (java.time.Instant/now)
                ;; Generate id if not provided, add DB-specific metadata
-              session-with-metadata (-> session-entity
-                                        (update :id #(or % (java.util.UUID/randomUUID)))
-                                        (assoc :created-at now)
-                                        (assoc :last-accessed-at nil)
-                                        (assoc :revoked-at nil))
+             session-with-metadata (-> session-entity
+                                       (update :id #(or % (java.util.UUID/randomUUID)))
+                                       (assoc :created-at now)
+                                       (assoc :last-accessed-at nil)
+                                       (assoc :revoked-at nil))
              db-session (session-entity->db session-with-metadata)
              query {:insert-into :user_sessions
                     :values [db-session]}]
