@@ -136,25 +136,17 @@
 
    Returns:
      Map with:
-     - :applied - List of applied migration IDs
      - :pending - List of pending migration IDs
-     - :total-applied - Count of applied migrations
      - :total-pending - Count of pending migrations"
   []
   (try
     (let [config (get-migration-config)
-          pending (migratus/pending-list config)
-          all-migrations (migratus/completed-ids config)
-          applied (remove (set pending) all-migrations)]
-      {:applied (vec applied)
-       :pending (vec pending)
-       :total-applied (count applied)
+          pending (migratus/pending-list config)]
+      {:pending (vec pending)
        :total-pending (count pending)})
     (catch Exception e
       (log/error e "Failed to get migration status")
-      {:applied []
-       :pending []
-       :total-applied 0
+      {:pending []
        :total-pending 0
        :error (.getMessage e)})))
 
