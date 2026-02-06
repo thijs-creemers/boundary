@@ -13,8 +13,69 @@
   "Regular expression for basic email validation."
   #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\.[a-zA-Z]{2,}$")
 
+(def AuthUser
+  "Schema for AuthUser entity (public.auth_users table).
+   
+   Contains global authentication credentials shared across all tenants.
+   Used for login verification, MFA, and account security.
+   
+   Part of schema-per-tenant multi-tenancy architecture (ADR-004):
+   - Authentication data lives in public.auth_users (shared)
+   - Profile data lives in tenant_<slug>.users (isolated)
+   
+   Note: Timestamps use :inst (java.time.Instant) internally."
+  [:map {:title "Auth User"}
+   [:id :uuid]
+   [:email [:re {:error/message "Invalid email format"} email-regex]]
+   [:password-hash :string]
+   [:active :boolean]
+   [:mfa-enabled {:optional true} :boolean]
+   [:mfa-secret {:optional true} [:maybe :string]]
+   [:mfa-backup-codes {:optional true} [:maybe [:vector :string]]]
+   [:mfa-backup-codes-used {:optional true} [:maybe [:vector :string]]]
+   [:mfa-enabled-at {:optional true} [:maybe inst?]]
+   [:failed-login-count {:optional true} :int]
+   [:lockout-until {:optional true} [:maybe inst?]]
+   [:created-at inst?]
+   [:updated-at {:optional true} [:maybe inst?]]
+   [:deleted-at {:optional true} [:maybe inst?]]])
+
+(def TenantUser
+  "Schema for TenantUser entity (tenant_<slug>.users table).
+   
+   Contains tenant-specific user profile and preferences.
+   User can have different name/role/settings in different tenants.
+   
+   Part of schema-per-tenant multi-tenancy architecture (ADR-004):
+   - Same user (id) can exist in multiple tenant schemas
+   - Each tenant schema has isolated user profile data
+   
+   Note: Timestamps use :inst (java.time.Instant) internally."
+  [:map {:title "Tenant User"}
+   [:id :uuid]
+   [:tenant-id {:optional true} [:maybe :uuid]]
+   [:name [:string {:min 1 :max 255}]]
+   [:role [:enum :admin :user :viewer]]
+   [:avatar-url {:optional true} :string]
+   [:login-count {:optional true} :int]
+   [:last-login {:optional true} inst?]
+   [:date-format {:optional true} [:enum :iso :us :eu]]
+   [:time-format {:optional true} [:enum :12h :24h]]
+   [:created-at inst?]
+   [:updated-at {:optional true} [:maybe inst?]]
+   [:deleted-at {:optional true} [:maybe inst?]]])
+
 (def User
-  "Schema for User entity.
+  "Schema for User entity (merged AuthUser + TenantUser).
+   
+   This is the unified user entity used in business logic.
+   Combines authentication data (from public.auth_users) with 
+   tenant-specific profile data (from tenant_<slug>.users).
+   
+   Persistence layer is responsible for:
+   - Querying both tables and merging results
+   - Splitting updates to correct table based on field
+   - Maintaining referential integrity (auth_users.id = users.id)
    
    Note: Timestamps use :inst (java.time.Instant) internally. The infrastructure layer
    handles conversion to/from strings for database storage."
@@ -22,24 +83,23 @@
    [:id :uuid]
    [:email [:re {:error/message "Invalid email format"} email-regex]]
    [:name [:string {:min 1 :max 255}]]
-   [:password-hash {:optional true} [:string {:min 60 :max 60}]] ; bcrypt hash is always 60 chars
+   [:password-hash {:optional true} [:string {:min 60 :max 60}]]
    [:role [:enum :admin :user :viewer]]
    [:active :boolean]
+   [:tenant-id {:optional true} [:maybe :uuid]]
    [:send-welcome {:optional true} :boolean]
    [:login-count {:optional true} :int]
    [:last-login {:optional true} inst?]
    [:date-format {:optional true} [:enum :iso :us :eu]]
    [:time-format {:optional true} [:enum :12h :24h]]
    [:avatar-url {:optional true} :string]
-   ;; MFA fields
    [:mfa-enabled {:optional true} :boolean]
-   [:mfa-secret {:optional true} [:maybe :string]] ; TOTP secret (base32 encoded)
-   [:mfa-backup-codes {:optional true} [:maybe [:vector :string]]] ; List of backup codes
-   [:mfa-backup-codes-used {:optional true} [:maybe [:vector :string]]] ; Used backup codes
+   [:mfa-secret {:optional true} [:maybe :string]]
+   [:mfa-backup-codes {:optional true} [:maybe [:vector :string]]]
+   [:mfa-backup-codes-used {:optional true} [:maybe [:vector :string]]]
    [:mfa-enabled-at {:optional true} [:maybe inst?]]
-   ;; Account security fields
-   [:failed-login-count {:optional true} :int] ; Number of consecutive failed login attempts
-   [:lockout-until {:optional true} [:maybe inst?]] ; Account lockout expiration after failed login attempts
+   [:failed-login-count {:optional true} :int]
+   [:lockout-until {:optional true} [:maybe inst?]]
    [:created-at inst?]
    [:updated-at {:optional true} [:maybe inst?]]
    [:deleted-at {:optional true} [:maybe inst?]]])
