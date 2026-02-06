@@ -1,32 +1,34 @@
 #kaocha/v1
 {;; All library source paths (shared by all test suites)
  :kaocha/source-paths ["src"
-                       "libs/core/src"
-                       "libs/observability/src"
-                       "libs/platform/src"
-                       "libs/user/src"
-                       "libs/admin/src"
-                       "libs/storage/src"
-                       "libs/scaffolder/src"
-                       "libs/cache/src"
-                       "libs/jobs/src"
-                       "libs/email/src"]
+                        "libs/core/src"
+                        "libs/observability/src"
+                        "libs/platform/src"
+                        "libs/user/src"
+                        "libs/admin/src"
+                        "libs/storage/src"
+                        "libs/scaffolder/src"
+                        "libs/cache/src"
+                        "libs/jobs/src"
+                        "libs/email/src"
+                        "libs/tenant/src"]
 
  :tests [;; Run all tests (default)
-         {:id :unit
-          :test-paths ["test"
-                       "libs/core/test"
-                       "libs/observability/test"
-                       "libs/platform/test"
-                       "libs/user/test"
-                       "libs/admin/test"
-                       "libs/storage/test"
-                       "libs/scaffolder/test"
-                       "libs/cache/test"
-                       "libs/jobs/test"
-                       "libs/email/test"]
-          :ns-patterns ["boundary.*-test"]
-          :randomize? true}
+          {:id :unit
+           :test-paths ["test"
+                        "libs/core/test"
+                        "libs/observability/test"
+                        "libs/platform/test"
+                        "libs/user/test"
+                        "libs/admin/test"
+                        "libs/storage/test"
+                        "libs/scaffolder/test"
+                        "libs/cache/test"
+                        "libs/jobs/test"
+                        "libs/email/test"
+                        "libs/tenant/test"]
+           :ns-patterns ["boundary.*-test"]
+           :randomize? true}
 
          ;; Per-library test suites
          ;; Usage: clojure -M:test :core
@@ -66,9 +68,13 @@
           :test-paths ["libs/jobs/test"]
           :ns-patterns ["boundary.jobs.*-test"]}
 
-         {:id :email
-          :test-paths ["libs/email/test"]
-          :ns-patterns ["boundary.email.*-test"]}]
+          {:id :email
+           :test-paths ["libs/email/test"]
+           :ns-patterns ["boundary.email.*-test"]}
+
+          {:id :tenant
+           :test-paths ["libs/tenant/test"]
+           :ns-patterns ["boundary.tenant.*-test"]}]
 
  :plugins [:kaocha.plugin/randomize
            :kaocha.plugin/filter
