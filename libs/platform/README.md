@@ -27,6 +27,7 @@ Core infrastructure for web applications: database, HTTP routing, pagination, se
 |---------|-------------|
 | **Multi-Database Support** | SQLite, PostgreSQL, MySQL, H2 with unified API |
 | **HTTP Routing** | Reitit-based routing with interceptors |
+| **Multi-Tenancy** | Tenant resolution and schema switching middleware |
 | **API Versioning** | Built-in versioning support for REST APIs |
 | **Pagination** | Offset and cursor-based pagination |
 | **Search** | Full-text search with ranking and filtering |
@@ -137,6 +138,36 @@ Core infrastructure for web applications: database, HTTP routing, pagination, se
      :fields [:name :description]
      :query query
      :limit 20}))
+```
+
+### Multi-Tenancy
+
+```clojure
+(ns myapp.routes
+  (:require [boundary.platform.shell.interfaces.http.tenant-middleware :as tenant-mw]))
+
+;; Option 1: Combined middleware (recommended)
+(def handler
+  (-> routes-handler
+      (tenant-mw/wrap-multi-tenant tenant-service db-context 
+                                   {:require-tenant? true})))
+
+;; Option 2: Separate middleware for finer control
+(def handler
+  (-> routes-handler
+      (tenant-mw/wrap-tenant-resolution tenant-service {:require-tenant? false})
+      (tenant-mw/wrap-tenant-schema db-context)))
+
+;; Tenant resolution strategies (automatic):
+;; 1. Subdomain: acme-corp.myapp.com → tenant with slug "acme-corp"
+;; 2. JWT claims: {:identity {:tenant-slug "acme-corp"}}
+;; 3. HTTP headers: X-Tenant-Slug or X-Tenant-Id
+
+;; Access resolved tenant in handlers:
+(defn my-handler [request]
+  (let [tenant (:tenant request)]
+    ;; Queries automatically use tenant schema
+    {:status 200 :body {:tenant-name (:name tenant)}}))
 ```
 
 ### Configuration
