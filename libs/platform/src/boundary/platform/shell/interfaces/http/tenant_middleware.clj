@@ -15,7 +15,7 @@
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
             [boundary.tenant.ports :as tenant-ports]
-            [boundary.platform.shell.adapters.database.core :as db]))
+            [boundary.platform.shell.adapters.database.common.core :as db]))
 
 ;; =============================================================================
 ;; Tenant Extraction
@@ -217,8 +217,8 @@
    Throws:
      Exception if schema switching fails"
   [db-ctx schema-name]
-  (db/execute! db-ctx
-               [(str "SET search_path TO " schema-name ", public")]))
+  (db/execute-ddl! db-ctx
+                   (str "SET search_path TO " schema-name ", public")))
 
 ;; =============================================================================
 ;; Middleware - Tenant Resolution
