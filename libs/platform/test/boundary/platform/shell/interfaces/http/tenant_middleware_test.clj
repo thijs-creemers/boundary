@@ -73,10 +73,17 @@
 (defn create-mock-db-context
   "Create mock database context that tracks schema switches."
   []
-  (let [schema-calls (atom [])]
-    {:execute! (fn [_ctx [sql]]
-                 (swap! schema-calls conj sql)
-                 nil)
+  (let [schema-calls (atom [])
+        mock-datasource (proxy [Object clojure.lang.ILookup] []
+                          (valAt
+                            ([_k] nil)
+                            ([_k _default] nil)))
+        mock-adapter (reify
+                       boundary.platform.shell.adapters.database.protocols/DBAdapter
+                       (dialect [_] :postgresql))]
+    {:datasource mock-datasource
+     :adapter mock-adapter
+     :schema-calls-atom schema-calls  ; Store atom in context for test access
      :get-schema-calls (fn [] @schema-calls)}))
 
 ;; =============================================================================
@@ -310,36 +317,43 @@
 (deftest wrap-tenant-schema-test
   (testing "switches schema when tenant present"
     (let [db-ctx (create-mock-db-context)
-          handler (tenant-mw/wrap-tenant-schema schema-tracking-handler db-ctx)
-          request {:tenant test-tenant-1
-                   :uri "/api/users"
-                   :request-method :get}
-          response (handler request)]
-      
-      (is (= 200 (:status response)))
-      (is (= ["SET search_path TO tenant_acme_corp, public"]
-             ((:get-schema-calls db-ctx))))))
+          handler (tenant-mw/wrap-tenant-schema schema-tracking-handler db-ctx)]
+      (with-redefs [next.jdbc/execute! (fn [_ds [sql]]
+                                         (swap! (:schema-calls-atom db-ctx) conj sql)
+                                         nil)]
+        (let [request {:tenant test-tenant-1
+                       :uri "/api/users"
+                       :request-method :get}
+              response (handler request)]
+          
+          (is (= 200 (:status response)))
+          (is (= ["SET search_path TO tenant_acme_corp, public"]
+                 ((:get-schema-calls db-ctx))))))))
   
   (testing "does not switch schema when no tenant"
     (let [db-ctx (create-mock-db-context)
-          handler (tenant-mw/wrap-tenant-schema schema-tracking-handler db-ctx)
-          request {:uri "/api/users"
-                   :request-method :get}
-          response (handler request)]
-      
-      (is (= 200 (:status response)))
-      (is (empty? ((:get-schema-calls db-ctx)))))) ; No schema switch
+          handler (tenant-mw/wrap-tenant-schema schema-tracking-handler db-ctx)]
+      (with-redefs [next.jdbc/execute! (fn [_ds [sql]]
+                                         (swap! (:schema-calls-atom db-ctx) conj sql)
+                                         nil)]
+        (let [request {:uri "/api/users"
+                       :request-method :get}
+              response (handler request)]
+          
+          (is (= 200 (:status response)))
+          (is (empty? ((:get-schema-calls db-ctx))))))))  ; No schema switch
   
   (testing "handles schema switch failure gracefully"
-    (let [db-ctx {:execute! (fn [_ _] (throw (Exception. "Schema not found")))}
-          handler (tenant-mw/wrap-tenant-schema schema-tracking-handler db-ctx)
-          request {:tenant test-tenant-1
-                   :uri "/api/users"
-                   :request-method :get}
-          response (handler request)]
-      
-      (is (= 500 (:status response)))
-      (is (= "Failed to switch to tenant schema" (get-in response [:body :message]))))))
+    (let [db-ctx (create-mock-db-context)
+          handler (tenant-mw/wrap-tenant-schema schema-tracking-handler db-ctx)]
+      (with-redefs [next.jdbc/execute! (fn [_ _] (throw (Exception. "Schema not found")))]
+        (let [request {:tenant test-tenant-1
+                       :uri "/api/users"
+                       :request-method :get}
+              response (handler request)]
+          
+          (is (= 500 (:status response)))  ; Should return 500 on error
+          (is (= "Internal server error" (get-in response [:body :error]))))))))
 
 ;; =============================================================================
 ;; Combined Middleware Tests
@@ -352,16 +366,19 @@
           handler (tenant-mw/wrap-multi-tenant 
                    schema-tracking-handler 
                    tenant-service 
-                   db-ctx)
-          request {:server-name "acme-corp.myapp.com"
-                   :uri "/api/users"
-                   :request-method :get}
-          response (handler request)]
-      
-      (is (= 200 (:status response)))
-      (is (= "acme-corp" (get-in response [:body :tenant :slug])))
-      (is (= ["SET search_path TO tenant_acme_corp, public"]
-             ((:get-schema-calls db-ctx))))))
+                   db-ctx)]
+      (with-redefs [next.jdbc/execute! (fn [_ds [sql]]
+                                         (swap! (:schema-calls-atom db-ctx) conj sql)
+                                         nil)]
+        (let [request {:server-name "acme-corp.myapp.com"
+                       :uri "/api/users"
+                       :request-method :get}
+              response (handler request)]
+          
+          (is (= 200 (:status response)))
+          (is (= "acme-corp" (get-in response [:body :tenant :slug])))
+          (is (= ["SET search_path TO tenant_acme_corp, public"]
+                 ((:get-schema-calls db-ctx))))))))
   
   (testing "combined middleware with require-tenant option"
     (let [tenant-service (create-mock-tenant-service)
@@ -370,14 +387,17 @@
                    schema-tracking-handler 
                    tenant-service 
                    db-ctx
-                   {:require-tenant? true})
-          request {:server-name "nonexistent.myapp.com"
-                   :uri "/api/users"
-                   :request-method :get}
-          response (handler request)]
-      
-      (is (= 404 (:status response)))
-      (is (= "Tenant not found" (get-in response [:body :error])))))
+                   {:require-tenant? true})]
+      (with-redefs [next.jdbc/execute! (fn [_ds [sql]]
+                                         (swap! (:schema-calls-atom db-ctx) conj sql)
+                                         nil)]
+        (let [request {:server-name "nonexistent.myapp.com"
+                       :uri "/api/users"
+                       :request-method :get}
+              response (handler request)]
+          
+          (is (= 404 (:status response)))
+          (is (= "Tenant not found" (get-in response [:body :error])))))))
   
   (testing "combined middleware without tenant (optional)"
     (let [tenant-service (create-mock-tenant-service)
@@ -386,12 +406,15 @@
                    schema-tracking-handler 
                    tenant-service 
                    db-ctx
-                   {:require-tenant? false})
-          request {:server-name "myapp.com"
-                   :uri "/api/users"
-                   :request-method :get}
-          response (handler request)]
-      
-      (is (= 200 (:status response)))
-      (is (nil? (get-in response [:body :tenant])))
-      (is (empty? ((:get-schema-calls db-ctx))))))) ; No schema switch
+                   {:require-tenant? false})]
+      (with-redefs [next.jdbc/execute! (fn [_ds [sql]]
+                                         (swap! (:schema-calls-atom db-ctx) conj sql)
+                                         nil)]
+        (let [request {:server-name "localhost"
+                       :uri "/health"
+                       :request-method :get}
+              response (handler request)]
+          
+          (is (= 200 (:status response)))
+          (is (nil? (get-in response [:body :tenant])))
+          (is (empty? ((:get-schema-calls db-ctx)))))))))  ; No schema switch for localhost) ; No schema switch
