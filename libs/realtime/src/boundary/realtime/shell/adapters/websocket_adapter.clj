@@ -36,7 +36,7 @@
                    :message-type (:type message)})
         nil)))
 
-  (close [this]
+  (close [_this]
     ;; Close WebSocket connection gracefully
     (try
       (when-let [close-fn (:close! ws-channel)]
@@ -47,10 +47,10 @@
                   {:connection-id connection-id})
         nil)))
 
-  (connection-id [this]
+  (connection-id [_this]
     connection-id)
 
-  (open? [this]
+  (open? [_this]
     ;; Check if WebSocket is open
     ;; Ring WebSocket channels have :open? function
     (if-let [open-fn (:open? ws-channel)]
@@ -71,14 +71,14 @@
       (swap! sent-messages conj message))
     nil)
 
-  (close [this]
+  (close [_this]
     (reset! open-state false)
     nil)
 
-  (connection-id [this]
+  (connection-id [_this]
     connection-id)
 
-  (open? [this]
+  (open? [_this]
     @open-state))
 
 ;; =============================================================================

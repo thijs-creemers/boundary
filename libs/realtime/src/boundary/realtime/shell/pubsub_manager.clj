@@ -73,11 +73,11 @@
     ;; Read-only operation
     (pubsub-core/get-connection-topics @subscriptions connection-id))
 
-  (topic-count [this]
+  (topic-count [_this]
     ;; Read-only operation
     (pubsub-core/topic-count @subscriptions))
 
-  (subscription-count [this]
+  (subscription-count [_this]
     ;; Read-only operation
     (pubsub-core/subscriber-count @subscriptions)))
 
