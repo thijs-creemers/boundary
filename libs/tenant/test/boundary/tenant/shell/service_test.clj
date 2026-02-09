@@ -2,7 +2,9 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [boundary.tenant.shell.service :as sut]
             [boundary.tenant.ports :as ports]
-            [boundary.observability.errors.ports :as error-ports])
+            [boundary.observability.errors.ports :as error-ports]
+            [boundary.observability.logging.ports :as logging-ports]
+            [boundary.observability.metrics.ports :as metrics-ports])
   (:import (java.time Instant)
            (java.util UUID)))
 
@@ -11,11 +13,42 @@
 ;; Mock observability services
 (def mock-logger
   (reify
+    logging-ports/ILogger
+    (log* [_ _level _message _context _exception] nil)
+    (trace [_ _message] nil)
+    (trace [_ _message _context] nil)
+    (debug [_ _message] nil)
+    (debug [_ _message _context] nil)
+    (info [_ _message] nil)
+    (info [_ _message _context] nil)
+    (warn [_ _message] nil)
+    (warn [_ _message _context] nil)
+    (warn [_ _message _context _exception] nil)
+    (error [_ _message] nil)
+    (error [_ _message _context] nil)
+    (error [_ _message _context _exception] nil)
+    (fatal [_ _message] nil)
+    (fatal [_ _message _context] nil)
+    (fatal [_ _message _context _exception] nil)
     Object
     (toString [_] "MockLogger")))
 
 (def mock-metrics-emitter
   (reify
+    boundary.observability.metrics.ports/IMetricsEmitter
+    (inc-counter! [_ _metric-handle] nil)
+    (inc-counter! [_ _metric-handle _value] nil)
+    (inc-counter! [_ _metric-handle _value _tags] nil)
+    (set-gauge! [_ _metric-handle _value] nil)
+    (set-gauge! [_ _metric-handle _value _tags] nil)
+    (observe-histogram! [_ _metric-handle _value] nil)
+    (observe-histogram! [_ _metric-handle _value _tags] nil)
+    (observe-summary! [_ _metric-handle _value] nil)
+    (observe-summary! [_ _metric-handle _value _tags] nil)
+    (time-histogram! [_ _metric-handle f] (f))
+    (time-histogram! [_ _metric-handle _tags f] (f))
+    (time-summary! [_ _metric-handle f] (f))
+    (time-summary! [_ _metric-handle _tags f] (f))
     Object
     (toString [_] "MockMetricsEmitter")))
 
