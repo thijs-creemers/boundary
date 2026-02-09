@@ -30,15 +30,27 @@
 (defn string->instant
   "Convert ISO 8601 string to Instant from storage (nil-safe).
    
-   Handles both string timestamps and native Instant objects (e.g., from H2)."
+   Handles:
+   - String timestamps in ISO 8601 format
+   - Native Instant objects (e.g., from some databases)
+   - java.sql.Timestamp objects (e.g., from H2, PostgreSQL JDBC)"
   [s]
   (when (and s (not= s ""))
-    (if (instance? Instant s)
+    (cond
+      (instance? Instant s)
       s  ; Already an Instant, return as-is
+      
+      (instance? java.sql.Timestamp s)
+      (.toInstant ^java.sql.Timestamp s)  ; Convert Timestamp to Instant
+      
+      (string? s)
       (try
         (Instant/parse s)
         (catch Exception _
-          nil)))))
+          nil))
+      
+      :else
+      nil)))
 
 (defn keyword->string
   "Convert keyword to string for storage (nil-safe).
