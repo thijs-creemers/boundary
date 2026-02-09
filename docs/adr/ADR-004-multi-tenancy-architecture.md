@@ -429,6 +429,8 @@ CREATE TABLE orders (
              (:name tenant-input)])
           
           ;; 2. Create schema
+          ;; SECURITY: schema-name is validated via create-tenant-decision before use
+          ;; to prevent SQL injection (see valid-slug? function above)
           (jdbc/execute! tx [(str "CREATE SCHEMA " schema-name)])
           
           ;; 3. Run migrations for tenant schema
@@ -457,10 +459,15 @@ CREATE TABLE orders (
         (println "Migrating tenant:" (:slug tenant))
         
         ;; Run migratus with tenant schema
+        ;; SECURITY: Validate schema name before SQL concatenation to prevent injection
+        (when-not (re-matches #"^tenant_[a-z0-9_]{1,100}$" (:schema-name tenant))
+          (throw (ex-info "Invalid schema name" {:schema-name (:schema-name tenant)})))
+        
         (migratus/migrate
           (assoc migration-config
                  :modify-sql-fn
                  (fn [sql]
+                   ;; schema-name already validated above
                    (str "SET search_path TO " (:schema-name tenant) ", public;\n"
                         sql))))
         
@@ -475,11 +482,16 @@ CREATE TABLE orders (
 (defn rollback-tenant-migration!
   [db-ctx tenant-id]
   (let [tenant (get-tenant db-ctx tenant-id)]
+    ;; SECURITY: Validate schema name before SQL concatenation to prevent injection
+    (when-not (re-matches #"^tenant_[a-z0-9_]{1,100}$" (:schema-name tenant))
+      (throw (ex-info "Invalid schema name" {:schema-name (:schema-name tenant)})))
+    
     (migratus/rollback
       {:store :database
        :db (:datasource db-ctx)
        :modify-sql-fn
        (fn [sql]
+         ;; schema-name already validated above
          (str "SET search_path TO " (:schema-name tenant) ", public;\n"
               sql))})))
 ```
