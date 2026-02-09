@@ -42,44 +42,46 @@
 
   (find-tenant-by-id [_this tenant-id]
     (persistence-interceptors/execute-persistence-operation
-     logger error-reporter
-     "find-tenant-by-id"
+     :find-tenant-by-id
      {:tenant-id tenant-id}
-     (fn []
-       (when-let [record (db/execute-one! ctx
-                                          ["SELECT * FROM tenants WHERE id = ? AND deleted_at IS NULL"
-                                           (str tenant-id)])]
-         (db->tenant-entity ctx record)))))
+     (fn [{:keys [params]}]
+       (let [tenant-id (:tenant-id params)]
+         (when-let [record (db/execute-one! ctx
+                                            ["SELECT * FROM tenants WHERE id = ? AND deleted_at IS NULL"
+                                             (str tenant-id)])]
+           (db->tenant-entity ctx record))))
+     ctx))
 
   (find-tenant-by-slug [_this slug]
     (persistence-interceptors/execute-persistence-operation
-     logger error-reporter
-     "find-tenant-by-slug"
+     :find-tenant-by-slug
      {:slug slug}
-     (fn []
-       (when-let [record (db/execute-one! ctx
-                                          ["SELECT * FROM tenants WHERE slug = ? AND deleted_at IS NULL"
-                                           slug])]
-         (db->tenant-entity ctx record)))))
+     (fn [{:keys [params]}]
+       (let [slug (:slug params)]
+         (when-let [record (db/execute-one! ctx
+                                            ["SELECT * FROM tenants WHERE slug = ? AND deleted_at IS NULL"
+                                             slug])]
+           (db->tenant-entity ctx record))))
+     ctx))
 
   (find-all-tenants [_this {:keys [limit offset include-deleted?] :or {limit 50 offset 0 include-deleted? false}}]
     (persistence-interceptors/execute-persistence-operation
-     logger error-reporter
-     "find-all-tenants"
+     :find-all-tenants
      {:limit limit :offset offset :include-deleted? include-deleted?}
-      (fn []
-        (let [query (if include-deleted?
-                      "SELECT * FROM tenants ORDER BY created_at DESC LIMIT ? OFFSET ?"
-                      "SELECT * FROM tenants WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT ? OFFSET ?")
-              records (db/execute-query! ctx [query limit offset])]
-          (mapv #(db->tenant-entity ctx %) records)))))
+     (fn [{:keys [params]}]
+       (let [{:keys [limit offset include-deleted?]} params
+             query (if include-deleted?
+                     "SELECT * FROM tenants ORDER BY created_at DESC LIMIT ? OFFSET ?"
+                     "SELECT * FROM tenants WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT ? OFFSET ?")
+             records (db/execute-query! ctx [query limit offset])]
+         (mapv #(db->tenant-entity ctx %) records)))
+     ctx))
 
   (create-tenant [_this tenant-entity]
     (persistence-interceptors/execute-persistence-operation
-     logger error-reporter
-     "create-tenant"
+     :create-tenant
      {:tenant-id (:id tenant-entity) :slug (:slug tenant-entity)}
-     (fn []
+     (fn [{:keys [params]}]
        (let [db-record (tenant-entity->db ctx tenant-entity)]
          (db/execute-one! ctx
                          ["INSERT INTO tenants (id, slug, name, schema_name, status, settings, created_at, updated_at)
@@ -92,14 +94,14 @@
                           (:settings db-record)
                           (:created_at db-record)
                           (:updated_at db-record)])
-         tenant-entity))))
+         tenant-entity))
+     ctx))
 
   (update-tenant [_this tenant-entity]
     (persistence-interceptors/execute-persistence-operation
-     logger error-reporter
-     "update-tenant"
+     :update-tenant
      {:tenant-id (:id tenant-entity)}
-     (fn []
+     (fn [{:keys [params]}]
        (let [db-record (tenant-entity->db ctx tenant-entity)]
          (db/execute-one! ctx
                          ["UPDATE tenants 
@@ -111,45 +113,50 @@
                           (:updated_at db-record)
                           (:deleted_at db-record)
                           (:id db-record)])
-         tenant-entity))))
+         tenant-entity))
+     ctx))
 
   (delete-tenant [_this tenant-id]
     (persistence-interceptors/execute-persistence-operation
-     logger error-reporter
-     "delete-tenant"
+     :delete-tenant
      {:tenant-id tenant-id}
-     (fn []
-       (db/execute-one! ctx
-                       ["DELETE FROM tenants WHERE id = ?"
-                        (str tenant-id)])
-       nil)))
+     (fn [{:keys [params]}]
+       (let [tenant-id (:tenant-id params)]
+         (db/execute-one! ctx
+                         ["DELETE FROM tenants WHERE id = ?"
+                          (str tenant-id)])
+         nil))
+     ctx))
 
   (tenant-slug-exists? [_this slug]
     (persistence-interceptors/execute-persistence-operation
-     logger error-reporter
-     "tenant-slug-exists?"
+     :tenant-slug-exists?
      {:slug slug}
-     (fn []
-       (boolean (db/execute-one! ctx
-                                ["SELECT 1 FROM tenants WHERE slug = ?" slug])))))
+     (fn [{:keys [params]}]
+       (let [slug (:slug params)]
+         (boolean (db/execute-one! ctx
+                                  ["SELECT 1 FROM tenants WHERE slug = ?" slug]))))
+     ctx))
 
   (create-tenant-schema [_this schema-name]
     (persistence-interceptors/execute-persistence-operation
-     logger error-reporter
-     "create-tenant-schema"
+     :create-tenant-schema
      {:schema-name schema-name}
-      (fn []
-        (db/execute-ddl! ctx (str "CREATE SCHEMA IF NOT EXISTS " schema-name))
-        nil)))
+     (fn [{:keys [params]}]
+       (let [schema-name (:schema-name params)]
+         (db/execute-ddl! ctx (str "CREATE SCHEMA IF NOT EXISTS " schema-name))
+         nil))
+     ctx))
 
   (drop-tenant-schema [_this schema-name]
     (persistence-interceptors/execute-persistence-operation
-     logger error-reporter
-     "drop-tenant-schema"
+     :drop-tenant-schema
      {:schema-name schema-name}
-      (fn []
-        (db/execute-ddl! ctx (str "DROP SCHEMA IF EXISTS " schema-name " CASCADE"))
-        nil))))
+     (fn [{:keys [params]}]
+       (let [schema-name (:schema-name params)]
+         (db/execute-ddl! ctx (str "DROP SCHEMA IF EXISTS " schema-name " CASCADE"))
+         nil))
+     ctx)))
 
 (defn create-tenant-repository
   [ctx logger error-reporter]
