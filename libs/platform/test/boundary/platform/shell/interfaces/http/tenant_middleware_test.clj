@@ -327,7 +327,9 @@
               response (handler request)]
           
           (is (= 200 (:status response)))
-          (is (= ["SET search_path TO tenant_acme_corp, public"]
+          ;; Should set tenant schema AND reset to public in finally block
+          (is (= ["SET search_path TO tenant_acme_corp, public"
+                  "SET search_path TO public"]
                  ((:get-schema-calls db-ctx))))))))
   
   (testing "does not switch schema when no tenant"
@@ -377,7 +379,8 @@
           
           (is (= 200 (:status response)))
           (is (= "acme-corp" (get-in response [:body :tenant :slug])))
-          (is (= ["SET search_path TO tenant_acme_corp, public"]
+          (is (= ["SET search_path TO tenant_acme_corp, public"
+                  "SET search_path TO public"]
                  ((:get-schema-calls db-ctx))))))))
   
   (testing "combined middleware with require-tenant option"
