@@ -475,14 +475,14 @@
 
 (deftest tenant-routes-normalized-test
   (testing "returns normalized route structure"
-    (let [routes (tenant-http/tenant-routes-normalized *mock-tenant-service* {})]
+    (let [routes (tenant-http/tenant-routes-normalized *mock-tenant-service* nil {})]
       (is (map? routes))
       (is (contains? routes :api))
       (is (vector? (:api routes)))
       (is (= 5 (count (:api routes))))))
 
   (testing "all routes have required structure"
-    (let [routes (tenant-http/tenant-routes-normalized *mock-tenant-service* {})
+    (let [routes (tenant-http/tenant-routes-normalized *mock-tenant-service* nil {})
           api-routes (:api routes)]
       (doseq [route api-routes]
         (is (contains? route :path))
