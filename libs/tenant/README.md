@@ -523,13 +523,133 @@ The tenant module follows **Functional Core / Imperative Shell**:
 - **Shell** (`shell/middleware.clj`): HTTP tenant resolution
 - **Ports** (`ports.clj`): Protocol definitions
 
+## Database Support & Limitations
+
+### Current Support: PostgreSQL Only
+
+The tenant module currently requires **PostgreSQL 12+** for the schema-per-tenant isolation model.
+
+**Why PostgreSQL?**
+- Uses PostgreSQL schemas (namespaces) for logical isolation
+- Fast schema switching via `SET search_path` (< 1ms)
+- Strong database-enforced tenant boundaries
+- Clean queries without `tenant_id` filtering
+- Proven at scale (1000s of tenants)
+
+**Other Databases**: Not currently supported for production use.
+
+### Future Database Support
+
+Support for additional databases is planned for future releases:
+
+#### MySQL Support (Planned for v1.1+)
+
+MySQL's "database" concept (similar to PostgreSQL schemas) could provide equivalent isolation:
+
+```sql
+-- Create database per tenant
+CREATE DATABASE tenant_acme_corp;
+
+-- Switch database context
+USE tenant_acme_corp;
+```
+
+**Status**: Design phase, estimated 2-3 weeks implementation effort
+
+**Trade-offs**:
+- ✅ Similar isolation to PostgreSQL
+- ✅ Clean query patterns
+- ⚠️ Higher overhead (database vs schema)
+- ⚠️ Lower tenant limits (~10k databases vs ~100k schemas)
+
+---
+
+#### SQLite Support (Planned for v1.2+)
+
+SQLite lacks schema support, requiring row-level isolation with `tenant_id` columns:
+
+```sql
+-- Every table needs tenant_id column
+CREATE TABLE users (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,  -- Add to all tables
+  name TEXT,
+  email TEXT
+);
+
+-- Every query must filter by tenant_id
+SELECT * FROM users WHERE tenant_id = ?;
+```
+
+**Status**: Design phase, estimated 4-5 weeks implementation effort
+
+**Target Use Case**: Development/testing environments only (not production SaaS)
+
+**Trade-offs**:
+- ✅ Works with SQLite (portable, embedded)
+- ✅ Single file database
+- ❌ **High data leak risk** (manual filtering required)
+- ❌ No database-level enforcement
+- ❌ Query complexity increases
+- ❌ Harder to prove compliance
+
+**Mitigation**: Query interceptors + extensive testing for SQLite mode
+
+---
+
+### Database Support Roadmap
+
+| Database | Current | Planned | Strategy | Priority | ETA |
+|----------|---------|---------|----------|----------|-----|
+| PostgreSQL 12+ | ✅ Supported | ✅ Continue | Schema-per-tenant | P0 | Now |
+| MySQL 8.0+ | ❌ Not supported | 🟡 Planned | Database-per-tenant | P2 | v1.1 |
+| SQLite 3.35+ | ❌ Not supported | 🟡 Planned | Row-level (dev only) | P3 | v1.2 |
+| H2 | ⚠️ Testing only | 🟡 Planned | Row-level | P4 | v2.0 |
+| SQL Server | ❌ Not supported | 📝 Proposed | Schema-per-tenant | P5 | TBD |
+| Oracle | ❌ Not supported | 📝 Proposed | Schema-per-tenant | P6 | TBD |
+
+**Legend**:
+- ✅ Production-ready
+- ⚠️ Testing/development only
+- 🟡 Planned (design complete)
+- 📝 Proposed (under consideration)
+- ❌ Not supported
+
+---
+
+### Request Database Support
+
+Need support for a specific database? Open a GitHub issue with:
+
+1. **Database & Version**: Which database and minimum version
+2. **Use Case**: Production requirement or development convenience
+3. **Scale**: Expected number of tenants
+4. **Constraints**: Why PostgreSQL isn't an option
+
+We prioritize database support based on:
+- User demand (3+ production users)
+- Maintainability (stable JDBC drivers)
+- Isolation capabilities (database-level enforcement)
+- Test infrastructure (CI/CD compatibility)
+
+---
+
 ## License
 
 Part of Boundary Framework - See main LICENSE file.
 
 ---
 
-**Next Steps**:
-- See [Jobs Module](../jobs/README.md) for tenant-scoped background jobs
-- See [Cache Module](../cache/README.md) for tenant-scoped caching
-- See [ADR-004](../../docs/adr/ADR-004-multi-tenancy-architecture.md) for architecture details
+## Next Steps
+
+- **Production Deployment**: See [ADR-004](../../docs/adr/ADR-004-multi-tenancy-architecture.md) for architecture details
+- **Background Jobs**: See [Jobs Module](../jobs/README.md) for tenant-scoped background jobs
+- **Caching**: See [Cache Module](../cache/README.md) for tenant-scoped caching
+- **Database Support**: See [Future Enhancements](#database-support--limitations) for roadmap
+
+---
+
+**Questions or Issues?**
+- GitHub Issues: Report bugs or request features
+- GitHub Discussions: Ask questions or share use cases
+- ADR-004: Full architectural decision record

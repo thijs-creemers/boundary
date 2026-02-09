@@ -1069,6 +1069,226 @@ CREATE SCHEMA tenant_default;
 
 ---
 
+## Future Enhancements
+
+### Alternative Database Support (Post-v1.0)
+
+While the current implementation uses PostgreSQL schema-per-tenant for optimal isolation, future versions may support alternative strategies for other databases:
+
+#### 1. MySQL Schema-Per-Tenant
+
+**Status**: Planned for v1.1+
+
+MySQL uses "databases" (similar to PostgreSQL schemas) for tenant isolation:
+
+```sql
+-- Create database per tenant
+CREATE DATABASE tenant_acme_corp;
+
+-- Switch database context
+USE tenant_acme_corp;
+```
+
+**Implementation Approach**:
+```clojure
+;; MySQL-specific adapter
+(defn mysql-set-tenant-schema [db-ctx schema-name]
+  (jdbc/execute! db-ctx [(str "USE " schema-name)]))
+
+;; Registration
+(defmethod set-tenant-schema :mysql [db-ctx schema-name]
+  (mysql-set-tenant-schema db-ctx schema-name))
+```
+
+**Trade-offs**:
+- ✅ Similar isolation to PostgreSQL schemas
+- ✅ Same clean query patterns (no `tenant_id` filtering)
+- ⚠️ Higher overhead than PostgreSQL (database vs schema)
+- ⚠️ Connection string changes required per tenant
+- ⚠️ MySQL database limits (~10,000) vs PostgreSQL schema limits (~100,000)
+
+**Target Use Case**: Organizations with existing MySQL infrastructure requiring multi-tenancy
+
+**Estimated Effort**: 2-3 weeks (adapter + tests)
+
+---
+
+#### 2. SQLite Row-Level Multi-Tenancy
+
+**Status**: Planned for v1.2+
+
+SQLite lacks schema support, requiring row-level isolation with `tenant_id` columns:
+
+```sql
+-- All tables need tenant_id
+CREATE TABLE users (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,  -- Required on every table
+  name TEXT,
+  email TEXT,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+);
+
+CREATE INDEX idx_users_tenant_id ON users(tenant_id);
+```
+
+**Implementation Approach**:
+```clojure
+;; Row-level filtering adapter
+(defrecord SQLiteTenantAdapter [tenant-id]
+  ITenantContext
+  (execute-in-tenant-context [this db-ctx f]
+    ;; Wrap all queries with tenant_id filtering
+    (with-tenant-filter tenant-id
+      (f db-ctx))))
+
+;; Automatic query rewriting
+(defn add-tenant-filter [query tenant-id]
+  (if (select-query? query)
+    (append-where-clause query ["tenant_id = ?" tenant-id])
+    query))
+```
+
+**Trade-offs**:
+- ✅ Works with SQLite (development/embedded use cases)
+- ✅ Single file database (portability)
+- ❌ **High risk**: Forget `tenant_id` filter → data leak
+- ❌ Query complexity (every query needs filtering)
+- ❌ No database-level enforcement
+- ❌ Performance: Larger tables, more complex query plans
+- ❌ Compliance: Harder to prove isolation
+
+**Mitigation Strategies**:
+- Query interceptor validates all queries include `tenant_id`
+- Test suite verifies tenant isolation
+- SQLite triggers enforce `tenant_id` presence
+- Development/testing mode only (not production SaaS)
+
+**Target Use Case**: 
+- Local development without PostgreSQL
+- Embedded applications (desktop, mobile)
+- Single-tenant deployments with optional multi-tenant mode
+
+**Estimated Effort**: 4-5 weeks (adapter + query rewriting + extensive testing)
+
+---
+
+#### 3. Universal Row-Level Mode (Any Database)
+
+**Status**: Planned for v2.0+
+
+Generalized row-level isolation that works with any JDBC-compatible database (PostgreSQL, MySQL, SQLite, H2, SQL Server, Oracle):
+
+```clojure
+;; Configuration
+{:boundary/tenant-strategy :row-level  ; vs :schema-per-tenant
+ :boundary/tenant-column :tenant_id    ; Configurable column name
+ :boundary/tenant-enforcement :strict} ; :strict, :lenient, or :disabled
+
+;; Usage remains the same
+(tenant/with-tenant-context db-ctx tenant-id
+  (fn [ctx]
+    (jdbc/execute! ctx ["SELECT * FROM users"])))
+;; → Automatically becomes: SELECT * FROM users WHERE tenant_id = ?
+```
+
+**Features**:
+- AST-based query rewriting (analyze and inject `tenant_id` filters)
+- Compile-time query validation (lint checks for missing filters)
+- Runtime enforcement (interceptor verifies all queries filtered)
+- Migration support (add `tenant_id` columns to existing schemas)
+- Gradual migration path (row-level → schema-per-tenant)
+
+**Trade-offs**:
+- ✅ Database-agnostic
+- ✅ Lower operational complexity (no schema management)
+- ❌ Still requires manual filtering
+- ❌ Still has data leak risk
+- ❌ Performance overhead (larger tables)
+
+**Target Use Case**: Organizations with strict database vendor requirements (e.g., Oracle-only shops)
+
+**Estimated Effort**: 8-10 weeks (query parser + rewriter + validation + testing)
+
+---
+
+### Database Support Matrix (Roadmap)
+
+| Database | Current (v1.0) | Future Support | Strategy | Priority | ETA |
+|----------|----------------|----------------|----------|----------|-----|
+| **PostgreSQL 12+** | ✅ Supported | ✅ Continue | Schema-per-tenant | P0 | Now |
+| **MySQL 8.0+** | ❌ Not supported | 🟡 Planned | Database-per-tenant | P2 | v1.1 |
+| **SQLite 3.35+** | ❌ Not supported | 🟡 Planned | Row-level (dev only) | P3 | v1.2 |
+| **H2** | ⚠️ Testing only | 🟡 Planned | Row-level | P4 | v2.0 |
+| **SQL Server** | ❌ Not supported | 📝 Proposed | Schema-per-tenant | P5 | TBD |
+| **Oracle** | ❌ Not supported | 📝 Proposed | Schema-per-tenant | P6 | TBD |
+
+**Legend**:
+- ✅ Production-ready
+- ⚠️ Limited support (specific use case only)
+- 🟡 Planned (design complete, awaiting implementation)
+- 📝 Proposed (under consideration)
+- ❌ Not supported
+
+---
+
+### Implementation Strategy for New Databases
+
+When adding support for a new database:
+
+1. **Define Adapter Protocol**:
+   ```clojure
+   (defprotocol ITenantIsolation
+     (supports-schema-isolation? [this])
+     (set-tenant-context [this db-ctx tenant-id])
+     (reset-tenant-context [this db-ctx]))
+   ```
+
+2. **Implement Database-Specific Adapter**:
+   ```clojure
+   (defrecord MySQLTenantAdapter []
+     ITenantIsolation
+     (supports-schema-isolation? [_] true)
+     (set-tenant-context [_ db-ctx tenant-id]
+       (jdbc/execute! db-ctx [(str "USE tenant_" tenant-id)])))
+   ```
+
+3. **Register via Multimethod**:
+   ```clojure
+   (defmulti create-tenant-adapter :database-type)
+   
+   (defmethod create-tenant-adapter :postgresql [_]
+     (->PostgreSQLTenantAdapter))
+   
+   (defmethod create-tenant-adapter :mysql [_]
+     (->MySQLTenantAdapter))
+   ```
+
+4. **Add Comprehensive Tests**:
+   - Schema isolation verification
+   - Cross-tenant query prevention
+   - Performance benchmarks
+   - Migration testing
+
+---
+
+### Decision Criteria for Database Support
+
+Add support for a new database if:
+
+1. **User Demand**: 3+ users request it (via GitHub issues)
+2. **Production Use Case**: Real production deployment requiring it
+3. **Maintainability**: Database has stable JDBC driver
+4. **Test Infrastructure**: Can run in CI/CD (Testcontainers, Docker)
+5. **Feature Parity**: Database supports required isolation mechanism
+
+**Not adding support if**:
+- Database lacks isolation features (e.g., simple key-value stores)
+- Maintenance burden too high relative to demand
+- Better alternatives exist (e.g., suggest PostgreSQL migration)
+
+---
+
 ## Approval
 
 **Status:** Proposed  
