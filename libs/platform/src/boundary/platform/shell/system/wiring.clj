@@ -37,6 +37,7 @@
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
             [boundary.inventory.shell.module-wiring] ;; Load inventory module init/halt methods
             [boundary.admin.shell.module-wiring] ;; Load admin module init/halt methods
+            [boundary.tenant.shell.module-wiring] ;; Load tenant module init/halt methods
             [cheshire.core]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -98,12 +99,17 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes inventory-routes admin-routes router logger metrics-emitter error-reporter config]}]
+  [_ {:keys [user-routes inventory-routes admin-routes tenant-routes router logger metrics-emitter error-reporter config tenant-service db-context]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)
+  (require 'boundary.platform.shell.interfaces.http.tenant-middleware)
   (let [;; Import compile-routes function
         compile-routes (ns-resolve 'boundary.platform.ports.http 'compile-routes)
+
+        ;; Import tenant middleware
+        tenant-mw-ns 'boundary.platform.shell.interfaces.http.tenant-middleware
+        wrap-multi-tenant (ns-resolve tenant-mw-ns 'wrap-multi-tenant)
 
         ;; Create health check handler
         health-handler (let [health-fn (ns-resolve 'boundary.platform.shell.interfaces.http.common 'health-check-handler)]
@@ -196,14 +202,19 @@
                                                                       :result-keys (keys result)})
                                                            result))
                                                        admin-web-routes)]
-                                 (log/info "Total admin web routes transformed" {:count (count transformed)})
-                                 transformed))
+                                  (log/info "Total admin web routes transformed" {:count (count transformed)})
+                                  transformed))
         admin-normalized-api (when (seq admin-api-routes) admin-api-routes)
+
+        ;; Extract tenant module routes (normalized format)
+        tenant-api-routes (or (:api tenant-routes) [])
+        tenant-normalized-api (when (seq tenant-api-routes) tenant-api-routes)
 
         ;; Combine all API routes (unversioned at this point)
         all-api-routes (concat (or user-normalized-api [])
                                (or inventory-normalized-api [])
-                               (or admin-normalized-api []))
+                               (or admin-normalized-api [])
+                               (or tenant-normalized-api []))
 
         ;; Apply API versioning to all API routes
         ;; This wraps routes with /api/v1 prefix and creates backward compatibility redirects
@@ -226,18 +237,29 @@
                 :metrics-emitter metrics-emitter
                 :error-reporter error-reporter}
 
+        ;; Build middleware chain with tenant support
+        ;; Tenant middleware is added ONLY if tenant-service is provided
+        tenant-middleware (when (and tenant-service db-context)
+                           [(fn [handler]
+                              (log/info "Adding multi-tenant middleware to HTTP pipeline")
+                              (wrap-multi-tenant handler tenant-service db-context
+                                               {:require-tenant? false}))])
+
         ;; Compile routes using router adapter with system services
         ;; Add method override middleware for HTML form PUT/DELETE support
-        router-config {:middleware [(fn [handler]
-                                      (fn [request]
-                                        (if (= :post (:request-method request))
-                                          (let [method (or (get-in request [:form-params "_method"])
-                                                           (get-in request [:params "_method"]))]
-                                            (if method
-(let [override-method (keyword (str/lower-case method))]
-                                                (handler (assoc request :request-method override-method)))
-                                              (handler request)))
-                                          (handler request))))]
+        ;; Add tenant middleware to the chain (before method override)
+        router-config {:middleware (concat
+                                    tenant-middleware
+                                    [(fn [handler]
+                                       (fn [request]
+                                         (if (= :post (:request-method request))
+                                           (let [method (or (get-in request [:form-params "_method"])
+                                                            (get-in request [:params "_method"]))]
+                                             (if method
+                                               (let [override-method (keyword (str/lower-case method))]
+                                                 (handler (assoc request :request-method override-method)))
+                                               (handler request)))
+                                           (handler request))))])
                        :system system}
         handler (compile-routes router all-normalized-routes router-config)
 
@@ -254,6 +276,7 @@
                :admin-routes {:static (count (or admin-static-routes []))
                               :web (count (or admin-web-routes []))
                               :api (count (or admin-api-routes []))}
+               :tenant-routes {:api (count (or tenant-api-routes []))}
                :versioned-api-routes (count versioned-api-routes)
                :total-normalized-routes (count all-normalized-routes)
                :router-adapter (class router)
