@@ -64,12 +64,12 @@ The Boundary Framework currently supports single-tenant deployments where each a
 ```
 ┌─────────────────────────────────────┐
 │         Single Database             │
-│  ┌───────────────────────────┐     │
-│  │   Shared Schema (public)  │     │
-│  │  users (tenant_id column) │     │
-│  │  orders (tenant_id column)│     │
-│  │  products (tenant_id)     │     │
-│  └───────────────────────────┘     │
+│  ┌───────────────────────────┐      │
+│  │   Shared Schema (public)  │      │
+│  │  users (tenant_id column) │      │
+│  │  orders (tenant_id column)│      │
+│  │  products (tenant_id)     │      │
+│  └───────────────────────────┘      │
 └─────────────────────────────────────┘
 ```
 
@@ -113,19 +113,19 @@ RLS adds database enforcement but:
 ┌──────────────────────────────────────────────────────┐
 │              PostgreSQL Database                     │
 │                                                      │
-│  ┌──────────────────┐  ┌──────────────────┐         │
-│  │ Schema: tenant_a │  │ Schema: tenant_b │  ...    │
-│  │                  │  │                  │         │
-│  │  users           │  │  users           │         │
-│  │  orders          │  │  orders          │         │
-│  │  products        │  │  products        │         │
-│  └──────────────────┘  └──────────────────┘         │
+│  ┌──────────────────┐  ┌──────────────────┐          │
+│  │ Schema: tenant_a │  │ Schema: tenant_b │  ...     │
+│  │                  │  │                  │          │
+│  │  users           │  │  users           │          │
+│  │  orders          │  │  orders          │          │
+│  │  products        │  │  products        │          │
+│  └──────────────────┘  └──────────────────┘          │
 │                                                      │
-│  ┌──────────────────┐                               │
-│  │ Schema: public   │  ← Shared tables              │
-│  │  tenants         │     (tenant registry)         │
-│  │  auth_users      │     (authentication)          │
-│  └──────────────────┘                               │
+│  ┌──────────────────┐                                │
+│  │ Schema: public   │  ← Shared tables               │
+│  │  tenants         │     (tenant registry)          │
+│  │  auth_users      │     (authentication)           │
+│  └──────────────────┘                                │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -204,22 +204,22 @@ Each tenant gets a separate PostgreSQL schema (namespace). Middleware sets `sear
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Application Layer                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ HTTP Handler │→ │  Middleware  │→ │   Service    │  │
-│  │              │  │ (set schema) │  │   Layer      │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
+│                    Application Layer                    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │ HTTP Handler │→ │  Middleware  │→ │   Service    │   │
+│  │              │  │ (set schema) │  │   Layer      │   │
+│  └──────────────┘  └──────────────┘  └──────────────┘   │
 └─────────────────────────────────────────────────────────┘
                           ↓
 ┌─────────────────────────────────────────────────────────┐
-│              PostgreSQL Database                         │
-│                                                          │
+│              PostgreSQL Database                        │
+│                                                         │
 │  ┌──────────────┐  Public Schema (Shared)               │
 │  │ tenants      │  - Tenant registry                    │
 │  │ auth_users   │  - Authentication                     │
 │  │ admin_config │  - Global configuration               │
 │  └──────────────┘                                       │
-│                                                          │
+│                                                         │
 │  ┌──────────────┐  Tenant Schemas (Isolated)            │
 │  │ tenant_abc   │  - users (tenant-specific data)       │
 │  │ tenant_xyz   │  - orders, products, etc.             │
