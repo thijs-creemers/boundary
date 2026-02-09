@@ -21,7 +21,7 @@
 (defrecord AtomPubSubManager [subscriptions]
   ports/IPubSubManager
 
-  (subscribe-to-topic [this connection-id topic]
+  (subscribe-to-topic [_this connection-id topic]
     ;; Validate inputs
     (when-not (schema/valid-topic? topic)
       (throw (ex-info "Invalid topic name"
@@ -39,7 +39,7 @@
     
     nil)
 
-  (unsubscribe-from-topic [this connection-id topic]
+  (unsubscribe-from-topic [_this connection-id topic]
     ;; Update subscriptions (pure function wrapped in atom swap)
     (swap! subscriptions pubsub-core/unsubscribe connection-id topic)
     
@@ -50,7 +50,7 @@
     
     nil)
 
-  (unsubscribe-from-all-topics [this connection-id]
+  (unsubscribe-from-all-topics [_this connection-id]
     ;; Get topics before unsubscribing (for logging)
     (let [topics (pubsub-core/get-connection-topics @subscriptions connection-id)]
       
@@ -65,11 +65,11 @@
     
     nil)
 
-  (get-topic-subscribers [this topic]
+  (get-topic-subscribers [_this topic]
     ;; Read-only operation - no atom swap needed
     (pubsub-core/get-subscribers @subscriptions topic))
 
-  (get-connection-subscriptions [this connection-id]
+  (get-connection-subscriptions [_this connection-id]
     ;; Read-only operation
     (pubsub-core/get-connection-topics @subscriptions connection-id))
 

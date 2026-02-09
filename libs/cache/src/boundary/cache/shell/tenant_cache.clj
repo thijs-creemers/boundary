@@ -16,11 +16,11 @@
      (def tenant-cache (create-tenant-cache cache tenant-id))
 
      ;; Use normally - keys automatically prefixed
-     (cache/set-value! tenant-cache :user-123 user-data)
+     (ports/set-value! tenant-cache :user-123 user-data)
      ;; Actual key: \"tenant:abc123:user-123\"
 
      ;; Bulk operations work too
-     (cache/set-many! tenant-cache {:user-1 data1 :user-2 data2})
+     (ports/set-many! tenant-cache {:user-1 data1 :user-2 data2})
      ;; Keys: \"tenant:abc123:user-1\", \"tenant:abc123:user-2\"
 
    Pattern:
@@ -231,12 +231,12 @@
      (def tenant-cache (create-tenant-cache base-cache \"acme-corp\"))
 
      ;; Keys automatically prefixed
-     (cache/set-value! tenant-cache :user-123 user-data)
+     (ports/set-value! tenant-cache :user-123 user-data)
      ;; Stored as: \"tenant:acme-corp:user-123\"
 
      ;; Complete cache isolation
      (def other-tenant (create-tenant-cache base-cache \"globex\"))
-     (cache/get-value other-tenant :user-123)
+     (ports/get-value other-tenant :user-123)
      ;; => nil (different tenant namespace)
 
    Notes:
@@ -265,7 +265,7 @@
    Example:
      (defn my-handler [request]
        (let [tenant-cache (extract-tenant-cache cache request)
-             user-data (cache/get-value tenant-cache :user-123)]
+             user-data (ports/get-value tenant-cache :user-123)]
          {:status 200 :body user-data}))
 
    Middleware contract:
@@ -286,52 +286,54 @@
   ;; Usage Examples
   ;; ==============
 
+  (require '[boundary.cache.shell.adapters.in-memory])
+
   ;; 1. Create tenant cache manually
   (def base-cache (boundary.cache.shell.adapters.in-memory/create-in-memory-cache))
   (def tenant-cache (create-tenant-cache base-cache "acme-corp"))
 
-  (cache/set-value! tenant-cache :user-123 {:name "Alice"})
-  (cache/get-value tenant-cache :user-123)
+  (ports/set-value! tenant-cache :user-123 {:name "Alice"})
+  (ports/get-value tenant-cache :user-123)
   ;; => {:name "Alice"}
 
   ;; 2. Keys are isolated per tenant
   (def tenant-a (create-tenant-cache base-cache "tenant-a"))
   (def tenant-b (create-tenant-cache base-cache "tenant-b"))
 
-  (cache/set-value! tenant-a :shared-key "A's value")
-  (cache/set-value! tenant-b :shared-key "B's value")
+  (ports/set-value! tenant-a :shared-key "A's value")
+  (ports/set-value! tenant-b :shared-key "B's value")
 
-  (cache/get-value tenant-a :shared-key)
+  (ports/get-value tenant-a :shared-key)
   ;; => "A's value"
 
-  (cache/get-value tenant-b :shared-key)
+  (ports/get-value tenant-b :shared-key)
   ;; => "B's value"
 
   ;; 3. Extract from request (in handler)
   (def request {:tenant {:id "acme" :slug "acme-corp"}})
   (def tenant-cache (extract-tenant-cache base-cache request))
 
-  (cache/set-value! tenant-cache :session-abc "token-xyz")
+  (ports/set-value! tenant-cache :session-abc "token-xyz")
   ;; Stored as: "tenant:acme:session-abc"
 
   ;; 4. Batch operations
-  (cache/set-many! tenant-cache
+  (ports/set-many! tenant-cache
                    {:user-1 "Alice"
                     :user-2 "Bob"
                     :user-3 "Charlie"})
 
-  (cache/get-many tenant-cache [:user-1 :user-2])
+  (ports/get-many tenant-cache [:user-1 :user-2])
   ;; => {:user-1 "Alice", :user-2 "Bob"}
 
   ;; 5. Pattern matching
-  (cache/keys-matching tenant-cache "user-*")
+  (ports/keys-matching tenant-cache "user-*")
   ;; => #{:user-1 :user-2 :user-3}
 
-  (cache/count-matching tenant-cache "user-*")
+  (ports/count-matching tenant-cache "user-*")
   ;; => 3
 
   ;; 6. Flush only tenant's data
-  (cache/flush-all! tenant-cache)
+  (ports/flush-all! tenant-cache)
   ;; Deletes only "tenant:acme:*" keys
   ;; Other tenants' data remains intact
   )
