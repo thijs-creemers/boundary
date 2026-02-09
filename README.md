@@ -55,6 +55,42 @@ Boundary is organized as a **monorepo** with 10 independently publishable librar
 
 ## Quick Start
 
+### Try Boundary (Recommended for New Users)
+
+Get started in **3 commands** using the [**boundary-starter**](https://github.com/thijs-creemers/boundary-starter) template:
+
+```bash
+git clone https://github.com/thijs-creemers/boundary-starter
+cd boundary-starter
+
+# Required environment variables for JWT auth / app environment:
+# Customize these values as needed for your setup.
+export JWT_SECRET="change-me-dev-secret-min-32-chars"
+export BND_ENV="development"
+
+clojure -M:repl-clj
+```
+
+In the REPL:
+```clojure
+(require '[integrant.repl :as ig-repl])
+(ig-repl/go)
+;; Visit http://localhost:3000
+```
+
+**What you get:**
+- ✅ SQLite database (zero-config)
+- ✅ HTTP server on port 3000
+- ✅ Complete Integrant system
+- ✅ REPL-driven development
+- ✅ Production-ready Dockerfile
+
+**Next steps:** See the [**full documentation**](https://github.com/thijs-creemers/boundary-docs) or explore the [**5-minute quickstart**](./docs/QUICKSTART.md).
+
+---
+
+### Develop Boundary Framework (For Contributors)
+
 ```bash
 # Prerequisites: JDK and Clojure CLI
 brew install openjdk clojure/tools/clojure  # macOS
