@@ -9,6 +9,7 @@
    All routes require admin authentication (to be integrated with auth system)."
   (:require [boundary.tenant.ports :as tenant-ports]
             [boundary.tenant.schema :as tenant-schema]
+            [boundary.tenant.shell.provisioning :as provisioning]
             [cheshire.core :as json]
             [clojure.tools.logging :as log]
             [malli.core :as m]
@@ -209,20 +210,48 @@
    
    This creates:
    - PostgreSQL schema for tenant
-   - Initial database tables
-   - Seed data (if configured)
+   - Initial database tables (copies structure from public schema)
    
-   Note: Only works with PostgreSQL multi-tenant setup."
-  [_tenant-service]
+   Note: Only works with PostgreSQL multi-tenant setup.
+   Provisioning is idempotent - safe to call multiple times."
+  [tenant-service db-context]
   (fn [request]
     (try
       (let [tenant-id-str (get-in request [:path-params :id])
             tenant-id (parse-tenant-uuid tenant-id-str)]
-        (if-not tenant-id
+        (cond
+          (not tenant-id)
           (error-response 400 "Invalid tenant ID format")
-          ;; TODO: Implement provisioning logic
-          ;; This will be added in Phase 8 Part 5 (Module Integration)
-          (error-response 501 "Tenant provisioning not yet implemented")))
+          
+          (not db-context)
+          (error-response 500 "Database context not available")
+          
+          :else
+          (let [tenant (tenant-ports/get-tenant tenant-service tenant-id)]
+            (if-not tenant
+              (error-response 404 "Tenant not found")
+              (let [result (provisioning/provision-tenant! db-context tenant)]
+                (json-response 200 result))))))
+      
+      (catch clojure.lang.ExceptionInfo e
+        (let [ex-data (ex-data e)]
+          (case (:type ex-data)
+            :not-supported
+            (error-response 501 (:message ex-data) ex-data)
+            
+            :not-found
+            (error-response 404 "Tenant not found" ex-data)
+            
+            :provisioning-error
+            (do
+              (log/error e "Tenant provisioning failed")
+              (error-response 500 "Tenant provisioning failed" ex-data))
+            
+            ;; Default case
+            (do
+              (log/error e "Unexpected error during provisioning")
+              (error-response 500 "Internal server error")))))
+      
       (catch Exception e
         (log/error e "Failed to provision tenant")
         (error-response 500 "Internal server error")))))
@@ -236,6 +265,7 @@
    
    Args:
      tenant-service: ITenantService implementation
+     db-context: Database context (required for provisioning)
      config: Configuration map (reserved for future use)
    
    Returns:
@@ -245,7 +275,7 @@
      {:api [...]}  ; API routes under /api/v1/tenants
    
    All routes require admin authentication (to be integrated)."
-  [tenant-service _config]
+  [tenant-service db-context _config]
   {:api
    [;; Tenant collection endpoint
     {:path "/tenants"
@@ -300,11 +330,11 @@
                       :responses {200 {:description "Tenant activated successfully"}
                                  404 {:description "Tenant not found"}}}}}
     
-    {:path "/tenants/:id/provision"
-     :methods {:post {:handler (provision-tenant-handler tenant-service)
-                      :summary "Provision tenant schema"
-                      :description "Create database schema and seed data for tenant (PostgreSQL only)"
-                      :tags ["tenants"]
-                      :responses {200 {:description "Tenant provisioned successfully"}
-                                 404 {:description "Tenant not found"}
-                                 501 {:description "Not implemented"}}}}}]})
+     {:path "/tenants/:id/provision"
+      :methods {:post {:handler (provision-tenant-handler tenant-service db-context)
+                       :summary "Provision tenant schema"
+                       :description "Create database schema for tenant (PostgreSQL only). Idempotent operation."
+                       :tags ["tenants"]
+                       :responses {200 {:description "Tenant provisioned successfully"}
+                                  404 {:description "Tenant not found"}
+                                  501 {:description "Not supported (requires PostgreSQL)"}}}}}]})

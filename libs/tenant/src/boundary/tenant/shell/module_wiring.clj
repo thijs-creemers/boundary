@@ -36,11 +36,11 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/tenant-routes
-  [_ {:keys [tenant-service config]}]
+  [_ {:keys [tenant-service db-context config]}]
   (log/info "Initializing tenant module routes (normalized format)")
   (require 'boundary.tenant.shell.http)
   (let [tenant-routes-fn (ns-resolve 'boundary.tenant.shell.http 'tenant-routes-normalized)
-        routes (tenant-routes-fn tenant-service (or config {}))]
+        routes (tenant-routes-fn tenant-service db-context (or config {}))]
     (log/info "Tenant module routes initialized successfully"
               {:route-keys (keys routes)
                :api-count (count (:api routes))})
