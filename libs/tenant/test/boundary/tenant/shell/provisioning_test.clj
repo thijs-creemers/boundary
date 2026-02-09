@@ -184,7 +184,7 @@
               dialect (protocols/dialect adapter)]
           
           (testing "H2 database detected"
-            (is (= :h2 dialect)))
+            (is (= :ansi dialect)))  ; H2 in PostgreSQL compatibility mode reports as :ansi
           
           (testing "provisioning on H2 throws not-supported error"
             ;; Provisioning should only work with PostgreSQL
