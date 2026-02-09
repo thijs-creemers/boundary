@@ -99,17 +99,17 @@
     (cond
       ;; Subdomain is always a slug
       subdomain {:type :slug :value subdomain}
-      
+
       ;; JWT could be slug or ID - check format
       jwt-tenant (if (re-matches #"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" jwt-tenant)
                    {:type :id :value jwt-tenant}
                    {:type :slug :value jwt-tenant})
-      
+
       ;; Header could be slug or ID - check format
       header-tenant (if (re-matches #"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" header-tenant)
                       {:type :id :value header-tenant}
                       {:type :slug :value header-tenant})
-      
+
       :else nil)))
 
 ;; =============================================================================
@@ -171,7 +171,7 @@
   (let [cache-key [(:type identifier) (:value identifier)]
         now (System/currentTimeMillis)
         ttl-ms (* 60 60 1000)] ; 1 hour
-    
+
     ;; Check cache
     (if-let [cached (get @cache cache-key)]
       (if (< (- now (:timestamp cached)) ttl-ms)
@@ -258,7 +258,7 @@
                                  cache (create-tenant-cache)}}]
    (fn [request]
      (let [identifier (resolve-tenant-identifier request)]
-       
+
        (if-not identifier
          ;; No tenant identifier found
          (if require-tenant?
@@ -269,12 +269,12 @@
                    :correlation-id (:correlation-id request)}}
            ;; Tenant optional - continue without tenant
            (handler request))
-         
+
          ;; Try to lookup tenant
          (let [cached-tenant (cached-tenant-lookup cache tenant-service identifier)
                tenant (or cached-tenant
                           (lookup-tenant tenant-service identifier))]
-           
+
            (if-not tenant
              ;; Tenant not found in database
              (do
@@ -290,18 +290,18 @@
                          :correlation-id (:correlation-id request)}}
                  ;; Tenant optional - continue without tenant
                  (handler request)))
-             
+
              ;; Tenant found - cache and add to request
              (do
                (when-not cached-tenant
                  (cache-tenant cache identifier tenant))
-               
+
                (log/debug "Tenant resolved"
                           {:tenant-id (:id tenant)
                            :tenant-slug (:slug tenant)
                            :schema-name (:schema-name tenant)
                            :uri (:uri request)})
-               
+
                ;; Add tenant to request and continue
                (handler (assoc request :tenant tenant))))))))))
 
@@ -343,16 +343,16 @@
         (log/debug "Switching to tenant schema"
                    {:tenant-id (:id tenant)
                     :schema-name schema-name})
-        
+
         (try
           ;; Set search_path for this request
           (set-tenant-schema db-context schema-name)
-          
+
           ;; Execute handler in tenant schema context
           (handler request)
-          
+
           (catch Exception e
-            (log/error "Failed to switch tenant schema"
+            (log/error "Failed to execute request in tenant schema"
                        {:tenant-id (:id tenant)
                         :schema-name schema-name
                         :error (.getMessage e)
@@ -360,9 +360,21 @@
             {:status 500
              :headers {"Content-Type" "application/json"}
              :body {:error "Internal server error"
-                    :message "Failed to switch to tenant schema"
-                    :correlation-id (:correlation-id request)}})))
-      
+                    :message "Failed to execute request"
+                    :correlation-id (:correlation-id request)}})
+
+          (finally
+            ;; CRITICAL: Reset search_path before returning connection to pool
+            ;; Without this, next request could inherit tenant schema
+            (try
+              (db/execute-ddl! db-context "SET search_path TO public")
+              (log/debug "Reset search_path to public"
+                         {:tenant-id (:id tenant)})
+              (catch Exception e
+                (log/error e "Failed to reset search_path after request"
+                           {:tenant-id (:id tenant)
+                            :schema-name schema-name}))))))
+
       ;; No tenant - continue without schema switching
       (handler request))))
 

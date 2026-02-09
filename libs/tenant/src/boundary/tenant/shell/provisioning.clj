@@ -22,6 +22,7 @@
   (:require [boundary.platform.shell.adapters.database.common.core :as db]
             [boundary.platform.shell.adapters.database.postgresql.metadata :as pg-metadata]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
+            [boundary.tenant.ports :as ports]
             [clojure.string :as str]
             [clojure.tools.logging :as log]))
 
@@ -47,8 +48,8 @@
                                  not-null (if (:not-null col) " NOT NULL" "")
                                  pk (if (:primary-key col) " PRIMARY KEY" "")
                                  default (if-let [d (:default col)]
-                                          (str " DEFAULT " d)
-                                          "")]
+                                           (str " DEFAULT " d)
+                                           "")]
                              (str col-name " " col-type not-null pk default)))
                          columns)
         columns-str (str/join ",\n  " column-defs)]
@@ -85,13 +86,25 @@
      schema-name: Schema name to check (string)
    
    Returns:
-     Boolean - true if schema exists"
+     Boolean - true if schema exists, false if not found or query fails
+   
+   Error Handling:
+     - Returns false if database query fails
+     - Returns false if result is nil (database connection issues)
+     - Logs errors for troubleshooting"
   [ctx schema-name]
-  (let [query ["SELECT COUNT(*) as count 
-                FROM information_schema.schemata 
-                WHERE schema_name = ?" schema-name]
-        result (db/execute-one! ctx query)]
-    (> (:count result) 0)))
+  (try
+    (let [query ["SELECT COUNT(*) as count 
+                  FROM information_schema.schemata 
+                  WHERE schema_name = ?" schema-name]
+          result (db/execute-one! ctx query)]
+      (and result (> (:count result) 0)))
+    (catch Exception e
+      (log/error e "Failed to check schema existence"
+                 {:schema-name schema-name
+                  :error-type (type e)
+                  :error-message (.getMessage e)})
+      false)))
 
 (defn- create-schema!
   "Create PostgreSQL schema if it doesn't exist.
@@ -231,14 +244,14 @@
   (let [adapter (:adapter ctx)
         dialect (protocols/dialect adapter)
         schema-name (:schema-name tenant-entity)]
-    
+
     ;; Validate inputs
     (when-not schema-name
       (throw (ex-info "Tenant entity missing :schema-name"
                       {:type :validation-error
                        :field :schema-name
                        :tenant-entity tenant-entity})))
-    
+
     (when-not (= :postgresql dialect)
       (log/warn "Tenant provisioning only supported for PostgreSQL, skipping"
                 {:dialect dialect :schema-name schema-name})
@@ -246,7 +259,7 @@
                       {:type :not-supported
                        :dialect dialect
                        :message "Tenant provisioning requires PostgreSQL database"})))
-    
+
     ;; Check if already provisioned
     (if (schema-exists? ctx schema-name)
       (do
@@ -262,17 +275,17 @@
                             {:type :provisioning-error
                              :schema-name schema-name
                              :validation validation})))))
-      
+
       ;; Provision new schema
       (try
         (log/info "Starting tenant provisioning" {:schema-name schema-name})
-        
+
         ;; Create schema
         (create-schema! ctx schema-name)
-        
+
         ;; Copy structure
         (let [tables (copy-schema-structure! ctx schema-name)]
-          
+
           ;; Validate
           (let [validation (validate-provisioning ctx schema-name)]
             (if (:valid? validation)
@@ -288,7 +301,7 @@
                               {:type :provisioning-error
                                :schema-name schema-name
                                :validation validation})))))
-        
+
         (catch Exception e
           (log/error e "Tenant provisioning failed" {:schema-name schema-name})
           ;; Attempt cleanup on failure
@@ -298,7 +311,7 @@
             (catch Exception cleanup-e
               (log/error cleanup-e "Failed to cleanup after provisioning failure"
                          {:schema-name schema-name})))
-          
+
           (throw (ex-info "Tenant provisioning failed"
                           {:type :provisioning-error
                            :schema-name schema-name
@@ -325,18 +338,18 @@
      ex-info with :type :deprovisioning-error if operation fails"
   [ctx tenant-entity]
   (let [schema-name (:schema-name tenant-entity)]
-    
+
     (when-not schema-name
       (throw (ex-info "Tenant entity missing :schema-name"
                       {:type :validation-error
                        :field :schema-name
                        :tenant-entity tenant-entity})))
-    
+
     (if-not (schema-exists? ctx schema-name)
       {:success? true
        :schema-name schema-name
        :message "Tenant schema does not exist (already deprovisioned)"}
-      
+
       (try
         (log/warn "Deprovisioning tenant schema (destructive operation)"
                   {:schema-name schema-name})
@@ -346,7 +359,7 @@
         {:success? true
          :schema-name schema-name
          :message "Tenant schema deprovisioned successfully"}
-        
+
         (catch Exception e
           (log/error e "Tenant deprovisioning failed" {:schema-name schema-name})
           (throw (ex-info "Tenant deprovisioning failed"
@@ -389,7 +402,7 @@
     (throw (ex-info "Tenant schema context only supported for PostgreSQL"
                     {:type :unsupported-database
                      :database-type (:database-type ctx)})))
-  
+
   (let [datasource (:datasource ctx)]
     (db/with-transaction [tx datasource]
       (try
@@ -397,12 +410,12 @@
         ;; Format: "SET search_path TO tenant_schema, public"
         ;; This ensures tenant tables are found first, with public as fallback
         (db/execute-query! tx [(str "SET search_path TO " tenant-schema-name ", public")])
-        (log/debug "Set search_path for transaction" 
+        (log/debug "Set search_path for transaction"
                    {:schema tenant-schema-name})
-        
+
         ;; Execute function in tenant context
         (f tx)
-        
+
         (catch Exception e
           (log/error e "Error executing in tenant schema context"
                      {:schema tenant-schema-name
@@ -412,3 +425,29 @@
                            :schema-name tenant-schema-name
                            :cause (.getMessage e)}
                           e)))))))
+
+;; =============================================================================
+;; Tenant Schema Provider (Protocol Implementation)
+;; =============================================================================
+
+(defrecord TenantSchemaProvider []
+  ports/ITenantSchemaProvider
+
+  (with-tenant-schema [_ db-ctx schema-name f]
+    (with-tenant-schema db-ctx schema-name f)))
+
+(defn create-tenant-schema-provider
+  "Create a new tenant schema provider instance.
+   
+   This provider implements the ITenantSchemaProvider protocol, allowing
+   other modules (like jobs) to execute code in tenant schema contexts
+   without directly depending on implementation details.
+   
+   Usage:
+     (def provider (create-tenant-schema-provider))
+     (ports/with-tenant-schema provider db-ctx \"tenant_acme_corp\"
+       (fn [tx]
+         (jdbc/execute! tx [\"SELECT * FROM users\"])))"
+  []
+  (->TenantSchemaProvider))
+
