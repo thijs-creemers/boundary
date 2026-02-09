@@ -1,17 +1,14 @@
 (ns boundary.tenant.shell.persistence
   (:require [boundary.core.utils.type-conversion :as type-conversion]
             [boundary.platform.shell.adapters.database.common.core :as db]
-            [boundary.platform.shell.adapters.database.protocols :as protocols]
             [boundary.platform.shell.persistence-interceptors :as persistence-interceptors]
             [boundary.tenant.ports :as ports]
             [cheshire.core]
-            [clojure.set]
-            [clojure.tools.logging :as log])
-  (:import [java.util UUID]))
+            [clojure.set]))
 
 (defn- tenant-entity->db
   [ctx tenant-entity]
-  (let [adapter (:adapter ctx)]
+  (let [_adapter (:adapter ctx)]
     (-> tenant-entity
         (update :id type-conversion/uuid->string)
         (update :status type-conversion/keyword->string)
@@ -27,7 +24,7 @@
 (defn- db->tenant-entity
   [ctx db-record]
   (when db-record
-    (let [adapter (:adapter ctx)]
+    (let [_adapter (:adapter ctx)]
       (-> db-record
           (clojure.set/rename-keys {:schema_name :schema-name
                                     :created_at :created-at
@@ -43,7 +40,7 @@
 (defrecord TenantRepository [ctx logger error-reporter]
   ports/ITenantRepository
 
-  (find-tenant-by-id [this tenant-id]
+  (find-tenant-by-id [_this tenant-id]
     (persistence-interceptors/execute-persistence-operation
      logger error-reporter
      "find-tenant-by-id"
@@ -54,7 +51,7 @@
                                            (str tenant-id)])]
          (db->tenant-entity ctx record)))))
 
-  (find-tenant-by-slug [this slug]
+  (find-tenant-by-slug [_this slug]
     (persistence-interceptors/execute-persistence-operation
      logger error-reporter
      "find-tenant-by-slug"
@@ -65,7 +62,7 @@
                                            slug])]
          (db->tenant-entity ctx record)))))
 
-  (find-all-tenants [this {:keys [limit offset include-deleted?] :or {limit 50 offset 0 include-deleted? false}}]
+  (find-all-tenants [_this {:keys [limit offset include-deleted?] :or {limit 50 offset 0 include-deleted? false}}]
     (persistence-interceptors/execute-persistence-operation
      logger error-reporter
      "find-all-tenants"
@@ -77,7 +74,7 @@
               records (db/execute-query! ctx [query limit offset])]
           (mapv #(db->tenant-entity ctx %) records)))))
 
-  (create-tenant [this tenant-entity]
+  (create-tenant [_this tenant-entity]
     (persistence-interceptors/execute-persistence-operation
      logger error-reporter
      "create-tenant"
@@ -97,7 +94,7 @@
                           (:updated_at db-record)])
          tenant-entity))))
 
-  (update-tenant [this tenant-entity]
+  (update-tenant [_this tenant-entity]
     (persistence-interceptors/execute-persistence-operation
      logger error-reporter
      "update-tenant"
@@ -116,7 +113,7 @@
                           (:id db-record)])
          tenant-entity))))
 
-  (delete-tenant [this tenant-id]
+  (delete-tenant [_this tenant-id]
     (persistence-interceptors/execute-persistence-operation
      logger error-reporter
      "delete-tenant"
@@ -127,7 +124,7 @@
                         (str tenant-id)])
        nil)))
 
-  (tenant-slug-exists? [this slug]
+  (tenant-slug-exists? [_this slug]
     (persistence-interceptors/execute-persistence-operation
      logger error-reporter
      "tenant-slug-exists?"
@@ -136,7 +133,7 @@
        (boolean (db/execute-one! ctx
                                 ["SELECT 1 FROM tenants WHERE slug = ?" slug])))))
 
-  (create-tenant-schema [this schema-name]
+  (create-tenant-schema [_this schema-name]
     (persistence-interceptors/execute-persistence-operation
      logger error-reporter
      "create-tenant-schema"
@@ -145,7 +142,7 @@
         (db/execute-ddl! ctx (str "CREATE SCHEMA IF NOT EXISTS " schema-name))
         nil)))
 
-  (drop-tenant-schema [this schema-name]
+  (drop-tenant-schema [_this schema-name]
     (persistence-interceptors/execute-persistence-operation
      logger error-reporter
      "drop-tenant-schema"

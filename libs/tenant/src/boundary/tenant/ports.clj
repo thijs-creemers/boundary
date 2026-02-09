@@ -1,5 +1,4 @@
-(ns boundary.tenant.ports
-  (:import (java.util UUID)))
+(ns boundary.tenant.ports)
 
 (defprotocol ITenantRepository
   (find-tenant-by-id [this tenant-id])

@@ -20,10 +20,8 @@
             [boundary.platform.shell.adapters.database.common.core :as db]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
             [boundary.platform.shell.persistence-interceptors :as persistence-interceptors]
-            [boundary.user.schema :as user-schema]
             [cheshire.core]
-            [clojure.set]
-            [clojure.tools.logging :as log])
+            [clojure.set])
   (:import [java.util UUID]))
 
 (defprotocol IAuthUserRepository

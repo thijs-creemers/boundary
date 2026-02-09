@@ -14,7 +14,7 @@
   (str "tenant_" (str/replace slug "-" "_")))
 
 (defn prepare-tenant
-  [{:keys [slug name settings] :as tenant-input} tenant-id now]
+  [{:keys [slug name settings]} tenant-id now]
   (let [schema-name (slug->schema-name slug)]
     {:id tenant-id
      :slug slug

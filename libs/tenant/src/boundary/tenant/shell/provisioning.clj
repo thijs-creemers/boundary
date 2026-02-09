@@ -284,11 +284,10 @@
         (create-schema! ctx schema-name)
 
         ;; Copy structure
-        (let [tables (copy-schema-structure! ctx schema-name)]
-
-          ;; Validate
-          (let [validation (validate-provisioning ctx schema-name)]
-            (if (:valid? validation)
+        (let [tables (copy-schema-structure! ctx schema-name)
+              ;; Validate
+              validation (validate-provisioning ctx schema-name)]
+          (if (:valid? validation)
               (do
                 (log/info "Tenant provisioning completed successfully"
                           {:schema-name schema-name
@@ -300,7 +299,7 @@
               (throw (ex-info "Tenant provisioning validation failed"
                               {:type :provisioning-error
                                :schema-name schema-name
-                               :validation validation})))))
+                               :validation validation}))))
 
         (catch Exception e
           (log/error e "Tenant provisioning failed" {:schema-name schema-name})
