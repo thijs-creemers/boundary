@@ -142,6 +142,10 @@ Core infrastructure for web applications: database, HTTP routing, pagination, se
 
 ### Multi-Tenancy
 
+#### Middleware Integration
+
+The platform includes production-ready multi-tenant middleware that automatically resolves tenants and switches database schemas:
+
 ```clojure
 (ns myapp.routes
   (:require [boundary.platform.shell.interfaces.http.tenant-middleware :as tenant-mw]))
@@ -168,6 +172,102 @@ Core infrastructure for web applications: database, HTTP routing, pagination, se
   (let [tenant (:tenant request)]
     ;; Queries automatically use tenant schema
     {:status 200 :body {:tenant-name (:name tenant)}}))
+```
+
+#### Automatic HTTP Integration
+
+When using the Boundary framework, tenant middleware is automatically integrated into the HTTP pipeline if `tenant-service` is available:
+
+```clojure
+;; In config.edn - tenant module is automatically wired
+{:boundary/tenant-repository {...}
+ :boundary/tenant-service {...}
+ :boundary/http-handler
+ {:tenant-service #ig/ref :boundary/tenant-service  ; Auto-injects middleware
+  :db-context #ig/ref :boundary/db-context}}
+```
+
+The middleware is automatically added to the HTTP handler during system initialization, ensuring all requests pass through tenant resolution before reaching business logic.
+
+#### Tenant Resolution Flow
+
+```
+1. HTTP Request arrives (e.g., https://acme-corp.myapp.com/api/users)
+2. Tenant middleware extracts "acme-corp" from subdomain
+3. Tenant service looks up tenant by slug
+4. If PostgreSQL: Execute SET search_path TO tenant_acme_corp
+5. Request continues with :tenant in request map
+6. All database queries automatically use tenant schema
+7. Response returned
+```
+
+#### Caching
+
+Tenant lookups are cached for 1 hour (TTL: 3600000ms) to minimize database queries. Cache is stored in-memory and cleared when tenant is updated.
+
+#### Error Handling
+
+- **Tenant not found**: Returns 404 if `:require-tenant? true`, continues if `false`
+- **No tenant identifier**: Returns 404 if `:require-tenant? true`, continues if `false`
+- **Schema switch failure**: Logs error and continues (connection remains in previous schema)
+
+#### PostgreSQL Schema Switching
+
+For multi-tenant PostgreSQL setups, the middleware automatically switches schemas using `SET search_path`:
+
+```sql
+-- Before request: search_path = public
+-- After middleware: search_path = tenant_acme_corp
+-- All queries now use tenant_acme_corp schema
+```
+
+**Important**: Schema switching is per-connection (session-level). Each HTTP request gets an isolated database connection from the pool, ensuring tenant isolation.
+
+#### Testing Middleware
+
+See `libs/platform/test/boundary/platform/shell/interfaces/http/tenant_middleware_test.clj` for comprehensive test examples covering:
+- Subdomain, JWT, and header resolution
+- Priority handling (subdomain > JWT > headers)
+- Caching behavior
+- Schema switching
+- Error scenarios
+
+#### Tenant Management API
+
+The platform automatically provides a REST API for tenant management when the tenant module is included:
+
+**Endpoints** (under `/api/v1/tenants`):
+```bash
+# List all tenants (with filtering and pagination)
+GET /api/v1/tenants?limit=20&offset=0&status=active
+
+# Create new tenant
+POST /api/v1/tenants
+Content-Type: application/json
+{"name": "Acme Corp", "slug": "acme-corp", "status": "active"}
+
+# Get tenant by ID
+GET /api/v1/tenants/:id
+
+# Update tenant
+PUT /api/v1/tenants/:id
+Content-Type: application/json
+{"name": "Acme Corporation", "status": "active"}
+
+# Delete tenant (soft delete)
+DELETE /api/v1/tenants/:id
+
+# Suspend tenant (prevents access)
+POST /api/v1/tenants/:id/suspend
+
+# Activate tenant
+POST /api/v1/tenants/:id/activate
+
+# Provision tenant schema (PostgreSQL only)
+POST /api/v1/tenants/:id/provision
+```
+
+All tenant endpoints return JSON responses and include proper error handling (400, 404, 500 status codes).
 ```
 
 ### Configuration
