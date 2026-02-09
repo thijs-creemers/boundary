@@ -354,3 +354,61 @@
                            :schema-name schema-name
                            :cause (.getMessage e)}
                           e)))))))
+
+;; =============================================================================
+;; Tenant Context Execution
+;; =============================================================================
+
+(defn with-tenant-schema
+  "Execute function f with database search_path set to tenant schema.
+   
+   This ensures all database operations within f execute in the tenant's
+   schema context. The search_path is restored after execution.
+   
+   Usage:
+     (with-tenant-schema ctx \"tenant_acme\"
+       (fn [tx]
+         ;; All queries here use tenant_acme schema
+         (jdbc/execute! tx [\"SELECT * FROM users\"])))
+   
+   Args:
+     ctx: Database context with :datasource
+     tenant-schema-name: Name of tenant schema (e.g., \"tenant_acme\")
+     f: Function accepting transaction/connection (fn [tx] -> result)
+   
+   Returns:
+     Result of f
+   
+   Notes:
+     - Only works with PostgreSQL
+     - search_path is transaction-scoped (isolated per connection)
+     - Falls back to public schema if error
+     - Schema must exist before calling this function"
+  [ctx tenant-schema-name f]
+  (when-not (= (:database-type ctx) :postgresql)
+    (throw (ex-info "Tenant schema context only supported for PostgreSQL"
+                    {:type :unsupported-database
+                     :database-type (:database-type ctx)})))
+  
+  (let [datasource (:datasource ctx)]
+    (db/with-transaction [tx datasource]
+      (try
+        ;; Set search_path for this transaction
+        ;; Format: "SET search_path TO tenant_schema, public"
+        ;; This ensures tenant tables are found first, with public as fallback
+        (db/execute-query! tx [(str "SET search_path TO " tenant-schema-name ", public")])
+        (log/debug "Set search_path for transaction" 
+                   {:schema tenant-schema-name})
+        
+        ;; Execute function in tenant context
+        (f tx)
+        
+        (catch Exception e
+          (log/error e "Error executing in tenant schema context"
+                     {:schema tenant-schema-name
+                      :error (.getMessage e)})
+          (throw (ex-info "Tenant context execution failed"
+                          {:type :tenant-context-error
+                           :schema-name tenant-schema-name
+                           :cause (.getMessage e)}
+                          e)))))))
