@@ -53,13 +53,13 @@
            (filter #(contains? matching-ids (get-in % [:connection :id])))
            (mapv :ws-adapter))))
 
-  (all-connections [this]
+  (all-connections [_this]
     ;; Return all ws-adapters
     (->> @state
          vals
          (mapv :ws-adapter)))
 
-  (connection-count [this]
+  (connection-count [_this]
     (count @state))
 
   (find-connection [_this connection-id]
