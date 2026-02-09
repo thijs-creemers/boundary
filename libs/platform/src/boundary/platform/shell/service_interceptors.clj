@@ -142,7 +142,7 @@
   {:name :service-error-handling
    :error (fn [{:keys [operation-name params system context] :as ctx}]
             (when-let [error-reporter (:error-reporter system)]
-              (let [error (:error ctx)]
+              (when-let [error (:error ctx)]
                 ;; Add error breadcrumb
                 (error-reporting/add-breadcrumb
                  error-reporter
