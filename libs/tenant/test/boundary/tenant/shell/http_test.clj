@@ -452,7 +452,7 @@
 
 (deftest provision-tenant-handler-test
   (testing "returns 501 not implemented"
-    (let [handler (tenant-http/provision-tenant-handler *mock-tenant-service*)
+    (let [handler (tenant-http/provision-tenant-handler *mock-tenant-service* nil)
           request (-> (make-request :post "/api/v1/tenants/00000000-0000-0000-0000-000000000001/provision")
                       (assoc :path-params {:id "00000000-0000-0000-0000-000000000001"}))
           response (handler request)
@@ -461,7 +461,7 @@
       (is (= "Tenant provisioning not yet implemented" (:error body)))))
 
   (testing "returns 400 for invalid UUID format"
-    (let [handler (tenant-http/provision-tenant-handler *mock-tenant-service*)
+    (let [handler (tenant-http/provision-tenant-handler *mock-tenant-service* nil)
           request (-> (make-request :post "/api/v1/tenants/invalid-uuid/provision")
                       (assoc :path-params {:id "invalid-uuid"}))
           response (handler request)
