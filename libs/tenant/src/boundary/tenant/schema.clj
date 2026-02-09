@@ -58,6 +58,28 @@
      [:custom-domain {:optional true} :string]]]])
 
 ;; =============================================================================
+;; Service Layer Schemas (For internal use)
+;; =============================================================================
+
+(def TenantInput
+  "Schema for creating a new tenant (service layer input).
+   Used by create-new-tenant in service layer."
+  [:map {:title "Tenant Input"}
+   [:slug [:re {:error/message "Invalid slug"} slug-regex]]
+   [:name [:string {:min 1 :max 255}]]
+   [:status {:optional true} [:enum :active :suspended]]
+   [:settings {:optional true} TenantSettings]])
+
+(def TenantUpdate
+  "Schema for updating an existing tenant (service layer input).
+   Used by update-existing-tenant in service layer."
+  [:map {:title "Tenant Update"}
+   [:name {:optional true} [:string {:min 1 :max 255}]]
+   [:slug {:optional true} [:re {:error/message "Invalid slug"} slug-regex]]
+   [:status {:optional true} [:enum :active :suspended :deleted]]
+   [:settings {:optional true} TenantSettings]])
+
+;; =============================================================================
 ;; API Request Schemas
 ;; =============================================================================
 
