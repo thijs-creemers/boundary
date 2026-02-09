@@ -20,7 +20,7 @@
 (defrecord RingWebSocketAdapter [connection-id ws-channel]
   ports/IWebSocketConnection
 
-  (send-message [this message]
+  (send-message [_this message]
     ;; Encode message to JSON and send as text frame
     (try
       (let [json-message (json/generate-string message)]
@@ -66,7 +66,7 @@
   ;; open-state is an atom of boolean
   ports/IWebSocketConnection
 
-  (send-message [this message]
+  (send-message [_this message]
     (when @open-state
       (swap! sent-messages conj message))
     nil)

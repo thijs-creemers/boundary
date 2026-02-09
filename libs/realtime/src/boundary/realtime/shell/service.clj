@@ -20,8 +20,7 @@
             [boundary.realtime.core.connection :as conn]
             [boundary.realtime.core.auth :as auth]
             [clojure.tools.logging :as log])
-  (:import (java.time Instant)
-           (java.util UUID)))
+  (:import (java.time Instant)))
 
 ;; =============================================================================
 ;; Helper Functions (External Dependencies)
@@ -32,11 +31,6 @@
   []
   (Instant/now))
 
-(defn- generate-connection-id
-  "Generate UUID for new connection. Shell layer responsibility."
-  []
-  (UUID/randomUUID))
-
 ;; =============================================================================
 ;; Realtime Service (Shell Layer)
 ;; =============================================================================
@@ -44,7 +38,7 @@
 (defrecord RealtimeService [connection-registry jwt-verifier pubsub-manager logger error-reporter]
   ports/IRealtimeService
 
-  (connect [this ws-connection query-params]
+  (connect [_this ws-connection query-params]
     ;; Shell: I/O and side effects for connection establishment
     (try
       ;; 1. Extract token from query params (pure core function)
@@ -91,7 +85,7 @@
                         {:type :internal-error
                          :message (.getMessage e)})))))
 
-  (disconnect [this connection-id]
+  (disconnect [_this connection-id]
     ;; Shell: Clean up connection
     (try
       ;; 1. Get connection for logging
@@ -117,7 +111,7 @@
         (log/warn e "Error during WebSocket disconnection"
                   {:connection-id connection-id}))))
 
-  (send-to-user [this user-id message]
+  (send-to-user [_this user-id message]
     ;; Shell: Route message to user's connections
     (try
       ;; 1. Add timestamp if missing (shell responsibility)
@@ -149,7 +143,7 @@
                     :message-type (:type message)})
         0)))
 
-  (send-to-role [this role message]
+  (send-to-role [_this role message]
     ;; Shell: Route message to connections with role
     (try
       ;; 1. Add timestamp if missing
@@ -181,7 +175,7 @@
                     :message-type (:type message)})
         0)))
 
-  (broadcast [this message]
+  (broadcast [_this message]
     ;; Shell: Broadcast to all connections
     (try
       ;; 1. Add timestamp if missing
@@ -211,7 +205,7 @@
                    {:message-type (:type message)})
         0)))
 
-  (send-to-connection [this connection-id message]
+  (send-to-connection [_this connection-id message]
     ;; Shell: Send to specific connection
     (try
       ;; 1. Add timestamp if missing
@@ -269,7 +263,7 @@
 
         (doseq [connection-id subscriber-ids]
           ;; Get connection from registry to access ws-adapter
-          (when-let [connection (ports/find-connection connection-registry connection-id)]
+          (when-let [_connection (ports/find-connection connection-registry connection-id)]
             ;; Note: need to add find-ws-adapter method to registry protocol
             ;; For now, use send-to-connection which already handles this
             (when (ports/send-to-connection this connection-id message-with-timestamp)
