@@ -82,7 +82,7 @@
        user-id: UUID of the user
      
      Returns:
-       New failed login count")
+       true if updated")
   
   (reset-failed-login [this user-id]
     "Reset failed login count to 0.
@@ -311,13 +311,9 @@
              query {:update :auth_users
                     :set {:failed_login_count [:+ :failed_login_count 1]
                           :updated_at (type-conversion/instant->string now)}
-                    :where [:= :id (type-conversion/uuid->string user-id)]}]
-         (db/execute-update! ctx query)
-         (let [result (db/execute-one! ctx
-                                       {:select [:failed_login_count]
-                                        :from [:auth_users]
-                                        :where [:= :id (type-conversion/uuid->string user-id)]})]
-           (:failed_login_count result))))
+                    :where [:= :id (type-conversion/uuid->string user-id)]}
+             affected-rows (db/execute-update! ctx query)]
+         (> affected-rows 0)))
      {:db-ctx ctx}))
   
   (reset-failed-login [_ user-id]
