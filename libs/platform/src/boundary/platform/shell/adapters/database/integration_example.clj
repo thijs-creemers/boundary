@@ -137,6 +137,8 @@
    Returns: Query results or throws exception"
   [adapter-key query-map]
   (if-let [db (get-database adapter-key)]
+    ;; db is already a proper context map with :adapter and :pool (which is the datasource)
+    ;; Just rename :pool to :datasource for the db-core API
     (db-core/execute-query! {:adapter (:adapter db) :datasource (:pool db)} query-map)
     (throw (ex-info "Database adapter not found or not initialized"
                     {:adapter-key adapter-key

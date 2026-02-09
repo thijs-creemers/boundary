@@ -51,14 +51,36 @@
 ^{:unit true}
 (deftest provision-tenant-validation-test
   (testing "rejects nil tenant entity"
-    (let [ctx {:adapter {:dialect :postgresql}
+    (let [mock-adapter (reify protocols/DBAdapter
+                         (dialect [_] :postgresql)
+                         (jdbc-driver [_] "org.postgresql.Driver")
+                         (jdbc-url [_ _] "jdbc:postgresql://localhost:5432/test")
+                         (pool-defaults [_] {})
+                         (init-connection! [_ _ _] nil)
+                         (build-where [_ _] [])
+                         (boolean->db [_ _] 1)
+                         (db->boolean [_ _] true)
+                         (table-exists? [_ _ _] false)
+                         (get-table-info [_ _ _] []))
+          ctx {:adapter mock-adapter
                :datasource nil}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Tenant entity missing :schema-name"
                             (sut/provision-tenant! ctx nil)))))
   
   (testing "rejects tenant entity without schema-name"
-    (let [ctx {:adapter {:dialect :postgresql}
+    (let [mock-adapter (reify protocols/DBAdapter
+                         (dialect [_] :postgresql)
+                         (jdbc-driver [_] "org.postgresql.Driver")
+                         (jdbc-url [_ _] "jdbc:postgresql://localhost:5432/test")
+                         (pool-defaults [_] {})
+                         (init-connection! [_ _ _] nil)
+                         (build-where [_ _] [])
+                         (boolean->db [_ _] 1)
+                         (db->boolean [_ _] true)
+                         (table-exists? [_ _ _] false)
+                         (get-table-info [_ _ _] []))
+          ctx {:adapter mock-adapter
                :datasource nil}
           tenant {:name "Test Tenant"}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
@@ -109,14 +131,36 @@
 ^{:unit true}
 (deftest deprovision-tenant-validation-test
   (testing "rejects nil tenant entity"
-    (let [ctx {:adapter {:dialect :postgresql}
+    (let [mock-adapter (reify protocols/DBAdapter
+                         (dialect [_] :postgresql)
+                         (jdbc-driver [_] "org.postgresql.Driver")
+                         (jdbc-url [_ _] "jdbc:postgresql://localhost:5432/test")
+                         (pool-defaults [_] {})
+                         (init-connection! [_ _ _] nil)
+                         (build-where [_ _] [])
+                         (boolean->db [_ _] 1)
+                         (db->boolean [_ _] true)
+                         (table-exists? [_ _ _] false)
+                         (get-table-info [_ _ _] []))
+          ctx {:adapter mock-adapter
                :datasource nil}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Tenant entity missing :schema-name"
                             (sut/deprovision-tenant! ctx nil)))))
   
   (testing "rejects tenant entity without schema-name"
-    (let [ctx {:adapter {:dialect :postgresql}
+    (let [mock-adapter (reify protocols/DBAdapter
+                         (dialect [_] :postgresql)
+                         (jdbc-driver [_] "org.postgresql.Driver")
+                         (jdbc-url [_ _] "jdbc:postgresql://localhost:5432/test")
+                         (pool-defaults [_] {})
+                         (init-connection! [_ _ _] nil)
+                         (build-where [_ _] [])
+                         (boolean->db [_ _] 1)
+                         (db->boolean [_ _] true)
+                         (table-exists? [_ _ _] false)
+                         (get-table-info [_ _ _] []))
+          ctx {:adapter mock-adapter
                :datasource nil}
           tenant {:name "Test Tenant"}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
