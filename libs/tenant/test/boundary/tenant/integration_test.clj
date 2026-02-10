@@ -253,7 +253,13 @@
       
       ;; 5. Verify tenant can be retrieved
       (let [retrieved-tenant (tenant-ports/get-tenant *tenant-service* tenant-id)]
-        (is (= tenant retrieved-tenant) "Tenant should be retrievable")))))
+        ;; Compare entities excluding timestamp fields (database round-trip loses nanosecond precision)
+        (is (= (dissoc tenant :created-at :updated-at)
+               (dissoc retrieved-tenant :created-at :updated-at))
+            "Tenant data should match (excluding timestamps)")
+        ;; Verify timestamps exist (presence check, not exact equality)
+        (is (some? (:created-at retrieved-tenant)) "Should have created-at timestamp")
+        (is (some? (:updated-at retrieved-tenant)) "Should have updated-at timestamp")))))
 
 ;; =============================================================================
 ;; Test 2: Multi-Tenant Isolation
