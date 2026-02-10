@@ -343,14 +343,12 @@
 (deftest publish-to-topic-without-subscribers-test
   (testing "publishing message to topic with no subscribers"
     (let [pubsub-manager (pubsub-mgr/create-pubsub-manager)
-          {:keys [service]} (create-test-service pubsub-manager)]
+          {:keys [service]} (create-test-service pubsub-manager)
+          message {:type "test" :content "test"}
+          subscriber-count (ports/publish-to-topic service "empty-topic" message)]
 
-      ;; Publish to topic with no subscribers
-      (let [message {:type "test" :content "test"}
-            subscriber-count (ports/publish-to-topic service "empty-topic" message)
-
-            _ (testing "returns 0 subscribers"
-                (is (= 0 subscriber-count)))]))))
+      (testing "returns 0 subscribers"
+        (is (= 0 subscriber-count))))))
 
 (deftest publish-to-topic-partial-subscribers-test
   (testing "publishing to topic with only some connections subscribed"
@@ -406,21 +404,19 @@
 (deftest service-without-pubsub-manager-test
   (testing "service works without pubsub manager (backward compatibility)"
     (let [{:keys [service]} (create-test-service nil)
-          ws-adapter (create-test-ws-adapter)]
+          ws-adapter (create-test-ws-adapter)
+          conn-id (ports/connect service ws-adapter {"token" "valid-token"})]
 
-      ;; Should be able to connect and send messages normally
-      (let [conn-id (ports/connect service ws-adapter {"token" "valid-token"})
+      (testing "connection established"
+        (is (uuid? conn-id)))
 
-            _ (testing "connection established"
-                (is (uuid? conn-id)))
+      (testing "can send to user"
+        (let [sent-count (ports/send-to-user service test-user-id {:type "test"})]
+          (is (= 1 sent-count))))
 
-            _ (testing "can send to user"
-                (let [sent-count (ports/send-to-user service test-user-id {:type "test"})]
-                  (is (= 1 sent-count))))
-
-            _ (testing "can disconnect"
-                (ports/disconnect service conn-id)
-                (is true))]))))
+      (testing "can disconnect"
+        (ports/disconnect service conn-id)
+        (is true)))))
 
 (deftest publish-adds-timestamp-test
   (testing "publish-to-topic adds timestamp if missing"
