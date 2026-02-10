@@ -45,11 +45,14 @@
      :find-tenant-by-id
      {:tenant-id tenant-id}
      (fn [{:keys [params]}]
-       (let [tenant-id (:tenant-id params)]
-         (when-let [record (db/execute-one! ctx
-                                            ["SELECT * FROM tenants WHERE id = ? AND deleted_at IS NULL"
-                                             (str tenant-id)])]
-           (db->tenant-entity ctx record))))
+       (let [tenant-id (:tenant-id params)
+             query {:select [:*]
+                    :from [:tenants]
+                    :where [:and
+                            [:= :id (type-conversion/uuid->string tenant-id)]
+                            [:is :deleted_at nil]]}
+             result (db/execute-one! ctx query)]
+         (db->tenant-entity ctx result)))
      ctx))
 
   (find-tenant-by-slug [_this slug]
@@ -57,11 +60,14 @@
      :find-tenant-by-slug
      {:slug slug}
      (fn [{:keys [params]}]
-       (let [slug (:slug params)]
-         (when-let [record (db/execute-one! ctx
-                                            ["SELECT * FROM tenants WHERE slug = ? AND deleted_at IS NULL"
-                                             slug])]
-           (db->tenant-entity ctx record))))
+       (let [slug (:slug params)
+             query {:select [:*]
+                    :from [:tenants]
+                    :where [:and
+                            [:= :slug slug]
+                            [:is :deleted_at nil]]}
+             result (db/execute-one! ctx query)]
+         (db->tenant-entity ctx result)))
      ctx))
 
   (find-all-tenants [_this {:keys [limit offset include-deleted?] :or {limit 50 offset 0 include-deleted? false}}]
@@ -70,10 +76,13 @@
      {:limit limit :offset offset :include-deleted? include-deleted?}
      (fn [{:keys [params]}]
        (let [{:keys [limit offset include-deleted?]} params
-             query (if include-deleted?
-                     "SELECT * FROM tenants ORDER BY created_at DESC LIMIT ? OFFSET ?"
-                     "SELECT * FROM tenants WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT ? OFFSET ?")
-             records (db/execute-query! ctx [query limit offset])]
+             query (cond-> {:select [:*]
+                            :from [:tenants]
+                            :order-by [[:created_at :desc]]
+                            :limit limit
+                            :offset offset}
+                     (not include-deleted?) (assoc :where [:is :deleted_at nil]))
+             records (db/execute-query! ctx query)]
          (mapv #(db->tenant-entity ctx %) records)))
      ctx))
 
@@ -82,18 +91,10 @@
      :create-tenant
      {:tenant-id (:id tenant-entity) :slug (:slug tenant-entity)}
      (fn [{:keys [params]}]
-       (let [db-record (tenant-entity->db ctx tenant-entity)]
-         (db/execute-one! ctx
-                         ["INSERT INTO tenants (id, slug, name, schema_name, status, settings, created_at, updated_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-                          (:id db-record)
-                          (:slug db-record)
-                          (:name db-record)
-                          (:schema_name db-record)
-                          (:status db-record)
-                          (:settings db-record)
-                          (:created_at db-record)
-                          (:updated_at db-record)])
+       (let [db-record (tenant-entity->db ctx tenant-entity)
+             query {:insert-into :tenants
+                    :values [db-record]}
+             _ (db/execute-update! ctx query)]
          tenant-entity))
      ctx))
 
@@ -102,17 +103,12 @@
      :update-tenant
      {:tenant-id (:id tenant-entity)}
      (fn [{:keys [params]}]
-       (let [db-record (tenant-entity->db ctx tenant-entity)]
-         (db/execute-one! ctx
-                         ["UPDATE tenants 
-                           SET name = ?, status = ?, settings = ?, updated_at = ?, deleted_at = ?
-                           WHERE id = ?"
-                          (:name db-record)
-                          (:status db-record)
-                          (:settings db-record)
-                          (:updated_at db-record)
-                          (:deleted_at db-record)
-                          (:id db-record)])
+       (let [db-record (tenant-entity->db ctx tenant-entity)
+             updates (select-keys db-record [:name :status :settings :updated_at :deleted_at])
+             query {:update :tenants
+                    :set updates
+                    :where [:= :id (:id db-record)]}
+             _ (db/execute-update! ctx query)]
          tenant-entity))
      ctx))
 
@@ -121,10 +117,10 @@
      :delete-tenant
      {:tenant-id tenant-id}
      (fn [{:keys [params]}]
-       (let [tenant-id (:tenant-id params)]
-         (db/execute-one! ctx
-                         ["DELETE FROM tenants WHERE id = ?"
-                          (str tenant-id)])
+       (let [tenant-id (:tenant-id params)
+             query {:delete-from :tenants
+                    :where [:= :id (type-conversion/uuid->string tenant-id)]}
+             _ (db/execute-update! ctx query)]
          nil))
      ctx))
 
@@ -133,9 +129,12 @@
      :tenant-slug-exists?
      {:slug slug}
      (fn [{:keys [params]}]
-       (let [slug (:slug params)]
-         (boolean (db/execute-one! ctx
-                                  ["SELECT 1 FROM tenants WHERE slug = ?" slug]))))
+       (let [slug (:slug params)
+             query {:select [1]
+                    :from [:tenants]
+                    :where [:= :slug slug]}
+             result (db/execute-one! ctx query)]
+         (boolean result)))
      ctx))
 
   (create-tenant-schema [_this schema-name]
