@@ -132,15 +132,17 @@
                                                         (UUID/randomUUID))
                                     :pool {:maximum-pool-size 5}})]
     (try
-      ;; Initialize tenants table in public schema
+      ;; Initialize tenants table in public schema (match migration 010 schema)
       (db/execute-ddl! ctx "CREATE TABLE IF NOT EXISTS tenants (
                               id VARCHAR(36) PRIMARY KEY,
                               slug VARCHAR(100) NOT NULL UNIQUE,
                               schema_name VARCHAR(100) NOT NULL UNIQUE,
                               name VARCHAR(255) NOT NULL,
                               status VARCHAR(50) NOT NULL,
+                              settings TEXT,
                               created_at TIMESTAMP NOT NULL,
-                              updated_at TIMESTAMP NOT NULL)")
+                              updated_at TIMESTAMP,
+                              deleted_at TIMESTAMP)")
       
       ;; Initialize sample tables in public schema (for structure copying)
       (db/execute-ddl! ctx "CREATE TABLE IF NOT EXISTS users (
@@ -237,7 +239,7 @@
             (is @job-executed? "Job handler should be executed"))))
       
       ;; 4. Test tenant cache isolation
-      (let [tenant-cache (tenant-cache/create-tenant-cache *cache* tenant-id)]
+      (let [tenant-cache (tenant-cache/create-tenant-cache *cache* (str tenant-id))]
         ;; Set tenant-specific cache value
         (cache-ports/set-value! tenant-cache :user-123 {:name "Alice" :role "admin"})
         
