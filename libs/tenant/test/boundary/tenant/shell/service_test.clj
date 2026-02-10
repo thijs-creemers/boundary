@@ -124,10 +124,10 @@
 
   (testing "rejects duplicate slug"
     (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)]
-      (ports/create-new-tenant service {:slug "acme-corp" :name "ACME"})
+      (ports/create-new-tenant service {:slug "duplicate-test" :name "First"})
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Tenant slug already exists"
-                            (ports/create-new-tenant service {:slug "acme-corp" :name "Duplicate"}))))))
+                            (ports/create-new-tenant service {:slug "duplicate-test" :name "Duplicate"}))))))
 
 (deftest get-tenant-test
   (testing "retrieves existing tenant by ID"
@@ -145,7 +145,7 @@
 (deftest update-existing-tenant-test
   (testing "updates tenant name and status"
     (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
-          created (ports/create-new-tenant service {:slug "test" :name "Old Name"})
+          created (ports/create-new-tenant service {:slug "update-test" :name "Old Name"})
           updated (ports/update-existing-tenant service (:id created) {:name "New Name" :status :suspended})]
       (is (= "New Name" (:name updated)))
       (is (= :suspended (:status updated))))))
@@ -153,13 +153,13 @@
 (deftest suspend-and-activate-tenant-test
   (testing "suspends active tenant"
     (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
-          created (ports/create-new-tenant service {:slug "test" :name "Test"})
+          created (ports/create-new-tenant service {:slug "suspend-test" :name "Test"})
           suspended (ports/suspend-tenant service (:id created))]
       (is (= :suspended (:status suspended)))))
 
   (testing "activates suspended tenant"
     (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
-          created (ports/create-new-tenant service {:slug "test" :name "Test"})
+          created (ports/create-new-tenant service {:slug "activate-test" :name "Test"})
           suspended (ports/suspend-tenant service (:id created))
           activated (ports/activate-tenant service (:id created))]
       (is (= :active (:status activated))))))
@@ -167,7 +167,7 @@
 (deftest delete-existing-tenant-test
   (testing "soft deletes tenant"
     (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
-          created (ports/create-new-tenant service {:slug "test" :name "Test"})]
+          created (ports/create-new-tenant service {:slug "delete-test" :name "Test"})]
       (ports/delete-existing-tenant service (:id created))
       (let [retrieved (ports/get-tenant service (:id created))]
         (is (= :deleted (:status retrieved)))
