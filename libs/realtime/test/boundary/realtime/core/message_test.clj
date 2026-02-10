@@ -1,5 +1,5 @@
 (ns boundary.realtime.core.message-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [boundary.realtime.core.message :as msg]
             [boundary.realtime.core.connection :as conn]))
 

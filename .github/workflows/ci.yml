@@ -43,6 +43,11 @@ jobs:
             libs/user/src \
             libs/admin/src \
             libs/storage/src \
+            libs/cache/src \
+            libs/jobs/src \
+            libs/tenant/src \
+            libs/email/src \
+            libs/realtime/src \
             libs/external/src \
             libs/scaffolder/src
 
@@ -107,7 +112,9 @@ jobs:
           restore-keys: ${{ runner.os }}-clojure-
 
       - name: Run tests
-        run: clojure -M:test :core
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :core
 
   test-observability:
     name: Test boundary/observability
@@ -132,7 +139,9 @@ jobs:
           restore-keys: ${{ runner.os }}-clojure-
 
       - name: Run tests
-        run: clojure -M:test :observability
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :observability
 
   test-platform:
     name: Test boundary/platform
@@ -157,7 +166,9 @@ jobs:
           restore-keys: ${{ runner.os }}-clojure-
 
       - name: Run tests
-        run: clojure -M:test :platform
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :platform
 
   test-user:
     name: Test boundary/user
@@ -184,7 +195,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test :user
+        run: clojure -M:test:db/h2 :user
 
   test-admin:
     name: Test boundary/admin
@@ -211,7 +222,196 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test :admin
+        run: clojure -M:test:db/h2 :admin
+
+  test-storage:
+    name: Test boundary/storage
+    runs-on: ubuntu-latest
+    needs: [lint, test-platform]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Run tests
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :storage
+
+  test-cache:
+    name: Test boundary/cache
+    runs-on: ubuntu-latest
+    needs: [lint, test-platform]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Run tests
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :cache
+
+  test-jobs:
+    name: Test boundary/jobs
+    runs-on: ubuntu-latest
+    needs: [lint, test-platform]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Run tests
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :jobs
+
+  test-tenant:
+    name: Test boundary/tenant
+    runs-on: ubuntu-latest
+    needs: [lint, test-platform]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Run tests
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :tenant
+
+  test-email:
+    name: Test boundary/email
+    runs-on: ubuntu-latest
+    needs: [lint, test-platform]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Run tests
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :email
+
+  test-realtime:
+    name: Test boundary/realtime
+    runs-on: ubuntu-latest
+    needs: [lint, test-platform]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Run tests
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :realtime
+
+  test-scaffolder:
+    name: Test boundary/scaffolder
+    runs-on: ubuntu-latest
+    needs: [lint, test-platform]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Run tests
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :scaffolder
 
   # =============================================================================
   # Run all tests from root project
@@ -241,7 +441,7 @@ jobs:
       - name: Run all tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters-long"
-        run: clojure -M:test
+        run: clojure -M:test:db/h2
 
   # =============================================================================
   # Summary job
@@ -249,7 +449,7 @@ jobs:
   test-summary:
     name: All Tests Passed
     runs-on: ubuntu-latest
-    needs: [test-core, test-observability, test-platform, test-user, test-admin]
+    needs: [test-core, test-observability, test-platform, test-user, test-admin, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-scaffolder]
 
     steps:
       - name: Summary
@@ -261,3 +461,10 @@ jobs:
           echo "  - boundary/platform"
           echo "  - boundary/user"
           echo "  - boundary/admin"
+          echo "  - boundary/storage"
+          echo "  - boundary/cache"
+          echo "  - boundary/jobs"
+          echo "  - boundary/tenant"
+          echo "  - boundary/email"
+          echo "  - boundary/realtime"
+          echo "  - boundary/scaffolder"

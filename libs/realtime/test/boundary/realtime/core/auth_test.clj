@@ -1,5 +1,5 @@
 (ns boundary.realtime.core.auth-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [boundary.realtime.core.auth :as auth]))
 
 (deftest parse-query-string-test

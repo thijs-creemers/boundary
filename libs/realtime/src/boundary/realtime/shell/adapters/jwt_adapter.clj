@@ -25,7 +25,7 @@
 (defrecord UserJWTAdapter []
   ports/IJWTVerifier
 
-  (verify-jwt [this token]
+  (verify-jwt [_this token]
     ;; Check if user module is available
     (if-not (resolve 'boundary.user.shell.auth/validate-jwt-token)
       (throw (ex-info "User module not available - cannot verify JWT"
@@ -59,7 +59,7 @@
   ;; test-claims is an atom of claims map
   ports/IJWTVerifier
 
-  (verify-jwt [this token]
+  (verify-jwt [_this token]
     ;; Return test claims if token matches, otherwise throw
     (if (and @test-claims (= token (:expected-token @test-claims)))
       (dissoc @test-claims :expected-token)

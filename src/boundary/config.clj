@@ -270,10 +270,13 @@
         http-handler-config (cond-> {:config config
                                      :user-routes (ig/ref :boundary/user-routes)
                                      :inventory-routes (ig/ref :boundary/inventory-routes)
+                                     :tenant-routes (ig/ref :boundary/tenant-routes)
                                      :router (ig/ref :boundary/router)
                                      :logger (ig/ref :boundary/logging)
                                      :metrics-emitter (ig/ref :boundary/metrics)
-                                     :error-reporter (ig/ref :boundary/error-reporting)}
+                                     :error-reporter (ig/ref :boundary/error-reporting)
+                                     :tenant-service (ig/ref :boundary/tenant-service)
+                                     :db-context (ig/ref :boundary/db-context)}
                               admin-enabled?
                               (assoc :admin-routes (ig/ref :boundary/admin-routes)))]
     {:boundary/user-db-schema
@@ -365,12 +368,44 @@
         :user-service (ig/ref :boundary/user-service)
         :config admin-cfg}})))
 
+(defn- tenant-module-config
+  "Return Integrant configuration for the tenant module.
+   
+   This wiring enables multi-tenancy support:
+   - Tenant repository for tenant persistence
+   - Tenant service for business logic
+   - Tenant routes for CRUD and provisioning API
+   
+   The tenant module provides:
+   - Tenant CRUD operations (create, read, update, delete)
+   - Tenant provisioning (schema creation, data seeding)
+   - Tenant activation/suspension
+   
+   Multi-tenant middleware is integrated separately in the HTTP handler."
+  [config]
+  (let [validation-cfg (user-validation-config config)]
+    {:boundary/tenant-repository
+     {:ctx (ig/ref :boundary/db-context)
+      :logger (ig/ref :boundary/logging)
+      :error-reporter (ig/ref :boundary/error-reporting)}
+     
+     :boundary/tenant-service
+     {:tenant-repository (ig/ref :boundary/tenant-repository)
+      :validation-config validation-cfg
+      :logger (ig/ref :boundary/logging)
+      :metrics-emitter (ig/ref :boundary/metrics)
+      :error-reporter (ig/ref :boundary/error-reporting)}
+     
+     :boundary/tenant-routes
+     {:tenant-service (ig/ref :boundary/tenant-service)
+      :config config}}))
+
 (defn ig-config
   "Generate Integrant configuration map from loaded config.
 
    The configuration is composed from:
    - Core system components (database, observability)
-   - Module-specific components (:user, :inventory, :admin)
+   - Module-specific components (:user, :inventory, :admin, :tenant)
 
    Future modules can be added by:
    1. Creating a *-module-config function (like user-module-config)
@@ -391,6 +426,7 @@
   (merge (core-system-config config)
          (user-module-config config)
          (inventory-module-config config)
+         (tenant-module-config config)
          (admin-module-config config)))
 
 ;; =============================================================================

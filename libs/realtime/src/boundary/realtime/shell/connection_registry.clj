@@ -22,16 +22,16 @@
 (defrecord InMemoryConnectionRegistry [state] ; state is an atom of {connection-id {:connection ... :ws-adapter ...}}
   ports/IConnectionRegistry
 
-  (register [this connection-id connection ws-connection]
+  (register [_this connection-id connection ws-connection]
     (swap! state assoc connection-id {:connection connection
                                       :ws-adapter ws-connection})
     nil)
 
-  (unregister [this connection-id]
+  (unregister [_this connection-id]
     (swap! state dissoc connection-id)
     nil)
 
-  (find-by-user [this user-id]
+  (find-by-user [_this user-id]
     ;; Use core filtering function for business logic
     (let [all-entries (vals @state)
           all-connections (map :connection all-entries)
@@ -42,7 +42,7 @@
            (filter #(contains? matching-ids (get-in % [:connection :id])))
            (mapv :ws-adapter))))
 
-  (find-by-role [this role]
+  (find-by-role [_this role]
     ;; Use core filtering function for business logic
     (let [all-entries (vals @state)
           all-connections (map :connection all-entries)
@@ -53,16 +53,16 @@
            (filter #(contains? matching-ids (get-in % [:connection :id])))
            (mapv :ws-adapter))))
 
-  (all-connections [this]
+  (all-connections [_this]
     ;; Return all ws-adapters
     (->> @state
          vals
          (mapv :ws-adapter)))
 
-  (connection-count [this]
+  (connection-count [_this]
     (count @state))
 
-  (find-connection [this connection-id]
+  (find-connection [_this connection-id]
     ;; Return Connection record (not ws-adapter) for inspection
     (get-in @state [connection-id :connection])))
 

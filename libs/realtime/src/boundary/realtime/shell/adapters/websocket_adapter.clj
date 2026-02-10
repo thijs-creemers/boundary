@@ -20,7 +20,7 @@
 (defrecord RingWebSocketAdapter [connection-id ws-channel]
   ports/IWebSocketConnection
 
-  (send-message [this message]
+  (send-message [_this message]
     ;; Encode message to JSON and send as text frame
     (try
       (let [json-message (json/generate-string message)]
@@ -36,7 +36,7 @@
                    :message-type (:type message)})
         nil)))
 
-  (close [this]
+  (close [_this]
     ;; Close WebSocket connection gracefully
     (try
       (when-let [close-fn (:close! ws-channel)]
@@ -47,10 +47,10 @@
                   {:connection-id connection-id})
         nil)))
 
-  (connection-id [this]
+  (connection-id [_this]
     connection-id)
 
-  (open? [this]
+  (open? [_this]
     ;; Check if WebSocket is open
     ;; Ring WebSocket channels have :open? function
     (if-let [open-fn (:open? ws-channel)]
@@ -66,19 +66,19 @@
   ;; open-state is an atom of boolean
   ports/IWebSocketConnection
 
-  (send-message [this message]
+  (send-message [_this message]
     (when @open-state
       (swap! sent-messages conj message))
     nil)
 
-  (close [this]
+  (close [_this]
     (reset! open-state false)
     nil)
 
-  (connection-id [this]
+  (connection-id [_this]
     connection-id)
 
-  (open? [this]
+  (open? [_this]
     @open-state))
 
 ;; =============================================================================

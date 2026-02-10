@@ -182,7 +182,7 @@
 
           ; Table-specific unique constraints
           (case table-name
-            "users" ["CONSTRAINT uk_users_email UNIQUE(email)"]
+            "auth_users" ["CONSTRAINT uk_auth_users_email UNIQUE(email)"]
             "user_sessions" ["CONSTRAINT uk_user_sessions_token UNIQUE(session_token)"]
             [])))))
 
@@ -260,10 +260,12 @@
 
           ; Table-specific compound indexes
           (case table-name
+            "auth_users"
+            ["CREATE INDEX IF NOT EXISTS idx_auth_users_email ON auth_users (email)"
+             "CREATE INDEX IF NOT EXISTS idx_auth_users_active ON auth_users (active)"]
+
             "users"
-            ["CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)"
-             "CREATE INDEX IF NOT EXISTS idx_users_role ON users (role)"
-             "CREATE INDEX IF NOT EXISTS idx_users_active ON users (active)"]
+            ["CREATE INDEX IF NOT EXISTS idx_users_role ON users (role)"]
 
             "user_sessions"
             ["CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions (session_token)"

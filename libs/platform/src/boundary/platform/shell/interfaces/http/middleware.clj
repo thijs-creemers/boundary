@@ -11,10 +11,18 @@
    Features:
    - Request correlation ID management
    - Tenant and user context extraction
+   - Multi-tenant request processing with schema switching
    - Structured request/response logging with observability context
    - RFC 7807 Problem Details for error responses (via core)
    - Generic exception handling middleware
-   - Error reporting breadcrumb integration"
+   - Error reporting breadcrumb integration
+   
+   Multi-Tenant Middleware:
+   See boundary.platform.shell.interfaces.http.tenant-middleware for:
+   - Tenant resolution (subdomain, JWT, headers)
+   - PostgreSQL schema switching per request
+   - Tenant caching with configurable TTL
+   - Combined middleware for simplified integration"
   (:require [boundary.platform.core.http.problem-details :as problem]
             [boundary.observability.errors.core :as error-reporting]
             [boundary.observability.errors.ports :as error-reporting-ports]
