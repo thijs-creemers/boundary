@@ -34,7 +34,6 @@
   (:require [boundary.cache.ports :as cache-ports]
             [boundary.cache.shell.adapters.in-memory :as mem-cache]
             [boundary.cache.shell.tenant-cache :as tenant-cache]
-            [boundary.jobs.core.job :as job]
             [boundary.jobs.ports :as job-ports]
             [boundary.jobs.shell.tenant-context :as tenant-jobs]
             [boundary.observability.errors.shell.adapters.no-op :as noop-errors]
@@ -42,7 +41,6 @@
             [boundary.observability.metrics.shell.adapters.no-op :as noop-metrics]
             [boundary.platform.shell.adapters.database.common.core :as db]
             [boundary.platform.shell.adapters.database.factory :as db-factory]
-            [boundary.tenant.core.tenant :as tenant-core]
             [boundary.tenant.ports :as tenant-ports]
             [boundary.tenant.shell.persistence :as tenant-persistence]
             [boundary.tenant.shell.provisioning :as provisioning]
@@ -300,7 +298,7 @@
       
       ;; Test job isolation
       (testing "Job isolation between tenants"
-        (let [jobs-processed (atom [])]
+        (let [_ (atom [])]
           ;; Enqueue jobs for both tenants
           (tenant-jobs/enqueue-tenant-job!
            *job-queue* tenant-a-id :process-data {:tenant "A"})
@@ -356,10 +354,9 @@
 (deftest ^:integration performance-benchmark-test
   (testing "Tenant operations performance (< 10ms overhead)"
     (let [tenant-a (create-test-tenant *tenant-service* "perf-test-a" "Performance Test A")
-          tenant-b (create-test-tenant *tenant-service* "perf-test-b" "Performance Test B")
+          _ (create-test-tenant *tenant-service* "perf-test-b" "Performance Test B")
           
-          tenant-a-id (:id tenant-a)
-          tenant-b-id (:id tenant-b)]
+          tenant-a-id (:id tenant-a)]
       
       ;; Benchmark tenant cache operations
       (testing "Cache operations with tenant scoping"
@@ -469,7 +466,7 @@
         
         ;; Process job
         (let [job (job-ports/dequeue-job! *job-queue* :default)
-              tenant-context (tenant-jobs/extract-tenant-context job *tenant-service*)
+              _ (tenant-jobs/extract-tenant-context job *tenant-service*)
               result (process-order-handler (:args job))]
           
           (is (:success? result) "Job should succeed")

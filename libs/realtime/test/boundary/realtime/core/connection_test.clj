@@ -1,5 +1,5 @@
 (ns boundary.realtime.core.connection-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [boundary.realtime.core.connection :as conn]))
 
 (def test-user-id #uuid "550e8400-e29b-41d4-a716-446655440000")

@@ -329,8 +329,8 @@
           connections-per-thread 10
           
           ;; Register connections concurrently from multiple threads
-          register-fn (fn [thread-id]
-                        (dotimes [i connections-per-thread]
+          register-fn (fn [_thread-id]
+                        (dotimes [_i connections-per-thread]
                           (let [connection-id (java.util.UUID/randomUUID)
                                 user-id (java.util.UUID/randomUUID)
                                 connection (create-test-connection user-id #{:user})
@@ -355,7 +355,7 @@
           
           ;; Pre-register connections
           connection-ids (atom [])
-          _ (dotimes [i num-connections]
+          _ (dotimes [_i num-connections]
               (let [connection-id (java.util.UUID/randomUUID)
                     user-id (java.util.UUID/randomUUID)
                     connection (create-test-connection user-id #{:user})
