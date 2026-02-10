@@ -5,8 +5,7 @@
             [boundary.observability.errors.ports :as error-ports]
             [boundary.observability.logging.ports :as logging-ports]
             [boundary.observability.metrics.ports :as metrics-ports])
-  (:import (java.time Instant)
-           (java.util UUID)))
+  (:import (java.util UUID)))
 
 (def ^:dynamic *tenant-repository* nil)
 
@@ -57,6 +56,11 @@
     error-ports/IErrorContext
     (add-breadcrumb! [_ _breadcrumb] nil)
     (with-context [_ _context-map f] (f))
+    (clear-breadcrumbs! [_] nil)
+    (set-user! [_ _user-info] nil)
+    (set-tags! [_ _tags] nil)
+    (set-extra! [_ _extra] nil)
+    (current-context [_] {})
     Object
     (toString [_] "MockErrorReporter")))
 
@@ -72,7 +76,7 @@
          (filter #(= slug (:slug %)))
          first))
 
-  (find-all-tenants [_ options]
+  (find-all-tenants [_ _options]
     (vals @state))
 
   (create-tenant [_ tenant-entity]
@@ -90,10 +94,10 @@
   (tenant-slug-exists? [_ slug]
     (boolean (some #(= slug (:slug %)) (vals @state))))
 
-  (create-tenant-schema [_ schema-name]
+  (create-tenant-schema [_ _schema-name]
     nil)
 
-  (drop-tenant-schema [_ schema-name]
+  (drop-tenant-schema [_ _schema-name]
     nil))
 
 (defn setup-mock-repository []
@@ -160,7 +164,7 @@
   (testing "activates suspended tenant"
     (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
           created (ports/create-new-tenant service {:slug "activate-test" :name "Test"})
-          suspended (ports/suspend-tenant service (:id created))
+          _ (ports/suspend-tenant service (:id created))
           activated (ports/activate-tenant service (:id created))]
       (is (= :active (:status activated))))))
 

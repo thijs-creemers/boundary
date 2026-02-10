@@ -1,10 +1,9 @@
 (ns boundary.jobs.shell.tenant-context-test
   "Tests for tenant-aware background job processing."
-  (:require [boundary.jobs.core.job :as job]
-            [boundary.jobs.ports :as ports]
+  (:require [boundary.jobs.ports :as ports]
             [boundary.jobs.shell.tenant-context :as tenant-jobs]
-            [boundary.jobs.shell.worker :as worker]
-            [clojure.test :refer [deftest is testing use-fixtures]]))
+            [boundary.tenant.ports]
+            [clojure.test :refer [deftest is testing]]))
 
 ;; =============================================================================
 ;; Test Fixtures
@@ -109,16 +108,16 @@
 
   (testing "Enqueuing job with default options"
     (let [job-queue (create-mock-job-queue)
-          job-id (tenant-jobs/enqueue-tenant-job!
-                  job-queue
-                  "tenant-2"
-                  :process-upload
-                  {:file-id "123"})]
+          _ (tenant-jobs/enqueue-tenant-job!
+             job-queue
+             "tenant-2"
+             :process-upload
+             {:file-id "123"})
+          queued-job (ports/peek-job job-queue :default)]
 
-      (let [queued-job (ports/peek-job job-queue :default)]
-        (is (= :normal (:priority queued-job)) "Should use default priority")
-        (is (= 3 (:max-retries queued-job)) "Should use default retry count")
-        (is (= :default (:queue queued-job)) "Should use default queue")))))
+      (is (= :normal (:priority queued-job)) "Should use default priority")
+      (is (= 3 (:max-retries queued-job)) "Should use default retry count")
+      (is (= :default (:queue queued-job)) "Should use default queue"))))
 
 ;; =============================================================================
 ;; Unit Tests - Tenant Context Extraction
@@ -221,7 +220,7 @@
                   :database-type :sqlite}
           executed? (atom false)
 
-          handler-fn (fn [args ctx]
+          handler-fn (fn [_ _]
                        (reset! executed? true)
                        {:success? true :result {}})
 
@@ -341,19 +340,19 @@
           executions (atom [])
 
           ;; Handler that records execution
-          handler-fn (fn [args ctx]
+          handler-fn (fn [args _]
                        (swap! executions conj {:args args
                                                :tenant (get-in args [:metadata :tenant-id])})
                        {:success? true :result {:processed true}})
 
           ;; Enqueue jobs for different tenants
-          job-id-1 (tenant-jobs/enqueue-tenant-job!
-                    job-queue "tenant-1" :send-email
-                    {:to "user1@example.com"})
+          _ (tenant-jobs/enqueue-tenant-job!
+             job-queue "tenant-1" :send-email
+             {:to "user1@example.com"})
 
-          job-id-2 (tenant-jobs/enqueue-tenant-job!
-                    job-queue "tenant-2" :send-email
-                    {:to "user2@example.com"})]
+          _ (tenant-jobs/enqueue-tenant-job!
+             job-queue "tenant-2" :send-email
+             {:to "user2@example.com"})]
 
       ;; Verify jobs are queued
       (is (= 2 (ports/queue-size job-queue :default)))

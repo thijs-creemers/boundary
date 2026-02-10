@@ -6,7 +6,6 @@
             [next.jdbc :as jdbc]
             [next.jdbc.connection :as connection])
   (:import [java.time Instant]
-           [java.util UUID]
            [com.zaxxer.hikari HikariDataSource]))
 
 (def test-db-context (atom nil))

@@ -90,7 +90,7 @@
     (persistence-interceptors/execute-persistence-operation
      :create-tenant
      {:tenant-id (:id tenant-entity) :slug (:slug tenant-entity)}
-     (fn [{:keys [params]}]
+     (fn [_]
        (let [db-record (tenant-entity->db ctx tenant-entity)
              query {:insert-into :tenants
                     :values [db-record]}
@@ -102,7 +102,7 @@
     (persistence-interceptors/execute-persistence-operation
      :update-tenant
      {:tenant-id (:id tenant-entity)}
-     (fn [{:keys [params]}]
+     (fn [_]
        (let [db-record (tenant-entity->db ctx tenant-entity)
              updates (select-keys db-record [:name :status :settings :updated_at :deleted_at])
              query {:update :tenants

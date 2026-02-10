@@ -1,8 +1,10 @@
 (ns boundary.platform.shell.interfaces.http.tenant-middleware-test
   "Tests for multi-tenant HTTP middleware."
-  (:require [clojure.test :refer [deftest testing is use-fixtures]]
+  (:require [clojure.test :refer [deftest testing is]]
             [boundary.platform.shell.interfaces.http.tenant-middleware :as tenant-mw]
-            [boundary.tenant.ports :as tenant-ports])
+            [boundary.platform.shell.adapters.database.protocols]
+            [boundary.tenant.ports :as tenant-ports]
+            [next.jdbc])
   (:import (java.util UUID)))
 
 ;; =============================================================================
@@ -80,7 +82,16 @@
                             ([_k _default] nil)))
         mock-adapter (reify
                        boundary.platform.shell.adapters.database.protocols/DBAdapter
-                       (dialect [_] :postgresql))]
+                       (dialect [_] :postgresql)
+                       (jdbc-driver [_] "org.postgresql.Driver")
+                       (jdbc-url [_ _db-config] "jdbc:postgresql://localhost:5432/test")
+                       (pool-defaults [_] {:minimum-idle 1 :maximum-pool-size 5})
+                       (init-connection! [_ _datasource _db-config] nil)
+                       (build-where [_ _filters] nil)
+                       (boolean->db [_ bool-val] bool-val)
+                       (db->boolean [_ db-val] db-val)
+                       (table-exists? [_ _datasource _table-name] false)
+                       (get-table-info [_ _datasource _table-name] []))]
     {:datasource mock-datasource
      :adapter mock-adapter
      :schema-calls-atom schema-calls  ; Store atom in context for test access

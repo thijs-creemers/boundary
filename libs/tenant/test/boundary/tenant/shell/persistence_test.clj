@@ -1,10 +1,5 @@
 (ns boundary.tenant.shell.persistence-test
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [boundary.tenant.shell.persistence :as sut]
-            [boundary.tenant.ports :as ports]
-            [boundary.platform.shell.adapters.database.common.core :as db])
-  (:import (java.time Instant)
-           (java.util UUID)))
+  (:require [clojure.test :refer [deftest is testing]]))
 
 ^{:integration true}
 (deftest tenant-repository-crud-test
