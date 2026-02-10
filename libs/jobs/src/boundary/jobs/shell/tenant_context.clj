@@ -123,6 +123,7 @@
 
       (if-let [tenant (tenant-ports/get-tenant tenant-service tenant-id)]
         {:tenant-id tenant-id
+         :tenant-slug (:slug tenant)
          :tenant-schema (:schema-name tenant)
          :tenant-entity tenant}
         ;; Tenant not found - FAIL EXPLICITLY instead of fallback to public schema
