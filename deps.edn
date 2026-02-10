@@ -10,7 +10,8 @@
            "libs/cache/src" "libs/cache/test"               ;; Phase 9: Cache
            "libs/jobs/src" "libs/jobs/test"                 ;; Phase 10: Jobs
            "libs/email/src" "libs/email/test"               ;; Phase 11: Email
-           "libs/tenant/src" "libs/tenant/test"]            ;; Phase 7: Tenant
+           "libs/tenant/src" "libs/tenant/test"             ;; Phase 7: Tenant
+           "libs/realtime/src" "libs/realtime/test"]        ;; Phase 12: Realtime
 
  :deps    {org.clojure/clojure               {:mvn/version "1.12.4"}
            cheshire/cheshire                 {:mvn/version "6.1.0"} ;; process json

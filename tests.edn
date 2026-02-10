@@ -11,7 +11,8 @@
                         "libs/cache/src"
                         "libs/jobs/src"
                         "libs/email/src"
-                        "libs/tenant/src"]
+                        "libs/tenant/src"
+                        "libs/realtime/src"]
 
  :tests [;; Run all tests (default)
           {:id :unit
@@ -26,7 +27,8 @@
                         "libs/cache/test"
                         "libs/jobs/test"
                         "libs/email/test"
-                        "libs/tenant/test"]
+                        "libs/tenant/test"
+                        "libs/realtime/test"]
            :ns-patterns ["boundary.*-test"]
            :randomize? true}
 
@@ -74,7 +76,11 @@
 
           {:id :tenant
            :test-paths ["libs/tenant/test"]
-           :ns-patterns ["boundary.tenant.*-test"]}]
+           :ns-patterns ["boundary.tenant.*-test"]}
+
+          {:id :realtime
+           :test-paths ["libs/realtime/test"]
+           :ns-patterns ["boundary.realtime.*-test"]}]
 
  :plugins [:kaocha.plugin/randomize
            :kaocha.plugin/filter
