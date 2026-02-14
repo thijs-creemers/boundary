@@ -350,7 +350,7 @@
   (if-let [timestamp (:timestamp cursor-data)]
     (let [now (Instant/now)
           expiry (.plusSeconds timestamp ttl-seconds)]
-      (.isAfter now expiry))
+      (not (.isBefore now expiry)))  ; Expired if now >= expiry
     false))  ; No timestamp = never expires
 
 ;; =============================================================================
