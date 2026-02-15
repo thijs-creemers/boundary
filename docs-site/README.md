@@ -14,6 +14,20 @@ On macOS:
 brew install hugo asciidoctor
 ```
 
+### Initial Setup
+
+If you've just cloned the repository, initialize the Hugo Book theme submodule:
+
+```bash
+# From repository root
+git submodule update --init --recursive
+```
+
+Or clone with submodules in one step:
+```bash
+git clone --recurse-submodules <repo-url>
+```
+
 ### Development
 
 ```bash
@@ -105,13 +119,24 @@ Visit http://localhost:8000/boundary/
 
 ### Updating the Theme
 
-The theme is included as a git submodule:
+The theme is included as a git submodule. To update to the latest version:
 
 ```bash
-cd themes/hugo-book
-git pull origin main
-cd ../..
-git add themes/hugo-book
+# From repository root
+git submodule update --remote docs-site/themes/hugo-book
+git add docs-site/themes/hugo-book
+git commit -m "Update hugo-book theme"
+```
+
+Or manually:
+```bash
+# From repository root
+cd docs-site/themes/hugo-book
+git fetch origin
+git checkout main
+git pull
+cd ../../..
+git add docs-site/themes/hugo-book
 git commit -m "Update hugo-book theme"
 ```
 
