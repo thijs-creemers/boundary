@@ -108,6 +108,9 @@ libs/
 ├── scaffolder/    # Module code generator
 ├── cache/         # Distributed caching (Redis/in-memory)
 ├── jobs/          # Background job processing
+├── email/         # Production-ready email sending (SMTP)
+├── realtime/      # WebSocket/SSE for real-time features
+├── tenant/        # Multi-tenancy (PostgreSQL schema-per-tenant)
 └── external/      # External service adapters (In Development)
 ```
 
@@ -1093,7 +1096,8 @@ clj-paren-repair <file>
 ║ EVAL    │ clj-nrepl-eval -p <port> "<code>"  # REPL eval       ║
 ╠════════════════════════════════════════════════════════════════╣
 ║ LIBS    │ libs/core, observability, platform, user, admin,    ║
-║         │ storage, scaffolder                                  ║
+║         │ storage, scaffolder, cache, jobs, email,         ║
+║         │ realtime, tenant, external                       ║
 ╠════════════════════════════════════════════════════════════════╣
 ║ CORE    │ Pure functions only, no side effects                 ║
 ║ SHELL   │ All I/O, validation, error handling                  ║

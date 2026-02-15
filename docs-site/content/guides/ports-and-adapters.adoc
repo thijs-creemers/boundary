@@ -1,0 +1,660 @@
+= Ports and Adapters Pattern
+
+[[overview]]
+== Overview
+
+The **Ports and Adapters** pattern (also called Hexagonal Architecture) inverts dependencies by having the functional core depend on abstract interfaces (ports) rather than concrete implementations (adapters). This enables flexible, testable architecture.
+
+[[what-are-ports-adapters]]
+== What Are Ports and Adapters?
+
+**Ports:**:
+Abstract interfaces defining capabilities needed by the core. Implemented as Clojure protocols.
+
+**Adapters:**:
+Concrete implementations of ports that handle actual I/O. Live in the imperative shell.
+
+[[hexagon-metaphor]]
+=== The Hexagon Metaphor
+
+Imagine the functional core as a hexagon with **ports** as connection points:
+
+[source]
+----
+                  CLI Adapter
+                       ↓
+                   [Port: UI]
+                       ↓
+    HTTP Adapter → [Port] ← [CORE] → [Port] ← DB Adapter
+                       ↑
+                   [Port: Events]
+                       ↑
+                  Email Adapter
+----
+
+* Core sits in the center (hexagon)
+* Ports define connection points
+* Adapters plug into ports from outside
+* Multiple adapters can implement same port
+
+=== Hexagonal Architecture Visualization
+
+The following diagram illustrates the hexagonal architecture pattern showing how the functional core depends on abstract ports, and how multiple adapters can plug into those ports from the outside:
+
+++++
+{{< mermaid >}}
+graph TB
+    subgraph "External Interfaces (Primary Adapters)"
+        HTTP[🌐 HTTP Adapter<br/>Ring/Reitit]
+        CLI[🖥️ CLI Adapter<br/>tools.cli]
+        WEB[📱 Web Adapter<br/>HTMX]
+    end
+    
+    subgraph "Primary Ports (Driving)"
+        SERVICE_PORT[IUserService<br/>create-user<br/>find-user<br/>update-user<br/>delete-user]
+    end
+    
+    subgraph "Functional Core (Hexagon)"
+        direction TB
+        CORE[💎 User Core<br/>Pure Business Logic<br/><br/>• prepare-user-creation<br/>• validate-user-data<br/>• calculate-user-tier<br/>• enrich-user-profile]
+    end
+    
+    subgraph "Secondary Ports (Driven)"
+        REPO_PORT[IUserRepository<br/>find-by-id<br/>find-by-email<br/>save-user<br/>delete-user]
+        EMAIL_PORT[IEmailService<br/>send-welcome<br/>send-reset]
+        AUDIT_PORT[IAuditLogger<br/>log-action]
+    end
+    
+    subgraph "External Systems (Secondary Adapters)"
+        DB[🗄️ Database Adapter<br/>PostgreSQL]
+        SMTP[📧 Email Adapter<br/>SMTP/SendGrid]
+        LOGGER[📝 Audit Adapter<br/>Database Logger]
+    end
+    
+    HTTP -->|calls| SERVICE_PORT
+    CLI -->|calls| SERVICE_PORT
+    WEB -->|calls| SERVICE_PORT
+    
+    SERVICE_PORT -->|orchestrates| CORE
+    
+    CORE -->|needs| REPO_PORT
+    CORE -->|needs| EMAIL_PORT
+    CORE -->|needs| AUDIT_PORT
+    
+    REPO_PORT -->|implemented by| DB
+    EMAIL_PORT -->|implemented by| SMTP
+    AUDIT_PORT -->|implemented by| LOGGER
+    
+    style CORE fill:#90EE90,stroke:#333,stroke-width:3px
+    style SERVICE_PORT fill:#B0E0E6,stroke:#333,stroke-width:2px
+    style REPO_PORT fill:#FFE4B5,stroke:#333,stroke-width:2px
+    style EMAIL_PORT fill:#FFE4B5,stroke:#333,stroke-width:2px
+    style AUDIT_PORT fill:#FFE4B5,stroke:#333,stroke-width:2px
+    style HTTP fill:#E6E6FA,stroke:#333,stroke-width:2px
+    style CLI fill:#E6E6FA,stroke:#333,stroke-width:2px
+    style WEB fill:#E6E6FA,stroke:#333,stroke-width:2px
+    style DB fill:#FFF5E1,stroke:#333,stroke-width:2px
+    style SMTP fill:#FFF5E1,stroke:#333,stroke-width:2px
+    style LOGGER fill:#FFF5E1,stroke:#333,stroke-width:2px
+{{< /mermaid >}}
+++++
+
+**Port Types:**
+
+* **Primary Ports (Driving)**: Define the API offered by the application (IUserService, IOrderService)
+  - Called by external interfaces (HTTP, CLI, Web)
+  - Implemented by service layer in the shell
+  
+* **Secondary Ports (Driven)**: Define the dependencies needed by the core (IUserRepository, IEmailService)
+  - Required by business logic in the core
+  - Implemented by adapters in the shell
+
+**Adapter Types:**
+
+* **Primary Adapters**: External interfaces that call into the core (HTTP handlers, CLI commands)
+* **Secondary Adapters**: Infrastructure implementations that the core depends on (database, email, logging)
+
+**Key Benefits:**
+
+* ✅ **Core Independence**: Core logic doesn't depend on any specific technology
+* ✅ **Multiple Interfaces**: Same core logic serves HTTP, CLI, and Web without changes
+* ✅ **Easy Testing**: Mock implementations of ports for testing core logic
+* ✅ **Flexible Infrastructure**: Swap database from PostgreSQL → H2 → SQLite without touching core
+* ✅ **Clear Boundaries**: Ports define explicit contracts between layers
+
+[[ports]]
+== Ports (Abstract Interfaces)
+
+[[port-characteristics]]
+=== Port Characteristics
+
+[cols="1,3"]
+|===
+|Property |Description
+
+|**Abstract**
+|No implementation details, just method signatures
+
+|**Core-Owned**
+|Defined by functional core's needs
+
+|**Business-Focused**
+|Named around domain concepts, not technology
+
+|**Technology-Agnostic**
+|No mention of databases, HTTP, file systems
+
+|**Replaceable**
+|Multiple implementations possible
+|===
+
+[[port-example]]
+=== Example: User Repository Port
+
+[source,clojure]
+----
+(ns boundary.user.ports
+  "Abstract interfaces for user module capabilities.")
+
+(defprotocol IUserRepository
+  "Abstract interface for user data persistence.
+  
+  The functional core depends on this interface.
+  The imperative shell provides concrete implementations."
+  
+  (find-user-by-id [this user-id]
+    "Retrieve user by unique identifier.
+    
+    Args:
+      user-id - UUID of the user
+    
+    Returns:
+      User entity map or nil if not found")
+  
+  (find-user-by-email [this email]
+    "Retrieve user by email .
+    
+    Args:
+      email - Email address
+      user-id - UUID of user for 
+    
+    Returns:
+      User entity map or nil if not found")
+  
+  (create-user [this user-entity]
+    "Create a new user record.
+    
+    Args:
+      user-entity - User entity map
+    
+    Returns:
+      Created user entity with generated ID")
+  
+  (update-user [this user-entity]
+    "Update existing user record.
+    
+    Args:
+      user-entity - User entity map with :id
+    
+    Returns:
+      Updated user entity")
+  
+  (delete-user [this user-id]
+    "Soft-delete user record.
+    
+    Args:
+      user-id - UUID of user to delete
+    
+    Returns:
+      true if successful, false otherwise"))
+----
+
+[[port-design]]
+=== Port Design Guidelines
+
+**✅ DO: Design from business perspective**
+
+[source,clojure]
+----
+(defprotocol IInvoiceRepository
+  (find-overdue-invoices [this days-overdue]
+    "Find invoices overdue by N days.")
+  (find-invoices-by-customer [this customer-id]
+    "Find all invoices for a customer."))
+----
+
+**❌ DON'T: Expose technology details**
+
+[source,clojure]
+----
+;; ❌ BAD: Exposes SQL
+(defprotocol IBadRepository
+  (execute-sql [this query params])
+  (get-jdbc-connection [this]))
+----
+
+**✅ DO: Use domain data structures**
+
+[source,clojure]
+----
+(defprotocol IUserRepository
+  (create-user [this user-entity])  ; ✅ Domain entity
+  ...)
+----
+
+**❌ DON'T: Use database records**
+
+[source,clojure]
+----
+(defprotocol IBadRepository
+  (insert-row [this table-name record])  ; ❌ Database concepts
+  ...)
+----
+
+[[adapters]]
+== Adapters (Concrete Implementations)
+
+[[adapter-characteristics]]
+=== Adapter Characteristics
+
+[cols="1,3"]
+|===
+|Property |Description
+
+|**Concrete**
+|Real I/O code with specific technology
+
+|**Shell-Owned**
+|Implemented in imperative shell layer
+
+|**Technology-Specific**
+|Knows about PostgreSQL, SMTP, S3, etc.
+
+|**Interchangeable**
+|Can swap PostgreSQL for SQLite
+
+|**Port-Compliant**
+|Implements port protocol exactly
+|===
+
+[[adapter-example]]
+=== Example: PostgreSQL User Adapter
+
+[source,clojure]
+----
+(ns boundary.user.shell.persistence
+  (:require [boundary.user.ports :as ports]
+            [boundary.platform.shell.adapters.database.common.core :as db]
+            [boundary.shared.utils.type-conversion :as type-conv]))
+
+(defrecord DatabaseUserRepository [db-ctx]
+  ports/IUserRepository
+  
+  (find-user-by-id [_ user-id]
+    (let [query {:select [:*]
+                :from [:users]
+                :where [:and 
+                       [:= :id (type-conv/uuid->string user-id)]
+                       [:is :deleted_at nil]]}
+          result (db/execute-one! db-ctx query)]
+      (when result
+        (db-record->user-entity result))))
+  
+  (find-user-by-email [_ email]
+    (let [query {:select [:*]
+                :from [:users]
+                :where [:and
+                       [:= :email email]
+                       [:= :user_id (type-conv/uuid->string user-id)]
+                       [:is :deleted_at nil]]}
+          result (db/execute-one! db-ctx query)]
+      (when result
+        (db-record->user-entity result))))
+  
+  (create-user [_ user-entity]
+    (let [now (java.time.Instant/now)
+          user-with-id (assoc user-entity 
+                             :id (java.util.UUID/randomUUID)
+                             :created-at now)
+          db-record (user-entity->db-record user-with-id)
+          query {:insert-into :users
+                :values [db-record]}]
+      (db/execute-update! db-ctx query)
+      user-with-id))
+  
+  (update-user [_ user-entity]
+    (let [now (java.time.Instant/now)
+          updated (assoc user-entity :updated-at now)
+          db-record (user-entity->db-record updated)
+          query {:update :users
+                :set (dissoc db-record :id :created_at)
+                :where [:= :id (type-conv/uuid->string (:id user-entity))]}]
+      (db/execute-update! db-ctx query)
+      updated))
+  
+  (delete-user [_ user-id]
+    (let [now (java.time.Instant/now)
+          query {:update :users
+                :set {:deleted_at now}
+                :where [:= :id (type-conv/uuid->string user-id)]}]
+      (pos? (db/execute-update! db-ctx query)))))
+
+(defn create-user-repository
+  "Factory function for creating database user repository."
+  [db-ctx]
+  (->DatabaseUserRepository db-ctx))
+
+;; Transformation helpers
+(defn db-record->user-entity
+  "Transform database record to domain entity."
+  [record]
+  {:id (type-conv/string->uuid (:id record))
+   :email (:email record)
+   :name (:name record)
+   :user-id (type-conv/string->uuid (:user_id record))
+   :created-at (type-conv/string->instant (:created_at record))
+   :updated-at (when (:updated_at record)
+                (type-conv/string->instant (:updated_at record)))})
+
+(defn user-entity->db-record
+  "Transform domain entity to database record."
+  [entity]
+  {:id (type-conv/uuid->string (:id entity))
+   :email (:email entity)
+   :name (:name entity)
+   :user_id (type-conv/uuid->string (:user-id entity))
+   :created_at (type-conv/instant->string (:created-at entity))
+   :updated_at (when (:updated-at entity)
+                (type-conv/instant->string (:updated-at entity)))})
+----
+
+[[multiple-adapters]]
+=== Multiple Adapter Implementations
+
+Ports enable multiple implementations for different contexts:
+
+**Production Adapter (PostgreSQL):**
+[source,clojure]
+----
+(defrecord PostgreSQLUserRepository [db-ctx]
+  ports/IUserRepository
+  (find-user-by-id [_ user-id]
+    ;; Real PostgreSQL query
+    ...))
+----
+
+**Test Adapter (In-Memory):**
+[source,clojure]
+----
+(defrecord InMemoryUserRepository [state-atom]
+  ports/IUserRepository
+  (find-user-by-id [_ user-id]
+    ;; Lookup in atom
+    (get @state-atom user-id)))
+----
+
+**Mock Adapter (Testing):**
+[source,clojure]
+----
+(defrecord MockUserRepository [responses]
+  ports/IUserRepository
+  (find-user-by-id [_ user-id]
+    ;; Return predefined response
+    (get-in @responses [:find-user-by-id user-id])))
+----
+
+[[dependency-injection]]
+== Dependency Injection
+
+[[di-wiring]]
+=== Wiring Ports to Adapters
+
+The shell layer wires concrete adapters to services:
+
+[source,clojure]
+----
+(ns boundary.user.shell.service
+  (:require [boundary.user.core.user :as user-core]
+            [boundary.user.ports :as ports]))
+
+(defrecord UserService [user-repository session-repository]
+  ports/IUserService
+  
+  (create-user [this user-data]
+    ;; Service receives dependencies via constructor
+    ;; Uses port interface, doesn't know about concrete implementation
+    (let [validation (user-core/validate-user-data user-data)]
+      (when-not (:valid? validation)
+        (throw (ex-info "Invalid user" validation)))
+      
+      ;; Call through port interface
+      (ports/create-user user-repository user-data))))
+
+(defn create-user-service
+  "Factory function - dependency injection happens here."
+  [user-repository session-repository]
+  (->UserService user-repository session-repository))
+----
+
+[[di-system-wiring]]
+=== System-Level Wiring
+
+Integrant configuration wires everything together:
+
+[source,clojure]
+----
+;; System configuration
+{:boundary/database
+ {:driver :postgresql
+  :host "localhost"
+  :port 5432}
+ 
+ :boundary.user/repository
+ {:db (ig/ref :boundary/database)}
+ 
+ :boundary.user/service
+ {:user-repository (ig/ref :boundary.user/repository)
+  :session-repository (ig/ref :boundary.session/repository)}}
+----
+
+[[benefits]]
+== Benefits of Ports and Adapters
+
+[[benefit-testability]]
+=== 1. Easy Testing
+
+**Unit tests use mock adapters:**
+
+[source,clojure]
+----
+(deftest create-user-test
+  (let [mock-repo (reify ports/IUserRepository
+                   (create-user [_ user-data]
+                     (assoc user-data :id (UUID/randomUUID))))
+        service (create-user-service mock-repo nil)]
+    (testing "user creation"
+      (let [result (ports/create-user service {:email "test@example.com"})]
+        (is (some? (:id result)))))))
+----
+
+No database setup, no HTTP mocking - just pure testing.
+
+[[benefit-flexibility]]
+=== 2. Flexible Implementations
+
+**Swap implementations without changing core:**
+
+* Development: SQLite adapter
+* Testing: In-memory adapter
+* Staging: PostgreSQL adapter  
+* Production: PostgreSQL with read replicas
+
+Core code remains unchanged.
+
+[[benefit-isolation]]
+=== 3. Technology Isolation
+
+**Technology changes don't affect core:**
+
+* Switch from PostgreSQL to MySQL
+* Add caching layer (Redis)
+* Migrate to DynamoDB
+
+Core business logic untouched.
+
+[[benefit-parallel-development]]
+=== 4. Parallel Development
+
+**Teams can work independently:**
+
+* Core team defines port interfaces
+* Infrastructure team implements adapters
+* No blocking dependencies
+
+[[testing-strategies]]
+== Testing Strategies
+
+[[test-contract]]
+=== Contract Tests for Adapters
+
+Verify all adapters implement port correctly:
+
+[source,clojure]
+----
+(defn test-user-repository-contract
+  "Reusable contract test for IUserRepository implementations."
+  [repository-factory]
+  (testing "IUserRepository contract"
+    (let [repo (repository-factory)]
+      
+      (testing "create and find user"
+        (let [user {:email "test@example.com" :name "Test User"}
+              created (ports/create-user repo user)]
+          (is (some? (:id created)))
+          (let [found (ports/find-user-by-id repo (:id created))]
+            (is (= (:email created) (:email found))))))
+      
+      (testing "find non-existent user"
+        (is (nil? (ports/find-user-by-id repo (UUID/randomUUID))))))))
+
+;; Apply contract test to PostgreSQL adapter
+(deftest postgresql-user-repository-contract-test
+  (test-user-repository-contract 
+    #(create-user-repository test-db-ctx)))
+
+;; Apply contract test to SQLite adapter  
+(deftest sqlite-user-repository-contract-test
+  (test-user-repository-contract
+    #(create-sqlite-user-repository test-db-ctx)))
+----
+
+[[anti-patterns]]
+== Anti-Patterns to Avoid
+
+[[anti-pattern-leaky-abstraction]]
+=== ❌ Leaky Abstractions
+
+Don't expose implementation details through ports:
+
+[source,clojure]
+----
+;; ❌ BAD: Exposes SQL
+(defprotocol IUserRepository
+  (execute-query [this sql params])  ; ❌ SQL details leak through
+  (get-connection [this]))           ; ❌ Database concepts exposed
+----
+
+[source,clojure]
+----
+;; ✅ GOOD: Business-focused abstraction
+(defprotocol IUserRepository
+  (find-users-by-criteria [this criteria])  ; ✅ Domain concept
+  (save-user [this user-data]))             ; ✅ Business operation
+----
+
+[[anti-pattern-anemic-ports]]
+=== ❌ Anemic Ports
+
+Don't create CRUD-only ports with no business meaning:
+
+[source,clojure]
+----
+;; ❌ BAD: Generic CRUD
+(defprotocol IRepository
+  (create [this table entity])
+  (read [this table id])
+  (update [this table entity])
+  (delete [this table id]))
+----
+
+[source,clojure]
+----
+;; ✅ GOOD: Domain-specific operations
+(defprotocol IUserRepository
+  (find-active-users [this])
+  (suspend-user [this user-id reason])
+  (reactivate-user [this user-id]))
+----
+
+[[anti-pattern-fat-adapters]]
+=== ❌ Fat Adapters
+
+Don't put business logic in adapters:
+
+[source,clojure]
+----
+;; ❌ BAD: Business logic in adapter
+(defrecord UserRepository [db-ctx]
+  ports/IUserRepository
+  (create-user [_ user-data]
+    (let [tier (if (>= (:age user-data) 65)  ; ❌ Business rule
+                :senior
+                :standard)]
+      ;; Insert with calculated tier
+      ...)))
+----
+
+[source,clojure]
+----
+;; ✅ GOOD: Core calculates, adapter persists
+;; In core:
+(defn assign-membership-tier [user-data]
+  (if (>= (:age user-data) 65)
+    (assoc user-data :tier :senior)
+    (assoc user-data :tier :standard)))
+
+;; In adapter:
+(defrecord UserRepository [db-ctx]
+  ports/IUserRepository
+  (create-user [_ user-data]
+    ;; Just persist, no business logic
+    ...))
+----
+
+[[checklist]]
+== Ports and Adapters Checklist
+
+**Port Design:**
+
+- [ ] Is it defined as a Clojure protocol?
+- [ ] Does it use business/domain terminology?
+- [ ] Is it technology-agnostic?
+- [ ] Does it work with domain entities (not DB records)?
+- [ ] Can multiple implementations exist?
+
+**Adapter Implementation:**
+
+- [ ] Does it implement a port protocol?
+- [ ] Is it in the shell layer (not core)?
+- [ ] Does it handle I/O operations?
+- [ ] Does it avoid business logic?
+- [ ] Can it be swapped for another implementation?
+
+[[learn-more]]
+== Learn More
+
+* link:functional-core-imperative-shell.adoc[Functional Core / Imperative Shell]
+* link:modules-and-ownership.adoc[Modules and Domain Ownership]
+* link:../how-to/implement-port-adapter.adoc[Implement a Port and Adapter]
+* {xref-arch-ports-adapters}[Ports and Adapters Architecture]
+* {xref-arch-overview}[Architecture Overview]

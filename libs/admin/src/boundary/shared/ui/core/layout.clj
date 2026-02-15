@@ -61,17 +61,20 @@
      Complete HTML page structure"
   [title content & [opts]]
   (let [{:keys [user flash css js skip-header]
-         :or   {css         ["/css/pico.min.css" "/css/tokens.css" "/css/app.css"]
+         :or   {css         ["/css/pico.min.css" "/css/tokens-openprops.css" "/css/app.css"]
                 ;; Alpine.js must load BEFORE HTMX for proper MutationObserver setup
                 js          ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]
                 skip-header false}} opts]
-    [:html {:lang "en"}
-     [:head
-      [:meta {:charset "UTF-8"}]
-      [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
-      [:title title]
-      (for [css-file css]
-        [:link {:rel "stylesheet" :href css-file}])]
+     [:html {:lang "en"}
+      [:head
+       [:meta {:charset "UTF-8"}]
+       [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
+       [:title title]
+       [:link {:rel "preconnect" :href "https://cdn.jsdelivr.net"}]
+       [:link {:rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@fontsource/geist@5.0.3/index.min.css"}]
+       [:link {:rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@fontsource/geist-mono@5.0.3/index.min.css"}]
+       (for [css-file css]
+         [:link {:rel "stylesheet" :href css-file}])]]
      [:body
       (when-not skip-header
         [:header.site-header
@@ -87,7 +90,7 @@
                              true (conj content))]
         (into [:main.main-content] children))
       (for [js-file js]
-        [:script {:src js-file}])]]))
+        [:script {:src js-file}])]))
 
 (defn error-layout
   "Error page layout.

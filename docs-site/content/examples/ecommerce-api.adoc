@@ -1,0 +1,204 @@
+---
+title: "E-commerce API"
+weight: 3
+---
+
+= E-commerce API Example
+
+A production-style API with multiple modules, state machines, and payment integration.
+
+== Quick Start
+
+[source,bash]
+----
+cd boundary/examples/ecommerce-api
+export STRIPE_WEBHOOK_SECRET="whsec_test_secret"
+clojure -M -m ecommerce.main
+# Server running at http://localhost:3002
+----
+
+== What You'll Learn
+
+* **Multi-module architecture** — Product, Cart, Order, Payment modules
+* **State machines** — Order lifecycle management
+* **Payment integration** — Mock Stripe provider
+* **Webhook handling** — Signature verification
+* **Protocol-based communication** — Modules stay decoupled
+
+== Project Structure
+
+[source,text]
+----
+ecommerce-api/
+├── src/ecommerce/
+│   ├── product/               # Product catalog
+│   │   ├── core/product.clj
+│   │   └── shell/
+│   ├── cart/                  # Shopping cart
+│   │   ├── core/cart.clj
+│   │   └── shell/
+│   ├── order/                 # Order management
+│   │   ├── core/order.clj     # State machine logic
+│   │   └── shell/
+│   ├── payment/               # Payment processing
+│   │   ├── core/payment.clj
+│   │   └── shell/
+│   │       └── provider.clj   # Mock Stripe
+│   ├── system.clj
+│   └── main.clj
+└── test/
+----
+
+== Order State Machine
+
+Orders follow a defined lifecycle:
+
+[source,text]
+----
+                    ┌─────────────┐
+                    │   pending   │
+                    └──────┬──────┘
+                           │ pay
+                           ▼
+    ┌─────────┐     ┌─────────────┐
+    │cancelled│ ←── │    paid     │
+    └─────────┘     └──────┬──────┘
+         ▲                 │ ship
+         │                 ▼
+         │          ┌─────────────┐
+         └───────── │   shipped   │
+                    └──────┬──────┘
+                           │ deliver
+                           ▼
+    ┌─────────┐     ┌─────────────┐
+    │ refunded│ ←── │  delivered  │
+    └─────────┘     └─────────────┘
+----
+
+== Key Code: State Machine (Pure)
+
+[source,clojure]
+----
+;; order/core/order.clj
+(def transitions
+  "Valid state transitions."
+  {:pending   #{:paid :cancelled}
+   :paid      #{:shipped :cancelled}
+   :shipped   #{:delivered :cancelled}
+   :delivered #{:refunded}
+   :cancelled #{}
+   :refunded  #{}})
+
+(defn can-transition?
+  "Pure predicate - checks if transition is valid."
+  [order new-status]
+  (contains? (get transitions (:status order)) new-status))
+
+(defn transition
+  "Pure function - returns updated order or error."
+  [order new-status now]
+  (if (can-transition? order new-status)
+    {:ok (assoc order 
+                :status new-status 
+                :updated-at now)}
+    {:error :invalid-transition
+     :from (:status order)
+     :to new-status}))
+----
+
+== Key Code: Payment Provider (Shell)
+
+[source,clojure]
+----
+;; payment/shell/provider.clj
+(defrecord MockStripeProvider [config]
+  IPaymentProvider
+  
+  (create-intent [_ amount currency]
+    {:id (str "pi_" (random-uuid))
+     :amount amount
+     :currency currency
+     :status "requires_payment_method"
+     :client-secret (str "secret_" (random-uuid))})
+  
+  (confirm-intent [_ intent-id]
+    {:id intent-id
+     :status "succeeded"})
+  
+  (verify-webhook [_ payload signature]
+    (let [expected (hmac-sha256 (:webhook-secret config) payload)]
+      (secure-compare signature expected))))
+----
+
+== API Endpoints
+
+=== Products
+[cols="1,2"]
+|===
+|`GET /api/products` |List products
+|`GET /api/products/:id` |Get product
+|===
+
+=== Cart
+[cols="1,2"]
+|===
+|`GET /api/cart` |Get current cart
+|`POST /api/cart/items` |Add item
+|`DELETE /api/cart/items/:id` |Remove item
+|===
+
+=== Orders
+[cols="1,2"]
+|===
+|`POST /api/checkout` |Create order from cart
+|`GET /api/orders` |List orders
+|`GET /api/orders/:id` |Get order
+|`POST /api/orders/:id/ship` |Mark as shipped
+|===
+
+=== Payments
+[cols="1,2"]
+|===
+|`POST /api/payments/intents` |Create payment intent
+|`POST /api/webhooks/payment` |Stripe webhook
+|===
+
+== Example Flow
+
+[source,bash]
+----
+# 1. Add products to cart
+curl -X POST http://localhost:3002/api/cart/items \
+  -H "Content-Type: application/json" \
+  -d '{"product_id":"prod-1","quantity":2}'
+
+# 2. Checkout
+ORDER=$(curl -X POST http://localhost:3002/api/checkout \
+  -H "Content-Type: application/json" | jq -r '.data.id')
+
+# 3. Create payment intent
+curl -X POST http://localhost:3002/api/payments/intents \
+  -H "Content-Type: application/json" \
+  -d "{\"order_id\":\"$ORDER\"}"
+
+# 4. Webhook confirms payment (simulated)
+# Order status: pending → paid
+
+# 5. Ship order
+curl -X POST "http://localhost:3002/api/orders/$ORDER/ship"
+# Order status: paid → shipped
+----
+
+== Tests
+
+[source,bash]
+----
+cd examples/ecommerce-api
+clojure -M:test
+
+# 35 tests, 159 assertions
+----
+
+== Source Code
+
+https://github.com/thijs-creemers/boundary/tree/main/examples/ecommerce-api[View on GitHub →]

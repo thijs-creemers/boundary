@@ -1,0 +1,57 @@
+= Sample AsciiDoc Document
+:toc:
+:toclevels: 3
+:icons: font
+
+== Introduction
+
+This is a sample AsciiDoc document to test AsciiDoc rendering in Hugo with the hugo-book theme.
+
+== Features
+
+=== Code Blocks
+
+[source,clojure]
+----
+(defn hello-world []
+  (println "Hello from Boundary Framework!"))
+----
+
+=== Lists
+
+* Item 1
+* Item 2
+** Nested item 2.1
+** Nested item 2.2
+* Item 3
+
+=== Tables
+
+[cols="1,2,3"]
+|===
+|Column 1 |Column 2 |Column 3
+
+|Cell 1
+|Cell 2
+|Cell 3
+
+|Cell 4
+|Cell 5
+|Cell 6
+|===
+
+=== Links
+
+link:https://github.com/thijs-creemers/boundary[Boundary Framework on GitHub]
+
+=== Admonitions
+
+NOTE: This is a note.
+
+WARNING: This is a warning.
+
+IMPORTANT: This is important information.
+
+== Conclusion
+
+If you can see this page properly formatted, AsciiDoc support is working correctly!

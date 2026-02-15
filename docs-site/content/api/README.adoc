@@ -1,0 +1,51 @@
+== API Documentation
+
+API design principles, examples, and implementation patterns for the
+Boundary Framework.
+
+=== Overview
+
+* link:index.adoc[*API Overview*] - API design principles, conventions,
+and patterns
+
+=== Examples
+
+==== Complete Implementations
+
+* link:post-users-example.adoc[*POST /users Example*] - Complete
+endpoint implementation walkthrough showing:
+** Schema definition (Malli)
+** Core business logic (pure functions)
+** Service orchestration (shell layer)
+** HTTP handler implementation
+** Request/response handling
+** Error handling
+
+=== API Design Principles
+
+The Boundary Framework follows these API design principles:
+
+[arabic]
+. *RESTful conventions* - Standard HTTP methods and status codes
+. *Consistent error format* - Structured error responses across all
+endpoints
+. *Schema-first validation* - Malli schemas define and validate all
+requests
+. *Pure core logic* - Business logic separated from HTTP concerns
+. *Multi-interface support* - Same logic accessible via REST, CLI, and
+Web UI
+
+=== Related Documentation
+
+* link:../architecture/[Architecture] - Architectural patterns for API
+implementation
+* link:../guides/[Guides] - How-to guides for adding endpoints and
+implementing features
+* link:../reference/[Reference] - Command and configuration reference
+* link:../implementation/[Implementation Examples] - Complete module
+implementation walkthroughs
+
+=== For More Details
+
+See link:../guides/add-rest-endpoint.adoc[Add REST Endpoint] guide for
+step-by-step instructions on implementing new API endpoints.

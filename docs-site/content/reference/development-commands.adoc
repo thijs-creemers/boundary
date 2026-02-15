@@ -1,0 +1,378 @@
+= Development Commands
+:toc: left
+:toclevels: 3
+
+[[overview]]
+== Overview
+
+This is the **canonical reference** for all development commands in the Boundary Framework. All commands should be run from the repository root directory.
+
+[IMPORTANT]
+====
+This document is the source of truth for development commands. If you find discrepancies elsewhere, this document takes precedence.
+====
+
+[[testing]]
+== Testing
+
+Boundary uses https://github.com/lambdaisland/kaocha[Kaocha] for testing with H2 in-memory database.
+
+[[test-all]]
+=== Run All Tests
+
+[source,bash]
+----
+clojure -M:test:db/h2
+----
+
+With JWT secret (required for auth tests):
+
+[source,bash]
+----
+JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2
+----
+
+[[test-library]]
+=== Run Tests by Library
+
+[source,bash]
+----
+clojure -M:test:db/h2 :core           # Core library tests
+clojure -M:test:db/h2 :observability  # Observability library tests
+clojure -M:test:db/h2 :platform       # Platform library tests
+clojure -M:test:db/h2 :user           # User library tests
+clojure -M:test:db/h2 :admin          # Admin library tests
+clojure -M:test:db/h2 :storage        # Storage library tests
+clojure -M:test:db/h2 :scaffolder     # Scaffolder library tests
+----
+
+[[test-metadata]]
+=== Run Tests by Metadata Category
+
+[source,bash]
+----
+clojure -M:test:db/h2 --focus-meta :unit         # Unit tests only
+clojure -M:test:db/h2 --focus-meta :integration  # Integration tests
+clojure -M:test:db/h2 --focus-meta :contract     # Database contract tests
+----
+
+[[test-namespace]]
+=== Run Tests by Namespace
+
+[source,bash]
+----
+clojure -M:test:db/h2 --focus boundary.user.core.user-test
+clojure -M:test:db/h2 --focus boundary.admin.core.entity-test
+----
+
+[[test-watch]]
+=== Watch Mode (TDD)
+
+[source,bash]
+----
+clojure -M:test:db/h2 --watch                           # Watch all tests
+clojure -M:test:db/h2 --watch :core                     # Watch core library
+clojure -M:test:db/h2 --watch --focus-meta :unit        # Watch unit tests
+clojure -M:test:db/h2 --watch --focus boundary.user.core.user-test  # Watch specific namespace
+----
+
+[[test-snapshots]]
+=== Update Validation Snapshots
+
+[source,bash]
+----
+UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 \
+  --focus boundary.user.core.user-validation-snapshot-test
+----
+
+[[linting]]
+== Linting
+
+[[lint-kondo]]
+=== Lint All Code
+
+[source,bash]
+----
+clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
+----
+
+[[lint-library]]
+=== Lint Specific Library
+
+[source,bash]
+----
+clojure -M:clj-kondo --lint libs/user/src libs/user/test
+clojure -M:clj-kondo --lint libs/admin/src libs/admin/test
+----
+
+[[lint-docs]]
+=== Lint Documentation (Drift Prevention)
+
+[source,bash]
+----
+# Via Babashka (fast, local development)
+bb scripts/docs_lint.clj
+
+# Via Clojure (CI)
+clojure -M:dev -m boundary.tools.docs-lint
+----
+
+Output reports: `build/docs-lint/report.txt` and `build/docs-lint/report.edn`
+
+[[repl]]
+== REPL Development
+
+[[repl-start]]
+=== Start REPL
+
+[source,bash]
+----
+clojure -M:repl-clj
+----
+
+This starts an nREPL server on port 7888.
+
+[[repl-system]]
+=== System Management (in REPL)
+
+[source,clojure]
+----
+;; Start the system
+(require '[integrant.repl :as ig-repl])
+(ig-repl/go)
+
+;; Reload and restart (after code changes)
+(ig-repl/reset)
+
+;; Stop the system
+(ig-repl/halt)
+----
+
+[[repl-debug]]
+=== Access System Components (in REPL)
+
+[source,clojure]
+----
+;; Get a service
+(def user-svc (get integrant.repl.state/system :boundary/user-service))
+
+;; Test service directly
+(require '[boundary.user.ports :as user-ports])
+(user-ports/list-users user-svc {:limit 10})
+
+;; Reload namespace with changes
+(require '[boundary.user.core.user :as user-core] :reload)
+----
+
+[[repl-eval]]
+=== Evaluate Code via nREPL (External)
+
+[source,bash]
+----
+# Discover available nREPL ports
+clj-nrepl-eval --discover-ports
+
+# Evaluate code
+clj-nrepl-eval -p 7888 "(+ 1 2)"
+
+# Reload system
+clj-nrepl-eval -p 7888 "(require '[integrant.repl :as ig-repl]) (ig-repl/reset)"
+----
+
+[[build]]
+== Build
+
+[[build-uberjar]]
+=== Build Uberjar
+
+[source,bash]
+----
+clojure -T:build clean && clojure -T:build uber
+----
+
+Output: `target/boundary-*.jar`
+
+[[build-run]]
+=== Run Standalone Jar
+
+[source,bash]
+----
+java -jar target/boundary-*.jar server
+----
+
+[[database]]
+== Database Migrations
+
+[[migrate-up]]
+=== Run Migrations
+
+[source,bash]
+----
+clojure -M:migrate up
+----
+
+[[migrate-down]]
+=== Rollback Migrations
+
+[source,bash]
+----
+clojure -M:migrate down
+----
+
+[[scaffolding]]
+== Module Scaffolding
+
+[[scaffold-module]]
+=== Generate New Module
+
+[source,bash]
+----
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name product \
+  --entity Product \
+  --field name:string:required \
+  --field sku:string:required:unique \
+  --field price:decimal:required
+----
+
+Generated files:
+
+* 9 source files (core, shell, ports, schema, wiring)
+* 3 test files (unit, integration, contract)
+* 1 migration file
+
+See link:scaffolder.adoc[Scaffolder Reference] for complete options.
+
+[[tools]]
+== Development Tools
+
+[[tool-paren-repair]]
+=== Fix Unbalanced Parentheses
+
+[source,bash]
+----
+clj-paren-repair libs/user/src/boundary/user/core/user.clj
+----
+
+[CAUTION]
+====
+Always use `clj-paren-repair` to fix parenthesis issues. Never manually repair - it's error-prone.
+====
+
+[[common-workflows]]
+== Common Workflows
+
+[[workflow-tdd]]
+=== Test-Driven Development
+
+[source,bash]
+----
+# Start watch mode for your focus area
+clojure -M:test:db/h2 --watch --focus boundary.user.core.user-test
+
+# Edit code, save, tests run automatically
+# Ctrl+C to exit
+----
+
+[[workflow-pre-commit]]
+=== Pre-Commit Checks
+
+[source,bash]
+----
+# Run all tests
+clojure -M:test:db/h2
+
+# Lint all code
+clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
+
+# Check docs for drift
+bb scripts/docs_lint.clj
+----
+
+[[workflow-ui-dev]]
+=== UI Development
+
+[source,bash]
+----
+# Start REPL
+clojure -M:repl-clj
+
+# In REPL: start system
+(ig-repl/go)
+
+# After editing UI code, reload
+clj-nrepl-eval -p 7888 "(require '[integrant.repl :as ig-repl]) (ig-repl/reset)"
+
+# Refresh browser
+----
+
+[[environment-variables]]
+== Environment Variables
+
+[cols="1,2,1"]
+|===
+|Variable |Purpose |Default
+
+|`JWT_SECRET`
+|JWT signing secret (min 32 chars)
+|(required for auth)
+
+|`BND_ENV`
+|Environment name
+|`development`
+
+|`HTTP_PORT`
+|HTTP server port
+|`3000`
+
+|`REPL_PORT`
+|nREPL server port
+|`7888`
+
+|`UPDATE_SNAPSHOTS`
+|Update test snapshots
+|`false`
+|===
+
+[[troubleshooting]]
+== Troubleshooting
+
+[[trouble-port-conflict]]
+=== Port Already in Use
+
+[source,bash]
+----
+# Find and kill process on port 7888
+lsof -ti:7888 | xargs kill -9
+
+# Or port 3000
+lsof -ti:3000 | xargs kill -9
+----
+
+[[trouble-cache]]
+=== Stale Cache Issues
+
+[source,bash]
+----
+rm -rf .cpcache target
+clojure -M:repl-clj
+----
+
+[[trouble-defrecord]]
+=== defrecord Changes Not Taking Effect
+
+[source,clojure]
+----
+;; In REPL - full restart required
+(ig-repl/halt)
+(ig-repl/go)
+
+;; Or restart REPL entirely
+----
+
+[[related-documentation]]
+== Related Documentation
+
+* link:repo-structure.adoc[Repository Structure] - Library organization and paths
+* link:../guides/run-tests-and-watch.adoc[Run Tests in Watch Mode] - Detailed testing guide
+* link:../guides/troubleshooting.adoc[Troubleshooting Guide] - Common issues and solutions

@@ -35,7 +35,7 @@ Similar to **Action Mailer** (Rails) or **Django Email**, this module provides s
 
 ```clojure
 ;; deps.edn
-{:deps {io.github.thijs-creemers/boundary-email {:mvn/version "0.1.0"}}}
+{:deps {io.github.thijs-creemers/boundary-email {:mvn/version "1.0.0-alpha"}}}
 ```
 
 ### 2. Create SMTP Sender
@@ -455,8 +455,8 @@ For high-volume email sending with automatic retries and monitoring, integrate w
 
 ```clojure
 ;; deps.edn
-{:deps {io.github.thijs-creemers/boundary-email {:mvn/version "0.1.0"}
-        io.github.thijs-creemers/boundary-jobs {:mvn/version "0.1.0"}
+{:deps {io.github.thijs-creemers/boundary-email {:mvn/version "1.0.0-alpha"}
+        io.github.thijs-creemers/boundary-jobs {:mvn/version "1.0.0-alpha"}
         redis.clients/jedis {:mvn/version "5.2.0"}}}
 ```
 

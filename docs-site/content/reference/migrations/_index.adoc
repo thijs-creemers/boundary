@@ -1,0 +1,17 @@
+= Migration Guides
+
+Migration documentation for major Boundary Framework changes.
+
+== Available Migrations
+
+* link:library-split.adoc[*Library Split (v2.2.0)*] - Complete path and 
+namespace mapping from monolithic to modular library structure
+
+== When to Use These Guides
+
+These guides are useful when:
+
+* Updating legacy documentation with old paths
+* Migrating custom tooling that references old paths
+* Understanding where code moved during major refactors
+* Troubleshooting build or import errors after upgrades

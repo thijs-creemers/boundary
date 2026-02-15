@@ -51,9 +51,15 @@
         {:valid? false :errors (m/explain schema result)}))))
 
 (defn validation-passed?
-  "Check if validation passed (works with legacy and new format)."
-  [result]
-  (vr/validation-passed? result))
+  "Check if validation passed (works with legacy and new format).
+   
+    Args:
+      result: Validation result map
+    
+    Returns:
+      Boolean indicating if validation passed"
+   [result]
+   (vr/validation-passed? result))
 
 (defn get-validation-errors
   "Get validation errors (works with legacy and new format)."
@@ -96,6 +102,9 @@
   ([field code message opts] (vr/error-map field code message opts)))
 
 (defn devex-enabled?
-  "Check if DevEx validation features are enabled."
-  []
-  (vr/devex-validation-enabled?))
+  "Check if DevEx validation features are enabled.
+   
+    Returns:
+      Boolean indicating if DevEx validation is enabled"
+   []
+   (vr/devex-validation-enabled?))

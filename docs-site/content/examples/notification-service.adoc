@@ -1,0 +1,210 @@
+---
+title: "Notification Service"
+weight: 4
+---
+
+= Notification Service Example
+
+An event-driven microservice demonstrating pub/sub patterns, message handling, and retry logic.
+
+== Quick Start
+
+[source,bash]
+----
+cd boundary/examples/notification-service
+clojure -M -m notification.main
+# Server running at http://localhost:3003
+----
+
+== What You'll Learn
+
+* **Event-driven architecture** — Pub/sub message bus
+* **Event handlers** — React to domain events
+* **Multi-channel notifications** — Email, SMS, push (mocked)
+* **Retry logic** — Exponential backoff for failures
+* **Template rendering** — Notification content generation
+
+== Architecture
+
+[source,text]
+----
+┌─────────────────┐
+│  Event Source   │  POST /api/events
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   Message Bus   │  In-memory pub/sub
+│                 │  Topics: order.*, payment.*, shipment.*
+└────────┬────────┘
+         │
+    ┌────┴────┬─────────────┐
+    ▼         ▼             ▼
+┌───────┐ ┌───────┐   ┌──────────┐
+│ Order │ │Payment│   │ Shipment │
+│Handler│ │Handler│   │ Handler  │
+└───┬───┘ └───┬───┘   └────┬─────┘
+    │         │            │
+    └─────────┼────────────┘
+              ▼
+     ┌─────────────────┐
+     │  Notification   │
+     │    Service      │
+     └────────┬────────┘
+              │
+    ┌─────────┼─────────┐
+    ▼         ▼         ▼
+  Email     SMS       Push
+----
+
+== Event Types
+
+[cols="1,2"]
+|===
+|Event |Triggers
+
+|`order/placed` |Order confirmation email
+|`order/cancelled` |Cancellation notification
+|`payment/received` |Payment receipt
+|`payment/failed` |Payment failure alert (email + push)
+|`shipment/sent` |Shipping update
+|`shipment/delivered` |Delivery confirmation (email + push)
+|===
+
+== Key Code: Pure Event Routing
+
+[source,clojure]
+----
+;; event/core/event.clj
+(def event-handlers
+  "Map of event types to notification templates."
+  {:order/placed     [:notification/order-confirmation]
+   :order/cancelled  [:notification/order-cancelled]
+   :payment/received [:notification/payment-receipt]
+   :payment/failed   [:notification/payment-failed]
+   :shipment/sent    [:notification/shipping-update]
+   :shipment/delivered [:notification/delivery-confirmation]})
+
+(defn route-event
+  "Pure function - determines handlers for event."
+  [event]
+  (get event-handlers (:type event) []))
+----
+
+== Key Code: Template Rendering (Pure)
+
+[source,clojure]
+----
+;; notification/core/notification.clj
+(def templates
+  {:order-confirmation
+   {:subject "Order Confirmation - {{order-number}}"
+    :body "Hi {{customer-name}},\n\nThank you for your order!"}
+   
+   :shipping-update
+   {:subject "Your Order Has Shipped"
+    :body "Tracking: {{tracking-number}}\nCarrier: {{carrier}}"}})
+
+(defn render-template
+  "Pure function - renders template with context."
+  [template-key context]
+  (if-let [template (get templates template-key)]
+    {:ok {:subject (replace-vars (:subject template) context)
+          :body (replace-vars (:body template) context)}}
+    {:error :template-not-found}))
+----
+
+== Key Code: Retry Logic (Pure)
+
+[source,clojure]
+----
+;; shared/retry.clj
+(defn calculate-backoff
+  "Pure function - exponential backoff with jitter."
+  [attempt base-delay max-delay]
+  (let [exponential (* base-delay (Math/pow 2 attempt))
+        jitter (* exponential 0.1 (rand))]
+    (long (min (+ exponential jitter) max-delay))))
+
+;; Attempt 0: ~1000ms
+;; Attempt 1: ~2000ms  
+;; Attempt 2: ~4000ms
+;; ...up to max-delay
+----
+
+== API Endpoints
+
+[cols="1,2"]
+|===
+|Endpoint |Description
+
+|`POST /api/events` |Publish event
+|`GET /api/events` |List events
+|`GET /api/events/:id` |Get event
+|`GET /api/notifications` |List notifications
+|`GET /api/notifications/:id` |Get notification
+|`POST /api/notifications/:id/retry` |Retry failed notification
+|`GET /health` |Health check
+|===
+
+== Example: Publish Event
+
+[source,bash]
+----
+# Publish order.placed event
+curl -X POST http://localhost:3003/api/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "order/placed",
+    "payload": {
+      "order-number": "ORD-12345",
+      "customer-name": "Jane Smith",
+      "customer-email": "jane@example.com",
+      "total-cents": 4999,
+      "currency": "EUR"
+    }
+  }'
+
+# Console output:
+# [Handler] Processing order.placed: <uuid>
+# [email] Sent to jane@example.com: Order Confirmation - ORD-12345
+
+# Check notifications
+curl http://localhost:3003/api/notifications
+----
+
+== Message Bus
+
+The in-memory bus uses core.async for pub/sub:
+
+[source,clojure]
+----
+;; shared/bus.clj
+(defn create-bus []
+  {:channel (async/chan 100)
+   :subscribers (atom {})})
+
+(defn subscribe! [bus topic handler]
+  (swap! (:subscribers bus) update topic (fnil conj []) handler))
+
+(defn publish! [bus event]
+  (async/>!! (:channel bus) event)
+  ;; Dispatches to all subscribers for event type
+  )
+----
+
+For production, replace with Kafka, RabbitMQ, or SQS.
+
+== Tests
+
+[source,bash]
+----
+cd examples/notification-service
+clojure -M:test
+
+# 18 tests, 82 assertions
+----
+
+== Source Code
+
+https://github.com/thijs-creemers/boundary/tree/main/examples/notification-service[View on GitHub →]

@@ -1,0 +1,257 @@
+---
+title: "Why Boundary?"
+weight: 1
+---
+
+= Why Boundary?
+:toc: right
+:toclevels: 2
+:icons: font
+:description: A 3-minute pitch for the Boundary Framework - production-ready Clojure with enforced architecture
+
+== The Elevator Pitch
+
+[.lead]
+**Boundary** is a production-ready Clojure framework that enforces _Functional Core / Imperative Shell_ architecture while providing enterprise features out of the box.
+
+[quote]
+____
+"Stop choosing between clean architecture and shipping features. Boundary gives you both."
+____
+
+== The Challenge We Address
+
+Building production Clojure systems often involves balancing competing concerns:
+
+* **Architecture vs. Speed** — How do you maintain clean separation without slowing down?
+* **Testability vs. Pragmatism** — How do you keep tests fast without sacrificing coverage?
+* **Flexibility vs. Structure** — How do you stay agile while avoiding chaos?
+* **Monolith vs. Microservices** — How do you avoid premature decisions?
+
+Boundary is our answer to these questions. It's opinionated where it matters (architecture) and flexible where it should be (implementation).
+
+== The Boundary Solution
+
+=== 1. Architecture Enforced, Not Suggested
+
+[source,text]
+----
+src/boundary/user/
+├── core/           # PURE functions - business logic only
+│   └── user.clj    # Zero I/O, trivially testable
+├── shell/          # IMPURE - orchestrates I/O
+│   ├── service.clj # Coordinates core + adapters
+│   └── http.clj    # HTTP handlers
+└── ports.clj       # Protocol definitions
+----
+
+*The Rule:* Core cannot import Shell. Ever. This isn't a guideline — it's enforced by namespace structure.
+
+=== 2. Test Without Mocking
+
+Pure core functions can be tested directly with data — no setup required:
+
+[source,clojure]
+----
+(deftest user-creation-test
+  (testing "rejects duplicate email"
+    (let [result (user-core/create-user-decision 
+                   {:email "test@example.com"}
+                   {:email "test@example.com"}  ; existing user
+                   (Instant/now))]
+      (is (= :duplicate-email (:action result))))))
+
+;; Runs in <1ms. No database. No mocks. Just data in, data out.
+----
+
+=== 3. Enterprise Features Included
+
+[cols="1,2", options="header"]
+|===
+|Feature |What You Get
+
+|*Background Jobs*
+|Redis queues, priorities, retries, dead letter queue, scheduling
+
+|*Distributed Cache*
+|Redis/memory backends, LRU eviction, atomic operations
+
+|*Multi-Factor Auth*
+|TOTP (Google Authenticator), backup codes, QR generation
+
+|*Full-Text Search*
+|PostgreSQL native, relevance ranking, highlighting
+
+|*File Storage*
+|S3/local, image processing, signed URLs
+
+|*API Pagination*
+|Cursor + offset, RFC 5988 links
+
+|*Observability*
+|Structured logging, Datadog metrics, Sentry errors
+|===
+
+All following the same FC/IS pattern. All production-tested.
+
+=== 4. True Module Isolation — Scale Without Rewrites
+
+Every module is completely self-contained with zero direct dependencies on other modules.
+
+==== Protocol-Based Communication
+
+In Boundary, modules **never import each other directly**. Instead, they communicate through protocols (interfaces):
+
+[source,clojure]
+----
+;; order/ports.clj - Order module defines what it NEEDS
+(defprotocol IUserLookup
+  (find-user-by-id [this user-id]))
+
+;; order/shell/service.clj - Uses the protocol, not concrete implementation
+(defn create-order [user-lookup order-data]
+  (let [user (find-user-by-id user-lookup (:user-id order-data))]
+    ;; Order logic here - doesn't know or care how users are fetched
+    ...))
+----
+
+The User module provides an adapter that satisfies this protocol — but Order never knows the implementation details.
+
+==== Why This Matters for Scaling
+
+[cols="1,2"]
+|===
+|Scaling Need |How Boundary Helps
+
+|*Vertical Scaling*
+|Add more CPU/RAM to your monolith. Modules don't compete for resources internally because they have no shared mutable state.
+
+|*Horizontal Scaling*
+|Run multiple instances behind a load balancer. Each instance is stateless; modules communicate via protocols that can be backed by in-process calls OR network calls.
+
+|*Extract to Microservice*
+|When User module needs dedicated resources, extract it. Replace the in-process adapter with an HTTP client adapter. **Zero changes to Order module code.**
+
+|*Team Scaling*
+|Different teams own different modules. Clear boundaries = clear ownership. No coordination needed for internal module changes.
+|===
+
+==== The Monolith-to-Microservices Path
+
+[source,text]
+----
+  DAY 1: Modular Monolith              DAY 100: Microservices
+  ┌─────────────────────┐              ┌─────────┐  ┌─────────┐
+  │    Single Process   │              │  User   │  │  Order  │
+  │  ┌─────┐  ┌─────┐   │    Same     │ Service │  │ Service │
+  │  │User │←→│Order│   │    Code     └────┬────┘  └────┬────┘
+  │  └─────┘  └─────┘   │   ------→        │            │
+  │   In-process calls  │              HTTP/gRPC    HTTP/gRPC
+  └─────────────────────┘                  └─────┬──────┘
+                                                 │
+                                           Message Bus
+----
+
+**The key insight:** You don't decide microservices vs monolith at project start. You start with a modular monolith that *can* become microservices when needed — without architectural rewrites.
+
+==== Real-World Scaling Scenario
+
+[source,text]
+----
+Month 1:  Monolith on single server (€50/month)
+          └─ User, Order, Payment modules in one JAR
+
+Month 6:  Monolith on larger server (€200/month)  
+          └─ Vertical scaling, same codebase
+
+Month 12: Payment extracted to separate service
+          └─ PCI compliance requires isolation
+          └─ Order module: swap InProcessPaymentAdapter → HttpPaymentAdapter
+          └─ Zero Order code changes
+
+Month 18: Full microservices
+          └─ Each module runs independently
+          └─ Teams deploy on their own schedule
+          └─ Same business logic, different deployment topology
+----
+
+This isn't theoretical — it's how Boundary is designed from the ground up.
+
+== Real Examples
+
+We ship what we preach. Four complete examples demonstrate every pattern:
+
+[cols="1,2,1"]
+|===
+|Example |What It Shows |LOC
+
+|link:../../examples/todo-api[Todo API]
+|REST basics, JWT auth, validation
+|~1,000
+
+|link:../../examples/blog-app[Blog App]
+|HTMX UI, Hiccup templates, SQLite
+|~1,500
+
+|link:../../examples/ecommerce-api[E-commerce API]
+|State machine, payments, webhooks
+|~2,500
+
+|link:../../examples/notification-service[Notification Service]
+|Event-driven, pub/sub, retries
+|~1,800
+|===
+
+== Is Boundary Right for You?
+
+=== Boundary Works Well For
+
+* Production Clojure systems that need to scale
+* Teams who value testability and clean architecture
+* Projects that may evolve from monolith to microservices
+* Developers who prefer explicit over magical
+
+=== Consider Alternatives If
+
+* You're building a quick prototype (simpler tools exist)
+* You're new to functional programming (learn the basics first)
+* You need a simple CRUD app (Boundary may be overkill)
+
+We believe in using the right tool for the job. Boundary is designed for production systems where architecture and scalability matter.
+
+== Get Started in 5 Minutes
+
+[source,bash]
+----
+# Clone
+git clone https://github.com/thijs-creemers/boundary
+cd boundary
+
+# Configure
+export JWT_SECRET="your-secret-minimum-32-characters-long"
+
+# Test
+clojure -M:test:db/h2
+
+# Run
+clojure -M:repl-clj
+# => (require '[integrant.repl :as ig-repl])
+# => (ig-repl/go)
+# Server running at http://localhost:3000
+
+# Try it
+curl http://localhost:3000/api/v1/users
+----
+
+== Learn More
+
+* link:quickstart[5-Minute Quickstart] — Hands-on tutorial
+* link:../architecture/fc-is[FC/IS Pattern] — Deep dive into the architecture
+* link:../guides[Guides] — Topic-specific documentation
+* link:../examples[Examples] — Complete working applications
+
+---
+
+[.text-center]
+**Ready to build production Clojure systems with confidence?** +
+link:quickstart[Start the Quickstart →]

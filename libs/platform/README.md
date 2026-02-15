@@ -10,14 +10,14 @@ Core infrastructure for web applications: database, HTTP routing, pagination, se
 
 **deps.edn** (recommended):
 ```clojure
-{:deps {io.github.thijs-creemers/boundary-platform {:mvn/version "0.1.0"}
+{:deps {io.github.thijs-creemers/boundary-platform {:mvn/version "1.0.0-alpha"}
         ;; Choose your database driver
         org.postgresql/postgresql {:mvn/version "42.7.8"}}}
 ```
 
 **Leiningen**:
 ```clojure
-[io.github.thijs-creemers/boundary-platform "0.1.0"]
+[io.github.thijs-creemers/boundary-platform "1.0.0-alpha"]
 [org.postgresql/postgresql "42.7.8"]
 ```
 

@@ -1,0 +1,303 @@
+name: Publish to Clojars
+
+on:
+  # Manual trigger with version input
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: true
+        type: string
+  
+  # Automatic trigger on version tags
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    name: Publish Libraries to Clojars
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for git-count-revs
+      
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-publish-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+      
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            echo "Using manual version: $VERSION"
+          else
+            # Extract version from tag (v0.1.0 -> 0.1.0)
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "Using tag version: $VERSION"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      # ===========================================================================
+      # LAYER 1: Core (no dependencies)
+      # ===========================================================================
+      
+      - name: Publish boundary-core
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-core..."
+          cd libs/core
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-core published"
+      
+      - name: Wait for Clojars indexing (core)
+        run: sleep 30
+      
+      # ===========================================================================
+      # LAYER 2: Observability (depends on core)
+      # ===========================================================================
+      
+      - name: Publish boundary-observability
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-observability..."
+          cd libs/observability
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-observability published"
+      
+      - name: Wait for Clojars indexing (observability)
+        run: sleep 30
+      
+      # ===========================================================================
+      # LAYER 3: Platform (depends on core, observability)
+      # ===========================================================================
+      
+      - name: Publish boundary-platform
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-platform..."
+          cd libs/platform
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-platform published"
+      
+      - name: Wait for Clojars indexing (platform)
+        run: sleep 30
+      
+      # ===========================================================================
+      # LAYER 4: Libraries that depend on platform (can run in parallel)
+      # Includes: user, storage, scaffolder, cache, jobs, realtime, email, tenant
+      # ===========================================================================
+      
+      - name: Publish boundary-user
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-user..."
+          cd libs/user
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-user published"
+      
+      - name: Wait for Clojars indexing (user)
+        run: sleep 30
+      
+      - name: Publish boundary-storage
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-storage..."
+          cd libs/storage
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-storage published"
+      
+      - name: Wait for Clojars indexing (storage)
+        run: sleep 30
+      
+      - name: Publish boundary-scaffolder
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-scaffolder..."
+          cd libs/scaffolder
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-scaffolder published"
+      
+      - name: Wait for Clojars indexing (scaffolder)
+        run: sleep 30
+      
+      - name: Publish boundary-cache
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-cache..."
+          cd libs/cache
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-cache published"
+      
+      - name: Wait for Clojars indexing (cache)
+        run: sleep 30
+      
+      - name: Publish boundary-jobs
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-jobs..."
+          cd libs/jobs
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-jobs published"
+      
+      - name: Wait for Clojars indexing (jobs)
+        run: sleep 30
+      
+      - name: Publish boundary-realtime
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-realtime..."
+          cd libs/realtime
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-realtime published"
+      
+      - name: Wait for Clojars indexing (realtime)
+        run: sleep 30
+      
+      - name: Publish boundary-email
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-email..."
+          cd libs/email
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-email published"
+      
+      - name: Wait for Clojars indexing (email)
+        run: sleep 30
+      
+      - name: Publish boundary-tenant
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-tenant..."
+          cd libs/tenant
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-tenant published"
+      
+      - name: Wait for Clojars indexing (tenant)
+        run: sleep 30
+      
+      # ===========================================================================
+      # LAYER 5: Admin (depends on user)
+      # ===========================================================================
+      
+      - name: Publish boundary-admin
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-admin..."
+          cd libs/admin
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-admin published"
+      
+      # ===========================================================================
+      # Post-publish: Create GitHub Release
+      # ===========================================================================
+      
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name || format('v{0}', steps.version.outputs.version) }}
+          release_name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## Boundary Framework v${{ steps.version.outputs.version }}
+            
+            12 of 13 libraries published to Clojars (external in development):
+            
+            - [boundary-core](https://clojars.org/io.github.thijs-creemers/boundary-core)
+            - [boundary-observability](https://clojars.org/io.github.thijs-creemers/boundary-observability)
+            - [boundary-platform](https://clojars.org/io.github.thijs-creemers/boundary-platform)
+            - [boundary-user](https://clojars.org/io.github.thijs-creemers/boundary-user)
+            - [boundary-admin](https://clojars.org/io.github.thijs-creemers/boundary-admin)
+            - [boundary-storage](https://clojars.org/io.github.thijs-creemers/boundary-storage)
+            - [boundary-scaffolder](https://clojars.org/io.github.thijs-creemers/boundary-scaffolder)
+            - [boundary-cache](https://clojars.org/io.github.thijs-creemers/boundary-cache)
+            - [boundary-jobs](https://clojars.org/io.github.thijs-creemers/boundary-jobs)
+            - [boundary-realtime](https://clojars.org/io.github.thijs-creemers/boundary-realtime)
+            - [boundary-email](https://clojars.org/io.github.thijs-creemers/boundary-email)
+            - [boundary-tenant](https://clojars.org/io.github.thijs-creemers/boundary-tenant)
+            
+            ### Installation
+            
+            ```clojure
+            {:deps {io.github.thijs-creemers/boundary-platform {:mvn/version "${{ steps.version.outputs.version }}"}}}
+            ```
+            
+            See [CHANGELOG.md](https://github.com/thijs-creemers/boundary/blob/main/CHANGELOG.md) for details.
+          draft: false
+          prerelease: false
+      
+      - name: Summary
+        run: |
+          echo "# ✅ Publish Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "12 of 13 libraries published to Clojars (external in development):" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Library | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-core | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-observability | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-platform | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-user | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-storage | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-scaffolder | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-cache | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-jobs | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-realtime | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-email | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-tenant | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-admin | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Version: **${{ steps.version.outputs.version }}**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🎉 All libraries are now available on Clojars!" >> $GITHUB_STEP_SUMMARY
