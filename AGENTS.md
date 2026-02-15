@@ -108,9 +108,9 @@ libs/
 ├── scaffolder/    # Module code generator
 ├── cache/         # Distributed caching (Redis/in-memory)
 ├── jobs/          # Background job processing
-├── email/         # Email sending and templates
-├── tenant/        # Multi-tenancy support
-├── realtime/      # WebSocket/SSE real-time features
+├── email/         # Production-ready email sending (SMTP)
+├── realtime/      # WebSocket/SSE for real-time features
+├── tenant/        # Multi-tenancy (PostgreSQL schema-per-tenant)
 └── external/      # External service adapters (In Development)
 ```
 

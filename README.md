@@ -1,6 +1,24 @@
 # Boundary Framework
 
-A module-centric Clojure framework implementing the Functional Core / Imperative Shell architectural paradigm.
+## For Developers
+
+**Boundary** brings Django's productivity and Rails' conventions to Clojure—with functional programming rigor. It's a batteries-included web framework that enforces the Functional Core / Imperative Shell (FC/IS) pattern: pure business logic in `core/`, side effects in `shell/`, and clean interfaces through `ports.clj` protocols.
+
+You get 13 independently-publishable libraries via Clojars—use just `boundary-core` for validation utilities, or go full-stack with `boundary-user` for JWT + MFA auth, `boundary-admin` for auto-generated CRUD UIs (think Django Admin for Clojure), `boundary-storage` for S3 uploads, `boundary-email` for production-ready SMTP, `boundary-realtime` for WebSocket support, and `boundary-tenant` for multi-tenancy. Every module follows the same FC/IS structure, making any Boundary codebase instantly familiar.
+
+Ship faster: The scaffolder generates production-ready modules (entity + routes + tests) in seconds. The admin UI auto-generates CRUD interfaces from your database schema—no manual forms. Built-in observability (Datadog/Sentry), API pagination (RFC 5988), and declarative interceptors mean you write business logic, not plumbing.
+
+**Zero lock-in**: Each library is a standard deps.edn dependency. Swap what doesn't fit.
+
+---
+
+## For Decision Makers
+
+**Boundary** accelerates software delivery by eliminating repetitive infrastructure work. Teams ship features 3x faster with built-in authentication, admin interfaces, and background processing—no custom development needed. The enforced architecture pattern ensures codebases stay maintainable as teams grow, reducing onboarding time from weeks to days.
+
+Lower costs through reduced defects: comprehensive testing and proven design patterns catch bugs early. Scale confidently: modular design lets you add capacity without rewrites. From MVP to enterprise, one framework adapts to your growth—no platform migrations, no architecture rewrites, no vendor lock-in.
+
+**Built for teams who value speed and reliability equally.**
 
 ## Documentation
 
@@ -12,7 +30,7 @@ A module-centric Clojure framework implementing the Functional Core / Imperative
 
 ## Library Architecture
 
-Boundary is organized as a **monorepo** with 10 independently publishable libraries:
+Boundary is organized as a **monorepo** with 13 independently publishable libraries:
 
 | Library | Description |
 |---------|-------------|
@@ -25,32 +43,40 @@ Boundary is organized as a **monorepo** with 10 independently publishable librar
 | **[scaffolder](libs/scaffolder/)** | Module code generator |
 | **[cache](libs/cache/)** | Distributed caching (Redis/in-memory) |
 | **[jobs](libs/jobs/)** | Background job processing |
+| **[email](libs/email/)** | Production-ready email sending (SMTP, async, jobs integration) |
+| **[realtime](libs/realtime/)** | WebSocket/SSE for real-time features (Phoenix Channels for Clojure) |
+| **[tenant](libs/tenant/)** | Multi-tenancy with PostgreSQL schema-per-tenant isolation |
 | **[external](libs/external/)** | External service adapters (In Development) |
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  scaffolder │     │   storage   │     │    cache    │
-└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
-       │                   │                   │
-       ▼                   ▼                   ▼
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│    jobs     │     │  external   │     │    core     │◄────┐
-└──────┬──────┘     └──────┬──────┘     └─────────────┘     │
-       │                   │                   ▲             │
-       ▼                   ▼                   │             │
-       │           ┌─────────────┐     ┌──────┴──────┐      │
-       └──────────►│  platform   │────►│    user     │      │
-                   └──────┬──────┘     └──────┬──────┘      │
-                          │                   │             │
-                          ▼                   │             │
-                  ┌─────────────┐             │             │
-                  │observability│◄────────────┘             │
-                  └─────────────┘                           │
-                          │                                 │
-                          ▼                                 │
-                   ┌─────────────┐                          │
-                   │    admin    │──────────────────────────┘
-                   └─────────────┘
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐    ┌─────────────┐
+│  scaffolder │     │   storage   │     │    cache    │◄───│   tenant    │
+└──────┬──────┘     └──────┬──────┘     └──────┬──────┘    └──────┬──────┘
+       │                   │                   │                   │
+       ▼                   ▼                   ▼                   ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│    jobs     │◄─── │    email    │     │  external   │     │    core     │◄────┐
+└──────┬──────┘     └─────────────┘     └──────┬──────┘     └─────────────┘     │
+       │                                       │                  ▲             │
+       ▼                                       ▼                  │             │
+       │                               ┌─────────────┐     ┌──────┴──────┐      │
+       └──────────────────────────────►│  platform   │────►│    user     │◄────┐│
+                                       └──────┬──────┘     └──────┬──────┘     ││
+                                              │                   │            ││
+                                              ▼                   │            ││
+                                      ┌─────────────┐             │            ││
+                                      │observability│◄────────────┘            ││
+                                      └─────────────┘                          ││
+                                              │                                ││
+                                              ▼                                ││
+                                       ┌─────────────┐                         ││
+                                       │    admin    │─────────────────────────┘│
+                                       └─────────────┘                          │
+                                              │                                 │
+                                              ▼                                 │
+                                       ┌─────────────┐                          │
+                                       │  realtime   │──────────────────────────┘
+                                       └─────────────┘
 ```
 
 ## Quick Start
@@ -91,14 +117,55 @@ In the REPL:
 
 ### Develop Boundary Framework (For Contributors)
 
-```bash
-# Prerequisites: JDK and Clojure CLI
-brew install openjdk clojure/tools/clojure  # macOS
+**Prerequisites: JDK 11+ and Clojure CLI**
 
-# Clone and verify
+#### macOS
+```bash
+brew install openjdk clojure/tools/clojure
+```
+
+#### Linux (Debian/Ubuntu)
+```bash
+# Install OpenJDK
+sudo apt-get update
+sudo apt-get install -y openjdk-17-jdk
+
+# Install Clojure CLI
+curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh
+chmod +x linux-install.sh
+sudo ./linux-install.sh
+```
+
+#### Linux (RHEL/Fedora/CentOS)
+```bash
+# Install OpenJDK
+sudo dnf install -y java-17-openjdk java-17-openjdk-devel
+
+# Install Clojure CLI
+curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh
+chmod +x linux-install.sh
+sudo ./linux-install.sh
+```
+
+#### Windows
+```powershell
+# Install using Scoop (recommended)
+scoop install git
+scoop bucket add java
+scoop install openjdk17
+scoop bucket add scoop-clojure
+scoop install clojure
+
+# Alternative: Install using Chocolatey
+choco install openjdk17
+choco install clojure
+```
+
+#### Clone and Verify
+```bash
 git clone <repo-url> boundary
 cd boundary
-clojure -M:test                              # Run tests
+clojure -M:test:db/h2                        # Run tests
 clojure -M:repl-clj                          # Start REPL
 ```
 
@@ -106,14 +173,14 @@ clojure -M:repl-clj                          # Start REPL
 
 ```clojure
 ;; Use just core for validation
-{:deps {io.github.thijs-creemers/boundary-core {:mvn/version "0.1.0"}}}
+{:deps {io.github.thijs-creemers/boundary-core {:mvn/version "1.0.0-alpha"}}}
 
 ;; Use platform for full web application support
-{:deps {io.github.thijs-creemers/boundary-platform {:mvn/version "0.1.0"}}}
+{:deps {io.github.thijs-creemers/boundary-platform {:mvn/version "1.0.0-alpha"}}}
 
 ;; Use the full stack
-{:deps {io.github.thijs-creemers/boundary-user {:mvn/version "0.1.0"}
-        io.github.thijs-creemers/boundary-admin {:mvn/version "0.1.0"}}}
+{:deps {io.github.thijs-creemers/boundary-user {:mvn/version "1.0.0-alpha"}
+        io.github.thijs-creemers/boundary-admin {:mvn/version "1.0.0-alpha"}}}
 ```
 
 ## Essential Commands

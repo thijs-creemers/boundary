@@ -11,7 +11,7 @@ Code generation tool for creating new Boundary modules following the Functional 
 **deps.edn** (as dev dependency):
 ```clojure
 {:aliases
- {:dev {:extra-deps {io.github.thijs-creemers/boundary-scaffolder {:mvn/version "0.1.0"}}}}}
+ {:dev {:extra-deps {io.github.thijs-creemers/boundary-scaffolder {:mvn/version "1.0.0-alpha"}}}}}
 ```
 
 ## Features

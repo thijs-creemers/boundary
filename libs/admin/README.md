@@ -10,12 +10,12 @@ Auto-generated CRUD admin interface with database schema introspection, filterin
 
 **deps.edn** (recommended):
 ```clojure
-{:deps {io.github.thijs-creemers/boundary-admin {:mvn/version "0.1.0"}}}
+{:deps {io.github.thijs-creemers/boundary-admin {:mvn/version "1.0.0-alpha"}}}
 ```
 
 **Leiningen**:
 ```clojure
-[io.github.thijs-creemers/boundary-admin "0.1.0"]
+[io.github.thijs-creemers/boundary-admin "1.0.0-alpha"]
 ```
 
 ## Features

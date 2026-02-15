@@ -1,0 +1,198 @@
+==== link:#_acceptance_criteria_feature_name[]Acceptance Criteria: ++[++Feature Name++]++
+
+[[_feature_description]]
+===== link:#_feature_description[]Feature Description
+
+_Brief description of what this feature accomplishes_
+
+[[_acceptance_criteria]]
+===== link:#_acceptance_criteria[]Acceptance Criteria
+
+[[_functional_requirements]]
+====== link:#_functional_requirements[]Functional Requirements
+
+[[_ac_1_criterion_name]]
+======= link:#_ac_1_criterion_name[]AC-1: ++[++Criterion Name++]++
+
+* *Given:* _Initial context and preconditions_
+* *When:* _Specific action is performed_
+* *Then:* _Expected outcome occurs_
+* *Verification Method:* _How to verify this works (test, inspection, etc.)_
+
+[[_ac_2_criterion_name]]
+======= link:#_ac_2_criterion_name[]AC-2: ++[++Criterion Name++]++
+
+* *Given:* _Initial context and preconditions_
+* *When:* _Specific action is performed_
+* *Then:* _Expected outcome occurs_
+* *Verification Method:* _How to verify this works_
+
+[[_non_functional_requirements]]
+====== link:#_non_functional_requirements[]Non-Functional Requirements
+
+[[_performance]]
+======= link:#_performance[]Performance
+
+* Response time for ++[++operation++]++ must be ++<++ ++[++X++]++ms at p95
+* System must handle ++[++X++]++ concurrent ++[++operations++]++
+* Memory usage must not exceed ++[++X++]++MB under typical load
+
+[[_security]]
+======= link:#_security[]Security
+
+* All inputs must be validated against defined schemas
+* Authentication required for ++[++specific operations++]++
+* Authorization checks must verify ++[++specific permissions++]++
+
+[[_reliability]]
+======= link:#_reliability[]Reliability
+
+* ++[++Operation++]++ must be idempotent
+* System must gracefully handle ++[++specific error conditions++]++
+* Data integrity must be maintained during ++[++specific scenarios++]++
+
+[[_error_handling]]
+====== link:#_error_handling[]Error Handling
+
+[[_error_scenario_1_error_type]]
+======= link:#_error_scenario_1_error_type[]Error Scenario 1: ++[++Error Type++]++
+
+* *Given:* _Error conditions exist_
+* *When:* _Operation is attempted_
+* *Then:* _Appropriate error response is returned_
+* *Status Code:* _++[++HTTP status if applicable++]++_
+* *Error Format:* _Follow RFC 7807 Problem Details_
+
+[[_error_scenario_2_error_type]]
+======= link:#_error_scenario_2_error_type[]Error Scenario 2: ++[++Error Type++]++
+
+* *Given:* _Error conditions exist_
+* *When:* _Operation is attempted_
+* *Then:* _System remains in consistent state_
+
+[[_data_requirements]]
+====== link:#_data_requirements[]Data Requirements
+
+[[_input_validation]]
+======= link:#_input_validation[]Input Validation
+
+* Field ++[++X++]++ must be validated against schema ++[++Y++]++
+* Field ++[++X++]++ must meet business rule ++[++Y++]++
+* Invalid input must result in clear error messages
+
+[[_output_format]]
+======= link:#_output_format[]Output Format
+
+* Response must conform to schema ++[++X++]++
+* Response must include required metadata
+* Response format must be consistent across interfaces
+
+[[_interface_requirements]]
+====== link:#_interface_requirements[]Interface Requirements
+
+[[_api_requirements]]
+======= link:#_api_requirements[]API Requirements
+
+* Endpoint must follow REST conventions
+* Content-Type must be application/json
+* Error responses must use application/problem{plus}json
+
+[[_cli_requirements]]
+======= link:#_cli_requirements[]CLI Requirements
+
+* Command must follow pattern: `boundary ++[++resource++]++ ++[++action++]++ ++[++options++]++`
+* Help text must be clear and include examples
+* Exit codes must follow standard conventions
+
+[[_web_frontend_requirements]]
+======= link:#_web_frontend_requirements[]Web Frontend Requirements
+
+* Form validation must use shared schemas
+* Error messages must be user-friendly
+* Loading states must provide user feedback
+
+[[_implementation_constraints]]
+====== link:#_implementation_constraints[]Implementation Constraints
+
+[[_architecture]]
+======= link:#_architecture[]Architecture
+
+* Core functions must remain pure (no side effects)
+* Shell layer must handle all IO operations
+* Dependencies must flow from Shell → Core, never Core → Shell
+
+[[_technology]]
+======= link:#_technology[]Technology
+
+* Must use malli for validation
+* Must use ++[++specific libraries from tech stack++]++
+* Must follow established patterns in codebase
+
+[[_test_coverage]]
+====== link:#_test_coverage[]Test Coverage
+
+[[_unit_tests]]
+======= link:#_unit_tests[]Unit Tests
+
+* Core functions must have 100% line coverage
+* Property-based tests for critical business logic
+* Schema validation tests for all boundaries
+
+[[_integration_tests]]
+======= link:#_integration_tests[]Integration Tests
+
+* End-to-end API tests for happy path
+* Database integration tests with test data
+* CLI integration tests with various inputs
+
+[[_performance_tests]]
+======= link:#_performance_tests[]Performance Tests
+
+* Load tests for critical endpoints
+* Memory usage tests under stress
+* Response time tests with realistic data
+
+[[_documentation]]
+====== link:#_documentation[]Documentation
+
+[[_user_documentation]]
+======= link:#_user_documentation[]User Documentation
+
+* API documentation must include request/response examples
+* CLI help must include usage examples
+* Error messages must reference documentation
+
+[[_developer_documentation]]
+======= link:#_developer_documentation[]Developer Documentation
+
+* Implementation must reference architectural decisions
+* Core function contracts must be documented
+* Schema changes must be documented with migration notes
+
+[[_definition_of_done_checklist]]
+====== link:#_definition_of_done_checklist[]Definition of Done Checklist
+
+* __ All functional acceptance criteria verified
+* __ All non-functional requirements met
+* __ Error handling tested and documented
+* __ Input/output schemas validated
+* __ API, CLI, and Web interfaces implemented
+* __ Unit tests written and passing
+* __ Integration tests written and passing
+* __ Performance requirements verified
+* __ Documentation updated
+* __ Code reviewed and approved
+* __ No regressions in existing functionality
+
+[[_success_metrics]]
+====== link:#_success_metrics[]Success Metrics
+
+* *Functional Success:* _All user stories can be completed successfully_
+* *Performance Success:* _All response times meet defined SLAs_
+* *Quality Success:* _Test coverage above ++[++X++]++%, zero critical bugs_
+* *Usability Success:* _Users can complete tasks without documentation_
+
+[[_rollback_criteria]]
+====== link:#_rollback_criteria[]Rollback Criteria
+
+If any of these conditions occur, consider rolling back: ++*++ Critical bugs affecting core functionality ++*++ Performance degradation beyond acceptable thresholds ++*++ Data integrity issues ++*++ Security vulnerabilities introduced

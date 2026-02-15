@@ -1,0 +1,349 @@
+= Library Split Migration Guide
+:toc: left
+:toclevels: 3
+
+[[overview]]
+== Overview
+
+In **Boundary v2.2.0**, the codebase was reorganized from a single `src/` directory into a modular library structure under `libs/`. This document provides the complete mapping from old paths to new paths.
+
+[IMPORTANT]
+====
+This is the **canonical migration reference**. Use this document to update any legacy documentation, configuration, or tooling that references pre-split paths.
+====
+
+[[why-the-split]]
+== Why the Library Split?
+
+The library split provides:
+
+* **Clear ownership** - Each library has explicit dependencies and responsibilities
+* **Faster builds** - Libraries can be built and tested independently
+* **Better isolation** - Changes in one library don't affect unrelated code
+* **Reusability** - Libraries can be extracted as standalone packages
+* **Scalability** - Teams can work on different libraries without conflicts
+
+[[path-mapping]]
+== Path Mapping Table
+
+[[source-paths]]
+=== Source Paths
+
+[cols="2,2,1"]
+|===
+|Old Path (Pre-v2.2.0) |New Path (v2.2.0+) |Library
+
+|`src/boundary/user/`
+|`libs/user/src/boundary/user/`
+|user
+
+|`src/boundary/user/core/`
+|`libs/user/src/boundary/user/core/`
+|user
+
+|`src/boundary/user/shell/`
+|`libs/user/src/boundary/user/shell/`
+|user
+
+|`src/boundary/user/ports.clj`
+|`libs/user/src/boundary/user/ports.clj`
+|user
+
+|`src/boundary/user/schema.clj`
+|`libs/user/src/boundary/user/schema.clj`
+|user
+
+|`src/boundary/admin/`
+|`libs/admin/src/boundary/admin/`
+|admin
+
+|`src/boundary/storage/`
+|`libs/storage/src/boundary/storage/`
+|storage
+
+|`src/boundary/scaffolder/`
+|`libs/scaffolder/src/boundary/scaffolder/`
+|scaffolder
+
+|`src/boundary/logging/`
+|`libs/observability/src/boundary/observability/logging/`
+|observability
+
+|`src/boundary/metrics/`
+|`libs/observability/src/boundary/observability/metrics/`
+|observability
+
+|`src/boundary/error_reporting/`
+|`libs/observability/src/boundary/observability/error_reporting/`
+|observability
+
+|`src/boundary/platform/`
+|`libs/platform/src/boundary/platform/`
+|platform
+
+|`src/boundary/core/`
+|`libs/core/src/boundary/core/`
+|core
+
+|`src/boundary/shared/`
+|`libs/core/src/boundary/shared/`
+|core
+|===
+
+[[test-paths]]
+=== Test Paths
+
+[cols="2,2"]
+|===
+|Old Path |New Path
+
+|`test/boundary/user/`
+|`libs/user/test/boundary/user/`
+
+|`test/boundary/admin/`
+|`libs/admin/test/boundary/admin/`
+
+|`test/boundary/storage/`
+|`libs/storage/test/boundary/storage/`
+
+|`test/boundary/scaffolder/`
+|`libs/scaffolder/test/boundary/scaffolder/`
+
+|`test/boundary/platform/`
+|`libs/platform/test/boundary/platform/`
+
+|`test/boundary/core/`
+|`libs/core/test/boundary/core/`
+|===
+
+[[namespace-mapping]]
+== Namespace Mapping
+
+Namespaces remain **unchanged** - only file paths changed:
+
+[cols="2,2"]
+|===
+|Namespace |New File Location
+
+|`boundary.user.core.user`
+|`libs/user/src/boundary/user/core/user.clj`
+
+|`boundary.user.shell.service`
+|`libs/user/src/boundary/user/shell/service.clj`
+
+|`boundary.user.ports`
+|`libs/user/src/boundary/user/ports.clj`
+
+|`boundary.admin.core.ui`
+|`libs/admin/src/boundary/admin/core/ui.clj`
+
+|`boundary.shared.core.utils.case-conversion`
+|`libs/core/src/boundary/shared/core/utils/case_conversion.clj`
+
+|`boundary.platform.shell.system.wiring`
+|`libs/platform/src/boundary/platform/shell/system/wiring.clj`
+|===
+
+[[observability-reorganization]]
+== Observability Reorganization
+
+Observability modules were consolidated from separate directories into a unified library:
+
+[cols="2,2"]
+|===
+|Old Namespace |New Namespace
+
+|`boundary.logging.*`
+|`boundary.observability.logging.*`
+
+|`boundary.metrics.*`
+|`boundary.observability.metrics.*`
+
+|`boundary.error-reporting.*`
+|`boundary.observability.error-reporting.*`
+|===
+
+[[library-dependencies]]
+== Library Dependencies
+
+Each library has its own `deps.edn` specifying dependencies:
+
+[source]
+----
+libs/
+├── core/deps.edn           # No internal dependencies
+├── observability/deps.edn  # Depends on core
+├── platform/deps.edn       # Depends on core, observability
+├── user/deps.edn           # Depends on core, platform, observability
+├── admin/deps.edn          # Depends on core, platform, user
+├── storage/deps.edn        # Depends on core, platform
+└── scaffolder/deps.edn     # Depends on core
+----
+
+[[configuration-changes]]
+== Configuration Changes
+
+[[admin-config]]
+=== Admin Entity Configuration
+
+Admin configs moved to modular per-entity files:
+
+[cols="2,2"]
+|===
+|Old Location |New Location
+
+|Inline in `config.edn` under `:boundary/admin :entities`
+|`resources/conf/{env}/admin/{entity}.edn`
+|===
+
+Example migration:
+
+[source,clojure]
+----
+;; Old (in config.edn)
+:boundary/admin
+{:entities
+ {:users {...}
+  :products {...}}}
+
+;; New (config.edn uses #include)
+:boundary/admin
+{:entities #merge [#include "admin/users.edn"
+                   #include "admin/products.edn"]}
+
+;; resources/conf/dev/admin/users.edn
+{:users
+ {:label "Users"
+  :list-fields [:email :name :role :created-at]
+  ...}}
+----
+
+[[testing-changes]]
+== Testing Changes
+
+[[test-commands]]
+=== Test Commands
+
+[cols="2,2"]
+|===
+|Old Command |New Command
+
+|`clojure -M:test:db/h2`
+|`clojure -M:test:db/h2` (unchanged)
+
+|`clojure -M:test:db/h2 --focus boundary.user.core.user-test`
+|`clojure -M:test:db/h2 --focus boundary.user.core.user-test` (unchanged)
+
+|N/A
+|`clojure -M:test:db/h2 :user` (new: test by library)
+
+|N/A
+|`clojure -M:test:db/h2 :core` (new: test by library)
+|===
+
+[[lint-commands]]
+=== Lint Commands
+
+[cols="2,2"]
+|===
+|Old Command |New Command
+
+|`clojure -M:clj-kondo --lint src test`
+|`clojure -M:clj-kondo --lint src test libs/*/src libs/*/test`
+|===
+
+[[documentation-updates]]
+== Documentation Updates
+
+[[docs-path-references]]
+=== Path References to Update
+
+If you find documentation with these patterns, they need updating:
+
+[cols="2,2"]
+|===
+|Old Pattern |New Pattern
+
+|`src/boundary/user/core/user.clj`
+|`libs/user/src/boundary/user/core/user.clj`
+
+|`test/boundary/user/`
+|`libs/user/test/boundary/user/`
+
+|`src/boundary/{module}/`
+|`libs/{module}/src/boundary/{module}/`
+|===
+
+[[architecture-docs]]
+=== Architecture Documentation
+
+The architecture overview shows the pre-split structure. Key differences:
+
+[cols="2,2"]
+|===
+|Architecture Doc Shows |Actual Current Structure
+
+|`src/boundary/user/` as module location
+|`libs/user/src/boundary/user/`
+
+|Single `deps.edn` with all dependencies
+|Root `deps.edn` + per-library `deps.edn`
+
+|Flat test directory
+|Per-library test directories
+|===
+
+[[tooling-updates]]
+== Tooling Updates
+
+[[ide-configuration]]
+=== IDE Configuration
+
+Update source paths in your IDE:
+
+**Cursive/IntelliJ:**
+
+* Add `libs/*/src` and `libs/*/test` to source paths
+
+**VS Code with Calva:**
+
+* Source paths are auto-detected from `deps.edn`
+
+[[ci-configuration]]
+=== CI Configuration
+
+Update CI scripts to lint all library paths:
+
+[source,yaml]
+----
+# Old
+- run: clojure -M:clj-kondo --lint src test
+
+# New
+- run: clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
+----
+
+[[grep-patterns]]
+== Finding Old References
+
+Use these commands to find old path references:
+
+[source,bash]
+----
+# Find old path patterns in docs
+grep -r "src/boundary/user" docs/
+grep -r "test/boundary/" docs/
+
+# Find old patterns in code comments
+grep -r "src/boundary/" libs/*/src
+
+# Find in this repo
+bb scripts/docs_lint.clj  # Runs the docs linter
+----
+
+[[related-documentation]]
+== Related Documentation
+
+* link:../repo-structure.adoc[Repository Structure] - Current canonical structure
+* link:../development-commands.adoc[Development Commands] - Current command reference
+* link:../../architecture/overview.adoc[Architecture Overview] - FC/IS patterns (note: diagrams show pre-split paths)

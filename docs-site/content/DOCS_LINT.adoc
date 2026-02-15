@@ -1,0 +1,125 @@
+= Documentation Lint Tool
+
+The boundary-docs repository includes a documentation linter that detects drift between documentation and the boundary repository structure.
+
+== What It Checks
+
+[cols="1,2"]
+|===
+|Check |Description
+
+|`broken-link`
+|Internal links (markdown/asciidoc) that point to non-existent files
+
+|`stale-path`
+|References to pre-library-split paths (e.g., `src/boundary/user/` instead of `libs/user/src/boundary/user/`)
+
+|`unknown-namespace`
+|Namespace references that don't match known boundary module prefixes
+
+|`stale-github-link`
+|GitHub links to boundary repo that use outdated paths
+
+|`invalid-lib-path`
+|Library paths that reference non-existent libraries
+|===
+
+== Running Locally
+
+=== Prerequisites
+
+* https://babashka.org/[Babashka] installed
+
+=== Run the Linter
+
+[source,bash]
+----
+bb scripts/docs_lint.clj
+----
+
+=== Verbose Mode
+
+[source,bash]
+----
+bb scripts/docs_lint.clj --verbose
+----
+
+=== Custom Output Directory
+
+[source,bash]
+----
+bb scripts/docs_lint.clj --out-dir my-output
+----
+
+== Output
+
+The linter generates two reports in `build/docs-lint/`:
+
+* `report.edn` - Machine-readable structured report
+* `report.txt` - Human-readable summary
+
+== CI Integration
+
+The linter runs automatically on every push and pull request via GitHub Actions. See `.github/workflows/docs-lint.yml`.
+
+The job is **warn-only** - it never fails the build, but uploads reports as artifacts for review.
+
+== Interpreting Warnings
+
+=== `broken-link`
+
+A link in the documentation points to a file that doesn't exist.
+
+**Fix:** Update the link path or create the missing file.
+
+=== `stale-path`
+
+Documentation references old paths from before the library split.
+
+**Example:**
+----
+src/boundary/user/core/user.clj
+----
+
+**Should be:**
+----
+libs/user/src/boundary/user/core/user.clj
+----
+
+**Reference:** See link:reference/migrations/library-split.adoc[Library Split Migration Guide]
+
+=== `unknown-namespace`
+
+A namespace reference doesn't match any known module prefix.
+
+**Valid prefixes:**
+* `boundary.core.*`
+* `boundary.shared.*`
+* `boundary.observability.*`
+* `boundary.platform.*`
+* `boundary.user.*`
+* `boundary.admin.*`
+* `boundary.storage.*`
+* `boundary.scaffolder.*`
+
+[NOTE]
+====
+`boundary.external.*` is in development and not yet part of the main build.
+====
+
+=== `stale-github-link`
+
+A GitHub link to the boundary repository uses an outdated path structure.
+
+**Fix:** Update the path in the GitHub URL to use the new `libs/` structure.
+
+== Known Limitations
+
+* Does not validate external URLs (only internal links)
+* Does not check if referenced boundary repo files actually exist (only validates path patterns)
+* Some false positives may occur in example/template documentation
+
+== Related
+
+* link:reference/repo-structure.adoc[Repository Structure] - Current boundary repo structure
+* link:reference/migrations/library-split.adoc[Library Split Migration] - Path mapping guide

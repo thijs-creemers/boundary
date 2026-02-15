@@ -187,9 +187,15 @@
    (get-in context [:timing timing-key])))
 
 (defn has-result?
-  "Checks if context contains a result from core function execution."
-  [context]
-  (contains? context :result))
+  "Checks if context contains a result from core function execution.
+   
+    Args:
+      context: Interceptor context map
+    
+    Returns:
+      Boolean indicating result presence"
+   [context]
+   (contains? context :result))
 
 (defn get-result
   "Extracts result from context."
@@ -201,20 +207,38 @@
      (get-in context [:result key-path]))))
 
 (defn success?
-  "Checks if the operation was successful based on result status."
-  [context]
-  (= :success (get-in context [:result :status])))
+  "Checks if the operation was successful based on result status.
+   
+    Args:
+      context: Interceptor context map
+    
+    Returns:
+      Boolean indicating operation success"
+   [context]
+   (= :success (get-in context [:result :status])))
 
 (defn has-errors?
-  "Checks if context contains validation or domain errors."
-  [context]
-  (or (seq (:errors context))
-      (seq (get-in context [:result :errors]))))
+  "Checks if context contains validation or domain errors.
+   
+    Args:
+      context: Interceptor context map
+    
+    Returns:
+      Boolean indicating error presence"
+   [context]
+   (or (seq (:errors context))
+       (seq (get-in context [:result :errors]))))
 
 (defn halted?
-  "Checks if pipeline execution should be halted."
-  [context]
-  (:halt? context))
+  "Checks if pipeline execution should be halted.
+   
+    Args:
+      context: Interceptor context map
+    
+    Returns:
+      Boolean indicating halt flag status"
+   [context]
+   (:halt? context))
 
 (defn get-response
   "Extracts response from context."

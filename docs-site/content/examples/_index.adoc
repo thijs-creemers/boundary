@@ -1,0 +1,128 @@
+---
+title: "Example Applications"
+weight: 50
+bookCollapseSection: false
+---
+
+= Example Applications
+
+Complete, working applications that demonstrate Boundary's patterns in practice.
+
+== Overview
+
+Each example is a standalone application you can run, explore, and learn from. They progress from simple to complex, each introducing new concepts.
+
+[cols="1,2,1"]
+|===
+|Example |What You'll Learn |Complexity
+
+|link:todo-api[Todo API]
+|REST basics, JWT authentication, Malli validation
+|⭐
+
+|link:blog-app[Blog Application]
+|Server-side rendering, HTMX, Hiccup templates
+|⭐⭐
+
+|link:ecommerce-api[E-commerce API]
+|State machines, payment integration, webhooks
+|⭐⭐⭐
+
+|link:notification-service[Notification Service]
+|Event-driven architecture, pub/sub, retry logic
+|⭐⭐⭐
+|===
+
+== Running the Examples
+
+All examples live in the `examples/` directory of the main repository:
+
+[source,bash]
+----
+git clone https://github.com/thijs-creemers/boundary
+cd boundary/examples
+----
+
+Each example has its own `deps.edn` and can be run independently:
+
+[source,bash]
+----
+cd todo-api
+clojure -M -m todo.main
+----
+
+== What Each Example Demonstrates
+
+=== Todo API — The Basics
+
+The classic starting point. Build a REST API with:
+
+* CRUD operations following FC/IS pattern
+* JWT authentication
+* Input validation with Malli schemas
+* SQLite persistence
+
+_Start here if you're new to Boundary._
+
+=== Blog Application — Server-Side Rendering
+
+A complete web application with:
+
+* Hiccup templates for HTML generation
+* HTMX for dynamic interactions without JavaScript
+* Pico CSS for minimal styling
+* Session-based authentication
+
+_Demonstrates that Boundary isn't just for APIs._
+
+=== E-commerce API — Real-World Complexity
+
+A production-style API showcasing:
+
+* Order state machine (pending → paid → shipped → delivered)
+* Mock Stripe payment provider
+* Webhook signature verification
+* Multiple interconnected modules (product, cart, order, payment)
+
+_Shows how modules communicate via protocols._
+
+=== Notification Service — Event-Driven Architecture
+
+A microservice demonstrating:
+
+* In-memory pub/sub message bus
+* Event handlers for different event types
+* Multi-channel notifications (email, SMS, push)
+* Exponential backoff retry logic
+
+_Illustrates patterns for distributed systems._
+
+== Common Patterns Across Examples
+
+All examples follow the same structure:
+
+[source,text]
+----
+example-name/
+├── deps.edn              # Dependencies
+├── README.adoc           # Documentation
+├── resources/
+│   └── config/           # Environment configs
+├── src/{namespace}/
+│   ├── {module}/
+│   │   ├── core/         # Pure business logic
+│   │   ├── shell/        # I/O, HTTP, persistence
+│   │   ├── ports.clj     # Protocols
+│   │   └── schema.clj    # Validation
+│   ├── system.clj        # Integrant configuration
+│   └── main.clj          # Entry point
+└── test/                 # Tests
+----
+
+== Next Steps
+
+After exploring the examples:
+
+* link:../guides/create-module[Create Your Own Module] — Apply what you've learned
+* link:../architecture/fc-is[FC/IS Deep Dive] — Understand the underlying patterns
+* link:../guides[All Guides] — Topic-specific documentation

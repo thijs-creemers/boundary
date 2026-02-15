@@ -1,0 +1,149 @@
+---
+title: "Blog Application"
+weight: 2
+---
+
+= Blog Application Example
+
+A server-rendered web application with HTMX, demonstrating that Boundary works for more than just APIs.
+
+== Quick Start
+
+[source,bash]
+----
+cd boundary/examples/blog-app
+clojure -M -m blog.main
+# Open http://localhost:3001 in your browser
+----
+
+== What You'll Learn
+
+* **Server-side rendering** — Hiccup templates for HTML
+* **HTMX integration** — Dynamic UIs without JavaScript frameworks
+* **Web authentication** — Session-based login
+* **Full-stack FC/IS** — The pattern applies to web apps too
+
+== Project Structure
+
+[source,text]
+----
+blog-app/
+├── src/blog/
+│   ├── post/
+│   │   ├── core/post.clj      # Pure: slugify, validate, summarize
+│   │   ├── shell/
+│   │   │   ├── store.clj      # SQLite persistence
+│   │   │   ├── service.clj    # Orchestration
+│   │   │   └── http.clj       # Web routes
+│   │   ├── ports.clj
+│   │   └── schema.clj
+│   ├── auth/                   # Authentication module
+│   ├── views/                  # Hiccup templates
+│   │   ├── layout.clj         # Base layout
+│   │   ├── posts.clj          # Post list/detail views
+│   │   └── components.clj     # Reusable components
+│   ├── system.clj
+│   └── main.clj
+├── resources/
+│   └── public/                 # Static assets
+└── test/
+----
+
+== Features
+
+* **Post management** — Create, edit, publish, delete posts
+* **Markdown rendering** — Write posts in Markdown
+* **HTMX interactions** — Inline editing, dynamic updates
+* **Responsive design** — Pico CSS for clean styling
+
+== Key Code: Hiccup Templates
+
+Views are pure functions returning Hiccup data:
+
+[source,clojure]
+----
+;; views/posts.clj
+(defn post-card [post]
+  [:article.post-card
+   [:header
+    [:h2 [:a {:href (str "/posts/" (:slug post))} 
+          (:title post)]]]
+   [:p.summary (:summary post)]
+   [:footer
+    [:time {:datetime (:published-at post)} 
+     (format-date (:published-at post))]]])
+
+(defn post-list [posts]
+  [:section.posts
+   (if (empty? posts)
+     [:p "No posts yet."]
+     (map post-card posts))])
+----
+
+== Key Code: HTMX Integration
+
+Dynamic behavior without JavaScript:
+
+[source,clojure]
+----
+;; views/components.clj
+(defn delete-button [post-id]
+  [:button {:hx-delete (str "/posts/" post-id)
+            :hx-confirm "Delete this post?"
+            :hx-target "closest article"
+            :hx-swap "outerHTML"}
+   "Delete"])
+
+(defn inline-edit [post]
+  [:form {:hx-put (str "/posts/" (:id post))
+          :hx-target "this"
+          :hx-swap "outerHTML"}
+   [:input {:name "title" 
+            :value (:title post)}]
+   [:button {:type "submit"} "Save"]])
+----
+
+== Key Code: Pure Core Logic
+
+Business logic remains pure even for web apps:
+
+[source,clojure]
+----
+;; post/core/post.clj
+(defn slugify
+  "Pure function - creates URL-safe slug from title."
+  [title]
+  (-> title
+      str/lower-case
+      (str/replace #"[^a-z0-9]+" "-")
+      (str/replace #"^-|-$" "")))
+
+(defn summarize
+  "Pure function - extracts first paragraph for preview."
+  [content max-length]
+  (let [first-para (first (str/split content #"\n\n"))]
+    (if (> (count first-para) max-length)
+      (str (subs first-para 0 max-length) "...")
+      first-para)))
+
+(defn can-publish?
+  "Pure predicate - checks if post is ready to publish."
+  [post]
+  (and (seq (:title post))
+       (seq (:content post))
+       (nil? (:published-at post))))
+----
+
+== Running Tests
+
+[source,bash]
+----
+cd examples/blog-app
+clojure -M:test
+
+# 17 tests, all passing
+----
+
+== Source Code
+
+https://github.com/thijs-creemers/boundary/tree/main/examples/blog-app[View on GitHub →]

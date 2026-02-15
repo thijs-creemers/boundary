@@ -24,14 +24,24 @@
         nil))))
 
 (defn parse-search-filters
-  [query-params]
-  (let [q      (get query-params "q")
-        role   (get query-params "role")
-        status (get query-params "status")]
-    (cond-> {}
-      (some-> q str/blank? not)       (assoc :q q)
-      (some-> role str/blank? not)    (assoc :role role)
-      (some-> status str/blank? not)  (assoc :status status))))
+   "Parse search and filter parameters from query params.
+    
+    Extracts 'q' (search), 'role', and 'status' from query parameters
+    and filters out blank/empty values.
+    
+    Args:
+      query-params: String-keyed map of query parameters from Ring
+      
+    Returns:
+      Map with :q, :role, :status keys (only non-blank values included)"
+   [query-params]
+   (let [q      (get query-params "q")
+         role   (get query-params "role")
+         status (get query-params "status")]
+     (cond-> {}
+       (some-> q str/blank? not)       (assoc :q q)
+       (some-> role str/blank? not)    (assoc :role role)
+       (some-> status str/blank? not)  (assoc :status status))))
 
 (defn search-filters->params
   "Convert parsed search/filter map back into a string-keyed param map.

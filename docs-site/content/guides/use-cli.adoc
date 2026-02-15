@@ -1,0 +1,343 @@
+= Use the CLI
+
+[[overview]]
+== Overview
+
+The Boundary CLI provides command-line tools for managing users and sessions. This guide covers the most common operations.
+
+[TIP]
+====
+**Complete CLI Documentation**
+
+This guide focuses on getting started quickly. For comprehensive documentation including all options and advanced usage, see {xref-cli-guide}[CLI User Manual].
+====
+
+[[basic-usage]]
+== Basic Usage
+
+=== General Syntax
+
+[source,{shell}]
+----
+clojure -M:cli <domain> <command> [options]
+----
+
+**Components:**
+
+* `<domain>` - Either `user` or `session`
+* `<command>` - Operation to perform (create, list, find, etc.)
+* `[options]` - Command-specific flags and arguments
+
+=== Global Options
+
+These work with any command:
+
+[cols="1,3"]
+|===
+|Option |Description
+
+|`-f, --format FORMAT`
+|Output format: `table` (default) or `json`
+
+|`-h, --help`
+|Show help for the command
+|===
+
+[[user-management]]
+== User Management
+
+=== Create a User
+
+[source,{shell}]
+----
+clojure -M:cli user create \
+  --email alice@example.com \
+  --name "Alice Doe" \
+  --role user \
+  --user-id 550e8400-e29b-41d4-a716-446655440000
+----
+
+**Required options:**
+
+* `--email` - Valid email address
+* `--name` - User's full name  
+* `--role` - One of: `admin`, `user`, or `viewer`
+* `--user-id` - User UUID
+
+**Optional:**
+
+* `--active BOOL` - Active status (default: `true`)
+
+**Output:**
+----
++---------------------------------+-------------------+----------+------+--------+---------------------+
+| ID                              | Email             | Name     | Role | Active | Created             |
++---------------------------------+-------------------+----------+------+--------+---------------------+
+| 123e4567-e89b-12d3-a456-426...  | alice@example.com | Alice... | user | true   | 2025-01-06 12:34:56 |
++---------------------------------+-------------------+----------+------+--------+---------------------+
+----
+
+=== List Users
+
+View all users :
+
+[source,{shell}]
+----
+clojure -M:cli user list \
+  --user-id 550e8400-e29b-41d4-a716-446655440000
+----
+
+**Filter options:**
+
+[source,{shell}]
+----
+# Limit results
+clojure -M:cli user list \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
+  --limit 10 \
+  --offset 0
+
+# Filter by role
+clojure -M:cli user list \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
+  --role admin
+
+# Filter by active status
+clojure -M:cli user list \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
+  --active true
+----
+
+=== Find a Specific User
+
+Find by ID:
+
+[source,{shell}]
+----
+clojure -M:cli user find \
+  --id 123e4567-e89b-12d3-a456-426614174000
+----
+
+Find by email:
+
+[source,{shell}]
+----
+clojure -M:cli user find \
+  --email alice@example.com \
+  --user-id 550e8400-e29b-41d4-a716-446655440000
+----
+
+=== Update a User
+
+[source,{shell}]
+----
+clojure -M:cli user update \
+  --id 123e4567-e89b-12d3-a456-426614174000 \
+  --name "Alice Smith" \
+  --role admin
+----
+
+**Updatable fields:**
+
+* `--name` - User's full name
+* `--role` - User role (admin, user, viewer)
+* `--active` - Active status (true/false)
+
+=== Delete a User
+
+Soft delete (marks as deleted, preserves data):
+
+[source,{shell}]
+----
+clojure -M:cli user delete \
+  --id 123e4567-e89b-12d3-a456-426614174000
+----
+
+[NOTE]
+====
+**Soft vs Hard Delete**
+
+The CLI performs a soft delete by default, which sets `deleted_at` but preserves the user data. The user can be restored from the database if needed.
+====
+
+[[session-management]]
+== Session Management
+
+=== Create a Session
+
+Create a new session (login):
+
+[source,{shell}]
+----
+clojure -M:cli session create \
+  --user-id 123e4567-e89b-12d3-a456-426614174000 \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
+  --user-agent "Mozilla/5.0..." \
+  --ip-address "192.168.1.1"
+----
+
+**Output includes session token:**
+----
++--------------------------------+-------------------------+---------------------+---------------------+--------+
+| Token                          | User ID                 | Created             | Expires             | Revoked|
++--------------------------------+-------------------------+---------------------+---------------------+--------+
+| abc123def456...                | 123e4567-e89b-12d3...   | 2025-01-06 12:00:00 | 2025-01-07 12:00:00 | No     |
++--------------------------------+-------------------------+---------------------+---------------------+--------+
+----
+
+=== List Sessions
+
+View all sessions for a user:
+
+[source,{shell}]
+----
+clojure -M:cli session list \
+  --user-id 123e4567-e89b-12d3-a456-426614174000
+----
+
+=== Invalidate a Session
+
+Revoke a session (logout):
+
+[source,{shell}]
+----
+clojure -M:cli session invalidate \
+  --token abc123def456...
+----
+
+[[output-formats]]
+== Output Formats
+
+=== Table Format (Default)
+
+Human-readable tables for interactive use:
+
+[source,{shell}]
+----
+clojure -M:cli user list \
+  --user-id 550e8400-e29b-41d4-a716-446655440000
+----
+
+=== JSON Format
+
+Machine-readable JSON for scripting and automation:
+
+[source,{shell}]
+----
+clojure -M:cli user list \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
+  --format json
+----
+
+**JSON output:**
+[source,json]
+----
+{
+  "users": [
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "email": "alice@example.com",
+      "name": "Alice Doe",
+      "role": "user",
+      "active": true,
+      "createdAt": "2025-01-06T12:34:56Z"
+    }
+  ],
+  "count": 1
+}
+----
+
+[[scripting-examples]]
+== Scripting with the CLI
+
+=== Parse JSON Output
+
+Use `jq` to process JSON output:
+
+[source,{shell}]
+----
+# Get just the email addresses
+clojure -M:cli user list \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
+  --format json | jq -r '.users[].email'
+
+# Count active users
+clojure -M:cli user list \
+  --user-id 550e8400-e29b-41d4-a716-446655440000 \
+  --active true \
+  --format json | jq '.count'
+----
+
+=== Batch Operations
+
+Create multiple users from a file:
+
+[source,{shell}]
+----
+#!/bin/zsh
+# create-users.sh
+
+USER_ID="550e8400-e29b-41d4-a716-446655440000"
+
+while IFS=',' read -r email name role; do
+  clojure -M:cli user create \
+    --email "$email" \
+    --name "$name" \
+    --role "$role" \
+    --user-id "$USER_ID"
+done < users.csv
+----
+
+[[error-handling]]
+== Error Handling
+
+=== Exit Codes
+
+The CLI uses standard exit codes:
+
+* `0` - Success
+* `1` - Error (validation failed, user not found, etc.)
+
+Check exit status in scripts:
+
+[source,{shell}]
+----
+if clojure -M:cli user create --email alice@example.com \
+   --name "Alice" --role user --user-id $USER_ID; then
+  echo "User created successfully"
+else
+  echo "Failed to create user" >&2
+  exit 1
+fi
+----
+
+=== Common Errors
+
+**Invalid email:**
+----
+Error: Email must be a valid email address
+----
+
+**Missing required argument:**
+----
+Error: Missing required arguments: --email, --name, --role
+----
+
+**User not found:**
+----
+Error: User not found
+----
+
+[[learn-more]]
+== Learn More
+
+**Complete documentation:**
+
+* {xref-cli-guide}[CLI User Manual] - Full command reference with all options
+* {xref-quickstart}[Quickstart Tutorial] - First-time CLI usage
+* {xref-commands}[Commands Reference] - All available Clojure commands
+
+**Related concepts:**
+
+* {xref-validation}[Validation System] - Understanding validation errors
+* {xref-troubleshooting}[Troubleshooting] - Common CLI issues

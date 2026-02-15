@@ -1,0 +1,272 @@
+= Repository Structure
+:toc: left
+:toclevels: 3
+
+[[overview]]
+== Overview
+
+Boundary uses a **monorepo with modular libraries** architecture. After the library split (v2.2.0), all domain and infrastructure code lives in the `libs/` directory, with each library owning its complete functionality stack.
+
+This document is the **canonical reference** for repository structure and paths after the library split.
+
+[[library-overview]]
+== Library Overview
+
+[cols="1,2,3"]
+|===
+|Library |Responsibility |Key Components
+
+|`libs/core`
+|Foundation utilities, validation, interceptors
+|Case conversion, type coercion, shared schemas, interceptor patterns
+
+|`libs/observability`
+|Logging, metrics, error reporting
+|Logger protocols, metrics registry, Sentry/Datadog adapters
+
+|`libs/platform`
+|HTTP, database, CLI infrastructure
+|Ring/Reitit routing, database context, CLI entry points
+
+|`libs/user`
+|Authentication, authorization, MFA
+|User service, session management, JWT tokens, web UI
+
+|`libs/admin`
+|Auto-CRUD admin interface
+|Entity management, filter builder, bulk actions, Hiccup components
+
+|`libs/storage`
+|File storage (local and S3)
+|Storage protocols, local adapter, S3 adapter
+
+|`libs/scaffolder`
+|Module code generator
+|Templates, code generation, CLI interface
+
+|`libs/external`
+|External API integrations (in development)
+|Email, payments, notifications adapters (not yet in main build)
+|===
+
+[NOTE]
+====
+`libs/external` is in development and not yet integrated into the main build. It is excluded from `deps.edn` paths and `tests.edn` until ready.
+====
+
+[[canonical-paths]]
+== Canonical Path Structure
+
+Each library follows the **Functional Core / Imperative Shell** pattern:
+
+[source]
+----
+libs/{library}/
+├── deps.edn                    # Library-specific dependencies
+├── src/
+│   └── boundary/
+│       └── {library}/
+│           ├── core/           # Pure business logic (no I/O)
+│           │   ├── {domain}.clj
+│           │   └── ui.clj      # Hiccup UI components (if applicable)
+│           ├── shell/          # I/O, validation, side effects
+│           │   ├── service.clj
+│           │   ├── persistence.clj
+│           │   ├── http.clj
+│           │   └── web_handlers.clj
+│           ├── ports.clj       # Protocol definitions
+│           └── schema.clj      # Malli validation schemas
+└── test/
+    └── boundary/
+        └── {library}/
+            ├── core/           # Unit tests (pure functions)
+            └── shell/          # Integration/contract tests
+----
+
+[[shared-namespace]]
+=== Shared Namespace
+
+Cross-cutting utilities live under `boundary.shared` within the appropriate library:
+
+[source]
+----
+libs/core/src/boundary/shared/
+├── core/
+│   └── utils/
+│       ├── case_conversion.clj   # kebab-case <-> snake_case
+│       └── type_conversion.clj   # Instant, BigDecimal, etc.
+└── shell/
+    └── interceptors.clj          # Observability interceptors
+----
+
+[[example-library-structure]]
+=== Example: User Library
+
+[source]
+----
+libs/user/
+├── deps.edn
+├── src/
+│   └── boundary/
+│       └── user/
+│           ├── core/
+│           │   ├── user.clj          # User entity logic
+│           │   ├── session.clj       # Session management
+│           │   ├── mfa.clj           # MFA logic
+│           │   ├── audit.clj         # Audit logging
+│           │   └── ui.clj            # Hiccup components
+│           ├── shell/
+│           │   ├── service.clj       # UserService implementation
+│           │   ├── persistence.clj   # UserRepository implementation
+│           │   ├── http.clj          # REST API routes
+│           │   └── web_handlers.clj  # Web UI handlers
+│           ├── ports.clj             # IUserService, IUserRepository
+│           └── schema.clj            # User, Session schemas
+└── test/
+    └── boundary/
+        └── user/
+            ├── core/
+            │   ├── user_test.clj
+            │   └── user_validation_snapshot_test.clj
+            └── shell/
+                ├── service_test.clj
+                └── persistence_test.clj
+----
+
+[[root-structure]]
+== Root Repository Structure
+
+[source]
+----
+boundary/
+├── libs/                        # All library code
+│   ├── core/
+│   ├── observability/
+│   ├── platform/
+│   ├── user/
+│   ├── admin/
+│   ├── storage/
+│   ├── scaffolder/
+│   └── external/
+├── resources/
+│   ├── conf/                    # Environment-based configuration
+│   │   └── dev/
+│   │       ├── config.edn
+│   │       └── admin/           # Module-specific admin configs
+│   │           └── users.edn
+│   ├── public/                  # Static assets
+│   │   ├── css/
+│   │   └── js/
+│   └── migrations/              # Database migrations
+├── scripts/                     # Tooling scripts
+│   └── docs_lint.clj
+├── dev/                         # Development utilities
+│   └── boundary/
+│       └── tools/
+├── build/                       # Build output (gitignored)
+├── deps.edn                     # Root deps with aliases
+├── tests.edn                    # Kaocha test configuration
+├── build.clj                    # Build tasks
+├── AGENTS.md                    # AI agent quick reference
+└── README.md                    # Project landing page
+----
+
+[[dependency-rules]]
+== Dependency Rules
+
+Libraries have explicit dependency relationships:
+
+[source]
+----
+platform --> core
+platform --> observability
+
+user --> core
+user --> platform
+user --> observability
+
+admin --> core
+admin --> platform
+admin --> user
+
+storage --> core
+storage --> platform
+
+scaffolder --> core
+----
+
+**Rules:**
+
+* Libraries can only depend on libraries above them in the hierarchy
+* `core` has no internal dependencies (foundation layer)
+* `platform` provides infrastructure that other modules consume
+* Domain libraries (`user`, `admin`, `storage`) depend on platform
+
+[[configuration]]
+== Configuration Structure
+
+Configuration uses Aero with environment-based profiles:
+
+[source]
+----
+resources/conf/
+├── dev/
+│   ├── config.edn              # Main development config
+│   └── admin/
+│       └── users.edn           # User entity admin config
+├── test/
+│   └── config.edn              # Test configuration
+└── prod/
+    └── config.edn              # Production configuration
+----
+
+Admin entity configs are modular - each module owns its config in `admin/{module}.edn`:
+
+[source,clojure]
+----
+;; In config.edn
+:boundary/admin
+{:enabled? true
+ :entities #merge [#include "admin/users.edn"]
+ :pagination {...}}
+----
+
+[[testing-structure]]
+== Testing Structure
+
+Tests are organized by category and library:
+
+[cols="1,2,2"]
+|===
+|Category |Location |Purpose
+
+|Unit tests
+|`libs/{library}/test/boundary/{library}/core/`
+|Pure function tests, no I/O
+
+|Integration tests
+|`libs/{library}/test/boundary/{library}/shell/`
+|Service tests with mocked dependencies
+
+|Contract tests
+|`libs/{library}/test/boundary/{library}/shell/`
+|Adapter tests with real database
+|===
+
+Test metadata tags:
+
+* `:unit` - Pure function tests
+* `:integration` - Service-level tests
+* `:contract` - Database contract tests
+
+[[migration-from-old-structure]]
+== Migration from Old Structure
+
+See link:migrations/library-split.adoc[Library Split Migration Guide] for the complete mapping from pre-split paths to current paths.
+
+[[related-documentation]]
+== Related Documentation
+
+* link:development-commands.adoc[Development Commands] - Test, lint, REPL, build commands
+* link:migrations/library-split.adoc[Library Split Migration] - Old to new path mapping
+* link:../architecture/overview.adoc[Architecture Overview] - FC/IS patterns and design

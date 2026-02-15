@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boundary Framework Cheat-sheet</title>
+  <style>
+    /* Open Props Imports */
+    @import url('https://unpkg.com/open-props@1.7.23/open-props.min.css');
+    @import url('https://unpkg.com/open-props@1.7.23/normalize.min.css');
+    @import url('https://unpkg.com/open-props@1.7.23/buttons.min.css');
+    
+    /* Geist Font Family */
+    @import url('https://cdn.jsdelivr.net/npm/@fontsource/geist@5.0.3/index.min.css');
+    @import url('https://cdn.jsdelivr.net/npm/@fontsource/geist-mono@5.0.3/index.min.css');
+    
+    /* Design Tokens */
+    :root {
+      /* Colors - Dark Mode (Indigo Primary, Lime Accent) */
+      --color-primary: #818cf8;
+      --color-primary-hover: #a5b4fc;
+      --color-accent: #a3e635;
+      --color-accent-hover: #bef264;
+      
+      --color-success: #a3e635;
+      --color-warning: #fb923c;
+      --color-error: #f87171;
+      --color-info: #22d3ee;
+      
+      /* Surfaces */
+      --surface-0: #030712;
+      --surface-1: #1f2937;
+      --surface-2: #374151;
+      --surface-3: #4b5563;
+      
+      /* Text */
+      --text-primary: #f9fafb;
+      --text-muted: #9ca3af;
+      --text-faint: #6b7280;
+      
+      /* Borders */
+      --border-default: #374151;
+      --border-strong: #4b5563;
+      
+      /* Glows */
+      --glow-primary: 0 0 24px rgba(129, 140, 248, 0.5);
+      --glow-accent: 0 0 20px rgba(163, 230, 53, 0.5);
+      
+      /* Typography */
+      --font-sans: 'Geist', system-ui, -apple-system, sans-serif;
+      --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+      
+      /* Spacing */
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-12: 3rem;
+      
+      /* Radii */
+      --radius-md: 0.5rem;
+      --radius-lg: 0.75rem;
+      
+      /* Transitions */
+      --transition-fast: 100ms ease-out;
+      --transition-normal: 150ms ease-out;
+    }
+    
+    /* Base Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: var(--font-sans);
+      background: var(--surface-0);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(31, 41, 55, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-default);
+      padding: var(--space-4) var(--space-6);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+    
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: var(--space-3);
+    }
+    
+    /* Search Input */
+    #search-container {
+      position: relative;
+      max-width: 600px;
+    }
+    
+    #search {
+      width: 100%;
+      padding: var(--space-3) var(--space-4);
+      background: var(--surface-1);
+      border: 2px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      transition: all var(--transition-normal);
+    }
+    
+    #search:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: var(--glow-primary);
+    }
+    
+    #search::placeholder {
+      color: var(--text-faint);
+    }
+    
+    #search-results-count {
+      position: absolute;
+      right: var(--space-4);
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    
+    /* Main Content */
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: var(--space-6);
+    }
+    
+    /* Category Section */
+    .category {
+      margin-bottom: var(--space-8);
+      opacity: 1;
+      transition: opacity var(--transition-fast);
+    }
+    
+    .category.hidden {
+      display: none;
+    }
+    
+    .category-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+      padding-bottom: var(--space-3);
+      border-bottom: 2px solid var(--border-default);
+    }
+    
+    .category-icon {
+      font-size: 1.5rem;
+    }
+    
+    .category-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--color-primary);
+    }
+    
+    /* Subsection */
+    .subsection {
+      margin-bottom: var(--space-6);
+      opacity: 1;
+      transition: opacity var(--transition-fast);
+    }
+    
+    .subsection.hidden {
+      display: none;
+    }
+    
+    .subsection-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--space-3);
+      padding-left: var(--space-3);
+      border-left: 3px solid var(--color-accent);
+    }
+    
+    .subsection-description {
+      color: var(--text-muted);
+      margin-bottom: var(--space-4);
+      line-height: 1.7;
+    }
+    
+    /* Code Block */
+    .code-block {
+      position: relative;
+      margin-bottom: var(--space-4);
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: all var(--transition-normal);
+    }
+    
+    .code-block:hover {
+      border-color: var(--border-strong);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+    
+    .code-block-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-2) var(--space-4);
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border-default);
+    }
+    
+    .code-language {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--color-accent);
+      letter-spacing: 0.05em;
+    }
+    
+    .copy-btn {
+      padding: var(--space-2) var(--space-3);
+      background: transparent;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+    
+    .copy-btn:hover {
+      background: var(--surface-3);
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+      box-shadow: var(--glow-primary);
+    }
+    
+    .copy-btn.copied {
+      background: var(--color-success);
+      border-color: var(--color-success);
+      color: var(--surface-0);
+    }
+    
+    pre {
+      margin: 0;
+      padding: var(--space-4);
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      line-height: 1.6;
+      color: var(--text-primary);
+    }
+    
+    code {
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+    
+    /* Inline Code */
+    p code, li code {
+      padding: 0.125rem 0.375rem;
+      background: var(--surface-2);
+      border: 1px solid var(--border-default);
+      border-radius: 0.25rem;
+      font-size: 0.875em;
+      color: var(--color-accent);
+    }
+    
+    /* Table */
+    .table-wrapper {
+      overflow-x: auto;
+      margin-bottom: var(--space-4);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      background: var(--surface-1);
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    th {
+      padding: var(--space-3) var(--space-4);
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--color-primary);
+      background: var(--surface-2);
+      border-bottom: 2px solid var(--border-default);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    td {
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--border-default);
+      color: var(--text-primary);
+      font-size: 0.9375rem;
+    }
+    
+    tr:last-child td {
+      border-bottom: none;
+    }
+    
+    tr:hover {
+      background: var(--surface-2);
+    }
+    
+    /* List */
+    ul, ol {
+      margin-left: var(--space-6);
+      margin-bottom: var(--space-4);
+    }
+    
+    li {
+      margin-bottom: var(--space-2);
+      color: var(--text-primary);
+    }
+    
+    li::marker {
+      color: var(--color-accent);
+    }
+    
+    /* Highlight Match */
+    mark {
+      background: rgba(163, 230, 53, 0.3);
+      color: var(--color-accent);
+      padding: 0.125rem 0.25rem;
+      border-radius: 0.25rem;
+    }
+    
+    /* Status Badge */
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.375rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .badge-success {
+      background: rgba(163, 230, 53, 0.2);
+      color: var(--color-success);
+      border: 1px solid var(--color-success);
+    }
+    
+    .badge-error {
+      background: rgba(248, 113, 113, 0.2);
+      color: var(--color-error);
+      border: 1px solid var(--color-error);
+    }
+    
+    /* ASCII Art Box */
+    .ascii-box {
+      background: var(--surface-1);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      overflow-x: auto;
+      margin-bottom: var(--space-4);
+    }
+    
+    .ascii-box pre {
+      padding: 0;
+      font-size: 0.8125rem;
+      line-height: 1.4;
+      color: var(--color-accent);
+    }
+    
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: var(--space-12);
+      color: var(--text-muted);
+    }
+    
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: var(--space-4);
+      opacity: 0.5;
+    }
+    
+    .empty-state-text {
+      font-size: 1.125rem;
+      margin-bottom: var(--space-2);
+    }
+    
+    .empty-state-hint {
+      font-size: 0.9375rem;
+      color: var(--text-faint);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      header {
+        padding: var(--space-3) var(--space-4);
+      }
+      
+      header h1 {
+        font-size: 1.25rem;
+      }
+      
+      main {
+        padding: var(--space-4);
+      }
+      
+      .category-title {
+        font-size: 1.25rem;
+      }
+      
+      .subsection-title {
+        font-size: 1rem;
+      }
+      
+      pre {
+        font-size: 0.8125rem;
+      }
+      
+      .copy-btn {
+        padding: var(--space-2);
+        font-size: 0.75rem;
+      }
+    }
+    
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .category {
+      animation: fadeIn 0.3s ease-out;
+    }
+    
+    /* Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Boundary Framework Cheat-sheet</h1>
+    <div id="search-container">
+      <input 
+        type="search" 
+        id="search" 
+        placeholder="Search commands, patterns, workflows..." 
+        aria-label="Search cheat-sheet"
+        autocomplete="off"
+      >
+      <span id="search-results-count"></span>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <!-- Commands Category -->
+    <section class="category" data-category="commands">
+      <div class="category-header">
+        <span class="category-icon">⚡</span>
+        <h2 class="category-title">Essential Commands</h2>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Testing Commands</h3>
+        <p class="subsection-description">Run tests across all libraries or target specific modules.</p>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">bash</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code># All tests across all libraries
+clojure -M:test:db/h2
+
+# With JWT secret
+JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2
+
+# Per-library test suites
+clojure -M:test:db/h2 :core          # Core library
+clojure -M:test:db/h2 :observability # Observability library
+clojure -M:test:db/h2 :platform      # Platform library
+clojure -M:test:db/h2 :user          # User library
+clojure -M:test:db/h2 :admin         # Admin library
+
+# By metadata category
+clojure -M:test:db/h2 --focus-meta :unit        # Unit tests only
+clojure -M:test:db/h2 --focus-meta :integration # Integration tests
+clojure -M:test:db/h2 --focus-meta :contract    # Database contract tests
+
+# Watch mode
+clojure -M:test:db/h2 --watch :core
+clojure -M:test:db/h2 --focus boundary.core.validation-test
+
+# Update validation snapshots
+UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">REPL Development</h3>
+        <p class="subsection-description">Interactive development with live reloading.</p>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">bash</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code># Start REPL (nREPL on port 7888)
+clojure -M:repl-clj</code></pre>
+        </div>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">clojure</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code>;; In REPL:
+(require '[integrant.repl :as ig-repl])
+(ig-repl/go)     # Start system
+(ig-repl/reset)  # Reload and restart
+(ig-repl/halt)   # Stop system</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Code Quality Tools</h3>
+        <p class="subsection-description">Linting and code repair utilities.</p>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">bash</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code># Lint all code
+clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
+
+# Fix parentheses (NEVER manually fix)
+clj-paren-repair &lt;file&gt;
+
+# Find nREPL ports
+clj-nrepl-eval --discover-ports
+
+# Evaluate code via nREPL
+clj-nrepl-eval -p 7888 "(+ 1 2)"</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Build & Deploy</h3>
+        <p class="subsection-description">Building and running production artifacts.</p>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">bash</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code># Build uberjar
+clojure -T:build clean && clojure -T:build uber
+
+# Run standalone jar
+java -jar target/boundary-*.jar server</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Database Migrations</h3>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">bash</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code># Run migrations
+clojure -M:migrate up</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Architecture Category -->
+    <section class="category" data-category="architecture">
+      <div class="category-header">
+        <span class="category-icon">🏗️</span>
+        <h2 class="category-title">Architecture</h2>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Functional Core / Imperative Shell</h3>
+        <p class="subsection-description">Three-layer architecture enforcing separation of concerns.</p>
+        <div class="ascii-box">
+          <pre>
+┌───────────────────────────────────────────┐
+│         IMPERATIVE SHELL (shell/*)         │
+│  I/O, validation, logging, side effects    │
+└───────────────────────────────────────────┘
+                    ↓ calls
+┌────────────────────────────────────────────┐
+│           PORTS (ports.clj)                 │
+│  Protocol definitions (interfaces)          │
+└────────────────────────────────────────────┘
+                    ↑ implements
+┌────────────────────────────────────────────┐
+│         FUNCTIONAL CORE (core/*)            │
+│  Pure functions, business logic only        │
+└────────────────────────────────────────────┘
+          </pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Module Structure</h3>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">text</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code>libs/{library}/src/boundary/{library}/
+├── core/          # Pure business logic
+├── shell/         # I/O, validation, adapters
+├── ports.clj      # Protocol definitions
+└── schema.clj     # Malli validation schemas</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Library Structure (Monorepo)</h3>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">text</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code>libs/
+├── core/          # Foundation: validation, utilities, interceptors
+├── observability/ # Logging, metrics, error reporting
+├── platform/      # HTTP, database, CLI infrastructure
+├── user/          # Authentication, authorization, MFA
+├── admin/         # Auto-CRUD admin interface
+├── storage/       # File storage (local & S3)
+├── scaffolder/    # Module code generator
+├── cache/         # Distributed caching (Redis/in-memory)
+├── jobs/          # Background job processing
+├── email/         # Production-ready email sending (SMTP)
+├── realtime/      # WebSocket/SSE for real-time features
+├── tenant/        # Multi-tenancy (PostgreSQL schema-per-tenant)
+└── external/      # External service adapters (In Development)</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Layer Responsibilities</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Layer</th>
+                <th>Allowed</th>
+                <th>Never</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Core</strong></td>
+                <td>Pure functions, calculations</td>
+                <td>I/O, logging, exceptions</td>
+              </tr>
+              <tr>
+                <td><strong>Shell</strong></td>
+                <td>I/O, validation, side effects</td>
+                <td>Business logic</td>
+              </tr>
+              <tr>
+                <td><strong>Ports</strong></td>
+                <td>Protocol definitions</td>
+                <td>Implementations</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Dependency Rules</h3>
+        <ul>
+          <li><span class="badge badge-success">✅</span> Shell → Core (shell calls core)</li>
+          <li><span class="badge badge-success">✅</span> Core → Ports (core depends on protocols)</li>
+          <li><span class="badge badge-success">✅</span> Shell → Adapters (shell implements protocols)</li>
+          <li><span class="badge badge-error">❌</span> Core → Shell (NEVER)</li>
+          <li><span class="badge badge-error">❌</span> Core → Adapters (NEVER)</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Conventions Category -->
+    <section class="category" data-category="conventions">
+      <div class="category-header">
+        <span class="category-icon">📋</span>
+        <h2 class="category-title">Critical Conventions</h2>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">ALWAYS Use kebab-case Internally</h3>
+        <p class="subsection-description">Convert to snake_case or camelCase only at system boundaries.</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Location</th>
+                <th>Format</th>
+                <th>Example</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>All Clojure code</strong></td>
+                <td>kebab-case</td>
+                <td><code>:password-hash</code>, <code>:created-at</code></td>
+              </tr>
+              <tr>
+                <td><strong>Database (at boundary only)</strong></td>
+                <td>snake_case</td>
+                <td><code>password_hash</code>, <code>created_at</code></td>
+              </tr>
+              <tr>
+                <td><strong>API (at boundary only)</strong></td>
+                <td>camelCase</td>
+                <td><code>passwordHash</code>, <code>createdAt</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">clojure</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code>;; ✅ CORRECT - Convert ONLY at persistence boundary
+(require '[boundary.shared.core.utils.case-conversion :as cc])
+
+;; DB to Clojure
+(cc/snake-case->kebab-case-map db-record)
+
+;; Clojure to DB
+(cc/kebab-case->snake-case-map entity)</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Workflows Category -->
+    <section class="category" data-category="workflows">
+      <div class="category-header">
+        <span class="category-icon">🔄</span>
+        <h2 class="category-title">Common Workflows</h2>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Adding New Functionality</h3>
+        <ol>
+          <li>Define schema in <code>libs/{library}/src/boundary/{library}/schema.clj</code></li>
+          <li>Write core logic in <code>libs/{library}/src/boundary/{library}/core/{domain}.clj</code> (pure functions)</li>
+          <li>Write unit tests in <code>libs/{library}/test/boundary/{library}/core/{domain}_test.clj</code></li>
+          <li>Define port in <code>libs/{library}/src/boundary/{library}/ports.clj</code> (protocol)</li>
+          <li>Implement in service in <code>libs/{library}/src/boundary/{library}/shell/service.clj</code></li>
+          <li>Add HTTP endpoint in <code>libs/{library}/src/boundary/{library}/shell/http.clj</code></li>
+        </ol>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Testing Workflow</h3>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">bash</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code># Watch mode while developing
+clojure -M:test:db/h2 --watch --focus-meta :unit
+
+# Watch specific library
+clojure -M:test:db/h2 --watch :core
+
+# Full test suite before committing
+clojure -M:test:db/h2
+
+# Lint before committing
+clojure -M:clj-kondo --lint src test libs/*/src libs/*/test</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">REPL Debugging</h3>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">clojure</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code>;; Get system component
+(def user-svc (get integrant.repl.state/system :boundary/user-service))
+
+;; Test directly
+(ports/list-users user-svc {:limit 10})
+
+;; Reload namespace with changes
+(require '[boundary.user.core.user :as user-core] :reload)
+
+;; Full system reset
+(ig-repl/halt)
+(ig-repl/go)</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Debugging Workflow</h3>
+        <p class="subsection-description">When encountering 500 errors or unexpected behavior:</p>
+        <ol>
+          <li><strong>Check logs first</strong> - Errors are logged with stack traces:
+            <div class="code-block">
+              <div class="code-block-header">
+                <span class="code-language">bash</span>
+                <button class="copy-btn" data-copy>Copy</button>
+              </div>
+              <pre><code>tail -100 logs/boundary.log | grep -A 10 "ERROR"</code></pre>
+            </div>
+          </li>
+          <li><strong>Add temporary logging</strong> - Use <code>println</code> for quick debugging</li>
+          <li><strong>Test in isolation via REPL</strong> - Bypass HTTP layer to test services directly</li>
+          <li><strong>Check actual HTTP request data</strong> - Add temporary logging in handlers</li>
+          <li><strong>Verify database state</strong> - Query directly via REPL</li>
+          <li><strong>Remove debug logging before committing</strong> - Clean up all <code>println</code> statements</li>
+        </ol>
+        <p class="subsection-description"><strong>Key Principle:</strong> Start from the innermost layer (core/database) and work outward to HTTP layer.</p>
+      </div>
+    </section>
+
+    <!-- Pitfalls Category -->
+    <section class="category" data-category="pitfalls">
+      <div class="category-header">
+        <span class="category-icon">⚠️</span>
+        <h2 class="category-title">Common Pitfalls</h2>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">1. snake_case vs kebab-case Mixing</h3>
+        <p class="subsection-description"><strong>Problem:</strong> Using snake_case internally causes nil lookups.</p>
+        <p class="subsection-description"><strong>Solution:</strong></p>
+        <ul>
+          <li>Always use kebab-case in all internal code</li>
+          <li>Convert at boundaries only (persistence layer, HTTP layer)</li>
+          <li>Use utilities: <code>snake-case->kebab-case-map</code>, <code>kebab-case->snake-case-map</code></li>
+        </ul>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">2. defrecord Changes Not Taking Effect</h3>
+        <p class="subsection-description"><strong>Problem:</strong> <code>(ig-repl/reset)</code> doesn't recreate defrecord instances.</p>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">clojure</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code>;; Solution:
+(ig-repl/halt)
+(ig-repl/go)
+;; OR restart REPL entirely</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">3. Unbalanced Parentheses</h3>
+        <p class="subsection-description"><strong>Problem:</strong> Manual editing creates syntax errors.</p>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">bash</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code># ALWAYS use the tool, never manually fix
+clj-paren-repair libs/user/src/boundary/user/core/user.clj</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">4. Validation in Wrong Layer</h3>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">clojure</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code>;; ❌ WRONG - Validation in core
+(defn create-user [user-data]
+  (when-not (valid? user-data)  ; Side effect in pure code!
+    (throw ...)))
+
+;; ✅ CORRECT - Validation in shell
+(defn create-user-service [user-data]
+  (let [[valid? errors data] (validate user-data)]
+    (if valid?
+      (user-core/create-user data)  ; Core gets clean data
+      (throw ...))))</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">5. Core Depending on Shell</h3>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">clojure</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code>;; ❌ WRONG - Core requires shell namespace
+(ns boundary.user.core.user
+  (:require [boundary.user.shell.persistence :as db]))  ; BAD!
+
+;; ✅ CORRECT - Core depends on ports only
+(ns boundary.user.core.user)
+(defn find-user-decision [user-id existing-user] ...)  ; Pure logic</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">6. Schema-Database Mismatch</h3>
+        <p class="subsection-description"><strong>Problem:</strong> Fields referenced in business logic but missing from database/schema.</p>
+        <p class="subsection-description"><strong>Prevention:</strong> When referencing a new field in code, immediately check:</p>
+        <ol>
+          <li>Does it exist in the schema?</li>
+          <li>Does the database table have the column?</li>
+          <li>Are transformations in place (for types like inst, decimal, etc.)?</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Troubleshooting Category -->
+    <section class="category" data-category="troubleshooting">
+      <div class="category-header">
+        <span class="category-icon">🔧</span>
+        <h2 class="category-title">Troubleshooting</h2>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">System Won't Start</h3>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">bash</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code>rm -rf .cpcache target
+clojure -M:repl-clj</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Tests Failing</h3>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">bash</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code># Run unit tests only (should always pass)
+clojure -M:test:db/h2 --focus-meta :unit
+
+# Verbose output
+clojure -M:test:db/h2 -n boundary.user.core.user-test --reporter documentation</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">Parenthesis Errors</h3>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">bash</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code># NEVER fix manually, always use the tool
+clj-paren-repair &lt;file&gt;</code></pre>
+        </div>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <h3 class="subsection-title">defrecord Not Updating</h3>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-language">clojure</span>
+            <button class="copy-btn" data-copy>Copy</button>
+          </div>
+          <pre><code>;; In REPL
+(ig-repl/halt)
+(ig-repl/go)  ; Fresh start</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Reference Card -->
+    <section class="category" data-category="quick-ref">
+      <div class="category-header">
+        <span class="category-icon">📌</span>
+        <h2 class="category-title">Quick Reference Card</h2>
+      </div>
+
+      <div class="subsection" data-searchable>
+        <div class="ascii-box">
+          <pre>
+╔═══════════════════════════════════════════════════════════════╗
+║                  BOUNDARY FRAMEWORK CHEAT SHEET                 ║
+╠═══════════════════════════════════════════════════════════════╣
+║ TEST    │ clojure -M:test:db/h2                 # All tests     ║
+║         │ clojure -M:test:db/h2 :core           # Core library  ║
+║         │ clojure -M:test:db/h2 :user           # User library  ║
+║         │ clojure -M:test:db/h2 --watch :core   # Watch mode    ║
+║ LINT    │ clojure -M:clj-kondo --lint libs/*/src                ║
+║ REPL    │ clojure -M:repl-clj                                   ║
+║         │ (ig-repl/go)    (ig-repl/reset)    (ig-repl/halt)     ║
+║ BUILD   │ clojure -T:build clean && clojure -T:build uber       ║
+║ REPAIR  │ clj-paren-repair &lt;files&gt;  # Fix parentheses           ║
+║ EVAL    │ clj-nrepl-eval -p &lt;port&gt; "&lt;code&gt;"  # REPL eval        ║
+╠═══════════════════════════════════════════════════════════════╣
+║ LIBS    │ core, observability, platform, user, admin,           ║
+║         │ storage, scaffolder, cache, jobs, email,              ║
+║         │ realtime, tenant, external                            ║
+╠═══════════════════════════════════════════════════════════════╣
+║ CORE    │ Pure functions only, no side effects                  ║
+║ SHELL   │ All I/O, validation, error handling                   ║
+║ PORTS   │ Protocol definitions (abstractions)                   ║
+║ SCHEMA  │ Malli schemas for validation                          ║
+╠═══════════════════════════════════════════════════════════════╣
+║ ALWAYS  │ Use kebab-case internally (ALL code)                  ║
+║ NEVER   │ Use snake_case except at DB boundary                  ║
+║ NEVER   │ Put business logic in shell layer                     ║
+║ NEVER   │ Make core depend on shell                             ║
+╚═══════════════════════════════════════════════════════════════╝</pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Search functionality with fuzzy matching and highlighting
+    const searchInput = document.getElementById('search');
+    const searchResultsCount = document.getElementById('search-results-count');
+    const mainContent = document.getElementById('main-content');
+    const categories = document.querySelectorAll('.category');
+    const subsections = document.querySelectorAll('.subsection');
+    
+    // Debounce function for performance
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+    
+    // Normalize text for fuzzy search
+    function normalizeText(text) {
+      return text.toLowerCase().trim();
+    }
+    
+    // Simple fuzzy match - checks if all search terms appear in order
+    function fuzzyMatch(searchText, targetText) {
+      const searchTerms = normalizeText(searchText).split(/\s+/);
+      const normalizedTarget = normalizeText(targetText);
+      
+      return searchTerms.every(term => normalizedTarget.includes(term));
+    }
+    
+    // Highlight matching text
+    function highlightText(text, searchText) {
+      if (!searchText) return text;
+      
+      const searchTerms = normalizeText(searchText).split(/\s+/).filter(t => t);
+      let highlightedText = text;
+      
+      searchTerms.forEach(term => {
+        const regex = new RegExp(`(${term})`, 'gi');
+        highlightedText = highlightedText.replace(regex, '<mark>$1</mark>');
+      });
+      
+      return highlightedText;
+    }
+    
+    // Remove existing highlights
+    function removeHighlights(element) {
+      const marks = element.querySelectorAll('mark');
+      marks.forEach(mark => {
+        const parent = mark.parentNode;
+        parent.replaceChild(document.createTextNode(mark.textContent), mark);
+        parent.normalize();
+      });
+    }
+    
+    // Perform search
+    function performSearch(searchText) {
+      const startTime = performance.now();
+      
+      if (!searchText) {
+        // Show all content
+        categories.forEach(cat => cat.classList.remove('hidden'));
+        subsections.forEach(sub => {
+          sub.classList.remove('hidden');
+          removeHighlights(sub);
+        });
+        searchResultsCount.textContent = '';
+        return;
+      }
+      
+      let visibleCount = 0;
+      let visibleCategories = new Set();
+      
+      subsections.forEach(subsection => {
+        removeHighlights(subsection);
+        const text = subsection.textContent;
+        const isMatch = fuzzyMatch(searchText, text);
+        
+        if (isMatch) {
+          subsection.classList.remove('hidden');
+          visibleCount++;
+          
+          // Track which category this belongs to
+          const category = subsection.closest('.category');
+          if (category) {
+            visibleCategories.add(category);
+          }
+          
+          // Highlight matching text in title and description
+          const title = subsection.querySelector('.subsection-title');
+          const description = subsection.querySelector('.subsection-description');
+          
+          if (title) {
+            const titleText = title.textContent;
+            title.innerHTML = highlightText(titleText, searchText);
+          }
+          
+          if (description) {
+            const descText = description.textContent;
+            description.innerHTML = highlightText(descText, searchText);
+          }
+        } else {
+          subsection.classList.add('hidden');
+        }
+      });
+      
+      // Show/hide categories based on visible subsections
+      categories.forEach(category => {
+        if (visibleCategories.has(category)) {
+          category.classList.remove('hidden');
+        } else {
+          category.classList.add('hidden');
+        }
+      });
+      
+      const endTime = performance.now();
+      const duration = Math.round(endTime - startTime);
+      
+      searchResultsCount.textContent = visibleCount > 0 
+        ? `${visibleCount} result${visibleCount !== 1 ? 's' : ''} (${duration}ms)`
+        : 'No results';
+      
+      // Show empty state if no results
+      if (visibleCount === 0) {
+        showEmptyState();
+      } else {
+        hideEmptyState();
+      }
+    }
+    
+    // Empty state
+    function showEmptyState() {
+      let emptyState = document.getElementById('empty-state');
+      if (!emptyState) {
+        emptyState = document.createElement('div');
+        emptyState.id = 'empty-state';
+        emptyState.className = 'empty-state';
+        emptyState.innerHTML = `
+          <div class="empty-state-icon">🔍</div>
+          <div class="empty-state-text">No results found</div>
+          <div class="empty-state-hint">Try different keywords or browse all sections</div>
+        `;
+        mainContent.appendChild(emptyState);
+      }
+      emptyState.style.display = 'block';
+    }
+    
+    function hideEmptyState() {
+      const emptyState = document.getElementById('empty-state');
+      if (emptyState) {
+        emptyState.style.display = 'none';
+      }
+    }
+    
+    // Debounced search handler
+    const debouncedSearch = debounce((searchText) => {
+      performSearch(searchText);
+    }, 100);
+    
+    // Search input event listener
+    searchInput.addEventListener('input', (e) => {
+      debouncedSearch(e.target.value);
+    });
+    
+    // Copy to clipboard functionality
+    document.addEventListener('click', async (e) => {
+      const copyBtn = e.target.closest('.copy-btn');
+      if (!copyBtn) return;
+      
+      const codeBlock = copyBtn.closest('.code-block');
+      const code = codeBlock.querySelector('code').textContent;
+      
+      try {
+        await navigator.clipboard.writeText(code);
+        
+        // Visual feedback
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        copyBtn.classList.add('copied');
+        
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+        copyBtn.textContent = 'Failed';
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy';
+        }, 2000);
+      }
+    });
+    
+    // Focus search on "/" key press
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && e.target !== searchInput) {
+        e.preventDefault();
+        searchInput.focus();
+      }
+      
+      // Clear search on Escape
+      if (e.key === 'Escape' && e.target === searchInput) {
+        searchInput.value = '';
+        performSearch('');
+      }
+    });
+    
+    // Initialize
+    hideEmptyState();
+    console.log('Boundary Framework Cheat-sheet loaded ⚡');
+  </script>
+</body>
+</html>

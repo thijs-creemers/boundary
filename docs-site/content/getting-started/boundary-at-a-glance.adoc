@@ -1,0 +1,161 @@
+---
+title: "Boundary at a Glance"
+weight: 2
+---
+
+= Boundary at a Glance
+:icons: font
+:description: One-page overview of the Boundary Framework
+
+[.lead]
+Production-ready Clojure with enforced architecture and enterprise features.
+
+== In 30 Seconds
+
+[source,text]
+----
+┌─────────────────────────────────────────────────────────────┐
+│                    BOUNDARY FRAMEWORK                       │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐   │
+│  │    CORE     │     │    SHELL    │     │   PORTS     │   │
+│  │  Pure logic │ ←── │  I/O layer  │ ──→ │  Protocols  │   │
+│  │  No mocking │     │  Adapters   │     │  Contracts  │   │
+│  └─────────────┘     └─────────────┘     └─────────────┘   │
+├─────────────────────────────────────────────────────────────┤
+│  Built-in: Jobs | Cache | MFA | Search | Storage | API     │
+└─────────────────────────────────────────────────────────────┘
+----
+
+== Core Value Proposition
+
+[cols="1,3"]
+|===
+|🧪 *Testability* |Pure core functions = tests without mocks, <1ms execution
+|🏗️ *Architecture* |FC/IS enforced by structure, not convention
+|🔌 *Features* |Background jobs, caching, MFA, search, storage built-in
+|📦 *Module Isolation* |Zero cross-module imports. Scale vertically, horizontally, or extract to microservices — no rewrites.
+|===
+
+== Module Structure
+
+[source,text]
+----
+src/boundary/{module}/
+├── core/           # PURE - business logic, decisions
+├── shell/          # IMPURE - HTTP, database, services
+├── ports.clj       # Protocols (interfaces)
+└── schema.clj      # Malli validation
+----
+
+*Rule:* `core` never imports `shell`. Pure functions only.
+
+== Built-in Features
+
+[cols="1,1,1"]
+|===
+|Feature |Dev |Prod
+
+|Background Jobs |In-memory |Redis
+|Caching |In-memory |Redis
+|File Storage |Local FS |AWS S3
+|Database |SQLite |PostgreSQL
+|Search |— |PostgreSQL FTS
+|Auth |JWT + MFA |JWT + MFA
+|===
+
+== Quick Start
+
+[source,bash]
+----
+git clone https://github.com/thijs-creemers/boundary && cd boundary
+export JWT_SECRET="your-secret-minimum-32-characters-long"
+clojure -M:repl-clj
+----
+
+[source,clojure]
+----
+(require '[integrant.repl :as ig-repl])
+(ig-repl/go)  ; → http://localhost:3000
+----
+
+== Common Commands
+
+[cols="1,2"]
+|===
+|Command |Purpose
+
+|`clojure -M:test:db/h2`
+|Run all tests
+
+|`clojure -M:repl-clj`
+|Start REPL (nREPL on 7888)
+
+|`(ig-repl/go)`
+|Start system
+
+|`(ig-repl/reset)`
+|Reload & restart
+
+|`clojure -M:clj-kondo --lint src`
+|Lint codebase
+|===
+
+== Scaffolding
+
+[source,bash]
+----
+clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+  --module-name product \
+  --entity Product \
+  --field name:string:required \
+  --field price:decimal:required
+----
+
+Generates: core, shell, ports, schema, tests, migration (12 files).
+
+== Testing Strategy
+
+[cols="1,2,1"]
+|===
+|Type |What |Where
+
+|Unit |Pure core logic |`test/{module}/core/`
+|Integration |Service orchestration |`test/{module}/shell/`
+|Contract |Database adapters |`test/{module}/shell/`
+|===
+
+== Scaling Path
+
+[source,text]
+----
+Monolith → Larger Server → Extract Hot Module → Full Microservices
+   │            │                  │                    │
+   └────────────┴──────────────────┴────────────────────┘
+                    Same business logic code
+----
+
+Modules communicate via *protocols*, not direct imports. Swap `InProcessAdapter` for `HttpAdapter` when extracting — zero module code changes.
+
+== Good Fit For
+
+* Production systems that need to scale
+* Teams who value testability
+* Projects evolving toward microservices
+* Developers who prefer explicit over magical
+
+_For quick prototypes or simple CRUD apps, lighter tools may serve you better._
+
+== Examples Included
+
+* **Todo API** — REST basics, JWT auth
+* **Blog App** — HTMX, Hiccup, SQLite
+* **E-commerce** — State machine, payments
+* **Notifications** — Event-driven, pub/sub
+
+== Links
+
+* https://github.com/thijs-creemers/boundary[GitHub Repository]
+* https://thijs-creemers.github.io/boundary-docs/[Documentation]
+* link:why-boundary[Why Boundary? (detailed)]
+* link:quickstart[5-Minute Quickstart]

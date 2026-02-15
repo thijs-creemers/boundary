@@ -1,0 +1,165 @@
+---
+title: "Todo API"
+weight: 1
+---
+
+= Todo API Example
+
+A REST API demonstrating Boundary fundamentals: FC/IS architecture, JWT authentication, and Malli validation.
+
+== Quick Start
+
+[source,bash]
+----
+cd boundary/examples/todo-api
+export JWT_SECRET="your-secret-minimum-32-characters-long"
+clojure -M -m todo.main
+# Server running at http://localhost:3001
+----
+
+== What You'll Learn
+
+* **FC/IS in practice** — Pure core functions, impure shell layer
+* **JWT authentication** — Secure API endpoints
+* **Malli validation** — Input validation with clear error messages
+* **SQLite persistence** — Simple database without setup
+
+== Project Structure
+
+[source,text]
+----
+todo-api/
+├── src/todo/
+│   ├── todo/
+│   │   ├── core/todo.clj      # Pure: create, update, complete logic
+│   │   ├── shell/
+│   │   │   ├── store.clj      # SQLite persistence
+│   │   │   ├── service.clj    # Orchestration
+│   │   │   └── http.clj       # REST endpoints
+│   │   ├── ports.clj          # ITodoStore protocol
+│   │   └── schema.clj         # Todo schemas
+│   ├── system.clj             # Integrant config
+│   └── main.clj               # Entry point
+└── test/
+----
+
+== API Endpoints
+
+[cols="1,2,2"]
+|===
+|Method |Endpoint |Description
+
+|POST |`/api/auth/login` |Get JWT token
+|GET |`/api/todos` |List all todos
+|POST |`/api/todos` |Create todo
+|GET |`/api/todos/:id` |Get todo by ID
+|PUT |`/api/todos/:id` |Update todo
+|DELETE |`/api/todos/:id` |Delete todo
+|POST |`/api/todos/:id/complete` |Mark as complete
+|===
+
+== Example Usage
+
+[source,bash]
+----
+# Login
+TOKEN=$(curl -s -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@example.com","password":"demo"}' | jq -r '.token')
+
+# Create todo
+curl -X POST http://localhost:3001/api/todos \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Learn Boundary","description":"Complete the todo example"}'
+
+# List todos
+curl http://localhost:3001/api/todos \
+  -H "Authorization: Bearer $TOKEN"
+----
+
+== Key Code: Pure Core Logic
+
+The core layer contains only pure functions:
+
+[source,clojure]
+----
+;; todo/core/todo.clj
+(defn create-todo
+  "Pure function - creates todo data structure.
+   No I/O, no side effects."
+  [todo-data user-id now]
+  {:id (random-uuid)
+   :title (:title todo-data)
+   :description (:description todo-data)
+   :completed false
+   :user-id user-id
+   :created-at now
+   :updated-at now})
+
+(defn can-complete?
+  "Pure predicate - checks if todo can be completed."
+  [todo]
+  (and (some? todo)
+       (not (:completed todo))))
+
+(defn mark-completed
+  "Pure function - returns updated todo."
+  [todo now]
+  (assoc todo 
+         :completed true 
+         :completed-at now
+         :updated-at now))
+----
+
+== Key Code: Shell Orchestration
+
+The shell layer handles I/O and coordinates with the core:
+
+[source,clojure]
+----
+;; todo/shell/service.clj
+(defn complete-todo [store todo-id user-id]
+  (let [todo (ports/find-by-id store todo-id)]
+    (cond
+      (nil? todo)
+      {:error :not-found}
+      
+      (not= (:user-id todo) user-id)
+      {:error :forbidden}
+      
+      (not (todo-core/can-complete? todo))
+      {:error :already-completed}
+      
+      :else
+      (let [completed (todo-core/mark-completed todo (Instant/now))]
+        (ports/save! store completed)
+        {:ok completed}))))
+----
+
+== Tests
+
+[source,bash]
+----
+# Run tests
+cd examples/todo-api
+clojure -M:test
+----
+
+The tests demonstrate testing pure core functions without mocks:
+
+[source,clojure]
+----
+(deftest create-todo-test
+  (testing "creates todo with all fields"
+    (let [todo (todo-core/create-todo 
+                 {:title "Test" :description "Desc"}
+                 user-id
+                 now)]
+      (is (= "Test" (:title todo)))
+      (is (false? (:completed todo))))))
+----
+
+== Source Code
+
+https://github.com/thijs-creemers/boundary/tree/main/examples/todo-api[View on GitHub →]

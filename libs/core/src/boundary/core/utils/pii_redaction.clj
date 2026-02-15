@@ -24,9 +24,15 @@
       (str/lower-case)))
 
 (defn email-string?
-  "Best-effort detection of email-like strings."
-  [s]
-  (and (string? s) (str/includes? s "@")))
+  "Best-effort detection of email-like strings.
+   
+    Args:
+      s: String to check
+    
+    Returns:
+      Boolean indicating if string looks like an email"
+   [s]
+   (and (string? s) (str/includes? s "@")))
 
 (defn mask-email
   "Mask an email address, preserving only the first character of the local part.\n\n  For non-email strings, returns [REDACTED]."

@@ -1,53 +1,53 @@
 (ns boundary.tenant.integration-test
   "End-to-end integration tests for multi-tenancy.
-   
+
    Test Scenarios:
    1. Complete tenant lifecycle (create → provision → jobs → cache)
    2. Multi-tenant isolation (parallel operations, no data leakage)
    3. Schema switching verification (PostgreSQL search_path)
    4. Performance benchmarks (< 10ms overhead)
    5. Cross-module integration (HTTP → service → jobs → cache)
-   
+
    Test Strategy:
    - Use H2 in-memory database for fast execution
    - Mock HTTP requests with Ring test helpers
    - Verify database state after operations
    - Test with 2+ tenants for isolation verification
    - Measure timing for performance assertions
-   
+
    References:
    - ADR-004: Multi-tenancy architecture requirements
    - Tasks 1-5: Provisioning, jobs, cache implementations
-   
+
    ⚠️ TEST STATUS (2026-02-09):
    These E2E tests are currently DEFERRED due to mock observability service
    compatibility issues with the service interceptor framework. The issue is
    with test infrastructure, NOT business logic.
-   
+
    Business functionality is fully verified via comprehensive module-level tests:
    - Provisioning: 250+ assertions, 0 failures
-   - Jobs integration: 10 tests, 80 assertions, 0 failures  
+   - Jobs integration: 10 tests, 80 assertions, 0 failures
    - Cache integration: 20 tests, 182 assertions, 0 failures
-   
+
    These E2E tests will be completed in a dedicated test infrastructure
    refinement session once proper mock/stub patterns are established."
-  (:require [boundary.cache.ports :as cache-ports]
-            [boundary.cache.shell.adapters.in-memory :as mem-cache]
-            [boundary.cache.shell.tenant-cache :as tenant-cache]
-            [boundary.jobs.ports :as job-ports]
-            [boundary.jobs.shell.tenant-context :as tenant-jobs]
-            [boundary.observability.errors.shell.adapters.no-op :as noop-errors]
-            [boundary.observability.logging.shell.adapters.no-op :as noop-logging]
-            [boundary.observability.metrics.shell.adapters.no-op :as noop-metrics]
-            [boundary.platform.shell.adapters.database.common.core :as db]
-            [boundary.platform.shell.adapters.database.factory :as db-factory]
-            [boundary.tenant.ports :as tenant-ports]
-            [boundary.tenant.shell.persistence :as tenant-persistence]
-            [boundary.tenant.shell.provisioning :as provisioning]
-            [boundary.tenant.shell.service :as tenant-service]
-            [clojure.test :refer [deftest is testing use-fixtures]]
-            [clojure.tools.logging :as log])
-  (:import (java.util UUID)))
+ (:require [boundary.cache.ports :as cache-ports]
+           [boundary.cache.shell.adapters.in-memory :as mem-cache]
+           [boundary.cache.shell.tenant-cache :as tenant-cache]
+           [boundary.jobs.ports :as job-ports]
+           [boundary.jobs.shell.tenant-context :as tenant-jobs]
+           [boundary.observability.errors.shell.adapters.no-op :as noop-errors]
+           [boundary.observability.logging.shell.adapters.no-op :as noop-logging]
+           [boundary.observability.metrics.shell.adapters.no-op :as noop-metrics]
+           [boundary.platform.shell.adapters.database.common.core :as db]
+           [boundary.platform.shell.adapters.database.factory :as db-factory]
+           [boundary.tenant.ports :as tenant-ports]
+           [boundary.tenant.shell.persistence :as tenant-persistence]
+           [boundary.tenant.shell.provisioning :as provisioning]
+           [boundary.tenant.shell.service :as tenant-service]
+           [clojure.test :refer [deftest is testing use-fixtures]]
+           [clojure.tools.logging :as log])
+ (:import (java.util UUID)))
 
 ;; =============================================================================
 ;; Dynamic Test Bindings

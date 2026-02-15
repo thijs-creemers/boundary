@@ -10,12 +10,12 @@ Foundation library providing validation, utilities, and interceptor framework fo
 
 **deps.edn** (recommended):
 ```clojure
-{:deps {io.github.thijs-creemers/boundary-core {:mvn/version "0.1.0"}}}
+{:deps {io.github.thijs-creemers/boundary-core {:mvn/version "1.0.0-alpha"}}}
 ```
 
 **Leiningen**:
 ```clojure
-[io.github.thijs-creemers/boundary-core "0.1.0"]
+[io.github.thijs-creemers/boundary-core "1.0.0-alpha"]
 ```
 
 ## Features

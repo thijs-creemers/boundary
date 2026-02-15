@@ -1,0 +1,24 @@
+@startuml
+title Validation and Coercion Pipeline
+
+start
+
+:Raw Input;
+:Parse Input;
+:Schema Lookup;
+:Type Coercion;
+:Schema Validation;
+
+if (Valid?) then (yes)
+  :Call Core Function;
+  :Execute Effects;
+  :Final Response;
+else (no)
+  :Generate Error Details;
+  :Error Response;
+  stop
+endif
+
+stop
+
+@enduml

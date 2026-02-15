@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <packaging>jar</packaging>
+  <groupId>io.github.thijs-creemers</groupId>
+  <artifactId>boundary-tenant</artifactId>
+  <version>0.1.247</version>
+  <name>boundary-tenant</name>
+  <dependencies>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>clojure</artifactId>
+      <version>1.12.4</version>
+    </dependency>
+    <dependency>
+      <groupId>cheshire</groupId>
+      <artifactId>cheshire</artifactId>
+      <version>5.13.0</version>
+    </dependency>
+  </dependencies>
+  <build>
+    <sourceDirectory>src</sourceDirectory>
+  </build>
+  <repositories>
+    <repository>
+      <id>clojars</id>
+      <url>https://repo.clojars.org/</url>
+    </repository>
+  </repositories>
+  <scm>
+    <connection>scm:git:git://github.com/thijs-creemers/boundary.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/thijs-creemers/boundary.git</developerConnection>
+    <tag>v0.1.247</tag>
+    <url>https://github.com/thijs-creemers/boundary</url>
+  </scm>
+  <description>Multi-tenancy library for Boundary framework: schema isolation, tenant resolution, provisioning</description>
+  <url>https://github.com/thijs-creemers/boundary</url>
+  <licenses>
+    <license>
+      <name>Eclipse Public License 2.0</name>
+      <url>https://www.eclipse.org/legal/epl-2.0/</url>
+    </license>
+  </licenses>
+</project>

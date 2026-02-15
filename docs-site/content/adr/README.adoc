@@ -1,0 +1,140 @@
+== Architecture Decision Records (ADR)
+
+This directory contains Architecture Decision Records documenting
+significant architectural decisions made during the development of the
+Boundary Framework.
+
+=== What are ADRs?
+
+Architecture Decision Records capture important architectural decisions
+along with their context and consequences. Each ADR describes:
+
+* *Context*: The situation and problem being addressed
+* *Decision*: The chosen solution and approach
+* *Status*: Current status (Proposed, Accepted, Deprecated, Superseded)
+* *Consequences*: Implications and trade-offs of the decision
+
+=== Current ADRs
+
+==== ADR-005: Validation DevEx Foundations
+
+ADR-005-validation-devex-foundations.adoc
+
+Establishes the foundation for an excellent validation developer
+experience using Malli schemas, with clear separation between core and
+shell layers.
+
+*Key Decisions:*
+
+* Malli for schema definition and validation
+* Validation at shell layer boundaries
+* Pure core functions receive validated data
+* Consistent error reporting structure
+
+[[adr-006-web-ui-architecture-htmx--hiccup]]
+==== ADR-006: Web UI Architecture (HTMX {plus} Hiccup)
+
+ADR-006-web-ui-architecture-htmx-hiccup.adoc
+
+Defines the web UI architecture using server-side rendering with HTMX
+for progressive enhancement and Hiccup for HTML generation.
+
+*Key Decisions:*
+
+* Server-side rendering (no separate frontend build)
+* HTMX for dynamic interactions
+* Hiccup for HTML generation in core layer
+* Module-integrated UI code
+
+==== ADR-007: Routing Architecture
+
+ADR-007-routing-architecture.adoc
+
+Documents the routing architecture using Reitit with module-based route
+composition.
+
+*Key Decisions:*
+
+* Reitit for HTTP routing
+* Module-level route definitions
+* Route composition in system wiring
+* Consistent route structure across modules
+
+==== ADR-008: Normalized Routing Abstraction
+
+ADR-008-normalized-routing-abstraction.adoc
+
+Introduces framework-agnostic route definitions using normalized EDN schema,
+enabling pluggable HTTP routers and servers through the Ports & Adapters pattern.
+
+*Key Decisions:*
+
+* Framework-agnostic normalized EDN route schema
+* IRouter and IHttpServer protocols (ports)
+* Pluggable router adapters (currently Reitit)
+* Pluggable server adapters (Ring+Jetty, Undertow, etc.)
+* Pure data in modules, framework selection via configuration
+
+==== ADR-009: Reitit as Exclusive Router Implementation
+
+ADR-009-reitit-exclusive-router.adoc
+
+Decides to use Reitit exclusively as the HTTP router implementation,
+abandoning exploration of alternative router adapters due to architectural complexity.
+
+*Key Decisions:*
+
+* Reitit as sole router implementation
+* Normalized routing format still valuable for clean module interfaces
+* IRouter protocol kept for future flexibility (single implementation)
+* Focus on feature development over infrastructure flexibility
+
+==== ADR-010: HTTP Interceptor Architecture
+
+ADR-010-http-interceptor-architecture.adoc
+
+Implements HTTP interceptor pattern providing bidirectional enter/leave/error
+semantics while maintaining Ring/Reitit compatibility for declarative
+cross-cutting concerns.
+
+*Key Decisions:*
+
+* HTTP interceptor pattern with enter/leave/error phases
+* Declarative interceptors via `:interceptors` in normalized routes
+* Automatic integration with observability services
+* Ring/Reitit compatibility via middleware adapter
+* Consistent pattern across HTTP, service, and persistence layers
+==== ADR-011: Pluggable User/Auth/Authorization
+
+ADR-pluggable-auth.adoc
+
+Make user, auth, and authorization logic pluggable (like observability and database) via clear ports and swappable providers; keep the current user module only as a reference provider.
+
+*Key Decisions:*
+
+* Ports for identity (IUserDirectory), auth (IAuthService), sessions/tokens (ISessionService), authorization (IAuthorization)
+* Providers configurable (`:auth {:provider ...}`), reference provider outside core
+* HTTP/CLI interceptors call ports, not concrete user namespaces
+* Token shape and policy engine as adapters (JWT/opaque/PASETO, RBAC/OPA/etc.)
+
+=== Related Documentation
+
+* link:../architecture/[Architecture] - Detailed architecture
+documentation
+* link:../guides/[Guides] - Practical implementation guides
+* link:../change-reports/[Change Reports] - Implementation summaries and refactoring reports
+* link:../DECISIONS.adoc[DECISIONS.adoc] - Additional technical decisions
+
+*Note*: Change reports in `link:../change-reports/[change-reports/]` often document the implementation details of decisions made in ADRs. For example, `ROUTING_REARCHITECTURE_SUMMARY.md` details the implementation of ADR-007.
+
+=== ADR Process
+
+When making significant architectural decisions:
+
+[arabic]
+. Create a new ADR file following the numbering convention
+. Use the ADR template structure (Context, Decision, Status,
+Consequences)
+. Discuss with the team before finalizing
+. Update this README with a summary
+. Reference the ADR in relevant code and documentation

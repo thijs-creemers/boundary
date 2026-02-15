@@ -2,7 +2,7 @@
   (:require [clojure.tools.build.api :as b]))
 
 (def lib 'io.github.thijs-creemers/boundary-observability)
-(def version (format "0.1.%s" (b/git-count-revs nil)))
+(def version "1.0.0-alpha")
 (def class-dir "target/classes")
 (def basis (b/create-basis {:project "deps.edn"}))
 (def jar-file (format "target/%s-%s.jar" (name lib) version))
