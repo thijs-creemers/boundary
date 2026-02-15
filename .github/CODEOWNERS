@@ -1,0 +1,21 @@
+# CODEOWNERS - Automatic code review assignments
+# 
+# This file ensures that all changes require review from the repository maintainer.
+# Learn more: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global owner - all files require review from @thijs-creemers
+* @thijs-creemers
+
+# Critical infrastructure files - extra scrutiny
+/.github/workflows/ @thijs-creemers
+/libs/*/build.clj @thijs-creemers
+/deps.edn @thijs-creemers
+/build.clj @thijs-creemers
+
+# Publishing and release files
+/docs/PUBLISHING_GUIDE.md @thijs-creemers
+/CHANGELOG.md @thijs-creemers
+
+# Security-sensitive files
+/.github/CODEOWNERS @thijs-creemers
+/docs/SECURITY_SETUP.md @thijs-creemers
