@@ -1,3 +1,9 @@
+---
+title: "MFA API Reference"
+weight: 20
+description: "Multi-factor authentication API endpoints for TOTP setup, verification, and backup codes"
+---
+
 # MFA API Reference
 
 Complete API reference for Multi-Factor Authentication endpoints in Boundary Framework.
@@ -786,9 +792,8 @@ clojure -M:test:db/h2 --focus boundary.user.authentication-integration-test
 
 ## Additional Resources
 
-- **[MFA Setup Guide](./guides/mfa-setup.md)** - User guide with step-by-step instructions
-- **[MFA Completion Summary](../MFA_COMPLETION_SUMMARY.md)** - Technical implementation details
-- **[AGENTS.md](../AGENTS.md)** - Developer guide with architecture information
+- **[MFA Setup Guide](../guides/mfa-setup)** - User guide with step-by-step instructions
+- **[AGENTS.md](../../AGENTS.md)** - Developer guide with architecture information
 - **[RFC 6238 - TOTP](https://datatracker.ietf.org/doc/html/rfc6238)** - TOTP specification
 - **[RFC 4648 - Base32](https://datatracker.ietf.org/doc/html/rfc4648)** - Base32 encoding
 

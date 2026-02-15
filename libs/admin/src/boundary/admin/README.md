@@ -443,4 +443,4 @@ Same as Boundary framework
 
 - **Issues**: https://github.com/thijs-creemers/boundary/issues
 - **Discussions**: https://github.com/thijs-creemers/boundary/discussions
-- **Docs**: https://github.com/thijs-creemers/boundary-docs
+- **Docs**: See [docs-site/](../../../../docs-site/) in the repository

@@ -1,3 +1,9 @@
+---
+title: "Single to Multi-Tenant Migration"
+weight: 80
+description: "Step-by-step guide for migrating from single-tenant to multi-tenant architecture with schema-per-tenant isolation"
+---
+
 # Migration Guide: Single-Tenant to Multi-Tenant
 
 **Status**: Production-Ready Migration Path  
@@ -33,7 +39,7 @@ This guide walks you through migrating an existing single-tenant Boundary applic
 ### Understanding the Migration
 
 **Current State (Single-Tenant)**:
-```
+```text
 public schema
 ├── users (email, password_hash, name, role, etc.)
 ├── user_sessions
@@ -42,7 +48,7 @@ public schema
 ```
 
 **Target State (Multi-Tenant)**:
-```
+```text
 public schema
 ├── tenants (tenant registry)
 ├── auth_users (email, password_hash, mfa_enabled, etc.)
@@ -75,7 +81,7 @@ pg_dump -h localhost -U postgres -d boundary_app > backup_$(date +%Y%m%d_%H%M%S)
 createdb boundary_test
 psql -d boundary_test < backup_20260209_120000.sql
 dropdb boundary_test
-```
+```bash
 
 **Backup Verification Checklist**:
 - [ ] Backup file exists and has size > 0
@@ -108,7 +114,7 @@ psql -d boundary_app -c "\d auth_users"
 # Verify users table structure changed
 psql -d boundary_app -c "\d users"
 # Expected: No password_hash, email columns (moved to auth_users)
-```
+```text
 
 **Post-Migration Verification**:
 ```sql
@@ -126,7 +132,7 @@ SELECT id, name, role, tenant_id FROM users LIMIT 5;
 -- Check for orphaned records (should be 0)
 SELECT COUNT(*) FROM users WHERE id NOT IN (SELECT id FROM auth_users);
 SELECT COUNT(*) FROM auth_users WHERE id NOT IN (SELECT id FROM users);
-```
+```bash
 
 ---
 
@@ -155,7 +161,7 @@ Create a "default" tenant to represent your existing single-tenant data.
     (println "  Schema:" (:schema-name default-tenant))
     
     default-tenant))
-```
+```text
 
 **Run the migration**:
 ```clojure
@@ -165,13 +171,13 @@ Create a "default" tenant to represent your existing single-tenant data.
 
 (def default-tenant (create-default-tenant! integrant.repl.state/system))
 ;; => {:id #uuid "...", :slug "default", :schema-name "tenant_default", ...}
-```
+```text
 
 **Verify**:
 ```sql
 -- Should see 1 tenant
 SELECT * FROM tenants;
-```
+```bash
 
 ---
 
@@ -197,7 +203,7 @@ Create the `tenant_default` schema and copy table structures from `public`.
 
 ;; Run provisioning
 (provision-default-tenant! integrant.repl.state/system default-tenant)
-```
+```text
 
 **Verify**:
 ```sql
@@ -213,7 +219,7 @@ ORDER BY table_name;
 -- Verify structure matches (but tables are empty)
 SELECT COUNT(*) FROM tenant_default.users;  -- Should be 0
 SELECT COUNT(*) FROM public.users;  -- Should be > 0
-```
+```bash
 
 ---
 
@@ -264,7 +270,7 @@ COMMIT;
 
 -- If something went wrong, rollback
 -- ROLLBACK;
-```
+```text
 
 **Automated Migration Script** (for multiple tables):
 
@@ -298,7 +304,7 @@ COMMIT;
 ;; Migrate all application tables
 (doseq [table ["users" "items" "orders" "products"]]  ; Add your tables
   (migrate-table-to-tenant-schema! db-ctx "tenant_default" table))
-```
+```bash
 
 ---
 
@@ -315,7 +321,7 @@ Update your application to use tenant context.
   (jdbc/execute! db-ctx 
                  ["INSERT INTO items (name, description) VALUES (?, ?)"
                   (:name item-data) (:description item-data)]))
-```
+```text
 
 **After (Multi-Tenant)**:
 ```clojure
@@ -332,7 +338,7 @@ Update your application to use tenant context.
       (jdbc/execute! ctx 
                      ["INSERT INTO items (name, description) VALUES (?, ?)"
                       (:name item-data) (:description item-data)]))))
-```
+```text
 
 **HTTP Handler Updates**:
 ```clojure
@@ -347,7 +353,7 @@ Update your application to use tenant context.
         tenant-slug (:slug tenant)
         items (get-items db-ctx tenant-slug)]
     {:status 200 :body {:items items}}))
-```
+```text
 
 **Add Tenant Middleware**:
 ```clojure
@@ -363,7 +369,7 @@ Update your application to use tenant context.
       
       ;; Other middleware
       (wrap-defaults site-defaults)))
-```
+```bash
 
 ---
 
@@ -387,7 +393,7 @@ Update your application to use tenant context.
 (provisioning/with-tenant-schema db-ctx "tenant_default"
   (fn [ctx]
     (jdbc/execute! ctx ["SELECT COUNT(*) FROM items"])))
-```
+```text
 
 **Integration Test Checklist**:
 - [ ] User login works (queries `auth_users`)
@@ -422,7 +428,7 @@ DROP TABLE public.items;  -- Application data now in tenant_default.items
 -- - auth_users (authentication)
 -- - migrations metadata
 -- - any truly shared/global tables
-```
+```bash
 
 ---
 
@@ -447,7 +453,7 @@ Now you can add additional tenants!
     (jdbc/execute! ctx
                    ["INSERT INTO users (id, tenant_id, name, role) VALUES (?, ?, ?, ?)"
                     (random-uuid) (:id acme-tenant) "ACME Admin" "admin"])))
-```
+```text
 
 **Test Isolation**:
 ```sql
@@ -457,7 +463,7 @@ SELECT COUNT(*) FROM users;  -- Shows default tenant users only
 
 SET search_path TO tenant_acme_corp, public;
 SELECT COUNT(*) FROM users;  -- Shows ACME Corp users only (should be 1)
-```
+```bash
 
 ---
 
@@ -476,7 +482,7 @@ DROP TABLE IF EXISTS tenants CASCADE;
 
 -- Restore original users table from backup
 -- (restore from pg_dump backup created in Step 0)
-```
+```bash
 
 ### Rollback from Step 4-6 (After Data Migration)
 
@@ -501,7 +507,7 @@ DROP TABLE IF EXISTS tenants CASCADE;
 DROP TABLE IF EXISTS auth_users CASCADE;
 
 COMMIT;
-```
+```bash
 
 ### Rollback from Step 7+ (After Public Cleanup)
 
@@ -509,7 +515,7 @@ COMMIT;
 ```bash
 # Restore entire database from backup
 psql -d boundary_app < backup_20260209_120000.sql
-```
+```bash
 
 ---
 
@@ -539,7 +545,7 @@ psql -d boundary_app < backup_20260209_120000.sql
 -- Check current search_path
 SHOW search_path;
 -- Should be: tenant_<slug>, public
-```
+```bash
 
 ### Issue: Authentication fails after migration
 
@@ -552,7 +558,7 @@ SHOW search_path;
 
 ;; After
 (jdbc/execute-one! db-ctx ["SELECT * FROM auth_users WHERE email = ?" email])
-```
+```bash
 
 ---
 
@@ -633,3 +639,12 @@ After successful migration:
 **Last Updated**: 2026-02-09  
 **Version**: 1.0  
 **Status**: Production-Ready
+
+---
+
+## See also
+
+- [Database Setup](database-setup.md) - PostgreSQL configuration and connection pooling
+- [Operations Guide](operations.adoc) - Multi-tenant production deployment
+- [Testing Guide](testing.md) - Testing multi-tenant applications
+

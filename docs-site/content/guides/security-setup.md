@@ -1,3 +1,9 @@
+---
+title: "Security Setup"
+weight: 70
+description: "Repository security configuration for branch protection, Clojars publishing, and access control"
+---
+
 # Repository Security Setup Guide
 
 **Last Updated**: 2026-02-15  
@@ -5,20 +11,20 @@
 
 ---
 
-## 1. Branch Protection Rules (GitHub Settings)
+## 1. Branch protection rules (GitHub Settings)
 
-### Steps to Configure:
+### Steps to configure:
 
 1. Go to: `https://github.com/thijs-creemers/boundary/settings/branches`
 2. Click **"Add rule"** (or **"Add branch protection rule"**)
 3. Configure the following:
 
-#### Branch Name Pattern
-```
+#### Branch name pattern
+```text
 main
 ```
 
-#### Protection Rules to Enable
+#### Protection rules to enable
 
 **✅ Require a pull request before merging**
 - ✅ Require approvals: **1**
@@ -59,13 +65,13 @@ main
 
 ---
 
-## 2. Repository Collaborator Settings
+## 2. Repository collaborator settings
 
-### Current Access Control:
+### Current access control:
 - Repository owner: **thijs-creemers** (you)
 - Collaborators: (run `gh api repos/thijs-creemers/boundary/collaborators` to check)
 
-### Steps to Verify/Configure:
+### Steps to verify/configure:
 
 1. Go to: `https://github.com/thijs-creemers/boundary/settings/access`
 2. Review all collaborators
@@ -75,30 +81,30 @@ main
    - They can fork the repo and submit PRs from forks
    - You retain full merge control
 
-### Recommended Access Levels:
+### Recommended access levels:
 - **You (maintainer)**: Admin
 - **Contributors**: No direct access (use forks + PRs)
 - **Bots/CI**: No additional permissions needed (workflows use secrets)
 
 ---
 
-## 3. GitHub Secrets (Clojars Publishing)
+## 3. GitHub secrets (Clojars Publishing)
 
-### Currently Required Secrets:
+### Currently required secrets:
 Your `publish.yml` workflow requires these secrets (already configured if publishing works):
 
-```
+```text
 CLOJARS_USERNAME - Your Clojars username
 CLOJARS_PASSWORD - Your Clojars deploy token (NOT your account password)
 ```
 
-### Steps to Verify:
+### Steps to verify:
 
 1. Go to: `https://github.com/thijs-creemers/boundary/settings/secrets/actions`
 2. Verify both secrets exist
 3. **Do NOT share these secrets** with anyone
 
-### To Generate Clojars Deploy Token:
+### To generate Clojars deploy token:
 1. Log in to https://clojars.org
 2. Go to your profile → **Deploy Tokens**
 3. Create a new deploy token with **minimal scope** (publish only)
@@ -106,9 +112,9 @@ CLOJARS_PASSWORD - Your Clojars deploy token (NOT your account password)
 
 ---
 
-## 4. Clojars Group Ownership
+## 4. Clojars group ownership
 
-### Steps to Secure Clojars Publishing:
+### Steps to secure Clojars publishing:
 
 1. Log in to https://clojars.org
 2. Navigate to your group: `io.github.thijs-creemers`
@@ -119,15 +125,15 @@ CLOJARS_PASSWORD - Your Clojars deploy token (NOT your account password)
 5. Verify **Deploy Permissions**:
    - Set to "Members only" (not "Anyone")
 
-### How to Check Current Clojars Group Members:
+### How to check current Clojars group members:
 ```bash
 # Install clj-watson or use Clojars web UI
 # Web UI: https://clojars.org/groups/io.github.thijs-creemers
-```
+```bash
 
 ---
 
-## 5. Optional: CODEOWNERS File
+## 5. Optional: CODEOWNERS file
 
 Create a `CODEOWNERS` file to automatically request your review on all PRs.
 
@@ -140,7 +146,7 @@ Create a `CODEOWNERS` file to automatically request your review on all PRs.
 /.github/workflows/ @thijs-creemers
 /libs/*/build.clj @thijs-creemers
 /deps.edn @thijs-creemers
-```
+```bash
 
 This ensures:
 - GitHub automatically assigns you as reviewer on all PRs
@@ -148,9 +154,9 @@ This ensures:
 
 ---
 
-## 6. Workflow Permissions
+## 6. Workflow permissions
 
-### Steps to Restrict GitHub Actions:
+### Steps to restrict GitHub Actions:
 
 1. Go to: `https://github.com/thijs-creemers/boundary/settings/actions`
 2. Under **Workflow permissions**:
@@ -159,31 +165,31 @@ This ensures:
 3. Under **Fork pull request workflows**:
    - ✅ Require approval for first-time contributors
 
-### Why This Matters:
+### Why this matters:
 - Prevents workflows in PRs from malicious forks from accessing secrets
 - Your `publish.yml` workflow will still work because it runs on `push` to tags (not on PRs)
 
 ---
 
-## 7. Verification Checklist
+## 7. Verification checklist
 
 After completing the above steps, verify your security:
 
-### Branch Protection:
+### Branch protection:
 - [ ] Create a test branch
 - [ ] Try to push directly to `main` → Should be blocked
 - [ ] Open a PR from test branch
 - [ ] Try to merge without approval → Should be blocked
 - [ ] Try to merge with failing tests → Should be blocked
 
-### Clojars Publishing:
+### Clojars publishing:
 - [ ] Only workflows triggered by YOU can publish
 - [ ] Publishing only happens on:
   - Manual workflow dispatch (by you)
   - Tag pushes (by you)
 - [ ] Verify no one else can trigger `publish.yml`
 
-### Test Security:
+### Test security:
 ```bash
 # As repository owner, test branch protection
 git checkout -b test-security
@@ -196,13 +202,13 @@ git push origin test-security
 # 1. Should require PR
 # 2. Should require CI to pass
 # 3. Should require your approval
-```
+```bash
 
 ---
 
-## 8. Emergency Procedures
+## 8. Emergency procedures
 
-### If Someone Publishes Unauthorized Release:
+### If someone publishes unauthorized release:
 
 1. **Immediately revoke Clojars deploy token**:
    - Log in to https://clojars.org
@@ -218,7 +224,7 @@ git push origin test-security
    - Generate new deploy tokens
    - Update all GitHub repository secrets
 
-### If Branch Protection is Bypassed:
+### If branch protection is bypassed:
 
 1. **Revert the commit**:
    ```bash
@@ -247,7 +253,7 @@ After completing this guide:
 
 ---
 
-## Quick Commands Reference
+## Quick commands reference
 
 ```bash
 # Check branch protection status
@@ -268,4 +274,13 @@ gh run list --workflow=publish.yml
 
 ---
 
-**Next Steps**: Follow sections 1-7 in order, then complete the verification checklist in section 7.
+**Next steps**: Follow sections 1-7 in order, then complete the verification checklist in section 7.
+
+---
+
+## See also
+
+- [Authentication Guide](authentication.md) - JWT security and session management
+- [Publishing Guide](../reference/publishing.md) - Secure library publishing to Clojars
+- [Operations Guide](operations.adoc) - Production deployment security
+

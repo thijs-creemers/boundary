@@ -500,7 +500,7 @@ clojure -M:repl-clj <<'EOF'
 (System/exit 0)
 EOF
 
-dot -Tpng build/validation-user.dot -o docs/diagrams/validation-user.png
+dot -Tpng build/validation-user.dot -o docs-site/static/images/validation-user.png
 
 # View coverage reports
 cat test/reports/coverage/user.txt
@@ -578,13 +578,13 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 **For in-depth information, see:**
 
 - **[Full Agent Guide](docs/archive/AGENTS_FULL.md)** - Legacy comprehensive reference (pre-library-split)
-- **[Architecture Guide](https://github.com/thijs-creemers/boundary-docs/tree/main/content/architecture/)** - FC/IS patterns, design decisions
+- **[Architecture Guide](docs-site/content/architecture/)** - FC/IS patterns, design decisions
 - **[Module Scaffolding](libs/scaffolder/README.md)** - Complete scaffolding workflow
-- **[MFA Setup Guide](docs/guides/mfa-setup.md)** - Multi-factor authentication
-- **[API Pagination](docs/API_PAGINATION.md)** - Offset and cursor pagination
-- **[Observability Integration](https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc)** - Custom adapters, configuration
-- **[HTTP Interceptors](https://github.com/thijs-creemers/boundary-docs/tree/main/content/adr/ADR-010-http-interceptor-architecture.adoc)** - Technical specification
-- **[PRD](https://github.com/thijs-creemers/boundary-docs/tree/main/content/reference/boundary-prd.adoc)** - Product vision and requirements
+- **[MFA Setup Guide](docs-site/content/guides/mfa-setup.md)** - Multi-factor authentication
+- **[API Pagination](docs-site/content/api/pagination.md)** - Offset and cursor pagination
+- **[Observability Integration](docs-site/content/guides/integrate-observability.adoc)** - Custom adapters, configuration
+- **[HTTP Interceptors](docs-site/content/adr/ADR-010-http-interceptor-architecture.adoc)** - Technical specification
+- **[PRD](docs-site/content/reference/boundary-prd.adoc)** - Product vision and requirements
 
 ---
 

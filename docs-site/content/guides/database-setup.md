@@ -1,3 +1,9 @@
+---
+title: "Database Setup Guide"
+weight: 40
+description: "Configure and manage databases in Boundary Framework"
+---
+
 # Database Configuration and Management Guide
 
 This guide provides comprehensive instructions for configuring, managing, and troubleshooting databases in the Boundary Framework. Boundary supports multiple database engines through a unified abstraction layer, allowing you to switch between them with minimal configuration changes.
@@ -8,7 +14,7 @@ This guide provides comprehensive instructions for configuring, managing, and tr
 
 Boundary implements a **Functional Core / Imperative Shell** architecture. The database layer is part of the "Imperative Shell," where side effects like I/O and persistence are handled. The framework provides a database-agnostic interface that allows developers to write business logic without worrying about the specific SQL dialect of the underlying database.
 
-### Supported Databases
+### Supported databases
 
 Boundary provides first-class support for the following databases:
 
@@ -18,7 +24,7 @@ Boundary provides first-class support for the following databases:
 | **PostgreSQL**| Production, enterprise apps, JSON support | `org.postgresql/postgresql` | Production Ready |
 | **H2** | In-memory testing, CI/CD, fast iteration | `com.h2database/h2` | Testing Only |
 
-### Key Principles
+### Key principles
 
 - **Unified API**: Use the same Clojure functions regardless of the underlying database.
 - **Connection Pooling**: Robust pooling for all databases via HikariCP, optimized for each engine's specific characteristics.
@@ -54,7 +60,7 @@ Ensure the driver is included in your dependencies:
 
 ```clojure
 {:deps {org.xerial/sqlite-jdbc {:mvn/version "3.51.0.0"}}}
-```
+```bash
 
 ### Configuration (`config.edn`)
 
@@ -67,9 +73,9 @@ SQLite configuration is simple. It mainly requires the path to the database file
  :pool          {:minimum-idle      1
                  :maximum-pool-size 5
                  :connection-timeout-ms 10000}}
-```
+```bash
 
-### Advanced SQLite Settings
+### Advanced SQLite settings
 - **WAL Mode**: Write-Ahead Logging is enabled by default. This significantly improves write concurrency by allowing multiple readers and one writer to coexist.
 - **Pragma Settings**: The framework automatically tunes SQLite with recommended pragmas like `foreign_keys = ON`, `journal_mode = WAL`, and `synchronous = NORMAL`.
 - **Pathing**: Relative paths are relative to the project root. For production use-cases, always use absolute paths.
@@ -84,7 +90,7 @@ PostgreSQL is the recommended database for production. It offers enterprise-grad
 
 ```clojure
 {:deps {org.postgresql/postgresql {:mvn/version "42.7.8"}}}
-```
+```bash
 
 ### Configuration (`config.edn`)
 
@@ -103,9 +109,9 @@ Use environment variables via Aero's `#env` tag for sensitive credentials and en
             :connection-timeout-ms 30000
             :idle-timeout-ms       600000
             :max-lifetime-ms       1800000}}
-```
+```bash
 
-### Local Development with Docker
+### Local development with Docker
 
 A standard Docker setup for local PostgreSQL development:
 
@@ -115,7 +121,7 @@ docker run --name boundary-db \
   -e POSTGRES_DB=boundary_dev \
   -p 5432:5432 \
   -d postgres:15-alpine
-```
+```text
 
 To persist data between Docker restarts, add a volume:
 ```bash
@@ -124,7 +130,7 @@ docker run --name boundary-db \
   -e POSTGRES_PASSWORD=postgres \
   -p 5432:5432 \
   -d postgres:15-alpine
-```
+```bash
 
 ---
 
@@ -136,7 +142,7 @@ H2 is an extremely fast Java-based database. In Boundary, it is primarily used i
 
 ```clojure
 {:deps {com.h2database/h2 {:mvn/version "2.4.240"}}}
-```
+```bash
 
 ### Configuration (`config.edn`)
 
@@ -148,9 +154,9 @@ For testing, use the `:memory` path.
  :database-path "mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL"
  :pool          {:minimum-idle      1
                  :maximum-pool-size 10}}
-```
+```text
 
-### Key Considerations
+### Key considerations
 - **`DB_CLOSE_DELAY=-1`**: This is critical for in-memory databases. It prevents H2 from closing the database when the last connection is dropped, ensuring data persists during the life of the JVM.
 - **`MODE=PostgreSQL`**: H2 can emulate other databases. We recommend using PostgreSQL mode to keep your SQL syntax compatible with your production target.
 
@@ -160,7 +166,7 @@ For testing, use the `:memory` path.
 
 Boundary uses **HikariCP**, widely regarded as the fastest and most reliable connection pool for the JVM.
 
-### Parameters Explained
+### Parameters explained
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -171,7 +177,7 @@ Boundary uses **HikariCP**, widely regarded as the fastest and most reliable con
 | `:max-lifetime-ms` | 1800000 | The maximum lifetime of a connection in the pool. Connections should be retired every 30-60 minutes to avoid stale connections. |
 | `:validation-timeout-ms` | 5000 | The maximum amount of time that the pool will wait for a connection to be validated as alive. |
 
-### Best Practices for Pooling
+### Best practices for pooling
 - **Pool Size**: Don't over-allocate. A common mistake is setting the pool size too high. For most web apps, `maximum-pool-size = 10` per instance is more than enough.
 - **Sizing Formula**: A good starting point is `(2 * core_count) + effective_spindle_count`.
 - **Match Database Limits**: Ensure `instances * maximum-pool-size` does not exceed the database server's `max_connections` (usually 100 for PostgreSQL).
@@ -194,14 +200,14 @@ CREATE TABLE users (
     name TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-```
+```text
 
 **Example: `20260126100000-create-users.down.sql`**
 ```sql
 DROP TABLE users;
-```
+```bash
 
-### Migration Commands
+### Migration commands
 
 The CLI tool handles migration execution. Ensure you run these from the root directory.
 
@@ -219,7 +225,7 @@ If you need to change where migrations are stored, update your `:boundary/db-con
 {:adapter :postgresql
  :migration-dir "custom/migrations/"
  ...}
-```
+```text
 
 ---
 
@@ -227,7 +233,7 @@ If you need to change where migrations are stored, update your `:boundary/db-con
 
 The framework uses **HoneySQL** for query building, which abstracts away most dialect differences.
 
-### Common Dialect Handling
+### Common dialect handling
 - **UUIDs**: Stored as native `UUID` in PostgreSQL, as `TEXT` in SQLite, and `UUID` in H2.
 - **Booleans**: Native `BOOLEAN` in PostgreSQL/H2, `INTEGER` (0 or 1) in SQLite.
 - **Timestamps**: `TIMESTAMP WITH TIME ZONE` in PostgreSQL, `TEXT` (ISO8601) in SQLite.
@@ -259,7 +265,7 @@ The following metrics are exported (if a provider like Datadog is configured):
 
 ## 10. Troubleshooting
 
-### General Connection Errors
+### General connection errors
 
 - **"Connection Refused"**: 
   - Is the database server running?
@@ -307,7 +313,17 @@ To maintain a healthy database layer in Boundary, follow these best practices:
 
 Boundary's database system is designed to grow with your application. By providing a consistent API and robust infrastructure for SQLite, PostgreSQL, and H2, we ensure that you can focus on building features while we handle the complexities of data persistence and scalability.
 
-For more information, see the [Architecture Guide](../architecture/database.md) or join our community discussions.
+For more information, see the [Architecture Guide](../architecture/) or join our community discussions.
 
 ---
 *Last Updated: 2026-01-26*
+
+---
+
+## See also
+
+- [Operations Guide](operations.adoc) - Production deployment and database management
+- [Testing Guide](testing.md) - Database testing strategies
+- [Authentication Guide](authentication.md) - Users and sessions tables
+- [Full-Text Search](../api/search.md) - PostgreSQL search configuration
+

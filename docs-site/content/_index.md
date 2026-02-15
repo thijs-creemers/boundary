@@ -347,7 +347,7 @@ Records of significant architectural decisions.
 Boundary Framework is open source and welcomes contributions!
 
 * **GitHub Repository:** [github.com/thijs-creemers/boundary](https://github.com/thijs-creemers/boundary)
-* **Documentation Repository:** [github.com/thijs-creemers/boundary-docs](https://github.com/thijs-creemers/boundary-docs)
+* **Documentation:** See the [docs-site/](./docs-site/) directory
 * **Issue Tracker:** [GitHub Issues](https://github.com/thijs-creemers/boundary/issues)
 
 ## License

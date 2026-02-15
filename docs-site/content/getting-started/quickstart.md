@@ -1,3 +1,9 @@
+---
+title: "5-Minute Quickstart"
+weight: 1
+description: "Get your first Boundary API endpoint running in 5 minutes"
+---
+
 # Boundary Framework - 5-Minute Quickstart
 
 Get your first Boundary API endpoint running in **5 minutes**.
@@ -15,7 +21,7 @@ Get your first Boundary API endpoint running in **5 minutes**.
 ```bash
 java -version   # Should show 11 or higher
 clojure -version
-```
+```bash
 
 ---
 
@@ -28,7 +34,7 @@ cd boundary
 
 # Install dependencies (downloads once, cached after)
 clojure -P -M:dev
-```
+```bash
 
 ---
 
@@ -38,7 +44,7 @@ clojure -P -M:dev
 ```bash
 # Already configured in conf/dev/config.edn
 # No setup needed!
-```
+```text
 
 **Option B: PostgreSQL (Recommended for production)**
 ```bash
@@ -50,13 +56,13 @@ export DATABASE_URL="postgresql://localhost:5432/boundary_dev"
 
 # 3. Update conf/dev/config.edn
 # (Or just use the environment variable - it works!)
-```
+```text
 
 **Option C: H2 (In-memory)**
 ```clojure
 ;; Edit conf/dev/config.edn
 :active {:h2 {:memory true}}
-```
+```bash
 
 ---
 
@@ -72,7 +78,7 @@ clojure -M:migrate migrate
 # Verify
 clojure -M:migrate status
 # Should show: "Applied migrations: 5"
-```
+```bash
 
 ---
 
@@ -94,14 +100,14 @@ clojure -M:repl-clj
 (ig-repl/set-prep! #(boundary.system/system-config))
 (ig-repl/go)
 ;; Server started at http://localhost:3000
-```
+```text
 
 **Expected output:**
 ```
 INFO  boundary.server - Starting HTTP server on port 3000
 INFO  boundary.server - Swagger UI available at http://localhost:3000/api-docs/
 INFO  boundary.server - Server started successfully
-```
+```bash
 
 ---
 
@@ -110,7 +116,7 @@ INFO  boundary.server - Server started successfully
 **Check health endpoint:**
 ```bash
 curl http://localhost:3000/health
-```
+```text
 
 **Expected response:**
 ```json
@@ -120,13 +126,13 @@ curl http://localhost:3000/health
   "version": "0.1.0",
   "timestamp": "2026-01-03T14:30:00Z"
 }
-```
+```text
 
 **View API documentation:**
 ```bash
 # Open in browser
 open http://localhost:3000/api-docs/
-```
+```text
 
 You'll see an interactive Swagger UI with all available endpoints!
 
@@ -140,7 +146,7 @@ curl -X POST http://localhost:3000/api/v1/users \
     "password": "securepass123",
     "role": "admin"
   }'
-```
+```text
 
 **Expected response:**
 ```json
@@ -152,7 +158,7 @@ curl -X POST http://localhost:3000/api/v1/users \
   "active": true,
   "createdAt": "2026-01-03T14:30:00Z"
 }
-```
+```text
 
 **Login to get a JWT token:**
 ```bash
@@ -162,7 +168,7 @@ curl -X POST http://localhost:3000/api/v1/auth/login \
     "email": "developer@example.com",
     "password": "securepass123"
   }'
-```
+```text
 
 **Expected response:**
 ```json
@@ -171,7 +177,7 @@ curl -X POST http://localhost:3000/api/v1/auth/login \
   "expiresIn": 3600,
   "userId": "550e8400-e29b-41d4-a716-446655440000"
 }
-```
+```bash
 
 ---
 
@@ -185,7 +191,7 @@ clojure -M:dev -m boundary.scaffolder.core \
   --fields title:string,description:string,completed:boolean \
   --http true \
   --web true
-```
+```text
 
 **What this creates:**
 ```
@@ -203,7 +209,7 @@ src/boundary/tasks/
 Generated files: 12
 Generated tests: 473
 Lines of code: ~2,500
-```
+```text
 
 **Wire up the module:**
 ```clojure
@@ -214,7 +220,7 @@ Lines of code: ~2,500
   (concat
     (user/user-routes config)
     (tasks-http/task-routes config)))  ;; ADD THIS
-```
+```text
 
 **Restart server and test:**
 ```bash
@@ -223,7 +229,7 @@ Lines of code: ~2,500
 (ig-repl/go)
 
 # Or restart the process
-```
+```text
 
 **Create a task:**
 ```bash
@@ -235,7 +241,7 @@ curl -X POST http://localhost:3000/api/v1/tasks \
     "description": "Complete the quickstart guide",
     "completed": false
   }'
-```
+```bash
 
 ---
 
@@ -257,7 +263,7 @@ In 5 minutes you've:
 ### 1. Explore the Interactive API Docs
 ```bash
 open http://localhost:3000/api-docs/
-```
+```bash
 
 - Try out all endpoints in the browser
 - See request/response schemas
@@ -270,7 +276,7 @@ clojure -M:test
 
 # Run specific module tests
 clojure -M:test --focus boundary.tasks
-```
+```bash
 
 ### 3. Set Up Your IDE
 
@@ -284,7 +290,7 @@ code .
 
 # Connect to REPL: Ctrl+Alt+C Ctrl+Alt+J
 # Choose "deps.edn" and "dev" profile
-```
+```text
 
 **IntelliJ + Cursive:**
 - Install Cursive plugin
@@ -296,16 +302,15 @@ code .
 ;; M-x cider-jack-in
 ;; Choose "clojure-cli"
 ;; Add alias: ":dev"
-```
+```bash
 
-See [IDE Setup Guide](IDE_SETUP.md) for detailed instructions.
+See [IDE Setup Guide](../guides/ide-setup) for detailed instructions.
 
 ### 4. Read the Documentation
 
-- **[Architecture Guide](ARCHITECTURE.md)** - Understand FC/IS pattern
-- **[Module Design](MODULE_DESIGN.md)** - Learn module structure
-- **[Operations Guide](OPERATIONS.md)** - Production deployment
-- **[Build Guide](../BUILD.md)** - Development workflow
+- **[Architecture Guide](../architecture/overview)** - Understand FC/IS pattern
+- **[Module Design](../guides/create-module)** - Learn module structure
+- **[Operations Guide](../guides/operations)** - Production deployment
 
 ### 5. Try the Examples
 
@@ -320,11 +325,11 @@ clojure -M:dev
 # Full-stack web app
 cd ../blog/
 clojure -M:dev
-```
+```bash
 
 ---
 
-## Common Issues & Solutions
+## Common issues & solutions
 
 ### Port 3000 already in use
 ```bash
@@ -333,7 +338,7 @@ lsof -ti:3000 | xargs kill -9
 
 # Or use a different port
 export PORT=8080
-```
+```text
 
 ### Database connection errors
 ```bash
@@ -344,7 +349,7 @@ pg_isready  # PostgreSQL
 echo $DATABASE_URL
 
 # Check conf/dev/config.edn configuration
-```
+```bash
 
 ### REPL won't start
 ```bash
@@ -356,7 +361,7 @@ clojure -P -M:dev
 
 # Try again
 clojure -M:repl-clj
-```
+```bash
 
 ### Tests failing
 ```bash
@@ -366,11 +371,11 @@ clojure -M:test --reporter documentation
 # Check test database is clean
 clojure -M:migrate reset  # WARNING: Deletes all data
 clojure -M:migrate migrate
-```
+```bash
 
 ---
 
-## Development Workflow Tips
+## Development workflow tips
 
 ### REPL-Driven Development
 ```clojure
@@ -383,7 +388,7 @@ clojure -M:migrate migrate
 ;; Restart system with new code
 (ig-repl/halt)
 (ig-repl/go)
-```
+```bash
 
 ### Database Migrations
 ```bash
@@ -398,9 +403,9 @@ clojure -M:migrate migrate
 
 # Rollback if needed
 clojure -M:migrate rollback
-```
+```bash
 
-### Adding New Endpoints
+### Adding new endpoints
 ```clojure
 ;; In src/boundary/tasks/shell/http.clj
 
@@ -410,9 +415,9 @@ clojure -M:migrate rollback
                   :summary "Mark task as complete"
                   :tags ["tasks"]
                   :parameters {:path [:map [:id :string]]}}}}
-```
+```bash
 
-### Testing Your Code
+### Testing your code
 ```clojure
 ;; In test/boundary/tasks/core/task_test.clj
 (deftest complete-task-test
@@ -424,34 +429,33 @@ clojure -M:migrate rollback
 
 ---
 
-## Getting Help
+## Getting help
 
-- **Documentation:** `docs/` directory
-- **Examples:** `examples/` directory
+- **Documentation:** Browse this documentation site
+- **Examples:** See the [examples section](../examples)
 - **Issues:** [GitHub Issues](https://github.com/yourusername/boundary/issues)
 - **Discussions:** [GitHub Discussions](https://github.com/yourusername/boundary/discussions)
-- **Slack:** `#boundary-framework` channel
 
 ---
 
-## What Makes Boundary Different?
+## What makes Boundary different?
 
 ### Functional Core / Imperative Shell (FC/IS)
 - **Pure business logic** in `core/` - no side effects, easy to test
 - **Side effects** in `shell/` - I/O, database, HTTP
 - **Clean boundaries** - ports define contracts
 
-### Module-Centric Architecture
+### Module-centric architecture
 - Each module owns all its layers (core, ports, shell)
 - Modules are **independently deployable**
 - True microservices-ready design
 
-### Production Scaffolder
+### Production scaffolder
 - Generates **12 files** with **473 tests** in seconds
 - Zero lint errors, production-ready code
 - **80% reduction** in boilerplate time
 
-### Protocol-Based Extensibility
+### Protocol-based extensibility
 - Swap implementations without changing core
 - Easy mocking for tests
 - Database agnostic (SQLite, PostgreSQL, MySQL, H2)
@@ -460,4 +464,15 @@ clojure -M:migrate rollback
 
 **Ready to build production applications?** 🚀
 
-**Next:** [Full Tutorial](TUTORIAL.md) - Build a complete task management API from scratch
+**Next:** [Full Tutorial](tutorial) - Build a complete task management API from scratch
+
+---
+
+## See also
+
+- [Full Tutorial](tutorial.md) - Complete task management API walkthrough
+- [IDE Setup](../guides/ide-setup.md) - Configure your development environment  
+- [Database Setup](../guides/database-setup.md) - PostgreSQL configuration
+- [Testing Guide](../guides/testing.md) - Write and run tests
+- [Authentication Guide](../guides/authentication.md) - JWT auth and MFA setup
+

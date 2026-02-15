@@ -1,3 +1,9 @@
+---
+title: "Testing Guide"
+weight: 50
+description: "Comprehensive testing guide covering three-tier strategy, snapshot testing, and TDD workflow"
+---
+
 # Boundary Framework Testing Guide
 
 **Version**: 1.0.0  
@@ -29,7 +35,7 @@ Comprehensive guide to testing Boundary applications, covering the three-tier te
 
 ---
 
-## Testing Philosophy
+## Testing philosophy
 
 Boundary follows the **Functional Core / Imperative Shell (FC/IS)** architecture. This design significantly impacts how we test our code:
 
@@ -59,7 +65,7 @@ We categorize tests into three distinct tiers to balance speed, isolation, and c
 
 ---
 
-## Unit Testing (Core)
+## Unit testing (core)
 
 Unit tests focus on the **Functional Core**. They verify that pure functions produce the correct output for a given input.
 
@@ -92,7 +98,7 @@ Testing a pure validation function in `boundary.user.core.user`:
           [valid? errors] (user-core/validate-user-creation-request request)]
       (is (false? valid?))
       (is (contains? errors :email)))))
-```
+```bash
 
 ### Example: UI Component
 Testing a Hiccup-generating function. Notice we assert on the **data structure** first, which is more robust than string matching.
@@ -106,7 +112,7 @@ Testing a Hiccup-generating function. Notice we assert on the **data structure**
       (is (= :span.badge.admin (first result)))
       ;; Content assertion
       (is (clojure.string/includes? (str result) "Administrator")))))
-```
+```bash
 
 ### Example: Data Transformation
 Testing the conversion between database format (snake_case) and internal format (kebab-case):
@@ -117,11 +123,11 @@ Testing the conversion between database format (snake_case) and internal format 
     (let [db-record {:first_name "John" :last_name "Doe" :created_at #inst "2025-01-01"}
           expected {:first-name "John" :last-name "Doe" :created-at #inst "2025-01-01"}]
       (is (= expected (utils/db->entity db-record))))))
-```
+```bash
 
 ---
 
-## Integration Testing (Shell Services)
+## Integration testing (shell services)
 
 Integration tests verify the **Imperative Shell**. They ensure that service functions correctly coordinate between the Functional Core and external ports (adapters).
 
@@ -167,11 +173,11 @@ Testing `boundary.user.shell.service` using a real H2 database. We use a dynamic
       ;; Verify persistence
       (let [persisted (ports/get-user-by-email *service* "new@example.com")]
         (is (= (:id result) (:id persisted)))))))
-```
+```bash
 
 ---
 
-## Contract Testing (HTTP/Adapters)
+## Contract testing (HTTP/adapters)
 
 Contract tests verify the **system boundaries**. They ensure that our HTTP endpoints and database adapters adhere to the expected interface (contracts).
 
@@ -204,13 +210,13 @@ Testing the login endpoint using Ring requests. We bypass the actual network and
                    :headers {"content-type" "application/json"}}
           response (*handler* request)]
       (is (= 401 (:status response))))))
-```
+```bash
 
 ---
 
-## Test Organization & Metadata
+## Test organization & metadata
 
-### Directory Structure
+### Directory structure
 Tests are organized to mirror the `src` directory structure within each library. This makes it easy to find the corresponding test for any source file.
 
 ```
@@ -221,9 +227,9 @@ libs/{library}/
 └── test/boundary/{library}/
     ├── core/      # Unit tests
     └── shell/     # Integration & Contract tests
-```
+```bash
 
-### Metadata Tags
+### Metadata tags
 We use metadata tags to allow the test runner to filter tests by layer or module.
 
 - `:unit`: Pure functions, no I/O.
@@ -239,13 +245,13 @@ We use metadata tags to allow the test runner to filter tests by layer or module
 
 ;; At the individual test level (For specific test filtering)
 (deftest ^{:unit true} my-test ...)
-```
+```bash
 
 ---
 
-## Test Commands & Workflow
+## Test commands & workflow
 
-### General Commands
+### General commands
 The framework uses **Kaocha** as the test runner. All commands should be run from the root directory.
 
 ```bash
@@ -254,7 +260,7 @@ clojure -M:test:db/h2
 
 # Run all tests with JWT secret (required for some auth tests)
 JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2
-```
+```bash
 
 ### Filtering by Metadata
 Metadata filtering allows you to run only the relevant subset of tests during development.
@@ -268,7 +274,7 @@ clojure -M:test:db/h2 --focus-meta :integration
 
 # Run contract tests
 clojure -M:test:db/h2 --focus-meta :contract
-```
+```bash
 
 ### Filtering by Library
 ```bash
@@ -276,9 +282,9 @@ clojure -M:test:db/h2 --focus-meta :contract
 clojure -M:test:db/h2 :core
 clojure -M:test:db/h2 :user
 clojure -M:test:db/h2 :admin
-```
+```bash
 
-### Watch Mode
+### Watch mode
 Watch mode automatically re-runs tests when files are saved. Highly recommended for TDD.
 
 ```bash
@@ -287,15 +293,15 @@ clojure -M:test:db/h2 --watch :core --focus-meta :unit
 
 # Watch all user module tests
 clojure -M:test:db/h2 --watch :user
-```
+```text
 
 ---
 
-## Snapshot Testing
+## Snapshot testing
 
 Snapshot testing is used to ensure that complex data structures (like validation results or HTML fragments) remain stable.
 
-### Why Snapshot Testing?
+### Why snapshot testing?
 Validation rules can become complex. Snapshot testing captures the entire result (including error messages and data shapes) and flags any deviation. This is much more effective than manually asserting on individual error strings.
 
 ### Workflow
@@ -306,9 +312,9 @@ Validation rules can become complex. Snapshot testing captures the entire result
 ```bash
 # Update validation snapshots for the user module
 UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
-```
+```bash
 
-### Example Snapshot Test
+### Example snapshot test
 ```clojure
 (deftest email-validation-invalid-format-snapshot
   (testing "Invalid email format produces structured error"
@@ -318,14 +324,14 @@ UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus boundary.user.core.user-vali
        result
        {:ns (ns-name *ns*)
         :test 'email-validation-invalid-format}))))
-```
+```bash
 Snapshots are stored as `.edn` files under `libs/{library}/test/snapshots/validation/`. They are human-readable and should be committed to version control.
 
 ---
 
-## Test Fixtures & Helpers
+## Test fixtures & helpers
 
-### Dynamic Variables for Test State
+### Dynamic variables for test state
 We use dynamic vars and `use-fixtures` to manage test setup (like database connections). This avoids global state pollution.
 
 ```clojure
@@ -337,9 +343,9 @@ We use dynamic vars and `use-fixtures` to manage test setup (like database conne
     (f)))
 
 (use-fixtures :each with-clean-database)
-```
+```bash
 
-### Helper Functions
+### Helper functions
 Common operations should be extracted to helper functions to keep tests readable and maintainable.
 
 ```clojure
@@ -351,15 +357,15 @@ Common operations should be extracted to helper functions to keep tests readable
     {:request-method method
      :uri uri
      :headers {"authorization" (str "Bearer " token)}}))
-```
+```text
 
 ---
 
-## Accessibility Testing
+## Accessibility testing
 
 Boundary prioritizes accessibility in its UI. We test for ARIA labels, semantic HTML, and form associations.
 
-### Accessibility Checklist
+### Accessibility checklist
 - [ ] Every input has a `<label>` with a `for` attribute.
 - [ ] Icon-only buttons have an `aria-label`.
 - [ ] Required fields have both a visual indicator (`*`) and the `required` attribute.
@@ -367,7 +373,7 @@ Boundary prioritizes accessibility in its UI. We test for ARIA labels, semantic 
 - [ ] Navigation components use `<nav>` tags.
 - [ ] Error messages are associated with their fields (using `aria-describedby` or placement).
 
-### Example Accessibility Test
+### Example accessibility test
 ```clojure
 (deftest icon-button-accessibility-test
   (testing "Search button has aria-label"
@@ -379,11 +385,11 @@ Boundary prioritizes accessibility in its UI. We test for ARIA labels, semantic 
     (let [html (str (ui/render-email-field :email "test@example.com"))]
       (is (clojure.string/includes? html "<label for=\"email\">"))
       (is (clojure.string/includes? html "<input id=\"email\" type=\"email\"")))))
-```
+```bash
 
 ---
 
-## Testing HTMX Interactions
+## Testing HTMX interactions
 
 Since Boundary uses HTMX for dynamic behavior, we must test that our handlers return the correct fragments and headers.
 
@@ -397,7 +403,7 @@ Verify that a fragment handler returns only the partial HTML, not the full page 
           response (handlers/table-fragment request)]
       (is (not (clojure.string/includes? (:body response) "<body")))
       (is (clojure.string/includes? (:body response) "id=\"entity-table\"")))))
-```
+```bash
 
 ### Testing HTMX Headers
 Verify that the server sends `HX-Trigger` or `HX-Redirect` headers when appropriate.
@@ -408,7 +414,7 @@ Verify that the server sends `HX-Trigger` or `HX-Redirect` headers when appropri
     (let [request {:request-method :post :form-params {...}}
           response (handlers/create-user-handler request)]
       (is (= "userCreated" (get-in response [:headers "HX-Trigger"]))))))
-```
+```bash
 
 ---
 
@@ -424,7 +430,7 @@ Best for simple, one-off mocks within a single test file.
                         (send-email [_ details]
                           (reset! sent-emails-atom details)))]
   (ports/register-user service data mock-email-port))
-```
+```bash
 
 ### 2. Using `defrecord` (Reusable Mocks)
 Best for mocks that are shared across multiple test files.
@@ -437,7 +443,7 @@ Best for mocks that are shared across multiple test files.
 
 (defn create-mock-storage []
   (->MockStoragePort (atom {})))
-```
+```bash
 
 ---
 
@@ -449,14 +455,14 @@ We use `cloverage` to measure test coverage. Aim for 90%+ in `core/` and 75%+ ov
 ```bash
 # Run coverage report for the user library
 clojure -M:test:coverage :user
-```
+```bash
 
 ### Linting Tests
 Tests are code too! Always lint your test directory.
 
 ```bash
 clojure -M:clj-kondo --lint libs/user/test
-```
+```bash
 
 ---
 
@@ -498,7 +504,7 @@ clojure -M:clj-kondo --lint libs/user/test
 Many auth tests require a 32-character JWT secret.
 ```bash
 export JWT_SECRET="test-secret-32-chars-minimum-length"
-```
+```bash
 
 ### "Table not found"
 Ensure your integration tests are running migrations or creating the necessary schema in a `:once` fixture. Check your H2 connection string (e.g., `mem:test;DB_CLOSE_DELAY=-1`).
@@ -522,3 +528,13 @@ If you change a function signature in `core/` or a protocol in `ports.clj`, you 
 
 *Last updated: 2026-01-26*
 *Documentation version: 1.0.0*
+
+---
+
+## See also
+
+- [Admin Testing Guide](admin-testing.md) - Comprehensive admin UI testing strategies
+- [Database Setup](database-setup.md) - Database configuration for testing
+- [Authentication Guide](authentication.md) - Testing auth and MFA flows
+- [IDE Setup](ide-setup.md) - Configure your test runner in your IDE
+

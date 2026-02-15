@@ -23,7 +23,7 @@ curl -X POST http://localhost:3000/api/auth/login \
   -d '{"email": "user@example.com", "password": "...", "mfa-code": "123456"}'
 ```
 
-**Details**: [MFA Setup Guide](../../docs/guides/mfa-setup.md)
+**Details**: See [MFA API documentation](../../docs-site/content/api/mfa.md) for complete MFA setup guide
 
 ## Testing
 
