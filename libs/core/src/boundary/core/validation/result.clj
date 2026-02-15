@@ -39,14 +39,14 @@
     
     Returns:
       Boolean indicating if DevEx validation is enabled"
-   []
-   (= "true" (System/getenv "BND_DEVEX_VALIDATION"))
+  []
+  (= "true" (System/getenv "BND_DEVEX_VALIDATION")))
 
- ;; =============================================================================
- ;; Result Constructors
- ;; =============================================================================
+;; =============================================================================
+;; Result Constructors
+;; =============================================================================
 
- (defn success-result
+(defn success-result
   "Create a successful validation result.
   
    Args:
@@ -65,7 +65,7 @@
    {:valid? true
     :data data
     :errors []
-    :warnings (or warnings [])})))
+    :warnings (or warnings [])}))
 
 (defn failure-result
   "Create a failed validation result.
@@ -146,8 +146,8 @@
     
     Returns:
       Boolean indicating if validation passed"
-   [result]
-   (boolean (:valid? result)))
+  [result]
+  (boolean (:valid? result)))
 
 (defn validation-failed?
   "Check if validation result indicates failure.
@@ -157,8 +157,8 @@
     
     Returns:
       Boolean indicating if validation failed"
-   [result]
-   (not (validation-passed? result)))
+  [result]
+  (not (validation-passed? result)))
 
 (defn get-errors
   "Extract errors from validation result.
@@ -202,8 +202,8 @@
     
     Returns:
       Boolean indicating presence of warnings"
-   [result]
-   (seq (:warnings result)))
+  [result]
+  (seq (:warnings result)))
 
 (defn errors-by-field
   "Group errors by field.
@@ -265,10 +265,10 @@
     
     Returns:
       Boolean indicating legacy format"
-   [result]
-   (and (map? result)
-        (:valid? result)
-        (not (contains? result :warnings))))
+  [result]
+  (and (map? result)
+       (:valid? result)
+       (not (contains? result :warnings))))
 
 (defn normalize-result
   "Normalize legacy result to standard format.
