@@ -44,3 +44,8 @@ npm-debug.log
 yarn-error.log
 pnpm-debug.log
 
+# Hugo (docs-site)
+docs-site/public/
+docs-site/resources/_gen/
+docs-site/.hugo_build.lock
+

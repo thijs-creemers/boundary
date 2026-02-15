@@ -358,20 +358,22 @@
   (testing "Get job history by type"
     (let [store (:store *system*)
           stats (:stats *system*)
-          email-job1 (create-test-job {:job-type :send-email})
-          email-job2 (create-test-job {:job-type :send-email})
-          report-job (create-test-job {:job-type :generate-report})]
-
+          email-job1 (create-test-job {:job-type :send-email})]
+      
       (ports/save-job! store email-job1)
-      (Thread/sleep 10)  ; Ensure different timestamps
-      (ports/save-job! store email-job2)
-      (ports/save-job! store report-job)
+      (Thread/sleep 10)  ; Ensure different timestamps for job creation
+      
+      (let [email-job2 (create-test-job {:job-type :send-email})
+            report-job (create-test-job {:job-type :generate-report})]
+        
+        (ports/save-job! store email-job2)
+        (ports/save-job! store report-job)
 
-      (let [email-history (ports/job-history stats :send-email 10)]
-        (is (= 2 (count email-history)))
-        ;; Should be sorted newest first
-        (is (= (:id email-job2) (:id (first email-history))))
-        (is (= (:id email-job1) (:id (second email-history))))))))
+        (let [email-history (ports/job-history stats :send-email 10)]
+          (is (= 2 (count email-history)))
+          ;; Should be sorted newest first
+          (is (= (:id email-job2) (:id (first email-history))))
+          (is (= (:id email-job1) (:id (second email-history)))))))))
 
 ;; =============================================================================
 ;; Integration Tests

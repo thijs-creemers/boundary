@@ -338,7 +338,7 @@
     (->> @(:jobs state)
          vals
          (filter #(= (:job-type %) job-type))
-         (sort-by :created-at #(compare %2 %1))  ; Newest first
+         (sort-by (juxt :created-at :id) #(compare %2 %1))  ; Newest first, stable by ID
          (take limit)
          vec)))
 
