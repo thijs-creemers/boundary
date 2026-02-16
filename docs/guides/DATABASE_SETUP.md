@@ -207,10 +207,10 @@ The CLI tool handles migration execution. Ensure you run these from the root dir
 
 | Command | Action |
 |---------|--------|
-| `clojure -M:migrate up` | Applies all pending migrations. |
+| `clojure -M:migrate migrate` | Applies all pending migrations. |
 | `clojure -M:migrate rollback` | Reverts the single most recent migration. |
 | `clojure -M:migrate reset` | Reverts all migrations and then re-applies them (use with caution!). |
-| `clojure -M:migrate pending` | Lists migrations that have not been applied yet. |
+| `clojure -M:migrate status` | Lists migration status and pending migrations. |
 
 ### Advanced: Custom Migration Paths
 If you need to change where migrations are stored, update your `:boundary/db-context` config:

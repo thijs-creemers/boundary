@@ -37,7 +37,7 @@ Script
   - `  --field name:string:required \`
   - `  --field sku:string:required:unique \`
   - `  --field price:decimal:required`
-- Terminal: `clojure -M:migrate up`
+- Terminal: `clojure -M:migrate migrate`
 - REPL: `(ig-repl/reset)`
 - Browser: Admin UI → products listed, create/edit/delete
 - Call out validation: Malli schemas, snapshot tests; show `clojure -M:test:db/h2 --focus-meta :unit`

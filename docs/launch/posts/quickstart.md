@@ -36,7 +36,7 @@ Prerequisites
     --field sku:string:required:unique \
     --field price:decimal:required
 - Run database migrations:
-  - clojure -M:migrate up
+  - clojure -M:migrate migrate
 - Run tests (fast feedback with H2 in-memory):
   - clojure -M:test:db/h2 --watch --focus-meta :unit
   - clojure -M:test:db/h2

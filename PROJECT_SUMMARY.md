@@ -681,7 +681,7 @@ docker-compose -f docker/dev-compose.yml up -d postgres
 psql -h localhost -U boundary_dev -d boundary_dev
 
 # Run migrations (if available)
-clojure -M:migrate up
+clojure -M:migrate migrate
 
 # Reset test database
 clojure -M:test:db:reset

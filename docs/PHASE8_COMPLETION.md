@@ -382,7 +382,7 @@ None introduced. Deferred tasks have clear documentation and low urgency.
 3. **Production deployment checklist**
    - Configure `JWT_SECRET` environment variable
    - Set up PostgreSQL database (required for tenant isolation)
-   - Run migrations: `clojure -M:migrate up`
+   - Run migrations: `clojure -M:migrate migrate`
    - Verify tenant creation API: `POST /api/tenants`
 
 ### Future Enhancements
@@ -428,7 +428,7 @@ Ensure you have the latest tenant module:
 Run the tenant provisioning migration:
 
 ```bash
-clojure -M:migrate up
+clojure -M:migrate migrate
 ```
 
 This creates the `tenants` table in the `public` schema.

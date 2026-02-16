@@ -208,7 +208,7 @@ java -jar target/boundary-*.jar server
 
 [source,bash]
 ----
-clojure -M:migrate up
+clojure -M:migrate migrate
 ----
 
 [[migrate-down]]

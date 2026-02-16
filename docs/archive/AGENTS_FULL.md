@@ -1919,7 +1919,7 @@ docker-compose -f docker/dev-compose.yml down
 
 ```bash
 # Run migrations (if migration alias exists)
-clojure -M:migrate up
+clojure -M:migrate migrate
 
 # Reset test database (if alias exists)
 clojure -M:test:db:reset

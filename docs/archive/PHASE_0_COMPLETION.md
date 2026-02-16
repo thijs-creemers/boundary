@@ -419,7 +419,7 @@ clojure -T:build clean
 
 ```bash
 # Run migrations (after Phase 3+)
-clojure -M:migrate up
+clojure -M:migrate migrate
 
 # Create migration
 clojure -M:migrate create add_feature_table

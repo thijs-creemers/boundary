@@ -357,7 +357,7 @@ clojure -M:test
 clojure -M:clj-kondo --lint src test
 
 # Run migrations
-clojure -M:migrate up
+clojure -M:migrate migrate
 ```
 
 ## License

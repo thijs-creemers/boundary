@@ -92,14 +92,14 @@ Run migrations **010** and **011** to create tenant infrastructure.
 cd /path/to/boundary-app
 
 # Run migration 010: Create tenants table
-clojure -M:migrate up
+clojure -M:migrate migrate
 
 # Verify tenants table exists
 psql -d boundary_app -c "\d tenants"
 # Expected: Table with columns: id, slug, name, schema_name, status, settings, etc.
 
 # Run migration 011: Split authentication
-clojure -M:migrate up
+clojure -M:migrate migrate
 
 # Verify auth_users table exists
 psql -d boundary_app -c "\d auth_users"

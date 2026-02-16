@@ -129,8 +129,8 @@ The `user` module comes with built-in migrations for user management and session
 # Initialize migration system (creates the migrations table if it doesn't exist)
 clojure -M:migrate init
 
-# Run pending migrations (applies all .up.sql files)
-clojure -M:migrate up
+# Run pending migrations (applies all migration files)
+clojure -M:migrate migrate
 
 # Verify status
 clojure -M:migrate status
@@ -325,7 +325,7 @@ The **Imperative Shell**. It orchestrates the process of creating a task:
 The scaffolder generated a SQL migration in `resources/migrations/`.
 
 ```bash
-clojure -M:migrate up
+clojure -M:migrate migrate
 ```
 
 ### Step 4: Wire it Up

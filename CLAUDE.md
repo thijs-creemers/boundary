@@ -24,7 +24,7 @@ clojure -M:repl-clj
 clojure -T:build clean && clojure -T:build uber
 
 # Database migrations
-clojure -M:migrate up
+clojure -M:migrate migrate
 
 # Parenthesis repair (never fix manually)
 clj-paren-repair <file>

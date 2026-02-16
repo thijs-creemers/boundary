@@ -205,7 +205,7 @@ External service adapters:
 - **Development**: SQLite (zero-config)
 - **Testing**: H2 in-memory (via `:test` alias)
 - **Production**: PostgreSQL (with schema isolation for multi-tenancy)
-- **Migrations**: Flyway-based with `clojure -M:migrate up`
+- **Migrations**: Migratus-based with `clojure -M:migrate migrate`
 
 ### Documentation
 

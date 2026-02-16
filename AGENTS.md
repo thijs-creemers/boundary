@@ -67,7 +67,7 @@ clojure -T:build clean && clojure -T:build uber    # Build uberjar
 java -jar target/boundary-*.jar server             # Run standalone jar
 
 # Database Migrations
-clojure -M:migrate up                              # Run migrations
+clojure -M:migrate migrate                         # Run migrations
 ```
 
 ### Architecture Quick Facts

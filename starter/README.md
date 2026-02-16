@@ -25,7 +25,7 @@ clojure -M -m boundary.scaffolder.shell.cli-entry generate \
   --field name:string:required \
   --field sku:string:required:unique \
   --field price:decimal:required
-clojure -M:migrate up
+clojure -M:migrate migrate
 ```
 
 ## Tests
