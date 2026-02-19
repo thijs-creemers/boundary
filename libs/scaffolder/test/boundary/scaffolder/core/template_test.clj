@@ -28,10 +28,16 @@
 
 (deftest field-type->sql-test
   (testing "converts field types to SQL types"
-    (is (= "TEXT" (template/field-type->sql {:type :string})))
+    (is (= "VARCHAR(255)" (template/field-type->sql {:type :string})))
+    (is (= "TEXT" (template/field-type->sql {:type :text})))
     (is (= "UUID" (template/field-type->sql {:type :uuid})))
     (is (= "INTEGER" (template/field-type->sql {:type :int})))
-    (is (= "BOOLEAN" (template/field-type->sql {:type :boolean})))))
+    (is (= "BOOLEAN" (template/field-type->sql {:type :boolean})))
+    (is (= "VARCHAR(255)" (template/field-type->sql {:type :email})))
+    (is (= "VARCHAR(50)" (template/field-type->sql {:type :enum})))
+    (is (= "TIMESTAMPTZ" (template/field-type->sql {:type :inst})))
+    (is (= "JSONB" (template/field-type->sql {:type :json})))
+    (is (= "DOUBLE PRECISION" (template/field-type->sql {:type :decimal})))))
 
 (deftest build-entity-context-test
   (testing "builds entity context for templates"

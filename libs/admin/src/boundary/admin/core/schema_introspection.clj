@@ -57,6 +57,7 @@
    "time" :time
    "json" :json
    "jsonb" :json
+   "clob" :json
    "blob" :binary
    "bytea" :binary
    "binary" :binary})
@@ -111,11 +112,9 @@
          (cond
            ;; Timestamp fields stored as text (ISO 8601 strings)
            (or (str/ends-with? name-str "-at")
-               (str/ends-with? name-str "-date")
-               (str/ends-with? name-str "-time")
-               (= name-str "created-at")
-               (= name-str "updated-at")
-               (= name-str "deleted-at"))
+               (str/ends-with? name-str "-until")
+               (str/includes? name-str "login")
+               (str/includes? name-str "timestamp"))
            :instant
 
            ;; Email fields
@@ -123,10 +122,11 @@
                (str/includes? name-str "mail"))
            :string
 
-           ;; Role/status/enum-like fields (but keep as text for now, could be enum)
+           ;; Role/status/enum-like fields
            (or (str/includes? name-str "role")
                (str/includes? name-str "status")
-               (str/includes? name-str "type"))
+               (str/includes? name-str "type")
+               (str/includes? name-str "format"))
            :string
 
            ;; Default: keep as text for very long content
@@ -169,8 +169,8 @@
         (str/includes? field-name-lower "bio") :textarea
         (str/includes? field-name-lower "notes") :textarea
         (str/includes? field-name-lower "content") :textarea
-        (and (str/includes? field-name-lower "date")
-             (not (str/includes? field-name-lower "at"))) :date-input
+        (and (str/ends-with? field-name-lower "-date")
+             (not (str/includes? field-name-lower "format"))) :date-input
 
         ; Type-based widget selection
         (= field-type :uuid) :text-input

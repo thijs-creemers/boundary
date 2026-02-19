@@ -92,9 +92,9 @@
       (let [migration-file (first (filter #(str/includes? (:path %) "create_customers.sql") (:files result)))]
         (is (some? migration-file))
         (is (str/includes? (:content migration-file) "CREATE TABLE IF NOT EXISTS customers"))
-        (is (str/includes? (:content migration-file) "name TEXT NOT NULL"))
-        (is (str/includes? (:content migration-file) "email TEXT NOT NULL UNIQUE"))
-        (is (str/includes? (:content migration-file) "phone TEXT"))
+        (is (str/includes? (:content migration-file) "name VARCHAR(255) NOT NULL"))
+        (is (str/includes? (:content migration-file) "email VARCHAR(255) NOT NULL UNIQUE"))
+        (is (str/includes? (:content migration-file) "phone VARCHAR(255)"))
         (is (str/includes? (:content migration-file) "active BOOLEAN NOT NULL"))))))
 
 (deftest generate-module-dry-run-test

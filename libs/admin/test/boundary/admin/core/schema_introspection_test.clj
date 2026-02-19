@@ -75,6 +75,16 @@
       (is (= :binary (introspection/infer-field-type "BYTEA")))
       (is (= :binary (introspection/infer-field-type "BLOB"))))
 
+    (testing "JSON/CLOB types"
+      (is (= :json (introspection/infer-field-type "JSON")))
+      (is (= :json (introspection/infer-field-type "JSONB")))
+      (is (= :json (introspection/infer-field-type "CLOB"))))
+
+    (testing "Double precision types"
+      (is (= :decimal (introspection/infer-field-type "DOUBLE PRECISION")))
+      (is (= :decimal (introspection/infer-field-type "FLOAT")))
+      (is (= :decimal (introspection/infer-field-type "MONEY"))))
+
     (testing "Unknown types default to string"
       (is (= :string (introspection/infer-field-type "UNKNOWN_TYPE")))
       (is (= :string (introspection/infer-field-type "CUSTOM_ENUM"))))))

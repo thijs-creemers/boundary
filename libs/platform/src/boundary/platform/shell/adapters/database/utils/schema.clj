@@ -39,43 +39,75 @@
 
 (defn- malli-type->column-type
   "Map Malli schema types to database column types based on dialect.
-   
+
+   Uses condp instead of case because inst? is a symbol (not a keyword)
+   and case only supports compile-time constant dispatch.
+
    Args:
      ctx: Database context with adapter
-     malli-type: Malli type keyword (e.g., :uuid, :string, :boolean)
-     
+     malli-type: Malli type (keyword like :uuid, :string or symbol like inst?)
+
    Returns:
      String column type definition"
   [ctx malli-type]
   (let [adapter (:adapter ctx)
         dialect (protocols/dialect adapter)]
-    (case malli-type
+    (condp = malli-type
       :uuid (case dialect
               (:sqlite :mysql) "CHAR(36)"
-              :postgresql "UUID"
-              :h2 "UUID"
-              "VARCHAR(36)") ; fallback
+              (:postgresql :h2 :ansi) "UUID"
+              "VARCHAR(36)")
 
-      :string "VARCHAR(255)" ; Default string length
+      :string (case dialect
+                :sqlite "TEXT"
+                "VARCHAR(255)")
 
       :int (case dialect
              :sqlite "INTEGER"
              :mysql "INT"
-             (:postgresql :h2) "INTEGER"
-             "INTEGER") ; fallback
+             (:postgresql :h2 :ansi) "INTEGER"
+             "INTEGER")
 
       :boolean (case dialect
                  :sqlite "INTEGER"
                  :mysql "TINYINT(1)"
-                 (:postgresql :h2) "BOOLEAN"
-                 "BOOLEAN") ; fallback
+                 (:postgresql :h2 :ansi) "BOOLEAN"
+                 "BOOLEAN")
 
-      ; Default for timestamps and unknown types
+      'inst? (case dialect
+               :sqlite "TEXT"
+               :mysql "DATETIME"
+               :postgresql "TIMESTAMPTZ"
+               (:h2 :ansi) "TIMESTAMP WITH TIME ZONE"
+               "TIMESTAMP")
+
+      :enum (case dialect
+              :sqlite "TEXT"
+              "VARCHAR(50)")
+
+      :double (case dialect
+                :sqlite "REAL"
+                :mysql "DOUBLE"
+                (:postgresql :h2 :ansi) "DOUBLE PRECISION"
+                "DOUBLE PRECISION")
+
+      :map (case dialect
+             :sqlite "TEXT"
+             :mysql "JSON"
+             :postgresql "JSONB"
+             (:h2 :ansi) "CLOB"
+             "TEXT")
+
+      :re (case dialect
+            :sqlite "TEXT"
+            "VARCHAR(255)")
+
+      ;; Default fallback for unknown types
       (case dialect
         :sqlite "TEXT"
-        :mysql "DATETIME"
-        (:postgresql :h2) "TIMESTAMP"
-        "TEXT")))) ; fallback
+        :mysql "VARCHAR(255)"
+        (:postgresql :h2 :ansi) "VARCHAR(255)"
+        "TEXT"))))
 
 ;; =============================================================================
 ;; Malli Schema Field Processing
@@ -83,31 +115,37 @@
 
 (defn- extract-field-info
   "Extract field information from Malli schema field definition.
-   
+
+   Handles [:maybe X] unwrapping so that [:maybe inst?] resolves to inst?
+   and [:maybe [:enum ...]] resolves to :enum with the enum values preserved.
+
    Args:
      field-def: Malli field definition - [field-name schema] or [field-name properties schema]
-     
+
    Returns:
-     Map with :name, :type, :optional? or nil for non-field entries"
+     Map with :name, :type, :optional?, :schema or nil for non-field entries"
   [field-def]
   (when (and (vector? field-def)
              (>= (count field-def) 2)
              (keyword? (first field-def)))
     (let [field-name (name (first field-def))
-          ; Handle both [name type] and [name properties type] formats
+          ;; Handle both [name type] and [name properties type] formats
           has-properties? (and (= 3 (count field-def)) (map? (second field-def)))
           field-type (if has-properties?
-                       (nth field-def 2) ; [name props type]
-                       (second field-def)) ; [name type]
+                       (nth field-def 2)
+                       (second field-def))
           properties (if has-properties? (second field-def) {})
-          ; Extract type from vector schemas like [:enum :admin :user]
-          actual-type (if (vector? field-type) (first field-type) field-type)
-          optional? (boolean (:optional properties))]
+          ;; Unwrap [:maybe X] → X (also implies nullable)
+          maybe? (and (vector? field-type) (= :maybe (first field-type)))
+          unwrapped-type (if maybe? (second field-type) field-type)
+          ;; Extract type from vector schemas like [:enum :admin :user]
+          actual-type (if (vector? unwrapped-type) (first unwrapped-type) unwrapped-type)
+          optional? (or (boolean (:optional properties)) maybe?)]
       {:name field-name
        :type actual-type
        :optional? optional?
        :properties properties
-       :schema field-type})))
+       :schema unwrapped-type})))
 
 ;; =============================================================================
 ;; DDL Generation
