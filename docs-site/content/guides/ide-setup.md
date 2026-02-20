@@ -39,7 +39,7 @@ Quick setup guide for popular Clojure development environments.
    ```bash
    cd boundary
    code .
-   ```bash
+   ```
 
 2. **Start REPL**:
    - Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
@@ -75,7 +75,7 @@ Add to `.vscode/settings.json`:
   "editor.formatOnSave": true,
   "editor.bracketPairColorization.enabled": true
 }
-```text
+```
 
 ### Debugging
 
@@ -84,7 +84,7 @@ Use `tap>` for debugging:
 ```clojure
 (def result (some-function x))
 (tap> {:debug/result result})  ; View in Calva output
-```bash
+```
 
 ---
 
@@ -137,7 +137,7 @@ Use `tap>` for debugging:
 (package-install 'clojure-mode)
 (package-install 'cider)
 (package-install 'paredit)
-```bash
+```
 
 ### Project setup
 
@@ -145,7 +145,7 @@ Use `tap>` for debugging:
 cd boundary
 emacs
 M-x cider-jack-in
-```sql
+```
 
 Select alias: `:repl-clj`
 
@@ -172,7 +172,7 @@ Add to `~/.emacs.d/init.el`:
 
 ;; Pretty printing
 (setq cider-repl-use-pretty-printing t)
-```bash
+```
 
 ---
 
@@ -188,7 +188,7 @@ Plug 'tpope/vim-fireplace'
 Plug 'guns/vim-clojure-static'
 Plug 'guns/vim-sexp'
 call plug#end()
-```bash
+```
 
 Then run: `:PlugInstall`
 
@@ -198,7 +198,7 @@ Then run: `:PlugInstall`
 cd boundary
 clojure -M:repl-clj  # Start REPL in terminal
 vim
-```bash
+```
 
 Vim-fireplace auto-connects to running nREPL.
 
@@ -219,7 +219,7 @@ Vim-fireplace auto-connects to running nREPL.
 ```bash
 git config --global core.autocrlf input
 git config --global core.editor "code --wait"  # Or vim, emacs, etc.
-```bash
+```
 
 ### Code formatting
 
@@ -227,7 +227,7 @@ git config --global core.editor "code --wait"  # Or vim, emacs, etc.
 ```bash
 clojure -M:cljfmt check
 clojure -M:cljfmt fix
-```bash
+```
 
 **Auto-format on save**: Covered in editor-specific sections above
 
@@ -237,12 +237,12 @@ clojure -M:cljfmt fix
 ```bash
 brew install borkdude/brew/clj-kondo  # Mac
 # Or download from https://github.com/clj-kondo/clj-kondo
-```text
+```
 
 **Run**:
 ```bash
 clj-kondo --lint src test libs/*/src libs/*/test
-```bash
+```
 
 ### nREPL Configuration
 
@@ -254,7 +254,7 @@ Default nREPL port: **7888** (configured in `deps.edn`)
 clojure -M:repl-clj
 
 # Then connect from editor to localhost:7888
-```bash
+```
 
 ---
 
@@ -264,7 +264,7 @@ clojure -M:repl-clj
 
 ```bash
 clojure -M:repl-clj
-```bash
+```
 
 Should see: `nREPL server started on port 7888`
 
@@ -284,7 +284,7 @@ Try in any Clojure file:
 
 (require '[integrant.repl :as ig-repl])
 (ig-repl/go)  ; Start system
-```bash
+```
 
 If you see results, setup is complete! ✅
 
@@ -297,24 +297,24 @@ If you see results, setup is complete! ✅
 **Check Java version**:
 ```bash
 java -version  # Should be 11+
-```text
+```
 
 **Check deps.edn**:
 ```bash
 clojure -Stree  # Should show dependency tree
-```bash
+```
 
 ### Editor won't connect
 
 **Verify nREPL port**:
 ```bash
 lsof -i :7888  # Should show running process
-```text
+```
 
 **Check .nrepl-port file**:
 ```bash
 cat .nrepl-port  # Should contain "7888"
-```bash
+```
 
 ### Formatting not working
 
