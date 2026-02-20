@@ -1,3 +1,9 @@
+---
+title: "Authentication Guide"
+weight: 30
+description: "Complete guide to authentication, authorization, and MFA in Boundary Framework"
+---
+
 # Authentication Guide
 
 This guide provides a comprehensive overview of the authentication system in the Boundary Framework. Boundary provides a robust, production-ready authentication system out of the box, including JWT-based authentication, session management, and Multi-Factor Authentication (MFA).
@@ -68,7 +74,7 @@ curl -X POST http://localhost:3000/api/users \
     "name": "Jane Doe",
     "role": "user"
   }'
-```
+```text
 
 **Response (201 Created):**
 ```json
@@ -80,7 +86,7 @@ curl -X POST http://localhost:3000/api/users \
   "active": true,
   "createdAt": "2026-01-26T10:00:00Z"
 }
-```
+```bash
 
 ### User Login
 
@@ -95,7 +101,7 @@ curl -X POST http://localhost:3000/api/auth/login \
     "email": "user@example.com",
     "password": "SecureP@ss123!"
   }'
-```
+```text
 
 **Response (200 OK):**
 ```json
@@ -111,7 +117,7 @@ curl -X POST http://localhost:3000/api/auth/login \
     "mfa-enabled": false
   }
 }
-```
+```bash
 
 ### Token Lifecycle
 
@@ -141,7 +147,7 @@ Logging out invalidates the session in the database, rendering the corresponding
 ```bash
 curl -X DELETE http://localhost:3000/api/sessions/550e8400-e29b-41d4-a716-446655440000 \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
+```bash
 
 ---
 
@@ -160,7 +166,7 @@ Boundary supports TOTP-based Multi-Factor Authentication for enhanced account se
 ```bash
 curl -X POST http://localhost:3000/api/auth/mfa/setup \
   -H "Authorization: Bearer <jwt-token>"
-```
+```text
 
 **Response:**
 ```json
@@ -171,7 +177,7 @@ curl -X POST http://localhost:3000/api/auth/mfa/setup \
   "issuer": "Boundary Framework",
   "accountName": "user@example.com"
 }
-```
+```bash
 
 ### Enforcing MFA
 
@@ -190,7 +196,7 @@ curl -X POST http://localhost:3000/api/auth/login \
     "password": "SecureP@ss123!",
     "mfa-code": "123456"
   }'
-```
+```bash
 
 ### Backup Codes
 
@@ -200,7 +206,7 @@ Boundary generates 10 single-use backup codes during setup. These codes allow us
 -   **Usage**: Submit in the `mfa-code` field during login.
 -   **Security**: Each code is invalidated immediately after one successful use.
 
-For more details, see the [MFA Setup Guide](./mfa-setup.md) and [MFA API Reference](../MFA_API_REFERENCE.md).
+For more details, see the [MFA Setup Guide](./mfa-setup.md) and [MFA API Reference](../api/mfa.md).
 
 ---
 
@@ -223,7 +229,7 @@ Roles are enforced via HTTP interceptors:
 {:path "/api/users"
  :methods {:post {:handler (create-user-handler user-service)
                   :interceptors ['boundary.user.shell.http-interceptors/require-admin]}}}
-```
+```bash
 
 ---
 
@@ -250,21 +256,21 @@ To maintain a secure Boundary application, follow these guidelines:
 curl -X POST http://localhost:3000/api/users \
   -H "Content-Type: application/json" \
   -d '{"email": "dev@example.com", "password": "Password123!", "name": "Developer", "role": "user"}'
-```
+```bash
 
 #### 2. Initial Login
 ```bash
 curl -i -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email": "dev@example.com", "password": "Password123!"}'
-```
+```bash
 *Take note of the `jwt-token` in the response.*
 
 #### 3. Setup MFA
 ```bash
 curl -X POST http://localhost:3000/api/auth/mfa/setup \
   -H "Authorization: Bearer <your-jwt-token>"
-```
+```bash
 
 #### 4. Enable MFA
 ```bash
@@ -276,7 +282,7 @@ curl -X POST http://localhost:3000/api/auth/mfa/enable \
     "backupCodes": ["CODE1", "CODE2", ...],
     "verificationCode": "123456"
   }'
-```
+```bash
 
 #### 5. Authenticated Login (with MFA)
 ```bash
@@ -318,3 +324,13 @@ TOTP is highly sensitive to time. If your server or user's device clock is off b
 **Last Updated**: 2026-01-26  
 **Version**: 1.0.0  
 **Status**: Stable
+
+---
+
+## See also
+
+- [MFA API Reference](../api/mfa.md) - Complete MFA endpoint documentation
+- [Security Setup](security-setup.md) - Production security configuration
+- [Testing Guide](testing.md) - Testing authentication and MFA flows
+- [Database Setup](database-setup.md) - Configure users table and sessions
+

@@ -11,4 +11,4 @@ This section contains all architectural decisions made for the Boundary Framewor
 
 ## ADRs
 
-{{< section >}}
+Browse the ADRs in the navigation menu on the left.

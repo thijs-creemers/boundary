@@ -1,8 +1,14 @@
+---
+title: "Publishing Libraries"
+weight: 10
+description: "Complete guide to building and publishing Boundary Framework libraries to Clojars"
+---
+
 # Boundary Libraries Publishing Guide
 
 This guide documents how to build, test, and publish the Boundary framework libraries to Clojars.
 
-## Library Overview
+## Library overview
 
 | Library | Artifact ID | Dependencies |
 |---------|-------------|--------------|
@@ -35,7 +41,7 @@ Set your Clojars credentials:
 ```bash
 export CLOJARS_USERNAME=your-username
 export CLOJARS_PASSWORD=your-deploy-token
-```
+```text
 
 Or add to `~/.m2/settings.xml`:
 
@@ -49,11 +55,11 @@ Or add to `~/.m2/settings.xml`:
     </server>
   </servers>
 </settings>
-```
+```bash
 
-## Version Management
+## Version management
 
-### Version Format
+### Version format
 
 Libraries use semantic versioning: `MAJOR.MINOR.PATCH`
 
@@ -61,79 +67,79 @@ Libraries use semantic versioning: `MAJOR.MINOR.PATCH`
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
-### Current Versioning Strategy
+### Current versioning strategy
 
 The `build.clj` files use git-based versioning:
 
 ```clojure
 (def version (format "0.1.%s" (b/git-count-revs nil)))
-```
+```bash
 
 This creates versions like `0.1.42` based on git commit count.
 
-### Manual Version Override
+### Manual version override
 
 For release versions, update `build.clj`:
 
 ```clojure
 ;; Replace dynamic version with fixed version
 (def version "1.0.0")
-```
+```bash
 
-## Building Libraries
+## Building libraries
 
-### Build a Single Library
+### Build a single library
 
 ```bash
 cd libs/core
 clojure -T:build clean
 clojure -T:build jar
-```
+```yaml
 
 Output: `libs/core/target/boundary-core-0.1.X.jar`
 
-### Build All Libraries
+### Build all libraries
 
 ```bash
 for lib in core observability platform user admin storage scaffolder; do
   echo "Building $lib..."
   (cd libs/$lib && clojure -T:build clean && clojure -T:build jar)
 done
-```
+```bash
 
-## Testing Before Publishing
+## Testing before publishing
 
-### Run All Tests
+### Run all tests
 
 ```bash
 # From repository root
 clojure -M:test:db/h2
-```
+```bash
 
-### Lint All Libraries
+### Lint all libraries
 
 ```bash
 clojure -M:clj-kondo --lint libs/*/src libs/*/test
-```
+```bash
 
-### Test Local Installation
+### Test local installation
 
 Install to local Maven repository:
 
 ```bash
 cd libs/core
 clojure -T:build install
-```
+```text
 
 Verify installation:
 
 ```bash
 ls ~/.m2/repository/io/github/thijs-creemers/boundary-core/
-```
+```bash
 
 ## Publishing to Clojars
 
-### Publish Order (IMPORTANT!)
+### Publish order (IMPORTANT!)
 
 Libraries must be published in dependency order:
 
@@ -145,14 +151,14 @@ Libraries must be published in dependency order:
 6. **storage** (depends on platform)
 7. **admin** (depends on platform, user)
 
-### Publish a Single Library
+### Publish a single library
 
 ```bash
 cd libs/core
 clojure -T:build deploy
-```
+```bash
 
-### Publish All Libraries (In Order)
+### Publish all libraries (in order)
 
 ```bash
 #!/bin/bash
@@ -172,34 +178,34 @@ for lib in $LIBS_ORDER; do
 done
 
 echo "🎉 All libraries published!"
-```
+```bash
 
-### Verify Publication
+### Verify publication
 
 Check Clojars:
 - https://clojars.org/io.github.thijs-creemers/boundary-core
 - https://clojars.org/io.github.thijs-creemers/boundary-observability
 - etc.
 
-## Updating Dependencies Between Libraries
+## Updating dependencies between libraries
 
 When publishing new versions, update inter-library dependencies:
 
-### Current: Local Development
+### Current: local development
 
 ```clojure
 ;; libs/observability/deps.edn
 {:deps {boundary/core {:local/root "../core"}}}
-```
+```bash
 
-### For Publishing: Maven Coordinates
+### For publishing: Maven coordinates
 
 ```clojure
 ;; libs/observability/deps.edn (for release)
 {:deps {io.github.thijs-creemers/boundary-core {:mvn/version "0.1.42"}}}
-```
+```bash
 
-### Switching Between Local and Published
+### Switching between local and published
 
 Use Clojure CLI aliases:
 
@@ -209,12 +215,12 @@ Use Clojure CLI aliases:
  
  :aliases
  {:local {:override-deps {io.github.thijs-creemers/boundary-core {:local/root "../core"}}}}}
-```
+```yaml
 
 Development: `clojure -M:local:test`  
 Production: `clojure -M:test`
 
-## Release Checklist
+## Release checklist
 
 Before releasing a new version:
 
@@ -235,7 +241,7 @@ Before releasing a new version:
 
 ```
 Error deploying artifact: Unauthorized
-```
+```text
 
 **Solution**: Check CLOJARS_USERNAME and CLOJARS_PASSWORD environment variables.
 
@@ -243,22 +249,22 @@ Error deploying artifact: Unauthorized
 
 ```
 Error: version 0.1.42 already exists
-```
+```text
 
 **Solution**: Bump version number or delete the existing version on Clojars (only possible within 24 hours of upload).
 
-### Dependency Resolution Errors
+### Dependency resolution errors
 
 ```
 Could not find artifact io.github.thijs-creemers/boundary-core
-```
+```bash
 
 **Solution**: 
 1. Publish core library first
 2. Wait for Clojars indexing (~1 minute)
 3. Clear local cache: `rm -rf ~/.m2/repository/io/github/thijs-creemers/`
 
-### POM Generation Issues
+### POM generation issues
 
 If POM is malformed:
 
@@ -268,9 +274,9 @@ clojure -T:build clean
 clojure -T:build jar
 # Check generated POM
 cat target/classes/META-INF/maven/io.github.thijs-creemers/boundary-core/pom.xml
-```
+```bash
 
-## GitHub Actions (Future)
+## GitHub actions (future)
 
 For automated publishing, create `.github/workflows/publish.yml`:
 
@@ -310,3 +316,12 @@ jobs:
 For issues with publishing:
 - Check [Clojars documentation](https://github.com/clojars/clojars-web/wiki)
 - Open an issue on the Boundary repository
+
+---
+
+## See also
+
+- [Security Setup](../guides/security-setup.md) - Repository security and Clojars access control
+- [Operations Guide](../guides/operations.adoc) - Production deployment after publishing
+- [Testing Guide](../guides/testing.md) - Test before publishing
+

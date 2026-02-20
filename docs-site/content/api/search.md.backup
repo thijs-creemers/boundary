@@ -1,3 +1,8 @@
+---
+title: "Full-Text Search API"
+weight: 30
+description: "PostgreSQL-powered full-text search with highlighting, ranking, and autocomplete"
+---
 # Full-Text Search API Reference
 
 **Version**: 1.0  

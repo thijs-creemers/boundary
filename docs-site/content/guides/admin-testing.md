@@ -1,3 +1,9 @@
+---
+title: "Admin Testing Guide"
+weight: 60
+description: "Complete testing guide for the Admin module covering unit, integration, and contract tests with accessibility testing"
+---
+
 # Admin Module Testing Guide
 
 **Version**: 1.0.0  
@@ -30,11 +36,11 @@ The Admin module has comprehensive test coverage across three layers:
 
 ---
 
-## Test Architecture
+## Test architecture
 
-### Directory Structure
+### Directory structure
 
-```
+```text
 test/boundary/admin/
 ├── core/
 │   ├── permissions_test.clj         # 19 tests - Role-based access control
@@ -46,7 +52,7 @@ test/boundary/admin/
     └── schema_repository_test.clj   # 11 tests - Entity config management
 ```
 
-### Test Organization by Layer
+### Test organization by layer
 
 | Layer | Files | Purpose | Dependencies |
 |-------|-------|---------|--------------|
@@ -57,7 +63,7 @@ test/boundary/admin/
 
 ---
 
-## Test Categories
+## Test categories
 
 ### 1. Unit Tests (`:unit` metadata)
 
@@ -77,12 +83,12 @@ test/boundary/admin/
       (is (vector? result))  ; Returns Hiccup vector
       (is (= :span (first result)))
       (is (str/includes? (str result) "Yes")))))
-```
+```text
 
 **Run Unit Tests**:
 ```bash
 clojure -M:test:db/h2 --focus-meta :unit
-```
+```bash
 
 ### 2. Integration Tests (`:integration` metadata)
 
@@ -104,12 +110,12 @@ clojure -M:test:db/h2 --focus-meta :unit
       (is (= 5 (count (:items result))))
       (is (= 1 (:page-number result)))
       (is (= 10 (:total-count result))))))
-```
+```text
 
 **Run Integration Tests**:
 ```bash
 clojure -M:test:db/h2 --focus-meta :integration
-```
+```bash
 
 ### 3. Contract Tests (`:contract` metadata)
 
@@ -130,12 +136,12 @@ clojure -M:test:db/h2 --focus-meta :integration
           response (*handler* request)]
       (is (= 200 (:status response)))
       (is (str/includes? (:body response) "alice@example.com")))))
-```
+```text
 
 **Run Contract Tests**:
 ```bash
 clojure -M:test:db/h2 --focus-meta :contract
-```
+```text
 
 ### 4. Accessibility Tests ★ NEW
 
@@ -160,13 +166,13 @@ clojure -M:test:db/h2 --focus-meta :contract
           page-str (str page)]
       (is (str/includes? page-str "aria-label"))
       (is (str/includes? page-str "Search")))))
-```
+```bash
 
 ---
 
-## Running Tests
+## Running tests
 
-### Quick Commands
+### Quick commands
 
 ```bash
 # All admin tests (unit + integration + contract)
@@ -183,30 +189,11 @@ clojure -M:test:db/h2 --focus boundary.admin.core.ui-test/render-field-value-tes
 
 # Watch mode (re-run on file changes)
 clojure -M:test:db/h2 --watch --focus-meta :unit
-```
-
-### Environment Setup
-
-Tests require `JWT_SECRET` environment variable:
-
 ```bash
-export JWT_SECRET="test-secret-key-minimum-32-characters"
-clojure -M:test:db/h2 --focus-meta :unit
-```
 
-Or use `.env` file (recommended):
+### Environment setup
 
-```bash
-# .env
-JWT_SECRET=test-secret-key-minimum-32-characters
-DB_PASSWORD=dev_password
-
-# Load and run
-set -a && source .env && set +a
-clojure -M:test:db/h2 --focus-meta :unit
-```
-
-### Test Output
+### Test output
 
 ```
 --- unit (clojure.test) ---------------------------
@@ -222,11 +209,11 @@ boundary.admin.core.ui-test
 Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
   boundary.admin.core.ui-test/htmx-attributes-test
     0,01519 seconds boundary/admin/core/ui_test.clj:700
-```
+```bash
 
 ---
 
-## Writing New Tests
+## Writing new tests
 
 ### 1. Unit Tests for Pure Functions
 
@@ -245,7 +232,7 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
     (let [input {:foo "bar"}
           result (feature/my-function input)]
       (is (= expected result)))))
-```
+```bash
 
 **Guidelines**:
 - ✅ Use descriptive test names (what behavior is tested)
@@ -296,7 +283,7 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
   (testing "Service with real database"
     (let [result (ports/my-operation *service* {:input "data"})]
       (is (= expected result)))))
-```
+```bash
 
 **Guidelines**:
 - ✅ Use H2 in-memory database (fast, isolated)
@@ -318,7 +305,7 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
           response (*handler* request)]
       (is (= 200 (:status response)))
       (is (str/includes? (:body response) "expected-content")))))
-```
+```bash
 
 **Guidelines**:
 - ✅ Test authentication (admin vs regular user vs nil)
@@ -346,7 +333,7 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
       
       ;; Accessibility assertions
       (is (str/includes? component-str "aria-label")))))
-```
+```bash
 
 **Guidelines**:
 - ✅ Test Hiccup structure (vector, element type, classes)
@@ -357,7 +344,7 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
 
 ---
 
-## Testing Patterns
+## Testing patterns
 
 ### Pattern 1: Fixtures for Test Data
 
@@ -382,7 +369,7 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
   (testing "Using fixtures"
     (let [result (process sample-user sample-entity-config)]
       (is (some? result)))))
-```
+```bash
 
 ### Pattern 2: Helper Functions
 
@@ -407,7 +394,7 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
     (create-test-user! "bob@example.com" "Bob")
     ;; ... assertions
     ))
-```
+```bash
 
 ### Pattern 3: Tree-Seq for Nested Hiccup
 
@@ -421,7 +408,7 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
       ;; Find nested :table.data-table element
       (is (some #(and (vector? %) (= :table.data-table (first %)))
                 (tree-seq vector? seq page))))))
-```
+```bash
 
 ### Pattern 4: String Conversion for Content Checks
 
@@ -435,20 +422,20 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
           component-str (str component)]
       (is (str/includes? component-str "Users"))
       (is (str/includes? component-str "aria-label")))))
-```
+```bash
 
 ---
 
-## Accessibility Testing
+## Accessibility testing
 
-### Why Test Accessibility?
+### Why test accessibility?
 
 1. **Legal Compliance**: WCAG 2.1 Level AA requirements
 2. **Inclusive UX**: Usable by screen readers, keyboard-only users
 3. **Quality Indicator**: Good accessibility → good code structure
 4. **Early Detection**: Catch issues before manual testing
 
-### Accessibility Checklist
+### Accessibility checklist
 
 Test our UI against these criteria:
 
@@ -463,7 +450,7 @@ Test our UI against these criteria:
                                        {:widget :email-input :label "Email"} nil)]
     (is (str/includes? (str widget) ":label"))
     (is (str/includes? (str widget) ":for"))))
-```
+```bash
 
 #### ✅ ARIA Labels
 - [ ] Icon-only buttons have `aria-label`
@@ -475,7 +462,7 @@ Test our UI against these criteria:
   (let [button (ui/icon-button :search)]
     (is (str/includes? (str button) "aria-label"))
     (is (str/includes? (str button) "Search"))))
-```
+```bash
 
 #### ✅ Semantic HTML
 - [ ] Use `<nav>` for navigation, not `<div>`
@@ -488,7 +475,7 @@ Test our UI against these criteria:
   (let [sidebar (ui/admin-sidebar ...)]
     (is (some #(= :nav.admin-sidebar-nav (first %))
               (tree-seq vector? seq sidebar)))))
-```
+```text
 
 #### ✅ Required Fields
 - [ ] Visual indicator (`*` or "required" text)
@@ -500,7 +487,7 @@ Test our UI against these criteria:
   (let [widget (ui/render-field-widget :email "" {:required true} nil)]
     (is (str/includes? (str widget) "*"))  ; Visual indicator
     (is (str/includes? (str widget) ":required true"))))  ; HTML attribute
-```
+```text
 
 #### ✅ Error Messages
 - [ ] Errors displayed near the field (not just at top)
@@ -513,7 +500,7 @@ Test our UI against these criteria:
                                        ["Required field"])]
     (is (str/includes? (str widget) "Required field"))
     (is (str/includes? (str widget) "has-errors"))))
-```
+```bash
 
 #### ✅ Color + Text for Status
 - [ ] Boolean status shows "Yes"/"No", not just green/red
@@ -525,7 +512,7 @@ Test our UI against these criteria:
   (let [status (ui/render-field-value :active true {:type :boolean})]
     (is (str/includes? (str status) "Yes"))  ; Text, not just color
     (is (str/includes? (str status) "badge"))))  ; Class for styling
-```
+```bash
 
 #### ✅ Keyboard Navigation
 - [ ] Buttons have `type="button"` or `type="submit"`
@@ -536,7 +523,7 @@ Test our UI against these criteria:
 (deftest keyboard-navigation-test
   (let [form (ui/entity-form ...)]
     (is (str/includes? (str form) ":type \"submit\""))))
-```
+```bash
 
 #### ✅ Heading Hierarchy
 - [ ] Only one `<h1>` per page
@@ -548,7 +535,7 @@ Test our UI against these criteria:
   (let [page (ui/admin-home ...)]
     (is (str/includes? (str page) ":h1"))  ; Has main heading
     (is (str/includes? (str page) ":h2"))))  ; Has subsections
-```
+```bash
 
 ---
 
@@ -568,13 +555,13 @@ Test our UI against these criteria:
 
 **Improvement**: Coverage increased from 59% → 78% (+19%) with addition of UI tests and accessibility tests.
 
-### Coverage Targets
+### Coverage targets
 
 - **Core (Pure Functions)**: 90%+ coverage
 - **Shell (Services)**: 75%+ coverage
 - **HTTP Endpoints**: 80%+ coverage (critical paths)
 
-### What's NOT Covered (Low Priority)
+### What's NOT covered (Low Priority)
 
 - ⚠️ `ports.clj` - Protocol definitions (no logic to test)
 - ⚠️ `schema.clj` - Malli schemas (validated by usage)
@@ -592,7 +579,7 @@ Test our UI against these criteria:
 ```bash
 export JWT_SECRET="test-secret-key-minimum-32-characters"
 clojure -M:test:db/h2 --focus-meta :unit
-```
+```bash
 
 ### Issue: Tests fail with "Table not found"
 
@@ -606,7 +593,7 @@ clojure -M:test:db/h2 --focus-meta :unit
 ```clojure
 ;; Correct: Entity :test-users → Table test_users
 (db/execute-update! ctx {:raw "CREATE TABLE test_users (...)"})
-```
+```bash
 
 ### Issue: Tests pass individually but fail when run together
 
@@ -624,7 +611,7 @@ clojure -M:test:db/h2 --focus-meta :unit
   (f))
 
 (use-fixtures :each with-clean-tables)
-```
+```bash
 
 ### Issue: REPL tests different from CLI tests
 
@@ -649,7 +636,7 @@ clojure -M:test:db/h2 --focus-meta :unit
 
 ---
 
-## Best Practices Summary
+## Best practices summary
 
 ### DO ✅
 
@@ -673,9 +660,9 @@ clojure -M:test:db/h2 --focus-meta :unit
 
 ---
 
-## Additional Resources
+## Additional resources
 
-- [Boundary Testing Strategy](../TESTING.md) - Overall testing philosophy
+- [Boundary Testing Strategy](../testing.md) - Overall testing philosophy
 - [Kaocha Documentation](https://cljdoc.org/d/lambdaisland/kaocha/) - Test runner
 - [clojure.test Guide](https://clojure.org/guides/testing) - Built-in test framework
 - [WCAG 2.1 Guidelines](https://www.w3.org/WAI/WCAG21/quickref/) - Accessibility standards

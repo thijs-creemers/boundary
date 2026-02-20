@@ -11,17 +11,11 @@ Welcome to Boundary Framework! This section provides a structured learning path 
 
 ## Start Here
 
-{{< columns >}}
-
 ### [Why Boundary?](why-boundary)
 **Time:** 3 minutes | The pitch for developers who want to understand what Boundary offers and why.
 
-<--->
-
 ### [At a Glance](boundary-at-a-glance)
 **Time:** 1 minute | One-page cheat sheet with architecture diagram, commands, and quick reference.
-
-{{< /columns >}}
 
 ---
 
@@ -235,14 +229,14 @@ See the [homepage comparison tables](../#quick-comparison) for more details.
 
 - **GitHub Issues:** [Report bugs and request features](https://github.com/thijs-creemers/boundary/issues)
 - **GitHub Discussions:** [Ask questions and share ideas](https://github.com/thijs-creemers/boundary/discussions)
-- **Documentation Issues:** [Report documentation problems](https://github.com/thijs-creemers/boundary-docs/issues)
+- **Documentation Issues:** [Report documentation problems](https://github.com/thijs-creemers/boundary/issues)
 
 ### Contributing
 
 Boundary is open source and welcomes contributions!
 
 - **Code:** Submit pull requests to the [main repository](https://github.com/thijs-creemers/boundary)
-- **Documentation:** Improve docs via [boundary-docs repository](https://github.com/thijs-creemers/boundary-docs)
+- **Documentation:** Improve docs in the [docs-site/](../../docs-site/) directory
 - **Examples:** Share your projects and modules
 
 ---

@@ -1033,7 +1033,7 @@ Distributed under the Eclipse Public License version 2.0.
 
 **Need help?**
 - GitHub Issues: https://github.com/thijs-creemers/boundary/issues
-- Documentation: https://github.com/thijs-creemers/boundary-docs
+- Documentation: See [docs-site/](../../docs-site/) in the repository
 
 **Coming in v0.2.0:**
 - Multi-server support with Redis

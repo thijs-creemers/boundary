@@ -722,7 +722,7 @@ clojure -M:coverage
 
 ## Deployment
 
-See [OPERATIONS.md](../../docs/OPERATIONS.md) for complete deployment guide.
+See [Operations Guide](../../docs-site/content/guides/operations.adoc) for complete deployment guide.
 
 **Quick Deploy:**
 ```bash
@@ -746,10 +746,10 @@ docker run -p 3000:3000 \
 
 ## Resources
 
-- [Boundary Documentation](../../docs/README.md)
-- [Quickstart Guide](../../docs/QUICKSTART.md)
-- [Full Tutorial](../../docs/TUTORIAL.md)
-- [Operations Guide](../../docs/OPERATIONS.md)
+- [Boundary Documentation](../../docs-site/)
+- [Quickstart Guide](../../docs-site/content/getting-started/quickstart.md)
+- [Full Tutorial](../../docs-site/content/getting-started/tutorial.md)
+- [Operations Guide](../../docs-site/content/guides/operations.adoc)
 
 ---
 

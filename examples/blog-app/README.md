@@ -373,7 +373,7 @@ No JavaScript build step needed:
 
 ## Resources
 
-- [Boundary Documentation](../../docs/README.md)
+- [Boundary Documentation](../../docs-site/)
 - [FC/IS Architecture](https://www.destroyallsoftware.com/screencasts/catalog/functional-core-imperative-shell)
 - [Hiccup Documentation](https://github.com/weavejester/hiccup)
 - [HTMX Documentation](https://htmx.org/)

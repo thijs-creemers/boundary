@@ -1,3 +1,9 @@
+---
+title: "IDE Setup Guide"
+weight: 20
+description: "Configure your editor for the best Boundary development experience"
+---
+
 # IDE Setup Guide
 
 Get your development environment optimized for Boundary in **under 10 minutes**.
@@ -774,7 +780,7 @@ Once your IDE is set up:
    - [REPL Driven Development Guide](REPL_WORKFLOW.md)
 
 4. **Read the quickstart:**
-   - [5-Minute Quickstart](QUICKSTART.md)
+   - [5-Minute Quickstart](../getting-started/quickstart.md)
 
 ---
 

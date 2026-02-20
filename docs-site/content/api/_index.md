@@ -11,4 +11,4 @@ Complete API documentation and examples for Boundary Framework.
 
 ## Endpoints
 
-{{< section >}}
+Browse API documentation in the navigation menu on the left.
