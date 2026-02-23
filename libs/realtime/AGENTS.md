@@ -77,3 +77,8 @@ WebSocket-based real-time communication with JWT authentication, message routing
 ```bash
 clojure -M:test:db/h2 :realtime
 ```
+
+## Links
+
+- [Library README](README.md)
+- [Root AGENTS Guide](../../AGENTS.md)

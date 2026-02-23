@@ -2,6 +2,18 @@
 
 > For general conventions, testing commands, and architecture patterns, see the [root AGENTS.md](../../AGENTS.md).
 
+## Purpose
+
+Infrastructure layer for HTTP routing/interceptors, database integration, CLI/runtime wiring, and shared platform adapters used by feature modules.
+
+## Key Namespaces
+
+| Namespace | Purpose |
+|-----------|---------|
+| `boundary.platform.http.interceptors` | HTTP interceptor composition and execution |
+| `boundary.platform.http.routes` | Normalized route handling and dispatch |
+| `boundary.platform.db.*` | Database setup, context, and shared persistence infrastructure |
+
 ## HTTP Interceptors
 
 **Declarative cross-cutting concerns** (auth, rate limiting, audit):
@@ -38,8 +50,18 @@
 ### Built-in Interceptors
 Request logging, metrics, error reporting, correlation IDs
 
+## Gotchas
+
+- Ensure interceptor response roots match HTMX target contracts for fragment endpoints.
+- Keep exceptions typed (`:type` in `ex-data`) so HTTP error mapping stays deterministic.
+
 ## Testing
 
 ```bash
 clojure -M:test:db/h2 :platform
 ```
+
+## Links
+
+- [Library README](README.md)
+- [Root AGENTS Guide](../../AGENTS.md)

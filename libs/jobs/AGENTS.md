@@ -106,3 +106,8 @@ Test fixture pattern:
     (binding [*system* system *registry* registry]
       (f))))
 ```
+
+## Links
+
+- [Library README](README.md)
+- [Root AGENTS Guide](../../AGENTS.md)

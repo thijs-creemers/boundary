@@ -2,9 +2,21 @@
 
 > For general conventions, testing commands, and architecture patterns, see the [root AGENTS.md](../../AGENTS.md).
 
+## Purpose
+
+Future home for external third-party service adapters (payments, notifications, and similar integrations).
+
 ## Status
 
 **In Development** - This library is an empty skeleton. Only `deps.edn` and `README.md` exist; `src/`, `test/`, and `resources/` contain only `.gitkeep` files.
+
+## Key Namespaces
+
+No production namespaces yet. Planned FC/IS layout:
+
+- `boundary.external.core.*` for pure transformations and validation.
+- `boundary.external.ports` for integration protocol contracts.
+- `boundary.external.shell.adapters.*` for concrete API/webhook clients.
 
 ## Planned Purpose
 
@@ -25,3 +37,17 @@ libs/external/src/boundary/external/
 ```
 
 Dependencies: currently only `boundary/platform` (local).
+
+## Gotchas
+
+- Treat all external I/O failures as typed errors (`:type` in `ex-data`) at the shell boundary.
+- Keep provider-specific payload shapes in adapters; map to internal kebab-case domain models before core logic.
+
+## Testing
+
+No dedicated tests yet. Add `:external` test suite once implementation starts.
+
+## Links
+
+- [Library README](README.md)
+- [Root AGENTS Guide](../../AGENTS.md)
