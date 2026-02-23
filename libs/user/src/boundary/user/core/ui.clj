@@ -915,7 +915,7 @@
      [:h1 "Active Sessions"]
      [:p "Manage active sessions for " [:strong (:name user)]]
      [:div.page-actions
-      [:a.button.secondary {:href (str "/web/users/" (:id user))} "\u2190 Back to User"]
+      [:a.button.secondary {:href (str "/web/admin/users/" (:id user))} "\u2190 Back to User"]
       (when (> (count sessions) 1)
         [:form {:method "post"
                 :action (str "/web/users/" (:id user) "/sessions/revoke-all")

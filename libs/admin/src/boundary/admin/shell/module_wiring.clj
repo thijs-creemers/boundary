@@ -20,8 +20,8 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/admin-schema-provider
-  [_ {:keys [db-ctx config]}]
-  (schema-repo/create-schema-repository db-ctx config))
+  [_ {:keys [db-ctx config malli-schemas]}]
+  (schema-repo/create-schema-repository db-ctx config malli-schemas))
 
 (defmethod ig/halt-key! :boundary/admin-schema-provider
   [_ _schema-provider]

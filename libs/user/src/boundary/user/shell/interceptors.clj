@@ -70,17 +70,51 @@
 
                   ;; Transform based on interface
                   user-data (case interface-type
-                              :http {:email (:email raw-input)
-                                     :name (:name raw-input)
-                                     :password (:password raw-input)
-                                     :role (keyword (:role raw-input))
-                                     :active (get raw-input :active true)}
+                              :http (cond-> {:email (:email raw-input)
+                                             :name (:name raw-input)
+                                             :password (:password raw-input)
+                                             :role (keyword (:role raw-input))
+                                             :active (get raw-input :active true)}
+                                     ;; Preferences (flattened)
+                                     (contains? raw-input :notificationsEmail)
+                                     (assoc :notifications-email (:notificationsEmail raw-input))
+                                     (contains? raw-input :notificationsPush)
+                                     (assoc :notifications-push (:notificationsPush raw-input))
+                                     (contains? raw-input :notificationsSms)
+                                     (assoc :notifications-sms (:notificationsSms raw-input))
+                                     (:theme raw-input)
+                                     (assoc :theme (keyword (:theme raw-input)))
+                                     (:language raw-input)
+                                     (assoc :language (:language raw-input))
+                                     (:timezone raw-input)
+                                     (assoc :timezone (:timezone raw-input))
+                                     (:dateFormat raw-input)
+                                     (assoc :date-format (keyword (:dateFormat raw-input)))
+                                     (:timeFormat raw-input)
+                                     (assoc :time-format (keyword (:timeFormat raw-input))))
 
-                              :cli {:email (:email raw-input)
-                                    :name (:name raw-input)
-                                    :password (:password raw-input)
-                                    :role (keyword (:role raw-input))
-                                    :active (:active raw-input)})]
+                              :cli (cond-> {:email (:email raw-input)
+                                            :name (:name raw-input)
+                                            :password (:password raw-input)
+                                            :role (keyword (:role raw-input))
+                                            :active (:active raw-input)}
+                                     ;; Preferences (flattened)
+                                     (contains? raw-input :notifications-email)
+                                     (assoc :notifications-email (:notifications-email raw-input))
+                                     (contains? raw-input :notifications-push)
+                                     (assoc :notifications-push (:notifications-push raw-input))
+                                     (contains? raw-input :notifications-sms)
+                                     (assoc :notifications-sms (:notifications-sms raw-input))
+                                     (:theme raw-input)
+                                     (assoc :theme (:theme raw-input))
+                                     (:language raw-input)
+                                     (assoc :language (:language raw-input))
+                                     (:timezone raw-input)
+                                     (assoc :timezone (:timezone raw-input))
+                                     (:date-format raw-input)
+                                     (assoc :date-format (:date-format raw-input))
+                                     (:time-format raw-input)
+                                     (assoc :time-format (:time-format raw-input))))]
 
               (-> context
                   (assoc :user-data user-data)
@@ -627,8 +661,18 @@
                             :cli user-id-str)
                   update-data (cond-> {}
                                 (:name raw-data) (assoc :name (:name raw-data))
+                                (:email raw-data) (assoc :email (:email raw-data))
                                 (:role raw-data) (assoc :role (keyword (:role raw-data)))
-                                (some? (:active raw-data)) (assoc :active (:active raw-data)))]
+                                (some? (:active raw-data)) (assoc :active (:active raw-data))
+                                ;; Preferences (flattened)
+                                (contains? raw-data :notificationsEmail) (assoc :notifications-email (:notificationsEmail raw-data))
+                                (contains? raw-data :notificationsPush) (assoc :notifications-push (:notificationsPush raw-data))
+                                (contains? raw-data :notificationsSms) (assoc :notifications-sms (:notificationsSms raw-data))
+                                (:theme raw-data) (assoc :theme (keyword (:theme raw-data)))
+                                (:language raw-data) (assoc :language (:language raw-data))
+                                (:timezone raw-data) (assoc :timezone (:timezone raw-data))
+                                (:dateFormat raw-data) (assoc :date-format (keyword (:dateFormat raw-data)))
+                                (:timeFormat raw-data) (assoc :time-format (keyword (:timeFormat raw-data))))]
 
               (-> context
                   (assoc :user-id user-id

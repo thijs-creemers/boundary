@@ -51,7 +51,9 @@
      String column type definition"
   [ctx malli-type]
   (let [adapter (:adapter ctx)
-        dialect (protocols/dialect adapter)]
+        ;; PostgreSQL adapter returns nil for dialect (HoneySQL default),
+        ;; normalize to :postgresql so case dispatch works correctly
+        dialect (or (protocols/dialect adapter) :postgresql)]
     (condp = malli-type
       :uuid (case dialect
               (:sqlite :mysql) "CHAR(36)"
@@ -186,7 +188,7 @@
                           "")
         ; Handle boolean defaults for active fields
         boolean-default (if (and (= type :boolean) (= name "active") (not optional?))
-                          (case (protocols/dialect (:adapter ctx))
+                          (case (or (protocols/dialect (:adapter ctx)) :postgresql)
                             :sqlite " DEFAULT 1"
                             " DEFAULT true")
                           "")]

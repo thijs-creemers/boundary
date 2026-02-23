@@ -5,8 +5,9 @@
    business rules beyond basic schema validation. All functions are pure
    and follow FC/IS architectural principles."
   (:require [boundary.user.schema :as schema]
+            [clojure.string :as str]
             [malli.core :as m]
-            [clojure.string :as str]))
+            [malli.error :as me]))
 
 ;; =============================================================================
 ;; Enhanced Domain Validation Functions
@@ -20,14 +21,53 @@
          validate-cross-field-constraints
          admin-email-domain-valid? validate-enhanced-role-transition)
 
+(defn- humanized-errors->error-maps
+  "Convert a humanized Malli error structure to a flat vector of error maps.
+
+  The output shape is designed to work with platform error conversion, which expects
+  each error to include a :field key.
+
+  Example humanized output:
+    {:password [Password must be at least 8 characters]}
+
+  Output:
+    [{:field [:password]
+      :code :schema-validation-failed
+      :message Password must be at least 8 characters}]"
+  ([humanized]
+   (humanized-errors->error-maps [] humanized))
+  ([path humanized]
+   (cond
+     (map? humanized)
+     (mapcat (fn [[k v]]
+               (humanized-errors->error-maps (conj path k) v))
+             humanized)
+
+     ;; Common case: vector of messages
+     (sequential? humanized)
+     (map (fn [msg]
+            {:field (vec path)
+             :code :schema-validation-failed
+             :message (str msg)})
+          humanized)
+
+     ;; Fallback: a single message/value
+     :else
+     [{:field (vec path)
+       :code :schema-validation-failed
+       :message (str humanized)}])))
+
 (defn format-schema-errors
-  "Pure function: Convert Malli schema errors to structured domain error format."
-  [malli-errors]
-  (mapv (fn [[field error-data]]
-          {:field field
-           :code :schema-validation-failed
-           :message (str error-data)})
-        malli-errors))
+  "Pure function: Convert Malli explain data to structured domain error format.
+
+  Accepts the output of (m/explain ...) and returns a vector of error maps.
+  This avoids leaking internal Malli explain keys like :schema/:value/:errors into
+  user-facing validation output." 
+  [malli-explain]
+  (-> malli-explain
+      (me/humanize)
+      (humanized-errors->error-maps)
+      (vec)))
 
 (defn validate-user-business-constraints
   "Pure function: Validate comprehensive business constraints for user data.

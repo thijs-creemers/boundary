@@ -36,39 +36,123 @@
 ;; Schema Initialization
 ;; =============================================================================
 
+(defn- ensure-auth-users-audit-columns!
+  "Ensure the auth_users table has audit timestamp columns.
+
+  The persistence layer expects these columns for soft deletion and ordering.
+  Schema initialization is CREATE TABLE IF NOT EXISTS, so we need this to upgrade
+  existing dev/test databases.
+
+  Columns ensured:
+  - created_at (required)
+  - updated_at (optional)
+  - deleted_at (optional)"
+  [ctx]
+  (when (db/table-exists? ctx :auth_users)
+    (let [existing-cols (->> (db/get-table-info ctx :auth_users)
+                             (map :name)
+                             set)
+          dialect (or (protocols/dialect (:adapter ctx)) :postgresql)
+          ;; inst? is stored as string in this project; use TEXT for sqlite and VARCHAR for others.
+          ts-type (case dialect
+                    :sqlite "TEXT"
+                    "VARCHAR(255)")
+          columns [{:name "created_at" :type ts-type}
+                   {:name "updated_at" :type ts-type}
+                   {:name "deleted_at" :type ts-type}]]
+      (doseq [{:keys [name type]} columns]
+        (when-not (contains? existing-cols name)
+          (log/info "Adding missing auth_users audit column" {:column name :type type})
+          (db/execute-ddl! ctx
+                           (str "ALTER TABLE auth_users ADD COLUMN " name " " type)))))))
+
+(defn- ensure-users-preference-columns!
+  "Ensure the users table has all preference-related columns.
+
+   This project uses schema-based initialization (CREATE TABLE IF NOT EXISTS),
+   but we also need to support adding new columns to existing dev/test databases
+   without requiring a manual migration step in every workflow."
+  [ctx]
+  (when (db/table-exists? ctx :users)
+    (let [existing-cols (->> (db/get-table-info ctx :users)
+                             (map :name)
+                             set)
+          dialect (or (protocols/dialect (:adapter ctx)) :postgresql)
+          bool-type (case dialect
+                      :sqlite "INTEGER"
+                      :mysql "TINYINT(1)"
+                      "BOOLEAN")
+          varchar-255 (case dialect
+                        :sqlite "TEXT"
+                        "VARCHAR(255)")
+          varchar-50 (case dialect
+                       :sqlite "TEXT"
+                       "VARCHAR(50)")
+          columns [{:name "notifications_email" :type bool-type}
+                   {:name "notifications_push" :type bool-type}
+                   {:name "notifications_sms" :type bool-type}
+                   {:name "theme" :type varchar-50}
+                   {:name "language" :type varchar-255}
+                   {:name "timezone" :type varchar-255}]]
+      (doseq [{:keys [name type]} columns]
+        (when-not (contains? existing-cols name)
+          (log/info "Adding missing users preference column" {:column name :type type})
+          (db/execute-ddl! ctx (str "ALTER TABLE users ADD COLUMN " name " " type)))))))
+
 (defn initialize-user-schema!
   "Initialize database schema for user entities using Malli schema definitions.
-   
+
    Creates the following tables:
    - auth_users: Global authentication records (email, password, MFA, lockout)
    - users: Tenant-specific user profiles (name, role, avatar, preferences)
    - user_sessions: User authentication sessions
    - user_audit_log: Audit trail for user operations
-   
+
    Includes indexes for:
    - Foreign keys (user_id)
    - Unique constraints (email, session tokens)
    - Query performance (role, active status, expiration dates)
    - Audit trail queries (target_user_id, actor_id, created_at)
-   
+
+   On PostgreSQL, also creates:
+   - search_vector GENERATED column for full-text search on users.name
+   - GIN index on search_vector for fast full-text search queries
+
    Note: This creates the split-table architecture for multi-tenancy support.
    Auth data lives in public.auth_users, profile data in tenant-specific users table.
-   
+
    Args:
      ctx: Database context
-     
+
    Returns:
      nil
-     
+
    Example:
      (initialize-user-schema! ctx)"
   [ctx]
   (log/info "Initializing user schema from Malli definitions (split-table architecture)")
+
+  ;; Pre-upgrade existing tables before we try to create indexes that depend on new columns.
+  (ensure-auth-users-audit-columns! ctx)
+  (ensure-users-preference-columns! ctx)
+
   (db-schema/initialize-tables-from-schemas! ctx
                                              {"auth_users" user-schema/AuthUser
                                               "users" user-schema/TenantUser
                                               "user_sessions" user-schema/UserSession
-                                              "user_audit_log" user-schema/UserAuditLog}))
+                                              "user_audit_log" user-schema/UserAuditLog})
+
+  ;; Post-upgrade as a safety net (no-op for fresh databases).
+  (ensure-auth-users-audit-columns! ctx)
+  (ensure-users-preference-columns! ctx)
+
+  ;; PostgreSQL-only: full-text search vector
+  (when (= "org.postgresql.Driver" (protocols/jdbc-driver (:adapter ctx)))
+    (log/info "Adding PostgreSQL full-text search vector to users table")
+    (db/execute-ddl! ctx
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS search_vector tsvector GENERATED ALWAYS AS (setweight(to_tsvector('english', coalesce(name, '')), 'A')) STORED")
+    (db/execute-ddl! ctx
+      "CREATE INDEX IF NOT EXISTS users_search_vector_idx ON users USING GIN(search_vector)")))
 
 ;; =============================================================================
 ;; Entity Transformations
@@ -78,11 +162,12 @@
   "Transform database record to user domain entity."
   [ctx db-record]
   (when db-record
-    (let [adapter (:adapter ctx)]
+    (let [adapter (:adapter ctx)
+          db-bool (fn [v] (when (some? v) (protocols/db->boolean adapter v)))]
       (-> db-record
-           ;; Convert ALL snake_case keys to kebab-case using utility function
+          ;; Convert ALL snake_case keys to kebab-case using utility function
           type-conversion/snake-case->kebab-case
-           ;; Type conversions
+          ;; Type conversions
           (update :id type-conversion/string->uuid)
           (update :role type-conversion/string->keyword)
           (update :active #(protocols/db->boolean adapter %))
@@ -92,10 +177,15 @@
           (update :last-login type-conversion/string->instant)
           (update :mfa-enabled-at type-conversion/string->instant)
           (update :lockout-until type-conversion/string->instant)
+          ;; Preferences
+          (update :notifications-email db-bool)
+          (update :notifications-push db-bool)
+          (update :notifications-sms db-bool)
+          (update :theme type-conversion/string->keyword)
           ;; Convert enum fields to keywords
           (update :date-format type-conversion/string->keyword)
           (update :time-format type-conversion/string->keyword)
-           ;; Deserialize MFA vector fields from JSON
+          ;; Deserialize MFA vector fields from JSON
           (update :mfa-backup-codes #(when % (vec (cheshire.core/parse-string % true))))
           (update :mfa-backup-codes-used #(when % (vec (cheshire.core/parse-string % true))))))))
 
@@ -223,33 +313,39 @@
      {:user-id user-id}
      (fn [{:keys [params]}]
        (let [user-id (:user-id params)
-             query {:select [:a.id
-                             :a.email
-                             :a.password_hash
-                             :a.active
-                             :a.mfa_enabled
-                             :a.mfa_secret
-                             :a.mfa_backup_codes
-                             :a.mfa_backup_codes_used
-                             :a.mfa_enabled_at
-                             :a.failed_login_count
-                             :a.lockout_until
-                             :a.created_at
-                             :a.updated_at
-                             :a.deleted_at
-                             :u.tenant_id
-                             :u.name
-                             :u.role
-                             :u.avatar_url
-                             :u.login_count
-                             :u.last_login
-                             :u.date_format
-                             :u.time_format]
-                    :from [[:auth_users :a]]
-                    :join [[:users :u] [:= :a.id :u.id]]
-                    :where [:and
-                            [:= :a.id (type-conversion/uuid->string user-id)]
-                            [:is :a.deleted_at nil]]}
+            query {:select [:a.id
+                            :a.email
+                            :a.password_hash
+                            :a.active
+                            :a.mfa_enabled
+                            :a.mfa_secret
+                            :a.mfa_backup_codes
+                            :a.mfa_backup_codes_used
+                            :a.mfa_enabled_at
+                            :a.failed_login_count
+                            :a.lockout_until
+                            :a.created_at
+                            :a.updated_at
+                            :a.deleted_at
+                            :u.tenant_id
+                            :u.name
+                            :u.role
+                            :u.avatar_url
+                            :u.login_count
+                            :u.last_login
+                            :u.date_format
+                            :u.time_format
+                            :u.notifications_email
+                            :u.notifications_push
+                            :u.notifications_sms
+                            :u.theme
+                            :u.language
+                            :u.timezone]
+                   :from [[:auth_users :a]]
+                   :join [[:users :u] [:= :a.id :u.id]]
+                   :where [:and
+                           [:= :a.id (type-conversion/uuid->string user-id)]
+                           [:is :a.deleted_at nil]]}
              result (db/execute-one! ctx query)
              user-entity (db->user-entity ctx result)]
          user-entity))
@@ -280,14 +376,20 @@
                              :u.role
                              :u.avatar_url
                              :u.login_count
-                             :u.last_login
-                             :u.date_format
-                             :u.time_format]
-                    :from [[:auth_users :a]]
-                    :join [[:users :u] [:= :a.id :u.id]]
-                    :where [:and
-                            [:= :a.email email]
-                            [:is :a.deleted_at nil]]}
+                            :u.last_login
+                            :u.date_format
+                            :u.time_format
+                            :u.notifications_email
+                            :u.notifications_push
+                            :u.notifications_sms
+                            :u.theme
+                            :u.language
+                            :u.timezone]
+                   :from [[:auth_users :a]]
+                   :join [[:users :u] [:= :a.id :u.id]]
+                   :where [:and
+                           [:= :a.email email]
+                           [:is :a.deleted_at nil]]}
              result (db/execute-one! ctx query)
              user-entity (db->user-entity ctx result)]
          user-entity))
@@ -359,7 +461,13 @@
                                   :u.login_count
                                   :u.last_login
                                   :u.date_format
-                                  :u.time_format]
+                                  :u.time_format
+                                  :u.notifications_email
+                                  :u.notifications_push
+                                  :u.notifications_sms
+                                  :u.theme
+                                  :u.language
+                                  :u.timezone]
                          :from [[:auth_users :a]]
                          :join [[:users :u] [:= :a.id :u.id]]
                          :order-by ordering
@@ -410,7 +518,10 @@
              profile-fields (select-keys user-with-metadata
                                          [:id :tenant-id :name :role :avatar-url
                                           :login-count :last-login
-                                          :date-format :time-format])
+                                          :notifications-email :notifications-push :notifications-sms
+                                          :theme :language :timezone
+                                          :date-format :time-format
+                                          :created-at :updated-at :deleted-at])
 
              adapter (:adapter ctx)]
 
@@ -448,14 +559,27 @@
                                 (update :tenant-id type-conversion/uuid->string)
                                 (update :role type-conversion/keyword->string)
                                 (update :last-login type-conversion/instant->string)
+                                (update :created-at type-conversion/instant->string)
+                                (update :updated-at type-conversion/instant->string)
+                                (update :deleted-at type-conversion/instant->string)
+                                (update :notifications-email #(protocols/boolean->db adapter %))
+                                (update :notifications-push #(protocols/boolean->db adapter %))
+                                (update :notifications-sms #(protocols/boolean->db adapter %))
+                                (update :theme type-conversion/keyword->string)
                                 (update :date-format type-conversion/keyword->string)
                                 (update :time-format type-conversion/keyword->string)
                                 (set/rename-keys {:tenant-id :tenant_id
                                                   :avatar-url :avatar_url
                                                   :login-count :login_count
                                                   :last-login :last_login
+                                                  :notifications-email :notifications_email
+                                                  :notifications-push :notifications_push
+                                                  :notifications-sms :notifications_sms
                                                   :date-format :date_format
-                                                  :time-format :time_format}))
+                                                  :time-format :time_format
+                                                  :created-at :created_at
+                                                  :updated-at :updated_at
+                                                  :deleted-at :deleted_at}))
                  profile-query {:insert-into :users
                                 :values [db-profile]}]
              (db/execute-update! tx profile-query)))
@@ -479,7 +603,11 @@
                                :failed-login-count :lockout-until :updated-at :deleted-at}
 
              profile-field-keys #{:tenant-id :name :role :avatar-url :login-count
-                                  :last-login :date-format :time-format}
+                                  :last-login
+                                  :notifications-email :notifications-push :notifications-sms
+                                  :theme :language :timezone
+                                  :date-format :time-format
+                                  :updated-at :deleted-at}
 
              ;; Split updates into auth and profile fields
              auth-updates (select-keys user-entity auth-field-keys)
@@ -522,14 +650,25 @@
                                     (update :tenant-id type-conversion/uuid->string)
                                     (update :role type-conversion/keyword->string)
                                     (update :last-login type-conversion/instant->string)
+                                    (update :updated-at type-conversion/instant->string)
+                                    (update :deleted-at type-conversion/instant->string)
+                                    (update :notifications-email #(when (some? %) (protocols/boolean->db adapter %)))
+                                    (update :notifications-push #(when (some? %) (protocols/boolean->db adapter %)))
+                                    (update :notifications-sms #(when (some? %) (protocols/boolean->db adapter %)))
+                                    (update :theme type-conversion/keyword->string)
                                     (update :date-format type-conversion/keyword->string)
                                     (update :time-format type-conversion/keyword->string)
                                     (set/rename-keys {:tenant-id :tenant_id
                                                       :avatar-url :avatar_url
                                                       :login-count :login_count
                                                       :last-login :last_login
+                                                      :notifications-email :notifications_email
+                                                      :notifications-push :notifications_push
+                                                      :notifications-sms :notifications_sms
                                                       :date-format :date_format
-                                                      :time-format :time_format}))
+                                                      :time-format :time_format
+                                                      :updated-at :updated_at
+                                                      :deleted-at :deleted_at}))
                      query {:update :users
                             :set db-profile
                             :where [:= :id (type-conversion/uuid->string user-id)]}]
@@ -570,14 +709,25 @@
                                   (update :tenant-id type-conversion/uuid->string)
                                   (update :role type-conversion/keyword->string)
                                   (update :last-login type-conversion/instant->string)
+                                  (update :updated-at type-conversion/instant->string)
+                                  (update :deleted-at type-conversion/instant->string)
+                                  (update :notifications-email #(when (some? %) (protocols/boolean->db adapter %)))
+                                  (update :notifications-push #(when (some? %) (protocols/boolean->db adapter %)))
+                                  (update :notifications-sms #(when (some? %) (protocols/boolean->db adapter %)))
+                                  (update :theme type-conversion/keyword->string)
                                   (update :date-format type-conversion/keyword->string)
                                   (update :time-format type-conversion/keyword->string)
                                   (set/rename-keys {:tenant-id :tenant_id
                                                     :avatar-url :avatar_url
                                                     :login-count :login_count
                                                     :last-login :last_login
+                                                    :notifications-email :notifications_email
+                                                    :notifications-push :notifications_push
+                                                    :notifications-sms :notifications_sms
                                                     :date-format :date_format
-                                                    :time-format :time_format}))
+                                                    :time-format :time_format
+                                                    :updated-at :updated_at
+                                                    :deleted-at :deleted_at}))
                    query {:update :users
                           :set db-profile
                           :where [:= :id (type-conversion/uuid->string user-id)]}
@@ -641,7 +791,7 @@
   (find-active-users-by-role [_ role]
     (log/debug "Finding active users by role" {:role role})
     (let [adapter (:adapter ctx)
-          query {:select [:a.id
+         query {:select [:a.id
                           :a.email
                           :a.password_hash
                           :a.active
@@ -662,7 +812,13 @@
                           :u.login_count
                           :u.last_login
                           :u.date_format
-                          :u.time_format]
+                          :u.time_format
+                          :u.notifications_email
+                          :u.notifications_push
+                          :u.notifications_sms
+                          :u.theme
+                          :u.language
+                          :u.timezone]
                  :from [[:auth_users :a]]
                  :join [[:users :u] [:= :a.id :u.id]]
                  :where [:and
@@ -706,9 +862,15 @@
                           :u.role
                           :u.avatar_url
                           :u.login_count
-                          :u.last_login
-                          :u.date_format
-                          :u.time_format]
+                         :u.last_login
+                         :u.date_format
+                         :u.time_format
+                         :u.notifications_email
+                         :u.notifications_push
+                         :u.notifications_sms
+                         :u.theme
+                         :u.language
+                         :u.timezone]
                  :from [[:auth_users :a]]
                  :join [[:users :u] [:= :a.id :u.id]]
                  :where [:and
@@ -739,9 +901,15 @@
                           :u.role
                           :u.avatar_url
                           :u.login_count
-                          :u.last_login
-                          :u.date_format
-                          :u.time_format]
+                         :u.last_login
+                         :u.date_format
+                         :u.time_format
+                         :u.notifications_email
+                         :u.notifications_push
+                         :u.notifications_sms
+                         :u.theme
+                         :u.language
+                         :u.timezone]
                  :from [[:auth_users :a]]
                  :join [[:users :u] [:= :a.id :u.id]]
                  :where [:and
@@ -781,6 +949,8 @@
                      profile-fields (select-keys user
                                                  [:id :tenant-id :name :role :avatar-url
                                                   :login-count :last-login
+                                                  :notifications-email :notifications-push :notifications-sms
+                                                  :theme :language :timezone
                                                   :date-format :time-format])
 
                       ;; Convert auth fields to DB format
@@ -812,12 +982,19 @@
                                     (update :tenant-id type-conversion/uuid->string)
                                     (update :role type-conversion/keyword->string)
                                     (update :last-login type-conversion/instant->string)
+                                    (update :notifications-email #(protocols/boolean->db adapter %))
+                                    (update :notifications-push #(protocols/boolean->db adapter %))
+                                    (update :notifications-sms #(protocols/boolean->db adapter %))
+                                    (update :theme type-conversion/keyword->string)
                                     (update :date-format type-conversion/keyword->string)
                                     (update :time-format type-conversion/keyword->string)
                                     (set/rename-keys {:tenant-id :tenant_id
                                                       :avatar-url :avatar_url
                                                       :login-count :login_count
                                                       :last-login :last_login
+                                                      :notifications-email :notifications_email
+                                                      :notifications-push :notifications_push
+                                                      :notifications-sms :notifications_sms
                                                       :date-format :date_format
                                                       :time-format :time_format}))
 
@@ -852,7 +1029,10 @@
                                    :failed-login-count :lockout-until :updated-at :deleted-at}
 
                  profile-field-keys #{:tenant-id :name :role :avatar-url :login-count
-                                      :last-login :date-format :time-format}]
+                                      :last-login
+                                      :notifications-email :notifications-push :notifications-sms
+                                      :theme :language :timezone
+                                      :date-format :time-format}]
 
              (doseq [user updated-users]
                (let [user-id (:id user)
@@ -896,12 +1076,19 @@
                                         (update :tenant-id type-conversion/uuid->string)
                                         (update :role type-conversion/keyword->string)
                                         (update :last-login type-conversion/instant->string)
+                                        (update :notifications-email #(when (some? %) (protocols/boolean->db adapter %)))
+                                        (update :notifications-push #(when (some? %) (protocols/boolean->db adapter %)))
+                                        (update :notifications-sms #(when (some? %) (protocols/boolean->db adapter %)))
+                                        (update :theme type-conversion/keyword->string)
                                         (update :date-format type-conversion/keyword->string)
                                         (update :time-format type-conversion/keyword->string)
                                         (set/rename-keys {:tenant-id :tenant_id
                                                           :avatar-url :avatar_url
                                                           :login-count :login_count
                                                           :last-login :last_login
+                                                          :notifications-email :notifications_email
+                                                          :notifications-push :notifications_push
+                                                          :notifications-sms :notifications_sms
                                                           :date-format :date_format
                                                           :time-format :time_format}))
                          query {:update :users
@@ -1237,6 +1424,9 @@
    Example:
      (create-user-repository ctx)"
   [ctx]
+  ;; Ensure preference columns exist even in test setups that create the users
+  ;; table without running :boundary/user-db-schema.
+  (ensure-users-preference-columns! ctx)
   (->DatabaseUserRepository ctx))
 
 (defn create-session-repository

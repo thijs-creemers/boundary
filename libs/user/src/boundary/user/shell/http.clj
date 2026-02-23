@@ -354,12 +354,21 @@
                                       'boundary.user.shell.http-interceptors/log-action]
                        :summary      "Create user"
                        :tags         ["users"]
-                       :parameters   {:body [:map
+                       :parameters   {:body [:map {:closed true}
                                              [:email :string]
                                              [:name :string]
                                              [:password {:optional true} :string]
                                              [:role [:enum "admin" "user" "viewer"]]
-                                             [:active {:optional true} :boolean]]}}
+                                             [:active {:optional true} :boolean]
+                                             ;; Preferences (flattened into user entity)
+                                             [:notificationsEmail {:optional true} :boolean]
+                                             [:notificationsPush {:optional true} :boolean]
+                                             [:notificationsSms {:optional true} :boolean]
+                                             [:theme {:optional true} [:enum "light" "dark" "auto"]]
+                                             [:language {:optional true} :string]
+                                             [:timezone {:optional true} :string]
+                                             [:dateFormat {:optional true} [:enum "iso" "us" "eu"]]
+                                             [:timeFormat {:optional true} [:enum "12h" "24h"]]]}}
                 :get  {:handler    (list-users-handler user-service)
                        :summary    "List users with pagination and filters"
                        :tags       ["users"]
@@ -378,10 +387,20 @@
                          :summary    "Update user"
                          :tags       ["users"]
                          :parameters {:path [:map [:id :string]]
-                                      :body [:map
+                                      :body [:map {:closed true}
                                              [:name {:optional true} :string]
+                                             [:email {:optional true} :string]
                                              [:role {:optional true} [:enum "admin" "user" "viewer"]]
-                                             [:active {:optional true} :boolean]]}}
+                                             [:active {:optional true} :boolean]
+                                             ;; Preferences (flattened into user entity)
+                                             [:notificationsEmail {:optional true} :boolean]
+                                             [:notificationsPush {:optional true} :boolean]
+                                             [:notificationsSms {:optional true} :boolean]
+                                             [:theme {:optional true} [:enum "light" "dark" "auto"]]
+                                             [:language {:optional true} :string]
+                                             [:timezone {:optional true} :string]
+                                             [:dateFormat {:optional true} [:enum "iso" "us" "eu"]]
+                                             [:timeFormat {:optional true} [:enum "12h" "24h"]]]}}
                 :delete {:handler    (delete-user-handler user-service)
                          :summary    "Soft delete user"
                          :tags       ["users"]
@@ -390,7 +409,7 @@
       :methods {:post {:handler    (login-handler user-service)
                        :summary    "Authenticate user with email/password"
                        :tags       ["authentication"]
-                       :parameters {:body [:map
+                       :parameters {:body [:map {:closed true}
                                            [:email :string]
                                            [:password :string]
                                            [:deviceInfo {:optional true} [:map
@@ -401,12 +420,12 @@
                        :summary    "Create session (login by user ID)"
                        :tags       ["sessions"]
                        :parameters {:body [:or
-                                           [:map
+                                           [:map {:closed true}
                                             [:userId :string]
                                             [:deviceInfo {:optional true} [:map
                                                                            [:userAgent {:optional true} :string]
                                                                            [:ipAddress {:optional true} :string]]]]
-                                           [:map
+                                           [:map {:closed true}
                                             [:email :string]
                                             [:password :string]
                                             [:deviceInfo {:optional true} [:map
@@ -432,7 +451,7 @@
       :methods {:post {:handler    (mfa-enable-handler mfa-service)
                        :summary    "Enable MFA after verification"
                        :tags       ["mfa"]
-                       :parameters {:body [:map
+                       :parameters {:body [:map {:closed true}
                                            [:secret :string]
                                            [:backupCodes [:vector :string]]
                                            [:verificationCode :string]]}}}}

@@ -19,7 +19,15 @@
       "Bash(wc:*)",
       "Bash(clojure -Spath:*)",
       "Bash(clojure -M -e:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(clojure -M:migrate:*)",
+      "Bash(psql:*)",
+      "Bash(clojure:*)",
+      "Bash(docker exec:*)",
+      "Bash(git push:*)",
+      "Bash(JWT_SECRET=\"dev-secret-32-chars-minimum-length\" clojure:*)",
+      "Bash(JWT_SECRET=\"dev-secret-32-chars-minimum\" clojure:*)",
+      "Bash(JWT_SECRET=\"dev-secret-32-chars-minimum\" clojure -M:test:db/h2:*)"
     ]
   },
   "enabledMcpjsonServers": [

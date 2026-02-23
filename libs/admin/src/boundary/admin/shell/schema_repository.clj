@@ -24,7 +24,7 @@
 ;; Schema Repository Implementation
 ;; =============================================================================
 
-(defrecord SchemaRepository [db-ctx config]
+(defrecord SchemaRepository [db-ctx config malli-schemas]
   ports/ISchemaProvider
 
   (fetch-table-metadata [_ table-name]
@@ -60,15 +60,30 @@
      Process:
      1. Fetch table metadata from database
      2. Parse metadata into auto-detected configuration
-     3. Get manual config overrides from admin config (if any)
-     4. Merge auto-detected with manual overrides
-     5. Inject effective UI config (admin global + entity override)
-     6. Apply field ordering if :field-order is specified
-     7. Return complete entity configuration"
+     3. Enrich fields with enum info from registered Malli schemas (if any)
+     4. Get manual config overrides from admin config (if any)
+     5. Merge auto-detected with manual overrides
+     6. Inject effective UI config (admin global + entity override)
+     7. Apply field ordering if :field-order is specified
+     8. Return complete entity configuration"
     (let [table-metadata (ports/fetch-table-metadata this entity-name)
           auto-config (introspection/parse-table-metadata entity-name table-metadata)
+          ;; Enrich auto-detected fields with enum type/widget/options from Malli schema
+          malli-schema (get malli-schemas entity-name)
+          enum-overrides (introspection/extract-enum-fields-from-malli-schema malli-schema)
+          enriched-auto-config (if (seq enum-overrides)
+                                 (update auto-config :fields
+                                         (fn [fields]
+                                           (reduce-kv
+                                            (fn [acc field-name enum-cfg]
+                                              (if (contains? acc field-name)
+                                                (update acc field-name merge enum-cfg)
+                                                acc))
+                                            fields
+                                            enum-overrides)))
+                                 auto-config)
           manual-config (get-in config [:entities entity-name])
-          merged-config (introspection/build-entity-config auto-config manual-config)
+          merged-config (introspection/build-entity-config enriched-auto-config manual-config)
           ;; Compute effective UI config: entity overrides admin global
           admin-ui (get config :ui {})
           entity-ui (get merged-config :ui {})
@@ -140,6 +155,9 @@
    Args:
      db-ctx: Database context map with :adapter and :datasource
      config: Admin configuration map with :entity-discovery and :entities
+     malli-schemas: Optional map of entity-name → Malli schema.
+                    When provided, enum fields are auto-detected from the schema
+                    and rendered as select widgets without manual config.
 
    Returns:
      SchemaRepository instance implementing ISchemaProvider
@@ -148,9 +166,12 @@
      (create-schema-repository db-ctx
        {:entity-discovery {:mode :allowlist
                            :allowlist #{:users}}
-        :entities {:users {:label \"System Users\"}}})"
-  [db-ctx config]
-  (->SchemaRepository db-ctx config))
+        :entities {:users {:label \"System Users\"}}}
+       {:users boundary.user.schema/User})"
+  ([db-ctx config]
+   (->SchemaRepository db-ctx config {}))
+  ([db-ctx config malli-schemas]
+   (->SchemaRepository db-ctx config (or malli-schemas {}))))
 
 ;; =============================================================================
 ;; Helper Functions for Testing and Development

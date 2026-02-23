@@ -442,3 +442,69 @@
             result (introspection/apply-field-order-to-config config)]
         (is (= "Test Entity" (:label result)))
         (is (= :test (:table-name result)))))))
+
+;; =============================================================================
+;; Malli Schema Enum Extraction Tests
+;; =============================================================================
+
+(deftest extract-enum-fields-from-malli-schema-test
+  (testing "Extracts enum fields from a simple :map schema"
+    (let [schema [:map {}
+                  [:id :uuid]
+                  [:role [:enum :admin :user :viewer]]
+                  [:name :string]]
+          result (introspection/extract-enum-fields-from-malli-schema schema)]
+      (is (= 1 (count result)) "Only enum fields should be extracted")
+      (is (contains? result :role))
+      (is (= :enum (get-in result [:role :type])))
+      (is (= :select (get-in result [:role :widget])))
+      (is (= [[:admin "Admin"] [:user "User"] [:viewer "Viewer"]]
+             (get-in result [:role :options])))))
+
+  (testing "Extracts enum fields with optional properties"
+    (let [schema [:map
+                  [:theme {:optional true} [:enum :light :dark :auto]]]
+          result (introspection/extract-enum-fields-from-malli-schema schema)]
+      (is (contains? result :theme))
+      (is (= :enum (get-in result [:theme :type])))
+      (is (= [[:light "Light"] [:dark "Dark"] [:auto "Auto"]]
+             (get-in result [:theme :options])))))
+
+  (testing "Skips non-enum fields"
+    (let [schema [:map
+                  [:id :uuid]
+                  [:email :string]
+                  [:active :boolean]
+                  [:status [:enum :pending :active :inactive]]]
+          result (introspection/extract-enum-fields-from-malli-schema schema)]
+      (is (= #{:status} (set (keys result))))))
+
+  (testing "Handles multiple enum fields"
+    (let [schema [:map
+                  [:role [:enum :admin :user]]
+                  [:status [:enum :pending :active]]
+                  [:theme {:optional true} [:enum :light :dark]]]
+          result (introspection/extract-enum-fields-from-malli-schema schema)]
+      (is (= #{:role :status :theme} (set (keys result))))))
+
+  (testing "Returns empty map for nil schema"
+    (is (= {} (or (introspection/extract-enum-fields-from-malli-schema nil) {}))))
+
+  (testing "Returns empty map for non-map schema"
+    (is (nil? (introspection/extract-enum-fields-from-malli-schema :string)))
+    (is (nil? (introspection/extract-enum-fields-from-malli-schema [:string]))))
+
+  (testing "Returns empty map for schema with no enum fields"
+    (let [schema [:map
+                  [:id :uuid]
+                  [:name :string]
+                  [:active :boolean]]
+          result (introspection/extract-enum-fields-from-malli-schema schema)]
+      (is (= {} result))))
+
+  (testing "Humanises enum option labels"
+    (let [schema [:map
+                  [:format [:enum :date-format :time-format]]]
+          result (introspection/extract-enum-fields-from-malli-schema schema)]
+      (is (= [[:date-format "Date format"] [:time-format "Time format"]]
+             (get-in result [:format :options]))))))
