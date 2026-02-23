@@ -87,6 +87,19 @@ jobs:
           retention-days: 14
 
   # =============================================================================
+  # AGENTS link integrity check
+  # =============================================================================
+  agents-links:
+    name: AGENTS Links
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check AGENTS links
+        run: python3 scripts/check-agents-links.py
+
+  # =============================================================================
   # Test individual libraries (run from root to ensure all dependencies available)
   # =============================================================================
   test-core:
