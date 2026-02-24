@@ -56,7 +56,7 @@ myapp/
 
 **Next Steps:**
 1. `cd myapp`
-2. Run `clojure -M:repl` to start the development environment
+2. Run `clojure -M:repl-clj` to start the development environment
 3. Run `(ig-repl/go)` in the REPL to start the system
 4. Check the generated `README.md` for a full development workflow guide
 
@@ -90,7 +90,7 @@ clojure -M:dev -m boundary.scaffolder.shell.cli-entry generate \
 ### Generated Files
 
 ```
-src/boundary/product/
+libs/product/src/boundary/product/
 ├── core/
 │   └── product.clj           # Pure business logic
 ├── ports.clj                 # Service protocol
@@ -101,7 +101,7 @@ src/boundary/product/
     ├── persistence.clj       # Database adapter
     └── module-wiring.clj     # Integrant configuration
 
-test/boundary/product/
+libs/product/test/boundary/product/
 ├── core/
 │   └── product_test.clj      # Unit tests
 └── shell/
@@ -153,6 +153,7 @@ clojure -M:dev -m boundary.scaffolder.shell.cli-entry new --name myapp --dry-run
 Format: `name:type[:modifier...]`
 
 **Types**:
+
 | Type      | Clojure Type       | Database Type   |
 |-----------|--------------------| ----------------|
 | `string`  | `:string`          | `TEXT`          |
@@ -164,6 +165,7 @@ Format: `name:type[:modifier...]`
 | `date`    | `inst?`            | `TEXT`          |
 
 **Modifiers**:
+
 | Modifier | Description |
 |----------|-------------|
 | `required` | Non-nullable field |
@@ -205,7 +207,7 @@ clojure -M:dev -m boundary.scaffolder.shell.cli-entry generate \
 ### Schema (schema.clj)
 
 ```clojure
-(ns boundary.product.schema
+(ns myapp.product.schema
   (:require [malli.core :as m]))
 
 (def product-schema
@@ -233,8 +235,8 @@ clojure -M:dev -m boundary.scaffolder.shell.cli-entry generate \
 ### Core Logic (core/product.clj)
 
 ```clojure
-(ns boundary.product.core.product
-  (:require [boundary.product.schema :as schema]))
+(ns myapp.product.core.product
+  (:require [myapp.product.schema :as schema]))
 
 (defn prepare-product
   "Prepare product for creation (pure function)"
@@ -257,11 +259,11 @@ clojure -M:dev -m boundary.scaffolder.shell.cli-entry generate \
 ### Service (shell/service.clj)
 
 ```clojure
-(ns boundary.product.shell.service
-  (:require [boundary.product.ports :as ports]
-            [boundary.product.core.product :as product-core]
+(ns myapp.product.shell.service
+  (:require [myapp.product.ports :as ports]
+            [myapp.product.core.product :as product-core]
             [boundary.core.validation :as validation]
-            [boundary.product.schema :as schema]))
+            [myapp.product.schema :as schema]))
 
 (defrecord ProductService [repository logger]
   ports/ProductServiceProtocol
@@ -285,7 +287,7 @@ clojure -M:dev -m boundary.scaffolder.shell.cli-entry generate \
 ## Module Structure
 
 ```
-src/boundary/scaffolder/
+libs/scaffolder/src/boundary/scaffolder/
 ├── core/
 │   ├── generators.clj        # Template generation (pure)
 │   ├── field-parser.clj      # Field definition parsing

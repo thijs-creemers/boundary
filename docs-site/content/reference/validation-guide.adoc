@@ -71,9 +71,9 @@ This guide provides comprehensive documentation for the Boundary framework’s v
 
 The validation system follows Boundary’s Functional Core / Imperative Shell (FC/IS) architecture:
 
-*Functional Core (Pure):* - `boundary.shared.core.validation.messages` - Message templating and suggestion engine - `boundary.shared.core.validation.context` - Contextual message rendering - `boundary.shared.core.validation.codes` - Error code catalog - `boundary.shared.core.validation.result` - Result format utilities - `boundary.shared.core.validation.registry` - Rule registry for coverage tracking
+*Functional Core (Pure):* - `boundary.core.validation.messages` - Message templating and suggestion engine - `boundary.core.validation.context` - Contextual message rendering - `boundary.core.validation.codes` - Error code catalog - `boundary.core.validation.result` - Result format utilities - `boundary.core.validation.registry` - Rule registry for coverage tracking
 
-*Imperative Shell (I/O):* - `boundary.shared.core.validation` - Backward-compatible API - Feature flag reading (`BND++_++DEVEX++_++VALIDATION`) - Module-specific service integration
+*Imperative Shell (I/O):* - `boundary.core.validation` - Backward-compatible API - Feature flag reading (`BND++_++DEVEX++_++VALIDATION`) - Module-specific service integration
 
 [[_key_features]]
 ==== link:#_key_features[]1.2. Key Features
@@ -117,7 +117,7 @@ clojure -M:repl-clj
 
 [source,highlightjs,highlight]
 ----
-(require '[boundary.shared.core.config.feature-flags :as flags])
+(require '[boundary.core.config.feature-flags :as flags])
 
 ;; Check if enhanced validation is enabled
 (flags/enabled? :devex-validation)
@@ -220,7 +220,7 @@ Templates support these standard parameters:
 |`++{++expected}` |Expected value or format |`"`mailto:user@domain.com[`user@domain.com`]`"`, `"admin{vbar}user{vbar}viewer"`
 |`++{++min}` / `++{++max}` |Numeric or length bounds |`"8"`, `"255"`, `"1"`, `"1000"`
 |`++{++allowed}` |List of allowed values |`"admin, user, and viewer"`
-|`++{++entity}` |Entity type being operated on |`"user"`, `"invoice"`, `"workflow"`
+|`++{++entity}` |Entity type being operated on |`"user"`, `"file"`, `"job"`
 |`++{++operation}` |Operation being performed |`"create"`, `"update"`, `"delete"`
 |`++{++role}` |User’s role |`"admin"`, `"user"`, `"viewer"`
 |===
@@ -235,7 +235,7 @@ Messages adapt based on the operation being performed:
 
 [source,highlightjs,highlight]
 ----
-(require '[boundary.shared.core.validation.context :as ctx])
+(require '[boundary.core.validation.context :as ctx])
 
 ;; Create operation
 (ctx/render-contextual-message
@@ -296,9 +296,9 @@ Include user information in error messages:
 ;; $ export BND_DEVEX_VALIDATION=true
 ;; $ clojure -M:repl-clj
 
-(require '[boundary.shared.core.validation.messages :as msg])
-(require '[boundary.shared.core.validation.context :as ctx])
-(require '[boundary.shared.core.validation.codes :as codes])
+(require '[boundary.core.validation.messages :as msg])
+(require '[boundary.core.validation.context :as ctx])
+(require '[boundary.core.validation.codes :as codes])
 
 ;; Check available error codes
 (keys (codes/get-error-codes-by-category :schema))
@@ -322,19 +322,19 @@ Include user information in error messages:
 
 [source,highlightjs,highlight]
 ----
-(require '[boundary.shared.core.validation :as v])
+(require '[boundary.core.validation :as v])
 (require '[boundary.user.schema :as schema])
 
 ;; Create invalid user data
 (def invalid-user {:name "John" :role :admin})  ; missing email
 
 ;; Test with feature flag disabled (legacy behavior)
-(with-redefs [boundary.shared.core.validation.result/devex-validation-enabled? (constantly false)]
+(with-redefs [boundary.core.validation.result/devex-validation-enabled? (constantly false)]
   (v/validate-with-transform schema/CreateUserRequest invalid-user nil))
 ;; => {:valid? false :errors #object[malli.core.ExplanationError ...]}
 
 ;; Test with feature flag enabled (enhanced behavior)
-(with-redefs [boundary.shared.core.validation.result/devex-validation-enabled? (constantly true)]
+(with-redefs [boundary.core.validation.result/devex-validation-enabled? (constantly true)]
   (v/validate-with-transform schema/CreateUserRequest invalid-user nil))
 ;; => {:valid? false
 ;;     :errors [{:field :email
@@ -427,7 +427,7 @@ Follow these patterns when integrating enhanced validation into modules:
 [source,highlightjs,highlight]
 ----
 (ns boundary.user.shell.service
-  (:require [boundary.shared.core.config.feature-flags :as flags]
+  (:require [boundary.core.config.feature-flags :as flags]
             [boundary.user.core.user :as user-core]))
 
 (defn create-user [system user-data request-context]
@@ -761,21 +761,21 @@ Follow these patterns when integrating enhanced validation into modules:
 [source,highlightjs,highlight]
 ----
 ;; Check current feature flag status
-(require '[boundary.shared.core.config.feature-flags :as flags])
+(require '[boundary.core.config.feature-flags :as flags])
 (flags/all-flags)
 
 ;; Inspect error code catalog
-(require '[boundary.shared.core.validation.codes :as codes])
+(require '[boundary.core.validation.codes :as codes])
 (count (codes/error-code-catalog))
 (codes/get-error-codes-for-field :email)
 
 ;; View registry statistics
-(require '[boundary.shared.core.validation.registry :as registry])
+(require '[boundary.core.validation.registry :as registry])
 (registry/registry-stats)
 (registry/get-execution-stats)
 
 ;; Test message rendering
-(require '[boundary.shared.core.validation.messages :as msg])
+(require '[boundary.core.validation.messages :as msg])
 (msg/render-message :required {:field :email} {})
 ----
 
@@ -787,28 +787,23 @@ Follow these patterns when integrating enhanced validation into modules:
 
 [source,highlightjs,highlight]
 ----
-(require '[boundary.shared.tools.validation.repl :as v])
+(require '[boundary.core.validation.registry :as registry])
+(require '[boundary.core.validation.coverage :as coverage])
+(require '[boundary.user.schema :as user-schema])
+(require '[malli.core :as m])
 
 ;; Registry overview
-(v/stats)
-(v/list-rules)                    ; all rules
-(v/list-rules {:module :user})    ; filter by module
-(v/conflicts)                     ; potential rule conflicts
+(count (registry/get-all-rules))
+(registry/get-rules-by-module :user)
 
 ;; Validate / Explain (Malli)
-(require '[boundary.user.schema :as user-schema])
-(v/validate user-schema/CreateUserRequest {:email "a@b.co" :name "A" :role :user :user-id #uuid "00000000-0000-0000-0000-000000000001"})
-(v/explain  user-schema/CreateUserRequest {:email "invalid"})
+(m/validate user-schema/CreateUserRequest {:email "a@b.co" :name "A"})
+(m/explain  user-schema/CreateUserRequest {:email "invalid"})
 
-;; Timing
-(require '[boundary.user.core.user :as user-core])
-(v/time-call user-core/validate-user-creation-request {:email "a@b.co" :name "A" :role :user :user-id #uuid "00000000-0000-0000-0000-000000000001"})
-
-;; Snapshots (deterministic EDN)
-(println (v/snapshot->edn {:status :ok} {:seed 42 :meta {:test "example"}}))
-
-;; GraphViz DOT export
-(spit "build/validation-user.dot" (v/rules->dot {:modules #{:user}}))
+;; Coverage from tracked executions
+(coverage/summary-line
+ (coverage/compute {:registered (set (map :rule-id (registry/get-all-rules)))
+                    :executed (set (keys (:by-rule (registry/get-execution-stats))))}))
 ----
 
 [[_reading_coverage_reports]]

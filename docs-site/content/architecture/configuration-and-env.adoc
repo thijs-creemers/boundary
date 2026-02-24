@@ -91,9 +91,8 @@ Boundary uses a layered configuration approach with clear precedence rules:
  :http {:port 8080}
  :logging {:level "debug"}
  :features {:metrics-collection false
-           :user-module true          ; Core module always enabled
-           :billing-module false      ; Disable billing in dev
-           :workflow-module true      ; Enable workflow for testing
+           :user-web-ui {:enabled? true}
+           :structured-logging false
            :experimental-features true}}
 
 ;; resources/config/staging/config.edn - Staging
@@ -107,9 +106,8 @@ Boundary uses a layered configuration approach with clear precedence rules:
  :http {:port #long #env HTTP_PORT}
  :logging {:level "info"}
  :features {:metrics-collection true
-           :user-module true
-           :billing-module true        ; Enable for staging testing
-           :workflow-module true
+           :user-web-ui {:enabled? true}
+           :structured-logging true
            :experimental-features false}}
 
 ;; resources/config/prod/config.edn - Production
@@ -125,9 +123,8 @@ Boundary uses a layered configuration approach with clear precedence rules:
  :logging {:level "warn"}
  :features {:metrics-collection true
            :performance-monitoring true
-           :user-module true
-           :billing-module #env [BILLING_MODULE_ENABLED "false"]  ; Environment controlled
-           :workflow-module true
+           :user-web-ui {:enabled? #or [#env BND_WEB_UI_ENABLED true]}
+           :structured-logging #or [#env BND_STRUCTURED_LOGGING false]
            :experimental-features false}}
 ----
 
@@ -358,8 +355,8 @@ export API_KEY_VAULT="vault:secret/api-keys:key"
         (conj (boundary.modules.user.http/routes))
         
         ;; Conditional module inclusion
-        (with-module-routes :billing features boundary.modules.billing.http/routes)
-        (with-module-routes :workflow features boundary.modules.workflow.http/routes)
+        (with-module-routes :admin features boundary.modules.admin.http/routes)
+        (with-module-routes :tenant features boundary.modules.tenant.http/routes)
         
         ;; Combine all routes
         (apply routes/routes))))

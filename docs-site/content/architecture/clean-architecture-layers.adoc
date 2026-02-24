@@ -118,7 +118,7 @@ After reading this document, you will understand:
 (ns boundary.user.shell.service
   (:require [boundary.user.ports :as ports]
             [boundary.user.schema :as user-schema]
-            [boundary.shared.utils.password :as password]
+            [boundary.user.shell.auth :as auth]
             [malli.core :as m]
             [clojure.tools.logging :as log]))
 
@@ -189,7 +189,7 @@ After reading this document, you will understand:
   (:require [boundary.user.ports :as ports]
             [boundary.user.schema :as user-schema]
             [boundary.platform.shell.adapters.database.core :as db]
-            [boundary.shared.utils.type-conversion :as type-conversion]
+            [boundary.core.utils.type-conversion :as type-conversion]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]))
 

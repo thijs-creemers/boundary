@@ -176,7 +176,7 @@ src/boundary/user/
 ✅ **Run as monolith OR microservices** - Same code, different deployment
 ✅ **Clear boundaries** - Modules communicate via protocols, not direct calls
 ✅ **Easy testing** - Mock entire modules via protocol implementations
-✅ **Independent scaling** - Deploy user module separately from billing module
+✅ **Independent scaling** - Deploy user module separately from storage module
 
 #### 4. Developer Productivity
 

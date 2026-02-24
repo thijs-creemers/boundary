@@ -280,7 +280,7 @@ clojure -M:cli user-list --user-id "$USER_ID" --format json 2>&1
 export BND_DEVEX_VALIDATION=true
 
 # Verify in REPL
-(require '[boundary.shared.core.config.feature-flags :as flags])
+(require '[boundary.core.config.feature-flags :as flags])
 (flags/enabled? :devex-validation)
 ;; Should return true
 

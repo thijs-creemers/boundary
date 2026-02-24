@@ -132,13 +132,13 @@ Boundary separates pure business logic from infrastructure concerns:
 (ns boundary.user.shell.service
   (:require [boundary.user.core.user :as user-core]
             [boundary.user.ports :as ports]
-            [boundary.shared.shell.interceptors :as interceptors]))
+            [boundary.platform.shell.service-interceptors :as service-interceptors]))
 
 (defrecord UserService [user-repository email-service logger metrics error-reporter]
   ports/IUserService
   
   (create-user [this user-data]
-    (interceptors/execute-service-operation
+    (service-interceptors/execute-service-operation
       {:operation-name "create-user"
        :logger logger
        :metrics metrics

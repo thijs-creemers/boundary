@@ -65,7 +65,7 @@ Unified observability stack with pluggable adapters for logging, metrics, and er
 ```clojure
 (ns myapp.core
   (:require [boundary.observability.logging.core :as log]
-            [boundary.observability.logging.adapters.stdout :as stdout]))
+            [boundary.observability.logging.shell.adapters.stdout :as stdout]))
 
 ;; Create logger
 (def logger (stdout/create-logger {:level :info}))
@@ -81,7 +81,7 @@ Unified observability stack with pluggable adapters for logging, metrics, and er
 ```clojure
 (ns myapp.metrics
   (:require [boundary.observability.metrics.core :as metrics]
-            [boundary.observability.metrics.adapters.noop :as noop]))
+            [boundary.observability.metrics.shell.adapters.no-op :as noop]))
 
 ;; Create metrics emitter
 (def emitter (noop/create-emitter))
@@ -96,8 +96,8 @@ Unified observability stack with pluggable adapters for logging, metrics, and er
 
 ```clojure
 (ns myapp.errors
-  (:require [boundary.observability.error-reporting.core :as errors]
-            [boundary.observability.error-reporting.adapters.noop :as noop]))
+  (:require [boundary.observability.errors.core :as errors]
+            [boundary.observability.errors.shell.adapters.no-op :as noop]))
 
 ;; Create error reporter
 (def reporter (noop/create-reporter))
@@ -136,22 +136,22 @@ Unified observability stack with pluggable adapters for logging, metrics, and er
 ## Module Structure
 
 ```
-src/boundary/observability/
+libs/observability/src/boundary/observability/
 ├── logging/
 │   ├── core.clj              # Logging protocol
-│   └── adapters/
+│   └── shell/adapters/
 │       ├── noop.clj
 │       ├── stdout.clj
 │       ├── slf4j.clj
 │       └── datadog.clj
 ├── metrics/
 │   ├── core.clj              # Metrics protocol
-│   └── adapters/
+│   └── shell/adapters/
 │       ├── noop.clj
 │       └── datadog.clj
-└── error-reporting/
+└── errors/
     ├── core.clj              # Error reporting protocol
-    └── adapters/
+    └── shell/adapters/
         ├── noop.clj
         └── sentry.clj
 ```

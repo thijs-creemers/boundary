@@ -79,7 +79,7 @@ cd examples/blog-app
 
 ```bash
 # Start with default dev profile
-clojure -M:run
+clojure -M -m blog.main
 
 # Or start a REPL for interactive development
 clojure -M:repl-clj

@@ -30,10 +30,9 @@ After reading this document, you will understand:
 The shared utilities are organized in a clear, purpose-driven structure:
 
 ```
-src/boundary/shared/
-├── core/
-│   └── validation.clj        # Generic validation patterns and utilities
+libs/core/src/boundary/core/
 └── utils/
+    ├── validation.clj         # Generic validation patterns and utilities
     ├── type_conversion.clj    # Generic type conversions (UUID, Instant, etc.)
     └── case_conversion.clj    # camelCase <-> kebab-case transformations
 ```
@@ -50,7 +49,7 @@ src/boundary/shared/
 
 === Purpose and Capabilities
 
-The `boundary.shared.utils.type-conversion` namespace provides generic type conversion functions that handle common data transformations needed across the application.
+The `boundary.core.utils.type-conversion` namespace provides generic type conversion functions that handle common data transformations needed across the application.
 
 **Key Features:**
 * UUID ↔ String conversions (nil-safe)
@@ -64,7 +63,7 @@ The `boundary.shared.utils.type-conversion` namespace provides generic type conv
 ----
 ;; UUID Conversions
 (ns your-module
-  (:require [boundary.shared.utils.type-conversion :as type-conversion]))
+  (:require [boundary.core.utils.type-conversion :as type-conversion]))
 
 ;; Converting UUIDs for API responses
 (type-conversion/uuid->string #uuid "123e4567-e89b-12d3-a456-426614174000")
@@ -133,7 +132,7 @@ Type conversion utilities integrate seamlessly with Malli schema transformers:
 
 === Purpose and Capabilities
 
-The `boundary.shared.utils.case-conversion` namespace provides generic case transformation utilities for converting between different naming conventions commonly used in APIs and data structures.
+The `boundary.core.utils.case-conversion` namespace provides generic case transformation utilities for converting between different naming conventions commonly used in APIs and data structures.
 
 **Key Features:**
 * camelCase ↔ kebab-case map key transformations
@@ -145,7 +144,7 @@ The `boundary.shared.utils.case-conversion` namespace provides generic case tran
 ----
 ;; Basic Map Key Conversions
 (ns your-module
-  (:require [boundary.shared.utils.case-conversion :as case-conversion]))
+  (:require [boundary.core.utils.case-conversion :as case-conversion]))
 
 ;; API Request Processing (camelCase -> kebab-case)
 (case-conversion/camel-case->kebab-case-map 
@@ -208,7 +207,7 @@ While the shared utilities provide generic transformations, domain modules can c
 
 === Purpose and Capabilities
 
-The `boundary.shared.core.validation` namespace provides reusable validation patterns and utilities that work with Malli schemas across different contexts (API requests, CLI arguments, etc.).
+The `boundary.core.utils.validation` namespace provides reusable validation patterns and utilities that work with Malli schemas across different contexts (API requests, CLI arguments, etc.).
 
 **Key Features:**
 * Generic validation with data transformation
@@ -221,7 +220,7 @@ The `boundary.shared.core.validation` namespace provides reusable validation pat
 ----
 ;; Generic Validation with Transformation
 (ns your-module
-  (:require [boundary.shared.core.validation :as validation]
+  (:require [boundary.core.utils.validation :as validation]
             [malli.transform :as mt]))
 
 (def UserSchema
@@ -306,9 +305,9 @@ Domain modules integrate shared utilities through composition and adaptation:
 ----
 ;; Example: User module schema transformations
 (ns boundary.user.schema
-  (:require [boundary.shared.utils.type-conversion :as type-conversion]
-            [boundary.shared.utils.case-conversion :as case-conversion]
-            [boundary.shared.core.validation :as validation]))
+  (:require [boundary.core.utils.type-conversion :as type-conversion]
+            [boundary.core.utils.case-conversion :as case-conversion]
+            [boundary.core.utils.validation :as validation]))
 
 ;; Domain-specific transformers built on shared utilities
 (def user-request-transformer

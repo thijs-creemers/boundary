@@ -44,7 +44,7 @@ Complete user management and authentication system with MFA support, session man
 ```clojure
 (ns myapp.main
   (:require [boundary.user.shell.module-wiring]  ; Auto-registers module
-            [boundary.platform.system.wiring :as wiring]))
+            [boundary.platform.shell.system.wiring :as wiring]))
 
 (defn -main [& args]
   (wiring/start!))
@@ -158,7 +158,7 @@ The module registers these routes automatically:
 ## Module Structure
 
 ```
-src/boundary/user/
+libs/user/src/boundary/user/
 ├── core/
 │   ├── user.clj             # User business logic (pure)
 │   ├── authentication.clj   # Auth logic (pure)

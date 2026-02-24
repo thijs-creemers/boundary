@@ -23,14 +23,14 @@ Follows FC/IS pattern:
 
 **Functional Core (Pure):**
 
-* `boundary.shared.core.validation.messages` - Message templating
-* `boundary.shared.core.validation.context` - Contextual rendering
-* `boundary.shared.core.validation.codes` - Error code catalog
-* `boundary.shared.core.validation.registry` - Rule tracking
+* `boundary.core.validation.messages` - Message templating
+* `boundary.core.validation.context` - Contextual rendering
+* `boundary.core.validation.codes` - Error code catalog
+* `boundary.core.validation.registry` - Rule tracking
 
 **Imperative Shell (I/O):**
 
-* `boundary.shared.core.validation` - Public API
+* `boundary.core.validation` - Public API
 * Feature flag management
 * Module integration
 
@@ -100,18 +100,18 @@ Validation occurs at system boundaries (HTTP, CLI):
 ----
 (ns boundary.user.shell.http
   (:require [boundary.user.schema :as schema]
-            [boundary.shared.core.validation :as v]))
+            [boundary.core.validation :as v]
+            [malli.transform :as mt]))
 
 (defn create-user-handler
   "HTTP handler with validation."
   [user-service]
   (fn [{{:keys [body]} :parameters}]
     ;; 1. Validate incoming request
-    (let [validation (v/validate-enhanced 
+    (let [validation (v/validate-request
                       schema/UserCreationRequest 
                       body
-                      {:operation :create
-                       :entity :user})]
+                      mt/string-transformer)]
       
       (if (:valid? validation)
         ;; 2. Valid - proceed with core logic
@@ -260,7 +260,7 @@ clojure -M:repl-clj
 
 [source,clojure]
 ----
-(require '[boundary.shared.core.config.feature-flags :as flags])
+(require '[boundary.core.config.feature-flags :as flags])
 
 ;; Check if enabled
 (flags/enabled? :devex-validation)
@@ -283,23 +283,23 @@ Interactive validation exploration:
 
 [source,clojure]
 ----
-(require '[boundary.shared.tools.validation.repl :as v])
+(require '[boundary.core.validation.registry :as registry])
+(require '[boundary.core.validation.coverage :as coverage])
 
 ;; View validation statistics
-(v/stats)
+(registry/get-execution-stats)
 ;; {:total-rules 42
-;;  :modules {:user 18 :billing 24}
-;;  :coverage 0.85}
+;;  :executed-rules 36
+;;  :coverage-percent 85.7
+;;  :by-rule {...}}
 
 ;; List rules for a module
-(v/list-rules {:module :user})
-;; [{:id :user.email/required
-;;   :field :email
-;;   :type :required
-;;   ...}]
+(registry/get-rules-by-module :user)
+;; [{:rule-id :user.email/required ...}]
 
-;; Generate DOT graph for visualization
-(spit "validation-user.dot" (v/rules->dot {:modules #{:user}}))
+;; Compute coverage from registered and executed rules
+(coverage/compute {:registered (set (map :rule-id (registry/get-all-rules)))
+                   :executed (set (keys (:by-rule (registry/get-execution-stats))))})
 ----
 
 [[snapshot-tests]]
@@ -360,27 +360,21 @@ Define validation expectations:
 [source,clojure]
 ----
 (ns boundary.user.core.user-validation-behavior-spec
-  (:require [boundary.shared.tools.validation.behavior :as behavior]))
+  (:require [boundary.core.validation.behavior :as behavior]))
 
-(def user-creation-behavior
-  (behavior/specification
-    :entity :user
-    :operation :create
-    
-    :scenarios
-    [{:name "email-required"
-      :given {:email nil}
-      :expect {:valid? false
-               :error-code :user.email/required}}
-     
-     {:name "email-format"
-      :given {:email "invalid"}
-      :expect {:valid? false
-               :error-code :user.email/invalid-format}}
-     
-     {:name "valid-user"
-      :given {:email "alice@example.com" :name "Alice"}
-      :expect {:valid? true}}]))
+(behavior/defbehavior-suite user-validation-tests
+  [{:name "email-required"
+    :action validate-user-fn
+    :base {:name "Alice" :email "alice@example.com"}
+    :mutations [(behavior/remove-field :email)]
+    :assertions [{:expect :failure
+                  :codes #{:user.email/required}}]}
+   {:name "email-format"
+    :action validate-user-fn
+    :base {:name "Alice" :email "alice@example.com"}
+    :mutations [(behavior/set-field :email "invalid")]
+    :assertions [{:expect :failure
+                  :codes #{:user.email/invalid-format}}]}])
 ----
 
 [[validation-workflow]]
@@ -441,16 +435,16 @@ cat test/reports/coverage/invoice.txt
 [source,clojure]
 ----
 (ns boundary.user.shell.http
-  (:require [boundary.shared.core.validation :as v]))
+  (:require [boundary.core.validation :as v]
+            [malli.transform :as mt]))
 
 (defn user-routes [user-service]
   [["/users"
     {:post {:handler (fn [{{:keys [body]} :parameters}]
-                      (let [validation (v/validate-enhanced 
+                      (let [validation (v/validate-request
                                         schemas/UserCreationRequest
                                         body
-                                        {:operation :create
-                                         :entity :user})]
+                                        mt/string-transformer)]
                         (if (:valid? validation)
                           {:status 201 :body (create-user (:data validation))}
                           {:status 400 :body {:errors (:errors validation)}})))
@@ -463,14 +457,14 @@ cat test/reports/coverage/invoice.txt
 [source,clojure]
 ----
 (ns boundary.user.shell.cli
-  (:require [boundary.shared.core.validation :as v]))
+  (:require [boundary.core.validation :as v]
+            [malli.transform :as mt]))
 
 (defn execute-user-create [opts]
-  (let [validation (v/validate-enhanced
+  (let [validation (v/validate-cli-args
                     schemas/UserCreationRequest
                     opts
-                    {:operation :create
-                     :entity :user})]
+                    mt/string-transformer)]
     (if (:valid? validation)
       (format "User created: %s" (create-user (:data validation)))
       (format "Error: %s\n%s" 
@@ -489,7 +483,7 @@ cat test/reports/coverage/invoice.txt
 [source,clojure]
 ----
 (defn handle-create-user [request]
-  (let [validation (v/validate-enhanced schema request)]  ; ✅ Shell validates
+  (let [validation (v/validate-request schema request mt/string-transformer)]  ; ✅ Shell validates
     (when (:valid? validation)
       (user-core/create-user (:data validation)))))  ; Core receives clean data
 ----
@@ -556,8 +550,8 @@ cat test/reports/coverage/invoice.txt
 [[learn-more]]
 == Learn More
 
-* link:../how-to/enable-validation-devex.adoc[Enable Validation DevEx Features]
+* link:enable-validation-devex.adoc[Enable Validation DevEx Features]
 * link:functional-core-imperative-shell.adoc[Functional Core / Imperative Shell]
 * link:modules-and-ownership.adoc[Modules and Domain Ownership]
-* {xref-validation-guide}[Complete Validation Guide]
+* link:../reference/validation-guide.adoc[Complete Validation Guide]
 * https://github.com/metosin/malli[Malli Documentation]

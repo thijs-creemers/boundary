@@ -1,5 +1,5 @@
 = Project Status
-:revdate: 2026-02-23
+:revdate: 2026-02-24
 :toc: macro
 :toclevels: 2
 
@@ -17,7 +17,7 @@ The project is in a strong pre-GA state:
 
 Primary remaining maturity items are focused on finishing currently flagged in-development/roadmap areas, not on foundational architecture.
 
-== Snapshot (As of 2026-02-23)
+== Snapshot (As of 2026-02-24)
 
 [cols="1,2"]
 |===
@@ -33,7 +33,7 @@ Primary remaining maturity items are focused on finishing currently flagged in-d
 |FC/IS enforced across modules (`core/`, `shell/`, `ports.clj`)
 
 |Migration stack
-|Migratus (`clojure -M:migrate up`)
+|Migratus (`clojure -M:migrate migrate`)
 
 |Dev/test DB
 |SQLite for development, H2 for test flows
@@ -123,18 +123,43 @@ Recent documentation/process improvements include:
 * Dedicated AGENTS link checker script and CI enforcement.
 * Repo-native pre-commit hook path (`.githooks`) via `scripts/install-git-hooks.sh`.
 
+== Week 3 Documentation Closeout (2026-02-24)
+
+Week 3 documentation consolidation is complete.
+
+[cols="1,3"]
+|===
+|Area |Week 3 Outcome
+
+|Architecture docs compactness
+|High-volume architecture pages were rewritten into concise, code-aligned references (overview, components, integration patterns, middleware, observability).
+
+|Stale module references
+|Legacy references (including billing/workflow-era examples) were removed or replaced in targeted architecture/reference docs.
+
+|Namespace/path accuracy
+|Documentation examples and module paths were aligned to the current `libs/...` monorepo structure and active namespace layout.
+
+|Library README hygiene
+|Remaining docs-lint warnings in `libs/*/README.*` were resolved (stale paths, broken links, unknown aliases/namespaces in examples).
+
+|Validation signal
+|`clojure -M:docs-lint` currently reports `Total warnings: 0`.
+|===
+
+Week 3 also delivered a materially leaner docs set by replacing long, drift-prone narrative sections with short operational guidance and checklists.
+
 == Known Gaps / Active Risks
 
 * `libs/external` remains explicitly in-development and should not be treated as production-ready.
 * Realtime module documentation still calls out future multi-server enhancements (Redis-backed registry/pub-sub).
-* PRD/reference documentation contains unresolved TODO placeholders (see `docs-site/content/reference/boundary-prd.adoc`).
 * Some historical status documents in `docs/archive/` are stale and should not be used as operational source-of-truth.
 
 == Recommended Priorities (Next 30 Days)
 
 . Close `boundary-external` scope definition and ship first production-capable adapter set.
 . Decide realtime scaling path (single-node hardening vs Redis-backed multi-node support) and align tests/docs.
-. Resolve high-value TODO placeholders in PRD/reference docs that affect implementation clarity.
+. Continue concise modernization for remaining long architecture/reference pages while keeping `docs-lint` at zero warnings.
 . Keep CI signal quality high by preserving fast per-library feedback and enforcing docs/link hygiene.
 
 == Status Maintenance Rules
@@ -145,4 +170,3 @@ When updating this file:
 * Avoid speculative metrics unless backed by reproducible commands.
 * Keep this file focused on current status; move historical deep-dive detail to archive docs.
 * Update `:revdate:` on every substantive change.
-

@@ -115,7 +115,7 @@ cd examples/ecommerce-api
 
 ```bash
 # Start with default dev profile
-clojure -M:run
+clojure -M -m ecommerce.main
 
 # Or start a REPL for interactive development
 clojure -M:repl-clj

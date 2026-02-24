@@ -170,12 +170,12 @@ PostgreSQL database configuration (inactive by default).
 |Enhanced validation features
 |`false`
 
-|`BND_FEATURE_BILLING`
-|Enable billing module
+|`BND_STRUCTURED_LOGGING`
+|Enable structured logging features
 |`false`
 
-|`BND_FEATURE_WORKFLOW`
-|Enable workflow module
+|`BND_WEB_UI_ENABLED`
+|Enable user web UI
 |`false`
 |===
 
@@ -319,8 +319,8 @@ clojure -M:repl-clj
 
 [source,{shell}]
 ----
-export BND_FEATURE_BILLING=true
-export BND_FEATURE_WORKFLOW=false
+export BND_STRUCTURED_LOGGING=true
+export BND_WEB_UI_ENABLED=true
 clojure -M:repl-clj
 ----
 

@@ -755,4 +755,4 @@ docker run -p 3000:3000 \
 
 **Congratulations!** You've completed the todo-api example. 🎉
 
-**Next:** Try building the [blog example](../blog/) for a full-stack application.
+**Next:** Try building the [blog example](../blog-app/) for a full-stack application.

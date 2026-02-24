@@ -390,8 +390,7 @@ graph TB
 
 ```clojure
 (ns myapp.admin.moderation
-  (:require [boundary.platform.core.pagination.pagination :as pagination]
-            [boundary.shared.core.time :as time]))
+  (:require [boundary.platform.core.pagination.pagination :as pagination]))
 
 (defn list-flagged-content
   [content-repository {:keys [limit offset status] :or {status "pending"}}]

@@ -136,7 +136,7 @@ The `user` module comes with built-in migrations for user management and session
 clojure -M:migrate init
 
 # Run pending migrations (applies all .up.sql files)
-clojure -M:migrate up
+clojure -M:migrate migrate
 
 # Verify status
 clojure -M:migrate status
@@ -331,7 +331,7 @@ The **Imperative Shell**. It orchestrates the process of creating a task:
 The scaffolder generated a SQL migration in `resources/migrations/`.
 
 ```bash
-clojure -M:migrate up
+clojure -M:migrate migrate
 ```bash
 
 ### Step 4: Wire it Up
@@ -1025,7 +1025,7 @@ Keep your REPL connected. Evaluate individual functions (Cmd+Enter in Calva). Us
 
 ### 4. Oversized Modules
 **The Mistake:**
-Putting everything into a single `task` module—including user management, billing, and notifications.
+Putting everything into a single `task` module—including user management, storage, and notifications.
 **The Fix:**
 Follow the Single Responsibility Principle. If it's a different domain entity with different business rules, it probably belongs in its own module.
 

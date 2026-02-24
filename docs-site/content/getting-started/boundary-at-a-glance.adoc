@@ -4,71 +4,56 @@ weight: 2
 ---
 
 = Boundary at a Glance
-:icons: font
-:description: One-page overview of the Boundary Framework
+:description: One-page overview of Boundary Framework
 
 [.lead]
-Production-ready Clojure with enforced architecture and enterprise features.
+Production-ready Clojure with enforced Functional Core / Imperative Shell boundaries.
 
 == In 30 Seconds
 
 [source,text]
 ----
-┌─────────────────────────────────────────────────────────────┐
-│                    BOUNDARY FRAMEWORK                       │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐   │
-│  │    CORE     │     │    SHELL    │     │   PORTS     │   │
-│  │  Pure logic │ ←── │  I/O layer  │ ──→ │  Protocols  │   │
-│  │  No mocking │     │  Adapters   │     │  Contracts  │   │
-│  └─────────────┘     └─────────────┘     └─────────────┘   │
-├─────────────────────────────────────────────────────────────┤
-│  Built-in: Jobs | Cache | MFA | Search | Storage | API     │
-└─────────────────────────────────────────────────────────────┘
+Boundary = module-first monorepo + FC/IS architecture
+
+Inside each module:
+- core/   : pure business logic
+- ports   : contracts/protocols
+- shell/  : HTTP/CLI/DB/external I/O
 ----
 
-== Core Value Proposition
+== Why Teams Use It
 
-[cols="1,3"]
-|===
-|🧪 *Testability* |Pure core functions = tests without mocks, <1ms execution
-|🏗️ *Architecture* |FC/IS enforced by structure, not convention
-|🔌 *Features* |Background jobs, caching, MFA, search, storage built-in
-|📦 *Module Isolation* |Zero cross-module imports. Scale vertically, horizontally, or extract to microservices — no rewrites.
-|===
+* Predictable architecture with strict dependency flow
+* Fast, isolated tests for pure core logic
+* Built-in modules for auth, admin, storage, jobs, tenant, and more
+* Clear path from modular monolith to extracted services
 
-== Module Structure
+== Project Structure
 
 [source,text]
 ----
-src/boundary/{module}/
-├── core/           # PURE - business logic, decisions
-├── shell/          # IMPURE - HTTP, database, services
-├── ports.clj       # Protocols (interfaces)
-└── schema.clj      # Malli validation
+libs/
+├── core/
+├── observability/
+├── platform/
+├── user/
+├── admin/
+├── storage/
+├── cache/
+├── jobs/
+├── email/
+├── realtime/
+├── tenant/
+├── scaffolder/
+└── external/
 ----
-
-*Rule:* `core` never imports `shell`. Pure functions only.
-
-== Built-in Features
-
-[cols="1,1,1"]
-|===
-|Feature |Dev |Prod
-
-|Background Jobs |In-memory |Redis
-|Caching |In-memory |Redis
-|File Storage |Local FS |AWS S3
-|Database |SQLite |PostgreSQL
-|Search |— |PostgreSQL FTS
-|Auth |JWT + MFA |JWT + MFA
-|===
 
 == Quick Start
 
 [source,bash]
 ----
-git clone https://github.com/thijs-creemers/boundary && cd boundary
+git clone https://github.com/thijs-creemers/boundary
+cd boundary
 export JWT_SECRET="your-secret-minimum-32-characters-long"
 clojure -M:repl-clj
 ----
@@ -76,10 +61,10 @@ clojure -M:repl-clj
 [source,clojure]
 ----
 (require '[integrant.repl :as ig-repl])
-(ig-repl/go)  ; → http://localhost:3000
+(ig-repl/go) ; starts app (default: http://localhost:3000)
 ----
 
-== Common Commands
+== Core Commands
 
 [cols="1,2"]
 |===
@@ -88,20 +73,20 @@ clojure -M:repl-clj
 |`clojure -M:test:db/h2`
 |Run all tests
 
-|`clojure -M:repl-clj`
-|Start REPL (nREPL on 7888)
+|`clojure -M:test:db/h2 :user`
+|Run one library test suite
 
-|`(ig-repl/go)`
-|Start system
+|`clojure -M:clj-kondo --lint src test libs/*/src libs/*/test`
+|Lint project code
 
-|`(ig-repl/reset)`
-|Reload & restart
+|`clojure -M:migrate migrate`
+|Run DB migrations
 
-|`clojure -M:clj-kondo --lint src`
-|Lint codebase
+|`clojure -M:docs-lint`
+|Validate docs namespace/path/link references
 |===
 
-== Scaffolding
+== Scaffolding Example
 
 [source,bash]
 ----
@@ -112,50 +97,21 @@ clojure -M -m boundary.scaffolder.shell.cli-entry generate \
   --field price:decimal:required
 ----
 
-Generates: core, shell, ports, schema, tests, migration (12 files).
+== Testing Model
 
-== Testing Strategy
+* Unit: pure core behavior
+* Integration: shell orchestration
+* Contract: adapter/DB behavior
 
-[cols="1,2,1"]
-|===
-|Type |What |Where
+== Good Fit
 
-|Unit |Pure core logic |`test/{module}/core/`
-|Integration |Service orchestration |`test/{module}/shell/`
-|Contract |Database adapters |`test/{module}/shell/`
-|===
-
-== Scaling Path
-
-[source,text]
-----
-Monolith → Larger Server → Extract Hot Module → Full Microservices
-   │            │                  │                    │
-   └────────────┴──────────────────┴────────────────────┘
-                    Same business logic code
-----
-
-Modules communicate via *protocols*, not direct imports. Swap `InProcessAdapter` for `HttpAdapter` when extracting — zero module code changes.
-
-== Good Fit For
-
-* Production systems that need to scale
-* Teams who value testability
-* Projects evolving toward microservices
-* Developers who prefer explicit over magical
-
-_For quick prototypes or simple CRUD apps, lighter tools may serve you better._
-
-== Examples Included
-
-* **Todo API** — REST basics, JWT auth
-* **Blog App** — HTMX, Hiccup, SQLite
-* **E-commerce** — State machine, payments
-* **Notifications** — Event-driven, pub/sub
+* Medium to large business domains
+* Teams that need long-term maintainability
+* Systems requiring multiple interfaces (HTTP/CLI/Web)
 
 == Links
 
 * https://github.com/thijs-creemers/boundary[GitHub Repository]
-* https://thijs-creemers.github.io/boundary-docs/[Documentation]
-* link:why-boundary[Why Boundary? (detailed)]
+* https://thijs-creemers.github.io/boundary/[Documentation]
+* link:why-boundary[Why Boundary?]
 * link:quickstart[5-Minute Quickstart]

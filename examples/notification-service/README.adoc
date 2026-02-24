@@ -359,6 +359,6 @@ For production deployment:
 
 == See Also
 
-* link:../ecommerce-api/README.adoc[E-commerce API Example] - REST API with state machine
-* link:../blog-app/README.adoc[Blog Application Example] - Full-stack web application
+* link:../ecommerce-api/README.md[E-commerce API Example] - REST API with state machine
+* link:../blog-app/README.md[Blog Application Example] - Full-stack web application
 * link:../../AGENTS.md[Developer Guide] - Complete framework reference

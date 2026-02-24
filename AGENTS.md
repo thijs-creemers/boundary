@@ -41,10 +41,10 @@ clojure -M:test:db/h2 --focus-meta :contract       # Database contract tests
 
 # Testing - Watch mode and specific namespaces
 clojure -M:test:db/h2 --watch :core                # Watch core library tests
-clojure -M:test:db/h2 --focus boundary.core.validation-test  # Single namespace
+clojure -M:test:db/h2 --focus validation-test                # Single namespace
 
 # Update validation snapshots
-UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
+UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus user-validation-snapshot-test
 
 # Code Quality
 clojure -M:clj-kondo --lint src test libs/*/src libs/*/test  # Lint all code
@@ -67,7 +67,7 @@ clojure -T:build clean && clojure -T:build uber    # Build uberjar
 java -jar target/boundary-*.jar server             # Run standalone jar
 
 # Database Migrations
-clojure -M:migrate up                              # Run migrations
+clojure -M:migrate migrate                         # Run migrations
 ```
 
 ### Architecture Quick Facts
@@ -128,7 +128,7 @@ libs/
 
 ```clojure
 ;; ✅ CORRECT - Convert ONLY at persistence boundary using shared utilities
-(require '[boundary.shared.core.utils.case-conversion :as cc])
+(require '[boundary.core.utils.case-conversion :as cc])
 
 ;; At persistence boundary - DB to Clojure
 (cc/snake-case->kebab-case-map db-record)
@@ -214,7 +214,7 @@ When encountering 500 errors or unexpected behavior:
 
 1. **Check logs first** - Errors are logged with stack traces:
    ```bash
-   tail -100 logs/boundary.log | grep -A 10 "ERROR"
+   tail -100 logs/app.log | grep -A 10 "ERROR"
    ```
 
 2. **Add temporary logging** - Use `println` for quick debugging:
@@ -500,7 +500,7 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 
 **For in-depth information, see:**
 
-- **[Full Agent Guide](docs/archive/AGENTS_FULL.md)** - Legacy comprehensive reference (pre-library-split)
+- **[Documentation Index](docs-site/content/README.adoc)** - Main docs navigation
 - **[Architecture Guide](docs-site/content/architecture/)** - FC/IS patterns, design decisions
 - **[Module Scaffolding](libs/scaffolder/README.md)** - Complete scaffolding workflow
 - **[MFA Setup Guide](docs-site/content/guides/mfa-setup.md)** - Multi-factor authentication

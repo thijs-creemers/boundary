@@ -114,7 +114,7 @@ clojure -M:clj-kondo --lint libs/admin/src libs/admin/test
 bb scripts/docs_lint.clj
 
 # Via Clojure (CI)
-clojure -M:dev -m boundary.tools.docs-lint
+clojure -M:docs-lint
 ----
 
 Output reports: `build/docs-lint/report.txt` and `build/docs-lint/report.edn`
@@ -208,7 +208,7 @@ java -jar target/boundary-*.jar server
 
 [source,bash]
 ----
-clojure -M:migrate up
+clojure -M:migrate migrate
 ----
 
 [[migrate-down]]
@@ -216,7 +216,7 @@ clojure -M:migrate up
 
 [source,bash]
 ----
-clojure -M:migrate down
+clojure -M:migrate rollback
 ----
 
 [[scaffolding]]

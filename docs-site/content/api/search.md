@@ -392,7 +392,7 @@ async function search(query, page = 0) {
 
 **1. Run Migrations** - Create search columns and indexes:
 ```bash
-clojure -M:migrate up
+clojure -M:migrate migrate
 ```text
 
 Adds `search_vector` columns with GIN indexes to `users` and `items` tables.

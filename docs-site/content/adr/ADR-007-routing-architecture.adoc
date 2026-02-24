@@ -267,25 +267,25 @@ This pattern aligns with Boundary's architectural principles:
 
 === Files Modified
 
-1. **src/boundary/user/shell/http.clj**
+1. **libs/user/src/boundary/user/shell/http.clj**
    - Created `api-routes` function (routes without `/api` prefix)
    - Renamed `web-routes` to `web-ui-routes` (routes without `/web` prefix)
    - Restructured `user-routes` to return `{:api :web :static}` map
    - Added `user-routes-flat` for backward compatibility
    - Deprecated `create-handler`, `create-router`, `create-app`
 
-2. **src/boundary/user/shell/module_wiring.clj**
+2. **libs/user/src/boundary/user/shell/module_wiring.clj**
    - Added `:boundary/user-routes` init-key
    - Deprecated `:boundary/user-http-handler` with warnings
    - Returns structured route format
 
-3. **src/boundary/shell/system/wiring.clj**
+3. **libs/platform/src/boundary/platform/shell/system/wiring.clj**
    - Updated `:boundary/http-handler` to accept `:user-routes`
    - Extracts `:api`, `:web`, `:static` from routes structure
    - Adds `/web` prefix to web routes
    - Composes all routes for router creation
 
-4. **src/boundary/shell/interfaces/http/routes.clj**
+4. **libs/platform/src/boundary/platform/shell/interfaces/http/routes.clj**
    - Added `[ring.middleware.resource :refer [wrap-resource]]`
    - Modified `create-handler` to use `wrap-resource` middleware
    - Static files served before Reitit routing
@@ -385,8 +385,8 @@ All endpoints functioning correctly with proper prefixes and content types.
 ----
 ;; 1. Define routes in boundary.inventory.shell.http
 (defn inventory-routes [inventory-service config]
-  {:api (billing-api-routes inventory-service)
-   :web (billing-web-routes inventory-service config)
+  {:api (storage-api-routes inventory-service)
+   :web (storage-web-routes inventory-service config)
    :static []})
 
 ;; 2. Wire in boundary.inventory.shell.module-wiring
@@ -394,7 +394,7 @@ All endpoints functioning correctly with proper prefixes and content types.
   [_ {:keys [inventory-service config]}]
   (inventory-http/inventory-routes inventory-service config))
 
-;; 3. Update system wiring to compose billing routes
+;; 3. Update system wiring to compose storage routes
 (defmethod ig/init-key :boundary/http-handler
   [_ {:keys [config user-routes inventory-routes]}]
   ;; Compose user-routes and inventory-routes...
