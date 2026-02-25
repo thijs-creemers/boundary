@@ -1,0 +1,63 @@
+= Historical Docs Triage (Week 5)
+
+[abstract]
+--
+This file tracks deferred documentation cleanup for historical reports and migration-history pages. These files are intentionally excluded from active-doc stabilization work.
+--
+
+== Scope
+
+This triage covers:
+
+* `docs-site/content/change-reports/*`
+* `docs-site/content/reference/migrations/*`
+
+== Decision Rules
+
+1. Keep historical context intact when the old path is part of migration narrative.
+2. Update links if they are used as current implementation references.
+3. Add explicit “historical snapshot” notes where stale paths are intentional.
+4. Avoid mixing modernization edits with archival reports unless the meaning is ambiguous.
+
+== Triage Table
+
+[cols="2,1,3,1"]
+|===
+|File |Decision |Reason |Priority
+
+|`docs-site/content/change-reports/FC-IS-COMPLIANCE-ANALYSIS.adoc`
+|Keep as historical + annotate
+|Contains period-specific analysis and planned TODO items against pre-split paths.
+|P2
+
+|`docs-site/content/change-reports/FC-IS-REFACTORING-COMPLETE.adoc`
+|Keep as historical + annotate
+|Captures completed migration-era state; paths reflect historical structure.
+|P2
+
+|`docs-site/content/change-reports/PEDESTAL_ADAPTER_ABANDONMENT.adoc`
+|Update selected links
+|Used for architectural rationale and still read actively; modern link targets improve navigability.
+|P1
+
+|`docs-site/content/change-reports/SERVICE-METHOD-RENAMING-MIGRATION.adoc`
+|Keep as historical + annotate
+|Migration report references old locations by design.
+|P2
+
+|`docs-site/content/reference/migrations/_index.adoc`
+|Keep
+|Index file, no urgent drift risk.
+|P3
+
+|`docs-site/content/reference/migrations/library-split.adoc`
+|Keep historical mapping
+|Core purpose is old->new mapping; old paths are intentional content.
+|P3
+|===
+
+== Week 5 Execution Order
+
+1. Add historical-context disclaimer blocks to P2 files.
+2. Update selected active reference links in P1 file.
+3. Re-run `clojure -M:docs-lint` and AGENTS link checks.

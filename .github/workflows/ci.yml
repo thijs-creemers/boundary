@@ -52,7 +52,7 @@ jobs:
             libs/scaffolder/src
 
   # =============================================================================
-  # Documentation drift check (warn-only)
+  # Documentation drift check (failing gate)
   # =============================================================================
   docs-lint:
     name: Docs Lint

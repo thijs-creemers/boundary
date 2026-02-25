@@ -111,6 +111,8 @@ validation system developer guide
 Validation approach and patterns
 * link:reference/docs-maintenance-checklist.adoc[Documentation Maintenance Checklist] -
 Pre-merge docs quality checks
+* link:reference/historical-docs-triage.adoc[Historical Docs Triage] -
+Deferred cleanup tracker for archived/migration-era docs
 
 [[electric_plug-api]]
 ==== 🔌 link:api/[API]
