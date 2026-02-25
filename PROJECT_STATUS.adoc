@@ -173,9 +173,9 @@ Week 4 is in progress with a stabilization-first scope (targeted drift fixes, no
 |`clojure -M:docs-lint` and AGENTS link checks remain clean after each patch batch.
 |===
 
-== Week 5 Hardening Start (2026-02-26)
+== Week 5 Hardening Complete (2026-02-26)
 
-Week 5 is focused on process hardening and controlled backlog handling.
+Week 5 process-hardening scope is complete for this cycle.
 
 [cols="1,3"]
 |===
@@ -183,6 +183,9 @@ Week 5 is focused on process hardening and controlled backlog handling.
 
 |CI gate clarity
 |Corrected workflow annotation to reflect docs-lint as a failing CI gate (not warn-only).
+
+|Command smoke automation
+|Added `scripts/command-smoke-check.sh` and CI `command-smoke` job to verify key aliases/entrypoints and run fast docs/links checks.
 
 |Deferred-doc scope control
 |Added a dedicated historical-docs triage tracker for change-reports and migration-history content, with explicit keep/update priorities.
@@ -201,7 +204,7 @@ Week 5 is focused on process hardening and controlled backlog handling.
 
 . Close `boundary-external` scope definition and ship first production-capable adapter set.
 . Decide realtime scaling path (single-node hardening vs Redis-backed multi-node support) and align tests/docs.
-. Continue concise modernization for remaining long architecture/reference pages while keeping `docs-lint` at zero warnings.
+. Execute the historical-doc triage backlog (P1 then P2/P3) while preserving intentional migration-era context.
 . Keep CI signal quality high by preserving fast per-library feedback and enforcing docs/link hygiene.
 
 == Status Maintenance Rules
