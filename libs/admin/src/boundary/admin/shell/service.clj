@@ -196,6 +196,22 @@
         (vec (cons :and non-nil-clauses))))))
 
 ;; =============================================================================
+;; Query Config Resolution
+;; =============================================================================
+
+(defn- resolve-query-config
+  "Extract query configuration from entity-config, applying :query-overrides if present.
+   Entities without :query-overrides behave exactly as before."
+  [entity-config]
+  (let [overrides (:query-overrides entity-config {})
+        table-name (:table-name entity-config)]
+    {:from-clause       (or (:from overrides) [table-name])
+     :select-clause     (or (:select overrides) [:*])
+     :join-clause       (:join overrides)
+     :field-aliases     (:field-aliases overrides {})
+     :soft-delete-table (or (:soft-delete-table overrides) table-name)}))
+
+;; =============================================================================
 ;; Admin Service Implementation
 ;; =============================================================================
 
@@ -210,7 +226,6 @@
       :offset (:offset options)}
      (fn [{:keys [_params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
-             table-name (:table-name entity-config)
              soft-delete? (:soft-delete entity-config false)
              search-term (:search options)
              search-fields (:search-fields entity-config)
@@ -219,26 +234,36 @@
              sort-dir (:sort-dir options)
              default-sort (:default-sort entity-config :id)
 
+             {:keys [from-clause select-clause join-clause field-aliases]} (resolve-query-config entity-config)
+
+             ; Resolve field aliases for WHERE and ORDER BY
+             resolved-search-fields (mapv #(get field-aliases % %) search-fields)
+             resolved-sort-field    (when sort-field (get field-aliases sort-field sort-field))
+             resolved-default-sort  (get field-aliases default-sort default-sort)
+             soft-delete-field      (get field-aliases :deleted-at :deleted_at)
+
               ; Build query components
-             search-where (build-search-where search-term search-fields)
+             search-where (build-search-where search-term resolved-search-fields)
              filter-where (build-filter-where filters)
              ; Exclude soft-deleted records if entity uses soft delete
-             soft-delete-where (when soft-delete? [:= :deleted-at nil])
+             soft-delete-where (when soft-delete? [:= soft-delete-field nil])
              where-clause (combine-where-clauses [search-where filter-where soft-delete-where])
-             ordering (build-ordering sort-field sort-dir default-sort)
+             ordering (build-ordering resolved-sort-field sort-dir resolved-default-sort)
              pagination (build-pagination options config)
 
               ; Build list query
-             list-query (cond-> {:select [:*]
-                                 :from [table-name]
+             list-query (cond-> {:select select-clause
+                                 :from from-clause
                                  :order-by ordering
                                  :limit (:limit pagination)
                                  :offset (:offset pagination)}
+                          join-clause  (assoc :join join-clause)
                           where-clause (assoc :where where-clause))
 
               ; Build count query
              count-query (cond-> {:select [[:%count.* :total]]
-                                  :from [table-name]}
+                                  :from from-clause}
+                           join-clause  (assoc :join join-clause)
                            where-clause (assoc :where where-clause))
 
               ; Execute queries
@@ -267,18 +292,19 @@
      {:entity (name entity-name) :id id}
      (fn [{:keys [_params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
-             table-name (:table-name entity-config)
              primary-key (:primary-key entity-config :id)
              soft-delete? (:soft-delete entity-config false)
              ;; Convert UUID to string for PostgreSQL compatibility
              id-str (type-conversion/uuid->string id)
-             query (cond-> {:select [:*]
-                            :from [table-name]
-                            :where [:= primary-key id-str]}
-                      ; Also check not soft-deleted if applicable
-                     soft-delete? (assoc :where [:and
-                                                 [:= primary-key id-str]
-                                                 [:= :deleted-at nil]]))
+             {:keys [from-clause select-clause join-clause field-aliases]} (resolve-query-config entity-config)
+             id-field          (get field-aliases :id primary-key)
+             soft-delete-field (get field-aliases :deleted-at :deleted_at)
+             query (cond-> {:select select-clause
+                            :from from-clause
+                            :where (if soft-delete?
+                                     [:and [:= id-field id-str] [:= soft-delete-field nil]]
+                                     [:= id-field id-str])}
+                     join-clause (assoc :join join-clause))
              db-result (db/execute-one! db-ctx query)]
           ; Convert snake_case keys from database to kebab-case for internal use
          (case-conversion/snake-case->kebab-case-map db-result)))
@@ -360,10 +386,13 @@
                            :where [:= primary-key id-str]}
              _ (db/execute-one! db-ctx update-query)
 
-              ; Fetch the updated record
-             select-query {:select [:*]
-                           :from [table-name]
-                           :where [:= primary-key id-str]}
+              ; Fetch the updated record using join-aware query
+             {:keys [from-clause select-clause join-clause field-aliases]} (resolve-query-config entity-config)
+             id-field (get field-aliases :id primary-key)
+             select-query (cond-> {:select select-clause
+                                   :from from-clause
+                                   :where [:= id-field id-str]}
+                            join-clause (assoc :join join-clause))
              db-result (db/execute-one! db-ctx select-query)]
 
           ; Convert snake_case keys from database to kebab-case for internal use
@@ -422,10 +451,13 @@
                              :where [:= primary-key id-str]}
                _ (db/execute-one! db-ctx update-query)
 
-               ; Fetch updated record
-               select-query {:select [:*]
-                             :from [table-name]
-                             :where [:= primary-key id-str]}
+               ; Fetch updated record using join-aware query
+               {:keys [from-clause select-clause join-clause field-aliases]} (resolve-query-config entity-config)
+               id-field (get field-aliases :id primary-key)
+               select-query (cond-> {:select select-clause
+                                     :from from-clause
+                                     :where [:= id-field id-str]}
+                              join-clause (assoc :join join-clause))
                db-result (db/execute-one! db-ctx select-query)]
 
            ; Return kebab-case record
@@ -442,7 +474,8 @@
              primary-key (:primary-key entity-config :id)
              soft-delete? (:soft-delete entity-config false)
              ;; Convert UUID to string for PostgreSQL compatibility
-             id-str (type-conversion/uuid->string id)]
+             id-str (type-conversion/uuid->string id)
+             {:keys [soft-delete-table]} (resolve-query-config entity-config)]
 
          (if soft-delete?
              ; Soft delete: Set deleted-at timestamp and optionally active=false
@@ -453,7 +486,7 @@
                                           has-active-field? (assoc :active false))
                   ;; Convert to snake_case for database
                  soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
-                 query {:update table-name
+                 query {:update soft-delete-table
                         :set soft-delete-data
                         :where [:= primary-key id-str]}]
              (pos? (db/execute-update! db-ctx query)))
@@ -470,14 +503,16 @@
      {:entity (name entity-name)}
      (fn [{:keys [_params]}]
        (let [entity-config (ports/get-entity-config schema-provider entity-name)
-             table-name (:table-name entity-config)
              soft-delete? (:soft-delete entity-config false)
+             {:keys [from-clause join-clause field-aliases]} (resolve-query-config entity-config)
+             soft-delete-field (get field-aliases :deleted-at :deleted_at)
              filter-where (build-filter-where filters)
              ; Exclude soft-deleted records if entity uses soft delete
-             soft-delete-where (when soft-delete? [:= :deleted-at nil])
+             soft-delete-where (when soft-delete? [:= soft-delete-field nil])
              where-clause (combine-where-clauses [filter-where soft-delete-where])
              query (cond-> {:select [[:%count.* :total]]
-                            :from [table-name]}
+                            :from from-clause}
+                     join-clause  (assoc :join join-clause)
                      where-clause (assoc :where where-clause))
              result (db/execute-one! db-ctx query)]
          (:total result 0)))

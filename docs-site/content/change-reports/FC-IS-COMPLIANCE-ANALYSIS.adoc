@@ -3,6 +3,11 @@
 :toclevels: 3
 :sectnums:
 
+[NOTE]
+====
+Historical snapshot: this report reflects repository structure and namespaces at the time of analysis. Legacy paths may appear intentionally.
+====
+
 == Executive Summary
 
 This document analyzes the `boundary.shell` namespace against Functional Core / Imperative Shell (FC/IS) architectural principles and identifies pure functions that should be extracted to a new `boundary.core` module.

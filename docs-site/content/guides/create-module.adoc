@@ -3,7 +3,7 @@
 [[overview]]
 == Overview
 
-Boundary's module-centric architecture organizes code by domain. This guide shows how to create a new module (e.g., `billing`, `inventory`) using the production-ready scaffolder or manually.
+Boundary's module-centric architecture organizes code by domain. This guide shows how to create a new module (e.g., `orders`, `inventory`) using the production-ready scaffolder or manually.
 
 TIP: **Use the Scaffolder**: The recommended approach is to use Boundary's module scaffolder, which generates production-ready modules with zero errors in seconds. See link:../reference/scaffolder.adoc[Module Scaffolder Reference] for details.
 
@@ -45,7 +45,7 @@ A complete module contains:
 
 [source]
 ----
-src/boundary/<module>/
+libs/<module>/src/boundary/<module>/
 ├── schema.clj              # Domain entities (Malli)
 ├── ports.clj               # Abstract interfaces
 ├── core/
@@ -62,19 +62,19 @@ src/boundary/<module>/
 
 [source,{shell}]
 ----
-mkdir -p src/boundary/billing/core
-mkdir -p src/boundary/billing/shell
+mkdir -p libs/orders/src/boundary/orders/core
+mkdir -p libs/orders/src/boundary/orders/shell
 ----
 
 [[step-2-schema]]
 == Step 2: Create Schema File
 
-Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/billing/schema.clj`:
+Create `link:https://github.com/thijs-creemers/boundary/blob/main/libs/orders/src/boundary/orders/schema.clj`:
 
 [source,clojure]
 ----
-(ns boundary.billing.schema
-  "Billing domain entity schemas.")
+(ns boundary.orders.schema
+  "Orders domain entity schemas.")
 
 (def Invoice
   [:map {:closed true}
@@ -89,12 +89,12 @@ Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/b
 [[step-3-ports]]
 == Step 3: Create Ports File
 
-Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/billing/ports.clj`:
+Create `link:https://github.com/thijs-creemers/boundary/blob/main/libs/orders/src/boundary/orders/ports.clj`:
 
 [source,clojure]
 ----
-(ns boundary.billing.ports
-  "Billing module port definitions (abstract interfaces).")
+(ns boundary.orders.ports
+  "Orders module port definitions (abstract interfaces).")
 
 (defprotocol IInvoiceRepository
   "Invoice data persistence interface."
@@ -102,7 +102,7 @@ Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/b
   (create-invoice [this invoice-entity]))
 
 (defprotocol IInvoiceService
-  "Billing service operations."
+  "Orders service operations."
   (create-invoice [this invoice-data])
   (process-payment [this invoice-id payment-method]))
 ----
@@ -110,12 +110,12 @@ Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/b
 [[step-4-core]]
 == Step 4: Create Core Logic
 
-Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/billing/core/billing.clj`:
+Create `link:https://github.com/thijs-creemers/boundary/blob/main/libs/orders/src/boundary/orders/core/orders.clj`:
 
 [source,clojure]
 ----
-(ns boundary.billing.core.billing
-  "Pure business logic for billing operations.
+(ns boundary.orders.core.orders
+  "Pure business logic for orders operations.
   
   This is the FUNCTIONAL CORE - pure functions only, no side effects.")
 
@@ -145,7 +145,7 @@ Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/b
 [[step-5-service]]
 == Step 5: Create Service Layer
 
-Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/billing/shell/service.clj`:
+Create `link:https://github.com/thijs-creemers/boundary/blob/main/libs/orders/src/boundary/orders/shell/service.clj`:
 
 [IMPORTANT]
 ====
@@ -162,13 +162,13 @@ Boundary's **multi-layer interceptor pattern** automatically handles observabili
 
 [source,clojure]
 ----
-(ns boundary.billing.shell.service
-  "Billing service orchestration.
+(ns boundary.orders.shell.service
+  "Orders service orchestration.
   
   This is the IMPERATIVE SHELL - coordinates I/O and calls core logic.
   Interceptors automatically handle observability integration."
-  (:require [boundary.billing.core.billing :as billing-core]
-            [boundary.billing.ports :as ports]))
+  (:require [boundary.orders.core.orders :as orders-core]
+            [boundary.orders.ports :as ports]))
 
 (defrecord BillingService [invoice-repo]
   ports/IInvoiceService
@@ -176,18 +176,18 @@ Boundary's **multi-layer interceptor pattern** automatically handles observabili
   (create-invoice [_ invoice-data]
     ;; Pure business logic - interceptors handle observability automatically:
     ;; - Logs "create-invoice" entry with correlation ID and user context
-    ;; - Tracks "billing-operations-attempted" metric
-    ;; - Times operation in "billing-operation-duration" histogram
+    ;; - Tracks "orders-operations-attempted" metric
+    ;; - Times operation in "orders-operation-duration" histogram
     ;; - Reports any exceptions with full context
     ;; - Logs business event on success
-    ;; - Updates "billing-operations-successful/failed" counters
-    (let [validation (billing-core/validate-invoice-data invoice-data)]
+    ;; - Updates "orders-operations-successful/failed" counters
+    (let [validation (orders-core/validate-invoice-data invoice-data)]
       (when-not (:valid? validation)
         (throw (ex-info "Invalid invoice" validation)))
       (ports/create-invoice invoice-repo invoice-data))))
 
-(defn create-billing-service
-  "Factory function for billing service."
+(defn create-orders-service
+  "Factory function for orders service."
   [invoice-repo]
   (->BillingService invoice-repo))
 ----
@@ -195,7 +195,7 @@ Boundary's **multi-layer interceptor pattern** automatically handles observabili
 [[step-6-persistence]]
 == Step 6: Create Persistence Adapter
 
-Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/billing/shell/persistence.clj`:
+Create `link:https://github.com/thijs-creemers/boundary/blob/main/libs/orders/src/boundary/orders/shell/persistence.clj`:
 
 [IMPORTANT]
 ====
@@ -212,11 +212,11 @@ Boundary's **persistence layer interceptors** automatically handle database obse
 
 [source,clojure]
 ----
-(ns boundary.billing.shell.persistence
-  "Billing persistence operations.
+(ns boundary.orders.shell.persistence
+  "Orders persistence operations.
   
   Interceptors automatically handle database observability."
-  (:require [boundary.billing.ports :as ports]
+  (:require [boundary.orders.ports :as ports]
             [boundary.platform.shell.adapters.database.common.core :as db]))
 
 (defrecord DatabaseInvoiceRepository [ctx]
@@ -251,26 +251,26 @@ Boundary's **persistence layer interceptors** automatically handle database obse
 [[step-7-http]]
 == Step 7: Create HTTP Interface
 
-Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/billing/shell/http.clj`:
+Create `link:https://github.com/thijs-creemers/boundary/blob/main/libs/orders/src/boundary/orders/shell/http.clj`:
 
 [source,clojure]
 ----
-(ns boundary.billing.shell.http
-  (:require [boundary.billing.ports :as ports]))
+(ns boundary.orders.shell.http
+  (:require [boundary.orders.ports :as ports]))
 
 (defn create-invoice-handler
-  [billing-service]
+  [orders-service]
   (fn [{{:keys [body]} :parameters}]
-    (let [invoice (ports/create-invoice billing-service body)]
+    (let [invoice (ports/create-invoice orders-service body)]
       {:status 201
        :body (kebab->camel invoice)})))
 
-(defn billing-routes
-  [billing-service]
+(defn orders-routes
+  [orders-service]
   [["/invoices" 
-    {:post {:handler (create-invoice-handler billing-service)
+    {:post {:handler (create-invoice-handler orders-service)
             :summary "Create invoice"
-            :tags ["billing"]
+            :tags ["orders"]
             :parameters {:body [:map
                                 [:userId :string]
                                 [:amount :double]
@@ -280,12 +280,12 @@ Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/b
 [[step-8-cli]]
 == Step 8: Create CLI Interface
 
-Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/billing/shell/cli.clj`:
+Create `link:https://github.com/thijs-creemers/boundary/blob/main/libs/orders/src/boundary/orders/shell/cli.clj`:
 
 [source,clojure]
 ----
-(ns boundary.billing.shell.cli
-  (:require [boundary.billing.ports :as ports]))
+(ns boundary.orders.shell.cli
+  (:require [boundary.orders.ports :as ports]))
 
 (def invoice-create-options
   [[nil "--user-id UUID" "User ID"]
@@ -304,17 +304,17 @@ Create `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/b
 
 Update main application to include new module:
 
-In `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shell/interfaces/http/server.clj` or similar:
+In `link:https://github.com/thijs-creemers/boundary/blob/main/libs/platform/src/boundary/platform/shell/interfaces/http/server.clj` or similar:
 
 [source,clojure]
 ----
-(require '[boundary.billing.shell.http :as billing-http])
+(require '[boundary.orders.shell.http :as orders-http])
 
 (defn create-app-routes
   [config services]
   (concat
     (:api (user-http/user-routes-normalized (:user-service services) config))
-    (:api (billing-http/billing-routes-normalized (:billing-service services) config))))
+    (:api (orders-http/orders-routes-normalized (:orders-service services) config))))
 ----
 
 [[checklist]]

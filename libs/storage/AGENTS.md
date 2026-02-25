@@ -89,3 +89,8 @@ clojure -M:test:db/h2 :storage
 ```
 
 Tests use `target/test-storage` temp directory with cleanup fixtures.
+
+## Links
+
+- [Library README](README.md)
+- [Root AGENTS Guide](../../AGENTS.md)

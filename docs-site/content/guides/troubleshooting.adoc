@@ -140,7 +140,7 @@ clojure -M:repl-clj
 ;; Ensure file is saved
 ;; Check namespace declaration matches file path
 
-;; For src/boundary/user/core/user.clj:
+;; For libs/user/src/boundary/user/core/user.clj:
 (ns boundary.user.core.user)  ; ✅ Correct
 
 ;; Reload namespace
@@ -280,7 +280,7 @@ clojure -M:cli user-list --user-id "$USER_ID" --format json 2>&1
 export BND_DEVEX_VALIDATION=true
 
 # Verify in REPL
-(require '[boundary.shared.core.config.feature-flags :as flags])
+(require '[boundary.core.config.feature-flags :as flags])
 (flags/enabled? :devex-validation)
 ;; Should return true
 

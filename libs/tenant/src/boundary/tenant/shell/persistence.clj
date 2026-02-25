@@ -1,10 +1,36 @@
 (ns boundary.tenant.shell.persistence
   (:require [boundary.core.utils.type-conversion :as type-conversion]
             [boundary.platform.shell.adapters.database.common.core :as db]
+            [boundary.platform.shell.adapters.database.utils.schema :as db-schema]
             [boundary.platform.shell.persistence-interceptors :as persistence-interceptors]
             [boundary.tenant.ports :as ports]
+            [boundary.tenant.schema :as tenant-schema]
             [cheshire.core]
-            [clojure.set]))
+            [clojure.set]
+            [clojure.tools.logging :as log]))
+
+;; =============================================================================
+;; Schema Initialization
+;; =============================================================================
+
+(defn initialize-tenant-schema!
+  "Initialize database schema for tenant entities using Malli schema definitions.
+
+   Creates the tenants table from the Tenant Malli schema.
+
+   Args:
+     ctx: Database context
+
+   Returns:
+     nil"
+  [ctx]
+  (log/info "Initializing tenant schema from Malli definitions")
+  (db-schema/initialize-tables-from-schemas! ctx
+                                             {"tenants" tenant-schema/Tenant}))
+
+;; =============================================================================
+;; Entity Transformations
+;; =============================================================================
 
 (defn- tenant-entity->db
   [ctx tenant-entity]

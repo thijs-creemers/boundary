@@ -24,9 +24,9 @@ Lower costs through reduced defects: comprehensive testing and proven design pat
 
 | Resource | Description |
 |----------|-------------|
-| **[Documentation](https://github.com/thijs-creemers/boundary-docs)** | Complete documentation: architecture, tutorials, API reference, ADRs |
+| **[Documentation](./docs-site/)** | Complete documentation: architecture, tutorials, API reference, ADRs |
 | **[AGENTS.md](./AGENTS.md)** | Developer guide: commands, patterns, conventions, troubleshooting |
-| **[PUBLISHING_GUIDE.md](docs/PUBLISHING_GUIDE.md)** | Publishing libraries to Clojars |
+| **[PUBLISHING_GUIDE.md](./docs-site/content/reference/publishing.md)** | Publishing libraries to Clojars |
 
 ## Library Architecture
 
@@ -111,7 +111,7 @@ In the REPL:
 - ✅ REPL-driven development
 - ✅ Production-ready Dockerfile
 
-**Next steps:** See the [**full documentation**](https://github.com/thijs-creemers/boundary-docs) or explore the [**5-minute quickstart**](./docs/QUICKSTART.md).
+**Next steps:** See the [**full documentation**](./docs-site/) or explore the [**5-minute quickstart**](./docs-site/content/getting-started/quickstart.md).
 
 ---
 
@@ -208,7 +208,7 @@ Boundary implements the **Functional Core / Imperative Shell** paradigm:
 - **Imperative Shell** (`shell/`): I/O, validation, adapters
 - **Ports** (`ports.clj`): Protocol definitions for dependency injection
 
-See the **[Documentation](https://github.com/thijs-creemers/boundary-docs)** for detailed architecture guides.
+See the **[Documentation](./docs-site/)** for detailed architecture guides.
 
 ## License
 

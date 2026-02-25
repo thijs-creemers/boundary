@@ -115,7 +115,7 @@ cd examples/ecommerce-api
 
 ```bash
 # Start with default dev profile
-clojure -M:run
+clojure -M -m ecommerce.main
 
 # Or start a REPL for interactive development
 clojure -M:repl-clj
@@ -472,7 +472,7 @@ curl http://localhost:3002/api/orders/$ORDER_ID | jq '.data.status'
 
 ## Resources
 
-- [Boundary Documentation](../../docs/README.md)
+- [Boundary Documentation](../../docs-site/)
 - [Stripe Payment Intents](https://stripe.com/docs/payments/payment-intents)
 - [Stripe Webhooks](https://stripe.com/docs/webhooks)
 - [FC/IS Architecture](https://www.destroyallsoftware.com/screencasts/catalog/functional-core-imperative-shell)

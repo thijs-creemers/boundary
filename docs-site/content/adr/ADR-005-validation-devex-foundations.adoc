@@ -112,7 +112,7 @@ Environment variable `BND_DEVEX_VALIDATION=true` enables:
 |I/O coordination, external dependencies
 
 |**Validation Infrastructure**
-|`boundary.shared.core.validation.*`
+|`boundary.core.validation.*`
 |Results, registry, codes, messages
 |===
 
@@ -134,7 +134,7 @@ Environment variable `BND_DEVEX_VALIDATION=true` enables:
 
 **Compatibility shim:**
 
-`boundary.shared.core.validation` namespace delegates to new implementations while preserving API:
+`boundary.core.validation` namespace delegates to new implementations while preserving API:
 
 [source,clojure]
 ----
@@ -199,7 +199,7 @@ Phase 2 successfully delivered enhanced error messaging capabilities while maint
 
 **Key Achievements:**
 
-1. **Message Templating System** (`boundary.shared.core.validation.messages`)
+1. **Message Templating System** (`boundary.core.validation.messages`)
    - Template resolution with fallback chain (operation → role → module → base → default)
    - Safe parameter interpolation with PII redaction
    - Field name formatting (kebab-case → Title Case with acronym handling)
@@ -210,7 +210,7 @@ Phase 2 successfully delivered enhanced error messaging capabilities while maint
    - Intelligent similarity scoring (threshold-based matching)
    - Formatted suggestion rendering with allowed values list
 
-3. **Contextual Rendering** (`boundary.shared.core.validation.context`)
+3. **Contextual Rendering** (`boundary.core.validation.context`)
    - Operation-specific templates (create/update/delete)
    - Role-based guidance (admin/user/viewer/moderator/guest)
    - Multi-user context support
@@ -323,13 +323,13 @@ Phase 2.1 delivered comprehensive unit tests for user validation in the function
 
 **Bugs Fixed:**
 
-1. **Email Regex Pattern** (`link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/user/schema.clj`)
+1. **Email Regex Pattern** (`link:https://github.com/thijs-creemers/boundary/blob/main/libs/user/src/boundary/user/schema.clj`)
    - Fixed: Double-backslash escape sequence causing validation failures
    - Improved: Regex now prevents consecutive dots in domain names
    - Changed from: `#"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"`
    - Changed to: `#"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\.[a-zA-Z]{2,}$"`
 
-2. **Business Rule Validation Logic** (`link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/user/core/user.clj`)
+2. **Business Rule Validation Logic** (`link:https://github.com/thijs-creemers/boundary/blob/main/libs/user/src/boundary/user/core/user.clj`)
    - Fixed: Incorrect nested map access in `validate-user-business-rules`
    - Issue: Using default parameter syntax instead of `get-in` for nested maps
    - Impact: User-id and email immutability rules now correctly enforced
@@ -377,8 +377,8 @@ Total execution time: 0.027 seconds
 **Files Modified:**
 
 1. ✅ `test/boundary/user/core/user_validation_test.clj` (created, 287 lines)
-2. ✅ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/user/schema.clj` (email regex fix)
-3. ✅ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/user/core/user.clj` (business rule validation fix)
+2. ✅ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/user/src/boundary/user/schema.clj` (email regex fix)
+3. ✅ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/user/src/boundary/user/core/user.clj` (business rule validation fix)
 4. ✅ `TEST_IMPLEMENTATION_SUMMARY.md` (documentation)
 
 **Validation Coverage Achieved:**
@@ -537,7 +537,7 @@ All property-based tests maintain strict Functional Core principles:
 
 **Completion Date:** 2025-11-05
 
-- [x] Implemented snapshot capture/serialize/compare/path utilities (pure) (`link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/validation/snapshot.clj`)
+- [x] Implemented snapshot capture/serialize/compare/path utilities (pure) (`link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/validation/snapshot.clj`)
 - [x] Added test I/O helpers with UPDATE_SNAPSHOTS flow (`test/boundary/shared/core/validation/snapshot_io.clj`)
 - [x] Created user validation snapshots (12 files) under `test/snapshots/validation/user/`
 - [x] Snapshot tests for user validation results (`test/boundary/user/core/user_validation_snapshot_test.clj`)
@@ -557,7 +557,7 @@ Snapshots: 12 EDN files generated
 
 **Completion Date:** 2025-11-05
 
-- [x] Behavior DSL available with mutation helpers, scenario execution, compilation (`link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/validation/behavior.clj`)
+- [x] Behavior DSL available with mutation helpers, scenario execution, compilation (`link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/validation/behavior.clj`)
 - [x] Applied DSL to user module CreateUserRequest
 - [x] Scenarios: valid data, four required-field cases, wrong email format
 
@@ -574,7 +574,7 @@ Snapshots: 12 EDN files generated
 
 **Completion Date:** 2025-11-05
 
-- [x] Coverage computation utilities (pure) (`link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/validation/coverage.clj`)
+- [x] Coverage computation utilities (pure) (`link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/validation/coverage.clj`)
 - [x] Coverage reporting integrated with Behavior DSL scenarios (user module)
 - [x] EDN and human-readable reports generated under `test/reports/coverage/`
 
@@ -598,7 +598,7 @@ Coverage (user): 100.0% (6/6 rules executed)
 
 === Phase 4.1: REPL Helpers ✅
 
-- New namespace: `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/tools/validation/repl.clj`
+- New namespace: `link:https://github.com/thijs-creemers/boundary/blob/main/dev/boundary/shared/tools/validation/repl.clj`
 - Features: registry listing, stats, conflicts, malli validate/explain wrappers,
   snapshot EDN generation, snapshot compare, timing helper
 
@@ -748,13 +748,13 @@ Coverage (user): 100.0% (6/6 rules executed)
 
 === Implementation Files
 
-- `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/validation/messages.clj` - Message templating and suggestion engine
-- `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/validation/context.clj` - Contextual rendering and example generation
-- `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/validation/codes.clj` - Error code catalog
-- `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/validation/result.clj` - Standard result format
-- `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/validation/registry.clj` - Rule registry for coverage tracking
-- `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/tools/validation/repl.clj` - REPL helpers (stats, conflicts, DOT, timing, snapshots)
-- `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/config/feature_flags.clj` - Feature flag management
+- `link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/validation/messages.clj` - Message templating and suggestion engine
+- `link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/validation/context.clj` - Contextual rendering and example generation
+- `link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/validation/codes.clj` - Error code catalog
+- `link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/validation/result.clj` - Standard result format
+- `link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/validation/registry.clj` - Rule registry for coverage tracking
+- `link:https://github.com/thijs-creemers/boundary/blob/main/dev/boundary/shared/tools/validation/repl.clj` - REPL helpers (stats, conflicts, DOT, timing, snapshots)
+- `link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/config/feature_flags.clj` - Feature flag management
 
 === Test Files
 
@@ -784,10 +784,10 @@ Coverage (user): 100.0% (6/6 rules executed)
 
 **Implementation Files:**
 
-- `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/validation/result.clj` - Standard result format
-- `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/validation/registry.clj` - Rule registry
-- `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/validation/codes.clj` - Error code catalog
-- `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shared/core/validation.clj` - Backward-compatible API
+- `link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/validation/result.clj` - Standard result format
+- `link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/validation/registry.clj` - Rule registry
+- `link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/validation/codes.clj` - Error code catalog
+- `link:https://github.com/thijs-creemers/boundary/blob/main/libs/core/src/boundary/core/validation.clj` - Backward-compatible API
 
 **Environment Variables:**
 

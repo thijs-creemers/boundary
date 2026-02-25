@@ -127,7 +127,7 @@ File storage abstraction with local filesystem and S3 backends, including upload
 
 ```clojure
 (ns myapp.paths
-  (:require [boundary.storage.core.path :as path]))
+  (:require [myapp.storage.path :as path]))
 
 ;; Date-based paths (good for many files)
 (path/generate :date-based {:prefix "uploads" :extension "jpg"})
@@ -148,16 +148,16 @@ File storage abstraction with local filesystem and S3 backends, including upload
 
 ```clojure
 (ns myapp.images
-  (:require [boundary.storage.core.image :as image]))
+  (:require [boundary.storage.ports :as storage-ports]))
 
-;; Resize image
-(image/resize file-bytes {:width 200 :height 200 :mode :cover})
+;; Resize image (via configured image processor)
+(storage-ports/resize-image image-processor file-bytes {:width 200 :height 200})
 
 ;; Generate thumbnail
-(image/thumbnail file-bytes {:size 100})
+(storage-ports/create-thumbnail image-processor file-bytes 100)
 
-;; Get image dimensions
-(image/dimensions file-bytes)
+;; Get image metadata
+(storage-ports/get-image-info image-processor file-bytes)
 ;; => {:width 1920 :height 1080}
 ```
 
@@ -186,7 +186,7 @@ File storage abstraction with local filesystem and S3 backends, including upload
 ## Module Structure
 
 ```
-src/boundary/storage/
+libs/storage/src/boundary/storage/
 ├── core/
 │   ├── validation.clj       # Upload validation (pure)
 │   ├── path.clj             # Path generation (pure)

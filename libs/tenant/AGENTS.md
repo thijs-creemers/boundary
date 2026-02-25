@@ -90,3 +90,8 @@ clojure -M:test:db/h2 :tenant
 clojure -M:test:db/h2 --focus boundary.tenant.core.tenant-test       # Unit
 clojure -M:test:db/h2 --focus boundary.tenant.shell.service-test     # Service
 ```
+
+## Links
+
+- [Library README](README.md)
+- [Root AGENTS Guide](../../AGENTS.md)

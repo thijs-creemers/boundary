@@ -259,14 +259,10 @@
   "Converts failed contexts (halted with exceptions) into proper HTTP error responses.
    Runs in both leave and error phases to catch contexts that were halted by fail-with-exception
    or had exceptions during pipeline execution.
-   
+
    Uses error mappings from the context to map domain-specific error types to HTTP responses."
   {:name :error-response-converter
    :leave (fn [ctx]
-            (println "DEBUG error-response-converter :leave: halt?=" (:halt? ctx) "exception=" (some? (:exception ctx)) "response=" (some? (:response ctx)))
-            (when (:exception ctx)
-              (println "DEBUG exception type:" (:type (ex-data (:exception ctx))))
-              (println "DEBUG error-mappings present:" (some? (:error-mappings ctx))))
             (if (and (:halt? ctx) (:exception ctx) (not (:response ctx)))
               ;; Context was halted with an exception but no response was set
               ;; Convert the exception into an HTTP error response using context mappings
@@ -274,10 +270,6 @@
               ;; Context is not failed or already has a response
               ctx))
    :error (fn [ctx]
-            (println "DEBUG error-response-converter :error: halt?=" (:halt? ctx) "exception=" (some? (:exception ctx)) "response=" (some? (:response ctx)))
-            (when (:exception ctx)
-              (println "DEBUG exception type:" (:type (ex-data (:exception ctx))))
-              (println "DEBUG error-mappings present:" (some? (:error-mappings ctx))))
             (if (and (:exception ctx) (not (:response ctx)))
               ;; Context has an exception from pipeline execution but no response was set
               ;; Convert the exception into an HTTP error response using context mappings

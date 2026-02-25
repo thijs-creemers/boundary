@@ -75,9 +75,19 @@ The interceptor system supports enter/leave/error phases, used by both HTTP and 
 - Only dependency: `org.clojure/clojure` and `metosin/malli`
 - Other libraries depend on core, but core depends on nothing else
 
+## Gotchas
+
+- Keep case conversion at boundaries only; do not mix snake_case keys in internal entities.
+- Avoid introducing implicit side effects in utility helpers (logging, random UUIDs, current time).
+
 ## Testing
 
 ```bash
 clojure -M:test:db/h2 :core
 clojure -M:test:db/h2 --focus-meta :unit   # All core tests are :unit
 ```
+
+## Links
+
+- [Library README](README.md)
+- [Root AGENTS Guide](../../AGENTS.md)

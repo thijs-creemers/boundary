@@ -11,4 +11,4 @@ Step-by-step guides for common tasks and workflows in Boundary Framework.
 
 ## Available Guides
 
-{{< section >}}
+Browse all guides in the navigation menu on the left.

@@ -11,7 +11,8 @@
   (:require [aero.core :as aero]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
-            [integrant.core :as ig]))
+            [integrant.core :as ig]
+            [boundary.user.schema :as user-schema]))
 
 ;; =============================================================================
 ;; Configuration Loading
@@ -269,7 +270,6 @@
         admin-enabled? (get-in config [:active :boundary/admin :enabled?])
         http-handler-config (cond-> {:config config
                                      :user-routes (ig/ref :boundary/user-routes)
-                                     :inventory-routes (ig/ref :boundary/inventory-routes)
                                      :tenant-routes (ig/ref :boundary/tenant-routes)
                                      :router (ig/ref :boundary/router)
                                      :logger (ig/ref :boundary/logging)
@@ -325,19 +325,6 @@
             {:handler (ig/ref :boundary/http-handler)
              :config http-cfg})}))
 
-(defn- inventory-module-config
-  "Return Integrant configuration for the inventory module."
-  [config]
-  {:boundary/inventory-repository
-   {:ctx (ig/ref :boundary/db-context)}
-
-   :boundary/inventory-service
-   {:repository (ig/ref :boundary/inventory-repository)}
-
-   :boundary/inventory-routes
-   {:service (ig/ref :boundary/inventory-service)
-    :config config}})
-
 (defn- admin-module-config
   "Return Integrant configuration for the admin module.
 
@@ -353,7 +340,8 @@
     (when (and admin-cfg (:enabled? admin-cfg))
       {:boundary/admin-schema-provider
        {:db-ctx (ig/ref :boundary/db-context)
-        :config admin-cfg}
+        :config admin-cfg
+        :malli-schemas {:users user-schema/User}}
 
        :boundary/admin-service
        {:db-ctx (ig/ref :boundary/db-context)
@@ -384,7 +372,10 @@
    Multi-tenant middleware is integrated separately in the HTTP handler."
   [config]
   (let [validation-cfg (user-validation-config config)]
-    {:boundary/tenant-repository
+    {:boundary/tenant-db-schema
+     {:ctx (ig/ref :boundary/db-context)}
+
+     :boundary/tenant-repository
      {:ctx (ig/ref :boundary/db-context)
       :logger (ig/ref :boundary/logging)
       :error-reporter (ig/ref :boundary/error-reporting)}
@@ -405,7 +396,7 @@
 
    The configuration is composed from:
    - Core system components (database, observability)
-   - Module-specific components (:user, :inventory, :admin, :tenant)
+   - Module-specific components (:user, :admin, :tenant)
 
    Future modules can be added by:
    1. Creating a *-module-config function (like user-module-config)
@@ -425,7 +416,6 @@
   [config]
   (merge (core-system-config config)
          (user-module-config config)
-         (inventory-module-config config)
          (tenant-module-config config)
          (admin-module-config config)))
 

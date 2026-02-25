@@ -207,7 +207,7 @@ The framework supports multiple interaction modes to serve different stakeholder
 * *Domain Frameworks*: Specialized frameworks for different industries (fintech, healthcare, e-commerce)
 * *Module Marketplace*: Shareable, installable modules for common functionality
 
-*Module Ownership Principle*: Each domain module like (`user`, `billing`, `workflow`) contains its complete functionality:
+*Module Ownership Principle*: Each domain module like (`user`, `admin`, `tenant`) contains its complete functionality:
 
 * Pure business logic (core)
 * Port definitions and schemas
@@ -215,6 +215,11 @@ The framework supports multiple interaction modes to serve different stakeholder
 * Service orchestration
 * Adapter implementations
 * Feature flag integration
+
+[NOTE]
+====
+Legacy Example Notice (2026-02-24): Some deeper technical examples in this PRD use conceptual namespace placeholders that may not map 1:1 to current source files. Current implementation guidance should prefer `libs/*` paths and active module libraries (`user`, `admin`, `storage`, `jobs`, `tenant`, etc.).
+====
 
 ==== link:#goals-and-non-goals[]2.2. Goals and Non-Goals
 
@@ -529,7 +534,7 @@ Ports are defined as Clojure protocols within each module’s `ports.clj` file, 
     "Notify user of account modifications."))
 ----
 
-*Billing Module Ports* (`boundary.billing.ports`):
+*Storage Module Ports* (`boundary.storage.ports`):
 
 [source,highlightjs,highlight]
 ----
@@ -552,7 +557,7 @@ Ports are defined as Clojure protocols within each module’s `ports.clj` file, 
     "Update invoice status. Returns updated invoice."))
 ----
 
-*Shared System Ports* (`boundary.shared.ports`):
+*Shared System Ports* (`boundary.platform.ports`):
 
 [source,highlightjs,highlight]
 ----
@@ -816,42 +821,14 @@ Boundary’s module-centric approach ensures each domain module owns its complet
 
 [source,highlightjs,highlight]
 ----
-src/boundary/
-├── user/                   # USER DOMAIN MODULE
-│   ├── core/               # Pure business logic
-│   │   ├── user.clj       # Core user functions
-│   │   ├── membership.clj  # Membership calculations
-│   │   └── preferences.clj # User preferences logic
-│   ├── ports.clj          # User-specific ports (IUserRepository, etc.)
-│   ├── schema.clj         # User domain schemas only
-│   ├── http.clj           # User HTTP handlers & routes
-│   ├── cli.clj            # User CLI commands & parsing
-│   └── shell/             # User shell components
-│       ├── adapters.clj   # User repository adapters
-│       └── service.clj    # User service orchestration
-├── billing/               # BILLING DOMAIN MODULE (feature-flagged)
-│   ├── core/
-│   │   ├── pricing.clj    # Price calculations
-│   │   ├── discounts.clj  # Discount logic
-│   │   └── invoicing.clj  # Invoice generation
-│   ├── ports.clj          # Billing ports (IPaymentProcessor, etc.)
-│   ├── schema.clj         # Billing schemas only
-│   ├── http.clj           # Billing HTTP handlers & routes
-│   ├── cli.clj            # Billing CLI commands & parsing
-│   └── shell/
-│       ├── adapters.clj   # Payment/invoice adapters
-│       └── service.clj    # Billing service
-└── workflow/              # WORKFLOW DOMAIN MODULE
-    ├── core/
-    │   ├── state_machine.clj # Process state logic
-    │   └── transitions.clj   # State transition rules
-    ├── ports.clj          # Workflow ports
-    ├── schema.clj         # Workflow schemas
-    ├── http.clj           # Workflow HTTP handlers & routes
-    ├── cli.clj            # Workflow CLI commands & parsing
-    └── shell/
-        ├── adapters.clj   # Workflow adapters
-        └── service.clj    # Workflow service
+libs/
+├── user/src/boundary/user/                 # USER DOMAIN MODULE
+├── admin/src/boundary/admin/               # ADMIN DOMAIN MODULE
+├── storage/src/boundary/storage/           # STORAGE DOMAIN MODULE
+├── jobs/src/boundary/jobs/                 # JOBS DOMAIN MODULE
+├── tenant/src/boundary/tenant/             # TENANT DOMAIN MODULE
+├── core/src/boundary/core/                 # Core shared utilities (validation, case/type conversion)
+└── platform/src/boundary/platform/         # Platform infrastructure (HTTP, DB, CLI)
 ----
 
 *Benefits of Module Ownership:*
@@ -869,7 +846,7 @@ The module-centric architecture enforces strict isolation between modules and be
 * *Allowed cross-module dependencies*
 +
 ** A module may require its own namespaces: `boundary.++<++module++>++.++**++`.
-** A module may require shared utilities: `boundary.shared.++**++`.
+** A module may require shared utilities: `boundary.core.++**++` and `boundary.platform.++**++`.
 ** A module may require other modules' *ports namespaces only*: `boundary.++<++other-module++>++.ports`.
 ** A module may depend on core messaging interfaces (for events) provided by the framework.
 * *Forbidden cross-module dependencies*
@@ -902,7 +879,7 @@ clojure -M -m boundary.scaffolder.shell.cli-entry generate \
   --field location:string:required
 ----
 
-*What Gets Generated* (12 files per module): ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/++{++module}/schema.clj` - Malli validation schemas ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/++{++module}/ports.clj` - Protocol definitions ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/++{++module}/core/entity.clj` - Pure business logic ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/++{++module}/core/ui.clj` - Hiccup UI components ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/++{++module}/shell/service.clj` - Service orchestration ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/++{++module}/shell/persistence.clj` - Database operations ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/++{++module}/shell/http.clj` - REST API routes ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/++{++module}/shell/web++_++handlers.clj` - Web UI handlers ++*++ `migrations/NNN++_++create++_{++entities}.sql` - Database migration ++*++ `test/boundary/++{++module}/core/entity++_++test.clj` - Unit tests ++*++ `test/boundary/++{++module}/shell/entity++_++repository++_++test.clj` - Contract tests ++*++ `test/boundary/++{++module}/shell/service++_++test.clj` - Integration tests
+*What Gets Generated* (12 files per module): ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/++{++module}/src/boundary/++{++module}/schema.clj` - Malli validation schemas ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/++{++module}/src/boundary/++{++module}/ports.clj` - Protocol definitions ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/++{++module}/src/boundary/++{++module}/core/entity.clj` - Pure business logic ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/++{++module}/src/boundary/++{++module}/core/ui.clj` - Hiccup UI components ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/++{++module}/src/boundary/++{++module}/shell/service.clj` - Service orchestration ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/++{++module}/src/boundary/++{++module}/shell/persistence.clj` - Database operations ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/++{++module}/src/boundary/++{++module}/shell/http.clj` - REST API routes ++*++ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/++{++module}/src/boundary/++{++module}/shell/web++_++handlers.clj` - Web UI handlers ++*++ `migrations/NNN++_++create++_{++entities}.sql` - Database migration ++*++ `test/boundary/++{++module}/core/entity++_++test.clj` - Unit tests ++*++ `test/boundary/++{++module}/shell/entity++_++repository++_++test.clj` - Contract tests ++*++ `test/boundary/++{++module}/shell/service++_++test.clj` - Integration tests
 
 *Generated Code Quality*: ++*++ ✅ Zero linting errors (clj-kondo validated) ++*++ ✅ Complete FC/IS architecture compliance ++*++ ✅ Full test coverage (unit {plus} integration {plus} contract) ++*++ ✅ Multi-interface support (REST {plus} Web {plus} CLI) ++*++ ✅ Observability integrated (logging, metrics, error reporting) ++*++ ✅ Production-ready CRUD operations
 
@@ -918,7 +895,7 @@ See `docs/user-guide/modules/ROOT/pages/reference/scaffolder.adoc` for complete 
 * When a module needs data or behavior from another module, define or use a port in the providing module or an event published on the core messaging interface.
 * Never require another module’s `core`, `shell`, `schema`, `persistence`, `http`, `cli`, or test namespaces; use ports or events instead.
 * Keep each module independently bootable by providing no-op or stub implementations for optional dependencies and gating features with module-level feature flags.
-* Use `boundary.shared.++*++` only for generic, domain-agnostic utilities; do not move domain logic there.
+* Use `boundary.core.++*++` and `boundary.platform.++*++` only for generic, domain-agnostic utilities; do not move domain logic there.
 * Use `clj-kondo` with the Boundary boundary rules in CI to catch accidental module boundary violations early.
 
 [[_enforcement_clj_kondo_and_ci]]
@@ -1355,7 +1332,7 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
 (ns boundary.user.schema
   (:require [malli.core :as m]
             [malli.transform :as mt]
-            [boundary.shared.schema :as shared]))
+            [boundary.platform.schema :as shared]))
 
 ;; Domain entity schemas
 (def User
@@ -1431,13 +1408,13 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
    :name :user-response}))
 ----
 
-*Billing Module Schemas* (`boundary.billing.schema`):
+*Storage Module Schemas* (`boundary.storage.schema`):
 
 [source,highlightjs,highlight]
 ----
-(ns boundary.billing.schema
+(ns boundary.storage.schema
   (:require [malli.core :as m]
-            [boundary.shared.schema :as shared]))
+            [boundary.platform.schema :as shared]))
 
 ;; Domain entities
 (def Invoice
@@ -1491,11 +1468,11 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
    [:paymentDetails [:map-of :keyword :any]]]) ; Payment method specific data
 ----
 
-*Shared Schemas* (`boundary.shared.schema`):
+*Shared Schemas* (`boundary.platform.schema`):
 
 [source,highlightjs,highlight]
 ----
-(ns boundary.shared.schema
+(ns boundary.platform.schema
   (:require [malli.core :as m]))
 
 ;; Common data types
@@ -1552,11 +1529,11 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
 [[_validation_pipeline_implementation]]
 ===== link:#_validation_pipeline_implementation[]4.3.2. Validation Pipeline Implementation
 
-*Shell Validation Functions* (`boundary.shared.shell.validation`):
+*Shell Validation Functions* (`boundary.core.utils.validation`):
 
 [source,highlightjs,highlight]
 ----
-(ns boundary.shared.shell.validation
+(ns boundary.core.utils.validation
   (:require [malli.core :as m]
             [malli.error :as me]
             [malli.transform :as mt]
@@ -1620,7 +1597,7 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
 [source,highlightjs,highlight]
 ----
 (ns boundary.user.shell.http.validation
-  (:require [boundary.shared.shell.validation :as validation]
+  (:require [boundary.core.utils.validation :as validation]
             [boundary.user.schema :as user-schema]
             [ring.util.response :as response]))
 
@@ -1649,7 +1626,7 @@ Schemas are organized by module to maintain domain ownership and prevent schema 
 [source,highlightjs,highlight]
 ----
 (ns boundary.user.shell.cli.validation
-  (:require [boundary.shared.shell.validation :as validation]
+  (:require [boundary.core.utils.validation :as validation]
             [boundary.user.schema :as user-schema]
             [malli.transform :as mt]))
 
@@ -1697,10 +1674,10 @@ Boundary enforces strict data and schema ownership to keep modules independently
 
 [source,highlightjs,highlight]
 ----
-;; ❌ Forbidden: billing module importing user schemas
-(ns boundary.billing.schema
+;; ❌ Forbidden: storage module importing user schemas
+(ns boundary.storage.schema
   (:require [boundary.user.schema :as user-schema]
-            [boundary.shared.schema :as shared]))
+            [boundary.platform.schema :as shared]))
 
 (def InvoiceWithCustomer
   [:map {:title "Invoice with Customer Details"}
@@ -1709,13 +1686,13 @@ Boundary enforces strict data and schema ownership to keep modules independently
    [:user-context shared/UserContext]])
 ----
 
-Instead, billing defines its own DTOs or projections and obtains user information via ports or events:
+Instead, storage defines its own DTOs or projections and obtains user information via ports or events:
 
 [source,highlightjs,highlight]
 ----
-;; ✅ Allowed: billing module depends on a user port and its own schema
-(ns boundary.billing.core.invoice
-  (:require [boundary.billing.schema :as billing-schema]
+;; ✅ Allowed: storage module depends on a user port and its own schema
+(ns boundary.storage.core.invoice
+  (:require [boundary.storage.schema :as storage-schema]
             [boundary.user.ports :as user-ports]))
 
 (defn enrich-invoice-with-user
@@ -1854,8 +1831,8 @@ config/
 ├── test.edn                # Test environment configuration
 └── modules/                # Module-specific configurations
     ├── user.edn            # User module configuration
-    ├── billing.edn         # Billing module configuration
-    └── workflow.edn        # Workflow module configuration
+    ├── admin.edn           # Admin module configuration
+    └── tenant.edn          # Tenant module configuration
 ----
 
 *Module-Centric Configuration Loading*:
@@ -1897,7 +1874,7 @@ config/
 
 (defn load-system-configuration
   "Loads complete system configuration including all enabled modules."
-  ([profile] (load-system-configuration profile [:user :billing :workflow]))
+  ([profile] (load-system-configuration profile [:user :admin :tenant]))
   ([profile enabled-modules]
    (let [base-config (load-base-config profile)
          module-configs (into {}
@@ -2010,7 +1987,7 @@ config/
                                                              :test true}}
                                  :notifications {:welcome-email true
                                                :password-reset true}}
-                          :billing {:enabled? #profile {:development true
+                          :storage {:enabled? #profile {:development true
                                                        :staging true
                                                        :production false  ; Not yet ready
                                                        :test true}
@@ -2022,7 +1999,7 @@ config/
                                                                       :staging true
                                                                       :production true
                                                                       :test false}}}
-                          :workflow {:enabled? #profile {:development false  ; Under development
+                          :jobs {:enabled? #profile {:development false  ; Under development
                                                         :staging false
                                                         :production false
                                                         :test true}
@@ -2161,11 +2138,11 @@ config/
                                                                      :test 1}}}}}
 ----
 
-*Billing Module Configuration* (`config/modules/billing.edn`):
+*Storage Module Configuration* (`config/modules/storage.edn`):
 
 [source,highlightjs,highlight]
 ----
-{:billing-module {:payment-processors {:stripe {:enabled? #profile {:development false
+{:storage-module {:payment-processors {:stripe {:enabled? #profile {:development false
                                                                     :staging true
                                                                     :production false  ; Not configured yet
                                                                     :test false}
@@ -2394,12 +2371,12 @@ config/
 [[_configuration_service_implementation]]
 ===== link:#_configuration_service_implementation[]4.4.6. Configuration Service Implementation
 
-*Configuration Service* (`boundary.shared.shell.config`):
+*Configuration Service* (`boundary.config`):
 
 [source,highlightjs,highlight]
 ----
-(ns boundary.shared.shell.config
-  (:require [boundary.shared.ports :as ports]
+(ns boundary.config
+  (:require [boundary.platform.ports :as ports]
             [clojure.tools.logging :as log]))
 
 (defrecord ConfigurationService [config cache]
@@ -2486,7 +2463,7 @@ config/
 ----
 (ns boundary.user.shell.service
   (:require [boundary.user.core.user :as user-core]
-            [boundary.shared.ports :as ports]
+            [boundary.platform.ports :as ports]
             [clojure.tools.logging :as log]))
 
 (defn create-user [system request-data]
@@ -2552,7 +2529,7 @@ config/
 ----
 (ns boundary.user.http
   (:require [reitit.ring :as ring]
-            [boundary.shared.ports :as ports]))
+            [boundary.platform.ports :as ports]))
 
 (defn feature-flag-middleware [feature-flag]
   "Middleware that checks feature flags before allowing requests."
@@ -2589,7 +2566,7 @@ config/
 
 [source,highlightjs,highlight]
 ----
-(ns boundary.shared.schema.config
+(ns boundary.platform.schema.config
   (:require [malli.core :as m]))
 
 (def DatabaseConfig
@@ -2640,10 +2617,10 @@ config/
 
 [source,highlightjs,highlight]
 ----
-(ns boundary.shared.shell.config-test
+(ns boundary.config-test
   (:require [clojure.test :refer [deftest is testing]]
-            [boundary.shared.shell.config :as config]
-            [boundary.shared.schema.config :as config-schema]))
+            [boundary.config :as config]
+            [boundary.platform.schema.config :as config-schema]))
 
 (def test-config
   {:server {:port 3000 :host "localhost" :shutdown-timeout-ms 30000}
@@ -2655,7 +2632,7 @@ config/
    :logging {:level :info :appenders [:console]}
    :feature-flags {:modules {:user {:enabled? true
                                    :endpoints {:create true :delete false}}
-                            :billing {:enabled? false}}
+                            :storage {:enabled? false}}
                   :features {:experimental-ui false}}
    :modules {:user {:validation {:email {:strict-mode? false}}}}})
 
@@ -2674,7 +2651,7 @@ config/
 
       (testing "module enablement checks"
         (is (= true (.is-module-enabled? config-service :user)))
-        (is (= false (.is-module-enabled? config-service :billing)))
+        (is (= false (.is-module-enabled? config-service :storage)))
         (is (= false (.is-module-enabled? config-service :nonexistent-module))))
 
       (testing "module configuration access"
@@ -2779,7 +2756,7 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
     "Remove all sessions expired before timestamp. Returns count of deleted sessions."))
 ----
 
-*Billing Module Repository* (`boundary.billing.ports`):
+*Storage Module Repository* (`boundary.storage.ports`):
 
 [source,highlightjs,highlight]
 ----
@@ -2822,16 +2799,16 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
     "Retrieve transactions within date range for reporting."))
 ----
 
-*Workflow Module Repository* (`boundary.workflow.ports`):
+*Jobs Module Repository* (`boundary.jobs.ports`):
 
 [source,highlightjs,highlight]
 ----
 (defprotocol IWorkflowRepository
-  "Workflow process and state persistence."
+  "Jobs process and state persistence."
 
   ;; Process instance operations
   (create-process-instance [this process-entity]
-    "Create new workflow process instance.")
+    "Create new jobs process instance.")
   (find-process-by-id [this process-id]
     "Retrieve process instance by ID.")
   (update-process-state [this process-id new-state state-data]
@@ -2846,8 +2823,8 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
     "Retrieve complete state transition history for process.")
 
   ;; Task management
-  (create-workflow-task [this task-entity]
-    "Create new workflow task.")
+  (create-jobs-task [this task-entity]
+    "Create new jobs task.")
   (find-pending-tasks-by-assignee [this assignee-id]
     "Find tasks assigned to specific user.")
   (complete-task [this task-id completion-data]
@@ -2861,17 +2838,17 @@ Each module defines its own repository interfaces as ports, ensuring domain owne
 
 The framework provides a comprehensive PostgreSQL implementation using next.jdbc and HoneySQL:
 
-*Base Repository Utilities* (`boundary.shared.shell.persistence`):
+*Base Repository Utilities* (`boundary.platform.shell.adapters.database.common.core`):
 
 [source,highlightjs,highlight]
 ----
-(ns boundary.shared.shell.persistence
+(ns boundary.platform.shell.adapters.database.common.core
   (:require [next.jdbc :as jdbc]
             [next.jdbc.connection :as connection]
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
             [clojure.tools.logging :as log]
-            [boundary.shared.shell.config :as config]))
+            [boundary.config :as config]))
 
 (defn create-connection-pool [db-config]
   "Creates HikariCP connection pool with configuration."
@@ -2976,7 +2953,7 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
 ----
 (ns boundary.user.shell.adapters.repository
   (:require [boundary.user.ports :as ports]
-            [boundary.shared.shell.persistence :as persistence]
+            [boundary.platform.shell.adapters.database.common.core :as persistence]
             [honey.sql :as sql]
             [clojure.tools.logging :as log]
             [java-time :as time]))
@@ -3146,7 +3123,7 @@ The framework provides a comprehensive PostgreSQL implementation using next.jdbc
 ----
 (ns boundary.user.shell.adapters.session-repository
   (:require [boundary.user.ports :as ports]
-            [boundary.shared.shell.persistence :as persistence]
+            [boundary.platform.shell.adapters.database.common.core :as persistence]
             [honey.sql :as sql]
             [clojure.tools.logging :as log]
             [java-time :as time]))
@@ -3239,7 +3216,7 @@ Boundary enforces transaction boundaries at the module service level, ensuring b
 (ns boundary.user.shell.service
   (:require [boundary.user.core.user :as user-core]
             [boundary.user.ports :as ports]
-            [boundary.shared.shell.persistence :as persistence]
+            [boundary.platform.shell.adapters.database.common.core :as persistence]
             [clojure.tools.logging :as log]))
 
 (defn register-user-with-welcome [system user-data]
@@ -3409,13 +3386,13 @@ For operations spanning multiple modules, Boundary uses explicit transaction coo
 ----
 (ns boundary.orders.shell.service
   (:require [boundary.user.ports :as user-ports]
-            [boundary.billing.ports :as billing-ports]
+            [boundary.storage.ports :as storage-ports]
             [boundary.orders.core.orders :as orders-core]
-            [boundary.shared.shell.persistence :as persistence]))
+            [boundary.platform.shell.adapters.database.common.core :as persistence]))
 
-(defn process-order-with-billing [system order-data]
-  "Process order involving user validation and billing in coordinated transaction."
-  (let [{:keys [datasource user-repository billing-repository
+(defn process-order-with-storage [system order-data]
+  "Process order involving user validation and storage in coordinated transaction."
+  (let [{:keys [datasource user-repository storage-repository
                payment-processor audit-repository]} system]
 
     (log/info "Starting order processing transaction" {:order-id (:id order-data)})
@@ -3424,7 +3401,7 @@ For operations spanning multiple modules, Boundary uses explicit transaction coo
     (persistence/with-transaction [tx datasource]
       (let [;; Create transactional repositories for all involved modules
             tx-user-repo (user-adapters/make-postgresql-user-repository tx)
-            tx-billing-repo (billing-adapters/make-postgresql-billing-repository tx)
+            tx-storage-repo (storage-adapters/make-postgresql-storage-repository tx)
             tx-audit-repo (audit-adapters/make-postgresql-audit-repository tx)
 
             ;; Step 1: Validate user and get customer details
@@ -3438,7 +3415,7 @@ For operations spanning multiple modules, Boundary uses explicit transaction coo
                          order-data
                          customer
                          {:user-repository tx-user-repo
-                          :billing-repository tx-billing-repo})
+                          :storage-repository tx-storage-repo})
 
             final-result
             (case (:status order-result)
@@ -3454,11 +3431,11 @@ For operations spanning multiple modules, Boundary uses explicit transaction coo
                                  :currency (:currency processed-order)
                                  :due-date (:due-date processed-order)}
 
-                    invoice (billing-ports/create-invoice tx-billing-repo invoice-data)
+                    invoice (storage-ports/create-invoice tx-storage-repo invoice-data)
 
                     ;; Step 4: Process payment if payment method provided
                     payment-result (when (:payment-method order-data)
-                                   (billing-ports/process-payment
+                                   (storage-ports/process-payment
                                      payment-processor
                                      {:invoice-id (:id invoice)
                                       :amount (:total-amount processed-order)
@@ -3523,12 +3500,12 @@ resources/migrations/
 │   ├── 002-create-user-sessions-table.sql
 │   ├── 003-add-user-preferences.sql
 │   └── 004-add-user-indexes.sql
-├── billing/
+├── storage/
 │   ├── 001-create-invoices-table.sql
 │   ├── 002-create-payments-table.sql
-│   ├── 003-add-billing-indexes.sql
+│   ├── 003-add-storage-indexes.sql
 │   └── 004-add-currency-support.sql
-└── workflow/
+└── jobs/
     ├── 001-create-processes-table.sql
     ├── 002-create-transitions-table.sql
     └── 003-create-tasks-table.sql
@@ -3591,11 +3568,11 @@ COMMENT ON COLUMN users.role IS 'User role for authorization (admin, user, viewe
 COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active user';
 ----
 
-*Migration Management Service* (`boundary.shared.shell.migrations`):
+*Migration Management Service* (`boundary.platform.shell.database.migrations`):
 
 [source,highlightjs,highlight]
 ----
-(ns boundary.shared.shell.migrations
+(ns boundary.platform.shell.database.migrations
   (:require [next.jdbc :as jdbc]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -3715,7 +3692,7 @@ COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [boundary.user.shell.adapters.repository :as user-repo]
             [boundary.user.ports :as user-ports]
-            [boundary.shared.shell.persistence :as persistence]
+            [boundary.platform.shell.adapters.database.common.core :as persistence]
             [testcontainers.core :as tc]
             [java-time :as time]))
 
@@ -3873,15 +3850,15 @@ COMMENT ON COLUMN users.deleted_at IS 'Soft delete timestamp - NULL means active
 [[error-handling-problem-details]]
 ==== link:#error-handling-problem-details[]4.6. Error Handling and Problem Details
 
-_++[++TODO: Complete with error taxonomy and response formats++]++_
+*Status (2026-02-23):* Error handling is standardized on RFC 7807 Problem Details and typed `ex-info` data (`:type` required). Detailed module-specific error catalogs are maintained in module docs and should be consolidated into one reference table in a future docs pass.
 
 ==== link:#observability-and-logging[]4.7. Observability and Logging
 
-_++[++TODO: Complete with logging standards and monitoring approach++]++_
+*Status (2026-02-23):* Observability is implemented via structured logging, audit/security log channels, and interceptor-based instrumentation. A consolidated SLO/alerting specification is still pending and should be added as an operations-focused supplement.
 
 ==== link:#security-and-authorization[]4.8. Security and Authorization
 
-_++[++TODO: Complete with security model and authorization patterns++]++_
+*Status (2026-02-23):* Security foundations are implemented (JWT auth, role checks, MFA in user module, typed authorization errors). A single cross-module authorization matrix (resource x action x role) remains an open documentation task.
 
 [[_apis]]
 === link:#_apis[]5. APIs
@@ -4386,11 +4363,11 @@ Provides system health status for monitoring and load balancer health checks.
 
 ==== link:#optional-graphql-adapter[]5.8. Optional GraphQL Adapter
 
-_++[++TODO: Complete with GraphQL integration approach++]++_
+*Status (2026-02-23):* GraphQL is not part of the current production baseline. REST remains the primary API contract; GraphQL can be treated as a future optional adapter once schema governance and authorization boundaries are defined.
 
 ==== link:#versioning-pagination-filtering-sorting[]5.9. Versioning, Pagination, Filtering, Sorting
 
-_++[++TODO: Complete with API conventions and standards++]++_
+*Status (2026-02-23):* Core API conventions are stable: versioned routes, Problem Details errors, and pagination conventions documented in dedicated API guides. Remaining work is consolidation into a single API style guide page for contributors.
 
 [[error-model-status-codes]]
 ==== link:#error-model-status-codes[]5.10. Error Model and Status Codes
@@ -5364,19 +5341,19 @@ All commands include built-in help:
 
 ==== link:#replicant-integration[]7.1. Replicant Integration
 
-_++[++TODO: Complete with frontend integration guidelines++]++_
+*Status (2026-02-23):* The current web frontend approach is server-rendered HTML with HTMX/Hiccup patterns (primarily in admin and web handlers). A framework-agnostic frontend integration guide is still pending.
 
 [[state-management-api-usage]]
 ==== link:#state-management-api-usage[]7.2. State Management and API Usage
 
-_++[++TODO: Complete with state management patterns and API integration++]++_
+*Status (2026-02-23):* State is primarily server-owned with request-driven updates from HTMX interactions. Client-heavy state management (SPA patterns) is out of scope for the default stack and should be documented as an optional extension.
 
 [[_data_model]]
 === link:#_data_model[]8. Data Model
 
 ==== link:#entities-dtos-schemas[]8.1. Entities, DTOs, Schemas
 
-_++[++TODO: Complete with comprehensive data model documentation++]++_
+*Status (2026-02-23):* Canonical data contracts live in module Malli schemas and migrations. This section should be treated as illustrative; exhaustive entity catalogs are better maintained per module to avoid drift.
 
 *Current Entities:*
 
@@ -5406,17 +5383,17 @@ _++[++TODO: Complete with comprehensive data model documentation++]++_
 
 ==== link:#multi-tenancy-preparation[]8.2. Multi-Tenancy Preparation
 
-_++[++TODO: Complete with multi-tenancy strategy and implementation patterns++]++_
+*Status (2026-02-23):* Multi-tenancy is implemented in the tenant library using schema-per-tenant patterns and provisioning lifecycle controls. Remaining work is publishing an end-to-end operator playbook (provisioning, migration, rollback).
 
 [[_user_stories_and_use_cases]]
 === link:#_user_stories_and_use_cases[]9. User Stories and Use Cases
 
-_++[++TODO: Complete with comprehensive user stories using templates++]++_
+*Status (2026-02-23):* User stories exist across module docs and ADRs but are not yet normalized into one PRD template set. Prioritize top workflows (auth, admin CRUD, jobs, tenant provisioning) in the next edit cycle.
 
 [[_success_and_acceptance_criteria]]
 === link:#_success_and_acceptance_criteria[]10. Success and Acceptance Criteria
 
-_++[++TODO: Complete with measurable success criteria++]++_
+*Status (2026-02-23):* Initial success metrics are defined in Section 11.2. Product-level acceptance thresholds (adoption, reliability, delivery lead time) still need explicit target values and review cadence.
 
 [[_implementation_roadmap_and_milestones]]
 === link:#_implementation_roadmap_and_milestones[]11. Implementation Roadmap and Milestones
@@ -5510,24 +5487,24 @@ Boundary’s development follows a strategic path from application framework to 
 [[_risk_assessment_and_mitigation]]
 === link:#_risk_assessment_and_mitigation[]12. Risk Assessment and Mitigation
 
-_++[++TODO: Complete with risk analysis and mitigation strategies++]++_
+*Status (2026-02-23):* Key current risks: documentation drift, module maturity variance, and operational consistency across optional libraries. Mitigations in progress include docs linting, CI checks, and per-module AGENTS guidance.
 
 [[_quality_assurance_and_testing_strategy]]
 === link:#_quality_assurance_and_testing_strategy[]13. Quality Assurance and Testing Strategy
 
-_++[++TODO: Complete with comprehensive testing approach++]++_
+*Status (2026-02-23):* Testing strategy is active and layered (unit/integration/contract metadata, per-library suites, CI execution). The remaining gap is one consolidated test strategy page mapping each test layer to ownership and release gates.
 
 [[_documentation_standards_and_templates]]
 === link:#_documentation_standards_and_templates[]14. Documentation Standards and Templates
 
-_++[++TODO: Reference and document the template usage++]++_
+*Status (2026-02-23):* Template usage is partially documented below. The remaining task is to move template governance into a dedicated docs authoring guide and reference it from contributing docs.
 
 This PRD uses standardized templates located in `docs/templates/`: ++*++ `endpoint-template.adoc` - For API endpoint documentation ++*++ `use-case-template.adoc` - For user story documentation ++*++ `acceptance-criteria-template.adoc` - For feature acceptance criteria
 
 [[_domain_examples]]
 === link:#_domain_examples[]15. Domain Examples
 
-_++[++TODO: Complete with scheduling and e-commerce examples++]++_
+*Status (2026-02-23):* Domain examples currently emphasize user/admin/platform patterns. Additional vertical examples (scheduling, e-commerce) are planned as follow-up samples once maintained reference apps are selected.
 
 [[_appendices_and_references]]
 === link:#_appendices_and_references[]16. Appendices and References
@@ -5563,4 +5540,4 @@ _++[++TODO: Complete with scheduling and e-commerce examples++]++_
 
 *Document Version:* 1.0 +
 *Last Updated:* 2025-12-04 +
-*Next Review:* _++[++TODO: Set review schedule++]++_
+*Next Review:* 2026-03-31

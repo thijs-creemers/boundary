@@ -98,7 +98,7 @@
   [user-entity]
   (if (m/validate schema/User user-entity)
     {:valid? true :data user-entity}
-    {:valid? false :errors (m/explain schema/User user-entity)}))
+    {:valid? false :errors (validation/format-schema-errors (m/explain schema/User user-entity))}))
 
 (defn calculate-user-changes
   "Pure function: Calculate what fields are being changed.

@@ -2,6 +2,18 @@
 
 > For general conventions, testing commands, and architecture patterns, see the [root AGENTS.md](../../AGENTS.md).
 
+## Purpose
+
+Admin UI and CRUD management tooling for Boundary entities, including HTMX-driven views, forms, and module-owned entity configuration.
+
+## Key Namespaces
+
+| Namespace | Purpose |
+|-----------|---------|
+| `boundary.admin.core.ui` | Main admin UI rendering (tables, forms, layout composition) |
+| `boundary.shared.ui.core.icons` | Shared Lucide icon rendering used by admin and other modules |
+| `boundary.admin.shell.http` | Admin HTTP handlers and HTMX fragment endpoints |
+
 ## Admin Entity Configuration
 
 Admin entity configurations are modular - each module owns its entity config in `resources/conf/{env}/admin/{module}.edn`:
@@ -168,7 +180,7 @@ css/
 
 ---
 
-## Common Pitfalls
+## Gotchas
 
 ### 1. Form Parsing - Array Values from Checkboxes
 
@@ -291,93 +303,21 @@ Both values are submitted when checkbox is checked, resulting in an array.
 
 ---
 
-## UI Pitfalls
+## Additional UI Notes
 
-### 1. JavaScript Event Handler Logic and DOM Timing
-
-**Problem**: Select-all checkbox shows "0 selected" when checked, or count doesn't update.
-
-**Root Causes**:
-1. Using conditional logic based on trigger element state instead of querying actual DOM state
-2. Querying DOM state before the browser has finished updating all elements
-
-```clojure
-;; ❌ WRONG - Assumes state without checking
-[:input {:onchange "elements.forEach(el => el.checked = this.checked);
-                    const count = this.checked ? elements.length : 0;"}]
-
-;; ❌ ALSO WRONG - Queries before DOM updates complete
-[:input {:onchange "elements.forEach(el => el.checked = this.checked);
-                    const count = document.querySelectorAll(':checked').length;"}]
-
-;; ✅ CORRECT - Query actual state AFTER DOM updates via setTimeout
-[:input {:onchange "elements.forEach(el => el.checked = this.checked);
-                    setTimeout(() => {
-                      const count = document.querySelectorAll(':checked').length;
-                      document.getElementById('count').textContent = count + ' selected';
-                    }, 0);"}]
-```
-
-**Why**:
-- The DOM update happens asynchronously, so always query the actual state rather than inferring it
-- Use `setTimeout(..., 0)` to defer execution until after the browser completes updating all element states
-- This pushes the query to the next event loop tick, ensuring all `.checked` properties are updated first
-
-### 2. Inline JavaScript String Escaping
-
-**Problem**: Clojure string escaping in Hiccup attributes with complex JavaScript.
-
-**Solution**:
-- Keep inline JavaScript simple (1-2 statements)
-- For complex logic, extract to external JS file: `resources/public/js/`
-- Use `\"` for nested quotes in Clojure strings
-
-```clojure
-;; ❌ AVOID - Complex inline JavaScript
-[:input {:onclick "var x = document.querySelector(\"#foo\");
-                   if (x.value == \"bar\") { /* ... */ }"}]
-
-;; ✅ BETTER - Extract to external file
-[:input {:onclick "handleClick(this)"}]
-;; Define handleClick() in resources/public/js/app.js
-```
-
-### 3. Inconsistent Event Handlers
-
-**Problem**: Different logic for related actions (e.g., select-all vs individual checkboxes).
-
-**Solution**: Keep event handler logic consistent across related elements.
-
-```clojure
-;; Individual checkbox logic
-[:input {:onchange "const checked = document.querySelectorAll(':checked').length;
-                    updateCount(checked);"}]
-
-;; Select-all checkbox - MUST use same logic pattern
-[:input {:onchange "elements.forEach(el => el.checked = this.checked);
-                    const checked = document.querySelectorAll(':checked').length;
-                    updateCount(checked);"}]
-```
-
-**Key**: Both use `querySelectorAll(':checked')` to ensure consistency.
-
-### 4. Icon Inconsistency
-
-**Problem**: Mixing emoji and icon library usage.
-
-**Solution**: Always use Lucide icons in UI, never emoji (emoji OK in CLI output only).
-
-```clojure
-;; ❌ WRONG - Emoji in UI
-[:button "🔍 Search"]
-
-;; ✅ CORRECT - Lucide icon
-[:button (icons/icon :search) " Search"]
-```
+- Keep inline JavaScript short. Move multi-step logic to `resources/public/js/`.
+- Keep related event handlers consistent (`select-all` and item checkboxes should compute counts the same way).
+- Use Lucide icons in UI; avoid emoji in interface components.
 
 ---
 
-## UI Testing Checklist
+## Testing
+
+```bash
+clojure -M:test:db/h2 :admin
+```
+
+### UI Testing Checklist
 
 When making UI changes, always test:
 
@@ -397,3 +337,8 @@ When making UI changes, always test:
 4. **Test in both light and dark mode**
 5. **Test responsive behavior** (resize window)
 6. **Commit changes** (after explicit user permission)
+
+## Links
+
+- [Library README](README.md)
+- [Root AGENTS Guide](../../AGENTS.md)

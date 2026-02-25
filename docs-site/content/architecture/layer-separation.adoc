@@ -279,21 +279,11 @@ After reading this document, you will understand:
 === Recommended Namespace Layout
 
 ```
-src/boundary/
-├── core/                  # Functional Core
-│   ├── user.clj           # Pure user domain functions
-│   ├── pricing.clj        # Pure pricing calculations
-│   ├── workflow.clj       # Pure workflow logic
-│   └── validation.clj     # Pure domain validation rules
+libs/{module}/src/boundary/{module}/
+├── core/                  # Functional Core (pure domain logic)
 ├── ports.clj              # Abstract interfaces (protocols)
-├── shell/                 # Imperative Shell
-│   ├── http.clj           # HTTP handlers and routing
-│   ├── cli.clj            # CLI command handlers
-│   ├── db.clj             # Database adapters
-│   ├── email.clj          # Email service adapters
-│   └── main.clj           # Application entry point
-├── schema.clj             # Malli schemas for validation
-└── config.clj             # Configuration management
+├── shell/                 # Imperative Shell (HTTP/CLI/DB adapters)
+└── schema.clj             # Malli schemas for validation
 ```
 
 === Dependency Direction Enforcement

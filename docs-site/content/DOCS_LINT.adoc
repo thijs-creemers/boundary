@@ -1,6 +1,6 @@
 = Documentation Lint Tool
 
-The boundary-docs repository includes a documentation linter that detects drift between documentation and the boundary repository structure.
+The Boundary repository includes a documentation linter that detects drift between docs and the current monorepo structure.
 
 == What It Checks
 
@@ -60,7 +60,7 @@ The linter generates two reports in `build/docs-lint/`:
 
 == CI Integration
 
-The linter runs automatically on every push and pull request via GitHub Actions. See `.github/workflows/docs-lint.yml`.
+The linter runs automatically on every push and pull request via GitHub Actions. See `.github/workflows/ci.yml`.
 
 The job is **warn-only** - it never fails the build, but uploads reports as artifacts for review.
 
@@ -100,12 +100,13 @@ A namespace reference doesn't match any known module prefix.
 * `boundary.user.*`
 * `boundary.admin.*`
 * `boundary.storage.*`
+* `boundary.cache.*`
+* `boundary.jobs.*`
+* `boundary.email.*`
+* `boundary.realtime.*`
+* `boundary.tenant.*`
+* `boundary.external.*`
 * `boundary.scaffolder.*`
-
-[NOTE]
-====
-`boundary.external.*` is in development and not yet part of the main build.
-====
 
 === `stale-github-link`
 

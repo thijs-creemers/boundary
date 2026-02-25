@@ -85,3 +85,8 @@ docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog
 ```bash
 clojure -M:test:db/h2 :email
 ```
+
+## Links
+
+- [Library README](README.md)
+- [Root AGENTS Guide](../../AGENTS.md)

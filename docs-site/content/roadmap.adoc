@@ -35,7 +35,7 @@ Boundary is approaching public readiness. This roadmap focuses on *quick release
 - Boundary is already technically mature; Alpha is about clarity, not features.
 - Focus on lowering friction for new developers.
 
----
+'''
 
 == Phase 1 — Beta (Developer Productivity & Confidence)
 *Goal: Make Boundary comfortable and delightful to build real-world applications.*
@@ -70,7 +70,7 @@ Boundary is approaching public readiness. This roadmap focuses on *quick release
 - Beta is where developers realize: *“I can build production apps with this.”*
 - Examples matter more than new features.
 
----
+'''
 
 == Phase 2 — v1.0 (Stability & Production Readiness)
 *Goal: Make Boundary fully reliable and attractive for company-level adoption.*
@@ -103,15 +103,13 @@ Boundary is approaching public readiness. This roadmap focuses on *quick release
 - This phase turns Boundary from “promising” → “production-ready.”
 - Focus on reliability, documentation, and safe defaults.
 
----
-
 == Phase 3 — Ecosystem Expansion (Post-1.0)
 *Goal: Build a vibrant Boundary ecosystem and optional advanced capabilities.*
 
 === Potential Deliverables
 - Datomic / XTDB backend integration
 - Optional Workflow / Actor engine
-- Boundary SaaS Starter Kit (login, billing, admin)
+- Boundary SaaS Starter Kit (login, storage, admin)
 - Extension marketplace
 - Application templates:
 - API-only
@@ -122,18 +120,17 @@ Boundary is approaching public readiness. This roadmap focuses on *quick release
 - None of these items block adoption or 1.0.
 - These features accelerate long-term growth.
 
----
 
 == Roadmap Summary
 
-| Phase | Focus | Outcome |
-|-------|--------|---------|
-| *Alpha* | Quick release, scaffolder, starter template, minimal docs | Early adopters can build apps immediately |
-| *Beta* | Developer productivity, examples, web UI | Developers gain confidence and comfort |
-| *v1.0* | Stability, migration, operational readiness | Companies can use Boundary in production |
-| *Ecosystem* | Long-term enhancements | Boundary becomes a complete platform |
-
----
+[cols="3*"]
+|===
+|Phase | Focus | Outcome
+|*Alpha* | Quick release, scaffolder, starter template, minimal docs | Early adopters can build apps immediately
+|*Beta* | Developer productivity, examples, web UI | Developers gain confidence and comfort
+|*v1.0* | Stability, migration, operational readiness | Companies can use Boundary in production
+|*Ecosystem* | Long-term enhancements | Boundary becomes a complete platform
+|===
 
 == Strategic Notes
 
@@ -149,7 +146,7 @@ Modules like User and Inventory are not required to ship 1.0. Keep them out of t
 === 4. Publish early, iterate publicly
 The framework is already more mature than most early-stage OSS releases. Early feedback accelerates correctness.
 
----
+git config --worktree core.hooksPath .githooks'''
 
 == Next Review
 This roadmap is intended as a living document. Revisit every 2–3 weeks to adjust scope and priorities as adoption grows.

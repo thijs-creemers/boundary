@@ -36,7 +36,7 @@ Boundary is our answer to these questions. It's opinionated where it matters (ar
 
 [source,text]
 ----
-src/boundary/user/
+libs/user/src/boundary/user/
 ├── core/           # PURE functions - business logic only
 │   └── user.clj    # Zero I/O, trivially testable
 ├── shell/          # IMPURE - orchestrates I/O

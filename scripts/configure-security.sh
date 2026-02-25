@@ -171,4 +171,4 @@ echo -e "2. Check Clojars group ownership: ${BLUE}https://clojars.org/groups/io.
 echo -e "3. Review collaborator access: ${BLUE}https://github.com/${REPO_OWNER}/${REPO_NAME}/settings/access${NC}"
 echo -e "4. Test security by creating a test PR"
 echo ""
-echo -e "${BLUE}For detailed information, see: ${NC}${YELLOW}docs/SECURITY_SETUP.md${NC}"
+echo -e "${BLUE}For detailed information, see: ${NC}${YELLOW}docs-site/content/guides/security-setup.md${NC}"

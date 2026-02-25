@@ -13,32 +13,57 @@
   "Regular expression for basic email validation."
   #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\.[a-zA-Z]{2,}$")
 
-(def AuthUser
-  "Schema for AuthUser entity (public.auth_users table).
-   
-   Contains global authentication credentials shared across all tenants.
-   Used for login verification, MFA, and account security.
-   
-   Part of schema-per-tenant multi-tenancy architecture (ADR-004):
-   - Authentication data lives in public.auth_users (shared)
-   - Profile data lives in tenant_<slug>.users (isolated)
-   
-   Note: Timestamps use :inst (java.time.Instant) internally."
-  [:map {:title "Auth User"}
-   [:id :uuid]
-   [:email [:re {:error/message "Invalid email format"} email-regex]]
-   [:password-hash :string]
-   [:active :boolean]
-   [:mfa-enabled {:optional true} :boolean]
-   [:mfa-secret {:optional true} [:maybe :string]]
-   [:mfa-backup-codes {:optional true} [:maybe [:vector :string]]]
-   [:mfa-backup-codes-used {:optional true} [:maybe [:vector :string]]]
-   [:mfa-enabled-at {:optional true} [:maybe inst?]]
-   [:failed-login-count {:optional true} :int]
-   [:lockout-until {:optional true} [:maybe inst?]]
-   [:created-at inst?]
+(def ^:private user-preferences-flat-fields
+  "Shared flattened preference fields stored on the tenant profile (users table).
+
+   NOTE: This is a sequence of *field definitions* (not a nested schema).
+   It is spliced into both TenantUser (persisted profile) and User (merged domain entity)
+   so that DDL generation (which expects a top-level [:map ...]) keeps working."
+  [[:notifications-email {:optional true} :boolean]
+   [:notifications-push {:optional true} :boolean]
+   [:notifications-sms {:optional true} :boolean]
+   [:theme {:optional true} [:enum :light :dark :auto]]
+   [:language {:optional true} :string]
+   [:timezone {:optional true} :string]])
+
+(def ^:private user-date-time-preferences-flat-fields
+  "Shared *preference* fields for date/time formatting.
+
+   These belong to the tenant profile (TenantUser) and the merged User domain entity.
+   They do NOT belong to AuthUser (public.auth_users)."
+  [[:date-format {:optional true} [:enum :iso :us :eu]]
+   [:time-format {:optional true} [:enum :12h :24h]]])
+
+(def ^:private audit-timestamps-flat-fields
+  "Shared audit timestamps.
+
+   These exist on persisted entities (AuthUser, TenantUser) and the merged User domain entity."
+  [[:created-at inst?]
    [:updated-at {:optional true} [:maybe inst?]]
    [:deleted-at {:optional true} [:maybe inst?]]])
+
+(def AuthUser
+  "Schema for AuthUser entity (public.auth_users table).
+
+   Contains global authentication credentials shared across all tenants.
+   Used for login verification, MFA, and account security.
+
+   Part of schema-per-tenant multi-tenancy architecture (ADR-004):
+   - Authentication data lives in public.auth_users (shared)
+   - Profile data lives in tenant_<slug>.users (isolated)"
+  (-> [:map {:title "Auth User"}
+       [:id :uuid]
+       [:email [:re {:error/message "Invalid email format"} email-regex]]
+       [:password-hash :string]
+       [:active :boolean]
+       [:mfa-enabled {:optional true} :boolean]
+       [:mfa-secret {:optional true} [:maybe :string]]
+       [:mfa-backup-codes {:optional true} [:maybe [:vector :string]]]
+       [:mfa-backup-codes-used {:optional true} [:maybe [:vector :string]]]
+       [:mfa-enabled-at {:optional true} [:maybe inst?]]
+       [:failed-login-count {:optional true} :int]
+       [:lockout-until {:optional true} [:maybe inst?]]]
+      (into audit-timestamps-flat-fields)))
 
 (def TenantUser
   "Schema for TenantUser entity (tenant_<slug>.users table).
@@ -51,19 +76,17 @@
    - Each tenant schema has isolated user profile data
    
    Note: Timestamps use :inst (java.time.Instant) internally."
-  [:map {:title "Tenant User"}
-   [:id :uuid]
-   [:tenant-id {:optional true} [:maybe :uuid]]
-   [:name [:string {:min 1 :max 255}]]
-   [:role [:enum :admin :user :viewer]]
-   [:avatar-url {:optional true} :string]
-   [:login-count {:optional true} :int]
-   [:last-login {:optional true} inst?]
-   [:date-format {:optional true} [:enum :iso :us :eu]]
-   [:time-format {:optional true} [:enum :12h :24h]]
-   [:created-at inst?]
-   [:updated-at {:optional true} [:maybe inst?]]
-   [:deleted-at {:optional true} [:maybe inst?]]])
+  (-> [:map {:title "Tenant User"}
+       [:id :uuid]
+       [:tenant-id {:optional true} [:maybe :uuid]]
+       [:name [:string {:min 1 :max 255}]]
+       [:role [:enum :admin :user :viewer]]
+       [:avatar-url {:optional true} :string]
+       [:login-count {:optional true} :int]
+       [:last-login {:optional true} inst?]]
+      (into user-preferences-flat-fields)
+      (into user-date-time-preferences-flat-fields)
+      (into audit-timestamps-flat-fields)))
 
 (def User
   "Schema for User entity (merged AuthUser + TenantUser).
@@ -79,44 +102,28 @@
    
    Note: Timestamps use :inst (java.time.Instant) internally. The infrastructure layer
    handles conversion to/from strings for database storage."
-  [:map {:title "User"}
-   [:id :uuid]
-   [:email [:re {:error/message "Invalid email format"} email-regex]]
-   [:name [:string {:min 1 :max 255}]]
-   [:password-hash {:optional true} [:string {:min 60 :max 60}]]
-   [:role [:enum :admin :user :viewer]]
-   [:active :boolean]
-   [:tenant-id {:optional true} [:maybe :uuid]]
-   [:send-welcome {:optional true} :boolean]
-   [:login-count {:optional true} :int]
-   [:last-login {:optional true} inst?]
-   [:date-format {:optional true} [:enum :iso :us :eu]]
-   [:time-format {:optional true} [:enum :12h :24h]]
-   [:avatar-url {:optional true} :string]
-   [:mfa-enabled {:optional true} :boolean]
-   [:mfa-secret {:optional true} [:maybe :string]]
-   [:mfa-backup-codes {:optional true} [:maybe [:vector :string]]]
-   [:mfa-backup-codes-used {:optional true} [:maybe [:vector :string]]]
-   [:mfa-enabled-at {:optional true} [:maybe inst?]]
-   [:failed-login-count {:optional true} :int]
-   [:lockout-until {:optional true} [:maybe inst?]]
-   [:created-at inst?]
-   [:updated-at {:optional true} [:maybe inst?]]
-   [:deleted-at {:optional true} [:maybe inst?]]])
-
-(def UserPreferences
-  "Schema for user preferences."
-  [:map {:title "User Preferences"}
-   [:notifications
-    [:map
-     [:email :boolean]
-     [:push :boolean]
-     [:sms :boolean]]]
-   [:theme [:enum :light :dark :auto]]
-   [:language :string]
-   [:timezone :string]
-   [:date-format [:enum :iso :us :eu]]
-   [:time-format [:enum :12h :24h]]])
+  (-> [:map {:title "User"}
+       [:id :uuid]
+       [:email [:re {:error/message "Invalid email format"} email-regex]]
+       [:name [:string {:min 1 :max 255}]]
+       [:password-hash {:optional true} [:string {:min 60 :max 60}]]
+       [:role [:enum :admin :user :viewer]]
+       [:active :boolean]
+       [:tenant-id {:optional true} [:maybe :uuid]]
+       [:send-welcome {:optional true} :boolean]
+       [:login-count {:optional true} :int]
+       [:last-login {:optional true} inst?]]
+      (into user-preferences-flat-fields)
+      (into user-date-time-preferences-flat-fields)
+      (into [[:avatar-url {:optional true} :string]
+             [:mfa-enabled {:optional true} :boolean]
+             [:mfa-secret {:optional true} [:maybe :string]]
+             [:mfa-backup-codes {:optional true} [:maybe [:vector :string]]]
+             [:mfa-backup-codes-used {:optional true} [:maybe [:vector :string]]]
+             [:mfa-enabled-at {:optional true} [:maybe inst?]]
+             [:failed-login-count {:optional true} :int]
+             [:lockout-until {:optional true} [:maybe inst?]]])
+      (into audit-timestamps-flat-fields)))
 
 (def UserSession
   "Schema for UserSession entity."
@@ -156,24 +163,32 @@
 
 (def CreateUserRequest
   "Schema for create user API requests."
-  [:map {:title "Create User Request"}
-   [:email [:re {:error/message "Invalid email format"} email-regex]]
-   [:name [:string {:min 1 :max 255}]]
-   [:password [:string {:min 8 :max 255 :error/message "Password must be at least 8 characters"}]]
-   [:role [:enum :admin :user :viewer]]
-   [:active {:optional true} :boolean]
-   [:send-welcome {:optional true} :boolean]])
+  (-> [:map {:title "Create User Request"
+             :closed true}
+       [:email [:re {:error/message "Invalid email format"} email-regex]]
+       [:name [:string {:min 1 :max 255}]]
+       [:password [:string {:min 8 :max 255 :error/message "Password must be at least 8 characters"}]]
+       [:role [:enum :admin :user :viewer]]
+       [:active {:optional true} :boolean]
+       [:send-welcome {:optional true} :boolean]]
+      (into user-preferences-flat-fields)
+      (into user-date-time-preferences-flat-fields)))
 
 (def UpdateUserRequest
   "Schema for update user API requests."
-  [:map {:title "Update User Request"}
-   [:name {:optional true} [:string {:min 1 :max 255}]]
-   [:role {:optional true} [:enum :admin :user :viewer]]
-   [:active {:optional true} :boolean]])
+  (-> [:map {:title "Update User Request"
+             :closed true}
+       [:name {:optional true} [:string {:min 1 :max 255}]]
+       [:email {:optional true} [:re {:error/message "Invalid email format"} email-regex]]
+       [:role {:optional true} [:enum :admin :user :viewer]]
+       [:active {:optional true} :boolean]]
+      (into user-preferences-flat-fields)
+      (into user-date-time-preferences-flat-fields)))
 
 (def LoginRequest
   "Schema for login API requests."
-  [:map {:title "Login Request"}
+  [:map {:title "Login Request"
+         :closed true}
    [:email [:re {:error/message "Invalid email format"} email-regex]]
    [:password [:string {:min 8 :max 255 :error/message "Password must be at least 8 characters"}]]
    [:remember {:optional true} :boolean]
@@ -183,22 +198,26 @@
 
 (def MFASetupRequest
   "Schema for MFA setup initiation."
-  [:map {:title "MFA Setup Request"}
+  [:map {:title "MFA Setup Request"
+         :closed true}
    [:user-id :uuid]])
 
 (def MFAEnableRequest
   "Schema for enabling MFA with verification."
-  [:map {:title "MFA Enable Request"}
+  [:map {:title "MFA Enable Request"
+         :closed true}
    [:verification-code [:string {:min 6 :max 6 :error/message "Verification code must be 6 digits"}]]])
 
 (def MFAVerifyRequest
   "Schema for MFA code verification."
-  [:map {:title "MFA Verify Request"}
+  [:map {:title "MFA Verify Request"
+         :closed true}
    [:code [:string {:min 6 :max 6 :error/message "MFA code must be 6 digits"}]]])
 
 (def MFADisableRequest
   "Schema for disabling MFA."
-  [:map {:title "MFA Disable Request"}
+  [:map {:title "MFA Disable Request"
+         :closed true}
    [:password [:string {:min 8 :max 255 :error/message "Password required to disable MFA"}]]
    [:confirmation-code {:optional true} [:maybe :string]]]) ; Current MFA code for extra security
 
@@ -216,6 +235,13 @@
    [:active :boolean]
    [:loginCount {:optional true} :int]
    [:lastLogin {:optional true} :string] ; Instant as ISO string
+   ;; Preferences (flattened into user entity)
+   [:notificationsEmail {:optional true} :boolean]
+   [:notificationsPush {:optional true} :boolean]
+   [:notificationsSms {:optional true} :boolean]
+   [:theme {:optional true} :string]
+   [:language {:optional true} :string]
+   [:timezone {:optional true} :string]
    [:dateFormat {:optional true} :string] ; Enum as string
    [:timeFormat {:optional true} :string] ; Enum as string
    [:avatarUrl {:optional true} :string]
@@ -316,9 +342,11 @@
 ;; =============================================================================
 
 (def user-request-transformer
-  "Transforms external API data to internal domain format."
+  "Transforms external API data to internal domain format.
+
+   NOTE: This transformer does NOT strip unknown keys. Request schemas should
+   be :closed to strictly reject unknown keys."
   (mt/transformer
-   mt/strip-extra-keys-transformer
    mt/string-transformer
    {:name :user-request
     :transformers
@@ -354,7 +382,6 @@
   "Registry of all user module schemas for easy access."
   {:domain-entities
    {:user User
-    :user-preferences UserPreferences
     :user-session UserSession
     :user-audit-log UserAuditLog}})
 

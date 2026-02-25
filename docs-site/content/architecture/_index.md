@@ -11,4 +11,4 @@ Comprehensive guides covering Boundary Framework's architecture and design princ
 
 ## Topics
 
-{{< section >}}
+Browse architecture documentation in the navigation menu on the left.

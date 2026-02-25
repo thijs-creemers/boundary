@@ -3,6 +3,11 @@
 :toclevels: 2
 :sectnums:
 
+[NOTE]
+====
+Historical snapshot: this completion report preserves path/namespace references from its original implementation period. Some links reference pre-split locations intentionally.
+====
+
 == Executive Summary
 
 **Status**: ✅ **COMPLETE** - All FC/IS compliance violations have been resolved.

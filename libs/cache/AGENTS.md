@@ -57,3 +57,8 @@ Distributed caching with TTL, atomic operations, pattern matching, and multi-ten
 ```bash
 clojure -M:test:db/h2 :cache
 ```
+
+## Links
+
+- [Library README](README.md)
+- [Root AGENTS Guide](../../AGENTS.md)

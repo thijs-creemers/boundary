@@ -1184,8 +1184,8 @@ kubectl logs -l app=boundary-workers
 ## Next Steps
 
 - **[Distributed Caching Guide]({{< relref "caching.md" >}})** - Cache frequently accessed data
-- **[Observability Guide](https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc)** - Monitor job processing metrics
-- **[Module Development](https://github.com/thijs-creemers/boundary-docs)** - Integrate jobs into your modules
+- **[Observability Guide]({{< relref "integrate-observability.adoc" >}})** - Monitor job processing metrics
+- **[Module Development](../../README.md)** - Integrate jobs into your modules
 - **[GitHub Repository](https://github.com/thijs-creemers/boundary)** - View source code and examples
 
 ---

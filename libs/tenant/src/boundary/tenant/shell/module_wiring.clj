@@ -4,6 +4,25 @@
             [clojure.tools.logging :as log]
             [integrant.core :as ig]))
 
+;; =============================================================================
+;; Tenant Database Schema
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/tenant-db-schema
+  [_ {:keys [ctx]}]
+  (log/info "Initializing tenant module database schema")
+  (tenant-persistence/initialize-tenant-schema! ctx)
+  (log/info "Tenant module database schema initialized")
+  {:status :initialized})
+
+(defmethod ig/halt-key! :boundary/tenant-db-schema
+  [_ _state]
+  (log/info "Tenant module database schema component halted"))
+
+;; =============================================================================
+;; Tenant Repository
+;; =============================================================================
+
 (defmethod ig/init-key :boundary/tenant-repository
   [_ {:keys [ctx logger error-reporter]}]
   (log/info "Initializing tenant repository")

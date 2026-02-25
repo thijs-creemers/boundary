@@ -11,4 +11,4 @@ Complete example applications demonstrating Boundary Framework features.
 
 ## Example Applications
 
-{{< section >}}
+Browse examples in the navigation menu on the left.

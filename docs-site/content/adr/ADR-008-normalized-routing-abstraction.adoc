@@ -97,13 +97,13 @@ Route definitions are vectors of route entries using simple EDN:
 [source,clojure]
 ----
 {:handler 'boundary.user.shell.handlers/list-users  ; Qualified symbol (resolved at runtime)
- :middleware ['boundary.shared.http/wrap-json       ; Optional middleware (symbols)
-              'boundary.shared.http/wrap-auth]
+ :middleware ['my.app.middleware/wrap-json       ; Optional middleware (symbols)
+              'my.app.middleware/wrap-auth]
  :interceptors ['boundary.platform.http/logging     ; Optional HTTP interceptors (NEW in v1.1)
                 'boundary.platform.http/metrics]
  :coercion {:query boundary.user.schema/ListUsersQuery    ; Malli schemas
             :response {:200 boundary.user.schema/UserList
-                       :400 boundary.shared.schema/ErrorResponse}}
+                       :400 boundary.platform.schema/ErrorResponse}}
  :summary "List all users"             ; OpenAPI documentation
  :tags ["users"]                       ; OpenAPI grouping
  :produces ["application/json"]        ; MIME types
@@ -152,10 +152,10 @@ Both can be used together. Interceptors are converted to middleware by the route
 
 [source,clojure]
 ----
-;; src/boundary/user/shell/http.clj
+;; libs/user/src/boundary/user/shell/http.clj
 (ns boundary.user.shell.http
   (:require [boundary.user.schema :as schema]
-            [boundary.shared.schema :as shared-schema]))
+            [boundary.platform.schema :as shared-schema]))
 
 (defn routes
   "Return normalized route definitions for user module."
@@ -404,8 +404,8 @@ Both can be used together. Interceptors are converted to middleware by the route
         :server :ring-jetty
         :port 3000
         :host "0.0.0.0"
-        :middleware ['boundary.shared.http/wrap-json
-                     'boundary.shared.http/wrap-correlation-id]}}
+        :middleware ['my.app.middleware/wrap-json
+                     'boundary.platform.shell.interfaces.http.middleware/wrap-correlation-id]}}
 
 ;; In system wiring
 (defmethod ig/init-key :boundary/router

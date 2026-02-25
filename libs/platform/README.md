@@ -58,7 +58,7 @@ Core infrastructure for web applications: database, HTTP routing, pagination, se
 
 ```clojure
 (ns myapp.main
-  (:require [boundary.platform.system.wiring :as wiring]
+  (:require [boundary.platform.shell.system.wiring :as wiring]
             [boundary.config :as config]))
 
 (defn -main [& args]
@@ -92,18 +92,19 @@ Core infrastructure for web applications: database, HTTP routing, pagination, se
 
 ```clojure
 (ns myapp.persistence
-  (:require [boundary.platform.shell.adapters.database.core :as db]))
+  (:require [boundary.platform.shell.adapters.database.common.execution :as db]))
 
 ;; Query with connection pool
 (defn find-user-by-id [db-ctx user-id]
-  (db/execute-one db-ctx
+  (db/execute-one! db-ctx
     ["SELECT * FROM users WHERE id = ?" user-id]))
 
 ;; Transaction support
 (defn transfer-funds [db-ctx from-id to-id amount]
-  (db/with-transaction [tx db-ctx]
-    (db/execute! tx ["UPDATE accounts SET balance = balance - ? WHERE id = ?" amount from-id])
-    (db/execute! tx ["UPDATE accounts SET balance = balance + ? WHERE id = ?" amount to-id])))
+  (db/with-transaction* db-ctx
+    (fn [tx]
+      (db/execute! tx ["UPDATE accounts SET balance = balance - ? WHERE id = ?" amount from-id])
+      (db/execute! tx ["UPDATE accounts SET balance = balance + ? WHERE id = ?" amount to-id]))))
 ```
 
 ### Pagination
@@ -295,7 +296,7 @@ All tenant endpoints return JSON responses and include proper error handling (40
 ## Module Structure
 
 ```
-src/boundary/platform/
+libs/platform/src/boundary/platform/
 ├── core/
 │   ├── pagination.clj       # Pagination utilities
 │   ├── search.clj           # Search utilities
@@ -307,10 +308,10 @@ src/boundary/platform/
 │   ├── adapters/
 │   │   ├── database/        # Database adapters (SQLite, PG, MySQL)
 │   │   └── http/            # HTTP server adapter
-│   └── interceptors/        # HTTP interceptors
-└── system/
-    ├── wiring.clj           # Integrant system config
-    └── modules.clj          # Module registration
+│   ├── interceptors/        # HTTP interceptors
+│   └── system/
+│       └── wiring.clj       # Integrant system config
+└── schema.clj               # Platform schema definitions
 ```
 
 ## Dependencies

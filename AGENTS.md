@@ -41,10 +41,10 @@ clojure -M:test:db/h2 --focus-meta :contract       # Database contract tests
 
 # Testing - Watch mode and specific namespaces
 clojure -M:test:db/h2 --watch :core                # Watch core library tests
-clojure -M:test:db/h2 --focus boundary.core.validation-test  # Single namespace
+clojure -M:test:db/h2 --focus validation-test                # Single namespace
 
 # Update validation snapshots
-UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus boundary.user.core.user-validation-snapshot-test
+UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus user-validation-snapshot-test
 
 # Code Quality
 clojure -M:clj-kondo --lint src test libs/*/src libs/*/test  # Lint all code
@@ -67,7 +67,7 @@ clojure -T:build clean && clojure -T:build uber    # Build uberjar
 java -jar target/boundary-*.jar server             # Run standalone jar
 
 # Database Migrations
-clojure -M:migrate up                              # Run migrations
+clojure -M:migrate migrate                         # Run migrations
 ```
 
 ### Architecture Quick Facts
@@ -128,7 +128,7 @@ libs/
 
 ```clojure
 ;; ✅ CORRECT - Convert ONLY at persistence boundary using shared utilities
-(require '[boundary.shared.core.utils.case-conversion :as cc])
+(require '[boundary.core.utils.case-conversion :as cc])
 
 ;; At persistence boundary - DB to Clojure
 (cc/snake-case->kebab-case-map db-record)
@@ -214,7 +214,7 @@ When encountering 500 errors or unexpected behavior:
 
 1. **Check logs first** - Errors are logged with stack traces:
    ```bash
-   tail -100 logs/boundary.log | grep -A 10 "ERROR"
+   tail -100 logs/app.log | grep -A 10 "ERROR"
    ```
 
 2. **Add temporary logging** - Use `println` for quick debugging:
@@ -465,89 +465,12 @@ export DB_PASSWORD="dev_password"
 
 ---
 
-## Testing Strategy
+## Maintenance Notes
 
-| Category | Location | Purpose |
-|----------|----------|---------|
-| **Unit** | `libs/{library}/test/{library}/core/*` | Pure functions, no mocks |
-| **Integration** | `libs/{library}/test/{library}/shell/*` | Service with mocked deps |
-| **Contract** | `libs/{library}/test/{library}/shell/*` | Adapters with real DB |
-
-```bash
-# Run all tests
-clojure -M:test:db/h2
-
-# Run specific library tests
-clojure -M:test:db/h2 :core                        # Core library
-clojure -M:test:db/h2 :user                        # User library
-clojure -M:test:db/h2 :platform                    # Platform library
-
-# Run by metadata
-clojure -M:test:db/h2 --focus-meta :unit           # Fast, no I/O
-clojure -M:test:db/h2 --focus-meta :integration    # Mocked I/O
-clojure -M:test:db/h2 --focus-meta :contract       # Real database
-```
-
-### Validation Snapshot Testing
-
-The framework includes snapshot-based validation testing:
-
-```bash
-# Generate validation graph (requires graphviz)
-clojure -M:repl-clj <<'EOF'
-(require '[boundary.shared.tools.validation.repl :as v])
-(spit "build/validation-user.dot" (v/rules->dot {:modules #{:user}}))
-(System/exit 0)
-EOF
-
-dot -Tpng build/validation-user.dot -o docs/diagrams/validation-user.png
-
-# View coverage reports
-cat test/reports/coverage/user.txt
-cat test/reports/coverage/user.edn
-```
-
-### Test Database Configuration
-
-- **Development**: SQLite (`dev-database.db`)
-- **Testing**: H2 in-memory (configured via `:test` alias)
-- All database drivers loaded via `:db` alias
-
----
-
-## Troubleshooting
-
-### System Won't Start
-
-```bash
-rm -rf .cpcache target
-clojure -M:repl-clj
-```
-
-### Tests Failing
-
-```bash
-# Run unit tests only (should always pass)
-clojure -M:test:db/h2 --focus-meta :unit
-
-# Verbose output
-clojure -M:test:db/h2 -n boundary.user.core.user-test --reporter documentation
-```
-
-### Parenthesis Errors
-
-```bash
-# NEVER fix manually, always use the tool
-clj-paren-repair <file>
-```
-
-### defrecord Not Updating
-
-```clojure
-;; In REPL
-(ig-repl/halt)
-(ig-repl/go)  ; Fresh start
-```
+- Keep command examples in one place (`Quick Reference`); avoid duplicate command blocks elsewhere in this file.
+- Library-specific troubleshooting and deep implementation notes belong in `libs/*/AGENTS.md`.
+- Use `python3 scripts/check-agents-links.py` after editing AGENTS documentation.
+- Install local pre-commit hooks once per clone: `bash scripts/install-git-hooks.sh`.
 
 ---
 
@@ -577,50 +500,16 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 
 **For in-depth information, see:**
 
-- **[Full Agent Guide](docs/archive/AGENTS_FULL.md)** - Legacy comprehensive reference (pre-library-split)
-- **[Architecture Guide](https://github.com/thijs-creemers/boundary-docs/tree/main/content/architecture/)** - FC/IS patterns, design decisions
+- **[Documentation Index](docs-site/content/README.adoc)** - Main docs navigation
+- **[Architecture Guide](docs-site/content/architecture/)** - FC/IS patterns, design decisions
 - **[Module Scaffolding](libs/scaffolder/README.md)** - Complete scaffolding workflow
-- **[MFA Setup Guide](docs/guides/mfa-setup.md)** - Multi-factor authentication
-- **[API Pagination](docs/API_PAGINATION.md)** - Offset and cursor pagination
-- **[Observability Integration](https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc)** - Custom adapters, configuration
-- **[HTTP Interceptors](https://github.com/thijs-creemers/boundary-docs/tree/main/content/adr/ADR-010-http-interceptor-architecture.adoc)** - Technical specification
-- **[PRD](https://github.com/thijs-creemers/boundary-docs/tree/main/content/reference/boundary-prd.adoc)** - Product vision and requirements
+- **[MFA Setup Guide](docs-site/content/guides/mfa-setup.md)** - Multi-factor authentication
+- **[API Pagination](docs-site/content/api/pagination.md)** - Offset and cursor pagination
+- **[Observability Integration](docs-site/content/guides/integrate-observability.adoc)** - Custom adapters, configuration
+- **[HTTP Interceptors](docs-site/content/adr/ADR-010-http-interceptor-architecture.adoc)** - Technical specification
+- **[PRD](docs-site/content/reference/boundary-prd.adoc)** - Product vision and requirements
 
 ---
 
-## Quick Reference Card
-
-```
-╔════════════════════════════════════════════════════════════════╗
-║                  BOUNDARY FRAMEWORK CHEAT SHEET                ║
-╠════════════════════════════════════════════════════════════════╣
-║ TEST    │ clojure -M:test:db/h2                 # All tests    ║
-║         │ clojure -M:test:db/h2 :core           # Core library ║
-║         │ clojure -M:test:db/h2 :user           # User library ║
-║         │ clojure -M:test:db/h2 --watch :core   # Watch mode   ║
-║ LINT    │ clojure -M:clj-kondo --lint libs/*/src               ║
-║ REPL    │ clojure -M:repl-clj                                  ║
-║         │ (ig-repl/go)    (ig-repl/reset)    (ig-repl/halt)    ║
-║ BUILD   │ clojure -T:build clean && clojure -T:build uber      ║
-║ REPAIR  │ clj-paren-repair <files>  # Fix parentheses          ║
-║ EVAL    │ clj-nrepl-eval -p <port> "<code>"  # REPL eval       ║
-╠════════════════════════════════════════════════════════════════╣
-║ LIBS    │ core, observability, platform, user, admin, storage, ║
-║         │ scaffolder, cache, jobs, email, tenant, realtime      ║
-╠════════════════════════════════════════════════════════════════╣
-║ CORE    │ Pure functions only, no side effects                 ║
-║ SHELL   │ All I/O, validation, error handling                  ║
-║ PORTS   │ Protocol definitions (abstractions)                  ║
-║ SCHEMA  │ Malli schemas for validation                         ║
-╠════════════════════════════════════════════════════════════════╣
-║ ALWAYS  │ Use kebab-case internally (ALL code)                 ║
-║ NEVER   │ Use snake_case except at DB boundary                 ║
-║ NEVER   │ Put business logic in shell layer                    ║
-║ NEVER   │ Make core depend on shell                            ║
-╚════════════════════════════════════════════════════════════════╝
-```
-
----
-
-**Last Updated**: 2026-02-14
-**Version**: 3.0.0 (Library AGENTS.md Split)
+**Last Updated**: 2026-02-23
+**Version**: 3.1.0 (Quick Reference Streamlined)

@@ -36,13 +36,14 @@
 
 (def user-create-options
   [[nil "--email EMAIL" "User email address (required)"
-    :validate [#(re-matches #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" %)
+   :validate [#(re-matches #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" %)
                "Must be a valid email address"]]
    [nil "--name NAME" "User full name (required)"]
    [nil "--role ROLE" "User role: admin, user, or viewer (required)"
     :parse-fn keyword
     :validate [#(contains? #{:admin :user :viewer} %) "Must be admin, user, or viewer"]]
    [nil "--password PASSWORD" "User password (optional, will be hashed according to policy)"]
+   [nil "--password-prompt" "Prompt for password (hidden input; avoids putting password in shell history)"]
    [nil "--active BOOL" "User active status (default: true)"
     :default true
     :parse-fn type-conv/parse-bool
@@ -315,7 +316,7 @@
 
 (defn execute-user-create
   "Execute user create command using interceptor pipeline.
-   
+
    This version demonstrates the interceptor-based approach that eliminates
    manual observability boilerplate while providing comprehensive tracking."
   [service _error-reporter opts]
@@ -333,14 +334,9 @@
         result-context (interceptor/run-pipeline context pipeline)
         response (:response result-context)]
 
-    (println "DEBUG execute-user-create result-context keys:" (keys result-context))
-    (println "DEBUG execute-user-create :response:" response)
-    (println "DEBUG execute-user-create :exception:" (some? (:exception result-context)))
-    (println "DEBUG execute-user-create :halt?:" (:halt? result-context))
-
     ;; Convert interceptor response format to CLI expected format
     (cond
-      ;; Success case - CLI interceptor already formats correctly 
+      ;; Success case - CLI interceptor already formats correctly
       (and response (= (:status response) 0))
       response
 
@@ -350,7 +346,7 @@
        :entity-type :user
        :data (:body response)}
 
-      ;; Error case - response contains error details  
+      ;; Error case - response contains error details
       (and response (not (#{0 200} (:status response))))
       (let [error-body (:body response)
             format-type (keyword (get opts :format "table"))]
@@ -694,7 +690,6 @@ Examples:
                                             :details (str/join ", " errors)})))
                   1)
                 (let [result (dispatch-command domain verb opts service)]
-                  (println "DEBUG CLI result map:" (select-keys result [:status :entity-type :data]))
                   (if (:message result)
                     (println (:message result))
                     (println (format-success format-type

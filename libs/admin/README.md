@@ -47,7 +47,7 @@ Auto-generated CRUD admin interface with database schema introspection, filterin
 (ns myapp.main
   (:require [boundary.admin.shell.module-wiring]  ; Auto-registers module
             [boundary.user.shell.module-wiring]   ; Required for auth
-            [boundary.platform.system.wiring :as wiring]))
+            [boundary.platform.shell.system.wiring :as wiring]))
 
 (defn -main [& args]
   (wiring/start!))
@@ -222,7 +222,7 @@ Fields not assigned to any group appear in an "Other" section. Customize this la
 ## Module Structure
 
 ```
-src/boundary/
+libs/admin/src/boundary/
 ├── admin/
 │   ├── core/
 │   │   ├── ui.clj              # Admin UI components

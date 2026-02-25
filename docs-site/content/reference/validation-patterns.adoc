@@ -162,6 +162,7 @@ Use **Title Case** for multi-word field names in messages:
 |"Email"
 
 
+|:user-id
 |"User ID"
 
 |`:user-agent`
@@ -170,8 +171,8 @@ Use **Title Case** for multi-word field names in messages:
 |`:created-at`
 |"Created At"
 
-|`:billing-address`
-|"Billing Address"
+|`:shipping-address`
+|"Shipping Address"
 
 |`:payment-method-id`
 |"Payment Method ID"
@@ -195,6 +196,7 @@ For user-facing messages, use friendlier names when appropriate:
 |Technical |User-Friendly
 
 
+|`:user-id`"
 |"User ID" (API) / "Organization" (UI)
 
 |`:created-at`
@@ -219,7 +221,7 @@ Path: user.email
 [source]
 ----
 Path: user → contact → email
-Path: billing → address → postal-code
+Path: shipping → address → postal-code
 ----
 
 **Array Paths:**

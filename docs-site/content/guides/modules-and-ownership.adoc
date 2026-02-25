@@ -8,7 +8,7 @@ Boundary's **module-centric architecture** organizes code by business domain, wh
 [[what-is-module]]
 == What is a Module?
 
-A module is a self-contained package of functionality focused on a single business domain (like `user`, `billing`, or `workflow`). Each module contains:
+A module is a self-contained package of functionality focused on a single business domain (like `user`, `storage`, or `jobs`). Each module contains:
 
 * **Pure business logic** - Core functions implementing domain rules
 * **Data schemas** - Malli specifications for domain entities
@@ -24,7 +24,7 @@ A complete module follows this standard layout:
 
 [source]
 ----
-src/boundary/<module>/
+libs/<module>/src/boundary/<module>/
 ├── core/                  # FUNCTIONAL CORE
 │   └── <module>.clj       # Pure business logic
 ├── schema.clj             # Domain entity schemas (Malli)
@@ -43,7 +43,7 @@ The user module handles user management, sessions, and authentication:
 
 [source]
 ----
-src/boundary/user/
+libs/user/src/boundary/user/
 ├── core/
 │   ├── user.clj          # User creation, validation logic
 │   └── session.clj       # Session management logic
@@ -98,8 +98,8 @@ Each module owns its complete vertical slice:
 
 **Unrelated code stays separated:**
 
-* Inventory or ordering logic never mixes with user logic
-* Workflow/state machines stay separate from user sessions
+* Storage or job processing logic never mixes with user logic
+* Background processing stays separate from user sessions
 
 [[benefit-independent-development]]
 === Independent Development
@@ -109,12 +109,12 @@ Teams can work on different modules without conflicts:
 [source,{shell}]
 ----
 # Team A works on user module
-cd src/boundary/user
+cd libs/user/src/boundary/user
 vim core/user.clj
 
-# Team B works on inventory module (no conflicts)
-cd src/boundary/inventory
-vim core/item.clj
+# Team B works on storage module (no conflicts)
+cd libs/storage/src/boundary/storage
+vim core/storage.clj
 ----
 
 [[benefit-testability]]
@@ -140,10 +140,8 @@ Modules can be enabled/disabled via configuration:
 [source,clojure]
 ----
 ;; config.edn
-{:feature-flags
- {:user true          ; Always enabled
-  :billing true       ; Enabled for production
-  :workflow false}}   ; Disabled during development
+{:features
+ {:user-web-ui {:enabled? true}}}
 ----
 
 [[module-communication]]
@@ -175,8 +173,8 @@ For loosely-coupled integration, modules can publish domain events:
 ----
 ;; User module publishes event
 (events/publish! :user/created {:user-id user-id})
-;; Inventory module subscribes
-;; Billing module subscribes
+;; Storage module subscribes
+;; Jobs module subscribes
 (events/subscribe! :user/created
   (fn [event]
     (create-initial-credit (:user-id event))))
@@ -187,19 +185,17 @@ NOTE: Event system is planned but not yet implemented in Boundary.
 [[shared-utilities]]
 == Shared Utilities vs Modules
 
-Not everything belongs in a domain module. Boundary provides `shared/` for cross-cutting concerns:
+Not everything belongs in a domain module. Boundary provides `core` utilities for cross-cutting concerns:
 
 [source]
 ----
-src/boundary/shared/
-├── utils/
-│   ├── type_conversion.clj    # UUID, Instant conversions
-│   └── case_conversion.clj    # camelCase ↔ kebab-case
-└── validation/
-    └── common.clj              # Generic validation utilities
+libs/core/src/boundary/core/utils/
+├── type_conversion.clj         # UUID, Instant conversions
+├── case_conversion.clj         # camelCase ↔ kebab-case
+└── validation.clj              # Generic validation utilities
 ----
 
-**Use `shared/` for:**
+**Use `core` utilities for:**
 
 * Generic data transformations (type conversions, case conversions)
 * Common validation patterns
@@ -225,7 +221,7 @@ src/boundary/shared/
 6. **Implement shell services** - Orchestrate core and adapters
 7. **Add interfaces** - REST endpoints, CLI commands
 
-See link:../how-to/create-module.adoc[Create a New Module] for step-by-step instructions.
+See link:create-module.adoc[Create a New Module] for step-by-step instructions.
 
 [[lifecycle-evolution]]
 === Module Evolution
@@ -242,11 +238,11 @@ As modules mature, they can evolve:
 [[anti-pattern-mixed-domains]]
 === ❌ Mixing Domains
 
-Don't put inventory logic in the user module:
+Don't put storage or jobs logic in the user module:
 
 [source,clojure]
 ----
-;; ❌ BAD: Inventory logic in user module
+;; ❌ BAD: Storage logic in user module
 (ns boundary.user.core.user)
 (defn create-user-with-inventory
   [user-data stock-item]  ; ❌ Inventory concerns don't belong here
@@ -261,12 +257,12 @@ Don't put inventory logic in the user module:
 
 (defn create-user [user-data]
   ...)  ; Only user concerns
-;; In inventory module:
-(ns boundary.inventory.core.reservation)
-(ns boundary.billing.core.subscription)
+;; In storage/jobs modules:
+(ns boundary.storage.core.file)
+(ns boundary.jobs.core.job)
 
-(defn create-reservation [user-id item-id]
-  ...)  ; Only inventory concerns
+(defn process-job [user-id item-id]
+  ...)  ; Only module-specific concerns
 ----
 
 [[anti-pattern-direct-coupling]]
@@ -277,10 +273,10 @@ Don't call other modules' internal functions directly:
 [source,clojure]
 ----
 ;; ❌ BAD: Direct coupling to another module
-(ns boundary.billing.core.invoice
+(ns boundary.jobs.core.job
   (:require [boundary.user.shell.persistence :as user-db]))  ; ❌ Direct dependency
 
-(defn create-invoice [user-id]
+(defn create-job [user-id]
   (let [user (user-db/find-by-id user-id)]  ; ❌ Bypasses abstractions
     ...))
 ----
@@ -288,9 +284,9 @@ Don't call other modules' internal functions directly:
 [source,clojure]
 ----
 ;; ✅ GOOD: Depend on ports, not implementations
-(ns boundary.billing.core.invoice)
+(ns boundary.jobs.core.job)
 
-(defn create-invoice
+(defn create-job
   [user-repo user-id]  ; ✅ Accepts abstract port
   (let [user (ports/find-user-by-id user-repo user-id)]  ; ✅ Uses port interface
     ...))
@@ -304,7 +300,7 @@ Don't create one massive module that does everything:
 [source]
 ----
 ;; ❌ BAD: Everything in one module
-src/boundary/app/
+libs/app/
 ├── core.clj              # 3000+ lines of mixed logic
 └── shell.clj             # All I/O operations
 ----
@@ -312,10 +308,10 @@ src/boundary/app/
 [source]
 ----
 ;; ✅ GOOD: Focused modules by domain
-src/boundary/
+libs/
 ├── user/                 # User management only
-├── inventory/            # Inventory operations only
-└── orders/               # Order handling only
+├── storage/              # Storage operations only
+└── jobs/                 # Background jobs only
 ----
 
 [[module-checklist]]
@@ -339,6 +335,6 @@ When creating or evaluating a module:
 
 * {xref-fc-is}[Functional Core / Imperative Shell]
 * {xref-ports-adapters}[Ports and Adapters Pattern]
-* link:../how-to/create-module.adoc[Create a New Module]
+* link:create-module.adoc[Create a New Module]
 * link:../how-to/add-entity.adoc[Add a Domain Entity]
 * {xref-arch-components}[Component Architecture]

@@ -47,7 +47,15 @@
   --color-primary-active: var(--indigo-8); /* #3730a3 */
   --color-primary-light: var(--indigo-2);  /* #e0e7ff */
   --color-primary-faint: var(--indigo-1);  /* #f5f7ff */
-  
+
+  /* Numeric scale aliases (used by app.css button/badge styles) */
+  --color-primary-50:  var(--indigo-1);    /* #f5f7ff - lightest tint */
+  --color-primary-100: var(--indigo-2);    /* #e0e7ff */
+  --color-primary-500: var(--indigo-5);    /* #6366f1 */
+  --color-primary-600: var(--indigo-6);    /* #4f46e5 - primary button bg */
+  --color-primary-700: var(--indigo-7);    /* #4338ca - hover */
+  --color-primary-800: var(--indigo-8);    /* #3730a3 - active/pressed */
+
   /* HSL variants for alpha transparency */
   --color-primary-hsl: var(--indigo-6-hsl);
   --color-primary-rgb: 79 70 229;
@@ -281,7 +289,15 @@
   --color-primary-active: var(--indigo-2); /* #c7d2fe */
   --color-primary-light: var(--indigo-9);  /* #312e81 */
   --color-primary-faint: var(--indigo-10); /* #1e1b4b */
-  
+
+  /* Numeric scale aliases (dark mode — lighter indigo for contrast on dark bg) */
+  --color-primary-50:  var(--indigo-11);   /* #1e1b4b */
+  --color-primary-100: var(--indigo-10);   /* #312e81 */
+  --color-primary-500: var(--indigo-5);    /* #6366f1 */
+  --color-primary-600: var(--indigo-4);    /* #818cf8 - primary button bg */
+  --color-primary-700: var(--indigo-3);    /* #a5b4fc - hover (lighter in dark) */
+  --color-primary-800: var(--indigo-2);    /* #c7d2fe - active */
+
   /* HSL variants remain same references */
   --color-primary-hsl: var(--indigo-4-hsl);
   --color-primary-rgb: 129 140 248;
@@ -528,6 +544,9 @@
   --brand-core-subtle: hsl(var(--color-primary-hsl) / 8%);
   --brand-shell-subtle: hsl(var(--color-accent-hsl) / 8%);
   
+  /* Text aliases (app.css uses --text-secondary) */
+  --text-secondary: var(--text-muted);
+
   /* Border aliases */
   --border-subtle: var(--gray-2);
   

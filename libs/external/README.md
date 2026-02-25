@@ -21,7 +21,7 @@ Adapters for external services: email, payments, and notifications.
 
 ```clojure
 (ns myapp.notifications
-  (:require [boundary.external.email.smtp :as email]))
+  (:require [myapp.external.email :as email]))
 
 (def mailer (email/smtp-mailer {:host "smtp.example.com" 
                                 :port 587
@@ -35,4 +35,4 @@ Adapters for external services: email, payments, and notifications.
 
 ## License
 
-See root [LICENSE](../../LICENSE)
+See root [CONTRIBUTING](../../CONTRIBUTING.md)

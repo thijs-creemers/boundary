@@ -65,18 +65,18 @@ clojure -M -m boundary.scaffolder.shell.cli-entry generate \
 
 🔨 Generating module structure...
 
-✅ Created src/boundary/blog/schema.clj
-✅ Created src/boundary/blog/ports.clj
-✅ Created src/boundary/blog/core/post.clj
-✅ Created src/boundary/blog/core/ui.clj
-✅ Created src/boundary/blog/shell/service.clj
-✅ Created src/boundary/blog/shell/persistence.clj
-✅ Created src/boundary/blog/shell/http.clj
-✅ Created src/boundary/blog/shell/web_handlers.clj
+✅ Created libs/blog/src/boundary/blog/schema.clj
+✅ Created libs/blog/src/boundary/blog/ports.clj
+✅ Created libs/blog/src/boundary/blog/core/post.clj
+✅ Created libs/blog/src/boundary/blog/core/ui.clj
+✅ Created libs/blog/src/boundary/blog/shell/service.clj
+✅ Created libs/blog/src/boundary/blog/shell/persistence.clj
+✅ Created libs/blog/src/boundary/blog/shell/http.clj
+✅ Created libs/blog/src/boundary/blog/shell/web_handlers.clj
 ✅ Created migrations/009_create_posts.sql
-✅ Created test/boundary/blog/core/post_test.clj
-✅ Created test/boundary/blog/shell/post_repository_test.clj
-✅ Created test/boundary/blog/shell/service_test.clj
+✅ Created libs/blog/test/boundary/blog/core/post_test.clj
+✅ Created libs/blog/test/boundary/blog/shell/post_repository_test.clj
+✅ Created libs/blog/test/boundary/blog/shell/service_test.clj
 
 📊 Summary:
    Files generated: 12
@@ -86,7 +86,7 @@ clojure -M -m boundary.scaffolder.shell.cli-entry generate \
 🎉 Module 'blog' generated successfully!
 
 📝 Next steps:
-   1. Review generated code in src/boundary/blog/
+   1. Review generated code in libs/blog/src/boundary/blog/
    2. Run tests: clojure -M:test:db/h2 --focus-meta :blog
    3. Wire module into system (see documentation)
 ```
@@ -97,18 +97,18 @@ The scaffolder created **12 production-ready files** in seconds:
 
 ```
 Generated files:
-✅ src/boundary/blog/schema.clj              - Malli schemas
-✅ src/boundary/blog/ports.clj               - Protocol definitions
-✅ src/boundary/blog/core/post.clj          - Pure business logic
-✅ src/boundary/blog/core/ui.clj            - UI components (Hiccup)
-✅ src/boundary/blog/shell/service.clj      - Service orchestration
-✅ src/boundary/blog/shell/persistence.clj  - Database adapter
-✅ src/boundary/blog/shell/http.clj         - REST routes
-✅ src/boundary/blog/shell/web_handlers.clj - Web UI handlers
+✅ libs/blog/src/boundary/blog/schema.clj              - Malli schemas
+✅ libs/blog/src/boundary/blog/ports.clj               - Protocol definitions
+✅ libs/blog/src/boundary/blog/core/post.clj          - Pure business logic
+✅ libs/blog/src/boundary/blog/core/ui.clj            - UI components (Hiccup)
+✅ libs/blog/src/boundary/blog/shell/service.clj      - Service orchestration
+✅ libs/blog/src/boundary/blog/shell/persistence.clj  - Database adapter
+✅ libs/blog/src/boundary/blog/shell/http.clj         - REST routes
+✅ libs/blog/src/boundary/blog/shell/web_handlers.clj - Web UI handlers
 ✅ migrations/009_create_posts.sql          - Database schema
-✅ test/boundary/blog/core/post_test.clj    - Unit tests
-✅ test/boundary/blog/shell/post_repository_test.clj - Persistence tests
-✅ test/boundary/blog/shell/service_test.clj - Service tests
+✅ libs/blog/test/boundary/blog/core/post_test.clj    - Unit tests
+✅ libs/blog/test/boundary/blog/shell/post_repository_test.clj - Persistence tests
+✅ libs/blog/test/boundary/blog/shell/service_test.clj - Service tests
 ```
 
 **Key Achievement:** Zero manual boilerplate. Everything follows FC/IS architecture automatically.
@@ -119,7 +119,7 @@ Generated files:
 
 ### Explore Pure Business Logic
 
-Open `src/boundary/blog/core/post.clj`:
+Open `libs/blog/src/boundary/blog/core/post.clj`:
 
 ```clojure
 (ns boundary.blog.core.post
@@ -253,7 +253,7 @@ Testing boundary.blog.shell.service-test
 
 **Unit Tests** (core layer - fast, no mocks):
 ```clojure
-;; test/boundary/blog/core/post_test.clj
+;; libs/blog/test/boundary/blog/core/post_test.clj
 (deftest prepare-post-for-creation-test
   (testing "generates ID and timestamps"
     (let [post-data {:title "Test Post" 
@@ -281,7 +281,7 @@ Testing boundary.blog.shell.service-test
 
 ### Implement "Publish Post" Feature
 
-Let's add a publishing feature with business rules. Edit `src/boundary/blog/core/post.clj`:
+Let's add a publishing feature with business rules. Edit `libs/blog/src/boundary/blog/core/post.clj`:
 
 ```clojure
 (defn can-publish?
@@ -338,7 +338,7 @@ Let's add a publishing feature with business rules. Edit `src/boundary/blog/core
 
 ### Test the New Logic
 
-Add tests in `test/boundary/blog/core/post_test.clj`:
+Add tests in `libs/blog/test/boundary/blog/core/post_test.clj`:
 
 ```clojure
 (deftest can-publish-test
@@ -394,7 +394,7 @@ clojure -M:test:db/h2 -n boundary.blog.core.post-test
 
 ### Add Service Method
 
-Edit `src/boundary/blog/shell/service.clj`:
+Edit `libs/blog/src/boundary/blog/shell/service.clj`:
 
 ```clojure
 (ns boundary.blog.shell.service
@@ -433,7 +433,7 @@ Edit `src/boundary/blog/shell/service.clj`:
 
 ### Add to Protocol
 
-Edit `src/boundary/blog/ports.clj`:
+Edit `libs/blog/src/boundary/blog/ports.clj`:
 
 ```clojure
 (defprotocol IPostService
@@ -462,7 +462,7 @@ Notice the **FC/IS pattern in action**:
 
 ### Add Route
 
-Edit `src/boundary/blog/shell/http.clj`:
+Edit `libs/blog/src/boundary/blog/shell/http.clj`:
 
 ```clojure
 (defn normalized-api-routes
@@ -512,7 +512,7 @@ Edit `src/boundary/blog/shell/http.clj`:
 
 ### Wire Module into System
 
-Create `src/boundary/blog/shell/module_wiring.clj`:
+Create `libs/blog/src/boundary/blog/shell/module_wiring.clj`:
 
 ```clojure
 (ns boundary.blog.shell.module-wiring

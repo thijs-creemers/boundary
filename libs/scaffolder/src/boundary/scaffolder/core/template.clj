@@ -93,30 +93,33 @@
 
 (defn field-type->sql
   "Convert scaffolder field type to SQL type.
-   
+
+   Generates PostgreSQL-compatible types. The production DDL generator
+   in platform/utils/schema.clj handles dialect-specific conversions.
+
    Args:
      field-def - Field definition map with :type key
-   
+
    Returns:
      SQL type string
-   
+
    Pure: true
-   
+
    Example:
-     (field-type->sql {:type :string}) => \"TEXT\"
+     (field-type->sql {:type :string}) => \"VARCHAR(255)\"
      (field-type->sql {:type :uuid}) => \"UUID\""
   [{:keys [type]}]
   (case type
-    :string "TEXT"
+    :string "VARCHAR(255)"
     :text "TEXT"
     :int "INTEGER"
     :uuid "UUID"
     :boolean "BOOLEAN"
-    :email "TEXT"
-    :enum "TEXT"
-    :inst "TIMESTAMP"
+    :email "VARCHAR(255)"
+    :enum "VARCHAR(50)"
+    :inst "TIMESTAMPTZ"
     :json "JSONB"
-    :decimal "DECIMAL"))
+    :decimal "DOUBLE PRECISION"))
 
 ;; =============================================================================
 ;; Template Context Building

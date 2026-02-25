@@ -57,6 +57,7 @@
    "time" :time
    "json" :json
    "jsonb" :json
+   "clob" :json
    "blob" :binary
    "bytea" :binary
    "binary" :binary})
@@ -111,11 +112,9 @@
          (cond
            ;; Timestamp fields stored as text (ISO 8601 strings)
            (or (str/ends-with? name-str "-at")
-               (str/ends-with? name-str "-date")
-               (str/ends-with? name-str "-time")
-               (= name-str "created-at")
-               (= name-str "updated-at")
-               (= name-str "deleted-at"))
+               (str/ends-with? name-str "-until")
+               (str/includes? name-str "login")
+               (str/includes? name-str "timestamp"))
            :instant
 
            ;; Email fields
@@ -123,10 +122,11 @@
                (str/includes? name-str "mail"))
            :string
 
-           ;; Role/status/enum-like fields (but keep as text for now, could be enum)
+           ;; Role/status/enum-like fields
            (or (str/includes? name-str "role")
                (str/includes? name-str "status")
-               (str/includes? name-str "type"))
+               (str/includes? name-str "type")
+               (str/includes? name-str "format"))
            :string
 
            ;; Default: keep as text for very long content
@@ -169,8 +169,8 @@
         (str/includes? field-name-lower "bio") :textarea
         (str/includes? field-name-lower "notes") :textarea
         (str/includes? field-name-lower "content") :textarea
-        (and (str/includes? field-name-lower "date")
-             (not (str/includes? field-name-lower "at"))) :date-input
+        (and (str/ends-with? field-name-lower "-date")
+             (not (str/includes? field-name-lower "format"))) :date-input
 
         ; Type-based widget selection
         (= field-type :uuid) :text-input
@@ -607,6 +607,61 @@
         (update :editable-fields #(apply-field-order % field-order))
         (update :detail-fields #(apply-field-order % field-order)))
     entity-config))
+
+;; =============================================================================
+;; Malli Schema Enum Extraction
+;; =============================================================================
+
+(defn extract-enum-fields-from-malli-schema
+  "Extract enum field configurations from a raw Malli :map schema.
+
+   Walks the map children and returns a partial field config for every field
+   whose schema is [:enum v1 v2 ...].  Works on raw Malli schema data (no
+   compilation / malli.core dependency needed).
+
+   Args:
+     schema: Raw Malli schema data, expected to be a :map vector such as
+             [:map {} [:role [:enum :admin :user]] [:theme {:optional true}
+                                                    [:enum :light :dark]]]
+
+   Returns:
+     Map of field-name keyword → {:type :enum :widget :select :options [...]}
+     Options are [value label] pairs where label is a humanised string.
+     Returns {} when schema is nil or not a :map schema.
+
+   Example:
+     (extract-enum-fields-from-malli-schema
+       [:map {} [:role [:enum :admin :user :viewer]]])
+     ;=> {:role {:type :enum :widget :select
+     ;           :options [[:admin \"Admin\"] [:user \"User\"] [:viewer \"Viewer\"]]}}"
+  [schema]
+  (when (and (vector? schema) (= :map (first schema)))
+    (let [;; Skip the optional properties map that may follow :map
+          tail (rest schema)
+          children (if (and (seq tail) (map? (first tail)))
+                     (rest tail)
+                     tail)]
+      (into {}
+            (for [entry children
+                  :when (vector? entry)
+                  :let [field-key (first entry)
+                        ;; Entry is either [key schema] or [key props schema]
+                        rest-entry (rest entry)
+                        field-schema (if (and (>= (count rest-entry) 2)
+                                              (map? (first rest-entry)))
+                                       (second rest-entry)
+                                       (first rest-entry))]
+                  :when (and (vector? field-schema)
+                             (= :enum (first field-schema)))]
+              (let [enum-values (rest field-schema)
+                    options (mapv (fn [v]
+                                   [v (-> (name v)
+                                          (str/replace #"[-_]" " ")
+                                          str/capitalize)])
+                                  enum-values)]
+                [field-key {:type :enum
+                            :widget :select
+                            :options options}]))))))
 
 ;; =============================================================================
 ;; Relationship Detection (Week 2)

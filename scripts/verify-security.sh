@@ -181,11 +181,11 @@ if [ $FAIL_COUNT -eq 0 ] && [ $WARN_COUNT -eq 0 ]; then
     exit 0
 elif [ $FAIL_COUNT -eq 0 ]; then
     echo -e "${YELLOW}⚠ Security is mostly configured, but review warnings above.${NC}"
-    echo -e "${YELLOW}See: docs/SECURITY_SETUP.md for details${NC}"
+    echo -e "${YELLOW}See: docs-site/content/guides/security-setup.md for details${NC}"
     exit 0
 else
     echo -e "${RED}✗ Security configuration incomplete.${NC}"
     echo -e "${YELLOW}Run: ./scripts/configure-security.sh${NC}"
-    echo -e "${YELLOW}See: docs/SECURITY_SETUP.md for manual steps${NC}"
+    echo -e "${YELLOW}See: docs-site/content/guides/security-setup.md for manual steps${NC}"
     exit 1
 fi

@@ -2,7 +2,7 @@
 
 A comprehensive reference for developing with Boundary, a module-centric Clojure framework implementing the Functional Core / Imperative Shell (FC/IS) architectural paradigm.
 
-**Looking for practical tutorials and how-to guides?** See the [User Guide](docs/user-guide/index.adoc) for persona-based learning paths, quickstart tutorials, and step-by-step instructions for common tasks.
+**Looking for practical tutorials and how-to guides?** See the [Getting Started Guide](docs-site/content/getting-started/) for persona-based learning paths, quickstart tutorials, and step-by-step instructions for common tasks.
 
 This **Developer Guide** provides comprehensive architectural documentation, advanced development workflows, and complete technical reference.
 
@@ -704,8 +704,8 @@ clojure -M:gen:entity user profile     # Add profile entity to user module
 clojure -M:docs:api
 
 # Build architecture diagrams (if PlantUML configured)
-cd docs/architecture
-for doc in *.adoc; do asciidoctor -D ../../build/docs "$doc"; done
+cd docs-site/content/architecture
+for doc in *.adoc; do asciidoctor -D ../../../build/docs "$doc"; done
 cd -
 
 # Validate documentation links
@@ -792,8 +792,8 @@ clojure -M:build:deploy
 
 ## Validation DevEx screenshots
 
-- Validation rules graph: `docs/diagrams/validation-user.png`
-  - Generate: `dot -Tpng build/validation-user.dot -o docs/diagrams/validation-user.png`
+- Validation rules graph: `docs-site/content/diagrams/validation-user.png`
+  - Generate: `dot -Tpng build/validation-user.dot -o docs-site/content/diagrams/validation-user.png`
 - Coverage text summary: `test/reports/coverage/user.txt`
 
 ## CI snippets
@@ -804,24 +804,23 @@ clojure -M:build:deploy
 
 ### Internal Documentation
 
-- [Product Requirements Document](docs/boundary.prd.adoc) - Comprehensive project requirements and vision
-- [PRD Improvement Summary](docs/PRD-IMPROVEMENT-SUMMARY.adoc)
-- [Architecture Overview](docs/architecture/overview.adoc) - High-level architectural decisions and principles
-- [Component Architecture](docs/architecture/components.adoc) - Detailed component organization and interactions
-- [Data Flow Architecture](docs/architecture/data-flow.adoc) - Request processing and data transformation patterns
-- [Ports and Adapters Guide](docs/architecture/ports-and-adapters.adoc) - Hexagonal architecture implementation
-- [Layer Separation Guidelines](docs/architecture/layer-separation.adoc) - FC/IS boundary rules and practices
+- [Product Requirements Document](docs-site/content/reference/boundary-prd.adoc) - Comprehensive project requirements and vision
+- [Architecture Overview](docs-site/content/architecture/overview.adoc) - High-level architectural decisions and principles
+- [Component Architecture](docs-site/content/architecture/components.adoc) - Detailed component organization and interactions
+- [Data Flow Architecture](docs-site/content/architecture/data-flow.adoc) - Request processing and data transformation patterns
+- [Ports and Adapters Guide](docs-site/content/architecture/ports-and-adapters.adoc) - Hexagonal architecture implementation
+- [Layer Separation Guidelines](docs-site/content/architecture/layer-separation.adoc) - FC/IS boundary rules and practices
 
 ### Development Documentation
 
-- [Implementation Guide](docs/implementation/) - Concrete implementation examples and patterns
-- [API Documentation](docs/api/) - REST API specifications and examples
-- [Architecture Diagrams](docs/diagrams/) - Visual system architecture references
+- [Implementation Guide](docs-site/content/implementation/) - Concrete implementation examples and patterns
+- [API Documentation](docs-site/content/api/) - REST API specifications and examples
+- [Architecture Diagrams](docs-site/content/architecture/images/) - Visual system architecture references
 
 ### Infrastructure and Migration
 
-- [User Module Architecture](docs/user-module-architecture.adoc)
-- [Migration Guide](docs/migration-guide.adoc)
+- [User Module Architecture](docs-site/content/implementation/user-module-implementation.adoc)
+- [Migration Guide](docs-site/content/reference/migrations/) - Library split and other migrations
 - [Infrastructure Examples](examples/user_infrastructure_example.clj) - Working code examples
 - [Refactoring Summary](INFRASTRUCTURE-REFACTOR-SUMMARY.adoc)
 

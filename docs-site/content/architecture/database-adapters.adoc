@@ -338,7 +338,7 @@ The factory simplifies adapter creation:
 
 [source,clojure]
 ----
-(require '[boundary.platform.shell.adapters.database.core :as db])
+(require '[boundary.platform.shell.adapters.database.common.execution :as db])
 
 ;; SELECT query
 (db/execute-query! ctx {:select [:*]

@@ -3,6 +3,11 @@
 :toclevels: 3
 :date: January 2025
 
+[NOTE]
+====
+Historical migration record: examples and file references describe the repository at migration time and may intentionally include legacy paths.
+====
+
 == Overview
 
 This document describes the renaming of `IUserService` protocol methods to resolve Clojure protocol method name collisions and better align with the Functional Core / Imperative Shell (FC/IS) architecture.

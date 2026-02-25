@@ -390,8 +390,7 @@ graph TB
 
 ```clojure
 (ns myapp.admin.moderation
-  (:require [boundary.platform.core.pagination.pagination :as pagination]
-            [boundary.shared.core.time :as time]))
+  (:require [boundary.platform.core.pagination.pagination :as pagination]))
 
 (defn list-flagged-content
   [content-repository {:keys [limit offset status] :or {status "pending"}}]
@@ -1219,6 +1218,6 @@ WHERE relname = 'users';
 ---
 
 **Implementation Status**: ✅ Production Ready  
-**Module Location**: `src/boundary/platform/core/pagination/`  
+**Module Location**: `libs/platform/src/boundary/platform/core/pagination/`  
 **Test Coverage**: 95% (core: 100%, integration: 90%)  
 **Performance**: Benchmarked on PostgreSQL 14 (see Performance section)

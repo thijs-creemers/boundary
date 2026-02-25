@@ -159,7 +159,7 @@ Stop reinventing the wheel. Boundary includes enterprise features you'd otherwis
 Each module is **independently deployable** with zero rewrites:
 
 ```
-src/boundary/user/
+libs/user/src/boundary/user/
 ├── core/user.clj        # Pure business logic
 ├── shell/
 │   ├── service.clj      # Orchestration
@@ -176,7 +176,7 @@ src/boundary/user/
 ✅ **Run as monolith OR microservices** - Same code, different deployment
 ✅ **Clear boundaries** - Modules communicate via protocols, not direct calls
 ✅ **Easy testing** - Mock entire modules via protocol implementations
-✅ **Independent scaling** - Deploy user module separately from billing module
+✅ **Independent scaling** - Deploy user module separately from storage module
 
 #### 4. Developer Productivity
 
@@ -347,7 +347,7 @@ Records of significant architectural decisions.
 Boundary Framework is open source and welcomes contributions!
 
 * **GitHub Repository:** [github.com/thijs-creemers/boundary](https://github.com/thijs-creemers/boundary)
-* **Documentation Repository:** [github.com/thijs-creemers/boundary-docs](https://github.com/thijs-creemers/boundary-docs)
+* **Documentation:** See the [docs-site/](./docs-site/) directory
 * **Issue Tracker:** [GitHub Issues](https://github.com/thijs-creemers/boundary/issues)
 
 ## License

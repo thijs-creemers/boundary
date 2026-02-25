@@ -1,0 +1,36 @@
+= Documentation Maintenance Checklist
+
+[abstract]
+--
+Use this checklist before merging documentation changes to keep docs concise, accurate, and code-aligned.
+--
+
+== Pre-Merge Checks
+
+1. Run `clojure -M:docs-lint` and confirm zero warnings.
+2. Run `python3 scripts/check-agents-links.py` and confirm zero broken links.
+3. Validate any command examples you changed.
+4. Verify module paths use the library-split layout:
++
+`libs/<module>/src/boundary/<module>/...`
+5. Confirm namespace examples match real code where examples claim to be concrete.
+
+== Content Rules
+
+1. Prefer concise operational guidance over long narrative repetition.
+2. Keep Functional Core / Imperative Shell boundaries explicit.
+3. Use kebab-case internally in all Clojure examples.
+4. Mark roadmap content as future work; do not present as implemented.
+5. Keep references to in-development modules explicit (`external`, etc.).
+
+== Link and Path Rules
+
+1. Prefer stable relative docs links for internal navigation.
+2. For GitHub source links, use `libs/...` paths (not legacy `src/boundary/...` unless documenting migration history).
+3. If a file moved, update all high-traffic guides (`quickstart`, `add-entity`, `add-rest-endpoint`, `implement-port-adapter`).
+
+== Release/PR Readiness
+
+1. Summarize docs impact by area (architecture, guides, reference).
+2. Include validation evidence (`docs-lint`, AGENTS links) in PR description.
+3. Update `PROJECT_STATUS.adoc` when a major docs milestone is completed.

@@ -52,7 +52,7 @@ jobs:
             libs/scaffolder/src
 
   # =============================================================================
-  # Documentation drift check (warn-only)
+  # Documentation drift check (failing gate)
   # =============================================================================
   docs-lint:
     name: Docs Lint
@@ -85,6 +85,46 @@ jobs:
           name: docs-lint-report
           path: build/docs-lint/
           retention-days: 14
+
+  # =============================================================================
+  # AGENTS link integrity check
+  # =============================================================================
+  agents-links:
+    name: AGENTS Links
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check AGENTS links
+        run: python3 scripts/check-agents-links.py
+
+  # =============================================================================
+  # Fast command smoke checks (aliases + key docs/dev commands)
+  # =============================================================================
+  command-smoke:
+    name: Command Smoke Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1347
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Run command smoke check
+        run: bash scripts/command-smoke-check.sh
 
   # =============================================================================
   # Test individual libraries (run from root to ensure all dependencies available)

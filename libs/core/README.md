@@ -108,7 +108,7 @@ Foundation library providing validation, utilities, and interceptor framework fo
 ## Module Structure
 
 ```
-src/boundary/core/
+libs/core/src/boundary/core/
 ├── validation.clj           # Malli validation utilities
 ├── interceptors/            # Interceptor framework
 │   ├── core.clj

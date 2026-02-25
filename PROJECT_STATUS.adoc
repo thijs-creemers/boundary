@@ -1,443 +1,217 @@
 = Project Status
-:revdate: 2026-01-26
+:revdate: 2026-02-26
+:toc: macro
+:toclevels: 2
 
-== High-Level Summary
-The Boundary framework has completed the **Library Split Project**, successfully reorganizing the monolithic codebase into 10 independently publishable libraries. The framework maintains all competitive features (background jobs, distributed caching, file storage, API versioning/pagination, MFA, and full-text search), enterprise-grade security, and strict Functional Core / Imperative Shell architectural boundaries throughout.
+This document is the current status snapshot for the Boundary framework monorepo.
 
-**Current Production Readiness Rating: 9.7/10** (up from 6.6/10 → 8.5/10 → 9.0/10 → 9.5/10 → 9.7/10)
+== Executive Summary
 
-== Library Split Project: COMPLETE
+Boundary has shipped `v1.0.0-alpha` and is operating as a 13-library monorepo with consistent Functional Core / Imperative Shell architecture.
 
-The monolith has been successfully split into 10 independent libraries under `libs/`:
+The project is in a strong pre-GA state:
 
-[cols="1,2,1"]
+* Core platform capabilities are implemented (auth, admin UI, storage, jobs, cache, email, realtime, tenant support, scaffolder).
+* CI is comprehensive and includes per-library tests, whole-suite tests, docs linting, and AGENTS link validation.
+* Documentation and developer workflows are actively maintained.
+
+Primary remaining maturity items are focused on finishing currently flagged in-development/roadmap areas, not on foundational architecture.
+
+== Snapshot (As of 2026-02-24)
+
+[cols="1,2"]
 |===
-|Library |Description |Maven Artifact
+|Area |Current Status
 
-|**core**
-|Validation, utilities, interceptors
-|`io.github.thijs-creemers/boundary-core`
+|Latest release tag
+|`v1.0.0-alpha` (see `CHANGELOG.md`)
 
-|**observability**
-|Logging, metrics, error reporting
-|`io.github.thijs-creemers/boundary-observability`
+|Libraries
+|13 libraries in `libs/` (`core`, `observability`, `platform`, `user`, `admin`, `storage`, `scaffolder`, `cache`, `jobs`, `email`, `realtime`, `tenant`, `external`)
 
-|**platform**
-|HTTP, database, CLI infrastructure
-|`io.github.thijs-creemers/boundary-platform`
+|Architecture model
+|FC/IS enforced across modules (`core/`, `shell/`, `ports.clj`)
 
-|**user**
-|Authentication, authorization, MFA
-|`io.github.thijs-creemers/boundary-user`
+|Migration stack
+|Migratus (`clojure -M:migrate migrate`)
 
-|**admin**
-|Auto-CRUD admin interface
-|`io.github.thijs-creemers/boundary-admin`
+|Dev/test DB
+|SQLite for development, H2 for test flows
 
-|**storage**
-|File storage (local & S3)
-|`io.github.thijs-creemers/boundary-storage`
-
-|**scaffolder**
-|Module code generator
-|`io.github.thijs-creemers/boundary-scaffolder`
-
-|**cache**
-|Distributed caching (Redis/in-memory)
-|`io.github.thijs-creemers/boundary-cache`
-
-|**jobs**
-|Background job processing
-|`io.github.thijs-creemers/boundary-jobs`
-
-|**external**
-|External service adapters (In Development)
-|`io.github.thijs-creemers/boundary-external`
+|CI coverage
+|Lint + docs lint + AGENTS links + per-library tests + full test run + summary gate
 |===
 
-=== Library Statistics
+== Module Status Matrix
 
-* **Total Files Migrated:** 260+
-* **Total Lines of Code:** ~55,000
-* **Test Results:** 1,700+ tests, 10,000+ assertions, 0 failures
-* **Release Tag:** v0.1.0
-
-=== Dependency Graph
-
-----
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  scaffolder │     │   storage   │     │    cache    │
-└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
-       │                   │                   │
-       ▼                   ▼                   ▼
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│    jobs     │     │  external   │     │    core     │◄────┐
-└──────┬──────┘     └──────┬──────┘     └─────────────┘     │
-       │                   │                   ▲             │
-       ▼                   ▼                   │             │
-                                        ┌─────────────┐     │
-                                        │  platform   │─────┘
-                                        └──────┬──────┘
-                                               │
-                    ┌──────────────────────────┼──────────────────┐
-                    ▼                          ▼                  ▼
-            ┌─────────────┐           ┌─────────────┐    ┌─────────────┐
-            │observability│           │    user     │    │    admin    │
-            └─────────────┘           └─────────────┘    └─────────────┘
-----
-
-== Recently Completed (Major Milestones)
-
-=== New Libraries and Features ✅ COMPLETE (2026-01-24 to 2026-01-26)
-* **Cache Library (2026-01-24):** Production-ready distributed caching module with Redis and in-memory backends (commit b4e0264)
-* **Jobs Library (2026-01-24):** Background job processing with priority queues, scheduled jobs, and automatic retries (commit b4e0264)
-* **Alpine.js Integration (2026-01-25):** Client-side state management for enhanced admin UI interactivity (commit a2aaeb9)
-* **Admin Field Ordering (2026-01-26):** Enhanced admin interface with field grouping and custom ordering (commit 538b416)
-
-=== Library Split Project ✅ COMPLETE (2026-01-19)
-* **Monorepo Architecture:** Successfully split monolith into 10 independent libraries (7 original + 3 new)
-* **238 Files Migrated:** Organized into `libs/{library}/src` and `libs/{library}/test`
-* **Full Test Coverage:** 1,604 tests, 9,313 assertions, 0 failures
-* **Independent Publishing:** Each library has its own `deps.edn` and `build.clj` for Clojars publishing
-* **Documentation:** Complete publishing guide in `docs/PUBLISHING_GUIDE.md`
-* **Release Tag:** v0.1.0 created and pushed
-* **Kaocha Configuration:** Updated `tests.edn` with per-library test suites
-
-=== Phase 1: Critical Security Fixes ✅ COMPLETE
-* **JWT Secret Security (2026-01-05):** Hardcoded JWT secret eliminated, now requires `JWT_SECRET` environment variable with proper validation and error messages at startup
-* **Debug Code Removal:** All production debug code (spit calls, println statements) removed from middleware and error reporting
-* **Production-Ready Authentication:** Secure token handling without secrets in codebase
-
-=== Phase 2: Production Readiness ✅ COMPLETE
-* **Database Migration System:** Migratus integrated (v1.5.7), 8 migration files managed, automated schema evolution
-* **Migration Infrastructure:** Migrations tracked in `/migrations/` directory with version control
-* **Configuration Management:** Environment-based configuration with proper secrets handling
-
-=== Phase 4: Competitive Features ✅ COMPLETE (6 of 6 features)
-
-==== 4.1 Background Jobs ✅ COMPLETE
-* **Full Implementation:** Production-ready async job processing following FC/IS pattern
-* **Adapters:** Redis-backed (production) and in-memory (development/testing)
-* **Features:** Priority queues (critical/high/normal/low), scheduled jobs, automatic retries with exponential backoff, dead letter queue
-* **Monitoring:** Job statistics and health tracking
-* **Performance:** Designed for 1000+ jobs/second throughput
-* **Documentation:** Complete README with usage examples and production deployment guide
-
-==== 4.2 Distributed Caching ✅ COMPLETE
-* **Full Implementation:** High-performance distributed caching with multiple backend support
-* **Adapters:** Redis (production) and in-memory (development) with LRU eviction
-* **Features:** TTL support, batch operations, atomic operations (inc/dec/compare-and-set), pattern matching, namespace support
-* **Statistics:** Hit/miss tracking and performance monitoring
-* **Protocol-Based:** Easy adapter swapping without code changes
-* **Documentation:** Comprehensive README with configuration examples
-
-==== 4.3 MFA (Multi-Factor Authentication) ✅ COMPLETE
-* **Full Implementation:** Complete TOTP-based MFA with backup codes following FC/IS pattern
-* **Pure Functional Core:** MFA business logic in `src/boundary/user/core/mfa.clj` (risk analysis, validation, backup code logic)
-* **Shell Layer:** TOTP generation/verification, secure random backup codes, QR code generation in `src/boundary/user/shell/mfa.clj`
-* **Features:** TOTP support (Google Authenticator, Authy compatible), backup code generation and verification, MFA setup/enable/disable flows
-* **Service Operations:** setup-mfa, enable-mfa, disable-mfa, verify-mfa-code with complete orchestration
-* **HTTP Integration (2026-01-17):** MFA fully integrated into login flow via interceptors
-  ** Login interceptors support `mfaCode` parameter for HTTP and `mfa-code` for CLI
-  ** Two-phase authentication: password verification → MFA challenge → session token
-  ** Response format: `{requiresMfa: true, user: {...}}` when MFA verification needed
-  ** Unified flow for both email/password and userId authentication methods
-* **Test Coverage:** 23 tests across core and shell layers covering all MFA operations
-* **Security:** Secure random generation using Java SecureRandom, Base32 encoding, proper backup code lifecycle
-
-==== 4.4 API Versioning & Pagination ✅ COMPLETE
-* **Versioning Implementation:** Core versioning logic in `src/boundary/platform/core/pagination/versioning.clj`
-* **Pagination Implementation:** Comprehensive pagination in `src/boundary/platform/core/pagination/pagination.clj`
-* **HTTP Integration:** HTTP versioning handlers in `src/boundary/platform/shell/http/versioning.clj`
-* **Test Coverage:** Full test suites for both versioning and pagination
-* **Features:** Cursor-based and offset-based pagination, RFC 5988 link headers, URL path versioning
-
-==== 4.5 Full-Text Search ✅ COMPLETE
-* **Full Implementation:** PostgreSQL full-text search with ranking and highlighting following FC/IS pattern
-* **Search Provider:** PostgreSQL adapter using tsvector, tsquery, and GIN indexes in `src/boundary/platform/shell/search/postgresql.clj`
-* **Core Logic:** Query DSL (match/phrase/prefix/boolean), ranking algorithms with recency boost, result highlighting in `src/boundary/platform/core/search/`
-* **Service Layer:** High-level search orchestration (search-users, search-items, suggest, reindex-all) in `src/boundary/platform/shell/search/service.clj`
-* **Features:** Multi-field weighted search (A/B/C/D weights), ts_rank scoring, ts_headline highlighting, filtering and sorting, autocomplete suggestions
-* **HTTP API:** RESTful search endpoints with pagination and highlighting in `src/boundary/platform/shell/search/http.clj`
-* **Test Coverage:** 112 tests across 6 test files (core + shell + integration + HTTP)
-* **Performance:** Optimized for <100ms query latency using PostgreSQL native full-text capabilities
-
-==== 4.6 File Upload & Storage ✅ COMPLETE (2026-01-05)
-* **Full Implementation:** ~2,250 lines production code, ~450 lines test code
-* **Storage Adapters:** Local filesystem and AWS S3 backends following IFileStorage port
-* **Image Processing:** Java AWT-based processor (resizing, thumbnails, metadata) with no external dependencies
-* **File Validation:** Pure functional validation (size limits, content types, extensions, filename sanitization)
-* **Security Features:** Signed URLs, public/private visibility, path traversal prevention
-* **HTTP API:** RESTful endpoints (upload, download, delete, URL generation) with multipart support
-* **Service Layer:** Orchestrates validation, storage, and image processing
-* **Dependencies:** AWS SDK v2.30.11 and S3 transfer manager added to deps.edn
-* **Test Coverage:** 23 tests, 100% pass rate (110 assertions), all edge cases resolved
-* **Documentation:** Complete README with usage examples, configuration guides, API docs, security best practices
-
-=== Phase 3: Developer Experience ✅ COMPLETE
-
-==== Core DX Features ✅ COMPLETE (2026-01-03)
-* **5-Minute Quickstart Guide:** Complete onboarding guide in `docs/QUICKSTART.md` (800+ lines)
-  ** Prerequisites and environment setup
-  ** Database configuration (SQLite, PostgreSQL, H2)
-  ** Server startup with REPL-driven development
-  ** First API calls and module generation
-  ** **Result:** Time to first endpoint reduced from 4+ hours to 5 minutes (80x improvement)
-* **Documentation Hub:** Centralized navigation in `docs/README.md` (1,000+ lines)
-  ** 4 clear learning paths (try it, build app, understand architecture, deploy)
-  ** 6 major sections with logical grouping
-  ** Status indicators for all documents
-  ** 95%+ documentation findability score
-* **IDE Setup Guides:** Complete guides for 4 editors in `docs/IDE_SETUP.md` (1,200+ lines)
-  ** VSCode + Calva (recommended, 2-minute setup)
-  ** IntelliJ IDEA + Cursive (5-minute setup)
-  ** Emacs + CIDER (complete configuration)
-  ** Vim + vim-fireplace (minimal setup)
-  ** 50+ keyboard shortcuts documented
-  ** REPL connection guides for all editors
-* **Todo-API Example:** Complete working application in `examples/todo-api/` (1,000+ line guide)
-  ** Full REST API with JWT authentication
-  ** Database persistence with migrations
-  ** Input validation with Malli
-  ** 8 endpoints with Swagger documentation
-  ** Comprehensive test suite
-  ** Demonstrates all FC/IS patterns
-
-==== Remaining Phase 3 Work 🚧
-* **GitHub Pages Deployment** ✅ COMPLETE (2026-01-17)
-  ** Documentation live at https://thijs-creemers.github.io/boundary-docs/
-  ** Automated Hugo builds via GitHub Actions
-* **Scaffolding Enhancements** ✅ COMPLETE (2026-01-17)
-  ** `boundary scaffolder field` - Add field to existing entity (generates migration + schema instructions)
-  ** `boundary scaffolder endpoint` - Add single endpoint to module (generates http.clj instructions)
-  ** `boundary scaffolder adapter` - Generate new adapter implementation file
-  ** Full CLI integration with help text, validation, and dry-run support
-  ** 8 tests, 64 assertions, all passing
-* **Additional Examples**
-  ** ✅ Blog application with HTMX web UI - COMPLETE (2026-01-17)
-     *** Full FC/IS architecture demonstration
-     *** SQLite persistence, Hiccup templating, Pico CSS
-     *** ~1,500 lines production code + 17 unit tests
-  ** ✅ E-commerce API with payment integration - COMPLETE (2026-01-17)
-     *** 4 interconnected modules: product, cart, order, payment
-     *** Order state machine (pending → paid → shipped → delivered)
-     *** Mock Stripe payment provider with webhook handling
-     *** ~2,500 lines production code + 35 unit tests (159 assertions)
-  ** ✅ Notification service with event-driven architecture - COMPLETE (2026-01-17)
-     *** Event-driven pub/sub with in-memory message bus (core.async)
-     *** 9 event types → notification templates (order, payment, shipment)
-     *** Multi-channel notifications (email, SMS, push - mocked)
-     *** Exponential backoff retry logic (pure functions)
-     *** ~1,800 lines production code + 18 tests (82 assertions)
-
-
-* **MFA Login Flow Integration (2026-01-17):** MFA fully wired into authentication HTTP interceptors. Login flow now supports two-phase authentication with `mfaCode` parameter, returning `requiresMfa: true` response when MFA verification is needed. Supports both email/password and userId authentication methods.
-* **Modular Admin Entity Configuration (2026-01-18):** Admin entity configurations moved from centralized `config.edn` to per-module files in `resources/conf/{env}/admin/{module}.edn`. Uses Aero's `#include` and `#merge` capabilities for clean module ownership. Future modules can add entity configs independently without modifying shared configuration.
-* **Documentation Repository Split (2026-01-03):** Successfully split all documentation into separate `boundary-docs` repository while preserving complete git history (175 commits). Documentation now has independent CI/CD with automated Hugo deployment to GitHub Pages.
-* **Documentation Reference Updates:** Updated 28 documentation files with current module references (user/inventory instead of billing/workflow) and corrected all cross-repository links.
-* **Interceptors Everywhere:** Reitit adapter now wraps every route in the default HTTP interceptor stack, guaranteeing consistent correlation IDs, error handling, and observability hooks. Per-route interceptors still work and are appended after the defaults.
-* **Reitit Tests:** Added coverage for default correlation headers, default error handling, and middleware ordering, ensuring the adapter changes remain regression-proof.
-* **ADR Alignment:** ADR-010 now documents the "always-on" interceptor behavior and clarifies that `:system` is optional (defaults to `{}`) but recommended when real observability providers are bound.
-* **Docs Cleanup:** Removed domain-specific billing/workflow references, kept documentation English-only, and aligned guides/architecture docs with the domain-agnostic approach.
-* **Telemetry Pureness:** Type-conversion utilities refactored to stay pure (no logging side effects), reinforcing the FC/IS separation.
-
-== Roadmap Progress Summary
-
-[cols="1,3,1,1"]
+[cols="1,2,2"]
 |===
-|Phase |Features |Status |Complete
+|Library |Status |Notes
 
-|**Phase 1**
-|Critical Security Fixes
-|✅ DONE
-|100%
+|`boundary-core`
+|Stable
+|Validation/interceptors/utilities foundation.
 
-|**Phase 2**
-|Production Readiness
-|✅ DONE
-|100%
+|`boundary-observability`
+|Stable
+|Structured observability and interceptor-based instrumentation.
 
-|**Phase 3**
-|Developer Experience
-|✅ COMPLETE
-|100%
+|`boundary-platform`
+|Stable
+|HTTP, DB, CLI, and migration infrastructure.
 
-|**Phase 4**
-|Competitive Features
-|✅ COMPLETE
-|100% (6/6)
+|`boundary-user`
+|Stable
+|JWT auth and MFA flows available.
 
-|**Library Split**
-|Monorepo Architecture (10 libraries)
-|✅ COMPLETE
-|100%
+|`boundary-admin`
+|Stable
+|Auto-CRUD admin UI and HTMX-based workflows.
 
-|**Phase 5**
-|Strategic Positioning
-|📋 PLANNED
-|0%
+|`boundary-storage`
+|Stable
+|Local/S3-style storage abstractions and validation.
+
+|`boundary-scaffolder`
+|Stable
+|Module scaffolding for FC/IS-compliant code generation.
+
+|`boundary-cache`
+|Stable
+|In-memory/Redis cache model with tenant-scoped patterns.
+
+|`boundary-jobs`
+|Stable
+|Background job execution with retry/queue behavior.
+
+|`boundary-email`
+|Stable
+|SMTP sending + async/queue integration patterns.
+
+|`boundary-realtime`
+|Active (single-server focus)
+|WebSocket/JWT/pub-sub implemented; multi-server scaling is still roadmap.
+
+|`boundary-tenant`
+|Active
+|PostgreSQL schema-per-tenant path and cross-module integration in place.
+
+|`boundary-external`
+|In Development
+|Skeleton module; not feature-complete yet.
 |===
 
-== In Progress / Upcoming
+== Delivery and Quality Signals
 
-=== Immediate Priorities
-* **Phase 3: Developer Experience** ✅ COMPLETE (100%)
-  ** ✅ DONE: 5-Minute Quickstart Guide
-  ** ✅ DONE: Documentation Hub & Navigation
-  ** ✅ DONE: IDE Setup Guides (VSCode, IntelliJ, Emacs, Vim)
-  ** ✅ DONE: Todo-API Example Application
-  ** ✅ DONE: GitHub Pages deployment
-  ** ✅ DONE: Scaffolding enhancements (field/endpoint/adapter commands)
-  ** ✅ DONE: Blog application example with HTMX web UI
-  ** ✅ DONE: E-commerce API with payment integration
-  ** ✅ DONE: Notification service with event-driven architecture
-* **Storage Module Refinements** - ✅ All tests passing (23 tests, 110 assertions)
-* **Phase 5: Strategic Positioning** - Begin market positioning work
-  ** Performance benchmarks against Django, Rails, Spring Boot
-  ** Case studies and example applications
-  ** Developer advocacy and content creation
+=== CI/Automation
 
-=== Secondary Priorities
-* **GitHub Pages Setup:** ✅ DONE - Documentation live at https://thijs-creemers.github.io/boundary-docs/
-* **Global/Configurable Interceptors (Optional):** Evaluate whether router config should support additional global interceptors for shared policies (tenancy enforcement, etc.)
-* **Repository-Wide Lint Debt:** 🚧 IN PROGRESS - Reduced from 478 to 228 warnings (52% reduction). Fixed unresolved namespaces, redundant lets, unused imports, and many unused bindings.
+The main CI workflow (`.github/workflows/ci.yml`) currently includes:
 
-== Risks / Blockers
+* `lint` (clj-kondo)
+* `docs-lint`
+* `agents-links` (`python3 scripts/check-agents-links.py`)
+* Per-library test jobs (`:core`, `:observability`, `:platform`, `:user`, `:admin`, `:storage`, `:cache`, `:jobs`, `:tenant`, `:email`, `:realtime`, `:scaffolder`)
+* Whole-suite test job (`clojure -M:test:db/h2`)
+* `test-summary` gate
 
-* **External Dependencies:** Several integration tests rely on local PostgreSQL; when unavailable they are skipped. Consider containerized fixtures or Testcontainers-like setup for reproducibility.
-* **Lint Noise:** ✅ IMPROVED - Unresolved namespace errors fixed. Warnings reduced from 478 to 228 (52% reduction). Remaining 228 warnings are low-priority unused bindings.
-* **Observability Providers:** Only no-op providers are guaranteed in dev/test. Wiring up real providers (Datadog, Sentry) needs environment-specific instructions before production rollout.
-* **Storage Module Edge Cases:** ✅ RESOLVED - All 23 tests passing with 110 assertions
+=== Documentation and Agent Tooling
 
-== Suggested Next Steps
+Recent documentation/process improvements include:
 
-1. **🎉 Phase 4 Complete!** All competitive features implemented and tested
-2. **🎉 Phase 3 Complete!** Developer experience fully delivered
-3. **Integration & Polish:**
-   ** Integrate storage routes into main application router
-   ** Configure default search indexes in migrations
-   ** ✅ DONE: Wire MFA into authentication flows (HTTP layer integration - 2026-01-17)
-4. **clj-kondo Cleanup Sprint:** ✅ 52% complete - 478 → 228 warnings. Continue with remaining unused bindings
-5. **Test Infrastructure:** Evaluate Docker-based postgres fixture
-6. **Phase 5 Preparation:**
-   ** Performance benchmarking suite
-   ** Example applications showcasing all features
-   ** Developer advocacy materials
+* Streamlined root `AGENTS.md` with reduced duplication.
+* Standardized section template across all module `libs/*/AGENTS.md` files.
+* Dedicated AGENTS link checker script and CI enforcement.
+* Repo-native pre-commit hook path (`.githooks`) via `scripts/install-git-hooks.sh`.
 
-== Key Metrics & Achievements
+== Week 3 Documentation Closeout (2026-02-24)
 
-=== Production Readiness Improvements
-* **Before:** 6.6/10 (Strong foundation, missing critical features)
-* **After:** 9.0/10 (Production-ready with complete competitive feature set)
-* **Security:** ✅ Zero hardcoded secrets, environment-based configuration, MFA support
-* **Features:** ✅ Background jobs, caching, file storage, pagination, versioning, MFA, full-text search
-* **Architecture:** ✅ Consistent FC/IS pattern across all modules
-* **Test Coverage:** ✅ Comprehensive tests (>160 total tests, >95% pass rate)
+Week 3 documentation consolidation is complete.
 
-=== Code Statistics
-* **Library Split:**
-  ** **core:** 29 files, ~8,000 lines (validation, utilities, interceptors)
-  ** **observability:** 24 files, ~3,500 lines (logging, metrics, error reporting)
-  ** **platform:** 107 files, ~15,000 lines (HTTP, database, CLI infrastructure)
-  ** **user:** 38 files, ~6,000 lines (authentication, authorization, MFA)
-  ** **admin:** 20 files, ~5,161 lines (auto-CRUD admin interface)
-  ** **storage:** 11 files, ~2,813 lines (file storage - local & S3)
-  ** **scaffolder:** 9 files, ~2,604 lines (module code generator)
-  ** **cache:** 15 files, ~2,200 lines (distributed caching)
-  ** **jobs:** 18 files, ~2,500 lines (background job processing)
-  ** **external:** 1 file, ~40 lines (In Development - placeholder)
-  ** **Total:** 260+ files, ~55,000 lines across 10 libraries
-* **Background Jobs Module:** ~2,500 lines production + tests
-* **Distributed Caching Module:** ~2,200 lines production + tests
-* **File Storage Module:** ~2,700 lines production + tests
-* **Pagination/Versioning:** ~1,500 lines production + tests
-* **MFA Module:** ~750 lines production + tests (23 tests, includes HTTP integration)
-* **Full-Text Search Module:** ~1,800 lines production + tests (112 tests)
-* **Test Coverage:** 1,700+ tests, 10,000+ assertions (all modules >90% coverage)
-
-=== Competitive Feature Parity
-
-[cols="2,1,1,1,1,1"]
+[cols="1,3"]
 |===
-|Capability |Boundary |Django |Rails |Spring Boot |Phoenix
+|Area |Week 3 Outcome
 
-|**Background Jobs**
-|✅
-|✅
-|✅
-|❌
-|✅
+|Architecture docs compactness
+|High-volume architecture pages were rewritten into concise, code-aligned references (overview, components, integration patterns, middleware, observability).
 
-|**Distributed Caching**
-|✅
-|⚠️
-|⚠️
-|❌
-|✅
+|Stale module references
+|Legacy references (including billing/workflow-era examples) were removed or replaced in targeted architecture/reference docs.
 
-|**File Storage**
-|✅
-|⚠️
-|⚠️
-|❌
-|❌
+|Namespace/path accuracy
+|Documentation examples and module paths were aligned to the current `libs/...` monorepo structure and active namespace layout.
 
-|**API Versioning**
-|✅
-|❌
-|❌
-|❌
-|❌
+|Library README hygiene
+|Remaining docs-lint warnings in `libs/*/README.*` were resolved (stale paths, broken links, unknown aliases/namespaces in examples).
 
-|**Pagination**
-|✅
-|✅
-|✅
-|⚠️
-|✅
-
-|**MFA**
-|✅
-|⚠️
-|⚠️
-|❌
-|⚠️
-
-|**Full-Text Search**
-|✅
-|⚠️
-|⚠️
-|❌
-|✅
-
-|**FC/IS Architecture**
-|✅
-|❌
-|❌
-|❌
-|❌
+|Validation signal
+|`clojure -M:docs-lint` currently reports `Total warnings: 0`.
 |===
 
-**Legend:** ✅ Built-in | ⚠️ 3rd-party/manual | ❌ Not available
+Week 3 also delivered a materially leaner docs set by replacing long, drift-prone narrative sections with short operational guidance and checklists.
 
-== Documentation
+== Week 4 Stabilization Update (2026-02-25)
 
-* **Main Documentation:** https://github.com/thijs-creemers/boundary-docs (separate repository)
-* **Live Docs (when deployed):** https://thijs-creemers.github.io/boundary-docs/
-* **Code Repository:** https://github.com/thijs-creemers/boundary
-* **Developer Guide:** link:AGENTS.md[AGENTS.md] (comprehensive guide for AI and human developers)
-* **Library Documentation:**
-  ** link:libs/core/README.md[Core Library]
-  ** link:libs/observability/README.md[Observability Library]
-  ** link:libs/platform/README.md[Platform Library]
-  ** link:libs/user/README.md[User Library]
-  ** link:libs/admin/README.md[Admin Library]
-  ** link:libs/storage/README.md[Storage Library]
-  ** link:libs/scaffolder/README.md[Scaffolder Library]
-  ** link:libs/cache/README.md[Cache Library]
-  ** link:libs/jobs/README.md[Jobs Library]
-  ** link:libs/external/README.md[External Library]
-* **Publishing Guide:** link:docs/PUBLISHING_GUIDE.md[Publishing to Clojars]
-* **Library Split Documentation:**
-  ** link:docs/adr/ADR-001-library-split.md[ADR-001: Library Split Decision]
-  ** link:docs/PHASE_11_COMPLETION.md[Phase 11 Completion Report]
+Week 4 is in progress with a stabilization-first scope (targeted drift fixes, no broad rewrites).
+
+[cols="1,3"]
+|===
+|Area |Week 4 Progress
+
+|Guide path normalization
+|High-traffic guides and getting-started pages were updated to the current library-split layout (`libs/<module>/src/boundary/<module>/...`).
+
+|Reference stabilization
+|Reference examples in scaffolder and multi-db docs were aligned with active namespaces and current database adapter entry points.
+
+|Architecture link hygiene
+|Targeted architecture docs were updated to current platform/observability file locations where stale links remained.
+
+|Maintenance guardrails
+|A docs maintenance checklist was added and linked from docs index to keep future edits lint-safe and path-accurate.
+
+|Validation signal
+|`clojure -M:docs-lint` and AGENTS link checks remain clean after each patch batch.
+|===
+
+== Week 5 Hardening Complete (2026-02-26)
+
+Week 5 process-hardening scope is complete for this cycle.
+
+[cols="1,3"]
+|===
+|Area |Week 5 Progress
+
+|CI gate clarity
+|Corrected workflow annotation to reflect docs-lint as a failing CI gate (not warn-only).
+
+|Command smoke automation
+|Added `scripts/command-smoke-check.sh` and CI `command-smoke` job to verify key aliases/entrypoints and run fast docs/links checks.
+
+|Deferred-doc scope control
+|Added a dedicated historical-docs triage tracker for change-reports and migration-history content, with explicit keep/update priorities.
+
+|Validation continuity
+|Docs-lint and AGENTS link checks remain part of each patch batch.
+|===
+
+== Known Gaps / Active Risks
+
+* `libs/external` remains explicitly in-development and should not be treated as production-ready.
+* Realtime module documentation still calls out future multi-server enhancements (Redis-backed registry/pub-sub).
+* Some historical status documents in `docs/archive/` are stale and should not be used as operational source-of-truth.
+
+== Recommended Priorities (Next 30 Days)
+
+. Close `boundary-external` scope definition and ship first production-capable adapter set.
+. Decide realtime scaling path (single-node hardening vs Redis-backed multi-node support) and align tests/docs.
+. Execute the historical-doc triage backlog (P1 then P2/P3) while preserving intentional migration-era context.
+. Keep CI signal quality high by preserving fast per-library feedback and enforcing docs/link hygiene.
+
+== Status Maintenance Rules
+
+When updating this file:
+
+* Use only verifiable repository facts (release tags, module presence, workflow definitions, docs state).
+* Avoid speculative metrics unless backed by reproducible commands.
+* Keep this file focused on current status; move historical deep-dive detail to archive docs.
+* Update `:revdate:` on every substantive change.

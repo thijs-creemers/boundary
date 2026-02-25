@@ -35,7 +35,6 @@
             [boundary.platform.shell.utils.port-manager :as port-manager]
             ;; todo: need to find a way to decouple these dependencies an inject them in another way.
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
-            [boundary.inventory.shell.module-wiring] ;; Load inventory module init/halt methods
             [boundary.admin.shell.module-wiring] ;; Load admin module init/halt methods
             [boundary.tenant.shell.module-wiring] ;; Load tenant module init/halt methods
             [cheshire.core]
@@ -99,7 +98,7 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes inventory-routes admin-routes tenant-routes router logger metrics-emitter error-reporter config tenant-service db-context]}]
+  [_ {:keys [user-routes admin-routes tenant-routes router logger metrics-emitter error-reporter config tenant-service db-context]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)
@@ -163,23 +162,6 @@
                                     user-web-routes))
         user-normalized-api (when (seq user-api-routes) user-api-routes)
 
-        ;; Extract inventory module routes (normalized format)
-        inventory-static-routes (or (:static inventory-routes) [])
-        inventory-web-routes (or (:web inventory-routes) [])
-        inventory-api-routes (or (:api inventory-routes) [])
-
-        ;; Inventory routes are in normalized format - use directly
-        inventory-normalized-static (when (seq inventory-static-routes) inventory-static-routes)
-        inventory-normalized-web (when (seq inventory-web-routes)
-                                  ;; Add /web prefix to web routes and merge :meta into route root
-                                   (mapv (fn [{:keys [path meta] :as route}]
-                                           (-> route
-                                               (dissoc :meta)
-                                               (merge meta)
-                                               (assoc :path (str "/web" path))))
-                                         inventory-web-routes))
-        inventory-normalized-api (when (seq inventory-api-routes) inventory-api-routes)
-
         ;; Extract admin module routes (normalized format) - may be nil if admin disabled
         admin-static-routes (or (:static admin-routes) [])
         admin-web-routes (or (:web admin-routes) [])
@@ -212,7 +194,6 @@
 
         ;; Combine all API routes (unversioned at this point)
         all-api-routes (concat (or user-normalized-api [])
-                               (or inventory-normalized-api [])
                                (or admin-normalized-api [])
                                (or tenant-normalized-api []))
 
@@ -226,8 +207,6 @@
         all-normalized-routes (concat platform-routes
                                       (or user-normalized-static [])
                                       (or user-normalized-web [])
-                                      (or inventory-normalized-static [])
-                                      (or inventory-normalized-web [])
                                       (or admin-normalized-static [])
                                       (or admin-normalized-web [])
                                       versioned-api-routes)
@@ -270,9 +249,6 @@
               {:user-routes {:static (count (or user-static-routes []))
                              :web (count (or user-web-routes []))
                              :api (count (or user-api-routes []))}
-               :inventory-routes {:static (count (or inventory-static-routes []))
-                                  :web (count (or inventory-web-routes []))
-                                  :api (count (or inventory-api-routes []))}
                :admin-routes {:static (count (or admin-static-routes []))
                               :web (count (or admin-web-routes []))
                               :api (count (or admin-api-routes []))}

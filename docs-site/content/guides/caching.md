@@ -836,7 +836,7 @@ redis-cli CONFIG SET maxmemory-policy allkeys-lru
 
 - **[Background Jobs Guide]({{< relref "background-jobs.md" >}})** - Use caching for job deduplication
 - **[API Pagination]({{< relref "pagination.md" >}})** - Cache paginated results
-- **[Observability](https://github.com/thijs-creemers/boundary-docs/tree/main/content/guides/integrate-observability.adoc)** - Monitor cache hit rates and performance
+- **[Observability]({{< relref "integrate-observability.adoc" >}})** - Monitor cache hit rates and performance
 - **[GitHub Repository](https://github.com/thijs-creemers/boundary)** - View caching implementation source code
 
 ---

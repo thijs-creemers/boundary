@@ -115,12 +115,12 @@ The Imperative Shell handles **all side-effectful operations** and infrastructur
 ----
 (ns boundary.user.shell.service
   (:require 
-   [boundary.shared.shell.interceptors :as interceptors]
+   [boundary.platform.shell.service-interceptors :as service-interceptors]
    [boundary.user.core.user :as user-core]))
 
 (defn create-user!
   [{:keys [user-repository logger metrics error-reporter]} user-data context]
-  (interceptors/execute-service-operation
+  (service-interceptors/execute-service-operation
     {:operation-name "create-user"
      :logger logger
      :metrics metrics
@@ -136,12 +136,12 @@ The Imperative Shell handles **all side-effectful operations** and infrastructur
 ----
 (ns boundary.user.shell.persistence
   (:require 
-   [boundary.shared.shell.interceptors :as interceptors]
-   [boundary.shared.shell.adapters.database.common.core :as db]))
+   [boundary.platform.shell.persistence-interceptors :as persistence-interceptors]
+   [boundary.platform.shell.adapters.database.common.core :as db]))
 
 (defn create-user
   [{:keys [ctx logger metrics error-reporter]} user-entity]
-  (interceptors/execute-persistence-operation
+  (persistence-interceptors/execute-persistence-operation
     {:operation-name "create-user"
      :logger logger
      :metrics metrics  

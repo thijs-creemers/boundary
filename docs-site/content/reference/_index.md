@@ -11,4 +11,4 @@ Detailed reference documentation for commands, configuration, and utilities.
 
 ## Reference Documentation
 
-{{< section >}}
+Browse reference documentation in the navigation menu on the left.
