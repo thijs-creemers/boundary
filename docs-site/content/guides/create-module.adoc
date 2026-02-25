@@ -304,7 +304,7 @@ Create `link:https://github.com/thijs-creemers/boundary/blob/main/libs/orders/sr
 
 Update main application to include new module:
 
-In `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shell/interfaces/http/server.clj` or similar:
+In `link:https://github.com/thijs-creemers/boundary/blob/main/libs/platform/src/boundary/platform/shell/interfaces/http/server.clj` or similar:
 
 [source,clojure]
 ----

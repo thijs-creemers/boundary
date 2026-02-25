@@ -217,7 +217,7 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
 
 ### 1. Unit Tests for Pure Functions
 
-**When**: Testing `src/boundary/admin/core/*.clj` functions
+**When**: Testing `libs/admin/src/boundary/admin/core/*.clj` functions
 
 **Template**:
 ```clojure
@@ -244,7 +244,7 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
 
 ### 2. Integration Tests for Services
 
-**When**: Testing `src/boundary/admin/shell/service.clj` with database
+**When**: Testing `libs/admin/src/boundary/admin/shell/service.clj` with database
 
 **Template**:
 ```clojure
@@ -294,7 +294,7 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
 
 ### 3. HTTP Contract Tests
 
-**When**: Testing `src/boundary/admin/shell/http.clj` endpoints
+**When**: Testing `libs/admin/src/boundary/admin/shell/http.clj` endpoints
 
 **Template**:
 ```clojure
@@ -316,7 +316,7 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time)
 
 ### 4. UI Component Tests
 
-**When**: Testing `src/boundary/admin/core/ui.clj` Hiccup generation
+**When**: Testing `libs/admin/src/boundary/admin/core/ui.clj` Hiccup generation
 
 **Template**:
 ```clojure

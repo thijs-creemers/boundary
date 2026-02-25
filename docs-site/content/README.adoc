@@ -109,6 +109,8 @@ reference
 validation system developer guide
 * link:reference/validation-patterns.adoc[Validation Patterns] -
 Validation approach and patterns
+* link:reference/docs-maintenance-checklist.adoc[Documentation Maintenance Checklist] -
+Pre-merge docs quality checks
 
 [[electric_plug-api]]
 ==== 🔌 link:api/[API]

@@ -92,7 +92,7 @@ Here’s a minimal example of using the multi-database system:
 [source,highlightjs,highlight]
 ----
 (require '[boundary.platform.shell.adapters.database.factory :as dbf]
-         '[boundary.platform.shell.adapters.database.core :as db]
+         '[boundary.platform.shell.adapters.database.common.execution :as db]
          '[boundary.user.shell.multi-db-adapters :as user-adapters])
 
 ;; Create a database context
@@ -306,7 +306,7 @@ For production applications, configure databases based on environment:
 
 [source,highlightjs,highlight]
 ----
-(require '[boundary.platform.shell.adapters.database.core :as db])
+(require '[boundary.platform.shell.adapters.database.common.execution :as db])
 
 ;; Execute a SELECT query
 (def users (db/execute-query! ctx {:select [:*]
@@ -623,20 +623,24 @@ You can create custom database adapters by implementing the DBAdapter protocol:
 [[_deprecated_functions]]
 ==== link:#_deprecated_functions[]10.1. Deprecated Functions
 
-The old `boundary.shared.shell.persistence` namespace is deprecated but still functional:
+Legacy projects may still construct DB contexts manually. The factory-based approach is recommended:
 
 [source,highlightjs,highlight]
 ----
-;; OLD (deprecated)
-(require '[boundary.shared.shell.persistence :as old-persistence])
-(def datasource (old-persistence/create-connection-pool config))
-(old-persistence/execute-query! datasource query)
+;; OLD (legacy manual context construction)
+(require '[boundary.platform.shell.adapters.database.common.connection :as conn]
+         '[boundary.platform.shell.adapters.database.common.execution :as exec]
+         '[boundary.platform.shell.adapters.database.sqlite.core :as sqlite])
+(def datasource (conn/create-connection-pool config))
+(def ctx {:datasource datasource
+          :adapter (sqlite/new-adapter)})
+(exec/execute-query! ctx query)
 
 ;; NEW (recommended)
 (require '[boundary.platform.shell.adapters.database.factory :as dbf]
-         '[boundary.platform.shell.adapters.database.core :as db])
+         '[boundary.platform.shell.adapters.database.common.execution :as exec])
 (def ctx (dbf/db-context config))
-(db/execute-query! ctx query)
+(exec/execute-query! ctx query)
 ----
 
 [[_repository_migration]]

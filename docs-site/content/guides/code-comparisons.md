@@ -83,7 +83,7 @@ Boundary separates pure business logic from infrastructure concerns:
 ```clojure
 ;; ==========================================
 ;; FUNCTIONAL CORE - Pure business logic
-;; src/boundary/user/core/user.clj
+;; libs/user/src/boundary/user/core/user.clj
 ;; ==========================================
 
 (ns boundary.user.core.user)
@@ -126,7 +126,7 @@ Boundary separates pure business logic from infrastructure concerns:
 
 ;; ==========================================
 ;; IMPERATIVE SHELL - Side effects
-;; src/boundary/user/shell/service.clj
+;; libs/user/src/boundary/user/shell/service.clj
 ;; ==========================================
 
 (ns boundary.user.shell.service
@@ -170,7 +170,7 @@ Boundary separates pure business logic from infrastructure concerns:
 
 ;; ==========================================
 ;; HTTP ADAPTER - REST interface
-;; src/boundary/user/shell/http.clj
+;; libs/user/src/boundary/user/shell/http.clj
 ;; ==========================================
 
 (ns boundary.user.shell.http

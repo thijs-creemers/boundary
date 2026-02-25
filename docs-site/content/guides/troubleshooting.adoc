@@ -140,7 +140,7 @@ clojure -M:repl-clj
 ;; Ensure file is saved
 ;; Check namespace declaration matches file path
 
-;; For src/boundary/user/core/user.clj:
+;; For libs/user/src/boundary/user/core/user.clj:
 (ns boundary.user.core.user)  ; ✅ Correct
 
 ;; Reload namespace

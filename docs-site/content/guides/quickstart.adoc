@@ -319,12 +319,12 @@ Boundary follows a **module-centric architecture**. Let's explore the user modul
 
 [source,{shell}]
 ----
-tree src/boundary/user -L 2
+tree libs/user/src/boundary/user -L 2
 ----
 
 **Structure:**
 ----
-src/boundary/user/
+libs/user/src/boundary/user/
 ├── schema.clj              # Domain entities (Malli schemas)
 ├── ports.clj               # Repository interfaces (protocols)
 ├── core/

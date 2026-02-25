@@ -584,7 +584,7 @@ function InventorySearch() {
 ### Integrant System Configuration
 
 ```clojure
-;; src/boundary/config.clj
+;; Root system config remains in src/boundary/config.clj
 (defn search-module-config
   [config]
   {:boundary/search-provider
@@ -600,7 +600,7 @@ function InventorySearch() {
    {:service (ig/ref :boundary/search-service)
     :config config}})
 
-;; src/boundary/shell/system/wiring.clj
+;; libs/platform/src/boundary/platform/shell/system/wiring.clj
 (defmethod ig/init-key :boundary/search-provider
   [_ {:keys [ctx config]}]
   (log/info "Initializing PostgreSQL search provider")

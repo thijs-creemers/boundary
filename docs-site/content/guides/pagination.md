@@ -1218,6 +1218,6 @@ WHERE relname = 'users';
 ---
 
 **Implementation Status**: ✅ Production Ready  
-**Module Location**: `src/boundary/platform/core/pagination/`  
+**Module Location**: `libs/platform/src/boundary/platform/core/pagination/`  
 **Test Coverage**: 95% (core: 100%, integration: 90%)  
 **Performance**: Benchmarked on PostgreSQL 14 (see Performance section)

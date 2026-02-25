@@ -188,7 +188,7 @@ After reading this document, you will understand:
 (ns boundary.user.infrastructure.database
   (:require [boundary.user.ports :as ports]
             [boundary.user.schema :as user-schema]
-            [boundary.platform.shell.adapters.database.core :as db]
+            [boundary.platform.shell.adapters.database.common.execution :as db]
             [boundary.core.utils.type-conversion :as type-conversion]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]))

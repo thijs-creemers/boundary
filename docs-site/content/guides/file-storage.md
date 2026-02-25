@@ -1199,6 +1199,6 @@ aws s3api get-bucket-location --bucket my-bucket
 ---
 
 **Implementation Status**: ✅ Production Ready  
-**Module Location**: `src/boundary/storage/`  
+**Module Location**: `libs/storage/src/boundary/storage/`  
 **Test Coverage**: 92% (validation: 100%, adapters: 85%)  
 **Performance**: Benchmarked on MacBook Pro M1 (see Performance section)

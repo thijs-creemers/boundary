@@ -221,7 +221,7 @@ Tests are organized to mirror the `src` directory structure within each library.
 
 ```
 libs/{library}/
-├── src/boundary/{library}/
+├── libs/{library}/src/boundary/{library}/
 │   ├── core/      # Pure logic
 │   └── shell/     # I/O, adapters
 └── test/boundary/{library}/
@@ -469,9 +469,9 @@ clojure -M:clj-kondo --lint libs/user/test
 ## TDD Workflow
 
 1. **Start Watch Mode**: `clojure -M:test:db/h2 --watch :my-module`
-2. **Write a Failing Test**: Create the test in `test/boundary/my_module/core/feature_test.clj`.
+2. **Write a Failing Test**: Create the test in `libs/my-module/test/boundary/my-module/core/feature_test.clj`.
 3. **Watch it Fail**: The test runner should report a failure.
-4. **Implement the Logic**: Write the code in `src/boundary/my_module/core/feature.clj`.
+4. **Implement the Logic**: Write the code in `libs/my-module/src/boundary/my-module/core/feature.clj`.
 5. **Watch it Pass**: The test runner will automatically re-run and show green.
 6. **Refactor**: Clean up the code, keeping the tests passing.
 

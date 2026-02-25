@@ -195,7 +195,7 @@ clojure -M:dev -m boundary.scaffolder.core \
 
 **What this creates:**
 ```
-src/boundary/tasks/
+libs/tasks/src/boundary/tasks/
   ├── core/
   │   ├── task.clj           # Pure business logic
   │   └── validation.clj     # Validation rules
@@ -213,7 +213,7 @@ Lines of code: ~2,500
 
 **Wire up the module:**
 ```clojure
-;; In src/boundary/system.clj, add to routes:
+;; In root config (src/boundary/config.clj), add to routes:
 (require '[boundary.tasks.shell.http :as tasks-http])
 
 (defn all-routes [config]
@@ -407,7 +407,7 @@ clojure -M:migrate rollback
 
 ### Adding new endpoints
 ```clojure
-;; In src/boundary/tasks/shell/http.clj
+;; In libs/tasks/src/boundary/tasks/shell/http.clj
 
 ;; Add to normalized-api-routes:
 {:path "/tasks/:id/complete"
@@ -419,7 +419,7 @@ clojure -M:migrate rollback
 
 ### Testing your code
 ```clojure
-;; In test/boundary/tasks/core/task_test.clj
+;; In libs/tasks/test/boundary/tasks/core/task_test.clj
 (deftest complete-task-test
   (testing "completing a task"
     (let [task {:id "123" :title "Test" :completed false}
@@ -475,4 +475,3 @@ clojure -M:migrate rollback
 - [Database Setup](../guides/database-setup.md) - PostgreSQL configuration
 - [Testing Guide](../guides/testing.md) - Write and run tests
 - [Authentication Guide](../guides/authentication.md) - JWT auth and MFA setup
-

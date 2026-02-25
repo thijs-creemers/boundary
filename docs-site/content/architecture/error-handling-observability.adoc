@@ -618,6 +618,6 @@ Explore:
 == References
 
 * **Boundary Observability Integration Guide** - `docs/guides/integrate-observability.adoc`
-* **System Component Wiring** - `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/shell/system/wiring.clj`
-* **Protocol Definitions** - `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/{logging,metrics,error-reporting}/ports.clj`
+* **System Component Wiring** - `link:https://github.com/thijs-creemers/boundary/blob/main/libs/platform/src/boundary/platform/shell/system/wiring.clj`
+* **Protocol Definitions** - `link:https://github.com/thijs-creemers/boundary/blob/main/libs/observability/src/boundary/observability/{logging,metrics,errors}/ports.clj`
 * **The Twelve-Factor App** - Logging and monitoring best practices

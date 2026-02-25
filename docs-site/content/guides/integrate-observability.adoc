@@ -346,7 +346,7 @@ excessive metric registration
 
 === Example: Complete Feature Integration
 
-See `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/user/shell/service.clj` for a complete working example
+See `link:https://github.com/thijs-creemers/boundary/blob/main/libs/user/src/boundary/user/shell/service.clj` for a complete working example
 of observability integration in a feature module.
 
 The key principles:

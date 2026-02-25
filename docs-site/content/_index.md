@@ -159,7 +159,7 @@ Stop reinventing the wheel. Boundary includes enterprise features you'd otherwis
 Each module is **independently deployable** with zero rewrites:
 
 ```
-src/boundary/user/
+libs/user/src/boundary/user/
 ├── core/user.clj        # Pure business logic
 ├── shell/
 │   ├── service.clj      # Orchestration

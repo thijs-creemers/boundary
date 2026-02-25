@@ -13,7 +13,7 @@ This document captures the implementation details, architectural decisions, and 
 The User Module follows Boundary's standardized module structure:
 
 ```
-src/boundary/user/
+libs/user/src/boundary/user/
 ├── schema.clj          # Comprehensive schema definitions (✅ Implemented)
 ├── ports.clj           # Port interfaces/contracts (✅ Implemented)  
 ├── core/               # Pure business logic (TODO)

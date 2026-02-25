@@ -65,7 +65,7 @@ curl --version
 In Boundary, everything is organized into modules. A typical module looks like this:
 
 ```
-src/boundary/task/
+libs/task/src/boundary/task/
 ├── core/
 │   ├── task.clj           # Pure business logic (FC)
 │   └── ui.clj             # UI components (Hiccup)
@@ -337,9 +337,9 @@ clojure -M:migrate migrate
 ### Step 4: Wire it Up
 Currently, the system doesn't know about our new module. We need to add it to the system configuration.
 
-Open `src/boundary/system.clj` and add the `task` module to the Integrant configuration and routes.
+Open root config `src/boundary/config.clj` and add the `task` module to the Integrant configuration and routes.
 
-**In `src/boundary/system.clj`:**
+**In root `src/boundary/config.clj`:**
 
 ```clojure
 (require '[boundary.task.shell.http :as task-http]
@@ -1054,4 +1054,3 @@ You are now equipped to build sophisticated, high-performance web applications w
 - [Testing Guide](../guides/testing.md) - Testing strategies and best practices
 - [Admin Testing](../guides/admin-testing.md) - Testing the admin UI
 - [Database Setup](../guides/database-setup.md) - PostgreSQL configuration
-
