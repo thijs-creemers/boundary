@@ -2,6 +2,11 @@
 :toc: left
 :toclevels: 3
 
+[NOTE]
+====
+This document intentionally includes pre-split paths (`src/boundary/...`) as migration source references.
+====
+
 [[overview]]
 == Overview
 
