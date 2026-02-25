@@ -33,7 +33,7 @@
 === 2. Code Cleanup ✅
 
 **Deleted Files**:
-- `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/platform/shell/http/pedestal_router.clj` (draft implementation)
+- `link:https://github.com/thijs-creemers/boundary/blob/main/libs/platform/src/boundary/platform/shell/http/pedestal_router.clj` (draft implementation)
 - `test/boundary/platform/shell/http/pedestal_router_test.clj` (test suite)
 
 **Modified Files**:
@@ -109,7 +109,7 @@
    - Provides flexibility for future changes
 
 3. **Reitit Adapter** (Only Implementation)
-   - `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/platform/shell/http/reitit_router.clj`
+   - `link:https://github.com/thijs-creemers/boundary/blob/main/libs/platform/src/boundary/platform/shell/http/reitit_router.clj`
    - Converts normalized routes → Reitit routes
    - Includes conflict resolution (`:conflicts nil`)
 
@@ -220,16 +220,16 @@ Even with single implementation, the protocol provides:
 **Modified**:
 - ✅ `deps.edn` (removed Pedestal deps)
 - ✅ `docs/adr/README.adoc` (added ADR-009)
-- ✅ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/user/shell/http.clj` (normalized routes)
-- ✅ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/inventory/shell/http.clj` (normalized routes)
-- ✅ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/platform/shell/http/reitit_router.clj` (conflict fix)
+- ✅ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/user/src/boundary/user/shell/http.clj` (normalized routes)
+- ✅ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/inventory/src/boundary/inventory/shell/http.clj` (normalized routes)
+- ✅ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/platform/src/boundary/platform/shell/http/reitit_router.clj` (conflict fix)
 
 **Deleted**:
-- ✅ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/platform/shell/http/pedestal_router.clj`
+- ✅ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/platform/src/boundary/platform/shell/http/pedestal_router.clj`
 - ✅ `test/boundary/platform/shell/http/pedestal_router_test.clj`
 
 **Deprecated**:
-- ⚠️ `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/platform/shell/http/migration_helpers.clj`
+- ⚠️ `link:https://github.com/thijs-creemers/boundary/blob/main/libs/platform/src/boundary/platform/shell/http/migration_helpers.clj`
 
 === Test Status
 
@@ -357,11 +357,11 @@ The normalized routing format provides a **migration path** if needed:
 
 ### Code
 
-- **IRouter Protocol**: `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/platform/ports.clj`
-- **Reitit Adapter**: `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/platform/shell/http/reitit_router.clj`
-- **User Routes**: `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/user/shell/http.clj`
-- **Inventory Routes**: `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/inventory/shell/http.clj`
-- **System Wiring**: `link:https://github.com/thijs-creemers/boundary/blob/main/src/boundary/platform/shell/system/wiring.clj`
+- **IRouter Protocol**: `link:https://github.com/thijs-creemers/boundary/blob/main/libs/platform/src/boundary/platform/ports/http.clj`
+- **Reitit Adapter**: `link:https://github.com/thijs-creemers/boundary/blob/main/libs/platform/src/boundary/platform/shell/http/reitit_router.clj`
+- **User Routes**: `link:https://github.com/thijs-creemers/boundary/blob/main/libs/user/src/boundary/user/shell/http.clj`
+- **Inventory Routes**: `link:https://github.com/thijs-creemers/boundary/blob/main/libs/inventory/src/boundary/inventory/shell/http.clj`
+- **System Wiring**: `link:https://github.com/thijs-creemers/boundary/blob/main/libs/platform/src/boundary/platform/shell/system/wiring.clj`
 
 ### External
 
