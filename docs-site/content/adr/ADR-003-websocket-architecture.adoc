@@ -1,63 +1,84 @@
-# ADR-003: WebSocket Architecture for Real-time Module
+== ADR-003: WebSocket Architecture for Real-time Module
 
-**Status:** Proposed  
-**Date:** 2026-02-04  
-**Deciders:** Boundary Core Team  
-**Context:** Real-time/WebSocket Module (Phase 5)
+*Status:* Proposed +
+*Date:* 2026-02-04 +
+*Deciders:* Boundary Core Team +
+*Context:* Real-time/WebSocket Module (Phase 5)
 
----
+'''''
 
-## Context and Problem Statement
+=== Context and Problem Statement
 
-The Boundary framework currently supports HTTP-based request-response patterns but lacks built-in support for real-time, bidirectional communication. Modern web applications often require real-time features such as:
+The Boundary framework currently supports HTTP-based request-response
+patterns but lacks built-in support for real-time, bidirectional
+communication. Modern web applications often require real-time features
+such as:
 
-- Live notifications (e.g., new message alerts, system events)
-- Dashboard updates (e.g., metrics, status changes)
-- Collaborative features (e.g., live document editing indicators)
-- Event streaming (e.g., order status updates, job progress)
+* Live notifications (e.g., new message alerts, system events)
+* Dashboard updates (e.g., metrics, status changes)
+* Collaborative features (e.g., live document editing indicators)
+* Event streaming (e.g., order status updates, job progress)
 
-Users currently must implement WebSocket support from scratch, leading to inconsistent patterns and integration challenges with Boundary's existing authentication and module system.
+Users currently must implement WebSocket support from scratch, leading
+to inconsistent patterns and integration challenges with Boundary's
+existing authentication and module system.
 
-This ADR defines the architecture for a `libs/realtime/` module that provides WebSocket support with first-class integration into the Boundary framework's Functional Core / Imperative Shell paradigm.
+This ADR defines the architecture for a `libs/realtime/` module that
+provides WebSocket support with first-class integration into the
+Boundary framework's Functional Core / Imperative Shell paradigm.
 
----
+'''''
 
-## Decision Drivers
+=== Decision Drivers
 
-### Technical Drivers
-- **FC/IS Compliance**: Must follow Functional Core / Imperative Shell architecture
-- **Authentication Integration**: Seamless JWT-based auth with existing `boundary/user` module
-- **Simplicity**: Start with core use cases, avoid premature complexity
-- **Testability**: Pure functions in core, mockable adapters in shell
-- **Performance**: Efficient message routing without external dependencies
+==== Technical Drivers
 
-### User Experience Drivers
-- **Developer Ergonomics**: Simple API for sending/receiving messages
-- **Documentation**: Clear examples for common use cases
-- **Observability**: Integration with existing logging and metrics
+* *FC/IS Compliance*: Must follow Functional Core / Imperative Shell
+architecture
+* *Authentication Integration*: Seamless JWT-based auth with existing
+`boundary/user` module
+* *Simplicity*: Start with core use cases, avoid premature complexity
+* *Testability*: Pure functions in core, mockable adapters in shell
+* *Performance*: Efficient message routing without external dependencies
 
-### Scope Drivers (Explicit Non-Goals)
-- **No rooms/channels**: Point-to-point or broadcast only (rooms add significant complexity)
-- **No presence tracking**: No "who's online" features (can be added later if needed)
-- **No Redis pub/sub**: Single-server deployment initially (scaling can be added later)
-- **No complex message formats**: Simple EDN or JSON payloads
+==== User Experience Drivers
 
----
+* *Developer Ergonomics*: Simple API for sending/receiving messages
+* *Documentation*: Clear examples for common use cases
+* *Observability*: Integration with existing logging and metrics
 
-## Primary Use Cases
+==== Scope Drivers (Explicit Non-Goals)
 
-### Use Case 1: Live Notifications
-A user receives real-time notifications when events occur (e.g., new order, comment reply).
+* *No rooms/channels*: Point-to-point or broadcast only (rooms add
+significant complexity)
+* *No presence tracking*: No "who's online" features (can be added later
+if needed)
+* *No Redis pub/sub*: Single-server deployment initially (scaling can be
+added later)
+* *No complex message formats*: Simple EDN or JSON payloads
 
-**Flow:**
-1. User authenticates via HTTP (gets JWT token)
-2. Client opens WebSocket connection with JWT in query params
-3. Server validates JWT and registers connection
-4. When event occurs, server sends notification to user's connection
-5. Client receives notification and updates UI
+'''''
 
-**Example:**
-```clojure
+=== Primary Use Cases
+
+==== Use Case 1: Live Notifications
+
+A user receives real-time notifications when events occur (e.g., new
+order, comment reply).
+
+*Flow:*
+
+[arabic]
+. User authenticates via HTTP (gets JWT token)
+. Client opens WebSocket connection with JWT in query params
+. Server validates JWT and registers connection
+. When event occurs, server sends notification to user's connection
+. Client receives notification and updates UI
+
+*Example:*
+
+[source,clojure]
+----
 ;; Server-side: Send notification
 (realtime/send-to-user realtime-service user-id
   {:type :notification
@@ -70,113 +91,137 @@ ws.onmessage = (event) => {
     showNotification(data.payload.message);
   }
 }
-```
+----
 
-### Use Case 2: Dashboard Live Updates
+==== Use Case 2: Dashboard Live Updates
+
 Admin dashboard displays live metrics that update without page refresh.
 
-**Flow:**
-1. Admin connects via WebSocket with JWT
-2. Server periodically broadcasts metrics to all admin connections
-3. Dashboard updates in real-time
+*Flow:*
 
-**Example:**
-```clojure
+[arabic]
+. Admin connects via WebSocket with JWT
+. Server periodically broadcasts metrics to all admin connections
+. Dashboard updates in real-time
+
+*Example:*
+
+[source,clojure]
+----
 ;; Server-side: Broadcast to role
 (realtime/broadcast-to-role realtime-service :admin
   {:type :metrics
    :payload {:active-users 142 :orders-today 37}})
-```
+----
 
-### Use Case 3: Job Progress Updates
+==== Use Case 3: Job Progress Updates
+
 User submits long-running job and receives progress updates.
 
-**Flow:**
-1. User triggers job via HTTP POST
-2. User connects WebSocket with job-id in query params
-3. Job sends progress updates via WebSocket
-4. User receives real-time progress
+*Flow:*
 
-**Example:**
-```clojure
+[arabic]
+. User triggers job via HTTP POST
+. User connects WebSocket with job-id in query params
+. Job sends progress updates via WebSocket
+. User receives real-time progress
+
+*Example:*
+
+[source,clojure]
+----
 ;; Server-side: Send job progress
 (realtime/send-to-connection realtime-service connection-id
   {:type :job-progress
    :payload {:job-id "job-123" :progress 45 :status "Processing..."}})
-```
+----
 
----
+'''''
 
-## Considered Options
+=== Considered Options
 
-### Option 1: Server-Sent Events (SSE)
+==== Option 1: Server-Sent Events (SSE)
+
 Use HTTP SSE for one-way server-to-client communication.
 
-**Pros:**
-- Simpler than WebSocket
-- Works over HTTP (no special infrastructure)
-- Native browser support
+*Pros:*
 
-**Cons:**
-- One-way only (no client → server messages)
-- Connection limits in browsers (6 per domain)
-- No binary data support
-- Does not fit bidirectional use cases
+* Simpler than WebSocket
+* Works over HTTP (no special infrastructure)
+* Native browser support
 
-**Verdict:** ❌ Rejected - Insufficient for bidirectional communication needs
+*Cons:*
 
----
+* One-way only (no client → server messages)
+* Connection limits in browsers (6 per domain)
+* No binary data support
+* Does not fit bidirectional use cases
 
-### Option 2: WebSocket with Full Channel/Room System
-Implement Phoenix Channels-style architecture with rooms, presence, and Redis pub/sub.
+*Verdict:* ❌ Rejected - Insufficient for bidirectional communication
+needs
 
-**Pros:**
-- Feature-complete for complex apps
-- Supports multi-server scaling
-- Rich presence tracking
+'''''
 
-**Cons:**
-- High complexity (1000+ lines of code)
-- Requires Redis dependency
-- Most users don't need rooms/presence
-- Delays MVP delivery
+==== Option 2: WebSocket with Full Channel/Room System
 
-**Verdict:** ❌ Rejected - Over-engineered for initial use cases
+Implement Phoenix Channels-style architecture with rooms, presence, and
+Redis pub/sub.
 
----
+*Pros:*
 
-### Option 3: Minimal WebSocket with JWT Auth ✅ SELECTED
-Simple WebSocket implementation with JWT authentication and point-to-point messaging.
+* Feature-complete for complex apps
+* Supports multi-server scaling
+* Rich presence tracking
 
-**Pros:**
-- Minimal complexity (~300-400 LOC)
-- No external dependencies (no Redis)
-- Sufficient for 80% of use cases
-- Easy to extend later
-- Fully testable with FC/IS pattern
+*Cons:*
 
-**Cons:**
-- Limited to single-server initially
-- No built-in presence tracking
-- No rooms/channels (must route manually)
+* High complexity (1000{plus} lines of code)
+* Requires Redis dependency
+* Most users don't need rooms/presence
+* Delays MVP delivery
 
-**Verdict:** ✅ Selected - Right balance of simplicity and functionality
+*Verdict:* ❌ Rejected - Over-engineered for initial use cases
 
----
+'''''
 
-## Decision Outcome
+[[option-3-minimal-websocket-with-jwt-auth-white_check_mark-selected]]
+==== Option 3: Minimal WebSocket with JWT Auth ✅ SELECTED
 
-**Chosen Option:** Option 3: Minimal WebSocket with JWT Auth
+Simple WebSocket implementation with JWT authentication and
+point-to-point messaging.
 
-We will implement a `libs/realtime/` module with the following architecture.
+*Pros:*
 
----
+* Minimal complexity (~300-400 LOC)
+* No external dependencies (no Redis)
+* Sufficient for 80% of use cases
+* Easy to extend later
+* Fully testable with FC/IS pattern
 
-## Architecture
+*Cons:*
 
-### Module Structure
+* Limited to single-server initially
+* No built-in presence tracking
+* No rooms/channels (must route manually)
 
-```
+*Verdict:* ✅ Selected - Right balance of simplicity and functionality
+
+'''''
+
+=== Decision Outcome
+
+*Chosen Option:* Option 3: Minimal WebSocket with JWT Auth
+
+We will implement a `libs/realtime/` module with the following
+architecture.
+
+'''''
+
+=== Architecture
+
+==== Module Structure
+
+....
 libs/realtime/
 ├── src/boundary/realtime/
 │   ├── core/
@@ -193,12 +238,15 @@ libs/realtime/
 │   ├── core/                   # Unit tests
 │   └── shell/                  # Integration tests
 └── README.md
-```
+....
 
-### Core Components (Functional Core)
+==== Core Components (Functional Core)
 
-#### 1. Connection State (core/connection.clj)
-```clojure
+[[1-connection-state-coreconnectionclj]]
+===== 1. Connection State (core/connection.clj)
+
+[source,clojure]
+----
 (ns boundary.realtime.core.connection)
 
 ;; Pure data structures
@@ -215,10 +263,13 @@ libs/realtime/
 
 (defn authorize-connection? [connection required-role]
   (contains? (:roles connection) required-role))
-```
+----
 
-#### 2. Message Handling (core/message.clj)
-```clojure
+[[2-message-handling-coremessageclj]]
+===== 2. Message Handling (core/message.clj)
+
+[source,clojure]
+----
 (ns boundary.realtime.core.message
   (:require [boundary.realtime.schema :as schema]
             [malli.core :as m]))
@@ -234,10 +285,13 @@ libs/realtime/
     :user      (filter #(= (:user-id %) (:target message)) connections)
     :role      (filter #(contains? (:roles %) (:target message)) connections)
     []))
-```
+----
 
-#### 3. Authentication (core/auth.clj)
-```clojure
+[[3-authentication-coreauthclj]]
+===== 3. Authentication (core/auth.clj)
+
+[source,clojure]
+----
 (ns boundary.realtime.core.auth)
 
 ;; Pure JWT extraction
@@ -248,12 +302,15 @@ libs/realtime/
 ;; Pure validation decision (delegates actual JWT verification to port)
 (defn connection-authorized? [jwt-claims required-permissions]
   (every? (set (:permissions jwt-claims)) required-permissions))
-```
+----
 
-### Shell Components (Imperative Shell)
+==== Shell Components (Imperative Shell)
 
-#### 4. Service Orchestration (shell/service.clj)
-```clojure
+[[4-service-orchestration-shellserviceclj]]
+===== 4. Service Orchestration (shell/service.clj)
+
+[source,clojure]
+----
 (ns boundary.realtime.shell.service
   (:require [boundary.realtime.ports :as ports]
             [boundary.realtime.core.connection :as conn]
@@ -285,10 +342,13 @@ libs/realtime/
       (doseq [conn connections]
         (ports/send-message conn message))
       (ports/log logger :debug "Broadcast message" {:count (count connections)}))))
-```
+----
 
-#### 5. Connection Registry (shell/connection_registry.clj)
-```clojure
+[[5-connection-registry-shellconnection_registryclj]]
+===== 5. Connection Registry (shell/connection++_++registry.clj)
+
+[source,clojure]
+----
 (ns boundary.realtime.shell.connection-registry
   (:require [boundary.realtime.ports :as ports]))
 
@@ -314,10 +374,13 @@ libs/realtime/
 
 (defn create-registry []
   (->InMemoryConnectionRegistry (atom {})))
-```
+----
 
-#### 6. WebSocket Adapter (shell/websocket_adapter.clj)
-```clojure
+[[6-websocket-adapter-shellwebsocket_adapterclj]]
+===== 6. WebSocket Adapter (shell/websocket++_++adapter.clj)
+
+[source,clojure]
+----
 (ns boundary.realtime.shell.websocket-adapter
   (:require [boundary.platform.shell.interfaces.web.websockets :as ws]
             [boundary.realtime.ports :as ports]))
@@ -331,11 +394,12 @@ libs/realtime/
   
   (close [this]
     (ws/close! ws-connection)))
-```
+----
 
-### Ports (Protocol Definitions)
+==== Ports (Protocol Definitions)
 
-```clojure
+[source,clojure]
+----
 (ns boundary.realtime.ports)
 
 (defprotocol IRealtimeService
@@ -367,11 +431,12 @@ libs/realtime/
     "Send message over WebSocket.")
   (close [this]
     "Close WebSocket connection."))
-```
+----
 
-### Schemas
+==== Schemas
 
-```clojure
+[source,clojure]
+----
 (ns boundary.realtime.schema
   (:require [malli.core :as m]))
 
@@ -392,33 +457,37 @@ libs/realtime/
 (def QueryParams
   [:map
    [:token :string]])
-```
+----
 
----
+'''''
 
-## Authentication Approach
+=== Authentication Approach
 
-### JWT in Query Parameters
+==== JWT in Query Parameters
+
 WebSocket connections authenticate via JWT token in query parameters:
 
-```
+....
 ws://localhost:3000/ws?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+....
 
-**Why query params instead of headers?**
-- Browser WebSocket API does not support custom headers
-- Standard practice for WebSocket auth
-- Simple and widely supported
+*Why query params instead of headers?*
 
-**Security considerations:**
-- Token appears in server logs (use short-lived tokens)
-- Token visible in browser network tab (use HTTPS/WSS)
-- Validate token on every connection attempt
-- Implement token rotation for long-lived connections
+* Browser WebSocket API does not support custom headers
+* Standard practice for WebSocket auth
+* Simple and widely supported
 
-### Integration with boundary/user
+*Security considerations:*
 
-```clojure
+* Token appears in server logs (use short-lived tokens)
+* Token visible in browser network tab (use HTTPS/WSS)
+* Validate token on every connection attempt
+* Implement token rotation for long-lived connections
+
+==== Integration with boundary/user
+
+[source,clojure]
+----
 ;; User module provides JWT verification
 (require '[boundary.user.ports :as user-ports])
 
@@ -432,16 +501,18 @@ ws://localhost:3000/ws?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
                      {})]
     (ports/register connection-registry (:id connection) connection ws-connection)
     (:id connection)))
-```
+----
 
----
+'''''
 
-## Message Format
+=== Message Format
 
-### JSON (Initial Implementation)
+==== JSON (Initial Implementation)
+
 Messages use JSON for broad client compatibility:
 
-```json
+[source,json]
+----
 {
   "type": "notification",
   "payload": {
@@ -450,104 +521,128 @@ Messages use JSON for broad client compatibility:
     "timestamp": "2026-02-04T20:00:00Z"
   }
 }
-```
+----
 
-**Rationale:**
-- Universal browser support
-- Easy debugging (human-readable)
-- Standard tooling (JSON.parse/stringify)
+*Rationale:*
 
-### EDN (Future Consideration)
+* Universal browser support
+* Easy debugging (human-readable)
+* Standard tooling (JSON.parse/stringify)
+
+==== EDN (Future Consideration)
+
 For Clojure/ClojureScript clients, EDN support may be added later:
 
-```clojure
+[source,clojure]
+----
 {:type :notification
  :payload {:message "New order received"
            :order-id "123"
            :timestamp #inst "2026-02-04T20:00:00Z"}}
-```
+----
 
-**Deferred because:**
-- Requires transit or custom encoding
-- Not all clients are Clojure-based
-- JSON sufficient for MVP
+*Deferred because:*
 
----
+* Requires transit or custom encoding
+* Not all clients are Clojure-based
+* JSON sufficient for MVP
 
-## Message Routing
+'''''
 
-### Point-to-Point (User)
+=== Message Routing
+
+==== Point-to-Point (User)
+
 Send message to specific user (all their connections):
 
-```clojure
+[source,clojure]
+----
 (realtime/send-to-user realtime-service user-id
   {:type :notification
    :payload {:message "Hello user"}})
-```
+----
 
-### Broadcast (All Connections)
+==== Broadcast (All Connections)
+
 Send message to all connected clients:
 
-```clojure
+[source,clojure]
+----
 (realtime/broadcast realtime-service
   {:type :system-announcement
    :payload {:message "Maintenance in 5 minutes"}})
-```
+----
 
-### Role-Based
+==== Role-Based
+
 Send message to all users with a specific role:
 
-```clojure
+[source,clojure]
+----
 (realtime/send-to-role realtime-service :admin
   {:type :admin-alert
    :payload {:message "High CPU usage detected"}})
-```
+----
 
-### Connection-Specific
+==== Connection-Specific
+
 Send message to a specific connection (for job progress tracking):
 
-```clojure
+[source,clojure]
+----
 (realtime/send-to-connection realtime-service connection-id
   {:type :job-progress
    :payload {:progress 75}})
-```
+----
 
----
+'''''
 
-## Topic-Based Pub/Sub (v0.1.0)
+[[topic-based-pubsub-v010]]
+=== Topic-Based Pub/Sub (v0.1.0)
 
-### Decision
-Implement in-memory topic-based publish/subscribe messaging for dynamic routing.
+==== Decision
 
-### Context
-Initial design excluded rooms/channels to keep complexity low. However, many real-world use cases require dynamic topic subscriptions:
-- Chat rooms and game lobbies
-- Entity-specific updates (e.g., "order:123", "user:456")
-- Arbitrary topic routing without pre-defined roles
+Implement in-memory topic-based publish/subscribe messaging for dynamic
+routing.
 
-### Architecture
+==== Context
 
-**Core Layer (Pure Functions):**
-```clojure
+Initial design excluded rooms/channels to keep complexity low. However,
+many real-world use cases require dynamic topic subscriptions:
+
+* Chat rooms and game lobbies
+* Entity-specific updates (e.g., "order:123", "user:456")
+* Arbitrary topic routing without pre-defined roles
+
+==== Architecture
+
+*Core Layer (Pure Functions):*
+
+[source,clojure]
+----
 ;; core/pubsub.clj - Pure subscription management
 (defn subscribe [subscriptions connection-id topic]
   (update subscriptions topic (fnil conj #{}) connection-id))
 
 (defn get-subscribers [subscriptions topic]
   (get subscriptions topic #{}))
-```
+----
 
-**Shell Layer (I/O):**
-```clojure
+*Shell Layer (I/O):*
+
+[source,clojure]
+----
 ;; shell/pubsub_manager.clj - Atom-based storage
 (defrecord AtomPubSubManager [state]  ; state = atom of {topic #{conn-ids}}
   ports/IPubSubManager
   (subscribe-to-topic [this connection-id topic]
     (swap! state pubsub-core/subscribe connection-id topic)))
-```
+----
 
-**Service Integration:**
-```clojure
+*Service Integration:*
+
+[source,clojure]
+----
 ;; shell/service.clj
 (defn publish-to-topic [this topic message]
   (let [subscribers (ports/get-topic-subscribers pubsub-manager topic)]
@@ -555,18 +650,22 @@ Initial design excluded rooms/channels to keep complexity low. However, many rea
       (when-let [ws-adapter (get-ws-adapter conn-id)]
         (ports/send-message ws-adapter message)))
     (count subscribers)))
-```
+----
 
-### Data Structure
-```clojure
+==== Data Structure
+
+[source,clojure]
+----
 ;; Subscriptions map: {topic-name #{connection-id-1 connection-id-2 ...}}
 {"order:123"     #{#uuid "conn-1" #uuid "conn-2"}
  "chat:general"  #{#uuid "conn-2" #uuid "conn-3"}
  "user:456"      #{#uuid "conn-1"}}
-```
+----
 
-### Protocol Definition
-```clojure
+==== Protocol Definition
+
+[source,clojure]
+----
 (defprotocol IPubSubManager
   "Manage topic subscriptions for pub/sub messaging."
   (subscribe-to-topic [this connection-id topic]
@@ -583,97 +682,117 @@ Initial design excluded rooms/channels to keep complexity low. However, many rea
     "Count number of active topics.")
   (subscription-count [this]
     "Count total number of subscriptions across all topics."))
-```
+----
 
-### Automatic Cleanup
+==== Automatic Cleanup
+
 Subscriptions are automatically removed when a connection disconnects:
 
-```clojure
+[source,clojure]
+----
 (defn disconnect [this connection-id]
   ;; Clean up subscriptions on disconnect
   (when pubsub-manager
     (ports/unsubscribe-from-all-topics pubsub-manager connection-id))
   ;; ... rest of disconnect logic
   )
-```
+----
 
-### Trade-offs
+==== Trade-offs
 
-**Benefits:**
-- ✅ Simple in-memory implementation (no external dependencies)
-- ✅ Fast O(1) topic lookup and subscription operations
-- ✅ Dynamic topic creation (no pre-definition required)
-- ✅ Automatic cleanup on disconnect
-- ✅ Pure core functions (fully testable)
+*Benefits:*
 
-**Limitations:**
-- ❌ Single-server only (no cross-server pub/sub)
-- ❌ Lost on server restart (no persistence)
-- ❌ Memory usage grows with topic count
+* ✅ Simple in-memory implementation (no external dependencies)
+* ✅ Fast O(1) topic lookup and subscription operations
+* ✅ Dynamic topic creation (no pre-definition required)
+* ✅ Automatic cleanup on disconnect
+* ✅ Pure core functions (fully testable)
 
-### Future Enhancements (v0.2.0)
+*Limitations:*
+
+* ❌ Single-server only (no cross-server pub/sub)
+* ❌ Lost on server restart (no persistence)
+* ❌ Memory usage grows with topic count
+
+[[future-enhancements-v020]]
+==== Future Enhancements (v0.2.0)
+
 For multi-server deployments, implement Redis-backed pub/sub:
 
-```clojure
+[source,clojure]
+----
 ;; Future: Redis adapter for cross-server pub/sub
 (defrecord RedisPubSubManager [redis-conn]
   ports/IPubSubManager
   (subscribe-to-topic [this connection-id topic]
     (redis/sadd redis-conn (str "topic:" topic) connection-id)
     (redis/subscribe redis-conn topic)))
-```
+----
 
-This allows horizontal scaling while maintaining the same protocol interface.
+This allows horizontal scaling while maintaining the same protocol
+interface.
 
----
+'''''
 
-## Explicit Non-Goals (Phase 5)
+=== Explicit Non-Goals (Phase 5)
 
-### No Advanced Presence Tracking
-**Not implementing:**
-- "Who's online" queries with rich metadata
-- Online/offline events with activity status
-- Last-seen timestamps with timezone support
-- Typing indicators
+==== No Advanced Presence Tracking
 
-**Rationale:**
-- Requires heartbeat/ping mechanisms
-- State management complexity
-- Not in primary use cases
+*Not implementing:*
 
-**Workaround:**
-- Query active connections: `(count (ports/all-connections registry))`
-- Store last-activity in user module (HTTP-based)
-- Basic presence can be inferred from topic subscriptions
+* "Who's online" queries with rich metadata
+* Online/offline events with activity status
+* Last-seen timestamps with timezone support
+* Typing indicators
 
-### No Redis Pub/Sub
-**Not implementing:**
-- Multi-server WebSocket coordination
-- Redis-backed connection registry
-- Horizontal scaling
+*Rationale:*
 
-**Rationale:**
-- Adds external dependency
-- Most deployments are single-server initially
-- Can be added later via adapter swap
+* Requires heartbeat/ping mechanisms
+* State management complexity
+* Not in primary use cases
 
-**Workaround for multi-server:**
-- Use load balancer with sticky sessions
-- Defer to Phase 6+ if scaling required
+*Workaround:*
 
----
+* Query active connections: `(count (ports/all-connections registry))`
+* Store last-activity in user module (HTTP-based)
+* Basic presence can be inferred from topic subscriptions
 
-## HTTP Integration
+==== No Redis Pub/Sub
 
-### WebSocket Endpoint
+*Not implementing:*
+
+* Multi-server WebSocket coordination
+* Redis-backed connection registry
+* Horizontal scaling
+
+*Rationale:*
+
+* Adds external dependency
+* Most deployments are single-server initially
+* Can be added later via adapter swap
+
+*Workaround for multi-server:*
+
+* Use load balancer with sticky sessions
+* Defer to Phase 6{plus} if scaling required
+
+'''''
+
+=== HTTP Integration
+
+==== WebSocket Endpoint
+
 Add to Reitit routes:
 
-```clojure
+[source,clojure]
+----
 ["/ws" {:get {:handler (websocket-handler realtime-service)}}]
-```
+----
 
-### Handler Implementation
-```clojure
+==== Handler Implementation
+
+[source,clojure]
+----
 (defn websocket-handler [realtime-service]
   (fn [request]
     (if (ws/upgrade-request? request)
@@ -690,16 +809,18 @@ Add to Reitit routes:
                         (println "Disconnected"))}}
       {:status 400
        :body {:error "WebSocket upgrade required"}})))
-```
+----
 
----
+'''''
 
-## Testing Strategy
+=== Testing Strategy
 
-### Unit Tests (Core)
+==== Unit Tests (Core)
+
 Pure functions tested in isolation:
 
-```clojure
+[source,clojure]
+----
 (deftest create-connection-test
   (let [conn (conn/create-connection user-id #{:admin} {})]
     (is (uuid? (:id conn)))
@@ -712,12 +833,14 @@ Pure functions tested in isolation:
         message {:type :role :target :admin :payload {}}
         targets (msg/route-message message connections)]
     (is (= 1 (count targets)))))
-```
+----
 
-### Integration Tests (Shell)
+==== Integration Tests (Shell)
+
 Test with mock WebSocket connections:
 
-```clojure
+[source,clojure]
+----
 (deftest send-to-user-test
   (let [registry (create-registry)
         ws-mock (reify ports/IWebSocketConnection
@@ -726,105 +849,125 @@ Test with mock WebSocket connections:
     (ports/register registry conn-id connection ws-mock)
     (ports/send-to-user service user-id {:type :test :payload {}})
     (is (= 1 (count @sent-messages)))))
-```
+----
 
-### Manual Testing
+==== Manual Testing
+
 Browser-based testing:
 
-```javascript
+[source,javascript]
+----
 const ws = new WebSocket('ws://localhost:3000/ws?token=' + jwt);
 ws.onopen = () => console.log('Connected');
 ws.onmessage = (event) => console.log('Received:', JSON.parse(event.data));
 ws.send(JSON.stringify({type: 'ping', payload: {}}));
-```
+----
 
----
+'''''
 
-## Observability
+=== Observability
 
-### Logging
+==== Logging
+
 All WebSocket events logged via boundary/observability:
 
-```clojure
+[source,clojure]
+----
 (log :info "WebSocket connection established" {:connection-id conn-id :user-id user-id})
 (log :debug "Message sent" {:type :notification :user-id user-id})
 (log :warn "Connection closed unexpectedly" {:connection-id conn-id :reason reason})
-```
+----
 
-### Metrics
+==== Metrics
+
 Track connection and message statistics:
 
-```clojure
+[source,clojure]
+----
 (metrics/gauge "realtime.connections.active" (count (ports/all-connections registry)))
 (metrics/increment "realtime.messages.sent" {:type :notification})
 (metrics/increment "realtime.connections.opened")
 (metrics/increment "realtime.connections.closed" {:reason :client-disconnect})
-```
+----
 
----
+'''''
 
-## Migration Path
+=== Migration Path
 
-### Phase 5 (Current - v0.1.0)
-- ✅ Minimal WebSocket implementation
-- ✅ JWT authentication
-- ✅ Point-to-point and broadcast messaging
-- ✅ Role-based routing
-- ✅ Topic-based pub/sub (in-memory)
-- ✅ Single-server deployment
+[[phase-5-current---v010]]
+==== Phase 5 (Current - v0.1.0)
 
-### Phase 6+ (Future Enhancements)
-- **Redis Pub/Sub**: Multi-server scaling via Redis adapter (v0.2.0)
-- **Advanced Presence Tracking**: Heartbeat and online/offline events with rich metadata (v0.3.0)
-- **EDN Support**: Binary message format for Clojure clients (v0.3.0)
-- **Compression**: Message compression for large payloads (v0.4.0)
-- **Reconnection Logic**: Automatic reconnect with backoff (v0.4.0)
+* ✅ Minimal WebSocket implementation
+* ✅ JWT authentication
+* ✅ Point-to-point and broadcast messaging
+* ✅ Role-based routing
+* ✅ Topic-based pub/sub (in-memory)
+* ✅ Single-server deployment
 
----
+==== Phase 6{plus} (Future Enhancements)
 
-## Consequences
+* *Redis Pub/Sub*: Multi-server scaling via Redis adapter (v0.2.0)
+* *Advanced Presence Tracking*: Heartbeat and online/offline events with
+rich metadata (v0.3.0)
+* *EDN Support*: Binary message format for Clojure clients (v0.3.0)
+* *Compression*: Message compression for large payloads (v0.4.0)
+* *Reconnection Logic*: Automatic reconnect with backoff (v0.4.0)
 
-### Positive Consequences
-- **Simplicity**: Minimal code (~400 LOC total) with clear architecture
-- **FC/IS Compliance**: Pure core, side effects in shell
-- **No External Deps**: Works out-of-the-box with existing infrastructure
-- **Extensible**: Protocol-based design allows future adapter swaps
-- **Testable**: Pure functions easy to unit test, shell mocked in integration tests
+'''''
 
-### Negative Consequences
-- **Single-Server Only**: No built-in multi-server support (acceptable for MVP)
-- **No Presence**: Cannot query "who's online" (workaround: poll HTTP endpoint)
-- **No Rooms**: Manual routing required for group messages (acceptable for initial use cases)
-- **JSON Only**: No EDN support initially (can add later)
+=== Consequences
 
----
+==== Positive Consequences
 
-## References
+* *Simplicity*: Minimal code (~400 LOC total) with clear architecture
+* *FC/IS Compliance*: Pure core, side effects in shell
+* *No External Deps*: Works out-of-the-box with existing infrastructure
+* *Extensible*: Protocol-based design allows future adapter swaps
+* *Testable*: Pure functions easy to unit test, shell mocked in
+integration tests
 
-- **Phoenix Channels**: https://hexdocs.pm/phoenix/channels.html (inspiration for architecture)
-- **WebSocket RFC 6455**: https://datatracker.ietf.org/doc/html/rfc6455
-- **JWT Best Practices**: https://tools.ietf.org/html/rfc8725
-- **Boundary FC/IS Pattern**: `docs/ARCHITECTURE.md`
+==== Negative Consequences
 
----
+* *Single-Server Only*: No built-in multi-server support (acceptable for
+MVP)
+* *No Presence*: Cannot query "who's online" (workaround: poll HTTP
+endpoint)
+* *No Rooms*: Manual routing required for group messages (acceptable for
+initial use cases)
+* *JSON Only*: No EDN support initially (can add later)
 
-## Approval Checklist
+'''''
 
-- [ ] Primary use cases documented (notifications, dashboards, job progress)
-- [ ] Authentication approach documented (JWT in query params)
-- [ ] Message format documented (JSON initially)
-- [ ] Scope boundaries documented (no rooms, no presence, no Redis)
-- [ ] FC/IS architecture defined (core vs shell separation)
-- [ ] Protocol definitions (ports) specified
-- [ ] Testing strategy defined
-- [ ] Observability integration planned
+=== References
 
----
+* *Phoenix Channels*: https://hexdocs.pm/phoenix/channels.html
+(inspiration for architecture)
+* *WebSocket RFC 6455*: https://datatracker.ietf.org/doc/html/rfc6455
+* *JWT Best Practices*: https://tools.ietf.org/html/rfc8725
+* *Boundary FC/IS Pattern*: `docs/ARCHITECTURE.md`
 
-**Next Steps After Approval:**
-1. Create `libs/realtime/` directory structure (Task 5.1)
-2. Implement core layer (connection, message, auth)
-3. Implement shell layer (service, registry, adapter)
-4. Write tests (unit + integration)
-5. Write README matching `libs/jobs/README.md` quality
-6. Integration with boundary/user for JWT verification
+'''''
+
+=== Approval Checklist
+
+* [ ] Primary use cases documented (notifications, dashboards, job
+progress)
+* [ ] Authentication approach documented (JWT in query params)
+* [ ] Message format documented (JSON initially)
+* [ ] Scope boundaries documented (no rooms, no presence, no Redis)
+* [ ] FC/IS architecture defined (core vs shell separation)
+* [ ] Protocol definitions (ports) specified
+* [ ] Testing strategy defined
+* [ ] Observability integration planned
+
+'''''
+
+*Next Steps After Approval:*
+
+[arabic]
+. Create `libs/realtime/` directory structure (Task 5.1)
+. Implement core layer (connection, message, auth)
+. Implement shell layer (service, registry, adapter)
+. Write tests (unit {plus} integration)
+. Write README matching `libs/jobs/README.md` quality
+. Integration with boundary/user for JWT verification
