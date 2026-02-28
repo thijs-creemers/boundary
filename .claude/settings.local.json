@@ -27,7 +27,12 @@
       "Bash(git push:*)",
       "Bash(JWT_SECRET=\"dev-secret-32-chars-minimum-length\" clojure:*)",
       "Bash(JWT_SECRET=\"dev-secret-32-chars-minimum\" clojure:*)",
-      "Bash(JWT_SECRET=\"dev-secret-32-chars-minimum\" clojure -M:test:db/h2:*)"
+      "Bash(JWT_SECRET=\"dev-secret-32-chars-minimum\" clojure -M:test:db/h2:*)",
+      "Bash(bb:)",
+      "Bash(bb check-links:*)",
+      "Bash(bb install-hooks:*)",
+      "Bash(bb smoke-check:*)",
+      "Bash(git:*)"
     ]
   },
   "enabledMcpjsonServers": [

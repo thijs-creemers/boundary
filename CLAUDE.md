@@ -28,6 +28,12 @@ clojure -M:migrate up
 
 # Parenthesis repair (never fix manually)
 clj-paren-repair <file>
+
+# Scripting (Babashka)
+bb check-links       # Validate local markdown links in AGENTS.md files
+bb smoke-check       # Verify deps.edn aliases and key tool entrypoints
+bb install-hooks     # Configure git hooks path to .githooks
+bb scripts/docs_lint.clj  # Run documentation drift linter directly
 ```
 
 ## Architecture: Functional Core / Imperative Shell

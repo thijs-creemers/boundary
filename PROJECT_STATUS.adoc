@@ -109,7 +109,7 @@ The main CI workflow (`.github/workflows/ci.yml`) currently includes:
 
 * `lint` (clj-kondo)
 * `docs-lint`
-* `agents-links` (`python3 scripts/check-agents-links.py`)
+* `agents-links` (`bb scripts/check_agents_links.clj`)
 * Per-library test jobs (`:core`, `:observability`, `:platform`, `:user`, `:admin`, `:storage`, `:cache`, `:jobs`, `:tenant`, `:email`, `:realtime`, `:scaffolder`)
 * Whole-suite test job (`clojure -M:test:db/h2`)
 * `test-summary` gate
@@ -121,7 +121,7 @@ Recent documentation/process improvements include:
 * Streamlined root `AGENTS.md` with reduced duplication.
 * Standardized section template across all module `libs/*/AGENTS.md` files.
 * Dedicated AGENTS link checker script and CI enforcement.
-* Repo-native pre-commit hook path (`.githooks`) via `scripts/install-git-hooks.sh`.
+* Repo-native pre-commit hook path (`.githooks`) via `bb install-hooks`.
 
 == Week 3 Documentation Closeout (2026-02-24)
 
@@ -185,7 +185,7 @@ Week 5 process-hardening scope is complete for this cycle.
 |Corrected workflow annotation to reflect docs-lint as a failing CI gate (not warn-only).
 
 |Command smoke automation
-|Added `scripts/command-smoke-check.sh` and CI `command-smoke` job to verify key aliases/entrypoints and run fast docs/links checks.
+|Added `scripts/smoke_check.clj` (Babashka) and CI `command-smoke` job to verify key aliases/entrypoints and run fast docs/links checks.
 
 |Deferred-doc scope control
 |Added a dedicated historical-docs triage tracker for change-reports and migration-history content, with explicit keep/update priorities.

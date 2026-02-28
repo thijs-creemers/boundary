@@ -1,0 +1,16 @@
+{:paths ["scripts"]
+ :tasks
+ {check-links
+  {:doc "Validate local markdown links in AGENTS documentation"
+   :task (do (require 'check-agents-links)
+             (System/exit ((resolve 'check-agents-links/-main))))}
+
+  smoke-check
+  {:doc "Run command smoke checks (verify deps.edn aliases and key commands)"
+   :task (do (require 'smoke-check)
+             ((resolve 'smoke-check/-main)))}
+
+  install-hooks
+  {:doc "Configure git hooks path to .githooks"
+   :task (do (babashka.process/shell "git" "config" "core.hooksPath" ".githooks")
+             (println "Configured git hooks path: .githooks"))}}}
