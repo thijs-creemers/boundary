@@ -561,12 +561,23 @@
                               :page (:page-number result)})
 
           ; Get permissions
-          permissions (permissions/get-entity-permissions user entity-name entity-config)]
+          permissions (permissions/get-entity-permissions user entity-name entity-config)
 
-       ; Return just the table container (not the filter builder)
-       ; The table will be replaced by HTMX when sorting/paginating
-       (htmx-fragment-response
-        (admin-ui/entity-table entity-name records entity-config table-query total-count permissions (:filters options))))))
+          ; HTMX sends the target element id in the HX-Target header.
+          ; Filter actions target #filter-table-container (needs filter+table).
+          ; Search/sort/pagination target #entity-table-container (table only).
+          htmx-target (get-in request [:headers "hx-target"])
+          filters (:filters options)]
+
+       (if (= htmx-target "filter-table-container")
+         ; Filter action: return filter builder + table so the filter UI stays visible
+         (htmx-fragment-response
+          [:div#filter-table-container
+           (admin-ui/render-filter-builder entity-name entity-config filters)
+           (admin-ui/entity-table entity-name records entity-config table-query total-count permissions filters)])
+         ; Search / sort / pagination: return just the table
+         (htmx-fragment-response
+          (admin-ui/entity-table entity-name records entity-config table-query total-count permissions filters))))))
 
 
 ;; =============================================================================

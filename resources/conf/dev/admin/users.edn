@@ -11,6 +11,17 @@
                      :deleted-at}
   :readonly-fields #{:id :created-at :updated-at}
 
+  ;; Field filter config — drives the "Add filter" dropdown in the admin list view.
+  ;; Fields not listed here (e.g. :email, :name) are covered by the free-text search.
+  :fields
+  {:email      {:filterable false}   ; covered by free-text search
+   :name       {:filterable false}   ; covered by free-text search
+   :role       {:type :enum    :label "Role"
+                :options [[:admin "Admin"] [:user "User"] [:viewer "Viewer"]]
+                :filterable true}
+   :active     {:type :boolean :label "Active"  :filterable true}
+   :created-at {:type :instant :label "Created" :filterable true}}
+
   ;; Field ordering - fields appear in this order, others follow
   :field-order     [:email
                     :name

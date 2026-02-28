@@ -242,9 +242,14 @@
              resolved-default-sort  (get field-aliases default-sort default-sort)
              soft-delete-field      (get field-aliases :deleted-at :deleted_at)
 
-              ; Build query components
+              resolved-filters (when filters
+                               (into {} (map (fn [[field spec]]
+                                              [(get field-aliases field field) spec])
+                                            filters)))
+
+             ; Build query components
              search-where (build-search-where search-term resolved-search-fields)
-             filter-where (build-filter-where filters)
+             filter-where (build-filter-where resolved-filters)
              ; Exclude soft-deleted records if entity uses soft delete
              soft-delete-where (when soft-delete? [:= soft-delete-field nil])
              where-clause (combine-where-clauses [search-where filter-where soft-delete-where])

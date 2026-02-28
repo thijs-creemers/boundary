@@ -9,6 +9,15 @@
                      :deleted-at}
   :readonly-fields #{:id :created-at :updated-at}
 
+  :fields
+  {:email      {:filterable false}
+   :name       {:filterable false}
+   :role       {:type :enum    :label "Role"
+                :options [[:admin "Admin"] [:user "User"] [:viewer "Viewer"]]
+                :filterable true}
+   :active     {:type :boolean :label "Active"  :filterable true}
+   :created-at {:type :instant :label "Created" :filterable true}}
+
   :field-order     [:email
                     :name
                     :role
