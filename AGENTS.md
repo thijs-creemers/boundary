@@ -68,6 +68,12 @@ java -jar target/boundary-*.jar server             # Run standalone jar
 
 # Database Migrations
 clojure -M:migrate migrate                         # Run migrations
+
+# Scripting (Babashka)
+bb check-links                                     # Validate local markdown links in AGENTS.md files
+bb smoke-check                                     # Verify deps.edn aliases and key tool entrypoints
+bb install-hooks                                   # Configure git hooks path to .githooks
+bb scripts/docs_lint.clj                           # Run documentation drift linter directly
 ```
 
 ### Architecture Quick Facts
@@ -469,8 +475,8 @@ export DB_PASSWORD="dev_password"
 
 - Keep command examples in one place (`Quick Reference`); avoid duplicate command blocks elsewhere in this file.
 - Library-specific troubleshooting and deep implementation notes belong in `libs/*/AGENTS.md`.
-- Use `python3 scripts/check-agents-links.py` after editing AGENTS documentation.
-- Install local pre-commit hooks once per clone: `bash scripts/install-git-hooks.sh`.
+- Use `bb check-links` after editing AGENTS documentation.
+- Install local pre-commit hooks once per clone: `bb install-hooks`.
 
 ---
 

@@ -8,7 +8,7 @@ Use this checklist before merging documentation changes to keep docs concise, ac
 == Pre-Merge Checks
 
 1. Run `clojure -M:docs-lint` and confirm zero warnings.
-2. Run `python3 scripts/check-agents-links.py` and confirm zero broken links.
+2. Run `bb check-links` and confirm zero broken links.
 3. Validate any command examples you changed.
 4. Verify module paths use the library-split layout:
 +

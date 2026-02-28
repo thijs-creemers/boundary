@@ -96,8 +96,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Babashka
+        run: |
+          curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install
+          chmod +x install
+          sudo ./install --dir /usr/local/bin
+
       - name: Check AGENTS links
-        run: python3 scripts/check-agents-links.py
+        run: bb scripts/check_agents_links.clj
 
   # =============================================================================
   # Fast command smoke checks (aliases + key docs/dev commands)
@@ -123,8 +129,14 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Setup Babashka
+        run: |
+          curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install
+          chmod +x install
+          sudo ./install --dir /usr/local/bin
+
       - name: Run command smoke check
-        run: bash scripts/command-smoke-check.sh
+        run: bb smoke-check
 
   # =============================================================================
   # Test individual libraries (run from root to ensure all dependencies available)
