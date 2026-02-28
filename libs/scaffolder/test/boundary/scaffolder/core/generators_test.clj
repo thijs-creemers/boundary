@@ -1,0 +1,277 @@
+(ns boundary.scaffolder.core.generators-test
+  "Unit tests for pure scaffolder generator functions.
+   Asserts that generated file content contains expected strings."
+  (:require [clojure.test :refer [deftest testing is]]
+            [clojure.string :as str]
+            [boundary.scaffolder.core.generators :as gen]))
+
+;; =============================================================================
+;; Test context helpers
+;; =============================================================================
+
+(def ^:private base-field-required
+  {:field-name-kebab "name"
+   :field-name-snake "name"
+   :malli-type ":string"
+   :field-required true
+   :field-unique false
+   :sql-type "VARCHAR(255)"})
+
+(def ^:private base-field-optional
+  {:field-name-kebab "description"
+   :field-name-snake "description"
+   :malli-type ":string"
+   :field-required false
+   :field-unique false
+   :sql-type "TEXT"})
+
+(def ^:private base-ctx
+  {:module-name "product"
+   :entities
+   [{:entity-name "Product"
+     :entity-lower "product"
+     :entity-kebab "product"
+     :entity-table "products"
+     :fields [base-field-required base-field-optional]}]})
+
+;; =============================================================================
+;; generate-field-schema
+;; =============================================================================
+
+(deftest ^:unit generate-field-schema-test
+  (testing "required field has no :optional true"
+    (let [output (gen/generate-field-schema base-field-required)]
+      (is (str/includes? output ":name"))
+      (is (str/includes? output ":string"))
+      (is (not (str/includes? output ":optional")))))
+
+  (testing "optional field includes :optional true"
+    (let [output (gen/generate-field-schema base-field-optional)]
+      (is (str/includes? output ":description"))
+      (is (str/includes? output ":optional true"))
+      (is (str/includes? output ":string")))))
+
+;; =============================================================================
+;; generate-schema-file
+;; =============================================================================
+
+(deftest ^:unit generate-schema-file-test
+  (let [output (gen/generate-schema-file base-ctx)]
+
+    (testing "contains correct namespace"
+      (is (str/includes? output "(ns boundary.product.schema")))
+
+    (testing "contains entity schema definition"
+      (is (str/includes? output "(def Product")))
+
+    (testing "contains field schemas"
+      (is (str/includes? output ":name"))
+      (is (str/includes? output ":description")))
+
+    (testing "contains standard timestamp fields"
+      (is (str/includes? output ":created-at"))
+      (is (str/includes? output ":updated-at")))
+
+    (testing "contains Create and Update request schemas"
+      (is (str/includes? output "CreateProductRequest"))
+      (is (str/includes? output "UpdateProductRequest")))
+
+    (testing "contains validation functions"
+      (is (str/includes? output "validate-product"))
+      (is (str/includes? output "explain-product")))))
+
+;; =============================================================================
+;; generate-ports-file
+;; =============================================================================
+
+(deftest ^:unit generate-ports-file-test
+  (let [output (gen/generate-ports-file base-ctx)]
+
+    (testing "contains correct namespace"
+      (is (str/includes? output "(ns boundary.product.ports")))
+
+    (testing "contains repository protocol"
+      (is (str/includes? output "IProductRepository")))
+
+    (testing "contains service protocol"
+      (is (str/includes? output "IProductService")))
+
+    (testing "contains CRUD method names"
+      (is (str/includes? output "find-by-id"))
+      (is (str/includes? output "find-all"))
+      (is (str/includes? output "create"))
+      (is (str/includes? output "delete")))))
+
+;; =============================================================================
+;; generate-core-file
+;; =============================================================================
+
+(deftest ^:unit generate-core-file-test
+  (let [output (gen/generate-core-file base-ctx)]
+
+    (testing "contains correct namespace"
+      (is (str/includes? output "(ns boundary.product.core.")))
+
+    (testing "contains prepare-new function"
+      (is (str/includes? output "prepare-new-product")))
+
+    (testing "contains apply-update function"
+      (is (str/includes? output "apply-product-update")))
+
+    (testing "contains validate function"
+      (is (str/includes? output "validate-product")))))
+
+;; =============================================================================
+;; generate-migration-field
+;; =============================================================================
+
+(deftest ^:unit generate-migration-field-test
+  (testing "required field has NOT NULL"
+    (let [output (gen/generate-migration-field base-field-required)]
+      (is (str/includes? output "name"))
+      (is (str/includes? output "VARCHAR(255)"))
+      (is (str/includes? output "NOT NULL"))))
+
+  (testing "optional field does not have NOT NULL"
+    (let [output (gen/generate-migration-field base-field-optional)]
+      (is (not (str/includes? output "NOT NULL")))))
+
+  (testing "unique field includes UNIQUE"
+    (let [unique-field (assoc base-field-required :field-unique true)
+          output (gen/generate-migration-field unique-field)]
+      (is (str/includes? output "UNIQUE")))))
+
+;; =============================================================================
+;; generate-migration-file
+;; =============================================================================
+
+(deftest ^:unit generate-migration-file-test
+  (let [output (gen/generate-migration-file base-ctx "005")]
+
+    (testing "contains migration number"
+      (is (str/includes? output "005")))
+
+    (testing "contains CREATE TABLE statement"
+      (is (str/includes? output "CREATE TABLE IF NOT EXISTS products")))
+
+    (testing "contains id primary key"
+      (is (str/includes? output "id UUID PRIMARY KEY")))
+
+    (testing "contains standard timestamp columns"
+      (is (str/includes? output "created_at"))
+      (is (str/includes? output "updated_at")))
+
+    (testing "contains index creation"
+      (is (str/includes? output "CREATE INDEX")))))
+
+;; =============================================================================
+;; generate-ui-file
+;; =============================================================================
+
+(deftest ^:unit generate-ui-file-test
+  (let [output (gen/generate-ui-file base-ctx)]
+
+    (testing "contains correct namespace"
+      (is (str/includes? output "(ns boundary.product.core.ui")))
+
+    (testing "contains list page function"
+      (is (str/includes? output "product-list-page")))))
+
+;; =============================================================================
+;; generate-service-file
+;; =============================================================================
+
+(deftest ^:unit generate-service-file-test
+  (let [output (gen/generate-service-file base-ctx)]
+
+    (testing "contains correct namespace"
+      (is (str/includes? output "(ns boundary.product.shell.service")))
+
+    (testing "contains service record"
+      (is (str/includes? output "ProductService")))
+
+    (testing "contains factory function"
+      (is (str/includes? output "create-service")))))
+
+;; =============================================================================
+;; generate-persistence-file
+;; =============================================================================
+
+(deftest ^:unit generate-persistence-file-test
+  (let [output (gen/generate-persistence-file base-ctx)]
+
+    (testing "contains correct namespace"
+      (is (str/includes? output "(ns boundary.product.shell.persistence")))
+
+    (testing "contains database repository record"
+      (is (str/includes? output "DatabaseProductRepository")))
+
+    (testing "contains factory function"
+      (is (str/includes? output "create-repository")))))
+
+;; =============================================================================
+;; generate-add-field-migration
+;; =============================================================================
+
+(deftest ^:unit generate-add-field-migration-test
+  (let [field {:name "price" :type :decimal :required true :unique false}
+        output (gen/generate-add-field-migration "product" "Product" field "006")]
+
+    (testing "contains migration number"
+      (is (str/includes? output "006")))
+
+    (testing "contains ALTER TABLE"
+      (is (str/includes? output "ALTER TABLE")))
+
+    (testing "contains ADD COLUMN"
+      (is (str/includes? output "ADD COLUMN")))))
+
+;; =============================================================================
+;; generate-adapter-file
+;; =============================================================================
+
+(deftest ^:unit generate-adapter-file-test
+  (let [methods [{:name "get-value" :args ["key"]}
+                 {:name "set-value" :args ["key" "value"]}]
+        output (gen/generate-adapter-file "cache" "ICache" "redis" methods)]
+
+    (testing "contains correct namespace"
+      (is (str/includes? output "(ns boundary.cache.shell.adapters.redis")))
+
+    (testing "contains record definition"
+      (is (str/includes? output "RedisCache")))
+
+    (testing "contains all method stubs"
+      (is (str/includes? output "get-value"))
+      (is (str/includes? output "set-value")))
+
+    (testing "contains factory function"
+      (is (str/includes? output "create-redis-cache")))))
+
+;; =============================================================================
+;; generate-project-deps / generate-project-config / generate-project-main
+;; =============================================================================
+
+(deftest ^:unit generate-project-deps-test
+  (let [output (gen/generate-project-deps "my-app")]
+    (testing "contains project name"
+      (is (str/includes? output "my-app")))
+
+    (testing "is valid deps.edn structure"
+      (is (str/includes? output ":paths"))
+      (is (str/includes? output ":deps"))
+      (is (str/includes? output ":aliases")))))
+
+(deftest ^:unit generate-project-config-test
+  (let [output (gen/generate-project-config "my-app")]
+    (testing "contains expected Integrant keys"
+      (is (str/includes? output ":boundary/app"))
+      (is (str/includes? output ":boundary/http-server")))))
+
+(deftest ^:unit generate-project-main-test
+  (let [output (gen/generate-project-main "my-app")]
+    (testing "contains namespace"
+      (is (str/includes? output "(ns my_app.app")))
+
+    (testing "contains start-system! function"
+      (is (str/includes? output "start-system!")))))
