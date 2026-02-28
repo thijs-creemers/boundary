@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-python3 scripts/check-agents-links.py
+bb scripts/check_agents_links.clj
