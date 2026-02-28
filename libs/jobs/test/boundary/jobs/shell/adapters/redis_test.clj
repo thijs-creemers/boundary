@@ -175,6 +175,25 @@
           (is (= 1 (count completed)))
           (is (= (:id job1) (:id (first completed)))))))))
 
+(deftest ^:integration redis-failed-and-retry-test
+  (when-redis
+    (let [test-job (make-job {:max-retries 0})]
+      (ports/save-job! *store* test-job)
+      (ports/update-job-status! *store* (:id test-job) :failed {:message "boom" :type "TestError"})
+
+      (testing "failed-jobs includes exhausted failed jobs"
+        (let [failed (ports/failed-jobs *store* 10)]
+          (is (= 1 (count failed)))
+          (is (= (:id test-job) (:id (first failed))))))
+
+      (testing "retry-job! moves failed job back to pending with execute-at"
+        (let [retried (ports/retry-job! *store* (:id test-job))]
+          (is (= :pending (:status retried)))
+          (is (some? (:execute-at retried)))
+          (is (nil? (:error retried))))
+
+        (is (empty? (ports/failed-jobs *store* 10)))))))
+
 ;; =============================================================================
 ;; Scheduled jobs
 ;; =============================================================================
@@ -196,3 +215,29 @@
         (let [moved (ports/process-scheduled-jobs! *queue*)]
           (is (= 1 moved))
           (is (= 1 (ports/queue-size *queue* :default))))))))
+
+(deftest ^:integration redis-job-history-and-stats-test
+  (when-redis
+    (let [job-a (make-job {:job-type :send-email})
+          job-b (make-job {:job-type :send-email})]
+      (ports/save-job! *store* job-a)
+      (ports/save-job! *store* job-b)
+      (ports/update-job-status! *store* (:id job-a) :completed {:ok true})
+      (ports/update-job-status! *store* (:id job-b) :failed {:message "err"})
+
+      (testing "job-history returns entries for job type"
+        (let [history (ports/job-history *stats* :send-email 10)]
+          (is (seq history))
+          (is (every? #(= :send-email (:job-type %)) history))))
+
+      (testing "job-stats and queue-stats return expected keys"
+        (let [stats (ports/job-stats *stats*)
+              qstats (ports/queue-stats *stats* :default)]
+          (is (map? stats))
+          (is (contains? stats :total-processed))
+          (is (contains? stats :queues))
+          (is (>= (:total-processed stats) 1))
+          (is (map? qstats))
+          (is (contains? qstats :size))
+          (is (contains? qstats :processed-total))
+          (is (>= (:processed-total qstats) 1)))))))

@@ -14,24 +14,24 @@
    Args:
      job-input - Map with :job-type, :args, and optional fields
      job-id - UUID for the job (provided by caller)
+     now - Current timestamp (provided by caller)
 
    Returns:
      Complete job map with defaults"
-  [job-input job-id]
-  (let [now (java.time.Instant/now)]
-    (cond-> {:id job-id
-             :job-type (:job-type job-input)
-             :queue (or (:queue job-input) :default)
-             :args (:args job-input {})
-             :status :pending
-             :priority (or (:priority job-input) :normal)
-             :retry-count 0
-             :max-retries (or (:max-retries job-input) 3)
-             :created-at now
-             :updated-at now
-             :metadata (or (:metadata job-input) {})}
-      (:execute-at job-input)
-      (assoc :execute-at (:execute-at job-input)))))
+  [job-input job-id now]
+  (cond-> {:id job-id
+           :job-type (:job-type job-input)
+           :queue (or (:queue job-input) :default)
+           :args (:args job-input {})
+           :status :pending
+           :priority (or (:priority job-input) :normal)
+           :retry-count 0
+           :max-retries (or (:max-retries job-input) 3)
+           :created-at now
+           :updated-at now
+           :metadata (or (:metadata job-input) {})}
+    (:execute-at job-input)
+    (assoc :execute-at (:execute-at job-input))))
 
 (defn schedule-job
   "Create a scheduled job for future execution.
@@ -40,11 +40,12 @@
      job-input - Job input map
      job-id - UUID for the job
      execute-at - Instant when job should run
+     now - Current timestamp (provided by caller)
 
    Returns:
      Job map with execute-at set"
-  [job-input job-id execute-at]
-  (-> (create-job job-input job-id)
+  [job-input job-id execute-at now]
+  (-> (create-job job-input job-id now)
       (assoc :execute-at execute-at)))
 
 ;; =============================================================================
@@ -56,15 +57,15 @@
 
    Args:
      job - Job map
+     now - Current timestamp (provided by caller)
 
    Returns:
      Updated job with :running status"
-  [job]
-  (let [now (java.time.Instant/now)]
-    (assoc job
-           :status :running
-           :started-at now
-           :updated-at now)))
+  [job now]
+  (assoc job
+         :status :running
+         :started-at now
+         :updated-at now))
 
 (defn complete-job
   "Mark job as completed successfully.
@@ -72,16 +73,16 @@
    Args:
      job - Job map
      result - Result data from job execution
+     now - Current timestamp (provided by caller)
 
    Returns:
      Updated job with :completed status"
-  [job result]
-  (let [now (java.time.Instant/now)]
-    (assoc job
-           :status :completed
-           :result result
-           :completed-at now
-           :updated-at now)))
+  [job result now]
+  (assoc job
+         :status :completed
+         :result result
+         :completed-at now
+         :updated-at now))
 
 (defn fail-job
   "Mark job as failed.
@@ -89,12 +90,12 @@
    Args:
      job - Job map
      error - Error map with :message, :type, :stacktrace
+     now - Current timestamp (provided by caller)
 
    Returns:
      Updated job with :failed or :retrying status"
-  [job error]
-  (let [now (java.time.Instant/now)
-        new-retry-count (inc (:retry-count job))
+  [job error now]
+  (let [new-retry-count (inc (:retry-count job))
         should-retry? (< new-retry-count (:max-retries job))]
     (-> job
         (assoc :status (if should-retry? :retrying :failed)
@@ -110,15 +111,15 @@
 
    Args:
      job - Job map
+     now - Current timestamp (provided by caller)
 
    Returns:
      Updated job with :cancelled status"
-  [job]
-  (let [now (java.time.Instant/now)]
-    (assoc job
-           :status :cancelled
-           :completed-at now
-           :updated-at now)))
+  [job now]
+  (assoc job
+         :status :cancelled
+         :completed-at now
+         :updated-at now))
 
 ;; =============================================================================
 ;; Retry Logic
@@ -133,11 +134,12 @@
               :backoff-strategy - :linear, :exponential, or :constant
               :initial-delay-ms - Initial delay (default 1000ms)
               :max-delay-ms - Maximum delay (default 60000ms)
-              :jitter - Add random jitter (default true)
+              :jitter - Whether jitter is enabled (default true)
+     jitter-ms - Jitter in milliseconds (provided by caller)
 
    Returns:
      Delay in milliseconds"
-  [retry-count config]
+  [retry-count config jitter-ms]
   (let [backoff-strategy (or (:backoff-strategy config) :exponential)
         initial-delay (or (:initial-delay-ms config) 1000)
         max-delay (or (:max-delay-ms config) 60000)
@@ -151,7 +153,7 @@
         capped-delay (min base-delay max-delay)
 
         final-delay (if jitter?
-                      (+ capped-delay (rand-int (quot capped-delay 10)))
+                      (+ capped-delay (long (or jitter-ms 0)))
                       capped-delay)]
     (long final-delay)))
 
@@ -161,12 +163,13 @@
    Args:
      job - Failed job map
      retry-config - Retry configuration
+     now - Current timestamp (provided by caller)
+     jitter-ms - Jitter in milliseconds (provided by caller)
 
    Returns:
      Instant when job should be retried"
-  [job retry-config]
-  (let [delay-ms (calculate-retry-delay (:retry-count job) retry-config)
-        now (java.time.Instant/now)]
+  [job retry-config now jitter-ms]
+  (let [delay-ms (calculate-retry-delay (:retry-count job) retry-config jitter-ms)]
     (.plusMillis now delay-ms)))
 
 (defn prepare-retry
@@ -175,15 +178,17 @@
    Args:
      job - Failed job map
      retry-config - Retry configuration
+     now - Current timestamp (provided by caller)
+     jitter-ms - Jitter in milliseconds (provided by caller)
 
    Returns:
      Job ready for retry with new execute-at"
-  [job retry-config]
-  (let [retry-at (schedule-retry job retry-config)]
+  [job retry-config now jitter-ms]
+  (let [retry-at (schedule-retry job retry-config now jitter-ms)]
     (-> job
         (assoc :status :pending
                :execute-at retry-at
-               :updated-at (java.time.Instant/now))
+               :updated-at now)
         (dissoc :started-at :error :result))))
 
 ;; =============================================================================

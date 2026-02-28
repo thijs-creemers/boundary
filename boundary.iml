@@ -33,6 +33,7 @@
       <sourceFolder url="file://$MODULE_DIR$/libs/user/resources" type="java-resource" />
       <sourceFolder url="file://$MODULE_DIR$/libs/user/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/user/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/realtime" isTestSource="false" />
     </content>
   </component>
   <component name="BuildSystem">

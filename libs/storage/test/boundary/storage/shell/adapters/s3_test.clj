@@ -171,3 +171,14 @@
         (let [url (ports/generate-signed-url *storage* (:key result) 60)]
           (is (string? url))
           (is (.startsWith url "http")))))))
+
+(deftest ^:integration s3-public-visibility-test
+  (when-s3
+    (testing "public visibility returns direct URL"
+      (let [content (.getBytes "public content")
+            result (ports/store-file *storage*
+                                     {:bytes content :content-type "text/plain"}
+                                     {:filename "public.txt" :visibility :public})]
+        (swap! *stored-keys* conj (:key result))
+        (is (string? (:url result)))
+        (is (.startsWith (:url result) "https://"))))))

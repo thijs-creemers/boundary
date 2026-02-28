@@ -105,7 +105,8 @@
    [:effect-errors {:optional true} [:vector EffectError]]
 
    ;; Control flow fields
-   [:halt? {:optional true} :boolean]])
+   [:halt? {:optional true} :boolean]
+   [:breadcrumbs {:optional true} [:vector :map]]])
 
 ;; Validation functions
 
@@ -297,10 +298,12 @@
 
 (defn add-breadcrumb
   "Adds a breadcrumb for observability tracking."
-  [context _category _action _details]
-  ;; TODO: Implement actual breadcrumb recording when error-reporting is set up
-  ;; For now, just return the context unchanged
-  context)
+  [context category action details]
+  (let [breadcrumb {:category category
+                    :action action
+                    :details details
+                    :timestamp (:now context)}]
+    (update context :breadcrumbs (fnil conj []) breadcrumb)))
 
 (defn add-validation-error
   "Adds a validation error to the context."

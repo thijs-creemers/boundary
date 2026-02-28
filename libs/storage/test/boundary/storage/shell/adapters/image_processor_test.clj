@@ -3,12 +3,16 @@
 
    Uses programmatically generated BufferedImage bytes so no external services
    or fixture files are required."
-  (:require [clojure.test :refer [deftest testing is use-fixtures]]
+  {:kaocha.testable/meta {:integration true :storage true}}
+  (:require [clojure.test :refer [deftest testing is]]
             [boundary.storage.shell.adapters.image-processor :as img-proc]
             [boundary.storage.ports :as ports])
   (:import [java.awt.image BufferedImage]
            [java.io ByteArrayOutputStream]
            [javax.imageio ImageIO]))
+
+;; Ensure AWT tests run in CI/headless environments.
+(System/setProperty "java.awt.headless" "true")
 
 ;; =============================================================================
 ;; Helpers — create minimal PNG bytes in-process
@@ -40,7 +44,7 @@
 ;; get-image-info
 ;; =============================================================================
 
-(deftest ^:unit get-image-info-test
+(deftest ^:integration get-image-info-test
   (testing "returns correct width and height"
     (let [png-bytes (make-png-bytes 200 150)
           info (ports/get-image-info (processor) png-bytes)]
@@ -61,7 +65,7 @@
 ;; is-image?
 ;; =============================================================================
 
-(deftest ^:unit is-image?-test
+(deftest ^:integration is-image?-test
   (testing "returns true for valid PNG bytes"
     (let [png-bytes (make-png-bytes)]
       (is (true? (ports/is-image? (processor) png-bytes "image/png")))))
@@ -74,7 +78,7 @@
 ;; resize-image
 ;; =============================================================================
 
-(deftest ^:unit resize-image-test
+(deftest ^:integration resize-image-test
   (testing "resizes to explicit width and height"
     (let [png-bytes (make-png-bytes 200 150)
           resized (ports/resize-image (processor) png-bytes {:width 100 :height 80})]
@@ -85,30 +89,30 @@
 
   (testing "resizes maintaining aspect ratio from width only"
     (let [png-bytes (make-png-bytes 200 100)   ; 2:1 ratio
-          resized (ports/resize-image (processor) png-bytes {:width 100})]
-      (let [info (ports/get-image-info (processor) resized)]
-        (is (= 100 (:width info)))
-        (is (= 50 (:height info))))))
+          resized (ports/resize-image (processor) png-bytes {:width 100})
+          info (ports/get-image-info (processor) resized)]
+      (is (= 100 (:width info)))
+      (is (= 50 (:height info)))))
 
   (testing "resizes maintaining aspect ratio from height only"
     (let [png-bytes (make-png-bytes 200 100)   ; 2:1 ratio
-          resized (ports/resize-image (processor) png-bytes {:height 50})]
-      (let [info (ports/get-image-info (processor) resized)]
-        (is (= 100 (:width info)))
-        (is (= 50 (:height info))))))
+          resized (ports/resize-image (processor) png-bytes {:height 50})
+          info (ports/get-image-info (processor) resized)]
+      (is (= 100 (:width info)))
+      (is (= 50 (:height info)))))
 
   (testing "returns original dimensions when no target specified"
     (let [png-bytes (make-png-bytes 200 150)
-          resized (ports/resize-image (processor) png-bytes {})]
-      (let [info (ports/get-image-info (processor) resized)]
-        (is (= 200 (:width info)))
-        (is (= 150 (:height info)))))))
+          resized (ports/resize-image (processor) png-bytes {})
+          info (ports/get-image-info (processor) resized)]
+      (is (= 200 (:width info)))
+      (is (= 150 (:height info))))))
 
 ;; =============================================================================
 ;; create-thumbnail
 ;; =============================================================================
 
-(deftest ^:unit create-thumbnail-test
+(deftest ^:integration create-thumbnail-test
   (testing "creates thumbnail fitting within size box"
     (let [png-bytes (make-png-bytes 400 200)  ; wider than tall
           thumb (ports/create-thumbnail (processor) png-bytes 100)]
@@ -119,12 +123,25 @@
 
   (testing "creates thumbnail for square image"
     (let [png-bytes (make-png-bytes 200 200)
-          thumb (ports/create-thumbnail (processor) png-bytes 50)]
-      (let [info (ports/get-image-info (processor) thumb)]
-        (is (= 50 (:width info)))
-        (is (= 50 (:height info))))))
+          thumb (ports/create-thumbnail (processor) png-bytes 50)
+          info (ports/get-image-info (processor) thumb)]
+      (is (= 50 (:width info)))
+      (is (= 50 (:height info)))))
 
   (testing "thumbnail is smaller than original"
     (let [original (make-png-bytes 300 200)
           thumb (ports/create-thumbnail (processor) original 80)]
       (is (< (count thumb) (count original)) "thumbnail should be smaller"))))
+
+(deftest ^:integration invalid-image-bytes-test
+  (testing "resize-image throws on invalid bytes"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (ports/resize-image (processor) (.getBytes "not-image") {:width 100}))))
+
+  (testing "create-thumbnail throws on invalid bytes"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (ports/create-thumbnail (processor) (.getBytes "not-image") 80))))
+
+  (testing "get-image-info throws on invalid bytes"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (ports/get-image-info (processor) (.getBytes "not-image"))))))

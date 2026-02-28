@@ -167,27 +167,27 @@
 (defn prepare-user-for-update
   "Pure function: Prepare user entity for update with business rules.
    
-   Handles the active field by setting deleted_at:
-   - When active is false (deactivated): sets deleted_at to current-time
-   - When active is true (activated): sets deleted_at to nil
+   Handles the active field by setting deleted-at:
+   - When active is false (deactivated): sets deleted-at to current-time
+   - When active is true (activated): sets deleted-at to nil
    
    Args:
      user-entity: User entity to update
      current-time: Instant representing current time
      
    Returns:
-     User entity prepared for update with updated timestamp and deleted_at
+     User entity prepared for update with updated timestamp and deleted-at
      
    Pure - takes time as parameter instead of generating it."
   [user-entity current-time]
   (let [base-update (assoc user-entity :updated-at current-time)]
     (if (contains? user-entity :active)
-      ;; Handle active field by setting deleted_at
+      ;; Handle active field by setting deleted-at
       (if (:active user-entity)
-        ;; User is being activated - clear deleted_at
-        (assoc base-update :deleted_at nil)
-        ;; User is being deactivated - set deleted_at to current time
-        (assoc base-update :deleted_at current-time))
+        ;; User is being activated - clear deleted-at
+        (assoc base-update :deleted-at nil)
+        ;; User is being deactivated - set deleted-at to current time
+        (assoc base-update :deleted-at current-time))
       ;; No active field provided, just return base update
       base-update)))
 

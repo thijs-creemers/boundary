@@ -185,7 +185,8 @@
           login-risk (when (and user password-valid?)
                        (auth-core/analyze-login-risk
                         user login-context
-                        (.find-sessions-by-user session-repository (:id user))))
+                        (.find-sessions-by-user session-repository (:id user))
+                        current-time))
 
           ;; Step 6: Check MFA requirement and verification
           mfa-code (:mfa-code login-context)

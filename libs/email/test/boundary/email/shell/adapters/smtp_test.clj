@@ -67,7 +67,7 @@
                        :from "sender@example.com"
                        :subject "Test"
                        :body "Hello"}
-          email (email/prepare-email email-input)
+          email (email/prepare-email email-input (java.util.UUID/randomUUID) (java.time.Instant/now))
           result (ports/send-email! sender email)]
       (is (false? (:success? result)))
       (is (some? (:error result)))
@@ -83,7 +83,7 @@
                        :from "sender@example.com"
                        :subject "Test"
                        :body "Hello"}
-          email (email/prepare-email email-input)
+          email (email/prepare-email email-input (java.util.UUID/randomUUID) (java.time.Instant/now))
           result (ports/send-email! sender email)]
       (is (false? (:success? result)))
       (is (some? (:error result)))
@@ -103,7 +103,7 @@
                        :from "sender@example.com"
                        :subject "Test Multiple Recipients"
                        :body "Hello everyone"}
-          email (email/prepare-email email-input)
+          email (email/prepare-email email-input (java.util.UUID/randomUUID) (java.time.Instant/now))
           result (ports/send-email! sender email)]
       ;; Should fail to connect, but validates structure is correct
       (is (false? (:success? result)))
@@ -124,7 +124,7 @@
                        :headers {:reply-to "support@example.com"
                                  :cc "admin@example.com"
                                  :bcc "bcc@example.com"}}
-          email (email/prepare-email email-input)
+          email (email/prepare-email email-input (java.util.UUID/randomUUID) (java.time.Instant/now))
           result (ports/send-email! sender email)]
       ;; Should fail to connect, but validates structure is correct
       (is (false? (:success? result)))
@@ -146,7 +146,7 @@
                        :from "sender@example.com"
                        :subject "Async Test"
                        :body "Hello async"}
-          email (email/prepare-email email-input)
+          email (email/prepare-email email-input (java.util.UUID/randomUUID) (java.time.Instant/now))
           result-future (ports/send-email-async! sender email)]
 
       ;; Should return a future immediately
@@ -170,7 +170,7 @@
                        :from "sender@example.com"
                        :subject "Test"
                        :body "Hello"}
-          email (email/prepare-email email-input)
+          email (email/prepare-email email-input (java.util.UUID/randomUUID) (java.time.Instant/now))
           validation (email/validate-email email)]
 
       ;; Email should be valid
@@ -186,7 +186,7 @@
                        :from "sender@example.com"
                        :subject "Test"
                        :body "Hello"}
-          email (email/prepare-email email-input)
+          email (email/prepare-email email-input (java.util.UUID/randomUUID) (java.time.Instant/now))
           validation (email/validate-email email)]
 
       ;; Email should be invalid
@@ -209,7 +209,7 @@
                        :from "sender@example.com"
                        :subject "Complete Workflow Test"
                        :body "Testing complete workflow"}
-          prepared-email (email/prepare-email email-input)
+          prepared-email (email/prepare-email email-input (java.util.UUID/randomUUID) (java.time.Instant/now))
 
           ;; Step 2: Add custom headers
           email-with-headers (-> prepared-email
@@ -269,7 +269,7 @@
 ;;                        :from "sender@example.com"
 ;;                        :subject "Test Email"
 ;;                        :body "This is a test email."}
-;;           email (email/prepare-email email-input)
+;;           email (email/prepare-email email-input (java.util.UUID/randomUUID) (java.time.Instant/now))
 ;;           result (ports/send-email! sender email)]
 ;;       (is (:success? result))
 ;;       (is (some? (:message-id result)))
@@ -284,7 +284,7 @@
 ;;                        :from "sender@example.com"
 ;;                        :subject "Feature Test"
 ;;                        :body "Testing all email features."}
-;;           email (-> (email/prepare-email email-input)
+;;           email (-> (email/prepare-email email-input (java.util.UUID/randomUUID) (java.time.Instant/now))
 ;;                     (email/add-reply-to "support@example.com")
 ;;                     (email/add-cc "admin@example.com")
 ;;                     (email/add-bcc "archive@example.com"))

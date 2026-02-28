@@ -34,10 +34,10 @@
      => {:connection-id #uuid \"123...\"
          :topic \"order:456\"
          :created-at #inst \"2025-01-01T12:00:00Z\"}"
-  [connection-id topic]
+  [connection-id topic now]
   {:connection-id connection-id
    :topic topic
-   :created-at (java.time.Instant/now)})
+   :created-at now})
 
 (defn subscribe
   "Add connection to topic subscribers (pure).

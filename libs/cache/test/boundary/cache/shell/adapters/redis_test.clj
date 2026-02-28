@@ -17,11 +17,11 @@
   []
   (try
     (let [pool (redis-adapter/create-redis-pool {:host "localhost" :port 6379 :timeout 1000})
-          cache (redis-adapter/create-redis-cache pool)]
-      (let [alive? (ports/ping cache)]
-        (ports/close! cache)
-        (.close pool)
-        alive?))
+          cache (redis-adapter/create-redis-cache pool)
+          alive? (ports/ping cache)]
+      (ports/close! cache)
+      (.close pool)
+      alive?)
     (catch Exception _
       false)))
 
@@ -121,7 +121,12 @@
       (let [n (ports/delete-many! *cache* ["del1" "del2"])]
         (is (= 2 n))
         (is (nil? (ports/get-value *cache* "del1")))
-        (is (nil? (ports/get-value *cache* "del2")))))))
+        (is (nil? (ports/get-value *cache* "del2")))))
+
+    (testing "get-many omits missing keys"
+      (ports/set-value! *cache* "exists-a" 1)
+      (let [result (ports/get-many *cache* ["exists-a" "missing-b"])]
+        (is (= {"exists-a" 1} result))))))
 
 ;; =============================================================================
 ;; Atomic operations
@@ -142,7 +147,14 @@
     (testing "set-if-absent! sets only when key is missing"
       (is (true? (ports/set-if-absent! *cache* "new-key" "first")))
       (is (false? (ports/set-if-absent! *cache* "new-key" "second")))
-      (is (= "first" (ports/get-value *cache* "new-key"))))))
+      (is (= "first" (ports/get-value *cache* "new-key"))))
+
+    (testing "compare-and-swap! updates only when expected value matches"
+      (ports/set-value! *cache* "cas-key" {:state :old})
+      (is (true? (ports/compare-and-swap! *cache* "cas-key" {:state :old} {:state :new})))
+      (is (= {:state :new} (ports/get-value *cache* "cas-key")))
+      (is (false? (ports/compare-and-swap! *cache* "cas-key" {:state :old} {:state :newer})))
+      (is (= {:state :new} (ports/get-value *cache* "cas-key"))))))
 
 ;; =============================================================================
 ;; Namespace operations

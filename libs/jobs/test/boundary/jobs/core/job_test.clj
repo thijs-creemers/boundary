@@ -3,7 +3,7 @@
    All tests use injected timestamps and UUIDs — no I/O."
   (:require [clojure.test :refer [deftest testing is]]
             [boundary.jobs.core.job :as job])
-  (:import [java.time Instant Duration]
+  (:import [java.time Instant]
            [java.util UUID]))
 
 ;; =============================================================================

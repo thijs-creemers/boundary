@@ -100,7 +100,7 @@
                        :from "sender@example.com"
                        :subject "Test"
                        :body "Hello"}
-          result (email/prepare-email email-input)]
+          result (email/prepare-email email-input (UUID/randomUUID) (Instant/now))]
       (is (uuid? (:id result)))
       (is (vector? (:to result)))
       (is (= ["user@example.com"] (:to result)))
@@ -114,7 +114,7 @@
                        :from "sender@example.com"
                        :subject "Test"
                        :body "Hello"}
-          result (email/prepare-email email-input)]
+          result (email/prepare-email email-input (UUID/randomUUID) (Instant/now))]
       (is (= ["user1@example.com" "user2@example.com"] (:to result)))))
 
   (testing "Prepare email with headers"
@@ -123,7 +123,7 @@
                        :subject "Test"
                        :body "Hello"
                        :headers {:reply-to "support@example.com"}}
-          result (email/prepare-email email-input)]
+          result (email/prepare-email email-input (UUID/randomUUID) (Instant/now))]
       (is (= "support@example.com" (get-in result [:headers :reply-to])))))
 
   (testing "Prepare email with attachments"
@@ -133,7 +133,7 @@
                        :subject "Test"
                        :body "Hello"
                        :attachments attachments}
-          result (email/prepare-email email-input)]
+          result (email/prepare-email email-input (UUID/randomUUID) (Instant/now))]
       (is (= attachments (:attachments result)))))
 
   (testing "Prepare email with metadata"
@@ -143,7 +143,7 @@
                        :subject "Test"
                        :body "Hello"
                        :metadata metadata}
-          result (email/prepare-email email-input)]
+          result (email/prepare-email email-input (UUID/randomUUID) (Instant/now))]
       (is (= metadata (:metadata result))))))
 
 ;; =============================================================================
@@ -354,7 +354,7 @@
                        :subject "Welcome"
                        :body "Hello, welcome to our service!"}
           ;; Prepare email
-          prepared (email/prepare-email email-input)
+          prepared (email/prepare-email email-input (UUID/randomUUID) (Instant/now))
           ;; Add reply-to
           with-reply-to (email/add-reply-to prepared "support@example.com")
           ;; Add CC

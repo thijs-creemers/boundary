@@ -44,6 +44,26 @@
   []
   "jobs:failed")
 
+(defn- global-stats-key
+  "Redis key for global job counters."
+  []
+  "jobs:stats:global")
+
+(defn- queue-stats-key
+  "Redis key for queue-specific counters."
+  [queue-name]
+  (str "jobs:stats:queue:" (name queue-name)))
+
+(defn- workers-key
+  "Redis key for active worker IDs."
+  []
+  "jobs:workers")
+
+(defn- worker-key
+  "Redis key for per-worker heartbeat metadata."
+  [worker-id]
+  (str "jobs:worker:" worker-id))
+
 ;; =============================================================================
 ;; Job Serialization
 ;; =============================================================================
@@ -80,6 +100,56 @@
   [^JedisPool pool f]
   (with-open [^Jedis redis (.getResource pool)]
     (f redis)))
+
+(defn- parse-long-safe
+  [v]
+  (if v
+    (Long/parseLong (str v))
+    0))
+
+(defn register-worker!
+  "Register worker as active and initialize heartbeat metadata.
+   No-op for non-Redis queues."
+  [queue worker-id queue-name]
+  (when (and (map? queue) (instance? JedisPool (:pool queue)))
+    (with-redis (:pool queue)
+      (fn [^Jedis redis]
+        (let [worker-id-str (str worker-id)
+              now-ms (.toEpochMilli (Instant/now))
+              w-key (worker-key worker-id-str)]
+          (.sadd redis (workers-key) (into-array String [worker-id-str]))
+          (.hset redis w-key "worker-id" worker-id-str)
+          (.hset redis w-key "queue-name" (name queue-name))
+          (.hset redis w-key "last-heartbeat-ms" (str now-ms))
+          (.expire redis w-key 60)
+          true)))))
+
+(defn heartbeat-worker!
+  "Refresh worker heartbeat metadata.
+   No-op for non-Redis queues."
+  [queue worker-id]
+  (when (and (map? queue) (instance? JedisPool (:pool queue)))
+    (with-redis (:pool queue)
+      (fn [^Jedis redis]
+        (let [worker-id-str (str worker-id)
+              now-ms (.toEpochMilli (Instant/now))
+              w-key (worker-key worker-id-str)]
+          (.hset redis w-key "last-heartbeat-ms" (str now-ms))
+          (.expire redis w-key 60)
+          true)))))
+
+(defn unregister-worker!
+  "Unregister worker from active worker set and remove metadata.
+   No-op for non-Redis queues."
+  [queue worker-id]
+  (when (and (map? queue) (instance? JedisPool (:pool queue)))
+    (with-redis (:pool queue)
+      (fn [^Jedis redis]
+        (let [worker-id-str (str worker-id)
+              w-key (worker-key worker-id-str)]
+          (.srem redis (workers-key) (into-array String [worker-id-str]))
+          (.del redis (into-array String [w-key]))
+          true)))))
 
 ;; =============================================================================
 ;; Job Queue Implementation
@@ -261,11 +331,12 @@
               job-data (.get redis job-key)]
           (when job-data
             (let [job (deserialize-job job-data)
+                  now (Instant/now)
                   updated-job (case status
-                                :running (job/start-job job)
-                                :completed (job/complete-job job result)
-                                :failed (job/fail-job job result)
-                                :cancelled (job/cancel-job job)
+                                :running (job/start-job job now)
+                                :completed (job/complete-job job result now)
+                                :failed (job/fail-job job result now)
+                                :cancelled (job/cancel-job job now)
                                 job)
                   serialized (serialize-job updated-job)]
               (.set redis job-key serialized)
@@ -273,6 +344,23 @@
               ;; If job failed and no more retries, move to dead letter queue
               (when (and (= status :failed) (not (job/can-retry? updated-job)))
                 (.lpush redis (dead-letter-key) (into-array String [(str job-id)])))
+
+              ;; Track processed counters only for terminal outcomes.
+              (let [queue-name (:queue updated-job)]
+                (cond
+                  (= :completed (:status updated-job))
+                  (do
+                    (.hincrBy redis (global-stats-key) "total-processed" 1)
+                    (.hincrBy redis (global-stats-key) "total-succeeded" 1)
+                    (.hincrBy redis (queue-stats-key queue-name) "processed-total" 1)
+                    (.hincrBy redis (queue-stats-key queue-name) "succeeded-total" 1))
+
+                  (= :failed (:status updated-job))
+                  (do
+                    (.hincrBy redis (global-stats-key) "total-processed" 1)
+                    (.hincrBy redis (global-stats-key) "total-failed" 1)
+                    (.hincrBy redis (queue-stats-key queue-name) "processed-total" 1)
+                    (.hincrBy redis (queue-stats-key queue-name) "failed-total" 1))))
 
               updated-job))))))
 
@@ -317,11 +405,13 @@
         (let [job-key (job-key job-id)
               job-data (.get redis job-key)]
           (when job-data
-            (let [job (deserialize-job job-data)
+              (let [job (deserialize-job job-data)
                   retry-config {:backoff-strategy :exponential
                                 :initial-delay-ms 1000
                                 :max-delay-ms 60000}
-                  retry-job (job/prepare-retry job retry-config)
+                  now (Instant/now)
+                  jitter-ms (rand-int 100)
+                  retry-job (job/prepare-retry job retry-config now jitter-ms)
                   serialized (serialize-job retry-job)]
 
               ;; Update job data
@@ -352,28 +442,35 @@
                           (map #(second (re-find #"queue:([^:]+)" %)))
                           (filter some?)
                           (map keyword)
-                          distinct)]
-          {:total-processed 0  ; TODO: Implement counters
-           :total-failed 0
-           :total-succeeded 0
+                          distinct)
+              global-stats (.hgetAll redis (global-stats-key))
+              active-workers (->> (.smembers redis (workers-key))
+                                  (filter (fn [worker-id]
+                                            (.exists redis (worker-key worker-id))))
+                                  vec)]
+          {:total-processed (parse-long-safe (get global-stats "total-processed"))
+           :total-failed (parse-long-safe (get global-stats "total-failed"))
+           :total-succeeded (parse-long-safe (get global-stats "total-succeeded"))
            :queues (mapv (fn [queue-name]
                            (let [stats (ports/queue-stats this queue-name)]
                              (assoc stats :queue-name queue-name)))
                          queues)
-           :workers []}))))  ; TODO: Implement worker tracking
+           :workers active-workers}))))
 
   (queue-stats [_ queue-name]
     (with-redis pool
       (fn [^Jedis redis]
-        (let [queue-key (queue-key queue-name)]
+        (let [queue-key (queue-key queue-name)
+              stats-key (queue-stats-key queue-name)
+              stats (.hgetAll redis stats-key)]
           {:queue-name queue-name
            :size (+ (.llen redis (str queue-key ":critical"))
                     (.llen redis (str queue-key ":high"))
                     (.llen redis queue-key)
                     (.llen redis (str queue-key ":low")))
-           :processed-total 0   ; TODO: Implement with Redis counters
-           :failed-total 0
-           :succeeded-total 0
+           :processed-total (parse-long-safe (get stats "processed-total"))
+           :failed-total (parse-long-safe (get stats "failed-total"))
+           :succeeded-total (parse-long-safe (get stats "succeeded-total"))
            :avg-duration-ms nil}))))
 
   (job-history [_ job-type limit]

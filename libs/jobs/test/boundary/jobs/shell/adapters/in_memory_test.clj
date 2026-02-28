@@ -35,7 +35,8 @@
             :args {:foo "bar"}
             :queue :default}
            overrides)
-    (UUID/randomUUID))))
+    (UUID/randomUUID)
+    (Instant/now))))
 
 ;; =============================================================================
 ;; Job Queue Tests
@@ -228,9 +229,10 @@
   (testing "Find jobs by status"
     (let [store (:store *system*)
           pending-job (create-test-job)
+          now (java.time.Instant/now)
           completed-job (-> (create-test-job)
-                            (job/start-job)
-                            (job/complete-job {:result "ok"}))]
+                            (job/start-job now)
+                            (job/complete-job {:result "ok"} now))]
 
       (ports/save-job! store pending-job)
       (ports/save-job! store completed-job)

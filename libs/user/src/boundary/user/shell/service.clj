@@ -54,6 +54,26 @@
   []
   (Instant/now))
 
+(def ^:dynamic *audit-context*
+  "Per-request audit context bound by HTTP/CLI interceptors.
+   Expected keys: :actor-id, :actor-email, :ip-address, :user-agent."
+  nil)
+
+(defn with-audit-context
+  "Execute `f` with audit context bound for downstream service calls."
+  [audit-context f]
+  (binding [*audit-context* (merge *audit-context* audit-context)]
+    (f)))
+
+(defn- effective-audit-context
+  "Build final audit context by combining defaults with bound request context."
+  [{:keys [default-actor-id default-actor-email]}]
+  (let [ctx (or *audit-context* {})]
+    {:actor-id (or (:actor-id ctx) default-actor-id)
+     :actor-email (or (:actor-email ctx) default-actor-email "system")
+     :ip-address (:ip-address ctx)
+     :user-agent (:user-agent ctx)}))
+
 ;; =============================================================================
 ;; Database-Agnostic User Service (I/O Shell Layer)
 ;; =============================================================================
@@ -326,18 +346,20 @@
                ;; 3. Persist using impure shell persistence layer
                updated-user (.update-user user-repository prepared-user)]
 
-           ;; 4. Create audit log entry
-           ;; TODO: Extract actor info from context (currently using target user as actor)
+          ;; 4. Create audit log entry
            (when (and updated-user old-user)
-             (let [audit-entry (audit-core/update-user-audit-entry
-                                (:id updated-user)      ; actor-id (TODO: should be from context)
-                                (:email updated-user)   ; actor-email (TODO: should be from context)
+             (let [{:keys [actor-id actor-email ip-address user-agent]}
+                   (effective-audit-context {:default-actor-id (:id updated-user)
+                                             :default-actor-email (:email updated-user)})
+                   audit-entry (audit-core/update-user-audit-entry
+                                actor-id
+                                actor-email
                                 (:id updated-user)      ; target-user-id
                                 (:email updated-user)   ; target-user-email
                                 old-user                ; old user data
                                 updated-user            ; new user data
-                                nil                     ; ip-address (TODO: extract from context)
-                                nil)]                   ; user-agent (TODO: extract from context)
+                                ip-address
+                                user-agent)]
                (.create-audit-log audit-repository audit-entry)))
 
            ;; Remove sensitive data before returning
@@ -360,13 +382,15 @@
          ;; Create audit log entry
          (when (and result user)
            (try
-             (let [audit-entry (audit-core/deactivate-user-audit-entry
-                                nil  ; actor-id (extract from request context)
-                                "system"  ; actor-email
+             (let [{:keys [actor-id actor-email ip-address user-agent]}
+                   (effective-audit-context {})
+                   audit-entry (audit-core/deactivate-user-audit-entry
+                                actor-id
+                                actor-email
                                 user-id
                                 (:email user)
-                                nil  ; ip-address
-                                nil)] ; user-agent
+                                ip-address
+                                user-agent)]
                (.create-audit-log audit-repository audit-entry))
              (catch Exception e
                (println "WARN: Failed to create audit log:" (.getMessage e)))))
@@ -390,13 +414,15 @@
          ;; Create audit log entry
          (when (and result user)
            (try
-             (let [audit-entry (audit-core/delete-user-audit-entry
-                                nil  ; actor-id (extract from request context)
-                                "system"  ; actor-email
+             (let [{:keys [actor-id actor-email ip-address user-agent]}
+                   (effective-audit-context {})
+                   audit-entry (audit-core/delete-user-audit-entry
+                                actor-id
+                                actor-email
                                 user-id
                                 (:email user)
-                                nil  ; ip-address
-                                nil)] ; user-agent
+                                ip-address
+                                user-agent)]
                (.create-audit-log audit-repository audit-entry))
              (catch Exception e
                (println "WARN: Failed to create audit log:" (.getMessage e)))))
@@ -502,17 +528,20 @@
                                           (assoc user
                                                  :password-hash new-password-hash
                                                  :updated-at current-time))]
-           ;; 6. Create audit log entry
-           (try
-             (let [audit-entry (audit-core/update-user-audit-entry
-                                user-id           ; actor-id (user changing their own password)
-                                (:email user)     ; actor-email
+         ;; 6. Create audit log entry
+         (try
+             (let [{:keys [actor-id actor-email ip-address user-agent]}
+                   (effective-audit-context {:default-actor-id user-id
+                                             :default-actor-email (:email user)})
+                   audit-entry (audit-core/update-user-audit-entry
+                                actor-id
+                                actor-email
                                 user-id           ; target-user-id
                                 (:email user)     ; target-user-email
                                 user              ; old user data (without exposing password hash)
                                 updated-user      ; new user data
-                                nil               ; ip-address (TODO: extract from context)
-                                nil)]             ; user-agent (TODO: extract from context)
+                                ip-address
+                                user-agent)]
                (.create-audit-log audit-repository audit-entry))
              (catch Exception e
                (println "WARN: Failed to create audit log for password change:" (.getMessage e))))

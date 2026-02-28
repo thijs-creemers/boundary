@@ -126,6 +126,7 @@
      user: User entity
      login-context: Map with :ip-address, :user-agent, etc.
      recent-sessions: Recent session history
+     now: Current timestamp provided by shell layer
      
    Returns:
      {:risk-score 0-100
@@ -133,7 +134,7 @@
       :requires-mfa? boolean}
       
    Pure - risk assessment based on patterns and context."
-  [user login-context recent-sessions]
+  [user login-context recent-sessions now]
   (let [risk-factors (cond-> []
                        ;; New IP address
                        (not-any? #(= (:ip-address login-context)
@@ -153,7 +154,7 @@
 
                        ;; No recent activity (dormant account)
                        (and (:last-login user)
-                            (> (.toEpochMilli (.minus (java.time.Instant/now)
+                            (> (.toEpochMilli (.minus now
                                                       (Duration/ofDays 30)))
                                (.toEpochMilli (:last-login user))))
                        (conj {:factor :dormant-account :weight 40}))

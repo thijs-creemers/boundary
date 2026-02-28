@@ -246,11 +246,12 @@
 
   (update-job-status! [_ job-id status result]
     (when-let [job (get @(:jobs state) job-id)]
-      (let [updated-job (case status
-                          :running (job/start-job job)
-                          :completed (job/complete-job job result)
-                          :failed (job/fail-job job result)
-                          :cancelled (job/cancel-job job)
+      (let [now (Instant/now)
+            updated-job (case status
+                          :running (job/start-job job now)
+                          :completed (job/complete-job job result now)
+                          :failed (job/fail-job job result now)
+                          :cancelled (job/cancel-job job now)
                           job)]
         (swap! (:jobs state) assoc job-id updated-job)
 
@@ -285,7 +286,9 @@
       (let [retry-config {:backoff-strategy :exponential
                           :initial-delay-ms 1000
                           :max-delay-ms 60000}
-            retry-job (job/prepare-retry job retry-config)]
+            now (Instant/now)
+            jitter-ms (rand-int 100)
+            retry-job (job/prepare-retry job retry-config now jitter-ms)]
 
         ;; Update job data
         (swap! (:jobs state) assoc job-id retry-job)

@@ -26,6 +26,17 @@
    :lockout-duration-minutes 15
    :alert-threshold 3})
 
+(def ^:private login-ctx {:ip-address "1.2.3.4" :user-agent "Chrome/120"})
+(def ^:private low-risk {:risk-score 10 :risk-factors [] :requires-mfa? false})
+(def ^:private high-risk {:risk-score 80 :risk-factors [] :requires-mfa? true})
+(def ^:private strict-policy
+  {:min-length 8 :max-length 255
+   :require-uppercase true :require-lowercase true
+   :require-numbers true :require-special-chars true})
+(def ^:private policy {:max-password-age-days 90})
+(def ^:private pwd-created-recent (Instant/parse "2026-01-01T00:00:00Z"))
+(def ^:private pwd-created-old (Instant/parse "2025-09-01T00:00:00Z")) ; > 90 days before now
+
 ;; =============================================================================
 ;; validate-login-credentials
 ;; =============================================================================
@@ -133,8 +144,6 @@
 ;; =============================================================================
 
 (deftest analyze-login-risk-test
-  (def ^:private login-ctx {:ip-address "1.2.3.4" :user-agent "Chrome/120"})
-
   (testing "zero risk for known IP and user-agent, recent activity"
     (let [recent-sessions [{:ip-address "1.2.3.4" :user-agent "Chrome/120"}]
           user (assoc active-user :last-login recent :role :user)
@@ -179,9 +188,6 @@
 ;; =============================================================================
 
 (deftest should-create-session?-test
-  (def ^:private low-risk {:risk-score 10 :risk-factors [] :requires-mfa? false})
-  (def ^:private high-risk {:risk-score 80 :risk-factors [] :requires-mfa? true})
-
   (testing "always creates session"
     (is (true? (:create-session? (auth/should-create-session? active-user low-risk {})))))
 
@@ -209,11 +215,6 @@
 ;; =============================================================================
 
 (deftest meets-password-policy?-test
-  (def ^:private strict-policy
-    {:min-length 8 :max-length 255
-     :require-uppercase true :require-lowercase true
-     :require-numbers true :require-special-chars true})
-
   (testing "valid password passes"
     (let [result (auth/meets-password-policy? "Str0ng!P@ss" strict-policy nil)]
       (is (true? (:valid? result)))
@@ -251,10 +252,6 @@
 ;; =============================================================================
 
 (deftest should-require-password-reset?-test
-  (def ^:private policy {:max-password-age-days 90})
-  (def ^:private pwd-created-recent (Instant/parse "2026-01-01T00:00:00Z"))
-  (def ^:private pwd-created-old     (Instant/parse "2025-09-01T00:00:00Z")) ; > 90 days before now
-
   (testing "requires reset when no password hash"
     (let [user (dissoc active-user :password-hash)
           result (auth/should-require-password-reset? user now policy)]

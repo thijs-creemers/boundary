@@ -40,14 +40,19 @@
   "Schema for the map that flows through the interceptor pipeline.
 
    Every interceptor receives and returns this map. Core interceptors add
-   :result; shell interceptors handle :request, :system-deps, and I/O.
+   :result; shell interceptors handle :request, :system, and I/O.
 
    Minimal example (CLI):
-     {:request {:args [\"--help\"]} :system-deps {}}
+     {:op :example-op :system {} :request {:args [\"--help\"]}}
 
    HTTP example:
-     {:request {:headers {...} :body {...}} :system-deps {:logger ...} :result {...}}"
+     {:op :user-create
+      :system {:logger ...}
+      :request {:headers {...} :body {...}}
+      :result {...}}"
   [:map {:title "InterceptorContext" :closed false}
+   [:op :keyword]
+   [:system [:map-of :keyword :any]]
    [:request {:optional true}
     [:map {:closed false}
      [:headers {:optional true} [:map-of :string :string]]
@@ -56,6 +61,12 @@
      [:query {:optional true} [:map-of :string :string]]
      [:args {:optional true} [:vector :string]]
      [:options {:optional true} [:map-of :keyword :any]]]]
-   [:system-deps {:optional true} [:map-of :keyword :any]]
+   [:interface-type {:optional true} [:enum :http :cli :service]]
+   [:correlation-id {:optional true} :string]
+   [:now {:optional true} inst?]
    [:result {:optional true} ValidationResult]
-   [:error {:optional true} :map]])
+   [:response {:optional true} :map]
+   [:errors {:optional true} [:vector :map]]
+   [:exception {:optional true} :any]
+   [:halt? {:optional true} :boolean]
+   [:breadcrumbs {:optional true} [:vector :map]]])
