@@ -50,15 +50,17 @@
 
         ;; 2. Verify JWT token (delegates to user module via adapter)
         (let [claims (ports/verify-jwt jwt-verifier token)
+              now (current-timestamp)
+              connection-id (java.util.UUID/randomUUID)
 
               ;; 3. Create connection record (pure core function)
               connection (conn/create-connection
                           (:user-id claims)
                           (:roles claims)
                           {:email (:email claims)
-                           :connected-at (current-timestamp)})
-
-              connection-id (:id connection)]
+                           :connected-at now}
+                          connection-id
+                          now)]
 
           ;; 4. Register connection in registry (I/O - stateful atom)
           (ports/register connection-registry connection-id connection ws-connection)

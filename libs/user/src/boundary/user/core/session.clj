@@ -19,8 +19,8 @@
 
 ;; Session creation helpers  
 (defn generate-session-token
-  []
-  (str "token-" (System/currentTimeMillis) "-" (rand-int 10000)))
+  [timestamp-ms nonce]
+  (str "token-" timestamp-ms "-" nonce))
 
 (defn calculate-session-expiry
   ([created-at remember-me?]
@@ -107,9 +107,9 @@
 
 ;; Analytics functions
 (defn analyze-session-duration
-  [session]
+  [session now]
   (let [start-time (:created-at session)
-        end-time (or (:last-accessed-at session) (java.time.Instant/now))
+        end-time (or (:last-accessed-at session) now)
         duration-hours (/ (.between java.time.temporal.ChronoUnit/SECONDS start-time end-time) 3600.0)]
     {:session-id (:id session)
      :duration-hours duration-hours}))

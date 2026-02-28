@@ -18,11 +18,12 @@
 (def test-user-id-2 #uuid "660e8400-e29b-41d4-a716-446655440001")
 (def test-connection-id-1 #uuid "770e8400-e29b-41d4-a716-446655440002")
 (def test-connection-id-2 #uuid "880e8400-e29b-41d4-a716-446655440003")
+(def test-now (java.time.Instant/parse "2026-02-04T20:00:00Z"))
 
 (defn create-test-connection
   "Create test connection record."
   [user-id roles]
-  (conn/create-connection user-id roles {}))
+  (conn/create-connection user-id roles {} (java.util.UUID/randomUUID) test-now))
 
 (defn create-test-ws-adapter
   "Create test WebSocket adapter."

@@ -63,6 +63,16 @@
         (str/replace #"\bAND\b|\bOR\b|\bNOT\b" "")  ; Remove operators
         query/parse-search-text)))
 
+(defn- today-key
+  "Get current date key used for per-day query counters."
+  []
+  (str (java.time.LocalDate/now)))
+
+(defn- increment-query-count!
+  "Increment query counter for today's date."
+  [query-counts]
+  (swap! query-counts update (today-key) (fnil inc 0)))
+
 (defn- build-search-request
   "Build search request for provider.
    
@@ -139,12 +149,13 @@
 ;; Search Service Implementation
 ;; ============================================================================
 
-(defrecord SearchService [search-provider config]
+(defrecord SearchService [search-provider config query-counts]
   ports/ISearchService
 
   (search-users [_this query-str options]
     (let [start-time (System/currentTimeMillis)
           current-time (java.time.Instant/now)]
+      (increment-query-count! query-counts)
 
       (log/info "Searching users" {:query query-str :options options})
 
@@ -213,6 +224,7 @@
   (search-items [_this query-str options]
     (let [start-time (System/currentTimeMillis)
           current-time (java.time.Instant/now)]
+      (increment-query-count! query-counts)
 
       (log/info "Searching items" {:query query-str :options options})
 
@@ -280,6 +292,7 @@
 
   (suggest [_this prefix field options]
     (let [start-time (System/currentTimeMillis)]
+      (increment-query-count! query-counts)
 
       (log/info "Getting suggestions" {:prefix prefix :field field})
 
@@ -373,13 +386,14 @@
                                     :size-bytes 0
                                     :error (ex-message e)})))
                              indexes)
-            total-documents (reduce + (map :document-count index-stats))]
+            total-documents (reduce + (map :document-count index-stats))
+            total-queries-today (get @query-counts (today-key) 0)]
 
         (log/info "Search statistics retrieved" {:total-documents total-documents})
 
         {:indices (vec index-stats)
          :total-documents total-documents
-         :total-queries-today 0})  ; TODO: Track query counts
+         :total-queries-today total-queries-today})
 
       (catch Exception e
         (log/error e "Failed to get search statistics")
@@ -411,4 +425,4 @@
    Returns:
      Implementation of ISearchService"
   [search-provider config]
-  (->SearchService search-provider config))
+  (->SearchService search-provider config (atom {})))

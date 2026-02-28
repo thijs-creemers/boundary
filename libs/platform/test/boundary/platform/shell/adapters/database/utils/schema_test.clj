@@ -8,7 +8,6 @@
    - Index generation from schema analysis"
   (:require [boundary.platform.shell.adapters.database.utils.schema :as schema]
             [boundary.platform.shell.adapters.database.h2.core :as h2]
-            [boundary.platform.shell.adapters.database.protocols :as protocols]
             [clojure.test :refer [deftest is testing]]))
 
 ;; =============================================================================

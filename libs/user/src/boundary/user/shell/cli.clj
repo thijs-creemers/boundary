@@ -15,6 +15,7 @@
             [boundary.core.interceptor :as interceptor]
             [boundary.core.interceptor-context :as interceptor-context]
             [boundary.user.shell.interceptors :as user-interceptors]
+            [boundary.user.ports :as user-ports]
             [cheshire.core :as json]
             [clojure.string :as str]
             [clojure.tools.cli :as cli])
@@ -445,15 +446,24 @@
     (:response result-context)))
 
 (defn execute-session-list
-  "Execute session list command - NOT IMPLEMENTED"
-  [_service _error-reporter _opts]
-  ;; TODO: Implement session list functionality
-  ;; This would require:
-  ;; 1. Creating session list interceptors in user-interceptors.clj
-  ;; 2. Implementing session list functionality in the service layer
-  ;; 3. Adding appropriate business logic in core layer
-  {:status 501
-   :body "Session list functionality not yet implemented"})
+  "Execute session list command."
+  [service _error-reporter opts]
+  (let [format-type (keyword (get opts :format "table"))]
+    (try
+      (if-let [user-id (:user-id opts)]
+        (let [sessions (user-ports/get-user-sessions service user-id)]
+          {:status 0
+           :entity-type :session-list
+           :data sessions})
+        {:status 1
+         :message (format-error format-type
+                                {:type :validation-error
+                                 :message "Missing required option: --user-id"})})
+      (catch Exception e
+        {:status 1
+         :message (format-error format-type
+                                {:type :session-list-error
+                                 :message (.getMessage e)})}))))
 
 ;; =============================================================================
 ;; Command Dispatch
@@ -484,7 +494,7 @@
     :session (case verb
                :create (execute-session-create service nil opts)
                :invalidate (execute-session-invalidate service nil opts)
-               :list (execute-session-list service nil opts) ; Note: needs implementing
+               :list (execute-session-list service nil opts)
                (throw (ex-info (str "Unknown session command: " (name verb))
                                {:type :unknown-command
                                 :message (str "Unknown command: session " (name verb))})))

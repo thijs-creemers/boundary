@@ -40,7 +40,8 @@
             :args {:foo "bar"}
             :queue :default}
            overrides)
-    (UUID/randomUUID))))
+    (UUID/randomUUID)
+    (Instant/now))))
 
 (defn wait-for
   "Wait for a condition to become true, up to timeout-ms."

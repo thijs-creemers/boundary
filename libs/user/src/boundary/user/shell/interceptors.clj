@@ -9,9 +9,21 @@
   (:require [boundary.platform.shell.interceptors :as interceptors]
             [boundary.core.interceptor-context :as ctx]
             [boundary.core.utils.type-conversion :as type-conv]
+            [boundary.user.shell.service :as user-service]
             [boundary.user.ports :as ports]
             [boundary.user.schema :as schema]
             [clojure.string :as str]))
+
+(defn- extract-audit-context
+  "Extract actor/network metadata from interceptor context for audit logging."
+  [context]
+  (let [request (:request context)
+        actor (or (:user request)
+                  (get-in request [:session :user]))]
+    {:actor-id (:id actor)
+     :actor-email (:email actor)
+     :ip-address (:remote-addr request)
+     :user-agent (get-in request [:headers "user-agent"])}))
 
 (def validate-user-creation-input
   "Validates required fields for user creation.
@@ -139,7 +151,9 @@
                                                       {:email (:email user-data)
                                                        :role (:role user-data)})
                   ;; Call the core service; it returns the created user entity directly
-                  created-user (ports/register-user service user-data)]
+                  created-user (user-service/with-audit-context
+                                 (extract-audit-context context)
+                                 #(ports/register-user service user-data))]
               ;; Add success breadcrumb and result
               (-> updated-context
                   (assoc :created-user created-user)
@@ -543,7 +557,9 @@
                                                       {:user-id user-id})]
 
               (try
-                (let [result (ports/deactivate-user service user-id)]
+                (let [result (user-service/with-audit-context
+                               (extract-audit-context context)
+                               #(ports/deactivate-user service user-id))]
                   (-> updated-context
                       (assoc :deactivation-result result)
                       (ctx/add-breadcrumb :operation :user-deactivate-success
@@ -726,7 +742,9 @@
                   user-entity (merge existing-user update-data)]
 
               (try
-                (let [updated-user (ports/update-user-profile service user-entity)]
+                (let [updated-user (user-service/with-audit-context
+                                     (extract-audit-context context)
+                                     #(ports/update-user-profile service user-entity))]
                   (-> updated-context
                       (assoc :updated-user updated-user)
                       (ctx/add-breadcrumb :operation :user-update-apply-success

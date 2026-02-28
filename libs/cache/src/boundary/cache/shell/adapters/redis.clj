@@ -23,8 +23,8 @@
             [cheshire.core :as json]
             [clojure.string :as str]
             [clojure.tools.logging :as log])
-  (:import [redis.clients.jedis Jedis JedisPool JedisPoolConfig ScanParams]
-           [redis.clients.jedis.params SetParams]))
+  (:import [redis.clients.jedis Jedis JedisPool JedisPoolConfig]
+           [redis.clients.jedis.params SetParams ScanParams]))
 
 ;; =============================================================================
 ;; Helper Functions

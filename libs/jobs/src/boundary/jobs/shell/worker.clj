@@ -10,6 +10,7 @@
    - Job handler registry
    - Comprehensive error handling"
   (:require [boundary.jobs.ports :as ports]
+            [boundary.jobs.shell.adapters.redis :as redis-adapter]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]
            [java.time Instant]))
@@ -197,6 +198,9 @@
 
     (while @(:running? worker-state)
       (try
+        ;; Keep worker heartbeat fresh for distributed stats/monitoring.
+        (redis-adapter/heartbeat-worker! queue (:id worker-state))
+
         ;; Process scheduled jobs periodically
         (let [now (Instant/now)
               elapsed-ms (.toMillis (java.time.Duration/between @last-scheduled-check now))]
@@ -257,6 +261,7 @@
       (reset! (:running? state) false)
       (when thread
         (.join thread 5000))  ; Wait up to 5 seconds for graceful shutdown
+      (redis-adapter/unregister-worker! queue worker-id)
       true))
 
   (worker-status [_ worker-id]
@@ -293,6 +298,7 @@
 
     (.setDaemon thread true)
     (.start thread)
+    (redis-adapter/register-worker! queue (:id worker-state) queue-name)
 
     (log/info "Started worker" {:worker-id (:id worker-state) :queue-name queue-name})
 
