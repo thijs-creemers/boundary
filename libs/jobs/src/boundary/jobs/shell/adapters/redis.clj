@@ -18,6 +18,7 @@
             [clojure.tools.logging :as log]
             [cheshire.core :as json])
   (:import [redis.clients.jedis Jedis JedisPool JedisPoolConfig]
+           [redis.clients.jedis.params ScanParams]
            [java.time Instant]))
 
 ;; =============================================================================
@@ -63,6 +64,33 @@
   "Redis key for per-worker heartbeat metadata."
   [worker-id]
   (str "jobs:worker:" worker-id))
+
+;; =============================================================================
+;; Redis Key Scanning (non-blocking alternative to KEYS)
+;; =============================================================================
+
+(defn- scan-keys
+  "Return all keys matching pattern using cursor-based SCAN.
+
+   Unlike KEYS, SCAN is non-blocking and safe for production use.
+   Iterates in batches of 100 until the full keyspace is scanned.
+
+   Args:
+     redis   - Jedis connection
+     pattern - Glob-style key pattern (e.g. \"job:*\")
+
+   Returns:
+     Vector of matching key strings"
+  [^Jedis redis pattern]
+  (let [params (doto (ScanParams.) (.match pattern) (.count (int 100)))]
+    (loop [cursor "0" acc []]
+      (let [result (.scan redis cursor params)
+            keys   (.getResult result)
+            next   (.getCursor result)
+            acc'   (into acc keys)]
+        (if (= next "0")
+          acc'
+          (recur next acc'))))))
 
 ;; =============================================================================
 ;; Job Serialization
@@ -241,12 +269,11 @@
   (list-queues [_this]
     (with-redis pool
       (fn [^Jedis redis]
-        (let [keys (.keys redis "queue:*")]
-          (->> keys
-               (map #(second (re-find #"queue:([^:]+)" %)))
-               (filter some?)
-               (map keyword)
-               vec)))))
+        (->> (scan-keys redis "queue:*")
+             (map #(second (re-find #"queue:([^:]+)" %)))
+             (filter some?)
+             (map keyword)
+             vec))))
 
   (process-scheduled-jobs! [this]
     (process-scheduled-jobs-internal! this)))
@@ -365,25 +392,22 @@
               updated-job))))))
 
   (find-jobs [_ filters]
-    ;; Note: For production, consider using Redis Search module for complex queries
-    ;; This implementation scans all job keys (not optimal for large datasets)
     (with-redis pool
       (fn [^Jedis redis]
-        (let [job-keys (.keys redis "job:*")]
-          (->> job-keys
-               (map (fn [key]
-                      (let [job-data (.get redis key)]
-                        (when job-data
-                          (deserialize-job job-data)))))
-               (filter some?)
-               (filter (fn [job]
-                         (and (or (nil? (:status filters))
-                                  (= (:status filters) (:status job)))
-                              (or (nil? (:job-type filters))
-                                  (= (:job-type filters) (:job-type job)))
-                              (or (nil? (:queue filters))
-                                  (= (:queue filters) (:queue job))))))
-               vec)))))
+        (->> (scan-keys redis "job:*")
+             (map (fn [key]
+                    (let [job-data (.get redis key)]
+                      (when job-data
+                        (deserialize-job job-data)))))
+             (filter some?)
+             (filter (fn [job]
+                       (and (or (nil? (:status filters))
+                                (= (:status filters) (:status job)))
+                            (or (nil? (:job-type filters))
+                                (= (:job-type filters) (:job-type job)))
+                            (or (nil? (:queue filters))
+                                (= (:queue filters) (:queue job))))))
+             vec))))
 
   (failed-jobs [_ limit]
     (with-redis pool
@@ -437,8 +461,7 @@
   (job-stats [this]
     (with-redis pool
       (fn [^Jedis redis]
-        (let [queue-keys (.keys redis "queue:*")
-              queues (->> queue-keys
+        (let [queues (->> (scan-keys redis "queue:*")
                           (map #(second (re-find #"queue:([^:]+)" %)))
                           (filter some?)
                           (map keyword)
@@ -476,17 +499,15 @@
   (job-history [_ job-type limit]
     (with-redis pool
       (fn [^Jedis redis]
-       ;; Simplified implementation - in production, use time-series data
-        (let [job-keys (.keys redis "job:*")]
-          (->> job-keys
-               (map (fn [key]
-                      (let [job-data (.get redis key)]
-                        (when job-data
-                          (deserialize-job job-data)))))
-               (filter #(= (:job-type %) job-type))
-               (sort-by :created-at #(compare %2 %1))  ; Newest first
-               (take limit)
-               vec))))))
+        (->> (scan-keys redis "job:*")
+             (map (fn [key]
+                    (let [job-data (.get redis key)]
+                      (when job-data
+                        (deserialize-job job-data)))))
+             (filter #(= (:job-type %) job-type))
+             (sort-by :created-at #(compare %2 %1))  ; Newest first
+             (take limit)
+             vec)))))
 
 ;; =============================================================================
 ;; Factory Functions

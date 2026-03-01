@@ -25,7 +25,10 @@
                    :maximum-pool-size 20
                    :connection-timeout-ms 30000
                    :idle-timeout-ms 600000
-                   :max-lifetime-ms 1800000}}
+                   :max-lifetime-ms 1800000
+                   :keepalive-time-ms 30000
+                   :validation-timeout-ms 5000
+                   :leak-detection-threshold-ms 60000}}
 
   ;; Acceptance logging configuration
   :boundary/logging

@@ -45,7 +45,8 @@
       "mcp__plugin_playwright_playwright__browser_type",
       "mcp__plugin_playwright_playwright__browser_snapshot",
       "mcp__plugin_playwright_playwright__browser_install",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(jar tf:*)"
     ]
   },
   "enabledMcpjsonServers": [
