@@ -236,6 +236,11 @@
 ;; Integrant Configuration Generation
 ;; =============================================================================
 
+(defn- cache-config
+  "Extract cache configuration from active config, or nil if not configured."
+  [config]
+  (get-in config [:active :boundary/cache]))
+
 (defn- core-system-config
   "Return core system components (database, observability) independent of modules."
   [config]
@@ -243,12 +248,14 @@
         logging-cfg (logging-config config)
         metrics-cfg (metrics-config config)
         error-reporting-cfg (error-reporting-config config)
-        router-cfg (get-in config [:active :boundary/router] {:adapter :reitit})]
-    {:boundary/db-context db-cfg
-     :boundary/logging logging-cfg
-     :boundary/metrics metrics-cfg
-     :boundary/error-reporting error-reporting-cfg
-     :boundary/router router-cfg}))
+        router-cfg (get-in config [:active :boundary/router] {:adapter :reitit})
+        cache-cfg (cache-config config)]
+    (cond-> {:boundary/db-context db-cfg
+             :boundary/logging logging-cfg
+             :boundary/metrics metrics-cfg
+             :boundary/error-reporting error-reporting-cfg
+             :boundary/router router-cfg}
+      cache-cfg (assoc :boundary/cache cache-cfg))))
 
 (defn- user-module-config
   "Return Integrant configuration for the user module.
@@ -268,6 +275,7 @@
         validation-cfg (user-validation-config config)
         pagination-cfg (get-in config [:active :boundary/pagination] {:default-limit 20 :max-limit 100})
         admin-enabled? (get-in config [:active :boundary/admin :enabled?])
+        cache-enabled? (boolean (cache-config config))
         http-handler-config (cond-> {:config config
                                      :user-routes (ig/ref :boundary/user-routes)
                                      :tenant-routes (ig/ref :boundary/tenant-routes)
@@ -303,14 +311,15 @@
       :auth-config {}} ; Add actual auth config if needed
 
      :boundary/user-service
-     {:user-repository (ig/ref :boundary/user-repository)
-      :session-repository (ig/ref :boundary/session-repository)
-      :audit-repository (ig/ref :boundary/audit-repository)
-      :validation-config validation-cfg
-      :auth-service (ig/ref :boundary/auth-service)
-      :logger (ig/ref :boundary/logging)
-      :metrics (ig/ref :boundary/metrics)
-      :error-reporter (ig/ref :boundary/error-reporting)}
+     (cond-> {:user-repository (ig/ref :boundary/user-repository)
+              :session-repository (ig/ref :boundary/session-repository)
+              :audit-repository (ig/ref :boundary/audit-repository)
+              :validation-config validation-cfg
+              :auth-service (ig/ref :boundary/auth-service)
+              :logger (ig/ref :boundary/logging)
+              :metrics (ig/ref :boundary/metrics)
+              :error-reporter (ig/ref :boundary/error-reporting)}
+       cache-enabled? (assoc :cache (ig/ref :boundary/cache)))
 
      :boundary/user-routes
      {:user-service (ig/ref :boundary/user-service)

@@ -50,7 +50,20 @@
    :sample-rate 1.0}}
 
  :inactive
- {
+ {;; Cache configuration — move :boundary/cache to :active to enable Redis caching.
+  ;; Requires a Redis instance.
+  :boundary/cache
+  {:provider    :redis
+   :host        #env "REDIS_HOST"
+   :port        #or [#long #env "REDIS_PORT" 6379]
+   :password    #env "REDIS_PASSWORD"
+   :database    0
+   :timeout     2000
+   :default-ttl 300
+   :max-total   20
+   :max-idle    10
+   :min-idle    2}
+
   ;; Optional fallback database configurations
   :boundary/sqlite
   {:db "acc-fallback.db"
