@@ -267,7 +267,8 @@
     [:div#user-detail
      [:h2 "User Details"]
      [:form {:hx-put    (str "/web/users/" (:id user))
-             :hx-target "#user-detail"}
+             :hx-target "#user-detail"
+             :class     "form-card"}
       (ui/form-field :name "Name"
                      (ui/text-input :name (:name user) {:required true})
                      nil)
@@ -321,7 +322,8 @@
    [:div#create-user-form
     [:h2 "Create New User"]
     [:form {:hx-post   "/web/users"
-            :hx-target "#create-user-form"}
+            :hx-target "#create-user-form"
+            :class     "form-card"}
      (ui/form-field :name "Name"
                     (ui/text-input :name (:name data) {:required true})
                     (:name errors))
@@ -584,6 +586,33 @@
    opts))
 
 ;; =============================================================================
+;; Web Root Landing Page
+;; =============================================================================
+
+(defn web-root-page
+  "Landing page shown at /web — logo, welcome message, and login link.
+
+   Args:
+     opts: Optional page options (flash messages, etc.)
+
+   Returns:
+     Complete HTML page structure"
+  [& [opts]]
+  (layout/page-layout
+   "Welcome"
+   [:div.web-root-page
+    [:div.web-root-content
+     [:div.web-root-logo
+      (icons/brand-logo {:size 180})]
+     [:h1 "Welcome to Boundary"]
+     [:p "Manage your users, sessions and audit trail."]
+     [:div.web-root-actions
+      [:a.button.primary {:href "/web/login"}
+       (icons/icon :log-in {:size 18})
+       [:span "Sign in"]]]]]
+   (assoc opts :skip-header true)))
+
+;; =============================================================================
 ;; Login Form & Page
 ;; =============================================================================
 
@@ -604,7 +633,8 @@
       (icons/icon :log-in {:size 24})
       [:span {:style "margin-left: 0.5rem;"} "Sign in"]]
      [:form {:method "post"
-             :action "/web/login"}
+             :action "/web/login"
+             :class  "form-card"}
        ;; Hidden field to preserve return-to URL
       (when (:return-to data)
         [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
@@ -665,7 +695,8 @@
      [:p {:style "margin-bottom: 1.5rem; color: var(--text-secondary);"}
       "Please enter the 6-digit code from your authenticator app or use one of your backup codes."]
      [:form {:method "post"
-             :action "/web/login"}
+             :action "/web/login"
+             :class  "form-card"}
       ;; Hidden fields to preserve login data
       (when (:return-to data)
         [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
@@ -736,7 +767,8 @@
      (icons/icon :user-plus {:size 24})
      [:span {:style "margin-left: 0.5rem;"} "Create Account"]]
     [:form {:method "post"
-            :action "/web/register"}
+            :action "/web/register"
+            :class  "form-card"}
      (ui/form-field :name "Name"
                     (ui/text-input :name (:name data) {:required true})
                     (:name errors))
@@ -881,18 +913,19 @@
    Pure: false (delegates to session-row)"
   [sessions current-token user-id]
   (if (empty? sessions)
-    [:p "No active sessions."]
-    [:table
-     [:thead
-      [:tr
-       [:th "Device / Browser"]
-       [:th "IP Address"]
-       [:th "Last Active"]
-       [:th "Created"]
-       [:th "Actions"]]]
-     [:tbody
-      (for [session sessions]
-        (session-row session current-token user-id))]]))
+    [:div.empty-state "No active sessions."]
+    [:div.table-wrapper
+     [:table {:class "data-table"}
+      [:thead
+       [:tr
+        [:th "Device / Browser"]
+        [:th "IP Address"]
+        [:th "Last Active"]
+        [:th "Created"]
+        [:th "Actions"]]]
+      [:tbody
+       (for [session sessions]
+         (session-row session current-token user-id))]]]))
 
 (defn user-sessions-page
   "Complete page for managing user sessions.
@@ -912,14 +945,14 @@
    (str "Sessions for " (:name user))
    [:div.user-sessions-page
     [:div.page-header
-     [:h1 "Active Sessions"]
-     [:p "Manage active sessions for " [:strong (:name user)]]
+     [:div
+      [:h1 "Active Sessions"]
+      [:p "Manage active sessions for " [:strong (:name user)]]]
      [:div.page-actions
       [:a.button.secondary {:href (str "/web/admin/users/" (:id user))} "\u2190 Back to User"]
       (when (> (count sessions) 1)
         [:form {:method "post"
-                :action (str "/web/users/" (:id user) "/sessions/revoke-all")
-                :style "display: inline; margin-left: 0.5rem;"}
+                :action (str "/web/users/" (:id user) "/sessions/revoke-all")}
          [:input {:type "hidden" :name "keep-current" :value "true"}]
          [:button.button.danger
           {:type "submit"
@@ -969,23 +1002,26 @@
      
    Pure: true"
   [result]
-  (let [result-class (if (= result :success) "success" "danger")]
-    [:span {:class (str "result-badge " result-class)}
-     (str/capitalize (name result))]))
+  (if (= result :success)
+    [:span.result-badge.success (icons/icon :check-circle {:size 15}) " Success"]
+    [:span.result-badge.danger  (icons/icon :x-circle {:size 15}) " Failure"]))
 
 (defn format-audit-timestamp
   "Format timestamp for audit log display.
-   
+
    Args:
      timestamp - java.time.Instant or similar
-     
+
    Returns:
-     Formatted string
-     
+     Formatted timestamp string like '2026-02-01 07:39:15'
+
    Pure: true"
   [timestamp]
   (when timestamp
-    (str timestamp)))
+    (-> (str timestamp)
+        (str/replace #"T" " ")
+        (str/replace #"\.\d+Z$" "")
+        (str/replace #"Z$" ""))))
 
 (defn audit-log-row
   "Generate audit log table row.
@@ -1008,8 +1044,9 @@
      [:td (or (:target-user-email audit-log) "-")]
      [:td (result-badge result)]
      [:td (or (:ip-address audit-log) "-")]
-     [:td [:button.button.small.secondary
+     [:td [:button.button.small.secondary.icon-only
            {:type "button"
+            :title "View details"
             :onclick (str "alert('Details:\\n"
                           "Action: " (name action) "\\n"
                           "Actor: " (or (:actor-email audit-log) "System") "\\n"
@@ -1019,7 +1056,7 @@
                           (when (:error-message audit-log)
                             (str "Error: " (:error-message audit-log) "\\n"))
                           "');")}
-           "Details"]]]))
+           (icons/icon :eye {:size 15})]]]))
 
 (defn audit-logs-table
   "Generate audit logs table.
@@ -1138,11 +1175,11 @@
               :value (:actor-email filters)}]]
 
     [:div.form-actions
-     [:button.button.primary {:type "submit"} "Apply Filters"]
+     [:button.button.primary {:type "submit"} "Apply"]
      [:button.button.secondary
       {:type "button"
        :onclick "window.location.href='/web/audit'"}
-      "Clear Filters"]]]])
+      "Clear"]]]])
 
 (defn audit-page
   "Full audit logs page with layout.

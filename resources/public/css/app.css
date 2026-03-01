@@ -26,8 +26,6 @@ html {
 }
 
 body {
-  display: flex;
-  flex-direction: column;
   min-height: 100vh;
   background: var(--bg-secondary);
   color: var(--text-primary);
@@ -143,7 +141,6 @@ body {
    ============================================================================= */
 
 .main-content {
-  flex: 1;
   width: 100%;
   max-width: var(--max-content-width);
   margin: 0 auto;
@@ -200,8 +197,14 @@ body {
 
 .page-actions {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+/* Forms inside page-actions are just button wrappers — reset their layout */
+.page-actions form {
+  display: contents;
 }
 
 .page-actions .button {
@@ -649,8 +652,8 @@ tr:hover td.row-actions .icon-button {
    Forms (Mobile-First)
    ============================================================================= */
 
-/* Form container */
-form {
+/* Form container - only applies to standalone forms, not button-wrapper forms */
+form.form-card {
   background: var(--bg-primary);
   padding: var(--space-5);
   border-radius: var(--radius-lg);
@@ -820,7 +823,7 @@ input[type="radio"] {
 
 /* Tablet and above: horizontal form actions */
 @media (min-width: 768px) {
-  form {
+  form.form-card {
     padding: var(--space-8);
   }
   
@@ -1645,6 +1648,56 @@ button.full-width {
   margin: var(--space-8) auto;
 }
 
+/* =============================================================================
+   Web Root Landing Page
+   ============================================================================= */
+
+.web-root-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+}
+
+.web-root-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+  max-width: 480px;
+}
+
+.web-root-logo {
+  margin-bottom: var(--space-2);
+}
+
+.web-root-content h1 {
+  margin: 0;
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  letter-spacing: -0.025em;
+}
+
+.web-root-content p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-lg);
+}
+
+.web-root-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.web-root-actions .button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+}
+
 /* Form heading with icons */
 #login-form h2,
 #register-form h2 {
@@ -1778,7 +1831,7 @@ button.full-width {
 @media (min-width: 768px) {
   .card {
     padding: var(--space-6);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
   }
   
   .stat-card {
@@ -1810,7 +1863,19 @@ button.full-width {
    Session Management
    ============================================================================= */
 
-.user-sessions-page table {
+.user-sessions-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.user-sessions-page .page-actions .button {
+  flex: 1;
+  justify-content: center;
+}
+
+.user-sessions-page .table-wrapper {
+  border: 1px solid var(--border-default);
+  overflow: hidden;
   margin-top: var(--space-6);
 }
 
@@ -1832,9 +1897,30 @@ button.full-width {
   color: var(--color-primary-700);
 }
 
-.user-sessions-page button.small {
+/* Sessions table: no checkbox column, so use auto layout to size by content */
+.user-sessions-page .data-table {
+  table-layout: auto;
+}
+
+.user-sessions-page .data-table th:first-child,
+.user-sessions-page .data-table td:first-child {
+  width: auto;
+  min-width: auto;
+  max-width: none;
+  padding-left: var(--space-3);
+  text-align: left;
+}
+
+.user-sessions-page .data-table td form {
+  display: contents;
+}
+
+.user-sessions-page .data-table td .button,
+.user-sessions-page .data-table td button {
+  box-shadow: none;
+  min-height: unset;
   font-size: var(--text-sm);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-3);
 }
 
 /* =============================================================================
@@ -2877,10 +2963,10 @@ select:focus-visible {
 .profile-card {
   background: var(--bg-primary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: var(--space-6);
   box-shadow: var(--shadow-sm);
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 
 .profile-card:last-child {
@@ -2889,12 +2975,10 @@ select:focus-visible {
 
 .profile-card h2 {
   margin-top: 0;
-  margin-bottom: var(--space-5);
+  margin-bottom: 0;
   font-size: var(--text-xl);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
-  border-bottom: 1px solid var(--border-default);
-  padding-bottom: var(--space-3);
 }
 
 .info-row {
@@ -2907,6 +2991,13 @@ select:focus-visible {
 
 .info-row:last-child {
   border-bottom: none;
+}
+
+.info-row label {
+  font-weight: var(--font-medium);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  margin: 0;
 }
 
 .info-label {
@@ -2924,8 +3015,8 @@ select:focus-visible {
   display: flex;
   gap: var(--space-3);
   justify-content: flex-end;
-  margin-top: var(--space-6);
-  padding-top: var(--space-6);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--border-default);
 }
 
@@ -2986,7 +3077,7 @@ select:focus-visible {
 .mfa-card {
   background: var(--bg-primary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: var(--space-8);
   box-shadow: var(--shadow-md);
   max-width: 500px;
@@ -3074,7 +3165,7 @@ select:focus-visible {
 .password-change-card {
   background: var(--bg-primary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: var(--space-6);
   box-shadow: var(--shadow-sm);
 }
@@ -3142,7 +3233,7 @@ select:focus-visible {
 }
 
 .welcome-section {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-3);
   text-align: center;
   padding: var(--space-4) 0;
 }
@@ -3253,7 +3344,7 @@ select:focus-visible {
 /* Tablet and up: dashboard grids */
 @media (min-width: 768px) {
   .welcome-section {
-    margin-bottom: var(--space-10);
+    margin-bottom: var(--space-5);
     padding: var(--space-6) 0;
   }
   
@@ -3285,7 +3376,7 @@ select:focus-visible {
 /* Desktop: larger typography & spacing for welcome section */
 @media (min-width: 1024px) {
   .welcome-section {
-    margin-bottom: var(--space-12);
+    margin-bottom: var(--space-6);
     padding: var(--space-8) 0;
   }
   
@@ -3651,4 +3742,183 @@ textarea:focus-visible,
 [data-theme="dark"] select:focus-visible,
 [data-theme="dark"] textarea:focus-visible {
   outline-color: var(--accent-primary);
+}
+
+/* =============================================================================
+   Audit Trail Page
+   ============================================================================= */
+
+.audit-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Filter panel — override generic form card styling */
+.filters-panel {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.filters-panel h3 {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-3);
+}
+
+/* Reset the global form card styles inside the filter panel */
+.filters-panel form {
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.filters-panel .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.filters-panel .filter-group label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Form actions: stacked vertically, pinned to bottom of grid cell */
+.filters-panel .form-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  align-items: stretch;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+/* Audit table container — match admin table wrapper style */
+#audit-table-container .table-wrapper {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+/* Audit table: auto layout, timestamp column not a checkbox */
+#audit-table {
+  table-layout: auto;
+}
+
+#audit-table th:first-child,
+#audit-table td:first-child {
+  width: 170px;
+  min-width: 170px;
+  max-width: none;
+  text-align: left;
+  white-space: nowrap;
+}
+
+#audit-table td:first-child {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* Result badge with icon */
+.result-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+}
+
+.result-badge.success {
+  color: var(--color-success, #16a34a);
+}
+
+.result-badge.danger {
+  color: var(--color-danger, #dc2626);
+}
+
+/* Icon-only button (audit details) */
+.button.icon-only {
+  padding: var(--space-1);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Pagination controls (shared component, needs its own styles outside admin.css) */
+.table-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.page-info {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+
+.pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.pagination-nav button,
+.pagination-nav button[type="button"] {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  min-width: 80px;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.pagination-nav button:hover:not(:disabled),
+.pagination-nav button[type="button"]:hover:not(:disabled) {
+  background: var(--surface-1);
+  border-color: var(--border-strong);
+}
+
+.pagination-nav button:disabled,
+.pagination-nav button[type="button"]:disabled {
+  color: var(--text-faint);
+  background: var(--surface-0);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.page-status {
+  color: var(--text-muted);
+  font-weight: var(--font-medium);
+  padding: 0 var(--space-2);
+}
+
+.hide-mobile {
+  margin-right: 0.25em;
 }

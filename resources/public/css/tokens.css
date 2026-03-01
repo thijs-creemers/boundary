@@ -130,7 +130,8 @@
      -------------------------------------------------------------------------- */
   --radius-sm: 0.25rem;           /* 4px - inputs, small elements */
   --radius-md: 0.375rem;          /* 6px - buttons, badges */
-  --radius-lg: 0.5rem;            /* 8px - cards, modals */
+  --radius-lg: 0.5rem;            /* 8px - cards, forms */
+  --radius-xl: 0.75rem;           /* 12px - modals, large elevated surfaces */
   --radius-full: 9999px;          /* Circles, pills */
 
   /* --------------------------------------------------------------------------

@@ -482,7 +482,11 @@
      Vector of normalized route maps"
   [user-service mfa-service config]
   (let [auth-middleware (user-middleware/flexible-authentication-middleware user-service)]
-    [{:path    "/register"
+    [{:path    ""
+      :meta    {:no-doc true}
+      :methods {:get {:handler (web-handlers/web-root-page-handler user-service config)
+                      :summary "Web root landing page"}}}
+     {:path    "/register"
       :meta    {:no-doc true}
       :methods {:get  {:handler (web-handlers/register-page-handler config)
                        :summary "Self-service registration page"}
