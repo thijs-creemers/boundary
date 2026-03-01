@@ -16,7 +16,8 @@
     {:provider :in-memory
      :default-ttl 300
      :max-size 10000}"
-  (:require [boundary.cache.shell.adapters.redis :as redis-cache]
+  (:require [boundary.cache.ports :as cache-ports]
+            [boundary.cache.shell.adapters.redis :as redis-cache]
             [boundary.cache.shell.adapters.in-memory :as mem-cache]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]))
@@ -42,7 +43,7 @@
   [_ cache]
   (log/info "Halting cache component")
   (try
-    (when (satisfies? boundary.cache.ports/ICacheManagement cache)
-      (boundary.cache.ports/close! cache))
+    (when (satisfies? cache-ports/ICacheManagement cache)
+      (cache-ports/close! cache))
     (catch Exception e
       (log/warn e "Error while closing cache"))))
