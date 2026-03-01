@@ -108,10 +108,10 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/user-service
-  [_ {:keys [user-repository session-repository audit-repository validation-config auth-service]}]
-  (log/info "Initializing user service")
+  [_ {:keys [user-repository session-repository audit-repository validation-config auth-service cache]}]
+  (log/info "Initializing user service" {:cache-enabled? (some? cache)})
   (let [service (user-service/create-user-service
-                 user-repository session-repository audit-repository validation-config auth-service)]
+                 user-repository session-repository audit-repository validation-config auth-service cache)]
     (log/info "User service initialized")
     service))
 

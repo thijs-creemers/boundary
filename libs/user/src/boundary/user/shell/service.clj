@@ -15,7 +15,8 @@
    
    The shell does NOT contain business logic - that lives in core.*
    The shell does NOT handle database operations - that lives in persistence.*"
-  (:require [boundary.user.core.session :as session-core]
+  (:require [boundary.cache.ports :as cache-ports]
+            [boundary.user.core.session :as session-core]
             [boundary.user.core.user :as user-core]
             [boundary.user.core.authentication :as auth-core]
             [boundary.user.core.audit :as audit-core]
@@ -78,7 +79,7 @@
 ;; Database-Agnostic User Service (I/O Shell Layer)
 ;; =============================================================================
 
-(defrecord UserService [user-repository session-repository audit-repository validation-config auth-service]
+(defrecord UserService [user-repository session-repository audit-repository validation-config auth-service cache]
 
   ports/IUserService
 
@@ -222,26 +223,29 @@
      :validate-session
      {:session-token session-token}
      (fn [{:keys [params]}]
-       (let [session-token (:session-token params)]
-         ;; 1. Find session using impure shell persistence layer
-         (if-let [session (.find-session-by-token session-repository session-token)]
-           (let [current-time (current-timestamp)
-                 validation-result (session-core/is-session-valid? session current-time)]
-
-             (if (:valid? validation-result)
-               ;; 2. Update session access time using impure shell persistence layer
-               (let [updated-session-data (session-core/update-session-access session current-time)
-                     updated-session (.update-session session-repository updated-session-data)]
-                 ;; Return validated session
-                 updated-session)
-
-               ;; Session invalid (expired, etc.) - throw exception
-               (throw (ex-info "Session invalid"
-                               {:type :session-invalid
-                                :reason (:reason validation-result)}))))
-
-           ;; Session not found - return nil
-           nil)))
+       (let [session-token (:session-token params)
+             cache-key (str "session:" session-token)]
+         ;; Check session cache first to avoid two DB round-trips per request
+         (or (when cache (cache-ports/get-value cache cache-key))
+             (when-let [session (.find-session-by-token session-repository session-token)]
+               (let [current-time (current-timestamp)
+                     validation-result (session-core/is-session-valid? session current-time)]
+                 (if (:valid? validation-result)
+                   ;; Update session access time and cache the valid session
+                   (let [updated-session-data (session-core/update-session-access session current-time)
+                         updated-session (.update-session session-repository updated-session-data)]
+                     (when cache
+                       (let [expires-at (:expires-at updated-session)
+                             ttl-seconds (when expires-at
+                                           (max 1 (- (.getEpochSecond ^Instant expires-at)
+                                                     (.getEpochSecond (current-timestamp)))))]
+                         (when (and ttl-seconds (pos? ttl-seconds))
+                           (cache-ports/set-value! cache cache-key updated-session ttl-seconds))))
+                     updated-session)
+                   ;; Session invalid — throw so middleware returns 401
+                   (throw (ex-info "Session invalid"
+                                   {:type :session-invalid
+                                    :reason (:reason validation-result)}))))))))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))
@@ -258,7 +262,11 @@
                  ;; Get user info for audit log
                  user (.find-user-by-id user-repository (:user_id session))]
 
-             ;; 2. Create audit log entry
+             ;; 2. Invalidate session cache entry
+             (when cache
+               (cache-ports/delete-key! cache (str "session:" session-token)))
+
+             ;; 3. Create audit log entry
              (when user
                (let [audit-entry (audit-core/logout-audit-entry
                                   (:id user)
@@ -283,10 +291,13 @@
      {:user-id user-id}
      (fn [{:keys [params]}]
        (let [user-id (:user-id params)
-             user (.find-user-by-id user-repository user-id)]
-         ;; Remove sensitive data before returning
-         (when user
-           (dissoc user :password-hash))))
+             cache-key (str "user:" user-id)]
+         (or (when cache (cache-ports/get-value cache cache-key))
+             (when-let [user (.find-user-by-id user-repository user-id)]
+               (let [safe-user (dissoc user :password-hash)]
+                 (when cache
+                   (cache-ports/set-value! cache cache-key safe-user 300))
+                 safe-user)))))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :auth-service auth-service}}))
@@ -362,6 +373,10 @@
                                 user-agent)]
                (.create-audit-log audit-repository audit-entry)))
 
+           ;; Invalidate user cache on successful update
+           (when (and updated-user cache)
+             (cache-ports/delete-key! cache (str "user:" (:id updated-user))))
+
            ;; Remove sensitive data before returning
            (when updated-user
              (dissoc updated-user :password-hash)))))
@@ -378,6 +393,10 @@
              ;; Get user details before deactivation for audit trail
              user (.find-user-by-id user-repository user-id)
              result (.soft-delete-user user-repository user-id)]
+
+         ;; Invalidate user cache on deactivation
+         (when (and result cache)
+           (cache-ports/delete-key! cache (str "user:" user-id)))
 
          ;; Create audit log entry
          (when (and result user)
@@ -410,6 +429,10 @@
              ;; Get user details before deletion for audit trail
              user (.find-user-by-id user-repository user-id)
              result (.hard-delete-user user-repository user-id)]
+
+         ;; Invalidate user cache on hard delete
+         (when (and result cache)
+           (cache-ports/delete-key! cache (str "user:" user-id)))
 
          ;; Create audit log entry
          (when (and result user)
@@ -565,11 +588,15 @@
      audit-repository: Implementation of IUserAuditRepository
      validation-config: Map containing validation policies and settings
      auth-service: Implementation of IAuthenticationService
+     cache: (optional) Implementation of ICache for session/user caching
 
    Returns:
      UserService instance
 
    Example:
-     (def service (create-user-service user-repo session-repo audit-repo validation-cfg auth-svc))"
-  [user-repository session-repository audit-repository validation-config auth-service]
-  (->UserService user-repository session-repository audit-repository validation-config auth-service))
+     (def service (create-user-service user-repo session-repo audit-repo validation-cfg auth-svc))
+     (def service (create-user-service user-repo session-repo audit-repo validation-cfg auth-svc cache))"
+  ([user-repository session-repository audit-repository validation-config auth-service]
+   (->UserService user-repository session-repository audit-repository validation-config auth-service nil))
+  ([user-repository session-repository audit-repository validation-config auth-service cache]
+   (->UserService user-repository session-repository audit-repository validation-config auth-service cache)))

@@ -439,7 +439,9 @@
           pagination (db/build-pagination options)
           ordering (db/build-ordering options :a.created_at)
 
-          ;; Build query with JOIN - select all fields from both tables
+          ;; Build query with JOIN - select all fields from both tables.
+          ;; COUNT(*) OVER() is a window function that returns the total matching rows
+          ;; alongside each data row, eliminating the need for a separate COUNT query.
           query (cond-> {:select [:a.id
                                   :a.email
                                   :a.password_hash
@@ -467,7 +469,8 @@
                                   :u.notifications_sms
                                   :u.theme
                                   :u.language
-                                  :u.timezone]
+                                  :u.timezone
+                                  [[:raw "COUNT(*) OVER()"] :total_count]]
                          :from [[:auth_users :a]]
                          :join [[:users :u] [:= :a.id :u.id]]
                          :order-by ordering
@@ -475,19 +478,10 @@
                          :offset (:offset pagination)}
                   where-clause (assoc :where where-clause))
 
-          ;; Count query with JOIN
-          count-query (cond-> {:select [[:%count.* :total]]
-                               :from [[:auth_users :a]]
-                               :join [[:users :u] [:= :a.id :u.id]]}
-                        where-clause (assoc :where where-clause))
-
-          users (vec (map #(db->user-entity ctx %) (db/execute-query! ctx query)))
-          ;; Extract count with defensive fallback to 0
-          count-result (db/execute-one! ctx count-query)
-          total-count (or (:total count-result)
-                          (:count count-result)
-                          (get count-result (keyword "COUNT(*)"))
-                          0)]
+          rows (db/execute-query! ctx query)
+          ;; execute-query! converts snake_case → kebab-case, so total_count → :total-count
+          total-count (or (some-> rows first :total-count long) 0)
+          users (vec (map #(db->user-entity ctx %) rows))]
       {:users users
        :total-count total-count}))
 
@@ -929,85 +923,78 @@
              adapter (:adapter ctx)]
          (db/with-transaction [tx ctx]
            (let [now (java.time.Instant/now)
-                 users-with-metadata (map (fn [user]
-                                            (-> user
-                                                (assoc :id (UUID/randomUUID))
-                                                (assoc :created-at now)
-                                                (assoc :updated-at nil)
-                                                (assoc :deleted-at nil)))
-                                          user-entities)]
-              ;; Insert all users into both tables
-             (doseq [user users-with-metadata]
-                ;; Split into auth and profile fields
-               (let [auth-fields (select-keys user
-                                              [:id :email :password-hash :active
-                                               :mfa-enabled :mfa-secret :mfa-backup-codes
-                                               :mfa-backup-codes-used :mfa-enabled-at
-                                               :failed-login-count :lockout-until
-                                               :created-at :updated-at :deleted-at])
+                 users-with-metadata (mapv (fn [user]
+                                             (-> user
+                                                 (assoc :id (UUID/randomUUID))
+                                                 (assoc :created-at now)
+                                                 (assoc :updated-at nil)
+                                                 (assoc :deleted-at nil)))
+                                           user-entities)
 
-                     profile-fields (select-keys user
-                                                 [:id :tenant-id :name :role :avatar-url
-                                                  :login-count :last-login
-                                                  :notifications-email :notifications-push :notifications-sms
-                                                  :theme :language :timezone
-                                                  :date-format :time-format])
+                 ;; Convert all users to DB auth format
+                 db-auth-rows (mapv (fn [user]
+                                      (let [auth-fields (select-keys user
+                                                                      [:id :email :password-hash :active
+                                                                       :mfa-enabled :mfa-secret :mfa-backup-codes
+                                                                       :mfa-backup-codes-used :mfa-enabled-at
+                                                                       :failed-login-count :lockout-until
+                                                                       :created-at :updated-at :deleted-at])]
+                                        (-> auth-fields
+                                            (update :id type-conversion/uuid->string)
+                                            (update :active #(protocols/boolean->db adapter %))
+                                            (update :created-at type-conversion/instant->string)
+                                            (update :updated-at type-conversion/instant->string)
+                                            (update :deleted-at type-conversion/instant->string)
+                                            (update :mfa-enabled-at type-conversion/instant->string)
+                                            (update :lockout-until type-conversion/instant->string)
+                                            (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
+                                            (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
+                                            (set/rename-keys {:password-hash :password_hash
+                                                              :mfa-enabled :mfa_enabled
+                                                              :mfa-secret :mfa_secret
+                                                              :mfa-backup-codes :mfa_backup_codes
+                                                              :mfa-backup-codes-used :mfa_backup_codes_used
+                                                              :mfa-enabled-at :mfa_enabled_at
+                                                              :failed-login-count :failed_login_count
+                                                              :lockout-until :lockout_until
+                                                              :created-at :created_at
+                                                              :updated-at :updated_at
+                                                              :deleted-at :deleted_at}))))
+                                    users-with-metadata)
 
-                      ;; Convert auth fields to DB format
-                     db-auth (-> auth-fields
-                                 (update :id type-conversion/uuid->string)
-                                 (update :active #(protocols/boolean->db adapter %))
-                                 (update :created-at type-conversion/instant->string)
-                                 (update :updated-at type-conversion/instant->string)
-                                 (update :deleted-at type-conversion/instant->string)
-                                 (update :mfa-enabled-at type-conversion/instant->string)
-                                 (update :lockout-until type-conversion/instant->string)
-                                 (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
-                                 (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
-                                 (set/rename-keys {:password-hash :password_hash
-                                                   :mfa-enabled :mfa_enabled
-                                                   :mfa-secret :mfa_secret
-                                                   :mfa-backup-codes :mfa_backup_codes
-                                                   :mfa-backup-codes-used :mfa_backup_codes_used
-                                                   :mfa-enabled-at :mfa_enabled_at
-                                                   :failed-login-count :failed_login_count
-                                                   :lockout-until :lockout_until
-                                                   :created-at :created_at
-                                                   :updated-at :updated_at
-                                                   :deleted-at :deleted_at}))
+                 ;; Convert all users to DB profile format
+                 db-profile-rows (mapv (fn [user]
+                                         (let [profile-fields (select-keys user
+                                                                            [:id :tenant-id :name :role :avatar-url
+                                                                             :login-count :last-login
+                                                                             :notifications-email :notifications-push :notifications-sms
+                                                                             :theme :language :timezone
+                                                                             :date-format :time-format])]
+                                           (-> profile-fields
+                                               (update :id type-conversion/uuid->string)
+                                               (update :tenant-id type-conversion/uuid->string)
+                                               (update :role type-conversion/keyword->string)
+                                               (update :last-login type-conversion/instant->string)
+                                               (update :notifications-email #(protocols/boolean->db adapter %))
+                                               (update :notifications-push #(protocols/boolean->db adapter %))
+                                               (update :notifications-sms #(protocols/boolean->db adapter %))
+                                               (update :theme type-conversion/keyword->string)
+                                               (update :date-format type-conversion/keyword->string)
+                                               (update :time-format type-conversion/keyword->string)
+                                               (set/rename-keys {:tenant-id :tenant_id
+                                                                 :avatar-url :avatar_url
+                                                                 :login-count :login_count
+                                                                 :last-login :last_login
+                                                                 :notifications-email :notifications_email
+                                                                 :notifications-push :notifications_push
+                                                                 :notifications-sms :notifications_sms
+                                                                 :date-format :date_format
+                                                                 :time-format :time_format}))))
+                                       users-with-metadata)]
 
-                      ;; Convert profile fields to DB format
-                     db-profile (-> profile-fields
-                                    (update :id type-conversion/uuid->string)
-                                    (update :tenant-id type-conversion/uuid->string)
-                                    (update :role type-conversion/keyword->string)
-                                    (update :last-login type-conversion/instant->string)
-                                    (update :notifications-email #(protocols/boolean->db adapter %))
-                                    (update :notifications-push #(protocols/boolean->db adapter %))
-                                    (update :notifications-sms #(protocols/boolean->db adapter %))
-                                    (update :theme type-conversion/keyword->string)
-                                    (update :date-format type-conversion/keyword->string)
-                                    (update :time-format type-conversion/keyword->string)
-                                    (set/rename-keys {:tenant-id :tenant_id
-                                                      :avatar-url :avatar_url
-                                                      :login-count :login_count
-                                                      :last-login :last_login
-                                                      :notifications-email :notifications_email
-                                                      :notifications-push :notifications_push
-                                                      :notifications-sms :notifications_sms
-                                                      :date-format :date_format
-                                                      :time-format :time_format}))
-
-                      ;; Insert into auth_users
-                     auth-query {:insert-into :auth_users
-                                 :values [db-auth]}
-
-                      ;; Insert into users
-                     profile-query {:insert-into :users
-                                    :values [db-profile]}]
-
-                 (db/execute-update! tx auth-query)
-                 (db/execute-update! tx profile-query)))
+             ;; Single multi-value INSERT for auth_users, then users — two round-trips total
+             (db/execute-update! tx {:insert-into :auth_users :values db-auth-rows})
+             (db/execute-update! tx {:insert-into :users :values db-profile-rows})
 
              users-with-metadata))))
      {:db-ctx ctx}))

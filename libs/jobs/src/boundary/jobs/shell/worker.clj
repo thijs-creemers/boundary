@@ -185,6 +185,10 @@
 (defn- worker-loop
   "Main worker loop that polls queue and processes jobs.
 
+   Uses exponential backoff when the queue is empty to reduce idle CPU usage
+   without increasing job pickup latency. Backoff resets immediately when a
+   job is successfully processed.
+
    Args:
      config - Worker configuration map
      queue - IJobQueue implementation
@@ -192,9 +196,11 @@
      registry - IJobRegistry implementation
      worker-state - WorkerState"
   [config queue store registry worker-state]
-  (let [poll-interval-ms (or (:poll-interval-ms config) 1000)
+  (let [min-poll-ms          (or (:poll-interval-ms config) 100)
+        max-poll-ms          (or (:max-poll-interval-ms config) 2000)
         scheduled-interval-ms (or (:scheduled-interval-ms config) 5000)
-        last-scheduled-check (atom (Instant/now))]
+        last-scheduled-check (atom (Instant/now))
+        current-poll-ms      (atom min-poll-ms)]
 
     (while @(:running? worker-state)
       (try
@@ -210,11 +216,15 @@
                 (log/debug "Moved scheduled jobs to execution queues" {:count moved})))
             (reset! last-scheduled-check now)))
 
-        ;; Process next job from queue
+        ;; Process next job from queue; apply exponential backoff on empty queue
         (let [processed? (process-single-job! queue store registry worker-state)]
-          (when-not processed?
-            ;; No jobs available, sleep before polling again
-            (Thread/sleep poll-interval-ms)))
+          (if processed?
+            ;; Job found — reset backoff so next pickup is immediate
+            (reset! current-poll-ms min-poll-ms)
+            ;; No jobs — sleep, then double interval up to max
+            (do
+              (Thread/sleep @current-poll-ms)
+              (swap! current-poll-ms #(min max-poll-ms (* 2 %))))))
 
         (catch InterruptedException _e
           (log/info "Worker interrupted, shutting down" {:worker-id (:id worker-state)})
@@ -222,7 +232,8 @@
 
         (catch Exception e
           (log/error e "Unexpected error in worker loop" {:worker-id (:id worker-state)})
-          (Thread/sleep poll-interval-ms)))))  ; Sleep before retrying
+          (Thread/sleep @current-poll-ms)
+          (swap! current-poll-ms #(min max-poll-ms (* 2 %)))))))
 
   (log/info "Worker stopped" {:worker-id (:id worker-state)
                               :processed (:processed-count worker-state)

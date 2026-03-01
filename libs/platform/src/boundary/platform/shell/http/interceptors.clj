@@ -40,7 +40,8 @@
    Integration with Normalized Routes:
    - Normalized routes can specify :interceptors vector
    - Reitit adapter translates :interceptors → :middleware with this runner"
-  (:require [boundary.core.interceptor :as interceptor]
+  (:require [boundary.cache.ports :as cache-ports]
+            [boundary.core.interceptor :as interceptor]
             [boundary.observability.metrics.ports :as metrics-ports]
             [boundary.observability.errors.core :as error-reporting]
             [clojure.string :as str])
@@ -372,11 +373,6 @@
 ;; ==============================================================================
 
 ;; In-memory rate limit tracking. Maps client-id to request timestamps.
-;; Structure: {client-id [timestamp1 timestamp2 ...]}
-;; Note: This is a simple in-memory implementation. For production with
-;; multiple instances, consider Redis-based rate limiting.
-(defonce rate-limit-state (atom {}))
-
 (defn get-client-id
   "Extracts client identifier from request for rate limiting.
 
@@ -396,21 +392,40 @@
       (:remote-addr request)
       "unknown"))
 
-(defn clean-old-requests
-  "Removes request timestamps older than the time window.
+(defn- check-rate-limit-redis
+  "Check rate limit using Redis fixed-window counter.
+
+   Each window period gets its own Redis key derived from the epoch index.
+   Keys expire automatically at the end of their window via Redis TTL.
+   Safe for multi-instance deployments — no shared in-process state.
 
    Args:
-     timestamps: Vector of timestamps in milliseconds
-     window-ms: Time window in milliseconds
-     now-ms: Current time in milliseconds
+     cache: IAtomicCache + ICache implementation (Redis)
+     client-id: Client identifier string
+     limit: Maximum requests allowed per window
+     window-seconds: Window size in seconds
 
    Returns:
-     Vector of timestamps within the time window"
-  [timestamps window-ms now-ms]
-  (vec (filter #(> % (- now-ms window-ms)) timestamps)))
+     {:allowed? boolean :current-count long :limit int :retry-after-seconds int}"
+  [cache client-id limit window-seconds]
+  (let [now-ms      (System/currentTimeMillis)
+        epoch-window (quot now-ms (* window-seconds 1000))
+        key          (str "ratelimit:" client-id ":" epoch-window)
+        count        (cache-ports/increment! cache key 1)]
+    ;; Set TTL only on first request in this window so the key self-expires
+    (when (= count 1)
+      (cache-ports/expire! cache key window-seconds))
+    {:allowed?             (<= count limit)
+     :current-count        count
+     :limit                limit
+     :retry-after-seconds  (if (<= count limit) 0 window-seconds)}))
 
-(defn check-rate-limit
-  "Checks if request is within rate limit.
+;; In-memory fallback used when no distributed cache is configured.
+;; Not suitable for multi-instance deployments.
+(defonce ^:private rate-limit-state (atom {}))
+
+(defn- check-rate-limit-memory
+  "Check rate limit using an in-process sliding window atom.
 
    Args:
      client-id: Client identifier string
@@ -418,73 +433,70 @@
      window-ms: Time window in milliseconds
 
    Returns:
-     {:allowed? boolean :current-count int :retry-after-seconds int}"
+     {:allowed? boolean :current-count int :limit int :retry-after-seconds int}"
   [client-id limit window-ms]
-  (let [now-ms (System/currentTimeMillis)
+  (let [now-ms            (System/currentTimeMillis)
         current-timestamps (get @rate-limit-state client-id [])
-        recent-timestamps (clean-old-requests current-timestamps window-ms now-ms)
-        current-count (count recent-timestamps)
-        allowed? (< current-count limit)]
-
+        recent-timestamps  (vec (filter #(> % (- now-ms window-ms)) current-timestamps))
+        current-count      (count recent-timestamps)
+        allowed?           (< current-count limit)]
     (when allowed?
-      ;; Update state only if request is allowed
       (swap! rate-limit-state assoc client-id (conj recent-timestamps now-ms)))
-
-    {:allowed? allowed?
-     :current-count current-count
-     :limit limit
+    {:allowed?            allowed?
+     :current-count       current-count
+     :limit               limit
      :retry-after-seconds (if allowed? 0 (int (/ window-ms 1000)))}))
 
 (defn http-rate-limit
   "Creates a rate limiting interceptor.
 
+   With a cache argument, uses Redis fixed-window counting — safe for
+   multi-instance deployments and survives process restarts.
+   Without a cache argument, falls back to an in-process sliding window.
+
    Args:
-     limit: Maximum requests per time window (default: 100)
-     window-ms: Time window in milliseconds (default: 60000 = 1 minute)
+     limit:        Maximum requests per time window (default: 100)
+     window-ms:    Time window in milliseconds (default: 60000 = 1 minute)
+     cache:        (optional) IAtomicCache + ICache implementation for distributed limiting
 
    Returns:
      Rate limiting interceptor map
 
    Example:
-     ;; 100 requests per minute (default)
-     (http-rate-limit)
-
-     ;; 30 requests per minute
-     (http-rate-limit 30 60000)
-
-     ;; 1000 requests per 5 minutes
-     (http-rate-limit 1000 300000)"
+     (http-rate-limit)                   ; 100 req/min, in-memory
+     (http-rate-limit 30 60000)          ; 30 req/min, in-memory
+     (http-rate-limit 100 60000 cache)   ; 100 req/min, Redis-backed"
   ([]
-   (http-rate-limit 100 60000))
+   (http-rate-limit 100 60000 nil))
   ([limit window-ms]
-   {:name :http-rate-limit
-    :enter (fn [{:keys [request] :as ctx}]
-             (let [client-id (get-client-id request)
-                   rate-check (check-rate-limit client-id limit window-ms)]
-               (if (:allowed? rate-check)
-                 ;; Request allowed - add rate limit headers
-                 (-> ctx
-                     (assoc-in [:attrs :rate-limit] rate-check))
-                 ;; Rate limit exceeded - return 429 Too Many Requests
-                 (set-response ctx {:status 429
-                                    :headers {"Content-Type" "application/json"
-                                              "Retry-After" (str (:retry-after-seconds rate-check))
-                                              "X-RateLimit-Limit" (str limit)
-                                              "X-RateLimit-Remaining" "0"}
-                                    :body {:error "Rate limit exceeded"
-                                           :message (format "Too many requests. Limit: %d requests per %d seconds"
-                                                            limit
-                                                            (int (/ window-ms 1000)))
-                                           :retry-after-seconds (:retry-after-seconds rate-check)
-                                           :type :rate-limit-exceeded}}))))
-    :leave (fn [{:keys [attrs] :as ctx}]
-             ;; Add rate limit headers to successful responses
-             (if-let [rate-limit (:rate-limit attrs)]
-               (merge-response-headers ctx
-                                       {"X-RateLimit-Limit" (str (:limit rate-limit))
-                                        "X-RateLimit-Remaining" (str (- (:limit rate-limit)
-                                                                        (:current-count rate-limit)))})
-               ctx))}))
+   (http-rate-limit limit window-ms nil))
+  ([limit window-ms cache]
+   (let [window-seconds (int (/ window-ms 1000))]
+     {:name :http-rate-limit
+      :enter (fn [{:keys [request] :as ctx}]
+               (let [client-id  (get-client-id request)
+                     rate-check (if cache
+                                  (check-rate-limit-redis cache client-id limit window-seconds)
+                                  (check-rate-limit-memory client-id limit window-ms))]
+                 (if (:allowed? rate-check)
+                   (assoc-in ctx [:attrs :rate-limit] rate-check)
+                   (set-response ctx {:status  429
+                                      :headers {"Content-Type"       "application/json"
+                                                "Retry-After"        (str (:retry-after-seconds rate-check))
+                                                "X-RateLimit-Limit"  (str limit)
+                                                "X-RateLimit-Remaining" "0"}
+                                      :body    {:error               "Rate limit exceeded"
+                                                :message             (format "Too many requests. Limit: %d requests per %d seconds"
+                                                                             limit window-seconds)
+                                                :retry-after-seconds (:retry-after-seconds rate-check)
+                                                :type                :rate-limit-exceeded}}))))
+      :leave (fn [{:keys [attrs] :as ctx}]
+               (if-let [rate-limit (:rate-limit attrs)]
+                 (merge-response-headers ctx
+                                         {"X-RateLimit-Limit"     (str (:limit rate-limit))
+                                          "X-RateLimit-Remaining" (str (- (:limit rate-limit)
+                                                                          (:current-count rate-limit)))})
+                 ctx))})))
 
 ;; ==============================================================================
 ;; Security Headers Interceptor

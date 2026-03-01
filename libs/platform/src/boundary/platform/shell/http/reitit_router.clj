@@ -6,6 +6,7 @@
   (:require             [boundary.platform.ports.http :as ports]
                         [boundary.platform.shell.http.interceptors :as http-interceptors]
                         [cheshire.core :as json]
+                        [clojure.string :as str]
                         [reitit.coercion.malli :as malli-coercion]
                         [reitit.ring :as ring]
                         [reitit.ring.coercion :as coercion]
@@ -17,7 +18,9 @@
                         [ring.middleware.resource :refer [wrap-resource]]
                         [ring.middleware.cookies :refer [wrap-cookies]]
                         [ring.middleware.params :refer [wrap-params]]
-                        [muuntaja.core :as m]))
+                        [muuntaja.core :as m])
+  (:import [java.io ByteArrayInputStream ByteArrayOutputStream]
+           [java.util.zip GZIPOutputStream]))
 
 ;; =============================================================================
 ;; Symbol Resolution
@@ -465,6 +468,60 @@
                       :config {:validatorUrl nil}})}}]])
 
 ;; =============================================================================
+;; Gzip Compression Middleware
+;; =============================================================================
+
+(defn- accepts-gzip?
+  "Returns true when the client advertises gzip support via Accept-Encoding."
+  [request]
+  (str/includes? (get-in request [:headers "accept-encoding"] "") "gzip"))
+
+(defn- gzip-body
+  "Compress a byte-array or String body using gzip.
+   Returns a ByteArrayInputStream wrapping the compressed bytes."
+  [body]
+  (let [out     (ByteArrayOutputStream.)
+        bytes   (cond
+                  (string? body) (.getBytes ^String body "UTF-8")
+                  (bytes? body)  body
+                  :else          nil)]
+    (when bytes
+      (with-open [gzip (GZIPOutputStream. out)]
+        (.write gzip ^bytes bytes))
+      (ByteArrayInputStream. (.toByteArray out)))))
+
+(defn- wrap-gzip
+  "Gzip-compress responses for clients that send Accept-Encoding: gzip.
+   Only compresses String or byte-array bodies; other body types pass through."
+  [handler]
+  (fn [request]
+    (let [response (handler request)]
+      (if (and response (accepts-gzip? request))
+        (if-let [compressed (gzip-body (:body response))]
+          (-> response
+              (assoc :body compressed)
+              (assoc-in [:headers "Content-Encoding"] "gzip")
+              (assoc-in [:headers "Vary"] "Accept-Encoding"))
+          response)
+        response))))
+
+;; =============================================================================
+;; Static Asset Caching Middleware
+;; =============================================================================
+
+(defn- wrap-static-cache
+  "Adds Cache-Control headers to static asset responses.
+
+   Versioned/hashed assets under /public/ receive a 1-year immutable header.
+   All other responses are passed through unchanged."
+  [handler]
+  (fn [request]
+    (let [response (handler request)]
+      (if (and response (str/includes? (or (:uri request) "") "/public/"))
+        (assoc-in response [:headers "Cache-Control"] "public, max-age=31536000, immutable")
+        response))))
+
+;; =============================================================================
 ;; IRouter Implementation
 ;; =============================================================================
 
@@ -503,6 +560,8 @@
       ;; 2. Static resource middleware - serve files from resources/public/
       ;; 3. Params middleware - parse query and form params (including PUT/PATCH bodies)
       (-> (ring/ring-handler router default-handler)
+          (wrap-gzip)
+          (wrap-static-cache)
           (wrap-resource "public")
           (wrap-cookies)
           (wrap-params)))))
