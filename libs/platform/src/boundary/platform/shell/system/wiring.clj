@@ -34,6 +34,7 @@
             [boundary.platform.shell.http.versioning :as http-versioning]
             [boundary.platform.shell.utils.port-manager :as port-manager]
             ;; todo: need to find a way to decouple these dependencies an inject them in another way.
+            [boundary.cache.shell.module-wiring] ;; Load cache module init/halt methods
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
             [boundary.admin.shell.module-wiring] ;; Load admin module init/halt methods
             [boundary.tenant.shell.module-wiring] ;; Load tenant module init/halt methods

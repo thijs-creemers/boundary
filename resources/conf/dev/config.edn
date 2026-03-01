@@ -107,7 +107,22 @@
                       :max-page-size     200}}}
 
  :inactive
- {;; Inactive database configurations
+ {;; Cache configuration — move :boundary/cache to :active to enable Redis caching.
+  ;; Requires a Redis instance (e.g. `docker run -p 6379:6379 redis:7-alpine`).
+  ;; With :in-memory provider no Redis is needed (useful for local dev without Docker).
+  :boundary/cache
+  {:provider    :redis
+   :host        #or [#env REDIS_HOST "localhost"]
+   :port        #or [#long #or [#env REDIS_PORT 6379] 6379]
+   :password    #env REDIS_PASSWORD             ; omit key if no password
+   :database    0
+   :timeout     2000
+   :default-ttl 300                             ; seconds
+   :max-total   10
+   :max-idle    5
+   :min-idle    1}
+
+  ;; Inactive database configurations
   ;; These are available for reference but won't be loaded unless moved to :active
 
   :boundary/sqlite
