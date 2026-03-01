@@ -153,11 +153,12 @@
         ;; User routes are in normalized format - use directly
         user-normalized-static (when (seq user-static-routes) user-static-routes)
         user-normalized-web (when (seq user-web-routes)
-                             ;; Add /web prefix to web routes and merge :meta into route root
+                             ;; Add /web prefix to web routes and merge :meta into route root.
+                             ;; Always set :no-doc true — web UI routes never belong in API docs.
                               (mapv (fn [{:keys [path meta] :as route}]
                                       (-> route
                                           (dissoc :meta)
-                                          (merge meta)
+                                          (merge {:no-doc true} meta)
                                           (assoc :path (str "/web" path))))
                                     user-web-routes))
         user-normalized-api (when (seq user-api-routes) user-api-routes)
@@ -170,11 +171,12 @@
         ;; Admin routes are in normalized format - use directly
         admin-normalized-static (when (seq admin-static-routes) admin-static-routes)
         admin-normalized-web (when (seq admin-web-routes)
-                              ;; Add /web/admin prefix to web routes and merge :meta into route root
+                              ;; Add /web/admin prefix to web routes and merge :meta into route root.
+                              ;; Always set :no-doc true — web UI routes never belong in API docs.
                                (let [transformed (mapv (fn [{:keys [path meta] :as route}]
                                                          (let [result (-> route
                                                                           (dissoc :meta)
-                                                                          (merge meta)
+                                                                          (merge {:no-doc true} meta)
                                                                           (assoc :path (str "/web/admin" path)))]
                                                            (log/info "Admin route transformation"
                                                                      {:original-path path

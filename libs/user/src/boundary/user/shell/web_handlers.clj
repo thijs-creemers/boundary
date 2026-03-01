@@ -18,6 +18,7 @@
             [boundary.user.ports :as user-ports]
             [boundary.user.schema :as user-schema]
             [boundary.user.shell.auth :as auth]
+            [boundary.user.shell.middleware :as user-middleware]
             [boundary.user.shell.mfa :as mfa]
             [clojure.edn :as edn]
             [clojure.string :as str]
@@ -133,22 +134,46 @@
 
 (defn home-page-handler
   "Handler for the home/landing page (GET /).
-   
-   Redirects authenticated users to /web/dashboard, unauthenticated to /web/login.
-   
+
+   Redirects authenticated users to /web/dashboard, unauthenticated to /web.
+
    Args:
      config: Application configuration map
-     
+
    Returns:
      Ring handler function"
   [_config]
   (fn [request]
     (let [user (:user request)]
       (if user
-        ;; Authenticated - redirect to dashboard
         (response/redirect "/web/dashboard")
-        ;; Not authenticated - redirect to login
-        (response/redirect "/web/login")))))
+        (response/redirect "/web")))))
+
+(defn web-root-page-handler
+  "Handler for the web root landing page (GET /web).
+
+   Shows logo, welcome message and login link for unauthenticated users.
+   Authenticated users (valid session cookie present) are redirected to the dashboard.
+
+   Args:
+     user-service: User service instance for session validation
+     _config: Application configuration map
+
+   Returns:
+     Ring handler function"
+  [user-service _config]
+  (fn [request]
+    (let [session-token (user-middleware/extract-session-token request)
+          authenticated? (when session-token
+                           (try
+                             (boolean (user-ports/validate-session user-service session-token))
+                             (catch Exception _ false)))]
+      (if authenticated?
+        (response/redirect "/web/dashboard")
+        (-> (user-ui/web-root-page {})
+            ui/render-html
+            response/response
+            (response/content-type "text/html"))))))
 
 (defn dashboard-page-handler
   "Handler for the dashboard page (GET /web/dashboard).
@@ -860,19 +885,40 @@
 ;; Audit Trail Handlers
 ;; =============================================================================
 
+(defn- parse-audit-filters
+  "Parse audit-specific filter parameters from raw query params.
+
+   Extracts action, result, target-email, and actor-email, ignoring blanks.
+
+   Args:
+     query-params: String-keyed map of query parameters from Ring
+
+   Returns:
+     Map with :action, :result, :target-email, :actor-email keys (non-blank only)"
+  [query-params]
+  (let [action       (get query-params "action")
+        result       (get query-params "result")
+        target-email (get query-params "target-email")
+        actor-email  (get query-params "actor-email")]
+    (cond-> {}
+      (some-> action str/blank? not)       (assoc :action action)
+      (some-> result str/blank? not)       (assoc :result result)
+      (some-> target-email str/blank? not) (assoc :target-email target-email)
+      (some-> actor-email str/blank? not)  (assoc :actor-email actor-email))))
+
 (defn- build-audit-list-opts
   "Build list-audit-logs options from table query and search filters.
-   
+
    Supports filtering by:
    - action: Audit action type (:create, :update, :delete, :login, etc.)
    - result: Audit result (:success or :failure)
-   - target_email: Target user email (contains search)
-   - actor_email: Actor email (contains search)
-   
+   - target-email: Target user email (contains search)
+   - actor-email: Actor email (contains search)
+
    Args:
      table-query: Parsed table query with limit/offset/sort/dir
      filters: Parsed search filters from query params
-     
+
    Returns:
      Options map for list-audit-logs service call"
   [table-query filters]
@@ -887,11 +933,11 @@
       (:result filters)
       (assoc :filter-result (keyword (:result filters)))
 
-      (:target_email filters)
-      (assoc :filter-target-email (:target_email filters))
+      (:target-email filters)
+      (assoc :filter-target-email (:target-email filters))
 
-      (:actor_email filters)
-      (assoc :filter-actor-email (:actor_email filters)))))
+      (:actor-email filters)
+      (assoc :filter-actor-email (:actor-email filters)))))
 
 (defn audit-page-handler
   "Handler for the audit trail page (GET /web/audit).
@@ -914,7 +960,7 @@
                          {:default-sort      :created-at
                           :default-dir       :desc
                           :default-page-size 50})
-            filters     (web-table/parse-search-filters qp)
+            filters     (parse-audit-filters qp)
             list-opts   (build-audit-list-opts table-query filters)
             audit-result (user-ports/list-audit-logs user-service list-opts)
             page-opts    {:user        (get request :user)
@@ -956,7 +1002,7 @@
                          {:default-sort      :created-at
                           :default-dir       :desc
                           :default-page-size 50})
-            filters     (web-table/parse-search-filters qp)
+            filters     (parse-audit-filters qp)
             list-opts   (build-audit-list-opts table-query filters)
             audit-result (user-ports/list-audit-logs user-service list-opts)
             _page-opts    {:table-query table-query

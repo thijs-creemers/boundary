@@ -413,10 +413,16 @@
    Returns:
      Hiccup filter builder structure"
   [entity-name entity-config current-filters]
-  (let [filterable-fields (filter #(get-in entity-config [:fields % :filterable] true)
-                                  (keys (:fields entity-config)))
+  (let [;; Use :list-fields as the candidate set — those are the fields the user
+        ;; already sees in the table. Fall back to all known fields for entities
+        ;; without a manual :list-fields.
+        candidate-fields (or (seq (:list-fields entity-config))
+                             (keys (:fields entity-config)))
+        filterable-fields (filter #(get-in entity-config [:fields % :filterable] true)
+                                  candidate-fields)
         has-active-filters? (seq current-filters)
         current-filters (or current-filters {})]
+    (when (or (seq filterable-fields) (seq current-filters))
     [:div.filter-builder
      [:div.filter-builder-header
       [:span.filter-builder-title "Filters"]
@@ -461,7 +467,7 @@
 
       ;; Apply button (for manual submission if auto-trigger doesn't work)
       (when has-active-filters?
-        [:button.button.primary {:type "submit"} "Apply Filters"])]]))
+        [:button.button.primary {:type "submit"} "Apply Filters"])]])))
 
 (defn render-field-value
   "Render field value for display in table or detail view.

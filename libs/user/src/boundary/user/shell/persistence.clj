@@ -1286,7 +1286,8 @@
      (fn [{:keys [params]}]
        (let [{:keys [limit offset sort-by sort-direction
                      filter-target-user-id filter-actor-id filter-action
-                     filter-result filter-created-after filter-created-before]} (:options params)
+                     filter-result filter-created-after filter-created-before
+                     filter-target-email filter-actor-email]} (:options params)
              default-limit (get pagination-config :default-limit 20)
              limit (or limit default-limit)
              offset (or offset 0)
@@ -1306,6 +1307,12 @@
 
                              filter-result
                              (conj [:= :result (name filter-result)])
+
+                             filter-target-email
+                             (conj [:ilike :target_user_email (str "%" filter-target-email "%")])
+
+                             filter-actor-email
+                             (conj [:ilike :actor_email (str "%" filter-actor-email "%")])
 
                              filter-created-after
                              (conj [:>= :created_at (type-conversion/instant->string filter-created-after)])

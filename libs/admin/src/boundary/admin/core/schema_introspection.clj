@@ -518,9 +518,17 @@
                          {:email {:widget :email-input}})"
   [auto-fields manual-fields]
   (if manual-fields
-    (into {}
-          (for [[field-name auto-config] auto-fields]
-            [field-name (merge-field-config auto-config (get manual-fields field-name))]))
+    (let [;; Merge manual overrides into every auto-detected field
+          merged-auto (into {}
+                            (for [[field-name auto-config] auto-fields]
+                              [field-name (merge-field-config auto-config (get manual-fields field-name))]))
+          ;; Also include fields that only exist in the manual config (e.g. cross-table
+          ;; fields from :query-overrides JOINs that aren't in the primary table).
+          manual-only (into {}
+                            (for [[field-name manual-config] manual-fields
+                                  :when (not (contains? auto-fields field-name))]
+                              [field-name manual-config]))]
+      (merge merged-auto manual-only))
     auto-fields))
 
 (defn build-entity-config
