@@ -81,7 +81,7 @@
   :boundary/cache
   {:provider    :redis
    :host        #env "REDIS_HOST"
-   :port        #or [#long #env "REDIS_PORT" 6379]
+   :port        #or [#long #or [#env "REDIS_PORT" 6379] 6379]
    :password    #env "REDIS_PASSWORD"
    :database    0
    :timeout     2000
