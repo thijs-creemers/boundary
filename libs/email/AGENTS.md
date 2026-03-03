@@ -13,8 +13,21 @@ Email sending with SMTP support, validation, and optional async processing via t
 | `boundary.email.core.email` | Pure functions: prepare, validate, add headers, summarize |
 | `boundary.email.ports` | Protocols: EmailSenderProtocol, EmailQueueProtocol |
 | `boundary.email.schema` | Malli schemas: EmailAddress, Email, SendEmailInput |
-| `boundary.email.shell.adapters.smtp` | SMTP adapter (javax.mail) |
+| `boundary.email.shell.adapters.smtp` | SMTP adapter — thin wrapper over `boundary.external` SMTP transport |
 | `boundary.email.shell.jobs-integration` | Optional integration with jobs module for queued sending |
+
+## Transport Layer Dependency
+
+`libs/email` delegates all raw SMTP transport to `libs/external`:
+
+```
+libs/email (application layer)        libs/external (transport layer)
+  Email {id, created-at, metadata}  →   OutboundEmail {to, from, subject, ...}
+  EmailSenderProtocol                →   ISmtpProvider (javax.mail, HTML, test-connection!)
+  shell/adapters/smtp.clj (wrapper)  →   SmtpProviderAdapter
+```
+
+`shell/adapters/smtp.clj` translates the `Email` domain model to `OutboundEmail` and delegates. `libs/email` no longer has a direct `javax.mail` dependency — it comes transitively through `libs/external`.
 
 ## Email Lifecycle
 
@@ -68,8 +81,8 @@ Email sending with SMTP support, validation, and optional async processing via t
 2. **Port + TLS/SSL**: Port 587 → `:tls? true`, Port 465 → `:ssl? true`, Port 25 → both false
 3. **Recipients are always vectors** after `prepare-email`, even if input is a single string
 4. **Jobs module is optional** - uses `requiring-resolve`, throws `:type :missing-dependency` if unavailable
-5. **No HTML templates yet** - plain text only (v2 planned)
-6. **No attachment support yet** - schema includes it but SMTP adapter doesn't handle it
+5. **HTML email** - supported via `libs/external` (`SmtpProviderAdapter` handles multipart); set `:html-body` on the `OutboundEmail`. The `libs/email` adapter currently sends plain text only — pass `:html-body` via `email->outbound` translation if needed
+6. **No attachment support yet** - schema includes it but the SMTP adapter doesn't handle it
 
 ## Local Development
 

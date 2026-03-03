@@ -55,7 +55,7 @@ Boundary is organized as a **monorepo** with 13 independently publishable librar
        │                   │                   │                   │
        ▼                   ▼                   ▼                   ▼
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│    jobs     │◄─── │    email    │     │  external   │     │    core     │◄────┐
+│    jobs     │◄─── │    email    │────►│  external   │     │    core     │◄────┐
 └──────┬──────┘     └─────────────┘     └──────┬──────┘     └─────────────┘     │
        │                                       │                  ▲             │
        ▼                                       ▼                  │             │
