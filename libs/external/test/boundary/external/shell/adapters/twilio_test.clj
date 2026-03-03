@@ -1,0 +1,46 @@
+(ns boundary.external.shell.adapters.twilio-test
+  "Integration tests for the Twilio messaging adapter.
+   Tests verify protocol satisfaction and graceful error handling against
+   an invalid base-url — no real Twilio credentials required."
+  (:require [boundary.external.ports :as ports]
+            [boundary.external.shell.adapters.twilio :as twilio]
+            [clojure.test :refer [deftest is testing]]))
+
+(def ^:private test-config
+  {:account-sid  "ACtest0000000000000000000000000000"
+   :auth-token   "test_auth_token"
+   :from-number  "+15005550006"
+   :base-url     "http://localhost-nonexistent.invalid:1"})
+
+(deftest create-twilio-adapter-test
+  ^:integration
+  (testing "returns a record satisfying ITwilioMessaging"
+    (let [adapter (twilio/create-twilio-adapter test-config)]
+      (is (satisfies? ports/ITwilioMessaging adapter))
+      (is (= "ACtest0000000000000000000000000000" (:account-sid adapter)))
+      (is (= "+15005550006" (:from-number adapter))))))
+
+(deftest send-sms-unreachable-test
+  ^:integration
+  (testing "send-sms! on invalid base-url returns error map"
+    (let [adapter (twilio/create-twilio-adapter test-config)
+          result  (ports/send-sms! adapter {:to "+31612345678" :body "Hello!"})]
+      (is (false? (:success? result)))
+      (is (some? (:error result)))
+      (is (string? (get-in result [:error :message]))))))
+
+(deftest send-whatsapp-unreachable-test
+  ^:integration
+  (testing "send-whatsapp! on invalid base-url returns error map"
+    (let [adapter (twilio/create-twilio-adapter test-config)
+          result  (ports/send-whatsapp! adapter {:to "+31612345678" :body "Hi via WA!"})]
+      (is (false? (:success? result)))
+      (is (some? (:error result))))))
+
+(deftest get-message-status-unreachable-test
+  ^:integration
+  (testing "get-message-status! on invalid base-url returns error map"
+    (let [adapter (twilio/create-twilio-adapter test-config)
+          result  (ports/get-message-status! adapter "SMxxx123")]
+      (is (false? (:success? result)))
+      (is (some? (:error result))))))

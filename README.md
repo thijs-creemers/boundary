@@ -4,7 +4,7 @@
 
 **Boundary** brings Django's productivity and Rails' conventions to Clojure—with functional programming rigor. It's a batteries-included web framework that enforces the Functional Core / Imperative Shell (FC/IS) pattern: pure business logic in `core/`, side effects in `shell/`, and clean interfaces through `ports.clj` protocols.
 
-You get 13 independently-publishable libraries via Clojars—use just `boundary-core` for validation utilities, or go full-stack with `boundary-user` for JWT + MFA auth, `boundary-admin` for auto-generated CRUD UIs (think Django Admin for Clojure), `boundary-storage` for S3 uploads, `boundary-email` for production-ready SMTP, `boundary-realtime` for WebSocket support, and `boundary-tenant` for multi-tenancy. Every module follows the same FC/IS structure, making any Boundary codebase instantly familiar.
+You get 13 independently-publishable libraries via Clojars—use just `boundary-core` for validation utilities, or go full-stack with `boundary-user` for JWT + MFA auth, `boundary-admin` for auto-generated CRUD UIs (think Django Admin for Clojure), `boundary-storage` for S3 uploads, `boundary-email` for production-ready SMTP, `boundary-realtime` for WebSocket support, `boundary-tenant` for multi-tenancy, and `boundary-external` for third-party service adapters (Stripe payments, Twilio SMS/WhatsApp, SMTP/IMAP transport). Every module follows the same FC/IS structure, making any Boundary codebase instantly familiar.
 
 Ship faster: The scaffolder generates production-ready modules (entity + routes + tests) in seconds. The admin UI auto-generates CRUD interfaces from your database schema—no manual forms. Built-in observability (Datadog/Sentry), API pagination (RFC 5988), and declarative interceptors mean you write business logic, not plumbing.
 
@@ -46,7 +46,7 @@ Boundary is organized as a **monorepo** with 13 independently publishable librar
 | **[email](libs/email/)** | Production-ready email sending (SMTP, async, jobs integration) |
 | **[realtime](libs/realtime/)** | WebSocket/SSE for real-time features (Phoenix Channels for Clojure) |
 | **[tenant](libs/tenant/)** | Multi-tenancy with PostgreSQL schema-per-tenant isolation |
-| **[external](libs/external/)** | External service adapters (In Development) |
+| **[external](libs/external/)** | External service adapters: Stripe, Twilio, SMTP transport, IMAP |
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐    ┌─────────────┐
