@@ -89,17 +89,17 @@
    Example:
      {:adapter :sqlite :database-path \"dev-database.db\"}"
   [config]
-   (let [adapter (db-adapter config)
-         adapter-key (keyword "boundary" (name adapter))
-         slash-key (keyword (str "boundary/" (name adapter)))
-         adapter-config (or (get-in config [:active adapter-key])
+  (let [adapter (db-adapter config)
+        adapter-key (keyword "boundary" (name adapter))
+        slash-key (keyword (str "boundary/" (name adapter)))
+        adapter-config (or (get-in config [:active adapter-key])
                            (get-in config [:active slash-key]))]
 
-     (when-not adapter-config
-       (throw (ex-info "No configuration found for active adapter"
-                       {:adapter adapter
-                        :adapter-key adapter-key
-                        :slash-key slash-key})))
+    (when-not adapter-config
+      (throw (ex-info "No configuration found for active adapter"
+                      {:adapter adapter
+                       :adapter-key adapter-key
+                       :slash-key slash-key})))
 
     (case adapter
       :sqlite
@@ -388,17 +388,30 @@
      {:ctx (ig/ref :boundary/db-context)
       :logger (ig/ref :boundary/logging)
       :error-reporter (ig/ref :boundary/error-reporting)}
-     
+
      :boundary/tenant-service
      {:tenant-repository (ig/ref :boundary/tenant-repository)
       :validation-config validation-cfg
       :logger (ig/ref :boundary/logging)
       :metrics-emitter (ig/ref :boundary/metrics)
       :error-reporter (ig/ref :boundary/error-reporting)}
-     
+
      :boundary/tenant-routes
      {:tenant-service (ig/ref :boundary/tenant-service)
       :config config}}))
+
+(defn- external-module-config
+  "Extract external service adapter configs from active config.
+
+   Each of the four adapters is opt-in: move the key from :inactive to :active
+   in config.edn to enable it. Returns only the keys that are present in :active."
+  [config]
+  (let [active (:active config)]
+    (cond-> {}
+      (:boundary.external/smtp   active) (assoc :boundary.external/smtp   (:boundary.external/smtp   active))
+      (:boundary.external/imap   active) (assoc :boundary.external/imap   (:boundary.external/imap   active))
+      (:boundary.external/stripe active) (assoc :boundary.external/stripe (:boundary.external/stripe active))
+      (:boundary.external/twilio active) (assoc :boundary.external/twilio (:boundary.external/twilio active)))))
 
 (defn ig-config
   "Generate Integrant configuration map from loaded config.
@@ -406,6 +419,7 @@
    The configuration is composed from:
    - Core system components (database, observability)
    - Module-specific components (:user, :admin, :tenant)
+   - External service adapters (:boundary.external/* — opt-in via config.edn)
 
    Future modules can be added by:
    1. Creating a *-module-config function (like user-module-config)
@@ -426,7 +440,8 @@
   (merge (core-system-config config)
          (user-module-config config)
          (tenant-module-config config)
-         (admin-module-config config)))
+         (admin-module-config config)
+         (external-module-config config)))
 
 ;; =============================================================================
 ;; REPL Utilities

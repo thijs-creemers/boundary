@@ -80,7 +80,7 @@ libs/
 ├── realtime/      # WebSocket/SSE messaging
 ├── tenant/        # Multi-tenancy lifecycle
 ├── scaffolder/    # Module generator
-└── external/      # External adapters (in development)
+└── external/      # Third-party adapters: Stripe, Twilio, SMTP/IMAP transport
 ----
 
 Each module follows the same structure:

@@ -1,19 +1,14 @@
 (ns boundary.email.shell.adapters.smtp
-  "SMTP email adapter using javax.mail.
+  "SMTP email adapter — delegates raw transport to libs/external SmtpProviderAdapter.
 
-   This adapter provides synchronous email sending via SMTP using the standard
-   javax.mail library. It supports:
-   - Basic SMTP authentication
-   - TLS/STARTTLS encryption
-   - SSL encryption
-   - Plain text email bodies
-   - Multiple recipients
+   This adapter sits at the boundary between the email library's domain model
+   (Email with :id, :created-at, :attachments, :metadata) and the external
+   library's transport layer (OutboundEmail). It translates between the two and
+   delegates all javax.mail work to boundary.external.shell.adapters.smtp.
 
-   NOT supported (deferred to v2):
-   - HTML email templates
-   - Attachment handling
-   - Connection pooling
-   - Batch sending
+   Responsibility split:
+     libs/email  — Email domain model, validation, preparation, job queuing
+     libs/external — Raw SMTP transport (javax.mail, TLS/SSL, HTML multipart)
 
    Usage:
      (def sender (create-smtp-sender
@@ -22,128 +17,59 @@
                     :username \"user@gmail.com\"
                     :password \"app-password\"
                     :tls? true}))
-
      (send-email! sender prepared-email)"
   (:require [boundary.email.ports :as ports]
+            [boundary.external.ports :as external-ports]
+            [boundary.external.shell.adapters.smtp :as smtp-provider]
             [clojure.string :as str]
-            [clojure.tools.logging :as log])
-  (:import [javax.mail Session Transport MessagingException Authenticator PasswordAuthentication]
-           [javax.mail Message$RecipientType]
-           [javax.mail.internet InternetAddress MimeMessage]
-           [java.util Properties]))
+            [clojure.tools.logging :as log]))
 
 ;; =============================================================================
-;; SMTP Session Configuration
+;; Domain Translation
 ;; =============================================================================
 
-(defn- create-authenticator
-  "Create javax.mail Authenticator for SMTP authentication.
+(defn- split-comma-addresses
+  "Split a comma-separated address string into a trimmed vector."
+  [s]
+  (when s
+    (mapv str/trim (str/split (str s) #",\s*"))))
 
-   Args:
-     username - SMTP username
-     password - SMTP password
+(defn- email->outbound
+  "Translate a libs/email Email map to a libs/external OutboundEmail map.
 
-   Returns:
-     Authenticator instance"
-  [username password]
-  (proxy [Authenticator] []
-    (getPasswordAuthentication []
-      (PasswordAuthentication. username password))))
-
-(defn- create-smtp-session
-  "Create javax.mail Session with SMTP configuration.
-
-   Args:
-     config - SmtpEmailSender instance with:
-              :host - SMTP server host
-              :port - SMTP server port
-              :username - SMTP auth username (optional)
-              :password - SMTP auth password (optional)
-              :tls? - Enable STARTTLS
-              :ssl? - Enable SSL
-
-   Returns:
-     javax.mail Session instance"
-  [{:keys [host port username password tls? ssl?]}]
-  (let [props (Properties.)]
-    ;; Basic SMTP configuration
-    (.put props "mail.smtp.host" host)
-    (.put props "mail.smtp.port" (str port))
-
-    ;; TLS/SSL configuration
-    (when tls?
-      (.put props "mail.smtp.starttls.enable" "true")
-      (.put props "mail.smtp.starttls.required" "true"))
-
-    (when ssl?
-      (.put props "mail.smtp.ssl.enable" "true")
-      (.put props "mail.smtp.socketFactory.port" (str port))
-      (.put props "mail.smtp.socketFactory.class" "javax.net.ssl.SSLSocketFactory"))
-
-    ;; Authentication configuration
-    (if (and username password)
-      (do
-        (.put props "mail.smtp.auth" "true")
-        (Session/getInstance props (create-authenticator username password)))
-      (Session/getInstance props))))
+  The Email domain model carries extra fields (:id, :created-at, :attachments,
+  :metadata) that are not part of the transport layer. Headers (reply-to, cc,
+  bcc) are stored in Email's :headers sub-map and translated to top-level keys
+  on OutboundEmail."
+  [email]
+  (let [headers (:headers email)]
+    (cond-> {:to      (:to email)
+             :from    (:from email)
+             :subject (:subject email)
+             :body    (:body email)}
+      (:reply-to headers) (assoc :reply-to (:reply-to headers))
+      (:cc headers)       (assoc :cc (split-comma-addresses (:cc headers)))
+      (:bcc headers)      (assoc :bcc (split-comma-addresses (:bcc headers))))))
 
 ;; =============================================================================
-;; Email Conversion
-;; =============================================================================
-
-(defn- email->mime-message
-  "Convert email map to javax.mail MimeMessage.
-
-   Args:
-     session - javax.mail Session
-     email - Email map with:
-             :from - Sender email address
-             :to - Vector of recipient email addresses
-             :subject - Email subject
-             :body - Email body (plain text)
-             :headers - Optional headers map (e.g., {:reply-to \"...\"})
-
-   Returns:
-     MimeMessage instance"
-  [session email]
-  (let [message (MimeMessage. session)]
-    ;; Set from address
-    (.setFrom message (InternetAddress. (:from email)))
-
-    ;; Set to addresses
-    (doseq [to-addr (:to email)]
-      (.addRecipient message Message$RecipientType/TO (InternetAddress. to-addr)))
-
-    ;; Set subject
-    (.setSubject message (:subject email))
-
-    ;; Set body (plain text)
-    (.setText message (:body email))
-
-    ;; Set optional headers
-    (when-let [headers (:headers email)]
-      (when-let [reply-to (:reply-to headers)]
-        (.setReplyTo message (into-array InternetAddress [(InternetAddress. reply-to)])))
-
-      (when-let [cc (:cc headers)]
-        (doseq [cc-addr (if (string? cc)
-                          (str/split cc #",\s*")
-                          cc)]
-          (.addRecipient message Message$RecipientType/CC (InternetAddress. cc-addr))))
-
-      (when-let [bcc (:bcc headers)]
-        (doseq [bcc-addr (if (string? bcc)
-                           (str/split bcc #",\s*")
-                           bcc)]
-          (.addRecipient message Message$RecipientType/BCC (InternetAddress. bcc-addr)))))
-
-    message))
-
-;; =============================================================================
-;; SMTP Email Sender
+;; Adapter Record
 ;; =============================================================================
 
 (defrecord SmtpEmailSender [host port username password tls? ssl?])
+
+(defn- ->provider
+  "Create a SmtpProviderAdapter from an SmtpEmailSender.
+   The :from field on the provider is left blank — the actual sender address
+   is always present in the OutboundEmail map produced by email->outbound."
+  [this]
+  (smtp-provider/create-smtp-provider
+   {:host     (:host this)
+    :port     (:port this)
+    :username (:username this)
+    :password (:password this)
+    :tls?     (boolean (:tls? this))
+    :ssl?     (boolean (:ssl? this))
+    :from     ""}))
 
 (extend-protocol ports/EmailSenderProtocol
   SmtpEmailSender
@@ -151,131 +77,47 @@
   (send-email! [this email]
     (log/info "Sending email via SMTP"
               {:email-id (:id email)
-               :to (:to email)
-               :subject (:subject email)
-               :host (:host this)
-               :port (:port this)})
-
-    (try
-      (let [session (create-smtp-session this)
-            message (email->mime-message session email)]
-
-        ;; Send message via SMTP
-        (Transport/send message)
-
-        ;; Get message ID (if available)
-        (let [message-id (try
-                           (.getMessageID message)
-                           (catch Exception _
-                             (str (:id email))))]  ; Fallback to email ID
-
-          (log/info "Email sent successfully"
-                    {:email-id (:id email)
-                     :message-id message-id})
-
-          {:success? true
-           :message-id message-id}))
-
-      (catch MessagingException e
-        (log/error e "Failed to send email via SMTP"
-                   {:email-id (:id email)
-                    :to (:to email)
-                    :host (:host this)
-                    :error-message (.getMessage e)})
-
+               :to       (:to email)
+               :subject  (:subject email)
+               :host     (:host this)
+               :port     (:port this)})
+    (let [result (external-ports/send-email! (->provider this) (email->outbound email))]
+      (if (:success? result)
+        {:success? true :message-id (:message-id result)}
         {:success? false
-         :error {:message (.getMessage e)
-                 :type "SmtpError"
-                 :provider-error {:class (.getName (.getClass e))
-                                  :cause (when-let [c (.getCause e)]
-                                           (.getMessage c))}}})
-
-      (catch Exception e
-        (log/error e "Unexpected error sending email"
-                   {:email-id (:id email)
-                    :to (:to email)})
-
-        {:success? false
-         :error {:message (.getMessage e)
-                 :type "UnexpectedError"
-                 :provider-error {:class (.getName (.getClass e))
-                                  :cause (when-let [c (.getCause e)]
-                                           (.getMessage c))}}})))
+         :error    {:message        (get-in result [:error :message])
+                    :type           (get-in result [:error :type] "SmtpError")
+                    :provider-error {}}})))
 
   (send-email-async! [this email]
-    (log/debug "Enqueueing email for async send"
-               {:email-id (:id email)
-                :to (:to email)})
-
-    (future
-      (ports/send-email! this email))))
+    (future (ports/send-email! this email))))
 
 ;; =============================================================================
 ;; Constructor
 ;; =============================================================================
 
 (defn create-smtp-sender
-  "Create SMTP email sender.
+  "Create an SMTP email sender.
 
-   Config map:
-     :host - SMTP server host (required, e.g., \"smtp.gmail.com\")
-     :port - SMTP server port (required, e.g., 587 for TLS, 465 for SSL, 25 for plain)
-     :username - SMTP auth username (optional, required for most providers)
-     :password - SMTP auth password (optional, required for most providers)
-     :tls? - Enable STARTTLS (default: true, recommended for port 587)
-     :ssl? - Enable SSL (default: false, use for port 465)
+  Delegates raw SMTP transport to boundary.external.shell.adapters.smtp.
 
-   Common SMTP Configurations:
+  Config keys:
+    :host     - SMTP server hostname (required)
+    :port     - SMTP server port (required)
+    :username - SMTP auth username (optional)
+    :password - SMTP auth password (optional)
+    :tls?     - Enable STARTTLS (default: true)
+    :ssl?     - Enable SSL (default: false)
 
-   Gmail:
-     {:host \"smtp.gmail.com\"
-      :port 587
-      :username \"user@gmail.com\"
-      :password \"app-specific-password\"  ; NOT your Gmail password!
-      :tls? true}
-
-   Amazon SES:
-     {:host \"email-smtp.us-east-1.amazonaws.com\"
-      :port 587
-      :username \"SMTP-USERNAME\"
-      :password \"SMTP-PASSWORD\"
-      :tls? true}
-
-   Mailgun:
-     {:host \"smtp.mailgun.org\"
-      :port 587
-      :username \"postmaster@yourdomain.com\"
-      :password \"mailgun-smtp-password\"
-      :tls? true}
-
-   SendGrid:
-     {:host \"smtp.sendgrid.net\"
-      :port 587
-      :username \"apikey\"
-      :password \"sendgrid-api-key\"
-      :tls? true}
-
-   Local Development (Mailhog/MailCatcher):
-     {:host \"localhost\"
-      :port 1025
-      :tls? false
-      :ssl? false}
-
-   Returns:
-     SmtpEmailSender instance implementing EmailSenderProtocol
-
-   Throws:
-     AssertionError if required fields are missing"
+  Returns:
+    SmtpEmailSender implementing EmailSenderProtocol"
   [{:keys [host port username password tls? ssl?]
-    :or {tls? true ssl? false}}]
-  {:pre [(string? host)
-         (some? port)]}
-
+    :or   {tls? true ssl? false}}]
+  {:pre [(string? host) (some? port)]}
   (log/info "Creating SMTP email sender"
-            {:host host
-             :port port
-             :tls? tls?
-             :ssl? ssl?
+            {:host  host
+             :port  port
+             :tls?  tls?
+             :ssl?  ssl?
              :auth? (boolean (and username password))})
-
   (->SmtpEmailSender host port username password tls? ssl?))

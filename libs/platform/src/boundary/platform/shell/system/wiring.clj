@@ -22,7 +22,7 @@
      (def cfg (config/ig-config (config/load-config)))
      (def system (ig/init cfg))
      (ig/halt! system)"
-(:require [boundary.platform.shell.adapters.database.factory :as db-factory]
+  (:require [boundary.platform.shell.adapters.database.factory :as db-factory]
             [boundary.observability.logging.shell.adapters.no-op :as logging-no-op]
             [boundary.observability.metrics.shell.adapters.no-op :as metrics-no-op]
             [boundary.observability.metrics.shell.adapters.datadog :as metrics-datadog]
@@ -38,6 +38,7 @@
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
             [boundary.admin.shell.module-wiring] ;; Load admin module init/halt methods
             [boundary.tenant.shell.module-wiring] ;; Load tenant module init/halt methods
+            [boundary.external.shell.module-wiring] ;; Load external adapters init/halt methods
             [cheshire.core]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -187,8 +188,8 @@
                                                                       :result-keys (keys result)})
                                                            result))
                                                        admin-web-routes)]
-                                  (log/info "Total admin web routes transformed" {:count (count transformed)})
-                                  transformed))
+                                 (log/info "Total admin web routes transformed" {:count (count transformed)})
+                                 transformed))
         admin-normalized-api (when (seq admin-api-routes) admin-api-routes)
 
         ;; Extract tenant module routes (normalized format)
@@ -222,10 +223,10 @@
         ;; Build middleware chain with tenant support
         ;; Tenant middleware is added ONLY if tenant-service is provided
         tenant-middleware (when (and tenant-service db-context)
-                           [(fn [handler]
-                              (log/info "Adding multi-tenant middleware to HTTP pipeline")
-                              (wrap-multi-tenant handler tenant-service db-context
-                                               {:require-tenant? false}))])
+                            [(fn [handler]
+                               (log/info "Adding multi-tenant middleware to HTTP pipeline")
+                               (wrap-multi-tenant handler tenant-service db-context
+                                                  {:require-tenant? false}))])
 
         ;; Compile routes using router adapter with system services
         ;; Add method override middleware for HTML form PUT/DELETE support

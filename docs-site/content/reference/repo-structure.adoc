@@ -44,15 +44,30 @@ This document is the **canonical reference** for repository structure and paths 
 |Module code generator
 |Templates, code generation, CLI interface
 
-|`libs/external`
-|External API integrations (in development)
-|Email, payments, notifications adapters (not yet in main build)
-|===
+|`libs/cache`
+|Distributed caching
+|Cache protocols, Redis adapter, in-memory adapter, TTL, atomic ops
 
-[NOTE]
-====
-`libs/external` is in development and not yet integrated into the main build. It is excluded from `deps.edn` paths and `tests.edn` until ready.
-====
+|`libs/jobs`
+|Background job processing
+|Job queue, worker pool, retry logic, dead letter queue
+
+|`libs/email`
+|Application-level email sending
+|Email domain model, validation, preparation, SMTP adapter (delegates transport to `libs/external`), jobs integration
+
+|`libs/realtime`
+|WebSocket / SSE messaging
+|WebSocket protocols, pub/sub, JWT auth, message routing
+
+|`libs/tenant`
+|Multi-tenancy
+|Schema-per-tenant isolation, provisioning, lifecycle states
+
+|`libs/external`
+|External service adapters: raw transport and third-party APIs
+|SMTP transport (javax.mail), IMAP mailbox, Stripe payments + webhook verification, Twilio SMS / WhatsApp
+|===
 
 [[canonical-paths]]
 == Canonical Path Structure
@@ -147,6 +162,11 @@ boundary/
 │   ├── admin/
 │   ├── storage/
 │   ├── scaffolder/
+│   ├── cache/
+│   ├── jobs/
+│   ├── email/
+│   ├── realtime/
+│   ├── tenant/
 │   └── external/
 ├── resources/
 │   ├── conf/                    # Environment-based configuration
@@ -181,6 +201,8 @@ Libraries have explicit dependency relationships:
 platform --> core
 platform --> observability
 
+external --> platform
+
 user --> core
 user --> platform
 user --> observability
@@ -193,6 +215,17 @@ storage --> core
 storage --> platform
 
 scaffolder --> core
+
+cache --> platform
+
+jobs --> platform
+
+email --> external
+
+realtime --> platform
+
+tenant --> platform
+tenant --> cache
 ----
 
 **Rules:**
@@ -200,7 +233,8 @@ scaffolder --> core
 * Libraries can only depend on libraries above them in the hierarchy
 * `core` has no internal dependencies (foundation layer)
 * `platform` provides infrastructure that other modules consume
-* Domain libraries (`user`, `admin`, `storage`) depend on platform
+* Domain libraries (`user`, `admin`, `storage`, `cache`, `jobs`, `realtime`, `tenant`) depend on platform
+* `email` delegates raw SMTP transport to `external`; `external` sits at the platform level
 
 [[configuration]]
 == Configuration Structure

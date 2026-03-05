@@ -33,6 +33,12 @@ clojure -M:test:db/h2 :user                        # User library tests
 clojure -M:test:db/h2 :admin                       # Admin library tests
 clojure -M:test:db/h2 :storage                     # Storage library tests
 clojure -M:test:db/h2 :scaffolder                  # Scaffolder library tests
+clojure -M:test:db/h2 :cache                       # Cache library tests
+clojure -M:test:db/h2 :jobs                        # Jobs library tests
+clojure -M:test:db/h2 :email                       # Email library tests
+clojure -M:test:db/h2 :tenant                      # Tenant library tests
+clojure -M:test:db/h2 :realtime                    # Realtime library tests
+clojure -M:test:db/h2 :external                    # External adapters tests
 
 # Testing - By metadata category
 clojure -M:test:db/h2 --focus-meta :unit           # Unit tests only
@@ -117,7 +123,7 @@ libs/
 ├── email/         # Production-ready email sending (SMTP)
 ├── realtime/      # WebSocket/SSE for real-time features
 ├── tenant/        # Multi-tenancy (PostgreSQL schema-per-tenant)
-└── external/      # External service adapters (In Development)
+└── external/      # External service adapters (Stripe, Twilio, SMTP/IMAP)
 ```
 
 ---
@@ -498,7 +504,7 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 | **email** | [`libs/email/AGENTS.md`](libs/email/AGENTS.md) | SMTP sending, async/queued modes, jobs integration |
 | **tenant** | [`libs/tenant/AGENTS.md`](libs/tenant/AGENTS.md) | Multi-tenancy, schema-per-tenant, provisioning, lifecycle states |
 | **realtime** | [`libs/realtime/AGENTS.md`](libs/realtime/AGENTS.md) | WebSocket messaging, JWT auth, pub/sub, message routing |
-| **external** | [`libs/external/AGENTS.md`](libs/external/AGENTS.md) | External service adapters (skeleton - in development) |
+| **external** | [`libs/external/AGENTS.md`](libs/external/AGENTS.md) | Stripe payments + webhooks, Twilio SMS/WhatsApp, SMTP transport, IMAP mailbox |
 
 ---
 
@@ -517,5 +523,5 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 
 ---
 
-**Last Updated**: 2026-02-23
-**Version**: 3.1.0 (Quick Reference Streamlined)
+**Last Updated**: 2026-03-03
+**Version**: 3.2.0 (External adapters added)

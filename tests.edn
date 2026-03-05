@@ -1,6 +1,6 @@
 #kaocha/v1
-{;; All library source paths (shared by all test suites)
- :kaocha/source-paths ["src"
+ {;; All library source paths (shared by all test suites)
+  :kaocha/source-paths ["src"
                         "libs/core/src"
                         "libs/observability/src"
                         "libs/platform/src"
@@ -12,9 +12,10 @@
                         "libs/jobs/src"
                         "libs/email/src"
                         "libs/tenant/src"
-                        "libs/realtime/src"]
+                        "libs/realtime/src"
+                        "libs/external/src"]
 
- :tests [;; Run all tests (default)
+  :tests [;; Run all tests (default)
           {:id :unit
            :test-paths ["test"
                         "libs/core/test"
@@ -28,47 +29,48 @@
                         "libs/jobs/test"
                         "libs/email/test"
                         "libs/tenant/test"
-                        "libs/realtime/test"]
+                        "libs/realtime/test"
+                        "libs/external/test"]
            :ns-patterns ["boundary.*-test"]
            :randomize? true}
 
          ;; Per-library test suites
          ;; Usage: clojure -M:test :core
-         {:id :core
-          :test-paths ["libs/core/test"]
-          :ns-patterns ["boundary.core.*-test"]}
+          {:id :core
+           :test-paths ["libs/core/test"]
+           :ns-patterns ["boundary.core.*-test"]}
 
-         {:id :observability
-          :test-paths ["libs/observability/test"]
-          :ns-patterns ["boundary.observability.*-test"]}
+          {:id :observability
+           :test-paths ["libs/observability/test"]
+           :ns-patterns ["boundary.observability.*-test"]}
 
-         {:id :platform
-          :test-paths ["libs/platform/test"]
-          :ns-patterns ["boundary.platform.*-test"]}
+          {:id :platform
+           :test-paths ["libs/platform/test"]
+           :ns-patterns ["boundary.platform.*-test"]}
 
-         {:id :user
-          :test-paths ["libs/user/test"]
-          :ns-patterns ["boundary.user.*-test"]}
+          {:id :user
+           :test-paths ["libs/user/test"]
+           :ns-patterns ["boundary.user.*-test"]}
 
-         {:id :admin
-          :test-paths ["libs/admin/test"]
-          :ns-patterns ["boundary.admin.*-test"]}
+          {:id :admin
+           :test-paths ["libs/admin/test"]
+           :ns-patterns ["boundary.admin.*-test"]}
 
-         {:id :storage
-          :test-paths ["libs/storage/test"]
-          :ns-patterns ["boundary.storage.*-test"]}
+          {:id :storage
+           :test-paths ["libs/storage/test"]
+           :ns-patterns ["boundary.storage.*-test"]}
 
-         {:id :scaffolder
-          :test-paths ["libs/scaffolder/test"]
-          :ns-patterns ["boundary.scaffolder.*-test"]}
+          {:id :scaffolder
+           :test-paths ["libs/scaffolder/test"]
+           :ns-patterns ["boundary.scaffolder.*-test"]}
 
-         {:id :cache
-          :test-paths ["libs/cache/test"]
-          :ns-patterns ["boundary.cache.*-test"]}
+          {:id :cache
+           :test-paths ["libs/cache/test"]
+           :ns-patterns ["boundary.cache.*-test"]}
 
-         {:id :jobs
-          :test-paths ["libs/jobs/test"]
-          :ns-patterns ["boundary.jobs.*-test"]}
+          {:id :jobs
+           :test-paths ["libs/jobs/test"]
+           :ns-patterns ["boundary.jobs.*-test"]}
 
           {:id :email
            :test-paths ["libs/email/test"]
@@ -80,22 +82,26 @@
 
           {:id :realtime
            :test-paths ["libs/realtime/test"]
-           :ns-patterns ["boundary.realtime.*-test"]}]
+           :ns-patterns ["boundary.realtime.*-test"]}
 
- :plugins [:kaocha.plugin/randomize
-           :kaocha.plugin/filter
-           :kaocha.plugin/profiling]
+          {:id :external
+           :test-paths ["libs/external/test"]
+           :ns-patterns ["boundary.external.*-test"]}]
+
+  :plugins [:kaocha.plugin/randomize
+            :kaocha.plugin/filter
+            :kaocha.plugin/profiling]
 
  ;; Enable metadata-based filtering for focus-meta.
  ;; Examples:
  ;;   ^:unit        → clojure -M:test --focus-meta :unit
  ;;   ^:integration → clojure -M:test --focus-meta :integration
  ;;   ^:user        → clojure -M:test --focus-meta :user
- :kaocha.plugin.filter/focus-meta [:unit :integration :contract :user :billing :phase3]
+  :kaocha.plugin.filter/focus-meta [:unit :integration :contract :user :billing :phase3]
 
- :kaocha.plugin.randomize/randomize? true
- :kaocha/reporter [kaocha.report/documentation]
+  :kaocha.plugin.randomize/randomize? true
+  :kaocha/reporter [kaocha.report/documentation]
 
- :kaocha/fail-fast? false
- :kaocha/color? true
- :kaocha/watch? false}
+  :kaocha/fail-fast? false
+  :kaocha/color? true
+  :kaocha/watch? false}

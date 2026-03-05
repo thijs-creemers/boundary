@@ -1,4 +1,10 @@
-Title: Boundary Starter Repo Outline
+---
+title: "Boundary Starter Repository Outline"
+weight: 10
+description: "Outline/template for a Boundary starter repository structure and feature set."
+---
+
+# Boundary Starter Repository Outline
 
 Purpose
 - Provide a clean template for teams to try Boundary in minutes.
@@ -41,7 +47,7 @@ boundary-starter/
 Features Included
 - Admin interface configured with `resources/conf/dev/admin/*.edn`
 - MFA endpoints and flows (setup, enable, login)
-- Observability interceptor providers (dev no‑op by default)
+- Observability interceptor providers (dev no-op by default)
 - Scaffolder included for adding modules
 - H2 in-memory for tests, SQLite for dev, Postgres-ready for prod
 
