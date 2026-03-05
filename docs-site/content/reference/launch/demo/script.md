@@ -1,4 +1,10 @@
-Title: Boundary Demo (10–15 min) — Batteries included, boundaries enforced
+---
+title: "Boundary Demo Script (10–15 minutes)"
+weight: 10
+description: "Draft demo script for a 10–15 minute Boundary walkthrough."
+---
+
+# Boundary Demo Script (10–15 minutes)
 
 Audience
 - Clojure teams building internal tools/SaaS backends
@@ -48,12 +54,12 @@ Script
   - `curl -X POST http://localhost:3000/api/auth/mfa/enable -H "Authorization: Bearer <token>" -d '{"secret":"...","verificationCode":"123456"}'`
 - Terminal: login with MFA
   - `curl -X POST http://localhost:3000/api/auth/login -d '{"email":"user@example.com","password":"...","mfa-code":"123456"}'`
-- Explain where teams enforce MFA, and that it’s production‑ready out of the box.
+- Explain where teams enforce MFA, and that it’s production-ready out of the box.
 
 12:00–14:00 — Observability
 - Explain interceptor pattern: service/persistence operations wrap logging/metrics/error reporting.
 - Show a simple service call and a typed error propagating with an operation name.
-- Mention providers: dev no‑op, Datadog, Sentry plug‑ins; swap per env without code churn.
+- Mention providers: dev no-op, Datadog, Sentry plug-ins; swap per env without code churn.
 
 14:00–15:00 — Build/deploy + recap
 - Terminal: `clojure -T:build clean && clojure -T:build uber` then `java -jar target/boundary-*.jar server`
@@ -62,11 +68,11 @@ Script
 
 Recording tips
 - Keep terminal font large, dark theme.
-- Pre‑seed a JWT token or mock for MFA.
+- Pre-seed a JWT token or mock for MFA.
 - Use two browser windows: app and admin.
 - Have migrations and scaffolder ready to avoid delays.
 
-Follow‑ups (links to include in description)
-- Quickstart: https://github.com/thijs-creemers/boundary-docs/blob/main/docs/launch/posts/quickstart.md
+Follow-ups (links to include in description)
+- Quickstart: /getting-started/quickstart/
 - Starter repo: https://github.com/thijs-creemers/boundary-starter
-- Docs home: https://github.com/thijs-creemers/boundary-docs
+- Docs home: /
