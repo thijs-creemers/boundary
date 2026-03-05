@@ -31,7 +31,6 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
-
       - name: Clear clj-kondo cache
         run: rm -rf .clj-kondo/.cache/* 2>/dev/null || true
 
@@ -467,12 +466,12 @@ jobs:
         run: clojure -M:test:db/h2 :scaffolder
 
   # =============================================================================
-  # Run all tests from root project
+  # Test external adapters
   # =============================================================================
-  test:
-    name: Test All Libraries
+  test-external:
+    name: Test boundary/external
     runs-on: ubuntu-latest
-    needs: lint
+    needs: [lint, test-platform]
 
     steps:
       - uses: actions/checkout@v4
@@ -491,10 +490,10 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
-      - name: Run all tests
+      - name: Run tests
         env:
-          JWT_SECRET: "ci-test-secret-minimum-32-characters-long"
-        run: clojure -M:test:db/h2
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :external
 
   # =============================================================================
   # Summary job
@@ -502,7 +501,7 @@ jobs:
   test-summary:
     name: All Tests Passed
     runs-on: ubuntu-latest
-    needs: [test-core, test-observability, test-platform, test-user, test-admin, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-scaffolder]
+    needs: [test-core, test-observability, test-platform, test-user, test-admin, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-scaffolder, test-external]
 
     steps:
       - name: Summary
@@ -521,3 +520,4 @@ jobs:
           echo "  - boundary/email"
           echo "  - boundary/realtime"
           echo "  - boundary/scaffolder"
+          echo "  - boundary/external"
