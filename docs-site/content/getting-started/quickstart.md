@@ -183,14 +183,21 @@ curl -X POST http://localhost:3000/api/v1/auth/login \
 
 ## Step 6: Create Your First Module (2 minutes)
 
-Let's create a "tasks" module using the scaffolder:
+Let's create a "tasks" module using the scaffolder. Run the interactive wizard and follow the prompts:
 
 ```bash
-clojure -M:dev -m boundary.scaffolder.core \
-  --name tasks \
-  --fields title:string,description:string,completed:boolean \
-  --http true \
-  --web true
+bb scaffold generate
+```
+
+Or pass the arguments directly for a non-interactive run:
+
+```bash
+bb scaffold generate \
+  --module-name tasks \
+  --entity Task \
+  --field title:string:required \
+  --field description:string \
+  --field completed:boolean:required
 ```text
 
 **What this creates:**

@@ -274,16 +274,22 @@ By adding this interceptor to a route, you ensure that only authenticated users 
 ### Step 1: Scaffold the Module
 Boundary's scaffolder generates all the boilerplate for a new module. It's not just a simple template; it generates a complete, functional module following best practices.
 
-Run the following command:
+Run the interactive wizard and follow the prompts:
 
 ```bash
-clojure -M:dev -m boundary.scaffolder.shell.cli-entry generate \
+bb scaffold generate
+```
+
+Or pass arguments directly for a non-interactive run (useful for scripting or CI):
+
+```bash
+bb scaffold generate \
   --module-name task \
   --entity Task \
   --field title:string:required \
   --field description:string \
   --field priority:string:required \
-  --field due-date:instant \
+  --field due-date:date \
   --field completed:boolean:required
 ```bash
 

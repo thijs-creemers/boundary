@@ -53,7 +53,8 @@
       "Bash(echo:*)",
       "Bash(gem list:*)",
       "Bash(/opt/homebrew/Cellar/ruby/4.0.1/bin/gem list:*)",
-      "Bash(/opt/homebrew/Cellar/ruby/4.0.1/bin/gem install:*)"
+      "Bash(/opt/homebrew/Cellar/ruby/4.0.1/bin/gem install:*)",
+      "Bash(bb scaffold:*)"
     ]
   },
   "enabledMcpjsonServers": [

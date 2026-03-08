@@ -13,4 +13,9 @@
   install-hooks
   {:doc "Configure git hooks path to .githooks"
    :task (do (babashka.process/shell "git" "config" "core.hooksPath" ".githooks")
-             (println "Configured git hooks path: .githooks"))}}}
+             (println "Configured git hooks path: .githooks"))}
+
+  scaffold
+  {:doc "Interactive module scaffolding wizard (bb scaffold [generate|new|field|endpoint|adapter])"
+   :task (do (require 'scaffold)
+             (apply (resolve 'scaffold/-main) *command-line-args*))}}}

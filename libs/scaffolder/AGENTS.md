@@ -16,11 +16,24 @@ Generates new Boundary modules with FC/IS structure, tests, and migrations to ac
 
 ## Module Scaffolding
 
-Generate complete production-ready modules:
+### Recommended: interactive wizard
 
 ```bash
-# Generate module with entity
-clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+bb scaffold generate    # step-by-step prompts → validates input → previews command → runs
+bb scaffold new         # bootstrap a new project
+bb scaffold field       # add a field to an existing entity
+bb scaffold endpoint    # add an endpoint to an existing module
+bb scaffold adapter     # generate a new adapter implementation
+bb scaffold             # show help
+```
+
+The wizard guides you through all options, shows a summary box, prints the equivalent
+raw command for reference, then delegates to the Clojure CLI backend.
+
+### Non-interactive passthrough (args forwarded directly)
+
+```bash
+bb scaffold generate \
   --module-name product \
   --entity Product \
   --field name:string:required \
@@ -33,6 +46,8 @@ clojure -M -m boundary.scaffolder.shell.cli-entry generate \
 # - 1 migration file
 # - Zero linting errors, complete FC/IS architecture
 ```
+
+Add `--dry-run` to preview files without writing them.
 
 **Integration Steps**: See [Scaffolder README](README.md)
 
