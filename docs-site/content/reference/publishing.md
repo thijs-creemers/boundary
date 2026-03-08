@@ -12,13 +12,13 @@ This guide documents how to build, test, and publish the Boundary framework libr
 
 | Library | Artifact ID | Dependencies |
 |---------|-------------|--------------|
-| **core** | `io.github.thijs-creemers/boundary-core` | None |
-| **observability** | `io.github.thijs-creemers/boundary-observability` | core |
-| **platform** | `io.github.thijs-creemers/boundary-platform` | core, observability |
-| **user** | `io.github.thijs-creemers/boundary-user` | platform |
-| **admin** | `io.github.thijs-creemers/boundary-admin` | platform, user |
-| **storage** | `io.github.thijs-creemers/boundary-storage` | platform |
-| **scaffolder** | `io.github.thijs-creemers/boundary-scaffolder` | core |
+| **core** | `org.boundary-app/boundary-core` | None |
+| **observability** | `org.boundary-app/boundary-observability` | core |
+| **platform** | `org.boundary-app/boundary-platform` | core, observability |
+| **user** | `org.boundary-app/boundary-user` | platform |
+| **admin** | `org.boundary-app/boundary-admin` | platform, user |
+| **storage** | `org.boundary-app/boundary-storage` | platform |
+| **scaffolder** | `org.boundary-app/boundary-scaffolder` | core |
 
 ## Prerequisites
 
@@ -134,7 +134,7 @@ clojure -T:build install
 Verify installation:
 
 ```bash
-ls ~/.m2/repository/io/github/thijs-creemers/boundary-core/
+ls ~/.m2/repository/com/github/thijs-creemers/boundary-core/
 ```bash
 
 ## Publishing to Clojars
@@ -183,8 +183,8 @@ echo "🎉 All libraries published!"
 ### Verify publication
 
 Check Clojars:
-- https://clojars.org/io.github.thijs-creemers/boundary-core
-- https://clojars.org/io.github.thijs-creemers/boundary-observability
+- https://clojars.org/org.boundary-app/boundary-core
+- https://clojars.org/org.boundary-app/boundary-observability
 - etc.
 
 ## Updating dependencies between libraries
@@ -202,7 +202,7 @@ When publishing new versions, update inter-library dependencies:
 
 ```clojure
 ;; libs/observability/deps.edn (for release)
-{:deps {io.github.thijs-creemers/boundary-core {:mvn/version "0.1.42"}}}
+{:deps {org.boundary-app/boundary-core {:mvn/version "0.1.42"}}}
 ```bash
 
 ### Switching between local and published
@@ -211,10 +211,10 @@ Use Clojure CLI aliases:
 
 ```clojure
 ;; deps.edn
-{:deps {io.github.thijs-creemers/boundary-core {:mvn/version "0.1.42"}}
+{:deps {org.boundary-app/boundary-core {:mvn/version "0.1.42"}}
  
  :aliases
- {:local {:override-deps {io.github.thijs-creemers/boundary-core {:local/root "../core"}}}}}
+ {:local {:override-deps {org.boundary-app/boundary-core {:local/root "../core"}}}}}
 ```yaml
 
 Development: `clojure -M:local:test`  
@@ -256,13 +256,13 @@ Error: version 0.1.42 already exists
 ### Dependency resolution errors
 
 ```
-Could not find artifact io.github.thijs-creemers/boundary-core
+Could not find artifact org.boundary-app/boundary-core
 ```bash
 
 **Solution**: 
 1. Publish core library first
 2. Wait for Clojars indexing (~1 minute)
-3. Clear local cache: `rm -rf ~/.m2/repository/io/github/thijs-creemers/`
+3. Clear local cache: `rm -rf ~/.m2/repository/com/github/thijs-creemers/`
 
 ### POM generation issues
 
@@ -273,7 +273,7 @@ cd libs/core
 clojure -T:build clean
 clojure -T:build jar
 # Check generated POM
-cat target/classes/META-INF/maven/io.github.thijs-creemers/boundary-core/pom.xml
+cat target/classes/META-INF/maven/org.boundary-app/boundary-core/pom.xml
 ```bash
 
 ## GitHub actions (future)

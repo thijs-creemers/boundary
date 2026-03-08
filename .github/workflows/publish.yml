@@ -254,23 +254,23 @@ jobs:
             
             12 of 13 libraries published to Clojars (external in development):
             
-            - [boundary-core](https://clojars.org/io.github.thijs-creemers/boundary-core)
-            - [boundary-observability](https://clojars.org/io.github.thijs-creemers/boundary-observability)
-            - [boundary-platform](https://clojars.org/io.github.thijs-creemers/boundary-platform)
-            - [boundary-user](https://clojars.org/io.github.thijs-creemers/boundary-user)
-            - [boundary-admin](https://clojars.org/io.github.thijs-creemers/boundary-admin)
-            - [boundary-storage](https://clojars.org/io.github.thijs-creemers/boundary-storage)
-            - [boundary-scaffolder](https://clojars.org/io.github.thijs-creemers/boundary-scaffolder)
-            - [boundary-cache](https://clojars.org/io.github.thijs-creemers/boundary-cache)
-            - [boundary-jobs](https://clojars.org/io.github.thijs-creemers/boundary-jobs)
-            - [boundary-realtime](https://clojars.org/io.github.thijs-creemers/boundary-realtime)
-            - [boundary-email](https://clojars.org/io.github.thijs-creemers/boundary-email)
-            - [boundary-tenant](https://clojars.org/io.github.thijs-creemers/boundary-tenant)
+            - [boundary-core](https://clojars.org/org.boundary-app/boundary-core)
+            - [boundary-observability](https://clojars.org/org.boundary-app/boundary-observability)
+            - [boundary-platform](https://clojars.org/org.boundary-app/boundary-platform)
+            - [boundary-user](https://clojars.org/org.boundary-app/boundary-user)
+            - [boundary-admin](https://clojars.org/org.boundary-app/boundary-admin)
+            - [boundary-storage](https://clojars.org/org.boundary-app/boundary-storage)
+            - [boundary-scaffolder](https://clojars.org/org.boundary-app/boundary-scaffolder)
+            - [boundary-cache](https://clojars.org/org.boundary-app/boundary-cache)
+            - [boundary-jobs](https://clojars.org/org.boundary-app/boundary-jobs)
+            - [boundary-realtime](https://clojars.org/org.boundary-app/boundary-realtime)
+            - [boundary-email](https://clojars.org/org.boundary-app/boundary-email)
+            - [boundary-tenant](https://clojars.org/org.boundary-app/boundary-tenant)
             
             ### Installation
             
             ```clojure
-            {:deps {io.github.thijs-creemers/boundary-platform {:mvn/version "${{ steps.version.outputs.version }}"}}}
+            {:deps {org.boundary-app/boundary-platform {:mvn/version "${{ steps.version.outputs.version }}"}}}
             ```
             
             See [CHANGELOG.md](https://github.com/thijs-creemers/boundary/blob/main/CHANGELOG.md) for details.

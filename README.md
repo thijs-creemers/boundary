@@ -173,14 +173,14 @@ clojure -M:repl-clj                          # Start REPL
 
 ```clojure
 ;; Use just core for validation
-{:deps {io.github.thijs-creemers/boundary-core {:mvn/version "1.0.0-alpha"}}}
+{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.0-alpha"}}}
 
 ;; Use platform for full web application support
-{:deps {io.github.thijs-creemers/boundary-platform {:mvn/version "1.0.0-alpha"}}}
+{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.0-alpha"}}}
 
 ;; Use the full stack
-{:deps {io.github.thijs-creemers/boundary-user {:mvn/version "1.0.0-alpha"}
-        io.github.thijs-creemers/boundary-admin {:mvn/version "1.0.0-alpha"}}}
+{:deps {org.boundary-app/boundary-user {:mvn/version "1.0.0-alpha"}
+        org.boundary-app/boundary-admin {:mvn/version "1.0.0-alpha"}}}
 ```
 
 ## Essential Commands
