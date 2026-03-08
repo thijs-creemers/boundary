@@ -76,6 +76,7 @@ java -jar target/boundary-*.jar server             # Run standalone jar
 clojure -M:migrate migrate                         # Run migrations
 
 # Scripting (Babashka)
+bb scaffold                                        # Interactive module scaffolding wizard
 bb check-links                                     # Validate local markdown links in AGENTS.md files
 bb smoke-check                                     # Verify deps.edn aliases and key tool entrypoints
 bb install-hooks                                   # Configure git hooks path to .githooks

@@ -39,16 +39,22 @@ A production-ready blog module with:
 
 ### Generate the Module
 
-From your Boundary project directory, run the scaffolder:
+From your Boundary project directory, run the interactive wizard:
 
 ```bash
-clojure -M -m boundary.scaffolder.shell.cli-entry generate \
+bb scaffold generate
+```
+
+The wizard guides you through each option and shows a preview before generating anything. Alternatively, pass all arguments directly for a non-interactive run:
+
+```bash
+bb scaffold generate \
   --module-name blog \
   --entity Post \
   --field title:string:required \
   --field body:text:required \
   --field author-id:uuid:required \
-  --field published-at:datetime \
+  --field published-at:date \
   --field slug:string:required:unique
 ```
 

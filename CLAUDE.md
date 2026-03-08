@@ -30,6 +30,7 @@ clojure -M:migrate up
 clj-paren-repair <file>
 
 # Scripting (Babashka)
+bb scaffold          # Interactive module scaffolding wizard (generate/new/field/endpoint/adapter)
 bb check-links       # Validate local markdown links in AGENTS.md files
 bb smoke-check       # Verify deps.edn aliases and key tool entrypoints
 bb install-hooks     # Configure git hooks path to .githooks
