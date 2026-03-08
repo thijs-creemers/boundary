@@ -117,7 +117,7 @@ CLOJARS_PASSWORD - Your Clojars deploy token (NOT your account password)
 ### Steps to secure Clojars publishing:
 
 1. Log in to https://clojars.org
-2. Navigate to your group: `io.github.thijs-creemers`
+2. Navigate to your group: `org.boundary-app`
 3. Go to **Group Settings**
 4. Verify **Group Members**:
    - Ensure only YOU are listed as a member
@@ -128,7 +128,7 @@ CLOJARS_PASSWORD - Your Clojars deploy token (NOT your account password)
 ### How to check current Clojars group members:
 ```bash
 # Install clj-watson or use Clojars web UI
-# Web UI: https://clojars.org/groups/io.github.thijs-creemers
+# Web UI: https://clojars.org/groups/org.boundary-app
 ```bash
 
 ---
@@ -249,7 +249,7 @@ After completing this guide:
 ✅ **CI Required**: All tests must pass before merge  
 ✅ **Clojars Publishing**: Only your credentials can publish  
 ✅ **Workflow Security**: Secrets protected from fork PRs  
-✅ **Group Ownership**: Only you control `io.github.thijs-creemers` on Clojars
+✅ **Group Ownership**: Only you control `org.boundary-app` on Clojars
 
 ---
 

@@ -37,8 +37,8 @@ Similar to **Phoenix Channels** (Elixir) or **Socket.io** (Node.js), this module
 
 ```clojure
 ;; deps.edn
-{:deps {io.github.thijs-creemers/boundary-realtime {:mvn/version "1.0.0-alpha"}
-        io.github.thijs-creemers/boundary-user {:mvn/version "1.0.0-alpha"}}}
+{:deps {org.boundary-app/boundary-realtime {:mvn/version "1.0.0-alpha"}
+        org.boundary-app/boundary-user {:mvn/version "1.0.0-alpha"}}}
 ```
 
 ### 2. Create Realtime Service

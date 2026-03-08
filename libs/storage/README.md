@@ -10,12 +10,12 @@ File storage abstraction with local filesystem and S3 backends, including upload
 
 **deps.edn** (recommended):
 ```clojure
-{:deps {io.github.thijs-creemers/boundary-storage {:mvn/version "1.0.0-alpha"}}}
+{:deps {org.boundary-app/boundary-storage {:mvn/version "1.0.0-alpha"}}}
 ```
 
 **Leiningen**:
 ```clojure
-[io.github.thijs-creemers/boundary-storage "1.0.0-alpha"]
+[org.boundary-app/boundary-storage "1.0.0-alpha"]
 ```
 
 ## Features
