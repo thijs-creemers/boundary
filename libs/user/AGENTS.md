@@ -36,7 +36,7 @@ curl -X POST http://localhost:3000/api/auth/login \
   -d '{"email": "user@example.com", "password": "...", "mfa-code": "123456"}'
 ```
 
-**Details**: See [MFA API documentation](../../docs-site/content/api/mfa.md) for complete MFA setup guide
+**Details**: See [MFA API documentation](../../docs-site/content/api/mfa.adoc) for complete MFA setup guide
 
 ## Gotchas
 
@@ -59,5 +59,5 @@ UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus boundary.user.core.user-vali
 ## Links
 
 - [Library README](README.md)
-- [MFA API Documentation](../../docs-site/content/api/mfa.md)
+- [MFA API Documentation](../../docs-site/content/api/mfa.adoc)
 - [Root AGENTS Guide](../../AGENTS.md)

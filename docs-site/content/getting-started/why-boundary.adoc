@@ -138,19 +138,27 @@ The User module provides an adapter that satisfies this protocol — but Order n
 
 ==== The Monolith-to-Microservices Path
 
-[source,text]
-----
-  DAY 1: Modular Monolith              DAY 100: Microservices
-  ┌─────────────────────┐              ┌─────────┐  ┌─────────┐
-  │    Single Process   │              │  User   │  │  Order  │
-  │  ┌─────┐  ┌─────┐   │    Same     │ Service │  │ Service │
-  │  │User │←→│Order│   │    Code     └────┬────┘  └────┬────┘
-  │  └─────┘  └─────┘   │   ------→        │            │
-  │   In-process calls  │              HTTP/gRPC    HTTP/gRPC
-  └─────────────────────┘                  └─────┬──────┘
-                                                 │
-                                           Message Bus
-----
+[mermaid,format=svg,width=100%]
+....
+flowchart LR
+    subgraph mono["Day 1 — Modular Monolith"]
+        direction TB
+        U1["User Module"]
+        O1["Order Module"]
+        U1 <-->|in-process| O1
+    end
+
+    mono -->|"Same code · no rewrites"| micro
+
+    subgraph micro["Day 100 — Microservices"]
+        direction TB
+        U2["User Service"]
+        O2["Order Service"]
+        MB[("Message Bus")]
+        U2 -->|HTTP/gRPC| MB
+        O2 -->|HTTP/gRPC| MB
+    end
+....
 
 **The key insight:** You don't decide microservices vs monolith at project start. You start with a modular monolith that *can* become microservices when needed — without architectural rewrites.
 

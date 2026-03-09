@@ -1,0 +1,71 @@
+= Developer Documentation
+:toc: left
+:toclevels: 2
+
+This directory contains internal development artifacts for the Boundary Framework project.
+These documents are intended for contributors, maintainers, and team members — not end users.
+They are plain AsciiDoc files readable directly in GitHub or any AsciiDoc viewer.
+
+For user-facing documentation, see the link:../docs-site/[docs-site/] Hugo site.
+
+== Contents
+
+=== link:adr/[Architecture Decision Records (ADRs)]
+
+Records of significant architectural decisions made during development.
+Each ADR describes the context, the decision, and its consequences.
+
+* link:adr/README.adoc[ADR Index]
+* link:adr/ADR-001-library-split.adoc[ADR-001: Library Split]
+* link:adr/ADR-002-boundary-new-command.adoc[ADR-002: Boundary New Command]
+* link:adr/ADR-003-websocket-architecture.adoc[ADR-003: WebSocket Architecture]
+* link:adr/ADR-004-multi-tenancy-architecture.adoc[ADR-004: Multi-Tenancy Architecture]
+* link:adr/ADR-005-validation-devex-foundations.adoc[ADR-005: Validation DevEx Foundations]
+* link:adr/ADR-006-web-ui-architecture-htmx-hiccup.adoc[ADR-006: Web UI Architecture (HTMX + Hiccup)]
+* link:adr/ADR-007-routing-architecture.adoc[ADR-007: Routing Architecture]
+* link:adr/ADR-008-normalized-routing-abstraction.adoc[ADR-008: Normalized Routing Abstraction]
+* link:adr/ADR-009-reitit-exclusive-router.adoc[ADR-009: Reitit Exclusive Router]
+* link:adr/ADR-010-http-interceptor-architecture.adoc[ADR-010: HTTP Interceptor Architecture]
+* link:adr/ADR-pluggable-auth.adoc[ADR: Pluggable Auth]
+
+=== link:change-reports/[Change Reports]
+
+Post-implementation analyses and migration reports documenting completed refactoring efforts.
+
+* link:change-reports/FC-IS-COMPLIANCE-ANALYSIS.adoc[FC/IS Compliance Analysis]
+* link:change-reports/FC-IS-REFACTORING-COMPLETE.adoc[FC/IS Refactoring Complete]
+* link:change-reports/PEDESTAL_ADAPTER_ABANDONMENT.adoc[Pedestal Adapter Abandonment]
+* link:change-reports/SERVICE-METHOD-RENAMING-MIGRATION.adoc[Service Method Renaming Migration]
+
+=== link:presentations/[Presentations]
+
+Presentation slides and speaker notes for conference talks and internal knowledge sharing.
+
+=== link:implementation/[Implementation Notes]
+
+Detailed implementation notes and internal technical documentation.
+
+* link:implementation/user-module-implementation.adoc[User Module Implementation]
+
+=== Top-Level Internal Docs
+
+* link:DECISIONS.adoc[DECISIONS] — Key project decisions log
+* link:DOCKER_DEVELOPMENT.adoc[Docker Development] — Docker-based development setup
+* link:DOCS_LINT.adoc[Docs Lint] — Documentation linting tooling and rules
+* link:LINK_ISSUES.adoc[Link Issues] — Known link/reference issues
+* link:alpha-release-checklist.adoc[Alpha Release Checklist] — Pre-release checklist
+* link:roadmap.adoc[Roadmap] — Project roadmap and planned features
+
+=== link:reference/[Internal Reference]
+
+Internal reference documents not intended for end users.
+
+* link:reference/boundary-prd.adoc[Product Requirements Document]
+* link:reference/development-commands.adoc[Development Commands (Internal)]
+* link:reference/docs-maintenance-checklist.adoc[Docs Maintenance Checklist]
+* link:reference/historical-docs-triage.adoc[Historical Docs Triage]
+* link:reference/publishing.adoc[Publishing Guide]
+* link:reference/repo-structure.adoc[Repository Structure]
+* link:reference/user-module-observability.adoc[User Module Observability Notes]
+* link:reference/launch/[Launch Materials] — Announcements, demo scripts, starter outlines
+* link:reference/templates/[Document Templates] — Reusable document templates
