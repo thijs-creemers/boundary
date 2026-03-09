@@ -513,14 +513,14 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 
 **For in-depth information, see:**
 
-- **[Documentation Index](docs-site/content/README.adoc)** - Main docs navigation
+- **[Documentation Index](dev-docs/content-readme.adoc)** - Main docs navigation
 - **[Architecture Guide](docs-site/content/architecture/)** - FC/IS patterns, design decisions
 - **[Module Scaffolding](libs/scaffolder/README.md)** - Complete scaffolding workflow
-- **[MFA Setup Guide](docs-site/content/guides/mfa-setup.md)** - Multi-factor authentication
-- **[API Pagination](docs-site/content/api/pagination.md)** - Offset and cursor pagination
+- **[MFA Setup Guide](docs-site/content/guides/mfa-setup.adoc)** - Multi-factor authentication
+- **[API Pagination](docs-site/content/api/pagination.adoc)** - Offset and cursor pagination
 - **[Observability Integration](docs-site/content/guides/integrate-observability.adoc)** - Custom adapters, configuration
-- **[HTTP Interceptors](docs-site/content/adr/ADR-010-http-interceptor-architecture.adoc)** - Technical specification
-- **[PRD](docs-site/content/reference/boundary-prd.adoc)** - Product vision and requirements
+- **[HTTP Interceptors](dev-docs/adr/ADR-010-http-interceptor-architecture.adoc)** - Technical specification
+- **[PRD](dev-docs/reference/boundary-prd.adoc)** - Product vision and requirements
 
 ---
 

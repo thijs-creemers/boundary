@@ -3,25 +3,11 @@
 Technical reference documentation for APIs, commands, configuration, and
 patterns.
 
-=== Product Requirements
-
-* link:boundary-prd.adoc[*Product Requirements Document*] - Complete PRD 
-with architecture, specifications, and design decisions
-
-=== Repository & Development
-
-* link:repo-structure.adoc[*Repository Structure*] - Library organization, 
-paths, and module responsibilities (v2.2.0+)
-* link:development-commands.adoc[*Development Commands*] - Canonical 
-reference for test, lint, REPL, build, and migrate commands
-* link:migrations/library-split.adoc[*Library Split Migration*] - Path 
-mapping from pre-v2.2.0 to current structure
-
 === Command Reference
 
 * link:commands.adoc[*CLI Commands*] - Complete CLI command reference with
 options and examples
-* link:cli/user-cli.adoc[*User CLI Reference*] - Detailed user management 
+* link:cli/user-cli.adoc[*User CLI Reference*] - Detailed user management
 CLI commands
 
 === Configuration
@@ -31,8 +17,10 @@ options, and environment variables
 
 === Database
 
-* link:multi-db-usage.adoc[*Multi-Database Usage*] - Guide for using 
+* link:multi-db-usage.adoc[*Multi-Database Usage*] - Guide for using
 multiple database adapters (SQLite, PostgreSQL, MySQL, H2)
+* link:migrations/library-split.adoc[*Library Split Migration*] - Path
+mapping from pre-v2.2.0 to current structure
 
 === Error Handling
 
@@ -41,10 +29,8 @@ and resolution
 
 === Observability
 
-* link:observability-reference.adoc[*Observability Reference*] - Complete 
+* link:observability-reference.adoc[*Observability Reference*] - Complete
 API reference for logging, metrics, and error reporting
-* link:user-module-observability.adoc[*User Module Observability*] - 
-Observability implementation example for the user module
 
 === Tools
 
@@ -53,19 +39,10 @@ and usage
 
 === Validation
 
-* link:validation-guide.adoc[*Validation Guide*] - Complete developer 
+* link:validation-guide.adoc[*Validation Guide*] - Complete developer
 guide for validation system
 * link:validation-patterns.adoc[*Validation Patterns*] - Validation
 approach, patterns, and best practices
-
-=== Templates
-
-* link:templates/acceptance-criteria-template.adoc[*Acceptance Criteria Template*] - 
-Template for writing acceptance criteria
-* link:templates/endpoint-template.adoc[*Endpoint Template*] - Template 
-for implementing REST endpoints
-* link:templates/use-case-template.adoc[*Use Case Template*] - Template 
-for documenting use cases
 
 === Related Documentation
 
