@@ -100,9 +100,9 @@
    {:id          :product-search
     :entity-type :product
     :language    :english
-    :fields      [{:name :title       :weight :A}
-                  {:name :description :weight :B}
-                  {:name :tags        :weight :C}]
+    :fields      [{:name :title       :weight :a}
+                  {:name :description :weight :b}
+                  {:name :tags        :weight :c}]
     :options     {:highlight? false}})
   (let [store   (create-memory-store)
         svc     (service/create-search-service store)]

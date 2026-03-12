@@ -10,9 +10,7 @@
    - get-search            — look up by index-id
    - build-document        — construct a SearchDocument from field values
    - filter-key->json-key  — convert a filter keyword to a snake_case JSON key"
-  (:require [clojure.string :as str])
-  (:import [java.util UUID]
-           [java.time Instant]))
+  (:require [clojure.string :as str]))
 
 ;; =============================================================================
 ;; In-process Registry
@@ -90,9 +88,9 @@
        {:id          :product-search
         :entity-type :product
         :language    :english
-        :fields      [{:name :title       :weight :A}
-                      {:name :description :weight :B}
-                      {:name :tags        :weight :C}]
+        :fields      [{:name :title       :weight :a}
+                      {:name :description :weight :b}
+                      {:name :tags        :weight :c}]
         :options     {:highlight? true
                       :trigrams?  true}})
 
@@ -152,7 +150,7 @@
         content-all (->> [:weight-a :weight-b :weight-c :weight-d]
                          (keep #(get weight-map %))
                          (str/join " "))]
-    (cond-> {:id          (str (UUID/randomUUID))
+    (cond-> {:id          (or (:id opts) (str (java.util.UUID/randomUUID)))
              :index-id    index-id
              :entity-type entity-type
              :entity-id   entity-id
@@ -162,7 +160,7 @@
              :weight-c    (get weight-map :weight-c "")
              :weight-d    (get weight-map :weight-d "")
              :content-all content-all
-             :updated-at  (Instant/now)}
+             :updated-at  (or (:updated-at opts) (java.time.Instant/now))}
       (:metadata opts)
       (assoc :metadata (:metadata opts))
       ;; Store filter values so they can be used as WHERE-clause predicates.

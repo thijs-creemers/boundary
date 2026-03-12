@@ -21,7 +21,10 @@
                         {:type     :not-found
                          :index-id index-id
                          :message  (str "No search definition found for: " (name index-id))})))
-      (let [doc (index/build-document definition entity-id field-values opts)]
+      (let [doc-opts (merge opts
+                            {:id (str (java.util.UUID/randomUUID))
+                             :updated-at (java.time.Instant/now)})
+            doc (index/build-document definition entity-id field-values doc-opts)]
         (ports/upsert-document! store doc))))
 
   (remove-document! [_ index-id entity-id]

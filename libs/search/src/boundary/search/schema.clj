@@ -11,7 +11,7 @@
 
 (def FieldWeight
   "FTS field weight (A=highest, D=lowest)."
-  [:enum :A :B :C :D])
+  [:enum :a :b :c :d])
 
 (def SearchField
   "A single indexed field configuration."

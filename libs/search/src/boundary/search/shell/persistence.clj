@@ -14,7 +14,8 @@
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [clojure.edn :as edn])
   (:import [java.util UUID]))
 
 ;; =============================================================================
@@ -67,7 +68,7 @@
              :rank        (double (or (:rank row) 1.0))
              :snippet     (:snippet row)}
       (:metadata row)
-      (assoc :metadata (read-string (:metadata row))))))
+      (assoc :metadata (edn/read-string (:metadata row))))))
 
 ;; =============================================================================
 ;; ISearchStore implementation
@@ -84,7 +85,7 @@
         ;; PostgreSQL: native ON CONFLICT ... DO UPDATE SET ... = EXCLUDED.*
         (jdbc/execute-one!
          datasource
-        (sql/format
+         (sql/format
           {:insert-into   :search_documents
            :values        [row]
            :on-conflict   [:index_id :entity_id]

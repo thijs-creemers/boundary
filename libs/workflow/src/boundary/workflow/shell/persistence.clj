@@ -7,9 +7,8 @@
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
-            [clojure.tools.logging :as log])
-  (:import [java.util UUID]
-           [java.time Instant]))
+            [clojure.tools.logging :as log]
+            [clojure.edn :as edn]))
 
 ;; =============================================================================
 ;; Type conversion helpers
@@ -51,7 +50,7 @@
              :created-at    (str->instant (:created_at row))
              :updated-at    (str->instant (:updated_at row))}
       (:metadata row)
-      (assoc :metadata (read-string (:metadata row))))))
+      (assoc :metadata (edn/read-string (:metadata row))))))
 
 ;; =============================================================================
 ;; workflow_audit  — row <-> entry mapping
@@ -87,8 +86,8 @@
              :to-state    (str->kw (:to_state row))
              :occurred-at (str->instant (:occurred_at row))}
       (:actor_id row)    (assoc :actor-id (str->uuid (:actor_id row)))
-      (:actor_roles row) (assoc :actor-roles (read-string (:actor_roles row)))
-      (:context row)     (assoc :context (read-string (:context row))))))
+      (:actor_roles row) (assoc :actor-roles (edn/read-string (:actor_roles row)))
+      (:context row)     (assoc :context (edn/read-string (:context row))))))
 
 ;; =============================================================================
 ;; IWorkflowStore implementation

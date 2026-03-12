@@ -1,8 +1,7 @@
 (ns boundary.search.core.index-test
   "Unit tests for the search index registry and document construction."
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
-            [boundary.search.core.index :as index])
-  (:import [java.util UUID]))
+            [boundary.search.core.index :as index]))
 
 ;; =============================================================================
 ;; Test fixture
@@ -23,8 +22,8 @@
   {:id          :product-search
    :entity-type :product
    :language    :english
-   :fields      [{:name :title       :weight :A}
-                 {:name :description :weight :B}]
+   :fields      [{:name :title       :weight :a}
+                 {:name :description :weight :b}]
    :options     {:highlight? true}})
 
 (deftest ^:unit register-and-get-test
@@ -56,7 +55,7 @@
       {:id          :order-search
        :entity-type :order
        :language    :english
-       :fields      [{:name :status :weight :A}]})
+       :fields      [{:name :status :weight :a}]})
     (is (= :order-search (:id order-search)))
     (is (some? (index/get-search :order-search)))))
 
@@ -69,9 +68,9 @@
     (let [definition {:id          :product-search
                       :entity-type :product
                       :language    :english
-                      :fields      [{:name :title       :weight :A}
-                                    {:name :description :weight :B}
-                                    {:name :tags        :weight :C}]}
+                      :fields      [{:name :title       :weight :a}
+                                    {:name :description :weight :b}
+                                    {:name :tags        :weight :c}]}
           entity-id  (UUID/randomUUID)
           doc        (index/build-document definition entity-id
                                            {:title "Widget Pro"
@@ -92,7 +91,7 @@
     (let [definition {:id          :article-search
                       :entity-type :article
                       :language    :english
-                      :fields      [{:name :tags :weight :C}]}
+                      :fields      [{:name :tags :weight :c}]}
           entity-id  (UUID/randomUUID)
           doc        (index/build-document definition entity-id
                                            {:tags ["clojure" "functional" "search"]})]
@@ -103,8 +102,8 @@
     (let [definition {:id          :product-search
                       :entity-type :product
                       :language    :english
-                      :fields      [{:name :title       :weight :A}
-                                    {:name :description :weight :B}]}
+                      :fields      [{:name :title       :weight :a}
+                                    {:name :description :weight :b}]}
           entity-id  (UUID/randomUUID)
           doc        (index/build-document definition entity-id {:title "Widget"})]
       (is (= "Widget" (:weight-a doc)))
@@ -114,7 +113,7 @@
     (let [definition {:id          :product-search
                       :entity-type :product
                       :language    :english
-                      :fields      [{:name :title :weight :A}]}
+                      :fields      [{:name :title :weight :a}]}
           entity-id  (UUID/randomUUID)
           doc        (index/build-document definition entity-id {:title "Widget"}
                                            {:metadata {:price 9.99 :sku "WGT-001"}})]
@@ -124,7 +123,7 @@
   (testing "uses :english as default language when not specified"
     (let [definition {:id          :product-search
                       :entity-type :product
-                      :fields      [{:name :title :weight :A}]}
+                      :fields      [{:name :title :weight :a}]}
           entity-id  (UUID/randomUUID)
           doc        (index/build-document definition entity-id {:title "test"})]
       (is (= "english" (:language doc)))))
@@ -133,7 +132,7 @@
     (let [definition {:id          :product-search
                       :entity-type :product
                       :language    :dutch
-                      :fields      [{:name :title :weight :A}]}
+                      :fields      [{:name :title :weight :a}]}
           entity-id  (UUID/randomUUID)
           doc        (index/build-document definition entity-id {:title "Widget"})]
       (is (= "dutch" (:language doc))))))
