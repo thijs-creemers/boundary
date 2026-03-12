@@ -275,6 +275,8 @@
         validation-cfg (user-validation-config config)
         pagination-cfg (get-in config [:active :boundary/pagination] {:default-limit 20 :max-limit 100})
         admin-enabled? (get-in config [:active :boundary/admin :enabled?])
+        workflow-enabled? (get-in config [:active :boundary/workflow :enabled?])
+        search-enabled? (get-in config [:active :boundary/search :enabled?])
         cache-enabled? (boolean (cache-config config))
         http-handler-config (cond-> {:config config
                                      :user-routes (ig/ref :boundary/user-routes)
@@ -286,7 +288,11 @@
                                      :tenant-service (ig/ref :boundary/tenant-service)
                                      :db-context (ig/ref :boundary/db-context)}
                               admin-enabled?
-                              (assoc :admin-routes (ig/ref :boundary/admin-routes)))]
+                              (assoc :admin-routes (ig/ref :boundary/admin-routes))
+                              workflow-enabled?
+                              (assoc :workflow-routes (ig/ref :boundary/workflow-routes))
+                              search-enabled?
+                              (assoc :search-routes (ig/ref :boundary/search-routes)))]
     {:boundary/user-db-schema
      {:ctx (ig/ref :boundary/db-context)}
 
@@ -400,6 +406,36 @@
      {:tenant-service (ig/ref :boundary/tenant-service)
       :config config}}))
 
+(defn- workflow-module-config
+  "Return Integrant configuration for the workflow module.
+
+   Wires the workflow state machine engine, persistence store, and admin UI routes.
+   Enabled when :boundary/workflow {:enabled? true} is present in the active config."
+  [config]
+  (let [wf-cfg (get-in config [:active :boundary/workflow])]
+    (when (and wf-cfg (:enabled? wf-cfg))
+      {:boundary/workflow
+       {:db-ctx        (ig/ref :boundary/db-context)
+        :guard-registry {}}
+
+       :boundary/workflow-routes
+       {:workflow-service (ig/ref :boundary/workflow)
+        :user-service     (ig/ref :boundary/user-service)}})))
+
+(defn- search-module-config
+  "Return Integrant configuration for the search module.
+
+   Wires the full-text search engine, persistence store, and admin UI routes.
+   Enabled when :boundary/search {:enabled? true} is present in the active config."
+  [config]
+  (let [search-cfg (get-in config [:active :boundary/search])]
+    (when (and search-cfg (:enabled? search-cfg))
+      {:boundary/search
+       {:db-ctx (ig/ref :boundary/db-context)}
+
+       :boundary/search-routes
+       {:search-service (ig/ref :boundary/search)}})))
+
 (defn- external-module-config
   "Extract external service adapter configs from active config.
 
@@ -418,7 +454,7 @@
 
    The configuration is composed from:
    - Core system components (database, observability)
-   - Module-specific components (:user, :admin, :tenant)
+   - Module-specific components (:user, :admin, :tenant, :workflow)
    - External service adapters (:boundary.external/* — opt-in via config.edn)
 
    Future modules can be added by:
@@ -441,6 +477,8 @@
          (user-module-config config)
          (tenant-module-config config)
          (admin-module-config config)
+         (workflow-module-config config)
+         (search-module-config config)
          (external-module-config config)))
 
 ;; =============================================================================

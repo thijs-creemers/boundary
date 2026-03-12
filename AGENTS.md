@@ -38,6 +38,8 @@ clojure -M:test:db/h2 :jobs                        # Jobs library tests
 clojure -M:test:db/h2 :email                       # Email library tests
 clojure -M:test:db/h2 :tenant                      # Tenant library tests
 clojure -M:test:db/h2 :realtime                    # Realtime library tests
+clojure -M:test:db/h2 :workflow                    # Workflow library tests
+clojure -M:test:db/h2 :search                      # Search library tests
 clojure -M:test:db/h2 :external                    # External adapters tests
 
 # Testing - By metadata category
@@ -124,6 +126,8 @@ libs/
 ├── email/         # Production-ready email sending (SMTP)
 ├── realtime/      # WebSocket/SSE for real-time features
 ├── tenant/        # Multi-tenancy (PostgreSQL schema-per-tenant)
+├── workflow/      # State machine workflows with audit trails
+├── search/        # Full-text search (PostgreSQL FTS / H2 LIKE)
 └── external/      # External service adapters (Stripe, Twilio, SMTP/IMAP)
 ```
 
@@ -505,6 +509,8 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 | **email** | [`libs/email/AGENTS.md`](libs/email/AGENTS.md) | SMTP sending, async/queued modes, jobs integration |
 | **tenant** | [`libs/tenant/AGENTS.md`](libs/tenant/AGENTS.md) | Multi-tenancy, schema-per-tenant, provisioning, lifecycle states |
 | **realtime** | [`libs/realtime/AGENTS.md`](libs/realtime/AGENTS.md) | WebSocket messaging, JWT auth, pub/sub, message routing |
+| **workflow** | [`libs/workflow/AGENTS.md`](libs/workflow/AGENTS.md) | State machine definitions, transitions, lifecycle hooks, auto-transitions |
+| **search** | [`libs/search/AGENTS.md`](libs/search/AGENTS.md) | Document indexing, FTS/LIKE strategy, filter support, migrations |
 | **external** | [`libs/external/AGENTS.md`](libs/external/AGENTS.md) | Stripe payments + webhooks, Twilio SMS/WhatsApp, SMTP transport, IMAP mailbox |
 
 ---
@@ -524,5 +530,5 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 
 ---
 
-**Last Updated**: 2026-03-03
-**Version**: 3.2.0 (External adapters added)
+**Last Updated**: 2026-03-12
+**Version**: 3.3.0 (Workflow lifecycle hooks, auto-transitions; Search filter support)

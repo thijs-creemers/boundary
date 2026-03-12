@@ -1,0 +1,212 @@
+(ns boundary.search.core.ui
+  "Pure Hiccup UI components for the search Admin interface.
+
+   All functions are pure — they receive data and return Hiccup structures.
+   No side effects, no I/O, no logging.
+
+   Components:
+     field-weight-badge   — weight indicator (A/B/C/D)
+     search-result-row    — single result row
+     search-results-fragment — HTMX results area
+     indices-page         — list all registered indices (full page)
+     index-detail-page    — index config + live search test form (full page)"
+  (:require [boundary.shared.ui.core.icons :as icons]
+            [boundary.shared.ui.core.layout :as layout]
+            [clojure.string :as str]))
+
+;; =============================================================================
+;; Badges
+;; =============================================================================
+
+(defn- language-badge [language]
+  [:span.status-badge (name language)])
+
+(defn- doc-count-badge [n]
+  [:span.status-badge {:class (if (pos? (or n 0)) "success" "")}
+   (str (or n 0) " docs")])
+
+(defn field-weight-badge
+  "Render a field weight label as a colored badge."
+  [weight]
+  (let [badge-class (case weight
+                      (:a :A) "success"
+                      (:b :B) "info"
+                      "")]
+    [:span.status-badge {:class badge-class}
+     (str "Weight-" (str/upper-case (name weight)))]))
+
+;; =============================================================================
+;; Indices List Page
+;; =============================================================================
+
+(defn- index-row
+  [{:keys [id entity-type language fields doc-count]}]
+  [:tr
+   [:td [:a {:href (str "/web/admin/search/" (name id))}
+         [:code (name id)]]]
+   [:td [:code (name entity-type)]]
+   [:td (language-badge language)]
+   [:td (count fields)]
+   [:td (doc-count-badge doc-count)]])
+
+(defn indices-page
+  "Render the search indices admin list page.
+
+   Args:
+     indices - vector of index info maps: {:id :entity-type :language :fields :doc-count}
+     opts    - map with :user, :flash (passed to page-layout)"
+  [indices opts]
+  (let [{:keys [user flash]} opts]
+    (layout/page-layout
+     "Search Indices — Admin"
+     [:div {:style "padding: 1.5rem;"}
+      [:div {:style "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;"}
+       [:h1 {:style "margin: 0; display: flex; align-items: center; gap: 0.5rem;"}
+        (icons/icon :search {:size 24})
+        "Search Indices"]
+       [:a {:href "/web/dashboard" :role "button" :class "secondary outline"}
+        "← Dashboard"]]
+      [:p {:style "color: var(--muted-color); margin-top: 0;"}
+       "Registered full-text search indices and their document counts."]
+      (if (seq indices)
+        [:table {:class "data-table"}
+         [:thead
+          [:tr
+           [:th "Index ID"]
+           [:th "Entity Type"]
+           [:th "Language"]
+           [:th "Fields"]
+           [:th "Documents"]]]
+         [:tbody
+          (for [idx indices]
+            (index-row idx))]]
+        [:div.empty-state
+         (icons/icon :search {:size 32})
+         [:h3 "No search indices registered"]
+         [:p "Use " [:code "defsearch"] " to define a search index."]])]
+     {:user  user
+      :flash flash
+      :css   ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
+      :js    ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]})))
+
+;; =============================================================================
+;; Index Detail + Live Search Page
+;; =============================================================================
+
+(defn search-result-row
+  "Render a single search result row."
+  [{:keys [entity-type entity-id rank snippet metadata]}]
+  (let [eid-str  (str entity-id)
+        short-id (subs eid-str 0 (min 8 (count eid-str)))]
+    [:tr
+     [:td [:code (name entity-type)]]
+     [:td [:code {:title eid-str} (str short-id "...")]]
+     [:td (when rank (format "%.3f" (double rank)))]
+     [:td (if snippet
+            [:span {:style "font-size: 0.85em;"}
+             [:span {:dangerouslySetInnerHTML {:__html snippet}}]]
+            [:em {:style "color: var(--muted-color);"} "-"])]
+     [:td (if metadata
+            [:code {:style "font-size: 0.75em;"} (pr-str metadata)]
+            [:em {:style "color: var(--muted-color);"} "-"])]]))
+
+(defn search-results-fragment
+  "Render the HTMX search results area (replaces #search-results).
+
+   Args:
+     results - vector of SearchResult maps
+     query   - string (displayed in header)
+     total   - integer (total matching docs)
+     took-ms - integer (query time)"
+  [results query total took-ms]
+  [:div#search-results
+   [:div {:style "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;"}
+    [:small {:style "color: var(--muted-color);"}
+     (str total " result(s) for \"" (or query "") "\" (" (or took-ms 0) " ms)")]
+    (when (> total (count results))
+      [:small {:style "color: var(--muted-color);"}
+       (str "Showing first " (count results))])]
+   (if (seq results)
+     [:table {:class "data-table"}
+      [:thead
+       [:tr
+        [:th "Entity Type"]
+        [:th "Entity ID"]
+        [:th "Rank"]
+        [:th "Snippet"]
+        [:th "Metadata"]]]
+      [:tbody
+       (for [r results]
+         (search-result-row r))]]
+     [:div.empty-state
+      (icons/icon :search {:size 32})
+      [:p "No results found for \"" (or query "") "\"."]])])
+
+(defn index-detail-page
+  "Render the search index detail page with live search test form.
+
+   Args:
+     index-info - map: {:id :entity-type :language :fields :doc-count}
+     results    - SearchResponse map or nil (shown when a search was performed)
+     query      - string (previous search query, for repopulating the form)
+     opts       - map with :user, :flash (passed to page-layout)"
+  [index-info results query opts]
+  (let [{:keys [user flash]} opts
+        {:keys [id entity-type language fields doc-count]} index-info
+        index-name (name id)]
+    (layout/page-layout
+     (str "Search: " index-name " - Admin")
+     [:div {:style "padding: 1.5rem;"}
+      [:nav {:aria-label "Breadcrumb"
+             :style "margin-bottom: 1rem; font-size: 0.9em;"}
+       [:a {:href "/web/admin/search"} "Search Indices"]
+       " / "
+       [:code {:style "font-size: inherit;"} index-name]]
+      [:div {:style "display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;"}
+       [:article
+        [:header [:h3 {:style "margin: 0;"} "Index Info"]]
+        [:dl {:style "display: grid; grid-template-columns: 120px 1fr; gap: 0.4rem 1rem; margin: 0;"}
+         [:dt "Entity type"] [:dd [:code (name entity-type)]]
+         [:dt "Language"]    [:dd (language-badge language)]
+         [:dt "Documents"]   [:dd (doc-count-badge doc-count)]]]
+       [:article
+        [:header [:h3 {:style "margin: 0;"} "Indexed Fields"]]
+        (if (seq fields)
+          [:div {:style "display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;"}
+           (for [{fname :name weight :weight} fields]
+             [:span {:style "display: flex; align-items: center; gap: 4px;"}
+              [:code (name fname)]
+              (field-weight-badge weight)])]
+          [:em {:style "color: var(--muted-color);"} "No fields configured"])]]
+      [:article
+       [:header [:h3 {:style "margin: 0 0 0.75rem;"} "Live Search Test"]]
+       [:form {:hx-post   (str "/web/admin/search/" index-name "/search")
+               :hx-target "#search-results"
+               :hx-swap   "outerHTML"
+               :hx-indicator "#search-spinner"}
+        [:div {:style "display: flex; gap: 0.75rem; align-items: flex-end;"}
+         [:div {:style "flex: 1;"}
+          [:input {:type        "text"
+                   :name        "query"
+                   :id          "search-query"
+                   :placeholder "Enter search terms..."
+                   :value       (or query "")
+                   :style       "width: 100%;"}]]
+         [:button {:type "submit"}
+          (icons/icon :search {:size 16})
+          " Search"
+          [:span#search-spinner.htmx-indicator " ..."]]]]]
+      (if results
+        (search-results-fragment
+         (:results results)
+         (:query results)
+         (:total results)
+         (:took-ms results))
+        [:div#search-results
+         [:div.empty-state
+          (icons/icon :search {:size 32})
+          [:p "Enter a query above to test this search index."]]])]
+     {:user  user
+      :flash flash
+      :css   ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
+      :js    ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]})))

@@ -29,7 +29,7 @@ Boundary is a **module-centric software framework** built on Clojure that implem
 
 ### Key Characteristics
 
-- **Module-Centric Architecture**: Each domain module (`user`, `billing`, `workflow`) contains its complete functionality from pure business logic to external interfaces
+- **Module-Centric Architecture**: Each domain module (`user`, `workflow`, `search`, `tenant`) contains its complete functionality from pure business logic to external interfaces
 - **Functional Core / Imperative Shell**: Strict separation between pure business logic (core) and side-effectful operations (shell)
 - **Multi-Interface Support**: Consistent behavior across REST API, CLI, and Web interfaces
 - **Ports and Adapters**: Hexagonal architecture enabling dependency inversion and easy testing
@@ -52,7 +52,6 @@ Boundary is a **module-centric software framework** built on Clojure that implem
 - Production-ready observability and operational tooling
 
 **Non-Goals:**
-- Multi-tenancy runtime support (framework provides preparation patterns only)
 - Mobile/desktop client support (focuses on server-side interfaces)
 - Specific domain logic (provides patterns, not implementations)
 - Built-in authentication providers (supports auth patterns)
@@ -251,7 +250,7 @@ The project uses Integrant for system lifecycle management:
 
 When adding new functionality:
 
-1. **Choose the appropriate module** (user, billing, workflow, or create new)
+1. **Choose the appropriate module** (user, workflow, search, tenant, or scaffold a new one with `bb scaffold`)
 2. **Start with core functions** - implement pure business logic
 3. **Define ports** if external capabilities are needed
 4. **Implement adapters** for concrete implementations
@@ -271,38 +270,19 @@ user=> (ig-repl/go)
 
 ## Module Structure
 
-Boundary follows a **module-centric architecture** where each domain module owns its complete functionality stack:
+Boundary follows a **module-centric architecture** where each domain module owns its complete functionality stack.
 
-### Updated Module Template (Clean Architecture)
+All 15 libraries live under `libs/`:
+`core`, `observability`, `platform`, `user`, `admin`, `storage`, `scaffolder`, `cache`, `jobs`, `email`, `realtime`, `tenant`, `workflow`, `search`, `external`
 
-```
-src/boundary/user/
-├── core/
-│   ├── session.clj
-│   └── user.clj
-├── ports.clj
-├── schema.clj
-└── shell/
-    ├── cli.clj
-    ├── http.clj
-    ├── persistence.clj
-    └── service.clj
-```
-
-### Example: User Module (Updated Architecture)
+### Standard Module Layout
 
 ```
-src/boundary/user/
-├── core/
-│   ├── session.clj
-│   └── user.clj
-├── ports.clj
-├── schema.clj
-└── shell/
-    ├── cli.clj
-    ├── http.clj
-    ├── persistence.clj
-    └── service.clj
+libs/{library}/src/boundary/{library}/
+├── core/          # Pure business logic
+├── shell/         # I/O, validation, adapters
+├── ports.clj      # Protocol definitions
+└── schema.clj     # Malli validation schemas
 ```
 
 **Key improvements:**
@@ -665,7 +645,8 @@ clojure -M:test:db/h2 --focus :contract       # Adapter tests
 
 # Module-specific tests
 clojure -M:test:db/h2 --focus :user           # User module tests
-clojure -M:test:db/h2 --focus :billing        # Billing module tests
+clojure -M:test:db/h2 --focus :workflow       # Workflow module tests
+clojure -M:test:db/h2 --focus :search         # Search module tests
 
 # Watch mode
 clojure -M:test:db/h2 --watch --focus :unit   # Watch unit tests only
