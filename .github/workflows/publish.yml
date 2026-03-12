@@ -26,12 +26,12 @@ jobs:
           fetch-depth: 0  # Full history needed for git-count-revs
       
       - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@master
+        uses: DeLaGuardo/setup-clojure@13.5.2
         with:
           cli: 1.11.1.1347
       
       - name: Cache dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.m2/repository
