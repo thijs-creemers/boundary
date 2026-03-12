@@ -1,7 +1,8 @@
 (ns boundary.search.core.index-test
   "Unit tests for the search index registry and document construction."
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
-            [boundary.search.core.index :as index]))
+            [boundary.search.core.index :as index])
+  (:import [java.util UUID]))
 
 ;; =============================================================================
 ;; Test fixture

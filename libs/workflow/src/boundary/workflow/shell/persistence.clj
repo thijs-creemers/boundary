@@ -8,7 +8,9 @@
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
             [clojure.tools.logging :as log]
-            [clojure.edn :as edn]))
+            [clojure.edn :as edn])
+  (:import [java.util UUID]
+           [java.time Instant]))
 
 ;; =============================================================================
 ;; Type conversion helpers
