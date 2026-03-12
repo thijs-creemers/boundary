@@ -1,0 +1,562 @@
+= Boundary Framework: Strategic Extensions Roadmap - Executive Summary
+:author: TCBV
+:date: 2026-03-10
+:version: 1.0
+:toc: left
+:toclevels: 2
+:sectnums:
+:icons: font
+:source-highlighter: rouge
+
+== Strategic Context
+
+=== Opportunity
+
+Analysis of two production Django applications (WBA and OTTO) revealed **8 strategic gaps** in the Boundary Framework that, once filled, will significantly accelerate project delivery and reduce costs across both B2B and B2C domains.
+
+*Key Insight*: These libraries complement each other perfectly - WBA provides B2B enterprise patterns (workflows, search, reporting), while OTTO provides B2C/mobile patterns (push notifications, audience targeting, forms).
+
+=== Business Case
+
+[cols="1,1,1,1",options="header"]
+|===
+| Metric | Value | Timeframe | Confidence
+
+| *Total Investment*
+| *€102.400*
+| 128 development days
+| High
+
+| *Breakeven Point*
+| *3-4 projects*
+| 7-10 months
+| High
+
+| *5-Year ROI*
+| *€1.400.000 net*
+| 50 projects
+| Medium-High
+
+| *ROI Percentage*
+| *1.370%*
+| 5 years
+| Medium-High
+|===
+
+*Average Savings Per Project*: €30.000 (€25k development + €5k operational costs)
+
+== Prioritized Backlog
+
+[cols="1,2,1,1,1,1",options="header"]
+|===
+| # | Library | Investment | ROI/Project | Adoption | Priority
+
+| 1
+| 🔥 *boundary-workflow*
+| €14.400
+| €8k-€12k
+| 80%
+| *CRITICAL*
+
+| 2
+| 🔥 *boundary-search*
+| €12.000
+| €7k-€10k + opex
+| 70%
+| *CRITICAL*
+
+| 3
+| 🟡 *boundary-reports*
+| €10.400
+| €3.2k-€4.8k
+| 60%
+| *HIGH*
+
+| 4
+| 🟡 *boundary-calendar*
+| €11.200
+| €3.2k-€4k
+| 50%
+| *HIGH*
+
+| 5
+| 🔥 *boundary-push*
+| €16.800
+| €4k-€6k
+| 60%
+| *HIGH*
+
+| 6
+| 🟡 *boundary-audience*
+| €14.400
+| €3k-€5k
+| 40%
+| *MEDIUM*
+
+| 7
+| 🟢 *boundary-geo*
+| €6.400
+| €400-€800
+| 20%
+| *LOW*
+
+| 8
+| 🟡 *boundary-forms*
+| €16.800
+| €2.5k-€4k
+| 40%
+| *MEDIUM*
+
+| *TOTAL*
+| *8 libraries*
+| *€102.400*
+| *€31k-€45k/proj*
+| *52% avg*
+| -
+|===
+
+== Implementation Phases
+
+=== Phase 1: Foundation (Q2 2026) - *€26.400*
+
+*Goal*: Build must-have B2B capabilities with fastest ROI
+
+*Deliverables*:
+
+- ✅ boundary-workflow - State machines and business process automation
+- ✅ boundary-search - Full-text search (PostgreSQL + Elasticsearch)
+
+*Timeline*: 8 weeks (33 development days)
+
+*Expected Impact*:
+
+- 80% B2B project adoption
+- €15k-€22k savings per project
+- Breakeven after 2 projects
+
+*Decision Gate*: Project adoption ≥60% + 2 successful implementations → GO to Phase 2
+
+---
+
+=== Phase 2: Enhanced Productivity (Q3 2026) - *€21.600*
+
+*Goal*: Add reporting and scheduling capabilities
+
+*Deliverables*:
+
+- ✅ boundary-reports - PDF/Excel generation and templates
+- ✅ boundary-calendar - Event scheduling and availability management
+
+*Timeline*: 7 weeks (27 development days)
+
+*Expected Impact*:
+
+- 50-60% project adoption
+- €6k-€9k additional savings per project
+- Cumulative savings: €21k-€31k per project
+
+*Decision Gate*: Reports used in 40%+ projects + Calendar used in 30%+ projects → GO to Phase 3
+
+---
+
+=== Phase 3: B2C Capabilities (Q4 2026) - *€31.200*
+
+*Goal*: Enable mobile/consumer-facing applications
+
+*Deliverables*:
+
+- ✅ boundary-push - Mobile push notifications (FCM/APNs)
+- ✅ boundary-audience - User segmentation and targeting
+
+*Timeline*: 10 weeks (39 development days)
+
+*Expected Impact*:
+
+- 40-60% B2C project adoption
+- €7k-€11k additional savings per B2C project
+- Total portfolio: 6 production-ready libraries
+
+*Decision Gate*: Push used in 40%+ B2C projects + Positive stakeholder feedback → EVALUATE Phase 4
+
+---
+
+=== Phase 4: Specialized Features (Q1 2027) - *€23.200* [CONDITIONAL]
+
+*Goal*: Add nice-to-have specialized capabilities
+
+*Deliverables*:
+
+- ⚠️ boundary-geo - Geocoding and mapping (if demand exists)
+- ⚠️ boundary-forms - Dynamic form builder (if not replaced by external service)
+
+*Timeline*: 7 weeks (29 development days)
+
+*Expected Impact*:
+
+- 20-40% project adoption
+- €3k-€5k additional savings per project
+- Portfolio completion
+
+*Decision Gate*: Evaluate Q4 2026 usage patterns + market demand → GO/PIVOT/CANCEL
+
+== Financial Summary
+
+=== Investment by Phase
+
+[cols="1,2,1,1",options="header"]
+|===
+| Phase | Timeline | Investment | Cumulative
+
+| Phase 1
+| Q2 2026
+| €26.400
+| €26.400
+
+| Phase 2
+| Q3 2026
+| €21.600
+| €48.000
+
+| Phase 3
+| Q4 2026
+| €31.200
+| €79.200
+
+| *Phase 4*
+| *Q1 2027*
+| *€23.200*
+| *€102.400*
+
+| *Recommended (1-3)*
+| *Q2-Q4 2026*
+| *€79.200*
+| *€79.200*
+|===
+
+=== ROI Projection (Phases 1-3 Only)
+
+[cols="1,1,1,1,1",options="header"]
+|===
+| Year | Projects | Savings | Cumulative | Net ROI
+
+| 2026
+| 5
+| €105.000
+| €105.000
+| €25.800
+
+| 2027
+| 10
+| €210.000
+| €315.000
+| €235.800
+
+| 2028
+| 10
+| €210.000
+| €525.000
+| €445.800
+
+| 2029
+| 10
+| €210.000
+| €735.000
+| €655.800
+
+| 2030
+| 10
+| €210.000
+| €945.000
+| €865.800
+
+| *5-Year Total*
+| *45*
+| *€945.000*
+| -
+| *€865.800 (1093% ROI)*
+|===
+
+*Conservative Projection*: Assumes 45 projects over 5 years using new libraries.
+
+=== Breakeven Analysis
+
+[cols="2,1,1",options="header"]
+|===
+| Scenario | Investment | Breakeven
+
+| *Phase 1 Only*
+| €26.400
+| *2 projects (4-6 months)*
+
+| *Phases 1-2*
+| €48.000
+| *3 projects (6-9 months)*
+
+| *Phases 1-3 (Recommended)*
+| €79.200
+| *3-4 projects (7-12 months)*
+
+| *All Phases (1-4)*
+| €102.400
+| *4 projects (9-14 months)*
+|===
+
+== Risk Assessment
+
+[cols="1,2,2,1",options="header"]
+|===
+| Risk | Impact | Mitigation | Likelihood
+
+| *Low Adoption*
+| Libraries unused → no ROI
+| Align with actual project pipeline; get early commitments
+| Medium
+
+| *Scope Creep*
+| Costs exceed budget
+| Fixed scope per phase; strict change control
+| Medium
+
+| *External Competition*
+| Third-party services better/cheaper
+| Continuous market scan; pivot if needed (Phase 4)
+| Low
+
+| *Team Capacity*
+| Other priorities delay work
+| Dedicated team allocation; Phase 4 is optional buffer
+| High
+
+| *Technical Debt*
+| Poor quality → maintenance burden
+| Code reviews; comprehensive testing; documentation
+| Low
+|===
+
+*Mitigation Strategy*: Phase 4 is explicitly conditional. If Phases 1-3 don't deliver expected adoption, we stop at €79.2k investment instead of €102.4k.
+
+== Success Metrics
+
+=== Phase 1 Success Criteria (Q2 2026)
+
+- ✅ boundary-workflow used in ≥60% of B2B projects
+- ✅ boundary-search integrated in ≥2 production applications
+- ✅ Developer satisfaction score ≥4.0/5.0
+- ✅ Zero critical bugs in production for 30 days
+- ✅ Documentation complete with examples
+
+=== Phase 2 Success Criteria (Q3 2026)
+
+- ✅ boundary-reports generates documents in ≥40% of projects
+- ✅ boundary-calendar handles scheduling in ≥30% of projects
+- ✅ Combined Phase 1+2 savings: €21k+ per project
+- ✅ API documentation coverage ≥90%
+
+=== Phase 3 Success Criteria (Q4 2026)
+
+- ✅ boundary-push sending notifications in ≥40% of B2C projects
+- ✅ boundary-audience targeting users in ≥30% of B2C projects
+- ✅ Mobile apps using push library: ≥3 in production
+- ✅ Positive feedback from mobile developers
+
+=== Phase 4 Go/No-Go Criteria (Evaluate Q4 2026)
+
+Proceed with Phase 4 only if:
+
+- ✅ Phases 1-3 libraries used in ≥5 projects
+- ✅ Geo/forms features requested by ≥2 active clients
+- ✅ No better external alternatives exist
+- ✅ Budget and team capacity available
+
+Otherwise: CANCEL Phase 4, invest €23.2k elsewhere.
+
+== Recommendation
+
+=== Primary Recommendation: *GO - Phases 1-3*
+
+*Rationale*:
+
+1. *Strong ROI*: €79.2k investment → €865k return over 5 years (1093%)
+2. *Fast Breakeven*: 3-4 projects (7-12 months)
+3. *High Confidence*: Critical gaps identified from real production apps
+4. *Balanced Risk*: Phase 4 optional buffer based on actual adoption
+5. *Strategic Alignment*: Covers both B2B and B2C project needs
+
+*Investment*: €79.200 (99 development days) over 3 quarters (Q2-Q4 2026)
+
+*Expected Return*: €21k-€31k savings per project × 45 projects = €945k over 5 years
+
+---
+
+=== Phase 4: *CONDITIONAL - Evaluate Q4 2026*
+
+*Rationale*:
+
+1. *Lower Priority*: Geo and forms have 20-40% adoption vs 50-80% for Phases 1-3
+2. *Market Alternatives*: Services like Google Maps API and Typeform may be sufficient
+3. *Opportunity Cost*: €23.2k could be invested in higher-priority features based on actual usage patterns
+4. *Risk Management*: Allows us to stop at €79.2k if adoption is lower than expected
+
+*Decision Point*: Q4 2026 after evaluating Phases 1-3 adoption and demand for geo/forms features.
+
+== Next Steps (Q1 2026 Preparation)
+
+=== Immediate Actions (Week 1-2)
+
+1. *Stakeholder Approval*
+   - Present roadmap to management
+   - Secure €79.2k budget commitment
+   - Get Go/No-Go decision on Phases 1-3
+
+2. *Team Allocation*
+   - Assign 1-2 senior developers to roadmap
+   - Block Q2 2026 calendar (8 weeks)
+   - Identify additional resources for Phases 2-3
+
+3. *Technical Planning*
+   - Review Boundary Framework architecture
+   - Identify integration points for new libraries
+   - Set up development environments
+
+=== Pre-Phase 1 Preparation (Week 3-8)
+
+4. *Design Phase 1 Libraries*
+   - boundary-workflow: API spec, state machine DSL, examples
+   - boundary-search: PostgreSQL FTS + Elasticsearch adapter design
+
+5. *Requirements Validation*
+   - Interview developers from WBA/OTTO projects
+   - Validate assumptions about workflow and search needs
+   - Adjust scope if necessary (stay within €26.4k budget)
+
+6. *Infrastructure Setup*
+   - Create Git repositories
+   - Set up CI/CD pipelines
+   - Configure testing environments
+
+7. *Documentation Standards*
+   - Define documentation templates
+   - Set up example projects
+   - Create developer onboarding guides
+
+=== Success Gates
+
+Before starting Phase 1 (target: April 2026):
+
+- ✅ Budget approved: €79.200 (Phases 1-3)
+- ✅ Team allocated: 1-2 senior developers available Q2 2026
+- ✅ Design docs complete: workflow + search specifications ready
+- ✅ Stakeholder buy-in: ≥3 projects committed to using Phase 1 libraries
+
+== Appendix: Library Quick Reference
+
+=== boundary-workflow (Priority 1)
+
+*Problem*: Every B2B app needs state machines (approvals, orders, tickets) - currently implemented ad-hoc
+
+*Solution*: Declarative FSM with guards, callbacks, persistence, audit trails, parallel states
+
+*ROI*: €8k-€12k per project (saves 10-15 days of custom state machine development)
+
+---
+
+=== boundary-search (Priority 2)
+
+*Problem*: Search functionality requires complex implementation (PostgreSQL FTS or Elasticsearch integration)
+
+*Solution*: Unified search API with PostgreSQL FTS (default) and Elasticsearch adapter (optional)
+
+*ROI*: €7k-€10k per project + €5k/year operational savings (avoid Elasticsearch Cloud if unnecessary)
+
+---
+
+=== boundary-reports (Priority 3)
+
+*Problem*: PDF/Excel generation requires low-level libraries with poor ergonomics
+
+*Solution*: Template-based report generation (PDF, Excel, CSV) with Hiccup-style DSL
+
+*ROI*: €3.2k-€4.8k per project (saves 4-6 days of report generation code)
+
+---
+
+=== boundary-calendar (Priority 4)
+
+*Problem*: Event scheduling, availability, recurring events require complex date/time logic
+
+*Solution*: iCal-compatible calendar with availability checking, conflict detection, recurring events
+
+*ROI*: €3.2k-€4k per project (saves 4-5 days of calendar implementation)
+
+---
+
+=== boundary-push (Priority 5)
+
+*Problem*: Mobile push notifications require FCM/APNs integration with retry logic, queuing, analytics
+
+*Solution*: Unified push API with FCM/APNs adapters, delivery tracking, segmentation, scheduling
+
+*ROI*: €4k-€6k per project (saves 5-8 days + €2k/year operational costs vs OneSignal)
+
+---
+
+=== boundary-audience (Priority 6)
+
+*Problem*: User segmentation for campaigns requires complex querying and targeting logic
+
+*Solution*: Segment builder with rule engine, dynamic queries, A/B testing support
+
+*ROI*: €3k-€5k per project (saves 4-6 days of segmentation logic)
+
+---
+
+=== boundary-geo (Priority 7)
+
+*Problem*: Geocoding and mapping features require third-party API integration
+
+*Solution*: Geocoding abstraction with Google Maps/Nominatim adapters, caching, batch operations
+
+*ROI*: €400-€800 per project (saves 0.5-1 day of integration code)
+
+---
+
+=== boundary-forms (Priority 8)
+
+*Problem*: Dynamic form builders for surveys/applications require complex state management
+
+*Solution*: Form builder with conditional logic, validation, versioning, response storage
+
+*ROI*: €2.5k-€4k per project (saves 3-5 days vs custom forms or Typeform integration)
+
+== Document Information
+
+[cols="1,2",options="header"]
+|===
+| Field | Value
+
+| *Document Type*
+| Executive Summary
+
+| *Full Roadmap*
+| `Boundary-Framework-Roadmap-2026-2027.adoc`
+
+| *Supporting Docs*
+| `Boundary-Framework-Strategische-Uitbreidingen.adoc` +
+`Boundary-Framework-Strategische-Uitbreidingen-Addendum.adoc`
+
+| *Version*
+| 1.0
+
+| *Date*
+| 2026-03-10
+
+| *Author*
+| TCBV
+
+| *Status*
+| Ready for Stakeholder Review
+|===
+
+---
+
+*END OF EXECUTIVE SUMMARY*

@@ -25,7 +25,7 @@ Inside each module:
 
 * Predictable architecture with strict dependency flow
 * Fast, isolated tests for pure core logic
-* Built-in modules for auth, admin, storage, jobs, tenant, and more
+* Built-in modules for auth, admin, storage, jobs, search, workflow, tenant, and more
 * Clear path from modular monolith to extracted services
 
 == Project Structure
@@ -44,6 +44,8 @@ libs/
 ├── email/
 ├── realtime/
 ├── tenant/
+├── search/
+├── workflow/
 ├── scaffolder/
 └── external/
 ----

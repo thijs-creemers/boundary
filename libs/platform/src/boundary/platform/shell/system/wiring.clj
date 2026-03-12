@@ -38,6 +38,8 @@
             [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
             [boundary.admin.shell.module-wiring] ;; Load admin module init/halt methods
             [boundary.tenant.shell.module-wiring] ;; Load tenant module init/halt methods
+            [boundary.workflow.shell.module-wiring] ;; Load workflow module init/halt methods
+            [boundary.search.shell.module-wiring] ;; Load search module init/halt methods
             [boundary.external.shell.module-wiring] ;; Load external adapters init/halt methods
             [cheshire.core]
             [clojure.string :as str]
@@ -100,7 +102,7 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes admin-routes tenant-routes router logger metrics-emitter error-reporter config tenant-service db-context]}]
+  [_ {:keys [user-routes admin-routes tenant-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service db-context]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)
@@ -196,10 +198,40 @@
         tenant-api-routes (or (:api tenant-routes) [])
         tenant-normalized-api (when (seq tenant-api-routes) tenant-api-routes)
 
+        ;; Extract workflow module routes (normalized format) — may be nil if workflow disabled
+        workflow-web-routes-raw (or (:web workflow-routes) [])
+        workflow-api-routes (or (:api workflow-routes) [])
+
+        ;; Workflow web routes — mounted under /web/admin (same prefix as admin routes)
+        workflow-normalized-web (when (seq workflow-web-routes-raw)
+                                  (mapv (fn [{:keys [path meta] :as route}]
+                                          (-> route
+                                              (dissoc :meta)
+                                              (merge {:no-doc true} meta)
+                                              (assoc :path (str "/web/admin" path))))
+                                        workflow-web-routes-raw))
+        workflow-normalized-api (when (seq workflow-api-routes) workflow-api-routes)
+
+        ;; Extract search module routes (normalized format) — may be nil if search disabled
+        search-web-routes-raw (or (:web search-routes) [])
+        search-api-routes     (or (:api search-routes) [])
+
+        ;; Search web routes — mounted under /web/admin (same prefix as admin/workflow routes)
+        search-normalized-web (when (seq search-web-routes-raw)
+                                (mapv (fn [{:keys [path meta] :as route}]
+                                        (-> route
+                                            (dissoc :meta)
+                                            (merge {:no-doc true} meta)
+                                            (assoc :path (str "/web/admin" path))))
+                                      search-web-routes-raw))
+        search-normalized-api (when (seq search-api-routes) search-api-routes)
+
         ;; Combine all API routes (unversioned at this point)
         all-api-routes (concat (or user-normalized-api [])
                                (or admin-normalized-api [])
-                               (or tenant-normalized-api []))
+                               (or tenant-normalized-api [])
+                               (or workflow-normalized-api [])
+                               (or search-normalized-api []))
 
         ;; Apply API versioning to all API routes
         ;; This wraps routes with /api/v1 prefix and creates backward compatibility redirects
@@ -213,6 +245,8 @@
                                       (or user-normalized-web [])
                                       (or admin-normalized-static [])
                                       (or admin-normalized-web [])
+                                      (or workflow-normalized-web [])
+                                      (or search-normalized-web [])
                                       versioned-api-routes)
 
         ;; Build system services map for HTTP interceptors
@@ -257,6 +291,10 @@
                               :web (count (or admin-web-routes []))
                               :api (count (or admin-api-routes []))}
                :tenant-routes {:api (count (or tenant-api-routes []))}
+               :workflow-routes {:web (count (or workflow-web-routes-raw []))
+                                 :api (count (or workflow-api-routes []))}
+               :search-routes {:web (count (or search-web-routes-raw []))
+                               :api (count (or search-api-routes []))}
                :versioned-api-routes (count versioned-api-routes)
                :total-normalized-routes (count all-normalized-routes)
                :router-adapter (class router)

@@ -1,0 +1,1953 @@
+= Boundary Framework: Strategische Uitbreidingen - Addendum (OTTO Analyse)
+:toc: left
+:toclevels: 3
+:sectnums:
+:icons: font
+:source-highlighter: rouge
+:experimental:
+:last-update-label!:
+Thijs Creemers <thijs@tcbv.nl>
+v1.1, {docdate}
+
+[abstract]
+== Executive Summary
+
+Dit addendum identificeert **3 aanvullende strategische gaps** op basis van de analyse van de OTTO Workforce Backend applicatie. Deze gaps zijn complementair aan de 5 gaps uit het hoofddocument (WBA analyse) en richten zich op **communication en targeting patterns** die essentieel zijn voor employee-facing en B2C applicaties.
+
+.Key Findings (Addendum)
+[cols="1,2,1,1"]
+|===
+|Library |Impact |Geschatte ROI per project |Priority
+
+|**boundary-push**
+|Mobile push notifications (Firebase/APNs), multi-platform, scheduling
+|€4.000 - €6.000
+|🔥 **Hoog (6)**
+
+|**boundary-audience**
+|Complex user segmentation/targeting, reusable filter builder
+|€3.000 - €5.000
+|🟡 **Medium (7)**
+
+|**boundary-forms**
+|Dynamic form builder, survey/questionnaire system
+|€2.500 - €4.000
+|🟡 **Medium (8)**
+|===
+
+.Strategische Rationale
+****
+**Waarom deze libraries?**
+
+1. **Pattern Recognition**: OTTO is representatief voor **employee-facing/B2C apps** met complexe communication needs
+2. **Complementary to WBA Gaps**: WBA focuste op B2B patterns (workflows, reports), OTTO onthult **B2C/mobile patterns**
+3. **High Reusability**: Push notifications, audience targeting, en forms zijn essentieel voor 60-80% van moderne apps
+4. **Mobile-First**: Push notifications zijn critical voor mobile app engagement (retention rates 3-10x hoger dan email)
+****
+
+== Inleiding
+
+=== Context: OTTO Workforce Backend Analyse
+
+De analyse van de OTTO Workforce Backend (myOTTO platform) heeft belangrijke inzichten opgeleverd over functionaliteit die **complementair is aan de WBA analyse**. Waar WBA B2B enterprise patterns onthulde (workflows, search, reports), onthult OTTO **B2C/employee-facing patterns**:
+
+.OTTO Applicatie Kenmerken
+* **Domein**: Workforce management platform voor flexwerkers
+* **Codebase**: ~30k lines Python, Vue 2 frontend, mobile apps (iOS/Android)
+* **Stack**: Django 5.2, Firebase Cloud Messaging, django-q2, Redis, MariaDB
+* **Users**: Tienduizenden flexwerkers (B2C context)
+* **Key Features**: Push notifications, surveys, complex user targeting, scheduling, multi-language
+
+**Verschil met WBA**:
+
+* WBA = B2B (event management voor culturele werkbezoeken)
+* OTTO = B2C (employee self-service platform)
+
+**Complementary Gaps**: OTTO onthult communication/engagement patterns die WBA niet had.
+
+=== Methodologie
+
+Dezelfde methodologie als hoofddocument:
+
+1. **Pattern Analysis**: Welke functionaliteit in OTTO is niet-triviaal en veelvoorkomend?
+2. **Abstraction Assessment**: Welke patterns zijn generiek genoeg voor herbruikbare libraries?
+3. **ROI Calculation**: Hoeveel development tijd bespaart een library per project?
+4. **Ecosystem Comparison**: Wat bieden Django/Rails/Laravel wel dat Boundary niet heeft?
+5. **Priority Ranking**: Wat heeft de hoogste impact vs effort ratio?
+
+=== Relatie tot Hoofddocument
+
+Dit addendum **breidt uit** op het hoofddocument (`Boundary-Framework-Strategische-Uitbreidingen.adoc`):
+
+* **Hoofddocument (WBA analyse)**: 5 libraries voor B2B patterns (workflow, search, reports, calendar, geo)
+* **Addendum (OTTO analyse)**: 3 libraries voor B2C/mobile patterns (push, audience, forms)
+
+**Totaal**: 8 strategische gaps (5 + 3)
+
+== Library 6: boundary-push
+
+[discrete]
+=== Priority: 🔥 **HOOG (6)** | Impact: **High** | ROI: **€4.000 - €6.000 per project**
+
+=== Probleem Beschrijving
+
+==== Wat OTTO Heeft (Custom Firebase Implementation)
+
+OTTO gebruikt **Firebase Cloud Messaging (FCM)** voor push notifications naar iOS/Android apps:
+
+[source,python]
+----
+# Django model voor push notifications
+class PushNotification(models.Model):
+    WAITING = "W"
+    IN_PROGRESS = "I"
+    FAILED = "F"
+    SENT = "D"
+    
+    STATUSES = (
+        (WAITING, "Waiting to send push"),
+        (IN_PROGRESS, "Sending push in progress"),
+        (FAILED, "Failed to send push"),
+        (SENT, "Sent push"),
+    )
+    
+    payload = models.TextField()
+    details = models.ForeignKey(PushNotificationDetails, on_delete=models.CASCADE)
+    response = models.TextField()
+    number_of_receivers = models.IntegerField()
+    status = models.CharField(choices=STATUSES, default=WAITING, max_length=1)
+
+# Sending pushes
+def send_fcm_push(registration_id, message, collapse_key, add_data=None):
+    """Send a message to a single registration ID."""
+    result = FcmPush(message, [registration_id], collapse_key, add_data=add_data).send()
+
+# Scheduled pushes
+def async_send_push(otto_user, collapse_key, message, push_at=None, 
+                    origin_url_name=None, extra_data=None):
+    """Schedule or send push immediately."""
+    if push_at and push_at > timezone.now():
+        async_task("notifications.tasks.send_fcm_push",
+                   schedule_type="O",
+                   schedule_at=push_at,
+                   registration_id=otto_user.registration_id,
+                   message=message,
+                   collapse_key=collapse_key)
+    else:
+        async_task("notifications.tasks.send_fcm_push", ...)
+----
+
+**Complexiteit in OTTO**:
+
+* ~500 lines push notification logic
+* Firebase SDK integratie (firebase-admin Python package)
+* Multi-language support (translate message per user's preferred language)
+* Deep linking (origin_url in payload voor navigate naar specifieke screen)
+* Collapse keys (groeperen van notifications)
+* Silent notifications (data-only, no alert)
+* Scheduled pushes (via django-q2)
+* Batch sending (max 500 tokens per Firebase request)
+* Error handling & retry logic
+* Status tracking (waiting, sending, sent, failed)
+
+==== Waarom Dit Een Strategische Gap Is
+
+[cols="1,3"]
+|===
+|Aspect |Rationale
+
+|**Ubiquity**
+|80% van consumer-facing apps heeft push notifications (mobiele apps, PWAs)
+
+|**Complexity**
+|Push notifications zijn *multi-platform* (FCM voor Android, APNs voor iOS), require device registration, token management, error handling
+
+|**Engagement Impact**
+|Push notifications increase retention by 3-10x vs email-only (Leanplum study 2019)
+
+|**Boilerplate**
+|Zonder library schrijf je per project 500-1000 lines boilerplate voor push logic
+
+|**Vendor Lock-in**
+|Zonder eigen library grijpen teams naar externe services (OneSignal, Pusher, Airship) met maandelijkse kosten
+|===
+
+**Critical for Mobile Apps**: Boundary wil competitive zijn voor **mobile backend APIs** - push is essentieel.
+
+=== Voorgestelde Oplossing: boundary-push
+
+==== Library Design
+
+**Core Abstractions**:
+
+[source,clojure]
+----
+(ns boundary.push.core)
+
+;; Multi-provider support (Firebase, APNs, OneSignal, etc.)
+{:boundary/push-service
+ {:providers {:fcm {:enabled? true
+                    :credentials-path "firebase-credentials.json"
+                    :batch-size 500}  ; Firebase limit
+              :apns {:enabled? true
+                     :key-path "apns-key.p8"
+                     :key-id "ABC123"
+                     :team-id "DEF456"
+                     :topic "com.myapp.push"}}
+  :default-provider :fcm
+  :jobs-service :boundary/jobs-service  ; Voor scheduled pushes
+  :cache-service :boundary/cache-service}}  ; Token caching
+
+;; Declaratieve push definitie
+(defpush welcome-notification
+  {:title "Welcome to MyApp!"
+   :body "Start exploring features..."
+   :providers [:fcm :apns]  ; Multi-platform
+   :deep-link {:route :dashboard :params {}}  ; Deep linking
+   :data {:user-id "{{user_id}}"
+          :notification-type "welcome"}
+   :collapse-key "welcome"  ; Group similar notifications
+   :priority :high
+   :ttl 86400})  ; 24 hours time-to-live
+
+;; Usage: Send to single user
+(push/send! welcome-notification
+            {:user-id user-id
+             :device-token "fcm-token-abc123"
+             :platform :android})
+
+;; Send to multiple users (batch)
+(push/send-batch! welcome-notification
+                  {:user-ids [user1 user2 user3]
+                   :language :nl})  ; Auto-translate title/body
+
+;; Schedule push for future
+(push/schedule! welcome-notification
+                {:user-id user-id
+                 :send-at (instant/plus (instant/now) (duration/days 1))})
+
+;; Send to topic (broadcast)
+(push/send-to-topic! "news-updates"
+                     {:title "Breaking News"
+                      :body "..."
+                      :platform :all})
+----
+
+**Device Token Management**:
+
+[source,clojure]
+----
+;; Register device token for user
+(push/register-device! {:user-id user-id
+                        :device-token "fcm-token-abc123"
+                        :platform :android
+                        :app-version "1.2.3"})
+
+;; Update token (when FCM rotates tokens)
+(push/update-token! old-token new-token)
+
+;; Unregister device (logout, uninstall)
+(push/unregister-device! device-token)
+
+;; Get all devices for user
+(push/list-devices user-id)
+;; => [{:device-token "fcm-token-abc123"
+;;      :platform :android
+;;      :registered-at inst
+;;      :last-seen-at inst}]
+----
+
+**Analytics & Status Tracking**:
+
+[source,clojure]
+----
+;; Track push delivery status
+(push/get-status push-id)
+;; => {:status :sent
+;;     :sent-at inst
+;;     :delivered-at inst  ; If provider supports delivery receipts
+;;     :opened-at inst  ; If app reports opens
+;;     :error nil}
+
+;; Aggregate analytics
+(push/analytics {:start-date (instant/minus (instant/now) (duration/days 30))
+                 :end-date (instant/now)})
+;; => {:total-sent 10000
+;;     :delivery-rate 0.95
+;;     :open-rate 0.12
+;;     :failed 50}
+----
+
+==== Integratie met Bestaande Libraries
+
+[source,clojure]
+----
+;; Integration met boundary-user (device tokens per user)
+(user-ports/register-device user-service user-id device-token :android)
+
+;; Integration met boundary-jobs (scheduled pushes)
+(jobs-ports/schedule jobs-service
+                     :send-push
+                     {:push-def welcome-notification
+                      :user-id user-id}
+                     {:schedule-at (instant/plus (instant/now) (duration/hours 2))})
+
+;; Integration met boundary-audience (targeted pushes)
+(let [audience (audience/build {:filter {:age-range [18 30]
+                                         :location :amsterdam}})]
+  (push/send-to-audience! promo-notification audience))
+
+;; Integration met boundary-observability (logging)
+(log/info :push-sent {:push-id push-id :user-count 100})
+----
+
+==== Database Schema
+
+[source,sql]
+----
+-- Device tokens (many devices per user)
+CREATE TABLE push_devices (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  device_token TEXT NOT NULL UNIQUE,
+  platform TEXT NOT NULL, -- 'android', 'ios', 'web'
+  app_version TEXT,
+  registered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX idx_push_devices_user ON push_devices(user_id);
+CREATE INDEX idx_push_devices_token ON push_devices(device_token);
+
+-- Push notification log (audit trail)
+CREATE TABLE push_notifications (
+  id UUID PRIMARY KEY,
+  push_key TEXT NOT NULL, -- Key from defpush definition
+  user_id UUID REFERENCES users(id),
+  topic TEXT, -- For topic-based broadcasts
+  device_token TEXT,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  data JSONB,
+  status TEXT NOT NULL, -- 'queued', 'sent', 'delivered', 'failed'
+  error TEXT,
+  scheduled_at TIMESTAMP,
+  sent_at TIMESTAMP,
+  delivered_at TIMESTAMP,
+  opened_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_push_user ON push_notifications(user_id);
+CREATE INDEX idx_push_status ON push_notifications(status);
+CREATE INDEX idx_push_scheduled ON push_notifications(scheduled_at) WHERE scheduled_at IS NOT NULL;
+----
+
+=== ROI Analyse
+
+==== Development Time Savings
+
+[cols="2,1,1,1"]
+|===
+|Activiteit |Zonder Library |Met Library |Savings
+
+|Firebase/APNs SDK setup
+|2-3 dagen
+|0.5 dag (config)
+|1.5-2.5 dagen
+
+|Device token management
+|2-3 dagen
+|0 dagen (built-in)
+|2-3 dagen
+
+|Multi-platform support
+|3-4 dagen
+|0 dagen (built-in)
+|3-4 dagen
+
+|Scheduled pushes
+|2-3 dagen
+|0.5 dag (jobs integration)
+|1.5-2.5 dagen
+
+|Deep linking
+|1-2 dagen
+|0 dagen (declarative)
+|1-2 dagen
+
+|Error handling & retries
+|2-3 dagen
+|0 dagen (built-in)
+|2-3 dagen
+
+|**Totaal**
+|**12-18 dagen**
+|**1 dag**
+|**11-17 dagen**
+|===
+
+**Cost Savings**: 11-17 dagen × €800/dag = **€8.800 - €13.600**
+
+Maar: **Niet elk project heeft mobile apps.**
+
+Conservatieve inschatting: 50% van projecten heeft mobile push notifications.
+
+**Adjusted savings**: (€8.800 - €13.600) × 50% = **€4.400 - €6.800**
+
+Met 15% buffer: **€5.060 - €7.820**
+
+Conservatief estimate: **€4.000 - €6.000 per project** (met mobile apps)
+
+==== Operationele Besparingen
+
+**Zonder library (third-party service)**:
+
+* OneSignal: €0-€99/maand (free tier tot 10k users, dan €99-€999/maand)
+* Pusher Beams: €0-€49/maand (free tier tot 1k devices, dan €49-€499/maand)
+* Airship: €500-€5000/maand (enterprise)
+
+**Met library (self-hosted Firebase/APNs)**:
+
+* Firebase: Gratis (unlimited pushes)
+* APNs: Gratis (Apple service)
+* Cost: €0 operational (alleen compute, wat je toch al betaalt)
+
+**Savings**: €0-€5000/maand × 12 = **€0-€60k/jaar** (depends on scale)
+
+Voor gemiddeld project: €1.200/jaar savings (conservatief: €100/maand OneSignal paid tier)
+
+==== Herbruikbaarheid Over Projecten
+
+**Typische use cases**:
+
+* **E-commerce**: Order updates, promo notifications, cart abandonment
+* **Social apps**: New followers, messages, likes
+* **Fintech**: Transaction alerts, balance updates, fraud warnings
+* **Healthcare**: Appointment reminders, medication alerts
+* **Fitness**: Workout reminders, goal milestones
+* **News/Media**: Breaking news, personalized content alerts
+* **On-demand services**: Driver arrival, order status (Uber, DoorDash, etc.)
+
+**Conservatieve inschatting**: 50% van Boundary projecten heeft mobile apps met push.
+
+Als Boundary 10 projecten per jaar doet: **5 projecten × (€5k dev + €1.2k opex) = €31k/jaar savings**
+
+=== Implementatie Schatting
+
+[cols="1,3,1"]
+|===
+|Component |Werk |Effort
+
+|**Core push engine**
+|Send logic, batch handling, error handling
+|4 dagen
+
+|**Firebase adapter**
+|FCM SDK wrapper, token management
+|3 dagen
+
+|**APNs adapter**
+|APNs HTTP/2 wrapper
+|3 dagen
+
+|**Device management**
+|Token registration, rotation, cleanup
+|2 dagen
+
+|**Scheduled pushes**
+|boundary-jobs integration, queue management
+|2 dagen
+
+|**Deep linking**
+|URL generation, platform-specific routing
+|1 dag
+
+|**Analytics**
+|Status tracking, delivery/open rates
+|2 dagen
+
+|**Multi-language**
+|Message translation per user preference
+|1 dag
+
+|**Documentation + tests**
+|AGENTS.md, examples, test suite
+|3 dagen
+
+|**Totaal**
+|
+|**21 dagen**
+|===
+
+**Cost**: 21 dagen × €800/dag = **€16.800**
+
+**Breakeven**: Na 3-4 projecten (3.5 × €5k = €17.5k > €16.8k)
+
+=== Wanneer NIET boundary-push gebruiken?
+
+De library is bedoeld voor **self-hosted push notifications**. Gebruik third-party services direct als:
+
+* ❌ Project heeft <1000 users (OneSignal free tier voldoende)
+* ❌ Compliance vereist managed service (SOC2/HIPAA certified third-party)
+* ❌ Advanced features nodig: A/B testing, journey builder, in-app messaging (third-party services bieden dit)
+
+Voor deze gevallen kan de library wél een adapter bieden (zelfde API, andere backend zoals OneSignal).
+
+== Library 7: boundary-audience
+
+[discrete]
+=== Priority: 🟡 **MEDIUM (7)** | Impact: **Medium** | ROI: **€3.000 - €5.000 per project**
+
+=== Probleem Beschrijving
+
+==== Wat OTTO Heeft (Complex User Targeting)
+
+OTTO heeft **complexe audience targeting** voor notifications en surveys:
+
+[source,python]
+----
+# Django model voor notification targeting
+class Notification(models.Model):
+    # Notification filter settings
+    paris_ids = models.TextField(blank=True)  # Employee IDs
+    exclude_invalid_contracts = models.BooleanField(default=False)
+    
+    clients = models.ManyToManyField(Account, blank=True)
+    clients_start_date = models.DateField(blank=True, null=True)
+    clients_end_date = models.DateField(blank=True, null=True)
+    
+    work_locations = models.ManyToManyField(WorkLocation, blank=True)
+    work_locations_start_date = models.DateField(blank=True, null=True)
+    work_locations_end_date = models.DateField(blank=True, null=True)
+    
+    housing_locations = models.ManyToManyField(HousingLocation, blank=True)
+    housing_locations_start_date = models.DateField(blank=True, null=True)
+    housing_locations_end_date = models.DateField(blank=True, null=True)
+    
+    min_age = models.IntegerField(blank=True, null=True)
+    max_age = models.IntegerField(blank=True, null=True)
+    bsn_present = models.BooleanField(null=True)  # Tax ID present?
+    week_number = models.IntegerField(blank=True, null=True)  # Weeks employed
+
+# Complex filtering logic
+def get_receivers(self):
+    """Get the receivers by applying 8 different filters."""
+    receivers = OttoUser.objects.all()
+    receivers = self.filter_paris_id(receivers)
+    receivers = self.filter_clients(receivers)
+    receivers = self.filter_work_locations(receivers)
+    receivers = self.filter_housing_locations(receivers)
+    receivers = self.filter_age(receivers)
+    receivers = self.filter_bsn(receivers)
+    receivers = self.filter_week_number(receivers)
+    receivers = self.exclude_expired_contracts(receivers)
+    return receivers
+
+def filter_age(self, qs):
+    """Get receivers based on age."""
+    if self.min_age and self.max_age:
+        current = timezone.now()
+        max_datetime = current - timedelta(days=int(self.min_age * 365.25))
+        min_datetime = current - timedelta(days=int((self.max_age * 365.25) + 365.25))
+        return qs.filter(date_of_birth__gte=min_datetime, date_of_birth__lte=max_datetime)
+    return qs
+
+# ~300 lines van filter logic
+----
+
+**Complexiteit**:
+
+* 8 verschillende filter types (IDs, locations, age, tenure, contracts)
+* Date range filters (work_locations tussen start/end datum)
+* Complex date queries (age calculation, weeks employed)
+* Filter combinations (AND/OR logic)
+* **Pattern herhaalt zich**: Notification model heeft dezelfde filters als Survey model (code duplication)
+
+==== Waarom Dit Een Strategische Gap Is
+
+[cols="1,3"]
+|===
+|Aspect |Rationale
+
+|**Ubiquity**
+|Elke app met notifications, emails, campaigns, of segmentation heeft audience targeting
+
+|**Complexity**
+|Complex query building, date arithmetic, filter combinations, performance optimization
+
+|**Boilerplate**
+|Elke feature met targeting (notifications, emails, surveys) dupliceert 200-300 lines filter code
+
+|**Consistency**
+|Zonder library heeft elk project andere targeting logic (bugs, inconsistenties)
+|===
+
+**Critical for Engagement**: Targeted communications hebben 2-5x hogere engagement dan broadcast.
+
+=== Voorgestelde Oplossing: boundary-audience
+
+==== Library Design
+
+**Core Abstractions**:
+
+[source,clojure]
+----
+(ns boundary.audience.core)
+
+;; Declaratieve audience builder
+(defaudience active-employees
+  {:name "Active Employees (30 days)"
+   :description "Users with contract active in last 30 days"
+   
+   :filters [{:type :contract-status
+              :operator :active
+              :date-range {:start (instant/minus (instant/now) (duration/days 30))
+                           :end (instant/now)}}]})
+
+(defaudience young-amsterdam-employees
+  {:name "Young employees in Amsterdam"
+   :description "Age 18-30, worked in Amsterdam in last 3 months"
+   
+   :filters [{:type :age-range
+              :min 18
+              :max 30}
+             
+             {:type :work-location
+              :locations [:amsterdam :amstelveen]
+              :date-range {:start (instant/minus (instant/now) (duration/days 90))
+                           :end (instant/now)}}]
+   
+   :combinator :and})  ; All filters must match (default)
+
+;; Complexe audience met OR logic
+(defaudience high-value-users
+  {:name "High Value Users"
+   
+   :filters [{:type :or
+              :children [{:type :order-count
+                          :operator :gte
+                          :value 10}
+                         
+                         {:type :lifetime-value
+                          :operator :gte
+                          :value 1000}
+                         
+                         {:type :subscription-tier
+                          :operator :eq
+                          :value :premium}]}]})
+
+;; Usage: Evaluate audience
+(audience/resolve active-employees)
+;; => {:user-ids [uuid1 uuid2 uuid3 ...]
+;;     :count 150
+;;     :cached? false}
+
+;; Usage: Count zonder ophalen (performance)
+(audience/count active-employees)
+;; => 150
+
+;; Usage: Preview (debug)
+(audience/explain active-employees)
+;; => {:sql "SELECT users.id FROM users JOIN contracts ..."
+;;     :filters [{:type :contract-status :matched 150}]
+;;     :execution-time-ms 23}
+----
+
+**Dynamic Audience Building (Runtime)**:
+
+[source,clojure]
+----
+;; Build audience at runtime (user-defined segmentation)
+(def user-segment
+  (audience/build
+    {:filters [{:type :age-range :min 25 :max 40}
+               {:type :city :operator :in :values [:amsterdam :utrecht]}
+               {:type :signup-date
+                :operator :gte
+                :value (instant/minus (instant/now) (duration/days 90))}]
+     :combinator :and}))
+
+(audience/resolve user-segment)
+;; => {:user-ids [...] :count 85}
+
+;; Save segment for reuse
+(audience/save! user-segment "Q1 2026 Amsterdam cohort")
+----
+
+**Filter Types (Built-in)**:
+
+[source,clojure]
+----
+;; Demographics
+{:type :age-range :min 18 :max 30}
+{:type :gender :value :female}
+{:type :language :values [:nl :en]}
+
+;; Location
+{:type :country :values [:nl :be]}
+{:type :city :values [:amsterdam :rotterdam]}
+{:type :postal-code :prefix "1012"}  ; Amsterdam centrum
+
+;; Behavior
+{:type :last-login :operator :gte :value (instant/minus (instant/now) (duration/days 7))}
+{:type :order-count :operator :gte :value 5}
+{:type :lifetime-value :operator :gte :value 500}
+
+;; Tenure/Activity
+{:type :signup-date :operator :lte :value (instant/minus (instant/now) (duration/days 90))}
+{:type :days-since-signup :operator :gte :value 30}
+
+;; Custom fields (extensible)
+{:type :custom-field :field :subscription-tier :operator :eq :value :premium}
+----
+
+**Caching & Performance**:
+
+[source,clojure]
+----
+;; Large audiences: cache results
+(audience/resolve active-employees {:cache? true :ttl 3600})  ; 1 hour cache
+
+;; Incremental updates (for scheduled campaigns)
+(audience/refresh! active-employees)  ; Recompute and update cache
+
+;; Scheduled refresh (via boundary-jobs)
+(jobs-ports/schedule jobs-service
+                     :refresh-audience
+                     {:audience-id :active-employees}
+                     {:schedule "0 2 * * *"})  ; Daily at 2am
+----
+
+==== Integratie met Bestaande Libraries
+
+[source,clojure]
+----
+;; Integration met boundary-push (targeted push notifications)
+(push/send-to-audience! promo-notification active-employees)
+
+;; Integration met boundary-email (targeted email campaigns)
+(email/send-campaign! {:template :weekly-newsletter
+                       :audience active-employees})
+
+;; Integration met boundary-forms (targeted surveys)
+(forms/send-survey! employee-satisfaction-survey
+                    {:audience young-amsterdam-employees})
+
+;; Integration met boundary-admin (audience builder UI)
+(admin/register-audience-builder! :notifications
+                                  {:available-filters [:age-range :city :signup-date]
+                                   :preview? true})
+----
+
+==== Database Schema
+
+[source,sql]
+----
+-- Saved audiences
+CREATE TABLE audiences (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  filters JSONB NOT NULL,  -- Array of filter definitions
+  combinator TEXT NOT NULL DEFAULT 'and',  -- 'and' or 'or'
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Audience cache (precomputed results)
+CREATE TABLE audience_cache (
+  audience_id UUID NOT NULL REFERENCES audiences(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  computed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (audience_id, user_id)
+);
+
+CREATE INDEX idx_audience_cache_audience ON audience_cache(audience_id);
+CREATE INDEX idx_audience_cache_computed ON audience_cache(computed_at);
+----
+
+=== ROI Analyse
+
+==== Development Time Savings
+
+[cols="2,1,1,1"]
+|===
+|Activiteit |Zonder Library |Met Library |Savings
+
+|Filter logic implementation
+|3-5 dagen
+|0.5 dag (declarative)
+|2.5-4.5 dagen
+
+|Query optimization
+|2-3 dagen
+|0 dagen (built-in)
+|2-3 dagen
+
+|Caching layer
+|2-3 dagen
+|0 dagen (built-in)
+|2-3 dagen
+
+|Admin UI voor targeting
+|3-4 dagen
+|1 dag (config)
+|2-3 dagen
+
+|**Totaal**
+|**10-15 dagen**
+|**1.5 dagen**
+|**8.5-13.5 dagen**
+|===
+
+**Cost Savings**: 8.5-13.5 dagen × €800/dag = **€6.800 - €10.800**
+
+Maar: **Niet elk project heeft complexe audience targeting.**
+
+Conservatieve inschatting: 40% van projecten heeft deze features (notifications, emails, campaigns).
+
+**Adjusted savings**: (€6.800 - €10.800) × 40% = **€2.720 - €4.320**
+
+Met 15% buffer: **€3.128 - €4.968**
+
+Conservatief estimate: **€3.000 - €5.000 per project** (met targeting features)
+
+==== Herbruikbaarheid Over Projecten
+
+**Typische use cases**:
+
+* **Marketing platforms**: Email campaigns, push notifications, SMS blasts
+* **CRM**: Customer segmentation, lead scoring
+* **E-commerce**: Promo targeting, cart abandonment campaigns
+* **SaaS**: Feature announcements, onboarding emails
+* **HR platforms**: Employee communications, surveys (zoals OTTO)
+* **Social apps**: Content recommendations, friend suggestions
+
+**Conservatieve inschatting**: 40% van Boundary projecten heeft audience targeting.
+
+Als Boundary 10 projecten per jaar doet: **4 projecten × €4k = €16k/jaar savings**
+
+=== Implementatie Schatting
+
+[cols="1,3,1"]
+|===
+|Component |Werk |Effort
+
+|**Core audience engine**
+|Filter evaluation, query building, combinator logic
+|4 dagen
+
+|**Built-in filter types**
+|Demographics, location, behavior, tenure (10-15 types)
+|3 dagen
+
+|**Caching layer**
+|Precompute results, TTL, refresh logic
+|2 dagen
+
+|**Query optimization**
+|Index recommendations, query planner hints
+|2 dagen
+
+|**Admin UI integration**
+|Audience builder component, preview
+|3 dagen
+
+|**Extension API**
+|Custom filter types, plugins
+|2 dagen
+
+|**Documentation + tests**
+|AGENTS.md, examples, test suite
+|2 dagen
+
+|**Totaal**
+|
+|**18 dagen**
+|===
+
+**Cost**: 18 dagen × €800/dag = **€14.400**
+
+**Breakeven**: Na 4 projecten (4 × €4k = €16k > €14.4k)
+
+== Library 8: boundary-forms
+
+[discrete]
+=== Priority: 🟡 **MEDIUM (8)** | Impact: **Medium** | ROI: **€2.500 - €4.000 per project**
+
+=== Probleem Beschrijving
+
+==== Wat OTTO Heeft (Survey System)
+
+OTTO heeft een **survey/questionnaire system** voor employee feedback:
+
+[source,python]
+----
+# Django model voor surveys
+class Survey(models.Model):
+    title = models.TextField(blank=True, null=True)
+    insocial_flight_id = models.TextField(blank=True, null=True)  # External survey ID
+    usabilla_link = models.TextField(blank=True, null=True)  # External survey link
+    sender = models.ForeignKey(CmsUser, on_delete=models.DO_NOTHING)
+    receivers = models.ManyToManyField(OttoUser, through="SurveyStatus")
+    send_date = models.DateTimeField(auto_now_add=True)
+    
+    # Targeting filters (identical to Notification filters)
+    paris_ids = models.TextField(blank=True)
+    clients = models.ManyToManyField(Account, blank=True)
+    # ... (dezelfde 8 filters als Notification)
+    
+    mandatory = models.BooleanField(null=True)  # <1>
+    survey_start_date = models.DateField(blank=True, null=True)
+    survey_end_date = models.DateField(blank=True, null=True)
+
+# Survey status tracking
+class SurveyStatus(models.Model):
+    FILLED = "filled"
+    UNFILLED = "not_filled"
+    
+    status = models.CharField(choices=[(FILLED, "filled"), (UNFILLED, "unfilled")])
+    survey = models.ForeignKey(Survey, on_delete=models.CASCADE)
+    receiver = models.ForeignKey(OttoUser, on_delete=models.CASCADE)
+    show_date = models.DateTimeField(blank=True, null=True)  # When shown to user
+    
+    def mark_as_filled(self):
+        self.status = self.FILLED
+        self.save()
+----
+<1> Mandatory surveys **block app usage** until filled (critical for compliance)
+
+**Wat ontbreekt (OTTO gebruikt externe tools)**:
+
+* ❌ Geen interne form builder (gebruikt Usabilla/InSocial)
+* ❌ Geen question types (text, multiple choice, rating, etc.)
+* ❌ Geen conditional logic (show question Y if answer X = A)
+* ❌ Geen response storage (responses opgeslagen extern)
+* ❌ Geen analytics (completion rates, aggregate results)
+
+**Waarom dit toch relevant is**:
+
+OTTO **delegeert** surveys naar externe tools, maar moet nog steeds:
+
+* Targeting (wie krijgt welke survey)
+* Scheduling (wanneer sturen)
+* Status tracking (filled/unfilled)
+* Mandatory enforcement (blokkeren app)
+
+Een complete form builder library zou **alle** functionaliteit intern bieden.
+
+==== Waarom Dit Een Strategische Gap Is
+
+[cols="1,3"]
+|===
+|Aspect |Rationale
+
+|**Ubiquity**
+|Bijna elke app heeft forms: contact forms, surveys, feedback, onboarding questionnaires
+
+|**Complexity**
+|Dynamic forms, conditional logic, validation, multi-page flows, response storage
+
+|**Boilerplate**
+|Zonder library schrijf je per project 500-1000 lines form logic
+
+|**Vendor Lock-in**
+|Zonder eigen library grijpen teams naar externe tools (Typeform, Jotform, Google Forms) met maandelijkse kosten + data privacy concerns
+|===
+
+=== Voorgestelde Oplossing: boundary-forms
+
+==== Library Design
+
+**Core Abstractions**:
+
+[source,clojure]
+----
+(ns boundary.forms.core)
+
+;; Declaratieve form definitie
+(defform employee-satisfaction
+  {:title "Employee Satisfaction Survey"
+   :description "Help us improve your experience"
+   
+   :pages [{:id :demographics
+            :title "About You"
+            :questions [{:id :department
+                         :type :single-choice
+                         :label "Which department do you work in?"
+                         :options ["Engineering" "Sales" "Marketing" "Operations"]
+                         :required? true}
+                        
+                        {:id :tenure
+                         :type :number
+                         :label "How many months have you worked here?"
+                         :validation {:min 0 :max 600}
+                         :required? true}]}
+           
+           {:id :satisfaction
+            :title "Your Experience"
+            :questions [{:id :overall-rating
+                         :type :rating
+                         :label "How satisfied are you overall?"
+                         :scale {:min 1 :max 5 :labels {1 "Very Unsatisfied" 5 "Very Satisfied"}}
+                         :required? true}
+                        
+                        {:id :feedback
+                         :type :long-text
+                         :label "What could we improve?"
+                         :placeholder "Share your thoughts..."
+                         :max-length 1000
+                         :required? false}
+                        
+                        {:id :recommend
+                         :type :yes-no
+                         :label "Would you recommend working here?"
+                         :required? true}]}]
+   
+   :settings {:allow-anonymous? false
+              :allow-multiple-submissions? false
+              :save-draft? true
+              :mandatory? false  ; Block app until completed?
+              :show-progress? true
+              :randomize-questions? false}})
+
+;; Conditional logic
+(defform customer-feedback
+  {:title "Customer Feedback"
+   
+   :pages [{:id :experience
+            :questions [{:id :purchased
+                         :type :yes-no
+                         :label "Did you make a purchase today?"}
+                        
+                        ;; Show only if purchased = yes
+                        {:id :satisfaction
+                         :type :rating
+                         :label "How satisfied are you with your purchase?"
+                         :scale {:min 1 :max 5}
+                         :show-if {:question :purchased
+                                   :operator :eq
+                                   :value true}}  ; <1>
+                        
+                        ;; Show only if satisfied <= 2
+                        {:id :issue-reason
+                         :type :single-choice
+                         :label "What was the main issue?"
+                         :options ["Quality" "Price" "Service" "Other"]
+                         :show-if {:question :satisfaction
+                                   :operator :lte
+                                   :value 2}}]}]})
+----
+<1> Conditional questions (alleen tonen als vorige antwoord voldoet aan conditie)
+
+**Usage**:
+
+[source,clojure]
+----
+;; Send form to user(s)
+(forms/send! employee-satisfaction
+             {:user-ids [user1 user2 user3]
+              :send-at (instant/now)
+              :expires-at (instant/plus (instant/now) (duration/days 7))})
+
+;; Send to audience (via boundary-audience integration)
+(forms/send-to-audience! employee-satisfaction
+                         active-employees
+                         {:mandatory? true})
+
+;; Check response status
+(forms/response-status form-id user-id)
+;; => {:status :completed
+;;     :submitted-at inst
+;;     :completion-time-seconds 245}
+
+;; Get responses
+(forms/get-responses employee-satisfaction)
+;; => [{:user-id uuid1
+;;      :submitted-at inst
+;;      :responses {:department "Engineering"
+;;                  :tenure 18
+;;                  :overall-rating 4
+;;                  :feedback "Great culture!"
+;;                  :recommend true}}]
+
+;; Analytics
+(forms/analytics employee-satisfaction)
+;; => {:sent 100
+;;     :started 85
+;;     :completed 72
+;;     :completion-rate 0.72
+;;     :avg-completion-time-seconds 180
+;;     :responses-by-question {:overall-rating {:avg 3.8
+;;                                               :distribution {1 2, 2 5, 3 15, 4 30, 5 20}}}}
+----
+
+**Admin UI Integration**:
+
+[source,clojure]
+----
+;; Form builder UI (drag-and-drop)
+(admin/register-form-builder! {:entity :surveys
+                               :available-question-types [:text :long-text :number
+                                                          :single-choice :multiple-choice
+                                                          :rating :yes-no :date :email]
+                               :allow-conditional-logic? true
+                               :allow-branching? true})  ; Multi-page with branching
+----
+
+==== Database Schema
+
+[source,sql]
+----
+-- Form definitions
+CREATE TABLE forms (
+  id UUID PRIMARY KEY,
+  key TEXT NOT NULL UNIQUE,  -- From defform
+  title TEXT NOT NULL,
+  description TEXT,
+  pages JSONB NOT NULL,  -- Array of pages with questions
+  settings JSONB NOT NULL,  -- Form settings
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  archived_at TIMESTAMP
+);
+
+-- Form sends (who received which form, when)
+CREATE TABLE form_sends (
+  id UUID PRIMARY KEY,
+  form_id UUID NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP,
+  mandatory BOOLEAN NOT NULL DEFAULT FALSE,
+  UNIQUE(form_id, user_id)
+);
+
+-- Form responses
+CREATE TABLE form_responses (
+  id UUID PRIMARY KEY,
+  form_send_id UUID NOT NULL REFERENCES form_sends(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  responses JSONB NOT NULL,  -- {question_id: answer}
+  started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  submitted_at TIMESTAMP,
+  completion_time_seconds INTEGER,
+  UNIQUE(form_send_id)
+);
+
+CREATE INDEX idx_form_responses_user ON form_responses(user_id);
+CREATE INDEX idx_form_responses_submitted ON form_responses(submitted_at);
+----
+
+=== ROI Analyse
+
+==== Development Time Savings
+
+[cols="2,1,1,1"]
+|===
+|Activiteit |Zonder Library |Met Library |Savings
+
+|Form schema definition
+|2-3 dagen
+|0.5 dag (declarative)
+|1.5-2.5 dagen
+
+|Question types implementation
+|3-4 dagen
+|0 dagen (built-in)
+|3-4 dagen
+
+|Conditional logic
+|3-4 dagen
+|0.5 dag (declarative)
+|2.5-3.5 dagen
+
+|Response storage & retrieval
+|2-3 dagen
+|0 dagen (built-in)
+|2-3 dagen
+
+|Analytics/reporting
+|2-3 dagen
+|0 dagen (built-in)
+|2-3 dagen
+
+|Admin UI form builder
+|5-7 dagen
+|1 dag (config)
+|4-6 dagen
+
+|**Totaal**
+|**17-24 dagen**
+|**2 dagen**
+|**15-22 dagen**
+|===
+
+**Cost Savings**: 15-22 dagen × €800/dag = **€12.000 - €17.600**
+
+Maar: **Niet elk project heeft dynamic forms/surveys.**
+
+Conservatieve inschatting: 20% van projecten heeft deze features.
+
+**Adjusted savings**: (€12.000 - €17.600) × 20% = **€2.400 - €3.520**
+
+Met 15% buffer: **€2.760 - €4.048**
+
+Conservatief estimate: **€2.500 - €4.000 per project** (met forms/surveys)
+
+==== Operationele Besparingen
+
+**Zonder library (third-party service)**:
+
+* Typeform: €25-€83/maand (Essential/Professional plans)
+* Jotform: €34-€99/maand
+* Google Forms: Gratis, maar geen advanced features + data op Google servers
+
+**Met library (self-hosted)**:
+
+* Cost: €0 operational (alleen compute)
+
+**Savings**: €300-€1000/jaar (gemiddeld €500/jaar)
+
+==== Herbruikbaarheid Over Projecten
+
+**Typische use cases**:
+
+* **HR platforms**: Employee surveys, onboarding questionnaires (zoals OTTO)
+* **Customer feedback**: NPS surveys, product feedback forms
+* **Lead generation**: Contact forms, quote requests
+* **Research**: Academic surveys, market research
+* **Healthcare**: Patient intake forms, symptom checkers
+* **Education**: Course evaluations, quizzes
+
+**Conservatieve inschatting**: 20% van Boundary projecten heeft forms/surveys.
+
+Als Boundary 10 projecten per jaar doet: **2 projecten × (€3.25k dev + €0.5k opex) = €7.5k/jaar savings**
+
+=== Implementatie Schatting
+
+[cols="1,3,1"]
+|===
+|Component |Werk |Effort
+
+|**Core form engine**
+|Question rendering, validation, state management
+|4 dagen
+
+|**Question types**
+|Text, number, choice, rating, date, email (10 types)
+|3 dagen
+
+|**Conditional logic**
+|Show-if rules, branching, skip logic
+|3 dagen
+
+|**Response storage**
+|Save responses, draft support, versioning
+|2 dagen
+
+|**Analytics**
+|Completion rates, aggregate statistics, exports
+|2 dagen
+
+|**Admin UI form builder**
+|Drag-and-drop editor, preview mode
+|5 dagen
+
+|**Documentation + tests**
+|AGENTS.md, examples, test suite
+|2 dagen
+
+|**Totaal**
+|
+|**21 dagen**
+|===
+
+**Cost**: 21 dagen × €800/dag = **€16.800**
+
+**Breakeven**: Na 5-6 projecten (5.5 × €3.25k = €17.875k > €16.8k)
+
+**ROI is laagst van alle 8 libraries** - prioriteit 8 is terecht. Alleen implementeren als:
+
+* Team ziet concrete behoefte in meerdere projecten
+* Compliance vereisten (data mag niet naar Typeform/Google Forms)
+* Tight integration gewenst met boundary-audience en boundary-push
+
+== Geconsolideerde Prioritering (8 Libraries)
+
+=== Complete Gepriotariseerde Backlog
+
+[cols="1,2,1,1,1,1"]
+|===
+|Priority |Library |Source |Impact |Effort (dagen) |ROI per project
+
+|🔥 **1**
+|**boundary-workflow**
+|WBA
+|High
+|18
+|€8k - €12k
+
+|🔥 **2**
+|**boundary-search**
+|WBA
+|High
+|15
+|€7k - €10k + opex
+
+|🟡 **3**
+|**boundary-reports**
+|WBA
+|Medium
+|13
+|€3.2k - €4.8k
+
+|🟡 **4**
+|**boundary-calendar**
+|WBA
+|Medium
+|14
+|€3.2k - €4k
+
+|🟢 **5**
+|**boundary-geo**
+|WBA
+|Low
+|8
+|€400 - €800
+
+|🔥 **6**
+|**boundary-push**
+|OTTO
+|High
+|21
+|€4k - €6k
+
+|🟡 **7**
+|**boundary-audience**
+|OTTO
+|Medium
+|18
+|€3k - €5k
+
+|🟡 **8**
+|**boundary-forms**
+|OTTO
+|Medium
+|21
+|€2.5k - €4k
+|===
+
+=== Aanbevolen Implementatie Volgorde (Updated)
+
+==== Phase 1: High-Impact Foundations (33 dagen, €26.4k)
+
+**Libraries**: boundary-workflow, boundary-search
+
+**Rationale**: Hoogste ROI, adresseren 80% B2B needs.
+
+**Status**: ONGEWIJZIGD (uit hoofddocument)
+
+==== Phase 2: Enterprise Features (27 dagen, €21.6k)
+
+**Libraries**: boundary-reports, boundary-calendar
+
+**Rationale**: Essentieel voor enterprise sales, facturen/rapportages.
+
+**Status**: ONGEWIJZIGD (uit hoofddocument)
+
+==== Phase 3: Mobile/Engagement Features (39 dagen, €31.2k) ⭐ NIEUW
+
+**Libraries**: boundary-push, boundary-audience
+
+**Rationale**:
+
+* **boundary-push** is essentieel voor mobile apps (50% projecten)
+* **boundary-audience** is herbruikbaar over push, email, en forms
+* Samen vormen ze een **engagement platform** (push + targeting)
+
+**Deliverables**:
+
+* ✅ boundary-push (FCM, APNs, scheduled pushes, deep linking)
+* ✅ boundary-audience (filter builder, caching, admin UI)
+* ✅ Integration tussen beide (push to audience)
+* ✅ AGENTS.md documentation
+* ✅ Test suites + examples
+
+**Expected Savings**: Na 4 projecten → **€28k - €44k savings** vs **€31.2k investment** = **breakeven na ~4 projecten**
+
+==== Phase 4: Nice-to-Have Utilities (29 dagen, €23.2k)
+
+**Libraries**: boundary-geo, boundary-forms
+
+**Rationale**:
+
+* **boundary-geo**: Low ROI maar low effort (8 dagen)
+* **boundary-forms**: Niche maar waardevol voor HR/feedback platforms (21 dagen)
+* Beide zijn **optional** - alleen implementeren als concrete behoefte blijkt
+
+**Deliverables**:
+
+* ✅ boundary-geo (multi-provider geocoding, caching)
+* ✅ boundary-forms (form builder, conditional logic, analytics)
+* ✅ AGENTS.md documentation
+* ✅ Test suites + examples
+
+**Expected Savings**: Na 10+ projecten → **€12k - €40k savings** (long-term, depends on adoption)
+
+=== Timeline & Resource Planning (Updated)
+
+[cols="1,2,1,1,1"]
+|===
+|Quarter |Focus |Libraries |Effort |Cumulative
+
+|**Q2 2026**
+|High-impact B2B foundations
+|boundary-workflow, boundary-search
+|33 dagen
+|33 dagen
+
+|**Q3 2026**
+|Enterprise B2B features
+|boundary-reports, boundary-calendar
+|27 dagen
+|60 dagen
+
+|**Q4 2026**
+|Mobile/engagement B2C features
+|boundary-push, boundary-audience
+|39 dagen
+|99 dagen
+
+|**Q1 2027**
+|Utilities (optional)
+|boundary-geo, boundary-forms
+|29 dagen
+|128 dagen
+|===
+
+**Total Investment**: 128 dagen × €800/dag = **€102.400**
+
+**Expected ROI**:
+
+* After 10 projects: **€30k - €50k savings per project × 10 = €300k - €500k**
+* **Breakeven**: After ~5-6 projects (12-18 maanden bij 1-2 projecten/maand)
+* **5-year savings**: Assuming 50 projects: **€1.5M - €2.5M**
+
+== Strategische Overwegingen (Updated)
+
+=== WBA vs OTTO: Complementary Patterns
+
+[cols="1,2,2"]
+|===
+|Aspect |WBA (B2B Enterprise) |OTTO (B2C/Employee)
+
+|**Primary Users**
+|Internal users, businesses, enterprises
+|Consumers, employees, end-users
+
+|**Key Patterns**
+|Workflows, search, reports, scheduling
+|Push notifications, audience targeting, forms
+
+|**Communication**
+|Email-first, reports
+|Mobile-first, push notifications
+
+|**Engagement**
+|Dashboards, admin panels
+|Mobile apps, surveys, feedback
+
+|**Complexity**
+|Process complexity (approval flows, state machines)
+|Scale complexity (10k+ users, real-time)
+|===
+
+**Conclusie**: WBA en OTTO samen geven een **complete view** van Boundary's gaps:
+
+* **WBA gaps**: B2B enterprise patterns (workflow, search, reports, calendar, geo)
+* **OTTO gaps**: B2C/mobile patterns (push, audience, forms)
+
+**Boundary moet BEIDE bedienen** om competitief te zijn voor zowel B2B als B2C projecten.
+
+=== Competitive Landscape (Updated)
+
+==== Django vs Rails vs Boundary (Complete)
+
+[cols="1,2,2,2"]
+|===
+|Feature |Django (Python) |Rails (Ruby) |Boundary (Clojure)
+
+|**Workflow/FSM**
+|✅ django-fsm, django-viewflow
+|✅ AASM, Workflow
+|❌ **GAP** → boundary-workflow
+
+|**Search**
+|✅ django-elasticsearch-dsl, django-haystack
+|✅ Searchkick, pg_search
+|❌ **GAP** → boundary-search
+
+|**Reports**
+|✅ reportlab, WeasyPrint
+|✅ Prawn, WickedPDF
+|❌ **GAP** → boundary-reports
+
+|**Calendar**
+|✅ django-scheduler, django-recurrence
+|✅ IceCube, Recurring Events
+|❌ **GAP** → boundary-calendar
+
+|**Geo**
+|✅ GeoDjango (PostGIS)
+|✅ Geocoder, RGeo
+|❌ **GAP** → boundary-geo
+
+|**Push Notifications** ⭐
+|✅ django-push-notifications, FCM-Django
+|✅ rpush, web-push
+|❌ **GAP** → boundary-push
+
+|**Audience Targeting** ⭐
+|✅ django-segments, custom
+|✅ Segmentio, custom
+|❌ **GAP** → boundary-audience
+
+|**Forms/Surveys** ⭐
+|✅ django-formbuilder, django-surveys
+|✅ ActiveForm, Surveyor
+|❌ **GAP** → boundary-forms
+|===
+
+**Conclusie**: Boundary mist nu **8 common patterns** die Django/Rails wel hebben. Dit zijn **table stakes** voor moderne web/mobile backends.
+
+=== ROI Summary (Complete)
+
+==== Total Investment
+
+[cols="1,1,1"]
+|===
+|Phase |Libraries |Cost
+
+|Phase 1 (Q2 2026)
+|workflow, search
+|€26.4k
+
+|Phase 2 (Q3 2026)
+|reports, calendar
+|€21.6k
+
+|Phase 3 (Q4 2026)
+|push, audience
+|€31.2k
+
+|Phase 4 (Q1 2027)
+|geo, forms
+|€23.2k
+
+|**Total**
+|**8 libraries**
+|**€102.4k**
+|===
+
+==== Expected Savings (Per Project)
+
+[cols="1,1,1"]
+|===
+|Library |Dev Savings |Opex Savings (yearly)
+
+|boundary-workflow
+|€8k - €12k
+|€0-€24k (Temporal.io avoided)
+
+|boundary-search
+|€7k - €10k
+|€3.6k - €7.2k (Elasticsearch avoided)
+
+|boundary-reports
+|€3.2k - €4.8k
+|€0
+
+|boundary-calendar
+|€3.2k - €4k
+|€0
+
+|boundary-geo
+|€400 - €800
+|€96 (Google Maps API savings)
+
+|boundary-push ⭐
+|€4k - €6k
+|€1.2k (OneSignal avoided)
+
+|boundary-audience ⭐
+|€3k - €5k
+|€0
+
+|boundary-forms ⭐
+|€2.5k - €4k
+|€500 (Typeform avoided)
+
+|**Total (assuming all used)**
+|**€31.3k - €46.6k**
+|**€5.4k - €32.5k**
+|===
+
+**Realistic per-project savings** (not all libraries used in every project):
+
+* **B2B project** (uses workflow, search, reports, calendar): €21.4k - €30.8k dev + €3.6k - €7.2k opex
+* **B2C project** (uses push, audience, forms): €9.5k - €15k dev + €1.7k opex
+* **Hybrid project** (uses 6+ libraries): €25k - €40k dev + €5k - €10k opex
+
+**Average**: €25k dev + €5k opex = **€30k savings per project**
+
+==== Breakeven Analysis
+
+**Investment**: €102.4k
+
+**Average savings per project**: €30k
+
+**Breakeven**: €102.4k ÷ €30k = **3.4 projects** (~7-10 maanden bij 1-2 projecten/maand)
+
+**5-year ROI** (50 projects):
+
+* Savings: 50 × €30k = **€1.5M**
+* Investment: €102.4k
+* **Net ROI**: €1.4M (1370% return)
+
+=== Risks & Mitigations (Updated)
+
+[cols="1,2,2"]
+|===
+|Risk |Impact |Mitigation
+
+|**Low adoption (some libraries)**
+|Libraries niet gebruikt in projecten
+|✅ Prioritize high-frequency patterns first (Phase 1-2)
+✅ Make all libraries optional
+✅ Monitor usage per quarter, deprioritize unused libraries
+
+|**Maintenance burden**
+|8 libraries = significant maintenance
+|✅ Allocate 20% dev time voor library maintenance
+✅ Version all libraries independently (semver)
+✅ Automate testing/releases (CI/CD)
+
+|**Over-engineering**
+|Libraries te complex voor simple use cases
+|✅ "Convention over configuration" - defaults voor 80% use case
+✅ Escape hatches (custom implementations possible)
+✅ Start minimal, extend based on feedback
+
+|**Third-party API changes**
+|Firebase, Google Maps, etc. breaking changes
+|✅ Abstract achter protocols (provider-agnostic)
+✅ Version lock external dependencies
+✅ Monitor provider changelogs, test upgrades in staging
+
+|**Scope creep**
+|Feature requests expand library scope
+|✅ Maintain clear scope per library (AGENTS.md)
+✅ Say NO to niche features (<20% usage)
+✅ Build extension APIs voor custom needs
+|===
+
+== Conclusie & Aanbevelingen (Updated)
+
+=== Key Findings (Complete)
+
+1. **WBA + OTTO analyses hebben 8 strategische gaps geïdentificeerd** in Boundary Framework
+2. **Totale ROI**: €102.4k investment → €1.5M savings na 50 projecten (breakeven na 3-4 projecten)
+3. **Complementary patterns**: WBA = B2B (workflows, reports), OTTO = B2C (push, targeting)
+4. **Competitive gap**: Django/Rails hebben deze features al - Boundary moet inhalen
+
+=== Aanbevelingen (Updated)
+
+[discrete]
+==== 🔥 Primary Recommendation: Implementeer Phases 1-3 (Q2-Q4 2026)
+
+**Actie**: Implementeer alle high-priority libraries in 2026:
+
+* **Phase 1 (Q2)**: boundary-workflow, boundary-search
+* **Phase 2 (Q3)**: boundary-reports, boundary-calendar
+* **Phase 3 (Q4)**: boundary-push, boundary-audience
+
+**Rationale**:
+
+* Hoogste ROI libraries (€4k-€12k per project)
+* Adresseren 80% B2B + 60% B2C needs
+* Fast breakeven (3-4 projecten = 7-10 maanden)
+
+**Investment**: 99 dagen (€79.2k)
+
+**Expected Return**: Na 4 projecten → €100k-€160k savings = **breakeven na 4 projecten**
+
+[discrete]
+==== 🟡 Secondary Recommendation: Evalueer Phase 4 in Q1 2027
+
+**Actie**: Na Q4 2026, evalueer of boundary-geo en boundary-forms nodig zijn.
+
+**Decision Criteria**:
+
+* Hoeveel projecten in 2026 hadden geo/forms features nodig?
+* Was het gemis van deze libraries pijnlijk voor team?
+* Zijn er compliance redenen (data privacy) om self-hosted forms te bouwen?
+
+**If YES**: Implementeer Phase 4 in Q1 2027 (29 dagen, €23.2k)
+
+**If NO**: Stel uit tot meer data beschikbaar is
+
+[discrete]
+==== 🟢 Tertiary Recommendation: Monitor Adoption & Iterate
+
+**Actie**: Track library usage per project in 2026-2027.
+
+**Metrics**:
+
+* Libraries gebruikt per project (% adoption)
+* Development time savings (geschat vs werkelijk)
+* Bugs/issues per library (maintenance burden)
+* Feature requests (extension needs)
+
+**Review quarterly**: Adjust priorities, deprecate unused libraries, expand high-value libraries.
+
+=== Next Steps (Updated)
+
+[cols="1,3,1"]
+|===
+|Step |Action |Owner
+
+|**1. Approval**
+|Review addendum + hoofddocument, Go/No-Go beslissing
+|Management
+
+|**2. Resourcing**
+|Allocate 1-2 developers voor Q2-Q4 2026 (99 dagen total)
+|Management
+
+|**3. Design Phase**
+|Detailed design docs voor Phase 1-3 libraries (API specs, schemas, integration)
+|Tech Lead
+
+|**4. Implementation**
+|Implementeer Phase 1 (Q2), Phase 2 (Q3), Phase 3 (Q4)
+|Developer(s)
+
+|**5. Pilot**
+|Integrate libraries in nieuwe projecten Q2-Q4 2026, gather feedback
+|Team
+
+|**6. Iterate**
+|Bugfixes, API improvements based on pilot feedback
+|Developer(s)
+
+|**7. Q1 2027 Review**
+|Evalueer adoption, decide on Phase 4 (geo, forms)
+|Management + Team
+|===
+
+=== Slotwoord
+
+De analyse van **WBA + OTTO** heeft een compleet beeld gegeven van Boundary's strategische gaps:
+
+* **WBA**: B2B enterprise patterns (workflow, search, reports, calendar, geo)
+* **OTTO**: B2C/mobile patterns (push, audience, forms)
+
+Door **6 high-priority libraries** te implementeren in 2026 (Phases 1-3), kan Boundary:
+
+* ✅ **Competitive zijn met Django/Rails** voor zowel B2B als B2C projecten
+* ✅ **€25k-€40k per project** besparen aan custom development
+* ✅ **Vendor lock-in elimineren** (Temporal, Elasticsearch, OneSignal, Typeform)
+* ✅ **Fast breakeven** (3-4 projecten = 7-10 maanden)
+* ✅ **1.4M ROI over 5 jaar** (50 projecten)
+
+**Recommendation**: **GO voor Phases 1-3** (Q2-Q4 2026) - boundary-workflow, boundary-search, boundary-reports, boundary-calendar, boundary-push, boundary-audience.
+
+---
+
+**Vragen of feedback?** Contact Thijs Creemers <thijs@tcbv.nl>
+
+**Document versie**: v1.1, {docdate} (Addendum OTTO analyse)
+
+[appendix]
+== Appendix A: OTTO-Specifieke Code Examples
+
+=== boundary-push: Complete Firebase Example
+
+[source,clojure]
+----
+(ns myapp.notifications.push
+  (:require [boundary.push.core :as push]))
+
+;; Push definitie (from OTTO pattern)
+(defpush shift-reminder
+  {:title-i18n {:nl "Dienst herinnering"
+                :en "Shift Reminder"
+                :pl "Przypomnienie o zmianie"}
+   :body-i18n {:nl "Je dienst begint over {{hours}} uur"
+               :en "Your shift starts in {{hours}} hours"
+               :pl "Twoja zmiana rozpoczyna się za {{hours}} godzin"}
+   :providers [:fcm]
+   :deep-link {:route :shift-detail :params {:shift-id "{{shift_id}}"}}
+   :collapse-key "shift-reminder"
+   :priority :high
+   :data {:notification-type "shift-reminder"
+          :shift-id "{{shift_id}}"
+          :shift-start "{{shift_start}}"}})
+
+;; Usage (OTTO pattern: scheduled 2 hours before shift)
+(defn schedule-shift-reminders [shifts]
+  (doseq [shift shifts]
+    (let [reminder-time (instant/minus (:start-time shift) (duration/hours 2))
+          employee-user-id (:employee-id shift)]
+      (push/schedule! shift-reminder
+                      {:user-id employee-user-id
+                       :send-at reminder-time
+                       :template-vars {:hours 2
+                                       :shift-id (:id shift)
+                                       :shift-start (str (:start-time shift))}}))))
+
+;; Batch push (OTTO pattern: notify all employees)
+(defn notify-all-employees [title body]
+  (let [employee-ids (db/query "SELECT id FROM users WHERE user_type = 'employee'")]
+    (push/send-batch! {:title title :body body}
+                      {:user-ids employee-ids
+                       :platform :all})))
+----
+
+=== boundary-audience: OTTO Targeting Pattern
+
+[source,clojure]
+----
+(ns myapp.notifications.targeting
+  (:require [boundary.audience.core :as audience]))
+
+;; Replicate OTTO's complex targeting
+(defaudience amsterdam-new-employees
+  {:name "Amsterdam New Employees (Week 6)"
+   :description "Employees in Amsterdam in their 6th week"
+   
+   :filters [;; Week number filter (OTTO: week_number = 6)
+             {:type :tenure
+              :operator :eq
+              :value {:weeks 6}
+              :tolerance {:weeks 1}}  ; Week 6 ± 1 week
+             
+             ;; Work location filter (OTTO: work_locations + date range)
+             {:type :work-location
+              :locations [:amsterdam :amstelveen]
+              :date-range {:start (instant/minus (instant/now) (duration/days 90))
+                           :end (instant/now)}}
+             
+             ;; Contract validity filter (OTTO: exclude_invalid_contracts)
+             {:type :contract-status
+              :operator :active
+              :date-range {:start (instant/now)
+                           :end (instant/plus (instant/now) (duration/days 30))}}
+             
+             ;; Age range (OTTO: min_age, max_age)
+             {:type :age-range
+              :min 18
+              :max 30}]
+   
+   :combinator :and})
+
+;; Usage: Send targeted survey (OTTO pattern)
+(defn send-employee-survey [survey-id]
+  (let [audience (audience/resolve amsterdam-new-employees)
+        user-ids (:user-ids audience)]
+    (forms/send-survey! survey-id {:user-ids user-ids
+                                    :mandatory? true
+                                    :expires-at (instant/plus (instant/now) (duration/days 7))})))
+----
+
+=== boundary-forms: OTTO Survey Pattern
+
+[source,clojure]
+----
+(ns myapp.surveys.definitions
+  (:require [boundary.forms.core :as forms]))
+
+;; OTTO survey pattern (mandatory feedback)
+(defform employee-satisfaction-week-6
+  {:title-i18n {:nl "Medewerkerstevredenheid - Week 6"
+                :en "Employee Satisfaction - Week 6"
+                :pl "Zadowolenie pracowników - Tydzień 6"}
+   :description-i18n {:nl "Help ons je ervaring te verbeteren"
+                      :en "Help us improve your experience"
+                      :pl "Pomóż nam poprawić Twoje doświadczenie"}
+   
+   :pages [{:id :experience
+            :title-i18n {:nl "Je ervaring" :en "Your experience" :pl "Twoje doświadczenie"}
+            :questions [{:id :overall-rating
+                         :type :rating
+                         :label-i18n {:nl "Hoe tevreden ben je overall?"
+                                      :en "How satisfied are you overall?"
+                                      :pl "Jak jesteś ogólnie zadowolony?"}
+                         :scale {:min 1 :max 5
+                                 :labels-i18n {1 {:nl "Zeer ontevreden" :en "Very unsatisfied" :pl "Bardzo niezadowolony"}
+                                               5 {:nl "Zeer tevreden" :en "Very satisfied" :pl "Bardzo zadowolony"}}}
+                         :required? true}
+                        
+                        {:id :would-recommend
+                         :type :yes-no
+                         :label-i18n {:nl "Zou je OTTO aanraden?"
+                                      :en "Would you recommend OTTO?"
+                                      :pl "Czy poleciłbyś OTTO?"}
+                         :required? true}
+                        
+                        {:id :feedback
+                         :type :long-text
+                         :label-i18n {:nl "Wat kunnen we verbeteren?"
+                                      :en "What could we improve?"
+                                      :pl "Co możemy poprawić?"}
+                         :placeholder-i18n {:nl "Deel je gedachten..."
+                                            :en "Share your thoughts..."
+                                            :pl "Podziel się swoimi przemyśleniami..."}
+                         :max-length 1000
+                         :required? false
+                         :show-if {:question :overall-rating
+                                   :operator :lte
+                                   :value 3}}]}]  ; Only ask feedback if rating <= 3
+   
+   :settings {:allow-anonymous? false
+              :allow-multiple-submissions? false
+              :save-draft? false
+              :mandatory? true  ; OTTO pattern: block app until completed
+              :show-progress? true
+              :expires-after-days 7}})
+
+;; Usage: Send to targeted audience
+(defn send-week-6-survey []
+  (forms/send-to-audience! employee-satisfaction-week-6
+                           amsterdam-new-employees
+                           {:mandatory? true
+                            :send-push? true
+                            :push-title-i18n {:nl "Nieuwe enquête beschikbaar"
+                                              :en "New survey available"
+                                              :pl "Dostępna nowa ankieta"}}))
+----
+
+[appendix]
+== Appendix B: Referenties
+
+=== External Links
+
+* **Firebase Cloud Messaging**: https://firebase.google.com/docs/cloud-messaging
+* **Apple Push Notification Service (APNs)**: https://developer.apple.com/documentation/usernotifications
+* **OneSignal (competitor)**: https://onesignal.com/
+* **Typeform (competitor)**: https://www.typeform.com/
+* **Django Push Notifications**: https://github.com/jazzband/django-push-notifications
+
+=== Related Documents
+
+* **Hoofddocument (WBA analyse)**: `Boundary-Framework-Strategische-Uitbreidingen.adoc`
+* **WBA Conversie Analyse**: `WBA-conversie-Django-Boundary.adoc`
+* **Boundary AGENTS.md**: `AGENTS.md` (root project)
+
+---
+
+**End of Addendum**

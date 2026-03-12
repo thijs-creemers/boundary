@@ -90,24 +90,66 @@ Boundary includes production-ready features that eliminate the need for DIY impl
 
 === Full-Text Search
 
-*Add powerful search capabilities with PostgreSQL native search (++<++100ms latency).*
+*Index any domain entity and search it with PostgreSQL FTS — no external service needed.*
 
 [source,clojure]
 ----
-;; Search users
-(search/search-users user-service "john doe" {:limit 20})
+;; Define a search index
+(search/defsearch product-search
+  {:id          :product-search
+   :entity-type :product
+   :fields      [{:name :title :weight :A}
+                 {:name :description :weight :B}]})
 
-;; Search with ranking
-(search/search-posts blog-service 
-                     "functional programming"
-                     {:rank-by :relevance})
+;; Index a document
+(search-ports/index-document!
+  search-svc :product-search product-uuid
+  {:title "Widget Pro" :description "A great widget"})
+
+;; Search
+(search-ports/search search-svc :product-search "widget"
+                     {:limit 20 :highlight? true})
 ----
 
-*Features:* - PostgreSQL native (no Elasticsearch needed) - Relevance ranking - Highlighting matches - ++<++100ms latency - Full Unicode support
+*Features:* - PostgreSQL FTS (no Elasticsearch needed) - Weighted field ranking - Snippet highlighting - LIKE fallback for H2/SQLite (dev/CI) - Admin UI at `/web/admin/search`
 
 *Learn more:* link:../guides/search[Full-Text Search Guide]
 
-*Use cases:* - Search products by name/description - Find users by email/name - Search blog posts - Filter inventory items
+*Use cases:* - Search products by name/description - Find users by email/name - Search orders by reference - Filter inventory items
+
+''''
+
+=== Workflow
+
+*Model entity lifecycles as declarative state machines with permission checks and audit trails.*
+
+[source,clojure]
+----
+;; Define a workflow
+(defworkflow order-workflow
+  {:id            :order-workflow
+   :initial-state :pending
+   :states        #{:pending :paid :shipped :delivered :cancelled}
+   :transitions   [{:from :pending :to :paid
+                    :required-permissions [:finance]}
+                   {:from :paid    :to :shipped
+                    :guard :payment-confirmed}
+                   {:from :pending :to :cancelled
+                    :side-effects [:notify-cancellation]}]})
+
+;; Execute a transition
+(ports/transition! engine
+                   {:instance-id inst-id
+                    :transition  :paid
+                    :actor-roles [:finance]
+                    :context     {:payment-ref "PAY-001"}})
+----
+
+*Features:* - Data-driven state machine definitions - Permission and guard checks - Persistent audit log for every transition - Optional `boundary-jobs` side effects - REST API + admin web UI
+
+*Learn more:* link:../guides/workflow[Workflow Guide]
+
+*Use cases:* - Order lifecycle (pending → paid → shipped → delivered) - Document approval flows - Subscription state management - Support ticket status
 
 '''''
 

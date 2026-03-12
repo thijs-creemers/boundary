@@ -12,7 +12,9 @@
            "libs/email/src" "libs/email/test"               ;; Phase 11: Email
            "libs/tenant/src" "libs/tenant/test"             ;; Phase 7: Tenant
            "libs/realtime/src" "libs/realtime/test"         ;; Phase 12: Realtime
-           "libs/external/src" "libs/external/test"]        ;; Phase 13: External
+           "libs/external/src" "libs/external/test"         ;; Phase 13: External
+           "libs/workflow/src" "libs/workflow/test"           ;; Phase 14: Workflow
+           "libs/search/src" "libs/search/test"]              ;; Phase 15: Search
 
  :deps    {org.clojure/clojure               {:mvn/version "1.12.4"}
            cheshire/cheshire                 {:mvn/version "6.1.0"} ;; process json

@@ -21,17 +21,17 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # Full history needed for git-count-revs
       
       - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@master
+        uses: DeLaGuardo/setup-clojure@13.5.2
         with:
           cli: 1.11.1.1347
       
       - name: Cache dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.m2/repository
@@ -222,6 +222,48 @@ jobs:
       
       - name: Wait for Clojars indexing (tenant)
         run: sleep 30
+
+      - name: Publish boundary-workflow
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-workflow..."
+          cd libs/workflow
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-workflow published"
+      
+      - name: Wait for Clojars indexing (workflow)
+        run: sleep 30
+      
+      - name: Publish boundary-search
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-search..."
+          cd libs/search
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-search published"
+      
+      - name: Wait for Clojars indexing (search)
+        run: sleep 30
+      
+      - name: Publish boundary-external
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-external..."
+          cd libs/external
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-external published"
+      
+      - name: Wait for Clojars indexing (external)
+        run: sleep 30
       
       # ===========================================================================
       # LAYER 5: Admin (depends on user)
@@ -243,16 +285,16 @@ jobs:
       # ===========================================================================
       
       - name: Create GitHub Release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name || format('v{0}', steps.version.outputs.version) }}
-          release_name: Release ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
           body: |
             ## Boundary Framework v${{ steps.version.outputs.version }}
             
-            12 of 13 libraries published to Clojars (external in development):
+            All 15 libraries published to Clojars:
             
             - [boundary-core](https://clojars.org/org.boundary-app/boundary-core)
             - [boundary-observability](https://clojars.org/org.boundary-app/boundary-observability)
@@ -266,11 +308,14 @@ jobs:
             - [boundary-realtime](https://clojars.org/org.boundary-app/boundary-realtime)
             - [boundary-email](https://clojars.org/org.boundary-app/boundary-email)
             - [boundary-tenant](https://clojars.org/org.boundary-app/boundary-tenant)
+            - [boundary-workflow](https://clojars.org/org.boundary-app/boundary-workflow)
+            - [boundary-search](https://clojars.org/org.boundary-app/boundary-search)
+            - [boundary-external](https://clojars.org/org.boundary-app/boundary-external)
             
             ### Installation
             
             ```clojure
-            {:deps {org.boundary-app/boundary-platform {:mvn/version "${{ steps.version.outputs.version }}"}}}
+            {:deps {org.boundary-app/boundary-platform {:mvn/version "${{ steps.version.outputs.version }}"}}
             ```
             
             See [CHANGELOG.md](https://github.com/thijs-creemers/boundary/blob/main/CHANGELOG.md) for details.
@@ -281,7 +326,7 @@ jobs:
         run: |
           echo "# ✅ Publish Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "12 of 13 libraries published to Clojars (external in development):" >> $GITHUB_STEP_SUMMARY
+          echo "All 15 libraries published to Clojars:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Library | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
@@ -297,6 +342,9 @@ jobs:
           echo "| boundary-email | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "| boundary-tenant | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "| boundary-admin | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-workflow | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-search | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-external | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Version: **${{ steps.version.outputs.version }}**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

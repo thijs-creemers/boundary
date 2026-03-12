@@ -1,0 +1,373 @@
+---
+title: "Workflow"
+weight: 65
+---
+
+= Workflow
+
+*Declarative state machines for domain entities — with permission checks, guards, audit trail, and side effects.*
+
+The `boundary-workflow` module lets you define an entity's lifecycle as data.
+Transitions are validated for permissions and guards before being applied.
+Every state change is recorded in a persistent audit log.
+Optional side effects are dispatched via `boundary-jobs` after a successful transition.
+
+== Quick Example
+
+[source,clojure]
+----
+(require '[boundary.workflow.core.machine :refer [defworkflow]]
+         '[boundary.workflow.ports :as ports])
+
+;; 1. Define the workflow (once, at module level)
+(defworkflow order-workflow
+  {:id            :order-workflow
+   :initial-state :pending
+   :states        #{:pending :paid :shipped :delivered :cancelled}
+   :transitions   [{:from :pending :to :paid
+                    :label                "Mark as Paid"
+                    :required-permissions [:finance :admin]}
+                   {:from :paid    :to :shipped
+                    :label         "Ship Order"
+                    :guard         :payment-confirmed}
+                   {:from :shipped :to :delivered
+                    :auto?         true}   ; triggers automatically
+                   {:from :pending :to :cancelled
+                    :side-effects  [:notify-cancellation]}]})
+
+;; 2. Start an instance for a domain entity
+(def instance
+  (ports/start-workflow! engine
+                         {:workflow-id :order-workflow
+                          :entity-type :order
+                          :entity-id   order-uuid}))
+
+;; 3. Execute a transition
+(def result
+  (ports/transition! engine
+                     {:instance-id (:id instance)
+                      :transition  :paid
+                      :actor-roles [:finance]
+                      :context     {:payment-ref "PAY-001"}}))
+
+(:success? result)                         ;; => true
+(:current-state (:instance result))        ;; => :paid
+----
+
+''''
+
+== Core Concepts
+
+=== Transitions
+
+Each transition in the `:transitions` vector supports these fields:
+
+[cols="1,1,1,3"]
+|===
+|Field |Type |Required |Description
+
+||`:from` |keyword |yes |Source state
+||`:to` |keyword |yes |Target state
+||`:name` |keyword |no |Transition name (defaults to `:to`)
+||`:label` |string |no |Human-readable label (e.g. for UI buttons)
+||`:required-permissions` |`[keyword]` |no |Actor must have at least one
+||`:guard` |keyword |no |Key in the guard-registry (see below)
+||`:side-effects` |`[keyword]` |no |Job types enqueued after success
+||`:auto?` |boolean |no |Trigger automatically via `process-auto-transitions!`
+||===
+
+=== Guards
+
+Guards are pure functions that receive the `:context` map from the transition request
+and return `true` (allow) or `false` (reject).
+They are registered at service creation time, not in the definition:
+
+[source,clojure]
+----
+(def guard-registry
+  {:payment-confirmed
+   (fn [ctx]
+     (= :confirmed (:payment-status ctx)))
+
+   :stock-available
+   (fn [ctx]
+     (pos? (:stock-qty ctx)))})
+
+(service/create-workflow-service store registry nil guard-registry)
+----
+
+=== Side Effects
+
+Side effects are keyword job types declared on a transition.
+After a successful transition, each key is enqueued as a `boundary-jobs` job.
+The `job-queue` dependency is optional; if `nil`, side effects are silently skipped.
+
+[source,clojure]
+----
+;; Transition: {:from :pending :to :cancelled :side-effects [:notify-cancellation]}
+
+;; Register a handler in your application:
+(swap! job-registry assoc :notify-cancellation
+       (fn [args]
+         (email/send! (:customer-email args) "Your order was cancelled.")
+         {:success? true}))
+----
+
+=== Lifecycle Hooks
+
+Hooks let you attach side-channel behaviour to state changes without modifying the
+transition logic. They are declared in the workflow definition:
+
+[source,clojure]
+----
+(defworkflow invoice-workflow
+  {:id            :invoice-workflow
+   :initial-state :draft
+   :states        #{:draft :sent :paid :voided}
+   :transitions   [{:from :draft :to :sent}
+                   {:from :sent  :to :paid}]
+   :hooks         {:on-enter-paid     [(fn [instance audit-entry ctx]
+                                         (notify-accounting! instance))]
+                   :on-exit-draft     [(fn [instance audit-entry ctx]
+                                         (log/info "Left draft" {:id (:id instance)}))]
+                   :on-any-transition [(fn [instance audit-entry ctx]
+                                         (invalidate-cache! (:entity-id instance)))]}})
+----
+
+Hook keys follow the pattern `:on-enter-<state>`, `:on-exit-<state>`, or `:on-any-transition`.
+Each key maps to a vector of `(fn [instance audit-entry context])` functions.
+Hooks fire synchronously after the state is persisted and the audit entry is saved.
+Exceptions inside a hook are caught and logged as warnings — they do not roll back the transition.
+
+=== Audit Log
+
+Every transition is recorded automatically:
+
+[source,clojure]
+----
+(ports/audit-log engine instance-id)
+;; => [{:from-state   :pending
+;;      :to-state     :paid
+;;      :transition   :paid
+;;      :actor-roles  [:finance]
+;;      :context      {:payment-ref "PAY-001"}
+;;      :occurred-at  #inst "2026-03-11T10:00:00Z"}
+;;     ...]
+----
+
+''''
+
+== Querying State
+
+[source,clojure]
+----
+;; Current state
+(ports/current-state engine instance-id)
+;; => :paid
+
+;; Full instance (state + metadata)
+(ports/get-instance engine instance-id)
+;; => {:id #uuid "..." :workflow-id :order-workflow
+;;     :entity-type :order :entity-id #uuid "..."
+;;     :current-state :paid :created-at #inst "..." :updated-at #inst "..."}
+
+;; Available transitions for the current actor — enriched with enabled/disabled status
+(ports/available-transitions engine instance-id [:finance] nil)
+;; => [{:id :paid     :to :paid     :label "Mark as Paid" :enabled? true}
+;;     {:id :cancelled :to :cancelled                      :enabled? true}
+;;     {:id :shipped   :to :shipped  :label "Ship Order"  :enabled? false
+;;      :reason :guard-rejected}]
+----
+
+`available-transitions` runs the full permission and guard check for every outgoing
+transition from the instance's current state.
+Disabled transitions include a `:reason` keyword (`:insufficient-permissions`,
+`:guard-rejected`, `:guard-not-registered`).
+The result is suitable for driving UI button states or API capability disclosure.
+
+''''
+
+== Auto-Transitions
+
+Transitions marked `:auto? true` are intended to fire without actor interaction.
+Call `process-auto-transitions!` from a background job or scheduled task:
+
+[source,clojure]
+----
+;; Trigger all auto-transitions for a workflow type
+(def result (ports/process-auto-transitions! engine :order-workflow))
+;; => {:attempted 12 :processed 10 :failed 2}
+----
+
+The method finds all instances in the `from-state` of every auto-transition,
+attempts each via the normal transition path (using `[:system]` as the actor roles),
+and returns summary counts.
+
+TIP: Wire `process-auto-transitions!` into a `boundary-jobs` recurring job to
+pick up newly-eligible instances continuously.
+
+''''
+
+== HTTP API
+
+[cols="1,2,3"]
+|===
+|Method |Path |Description
+
+||`POST` |`/api/workflow/instances` |Start a new workflow instance
+||`GET`  |`/api/workflow/instances/:id` |Current state + available transitions
+||`GET`  |`/api/workflow/instances/:id/audit` |Full audit log
+||`POST` |`/api/workflow/instances/:id/transition` |Execute a transition
+||===
+
+The `GET /instances/:id` response includes an `availableTransitions` array:
+
+[source,json]
+----
+{
+  "id": "uuid",
+  "workflowId": "order-workflow",
+  "currentState": "pending",
+  "availableTransitions": [
+    {"id": "paid",      "to": "paid",      "label": "Mark as Paid", "enabled": true},
+    {"id": "cancelled", "to": "cancelled",                          "enabled": true}
+  ]
+}
+----
+
+Example — start an instance:
+
+[source,bash]
+----
+curl -X POST http://localhost:3000/api/workflow/instances \
+  -H 'Content-Type: application/json' \
+  -d '{"workflowId": "order-workflow", "entityType": "order", "entityId": "uuid-here"}'
+----
+
+Example — execute a transition:
+
+[source,bash]
+----
+curl -X POST http://localhost:3000/api/workflow/instances/inst-uuid/transition \
+  -H 'Content-Type: application/json' \
+  -d '{"transition": "paid", "actorRoles": ["finance"], "context": {"paymentRef": "PAY-001"}}'
+----
+
+''''
+
+== Configuration
+
+[source,edn]
+----
+;; resources/conf/dev/config.edn
+{:boundary/workflow
+ {:db-ctx    #ig/ref :boundary/database-context
+  :job-queue #ig/ref :boundary/job-queue}}  ; job-queue is optional
+----
+
+The Integrant key returns a component map:
+
+[source,clojure]
+----
+{:store    <IWorkflowStore>
+ :registry <IWorkflowRegistry>
+ :engine   <IWorkflowEngine>}
+----
+
+''''
+
+== Database Migration
+
+Two tables are required:
+
+[source,sql]
+----
+CREATE TABLE workflow_instances (
+  id            TEXT PRIMARY KEY,
+  workflow_id   TEXT NOT NULL,
+  entity_type   TEXT NOT NULL,
+  entity_id     TEXT NOT NULL,
+  current_state TEXT NOT NULL,
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL,
+  metadata      TEXT
+);
+
+CREATE TABLE workflow_audit (
+  id          TEXT PRIMARY KEY,
+  instance_id TEXT NOT NULL REFERENCES workflow_instances(id),
+  workflow_id TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id   TEXT NOT NULL,
+  transition  TEXT NOT NULL,
+  from_state  TEXT NOT NULL,
+  to_state    TEXT NOT NULL,
+  actor_id    TEXT,
+  actor_roles TEXT,
+  context     TEXT,
+  occurred_at TEXT NOT NULL
+);
+----
+
+Run migrations with:
+
+[source,bash]
+----
+clojure -M:migrate migrate
+----
+
+''''
+
+== Architecture
+
+[source,text]
+----
+libs/workflow/src/boundary/workflow/
+├── schema.clj               # Malli schemas
+├── ports.clj                # IWorkflowStore, IWorkflowEngine, IWorkflowRegistry
+├── core/
+│   ├── machine.clj          # defworkflow macro, global registry
+│   ├── transitions.clj      # Pure: permission/guard/state checks
+│   ├── audit.clj            # Pure: audit entry constructors
+│   └── ui.clj               # Pure Hiccup components (admin UI)
+└── shell/
+    ├── persistence.clj      # WorkflowStore (next.jdbc + HoneySQL)
+    ├── service.clj          # WorkflowService orchestration
+    ├── http.clj             # Ring handlers + route definitions
+    └── module_wiring.clj    # Integrant :boundary/workflow key
+----
+
+''''
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :workflow
+----
+
+Standard test fixture pattern:
+
+[source,clojure]
+----
+(defn with-clean-system [f]
+  (machine/clear-registry!)
+  (machine/register-workflow! my-def)
+  (let [store    (create-memory-store)
+        registry (machine/create-workflow-registry)
+        svc      (service/create-workflow-service store registry)]
+    (binding [*store* store *service* svc]
+      (f)))
+  (machine/clear-registry!))
+----
+
+NOTE: `defworkflow` registers in a global atom.
+Always call `clear-registry!` in test fixtures to avoid leakage between tests.
+
+''''
+
+== Related Guides
+
+* link:background-jobs[Background Jobs] — process side effects declared on transitions
+* link:search[Full-Text Search] — index workflow instances for cross-entity search
+* link:authentication[Authentication] — pass actor roles from the authenticated user to transitions

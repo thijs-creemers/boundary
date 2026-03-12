@@ -5,6 +5,38 @@ All notable changes to the Boundary Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+#### `boundary-workflow` — lifecycle hooks, auto-transitions, available-transitions
+- `:hooks` map on `WorkflowDefinition`: supports `:on-enter-<state>`, `:on-exit-<state>`, and `:on-any-transition` keys. Hooks receive the updated `WorkflowInstance` and fire synchronously after each successful transition (after the audit entry is saved). Exceptions are caught and logged; they do not roll back the transition.
+- `:auto? true` on `TransitionDef`: marks a transition as system-initiated. `process-auto-transitions!` port method fires all eligible auto-transitions for a given workflow; uses `[:system]` actor-roles (no user permission check). Returns `{:attempted :processed :failed}` counts.
+- `available-transitions` port method: returns candidate transitions with `:enabled?`, `:label`, and `:reason` fields for the current state and actor-roles. Exposed on the `GET /api/workflow/instances/:id` HTTP response as `availableTransitions`.
+- `:label` on `TransitionDef` and `:state-config` map on `WorkflowDefinition` for human-readable display names.
+- `available-transitions-with-status` pure function in `boundary.workflow.core.transitions`.
+
+#### `boundary-search` — filter support
+- `:filters` key on `SearchDefinition`: declares filterable keyword dimensions (e.g. `[:tenant-id :category-id]`).
+- `:filter-values` opt in `index-document!` and `build-document`: stores filter data as compact JSON in a new `filters TEXT` column.
+- Filter SQL at search time: PostgreSQL uses `d.filters::jsonb->>'key' = ?`; H2/SQLite uses `INSTR(filters, '"key":"val"') > 0` (H2 2.4.x has no JDBC JSON function support).
+- `filter-key->json-key` utility in `boundary.search.core.index` (kebab → snake conversion for JSON storage).
+- Migration: `resources/migrations/20260312000000-search-filters.{up,down}.sql`.
+
+### Changed
+
+- `boundary-external` promoted from "In Development" to "Active" (Stripe, Twilio, SMTP/IMAP adapters production-capable).
+- Root `AGENTS.md` updated: `workflow` and `search` added to library structure, test commands, and Library-Specific Guides table. Version bumped to 3.3.0.
+- `libs/workflow/AGENTS.md` and `libs/search/AGENTS.md` updated to document all new features.
+- `docs-site/content/guides/workflow.adoc` and `docs-site/content/guides/search.adoc` updated with new API examples, filter DDL, migration notes, and hook/auto-transition reference.
+
+### Tests
+
+- 54 tests, 287 assertions, 0 failures across all libraries (`clojure -M:test:db/h2`).
+- New test namespaces: `workflow.core.transitions-test` (available-transitions-with-status), `workflow.shell.service-test` (hooks, auto-transitions), `search.core.query-test` (filter SQL), `search.shell.persistence-test` (filter round-trip).
+
+---
+
 ## [1.0.0-alpha] - 2026-02-14
 
 ### 🎉 Initial Release
@@ -469,6 +501,7 @@ Copyright 2024-2025 Thijs Creemers. All rights reserved.
 
 ## Version History
 
-- **[1.0.0]** - 2026-02-14: Initial production release
+- **[Unreleased]** - In development on `feat/boundary-workflow`
+- **[1.0.0-alpha]** - 2026-02-14: Initial production release
 
-[1.0.0]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.0
+[1.0.0-alpha]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.0-alpha
