@@ -41,6 +41,8 @@ clojure -M:test:db/h2 :realtime                    # Realtime library tests
 clojure -M:test:db/h2 :workflow                    # Workflow library tests
 clojure -M:test:db/h2 :search                      # Search library tests
 clojure -M:test:db/h2 :external                    # External adapters tests
+clojure -M:test:db/h2 :reports                     # Reports library tests
+clojure -M:test:db/h2 :calendar                    # Calendar library tests
 
 # Testing - By metadata category
 clojure -M:test:db/h2 --focus-meta :unit           # Unit tests only
@@ -128,7 +130,9 @@ libs/
 ├── tenant/        # Multi-tenancy (PostgreSQL schema-per-tenant)
 ├── workflow/      # State machine workflows with audit trails
 ├── search/        # Full-text search (PostgreSQL FTS / H2 LIKE)
-└── external/      # External service adapters (Stripe, Twilio, SMTP/IMAP)
+├── external/      # External service adapters (Stripe, Twilio, SMTP/IMAP)
+├── reports/       # Report definitions, PDF/CSV export, scheduling (defreport macro)
+└── calendar/      # Calendar events, RRULE recurrence, iCal export/import, conflict detection
 ```
 
 ---
@@ -512,6 +516,20 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 | **workflow** | [`libs/workflow/AGENTS.md`](libs/workflow/AGENTS.md) | State machine definitions, transitions, lifecycle hooks, auto-transitions |
 | **search** | [`libs/search/AGENTS.md`](libs/search/AGENTS.md) | Document indexing, FTS/LIKE strategy, filter support, migrations |
 | **external** | [`libs/external/AGENTS.md`](libs/external/AGENTS.md) | Stripe payments + webhooks, Twilio SMS/WhatsApp, SMTP transport, IMAP mailbox |
+| **reports** | [`libs/reports/AGENTS.md`](libs/reports/AGENTS.md) | `defreport` macro, registry, PDF/CSV export, scheduling |
+| **calendar** | [`libs/calendar/AGENTS.md`](libs/calendar/AGENTS.md) | `defevent` macro, RRULE recurrence (DST-aware), conflict detection, iCal export/import, Hiccup UI |
+
+---
+
+## Adding a New Library to CI
+
+When a new library is added under `libs/`, update **`.github/workflows/ci.yml`** in three places:
+
+1. **Lint step** — add `libs/{name}/src` to the `clojure -M:clj-kondo --lint \` path list.
+2. **New test job** — copy an existing `test-*` job block; set `needs: lint` (or add a dependency if the lib depends on another boundary lib); run `clojure -M:test:db/h2 :{name}`.
+3. **`test-summary` job** — add `test-{name}` to the `needs:` array and add an echo line.
+
+Also add the lib's `:id` test suite to `tests.edn` and its source/test paths to the root `deps.edn`.
 
 ---
 

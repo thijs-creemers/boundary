@@ -16,7 +16,8 @@
                         "libs/external/src"
                         "libs/workflow/src"
                         "libs/search/src"
-                        "libs/reports/src"]
+                        "libs/reports/src"
+                        "libs/calendar/src"]
 
   :tests [{:id :unit
            :test-paths ["test"
@@ -35,7 +36,8 @@
                         "libs/external/test"
                         "libs/workflow/test"
                         "libs/search/test"
-                        "libs/reports/test"]
+                        "libs/reports/test"
+                        "libs/calendar/test"]
            :ns-patterns ["boundary.*-test"]
            :randomize? true}
 
@@ -103,7 +105,11 @@
 
           {:id :reports
            :test-paths ["libs/reports/test"]
-           :ns-patterns ["boundary.reports.*-test"]}]
+           :ns-patterns ["boundary.reports.*-test"]}
+
+          {:id :calendar
+           :test-paths ["libs/calendar/test"]
+           :ns-patterns ["boundary.calendar.*-test"]}]
 
   :plugins [:kaocha.plugin/randomize
             :kaocha.plugin/filter

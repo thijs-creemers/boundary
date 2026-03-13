@@ -1,0 +1,823 @@
+---
+title: "Calendar API Reference"
+weight: 50
+description: "Complete function reference for boundary-calendar — schemas, event helpers, recurrence, conflict detection, iCal, and UI components"
+---
+
+= Calendar API Reference
+
+*Namespace root*: `boundary.calendar` +
+*Version*: 1.0 +
+*Last Updated*: 2026-03-13 +
+*Status*: ✅ Production Ready
+
+'''''
+
+== Overview
+
+The `boundary-calendar` library is organised across five public namespaces:
+
+[cols="35%,65%",options="header"]
+|===
+|Namespace |Purpose
+|`boundary.calendar.schema` |Malli schemas and validation helpers
+|`boundary.calendar.core.event` |`defevent` macro, registry, pure event helpers
+|`boundary.calendar.core.recurrence` |RRULE parsing and occurrence expansion
+|`boundary.calendar.core.conflict` |Conflict detection for overlapping events
+|`boundary.calendar.core.ui` |Pure Hiccup calendar view components
+|`boundary.calendar.shell.service` |Public service API — iCal export / import / feed
+|`boundary.calendar.ports` |`CalendarAdapterProtocol` (extension point)
+|===
+
+All `core/` functions are pure (no I/O). Shell functions may perform I/O via ical4j.
+
+'''''
+
+== `boundary.calendar.schema`
+
+Malli schemas that define the data shapes used throughout the library.
+
+=== `EventData`
+
+Base event map.  All library functions accept maps conforming to this shape.
+
+[source,clojure]
+----
+[:map
+ [:id         :uuid]
+ [:title      :string]
+ [:start      inst?]                          ; java.time.Instant (UTC)
+ [:end        inst?]                          ; java.time.Instant (UTC)
+ [:timezone   :string]                        ; IANA TZ — e.g. "Europe/Amsterdam"
+ [:recurrence {:optional true} :string]       ; RFC 5545 RRULE string
+ [:attendees  {:optional true} [:vector :uuid]]]
+----
+
+[cols="20%,15%,65%",options="header"]
+|===
+|Key |Required |Notes
+|`:id` |✅ |`java.util.UUID`
+|`:title` |✅ |Display name shown in calendar views
+|`:start` |✅ |`java.time.Instant` (always UTC); converted to local time using `:timezone`
+|`:end` |✅ |`java.time.Instant` (always UTC)
+|`:timezone` |✅ |https://en.wikipedia.org/wiki/List_of_tz_database_time_zones[IANA timezone name]
+|`:recurrence` |No |RFC 5545 RRULE string, e.g. `"FREQ=WEEKLY;BYDAY=MO,WE,FR"`
+|`:attendees` |No |Vector of attendee UUIDs (domain IDs, not email addresses)
+|===
+
+=== `EventDef`
+
+Definition map registered via the `defevent` macro.
+
+[source,clojure]
+----
+[:map
+ [:id     :keyword]
+ [:label  {:optional true} :string]
+ [:schema {:optional true} :any]]     ; optional Malli schema for domain-specific fields
+----
+
+=== `OccurrenceResult`
+
+Returned by recurrence expansion utilities.
+
+[source,clojure]
+----
+[:map
+ [:event EventData]
+ [:start inst?]
+ [:end   inst?]]
+----
+
+=== `ConflictResult`
+
+Returned by `find-conflicts`.
+
+[source,clojure]
+----
+[:map
+ [:event-a       EventData]
+ [:event-b       EventData]
+ [:overlap-start inst?]
+ [:overlap-end   inst?]]
+----
+
+=== Validation helpers
+
+[source,clojure]
+----
+(valid-event?     event)      ; → boolean
+(explain-event    event)      ; → malli explain map or nil
+(valid-event-def? event-def)  ; → boolean
+----
+
+*Examples*:
+
+[source,clojure]
+----
+(require '[boundary.calendar.schema :as schema])
+
+(schema/valid-event? {:id (random-uuid) :title "Standup"
+                      :start #inst "2026-03-10T09:00:00Z"
+                      :end   #inst "2026-03-10T09:30:00Z"
+                      :timezone "Europe/Amsterdam"})
+;; => true
+
+(schema/explain-event {:id "not-a-uuid" :title "Bad"})
+;; => {:schema [...] :value {...} :errors [...]}
+----
+
+'''''
+
+== `boundary.calendar.core.event`
+
+Registry and pure helpers for working with event maps. No I/O.
+
+=== `defevent` macro
+
+Register a named event type.
+
+[source,clojure]
+----
+(defevent sym definition-map)
+----
+
+[cols="20%,80%",options="header"]
+|===
+|Arg |Description
+|`sym` |Clojure var name to bind the definition to
+|`definition-map` |Map conforming to `EventDef` schema
+|===
+
+*Example*:
+
+[source,clojure]
+----
+(require '[boundary.calendar.core.event :refer [defevent]])
+
+(defevent appointment-event
+  {:id    :appointment
+   :label "Appointment"
+   :schema [:map
+            [:patient-id :uuid]
+            [:room       :string]]})
+
+;; appointment-event is now a var bound to the definition map.
+;; The type is also registered in the in-process registry.
+----
+
+NOTE: Use `clear-registry!` between tests to prevent cross-test pollution.
+
+=== Registry operations
+
+[cols="45%,55%",options="header"]
+|===
+|Function |Description
+|`(register-event-type! definition)` |Register definition; returns the definition map
+|`(get-event-type id)` |Look up by keyword `:id`; returns map or `nil`
+|`(list-event-types)` |Returns vector of all registered keyword ids
+|`(clear-registry!)` |Reset registry to `{}`; use in test fixtures
+|===
+
+*Examples*:
+
+[source,clojure]
+----
+(require '[boundary.calendar.core.event :as event])
+
+(event/get-event-type :appointment)
+;; => {:id :appointment :label "Appointment" :schema [...]}
+
+(event/list-event-types)
+;; => [:appointment :shift :meeting]
+
+;; In tests:
+(use-fixtures :each (fn [f] (event/clear-registry!) (f)))
+----
+
+=== Pure helpers
+
+==== `duration`
+
+[source,clojure]
+----
+(duration event) ; → java.time.Duration
+----
+
+Returns the `Duration` between `:start` and `:end`. May be zero or negative for malformed events.
+
+==== `all-day?`
+
+[source,clojure]
+----
+(all-day? event) ; → boolean
+----
+
+Returns `true` if the event spans at least 24 hours and `:start` is at midnight UTC.
+
+==== `within-range?`
+
+[source,clojure]
+----
+(within-range? event range-start range-end) ; → boolean
+----
+
+Returns `true` if the event overlaps the half-open interval `[range-start, range-end)`.
+Uses: `event-start < range-end AND event-end > range-start`.
+
+[cols="25%,25%,50%",options="header"]
+|===
+|Arg |Type |Notes
+|`event` |EventData map |With `:start` and `:end` Instants
+|`range-start` |`java.time.Instant` |Inclusive
+|`range-end` |`java.time.Instant` |Exclusive
+|===
+
+==== `valid-event?` / `explain-event`
+
+Delegates to `boundary.calendar.schema`:
+
+[source,clojure]
+----
+(valid-event?  event) ; → boolean
+(explain-event event) ; → malli explain map or nil
+----
+
+'''''
+
+== `boundary.calendar.core.recurrence`
+
+RRULE parsing and DST-aware occurrence expansion. All functions are pure.
+
+Uses `net.fortuna.ical4j.model.Recur` (ical4j 4.x) internally with `ZonedDateTime` seeds
+so that local-time recurrences (e.g. "every Monday at 09:00") remain stable across
+DST transitions.
+
+=== `recurring?`
+
+[source,clojure]
+----
+(recurring? event) ; → boolean
+----
+
+Returns `true` if `:recurrence` is present and non-blank.
+
+=== `occurrences`
+
+[source,clojure]
+----
+(occurrences event window-start window-end) ; → [Instant ...]
+----
+
+Returns a vector of `java.time.Instant` values representing occurrence *starts* within
+the half-open window `[window-start, window-end)`.
+
+[cols="25%,25%,50%",options="header"]
+|===
+|Arg |Type |Notes
+|`event` |EventData map |May be recurring or non-recurring
+|`window-start` |`java.time.Instant` |Inclusive
+|`window-end` |`java.time.Instant` |Exclusive
+|===
+
+*Behaviour*:
+
+* *Recurring*: parses `:recurrence` via `Recur`, returns all occurrence starts in window.
+* *Non-recurring*: returns `[(:start event)]` if event overlaps window, else `[]`.
+* DST-safe: seeds ical4j with `ZonedDateTime`; 09:00 local stays 09:00 after clock change.
+
+*Examples*:
+
+[source,clojure]
+----
+(require '[boundary.calendar.core.recurrence :as r])
+
+(def standup {:id (random-uuid)
+              :title "Standup"
+              :start #inst "2026-03-02T08:00:00Z"   ; 09:00 Amsterdam
+              :end   #inst "2026-03-02T08:30:00Z"
+              :timezone "Europe/Amsterdam"
+              :recurrence "FREQ=WEEKLY;BYDAY=MO,WE,FR"})
+
+;; Mon/Wed/Fri in first week of March
+(r/occurrences standup
+               #inst "2026-03-01T00:00:00Z"
+               #inst "2026-03-08T00:00:00Z")
+;; => [#inst "2026-03-02T08:00:00Z"   ; Mon
+;;     #inst "2026-03-04T08:00:00Z"   ; Wed
+;;     #inst "2026-03-06T08:00:00Z"]  ; Fri
+
+;; After DST spring-forward (March 29): still 08:00 UTC = 10:00 CEST
+(r/occurrences standup
+               #inst "2026-03-29T00:00:00Z"
+               #inst "2026-04-05T00:00:00Z")
+;; => [#inst "2026-03-30T07:00:00Z"   ; Mon — 09:00 CEST = 07:00 UTC
+;;     #inst "2026-04-01T07:00:00Z"   ; Wed
+;;     #inst "2026-04-03T07:00:00Z"]  ; Fri
+----
+
+=== `next-occurrence`
+
+[source,clojure]
+----
+(next-occurrence event) ; → Instant | nil
+----
+
+Returns the first occurrence start after `Instant/now`, or `nil` if none exists within
+a 100-year search window.
+
+For non-recurring events: returns `:start` if it is in the future, else `nil`.
+
+=== `expand-event`
+
+[source,clojure]
+----
+(expand-event event window-start window-end) ; → [EventData ...]
+----
+
+Returns a vector of single-occurrence EventData maps for the given window.
+
+Each map has `:start` and `:end` set to the occurrence's times.
+The `:recurrence` key is removed — each result represents one concrete occurrence.
+
+*Example*:
+
+[source,clojure]
+----
+(r/expand-event standup
+                #inst "2026-03-01T00:00:00Z"
+                #inst "2026-03-08T00:00:00Z")
+;; => [{:id #uuid "..." :title "Standup"
+;;      :start #inst "2026-03-02T08:00:00Z"
+;;      :end   #inst "2026-03-02T08:30:00Z"
+;;      :timezone "Europe/Amsterdam"}   ; :recurrence removed
+;;     {...Mon} {:...Wed} {:...Fri}]
+----
+
+=== RRULE quick reference
+
+[cols="40%,60%",options="header"]
+|===
+|RRULE string |Meaning
+|`"FREQ=DAILY"` |Every day
+|`"FREQ=WEEKLY;BYDAY=MO,WE,FR"` |Every Mon, Wed, Fri
+|`"FREQ=WEEKLY;BYDAY=MO;COUNT=10"` |10 Mondays then stop
+|`"FREQ=MONTHLY;BYDAY=1MO"` |First Monday of each month
+|`"FREQ=YEARLY"` |Same date each year
+|`"FREQ=DAILY;UNTIL=20261231T000000Z"` |Daily until 31 Dec 2026
+|===
+
+'''''
+
+== `boundary.calendar.core.conflict`
+
+Pairwise conflict detection. All functions are pure.
+
+=== `overlaps?`
+
+[source,clojure]
+----
+(overlaps? event-a event-b) ; → boolean
+----
+
+Returns `true` if two *expanded* (non-recurring) events overlap in time.
+
+Uses half-open interval: `a.start < b.end AND a.end > b.start`.
+Events that share only a boundary (end of A = start of B) do **not** overlap.
+
+*Examples*:
+
+[source,clojure]
+----
+(require '[boundary.calendar.core.conflict :as conflict])
+
+(conflict/overlaps? {:start #inst "2026-03-10T09:00:00Z"
+                     :end   #inst "2026-03-10T09:30:00Z"}
+                    {:start #inst "2026-03-10T09:15:00Z"
+                     :end   #inst "2026-03-10T09:45:00Z"})
+;; => true  (15-minute overlap)
+
+;; Adjacent (no overlap):
+(conflict/overlaps? {:start #inst "2026-03-10T09:00:00Z"
+                     :end   #inst "2026-03-10T09:30:00Z"}
+                    {:start #inst "2026-03-10T09:30:00Z"
+                     :end   #inst "2026-03-10T10:00:00Z"})
+;; => false
+----
+
+=== `conflicts?`
+
+[source,clojure]
+----
+(conflicts? event-a event-b window-start window-end) ; → boolean
+----
+
+Returns `true` if *any* occurrence of `event-a` overlaps *any* occurrence of `event-b`
+within the time window. Both events are expanded via `recurrence/expand-event` before
+comparison, so recurring events are handled correctly.
+
+[cols="25%,25%,50%",options="header"]
+|===
+|Arg |Type |Notes
+|`event-a` |EventData map |May be recurring
+|`event-b` |EventData map |May be recurring
+|`window-start` |`java.time.Instant` |Window for expansion
+|`window-end` |`java.time.Instant` |Window for expansion
+|===
+
+=== `find-conflicts`
+
+[source,clojure]
+----
+(find-conflicts events window-start window-end) ; → [ConflictResult ...]
+----
+
+Returns a vector of `ConflictResult` maps for every overlapping pair in the event seq.
+
+Performs O(n²) pairwise comparison after expanding recurring events to individual
+occurrences. Each pair is reported at most once (A vs B, not also B vs A).
+
+[cols="25%,25%,50%",options="header"]
+|===
+|Arg |Type |Notes
+|`events` |seq of EventData maps |Mix of recurring and non-recurring is fine
+|`window-start` |`java.time.Instant` |Expansion window start
+|`window-end` |`java.time.Instant` |Expansion window end
+|===
+
+*Return value*:
+
+[source,clojure]
+----
+{:event-a       EventData   ; original (not expanded) event A
+ :event-b       EventData   ; original (not expanded) event B
+ :overlap-start Instant     ; latest of the two occurrence starts
+ :overlap-end   Instant}    ; earliest of the two occurrence ends
+----
+
+*Example*:
+
+[source,clojure]
+----
+(def week-start #inst "2026-03-09T00:00:00Z")
+(def week-end   #inst "2026-03-16T00:00:00Z")
+
+(conflict/find-conflicts [standup doctor-appointment] week-start week-end)
+;; => [{:event-a  standup
+;;      :event-b  doctor-appointment
+;;      :overlap-start #inst "2026-03-10T09:00:00Z"
+;;      :overlap-end   #inst "2026-03-10T09:30:00Z"}]
+----
+
+'''''
+
+== `boundary.calendar.core.ui`
+
+Pure Hiccup components for rendering calendar views. No I/O, no state.
+Composable into any Ring/Reitit handler.
+
+=== `event-badge`
+
+[source,clojure]
+----
+(event-badge event)
+(event-badge event timezone)
+----
+
+Renders a colored pill showing the event start time and title.
+
+[cols="25%,20%,55%",options="header"]
+|===
+|Arg |Type |Notes
+|`event` |EventData map |Required
+|`timezone` |string |IANA timezone for time display; defaults to `"UTC"`
+|===
+
+*Returns* `[:div.event-badge ...]`
+
+*CSS classes emitted*: `.event-badge`, `.event-time`, `.event-title`
+
+=== `day-cell`
+
+[source,clojure]
+----
+(day-cell date events)
+(day-cell date events opts)
+----
+
+Renders a single day cell in a calendar grid.
+
+[cols="25%,25%,50%",options="header"]
+|===
+|Arg |Type |Notes
+|`date` |`java.time.LocalDate` |The day to render
+|`events` |seq of EventData maps |Events already filtered to this day by the caller
+|`opts` |map |See below
+|===
+
+*Options map*:
+
+[cols="25%,25%,50%",options="header"]
+|===
+|Key |Type |Notes
+|`:today` |`LocalDate` |Adds `.today` CSS class when date matches
+|`:selected-date` |`LocalDate` |Adds `.selected` CSS class when date matches
+|`:timezone` |string |For event time display; defaults to `"UTC"`
+|===
+
+*CSS classes emitted*: `.day-cell`, `.today` (conditional), `.selected` (conditional),
+`.empty` (when no events), `.day-number`, `.day-events`
+
+=== `month-view`
+
+[source,clojure]
+----
+(month-view year month events)
+(month-view year month events opts)
+----
+
+Renders a full month calendar grid (7 columns, Mon–Sun).
+
+[cols="25%,25%,50%",options="header"]
+|===
+|Arg |Type |Notes
+|`year` |integer |e.g. `2026`
+|`month` |integer |1–12
+|`events` |seq of EventData maps |Pass all; function filters per day internally
+|`opts` |map |`:today`, `:selected-date`, `:timezone` (same as `day-cell`)
+|===
+
+*Returns* `[:div.calendar-month ...]`
+
+*CSS structure*:
+[source]
+----
+.calendar-month
+  .calendar-header
+    .month-title
+  .calendar-grid
+    .calendar-row.header-row
+      .day-header  (× 7)
+    .calendar-row  (× weeks)
+      .day-cell / .day-cell.filler
+----
+
+*Example*:
+
+[source,clojure]
+----
+(require '[boundary.calendar.core.ui :as ui])
+(require '[java.time LocalDate])
+
+(ui/month-view 2026 3 events
+               {:today         (LocalDate/now)
+                :selected-date (LocalDate/of 2026 3 10)
+                :timezone      "Europe/Amsterdam"})
+----
+
+=== `week-view`
+
+[source,clojure]
+----
+(week-view start-date events)
+(week-view start-date events opts)
+----
+
+Renders a 7-column week grid with hourly rows (00:00–23:00).
+
+[cols="25%,25%,50%",options="header"]
+|===
+|Arg |Type |Notes
+|`start-date` |`java.time.LocalDate` |Monday of the week to display
+|`events` |seq of EventData maps |All events; function filters per cell
+|`opts` |map |`:today` (`LocalDate`), `:timezone` (string, default `"UTC"`)
+|===
+
+*Returns* `[:div.calendar-week ...]`
+
+*CSS structure*:
+[source]
+----
+.calendar-week
+  .week-header
+    .time-gutter
+    .week-day-header[.today]  (× 7)
+      .week-day-name
+      .week-day-number
+  .week-body
+    .hour-row  (× 24)
+      .time-label
+      .week-cell[data-date, data-hour]  (× 7)
+        .event-badge  (× events in this cell)
+----
+
+=== `mini-calendar`
+
+[source,clojure]
+----
+(mini-calendar year month selected-date)
+(mini-calendar year month selected-date opts)
+----
+
+Renders a compact month navigator suitable for sidebars.
+
+Shows day numbers only (no event badges). Prev/next links use the
+query-param convention: `?year=Y&month=M`.
+
+[cols="25%,25%,50%",options="header"]
+|===
+|Arg |Type |Notes
+|`year` |integer |Year to display
+|`month` |integer |1–12
+|`selected-date` |`LocalDate` or `nil` |Highlighted selection
+|`opts` |map |`:today` (`LocalDate`)
+|===
+
+*Returns* `[:div.mini-calendar ...]`
+
+*CSS structure*:
+[source]
+----
+.mini-calendar
+  .mini-header
+    a.mini-nav[href="?year=...&month=..."]  (prev)
+    .mini-title
+    a.mini-nav[href="?year=...&month=..."]  (next)
+  .mini-grid
+    .mini-row.header-row
+      .mini-day-header  (× 7)
+    .mini-row  (× weeks)
+      .mini-cell[.today][.selected][.filler]
+----
+
+'''''
+
+== `boundary.calendar.shell.service`
+
+Public entry point for iCal serialization. Creates an `ICalAdapter` internally
+so callers never import ical4j directly.
+
+=== `export-ical`
+
+[source,clojure]
+----
+(export-ical events)
+(export-ical events opts)
+----
+
+Converts a seq of EventData maps to an RFC 5545 VCALENDAR string.
+
+[cols="25%,25%,50%",options="header"]
+|===
+|Arg |Type |Notes
+|`events` |seq of EventData maps |One or more events
+|`opts` |map |See below
+|===
+
+*Options*:
+
+[cols="25%,20%,55%",options="header"]
+|===
+|Key |Default |Description
+|`:product-id` |`"-//Boundary//Calendar//EN"` |`PRODID` property value
+|`:adapter` |`ICalAdapter` |Custom `CalendarAdapterProtocol` implementation
+|===
+
+*Returns* a `String` starting with `"BEGIN:VCALENDAR"`.
+
+*Example*:
+
+[source,clojure]
+----
+(require '[boundary.calendar.shell.service :as cal])
+
+(cal/export-ical [appointment] {:product-id "-//MyApp//EN"})
+;; => "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//MyApp//EN\r\n..."
+----
+
+=== `import-ical`
+
+[source,clojure]
+----
+(import-ical ical-string)
+(import-ical ical-string opts)
+----
+
+Parses an RFC 5545 VCALENDAR string into a vector of EventData maps.
+
+[cols="25%,25%,50%",options="header"]
+|===
+|Arg |Type |Notes
+|`ical-string` |String |Valid RFC 5545 VCALENDAR content
+|`opts` |map |`:adapter` (custom `CalendarAdapterProtocol`)
+|===
+
+*Returns* a vector of EventData maps.
+
+* `:start` / `:end` are `java.time.Instant` values.
+* `:timezone` is the original IANA name (e.g. `"Europe/Amsterdam"`), parsed from the `TZID` parameter.
+* `:recurrence` preserves the RRULE string if present.
+* Unknown VEVENT properties are silently ignored.
+* If `UID` is not a valid UUID, a random UUID is assigned.
+
+=== `ical-feed-response`
+
+[source,clojure]
+----
+(ical-feed-response events)
+(ical-feed-response events opts)
+----
+
+Builds a Ring response map for serving an iCal feed over HTTP.
+
+[cols="25%,25%,50%",options="header"]
+|===
+|Arg |Type |Notes
+|`events` |seq of EventData maps |Events to include in the feed
+|`opts` |map |All `export-ical` opts; also `:filename`
+|===
+
+*Additional option*:
+
+[cols="25%,20%,55%",options="header"]
+|===
+|Key |Default |Description
+|`:filename` |`"calendar.ics"` |Value of the `Content-Disposition` filename parameter
+|===
+
+*Returns*:
+
+[source,clojure]
+----
+{:status  200
+ :headers {"Content-Type"        "text/calendar; charset=utf-8"
+           "Content-Disposition" "attachment; filename=\"calendar.ics\""}
+ :body    "BEGIN:VCALENDAR..."}
+----
+
+*Example — Reitit route*:
+
+[source,clojure]
+----
+(require '[boundary.calendar.shell.service :as cal])
+
+["/calendar.ics"
+ {:get {:handler
+        (fn [request]
+          (let [events (db/get-events (:db request))]
+            (cal/ical-feed-response events {:filename "my-calendar.ics"})))}}]
+----
+
+'''''
+
+== `boundary.calendar.ports`
+
+=== `CalendarAdapterProtocol`
+
+Extension point for custom iCal backends.  The default implementation is
+`boundary.calendar.shell.adapters.ical/ICalAdapter` (ical4j 4.x).
+
+[source,clojure]
+----
+(defprotocol CalendarAdapterProtocol
+  (export-ical [this events opts])
+  (import-ical [this ical-string opts]))
+----
+
+To use a custom adapter, pass it via the `:adapter` key in any `shell.service` call:
+
+[source,clojure]
+----
+(cal/export-ical events {:adapter my-custom-adapter})
+----
+
+'''''
+
+== Testing commands
+
+[source,bash]
+----
+# All calendar tests
+clojure -M:test:db/h2 :calendar
+
+# Unit tests only (no I/O)
+clojure -M:test:db/h2 --focus-meta :unit :calendar
+
+# Integration tests (iCal round-trip)
+clojure -M:test:db/h2 --focus-meta :integration :calendar
+
+# DST edge cases
+clojure -M:test:db/h2 --focus boundary.calendar.core.recurrence-test
+
+# Lint
+clojure -M:clj-kondo --lint libs/calendar/src libs/calendar/test
+----
+
+'''''
+
+== See also
+
+* xref:../guides/calendar.adoc[Calendar Guide] — task-oriented how-to
+* xref:../guides/reports.adoc[Reports Guide] — similar `defreport` pattern
+* https://icalendar.org/RFC-Specifications/iCalendar-RFC-5545/[RFC 5545 — iCalendar]
+* https://www.ical4j.org/[ical4j documentation]

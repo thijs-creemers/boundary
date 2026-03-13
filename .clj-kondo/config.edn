@@ -3,7 +3,8 @@
            boundary.platform.shell.adapters.database.h2.core/with-transaction clojure.core/with-open
            clojure.test.check.clojure-test/defspec clojure.core/def
            boundary.search.core.index/defsearch clojure.core/def
-           boundary.reports.core.report/defreport clojure.core/def}
+           boundary.reports.core.report/defreport clojure.core/def
+           boundary.calendar.core.event/defevent  clojure.core/def}
  :linters {:unresolved-symbol {:exclude [(boundary.platform.shell.adapters.database.common.core/with-transaction [tx])]}}
  :config-in-ns {boundary.search.core.index-test {:linters {:inline-def {:level :off}}}
                 boundary.user.ports {:linters {:redefined-var {:level :off}}}
