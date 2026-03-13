@@ -49,10 +49,10 @@
     (dec dow)))
 
 (defn- events-on-date
-  "Return events from coll whose :start (in UTC) falls on the given LocalDate."
-  [events ^LocalDate date]
+  "Return events from coll whose :start falls on the given LocalDate in the given timezone."
+  [events ^LocalDate date ^String timezone]
   (filter (fn [ev]
-            (let [ev-date (instant->local-date (:start ev) "UTC")]
+            (let [ev-date (instant->local-date (:start ev) timezone)]
               (.isEqual ev-date date)))
           events))
 
@@ -148,7 +148,9 @@
   ([year month events]
    (month-view year month events {}))
   ([year month events opts]
-   (let [days-count (days-in-month year month)
+   (let [{:keys [timezone]
+          :or   {timezone "UTC"}} opts
+         days-count (days-in-month year month)
          offset     (first-day-of-week-offset year month)
          day-names  ["Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun"]
          ;; Build flat list: nil for filler cells, LocalDate for real days
@@ -175,7 +177,7 @@
             (if (nil? date)
               [:div.day-cell.filler]
               (day-cell date
-                        (events-on-date events date)
+                        (events-on-date events date timezone)
                         opts)))])]])))
 
 ;; =============================================================================

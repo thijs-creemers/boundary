@@ -138,3 +138,84 @@
     (let [resp (service/ical-feed-response [appointment] {:filename "my-feed.ics"})]
       (is (str/includes? (get-in resp [:headers "Content-Disposition"])
                          "my-feed.ics")))))
+
+;; =============================================================================
+;; Non-UUID UID handling
+;; =============================================================================
+
+(deftest non-uuid-uid-import-test
+  ^:integration
+  (testing "importing iCal with non-UUID UID generates deterministic UUID"
+    ;; Many calendar systems (Google, Outlook) use non-UUID UID strings
+    (let [ical-with-text-uid "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//Test//EN\nBEGIN:VEVENT\nUID:meeting-2026-03-10@example.com\nDTSTART:20260310T090000Z\nDTEND:20260310T093000Z\nSUMMARY:Meeting\nEND:VEVENT\nEND:VCALENDAR"
+          events-first  (service/import-ical ical-with-text-uid)
+          events-second (service/import-ical ical-with-text-uid)]
+      ;; Both imports should produce the same UUID (deterministic)
+      (is (= 1 (count events-first)))
+      (is (= 1 (count events-second)))
+      (is (= (:id (first events-first))
+             (:id (first events-second)))
+          "Same non-UUID UID should produce same deterministic UUID on repeated imports")
+      ;; The generated UUID should be valid
+      (is (uuid? (:id (first events-first))))
+      ;; Title should be preserved
+      (is (= "Meeting" (:title (first events-first))))))
+
+  (testing "importing iCal with valid UUID UID preserves the UUID"
+    (let [uuid-str "550e8400-e29b-41d4-a716-446655440000"
+          ical-with-uuid-uid (str "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//Test//EN\nBEGIN:VEVENT\nUID:" uuid-str "\nDTSTART:20260310T090000Z\nDTEND:20260310T093000Z\nSUMMARY:Meeting\nEND:VEVENT\nEND:VCALENDAR")
+          events (service/import-ical ical-with-uuid-uid)]
+      (is (= 1 (count events)))
+      (is (= (java.util.UUID/fromString uuid-str)
+             (:id (first events)))
+          "Valid UUID UID should be preserved exactly"))))
+
+(deftest malformed-ical-import-test
+  ^:integration
+  (testing "importing iCal with missing DTEND is valid (DTEND optional per RFC 5545)"
+    ;; Missing DTEND - should not throw, DTEND is optional (DURATION can replace it)
+    (let [ical-no-dtend "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//Test//EN\nBEGIN:VEVENT\nUID:test-uid\nDTSTART:20260310T090000Z\nSUMMARY:Valid Event\nEND:VEVENT\nEND:VCALENDAR"
+          events (service/import-ical ical-no-dtend)]
+      (is (= 1 (count events))
+          "Missing DTEND is valid (defaults to DTSTART or uses DURATION)")))
+
+  (testing "importing iCal with missing UID throws exception"
+    ;; Missing UID (required per RFC 5545)
+    (let [ical-no-uid "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//Test//EN\nBEGIN:VEVENT\nDTSTART:20260310T090000Z\nDTEND:20260310T093000Z\nSUMMARY:Invalid Event\nEND:VEVENT\nEND:VCALENDAR"]
+      (is (thrown? Exception (service/import-ical ical-no-uid))
+          "Missing UID should throw")))
+
+  (testing "importing iCal with invalid date formats throws exception"
+    ;; Invalid date format (not ISO 8601)
+    (let [ical-bad-date "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//Test//EN\nBEGIN:VEVENT\nUID:test-uid\nDTSTART:2026-03-10\nDTEND:20260310T093000Z\nSUMMARY:Bad Date\nEND:VEVENT\nEND:VCALENDAR"]
+      (is (thrown? Exception (service/import-ical ical-bad-date))
+          "Invalid date format should throw")))
+
+  (testing "importing non-iCal string throws exception"
+    ;; Not a VCALENDAR at all
+    (let [not-ical "This is not an iCal file"]
+      (is (thrown? Exception (service/import-ical not-ical))
+          "Non-iCal string should throw"))))
+
+(deftest rrule-validation-edge-cases-test
+  ^:integration
+  (testing "importing iCal with invalid RRULE syntax throws exception"
+    ;; Invalid FREQ value
+    (let [ical-bad-freq "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//Test//EN\nBEGIN:VEVENT\nUID:test-uid\nDTSTART:20260310T090000Z\nDTEND:20260310T093000Z\nSUMMARY:Bad RRULE\nRRULE:FREQ=INVALIDFREQ\nEND:VEVENT\nEND:VCALENDAR"]
+      (is (thrown? Exception (service/import-ical ical-bad-freq))
+          "Invalid FREQ value should throw")))
+
+  (testing "importing iCal with RRULE edge cases that should work"
+    ;; BYDAY without ordinal in MONTHLY (means every occurrence of that day in the month)
+    (let [ical-monthly-byday "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//Test//EN\nBEGIN:VEVENT\nUID:test-uid\nDTSTART:20260302T090000Z\nDTEND:20260302T093000Z\nSUMMARY:Every Monday\nRRULE:FREQ=MONTHLY;BYDAY=MO\nEND:VEVENT\nEND:VCALENDAR"
+          events (service/import-ical ical-monthly-byday)]
+      (is (= 1 (count events)))
+      (is (= "FREQ=MONTHLY;BYDAY=MO" (:recurrence (first events)))
+          "BYDAY without ordinal in MONTHLY is valid"))
+
+    ;; UNTIL with timezone (RFC 5545 allows UNTIL in UTC or local time with TZID)
+    (let [ical-until-tz "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//Test//EN\nBEGIN:VEVENT\nUID:test-uid\nDTSTART;TZID=Europe/Amsterdam:20260302T090000\nDTEND;TZID=Europe/Amsterdam:20260302T093000\nSUMMARY:Until with TZ\nRRULE:FREQ=DAILY;UNTIL=20260310T090000Z\nEND:VEVENT\nEND:VCALENDAR"
+          events (service/import-ical ical-until-tz)]
+      (is (= 1 (count events)))
+      (is (str/includes? (:recurrence (first events)) "UNTIL=")
+          "UNTIL with timezone is valid"))))

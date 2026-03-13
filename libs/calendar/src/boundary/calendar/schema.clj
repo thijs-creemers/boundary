@@ -1,6 +1,19 @@
 (ns boundary.calendar.schema
   "Malli validation schemas for the calendar module."
-  (:require [malli.core :as m]))
+  (:require [malli.core :as m])
+  (:import [java.time ZoneId]))
+
+;; =============================================================================
+;; Validation helpers (defined first so they can be used in schemas)
+;; =============================================================================
+
+(defn valid-timezone?
+  "Returns true if the given string is a valid IANA timezone identifier."
+  [tz]
+  (try
+    (ZoneId/of tz)
+    true
+    (catch Exception _ false)))
 
 ;; =============================================================================
 ;; EventData — base event map all library functions operate on
@@ -15,7 +28,7 @@
    [:title      :string]
    [:start      inst?]                              ; java.time.Instant (UTC)
    [:end        inst?]                              ; java.time.Instant (UTC)
-   [:timezone   :string]                            ; e.g. "Europe/Amsterdam"
+   [:timezone   [:and :string [:fn valid-timezone?]]]  ; IANA timezone with validation
    [:recurrence {:optional true} :string]           ; RFC 5545 RRULE string
    [:attendees  {:optional true} [:vector :uuid]]])
 
@@ -54,7 +67,7 @@
    [:overlap-end   inst?]])
 
 ;; =============================================================================
-;; Validation helpers
+;; Additional validation helpers
 ;; =============================================================================
 
 (defn valid-event?

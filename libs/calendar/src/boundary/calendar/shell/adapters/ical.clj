@@ -10,6 +10,7 @@
             [clojure.string :as str])
   (:import [java.time Instant ZoneId ZonedDateTime LocalDate LocalDateTime ZoneOffset]
            [java.io StringReader StringWriter]
+           [java.nio.charset StandardCharsets]
            [net.fortuna.ical4j.model Calendar]
            [net.fortuna.ical4j.model.component VEvent]
            [net.fortuna.ical4j.model.property Uid RRule Description]
@@ -120,6 +121,18 @@
       (when-let [m (re-find #"TZID=([^;:\r\n]+)" text)]
         (str/trim (second m))))))
 
+(defn- uid-string->uuid
+  "Convert a UID string to a UUID.
+   If the string is already a valid UUID, use it directly.
+   Otherwise, generate a deterministic UUID v3 (MD5-based) from the string.
+   This ensures the same UID string always produces the same UUID across imports."
+  [uid-str]
+  (try
+    (java.util.UUID/fromString uid-str)
+    (catch Exception _
+      ;; Use Java's built-in nameUUIDFromBytes which generates UUID v3 (MD5-based)
+      (java.util.UUID/nameUUIDFromBytes (.getBytes uid-str StandardCharsets/UTF_8)))))
+
 (defn- vevent->event
   "Convert a net.fortuna.ical4j 4.x VEvent to a boundary EventData map."
   [vevent]
@@ -129,8 +142,7 @@
         ev-end    (dt-prop->instant (find-prop vevent "DTEND"))
         rrule-str (get-prop-value vevent "RRULE")
         timezone  (or (get-tzid vevent) "UTC")]
-    (cond-> {:id       (try (java.util.UUID/fromString uid-str)
-                            (catch Exception _ (java.util.UUID/randomUUID)))
+    (cond-> {:id       (uid-string->uuid uid-str)
              :title    (or title "")
              :start    ev-start
              :end      ev-end

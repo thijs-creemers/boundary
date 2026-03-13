@@ -176,6 +176,23 @@
       ;; After DST, 09:00 Amsterdam = 07:00 UTC
       (is (= (Instant/parse "2026-03-30T07:00:00Z") (first occs))))))
 
+(deftest dst-fall-back-test
+  ^:unit
+  (testing "weekly recurrence at 09:00 Amsterdam stays at 09:00 local after DST fall-back"
+    ;; Amsterdam: UTC+2 in summer, UTC+1 in winter.
+    ;; Fall-back 2026: last Sunday of October = Oct 25, 03:00 local → 02:00.
+    ;; An event at 09:00 Amsterdam on Oct 19 (UTC+2 → 07:00 UTC) should appear
+    ;; at 09:00 Amsterdam on Oct 26 (UTC+1 → 08:00 UTC).
+    (let [ev (make-event "2026-10-19T07:00:00Z" "2026-10-19T07:30:00Z"
+                         "FREQ=WEEKLY"
+                         "Europe/Amsterdam")
+          occs (sut/occurrences ev
+                                (Instant/parse "2026-10-26T00:00:00Z")
+                                (Instant/parse "2026-10-27T00:00:00Z"))]
+      (is (= 1 (count occs)))
+      ;; After DST fall-back, 09:00 Amsterdam = 08:00 UTC
+      (is (= (Instant/parse "2026-10-26T08:00:00Z") (first occs))))))
+
 ;; =============================================================================
 ;; expand-event
 ;; =============================================================================

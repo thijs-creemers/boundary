@@ -143,4 +143,10 @@
     (is (false? (sut/valid-event? (dissoc base-event :title)))))
   (testing "valid event with optional recurrence"
     (let [event (assoc base-event :recurrence "FREQ=WEEKLY;BYDAY=MO,WE,FR")]
+      (is (true? (sut/valid-event? event)))))
+  (testing "invalid timezone fails validation"
+    (let [event (assoc base-event :timezone "Not/A/Real/Timezone")]
+      (is (false? (sut/valid-event? event)))))
+  (testing "valid IANA timezone passes validation"
+    (let [event (assoc base-event :timezone "America/New_York")]
       (is (true? (sut/valid-event? event))))))
