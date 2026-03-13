@@ -56,7 +56,8 @@
       "Bash(/opt/homebrew/Cellar/ruby/4.0.1/bin/gem install:*)",
       "Bash(bb scaffold:*)",
       "Bash(pandoc:*)",
-      "Bash(read md:*)"
+      "Bash(read md:*)",
+      "WebFetch(domain:www.ical4j.org)"
     ]
   },
   "enabledMcpjsonServers": [
