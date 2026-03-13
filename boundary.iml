@@ -35,6 +35,10 @@
       <sourceFolder url="file://$MODULE_DIR$/libs/tenant/test" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/workflow/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/workflow/test" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/calendar/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/calendar/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/reports/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/reports/test" isTestSource="true" />
     </content>
   </component>
   <component name="BuildSystem">
