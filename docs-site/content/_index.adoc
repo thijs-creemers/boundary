@@ -7,7 +7,7 @@ draft: false
 = Boundary Framework
 
 ____
-*Production-ready Clojure framework* with enforced Functional Core / Imperative Shell architecture, independently deployable modules, and enterprise features out of the box.
+*The Clojure framework* with enforced Functional Core / Imperative Shell architecture, independently deployable modules, and enterprise features out of the box.
 ____
 
 == Why Boundary?
@@ -279,7 +279,7 @@ curl http://localhost:3000/api/v1/users
 
 * link:guides/background-jobs[Background Jobs Guide]
 * link:guides/mfa-setup[Add Multi-Factor Auth]
-* link:guides/deployment[Deploy to Production]
+* link:guides/operations[Deploy to Production]
 
 == Documentation Structure
 
@@ -291,7 +291,7 @@ Comprehensive architectural documentation covering core design principles, patte
 * link:guides/functional-core-imperative-shell[Functional Core / Imperative Shell] - Core architectural pattern
 * link:architecture/ports-and-adapters[Ports and Adapters] - Hexagonal architecture implementation
 * link:architecture/clean-architecture-layers[Clean Architecture Layers] - Layer organization and responsibilities
-* link:architecture/interceptors[HTTP Interceptors] - Request/response middleware
+* link:architecture/middleware-architecture[HTTP Interceptors] - Request/response middleware
 * link:architecture/error-handling-observability[Error Handling and Observability] - Error management strategy
 
 === 🎓 link:guides/[Guides]
@@ -319,7 +319,7 @@ Technical reference documentation for APIs, commands, and configuration.
 Boundary Framework is open source and welcomes contributions!
 
 * *GitHub Repository:* https://github.com/thijs-creemers/boundary[github.com/thijs-creemers/boundary]
-* *Documentation:* See the link:./docs-site/[docs-site/] directory
+* *Documentation:* See the https://github.com/thijs-creemers/boundary/tree/main/docs-site[docs-site/] directory
 * *Issue Tracker:* https://github.com/thijs-creemers/boundary/issues[GitHub Issues]
 
 == License

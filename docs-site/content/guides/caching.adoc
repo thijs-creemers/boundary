@@ -61,8 +61,8 @@ Boundary’s caching system provides enterprise-grade capabilities:
 
 Distributed caching follows the ports and adapters pattern with clean separation between interface and implementation:
 
-[mermaid]
-----
+++++
+<pre class="mermaid">
 graph TB
     subgraph "Application Layer"
         A[Service Layer] -->|Get/Set/Delete| B[Cache Ports]
@@ -96,7 +96,10 @@ graph TB
     style D fill:#B0E0E6,stroke:#333,stroke-width:2px
     style F fill:#B0E0E6,stroke:#333,stroke-width:2px
     style G fill:#FFE4B5,stroke:#333,stroke-width:2px
-----
+</pre>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true});</script>
+++++
 
 *Key Components*:
 
@@ -826,9 +829,9 @@ redis-cli CONFIG SET maxmemory-policy allkeys-lru
 
 == Next Steps
 
-* *link:{{< relref "background-jobs.adoc" >}}[Background Jobs Guide]* - Use caching for job deduplication
-* *link:{{< relref "pagination.md" >}}[API Pagination]* - Cache paginated results
-* *link:{{< relref "integrate-observability.adoc" >}}[Observability]* - Monitor cache hit rates and performance
+* *link:../background-jobs/[Background Jobs Guide]* - Use caching for job deduplication
+* *link:../pagination/[API Pagination]* - Cache paginated results
+* *link:../integrate-observability/[Observability]* - Monitor cache hit rates and performance
 * *https://github.com/thijs-creemers/boundary[GitHub Repository]* - View caching implementation source code
 
 '''''

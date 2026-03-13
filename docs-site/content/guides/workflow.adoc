@@ -66,15 +66,15 @@ Each transition in the `:transitions` vector supports these fields:
 |===
 |Field |Type |Required |Description
 
-||`:from` |keyword |yes |Source state
-||`:to` |keyword |yes |Target state
-||`:name` |keyword |no |Transition name (defaults to `:to`)
-||`:label` |string |no |Human-readable label (e.g. for UI buttons)
-||`:required-permissions` |`[keyword]` |no |Actor must have at least one
-||`:guard` |keyword |no |Key in the guard-registry (see below)
-||`:side-effects` |`[keyword]` |no |Job types enqueued after success
-||`:auto?` |boolean |no |Trigger automatically via `process-auto-transitions!`
-||===
+|`:from` |keyword |yes |Source state
+|`:to` |keyword |yes |Target state
+|`:name` |keyword |no |Transition name (defaults to `:to`)
+|`:label` |string |no |Human-readable label (e.g. for UI buttons)
+|`:required-permissions` |`[keyword]` |no |Actor must have at least one
+|`:guard` |keyword |no |Key in the guard-registry (see below)
+|`:side-effects` |`[keyword]` |no |Job types enqueued after success
+|`:auto?` |boolean |no |Trigger automatically via `process-auto-transitions!`
+|===
 
 === Guards
 
@@ -214,11 +214,11 @@ pick up newly-eligible instances continuously.
 |===
 |Method |Path |Description
 
-||`POST` |`/api/workflow/instances` |Start a new workflow instance
-||`GET`  |`/api/workflow/instances/:id` |Current state + available transitions
-||`GET`  |`/api/workflow/instances/:id/audit` |Full audit log
-||`POST` |`/api/workflow/instances/:id/transition` |Execute a transition
-||===
+|`POST` |`/api/workflow/instances` |Start a new workflow instance
+|`GET`  |`/api/workflow/instances/:id` |Current state + available transitions
+|`GET`  |`/api/workflow/instances/:id/audit` |Full audit log
+|`POST` |`/api/workflow/instances/:id/transition` |Execute a transition
+|===
 
 The `GET /instances/:id` response includes an `availableTransitions` array:
 
