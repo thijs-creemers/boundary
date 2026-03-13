@@ -1,0 +1,216 @@
+# boundary-geo — Dev Guide
+
+## 1. Purpose
+
+`boundary-geo` provides a multi-provider geocoding abstraction for any Boundary-based application that needs address-to-coordinate conversion or distance calculations. It eliminates ~50–100 lines of per-project boilerplate by offering:
+
+- **Multi-provider geocoding**: OpenStreetMap (Nominatim), Google Maps, Mapbox
+- **Automatic fallback chain**: try providers in order; first non-nil result wins
+- **DB-backed caching**: `geo_cache` table with configurable TTL (default 24 h)
+- **Per-provider rate limiting**: OSM enforced at 1 req/sec; Google/Mapbox at 100 ms
+- **Haversine distance calculation**: pure core function, no HTTP calls
+
+**FC/IS rule**: `core/` is pure. All HTTP calls, DB writes, and rate-limiting side effects live in `shell/`.
+
+---
+
+## 2. Key Namespaces
+
+| Namespace | Layer | Responsibility |
+|-----------|-------|----------------|
+| `boundary.geo.schema` | shared | Malli schemas: `GeoPoint`, `AddressQuery`, `GeoResult`, `GeoConfig` |
+| `boundary.geo.ports` | shared | `GeoProviderProtocol`, `GeoCacheProtocol` |
+| `boundary.geo.core.math` | core | `haversine-distance`, `bearing` |
+| `boundary.geo.core.address` | core | `normalize-query`, `query-hash` (SHA-256) |
+| `boundary.geo.shell.adapters.osm` | shell | Nominatim adapter (`NominatimAdapter`) |
+| `boundary.geo.shell.adapters.google` | shell | Google Maps adapter (`GoogleAdapter`) |
+| `boundary.geo.shell.adapters.mapbox` | shell | Mapbox adapter (`MapboxAdapter`) |
+| `boundary.geo.shell.cache` | shell | `DbGeoCache` — next.jdbc-backed cache |
+| `boundary.geo.shell.service` | shell | Public API: `geocode!`, `reverse-geocode!`, `distance` |
+| `boundary.geo.shell.module-wiring` | shell | Integrant `:boundary/geo-service` |
+
+---
+
+## 3. Integrant Configuration
+
+Add to your `resources/conf/{env}/config.edn`:
+
+```edn
+;; OpenStreetMap only (no API key needed)
+:boundary/geo-service
+{:provider   :openstreetmap
+ :user-agent "MyApp/1.0 (contact@example.com)"
+ :cache-ttl  86400
+ :db         #ig/ref :boundary/db}
+
+;; Google Maps with DB cache
+:boundary/geo-service
+{:provider  :google
+ :api-key   #env BND_GEO_API_KEY
+ :cache-ttl 86400
+ :db        #ig/ref :boundary/db}
+
+;; Fallback chain: try OSM first, fall back to Google
+:boundary/geo-service
+{:provider   [:openstreetmap :google]
+ :api-key    #env BND_GEO_API_KEY
+ :cache-ttl  86400
+ :rate-limit 1
+ :db         #ig/ref :boundary/db}
+```
+
+Require the wiring namespace in your system config loader:
+```clojure
+(require '[boundary.geo.shell.module-wiring])
+```
+
+---
+
+## 4. Public API
+
+```clojure
+(require '[boundary.geo.shell.service :as geo])
+
+;; Forward geocoding (cache-first)
+(geo/geocode! geo-service {:postcode "1012 JS" :city "Amsterdam"})
+;; => {:lat 52.374 :lng 4.890 :formatted-address "..." :provider :openstreetmap :cached? false}
+
+;; Second call returns from cache
+(geo/geocode! geo-service {:postcode "1012 JS" :city "Amsterdam"})
+;; => {:lat 52.374 :lng 4.890 ... :provider :openstreetmap :cached? true}
+
+;; Reverse geocoding (no caching)
+(geo/reverse-geocode! geo-service {:lat 52.374 :lng 4.890})
+;; => {:lat 52.374 :lng 4.890 :formatted-address "..." :provider :openstreetmap :cached? false}
+
+;; Distance (pure, no I/O)
+(geo/distance {:lat 52.3676 :lng 4.9041}
+              {:lat 51.9225 :lng 4.4792})
+;; => 56.8  (km)
+```
+
+---
+
+## 5. Core Functions
+
+```clojure
+(require '[boundary.geo.core.math :as math])
+(require '[boundary.geo.core.address :as addr])
+
+;; Haversine distance
+(math/haversine-distance {:lat 52.3676 :lng 4.9041}
+                          {:lat 51.5074 :lng -0.1278})
+;; => ~357 km
+
+;; Bearing (clockwise from north)
+(math/bearing {:lat 52.3676 :lng 4.9041}
+               {:lat 51.5074 :lng -0.1278})
+;; => ~255° (roughly west-southwest)
+
+;; Normalised query string (for inspection/debugging)
+(addr/normalize-query {:postcode "1012 LJ" :city "Amsterdam"})
+;; => "1012 lj, amsterdam, netherlands"
+
+;; SHA-256 cache key
+(addr/query-hash {:postcode "1012 LJ" :city "Amsterdam"})
+;; => "3f4a2b..."  (64-char hex)
+```
+
+---
+
+## 6. DB Migration
+
+Run before first use (via `clojure -M:migrate up` or apply manually):
+
+```sql
+-- libs/geo/resources/boundary/geo/migrations/001-geo-cache.sql
+CREATE TABLE geo_cache (
+  address_hash      TEXT PRIMARY KEY,
+  lat               NUMERIC(10, 7) NOT NULL,
+  lng               NUMERIC(10, 7) NOT NULL,
+  formatted_address TEXT,
+  postcode          TEXT,
+  city              TEXT,
+  country           TEXT,
+  provider          TEXT NOT NULL,
+  created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_geo_cache_coords ON geo_cache(lat, lng);
+```
+
+---
+
+## 7. Common Pitfalls
+
+### 1. OSM lon vs lng
+The Nominatim JSON response uses the field name `"lon"` (not `"lng"`). The adapter handles this, but if you call the OSM API directly, remember `lon` → `lng` mapping.
+
+### 2. OSM rate limiting
+OSM usage policy requires **at most 1 request per second**. The adapter enforces this with `Thread/sleep`. Never create multiple `NominatimAdapter` instances for the same application — each has its own `last-request-ms` atom and would bypass the limit.
+
+### 3. Mapbox coordinate order
+Mapbox GeoJSON returns coordinates as `[longitude, latitude]` (not `[lat, lng]`). The adapter extracts them correctly (`(first coords)` = lng, `(second coords)` = lat).
+
+### 4. Google ZERO_RESULTS vs error
+When Google Maps returns `"status": "ZERO_RESULTS"`, the HTTP status is still 200 and `"results"` is an empty array. `parse-result` receives `nil` and returns `nil`. This is correct behaviour — handled transparently.
+
+### 5. Cache key collision
+The SHA-256 cache key is computed from the **normalised** query (lowercased, trimmed, default country applied). Two queries that normalise to the same string will share the same cache entry. This is intentional and usually correct.
+
+### 6. No cache for reverse geocoding
+`reverse-geocode!` does not use the cache. Reverse geocoding typically produces different addresses for slightly different coordinates, making coordinate-based hashing impractical. Cache at the application layer if needed.
+
+### 7. Provider nil → fallback continues
+When a provider throws an exception, the adapter returns `nil` and logs a warning. The service layer treats this as a miss and continues to the next provider. Do not rely on exceptions propagating from `geocode!`.
+
+### 8. Thread safety of rate-limit atoms
+Each adapter record holds a mutable `last-request-ms` atom. Adapter records are not thread-safe for concurrent calls from multiple threads. For multi-threaded usage, create a separate adapter per thread or add external synchronisation.
+
+---
+
+## 8. Testing Commands
+
+```bash
+# All geo tests
+clojure -M:test:db/h2 :geo
+
+# Unit tests only (pure core functions)
+clojure -M:test:db/h2 --focus-meta :unit :geo
+
+# Integration tests (mock provider + atom cache)
+clojure -M:test:db/h2 --focus-meta :integration :geo
+
+# Contract tests (DbGeoCache against H2)
+clojure -M:test:db/h2 --focus-meta :contract :geo
+
+# Lint
+clojure -M:clj-kondo --lint libs/geo/src libs/geo/test
+```
+
+---
+
+## 9. REPL Smoke Check
+
+```clojure
+;; Pure math — no system needed
+(require '[boundary.geo.core.math :as math])
+(math/haversine-distance {:lat 52.3676 :lng 4.9041}
+                          {:lat 51.5074 :lng -0.1278})
+;; => ~357.4
+
+;; Live OSM geocoding (no API key, rate-limited)
+(require '[boundary.geo.shell.adapters.osm :as osm])
+(require '[boundary.geo.shell.service :as geo])
+
+(def adapter (osm/create-nominatim-adapter
+               {:user-agent "boundary-dev/1.0 (dev@example.com)"}))
+(def service {:providers [adapter] :cache nil})
+
+(geo/geocode! service {:postcode "1012 JS" :city "Amsterdam"})
+;; => {:lat 52.374... :lng 4.890... :formatted-address "..." :provider :openstreetmap :cached? false}
+
+;; Distance
+(geo/distance {:lat 52.3676 :lng 4.9041}
+               {:lat 51.9225 :lng 4.4792})
+;; => ~56.8 km
+```
