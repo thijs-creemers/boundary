@@ -101,6 +101,8 @@ Each library has its own `AGENTS.md` with library-specific documentation:
 - `libs/tenant/AGENTS.md` - Multi-tenancy, schema-per-tenant
 - `libs/realtime/AGENTS.md` - WebSocket messaging, pub/sub
 - `libs/external/AGENTS.md` - External service adapters (skeleton)
+- `libs/reports/AGENTS.md` - `defreport` macro, PDF/CSV export, scheduling
+- `libs/calendar/AGENTS.md` - `defevent` macro, RRULE recurrence, iCal, conflict detection, Hiccup UI
 
 ## Further Reading
 

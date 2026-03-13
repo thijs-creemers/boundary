@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### `boundary-calendar` — new library (Phase 2 / Q3 2026 roadmap)
+- **`defevent` macro** and in-process registry (atom-backed, same pattern as `defreport` in `boundary-reports`): register named event type schemas at load time; `get-event-type`, `list-event-types`, `clear-registry!`.
+- **`boundary.calendar.schema`**: Malli schemas — `EventData`, `EventDef`, `OccurrenceResult`, `ConflictResult`; helpers `valid-event?`, `explain-event`, `valid-event-def?`.
+- **`boundary.calendar.core.event`**: pure helpers — `duration`, `all-day?`, `within-range?`.
+- **`boundary.calendar.core.recurrence`**: DST-aware RRULE expansion via ical4j 4.x `Recur` with `ZonedDateTime` seeds; `recurring?`, `occurrences`, `next-occurrence`, `expand-event`.
+- **`boundary.calendar.core.conflict`**: pairwise conflict detection — `overlaps?`, `conflicts?`, `find-conflicts` (returns `ConflictResult` maps with `:overlap-start`/`:overlap-end`).
+- **`boundary.calendar.core.ui`**: pure Hiccup calendar views — `event-badge`, `day-cell`, `month-view`, `week-view`, `mini-calendar`.
+- **`boundary.calendar.ports`**: `CalendarAdapterProtocol` (`export-ical`, `import-ical`).
+- **`boundary.calendar.shell.adapters.ical`**: `ICalAdapter` backed by `org.mnode.ical4j/ical4j 4.0.3`; TZID extracted via regex from property text (ical4j 4.x creates synthetic zone IDs internally).
+- **`boundary.calendar.shell.service`**: public API — `export-ical`, `import-ical`, `ical-feed-response` (returns Ring response with `Content-Type: text/calendar; charset=utf-8`).
+- 30 tests, 87 assertions, 0 failures (`^:unit` + `^:integration` round-trip).
+- `libs/calendar/AGENTS.md`: 11-section developer guide covering DST pitfalls, RRULE examples, ical4j 4.x API notes, registry pollution warning, REPL smoke check.
+- `docs-site/content/guides/calendar.adoc` (weight 68): user-facing how-to guide.
+- `docs-site/content/api/calendar.adoc` (weight 50): complete function API reference.
+- `dev-docs/adr/ADR-011-calendar-library.adoc`: architecture decision record (7 decisions, alternatives considered).
+
+#### `boundary-reports` — added to CI (was missing)
+- `test-reports` job added to `.github/workflows/ci.yml`; `libs/reports/src` added to the lint step.
+
+#### CI / developer experience
+- `.github/workflows/ci.yml`: `test-calendar` and `test-reports` jobs added (both `needs: lint`; standalone, no inter-library dependencies). Both wired into `test-summary`.
+- `AGENTS.md` and `CLAUDE.md`: `reports` and `calendar` added to library listing, test command reference, and Library-Specific Guides table. New **"Adding a New Library to CI"** checklist section in `AGENTS.md`.
+
+#### `boundary-workflow` — new library (Phase 2 / Q3 2026 roadmap)
+- **`defworkflow` macro** and in-process registry: declare state machine definitions as data; `get-workflow`, `list-workflows`, `clear-registry!`.
+- **`boundary.workflow.schema`**: Malli schemas — `WorkflowDefinition`, `WorkflowInstance`, `TransitionDef`, `AuditEntry`; state/transition validation at definition time.
+- **`boundary.workflow.core.machine`**: pure state machine logic — `can-transition?`, `find-transition`, permission checks against `:required-permissions`, guard evaluation.
+- **`boundary.workflow.core.transitions`**: `available-transitions-with-status` — returns all candidate transitions with `:enabled?`, `:label`, `:reason` for a given state and actor-roles.
+- **`boundary.workflow.core.audit`**: pure audit entry constructors.
+- **`boundary.workflow.ports`**: `IWorkflowStore`, `IWorkflowEngine`, `IWorkflowRegistry` protocols.
+- **`boundary.workflow.shell.persistence`**: DB persistence via next.jdbc + HoneySQL (`IWorkflowStore` implementation).
+- **`boundary.workflow.shell.service`**: orchestration — load → validate → persist → side-effects; `create-workflow-service` factory accepts optional `job-queue` and `guard-registry`.
+- **Guard registry**: functions registered at service creation time; receive transition `:context` map; return boolean.
+- **Side effects**: job-type keywords on `TransitionDef` (`:side-effects [:notify-user]`); enqueued via `boundary-jobs` after successful transition; silently skipped if no job queue configured.
+- **`boundary.workflow.shell.http`**: REST API — `POST /workflow/instances` (start), `POST /workflow/instances/:id/transition`, `GET /workflow/instances/:id` (state + `availableTransitions`), `GET /workflow/instances/:id/audit`.
+- **`boundary.workflow.shell.module-wiring`**: Integrant `:boundary/workflow` key; depends on `:boundary/database-context` (required) and `:boundary/job-queue` (optional).
+- `libs/workflow/AGENTS.md`: developer guide covering `defworkflow` syntax, guards, side effects, auto-transitions, hooks, and Integrant wiring.
+- `docs-site/content/guides/workflow.adoc`: user-facing how-to guide.
+
 #### `boundary-workflow` — lifecycle hooks, auto-transitions, available-transitions
 - `:hooks` map on `WorkflowDefinition`: supports `:on-enter-<state>`, `:on-exit-<state>`, and `:on-any-transition` keys. Hooks receive the updated `WorkflowInstance` and fire synchronously after each successful transition (after the audit entry is saved). Exceptions are caught and logged; they do not roll back the transition.
 - `:auto? true` on `TransitionDef`: marks a transition as system-initiated. `process-auto-transitions!` port method fires all eligible auto-transitions for a given workflow; uses `[:system]` actor-roles (no user permission check). Returns `{:attempted :processed :failed}` counts.
