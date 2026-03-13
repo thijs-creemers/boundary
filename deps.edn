@@ -14,7 +14,8 @@
            "libs/realtime/src" "libs/realtime/test"         ;; Phase 12: Realtime
            "libs/external/src" "libs/external/test"         ;; Phase 13: External
            "libs/workflow/src" "libs/workflow/test"           ;; Phase 14: Workflow
-           "libs/search/src" "libs/search/test"]              ;; Phase 15: Search
+           "libs/search/src" "libs/search/test"              ;; Phase 15: Search
+           "libs/reports/src" "libs/reports/test"]           ;; Phase 16: Reports
 
  :deps    {org.clojure/clojure               {:mvn/version "1.12.4"}
            cheshire/cheshire                 {:mvn/version "6.1.0"} ;; process json
@@ -77,7 +78,11 @@
            com.sun.mail/javax.mail           {:mvn/version "1.6.2"}
 
            ;; External service adapters - HTTP client for Stripe/Twilio REST APIs
-           clj-http/clj-http                 {:mvn/version "3.13.0"}}
+           clj-http/clj-http                 {:mvn/version "3.13.0"}
+
+           ;; Reports - PDF and Excel generation
+           com.openhtmltopdf/openhtmltopdf-pdfbox {:mvn/version "1.0.10"}
+           dk.ative/docjure                        {:mvn/version "1.14.0"}}
 
  :aliases {;; =============================================================================
            ;; Development and REPL aliases
