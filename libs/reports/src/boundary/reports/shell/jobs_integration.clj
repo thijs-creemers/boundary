@@ -24,6 +24,7 @@
   (:require [boundary.reports.ports :as ports]
             [boundary.reports.shell.adapters.excel :as excel]
             [boundary.reports.shell.adapters.pdf :as pdf]
+            [boundary.reports.shell.adapters.word :as word]
             [boundary.reports.core.report :as core]
             [clojure.stacktrace]
             [clojure.tools.logging :as log]))
@@ -88,7 +89,8 @@
                         :report-type (:type report-def)})
           generator (case (:type report-def)
                       :pdf   (pdf/create-pdf-generator)
-                      :excel (excel/create-excel-generator))
+                      :excel (excel/create-excel-generator)
+                      :word  (word/create-word-generator))
           data      (core/resolve-data report-def opts)
           result    (ports/generate! generator report-def data opts)]
       (log/info "Report job completed successfully"
