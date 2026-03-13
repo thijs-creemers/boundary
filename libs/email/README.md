@@ -1,5 +1,9 @@
 # Email Module
 
+[![Status](https://img.shields.io/badge/status-in%20development-yellow)]()
+[![Clojure](https://img.shields.io/badge/clojure-1.12+-blue)]()
+[![License](https://img.shields.io/badge/license-EPL--2.0-green)]()
+
 **Production-ready email sending for Boundary Framework**
 
 Similar to **Action Mailer** (Rails) or **Django Email**, this module provides simple yet robust email sending with:

@@ -39,7 +39,7 @@ bb scripts/docs_lint.clj  # Run documentation drift linter directly
 
 ## Architecture: Functional Core / Imperative Shell
 
-This is a Clojure monorepo with 12 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:
+This is a Clojure monorepo with 18 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:
 
 ```
 libs/{library}/src/boundary/{library}/
@@ -54,7 +54,7 @@ libs/{library}/src/boundary/{library}/
 - Core → Ports (allowed)
 - Core → Shell (NEVER - this violates FC/IS)
 
-**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime
+**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, workflow, search, reports, calendar, geo
 
 The main application source in `src/boundary/` follows the same core/shell structure. The `examples/` directory contains reference applications (ecommerce-api is the most comprehensive).
 
@@ -101,8 +101,15 @@ Each library has its own `AGENTS.md` with library-specific documentation:
 - `libs/tenant/AGENTS.md` - Multi-tenancy, schema-per-tenant
 - `libs/realtime/AGENTS.md` - WebSocket messaging, pub/sub
 - `libs/external/AGENTS.md` - External service adapters (skeleton)
+- `libs/workflow/AGENTS.md` - Workflow orchestration
+- `libs/search/AGENTS.md` - Full-text search
 - `libs/reports/AGENTS.md` - `defreport` macro, PDF/CSV export, scheduling
 - `libs/calendar/AGENTS.md` - `defevent` macro, RRULE recurrence, iCal, conflict detection, Hiccup UI
+- `libs/geo/AGENTS.md` - Multi-provider geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
+
+## Custom Test Reporter
+
+The Kaocha reporter at `dev/boundary/test/reporter.clj` shows green ✓ for passing tests and red ✗ for failing tests. It is configured in `tests.edn` as `:kaocha/reporter [boundary.test.reporter/reporter]`. The `dev/` directory is on the `:test` classpath via `:extra-paths` in `deps.edn`.
 
 ## Further Reading
 

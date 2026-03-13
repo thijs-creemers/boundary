@@ -6,7 +6,7 @@
 
 ## Why Boundary?
 
-**For developers:** 17 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
+**For developers:** 18 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
 
 **Ship faster:** The scaffolder generates production-ready modules (entity + routes + tests) in seconds. The admin UI auto-generates CRUD interfaces from your schema — no manual forms. Built-in observability, RFC 5988 pagination, and declarative interceptors mean you write business logic, not plumbing.
 
@@ -54,7 +54,7 @@ Each library also has its own `AGENTS.md` with library-specific documentation.
 
 ## Libraries
 
-Boundary is a monorepo of **17 independently publishable libraries**:
+Boundary is a monorepo of **18 independently publishable libraries**:
 
 | Library | Description |
 |---------|-------------|
@@ -75,6 +75,7 @@ Boundary is a monorepo of **17 independently publishable libraries**:
 | [calendar](libs/calendar/) | Recurring events, iCal export/import, conflict detection |
 | [workflow](libs/workflow/) | Declarative state machine workflows with audit trail |
 | [search](libs/search/) | Full-text search: PostgreSQL FTS with LIKE fallback for H2/SQLite |
+| [geo](libs/geo/) | Geocoding (OSM/Google/Mapbox), DB cache, Haversine distance |
 
 ---
 

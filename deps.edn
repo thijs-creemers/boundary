@@ -16,7 +16,8 @@
            "libs/workflow/src" "libs/workflow/test"           ;; Phase 14: Workflow
            "libs/search/src" "libs/search/test"              ;; Phase 15: Search
            "libs/reports/src" "libs/reports/test"           ;; Phase 16: Reports
-           "libs/calendar/src" "libs/calendar/test"]         ;; Phase 17: Calendar
+           "libs/calendar/src" "libs/calendar/test"           ;; Phase 17: Calendar
+           "libs/geo/src" "libs/geo/test"]                 ;; Phase 18: Geo
 
  :deps    {org.clojure/clojure               {:mvn/version "1.12.4"}
            cheshire/cheshire                 {:mvn/version "6.1.0"} ;; process json
@@ -143,7 +144,7 @@
                        :main-opts    ["-m" "clj-kondo.main"]
                        :extra-paths  ["src"]}
            :test      {:main-opts   ["-m" "kaocha.runner"]
-                       :extra-paths ["test"]
+                       :extra-paths ["test" "dev"]
                        :extra-deps  {lambdaisland/kaocha         {:mvn/version "1.91.1392"}
                                      org.clojure/test.check      {:mvn/version "1.1.2"}
                                      com.gfredericks/test.chuck  {:mvn/version "0.2.15"}

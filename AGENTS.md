@@ -43,6 +43,7 @@ clojure -M:test:db/h2 :search                      # Search library tests
 clojure -M:test:db/h2 :external                    # External adapters tests
 clojure -M:test:db/h2 :reports                     # Reports library tests
 clojure -M:test:db/h2 :calendar                    # Calendar library tests
+clojure -M:test:db/h2 :geo                         # Geo library tests
 
 # Testing - By metadata category
 clojure -M:test:db/h2 --focus-meta :unit           # Unit tests only
@@ -132,7 +133,8 @@ libs/
 ├── search/        # Full-text search (PostgreSQL FTS / H2 LIKE)
 ├── external/      # External service adapters (Stripe, Twilio, SMTP/IMAP)
 ├── reports/       # Report definitions, PDF/CSV export, scheduling (defreport macro)
-└── calendar/      # Calendar events, RRULE recurrence, iCal export/import, conflict detection
+├── calendar/      # Calendar events, RRULE recurrence, iCal export/import, conflict detection
+└── geo/           # Geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
 ```
 
 ---
@@ -518,6 +520,7 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 | **external** | [`libs/external/AGENTS.md`](libs/external/AGENTS.md) | Stripe payments + webhooks, Twilio SMS/WhatsApp, SMTP transport, IMAP mailbox |
 | **reports** | [`libs/reports/AGENTS.md`](libs/reports/AGENTS.md) | `defreport` macro, registry, PDF/CSV export, scheduling |
 | **calendar** | [`libs/calendar/AGENTS.md`](libs/calendar/AGENTS.md) | `defevent` macro, RRULE recurrence (DST-aware), conflict detection, iCal export/import, Hiccup UI |
+| **geo** | [`libs/geo/AGENTS.md`](libs/geo/AGENTS.md) | Multi-provider geocoding (OSM/Google/Mapbox), DB cache, rate limiting, Haversine distance |
 
 ---
 
@@ -548,5 +551,5 @@ Also add the lib's `:id` test suite to `tests.edn` and its source/test paths to 
 
 ---
 
-**Last Updated**: 2026-03-12
-**Version**: 3.3.0 (Workflow lifecycle hooks, auto-transitions; Search filter support)
+**Last Updated**: 2026-03-13
+**Version**: 3.4.0 (Geo library: multi-provider geocoding, DB cache, Haversine distance)

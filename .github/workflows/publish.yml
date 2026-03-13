@@ -108,7 +108,8 @@ jobs:
       
       # ===========================================================================
       # LAYER 4: Libraries that depend on platform (can run in parallel)
-      # Includes: user, storage, scaffolder, cache, jobs, realtime, email, tenant
+      # Includes: user, storage, scaffolder, cache, jobs, realtime, email, tenant,
+      #           workflow, search, external, reports, calendar, geo
       # ===========================================================================
       
       - name: Publish boundary-user
@@ -261,10 +262,52 @@ jobs:
           clojure -T:build clean
           clojure -T:build deploy
           echo "✅ boundary-external published"
-      
+
       - name: Wait for Clojars indexing (external)
         run: sleep 30
-      
+
+      - name: Publish boundary-geo
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-geo..."
+          cd libs/geo
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-geo published"
+
+      - name: Wait for Clojars indexing (geo)
+        run: sleep 30
+
+      - name: Publish boundary-reports
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-reports..."
+          cd libs/reports
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-reports published"
+
+      - name: Wait for Clojars indexing (reports)
+        run: sleep 30
+
+      - name: Publish boundary-calendar
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-calendar..."
+          cd libs/calendar
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-calendar published"
+
+      - name: Wait for Clojars indexing (calendar)
+        run: sleep 30
+
       # ===========================================================================
       # LAYER 5: Admin (depends on user)
       # ===========================================================================
@@ -293,9 +336,9 @@ jobs:
           name: Release ${{ steps.version.outputs.version }}
           body: |
             ## Boundary Framework v${{ steps.version.outputs.version }}
-            
-            All 15 libraries published to Clojars:
-            
+
+            All 18 libraries published to Clojars:
+
             - [boundary-core](https://clojars.org/org.boundary-app/boundary-core)
             - [boundary-observability](https://clojars.org/org.boundary-app/boundary-observability)
             - [boundary-platform](https://clojars.org/org.boundary-app/boundary-platform)
@@ -311,6 +354,9 @@ jobs:
             - [boundary-workflow](https://clojars.org/org.boundary-app/boundary-workflow)
             - [boundary-search](https://clojars.org/org.boundary-app/boundary-search)
             - [boundary-external](https://clojars.org/org.boundary-app/boundary-external)
+            - [boundary-reports](https://clojars.org/org.boundary-app/boundary-reports)
+            - [boundary-calendar](https://clojars.org/org.boundary-app/boundary-calendar)
+            - [boundary-geo](https://clojars.org/org.boundary-app/boundary-geo)
             
             ### Installation
             
@@ -326,7 +372,7 @@ jobs:
         run: |
           echo "# ✅ Publish Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "All 15 libraries published to Clojars:" >> $GITHUB_STEP_SUMMARY
+          echo "All 18 libraries published to Clojars:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Library | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
@@ -345,6 +391,9 @@ jobs:
           echo "| boundary-workflow | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "| boundary-search | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "| boundary-external | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-reports | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-calendar | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-geo | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Version: **${{ steps.version.outputs.version }}**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

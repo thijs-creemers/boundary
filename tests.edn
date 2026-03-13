@@ -17,7 +17,8 @@
                         "libs/workflow/src"
                         "libs/search/src"
                         "libs/reports/src"
-                        "libs/calendar/src"]
+                        "libs/calendar/src"
+                        "libs/geo/src"]
 
   :tests [{:id :unit
            :test-paths ["test"
@@ -37,7 +38,8 @@
                         "libs/workflow/test"
                         "libs/search/test"
                         "libs/reports/test"
-                        "libs/calendar/test"]
+                        "libs/calendar/test"
+                        "libs/geo/test"]
            :ns-patterns ["boundary.*-test"]
            :randomize? true}
 
@@ -109,7 +111,11 @@
 
           {:id :calendar
            :test-paths ["libs/calendar/test"]
-           :ns-patterns ["boundary.calendar.*-test"]}]
+           :ns-patterns ["boundary.calendar.*-test"]}
+
+          {:id :geo
+           :test-paths ["libs/geo/test"]
+           :ns-patterns ["boundary.geo.*-test"]}]
 
   :plugins [:kaocha.plugin/randomize
             :kaocha.plugin/filter
@@ -123,7 +129,7 @@
   :kaocha.plugin.filter/focus-meta [:unit :integration :contract :user :billing :phase3]
 
   :kaocha.plugin.randomize/randomize? true
-  :kaocha/reporter [kaocha.report/documentation]
+  :kaocha/reporter [boundary.test.reporter/reporter]
 
   :kaocha/fail-fast? false
   :kaocha/color? true
