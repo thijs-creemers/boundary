@@ -30,7 +30,7 @@ Dit document identificeert **5 strategische gaps** in het Boundary Framework op 
 |🔥 **Hoog (2)**
 
 |**boundary-reports**
-|PDF/Excel generatie met templates
+|PDF/Excel/Word (DOCX) generatie met templates
 |€3.200 - €4.800
 |🟡 **Medium (3)**
 
@@ -770,7 +770,7 @@ def workvisit_overview_pdf(request):
 |Bijna elke B2B app heeft rapportages nodig: facturen, overzichten, exports
 
 |**Boilerplate**
-|PDF/Excel generatie is ~80% repetitieve code (headers, tables, styling)
+|PDF/Excel/Word generatie is ~80% repetitieve code (headers, tables, styling)
 
 |**Maintenance**
 |Layout wijzigingen vereisen code changes (geen templates)
@@ -898,15 +898,17 @@ Voor complexere layouts, Hiccup-style templates:
 
 ==== Backend Libraries
 
-**PDF Generation**:
+**PDF Generation** (geïmplementeerd):
 
-* **Option 1**: Clojure wrapper om Apache PDFBox (pure Java, geen external deps)
-* **Option 2**: Clojure wrapper om Puppeteer/Playwright (HTML→PDF via headless browser)
+* **OpenHTMLtoPDF** — Hiccup → HTML → PDF bytes; ondersteunt CSS, custom page sizes, async
 
-**Excel Generation**:
+**Excel Generation** (geïmplementeerd):
 
-* **Option 1**: Clojure wrapper om Apache POI (pure Java)
-* **Option 2**: `docjure` library (bestaande Clojure Excel library)
+* **docjure** library — bestaande Clojure Excel wrapper om Apache POI OOXML
+
+**Word (DOCX) Generation** (geïmplementeerd):
+
+* **Apache POI XWPF** — transitive dep via docjure/poi-ooxml; geen extra Maven dependency nodig
 
 === ROI Analyse
 
@@ -1584,11 +1586,11 @@ Als Boundary 10 projecten per jaar doet: **4 projecten × €600 = €2.4k/jaar 
 * Medium impact, maar **essentieel voor enterprise sales**
 * Facturen/rapportages zijn deal-breaker features voor veel klanten
 * Calendar/scheduling is veelgevraagd in B2B apps
-* Competitive parity (Django/Rails hebben PDF/Excel generation packages)
+* Competitive parity (Django/Rails hebben PDF/Excel/Word generation packages)
 
 **Deliverables**:
 
-* ✅ boundary-reports (PDF/Excel generation, templates, async support)
+* ✅ boundary-reports (PDF/Excel/Word generation, templates, async support)
 * ✅ boundary-calendar (recurring events, iCal export, conflict detection)
 * ✅ AGENTS.md documentation
 * ✅ Admin UI integration (calendar view, report download buttons)

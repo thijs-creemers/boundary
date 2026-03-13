@@ -72,8 +72,8 @@ Boundary’s background job system provides enterprise-grade job processing capa
 
 Background jobs follow the Functional Core / Imperative Shell pattern with clear separation between business logic and infrastructure:
 
-[mermaid]
-----
+++++
+<pre class="mermaid">
 graph TB
     subgraph "Your Application"
         A[HTTP Handler / Service] -->|1. Create Job| B[Core: Job Creation]
@@ -99,7 +99,10 @@ graph TB
     style E fill:#B0E0E6,stroke:#333,stroke-width:2px
     style F fill:#B0E0E6,stroke:#333,stroke-width:2px
     style G fill:#B0E0E6,stroke:#333,stroke-width:2px
-----
+</pre>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true});</script>
+++++
 
 *Job Lifecycle*:
 
@@ -1200,8 +1203,8 @@ kubectl logs -l app=boundary-workers
 
 == Next Steps
 
-* *link:{{< relref "caching.md" >}}[Distributed Caching Guide]* - Cache frequently accessed data
-* *link:{{< relref "integrate-observability.adoc" >}}[Observability Guide]* - Monitor job processing metrics
+* *link:../caching/[Distributed Caching Guide]* - Cache frequently accessed data
+* *link:../integrate-observability/[Observability Guide]* - Monitor job processing metrics
 * *link:../../README.md[Module Development]* - Integrate jobs into your modules
 * *https://github.com/thijs-creemers/boundary[GitHub Repository]* - View source code and examples
 

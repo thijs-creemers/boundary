@@ -886,9 +886,9 @@ curl -X GET http://localhost:3000/api/auth/mfa/status \
 
 == Next Steps
 
-* *link:{{< relref "search.md" >}}[Full-Text Search Guide]* - Search users with MFA enabled
-* *link:{{< relref "caching.md" >}}[Distributed Caching]* - Cache MFA status for performance
-* *link:{{< relref "integrate-observability.adoc" >}}[Observability]* - Monitor MFA adoption and failures
+* *link:../search/[Full-Text Search Guide]* - Search users with MFA enabled
+* *link:../caching/[Distributed Caching]* - Cache MFA status for performance
+* *link:../integrate-observability/[Observability]* - Monitor MFA adoption and failures
 * *https://github.com/thijs-creemers/boundary[GitHub Repository]* - View MFA implementation source code
 
 '''''

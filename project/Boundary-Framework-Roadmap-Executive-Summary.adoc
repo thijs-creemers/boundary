@@ -144,7 +144,7 @@ Analysis of two production Django applications (WBA and OTTO) revealed **8 strat
 
 *Deliverables*:
 
-- ✅ boundary-reports - PDF/Excel generation and templates
+- ✅ boundary-reports - PDF/Excel/Word (DOCX) generation and templates
 - ✅ boundary-calendar - Event scheduling and availability management
 
 *Timeline*: 7 weeks (27 development days)
@@ -474,7 +474,7 @@ Before starting Phase 1 (target: April 2026):
 
 *Problem*: PDF/Excel generation requires low-level libraries with poor ergonomics
 
-*Solution*: Template-based report generation (PDF, Excel, CSV) with Hiccup-style DSL
+*Solution*: Template-based report generation (PDF, Excel, Word/DOCX) with Hiccup-style DSL
 
 *ROI*: €3.2k-€4.8k per project (saves 4-6 days of report generation code)
 

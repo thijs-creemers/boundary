@@ -30,7 +30,7 @@ Lower costs through reduced defects: comprehensive testing and proven design pat
 
 ## Library Architecture
 
-Boundary is organized as a **monorepo** with 13 independently publishable libraries:
+Boundary is organized as a **monorepo** with 14 independently publishable libraries:
 
 | Library | Description |
 |---------|-------------|
@@ -43,6 +43,7 @@ Boundary is organized as a **monorepo** with 13 independently publishable librar
 | **[scaffolder](libs/scaffolder/)** | Module code generator |
 | **[cache](libs/cache/)** | Distributed caching (Redis/in-memory) |
 | **[jobs](libs/jobs/)** | Background job processing |
+| **[reports](libs/reports/)** | PDF, Excel, and Word (DOCX) report generation |
 | **[email](libs/email/)** | Production-ready email sending (SMTP, async, jobs integration) |
 | **[realtime](libs/realtime/)** | WebSocket/SSE for real-time features (Phoenix Channels for Clojure) |
 | **[tenant](libs/tenant/)** | Multi-tenancy with PostgreSQL schema-per-tenant isolation |

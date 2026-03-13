@@ -299,10 +299,10 @@ Deze roadmap presenteert de **gefaseerde implementatie van 8 strategische librar
 
 **Wat het doet**:
 
-* PDF/Excel generatie met templates
-* Hiccup-style templates (declarative)
+* PDF/Excel/Word (DOCX) generatie met templates
+* Hiccup-style templates (declarative) voor PDF; declaratieve `:sections` API voor Excel en Word
 * Async generation (via boundary-jobs)
-* Default themes + custom CSS support
+* Default themes + custom CSS support (PDF only)
 
 **Integraties**:
 
@@ -319,12 +319,13 @@ Deze roadmap presenteert de **gefaseerde implementatie van 8 strategische librar
 
 **Success Criteria**:
 
-* [ ] Report definitie via `defreport` macro
-* [ ] PDF generation (Apache PDFBox wrapper)
-* [ ] Excel generation (Apache POI of docjure wrapper)
-* [ ] Hiccup templates voor custom layouts
-* [ ] Async generation via boundary-jobs
-* [ ] AGENTS.md met template voorbeelden
+* [x] Report definitie via `defreport` macro
+* [x] PDF generation (OpenHTMLtoPDF — Hiccup → HTML → PDF)
+* [x] Excel generation (docjure wrapper)
+* [x] Word (DOCX) generation (Apache POI XWPF)
+* [x] Hiccup templates voor custom PDF layouts; declaratieve `:sections` voor Excel/Word
+* [x] Async generation via boundary-jobs
+* [x] AGENTS.md met template voorbeelden
 
 ==== 4. boundary-calendar
 

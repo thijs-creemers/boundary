@@ -786,11 +786,11 @@ clojure -M:build:deploy
 ### Internal Documentation
 
 - [Product Requirements Document](docs-site/content/reference/boundary-prd.adoc) - Comprehensive project requirements and vision
-- [Architecture Overview](docs-site/content/architecture/overview.adoc) - High-level architectural decisions and principles
-- [Component Architecture](docs-site/content/architecture/components.adoc) - Detailed component organization and interactions
-- [Data Flow Architecture](docs-site/content/architecture/data-flow.adoc) - Request processing and data transformation patterns
-- [Ports and Adapters Guide](docs-site/content/architecture/ports-and-adapters.adoc) - Hexagonal architecture implementation
-- [Layer Separation Guidelines](docs-site/content/architecture/layer-separation.adoc) - FC/IS boundary rules and practices
+- [Architecture Overview](../docs-site/content/architecture/overview.adoc) - High-level architectural decisions and principles
+- [Component Architecture](../docs-site/content/architecture/components.adoc) - Detailed component organization and interactions
+- [Data Flow Architecture](../docs-site/content/architecture/data-flow.adoc) - Request processing and data transformation patterns
+- [Ports and Adapters Guide](../docs-site/content/architecture/ports-and-adapters.adoc) - Hexagonal architecture implementation
+- [Layer Separation Guidelines](../docs-site/content/architecture/layer-separation.adoc) - FC/IS boundary rules and practices
 
 ### Development Documentation
 
@@ -802,7 +802,7 @@ clojure -M:build:deploy
 
 - [User Module Architecture](docs-site/content/implementation/user-module-implementation.adoc)
 - [Migration Guide](docs-site/content/reference/migrations/) - Library split and other migrations
-- [Infrastructure Examples](examples/user_infrastructure_example.clj) - Working code examples
+- [Infrastructure Examples](../examples/user_infrastructure_example.clj) - Working code examples
 - [Refactoring Summary](INFRASTRUCTURE-REFACTOR-SUMMARY.adoc)
 
 ### External References

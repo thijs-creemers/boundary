@@ -1,0 +1,391 @@
+---
+title: "Report Generation"
+weight: 45
+---
+
+= Report Generation
+
+*PDF, Excel, and Word document generation for the Boundary Framework*
+
+The `boundary/reports` library lets you generate professional documents from a single declarative definition. Define your report once with `defreport`, then generate PDF, Excel (XLSX), or Word (DOCX) output with a single `generate` call—sync or async via boundary-jobs.
+
+== Quick Example
+
+[source,clojure]
+----
+(require '[boundary.reports.core.report :as r]
+         '[boundary.reports.shell.service :as reports])
+
+;; Define once
+(r/defreport sales-report
+  {:id          :sales-report
+   :type        :excel
+   :filename    "sales.xlsx"
+   :data-source (fn [opts] (db/find-sales (:from opts) (:to opts)))
+   :sections    [{:type    :table
+                  :columns [{:key :product  :label "Product"}
+                             {:key :quantity :label "Qty"    :format :number}
+                             {:key :revenue  :label "Revenue" :format :currency}
+                             {:key :date     :label "Date"    :format :date}]}]})
+
+;; Generate anywhere
+(def output (reports/generate sales-report {:from "2026-01-01" :to "2026-03-31"}))
+;; => {:bytes #bytes[...] :type :excel :filename "sales.xlsx"}
+
+;; Serve from a Ring handler
+{:status  200
+ :headers {"Content-Type"        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+           "Content-Disposition" (str "attachment; filename=\"" (:filename output) "\"")}
+ :body    (java.io.ByteArrayInputStream. (:bytes output))}
+----
+
+'''''
+
+== Features
+
+* *PDF*: Hiccup → HTML → PDF via OpenHTMLtoPDF; custom CSS, A4/A3/Letter page sizes
+* *Excel*: Column-based XLSX via docjure; single and multi-sheet workbooks
+* *Word (DOCX)*: Declarative sections via Apache POI XWPF; no extra Maven dependencies
+* *`defreport` macro*: Register reports as data in a global in-process registry
+* *Declarative sections*: `:header`, `:paragraph`, `:table`, `:footer`, `:spacer`
+* *Column formats*: `:string`, `:number`, `:currency` (nl-NL locale), `:date` (ISO-8601)
+* *Async generation*: Optional boundary-jobs integration for large reports
+* *FC/IS architecture*: Pure `core/` functions; all I/O in `shell/` adapters
+
+'''''
+
+== Architecture
+
+Reports follow the Functional Core / Imperative Shell pattern:
+
+[source]
+----
+defreport (pure data definition)
+    │
+    ▼
+core/report.clj      ← Pure: registry, format-cell, map-columns, build-sections-hiccup
+    │
+    ▼
+shell/service.clj    ← generate / generate-async (shell entry point)
+    │
+    ├── adapters/pdf.clj    ← OpenHTMLtoPDF (Hiccup → HTML → PDF bytes)
+    ├── adapters/excel.clj  ← docjure (column defs + data → XLSX bytes)
+    └── adapters/word.clj   ← Apache POI XWPF (sections → DOCX bytes)
+----
+
+*Key rule*: `core/` never imports `shell/`. The `generate` function in the shell layer instantiates the correct adapter based on `:type`, calls `:data-source` if defined, and delegates to the adapter protocol.
+
+'''''
+
+== Usage Patterns
+
+=== PDF report with a template function
+
+Use a Hiccup `:template` fn for full layout control. PDF is the only format that supports `:template`.
+
+[source,clojure]
+----
+(r/defreport invoice-report
+  {:id        :invoice-report
+   :type      :pdf
+   :page-size :a4
+   :filename  "invoice.pdf"
+   :template  (fn [data]
+                [:html
+                 [:head [:title "Invoice"]]
+                 [:body
+                  [:h1 "Invoice #" (:invoice-number data)]
+                  [:table
+                   [:thead [:tr [:th "Description"] [:th "Amount"]]]
+                   [:tbody
+                    (for [line (:lines data)]
+                      [:tr [:td (:description line)]
+                           [:td (str "€ " (:amount line))]])]]
+                  [:footer [:p "Thank you for your business"]]]])})
+
+(def output (reports/generate invoice-report {:invoice-id 42}))
+----
+
+Pass extra CSS via `:css` in opts:
+
+[source,clojure]
+----
+(reports/generate invoice-report
+  {:invoice-id 42
+   :css "h1 { color: #003366; } table { width: 100%; }"})
+----
+
+'''''
+
+=== Excel report with declarative sections
+
+Use `:sections` with a `:table` entry. The `:data-source` fn is called with `opts` at generation time.
+
+[source,clojure]
+----
+(r/defreport sales-report
+  {:id          :sales-report
+   :type        :excel
+   :filename    "sales.xlsx"
+   :data-source (fn [opts] (db/find-sales (:from opts) (:to opts)))
+   :sections    [{:type    :table
+                  :columns [{:key :product  :label "Product"}
+                             {:key :quantity :label "Qty"    :format :number}
+                             {:key :revenue  :label "Revenue" :format :currency}
+                             {:key :date     :label "Date"    :format :date}]}]})
+----
+
+Multi-sheet workbook using `:sheets` directly:
+
+[source,clojure]
+----
+(r/defreport quarterly-report
+  {:id     :quarterly-report
+   :type   :excel
+   :sheets [{:name    "Q1 Sales"
+             :columns [{:key :product :label "Product"}
+                       {:key :total   :label "Total" :format :currency}]
+             :data    [{:product "Widget A" :total 1200.00}
+                       {:product "Widget B" :total  800.50}]}
+            {:name    "Summary"
+             :columns [{:key :metric :label "Metric"}
+                       {:key :value  :label "Value" :format :number}]
+             :data    [{:metric "Total Revenue" :value 2000.50}]}]})
+----
+
+'''''
+
+=== Word (DOCX) report with declarative sections
+
+Word uses the same `:sections` API. `:template` is not supported for Word.
+
+[source,clojure]
+----
+(r/defreport contract-report
+  {:id          :contract-report
+   :type        :word
+   :filename    "contract.docx"
+   :data-source (fn [opts] (db/find-contract (:contract-id opts)))
+   :sections    [{:type    :header
+                  :content "Service Agreement"}
+                 {:type    :paragraph
+                  :content "This agreement is entered into between the parties listed below."}
+                 {:type    :table
+                  :columns [{:key :party :label "Party"}
+                             {:key :role  :label "Role"}]}
+                 {:type :spacer}
+                 {:type    :footer
+                  :content "Confidential — not for external distribution"}]})
+
+(def output (reports/generate contract-report {:contract-id 7}))
+----
+
+NOTE: `:paragraph` is a Word-only section type. Its `:content` must be a plain string, not Hiccup.
+
+'''''
+
+=== Async generation (requires boundary-jobs)
+
+For large reports, queue generation as a background job so the HTTP response returns immediately.
+
+[source,clojure]
+----
+(require '[boundary.reports.shell.service :as reports]
+         '[boundary.reports.shell.jobs-integration :as report-jobs]
+         '[boundary.jobs.ports :as job-ports])
+
+;; At system startup — register the report job handler
+(report-jobs/register-report-job-handler! job-registry)
+
+;; In an HTTP handler — queue and return 202
+(defn export-handler [request]
+  (let [job-id (reports/generate-async sales-report
+                 {:from "2026-01-01" :to "2026-03-31"
+                  :notify-email "finance@example.com"})]
+    {:status 202
+     :body   {:job-id job-id
+              :message "Report is being generated. You will receive an email when it is ready."}}))
+----
+
+'''''
+
+== HTTP Handler Integration
+
+=== Content-Types per format
+
+[cols="1,2",options="header"]
+|===
+| Format | Content-Type
+
+| PDF
+| `application/pdf`
+
+| Excel
+| `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+
+| Word
+| `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
+|===
+
+=== Complete handler example
+
+[source,clojure]
+----
+(ns myapp.reports.handlers
+  (:require [boundary.reports.shell.service :as reports]
+            [myapp.reports.definitions :refer [invoice-report sales-report contract-report]]))
+
+(defn pdf-handler [request]
+  (let [id     (-> request :path-params :id parse-long)
+        output (reports/generate invoice-report {:invoice-id id})]
+    {:status  200
+     :headers {"Content-Type"        "application/pdf"
+               "Content-Disposition" (str "attachment; filename=\"" (:filename output) "\"")}
+     :body    (java.io.ByteArrayInputStream. (:bytes output))}))
+
+(defn excel-handler [request]
+  (let [opts   (:query-params request)
+        output (reports/generate sales-report opts)]
+    {:status  200
+     :headers {"Content-Type"        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+               "Content-Disposition" (str "attachment; filename=\"" (:filename output) "\"")}
+     :body    (java.io.ByteArrayInputStream. (:bytes output))}))
+
+(defn word-handler [request]
+  (let [id     (-> request :path-params :id parse-long)
+        output (reports/generate contract-report {:contract-id id})]
+    {:status  200
+     :headers {"Content-Type"        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+               "Content-Disposition" (str "attachment; filename=\"" (:filename output) "\"")}
+     :body    (java.io.ByteArrayInputStream. (:bytes output))}))
+----
+
+'''''
+
+== Section Types Reference
+
+[cols="1,2,1,1,1",options="header"]
+|===
+| Type | Required keys | PDF | Excel | Word
+
+| `:header`
+| `:content` (Hiccup or string)
+| `<header>` element
+| —
+| Heading1 paragraph
+
+| `:paragraph`
+| `:content` (string only)
+| —
+| —
+| Plain paragraph
+
+| `:table`
+| `:columns` (vector of ColumnDef)
+| `<table>` with header row
+| Worksheet rows
+| XWPF table
+
+| `:footer`
+| `:content` (Hiccup or string)
+| `<footer>` element
+| —
+| Italic 8pt paragraph
+
+| `:spacer`
+| —
+| `<div class="spacer">` (12pt)
+| —
+| Blank paragraph
+|===
+
+=== Column formats
+
+[cols="1,2,2",options="header"]
+|===
+| Format | Input | Output example
+
+| `:string`
+| any
+| `"Widget A"`
+
+| `:number`
+| numeric
+| `42.0`
+
+| `:currency`
+| numeric
+| `"€ 1.234,56"` (nl-NL locale)
+
+| `:date`
+| Date / Instant / LocalDate
+| `"2026-03-13"` (ISO-8601)
+|===
+
+'''''
+
+== Testing
+
+[source,bash]
+----
+# Run all reports tests (unit + integration)
+clojure -M:test:db/h2 :reports
+
+# Integration tests only (real PDF/Excel/Word generation)
+clojure -M:test:db/h2 --focus-meta :integration
+
+# Lint
+clojure -M:clj-kondo --lint libs/reports/src libs/reports/test
+----
+
+Test adapters directly using the `ReportGeneratorProtocol`:
+
+[source,clojure]
+----
+(require '[boundary.reports.shell.adapters.word :as word]
+         '[boundary.reports.ports :as ports]
+         '[clojure.test :refer [deftest is testing]])
+
+(deftest word-report-test
+  ^:integration
+  (testing "generates valid DOCX bytes"
+    (let [gen    (word/create-word-generator)
+          report {:id       :test-report
+                  :type     :word
+                  :sections [{:type :header :content "Hello"}
+                              {:type :paragraph :content "World"}]}
+          result (ports/generate! gen report [] {})]
+      (is (= :word (:type result)))
+      (is (pos? (count (:bytes result)))))))
+----
+
+'''''
+
+== Common Pitfalls
+
+[arabic]
+. *`:template` is PDF-only* — Word and Excel reports always use the `:sections` API. Passing `:template` to a `:word` or `:excel` report has no effect.
+
+. *`:paragraph` content must be a string* — Not Hiccup. Word does not render HTML.
+
+. *`:generate` and `:generate-async` are shell functions* — They live in `shell/service.clj`, never in `core/`. Do not call them from core namespaces.
+
+. *Missing `:columns` for Excel tables* — If the first `:table` section has no `:columns`, the Excel adapter produces an empty sheet. Always include `:columns`.
+
+. *Sheet name length for Excel* — Sheet names must be ≤ 31 characters and must not contain `[]:*?/\`.
+
+. *Large reports block the HTTP thread* — Use `generate-async` with boundary-jobs for reports over ~10k rows.
+
+. *Page-size CSS for PDF* — `:page-size :a4-landscape` in the report definition alone is not enough. Also set `@page { size: A4 landscape; }` in your custom CSS.
+
+'''''
+
+== Next Steps
+
+* *link:../background-jobs/[Background Jobs Guide]* — Queue large reports with `generate-async`
+* *link:../reference/scaffolder.adoc[Scaffolder Reference]* — Scaffold a new module with built-in report definitions
+* *https://github.com/thijs-creemers/boundary/tree/main/libs/reports[boundary/reports source]* — Browse the library source code
+
+'''''
+
+*Questions or Issues?* https://github.com/thijs-creemers/boundary/issues[Open an issue on GitHub].
