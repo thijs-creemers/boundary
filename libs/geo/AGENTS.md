@@ -164,11 +164,23 @@ The SHA-256 cache key is computed from the **normalised** query (lowercased, tri
 When a provider throws an exception, the adapter returns `nil` and logs a warning. The service layer treats this as a miss and continues to the next provider. Do not rely on exceptions propagating from `geocode!`.
 
 ### 8. Thread safety of rate-limit atoms
-Each adapter record holds a mutable `last-request-ms` atom. Adapter records are not thread-safe for concurrent calls from multiple threads. For multi-threaded usage, create a separate adapter per thread or add external synchronisation.
+Each adapter record holds a mutable `last-request-ms` atom. **Atoms are thread-safe** for reads and updates, so concurrent requests from multiple threads will not cause corruption. However, two threads might both pass the rate limit check before either updates the atom, causing brief rate limit overshoots (e.g., 1.1 req/sec instead of 1.0 req/sec). This is acceptable — worst case is slightly exceeding the rate limit by a few milliseconds, not data corruption.
+
+### 9. Multi-instance deployments
+**Rate limiting is per-JVM instance, not distributed.** In multi-instance deployments (Kubernetes, ECS), each pod independently enforces rate limits. This may exceed provider rate limits.
+
+**Example**: 3 pods × 1 req/sec = up to 3 req/sec sent to OpenStreetMap (violates usage policy).
+
+**Solutions for production multi-instance deployments**:
+- Use API keys with per-credential rate limits (Google Maps, Mapbox — provider enforces globally)
+- Add distributed rate limiting via Redis (future enhancement — see `boundary.platform.shell.http.interceptors` for pattern)
+- Run geo service as singleton deployment (scale-to-1, use pod anti-affinity for HA)
+
+For single-instance deployments and development, the current atom-based approach is correct and efficient.
 
 ---
 
-## 8. Testing Commands
+## 10. Testing Commands
 
 ```bash
 # All geo tests
@@ -189,7 +201,7 @@ clojure -M:clj-kondo --lint libs/geo/src libs/geo/test
 
 ---
 
-## 9. REPL Smoke Check
+## 11. REPL Smoke Check
 
 ```clojure
 ;; Pure math — no system needed

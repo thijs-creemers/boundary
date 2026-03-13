@@ -75,8 +75,12 @@
                    {:return-keys false})
       nil
       (catch Exception e
-        ;; INSERT may fail on duplicate key; treat as non-fatal
-        (log/debug e "geo cache store skipped" {:hash query-hash})
+        ;; INSERT may fail on duplicate key (race condition) — treat as non-fatal.
+        ;; Other failures (DB down, connection lost) are logged at warn level.
+        (if (or (re-find #"(?i)unique|duplicate|constraint" (.getMessage e))
+                (re-find #"(?i)primary key" (.getMessage e)))
+          (log/debug e "geo cache duplicate key (concurrent insert)" {:hash query-hash})
+          (log/warn e "geo cache store failed (DB issue?)" {:hash query-hash}))
         nil))))
 
 ;; =============================================================================
