@@ -1,36 +1,30 @@
 = Project Status
-:revdate: 2026-03-12
+:revdate: 2026-03-13
 :toc: macro
 :toclevels: 2
 
-This document is the current status snapshot for the Boundary framework monorepo.
+Current status snapshot for the Boundary framework monorepo.
 
-== Executive Summary
+== Summary
 
-Boundary has shipped `v1.0.0-alpha` and is operating as a 15-library monorepo with consistent Functional Core / Imperative Shell architecture.
+Boundary is at `v1.0.0-alpha` and operates as a 17-library monorepo with consistent Functional Core / Imperative Shell architecture.
+All core platform capabilities are implemented. CI is comprehensive. Documentation is actively maintained.
+Primary remaining work is in marked in-development libraries, not foundational architecture.
 
-The project is in a strong pre-GA state:
-
-* Core platform capabilities are implemented (auth, admin UI, storage, jobs, cache, email, realtime, tenant support, scaffolder, external adapters, state-machine workflows, full-text search).
-* CI is comprehensive and includes per-library tests, whole-suite tests, docs linting, and AGENTS link validation.
-* Documentation and developer workflows are actively maintained.
-
-Primary remaining maturity items are focused on finishing currently flagged in-development/roadmap areas, not on foundational architecture.
-
-== Snapshot (As of 2026-03-12)
+== Snapshot
 
 [cols="1,2"]
 |===
-|Area |Current Status
+|Area |Status
 
 |Latest release tag
 |`v1.0.0-alpha` (see `CHANGELOG.md`)
 
 |Libraries
-|15 libraries in `libs/` (`core`, `observability`, `platform`, `user`, `admin`, `storage`, `scaffolder`, `cache`, `jobs`, `email`, `realtime`, `tenant`, `workflow`, `search`, `external`)
+|17 libraries in `libs/`: `core`, `observability`, `platform`, `user`, `admin`, `storage`, `scaffolder`, `cache`, `jobs`, `email`, `realtime`, `tenant`, `workflow`, `search`, `reports`, `calendar`, `external`
 
 |Architecture model
-|FC/IS enforced across modules (`core/`, `shell/`, `ports.clj`)
+|FC/IS enforced across all modules (`core/`, `shell/`, `ports.clj`)
 
 |Migration stack
 |Migratus (`clojure -M:migrate migrate`)
@@ -42,7 +36,7 @@ Primary remaining maturity items are focused on finishing currently flagged in-d
 |Lint + docs lint + AGENTS links + per-library tests + full test run + summary gate
 |===
 
-== Module Status Matrix
+== Module Status
 
 [cols="1,2,2"]
 |===
@@ -50,35 +44,35 @@ Primary remaining maturity items are focused on finishing currently flagged in-d
 
 |`boundary-core`
 |Stable
-|Validation/interceptors/utilities foundation.
+|Validation, interceptors, utilities foundation.
 
 |`boundary-observability`
 |Stable
-|Structured observability and interceptor-based instrumentation.
+|Structured logging and interceptor-based instrumentation.
 
 |`boundary-platform`
 |Stable
-|HTTP, DB, CLI, and migration infrastructure.
+|HTTP, database, CLI, and migration infrastructure.
 
 |`boundary-user`
 |Stable
-|JWT auth and MFA flows available.
+|JWT auth, MFA, session management.
 
 |`boundary-admin`
 |Stable
-|Auto-CRUD admin UI and HTMX-based workflows.
+|Auto-CRUD admin UI, Hiccup + HTMX.
 
 |`boundary-storage`
 |Stable
-|Local/S3-style storage abstractions and validation.
+|Local and S3-style file storage.
 
 |`boundary-scaffolder`
 |Stable
-|Module scaffolding for FC/IS-compliant code generation.
+|Interactive module generator (`bb scaffold`).
 
 |`boundary-cache`
 |Stable
-|In-memory/Redis cache model with tenant-scoped patterns.
+|In-memory and Redis caching, tenant-scoped patterns.
 
 |`boundary-jobs`
 |Stable
@@ -86,171 +80,64 @@ Primary remaining maturity items are focused on finishing currently flagged in-d
 
 |`boundary-email`
 |Stable
-|SMTP sending + async/queue integration patterns.
-
-|`boundary-realtime`
-|Active (single-server focus)
-|WebSocket/JWT/pub-sub implemented; multi-server scaling is still roadmap.
+|SMTP sending, async, and jobs integration.
 
 |`boundary-tenant`
 |Active
-|PostgreSQL schema-per-tenant path and cross-module integration in place.
+|PostgreSQL schema-per-tenant; cross-module integration in place.
+
+|`boundary-realtime`
+|Active (single-server)
+|WebSocket/JWT/pub-sub implemented. Multi-server Redis scaling is roadmap.
 
 |`boundary-workflow`
-| Stable
-|State-machine workflows with permission-based transitions, audit trails, lifecycle hooks, and auto-transitions.
+|Stable
+|State-machine workflows with permissions, guards, lifecycle hooks, auto-transitions, and audit trails.
 
 |`boundary-search`
 |Stable
-|Full-text search (PostgreSQL FTS / H2 LIKE), document indexing, filter support, and admin UI.
+|Full-text search (PostgreSQL FTS / H2 LIKE fallback), weighted fields, filter support, and admin UI.
+
+|`boundary-reports`
+|Active
+|PDF, Excel, DOCX generation via `defreport` macro.
+
+|`boundary-calendar`
+|Stable
+|Recurring events (RFC 5545 RRULE), iCal export/import, conflict detection, Hiccup UI components.
 
 |`boundary-external`
 |Active
-|Stripe payments + webhooks, Twilio SMS/WhatsApp, SMTP transport, IMAP mailbox adapters.
+|Stripe payments + webhooks, Twilio SMS/WhatsApp, SMTP transport, IMAP mailbox adapters. Not production-ready.
 |===
 
-== Delivery and Quality Signals
+== CI / Automation
 
-=== CI/Automation
+The main CI workflow (`.github/workflows/ci.yml`) runs:
 
-The main CI workflow (`.github/workflows/ci.yml`) currently includes:
-
-* `lint` (clj-kondo)
-* `docs-lint`
-* `agents-links` (`bb scripts/check_agents_links.clj`)
-* Per-library test jobs (`:core`, `:observability`, `:platform`, `:user`, `:admin`, `:storage`, `:cache`, `:jobs`, `:tenant`, `:email`, `:realtime`, `:scaffolder`, `:workflow`, `:search`, `:external`)
+* `lint` — clj-kondo
+* `docs-lint` — documentation drift linter
+* `agents-links` — `bb scripts/check_agents_links.clj`
+* Per-library test jobs for all 17 libraries
 * Whole-suite test job (`clojure -M:test:db/h2`)
 * `test-summary` gate
 
-=== Documentation and Agent Tooling
+== Known Gaps
 
-Recent documentation/process improvements include:
+* `boundary-external` is explicitly in-development and not production-ready.
+* `boundary-realtime` multi-server scaling (Redis-backed registry/pub-sub) is still roadmap.
+* Some historical documents in `docs/archive/` are stale and should not be used as operational source-of-truth.
 
-* Streamlined root `AGENTS.md` with reduced duplication.
-* Standardized section template across all module `libs/*/AGENTS.md` files.
-* Dedicated AGENTS link checker script and CI enforcement.
-* Repo-native pre-commit hook path (`.githooks`) via `bb install-hooks`.
+== Recommended Priorities
 
-== Week 3 Documentation Closeout (2026-02-24)
-
-Week 3 documentation consolidation is complete.
-
-[cols="1,3"]
-|===
-|Area |Week 3 Outcome
-
-|Architecture docs compactness
-|High-volume architecture pages were rewritten into concise, code-aligned references (overview, components, integration patterns, middleware, observability).
-
-|Stale module references
-|Legacy references (including billing/workflow-era examples) were removed or replaced in targeted architecture/reference docs.
-
-|Namespace/path accuracy
-|Documentation examples and module paths were aligned to the current `libs/...` monorepo structure and active namespace layout.
-
-|Library README hygiene
-|Remaining docs-lint warnings in `libs/*/README.*` were resolved (stale paths, broken links, unknown aliases/namespaces in examples).
-
-|Validation signal
-|`clojure -M:docs-lint` currently reports `Total warnings: 0`.
-|===
-
-Week 3 also delivered a materially leaner docs set by replacing long, drift-prone narrative sections with short operational guidance and checklists.
-
-== Week 4 Stabilization Update (2026-02-25)
-
-Week 4 is in progress with a stabilization-first scope (targeted drift fixes, no broad rewrites).
-
-[cols="1,3"]
-|===
-|Area |Week 4 Progress
-
-|Guide path normalization
-|High-traffic guides and getting-started pages were updated to the current library-split layout (`libs/<module>/src/boundary/<module>/...`).
-
-|Reference stabilization
-|Reference examples in scaffolder and multi-db docs were aligned with active namespaces and current database adapter entry points.
-
-|Architecture link hygiene
-|Targeted architecture docs were updated to current platform/observability file locations where stale links remained.
-
-|Maintenance guardrails
-|A docs maintenance checklist was added and linked from docs index to keep future edits lint-safe and path-accurate.
-
-|Validation signal
-|`clojure -M:docs-lint` and AGENTS link checks remain clean after each patch batch.
-|===
-
-== Week 5 Hardening Complete (2026-02-26)
-
-Week 5 process-hardening scope is complete for this cycle.
-
-[cols="1,3"]
-|===
-|Area |Week 5 Progress
-
-|CI gate clarity
-|Corrected workflow annotation to reflect docs-lint as a failing CI gate (not warn-only).
-
-|Command smoke automation
-|Added `scripts/smoke_check.clj` (Babashka) and CI `command-smoke` job to verify key aliases/entrypoints and run fast docs/links checks.
-
-|Deferred-doc scope control
-|Added a dedicated historical-docs triage tracker for change-reports and migration-history content, with explicit keep/update priorities.
-
-|Validation continuity
-|Docs-lint and AGENTS link checks remain part of each patch batch.
-|===
-
-== March 2026 Delivery: Workflow + Search Gap Closure (2026-03-12)
-
-All outstanding gaps in `boundary-workflow` and `boundary-search` have been closed.
-
-[cols="1,3"]
-|===
-|Area |Outcome
-
-|`boundary-workflow` — lifecycle hooks
-|`:hooks` map on `WorkflowDefinition` supporting `:on-enter-<state>`, `:on-exit-<state>`, and `:on-any-transition`. Hooks fire synchronously after each transition; exceptions are caught and logged without rolling back.
-
-|`boundary-workflow` — auto-transitions
-|`:auto? true` on transitions + `process-auto-transitions!` port method. Uses `[:system]` actor-roles, intended for scheduled invocation.
-
-|`boundary-workflow` — available-transitions
-|`available-transitions` port method returns enabled/disabled candidates with labels. HTTP GET instance response now includes `availableTransitions` array.
-
-|`boundary-workflow` — state labels
-|`:state-config` + `:label` on transition `TransitionDef`; exposed in API and UI.
-
-|`boundary-search` — filter support
-|`:filters` key on `SearchDefinition`; `:filter-values` on index opts; `filters TEXT` column persisted as compact JSON. PostgreSQL uses JSONB `->>`; H2 uses `INSTR` fallback (H2 2.4.x has no JDBC JSON functions).
-
-|Tests
-|54 tests, 287 assertions, 0 failures. New tests cover filter queries, lifecycle hooks, auto-transitions, and available-transitions.
-
-|Documentation
-|`docs-site/content/guides/workflow.adoc`, `docs-site/content/guides/search.adoc`, `libs/workflow/AGENTS.md`, `libs/search/AGENTS.md`, root `AGENTS.md` all updated.
-|===
-
-== Known Gaps / Active Risks
-
-* `libs/external` remains explicitly in-development and should not be treated as production-ready.
-* Realtime module documentation still calls out future multi-server enhancements (Redis-backed registry/pub-sub).
-* Some historical status documents in `docs/archive/` are stale and should not be used as operational source-of-truth.
-
-== Recommended Priorities (Next 30 Days)
-
-. Promote `boundary-workflow` and `boundary-search` to the CI per-library test matrix (add `:workflow` and `:search` jobs to `.github/workflows/ci.yml`).
-. Decide realtime scaling path (single-node hardening vs Redis-backed multi-node support) and align tests/docs.
 . Validate `boundary-external` adapters against live Stripe/Twilio sandboxes and mark production-ready.
-. Execute the historical-doc triage backlog (P1 then P2/P3) while preserving intentional migration-era context.
-. Keep CI signal quality high by preserving fast per-library feedback and enforcing docs/link hygiene.
+. Decide realtime scaling path (single-node hardening vs Redis-backed) and align tests/docs.
+. Advance `boundary-reports` and `boundary-calendar` CI coverage (add per-library jobs to CI).
+. Keep CI signal quality high: fast per-library feedback and enforced docs/link hygiene.
 
-== Status Maintenance Rules
-
-When updating this file:
+== Maintenance Rules
 
 * Use only verifiable repository facts (release tags, module presence, workflow definitions, docs state).
 * Avoid speculative metrics unless backed by reproducible commands.
-* Keep this file focused on current status; move historical deep-dive detail to archive docs.
+* Move historical deep-dive detail to archive docs; keep this file focused on current status.
 * Update `:revdate:` on every substantive change.
