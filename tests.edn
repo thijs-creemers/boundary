@@ -129,7 +129,7 @@
   :kaocha.plugin.filter/focus-meta [:unit :integration :contract :user :billing :phase3]
 
   :kaocha.plugin.randomize/randomize? true
-  :kaocha/reporter [kaocha.report/documentation]
+  :kaocha/reporter [boundary.test.reporter/reporter]
 
   :kaocha/fail-fast? false
   :kaocha/color? true
