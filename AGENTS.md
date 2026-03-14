@@ -44,6 +44,7 @@ clojure -M:test:db/h2 :external                    # External adapters tests
 clojure -M:test:db/h2 :reports                     # Reports library tests
 clojure -M:test:db/h2 :calendar                    # Calendar library tests
 clojure -M:test:db/h2 :geo                         # Geo library tests
+clojure -M:test:db/h2 :ai                          # AI library tests
 
 # Testing - By metadata category
 clojure -M:test:db/h2 --focus-meta :unit           # Unit tests only
@@ -82,6 +83,12 @@ clojure -M:migrate migrate                         # Run migrations
 
 # Scripting (Babashka)
 bb scaffold                                        # Interactive module scaffolding wizard
+bb scaffold ai "product module with name, price"   # AI-powered NL scaffolding (interactive confirm)
+bb scaffold ai "product module with name, price" --yes  # AI-powered NL scaffolding (non-interactive)
+bb ai explain --file stacktrace.txt                # Explain error via AI
+bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate test namespace
+bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL
+bb ai docs --module libs/user --type agents                       # Generate AGENTS.md
 bb check-links                                     # Validate local markdown links in AGENTS.md files
 bb smoke-check                                     # Verify deps.edn aliases and key tool entrypoints
 bb install-hooks                                   # Configure git hooks path to .githooks
@@ -134,7 +141,8 @@ libs/
 ├── external/      # External service adapters (Stripe, Twilio, SMTP/IMAP)
 ├── reports/       # Report definitions, PDF/CSV export, scheduling (defreport macro)
 ├── calendar/      # Calendar events, RRULE recurrence, iCal export/import, conflict detection
-└── geo/           # Geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
+├── geo/           # Geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
+└── ai/            # Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
 ```
 
 ---
@@ -521,6 +529,7 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 | **reports** | [`libs/reports/AGENTS.md`](libs/reports/AGENTS.md) | `defreport` macro, registry, PDF/CSV export, scheduling |
 | **calendar** | [`libs/calendar/AGENTS.md`](libs/calendar/AGENTS.md) | `defevent` macro, RRULE recurrence (DST-aware), conflict detection, iCal export/import, Hiccup UI |
 | **geo** | [`libs/geo/AGENTS.md`](libs/geo/AGENTS.md) | Multi-provider geocoding (OSM/Google/Mapbox), DB cache, rate limiting, Haversine distance |
+| **ai** | [`libs/ai/AGENTS.md`](libs/ai/AGENTS.md) | Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, error explainer, test generator, SQL copilot, docs wizard |
 
 ---
 
@@ -551,5 +560,5 @@ Also add the lib's `:id` test suite to `tests.edn` and its source/test paths to 
 
 ---
 
-**Last Updated**: 2026-03-13
-**Version**: 3.4.0 (Geo library: multi-provider geocoding, DB cache, Haversine distance)
+**Last Updated**: 2026-03-14
+**Version**: 3.5.0 (AI library: multi-provider AI tooling, NL scaffolding, error explainer, test generator, SQL copilot, docs wizard)
