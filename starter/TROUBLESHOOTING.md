@@ -909,7 +909,7 @@ bb setup --template web-app --name my-app --db postgres
 - **Usage Examples**: [USAGE_EXAMPLES.md](USAGE_EXAMPLES.md) — 8 real-world scenarios
 - **Platform Testing**: [CROSS_PLATFORM_TESTING_GUIDE.md](CROSS_PLATFORM_TESTING_GUIDE.md) — Platform-specific tests
 - **Platform Differences**: [PLATFORM_DIFFERENCES.md](PLATFORM_DIFFERENCES.md) — Known platform behaviors
-- **Template Comparison**: [TEMPLATE_COMPARISON.md](TEMPLATE_COMPARISON.md) — Which template to choose?
+- **Template Comparison**: `TEMPLATE_COMPARISON.md` — Which template to choose?
 - **Boundary Framework**: [../README.md](../README.md) — Framework documentation
 - **Boundary AGENTS.md**: [../AGENTS.md](../AGENTS.md) — Technical reference
 

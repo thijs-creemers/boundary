@@ -51,7 +51,7 @@ All Sprint 1 work is complete. See sections below for details.
 - Project generation: ✅ Generated with auto-detected path
 - Dependency resolution: ✅ All Boundary libs resolved from GitHub
 
-**Documentation**: [DAY_6_COMPLETE.md](DAY_6_COMPLETE.md)
+**Documentation**: `DAY_6_COMPLETE.md`
 
 **Pending**:
 - ⏳ Linux testing (manual validation needed)
@@ -97,7 +97,7 @@ All Sprint 1 work is complete. See sections below for details.
 - Project generation: ✅ Generated in 57ms (9 files, 7 dirs)
 - Dependency resolution: ✅ All 4 Boundary libs resolved from GitHub
 
-**Documentation**: [DAY_7_COMPLETE.md](DAY_7_COMPLETE.md)
+**Documentation**: `DAY_7_COMPLETE.md`
 
 ---
 
@@ -149,7 +149,7 @@ All Sprint 1 work is complete. See sections below for details.
 - Event processors (Kafka consumers, queue workers)
 - Stateless processing (data transformers, validators)
 
-**Documentation**: [DAY_8_COMPLETE.md](DAY_8_COMPLETE.md)
+**Documentation**: `DAY_8_COMPLETE.md`
 
 ---
 
@@ -166,7 +166,7 @@ All Sprint 1 work is complete. See sections below for details.
 - Microservice template (containerized services)
 - 5 templates total now available
 
-**Documentation**: [SPRINT_2_RETROSPECTIVE.md](SPRINT_2_RETROSPECTIVE.md)
+**Documentation**: `SPRINT_2_RETROSPECTIVE.md`
 
 ---
 
@@ -188,7 +188,7 @@ All Sprint 1 work is complete. See sections below for details.
 - Aero tag handling (`:env/VAR` → `#env VAR`)
 - Comprehensive test coverage (18 tests, 132 assertions, 0 failures)
 
-**Documentation**: [DAY_1_COMPLETE.md](DAY_1_COMPLETE.md)
+**Documentation**: `DAY_1_COMPLETE.md`
 
 ---
 
@@ -215,7 +215,7 @@ _base.edn (93 lines)
 - **Web-App**: Adds auth + admin UI (user, admin)
 - **SaaS**: Adds multi-tenancy + jobs + email + storage + cache (tenant, jobs, email, storage, cache)
 
-**Documentation**: [DAY_2_COMPLETE.md](DAY_2_COMPLETE.md)
+**Documentation**: `DAY_2_COMPLETE.md`
 
 ---
 
@@ -254,10 +254,10 @@ _base.edn (93 lines)
 **Performance**: 2-8ms per project generation
 
 **Documentation**: 
-- [DAY_3_COMPLETE.md](DAY_3_COMPLETE.md) - Detailed report
-- [DAY_3_CHECKLIST.md](DAY_3_CHECKLIST.md) - Completion checklist
-- [DAY_3_SUMMARY.txt](DAY_3_SUMMARY.txt) - Quick summary
-- [TEMPLATE_COMPARISON.md](TEMPLATE_COMPARISON.md) - Template guide
+- `DAY_3_COMPLETE.md` - Detailed report
+- `DAY_3_CHECKLIST.md` - Completion checklist
+- `DAY_3_SUMMARY.txt` - Quick summary
+- `TEMPLATE_COMPARISON.md` - Template guide
 
 ---
 
@@ -308,7 +308,7 @@ _base.edn (93 lines)
 
 **Performance**: <1 minute to create project (5x better than 5-minute target)
 
-**Documentation**: [DAY_4_COMPLETE.md](DAY_4_COMPLETE.md)
+**Documentation**: `DAY_4_COMPLETE.md`
 
 ---
 
@@ -339,7 +339,7 @@ _base.edn (93 lines)
 
 **Performance**: <1 second non-interactive generation (vs <1 minute interactive)
 
-**Documentation**: [DAY_5_COMPLETE.md](DAY_5_COMPLETE.md)
+**Documentation**: `DAY_5_COMPLETE.md`
 
 ---
 
@@ -391,7 +391,7 @@ clojure -M -e "(require '[boundary.core.validation :as v])"  # ✅ Pass
 - ✅ Clear migration path to Maven dependencies
 - ✅ All three templates verified working with real Boundary Framework
 
-**Documentation**: [INTEGRATION_TEST_REPORT.md](INTEGRATION_TEST_REPORT.md)
+**Documentation**: `INTEGRATION_TEST_REPORT.md`
 
 ---
 
@@ -668,7 +668,7 @@ project-name/
 | **web-app** | 5 | 1.6 KB | Auth apps, admin dashboards |
 | **saas** | 10 | 2.0 KB | Production SaaS, multi-tenant |
 
-**Details**: See [TEMPLATE_COMPARISON.md](TEMPLATE_COMPARISON.md)
+**Details**: See `TEMPLATE_COMPARISON.md`
 
 ---
 
@@ -798,32 +798,32 @@ bb -e "(load-file \"scripts/file_generators.clj\") \
 ## Documentation Index
 
 ### Daily Reports
-- [Day 1 Complete](DAY_1_COMPLETE.md) - Base template + helpers
-- [Day 2 Complete](DAY_2_COMPLETE.md) - Core templates
-- [Day 3 Complete](DAY_3_COMPLETE.md) - File generation
-- [Day 3 Checklist](DAY_3_CHECKLIST.md) - Completion checklist
-- [Day 3 Summary](DAY_3_SUMMARY.txt) - Quick summary
-- [Day 4 Complete](DAY_4_COMPLETE.md) - Interactive CLI wizard
-- [Day 5 Complete](DAY_5_COMPLETE.md) - Non-interactive CLI mode
-- [Day 6 Complete](DAY_6_COMPLETE.md) - Foundation fixes (env var, auto-detection, cross-platform)
-- [Day 7 Complete](DAY_7_COMPLETE.md) - API-Only template (RESTful JSON API)
-- [Day 8 Complete](DAY_8_COMPLETE.md) - Microservice template (containerized services)
-- [Day 11 Complete](DAY_11_COMPLETE.md) - Library selection wizard
-- [Day 12 Complete](DAY_12_COMPLETE.md) - Template persistence
-- [Day 13 Complete](DAY_13_COMPLETE.md) - Automated testing
-- [Day 14 Complete](DAY_14_COMPLETE.md) - Config metadata
-- [Day 15 Complete](DAY_15_COMPLETE.md) - Template editing
-- [Day 16 Complete](DAY_16_COMPLETE.md) - Cross-platform testing (embedded in guide)
-- [Day 17 Complete](DAY_17_COMPLETE.md) - Usage examples + troubleshooting
-- [Day 18 Complete](DAY_18_COMPLETE.md) - Performance benchmarking
-- [Day 19 Complete](DAY_19_COMPLETE.md) - Video walkthrough script
-- [Integration Test Report](INTEGRATION_TEST_REPORT.md) - Git dependencies testing
-- [Sprint 2 Retrospective](SPRINT_2_RETROSPECTIVE.md) - Sprint 2 summary
-- [Sprint 3 Retrospective](SPRINT_3_RETROSPECTIVE.md) - Sprint 3 summary
-- [Sprint 4 Retrospective](SPRINT_4_RETROSPECTIVE.md) - Sprint 4 summary
+- `DAY_1_COMPLETE.md` - Base template + helpers
+- `DAY_2_COMPLETE.md` - Core templates
+- `DAY_3_COMPLETE.md` - File generation
+- `DAY_3_CHECKLIST.md` - Completion checklist
+- `DAY_3_SUMMARY.txt` - Quick summary
+- `DAY_4_COMPLETE.md` - Interactive CLI wizard
+- `DAY_5_COMPLETE.md` - Non-interactive CLI mode
+- `DAY_6_COMPLETE.md` - Foundation fixes (env var, auto-detection, cross-platform)
+- `DAY_7_COMPLETE.md` - API-Only template (RESTful JSON API)
+- `DAY_8_COMPLETE.md` - Microservice template (containerized services)
+- `DAY_11_COMPLETE.md` - Library selection wizard
+- `DAY_12_COMPLETE.md` - Template persistence
+- `DAY_13_COMPLETE.md` - Automated testing
+- `DAY_14_COMPLETE.md` - Config metadata
+- `DAY_15_COMPLETE.md` - Template editing
+- `DAY_16_COMPLETE.md` - Cross-platform testing (embedded in guide)
+- `DAY_17_COMPLETE.md` - Usage examples + troubleshooting
+- `DAY_18_COMPLETE.md` - Performance benchmarking
+- `DAY_19_COMPLETE.md` - Video walkthrough script
+- `INTEGRATION_TEST_REPORT.md` - Git dependencies testing
+- `SPRINT_2_RETROSPECTIVE.md` - Sprint 2 summary
+- `SPRINT_3_RETROSPECTIVE.md` - Sprint 3 summary
+- `SPRINT_4_RETROSPECTIVE.md` - Sprint 4 summary
 
 ### Guides
-- [Template Comparison](TEMPLATE_COMPARISON.md) - Template selection guide
+- `TEMPLATE_COMPARISON.md` - Template selection guide
 - [Cross-Platform Testing Guide](CROSS_PLATFORM_TESTING_GUIDE.md) - 42 manual tests
 - [Platform Differences](PLATFORM_DIFFERENCES.md) - Platform-specific behaviors
 - [Usage Examples](USAGE_EXAMPLES.md) - 8 real-world scenarios

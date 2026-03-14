@@ -800,4 +800,4 @@ jobs:
 **Created**: 2026-03-14  
 **Sprint**: 4 (Day 17)  
 **Status**: Complete  
-**See Also**: [README.md](README.md), [TEMPLATE_COMPARISON.md](TEMPLATE_COMPARISON.md)
+**See Also**: [README.md](README.md), `TEMPLATE_COMPARISON.md`
