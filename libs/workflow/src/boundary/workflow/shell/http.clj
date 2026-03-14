@@ -157,29 +157,29 @@
 ;; =============================================================================
 
 (defn workflow-routes
-  "Return Reitit route definitions for the workflow API.
+  "Return normalized route definitions for the workflow API.
 
    Args:
      engine - WorkflowService (IWorkflowEngine)
 
    Returns:
-     Vector of Reitit route tuples"
+     Vector of normalized route maps (will be mounted under /api/v1 by versioning middleware)"
   [engine]
-  [["/api/workflow/instances"
-    {:post {:handler (fn [req] (handle-start-workflow engine req))
-            :summary "Start a new workflow instance"}}]
+  [{:path    "/workflow/instances"
+    :methods {:post {:handler (fn [req] (handle-start-workflow engine req))
+                     :summary "Start a new workflow instance"}}}
 
-   ["/api/workflow/instances/:id"
-    {:get {:handler (fn [req] (handle-get-instance engine req))
-           :summary "Get current workflow state"}}]
+   {:path    "/workflow/instances/:id"
+    :methods {:get {:handler (fn [req] (handle-get-instance engine req))
+                    :summary "Get current workflow state"}}}
 
-   ["/api/workflow/instances/:id/audit"
-    {:get {:handler (fn [req] (handle-get-audit-log engine req))
-           :summary "Get workflow audit log"}}]
+   {:path    "/workflow/instances/:id/audit"
+    :methods {:get {:handler (fn [req] (handle-get-audit-log engine req))
+                    :summary "Get workflow audit log"}}}
 
-   ["/api/workflow/instances/:id/transition"
-    {:post {:handler (fn [req] (handle-transition engine req))
-            :summary "Execute a workflow transition"}}]])
+   {:path    "/workflow/instances/:id/transition"
+    :methods {:post {:handler (fn [req] (handle-transition engine req))
+                     :summary "Execute a workflow transition"}}}])
 
 ;; =============================================================================
 ;; Admin web UI helpers

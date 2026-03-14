@@ -143,40 +143,166 @@ libs/{module}/src/boundary/{module}/core/
 └── ui.clj                # Module-specific UI components
 ```
 
-### Styling Conventions
+### CSS Architecture
 
 **Location**: `resources/public/css/`
 
 ```
 css/
-├── tokens.css     # Design tokens (colors, spacing, typography)
-├── app.css        # Main app styles
-├── admin.css      # Admin interface styles
-└── components.css # Reusable component styles
+├── boundary-tokens.css          # Layer 2 — stable token contract (Boundary defaults)
+├── tokens-openprops.css         # Layer 3 — optional theme override (Cyberpunk Professionalism)
+├── vendor/open-props/           # Vendored Open Props v1.7.23 (no CDN dependency)
+│   ├── colors.min.css           #   Named color scales (--indigo-4, --lime-6, etc.)
+│   ├── shadows.min.css          #   Shadow scale
+│   ├── gradients.min.css        #   Gradient presets
+│   ├── animations.min.css       #   Animation keyframes
+│   ├── easings.min.css          #   Easing functions (--ease-out-3, --ease-spring-3)
+│   ├── borders.min.css          #   Border radii (--radius-round)
+│   └── sizes.min.css            #   Spacing scale (--size-1 … --size-fluid-5)
+├── app.css                      # Layer 4 — component styles (uses tokens only)
+└── admin.css                    # Layer 4 — admin interface styles (uses tokens only)
 ```
 
-**CSS Organization**:
-1. Use design tokens for all values (colors, spacing, font sizes)
-2. Component-specific styles in dedicated sections
-3. Dark mode via CSS variables (no duplicate declarations)
-4. Mobile-first responsive design
+**Loading order** (set as default in `page-layout`):
+```
+pico.min.css          ← CSS reset / base HTML element styles
+boundary-tokens.css   ← Token defaults (Boundary navy/green palette)
+tokens-openprops.css  ← Theme override (Cyberpunk Professionalism; load last to win)
+app.css               ← Component styles
+```
 
-**Example**:
+**CSS Organisation Rules**:
+1. Component CSS (`app.css`, `admin.css`) must only reference token variables — never hardcode values
+2. All token variables are defined in `boundary-tokens.css`; the optional theme file overrides them
+3. Dark mode is handled via `[data-theme="dark"]` and `@media (prefers-color-scheme: dark)` in both token files — no duplicate declarations in component CSS
+4. Open Props vendor files are imported only by `tokens-openprops.css` — component CSS never imports them directly
+
+**Example — writing component CSS**:
 ```css
 /* ✅ Use design tokens */
 .button {
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--space-2) var(--space-4);
   background: var(--color-primary);
   border-radius: var(--radius-md);
+  box-shadow: var(--glow-primary);        /* off in default theme, active in Cyberpunk */
+  transition: all var(--transition-normal);
 }
 
-/* ❌ Don't use hardcoded values */
+/* ❌ Don't hardcode values */
 .button {
   padding: 8px 16px;
   background: #3b82f6;
   border-radius: 6px;
 }
 ```
+
+### Theming System
+
+The theming system has two layers:
+
+| File | Role |
+|------|------|
+| `boundary-tokens.css` | **Token contract** — every variable component CSS can reference. Neutral Boundary navy/green defaults. Self-contained (no imports, works offline and in JAR deployments). |
+| `tokens-openprops.css` | **Theme override** — re-assigns the same variables to the "Cyberpunk Professionalism" palette (indigo primary, lime accent, neon glows, gradients). Imports vendored Open Props for its named color scale. |
+
+Because `tokens-openprops.css` is loaded after `boundary-tokens.css`, it wins on every variable it touches. Variables it doesn't touch keep their defaults from `boundary-tokens.css`.
+
+**What Open Props provides** (vendored at `vendor/open-props/`):
+- Named color scales: `--indigo-0` … `--indigo-12`, `--lime-0` … `--lime-12`, etc., each with HSL variants (`--indigo-4-hsl`)
+- Shadow scale: `--shadow-2` … `--shadow-6`
+- Easing functions: `--ease-out-1` … `--ease-out-5`, `--ease-spring-1` … `--ease-spring-5`
+- Spacing: `--size-1` … `--size-fluid-5`
+- Border radii: `--radius-round` (9999px)
+
+**Reference** — tokens available for use in component CSS:
+
+```
+Colors       --color-primary, --color-accent, --color-secondary
+             --color-success / -hover / -bg / -border
+             --color-warning / -hover / -bg / -border
+             --color-error   / -hover / -bg / -border
+             --color-info    / -hover / -bg / -border
+             --color-neutral-50 … --color-neutral-800
+
+Surfaces     --surface-0 (base) … --surface-4 (elevated)
+Text         --text-primary, --text-muted, --text-faint, --text-inverse
+Borders      --border-default, --border-strong, --border-focus, --border-accent
+
+Effects      --shadow-sm, --shadow-md, --shadow-lg, --shadow-xl, --shadow-2xl
+             --shadow-focus
+             --glow-primary, --glow-primary-strong (none in default, neon in Cyberpunk)
+             --glow-accent, --glow-error, --glow-warning, --glow-info
+             --gradient-hero, --gradient-accent, --gradient-subtle, --gradient-card
+
+Typography   --font-sans, --font-display, --font-mono
+             --text-xs … --text-4xl
+             --font-normal, --font-medium, --font-semibold, --font-bold
+             --leading-tight, --leading-normal, --leading-relaxed
+
+Spacing      --space-0 … --space-20
+Layout       --nav-width, --topbar-height, --content-max-width, --table-row-height
+Radii        --radius-sm, --radius-md, --radius-lg, --radius-xl, --radius-full
+Transitions  --transition-fast, --transition-normal, --transition-slow, --transition-bounce
+Z-index      --z-dropdown … --z-toast
+```
+
+### Rolling Your Own Theme
+
+To replace "Cyberpunk Professionalism" with a custom look:
+
+**Option A — Edit `tokens-openprops.css` in place**
+
+Override whichever variables you want; leave the rest untouched (they fall back to `boundary-tokens.css` defaults):
+```css
+/* my-theme additions inside tokens-openprops.css :root block */
+--color-primary: #0d9488;          /* Teal instead of Indigo */
+--color-accent:  #f59e0b;          /* Amber instead of Lime  */
+--glow-primary:  none;             /* Remove neon glows      */
+```
+
+**Option B — Add a separate theme file**
+
+1. Create `resources/public/css/my-brand.css`:
+```css
+/* Brand theme — overrides boundary-tokens.css defaults */
+/* Import Open Props if you want its color scales */
+@import "./vendor/open-props/colors.min.css";
+
+:root {
+  --color-primary:       var(--teal-6);
+  --color-primary-hover: var(--teal-7);
+  --color-accent:        var(--amber-6);
+  /* ...override only what you need... */
+}
+
+[data-theme="dark"] {
+  --color-primary: var(--teal-4);
+  --color-accent:  var(--amber-4);
+}
+```
+
+2. Pass it to `page-layout` via the `:css` opt (replaces the default list):
+```clojure
+(layout/page-layout
+  "My Page" content
+  {:css ["/css/pico.min.css"
+         "/css/boundary-tokens.css"
+         "/css/my-brand.css"          ; your theme, replaces tokens-openprops.css
+         "/css/app.css"]})
+```
+
+**Option C — Remove the theme entirely**
+
+Drop `tokens-openprops.css` from the `:css` list to get the default Boundary navy/green palette from `boundary-tokens.css` with no Open Props dependency:
+```clojure
+{:css ["/css/pico.min.css" "/css/boundary-tokens.css" "/css/app.css"]}
+```
+
+**Tips for custom themes**:
+- You only need to override variables that differ from your defaults; unoverridden variables cascade from `boundary-tokens.css`
+- Always provide both `:root` and `[data-theme="dark"]` blocks for dark mode support
+- Set `--glow-*: none` to disable neon glows in professional/corporate themes
+- The `--font-sans` / `--font-display` tokens control typefaces — pair with a CDN or self-hosted font `@font-face`
 
 ---
 

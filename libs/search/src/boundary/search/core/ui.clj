@@ -86,7 +86,7 @@
          [:p "Use " [:code "defsearch"] " to define a search index."]])]
      {:user  user
       :flash flash
-      :css   ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
+      :css   ["/css/pico.min.css" "/css/boundary-tokens.css" "/css/admin.css" "/css/app.css"]
       :js    ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]})))
 
 ;; =============================================================================
@@ -208,5 +208,5 @@
           [:p "Enter a query above to test this search index."]]])]
      {:user  user
       :flash flash
-      :css   ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
+      :css   ["/css/pico.min.css" "/css/boundary-tokens.css" "/css/admin.css" "/css/app.css"]
       :js    ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]})))

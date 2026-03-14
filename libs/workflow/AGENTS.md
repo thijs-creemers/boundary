@@ -186,12 +186,14 @@ The component map returned is:
 
 ## HTTP API
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/workflow/instances` | Start a new workflow instance |
-| `GET` | `/api/workflow/instances/:id` | Current state + `availableTransitions` (id, label, enabled?) |
-| `GET` | `/api/workflow/instances/:id/audit` | Full audit log |
-| `POST` | `/api/workflow/instances/:id/transition` | Execute a transition |
+Routes are defined in `shell/http.clj` using the normalized map format (no `/api` prefix) and mounted by the platform versioning middleware under `/api/v1`.
+
+| Method | Mounted path | Description |
+|--------|-------------|-------------|
+| `POST` | `/api/v1/workflow/instances` | Start a new workflow instance |
+| `GET` | `/api/v1/workflow/instances/:id` | Current state + `availableTransitions` (id, label, enabled?) |
+| `GET` | `/api/v1/workflow/instances/:id/audit` | Full audit log |
+| `POST` | `/api/v1/workflow/instances/:id/transition` | Execute a transition |
 
 ## Database Migrations
 
@@ -234,6 +236,7 @@ CREATE TABLE workflow_audit (
 5. **snake_case only at DB boundary** — all internal maps use kebab-case; `instance->db`/`db->instance` handle conversion.
 6. **Hooks are best-effort** — exceptions inside hook functions are caught and logged; they do NOT roll back the transition.
 7. **Auto-transitions bypass permissions** — they fire with `[:system]` roles; only mark transitions `:auto? true` when no user authorisation is required.
+8. **API routes must use normalized map format, not Reitit vectors** — `workflow-routes` must return `[{:path "..." :methods {...}}]`. Returning Reitit-style vectors `[["/path" {:get ...}]]` causes `IllegalArgumentException: Key must be integer` in the versioning middleware at startup. Paths must also omit the `/api` prefix — the platform adds `/api/v1` automatically.
 
 ## Testing
 
