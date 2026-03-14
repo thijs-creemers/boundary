@@ -1,0 +1,163 @@
+= Conventions
+:description: Naming conventions, field checklists, and patterns used throughout Boundary.
+
+== Case conventions
+
+The single most common source of bugs in Boundary projects.
+Three naming styles are used at three different system boundaries:
+
+[cols="1,1,2",options="header"]
+|===
+| Boundary | Convention | Example
+
+| All Clojure code (everywhere)
+| `kebab-case`
+| `:password-hash`, `:created-at`, `:user-id`
+
+| Database (at persistence boundary only)
+| `snake_case`
+| `password_hash`, `created_at`, `user_id`
+
+| API / JSON (at HTTP boundary only)
+| `camelCase`
+| `passwordHash`, `createdAt`, `userId`
+|===
+
+*Never mix these inside application code.* Convert only at the exact boundary.
+
+=== Using the conversion utilities
+
+[source,clojure]
+----
+(require '[boundary.core.utils.case-conversion :as cc])
+
+;; Persistence boundary: DB record → Clojure entity
+(cc/snake-case->kebab-case-map db-record)
+
+;; Persistence boundary: Clojure entity → DB insert/update
+(cc/kebab-case->snake-case-map entity)
+
+;; HTTP boundary: Clojure entity → JSON response
+(cc/kebab-case->camel-case-map entity)
+
+;; HTTP boundary: JSON request body → Clojure map
+(cc/camel-case->kebab-case-map api-input)
+----
+
+=== What goes wrong without this
+
+[source,clojure]
+----
+;; Bug: authentication failure because two places used different case
+;; service.clj used :password_hash (snake)
+;; user entity had :password-hash (kebab)
+;; Result: nil comparison, login always fails
+
+;; Fix: always kebab-case internally
+(defn authenticate [user input]
+  (buddy/check (:password input) (:password-hash user)))  ; kebab-case ✅
+----
+
+== Adding new fields
+
+*Always synchronize these three things together:*
+
+1. Add to Malli schema in `schema.clj`
+2. Add database column (migration file)
+3. Add field transformations in `shell/persistence.clj`
+
+Missing any one of these causes `nil` values, 500 errors, or SQL errors about missing columns.
+
+[source,clojure]
+----
+;; 1. schema.clj
+[:lockout-until {:optional true} [:maybe inst?]]
+[:failed-login-count {:optional true} :int]
+
+;; 2. migration SQL
+ALTER TABLE users ADD COLUMN failed_login_count INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN lockout_until TEXT;
+
+;; 3. persistence.clj — type conversions
+(defn db->user [row]
+  (-> row
+      (cc/snake-case->kebab-case-map)
+      (update :lockout-until type-conversion/string->instant)))
+----
+
+== Exception conventions
+
+Every `ex-info` call *must* include a `:type` key.
+Without it, the error interceptor cannot map it to an HTTP status code and returns a generic 500.
+
+[source,clojure]
+----
+;; ✅ CORRECT
+(throw (ex-info "User not found"
+                {:type :not-found :id user-id}))
+
+;; Valid :type values
+:validation-error   → HTTP 422
+:not-found          → HTTP 404
+:unauthorized       → HTTP 401
+:forbidden          → HTTP 403
+:conflict           → HTTP 409
+:internal-error     → HTTP 500
+----
+
+[source,clojure]
+----
+;; ❌ WRONG — no :type, triggers generic 500
+(throw (ex-info "Error" {:field :foo}))
+
+;; ❌ WRONG — Java exception with no ex-data
+(parse-long "invalid")  ; NumberFormatException
+
+;; ✅ CORRECT — wrap Java calls
+(try
+  (parse-long value)
+  (catch NumberFormatException _
+    (throw (ex-info "Invalid integer"
+                    {:type :validation-error :value value}))))
+----
+
+== Java interop
+
+Static methods use `ClassName/method`, instance methods use `.method`:
+
+[source,clojure]
+----
+;; Static methods
+(java.time.Instant/now)
+(java.util.UUID/randomUUID)
+(java.time.Duration/between start end)
+
+;; Instance methods
+(.toString my-object)
+(.getSeconds duration)
+(.format instant formatter)
+
+;; Static fields
+java.time.temporal.ChronoUnit/DAYS
+----
+
+== defrecord changes
+
+After changing a `defrecord` definition, `(ig-repl/reset)` is not sufficient.
+You must do a full restart:
+
+[source,clojure]
+----
+(ig-repl/halt)
+(ig-repl/go)
+;; Or restart the REPL entirely
+----
+
+== Parenthesis repair
+
+Never fix unbalanced parentheses manually. Use the tool:
+
+[source,bash]
+----
+clj-paren-repair libs/user/src/boundary/user/core/user.clj
+----

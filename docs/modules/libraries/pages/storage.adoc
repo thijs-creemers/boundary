@@ -1,0 +1,98 @@
+= storage
+:description: File storage with local filesystem and AWS S3 backends.
+
+File storage abstraction with local filesystem and AWS S3 backends.
+Includes file validation, image processing, and signed URL generation.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.storage.core.validation`
+| Pure: file validation (size, type, extension), filename sanitization
+
+| `boundary.storage.ports`
+| Protocols: `IFileStorage`, `IImageProcessor`
+
+| `boundary.storage.schema`
+| Malli schemas: `FileData`, `FileMetadata`, `StorageResult`
+
+| `boundary.storage.shell.service`
+| Service layer orchestrating validation + storage
+
+| `boundary.storage.shell.adapters.local`
+| Local filesystem adapter (content-addressed with SHA-256)
+
+| `boundary.storage.shell.adapters.s3`
+| AWS S3 / S3-compatible adapter (MinIO, DigitalOcean Spaces)
+
+| `boundary.storage.shell.adapters.image-processor`
+| Java AWT image processing (no external deps)
+
+| `boundary.storage.shell.http-handlers`
+| Ring handlers for upload/download/delete
+|===
+
+== Storage operations
+
+[source,clojure]
+----
+(require '[boundary.storage.ports :as ports])
+
+(ports/store-file storage
+  {:bytes (.getBytes "content") :content-type "text/plain"}
+  {:filename "test.txt"})
+;=> {:key "ab/1234-uuid-hash.txt" :url "..." :size 7 :stored-at #inst"..."}
+
+(ports/retrieve-file storage "ab/1234-uuid-hash.txt")
+(ports/file-exists? storage "ab/1234-uuid-hash.txt")
+(ports/delete-file storage "ab/1234-uuid-hash.txt")
+(ports/generate-signed-url storage key 3600)  ; S3 only
+----
+
+== File validation
+
+[source,clojure]
+----
+(require '[boundary.storage.core.validation :as validation])
+
+(validation/validate-file
+  {:bytes file-bytes :content-type "image/png" :filename "photo.png"}
+  {:max-size-bytes (* 5 1024 1024)
+   :allowed-types  #{"image/jpeg" "image/png" "image/webp"}
+   :allowed-exts   #{".jpg" ".jpeg" ".png" ".webp"}})
+----
+
+== Image processing
+
+[source,clojure]
+----
+(ports/resize-image processor file-bytes {:width 800 :height 600 :maintain-aspect? true})
+(ports/create-thumbnail processor file-bytes {:width 150 :height 150})
+----
+
+== Storage key format
+
+* *Local*: `+{shard}/{timestamp}-{uuid}-{hash16}.{ext}+` (shard = first 2 chars of SHA-256)
+* *S3*: `+{prefix}/{timestamp}-{uuid}-{hash16}.{ext}+`
+
+== Configuration
+
+[source,clojure]
+----
+;; Local (development)
+:boundary/storage {:backend :local :base-path "/var/uploads" :base-url "http://localhost:3000/uploads"}
+
+;; S3 (production)
+:boundary/storage {:backend :s3 :bucket #env AWS_S3_BUCKET :region #env AWS_REGION
+                   :access-key #env AWS_ACCESS_KEY_ID :secret-key #env AWS_SECRET_ACCESS_KEY}
+----
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :storage
+----

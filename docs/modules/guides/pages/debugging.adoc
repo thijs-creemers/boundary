@@ -1,0 +1,113 @@
+= Debugging
+:description: Systematic debugging strategies for Boundary applications.
+
+== General approach
+
+Start from the innermost layer (core/database) and work outward to HTTP.
+Don't debug through the full stack when you can isolate the issue.
+
+== 1. Check logs
+
+[source,bash]
+----
+tail -100 logs/app.log | grep -A 10 "ERROR"
+----
+
+Errors are logged with stack traces. Look for the first non-Boundary frame in the trace.
+
+== 2. Add temporary logging
+
+[source,clojure]
+----
+;; Output appears in REPL/server stdout, not log files
+(println "DEBUG:" {:field value :other other-value})
+----
+
+Remove all `println` statements before committing.
+
+== 3. Test via REPL
+
+Bypass the HTTP layer and call services directly:
+
+[source,clojure]
+----
+(def user-svc (get integrant.repl.state/system :boundary/user-service))
+(ports/find-user-by-email user-svc "alice@example.com")
+----
+
+== 4. Inspect HTTP requests
+
+Add temporary logging in handlers:
+
+[source,clojure]
+----
+(println "DEBUG request:"
+         {:method  (:request-method request)
+          :params  (:params request)
+          :headers (select-keys (:headers request) ["hx-request" "authorization"])})
+----
+
+== 5. Query the database directly
+
+[source,clojure]
+----
+(def ds (get-in integrant.repl.state/system [:boundary/db-context :datasource]))
+(require '[next.jdbc :as jdbc])
+(jdbc/execute! ds ["SELECT * FROM users WHERE email = ?" "alice@example.com"])
+----
+
+== Common problems and solutions
+
+=== `nil` where a field value is expected
+
+*Cause*: snake_case / kebab-case mismatch.
+
+*Check*: is the field `:password_hash` (snake) where the code expects `:password-hash` (kebab)?
+
+*Fix*: always use `cc/snake-case->kebab-case-map` at the persistence boundary.
+
+=== `ig-repl/reset` didn't pick up changes
+
+*Cause*: You changed a `defrecord`.
+
+*Fix*:
+[source,clojure]
+----
+(ig-repl/halt)
+(ig-repl/go)
+----
+
+=== HTTP 500 with "Exception reached HTTP boundary without :type in ex-data"
+
+*Cause*: An `ex-info` without `:type`, or an unwrapped Java exception.
+
+*Fix*: wrap in try-catch with a typed error:
+[source,clojure]
+----
+(try
+  (UUID/fromString id-string)
+  (catch IllegalArgumentException _
+    (throw (ex-info "Invalid UUID" {:type :validation-error :value id-string}))))
+----
+
+=== SQL error: unknown column name
+
+*Cause*: Schema and database migration are out of sync.
+
+*Fix*: check that the field exists in both `schema.clj`, the migration SQL, and `shell/persistence.clj`.
+
+=== Tests fail with unbalanced parentheses
+
+*Fix*:
+[source,bash]
+----
+clj-paren-repair <file-with-issue>
+----
+
+=== Auth tests fail with "JWT secret not found"
+
+*Fix*:
+[source,bash]
+----
+JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2 :user
+----

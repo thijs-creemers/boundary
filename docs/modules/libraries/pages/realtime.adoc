@@ -1,0 +1,97 @@
+= realtime
+:description: WebSocket real-time communication with JWT auth and topic-based pub/sub.
+
+WebSocket-based real-time communication with JWT authentication,
+message routing, and topic-based pub/sub.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.realtime.core.connection`
+| Pure: connection records, authorization, filtering
+
+| `boundary.realtime.core.message`
+| Pure: message creation, routing logic
+
+| `boundary.realtime.core.auth`
+| Pure: JWT extraction, claims validation, permission checks
+
+| `boundary.realtime.core.pubsub`
+| Pure: topic subscription management
+
+| `boundary.realtime.ports`
+| Protocols: `IRealtimeService`, `IConnectionRegistry`, `IWebSocketConnection`, `IJWTVerifier`, `IPubSubManager`
+
+| `boundary.realtime.shell.service`
+| Service orchestrating core + adapters
+
+| `boundary.realtime.shell.connection-registry`
+| In-memory registry (atom-backed)
+
+| `boundary.realtime.shell.pubsub-manager`
+| Atom-backed pub/sub state management
+
+| `boundary.realtime.shell.adapters.websocket-adapter`
+| Ring/Jetty WebSocket adapter
+
+| `boundary.realtime.shell.adapters.jwt-adapter`
+| JWT verifier delegating to `boundary-user`
+|===
+
+== Message routing types
+
+[cols="1,1,2",options="header"]
+|===
+| Type | Target | Example use case
+
+| `:broadcast`
+| All connections
+| System announcement
+
+| `:user`
+| Specific user-id
+| Direct message or notification
+
+| `:role`
+| Users with a specific role
+| Admin-only alert
+
+| `:connection`
+| Specific connection-id
+| Job progress update
+|===
+
+== Usage
+
+[source,clojure]
+----
+(require '[boundary.realtime.ports :as ports])
+
+;; Broadcast
+(ports/send-to-all service {:type :announcement :text "Maintenance in 5 minutes"})
+
+;; To specific user
+(ports/send-to-user service user-id {:type :notification :data {...}})
+
+;; Topic pub/sub
+(ports/subscribe-to-topic pubsub conn-id "order:123")
+(ports/publish-to-topic service "order:123" {:type :order-updated :payload {...}})
+----
+
+== Connection lifecycle
+
+1. Client connects: `ws://host/ws?token=<jwt>`
+2. Server verifies JWT via `IJWTVerifier`
+3. Connection registered in registry
+4. Client sends/receives messages
+5. On disconnect: cleanup + unsubscribe from all topics
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :realtime
+----

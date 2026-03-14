@@ -1,0 +1,97 @@
+= Library Overview
+:description: All 19 independently publishable Boundary libraries.
+
+Boundary is a monorepo of 19 libraries, each independently publishable to Clojars.
+Every library follows the same FC/IS structure, making the codebase instantly familiar across modules.
+
+== Foundation
+
+[cols="1,3",options="header"]
+|===
+| Library | Purpose
+
+| xref:core.adoc[core]
+| Foundation: validation framework, case/type conversion utilities, interceptor pipeline, feature flags. No shell layer — entirely pure functions.
+
+| xref:observability.adoc[observability]
+| Cross-cutting observability: structured logging, metrics, tracing breadcrumbs, and pluggable error reporters (Datadog, Sentry).
+
+| xref:platform.adoc[platform]
+| HTTP routing/interceptors, database integration, CLI/runtime wiring. Infrastructure for feature modules.
+|===
+
+== Application
+
+[cols="1,3",options="header"]
+|===
+| Library | Purpose
+
+| xref:user.adoc[user]
+| Authentication, authorization, MFA (TOTP), session management, JWT tokens.
+
+| xref:admin.adoc[admin]
+| Auto-generated CRUD admin UI from schema. Hiccup + HTMX, no frontend build step.
+
+| xref:storage.adoc[storage]
+| File storage: local filesystem and AWS S3 / S3-compatible backends.
+
+| xref:scaffolder.adoc[scaffolder]
+| Interactive module code generator. Generates FC/IS modules with tests and migrations.
+
+| xref:cache.adoc[cache]
+| Distributed caching with TTL, atomic operations, and multi-tenant isolation. Redis and in-memory backends.
+
+| xref:jobs.adoc[jobs]
+| Background job processing with priority queues, retries, exponential backoff, multi-tenant support.
+
+| xref:email.adoc[email]
+| Email sending: SMTP, async, and queued via jobs integration.
+
+| xref:tenant.adoc[tenant]
+| Multi-tenancy with PostgreSQL schema-per-tenant isolation. Requires PostgreSQL.
+
+| xref:realtime.adoc[realtime]
+| WebSocket real-time communication, JWT auth, topic-based pub/sub.
+|===
+
+== Extensions
+
+[cols="1,3",options="header"]
+|===
+| Library | Purpose
+
+| xref:external.adoc[external]
+| External service adapters: Stripe payments, Twilio SMS/WhatsApp, SMTP/IMAP.
+
+| xref:workflow.adoc[workflow]
+| Declarative state machine workflows with permission-based transitions and audit trail.
+
+| xref:search.adoc[search]
+| Full-text search: PostgreSQL FTS with LIKE fallback for H2/SQLite.
+
+| xref:reports.adoc[reports]
+| PDF, Excel (XLSX), and Word (DOCX) generation via `defreport` macro.
+
+| xref:calendar.adoc[calendar]
+| Recurring events, RRULE recurrence (DST-aware), iCal export/import, conflict detection.
+
+| xref:geo.adoc[geo]
+| Geocoding (OSM/Google/Mapbox), DB-backed cache, rate limiting, Haversine distance.
+
+| xref:ai.adoc[ai]
+| Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard.
+|===
+
+== Clojars coordinates
+
+All libraries share the `org.boundary-app` group:
+
+[source,clojure]
+----
+{org.boundary-app/boundary-core      {:mvn/version "1.0.0-alpha"}
+ org.boundary-app/boundary-user      {:mvn/version "1.0.0-alpha"}
+ org.boundary-app/boundary-admin     {:mvn/version "1.0.0-alpha"}
+ org.boundary-app/boundary-platform  {:mvn/version "1.0.0-alpha"}
+ ;; etc.
+ }
+----

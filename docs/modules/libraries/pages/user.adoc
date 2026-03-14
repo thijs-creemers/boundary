@@ -1,0 +1,91 @@
+= user
+:description: Authentication, authorization, MFA, and session management.
+
+Authentication and authorization domain: user lifecycle, credentials, sessions/tokens, and MFA flows.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.user.core.user`
+| Pure user-domain business logic
+
+| `boundary.user.core.mfa`
+| Pure MFA setup/verification logic
+
+| `boundary.user.shell.service`
+| Service-layer orchestration and validation
+
+| `boundary.user.shell.http`
+| Auth/user HTTP handlers
+|===
+
+== Authentication
+
+[source,bash]
+----
+# Login
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "secret"}'
+
+# Register
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "new@example.com", "password": "secret", "name": "Alice"}'
+----
+
+== Multi-Factor Authentication (MFA)
+
+[source,bash]
+----
+# 1. Start MFA setup
+curl -X POST http://localhost:3000/api/auth/mfa/setup \
+  -H "Authorization: Bearer <token>"
+
+# 2. Enable MFA (verify with TOTP code)
+curl -X POST http://localhost:3000/api/auth/mfa/enable \
+  -H "Authorization: Bearer <token>" \
+  -d '{"secret": "...", "verificationCode": "123456"}'
+
+# 3. Login with MFA
+curl -X POST http://localhost:3000/api/auth/login \
+  -d '{"email": "user@example.com", "password": "...", "mfaCode": "123456"}'
+
+# Disable MFA
+curl -X POST http://localhost:3000/api/auth/mfa/disable \
+  -H "Authorization: Bearer <token>" \
+  -d '{"verificationCode": "123456"}'
+----
+
+== Sessions
+
+[source,bash]
+----
+# List active sessions
+curl http://localhost:3000/api/auth/sessions \
+  -H "Authorization: Bearer <token>"
+
+# Revoke a session
+curl -X DELETE http://localhost:3000/api/auth/sessions/{session-id} \
+  -H "Authorization: Bearer <token>"
+----
+
+== Conventions
+
+* `JWT_SECRET` must be set (minimum 32 characters)
+* Internal keys use `:password-hash` (kebab-case), never `:password_hash`
+* Account lockout is enforced after repeated failed logins
+
+== Testing
+
+[source,bash]
+----
+JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2 :user
+
+# Update validation snapshots
+UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 \
+  --focus boundary.user.core.user-validation-snapshot-test
+----

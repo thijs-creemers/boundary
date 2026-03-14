@@ -67,9 +67,9 @@ You get: SQLite database (zero-config), HTTP server on port 3000, a complete Int
 
 | Resource | Description |
 |----------|-------------|
-| [Documentation](./docs-site/) | Architecture guides, tutorials, API reference, ADRs |
+| [Documentation](./docs/) | Architecture guides, tutorials, library reference (Antora) |
 | [AGENTS.md](./AGENTS.md) | Commands, conventions, common pitfalls, debugging |
-| [Publishing Guide](./docs-site/content/reference/publishing.md) | Publishing libraries to Clojars |
+| [dev-docs/adr/](./dev-docs/adr/) | Architecture Decision Records |
 
 Each library also has its own `AGENTS.md` with library-specific documentation.
 

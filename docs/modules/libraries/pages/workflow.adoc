@@ -1,0 +1,95 @@
+= workflow
+:description: Declarative state machine workflows with permission-based transitions and audit trail.
+
+Declarative state machine workflows for domain entities.
+Provides permission-based transitions, automatic audit trails, and optional side-effect dispatch via `boundary-jobs`.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.workflow.schema`
+| Malli schemas: `WorkflowDefinition`, `WorkflowInstance`, `AuditEntry`
+
+| `boundary.workflow.ports`
+| Protocols: `IWorkflowStore`, `IWorkflowEngine`, `IWorkflowRegistry`
+
+| `boundary.workflow.core.machine`
+| `defworkflow` macro, in-process definition registry
+
+| `boundary.workflow.core.transitions`
+| Pure transition logic; `available-transitions-with-status`
+
+| `boundary.workflow.core.audit`
+| Pure audit entry constructors
+
+| `boundary.workflow.shell.service`
+| Orchestration: load → validate → persist → side-effects
+
+| `boundary.workflow.shell.persistence`
+| DB persistence via next.jdbc + HoneySQL
+
+| `boundary.workflow.shell.http`
+| REST API routes (start, transition, state, audit log)
+|===
+
+== Defining a workflow
+
+[source,clojure]
+----
+(require '[boundary.workflow.core.machine :refer [defworkflow]])
+
+(defworkflow order-workflow
+  {:id             :order-workflow
+   :initial-state  :pending
+   :description    "E-commerce order lifecycle"
+   :states         #{:pending :paid :shipped :delivered :cancelled}
+   :state-config   {:pending   {:label "Awaiting Payment"}
+                    :paid      {:label "Payment Received"}
+                    :shipped   {:label "In Transit"}
+                    :delivered {:label "Delivered"}
+                    :cancelled {:label "Cancelled"}}
+   :hooks          {:on-enter-paid    (fn [instance] (notify-finance! instance))
+                    :on-any-transition (fn [instance] (sync-external! instance))}
+   :transitions    [{:from :pending :to :paid
+                     :label "Mark as Paid"
+                     :required-permissions [:finance :admin]}
+                    {:from :paid    :to :shipped
+                     :guard :payment-confirmed}
+                    {:from :shipped :to :delivered
+                     :label "Confirm Delivery"}
+                    {:from :pending :to :cancelled
+                     :auto?        true
+                     :side-effects [:notify-cancellation]}]})
+----
+
+== HTTP API
+
+[source,bash]
+----
+POST /api/workflows/:type/start    # Start a workflow instance
+POST /api/workflows/:id/transition # Perform a state transition
+GET  /api/workflows/:id/state      # Get current state
+GET  /api/workflows/:id/audit      # Get audit trail
+----
+
+== Available transitions
+
+[source,clojure]
+----
+(require '[boundary.workflow.core.transitions :as transitions])
+
+;; Returns all transitions with :enabled? flag
+(transitions/available-transitions-with-status order-workflow :paid user-permissions)
+;=> [{:from :paid :to :shipped :label "Ship Order" :enabled? true}
+;    {:from :paid :to :cancelled :label "Cancel" :enabled? false :reason "Missing permission"}]
+----
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :workflow
+----

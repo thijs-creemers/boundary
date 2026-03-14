@@ -1,0 +1,69 @@
+= platform
+:description: HTTP routing, interceptors, database integration, and CLI infrastructure.
+
+Infrastructure layer for HTTP routing/interceptors, database integration,
+CLI/runtime wiring, and shared platform adapters used by feature modules.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.platform.http.interceptors`
+| HTTP interceptor composition and execution
+
+| `boundary.platform.http.routes`
+| Normalized route handling and dispatch
+
+| `boundary.platform.db.*`
+| Database setup, context, and shared persistence infrastructure
+|===
+
+== HTTP interceptors
+
+Declarative cross-cutting concerns (auth, rate limiting, audit):
+
+[source,clojure]
+----
+;; Define an interceptor
+(def require-admin
+  {:name  :require-admin
+   :enter (fn [ctx]
+            (if (admin? (get-in ctx [:request :session :user]))
+              ctx
+              (assoc ctx :response {:status 403 :body {:error "Forbidden"}})))
+   :leave (fn [ctx] ctx)   ; optional response processing
+   :error (fn [ctx err]    ; optional error handling
+            (assoc ctx :response {:status 500 :body {:error "Internal error"}}))})
+
+;; Attach interceptors to routes
+[{:path "/api/admin"
+  :methods {:post {:handler     'handlers/create-resource
+                   :interceptors ['auth/require-admin
+                                  'audit/log-action]
+                   :summary "Create admin resource"}}}]
+----
+
+== Built-in interceptors
+
+* `:auth/require-authenticated` — JWT validation
+* `:auth/require-role` — role-based access control
+* `:rate-limit/per-ip` — rate limiting by IP
+* `:audit/log-request` — request audit logging
+* `:validation/validate-body` — request body validation
+
+== Interceptor phases
+
+* `:enter` — request processing (auth, validation, transformation)
+* `:leave` — response processing (audit, metrics, transformation)
+* `:error` — exception handling (custom error responses)
+
+Enter phases run in order; leave phases run in reverse order.
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :platform
+----

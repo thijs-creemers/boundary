@@ -1,0 +1,87 @@
+= Quickstart
+:description: Get a Boundary application running in minutes.
+
+== Bootstrap a new project
+
+The fastest way to get started is the bootstrap script, which downloads only the starter essentials:
+
+[source,bash]
+----
+curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/starter/scripts/bootstrap.sh | bash
+cd boundary-starter
+bb setup
+----
+
+This gives you:
+
+* SQLite database (zero-config for development)
+* HTTP server on port 3000
+* A complete Integrant system
+* REPL-driven development workflow
+* A production-ready Dockerfile
+
+== Start the system
+
+[source,bash]
+----
+export JWT_SECRET="change-me-dev-secret-min-32-chars"
+export BND_ENV="development"
+clojure -M:repl-clj
+----
+
+In the REPL:
+
+[source,clojure]
+----
+(require '[integrant.repl :as ig-repl])
+(require 'conf.dev.system)
+(ig-repl/go)
+;; => System started. Visit http://localhost:3000
+----
+
+== Scaffold your first module
+
+[source,bash]
+----
+bb scaffold
+----
+
+The interactive wizard walks you through creating a module. For example, a product module:
+
+[source,bash]
+----
+bb scaffold generate \
+  --module-name product \
+  --entity Product \
+  --field name:string:required \
+  --field sku:string:required:unique \
+  --field price:decimal:required
+
+# Apply the generated migration
+clojure -M:migrate up
+----
+
+Then reload the system to pick up the new routes:
+
+[source,clojure]
+----
+(ig-repl/reset)
+;; => Visit http://localhost:3000/admin/products
+----
+
+== Run tests
+
+[source,bash]
+----
+# All tests
+clojure -M:test:db/h2
+
+# Watch mode during development
+clojure -M:test:db/h2 --watch --focus-meta :unit
+----
+
+== Next steps
+
+* xref:getting-started:your-first-module.adoc[Your First Module] — understand what the scaffolder generated
+* xref:architecture:fc-is.adoc[Functional Core / Imperative Shell] — the pattern behind everything
+* xref:guides:testing.adoc[Testing] — unit, integration, and contract tests

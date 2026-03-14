@@ -1,0 +1,5 @@
+* Architecture
+** xref:architecture:fc-is.adoc[Functional Core / Imperative Shell]
+** xref:architecture:monorepo.adoc[Monorepo Structure]
+** xref:architecture:conventions.adoc[Conventions]
+** xref:architecture:testing-strategy.adoc[Testing Strategy]

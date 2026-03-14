@@ -1,0 +1,98 @@
+= reports
+:description: PDF, Excel, and Word report generation via the defreport macro.
+
+PDF, Excel (XLSX), and Word (DOCX) report generation with Hiccup-style templates
+and declarative sections. Saves 5–8 days of boilerplate per project.
+Supports sync generation and optional async via `boundary-jobs`.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.reports.core.report`
+| Registry, `defreport` macro, pure helpers
+
+| `boundary.reports.ports`
+| Protocol: `ReportGeneratorProtocol` (`generate!`, `supported-type?`)
+
+| `boundary.reports.schema`
+| Malli schemas: `ColumnDef`, `SectionDef`, `ReportDefinition`, `ReportOutput`
+
+| `boundary.reports.shell.adapters.pdf`
+| OpenHTMLtoPDF adapter — Hiccup → HTML → PDF bytes
+
+| `boundary.reports.shell.adapters.excel`
+| docjure adapter — column defs + data → XLSX bytes
+
+| `boundary.reports.shell.adapters.word`
+| Apache POI XWPF adapter — sections → DOCX bytes
+
+| `boundary.reports.shell.service`
+| Public API: `generate`, `generate-async`
+
+| `boundary.reports.shell.jobs-integration`
+| Optional `boundary-jobs` integration for async generation
+|===
+
+== PDF report
+
+[source,clojure]
+----
+(require '[boundary.reports.core.report :as r]
+         '[boundary.reports.shell.service :as reports])
+
+(r/defreport invoice-report
+  {:id        :invoice-report
+   :type      :pdf
+   :page-size :a4
+   :filename  "invoice.pdf"
+   :template  (fn [data]
+                [:html
+                 [:head [:title "Invoice"]]
+                 [:body
+                  [:h1 "Invoice #" (:invoice-number data)]
+                  [:table
+                   [:thead [:tr [:th "Item"] [:th "Amount"]]]
+                   [:tbody
+                    (for [line (:lines data)]
+                      [:tr [:td (:description line)]
+                           [:td (str "€ " (:amount line))]])]]]])})
+
+(def output (reports/generate invoice-report {:invoice-number 42 :lines [...]}))
+;=> {:bytes #bytes[...] :type :pdf :filename "invoice.pdf"}
+----
+
+== Excel report
+
+[source,clojure]
+----
+(r/defreport users-export
+  {:id      :users-export
+   :type    :excel
+   :filename "users.xlsx"
+   :columns [{:key :name  :label "Name"  :width 30}
+              {:key :email :label "Email" :width 40}
+              {:key :role  :label "Role"  :width 15}]})
+
+(reports/generate users-export {:rows (list-all-users)})
+----
+
+== Async generation
+
+[source,clojure]
+----
+;; Non-blocking (returns future)
+(reports/generate-async invoice-report data)
+
+;; Via jobs (with retry logic)
+(reports/generate-queued invoice-report data {:job-queue job-queue})
+----
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :reports
+----

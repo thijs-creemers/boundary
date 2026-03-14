@@ -1,0 +1,80 @@
+= Real-Time (WebSocket)
+:description: Adding WebSocket messaging and pub/sub to a Boundary application.
+
+The `realtime` library provides WebSocket-based real-time communication
+with JWT authentication, message routing, and topic-based pub/sub.
+
+== Connection lifecycle
+
+1. Client connects with JWT: `ws://host/ws?token=<jwt>`
+2. Server verifies JWT via `IJWTVerifier` adapter
+3. Connection record created and registered
+4. Client sends and receives messages
+5. On disconnect: cleanup registry, unsubscribe from all topics
+
+== Message routing types
+
+[cols="1,1,2",options="header"]
+|===
+| Type | Target | Use case
+
+| `:broadcast`
+| All connections
+| System announcements
+
+| `:user`
+| Specific user-id
+| Direct messages
+
+| `:role`
+| Users with a specific role
+| Admin notifications
+
+| `:connection`
+| Specific connection-id
+| Job progress updates
+|===
+
+== Sending messages
+
+[source,clojure]
+----
+(require '[boundary.realtime.ports :as ports])
+
+;; Broadcast to all
+(ports/send-to-all service {:type :announcement :text "System maintenance in 5 minutes"})
+
+;; Send to specific user
+(ports/send-to-user service user-id {:type :notification :data {...}})
+
+;; Send to all users with a role
+(ports/send-to-role service :admin {:type :alert :data {...}})
+
+;; Send to specific connection
+(ports/send-to-connection service conn-id {:type :progress :percent 75})
+----
+
+== Topic-based pub/sub
+
+[source,clojure]
+----
+;; Subscribe connection to a topic
+(ports/subscribe-to-topic pubsub-mgr conn-id "order:123")
+
+;; Publish to all topic subscribers
+(ports/publish-to-topic service "order:123" {:type :order-updated :payload {...}})
+
+;; Unsubscribe
+(ports/unsubscribe-from-topic pubsub-mgr conn-id "order:123")
+----
+
+== Integrant configuration
+
+[source,clojure]
+----
+:boundary/realtime-service
+{:jwt-verifier #ig/ref :boundary/jwt-verifier
+ :db           #ig/ref :boundary/db}   ; optional, for persistence
+----
+
+See xref:libraries:realtime.adoc[realtime library] for the full reference.

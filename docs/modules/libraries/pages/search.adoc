@@ -1,0 +1,80 @@
+= search
+:description: Full-text search with PostgreSQL FTS and LIKE fallback for H2/SQLite.
+
+Full-text search library providing document indexing, full-text search,
+and an admin UI. Uses PostgreSQL FTS in production with LIKE fallback for H2/SQLite.
+
+== Module layout
+
+[source]
+----
+libs/search/src/boundary/search/
+├── schema.clj         — Malli schemas: SearchDocument, SearchResult, SearchResponse
+├── ports.clj          — ISearchStore (persistence), ISearchEngine (orchestration)
+├── core/
+│   ├── index.clj      — defsearch macro, global registry, build-document
+│   ├── query.clj      — SQL builders (PostgreSQL FTS + H2/SQLite LIKE fallback)
+│   └── ui.clj         — Hiccup: search results, admin index page
+└── shell/
+    ├── persistence.clj  — SearchStore (next.jdbc, HoneySQL ON CONFLICT upsert)
+    ├── service.clj      — SearchService (orchestration, pagination, reindex)
+    └── http.clj         — Routes: API + admin web UI
+----
+
+== Defining a search index
+
+[source,clojure]
+----
+(require '[boundary.search.core.index :as search])
+
+(search/defsearch product-search
+  {:id          :product-search
+   :entity-type :product
+   :language    "english"
+   :fields      [{:name :title  :weight :a}
+                 {:name :body   :weight :b}
+                 {:name :tags   :weight :c}]
+   :filters     [:tenant-id :category-id]})  ; optional: filterable dimensions
+----
+
+Weight levels: `:a` (highest) → `:d` (lowest).
+
+== Indexing documents
+
+[source,clojure]
+----
+(require '[boundary.search.ports :as ports])
+
+(ports/index-document! search-store
+  {:id        product-id
+   :index-id  :product-search
+   :title     "Boundary Framework"
+   :body      "A Clojure web framework..."
+   :tags      "clojure framework"
+   :tenant-id tenant-id})
+
+;; Bulk reindex
+(ports/reindex! search-engine :product-search)
+----
+
+== Searching
+
+[source,clojure]
+----
+(ports/search search-engine
+  {:index-id  :product-search
+   :query     "clojure framework"
+   :filters   {:tenant-id tenant-id}
+   :limit     25
+   :offset    0})
+;=> {:results [{:id "..." :title "..." :rank 0.9}]
+;    :total 42
+;    :query "clojure framework"}
+----
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :search
+----

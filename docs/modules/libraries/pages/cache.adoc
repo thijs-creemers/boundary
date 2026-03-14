@@ -1,0 +1,83 @@
+= cache
+:description: Distributed caching with TTL, atomic operations, and multi-tenant isolation.
+
+Distributed caching with TTL, atomic operations, pattern matching, and multi-tenant isolation.
+Provides in-memory (development/tests) and Redis (production) backends.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.cache.ports`
+| Protocols: `ICache`, `IBatchCache`, `IAtomicCache`, `IPatternCache`, `INamespacedCache`, `ICacheStats`
+
+| `boundary.cache.schema`
+| Malli schemas for `CacheKey`, `CacheValue`, `TTL`, `CacheConfig`, `RedisConfig`
+
+| `boundary.cache.shell.adapters.in-memory`
+| In-memory adapter (atoms, LRU eviction, TTL)
+
+| `boundary.cache.shell.adapters.redis`
+| Redis adapter (Jedis, connection pooling, JSON serialization)
+
+| `boundary.cache.shell.tenant-cache`
+| Tenant-scoped wrapper with automatic key prefixing
+|===
+
+== Usage
+
+[source,clojure]
+----
+(require '[boundary.cache.shell.adapters.in-memory :as in-mem]
+         '[boundary.cache.ports :as ports])
+
+;; Create in-memory cache
+(def cache (in-mem/create-in-memory-cache {:max-size 1000 :track-stats? true}))
+
+;; Basic operations
+(ports/set-value! cache :user-123 {:name "Alice"} 3600)  ; TTL in seconds
+(ports/get-value cache :user-123)
+(ports/delete-value! cache :user-123)
+
+;; Atomic operations
+(ports/increment! cache :counter)
+(ports/set-if-absent! cache :lock "holder-id" 30)  ; SETNX pattern
+
+;; Tenant-scoped cache
+(require '[boundary.cache.shell.tenant-cache :as tenant-cache])
+(def tenant-cache (tenant-cache/create-tenant-cache cache "acme-corp"))
+;; Keys automatically prefixed: "tenant:acme-corp:user-123"
+----
+
+== Conventions
+
+* Keys can be strings or keywords; internally converted to strings
+* TTL is in seconds; `nil` from `ttl()` means no expiration
+* In-memory stores Clojure values as-is; Redis uses JSON serialization
+* `flush-all!` on a tenant cache only deletes that tenant's keys (safe)
+
+== Important notes
+
+* Pattern matching is O(n) for in-memory (regex scan); Redis uses cursor-based SCAN
+* Redis adapter uses JSON — Java objects and Clojure functions cannot be stored
+* Do not share an OSM geo-adapter across threads (rate-limiting atom is per-instance)
+
+== Integrant configuration
+
+[source,clojure]
+----
+;; In-memory (development)
+:boundary/cache {:backend :in-memory :max-size 10000}
+
+;; Redis (production)
+:boundary/cache {:backend :redis :url #env REDIS_URL :pool-size 10}
+----
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :cache
+----
