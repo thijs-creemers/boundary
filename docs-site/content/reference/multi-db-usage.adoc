@@ -1,4 +1,10 @@
-== Multi-Database System Usage Guide
+---
+title: "Multi-Database Usage"
+weight: 40
+description: "Using multiple database drivers in a single Boundary system"
+---
+
+= Multi-Database System Usage Guide
 
 [[toc]]
 [[toctitle]]

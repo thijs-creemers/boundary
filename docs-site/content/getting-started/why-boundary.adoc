@@ -193,19 +193,19 @@ We ship what we preach. Four complete examples demonstrate every pattern:
 |===
 |Example |What It Shows |LOC
 
-|link:../../examples/todo-api[Todo API]
+|Todo API
 |REST basics, JWT auth, validation
 |~1,000
 
-|link:../../examples/blog-app[Blog App]
+|Blog App
 |HTMX UI, Hiccup templates, SQLite
 |~1,500
 
-|link:../../examples/ecommerce-api[E-commerce API]
+|E-commerce API
 |State machine, payments, webhooks
 |~2,500
 
-|link:../../examples/notification-service[Notification Service]
+|Notification Service
 |Event-driven, pub/sub, retries
 |~1,800
 |===
@@ -254,7 +254,7 @@ curl http://localhost:3000/api/v1/users
 == Learn More
 
 * link:quickstart[5-Minute Quickstart] — Hands-on tutorial
-* link:../architecture/fc-is[FC/IS Pattern] — Deep dive into the architecture
+* link:../architecture/overview[Architecture Overview] — Deep dive into the FC/IS pattern
 * link:../guides[Guides] — Topic-specific documentation
 * link:../examples[Examples] — Complete working applications
 

@@ -1,3 +1,9 @@
+---
+title: "Validation Patterns"
+weight: 65
+description: "Patterns, conventions, and message-style guide for Malli validation"
+---
+
 = Validation Patterns and Message Style Guide
 :revdate: 2025-11-03
 
@@ -691,4 +697,4 @@ _(To be expanded in future iterations)_
 
 ---
 
-*For implementation details, see link:error-codes.adoc[Error Code Catalog]*
+*For implementation details, see link:error-codes[Error Code Catalog]*

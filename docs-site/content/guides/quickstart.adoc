@@ -1,3 +1,9 @@
+---
+title: "Quickstart"
+weight: 1
+description: "Get Boundary running on your machine in 15 minutes"
+---
+
 = Quickstart Tutorial
 
 [abstract]
@@ -12,7 +18,7 @@ Get Boundary up and running on your machine in 15-30 minutes. This hands-on tuto
 
 Boundary requires Java and Clojure CLI tools:
 
-[source,{shell}]
+[source,bash]
 ----
 # Install Java and Clojure using Homebrew
 brew install openjdk clojure/tools/clojure
@@ -36,7 +42,7 @@ sudo ./linux-install-*.sh
 
 Confirm Java and Clojure are installed:
 
-[source,{shell}]
+[source,bash]
 ----
 java -version
 clojure --version
@@ -47,7 +53,7 @@ clojure --version
 
 === Get the Code
 
-[source,{shell}]
+[source,bash]
 ----
 # Clone the repository
 git clone {repo-url} boundary
@@ -66,7 +72,7 @@ You should see `deps.edn` in the project root.
 
 Boundary's tests require the H2 database driver. Run all tests to verify your environment:
 
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:test:db/h2
 ----
@@ -93,7 +99,7 @@ If tests pass, your environment is correctly configured! ✅
 
 Start an interactive REPL (Read-Eval-Print Loop) for development:
 
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:repl-clj
 ----
@@ -154,7 +160,7 @@ The CLI provides command-line tools for managing users and sessions. Let's creat
 
 In a **new terminal** (keeping REPL running), navigate to the project directory:
 
-[source,{shell}]
+[source,bash]
 ----
 cd /path/to/boundary
 
@@ -186,7 +192,7 @@ Boundary uses UUIDs for all entity IDs. User IDs are automatically generated UUI
 
 View all users :
 
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:cli user list \
   --user-id 550e8400-e29b-41d4-a716-446655440000
@@ -198,7 +204,7 @@ You'll see Alice in the list.
 
 The CLI supports both table and JSON output:
 
-[source,{shell}]
+[source,bash]
 ----
 # JSON format for scripting
 clojure -M:cli user list \
@@ -236,14 +242,14 @@ Boundary provides a REST API on `{default-api-url}`. Let's interact with it usin
 
 === Set the API URL
 
-[source,{shell}]
+[source,bash]
 ----
 export BND_API_URL={default-api-url}
 ----
 
 === Create a User via API
 
-[source,{shell}]
+[source,bash]
 ----
 curl -s -X POST "$BND_API_URL/api/users" \
   -H 'Content-Type: application/json' \
@@ -279,7 +285,7 @@ REST API responses use `camelCase` for JSON field names, while internal code use
 
 === List Users via API
 
-[source,{shell}]
+[source,bash]
 ----
 curl -s "$BND_API_URL/api/users?userId=550e8400-e29b-41d4-a716-446655440000" | jq
 ----
@@ -302,7 +308,7 @@ curl -s "$BND_API_URL/api/users?userId=550e8400-e29b-41d4-a716-446655440000" | j
 
 Boundary provides interactive API documentation:
 
-[source,{shell}]
+[source,bash]
 ----
 # Open in your browser
 open http://localhost:3000/api-docs/
@@ -317,7 +323,7 @@ You'll see the Swagger UI with all available endpoints documented.
 
 Boundary follows a **module-centric architecture**. Let's explore the user module:
 
-[source,{shell}]
+[source,bash]
 ----
 tree libs/user/src/boundary/user -L 2
 ----
@@ -370,9 +376,9 @@ Let's trace a user creation request:
 
 **Hands-on tasks:**
 
-* link:add-entity.adoc[Add a Domain Entity] - Create your first entity
-* link:run-tests-and-watch.adoc[Set Up Test-Driven Development] - Test workflow
-* link:configure-db.adoc[Configure a Different Database] - Switch to PostgreSQL
+* link:add-entity[Add a Domain Entity] - Create your first entity
+* link:run-tests-and-watch[Set Up Test-Driven Development] - Test workflow
+* link:configure-db[Configure a Different Database] - Switch to PostgreSQL
 
 **Understand the architecture:**
 

@@ -1,6 +1,6 @@
 ---
 title: "Operations Runbook"
-weight: 10
+weight: 70
 description: "Complete guide for deploying and operating Boundary Framework in production"
 ---
 
@@ -595,8 +595,8 @@ kubectl exec -it <pod-name> -n production -- /bin/sh
 
 == See Also
 
-* link:../guides/database-setup.adoc[Database Setup] - PostgreSQL configuration
-* link:../guides/security-setup.adoc[Security Setup] - Security policies
+* link:../guides/database-setup[Database Setup] - PostgreSQL configuration
+* link:../guides/security-setup[Security Setup] - Security policies
 * link:../architecture/[Architecture Docs] - Design decisions
 
 ---

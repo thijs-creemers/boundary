@@ -1,3 +1,9 @@
+---
+title: "Add a Domain Entity"
+weight: 21
+description: "Step-by-step guide for adding a new domain entity to a Boundary module"
+---
+
 = Add a Domain Entity
 
 [[overview]]
@@ -167,6 +173,6 @@ Add to `link:https://github.com/thijs-creemers/boundary/blob/main/libs/<module>/
 == Learn More
 
 * {xref-validation}[Validation System]
-* link:implement-port-adapter.adoc[Implement Port and Adapter]
-* link:add-rest-endpoint.adoc[Add REST Endpoint]
+* link:implement-port-adapter[Implement Port and Adapter]
+* link:add-rest-endpoint[Add REST Endpoint]
 * {xref-arch-components}[Component Architecture]

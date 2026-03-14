@@ -1,3 +1,9 @@
+---
+title: "Ports and Adapters"
+weight: 4
+description: "Protocol-based dependency inversion and adapter patterns in Boundary"
+---
+
 = Ports and Adapters
 
 [abstract]
@@ -11,7 +17,7 @@ This document explains the implementation of the Ports and Adapters pattern (Hex
 
 **Scope:** Port definitions, adapter implementations, dependency injection, testing strategies
 
-**Prerequisites:** Understanding of link:overview.adoc[Architecture Overview] and link:layer-separation.adoc[Layer Separation Guidelines]
+**Prerequisites:** Understanding of link:overview[Architecture Overview] and link:layer-separation[Layer Separation Guidelines]
 
 == Key Takeaways
 
@@ -684,9 +690,9 @@ Adapters can orchestrate multiple external services for reliability or feature c
 
 Now that you understand ports and adapters, explore:
 
-1. **link:data-flow.adoc[Data Flow Architecture]** - How data flows through ports and adapters
-2. **link:integration-patterns.adoc[Integration Patterns]** - Using ports and adapters in different interfaces
-3. **link:configuration-and-env.adoc[Configuration and Environment Management]** - Wiring adapters based on configuration
+1. **link:data-flow[Data Flow Architecture]** - How data flows through ports and adapters
+2. **link:integration-patterns[Integration Patterns]** - Using ports and adapters in different interfaces
+3. **link:configuration-and-env[Configuration and Environment Management]** - Wiring adapters based on configuration
 
 == References
 

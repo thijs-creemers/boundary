@@ -81,7 +81,7 @@ clojure -M:repl-clj
 |`clojure -M:clj-kondo --lint src test libs/*/src libs/*/test`
 |Lint project code
 
-|`clojure -M:migrate migrate`
+|`clojure -M:migrate up`
 |Run DB migrations
 
 |`clojure -M:docs-lint`

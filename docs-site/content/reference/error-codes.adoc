@@ -1,3 +1,9 @@
+---
+title: "Error Codes Reference"
+weight: 30
+description: "HTTP error codes and exception type mapping"
+---
+
 = Error Codes Reference
 
 [[overview]]
@@ -423,7 +429,7 @@ exit $exit_code
 [[learn-more]]
 == Learn More
 
-* link:../how-to/add-rest-endpoint.adoc[Add a REST Endpoint]
-* link:../concepts/validation-system.adoc[Validation System]
-* link:reference/commands.adoc[CLI Command Reference]
+* link:../guides/add-rest-endpoint[Add a REST Endpoint]
+* link:../guides/validation-system[Validation System]
+* link:commands[CLI Command Reference]
 * https://tools.ietf.org/html/rfc7807[RFC 7807: Problem Details]

@@ -1,3 +1,9 @@
+---
+title: "Scaffolder Reference"
+weight: 60
+description: "Complete scaffolder command and option reference"
+---
+
 = Scaffolder Reference
 :description: Complete reference for the Boundary Framework module scaffolder
 :keywords: scaffolder, code generation, module creation, CLI reference
@@ -630,7 +636,7 @@ Add custom validation in the schema:
 
 == See Also
 
-* link:../guides/create-module.adoc[Module Creation Guide]
-* link:../guides/functional-core-imperative-shell.adoc[FC/IS Architecture]
-* link:reference/malli-schemas.adoc[Malli Schema Reference]
-* link:reference/testing.adoc[Testing Guide]
+* link:../guides/create-module[Module Creation Guide]
+* link:../guides/functional-core-imperative-shell[FC/IS Architecture]
+* link:../reference/validation-patterns[Malli Schema Reference]
+* link:../guides/testingreference/Testing Guide]

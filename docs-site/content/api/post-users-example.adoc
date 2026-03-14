@@ -1,3 +1,9 @@
+---
+title: "Create User Example"
+weight: 11
+description: "Example request and response for POST /api/v1/users"
+---
+
 === POST /api/v1/users
 
 ==== Purpose

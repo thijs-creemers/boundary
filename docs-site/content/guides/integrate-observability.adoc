@@ -1,4 +1,10 @@
-== Observability Integration Guide
+---
+title: "Integrate Observability"
+weight: 31
+description: "Add logging, metrics, and error reporting to your Boundary modules"
+---
+
+= Observability Integration Guide
 
 The Boundary framework includes a comprehensive observability
 infrastructure with logging, metrics, and error reporting capabilities.

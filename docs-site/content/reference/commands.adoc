@@ -1,3 +1,9 @@
+---
+title: "CLI Command Reference"
+weight: 10
+description: "Complete reference for all Boundary CLI commands"
+---
+
 = CLI Command Reference
 
 [[overview]]
@@ -5,7 +11,7 @@
 
 Complete reference for Boundary CLI commands. All commands follow the pattern:
 
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:cli <domain> <command> [options]
 ----
@@ -41,13 +47,14 @@ Available for all commands:
 Create a new user.
 
 **Usage:**
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:cli user create \
   --email alice@example.com \
   --name "Alice Smith" \
   --role user \
-  --user-id <UUID> \
+  [--password "s3cret"] \
+  [--password-prompt] \
   [--active true]
 ----
 
@@ -69,9 +76,13 @@ clojure -M:cli user create \
 |Role: `admin`, `user`, or `viewer`
 |✅ Yes
 
+|`--password`
+|User password
+|❌ No
 
-|User UUID
-|✅ Yes
+|`--password-prompt`
+|Prompt for password without echoing input
+|❌ No
 
 |`--active`
 |Active status (default: true)
@@ -79,13 +90,12 @@ clojure -M:cli user create \
 |===
 
 **Example:**
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:cli user create \
   --email alice@example.com \
   --name "Alice Smith" \
-  --role user \
-  --user-id 550e8400-e29b-41d4-a716-446655440000
+  --role user
 ----
 
 [[user-list]]
@@ -94,10 +104,9 @@ clojure -M:cli user create \
 List users with optional filtering.
 
 **Usage:**
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:cli user list \
-  --user-id <UUID> \
   [--limit 20] \
   [--offset 0] \
   [--role user] \
@@ -109,10 +118,6 @@ clojure -M:cli user list \
 [cols="1,2,1"]
 |===
 |Option |Description |Required
-
-
-|User UUID
-|✅ Yes
 
 |`--limit`
 |Max results (default: 20)
@@ -132,10 +137,9 @@ clojure -M:cli user list \
 |===
 
 **Example:**
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:cli user list \
-  --user-id 550e8400-e29b-41d4-a716-446655440000 \
   --role admin \
   --format json
 ----
@@ -146,14 +150,13 @@ clojure -M:cli user list \
 Find user by ID or email.
 
 **Usage:**
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:cli user find \
   --id <UUID>
 # OR
 clojure -M:cli user find \
-  --email alice@example.com \
-  --user-id <UUID>
+  --email alice@example.com
 ----
 
 **Options:**
@@ -163,16 +166,12 @@ clojure -M:cli user find \
 |Option |Description |Required
 
 |`--id`
-|User UUID (exclusive with --email)
+|User UUID (exclusive with `--email`)
 |One of
 
 |`--email`
-|User email (requires --user-id)
+|User email (exclusive with `--id`)
 |One of
-
-
-|User UUID (required with --email)
-|With email
 |===
 
 [[user-update]]
@@ -181,7 +180,7 @@ clojure -M:cli user find \
 Update user properties.
 
 **Usage:**
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:cli user update \
   --id <UUID> \
@@ -219,7 +218,7 @@ clojure -M:cli user update \
 Soft-delete a user.
 
 **Usage:**
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:cli user delete --id <UUID>
 ----
@@ -244,10 +243,9 @@ clojure -M:cli user delete --id <UUID>
 Create a new session for a user.
 
 **Usage:**
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:cli session create \
-  --user-id <UUID> \
   --user-id <UUID> \
   [--user-agent "Mozilla/5.0..."] \
   [--ip-address "192.168.1.1"]
@@ -260,10 +258,6 @@ clojure -M:cli session create \
 |Option |Description |Required
 
 |`--user-id`
-|User UUID
-|✅ Yes
-
-
 |User UUID
 |✅ Yes
 
@@ -282,7 +276,7 @@ clojure -M:cli session create \
 List active sessions for a user.
 
 **Usage:**
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:cli session list --user-id <UUID>
 ----
@@ -304,7 +298,7 @@ clojure -M:cli session list --user-id <UUID>
 Invalidate a session.
 
 **Usage:**
-[source,{shell}]
+[source,bash]
 ----
 clojure -M:cli session invalidate --token <TOKEN>
 ----
@@ -387,19 +381,17 @@ clojure -M:cli session invalidate --token <TOKEN>
 [[script-create-users]]
 === Bulk User Creation
 
-[source,{shell}]
+[source,bash]
 ----
 #!/bin/zsh
-USER_ID="550e8400-e29b-41d4-a716-446655440000"
 
 while IFS=',' read -r email name role; do
   clojure -M:cli user create \
     --email "$email" \
     --name "$name" \
     --role "$role" \
-    --user-id "$USER_ID" \
     --format json
-  
+
   if [[ $? -ne 0 ]]; then
     echo "Failed to create user: $email" >&2
   fi
@@ -409,7 +401,7 @@ done < users.csv
 [[script-active-sessions]]
 === Count Active Sessions
 
-[source,{shell}]
+[source,bash]
 ----
 #!/bin/zsh
 USER_ID="9f2a0b6c-3d4e-5f78-9abc-def123456789"
@@ -424,6 +416,6 @@ echo "Active sessions: $session_count"
 [[learn-more]]
 == Learn More
 
-* link:../how-to/use-cli.adoc[Use the CLI]
-* link:../concepts/modules-and-ownership.adoc[Modules and Domain Ownership]
-* link:reference/configuration.adoc[Configuration Reference]
+* link:../guides/use-cli[Use the CLI]
+* link:../guides/modules-and-ownership[Modules and Domain Ownership]
+* link:configuration[Configuration Reference]

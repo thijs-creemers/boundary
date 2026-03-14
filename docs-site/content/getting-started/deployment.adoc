@@ -80,7 +80,7 @@ openssl rand -base64 32
 * ❌ *DON’T:* Share secrets via email or Slack
 * ❌ *DON’T:* Use development secrets in production
 
-See link:../architecture/secrets-management[Secrets Management] for details.
+See link:../architecture/configuration-and-env[Secrets Management] for details.
 
 '''''
 

@@ -1,6 +1,6 @@
 ---
 title: "Admin Testing Guide"
-weight: 60
+weight: 72
 description: "Complete testing guide for the Admin module covering unit, integration, and contract tests with accessibility testing"
 ---
 
@@ -87,14 +87,15 @@ test/boundary/admin/
       (is (vector? result))  ; Returns Hiccup vector
       (is (= :span (first result)))
       (is (str/includes? (str result) "Yes")))))
-```text
-
+[source,text]
+----
 **Run Unit Tests**:
-```bash
+[source,bash]
+----
 clojure -M:test:db/h2 --focus-meta :unit
-```bash
-
-### 2. Integration Tests (`:integration` metadata)
+[source,bash]
+----
+=== 2. Integration Tests (`:integration` metadata)
 
 **Location**: `test/boundary/admin/shell/service_test.clj`
 
@@ -105,7 +106,8 @@ clojure -M:test:db/h2 --focus-meta :unit
 - ⚠️ Slower than unit tests (database operations)
 
 **Example - Service Test**:
-```clojure
+[source,clojure]
+----
 (deftest list-entities-pagination-test
   (testing "Pagination with page-size parameter"
     (create-test-users! 10)  ; Create test data
@@ -114,14 +116,15 @@ clojure -M:test:db/h2 --focus-meta :unit
       (is (= 5 (count (:items result))))
       (is (= 1 (:page-number result)))
       (is (= 10 (:total-count result))))))
-```text
-
+[source,text]
+----
 **Run Integration Tests**:
-```bash
+[source,bash]
+----
 clojure -M:test:db/h2 --focus-meta :integration
-```bash
-
-### 3. Contract Tests (`:contract` metadata)
+[source,bash]
+----
+=== 3. Contract Tests (`:contract` metadata)
 
 **Location**: `test/boundary/admin/shell/http_test.clj`
 
@@ -132,7 +135,8 @@ clojure -M:test:db/h2 --focus-meta :integration
 - ✅ HTMX response headers and fragments
 
 **Example - HTTP Test**:
-```clojure
+[source,clojure]
+----
 (deftest entity-list-endpoint-test
   (testing "Admin can view entity list"
     (create-test-user! "alice@example.com" "Alice" true)
@@ -140,14 +144,15 @@ clojure -M:test:db/h2 --focus-meta :integration
           response (*handler* request)]
       (is (= 200 (:status response)))
       (is (str/includes? (:body response) "alice@example.com")))))
-```text
-
+[source,text]
+----
 **Run Contract Tests**:
-```bash
+[source,bash]
+----
 clojure -M:test:db/h2 --focus-meta :contract
-```text
-
-### 4. Accessibility Tests ★ NEW
+[source,text]
+----
+=== 4. Accessibility Tests ★ NEW
 
 **Location**: `test/boundary/admin/core/ui_test.clj` (Section at bottom)
 
@@ -163,22 +168,24 @@ clojure -M:test:db/h2 --focus-meta :contract
 - ✅ Descriptive link text
 
 **Example - Accessibility Test**:
-```clojure
+[source,clojure]
+----
 (deftest accessibility-aria-labels-test
   (testing "Icon buttons have aria-label"
     (let [page (ui/entity-list-page :users [sample-record] config {...})
           page-str (str page)]
       (is (str/includes? page-str "aria-label"))
       (is (str/includes? page-str "Search")))))
-```bash
-
+[source,bash]
+----
 ---
 
-## Running tests
+== Running tests
 
-### Quick commands
+=== Quick commands
 
-```bash
+[source,bash]
+----
 # All admin tests (unit + integration + contract)
 clojure -M:test:db/h2 --focus-meta :admin
 
@@ -193,11 +200,11 @@ clojure -M:test:db/h2 --focus boundary.admin.core.ui-test/render-field-value-tes
 
 # Watch mode (re-run on file changes)
 clojure -M:test:db/h2 --watch --focus-meta :unit
-```bash
+[source,bash]
+----
+=== Environment setup
 
-### Environment setup
-
-### Test output
+=== Test output
 ----
 
 — unit (clojure.test) ————————— boundary.admin.core.ui-test render-field-value-test Render boolean values ✓ Render UUID values ✓ accessibility-aria-labels-test Icon buttons have aria-label ✓
@@ -211,14 +218,15 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time) boundary.ad
 
 ---
 
-## Writing new tests
+== Writing new tests
 
-### 1. Unit Tests for Pure Functions
+=== 1. Unit Tests for Pure Functions
 
 **When**: Testing `libs/admin/src/boundary/admin/core/*.clj` functions
 
 **Template**:
-```clojure
+[source,clojure]
+----
 (ns boundary.admin.core.my-feature-test
   (:require [boundary.admin.core.my-feature :as feature]
             [clojure.test :refer [deftest is testing]]))
@@ -230,8 +238,8 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time) boundary.ad
     (let [input {:foo "bar"}
           result (feature/my-function input)]
       (is (= expected result)))))
-```bash
-
+[source,bash]
+----
 **Guidelines**:
 - ✅ Use descriptive test names (what behavior is tested)
 - ✅ One `deftest` per function, multiple `testing` blocks for scenarios
@@ -240,12 +248,13 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time) boundary.ad
 - ❌ No `def` inside `deftest` (use `let` instead)
 - ❌ No I/O, side effects, or mutable state
 
-### 2. Integration Tests for Services
+=== 2. Integration Tests for Services
 
 **When**: Testing `libs/admin/src/boundary/admin/shell/service.clj` with database
 
 **Template**:
-```clojure
+[source,clojure]
+----
 (ns boundary.admin.shell.my-service-test
   (:require [boundary.admin.ports :as ports]
             [boundary.platform.shell.adapters.database.factory :as db-factory]
@@ -281,8 +290,8 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time) boundary.ad
   (testing "Service with real database"
     (let [result (ports/my-operation *service* {:input "data"})]
       (is (= expected result)))))
-```bash
-
+[source,bash]
+----
 **Guidelines**:
 - ✅ Use H2 in-memory database (fast, isolated)
 - ✅ Create/drop tables in fixtures
@@ -290,12 +299,13 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time) boundary.ad
 - ✅ Use dynamic vars (`^:dynamic *db-ctx*`) for test state
 - ✅ Test pagination, sorting, filtering, validation
 
-### 3. HTTP Contract Tests
+=== 3. HTTP Contract Tests
 
 **When**: Testing `libs/admin/src/boundary/admin/shell/http.clj` endpoints
 
 **Template**:
-```clojure
+[source,clojure]
+----
 (deftest my-endpoint-test
   (testing "GET /web/admin/my-entity"
     (let [request (make-request :get "/web/admin/my-entity" admin-user
@@ -303,8 +313,8 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time) boundary.ad
           response (*handler* request)]
       (is (= 200 (:status response)))
       (is (str/includes? (:body response) "expected-content")))))
-```bash
-
+[source,bash]
+----
 **Guidelines**:
 - ✅ Test authentication (admin vs regular user vs nil)
 - ✅ Test query parameters (pagination, sorting, search)
@@ -312,12 +322,13 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time) boundary.ad
 - ✅ Test HTMX headers (`HX-Trigger`, `HX-Target`)
 - ✅ Validate HTML response contains expected data
 
-### 4. UI Component Tests
+=== 4. UI Component Tests
 
 **When**: Testing `libs/admin/src/boundary/admin/core/ui.clj` Hiccup generation
 
 **Template**:
-```clojure
+[source,clojure]
+----
 (deftest my-component-test
   (testing "Component generates correct Hiccup"
     (let [component (ui/my-component {:data "value"})
@@ -331,8 +342,8 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time) boundary.ad
       
       ;; Accessibility assertions
       (is (str/includes? component-str "aria-label")))))
-```bash
-
+[source,bash]
+----
 **Guidelines**:
 - ✅ Test Hiccup structure (vector, element type, classes)
 - ✅ Test content rendering (text, values, formatting)
@@ -342,14 +353,15 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time) boundary.ad
 
 ---
 
-## Testing patterns
+== Testing patterns
 
-### Pattern 1: Fixtures for Test Data
+=== Pattern 1: Fixtures for Test Data
 
 **Problem**: Repeated test data setup across tests  
 **Solution**: Define fixtures at top of file
 
-```clojure
+[source,clojure]
+----
 (def sample-user
   {:id #uuid "00000000-0000-0000-0000-000000000001"
    :email "test@example.com"
@@ -367,14 +379,15 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time) boundary.ad
   (testing "Using fixtures"
     (let [result (process sample-user sample-entity-config)]
       (is (some? result)))))
-```bash
-
-### Pattern 2: Helper Functions
+[source,bash]
+----
+=== Pattern 2: Helper Functions
 
 **Problem**: Repeated test operations (create user, make request)  
 **Solution**: Define helper functions
 
-```clojure
+[source,clojure]
+----
 (defn create-test-user!
   ([email name]
    (create-test-user! email name true))
@@ -392,154 +405,164 @@ Top 3 slowest kaocha.type/var (0,02466 seconds, 28,3% of total time) boundary.ad
     (create-test-user! "bob@example.com" "Bob")
     ;; ... assertions
     ))
-```bash
-
-### Pattern 3: Tree-Seq for Nested Hiccup
+[source,bash]
+----
+=== Pattern 3: Tree-Seq for Nested Hiccup
 
 **Problem**: Checking nested Hiccup structure  
 **Solution**: Use `tree-seq` to find nested elements
 
-```clojure
+[source,clojure]
+----
 (deftest nested-element-test
   (testing "Page contains nested table"
     (let [page (ui/entity-list-page ...)]
       ;; Find nested :table.data-table element
       (is (some #(and (vector? %) (= :table.data-table (first %)))
                 (tree-seq vector? seq page))))))
-```bash
-
-### Pattern 4: String Conversion for Content Checks
+[source,bash]
+----
+=== Pattern 4: String Conversion for Content Checks
 
 **Problem**: Checking if Hiccup contains text/attributes  
 **Solution**: Convert to string and use `str/includes?`
 
-```clojure
+[source,clojure]
+----
 (deftest content-check-test
   (testing "Component contains expected text"
     (let [component (ui/my-component {:label "Users"})
           component-str (str component)]
       (is (str/includes? component-str "Users"))
       (is (str/includes? component-str "aria-label")))))
-```bash
-
+[source,bash]
+----
 ---
 
-## Accessibility testing
+== Accessibility testing
 
-### Why test accessibility?
+=== Why test accessibility?
 
 1. **Legal Compliance**: WCAG 2.1 Level AA requirements
 2. **Inclusive UX**: Usable by screen readers, keyboard-only users
 3. **Quality Indicator**: Good accessibility → good code structure
 4. **Early Detection**: Catch issues before manual testing
 
-### Accessibility checklist
+=== Accessibility checklist
 
 Test our UI against these criteria:
 
-#### ✅ Form Labels
+==== ✅ Form Labels
 - [ ] Every input has associated `<label>` with `for` attribute
 - [ ] Checkboxes and radios have labels
 - [ ] Label text is descriptive (not just "Field 1")
 
-```clojure
+[source,clojure]
+----
 (deftest form-labels-test
   (let [widget (ui/render-field-widget :email "test@example.com" 
                                        {:widget :email-input :label "Email"} nil)]
     (is (str/includes? (str widget) ":label"))
     (is (str/includes? (str widget) ":for"))))
-```bash
-
-#### ✅ ARIA Labels
+[source,bash]
+----
+==== ✅ ARIA Labels
 - [ ] Icon-only buttons have `aria-label`
 - [ ] Actions without visible text have descriptive labels
 - [ ] Complex widgets have appropriate ARIA attributes
 
-```clojure
+[source,clojure]
+----
 (deftest aria-labels-test
   (let [button (ui/icon-button :search)]
     (is (str/includes? (str button) "aria-label"))
     (is (str/includes? (str button) "Search"))))
-```bash
-
-#### ✅ Semantic HTML
+[source,bash]
+----
+==== ✅ Semantic HTML
 - [ ] Use `<nav>` for navigation, not `<div>`
 - [ ] Use `<table>` for data tables, not layout
 - [ ] Use `<form>` for forms, not button click handlers
 - [ ] Use `<button>` for actions, not `<div onclick>`
 
-```clojure
+[source,clojure]
+----
 (deftest semantic-html-test
   (let [sidebar (ui/admin-sidebar ...)]
     (is (some #(= :nav.admin-sidebar-nav (first %))
               (tree-seq vector? seq sidebar)))))
-```text
-
-#### ✅ Required Fields
+[source,text]
+----
+==== ✅ Required Fields
 - [ ] Visual indicator (`*` or "required" text)
 - [ ] HTML `required` attribute on input
 - [ ] Validation error messages when empty
 
-```clojure
+[source,clojure]
+----
 (deftest required-fields-test
   (let [widget (ui/render-field-widget :email "" {:required true} nil)]
     (is (str/includes? (str widget) "*"))  ; Visual indicator
     (is (str/includes? (str widget) ":required true"))))  ; HTML attribute
-```text
-
-#### ✅ Error Messages
+[source,text]
+----
+==== ✅ Error Messages
 - [ ] Errors displayed near the field (not just at top)
 - [ ] Error styling (`has-errors` class)
 - [ ] Descriptive error text (not just "Invalid")
 
-```clojure
+[source,clojure]
+----
 (deftest error-messages-test
   (let [widget (ui/render-field-widget :email "" {:required true} 
                                        ["Required field"])]
     (is (str/includes? (str widget) "Required field"))
     (is (str/includes? (str widget) "has-errors"))))
-```bash
-
-#### ✅ Color + Text for Status
+[source,bash]
+----
+==== ✅ Color + Text for Status
 - [ ] Boolean status shows "Yes"/"No", not just green/red
 - [ ] Status badges have text, not just color
 - [ ] Icons have text alternatives
 
-```clojure
+[source,clojure]
+----
 (deftest color-contrast-test
   (let [status (ui/render-field-value :active true {:type :boolean})]
     (is (str/includes? (str status) "Yes"))  ; Text, not just color
     (is (str/includes? (str status) "badge"))))  ; Class for styling
-```bash
-
-#### ✅ Keyboard Navigation
+[source,bash]
+----
+==== ✅ Keyboard Navigation
 - [ ] Buttons have `type="button"` or `type="submit"`
 - [ ] Form inputs are in logical tab order
 - [ ] Interactive elements are focusable
 
-```clojure
+[source,clojure]
+----
 (deftest keyboard-navigation-test
   (let [form (ui/entity-form ...)]
     (is (str/includes? (str form) ":type \"submit\""))))
-```bash
-
-#### ✅ Heading Hierarchy
+[source,bash]
+----
+==== ✅ Heading Hierarchy
 - [ ] Only one `<h1>` per page
 - [ ] Headings in order (h1 → h2 → h3, not h1 → h3)
 - [ ] Headings describe content sections
 
-```clojure
+[source,clojure]
+----
 (deftest heading-hierarchy-test
   (let [page (ui/admin-home ...)]
     (is (str/includes? (str page) ":h1"))  ; Has main heading
     (is (str/includes? (str page) ":h2"))))  ; Has subsections
-```bash
-
+[source,bash]
+----
 ---
 
-## Coverage Goals
+== Coverage Goals
 
-### Current Coverage (2026-01-09)
+=== Current Coverage (2026-01-09)
 
 | File | Lines | Tests | Coverage | Status |
 |------|-------|-------|----------|--------|
@@ -553,13 +576,13 @@ Test our UI against these criteria:
 
 **Improvement**: Coverage increased from 59% → 78% (+19%) with addition of UI tests and accessibility tests.
 
-### Coverage targets
+=== Coverage targets
 
 - **Core (Pure Functions)**: 90%+ coverage
 - **Shell (Services)**: 75%+ coverage
 - **HTTP Endpoints**: 80%+ coverage (critical paths)
 
-### What's NOT covered (Low Priority)
+=== What's NOT covered (Low Priority)
 
 - ⚠️ `ports.clj` - Protocol definitions (no logic to test)
 - ⚠️ `schema.clj` - Malli schemas (validated by usage)
@@ -567,19 +590,20 @@ Test our UI against these criteria:
 
 ---
 
-## Troubleshooting
+== Troubleshooting
 
-### Issue: Tests fail with "JWT_SECRET not configured"
+=== Issue: Tests fail with "JWT_SECRET not configured"
 
 **Cause**: Environment variable not set
 
 **Solution**:
-```bash
+[source,bash]
+----
 export JWT_SECRET="test-secret-key-minimum-32-characters"
 clojure -M:test:db/h2 --focus-meta :unit
-```bash
-
-### Issue: Tests fail with "Table not found"
+[source,bash]
+----
+=== Issue: Tests fail with "Table not found"
 
 **Cause**: Database setup fixture not running or table name mismatch
 
@@ -588,12 +612,13 @@ clojure -M:test:db/h2 --focus-meta :unit
 2. Verify table name matches entity name (kebab-case → snake_case)
 3. Check H2 table creation SQL in fixture
 
-```clojure
+[source,clojure]
+----
 ;; Correct: Entity :test-users → Table test_users
 (db/execute-update! ctx {:raw "CREATE TABLE test_users (...)"})
-```bash
-
-### Issue: Tests pass individually but fail when run together
+[source,bash]
+----
+=== Issue: Tests pass individually but fail when run together
 
 **Cause**: Shared mutable state or database pollution
 
@@ -602,21 +627,23 @@ clojure -M:test:db/h2 --focus-meta :unit
 2. Avoid `def` for mutable state (use `^:dynamic` + `alter-var-root`)
 3. Ensure database cleanup in teardown
 
-```clojure
+[source,clojure]
+----
 (defn with-clean-tables [f]
   (when *db-ctx*
     (db/execute-update! *db-ctx* {:raw "DELETE FROM test_users"}))
   (f))
 
 (use-fixtures :each with-clean-tables)
-```bash
-
-### Issue: REPL tests different from CLI tests
+[source,bash]
+----
+=== Issue: REPL tests different from CLI tests
 
 **Cause**: REPL state from previous test runs
 
 **Solution**:
-```clojure
+[source,clojure]
+----
 ;; In REPL
 (require '[integrant.repl :as ig-repl])
 (ig-repl/halt)  ; Stop system
@@ -657,11 +684,11 @@ clojure -M:test:db/h2 --focus-meta :unit
 
 === Additional resources
 
-* link:../testing.md[Boundary Testing Strategy] - Overall testing philosophy
+* link:testing[Boundary Testing Strategy] - Overall testing philosophy
 * https://cljdoc.org/d/lambdaisland/kaocha/[Kaocha Documentation] - Test runner
 * https://clojure.org/guides/testing[clojure.test Guide] - Built-in test framework
 * https://www.w3.org/WAI/WCAG21/quickref/[WCAG 2.1 Guidelines] - Accessibility standards
 
 '''''
 
-*Questions?* See link:../../CONTRIBUTING.md[CONTRIBUTING.md] or ask in ++#++engineering Slack channel.
+*Questions?* See CONTRIBUTING.md or ask in ++#++engineering Slack channel.

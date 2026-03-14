@@ -1,3 +1,9 @@
+---
+title: "Integration Patterns"
+weight: 6
+description: "Consistent behavior across HTTP, CLI, and web interfaces"
+---
+
 = Integration Patterns
 
 [abstract]
@@ -9,7 +15,7 @@ Boundary exposes consistent behavior across HTTP, CLI, and web interfaces by reu
 
 * Audience: API integrators, platform engineers, module maintainers
 * Scope: interface patterns, consistency rules, versioning, and backward compatibility
-* Prerequisites: link:overview.adoc[Architecture Overview], link:components.adoc[Component Architecture]
+* Prerequisites: link:overview[Architecture Overview], link:components[Component Architecture]
 
 == Principle
 
@@ -187,7 +193,7 @@ Before shipping a new endpoint/command/page:
 
 == Related Docs
 
-* link:components.adoc[Component Architecture]
-* link:data-flow.adoc[Data Flow Architecture]
-* link:middleware-architecture.adoc[Middleware Architecture]
-* link:configuration-and-env.adoc[Configuration and Environment]
+* link:components[Component Architecture]
+* link:data-flow[Data Flow Architecture]
+* link:middleware-architecture[Middleware Architecture]
+* link:configuration-and-env[Configuration and Environment]

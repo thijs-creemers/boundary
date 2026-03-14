@@ -1,3 +1,9 @@
+---
+title: "Run Tests in Watch Mode"
+weight: 25
+description: "Running Kaocha tests with watch mode and filtering options"
+---
+
 = Run Tests in Watch Mode
 
 [[overview]]
@@ -238,7 +244,7 @@ Current test coverage (as of latest):
 * **Validation module**: 97% (162/167 tests)
 * **User module**: Functional, needs expansion
 
-For detailed status, see link:../../DEVELOPMENT_STATUS.md[Development Status^].
+For detailed status, see Development Status.
 
 [[learn-more]]
 == Learn More
@@ -246,4 +252,4 @@ For detailed status, see link:../../DEVELOPMENT_STATUS.md[Development Status^].
 * https://github.com/lambdaisland/kaocha[Kaocha Documentation^]
 * {xref-validation}[Validation System Concepts]
 * {xref-troubleshooting}[Troubleshooting Common Issues]
-* link:../../DEVELOPMENT_STATUS.md[Development Status^]
+* Development Status

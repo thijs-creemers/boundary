@@ -1,3 +1,9 @@
+---
+title: "Configuration and Environment"
+weight: 8
+description: "Aero-based configuration, environment management, and secrets handling"
+---
+
 = Configuration and Environment Management
 
 [abstract]
@@ -11,7 +17,7 @@ This document details configuration management strategies in Boundary Framework,
 
 **Scope:** Configuration sources, environment management, secrets handling, system startup
 
-**Prerequisites:** Understanding of link:components.adoc[Component Architecture] and link:ports-and-adapters.adoc[Ports and Adapters]
+**Prerequisites:** Understanding of link:components[Component Architecture] and link:ports-and-adapters[Ports and Adapters]
 
 == Key Takeaways
 
@@ -141,7 +147,8 @@ Boundary uses a layered configuration approach with clear precedence rules:
 
 **Use environment variables and external secret managers:**
 
-```bash
+[source,bash]
+----
 # Environment variables
 export DATABASE_PASSWORD="secure-password"
 export API_KEY="secret-api-key"
@@ -149,7 +156,7 @@ export API_KEY="secret-api-key"
 # External secret managers
 export DATABASE_PASSWORD_FILE="/run/secrets/db-password"
 export API_KEY_VAULT="vault:secret/api-keys:key"
-```
+----
 ====
 
 [source,clojure]
@@ -448,7 +455,7 @@ LOG_LEVEL=info
 
 Explore:
 
-1. **link:error-handling-observability.adoc[Error Handling and Observability]** - Monitoring configuration
+1. **link:error-handling-observability[Error Handling and Observability]** - Monitoring configuration
 2. **Deployment guides** - Environment-specific deployments
 
 == References

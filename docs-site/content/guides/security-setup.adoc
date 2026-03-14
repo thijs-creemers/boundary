@@ -1,6 +1,6 @@
 ---
 title: "Security Setup"
-weight: 70
+weight: 33
 description: "Repository security configuration for branch protection, Clojars publishing, and access control"
 ---
 
@@ -122,15 +122,15 @@ CLOJARS_PASSWORD - Your Clojars deploy token (NOT your account password)
 ----
 # Install clj-watson or use Clojars web UI
 # Web UI: https://clojars.org/groups/org.boundary-app
-```bash
-
+[source,bash]
+----
 ---
 
-## 5. Optional: CODEOWNERS file
+== 5. Optional: CODEOWNERS file
 
 Create a `CODEOWNERS` file to automatically request your review on all PRs.
 
-### Create `.github/CODEOWNERS`:
+=== Create `.github/CODEOWNERS`:
 ----
 
 == Global owner - all files require review from @thijs-creemers
@@ -150,9 +150,9 @@ This ensures:
 
 ---
 
-## 6. Workflow permissions
+== 6. Workflow permissions
 
-### Steps to restrict GitHub Actions:
+=== Steps to restrict GitHub Actions:
 
 1. Go to: `https://github.com/thijs-creemers/boundary/settings/actions`
 2. Under **Workflow permissions**:
@@ -161,32 +161,33 @@ This ensures:
 3. Under **Fork pull request workflows**:
    - ✅ Require approval for first-time contributors
 
-### Why this matters:
+=== Why this matters:
 - Prevents workflows in PRs from malicious forks from accessing secrets
 - Your `publish.yml` workflow will still work because it runs on `push` to tags (not on PRs)
 
 ---
 
-## 7. Verification checklist
+== 7. Verification checklist
 
 After completing the above steps, verify your security:
 
-### Branch protection:
+=== Branch protection:
 - [ ] Create a test branch
 - [ ] Try to push directly to `main` → Should be blocked
 - [ ] Open a PR from test branch
 - [ ] Try to merge without approval → Should be blocked
 - [ ] Try to merge with failing tests → Should be blocked
 
-### Clojars publishing:
+=== Clojars publishing:
 - [ ] Only workflows triggered by YOU can publish
 - [ ] Publishing only happens on:
   - Manual workflow dispatch (by you)
   - Tag pushes (by you)
 - [ ] Verify no one else can trigger `publish.yml`
 
-### Test security:
-```bash
+=== Test security:
+[source,bash]
+----
 # As repository owner, test branch protection
 git checkout -b test-security
 echo "test" > test.txt
@@ -198,13 +199,13 @@ git push origin test-security
 # 1. Should require PR
 # 2. Should require CI to pass
 # 3. Should require your approval
-```bash
-
+[source,bash]
+----
 ---
 
-## 8. Emergency procedures
+== 8. Emergency procedures
 
-### If someone publishes unauthorized release:
+=== If someone publishes unauthorized release:
 
 1. **Immediately revoke Clojars deploy token**:
    - Log in to https://clojars.org
@@ -220,12 +221,14 @@ git push origin test-security
    - Generate new deploy tokens
    - Update all GitHub repository secrets
 
-### If branch protection is bypassed:
+=== If branch protection is bypassed:
 
-1. **Revert the commit**:
-   ```bash
-   git revert <bad-commit-sha>
-   git push origin main
+. **Revert the commit**:
++
+[source,bash]
+----
+git revert <bad-commit-sha>
+git push origin main
 ----
 
 [arabic, start=2]
@@ -277,6 +280,6 @@ gh run list --workflow=publish.yml
 
 === See also
 
-* link:authentication.md[Authentication Guide] - JWT security and session management
-* link:../reference/publishing.md[Publishing Guide] - Secure library publishing to Clojars
-* link:operations.adoc[Operations Guide] - Production deployment security
+* link:authentication[Authentication Guide] - JWT security and session management
+* Publishing Guide — Secure library publishing to Clojars
+* link:operations[Operations Guide] - Production deployment security

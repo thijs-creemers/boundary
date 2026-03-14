@@ -32,10 +32,11 @@ Initialize MFA setup for authenticated user.
 ----
 POST /api/auth/mfa/setup
 Authorization: Bearer <token>
-```text
-
+[source,text]
+----
 **Response** (200 OK):
-```json
+[source,json]
+----
 {
   "success?": true,
   "secret": "JBSWY3DPEHPK3PXP",
@@ -48,8 +49,8 @@ Authorization: Bearer <token>
   "issuer": "Boundary Framework",
   "account-name": "user@example.com"
 }
-```text
-
+[source,text]
+----
 **Fields**:
 - `secret`: Base32 TOTP secret (32 chars)
 - `qr-code-url`: QR code for authenticator apps
@@ -60,11 +61,12 @@ Authorization: Bearer <token>
 - `400 Bad Request`: MFA already enabled
 
 **Example**:
-```bash
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/auth/mfa/setup \
   -H "Authorization: Bearer $TOKEN"
-```bash
-
+[source,bash]
+----
 **Notes**:
 - Backup codes are shown only once - save them securely
 - Use Google Authenticator, Authy, or 1Password to scan QR code
@@ -72,12 +74,13 @@ curl -X POST http://localhost:3000/api/auth/mfa/setup \
 
 ---
 
-## Enable MFA
+== Enable MFA
 
 Enable MFA after setup by verifying TOTP code.
 
 **Request**:
-```http
+[source,http]
+----
 POST /api/auth/mfa/enable
 Authorization: Bearer <token>
 Content-Type: application/json
@@ -85,31 +88,33 @@ Content-Type: application/json
 {
   "code": "123456"
 }
-```text
-
+[source,text]
+----
 **Body**:
 - `code` (required): 6-digit TOTP code from authenticator app
 
 **Response** (200 OK):
-```json
+[source,json]
+----
 {
   "success?": true,
   "message": "MFA enabled successfully"
 }
-```text
-
+[source,text]
+----
 **Errors**:
 - `400 Bad Request`: Invalid code, MFA not setup, or already enabled
 - `401 Unauthorized`: Invalid token
 
 **Example**:
-```bash
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/auth/mfa/enable \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"code": "123456"}'
-```bash
-
+[source,bash]
+----
 **Notes**:
 - Must call `/setup` first
 - Code expires after 30 seconds
@@ -117,82 +122,90 @@ curl -X POST http://localhost:3000/api/auth/mfa/enable \
 
 ---
 
-## Disable MFA
+== Disable MFA
 
 Disable MFA for authenticated user.
 
 **Request**:
-```http
+[source,http]
+----
 POST /api/auth/mfa/disable
 Authorization: Bearer <token>
-```text
-
+[source,text]
+----
 **Response** (200 OK):
-```json
+[source,json]
+----
 {
   "success?": true,
   "message": "MFA disabled successfully"
 }
-```text
-
+[source,text]
+----
 **Errors**:
 - `401 Unauthorized`: Invalid token
 - `400 Bad Request`: MFA not enabled
 
 **Example**:
-```bash
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/auth/mfa/disable \
   -H "Authorization: Bearer $TOKEN"
-```bash
-
+[source,bash]
+----
 ---
 
-## Get MFA Status
+== Get MFA Status
 
 Check if MFA is enabled for authenticated user.
 
 **Request**:
-```http
+[source,http]
+----
 GET /api/auth/mfa/status
 Authorization: Bearer <token>
-```text
-
+[source,text]
+----
 **Response** (MFA Enabled):
-```json
+[source,json]
+----
 {
   "mfa-enabled": true,
   "mfa-enforced": false
 }
-```text
-
+[source,text]
+----
 **Response** (MFA Disabled):
-```json
+[source,json]
+----
 {
   "mfa-enabled": false,
   "mfa-enforced": false
 }
-```text
-
+[source,text]
+----
 **Fields**:
 - `mfa-enabled`: User has MFA configured
 - `mfa-enforced`: Organization requires MFA (future feature)
 
 **Example**:
-```bash
+[source,bash]
+----
 curl http://localhost:3000/api/auth/mfa/status \
   -H "Authorization: Bearer $TOKEN"
-```bash
-
+[source,bash]
+----
 ---
 
-## Login with MFA
+== Login with MFA
 
 Two-step login flow for users with MFA enabled.
 
-### Step 1: Authenticate with Password
+=== Step 1: Authenticate with Password
 
 **Request**:
-```http
+[source,http]
+----
 POST /api/auth/login
 Content-Type: application/json
 
@@ -200,21 +213,23 @@ Content-Type: application/json
   "email": "user@example.com",
   "password": "password123"
 }
-```text
-
+[source,text]
+----
 **Response** (MFA Required):
-```json
+[source,json]
+----
 {
   "success?": true,
   "mfa-required": true,
   "message": "MFA code required"
 }
-```bash
-
-### Step 2: Submit MFA Code
+[source,bash]
+----
+=== Step 2: Submit MFA Code
 
 **Request**:
-```http
+[source,http]
+----
 POST /api/auth/login
 Content-Type: application/json
 
@@ -223,10 +238,11 @@ Content-Type: application/json
   "password": "password123",
   "mfa-code": "123456"
 }
-```text
-
+[source,text]
+----
 **Response** (Success):
-```json
+[source,json]
+----
 {
   "success?": true,
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -237,15 +253,16 @@ Content-Type: application/json
     "mfa-enabled": true
   }
 }
-```text
-
+[source,text]
+----
 **Errors**:
 - `400 Bad Request`: Invalid credentials or MFA code
 - `429 Too Many Requests`: Rate limit exceeded (5 attempts per 15 min)
 
 **Examples**:
 
-```bash
+[source,bash]
+----
 # Step 1: Password authentication
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
@@ -259,12 +276,13 @@ curl -X POST http://localhost:3000/api/auth/login \
     "password": "password123",
     "mfa-code": "123456"
   }'
-```text
-
+[source,text]
+----
 **Backup Codes**:
 
 Use backup codes when TOTP unavailable:
-```bash
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
@@ -272,8 +290,8 @@ curl -X POST http://localhost:3000/api/auth/login \
     "password": "password123",
     "mfa-code": "3LTW-XRM1-GYVF"
   }'
-```bash
-
+[source,bash]
+----
 **Notes**:
 - Backup codes are single-use only
 - TOTP codes expire after 30 seconds
@@ -281,7 +299,7 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 ---
 
-## Rate Limiting
+== Rate Limiting
 
 | Endpoint | Limit | Window |
 |----------|-------|--------|
@@ -290,19 +308,20 @@ curl -X POST http://localhost:3000/api/auth/login \
 | `/api/auth/mfa/enable` | 10 attempts | 1 hour |
 
 **Rate limit response** (429):
-```json
+[source,json]
+----
 {
   "error": "Too many requests",
   "message": "Rate limit exceeded. Try again in 15 minutes.",
   "retry-after": 900
 }
-```bash
-
+[source,bash]
+----
 ---
 
-## Security Best Practices
+== Security Best Practices
 
-### Production Checklist
+=== Production Checklist
 
 - ✅ **Enforce HTTPS**: All MFA endpoints require TLS
 - ✅ **Store secrets securely**: Hash TOTP secrets in database
@@ -311,7 +330,7 @@ curl -X POST http://localhost:3000/api/auth/login \
 - ✅ **Backup codes**: Provide 10 codes, single-use only
 - ✅ **Time sync**: Use NTP to prevent clock drift issues
 
-### Compliance
+=== Compliance
 
 - **NIST 800-63B**: TOTP (Time-based OTP) meets Authenticator Assurance Level 2 (AAL2)
 - **PCI DSS**: Satisfies multi-factor authentication requirements
@@ -319,13 +338,14 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 ---
 
-## Testing
+== Testing
 
-### Test Credentials
+=== Test Credentials
 
 Development environment includes test users:
 
-```bash
+[source,bash]
+----
 # User without MFA
 email: test@example.com
 password: password123
@@ -334,10 +354,11 @@ password: password123
 email: test-mfa@example.com
 password: password123
 TOTP secret: JBSWY3DPEHPK3PXP
-```text
-
+[source,text]
+----
 Generate TOTP codes:
-```bash
+[source,bash]
+----
 # Using oathtool
 oathtool --totp --base32 JBSWY3DPEHPK3PXP
 
@@ -349,9 +370,9 @@ python3 -c "import pyotp; print(pyotp.TOTP('JBSWY3DPEHPK3PXP').now())"
 
 == See Also
 
-* link:../guides/authentication.md[Authentication Guide] - Complete authentication setup
-* link:../guides/security-setup.md[Security Setup] - Security best practices
-* link:../api/user.md[User API] - User management endpoints
+* link:../guides/authentication[Authentication Guide] - Complete authentication setup
+* link:../guides/security-setup[Security Setup] - Security best practices
+* User API - User management endpoints
 
 '''''
 

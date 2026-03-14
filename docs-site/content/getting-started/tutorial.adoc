@@ -1,182 +1,133 @@
 ---
 title: "Building a Task Management API"
-weight: 2
-description: "Comprehensive hands-on tutorial for building a production-ready Task Management API with Boundary Framework"
+weight: 4
+description: "Hands-on tutorial for building a production-ready Task Management API with Boundary Framework"
 ---
 
 = Building a Task Management API
 
-== Boundary Framework Tutorial: Building a Task Management API
+Welcome to the comprehensive hands-on tutorial for the Boundary Framework. In this tutorial you will build a production-ready Task Management API from scratch.
 
-Welcome to the comprehensive, hands-on tutorial for the Boundary Framework. In this tutorial, you will build a production-ready Task Management API from scratch.
+*Time:* 1–2 hours · *Level:* Beginner to Intermediate
 
-*Time:* 1-2 hours *Level:* Beginner to Intermediate
+'''
 
-'''''
+== What You'll Build
 
-=== What You’ll Build
+A "TaskMaster" API that:
 
-We’re going to build a "`TaskMaster`" API that allows users to: 1. Register and log in securely (JWT-based) 2. Create, read, update, and delete (CRUD) tasks 3. Categorize tasks with tags and priority 4. Validate all inputs using Malli schemas 5. Implement custom business rules in the Functional Core 6. Add observability with logging and metrics 7. Verify everything with a complete test suite 8. Handle advanced scenarios like soft deletes and audit logs
+. Registers and authenticates users (JWT-based)
+. Creates, reads, updates, and deletes (CRUD) tasks
+. Validates all inputs using Malli schemas
+. Implements business rules in the Functional Core
+. Passes a complete test suite
 
-By the end of this tutorial, you’ll have a deep understanding of the Functional Core / Imperative Shell (FC/IS) architecture and how to build scalable, maintainable Clojure applications with Boundary.
+'''
 
-'''''
+== Chapter 1: Introduction & Prerequisites
 
-=== Chapter 1: Introduction & Prerequisites
+=== The Boundary Philosophy
 
-==== What You’ll Learn
+Boundary is designed around the *Functional Core / Imperative Shell* (FC/IS) paradigm:
 
-* The core philosophy of the Boundary Framework
-* System requirements and environment setup
-* How to verify your installation
-* The architecture of a Boundary module
+* *Functional Core* — All business logic in pure, side-effect-free functions. Easy to test and reason about.
+* *Imperative Shell* — All I/O (database, HTTP, logging) at the edges of your system.
+* *Ports* — Protocols that define contracts between layers.
 
-==== The Boundary Philosophy
+=== Prerequisites
 
-Boundary is designed around the *Functional Core / Imperative Shell* paradigm. This means: - *Functional Core*: All business logic is kept in pure, side-effect-free functions. These are incredibly easy to test and reason about. They take data and return data. - *Imperative Shell*: All I/O (database, HTTP, logging) is kept at the edges of your system. This layer orchestrates the flow of data between the outside world and your pure logic. - *Clean Boundaries*: Protocols (ports) define the contracts between these layers. This allows you to swap out implementations (e.g., switching from SQLite to PostgreSQL) without touching your business logic.
-
-==== Prerequisites
-
-Before we begin, ensure you have the following installed:
-
-* *Java 11{plus}* (OpenJDK or Amazon Corretto)
+* *Java 11+* (OpenJDK or Amazon Corretto)
 * *Clojure CLI*
-* *SQLite* (Default for development)
-* *curl* (For testing endpoints)
-* *A text editor* (VSCode with Calva, IntelliJ with Cursive, or Emacs with CIDER)
+* *Babashka* (`bb`)
+* *curl* (for testing endpoints)
 
-*Verify your environment:*
+Verify your environment:
 
 [source,bash]
 ----
 java -version   # Should show 11 or higher
 clojure -version
+bb --version
 curl --version
-```bash
-
-### The Anatomy of a Module
-In Boundary, everything is organized into modules. A typical module looks like this:
 ----
 
-libs/task/src/boundary/task/ ├── core/ │ ├── task.clj ++#++ Pure business logic (FC) │ └── ui.clj ++#++ UI components (Hiccup) ├── shell/ │ ├── service.clj ++#++ Orchestration layer (IS) │ ├── http.clj ++#++ HTTP handlers & routes │ └── persistence.clj ++#++ Database implementation ├── ports.clj ++#++ Protocol definitions └── schema.clj ++#++ Malli validation schemas
+=== The Anatomy of a Module
 
 [source,text]
 ----
+libs/task/src/boundary/task/
+├── core/
+│   ├── task.clj        # Pure business logic (FC)
+│   └── validation.clj  # Validation rules
+├── shell/
+│   ├── service.clj     # Orchestration layer (IS)
+│   ├── http.clj        # HTTP handlers & routes
+│   └── persistence.clj # Database implementation
+├── ports.clj           # Protocol definitions
+└── schema.clj          # Malli validation schemas
+----
 
-### Time Estimate: 10 minutes
+'''
 
----
+== Chapter 2: Project Setup
 
-## Chapter 2: Project Setup
+=== Step 1: Clone the Repository
 
-### What You'll Learn
-- How to initialize a new Boundary project
-- Understanding the project structure
-- Configuring your development environment
-- Running initial migrations
-- Starting the REPL
-
-### Step 1: Clone the Framework
-For this tutorial, we will use the main Boundary repository as our starting point.
-
-```bash
+[source,bash]
+----
 git clone https://github.com/thijs-creemers/boundary.git task-master
 cd task-master
-```bash
-
-### Step 2: Project Structure
-Take a moment to explore the directory structure. Boundary is a monorepo with several libraries in the `libs/` directory.
 ----
 
-. ├── AGENTS.md ++#++ Quick reference for development ├── deps.edn ++#++ Project dependencies ├── libs/ ++#++ Boundary library components │ ├── core/ ++#++ Foundation: validation, utilities, interceptors │ ├── observability/ ++#++ Logging, metrics, error reporting │ ├── platform/ ++#++ HTTP, database, CLI infrastructure │ ├── user/ ++#++ Authentication, authorization, MFA │ ├── admin/ ++#++ Auto-CRUD admin interface │ └── scaffolder/ ++#++ Module code generator ├── resources/ │ └── conf/ ++#++ Configuration files (Aero) └── migrations/ ++#++ Database migrations (SQL)
+=== Step 2: Configure the Environment
 
 [source,bash]
 ----
-
-### Step 3: Configure the Database
-Boundary uses **Aero** for configuration. By default, it's set up to use SQLite in development, which requires no extra setup.
-
-Check your `resources/conf/dev/config.edn`:
-```clojure
-{:boundary/db-context
- {:jdbc-url "jdbc:sqlite:dev-database.db"}}
-```bash
-
-Aero allows you to use tags like `#env`, `#include`, and `#merge` to create flexible, environment-aware configurations.
-
-### Step 4: Run Initial Migrations
-The `user` module comes with built-in migrations for user management and sessions. Let's apply them.
-
-```bash
-# Initialize migration system (creates the migrations table if it doesn't exist)
-clojure -M:migrate init
-
-# Run pending migrations (applies all .up.sql files)
-clojure -M:migrate migrate
-
-# Verify status
-clojure -M:migrate status
-```text
-
-**Expected Output:**
+export JWT_SECRET="dev-secret-32-chars-minimum-here"
+export BND_ENV="development"
 ----
 
-Applied migrations: - 20240101000000-create-users-table - 20240101000001-create-sessions-table
+=== Step 3: Run Initial Migrations
 
 [source,bash]
 ----
+clojure -M:migrate up
+----
 
-### Step 5: Start the REPL
-The REPL (Read-Eval-Print Loop) is the heart of Clojure development.
+=== Step 4: Start the REPL
 
-```bash
+[source,bash]
+----
 clojure -M:repl-clj
-```text
+----
 
-Once the REPL starts (usually on port 7888), you can connect your editor to it. This allows you to evaluate code instantly without restarting the application.
+The REPL starts an nREPL server on port 7888. Connect your editor to it for interactive development.
 
-### Checkpoint: Verification
-At this point, you should have a `dev-database.db` file in your project root, and migrations should be successfully applied. Your REPL should be running and ready for input.
+=== Checkpoint
 
-### Time Estimate: 15 minutes
+At this point migrations should be applied and your REPL should be ready for input.
 
----
+'''
 
-## Chapter 3: User Authentication
+== Chapter 3: User Authentication
 
-### What You'll Learn
-- How Boundary handles authentication
-- Registering a new user via API
-- Logging in to receive a JWT token
-- Understanding the JWT lifecycle
-- Securing endpoints with interceptors
+=== Step 1: Initialize the System
 
-### Step 1: Initialize the System
 In your REPL, start the Integrant system:
 
-```clojure
+[source,clojure]
+----
 (require '[integrant.repl :as ig-repl])
-(require '[boundary.system])
-
-;; Tell Integrant how to find the config
-(ig-repl/set-prep! #(boundary.system/system-config))
-
-;; Start the system
 (ig-repl/go)
-```text
-
-**Output:**
+;; => :initiated
 ----
 
-INFO boundary.server - Starting HTTP server on port 3000 INFO boundary.server - Swagger UI available at http://localhost:3000/api-docs/ INFO boundary.server - Server started successfully
+The HTTP server is now running at http://localhost:3000.
+
+=== Step 2: Register a New User
 
 [source,bash]
 ----
-
-### Step 2: Register a New User
-We'll use `curl` to create our first user account. This uses the `boundary/user` module.
-
-```bash
 curl -X POST http://localhost:3000/api/v1/users \
   -H "Content-Type: application/json" \
   -d '{
@@ -185,47 +136,28 @@ curl -X POST http://localhost:3000/api/v1/users \
     "password": "Password123!",
     "role": "admin"
   }'
-```text
+----
 
-**Expected Response:**
-```json
-{
-  "id": "a1b2c3d4-e5f6-7890-abcd-1234567890ab",
-  "email": "tutorial@boundary.dev",
-  "name": "Tutorial User",
-  "role": "admin",
-  "active": true,
-  "createdAt": "2026-01-26T10:00:00Z"
-}
-```bash
+=== Step 3: Login and Get Token
 
-### Step 3: Login and Get Token
-Now, let's authenticate to get a JWT (JSON Web Token).
-
-```bash
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "tutorial@boundary.dev",
     "password": "Password123!"
   }'
-```text
+----
 
-**Expected Response:**
-```json
-{
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expiresIn": 3600,
-  "userId": "a1b2c3d4-e5f6-7890-abcd-1234567890ab"
-}
-```bash
+Save the `accessToken` value from the response — you'll use it as `YOUR_TOKEN` in subsequent steps.
 
-**Save that `accessToken`!** You'll need it as a Bearer token in the next steps.
+=== How Interceptors Work
 
-### How it Works: Interceptors
-Boundary uses **interceptors** for cross-cutting concerns like authentication. In `boundary/user/shell/http.clj`, you'll find an interceptor that validates the JWT:
+Boundary uses interceptors for cross-cutting concerns like authentication. In `libs/user/src/boundary/user/shell/http.clj` you'll find an auth interceptor that validates the JWT on incoming requests:
 
-```clojure
+[source,clojure]
+----
 (def auth-interceptor
   {:name :auth
    :enter (fn [ctx]
@@ -233,55 +165,37 @@ Boundary uses **interceptors** for cross-cutting concerns like authentication. I
               (if (valid-token? token)
                 (assoc-in ctx [:request :identity] (decode-token token))
                 (throw (ex-info "Unauthorized" {:type :unauthorized})))))})
-```bash
-
-By adding this interceptor to a route, you ensure that only authenticated users can access it.
-
-### Time Estimate: 20 minutes
-
----
-
-## Chapter 4: Generating the Task Module
-
-### What You'll Learn
-- Using the Boundary Scaffolder to generate production-ready code
-- Understanding the generated file structure
-- Wiring the new module into the system
-- Customizing the generated schema
-
-### Step 1: Scaffold the Module
-Boundary's scaffolder generates all the boilerplate for a new module. It's not just a simple template; it generates a complete, functional module following best practices.
-
-Run the interactive wizard and follow the prompts:
-
-```bash
-bb scaffold generate
 ----
 
-Or pass arguments directly for a non-interactive run (useful for scripting or CI):
+By adding this interceptor to a route, only authenticated users can access it.
+
+'''
+
+== Chapter 4: Generating the Task Module
+
+=== Step 1: Scaffold the Module
+
+Run the interactive wizard:
 
 [source,bash]
 ----
-bb scaffold generate \
-  --module-name task \
-  --entity Task \
-  --field title:string:required \
-  --field description:string \
-  --field priority:string:required \
-  --field due-date:date \
-  --field completed:boolean:required
-```bash
+bb scaffold
+----
 
-**What happened?**
-The scaffolder created 12 files and generated 473 tests!
+When prompted, enter:
 
-### Step 2: Explore the Generated Files
-Let's look at the key files in `libs/task/src/boundary/task/`:
+* Module name: `task`
+* Entity name: `Task`
+* Fields: `title:string:required`, `description:string`, `priority:string:required`, `due-date:date`, `completed:boolean:required`
 
-#### `schema.clj`
-This file defines the data structure of your entity using **Malli**.
+=== Step 2: Explore the Generated Files
 
-```clojure
+==== schema.clj
+
+Defines the data structure using *Malli*:
+
+[source,clojure]
+----
 (def task-schema
   [:map
    [:id :uuid]
@@ -292,75 +206,60 @@ This file defines the data structure of your entity using **Malli**.
    [:completed :boolean]
    [:created-at inst?]
    [:updated-at inst?]])
-```bash
+----
 
-#### `core/task.clj`
-This is your **Functional Core**. It contains pure functions for transforming task data.
+==== core/task.clj
 
-```clojure
+The *Functional Core* — pure functions only:
+
+[source,clojure]
+----
 (defn prepare-task [task-data]
   (let [now (java.time.Instant/now)]
     (merge task-data
            {:id (random-uuid)
             :created-at now
             :updated-at now})))
-```bash
+----
 
-#### `shell/service.clj`
-The **Imperative Shell**. It orchestrates the process of creating a task:
-1. Validates the input data
-2. Calls the core to prepare the entity
-3. Calls the persistence port to save it to the database
+==== shell/service.clj
 
-### Step 3: Apply the New Migration
-The scaffolder generated a SQL migration in `resources/migrations/`.
+The *Imperative Shell* — orchestrates validation, core, and persistence:
 
-```bash
-clojure -M:migrate migrate
-```bash
+[source,clojure]
+----
+(defn create-task! [this task-data]
+  (let [validated (schema/validate-task task-data)
+        prepared  (task-core/prepare-task validated)]
+    (ports/save-task (:repository this) prepared)))
+----
 
-### Step 4: Wire it Up
-Currently, the system doesn't know about our new module. We need to add it to the system configuration.
+=== Step 3: Apply the New Migration
 
-Open root config `src/boundary/config.clj` and add the `task` module to the Integrant configuration and routes.
+[source,bash]
+----
+clojure -M:migrate up
+----
 
-**In root `src/boundary/config.clj`:**
+=== Step 4: Reload the System
 
-```clojure
-(require '[boundary.task.shell.http :as task-http]
-         '[boundary.task.shell.module-wiring])
+In your REPL:
 
-;; Add to routes:
-(defn all-routes [config]
-  (concat
-    (user-http/user-routes config)
-    (task-http/task-routes config))) ;; Add this line
-```bash
-
-### Step 5: Refresh the REPL
-Go back to your REPL and reload the system:
-
-```clojure
+[source,clojure]
+----
 (ig-repl/reset)
-```bash
+----
 
-### Time Estimate: 25 minutes
+'''
 
----
+== Chapter 5: CRUD Operations
 
-## Chapter 5: CRUD Operations
+=== Create a Task
 
-### What You'll Learn
-- Creating tasks via the API
-- Reading and listing tasks
-- Updating and deleting tasks
-- Using the JWT token for authorized requests
-- Understanding the HTTP response codes
+Replace `YOUR_TOKEN` with the token from Chapter 3:
 
-### Step 1: Create a Task
-Now let's use our API to create a task. Replace `YOUR_TOKEN` with the `accessToken` you received in Chapter 3.
-
-```bash
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/v1/tasks \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -370,83 +269,52 @@ curl -X POST http://localhost:3000/api/v1/tasks \
     "priority": "high",
     "completed": false
   }'
-```text
+----
 
-**Response (201 Created):**
-```json
-{
-  "id": "f8d7e6d5-...",
-  "title": "Complete Boundary Tutorial",
-  "description": "Build the TaskMaster API",
-  "priority": "high",
-  "completed": false,
-  "createdAt": "2026-01-26T11:00:00Z"
-}
-```bash
+=== List All Tasks
 
-### Step 2: List All Tasks
-Boundary supports built-in pagination.
-
-```bash
+[source,bash]
+----
 curl -H "Authorization: Bearer YOUR_TOKEN" \
   "http://localhost:3000/api/v1/tasks?limit=10&offset=0"
-```text
+----
 
-**Expected Response:**
-```json
-{
-  "items": [...],
-  "total": 1,
-  "limit": 10,
-  "offset": 0
-}
-```bash
+=== Get a Single Task
 
-### Step 3: Get a Single Task
-Use the `id` from the previous response:
-
-```bash
+[source,bash]
+----
 curl -H "Authorization: Bearer YOUR_TOKEN" \
   http://localhost:3000/api/v1/tasks/TASK_ID
-```bash
+----
 
-### Step 4: Update a Task
-Let's mark it as completed! Notice how we only send the fields we want to change.
+=== Update a Task
 
-```bash
+[source,bash]
+----
 curl -X PUT http://localhost:3000/api/v1/tasks/TASK_ID \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
-  -d '{
-    "completed": true
-  }'
-```bash
+  -d '{"completed": true}'
+----
 
-### Step 5: Delete a Task
-```bash
+=== Delete a Task
+
+[source,bash]
+----
 curl -X DELETE http://localhost:3000/api/v1/tasks/TASK_ID \
   -H "Authorization: Bearer YOUR_TOKEN"
-```text
+----
 
-### Checkpoint: Persistence
-Verify that your changes are actually saved by checking the list of tasks after an update or delete.
+'''
 
-### Time Estimate: 20 minutes
+== Chapter 6: Validation & Error Handling
 
----
+=== Trigger a Validation Error
 
-## Chapter 6: Validation & Error Handling
+Try creating a task without the required `title` field:
 
-### What You'll Learn
-- How Malli schemas enforce data integrity
-- Triggering validation errors
-- Understanding Boundary's error response format
-- Adding custom validation constraints
-
-### Step 1: Trigger a Validation Error
-Let's try to create a task without a `title`, which we marked as `required`.
-
-```bash
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/v1/tasks \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -455,53 +323,33 @@ curl -X POST http://localhost:3000/api/v1/tasks \
     "priority": "low",
     "completed": false
   }'
-```text
+----
 
-**Expected Response (400 Bad Request):**
-```json
-{
-  "type": "validation-error",
-  "message": "Validation failed",
-  "errors": {
-    "title": ["is required"]
-  }
-}
-```text
+Boundary's error interceptor catches validation failures and returns a structured `400 Bad Request` response.
 
-Boundary's error interceptor automatically catches validation exceptions and formats them into a clean JSON response.
+=== Custom Validation Rules
 
-### Step 2: Custom Validation Rules
-Open `libs/task/src/boundary/task/schema.clj`. Let's add a rule that the `priority` must be one of: `low`, `medium`, or `high`.
+Open `libs/task/src/boundary/task/schema.clj` and add an enum constraint for `priority`:
 
-```clojure
+[source,clojure]
+----
 (def task-priority-schema
   [:enum "low" "medium" "high"])
 
-;; Update task-schema:
 (def task-schema
   [:map
    ;; ... other fields
    [:priority task-priority-schema]])
-```bash
+----
 
-### Step 3: Test the New Rule
-After updating the schema and refreshing the REPL (`(ig-repl/reset)`), try sending an invalid priority:
+After refreshing the REPL with `(ig-repl/reset)`, invalid priorities will be rejected automatically.
 
-```bash
-curl -X POST http://localhost:3000/api/v1/tasks \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -d '{
-    "title": "Invalid Priority",
-    "priority": "super-high",
-    "completed": false
-  }'
-```bash
+=== Cross-Field Validation
 
-### Step 4: Cross-Field Validation
-Sometimes validation depends on multiple fields. For example, a `due-date` must be in the future.
+For validation that depends on multiple fields:
 
-```clojure
+[source,clojure]
+----
 (def create-task-schema
   [:and
    [:map
@@ -512,379 +360,301 @@ Sometimes validation depends on multiple fields. For example, a `due-date` must 
       (if due-date
         (.isAfter due-date (java.time.Instant/now))
         true))]])
-```bash
+----
 
-### Time Estimate: 20 minutes
+'''
 
----
+== Chapter 7: Business Logic in the Functional Core
 
-## Chapter 7: Business Logic in the Functional Core
+=== Define the Rule
 
-### What You'll Learn
-- Why keep logic in the core?
-- Implementing a "complete task" business rule
-- Testing business logic in isolation
+When a task is marked completed, also record the completion date. This belongs in `core/task.clj`:
 
-### Step 1: Define the Rule
-Imagine we have a rule that when a task is marked as completed, we also want to record the completion date. This is business logic and belongs in `core/task.clj`.
-
-```clojure
+[source,clojure]
+----
 (defn complete-task [task]
   (-> task
       (assoc :completed true)
       (assoc :completed-at (java.time.Instant/now))
       (assoc :updated-at (java.time.Instant/now))))
-```bash
+----
 
-### Step 2: Update the Shell
-In `shell/service.clj`, we update the `update-task` method to use this new core function:
+=== Update the Shell
 
-```clojure
-(defn update-task [this id updates]
-  (let [existing (ports/get-task repository id)]
+In `shell/service.clj`, call this core function when updating:
+
+[source,clojure]
+----
+(defn update-task! [this id updates]
+  (let [existing (ports/get-task (:repository this) id)]
     (if (and (:completed updates) (not (:completed existing)))
-      (let [completed-task (task-core/complete-task existing)]
-        (ports/save-task repository completed-task))
-      ;; ... normal update logic
-      )))
-```bash
+      (ports/save-task (:repository this) (task-core/complete-task existing))
+      (ports/save-task (:repository this) (merge existing updates)))))
+----
 
-### Step 3: Why This Pattern?
-By keeping `complete-task` in the core, we can test it with simple Clojure maps, without needing a database, an HTTP server, or even the Integrant system. This isolation is what makes Boundary applications so robust and maintainable over time.
+=== Why This Pattern?
 
-### Time Estimate: 15 minutes
+By keeping `complete-task` in the core, it can be tested with plain Clojure maps — no database, no HTTP, no Integrant system required.
 
----
+'''
 
-## Chapter 8: Testing
+== Chapter 8: Testing
 
-### What You'll Learn
-- Running unit tests for pure core logic
-- Running integration tests for services
-- Running contract tests for the database
-- Understanding the three-tier testing strategy
+=== The Three-Tier Strategy
 
-### Step 1: The Three-Tier Strategy
-Boundary uses a specific testing strategy to maximize coverage and speed:
-1. **Unit Tests** (:unit): Test the Functional Core (pure functions). Ultra-fast, no I/O.
-2. **Integration Tests** (:integration): Test the Shell services using mocks for ports.
-3. **Contract Tests** (:contract): Test the Adapters (database, API clients) against real infrastructure.
+. *Unit Tests* (`^:unit`) — Test the Functional Core (pure functions). Ultra-fast, no I/O.
+. *Integration Tests* (`^:integration`) — Test Shell services using mocked ports.
+. *Contract Tests* (`^:contract`) — Test adapters against a real H2 database.
 
-### Step 2: Run All Tests
-```bash
+=== Run All Tests
+
+[source,bash]
+----
 clojure -M:test:db/h2
-```bash
+----
 
-### Step 3: Run Unit Tests Only
-These are the tests you'll run most frequently during development.
+=== Run Unit Tests Only
 
-```bash
+[source,bash]
+----
 clojure -M:test:db/h2 --focus-meta :unit
-```bash
+----
 
-### Step 4: Writing a Unit Test
-Open `libs/task/test/boundary/task/core/task_test.clj`.
+=== Run Tests for One Library
 
-```clojure
+[source,bash]
+----
+clojure -M:test:db/h2 :task
+----
+
+=== Write a Unit Test
+
+In `libs/task/test/boundary/task/core/task_test.clj`:
+
+[source,clojure]
+----
 (deftest complete-task-test
   (testing "marks task as completed and sets timestamp"
-    (let [task {:id "123" :completed false}
+    (let [task   {:id "123" :completed false}
           result (task-core/complete-task task)]
       (is (= true (:completed result)))
       (is (inst? (:completed-at result))))))
-```bash
+----
 
-### Step 5: Testing with the REPL
-You can also run tests directly from your REPL:
+=== Watch Mode
 
-```clojure
-(require '[clojure.test :refer [run-tests]])
-(require '[boundary.task.core.task-test])
-(run-tests 'boundary.task.core.task-test)
-```text
+[source,bash]
+----
+clojure -M:test:db/h2 --watch :task
+----
 
-### Time Estimate: 20 minutes
+'''
 
----
+== Chapter 9: Observability
 
-## Chapter 9: Observability
+=== Structured Logging
 
-### What You'll Learn
-- Structured logging with `boundary/observability`
-- Adding custom metrics
-- Viewing error reports
-- Using correlation IDs for request tracing
+Boundary logs data, not strings:
 
-### Step 1: Structured Logging
-Boundary doesn't just print strings; it logs data. This makes logs searchable and indexable.
-
-```clojure
+[source,clojure]
+----
 (require '[boundary.observability.ports :as obs])
 
 (obs/info logger "Task created" {:task-id id :user-id user-id})
-```bash
+----
 
-These logs are automatically enriched with correlation IDs, timestamps, and environment info.
+Logs are automatically enriched with correlation IDs, timestamps, and environment context.
 
-### Step 2: Custom Metrics
-You can easily track performance or business metrics.
+=== Custom Metrics
 
-```clojure
+[source,clojure]
+----
 (obs/increment-counter metrics "tasks.created" 1 {:priority "high"})
-```text
+----
 
-In production, these metrics can be pushed to Prometheus, Datadog, or CloudWatch.
+In production, these push to Prometheus, Datadog, or CloudWatch.
 
-### Step 3: Error Reporting
-When an exception occurs, Boundary's interceptor automatically reports it to your error tracking service (like Sentry).
+=== Error Reporting
 
-```clojure
+[source,clojure]
+----
 (try
   (do-something-risky)
   (catch Exception e
-    (obs/report-error error-reporter e {:context "risk-calculation"})))
-```bash
+    (obs/report-error error-reporter e {:context "task-completion"})))
+----
 
-### Time Estimate: 15 minutes
+'''
 
----
+== Chapter 10: Advanced Scenarios
 
-## Chapter 10: Advanced Scenarios
+=== Implementing Soft Deletes
 
-In this chapter, we'll dive deep into real-world requirements that often come up after the basic CRUD is in place. We'll implement soft deletes and a custom audit log interceptor.
+==== 1. Update the Schema
 
-### Step 1: Implementing Soft Deletes
+Add `deleted-at` to `schema.clj`:
 
-Soft deletes allow you to "delete" a record by marking it with a timestamp instead of removing it from the database. This is vital for data recovery and auditability.
-
-#### 1. Update the Schema
-First, open `libs/task/src/boundary/task/schema.clj` and add the `deleted-at` field.
-
-```clojure
+[source,clojure]
+----
 (def task-schema
   [:map
-   [:id :uuid]
-   [:title [:string {:min 1 :max 255}]]
-   [:description {:optional true} [:maybe :string]]
-   [:priority [:string {:min 1}]]
-   [:due-date {:optional true} [:maybe inst?]]
-   [:completed :boolean]
-   [:deleted-at {:optional true} [:maybe inst?]] ;; Add this
+   ;; ... existing fields
+   [:deleted-at {:optional true} [:maybe inst?]]
    [:created-at inst?]
    [:updated-at inst?]])
-```bash
+----
 
-#### 2. Functional Core Logic
-In `libs/task/src/boundary/task/core/task.clj`, add the logic to "delete" a task.
+==== 2. Core Logic
 
-```clojure
+In `core/task.clj`:
+
+[source,clojure]
+----
 (defn mark-as-deleted [task]
   (assoc task :deleted-at (java.time.Instant/now)))
-```bash
+----
 
-#### 3. Persistence Implementation
-In `libs/task/src/boundary/task/shell/persistence.clj`, we need to update two things:
-- The delete method should now be an update.
-- The list/find methods should exclude deleted records.
+==== 3. Persistence Layer
 
-```clojure
-;; In SqliteTaskRepository record:
+Update the persistence adapter to use soft-delete and filter deleted records:
 
+[source,clojure]
+----
+;; DELETE becomes an UPDATE
 (delete-task [this id]
   (let [existing (ports/get-task this id)]
     (when existing
       (let [deleted (task-core/mark-as-deleted existing)]
-        (jdbc/execute-one! ds 
-          ["UPDATE tasks SET deleted_at = ? WHERE id = ?" 
-           (str (:deleted-at deleted)) 
-           (str id)])))))
+        (execute-one! ds ["UPDATE tasks SET deleted_at = ? WHERE id = ?"
+                          (:deleted-at deleted) (str id)])))))
 
+;; LIST excludes deleted records
 (list-tasks [this params]
-  (jdbc/execute! ds 
-    ["SELECT * FROM tasks WHERE deleted_at IS NULL LIMIT ? OFFSET ?" 
-     (:limit params) 
-     (:offset params)]))
-```bash
+  (execute! ds ["SELECT * FROM tasks WHERE deleted_at IS NULL LIMIT ? OFFSET ?"
+                (:limit params) (:offset params)]))
+----
 
-### Step 2: Custom Audit Log Interceptor
+=== Custom Audit Log Interceptor
 
-Audit logs track who did what and when. Instead of sprinkling logging code everywhere, we can use an interceptor to handle this automatically for specific routes.
+Interceptors handle cross-cutting concerns automatically. Define one that logs successful writes:
 
-#### 1. Define the Interceptor
-Create a new file (or add to your shell namespace) for the interceptor:
-
-```clojure
+[source,clojure]
+----
 (defn audit-log-interceptor [action]
   {:name :audit-log
    :leave (fn [ctx]
             (let [user-id (get-in ctx [:request :identity :user-id])
-                  status  (get-in ctx [:response :status])
-                  body    (get-in ctx [:response :body])]
-              ;; Only log successful operations
+                  status  (get-in ctx [:response :status])]
               (when (and user-id (<= 200 status 299))
-                (println "AUDIT LOG:" 
-                         {:action action
-                          :user-id user-id
-                          :timestamp (java.time.Instant/now)
-                          :payload (select-keys body [:id :title])}))
+                (log/info "AUDIT" {:action action :user-id user-id
+                                   :at (java.time.Instant/now)}))
               ctx))})
-```bash
+----
 
-#### 2. Apply it to Routes
-In `libs/task/src/boundary/task/shell/http.clj`, wrap your handlers with the interceptor:
+Apply it to specific routes in `shell/http.clj`:
 
-```clojure
-(def task-routes
-  ["/tasks"
-   {:interceptors [auth-interceptor]}
-   ["" {:post {:handler    create-handler
-               :interceptors [(audit-log-interceptor :create-task)]}}]
-   ["/:id" {:put {:handler   update-handler
-                  :interceptors [(audit-log-interceptor :update-task)]}
-            :delete {:handler delete-handler
-                     :interceptors [(audit-log-interceptor :delete-task)]}}]])
-```bash
+[source,clojure]
+----
+["/tasks" {:interceptors [auth-interceptor]}
+ ["" {:post {:handler      create-handler
+              :interceptors [(audit-log-interceptor :create-task)]}}]
+ ["/:id" {:put    {:handler update-handler
+                   :interceptors [(audit-log-interceptor :update-task)]}
+          :delete {:handler delete-handler
+                   :interceptors [(audit-log-interceptor :delete-task)]}}]]
+----
 
-Now, every time a task is created or updated, a structured audit log entry will be generated!
+'''
 
----
+== Chapter 11: UI Development with HTMX & Hiccup
 
-## Chapter 11: UI Development with HTMX & Hiccup
+Boundary is full-stack. Use *Hiccup* for server-side HTML and *HTMX* for dynamic interactions without writing JavaScript.
 
-Boundary isn't just for APIs; it's a full-stack framework. We use **Hiccup** for server-side HTML and **HTMX** for dynamic interactions without writing complex JavaScript.
+=== The UI Component
 
-### Step 1: The UI Component
-In `libs/task/src/boundary/task/core/ui.clj`, define a task list component.
+In `libs/task/src/boundary/task/core/ui.clj`:
 
-```clojure
-(ns boundary.task.core.ui
-  (:require [boundary.shared.ui.core.icons :as icons]))
-
+[source,clojure]
+----
 (defn task-item [task]
   [:li {:id (str "task-" (:id task))}
    [:span {:style (when (:completed task) "text-decoration: line-through")}
     (:title task)]
-   [:button {:hx-post (str "/web/tasks/" (:id task) "/toggle")
+   [:button {:hx-post   (str "/web/tasks/" (:id task) "/toggle")
              :hx-target (str "#task-" (:id task))
-             :hx-swap "outerHTML"}
+             :hx-swap   "outerHTML"}
     (if (:completed task) "Undo" "Complete")]])
 
 (defn task-list [tasks]
   [:div.container
    [:h1 "Your Tasks"]
-   [:ul#task-list
-    (for [t tasks]
-      (task-item t))]
+   [:ul#task-list (map task-item tasks)]
    [:form {:hx-post "/web/tasks" :hx-target "#task-list" :hx-swap "beforeend"}
     [:input {:name "title" :placeholder "New task..."}]
     [:button "Add Task"]]])
-```bash
+----
 
-### Step 2: The Web Handler
-In `libs/task/src/boundary/task/shell/http.clj`, add a handler that returns HTML instead of JSON.
+=== The Web Handler
 
-```clojure
+[source,clojure]
+----
 (defn render-tasks-handler [request]
   (let [tasks (ports/list-tasks repository {:limit 100 :offset 0})]
-    {:status 200
+    {:status  200
      :headers {"Content-Type" "text/html"}
-     :body (ui/task-list tasks)}))
+     :body    (hiccup/html (ui/task-list tasks))}))
+----
 
-(defn toggle-task-handler [request]
-  (let [id (-> request :path-params :id)
-        task (ports/get-task repository id)
-        updated (task-core/toggle-complete task)]
-    (ports/save-task repository updated)
-    {:status 200
-     :headers {"Content-Type" "text/html"}
-     :body (ui/task-item updated)}))
-```bash
+HTMX's `hx-post` and `hx-target` attributes make an AJAX call on click and replace only the specific DOM element — no React, no build step.
 
-### Step 3: Why HTMX?
-Notice the `:hx-post` and `:hx-target` attributes. These tell HTMX to:
-1. Make an AJAX request when the button is clicked.
-2. Replace only the specific task item in the DOM with the HTML returned by the server.
+'''
 
-This gives you a "Single Page App" feel with 100% server-side code. No React, no build step, no pain.
+== Chapter 12: Advanced Testing
 
-### Step 4: Design Tokens & Styling
-Boundary uses a "Design Token" approach for styling, centralized in `resources/public/css/tokens.css`. This ensures consistency across the app.
+=== Contract Tests (Database)
 
-**Using Tokens in CSS:**
-```css
-.task-item {
-  padding: var(--spacing-md);
-  background-color: var(--color-surface);
-  border-radius: var(--radius-sm);
-  margin-bottom: var(--spacing-sm);
-}
-```text
-
-**Using Icons:**
-Instead of emojis, use the built-in Lucide icon library.
-```clojure
-[:button
- (icons/icon :trash {:size 18})
- " Delete"]
-```bash
-
----
-
-## Chapter 12: Advanced Testing
-
-We've covered unit tests, but production systems need more. Let's look at **Contract Tests** and **Property-Based Testing**.
-
-### Step 1: Contract Tests (Database)
-Contract tests ensure your adapters (like SQLite) correctly implement the protocols. They run against a real database instance, verifying that your SQL queries behave as expected.
-
-```clojure
+[source,clojure]
+----
 (ns boundary.task.shell.persistence-contract-test
   (:require [clojure.test :refer :all]
             [boundary.task.ports :as ports]
             [boundary.task.shell.persistence :as persistence]
             [next.jdbc :as jdbc]))
 
-(defn get-test-datasource []
-  (jdbc/get-datasource "jdbc:sqlite::memory:"))
-
-(deftest sqlite-contract-test
-  (let [ds (get-test-datasource)
-        _ (run-migrations! ds) ;; Ensure schema is present
-        repo (persistence/->SqliteTaskRepository ds)]
-    (testing "can save and retrieve a task"
-      (let [task {:id (random-uuid) 
-                  :title "Contract Test" 
-                  :completed false
-                  :created-at (java.time.Instant/now)
+(deftest h2-contract-test
+  (let [ds   (jdbc/get-datasource "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1")
+        repo (persistence/->H2TaskRepository ds)]
+    (testing "saves and retrieves a task"
+      (let [task {:id (random-uuid) :title "Contract Test"
+                  :completed false :created-at (java.time.Instant/now)
                   :updated-at (java.time.Instant/now)}]
         (ports/save-task repo task)
         (let [retrieved (ports/get-task repo (:id task))]
           (is (= "Contract Test" (:title retrieved)))
           (is (false? (:completed retrieved))))))))
-```bash
+----
 
-### Step 2: Property-Based Testing
-Using `test.check`, we can test that our code works for *any* valid input, not just the ones we thought of. This is especially useful for complex validation logic or mathematical calculations.
+Run contract tests:
 
-#### 1. Define a Generator
-Generators describe how to produce random data that follows your schema.
+[source,bash]
+----
+clojure -M:test:db/h2 --focus-meta :contract
+----
 
-```clojure
-(require '[clojure.test.check.generators :as gen])
+=== Property-Based Testing
+
+[source,clojure]
+----
+(require '[clojure.test.check.generators :as gen]
+         '[clojure.test.check.properties :as prop]
+         '[clojure.test.check :as tc])
 
 (def task-gen
   (gen/hash-map
-    :id gen/uuid
-    :title (gen/not-empty gen/string-alphanumeric)
-    :priority (gen/elements ["low" "medium" "high"])
-    :completed (gen/return false)))
-```bash
-
-#### 2. Define the Property
-A property is a claim that should hold true for all generated values.
-
-```clojure
-(require '[clojure.test.check.properties :as prop])
+   :id        gen/uuid
+   :title     (gen/not-empty gen/string-alphanumeric)
+   :priority  (gen/elements ["low" "medium" "high"])
+   :completed (gen/return false)))
 
 (def complete-task-property
   (prop/for-all [task task-gen]
@@ -892,149 +662,149 @@ A property is a claim that should hold true for all generated values.
       (and (:completed result)
            (inst? (:completed-at result))
            (= (:id task) (:id result))))))
-```bash
 
-#### 3. Run the Check
-```clojure
-(require '[clojure.test.check :as tc])
 (tc/quick-check 100 complete-task-property)
-;; => {:result true, :num-tests 100, :seed 173788...}
-```bash
+;; => {:result true, :num-tests 100, ...}
+----
 
----
+'''
 
-## Chapter 13: Production Deployment
+== Chapter 13: Production Deployment
 
-Moving from "it works on my machine" to "it's live" requires a few extra steps.
+=== Build the Uberjar
 
-### Step 1: The Uberjar
-Clojure apps are typically deployed as an **Uberjar**—a single `.jar` file containing your code and all its dependencies.
+[source,bash]
+----
+clojure -T:build clean && clojure -T:build uber
+----
 
-```bash
-clojure -T:build clean
-clojure -T:build uber
-```bash
+=== Configuration Profiles
 
-### Step 2: Configuration Profiles
-Use Aero's `#profile` tag to vary configuration by environment.
+Use Aero's `#profile` tag to vary configuration by environment:
 
-```clojure
+[source,clojure]
+----
 ;; resources/conf/config.edn
 {:boundary/db-context
- {:jdbc-url #profile {:dev "jdbc:sqlite:dev.db"
+ {:jdbc-url #profile {:dev  "jdbc:sqlite:dev.db"
                       :prod #env DATABASE_URL}}}
-```bash
+----
 
-### Step 3: Running in Production
-```bash
-# Set environment
+=== Running in Production
+
+[source,bash]
+----
 export BND_ENV=prod
 export DATABASE_URL="jdbc:postgresql://db.example.com:5432/myapp"
+export JWT_SECRET="production-secret-min-32-chars"
 
-# Start the app
-java -jar target/boundary-standalone.jar server
-```bash
+java -jar target/boundary-standalone.jar
+----
 
----
+'''
 
-## Chapter 14: Troubleshooting & FAQ
+== Chapter 14: Troubleshooting
 
-### REPL Issues
-**Q: I changed a file but the REPL doesn't see the change.**
-**A:** Use `(ig-repl/reset)`. This stops the system, reloads all changed namespaces, and restarts the system. If you changed a `defrecord`, you might need to `(ig-repl/halt)` and `(ig-repl/go)` to ensure the new record definition is used.
+*Q: I changed a file but the REPL doesn't see the change.* +
+A: Run `(ig-repl/reset)`. This stops the system, reloads all changed namespaces, and restarts. For `defrecord` changes, use `(ig-repl/halt)` then `(ig-repl/go)`.
 
-### Database Issues
-**Q: "Database is locked" (SQLite).**
-**A:** This usually happens when multiple processes are trying to write to SQLite at once. Ensure you don't have multiple REPLs or servers running against the same `.db` file.
+*Q: "Database is locked" (SQLite).* +
+A: Multiple processes writing to the same `.db` file. Ensure only one REPL or server is running.
 
-**Q: Migration failed midway.**
-**A:** Boundary's migration tool is transactional. Check the `migrations` table to see what was applied. You can manually fix the state with `clojure -M:migrate rollback` if necessary.
+*Q: Migration failed midway.* +
+A: Check the `migrations` table to see what was applied.
 
-### JWT Issues
-**Q: My token is rejected with "Expired".**
-**A:** Check your system clock. If you're running in a VM or Docker, the time might have drifted. Also, ensure your `JWT_SECRET` is at least 32 characters long.
+*Q: My token is rejected with "Expired".* +
+A: Check your system clock. Ensure `JWT_SECRET` is at least 32 characters.
 
----
+'''
 
-## Chapter 15: Glossary of Terms
+== Chapter 15: Glossary
 
-| Term | Definition |
-|------|------------|
-| **Functional Core (FC)** | The part of your code that contains pure functions and business logic. |
-| **Imperative Shell (IS)** | The part of your code that handles side effects (I/O, DB, HTTP). |
-| **Integrant** | A micro-framework for data-driven system configuration and lifecycle management. |
-| **Aero** | A small library for configuring Clojure applications using EDN files. |
-| **Malli** | A high-performance data validation and specification library for Clojure. |
-| **Port** | A Clojure Protocol defining an interface (the "what"). |
-| **Adapter** | A record implementing a Protocol (the "how" for a specific technology). |
-| **Interceptor** | A function that can intercept the request/response flow (middleware). |
-| **Uberjar** | A single JAR file containing an application and all its dependencies. |
-| **Hiccup** | A library for representing HTML as Clojure data structures (vectors and maps). |
-| **HTMX** | A library that allows you to access AJAX, CSS Transitions, WebSockets and Server Sent Events directly in HTML. |
+[cols="1,3", options="header"]
+|===
+|Term |Definition
 
----
+|*Functional Core (FC)*
+|Pure functions and business logic with no side effects.
 
-## Chapter 16: Appendix - Common Pitfalls & Anti-Patterns
+|*Imperative Shell (IS)*
+|The layer that handles I/O: database, HTTP, logging.
 
-As you grow with Boundary, keep an eye out for these common "gotchas" that can lead to messy codebases.
+|*Integrant*
+|Micro-framework for data-driven system lifecycle management.
 
-### 1. Putting I/O in the Core
-**The Mistake:**
-```clojure
-;; ❌ BAD - Core function calling the database
+|*Aero*
+|Configuration library for EDN files with environment-aware tags.
+
+|*Malli*
+|High-performance data validation and specification library.
+
+|*Port*
+|A Clojure Protocol defining an interface (the "what").
+
+|*Adapter*
+|A record implementing a Protocol for a specific technology.
+
+|*Interceptor*
+|A function that intercepts the request/response flow.
+
+|*Uberjar*
+|Single JAR file containing an application and all dependencies.
+
+|*Hiccup*
+|HTML represented as Clojure vectors and maps.
+
+|*HTMX*
+|Library for AJAX, CSS transitions, and WebSockets via HTML attributes.
+|===
+
+'''
+
+== Chapter 16: Common Pitfalls
+
+=== 1. Putting I/O in the Core
+
+[source,clojure]
+----
+;; WRONG — core function calling the database
 (ns boundary.task.core.task
-  (:require [boundary.task.shell.persistence :as db]))
+  (:require [boundary.task.shell.persistence :as db]))  ; <-- never import shell
 
 (defn create-if-valid [data]
   (if (valid? data)
-    (db/save data)
+    (db/save data)   ; <-- side effect in core
     (throw ...)))
-```bash
-**The Fix:**
-Core should only return data. Let the Shell decide what to do with that data (e.g., save it).
-
-### 2. Snake_case in Clojure
-**The Mistake:**
-```clojure
-;; ❌ BAD - Using snake_case for keys
-{:user_id "123" :first_name "John"}
 ----
 
-*The Fix:* Always use `kebab-case` internally. Convert to `snake++_++case` only at the database boundary or `camelCase` at the API boundary using Boundary’s built-in utilities.
+Core should return data only. The Shell decides what to do with that data.
 
-==== 3. Ignoring the REPL
+=== 2. snake_case in Clojure Code
 
-*The Mistake:* Making changes and then running `clojure -M:test` or restarting the whole app to see them. *The Fix:* Keep your REPL connected. Evaluate individual functions (Cmd{plus}Enter in Calva). Use `(ig-repl/reset)` to pick up configuration changes. This is the "`Clojure Way`" and will make you 10x faster.
+[source,clojure]
+----
+;; WRONG — snake_case in Clojure
+{:user_id "123" :first_name "John"}
 
-==== 4. Oversized Modules
+;; CORRECT — always kebab-case internally
+{:user-id "123" :first-name "John"}
+----
 
-*The Mistake:* Putting everything into a single `task` module—including user management, storage, and notifications. *The Fix:* Follow the Single Responsibility Principle. If it’s a different domain entity with different business rules, it probably belongs in its own module.
+Convert to `snake_case` only at the database boundary and `camelCase` only at the API boundary, using `boundary.shared.core.utils.case-conversion`.
 
-'''''
+=== 3. Ignoring the REPL
 
-=== Chapter 17: Community & Contribution
+Don't restart the whole app to see changes. Keep your REPL connected, evaluate individual functions with Cmd+Enter (Calva), and use `(ig-repl/reset)` for configuration changes.
 
-Boundary is an evolving framework, and we welcome your input!
+=== 4. Oversized Modules
 
-==== How to Contribute
+If a module handles user management, storage, *and* notifications, it's doing too much. Follow the Single Responsibility Principle — different domain entities belong in separate modules.
 
-[arabic]
-. *Report Bugs*: Open an issue on GitHub if you find something broken.
-. *Improve Docs*: Submit a PR if you find a typo or want to clarify a section.
-. *Build Modules*: Share the reusable modules you build with the community.
+'''
 
-==== Final words
+== See also
 
-You are now equipped to build sophisticated, high-performance web applications with Clojure. Remember: *Keep your core pure, your shell thin, and your boundaries clean.*
-
-*Happy Coding with Boundary!* 🚀
-
-'''''
-
-=== See also
-
-* link:quickstart.md[Quickstart Guide] - Get started in 5 minutes
-* link:../guides/authentication.md[Authentication Guide] - JWT auth, sessions, and MFA
-* link:../guides/testing.md[Testing Guide] - Testing strategies and best practices
-* link:../guides/admin-testing.md[Admin Testing] - Testing the admin UI
-* link:../guides/database-setup.md[Database Setup] - PostgreSQL configuration
+* link:quickstart[Quickstart Guide] — Get started in 5 minutes
+* link:../guides/authentication[Authentication Guide] — JWT auth, sessions, and MFA
+* link:../guides/testing[Testing Guide] — Testing strategies and best practices
+* link:../guides/database-setup[Database Setup] — PostgreSQL configuration

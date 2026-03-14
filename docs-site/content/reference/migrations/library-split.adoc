@@ -349,6 +349,6 @@ bb scripts/docs_lint.clj  # Runs the docs linter
 [[related-documentation]]
 == Related Documentation
 
-* link:../repo-structure.adoc[Repository Structure] - Current canonical structure
-* link:../development-commands.adoc[Development Commands] - Current command reference
-* link:../../architecture/overview.adoc[Architecture Overview] - FC/IS patterns (note: diagrams show pre-split paths)
+* Repository Structure - Current canonical structure
+* Development Commands - Current command reference
+* link:../../architecture/overview[Architecture Overview] - FC/IS patterns (note: diagrams show pre-split paths)

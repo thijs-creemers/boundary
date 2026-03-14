@@ -25,7 +25,7 @@ Welcome to Boundary Framework! This section provides a structured learning path 
 
 Follow these guides in order to master Boundary Framework:
 
-=== 1. link:../guides/quickstart[5-Minute Quickstart]
+=== 1. link:quickstart[5-Minute Quickstart]
 
 *Time:* 5 minutes +
 *Goal:* Get Boundary running on your machine
@@ -98,7 +98,7 @@ Already familiar with Clojure frameworks? Jump directly to:
 . link:../architecture/overview[Architecture Overview] - High-level design
 . link:../guides/ports-and-adapters[Ports and Adapters] - Hexagonal architecture
 . link:../guides/modules-and-ownership[Module Structure] - Module organization
-. link:../architecture/interceptors[HTTP Interceptors] - Request/response middleware
+. link:../architecture/middleware-architecture[HTTP Interceptors] - Request/response middleware
 
 === Feature-First Path
 
@@ -176,7 +176,7 @@ See the link:../#quick-comparison[homepage comparison tables] for more details.
 * link:../architecture/[Architecture] - Design principles and patterns
 * link:../guides/[Guides] - Step-by-step tutorials
 * link:../reference/[Reference] - API and configuration reference
-* link:../adr/[ADR] - Architecture decision records
+* ADR - Architecture decision records
 
 === Community
 
@@ -189,11 +189,11 @@ See the link:../#quick-comparison[homepage comparison tables] for more details.
 Boundary is open source and welcomes contributions!
 
 * *Code:* Submit pull requests to the https://github.com/thijs-creemers/boundary[main repository]
-* *Documentation:* Improve docs in the link:../../docs-site/[docs-site/] directory
+* *Documentation:* Improve docs in the docs-site/ directory
 * *Examples:* Share your projects and modules
 
 '''''
 
 == Ready to Start?
 
-Begin with the link:../guides/quickstart[5-Minute Quickstart] →
+Begin with the link:quickstart[5-Minute Quickstart] →

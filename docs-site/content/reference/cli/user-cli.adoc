@@ -730,8 +730,8 @@ This separation ensures:
 [[_see_also]]
 === link:#_see_also[]11. See Also
 
-* link:../architecture/overview.adoc[Boundary Architecture Overview]
-* link:../boundary.prd.adoc[Product Requirements Document]
-* link:https://github.com/thijs-creemers/boundary/blob/main/AGENTS.md[Boundary Developer Guide]
+* link:../architecture/overview[Boundary Architecture Overview]
+* Product Requirements Document
+* link:https://github.com/thijs-creemers/boundary/blob/main/AGENTS[Boundary Developer Guide]
 
 _Last updated: 2025-10-30_

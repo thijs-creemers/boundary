@@ -107,7 +107,7 @@ At runtime, `platform` composes modules via Integrant wiring. Interfaces (HTTP/C
 
 == Related Docs
 
-* link:layer-separation.adoc[Layer Separation]
-* link:components.adoc[Component Architecture]
-* link:ports-and-adapters.adoc[Ports and Adapters]
-* link:configuration-and-env.adoc[Configuration and Environment]
+* link:layer-separation[Layer Separation]
+* link:components[Component Architecture]
+* link:ports-and-adapters[Ports and Adapters]
+* link:configuration-and-env[Configuration and Environment]

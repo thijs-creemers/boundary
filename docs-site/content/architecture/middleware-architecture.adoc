@@ -1,3 +1,9 @@
+---
+title: "Middleware Architecture"
+weight: 7
+description: "Interceptor layering and route group middleware in Boundary"
+---
+
 = Middleware Architecture and Grouping
 :revdate: 2026-02-24
 
@@ -149,6 +155,6 @@ Use marker middleware in tests to assert execution order.
 
 == Related Docs
 
-* link:integration-patterns.adoc[Integration Patterns]
-* link:error-handling-observability.adoc[Error Handling & Observability]
-* link:components.adoc[Component Architecture]
+* link:integration-patterns[Integration Patterns]
+* link:error-handling-observability[Error Handling & Observability]
+* link:components[Component Architecture]

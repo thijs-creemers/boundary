@@ -76,10 +76,11 @@ curl -X POST http://localhost:3000/api/users \
     "name": "Jane Doe",
     "role": "user"
   }'
-```text
-
+[source,text]
+----
 **Response (201 Created):**
-```json
+[source,json]
+----
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
   "email": "user@example.com",
@@ -88,25 +89,27 @@ curl -X POST http://localhost:3000/api/users \
   "active": true,
   "createdAt": "2026-01-26T10:00:00Z"
 }
-```bash
-
-### User Login
+[source,bash]
+----
+=== User Login
 
 The login process authenticates credentials and returns both a JWT token (for API access) and a Session ID.
 
 **API Example: Login**
 
-```bash
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
     "password": "SecureP@ss123!"
   }'
-```text
-
+[source,text]
+----
 **Response (200 OK):**
-```json
+[source,json]
+----
 {
   "success": true,
   "jwt-token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -119,9 +122,9 @@ curl -X POST http://localhost:3000/api/auth/login \
     "mfa-enabled": false
   }
 }
-```bash
-
-### Token Lifecycle
+[source,bash]
+----
+=== Token Lifecycle
 
 -   **Signature**: Tokens are signed using `HS256` with the `JWT_SECRET` environment variable.
 -   **Claims**: Standard claims include `sub` (user ID), `email`, `role`, `iat` (issued at), and `exp` (expiration).
@@ -129,35 +132,36 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 ---
 
-## Session Management
+== Session Management
 
 Boundary implements stateful session management to provide features that stateless JWTs cannot easily support.
 
-### Session Lifecycle
+=== Session Lifecycle
 
 1.  **Creation**: A session is created in the database upon successful login.
 2.  **Tracking**: Each session tracks the user's IP address, user agent, and last access time.
 3.  **Validation**: Every request using a session token is validated against the database.
 4.  **Revocation**: Sessions can be revoked individually or all at once (e.g., when a user changes their password).
 
-### Logout
+=== Logout
 
 Logging out invalidates the session in the database, rendering the corresponding JWT/Session Token useless for future requests.
 
 **API Example: Logout**
 
-```bash
+[source,bash]
+----
 curl -X DELETE http://localhost:3000/api/sessions/550e8400-e29b-41d4-a716-446655440000 \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```bash
-
+[source,bash]
+----
 ---
 
-## Multi-Factor Authentication (MFA)
+== Multi-Factor Authentication (MFA)
 
 Boundary supports TOTP-based Multi-Factor Authentication for enhanced account security.
 
-### MFA Setup Flow
+=== MFA Setup Flow
 
 1.  **Initiate Setup**: The user requests MFA setup. The server generates a unique secret and a set of backup codes.
 2.  **Scan QR Code**: The user scans the provided QR code URL into their authenticator app.
@@ -165,13 +169,15 @@ Boundary supports TOTP-based Multi-Factor Authentication for enhanced account se
 
 **API Example: Initiate Setup**
 
-```bash
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/auth/mfa/setup \
   -H "Authorization: Bearer <jwt-token>"
-```text
-
+[source,text]
+----
 **Response:**
-```json
+[source,json]
+----
 {
   "secret": "JBSWY3DPEHPK3PXP",
   "qrCodeUrl": "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=...",
@@ -179,9 +185,9 @@ curl -X POST http://localhost:3000/api/auth/mfa/setup \
   "issuer": "Boundary Framework",
   "accountName": "user@example.com"
 }
-```bash
-
-### Enforcing MFA
+[source,bash]
+----
+=== Enforcing MFA
 
 Once MFA is enabled, the login flow becomes a two-step process:
 
@@ -190,7 +196,8 @@ Once MFA is enabled, the login flow becomes a two-step process:
 
 **API Example: Login Step 2**
 
-```bash
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
@@ -198,9 +205,9 @@ curl -X POST http://localhost:3000/api/auth/login \
     "password": "SecureP@ss123!",
     "mfa-code": "123456"
   }'
-```bash
-
-### Backup Codes
+[source,bash]
+----
+=== Backup Codes
 
 Boundary generates 10 single-use backup codes during setup. These codes allow users to regain access if they lose their authenticator device.
 
@@ -212,30 +219,31 @@ For more details, see the [MFA Setup Guide](./mfa-setup.md) and [MFA API Referen
 
 ---
 
-## Role-Based Access Control (RBAC)
+== Role-Based Access Control (RBAC)
 
 Boundary uses a simple but effective role-based access control system.
 
-### Standard Roles
+=== Standard Roles
 
 -   **`:admin`**: Full access to all users and system settings.
 -   **`:user`**: Standard access to their own profile and resources.
 -   **`:viewer`**: Read-only access to assigned resources.
 
-### Enforcing Roles
+=== Enforcing Roles
 
 Roles are enforced via HTTP interceptors:
 
-```clojure
+[source,clojure]
+----
 ;; Example route definition with role enforcement
 {:path "/api/users"
  :methods {:post {:handler (create-user-handler user-service)
                   :interceptors ['boundary.user.shell.http-interceptors/require-admin]}}}
-```bash
-
+[source,bash]
+----
 ---
 
-## Security Best Practices
+== Security Best Practices
 
 To maintain a secure Boundary application, follow these guidelines:
 
@@ -249,33 +257,38 @@ To maintain a secure Boundary application, follow these guidelines:
 
 ---
 
-## API Examples
+== API Examples
 
-### Complete Authentication Workflow
+=== Complete Authentication Workflow
 
-#### 1. Registration
-```bash
+==== 1. Registration
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/users \
   -H "Content-Type: application/json" \
   -d '{"email": "dev@example.com", "password": "Password123!", "name": "Developer", "role": "user"}'
-```bash
-
-#### 2. Initial Login
-```bash
+[source,bash]
+----
+==== 2. Initial Login
+[source,bash]
+----
 curl -i -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email": "dev@example.com", "password": "Password123!"}'
-```bash
+[source,bash]
+----
 *Take note of the `jwt-token` in the response.*
 
-#### 3. Setup MFA
-```bash
+==== 3. Setup MFA
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/auth/mfa/setup \
   -H "Authorization: Bearer <your-jwt-token>"
-```bash
-
-#### 4. Enable MFA
-```bash
+[source,bash]
+----
+==== 4. Enable MFA
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/auth/mfa/enable \
   -H "Authorization: Bearer <your-jwt-token>" \
   -H "Content-Type: application/json" \
@@ -284,10 +297,11 @@ curl -X POST http://localhost:3000/api/auth/mfa/enable \
     "backupCodes": ["CODE1", "CODE2", ...],
     "verificationCode": "123456"
   }'
-```bash
-
-#### 5. Authenticated Login (with MFA)
-```bash
+[source,bash]
+----
+==== 5. Authenticated Login (with MFA)
+[source,bash]
+----
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email": "dev@example.com", "password": "Password123!", "mfa-code": "654321"}'
@@ -327,7 +341,7 @@ TOTP is highly sensitive to time. If your server or user’s device clock is off
 
 == See also
 
-* link:../api/mfa.md[MFA API Reference] - Complete MFA endpoint documentation
-* link:security-setup.md[Security Setup] - Production security configuration
-* link:testing.md[Testing Guide] - Testing authentication and MFA flows
-* link:database-setup.md[Database Setup] - Configure users table and sessions
+* link:../api/mfa[MFA API Reference] - Complete MFA endpoint documentation
+* link:security-setup[Security Setup] - Production security configuration
+* link:testing[Testing Guide] - Testing authentication and MFA flows
+* link:database-setup[Database Setup] - Configure users table and sessions

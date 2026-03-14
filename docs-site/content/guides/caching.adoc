@@ -1,6 +1,6 @@
 ---
 title: "Distributed Caching"
-weight: 60
+weight: 41
 ---
 
 = Distributed Caching
@@ -829,9 +829,9 @@ redis-cli CONFIG SET maxmemory-policy allkeys-lru
 
 == Next Steps
 
-* *link:../background-jobs/[Background Jobs Guide]* - Use caching for job deduplication
-* *link:../pagination/[API Pagination]* - Cache paginated results
-* *link:../integrate-observability/[Observability]* - Monitor cache hit rates and performance
+* *link:background-jobs[Background Jobs Guide]* - Use caching for job deduplication
+* *link:pagination[API Pagination]* - Cache paginated results
+* *link:integrate-observability[Observability]* - Monitor cache hit rates and performance
 * *https://github.com/thijs-creemers/boundary[GitHub Repository]* - View caching implementation source code
 
 '''''

@@ -38,11 +38,12 @@ curl -X GET "http://localhost:3000/api/users?limit=50"
 
 # Second page
 curl -X GET "http://localhost:3000/api/users?limit=50&offset=50"
-```bash
+[source,bash]
+----
+=== Response format
 
-### Response format
-
-```json
+[source,json]
+----
 {
   "users": [
     {"id": "123...", "email": "user1@example.com", "name": "User 1"},
@@ -59,22 +60,23 @@ curl -X GET "http://localhost:3000/api/users?limit=50&offset=50"
     "pages": 50
   }
 }
-```bash
+[source,bash]
+----
+=== Link headers (RFC 5988)
 
-### Link headers (RFC 5988)
-
-```http
+[source,http]
+----
 Link: </api/users?limit=20&offset=0>; rel="first",
       </api/users?limit=20&offset=20>; rel="next",
       </api/users?limit=20&offset=980>; rel="last",
       </api/users?limit=20&offset=0>; rel="self"
-```text
-
+[source,text]
+----
 ---
 
-## Pagination strategies
+== Pagination strategies
 
-### Offset-based pagination
+=== Offset-based pagination
 
 **When to use:**
 - Small to medium datasets (< 100,000 items)
@@ -90,7 +92,8 @@ Link: </api/users?limit=20&offset=0>; rel="first",
 | `offset` | int | 0 | - | Starting position |
 
 **Example:**
-```bash
+[source,bash]
+----
 # Page 1 (items 0-19)
 GET /api/users?limit=20&offset=0
 
@@ -99,10 +102,11 @@ GET /api/users?limit=20&offset=20
 
 # Page 3 (items 40-59)
 GET /api/users?limit=20&offset=40
-```text
-
+[source,text]
+----
 **Response:**
-```json
+[source,json]
+----
 {
   "users": [...],
   "pagination": {
@@ -116,8 +120,8 @@ GET /api/users?limit=20&offset=40
     "pages": 50
   }
 }
-```bash
-
+[source,bash]
+----
 **Pros:**
 - ✅ Simple to implement and understand
 - ✅ Can jump to any page
@@ -131,7 +135,7 @@ GET /api/users?limit=20&offset=40
 
 ---
 
-### Cursor-Based Pagination
+=== Cursor-Based Pagination
 
 **When to use:**
 - Large datasets (> 100,000 items)
@@ -147,7 +151,8 @@ GET /api/users?limit=20&offset=40
 | `cursor` | string | - | Opaque pagination token |
 
 **Example:**
-```bash
+[source,bash]
+----
 # First page
 GET /api/users?limit=20
 
@@ -156,10 +161,11 @@ GET /api/users?limit=20&cursor=eyJpZCI6MTIzLCJjcmVhdGVkX2F0IjoiMjAyNC0wMS0wMVQwM
 
 # Previous page (use prevCursor from response)
 GET /api/users?limit=20&cursor=eyJpZCI6MTAzLCJjcmVhdGVkX2F0IjoiMjAyMy0xMi0zMVQwMDowMDowMFoifQ==
-```text
-
+[source,text]
+----
 **Response:**
-```json
+[source,json]
+----
 {
   "users": [...],
   "pagination": {
@@ -171,16 +177,17 @@ GET /api/users?limit=20&cursor=eyJpZCI6MTAzLCJjcmVhdGVkX2F0IjoiMjAyMy0xMi0zMVQwM
     "hasPrev": true
   }
 }
-```text
-
+[source,text]
+----
 **Cursor Format** (Base64-encoded JSON):
-```json
+[source,json]
+----
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
   "created_at": "2024-01-01T00:00:00Z"
 }
-```bash
-
+[source,bash]
+----
 **Pros:**
 - ✅ Consistent performance regardless of position
 - ✅ Stable results even if data changes
@@ -194,11 +201,11 @@ GET /api/users?limit=20&cursor=eyJpZCI6MTAzLCJjcmVhdGVkX2F0IjoiMjAyMy0xMi0zMVQwM
 
 ---
 
-## RFC 5988 Link Headers
+== RFC 5988 Link Headers
 
 All paginated responses include RFC 5988 Link headers for navigation:
 
-### Link relations
+=== Link relations
 
 | Relation | Description | Present When |
 |----------|-------------|--------------|
@@ -208,20 +215,22 @@ All paginated responses include RFC 5988 Link headers for navigation:
 | `last` | Last page | Offset pagination only |
 | `self` | Current page | Always |
 
-### Example header
+=== Example header
 
-```http
+[source,http]
+----
 Link: </api/users?limit=20&offset=0>; rel="first",
       </api/users?limit=20&offset=0>; rel="prev",
       </api/users?limit=20&offset=40>; rel="next",
       </api/users?limit=20&offset=980>; rel="last",
       </api/users?limit=20&offset=20>; rel="self"
-```bash
-
-### Parsing link headers
+[source,bash]
+----
+=== Parsing link headers
 
 **JavaScript:**
-```javascript
+[source,javascript]
+----
 function parseLink(linkHeader) {
   const links = {};
   linkHeader.split(',').forEach(part => {
@@ -236,19 +245,21 @@ function parseLink(linkHeader) {
 // Usage
 const links = parseLink(response.headers.get('Link'));
 const nextUrl = links.next; // "/api/users?limit=20&offset=40"
-```text
-
+[source,text]
+----
 **Python:**
-```python
+[source,python]
+----
 import requests
 
 response = requests.get('http://localhost:3000/api/users')
 links = response.links
 next_url = links.get('next', {}).get('url')
-```text
-
+[source,text]
+----
 **Clojure:**
-```clojure
+[source,clojure]
+----
 (require '[clj-http.client :as http])
 
 (defn parse-link-header [link-str]
@@ -262,16 +273,17 @@ next_url = links.get('next', {}).get('url')
 (let [response (http/get "http://localhost:3000/api/users")
       links (parse-link-header (get-in response [:headers "link"]))]
   (:next links))
-```bash
-
+[source,bash]
+----
 ---
 
-## Client examples
+== Client examples
 
-### JavaScript (Fetch API)
+=== JavaScript (Fetch API)
 
 **Fetch All Pages (Offset)**:
-```javascript
+[source,javascript]
+----
 async function fetchAllUsers() {
   const allUsers = [];
   let offset = 0;
@@ -291,10 +303,11 @@ async function fetchAllUsers() {
   
   return allUsers;
 }
-```text
-
+[source,text]
+----
 **Fetch All Pages (Cursor)**:
-```javascript
+[source,javascript]
+----
 async function fetchAllUsers() {
   const allUsers = [];
   let cursor = null;
@@ -316,14 +329,15 @@ async function fetchAllUsers() {
   
   return allUsers;
 }
-```bash
-
+[source,bash]
+----
 ---
 
-### Python (requests)
+=== Python (requests)
 
 **Fetch All Pages (Offset)**:
-```python
+[source,python]
+----
 import requests
 
 def fetch_all_users():
@@ -344,10 +358,11 @@ def fetch_all_users():
         offset += limit
     
     return all_users
-```text
-
+[source,text]
+----
 **Using Link Headers**:
-```python
+[source,python]
+----
 def fetch_all_users_with_links():
     base_url = "http://localhost:3000/api/users"
     all_users = []
@@ -363,14 +378,15 @@ def fetch_all_users_with_links():
         url = response.links.get("next", {}).get("url")
     
     return all_users
-```bash
-
+[source,bash]
+----
 ---
 
-### Clojure (clj-http)
+=== Clojure (clj-http)
 
 **Fetch All Pages (Offset)**:
-```clojure
+[source,clojure]
+----
 (require '[clj-http.client :as http])
 
 (defn fetch-all-users
@@ -386,10 +402,11 @@ def fetch_all_users_with_links():
       (if (:hasNext pagination)
         (recur (+ offset limit) limit (concat all-users users))
         (concat all-users users)))))
-```text
-
+[source,text]
+----
 **Using Link Headers**:
-```clojure
+[source,clojure]
+----
 (defn fetch-all-users-with-links
   [base-url]
   (loop [url (str base-url "/api/users")
@@ -402,27 +419,28 @@ def fetch_all_users_with_links():
       (if next-url
         (recur next-url (concat all-users users))
         (concat all-users users)))))
-```bash
-
+[source,bash]
+----
 ---
 
-## Configuration
+== Configuration
 
 **Location**: `resources/conf/dev/config.edn`
 
-```clojure
+[source,clojure]
+----
 {:boundary/pagination
  {:default-limit 20           ; Default items per page
   :max-limit 100              ; Maximum allowed limit
   :default-type :offset       ; :offset or :cursor
   :enable-link-headers true}} ; Include RFC 5988 Link headers
-```bash
-
+[source,bash]
+----
 ---
 
-## Performance guidelines
+== Performance guidelines
 
-### Offset pagination performance
+=== Offset pagination performance
 
 | Dataset Size | Offset Range | Performance | Recommendation |
 |--------------|--------------|-------------|----------------|
@@ -431,7 +449,7 @@ def fetch_all_users_with_links():
 | 10,000 - 100,000 | > 1,000 | Degrading (50-200ms) | ⚠️ Consider cursor |
 | > 100,000 | Any | Slow (> 200ms) | ❌ Use cursor |
 
-### Cursor pagination performance
+=== Cursor pagination performance
 
 | Dataset Size | Position | Performance | Recommendation |
 |--------------|----------|-------------|----------------|
@@ -441,9 +459,9 @@ def fetch_all_users_with_links():
 
 ---
 
-## Best practices
+== Best practices
 
-### 1. Choose the right strategy
+=== 1. Choose the right strategy
 
 **Use Offset Pagination When:**
 - Dataset is small (< 100,000 items)
@@ -457,9 +475,10 @@ def fetch_all_users_with_links():
 - Real-time data feeds
 - Performance is critical
 
-### 2. Set Reasonable Limits
+=== 2. Set Reasonable Limits
 
-```clojure
+[source,clojure]
+----
 ;; Good: Reasonable defaults
 {:default-limit 20
  :max-limit 100}
@@ -467,13 +486,14 @@ def fetch_all_users_with_links():
 ;; Bad: Too large (server overload)
 {:default-limit 1000
  :max-limit 10000}
-```bash
-
-### 3. Cache COUNT(*) Queries
+[source,bash]
+----
+=== 3. Cache COUNT(*) Queries
 
 For offset pagination, cache the total count:
 
-```clojure
+[source,clojure]
+----
 (defn find-users-paginated
   [repository params]
   (let [cached-total (cache/get "users:total")
@@ -484,13 +504,14 @@ For offset pagination, cache the total count:
         users (repository/find-users repository params)]
     {:users users
      :pagination (calculate-offset-pagination total (:offset params) (:limit params))}))
-```bash
-
-### 4. Use Link Headers
+[source,bash]
+----
+=== 4. Use Link Headers
 
 Always respect Link headers in client code:
 
-```javascript
+[source,javascript]
+----
 // Good: Use Link headers for navigation
 const nextUrl = response.links.next;
 fetch(nextUrl);
@@ -498,11 +519,12 @@ fetch(nextUrl);
 // Bad: Manually construct URLs
 const nextOffset = currentOffset + limit;
 fetch(`/api/users?offset=${nextOffset}&limit=${limit}`);
-```bash
+[source,bash]
+----
+=== 5. Validate Parameters
 
-### 5. Validate Parameters
-
-```clojure
+[source,clojure]
+----
 (defn validate-pagination-params
   [{:keys [limit offset] :or {limit 20 offset 0}}]
   (cond
@@ -510,27 +532,28 @@ fetch(`/api/users?offset=${nextOffset}&limit=${limit}`);
     (> limit 100)  {:error "limit must be at most 100"}
     (< offset 0)   {:error "offset must be non-negative"}
     :else          {:valid? true :limit limit :offset offset}))
-```bash
-
+[source,bash]
+----
 ---
 
-## Troubleshooting
+== Troubleshooting
 
-### Problem: Slow Pagination at High Offsets
+=== Problem: Slow Pagination at High Offsets
 
 **Symptom**: Queries take seconds when `offset > 10000`
 
 **Solution**: Switch to cursor pagination
 
-```bash
+[source,bash]
+----
 # Before (slow at high offsets)
 GET /api/users?limit=20&offset=50000
 
 # After (consistently fast)
 GET /api/users?limit=20&cursor=eyJ...
-```bash
-
-### Problem: Inconsistent Results During Pagination
+[source,bash]
+----
+=== Problem: Inconsistent Results During Pagination
 
 **Symptom**: Items appear twice or are skipped during pagination
 
@@ -538,43 +561,46 @@ GET /api/users?limit=20&cursor=eyJ...
 
 **Solution**: Use cursor pagination (stable results)
 
-### Problem: Link Headers Not Appearing
+=== Problem: Link Headers Not Appearing
 
 **Check Configuration**:
-```clojure
+[source,clojure]
+----
 ;; Ensure Link headers are enabled
 {:boundary/pagination
  {:enable-link-headers true}}
-```text
-
+[source,text]
+----
 **Check Middleware**:
-```clojure
+[source,clojure]
+----
 ;; Ensure pagination middleware is applied
 (-> handler
     (wrap-pagination config)
     (wrap-defaults site-defaults))
-```text
-
-### Problem: "Cursor invalid" Error
+[source,text]
+----
+=== Problem: "Cursor invalid" Error
 
 **Cause**: Malformed or expired cursor
 
 **Solution**: Cursors are opaque tokens - always get them from API responses, never construct manually:
 
-```javascript
+[source,javascript]
+----
 // Good: Use cursor from response
 const cursor = data.pagination.nextCursor;
 fetch(`/api/users?cursor=${cursor}`);
 
 // Bad: Construct cursor manually
 const cursor = btoa(JSON.stringify({id: 123})); // Don't do this!
-```bash
-
+[source,bash]
+----
 ---
 
-## API reference
+== API reference
 
-### Pagination query parameters
+=== Pagination query parameters
 ----
 
 GET /api/users?limit=50&offset=100 GET /api/users?limit=50&cursor=eyJ…
@@ -588,10 +614,11 @@ GET /api/users?limit=50&offset=100 GET /api/users?limit=50&cursor=eyJ…
 | `offset` | integer | 0 | - | No | Starting position (offset mode) |
 | `cursor` | string | - | - | No | Pagination token (cursor mode) |
 
-### Response format
+=== Response format
 
 **Offset Pagination Response**:
-```json
+[source,json]
+----
 {
   "data": [...],
   "pagination": {
@@ -605,10 +632,11 @@ GET /api/users?limit=50&offset=100 GET /api/users?limit=50&cursor=eyJ…
     "pages": 50
   }
 }
-```text
-
+[source,text]
+----
 **Cursor Pagination Response**:
-```json
+[source,json]
+----
 {
   "data": [...],
   "pagination": {
@@ -620,17 +648,19 @@ GET /api/users?limit=50&offset=100 GET /api/users?limit=50&cursor=eyJ…
     "hasPrev": false
   }
 }
-```bash
-
-### HTTP Headers
+[source,bash]
+----
+=== HTTP Headers
 
 **Request Headers**:
-```http
+[source,http]
+----
 Accept: application/vnd.boundary.v1+json
-```text
-
+[source,text]
+----
 **Response Headers**:
-```http
+[source,http]
+----
 Link: </api/users?limit=20&offset=20>; rel="next"
 X-API-Version: v1
 ----

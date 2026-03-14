@@ -1,3 +1,9 @@
+---
+title: "Configure Database Connections"
+weight: 10
+description: "Database connection setup for SQLite, PostgreSQL, and H2"
+---
+
 = Configure Database Connections
 
 [[overview]]
@@ -307,5 +313,5 @@ clojure -M:test:db/h2
 
 * {xref-config}[Configuration Reference] - Complete configuration guide
 * {xref-troubleshooting}[Troubleshooting] - Database connection issues
-* link:../../docs/multi-db-usage.adoc[Multi-Database Usage Guide^] - Advanced scenarios
-* link:../../docs/dynamic-driver-loading.adoc[Dynamic Driver Loading^] - How drivers work
+* link:../reference/multi-db-usage[Multi-Database Usage Guide] - Advanced scenarios
+* Dynamic Driver Loading - How drivers work

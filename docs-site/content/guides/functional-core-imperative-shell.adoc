@@ -1,3 +1,9 @@
+---
+title: "Functional Core / Imperative Shell"
+weight: 2
+description: "Detailed guide to the FC/IS architectural pattern in Boundary"
+---
+
 = Functional Core / Imperative Shell
 
 [[fc-is-pattern]]

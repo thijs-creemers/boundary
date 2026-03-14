@@ -1,3 +1,9 @@
+---
+title: "Observability Integration"
+weight: 9
+description: "Adding logging, metrics, and error reporting without polluting core logic"
+---
+
 = Observability Integration Guide
 
 [abstract]
@@ -9,7 +15,7 @@ This guide explains how to add logging, metrics, and error reporting in Boundary
 
 * Audience: backend engineers and module maintainers
 * Scope: integration approach, wiring, environments, and testing
-* Prerequisite: link:error-handling-observability.adoc[Error Handling & Observability]
+* Prerequisite: link:error-handling-observability[Error Handling & Observability]
 
 == Core Principle
 
@@ -144,6 +150,6 @@ Use capturing test doubles for logger/metrics/reporter and assert:
 
 == Related Docs
 
-* link:error-handling-observability.adoc[Error Handling & Observability]
-* link:middleware-architecture.adoc[Middleware Architecture]
-* link:components.adoc[Component Architecture]
+* link:error-handling-observability[Error Handling & Observability]
+* link:middleware-architecture[Middleware Architecture]
+* link:components[Component Architecture]

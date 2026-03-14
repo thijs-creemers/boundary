@@ -1,4 +1,10 @@
-== Validation Developer Guide
+---
+title: "Validation Developer Guide"
+weight: 70
+description: "Developer guide for Malli-based validation in Boundary"
+---
+
+= Validation Developer Guide
 
 [[toc]]
 [[toctitle]]
@@ -727,7 +733,7 @@ Follow these patterns when integrating enhanced validation into modules:
 ....
 ;; After (optional enhanced context)
 (validate-user user-data {:enhanced? enhanced? :context ctx})
-```
+----
 ....
 . *Update error handling to support both formats:* ++```++clojure (defn handle-validation-result ++[++result++]++ (if (:valid? result) ;; Success case unchanged (handle-success (:data result))
 +
@@ -737,7 +743,7 @@ Follow these patterns when integrating enhanced validation into modules:
       (if (map? (first errors))  ; Enhanced format
         (handle-enhanced-errors errors)
         (handle-legacy-errors errors)))))
-```
+----
 ....
 . *Gradually enable in production:* `bash # Start with a small percentage of requests BND++_++DEVEX++_++VALIDATION=true # Enable for all requests when ready `
 
@@ -820,11 +826,11 @@ Follow these patterns when integrating enhanced validation into modules:
 [[_references]]
 === link:#_references[]15. References
 
-* link:error-codes.adoc[Error Code Catalog] - Complete list of error codes and templates
-* link:validation-patterns.adoc[Validation Patterns] - Message style guide and patterns
-* link:adr/ADR-005-validation-devex-foundations.adoc[ADR-005] - Architectural decision record
-* link:implementation/user-module-implementation.adoc[User Module Implementation] - Concrete implementation examples
+* link:error-codes[Error Code Catalog] - Complete list of error codes and templates
+* link:validation-patterns[Validation Patterns] - Message style guide and patterns
+* ADR-005 - Architectural decision record
+* User Module Implementation[User Module Implementation] - Concrete implementation examples
 
 '''''
 
-*For questions or feedback on validation features, see the link:https://github.com/thijs-creemers/boundary/blob/main/AGENTS.md[Developer Guide] or contact the development team.*
+*For questions or feedback on validation features, see the link:https://github.com/thijs-creemers/boundary/blob/main/AGENTS[Developer Guide] or contact the development team.*

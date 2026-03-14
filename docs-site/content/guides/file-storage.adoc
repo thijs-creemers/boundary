@@ -1,6 +1,6 @@
 ---
 title: "File Storage"
-weight: 70
+weight: 43
 ---
 
 = File Storage
@@ -1165,10 +1165,10 @@ aws s3api get-bucket-location --bucket my-bucket
 
 == Next Steps
 
-* *link:./background-jobs.md[Background Jobs Guide]* - Schedule file cleanup and processing tasks
-* *link:./caching.md[Distributed Caching Guide]* - Cache file metadata and signed URLs
-* *link:../reference/storage-api.md[API Reference]* - Complete Storage API documentation
-* *link:../tutorials/module-development.md[Module Development]* - Integrate Storage into your domain modules
+* *link:background-jobs[Background Jobs Guide]* - Schedule file cleanup and processing tasks
+* *link:caching[Distributed Caching Guide]* - Cache file metadata and signed URLs
+* *API Reference]* - Complete Storage API documentation
+* *link:../guides/create-module[Module Development]* - Integrate Storage into your domain modules
 
 '''''
 

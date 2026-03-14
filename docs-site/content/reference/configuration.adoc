@@ -1,3 +1,9 @@
+---
+title: "Configuration Reference"
+weight: 20
+description: "All configuration keys, profiles, and environment variables"
+---
+
 = Configuration Reference
 
 [[overview]]
@@ -441,6 +447,6 @@ clojure -M:repl-clj
 [[learn-more]]
 == Learn More
 
-* link:../how-to/configure-db.adoc[Configure Database]
-* link:../concepts/modules-and-ownership.adoc[Modules and Domain Ownership]
+* link:../guides/configure-db[Configure Database]
+* link:../guides/modules-and-ownership[Modules and Domain Ownership]
 * https://github.com/juxt/aero[Aero Documentation]
