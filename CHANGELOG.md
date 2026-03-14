@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### `boundary-ai` — new library (Phase 19 of Boundary Roadmap)
 - **Multi-provider AI abstraction**: `IAIProvider` protocol in `boundary.ai.ports` with `complete`, `complete-json`, and `provider-name` methods. Implementations: `OllamaProvider` (offline-first, no API key), `AnthropicProvider`, `OpenAIProvider`, `NoOpProvider` (test stub).
 - **Automatic provider fallback**: configure a `:fallback` provider in `:boundary/ai-service`; if the primary fails, the fallback is used transparently.
-- **Feature 1 — NL Scaffolding** (`bb scaffold ai "<description>"`): parses a natural language module description into a validated `ModuleGenerationRequest` spec and delegates to the existing scaffolder pipeline. Preview before confirming.
+- **Feature 1 — NL Scaffolding** (`bb scaffold ai "<description>" [--yes]`): parses a natural language module description into a validated `ModuleGenerationRequest` spec and delegates to the existing scaffolder pipeline. Preview + confirm by default; use `--yes` for non-interactive generation.
 - **Feature 2 — Error Explainer** (`bb ai explain`, `(ai/explain *e)`): reads a Clojure/Boundary stack trace, extracts referenced source files, and returns a structured root-cause + fix-suggestion using framework-specific system prompts.
 - **Feature 3 — Test Generator** (`bb ai gen-tests <file>`): reads a source file, detects test type (`:unit` for `core/`, `:contract` for `adapters/`, `:integration` otherwise), and generates a complete Kaocha-compatible test namespace.
 - **Feature 4 — SQL Copilot** (`bb ai sql "<description>"`, `(ai/sql "...")`): translates a natural language query description into HoneySQL map + explanation + raw SQL preview. Auto-discovers schema context from `schema.clj` files.
@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Integrant component**: `:boundary/ai-service` with `:provider`, `:model`, `:base-url`/`:api-key`, and optional `:fallback` sub-config.
 - **Malli schemas**: `Message`, `AIRequest`, `AIResponse`, `ProviderConfig`, `AIConfig`.
 - **Pure core layer** (`boundary.ai.core.*`): `prompts.clj` (system + user prompt builders for all 5 features), `context.clj` (module name extraction, stack trace parsing, function signature discovery, schema context), `parsing.clj` (JSON response parser, module spec → CLI args converter, SQL + test code extractors).
-- 24 tests, 81 assertions, 0 failures (`^:unit` + `^:integration`).
+- 26 tests, 88 assertions, 0 failures (`^:unit` + `^:integration`).
 - `libs/ai/AGENTS.md`: 7-section developer guide covering provider setup, REPL usage, CLI reference, common pitfalls (8 patterns), testing commands.
 - `libs/ai/deps.edn`: standalone library with `clj-http`, `cheshire`, `malli`, `integrant`, `tools.logging`.
 

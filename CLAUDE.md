@@ -31,7 +31,8 @@ clj-paren-repair <file>
 
 # Scripting (Babashka)
 bb scaffold          # Interactive module scaffolding wizard (generate/new/field/endpoint/adapter)
-bb scaffold ai "product module with name, price, stock"  # NL scaffolding via AI
+bb scaffold ai "product module with name, price, stock"  # NL scaffolding via AI (interactive confirm)
+bb scaffold ai "product module with name, price, stock" --yes  # NL scaffolding via AI (non-interactive)
 bb ai explain --file stacktrace.txt  # Explain Clojure/Boundary error via AI
 bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate test namespace
 bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL description

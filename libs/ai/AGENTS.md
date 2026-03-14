@@ -122,6 +122,7 @@ Require the wiring namespace in your system config loader:
 ```bash
 # NL Scaffolding
 bb scaffold ai "product module with name string, price decimal required"
+bb scaffold ai "product module with name string, price decimal required" --yes
 
 # Error Explainer
 cat stacktrace.txt | bb ai explain

@@ -19,7 +19,7 @@
        :provider :no-op
        :model    effective-model}))
 
-  (complete-json [_ messages opts]
+  (complete-json [_ messages _schema opts]
     (let [effective-model (or (:model opts) model "no-op")]
       {:data     {:no-op true :message-count (count messages)}
        :tokens   0

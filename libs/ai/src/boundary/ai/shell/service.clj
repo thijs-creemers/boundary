@@ -97,7 +97,7 @@
          result       (resolve-provider-json service messages "ModuleSpec" opts)]
      (if (:error result)
        result
-       (parsing/parse-module-spec (pr-str (:data result)))))))
+       (parsing/normalise-module-spec (:data result))))))
 
 ;; =============================================================================
 ;; Feature 2: Error Explainer

@@ -30,6 +30,7 @@
                                               {:role (name role) :content content})
                                             messages)}
                      (:temperature opts) (assoc :temperature (:temperature opts))
+                     (:response-format opts) (assoc :response_format (:response-format opts))
                      (:max-tokens opts)  (assoc :max_tokens (:max-tokens opts)))
         response   (http/post "https://api.openai.com/v1/chat/completions"
                               {:body               (json/generate-string body)

@@ -11,10 +11,11 @@
      sql <description>                         -- SQL copilot
      docs --module <path> --type <type>        -- documentation wizard"
   (:require [boundary.ai.shell.providers.anthropic :as anthropic]
+            [boundary.ai.core.parsing :as parsing]
             [boundary.ai.shell.providers.ollama :as ollama]
             [boundary.ai.shell.providers.openai :as openai]
             [boundary.ai.shell.service :as svc]
-            [cheshire.core :as json]
+            [clojure.java.shell :as sh]
             [clojure.string :as str]
             [clojure.tools.cli :as cli])
   (:gen-class))
@@ -27,6 +28,7 @@
 (defn- green [s] (str "\033[32m" s "\033[0m"))
 (defn- red   [s] (str "\033[31m" s "\033[0m"))
 (defn- cyan  [s] (str "\033[36m" s "\033[0m"))
+(defn- yellow [s] (str "\033[33m" s "\033[0m"))
 (defn- dim   [s] (str "\033[2m"  s "\033[0m"))
 
 ;; =============================================================================
@@ -62,7 +64,16 @@
 
 (def scaffold-ai-opts
   [["-r" "--root ROOT" "Project root" :default "."]
+   ["-y" "--yes" "Skip confirmation and generate immediately"]
    ["-h" "--help"]])
+
+(defn- confirm?
+  "Prompt for yes/no confirmation. Enter defaults to yes."
+  [label]
+  (print (str label " [Y/n]: "))
+  (flush)
+  (let [input (-> (or (read-line) "") str/trim str/lower-case)]
+    (or (empty? input) (= input "y") (= input "yes"))))
 
 (defn cmd-scaffold-ai [args]
   (let [{:keys [options arguments]} (cli/parse-opts args scaffold-ai-opts)
@@ -92,8 +103,15 @@
                         "  Web: " (if (:web result) (green "\u2713") (red "\u2717"))))
           (println (cyan "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518"))
           (println)
-          ;; Output JSON spec for Babashka to consume
-          (println (json/generate-string result)))))))
+          (if (or (:yes options) (confirm? "Generate this module?"))
+            (let [cli-args (parsing/module-spec->cli-args result)
+                  {:keys [exit out err]} (apply sh/sh "clojure" "-M" "-m"
+                                                "boundary.scaffolder.shell.cli-entry"
+                                                cli-args)]
+              (when (seq out) (print out))
+              (when (seq err) (binding [*out* *err*] (print err)))
+              (System/exit exit))
+            (println (yellow "Cancelled. No files were generated."))))))))
 
 ;; =============================================================================
 ;; Subcommand: explain
@@ -235,7 +253,7 @@
        "  AI_MODEL            \u2192 Override default model\n"
        "\n"
        "For NL scaffolding:\n"
-       "  bb scaffold ai <description>"))
+       "  bb scaffold ai <description> [--yes]"))
 
 (defn -main [& raw-args]
   (let [[sub & rest-args] (vec raw-args)]

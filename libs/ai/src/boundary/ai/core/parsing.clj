@@ -78,6 +78,18 @@
            :http        (boolean (get parsed :http true))
            :web         (boolean (get parsed :web true))})))))
 
+(defn normalise-module-spec
+  "Normalise a provider-parsed module spec map into canonical scaffolder shape.
+
+   Args:
+     module-spec - map parsed from provider JSON mode
+
+   Returns:
+     Normalised map with keyword keys and validated field specs,
+     or {:error str} on failure."
+  [module-spec]
+  (parse-module-spec (json/generate-string module-spec)))
+
 (defn module-spec->cli-args
   "Convert a parsed module spec map into CLI args for the scaffolder.
 

@@ -83,7 +83,8 @@ clojure -M:migrate migrate                         # Run migrations
 
 # Scripting (Babashka)
 bb scaffold                                        # Interactive module scaffolding wizard
-bb scaffold ai "product module with name, price"   # AI-powered NL scaffolding
+bb scaffold ai "product module with name, price"   # AI-powered NL scaffolding (interactive confirm)
+bb scaffold ai "product module with name, price" --yes  # AI-powered NL scaffolding (non-interactive)
 bb ai explain --file stacktrace.txt                # Explain error via AI
 bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate test namespace
 bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL

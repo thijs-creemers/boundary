@@ -74,6 +74,25 @@
       (is (= :fallback (:provider result))))))
 
 ;; =============================================================================
+;; scaffold-from-description tests
+;; =============================================================================
+
+(deftest scaffold-from-description-test
+  ^:integration
+  (testing "returns parsed module spec from provider JSON data"
+    (let [service (ok-service "ignored")
+          result  (svc/scaffold-from-description service "product module with name" ".")]
+      (is (= "product" (:module-name result)))
+      (is (= "Product" (:entity result)))
+      (is (= [{:name "price" :type "decimal" :required true :unique false}]
+             (:fields result)))))
+
+  (testing "returns error map on provider failure"
+    (let [service (error-service)
+          result  (svc/scaffold-from-description service "product module with name" ".")]
+      (is (contains? result :error)))))
+
+;; =============================================================================
 ;; generate-tests tests
 ;; =============================================================================
 

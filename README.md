@@ -138,7 +138,8 @@ clojure -M:migrate up
 
 # Scaffolding
 bb scaffold   # Interactive module wizard
-bb scaffold ai "product module with name, price, stock"  # NL scaffolding via AI
+bb scaffold ai "product module with name, price, stock"  # NL scaffolding via AI (interactive confirm)
+bb scaffold ai "product module with name, price, stock" --yes  # Non-interactive generation
 
 # AI tooling
 bb ai explain --file stacktrace.txt  # Explain error

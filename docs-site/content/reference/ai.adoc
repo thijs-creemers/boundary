@@ -468,7 +468,7 @@ Babashka script: `scripts/ai.clj`
 | `bb ai gen-tests <file>` | Generate tests for a source file (output to stdout)
 | `bb ai sql <description>` | Generate HoneySQL query from description
 | `bb ai docs [--module path] [--type agents\|openapi\|readme]` | Generate documentation
-| `bb scaffold ai <description>` | NL module scaffolding (in `scripts/scaffold.clj`)
+| `bb scaffold ai <description> [--yes]` | NL module scaffolding (`--yes` skips confirmation prompt)
 |===
 
 All CLI commands delegate to `clojure -M -m boundary.ai.shell.cli-entry <subcommand> [args]`.

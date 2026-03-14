@@ -11,6 +11,7 @@
 ;;   bb scaffold field               -- interactive wizard
 ;;   bb scaffold endpoint            -- interactive wizard
 ;;   bb scaffold adapter             -- interactive wizard
+;;   bb scaffold ai "<description>" [--yes] -- AI-assisted module generation
 ;;
 ;; Usage (direct):
 ;;   bb scripts/scaffold.clj generate
@@ -399,15 +400,17 @@
 ;; AI-powered NL scaffolding
 ;; =============================================================================
 
-(defn wizard-ai [description]
+(defn wizard-ai [description yes?]
   (println)
   (println (bold "\u2746 Boundary AI Scaffolder \u2014 Natural Language Module Generation"))
   (println)
   (println (dim (str "Parsing: " description)))
   (println)
-  ;; Delegate to the AI CLI which outputs a JSON spec + preview, then asks to proceed
+  ;; Delegate to the AI CLI which previews, confirms, and runs scaffolder generation.
   (try
-    (shell "clojure" "-M" "-m" "boundary.ai.shell.cli-entry" "scaffold-ai" description)
+    (if yes?
+      (shell "clojure" "-M" "-m" "boundary.ai.shell.cli-entry" "scaffold-ai" "--yes" description)
+      (shell "clojure" "-M" "-m" "boundary.ai.shell.cli-entry" "scaffold-ai" description))
     (catch Exception e
       (println (red (str "AI scaffolder exited with error: " (.getMessage e))))
       (System/exit 1))))
@@ -426,7 +429,7 @@
        "  bb scaffold field               Interactive wizard for adding a field\n"
        "  bb scaffold endpoint            Interactive wizard for adding an endpoint\n"
        "  bb scaffold adapter             Interactive wizard for adding an adapter\n"
-       "  bb scaffold ai <description>    AI-powered module generation from NL description\n"
+       "  bb scaffold ai <description> [--yes]    AI-powered module generation from NL description\n"
        "\n"
        "Non-interactive passthrough (when args are provided directly):\n"
        "  bb scaffold generate --module-name foo --entity Foo --field bar:string\n"
@@ -480,9 +483,12 @@
         (wizard-adapter))
 
       (= sub "ai")
-      (let [description (str/join " " rest-args)]
+      (let [yes?        (boolean (some #{"--yes" "-y"} rest-args))
+            description (->> rest-args
+                             (remove #{"--yes" "-y"})
+                             (str/join " "))]
         (if (seq description)
-          (wizard-ai description)
+          (wizard-ai description yes?)
           (do (println (red "Please provide a module description."))
               (println "  Example: bb scaffold ai \"product module with name, price, stock\""))))
 

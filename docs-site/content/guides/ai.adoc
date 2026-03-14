@@ -18,6 +18,9 @@ What makes it *framework-aware* is that every prompt is pre-loaded with Boundary
 # Natural language scaffolding
 bb scaffold ai "product module with name string required, price decimal required, stock integer"
 
+# Skip confirmation and generate immediately
+bb scaffold ai "product module with name string required, price decimal required, stock integer" --yes
+
 # Explain the last exception in your REPL
 bb ai explain < stacktrace.txt
 
@@ -74,6 +77,7 @@ bb scaffold ai "product module with name string required, sku string required un
 ----
 
 The AI returns a module spec, shows you a preview (identical to the interactive wizard summary), and asks for confirmation before writing any files.
+If you want non-interactive mode (for scripts/CI), pass `--yes` to skip the confirmation prompt.
 
 [source]
 ----
