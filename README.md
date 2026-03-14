@@ -6,7 +6,7 @@
 
 ## Why Boundary?
 
-**For developers:** 18 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
+**For developers:** 19 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
 
 **Ship faster:** The scaffolder generates production-ready modules (entity + routes + tests) in seconds. The admin UI auto-generates CRUD interfaces from your schema — no manual forms. Built-in observability, RFC 5988 pagination, and declarative interceptors mean you write business logic, not plumbing.
 
@@ -14,26 +14,49 @@
 
 ---
 
-## Quick Start
+## Install Prerequisites
 
-Get started in three commands using the [boundary-starter](https://github.com/thijs-creemers/boundary-starter) template:
+You need `curl`, `tar`, and Babashka (`bb`) for starter bootstrap.
 
+**macOS**
 ```bash
-git clone https://github.com/thijs-creemers/boundary-starter
-cd boundary-starter
-
-export JWT_SECRET="change-me-dev-secret-min-32-chars"
-export BND_ENV="development"
-
-clojure -M:repl-clj
+brew install babashka
+# curl and tar are preinstalled on macOS
 ```
 
-Then in the REPL:
+**Linux (Debian/Ubuntu)**
+```bash
+sudo apt-get update
+sudo apt-get install -y curl tar
+bash < <(curl -s https://raw.githubusercontent.com/babashka/babashka/master/install)
+```
 
-```clojure
-(require '[integrant.repl :as ig-repl])
-(ig-repl/go)
-;; Visit http://localhost:3000
+**Windows (PowerShell + Scoop)**
+```powershell
+scoop install curl tar babashka
+```
+
+---
+
+## Quick Start
+
+Get started with your Boundary project.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/starter/scripts/bootstrap.sh | bash
+cd boundary-starter
+
+bb setup
+```
+
+This downloads only starter essentials into `boundary-starter/`.
+
+If you prefer to use the full repository, from the repo root:
+
+```bash
+export JWT_SECRET="change-me-dev-secret-min-32-chars"
+export BND_ENV="development"
+clojure -M:repl-clj
 ```
 
 You get: SQLite database (zero-config), HTTP server on port 3000, a complete Integrant system, REPL-driven development, and a production-ready Dockerfile.
@@ -54,7 +77,7 @@ Each library also has its own `AGENTS.md` with library-specific documentation.
 
 ## Libraries
 
-Boundary is a monorepo of **18 independently publishable libraries**:
+Boundary is a monorepo of **19 independently publishable libraries**:
 
 | Library | Description |
 |---------|-------------|
@@ -76,6 +99,7 @@ Boundary is a monorepo of **18 independently publishable libraries**:
 | [workflow](libs/workflow/) | Declarative state machine workflows with audit trail |
 | [search](libs/search/) | Full-text search: PostgreSQL FTS with LIKE fallback for H2/SQLite |
 | [geo](libs/geo/) | Geocoding (OSM/Google/Mapbox), DB cache, Haversine distance |
+| [ai](libs/ai/) | Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard |
 
 ---
 
@@ -137,6 +161,14 @@ clojure -M:migrate up
 
 # Scaffolding
 bb scaffold   # Interactive module wizard
+bb scaffold ai "product module with name, price, stock"  # NL scaffolding via AI (interactive confirm)
+bb scaffold ai "product module with name, price, stock" --yes  # Non-interactive generation
+
+# AI tooling
+bb ai explain --file stacktrace.txt  # Explain error
+bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate tests
+bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL
+bb ai docs --module libs/user --type agents                       # Generate AGENTS.md
 ```
 
 See [AGENTS.md](./AGENTS.md) for the complete command reference, common pitfalls, and debugging strategies.

@@ -308,6 +308,20 @@ jobs:
       - name: Wait for Clojars indexing (calendar)
         run: sleep 30
 
+      - name: Publish boundary-ai
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-ai..."
+          cd libs/ai
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-ai published"
+
+      - name: Wait for Clojars indexing (ai)
+        run: sleep 30
+
       # ===========================================================================
       # LAYER 5: Admin (depends on user)
       # ===========================================================================
@@ -337,7 +351,7 @@ jobs:
           body: |
             ## Boundary Framework v${{ steps.version.outputs.version }}
 
-            All 18 libraries published to Clojars:
+            All 19 libraries published to Clojars:
 
             - [boundary-core](https://clojars.org/org.boundary-app/boundary-core)
             - [boundary-observability](https://clojars.org/org.boundary-app/boundary-observability)
@@ -357,6 +371,7 @@ jobs:
             - [boundary-reports](https://clojars.org/org.boundary-app/boundary-reports)
             - [boundary-calendar](https://clojars.org/org.boundary-app/boundary-calendar)
             - [boundary-geo](https://clojars.org/org.boundary-app/boundary-geo)
+            - [boundary-ai](https://clojars.org/org.boundary-app/boundary-ai)
             
             ### Installation
             
@@ -372,7 +387,7 @@ jobs:
         run: |
           echo "# ✅ Publish Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "All 18 libraries published to Clojars:" >> $GITHUB_STEP_SUMMARY
+          echo "All 19 libraries published to Clojars:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Library | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
@@ -394,6 +409,7 @@ jobs:
           echo "| boundary-reports | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "| boundary-calendar | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "| boundary-geo | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-ai | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Version: **${{ steps.version.outputs.version }}**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

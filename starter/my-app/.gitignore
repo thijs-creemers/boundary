@@ -1,0 +1,36 @@
+# Clojure
+.cpcache/
+.nrepl-port
+target/
+*.class
+*.jar
+!project.jar
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.lsp/
+.clj-kondo/.cache/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+dev-database.db
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+pom.xml
+pom.xml.asc
