@@ -449,6 +449,36 @@ ALTER TABLE users ADD COLUMN lockout_until TEXT;
 (.toString my-object)
 (.getSeconds duration)
 (.format instant formatter)
+```
+
+### 9. Module API Routes — Wrong Format (Reitit Vectors vs Normalized Maps)
+
+**Problem**: Module `shell/http.clj` files return Reitit-style route vectors instead of the normalized map format expected by the platform wiring. Causes `IllegalArgumentException: Key must be integer` on `(ig-repl/go)`.
+
+**Symptom**:
+```
+Execution error (IllegalArgumentException) at boundary.platform.shell.http.versioning/wrap-route-with-version
+Key must be integer
+```
+
+**Root Cause**: The platform's `apply-versioning` calls `(update route :path ...)`. This works on maps but throws on vectors, because `update` on a Clojure vector requires an integer index, not a keyword.
+
+```clojure
+;; ❌ WRONG - Reitit-style tuple (do NOT use for module :api routes)
+(defn my-routes [svc]
+  [["/api/my-resource"
+    {:get {:handler (fn [req] ...)}}]])
+
+;; ✅ CORRECT - Normalized map format
+(defn my-routes [svc]
+  [{:path    "/my-resource"   ; NO /api prefix — versioning adds /api/v1
+    :methods {:get {:handler (fn [req] ...)
+                    :summary "..."}}}])
+```
+
+**Two rules to remember**:
+1. API routes in `shell/http.clj` MUST be vectors of maps `[{:path "..." :methods {...}}]`, not Reitit vectors.
+2. Paths must NOT include the `/api` prefix. The platform's versioning middleware adds `/api/v1` automatically. Including it produces double-prefixed routes (`/api/v1/api/my-resource`).
 
 ;; Static fields (ClassName/FIELD)
 java.time.temporal.ChronoUnit/DAYS

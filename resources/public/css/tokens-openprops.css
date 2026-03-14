@@ -15,21 +15,21 @@
    - Surfaces: --surface-0 (base), --surface-1 (cards), --surface-2 (elevated)
    - Text: --text-primary (body), --text-muted (labels), --text-faint (disabled)
    
-   CDN SOURCE: unpkg.com/open-props@1.7.23
+   OPEN PROPS: v1.7.23 (vendored at ./vendor/open-props/)
    ============================================================================= */
 
 /* --------------------------------------------------------------------------
-   OPEN PROPS IMPORTS (4.0 kB total)
+   OPEN PROPS IMPORTS (vendored — no CDN dependency)
    Core modules for color system, shadows, gradients, animations
    -------------------------------------------------------------------------- */
 
-@import "https://unpkg.com/open-props@1.7.23/colors.min.css";
-@import "https://unpkg.com/open-props@1.7.23/shadows.min.css";
-@import "https://unpkg.com/open-props@1.7.23/gradients.min.css";
-@import "https://unpkg.com/open-props@1.7.23/animations.min.css";
-@import "https://unpkg.com/open-props@1.7.23/easings.min.css";
-@import "https://unpkg.com/open-props@1.7.23/borders.min.css";
-@import "https://unpkg.com/open-props@1.7.23/sizes.min.css";
+@import "./vendor/open-props/colors.min.css";
+@import "./vendor/open-props/shadows.min.css";
+@import "./vendor/open-props/gradients.min.css";
+@import "./vendor/open-props/animations.min.css";
+@import "./vendor/open-props/easings.min.css";
+@import "./vendor/open-props/borders.min.css";
+@import "./vendor/open-props/sizes.min.css";
 
 /* =============================================================================
    LIGHT MODE (Pastel Variant)
