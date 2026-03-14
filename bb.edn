@@ -16,6 +16,11 @@
              (println "Configured git hooks path: .githooks"))}
 
   scaffold
-  {:doc "Interactive module scaffolding wizard (bb scaffold [generate|new|field|endpoint|adapter])"
+  {:doc "Interactive module scaffolding wizard (bb scaffold [generate|new|field|endpoint|adapter|ai])"
    :task (do (require 'scaffold)
-             (apply (resolve 'scaffold/-main) *command-line-args*))}}}
+             (apply (resolve 'scaffold/-main) *command-line-args*))}
+
+  ai
+  {:doc "Framework-aware AI tooling (bb ai [explain|gen-tests|sql|docs])"
+   :task (do (require 'ai)
+             (apply (resolve 'ai/-main) *command-line-args*))}}}

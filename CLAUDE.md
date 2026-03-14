@@ -31,6 +31,12 @@ clj-paren-repair <file>
 
 # Scripting (Babashka)
 bb scaffold          # Interactive module scaffolding wizard (generate/new/field/endpoint/adapter)
+bb scaffold ai "product module with name, price, stock"  # NL scaffolding via AI (interactive confirm)
+bb scaffold ai "product module with name, price, stock" --yes  # NL scaffolding via AI (non-interactive)
+bb ai explain --file stacktrace.txt  # Explain Clojure/Boundary error via AI
+bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate test namespace
+bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL description
+bb ai docs --module libs/user --type agents                       # Generate AGENTS.md
 bb check-links       # Validate local markdown links in AGENTS.md files
 bb smoke-check       # Verify deps.edn aliases and key tool entrypoints
 bb install-hooks     # Configure git hooks path to .githooks
@@ -39,7 +45,7 @@ bb scripts/docs_lint.clj  # Run documentation drift linter directly
 
 ## Architecture: Functional Core / Imperative Shell
 
-This is a Clojure monorepo with 18 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:
+This is a Clojure monorepo with 19 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:
 
 ```
 libs/{library}/src/boundary/{library}/
@@ -54,7 +60,7 @@ libs/{library}/src/boundary/{library}/
 - Core → Ports (allowed)
 - Core → Shell (NEVER - this violates FC/IS)
 
-**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, workflow, search, reports, calendar, geo
+**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, workflow, search, reports, calendar, geo, ai
 
 The main application source in `src/boundary/` follows the same core/shell structure. The `examples/` directory contains reference applications (ecommerce-api is the most comprehensive).
 
@@ -106,6 +112,7 @@ Each library has its own `AGENTS.md` with library-specific documentation:
 - `libs/reports/AGENTS.md` - `defreport` macro, PDF/CSV export, scheduling
 - `libs/calendar/AGENTS.md` - `defevent` macro, RRULE recurrence, iCal, conflict detection, Hiccup UI
 - `libs/geo/AGENTS.md` - Multi-provider geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
+- `libs/ai/AGENTS.md` - Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
 
 ## Custom Test Reporter
 

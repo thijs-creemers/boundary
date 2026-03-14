@@ -17,7 +17,8 @@
            "libs/search/src" "libs/search/test"              ;; Phase 15: Search
            "libs/reports/src" "libs/reports/test"           ;; Phase 16: Reports
            "libs/calendar/src" "libs/calendar/test"           ;; Phase 17: Calendar
-           "libs/geo/src" "libs/geo/test"]                 ;; Phase 18: Geo
+           "libs/geo/src" "libs/geo/test"                  ;; Phase 18: Geo
+           "libs/ai/src" "libs/ai/test"]                  ;; Phase 19: AI
 
  :deps    {org.clojure/clojure               {:mvn/version "1.12.4"}
            cheshire/cheshire                 {:mvn/version "6.1.0"} ;; process json

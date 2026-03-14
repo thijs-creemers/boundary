@@ -41,6 +41,11 @@
       <sourceFolder url="file://$MODULE_DIR$/libs/reports/test" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/starter/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/starter/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/dev" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/ai/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/ai/test" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/geo/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/geo/test" isTestSource="false" />
     </content>
   </component>
   <component name="BuildSystem">
