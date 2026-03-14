@@ -5,9 +5,7 @@
 
 (ns integration-test
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [clojure.java.io :as io]
-            [clojure.edn :as edn]
-            [clojure.string :as str]))
+            [clojure.java.io :as io]))
 
 ;; Load the modules under test
 (load-file "scripts/helpers.clj")
@@ -18,8 +16,9 @@
 ;; Test Helpers
 ;; =============================================================================
 
-(defn cleanup-integration-env []
+(defn cleanup-integration-env
   "Clean up integration test artifacts"
+  []
   (let [saved-dir (io/file "saved-templates")
         output-dir (io/file "test-output")]
     ;; Remove saved templates
@@ -38,13 +37,15 @@
                                (.delete file))]
         (delete-recursive output-dir)))))
 
-(defn setup-integration-env []
+(defn setup-integration-env
   "Setup integration test environment"
+  []
   (cleanup-integration-env)
   (.mkdir (io/file "test-output")))
 
-(defn teardown-integration-env []
+(defn teardown-integration-env
   "Teardown integration test environment"
+  []
   (cleanup-integration-env))
 
 ;; =============================================================================
@@ -97,22 +98,20 @@
         ;; Save
         (helpers/save-custom-template template-name libs)
 
-        ;; Load
+        ;; Load and generate from loaded libraries
         (let [loaded (helpers/load-saved-template template-name)
-              loaded-libs (set (:libraries loaded))]
+              loaded-libs (set (:libraries loaded))
+              template-config (helpers/generate-custom-template loaded-libs)
+              boundary-libs (set (:boundary-libs template-config))]
+          (is (map? template-config) "Should generate valid config")
+          (is (contains? template-config :boundary-libs) "Should have boundary-libs")
+          (is (contains? template-config :config) "Should have config")
 
-          ;; Generate from loaded libraries
-          (let [template-config (helpers/generate-custom-template loaded-libs)]
-            (is (map? template-config) "Should generate valid config")
-            (is (contains? template-config :boundary-libs) "Should have boundary-libs")
-            (is (contains? template-config :config) "Should have config")
-
-            ;; Check that dependencies are resolved
-            (let [boundary-libs (set (:boundary-libs template-config))]
-              (is (contains? boundary-libs :cache) "Should include cache")
-              (is (contains? boundary-libs :jobs) "Should include jobs")
-              (is (contains? boundary-libs :platform) "Should include platform (dep)")
-              (is (contains? boundary-libs :core) "Should include core (dep)")))))
+          ;; Check that dependencies are resolved
+          (is (contains? boundary-libs :cache) "Should include cache")
+          (is (contains? boundary-libs :jobs) "Should include jobs")
+          (is (contains? boundary-libs :platform) "Should include platform (dep)")
+          (is (contains? boundary-libs :core) "Should include core (dep)")))
       (finally
         (teardown-integration-env)))))
 
@@ -127,23 +126,21 @@
         ;; Save
         (helpers/save-custom-template template-name selected)
 
-        ;; Load
-        (let [loaded (helpers/load-saved-template template-name)]
+        ;; Load and generate - should resolve all dependencies
+        (let [loaded (helpers/load-saved-template template-name)
+              template-config (helpers/generate-custom-template (set (:libraries loaded)))
+              boundary-libs (set (:boundary-libs template-config))]
 
-          ;; Generate - should resolve all dependencies
-          (let [template-config (helpers/generate-custom-template (set (:libraries loaded)))
-                boundary-libs (set (:boundary-libs template-config))]
+          ;; admin → user → platform → observability → core
+          (is (contains? boundary-libs :admin) "Should include admin")
+          (is (contains? boundary-libs :user) "Should include user (dep of admin)")
+          (is (contains? boundary-libs :platform) "Should include platform (dep of user)")
+          (is (contains? boundary-libs :observability) "Should include observability (dep of platform)")
+          (is (contains? boundary-libs :core) "Should include core (dep of observability)")
 
-            ;; admin → user → platform → observability → core
-            (is (contains? boundary-libs :admin) "Should include admin")
-            (is (contains? boundary-libs :user) "Should include user (dep of admin)")
-            (is (contains? boundary-libs :platform) "Should include platform (dep of user)")
-            (is (contains? boundary-libs :observability) "Should include observability (dep of platform)")
-            (is (contains? boundary-libs :core) "Should include core (dep of observability)")
-
-            ;; Config should have sections from dependencies
-            (is (contains? (:config template-config) :admin) "Should have admin config")
-            (is (contains? (:config template-config) :auth) "Should have auth config from user"))))
+          ;; Config should have sections from dependencies
+          (is (contains? (:config template-config) :admin) "Should have admin config")
+          (is (contains? (:config template-config) :auth) "Should have auth config from user")))
       (finally
         (teardown-integration-env)))))
 

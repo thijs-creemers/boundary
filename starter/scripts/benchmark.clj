@@ -5,7 +5,6 @@
 ;;; Sprint 4 Day 18
 
 (require '[clojure.java.io :as io]
-         '[clojure.string :as str]
          '[babashka.process :as process])
 
 (def results (atom []))
@@ -57,7 +56,7 @@
 
     ;; Benchmark template loading
     (doseq [template-name templates]
-      (let [[result elapsed] (measure #(load-fn template-name))]
+      (let [[_result elapsed] (measure #(load-fn template-name))]
         (record-benchmark! "template-loading" (str "load-" template-name) elapsed)
         (println (format "✓ Load %s template: %s" template-name (format-ms elapsed)))))
 
@@ -65,7 +64,7 @@
     (println)
     (doseq [template-name templates]
       (let [template (load-fn template-name)
-            [result elapsed] (measure #(resolve-fn template))]
+            [_result elapsed] (measure #(resolve-fn template))]
         (record-benchmark! "template-resolution" (str "resolve-" template-name) elapsed)
         (println (format "✓ Resolve %s template: %s" template-name (format-ms elapsed)))))))
 
@@ -90,11 +89,11 @@
     (doseq [{:keys [name libs]} templates]
       (let [config (resolve-fn (load-fn name))
             output-path (str temp-dir "/" name)
-            [result elapsed] (measure #(generate-fn
-                                        config
-                                        output-path
-                                        name
-                                        {:db-choice :sqlite}))]
+            [_result elapsed] (measure #(generate-fn
+                                         config
+                                         output-path
+                                         name
+                                         {:db-choice :sqlite}))]
         (record-benchmark! "project-generation"
                            (str "generate-" name)
                            elapsed
@@ -108,27 +107,27 @@
   (println "\n=== Test Execution Benchmarks ===\n")
 
   ;; Run tests via shell (simpler than loading test files)
-  (let [run-test (fn [test-file test-ns test-name]
+  (let [run-test (fn [test-file test-ns]
                    (let [cmd (format "bb -e \"(load-file \\\"%s\\\") (clojure.test/run-tests '%s)\""
                                      test-file test-ns)
                          {:keys [exit out err]} (process/shell {:continue true :out :string :err :string} cmd)]
                      {:exit exit :out out :err err}))]
 
     ;; Unit tests
-    (let [[result elapsed] (measure
-                            #(run-test "test/helpers/helpers_test.clj" "helpers-test" "Unit tests (18 tests)"))]
+    (let [[_result elapsed] (measure
+                             #(run-test "test/helpers/helpers_test.clj" "helpers-test"))]
       (record-benchmark! "test-execution" "unit-tests" elapsed)
       (println (format "✓ Unit tests (18 tests): %s" (format-seconds elapsed))))
 
     ;; Custom template tests
-    (let [[result elapsed] (measure
-                            #(run-test "test/custom_templates/custom_template_test.clj" "custom-template-test" "Custom template tests (24 tests)"))]
+    (let [[_result elapsed] (measure
+                             #(run-test "test/custom_templates/custom_template_test.clj" "custom-template-test"))]
       (record-benchmark! "test-execution" "custom-template-tests" elapsed)
       (println (format "✓ Custom template tests (24 tests): %s" (format-seconds elapsed))))
 
     ;; Integration tests
-    (let [[result elapsed] (measure
-                            #(run-test "test/custom_templates/integration_test.clj" "integration-test" "Integration tests (8 tests)"))]
+    (let [[_result elapsed] (measure
+                             #(run-test "test/custom_templates/integration_test.clj" "integration-test"))]
       (record-benchmark! "test-execution" "integration-tests" elapsed)
       (println (format "✓ Integration tests (8 tests): %s" (format-seconds elapsed))))))
 
@@ -183,7 +182,7 @@
 
     (doseq [category categories]
       (when-let [stats (calculate-stats category)]
-        (println (format "%s:" (str/capitalize (str/replace category "-" " "))))
+        (println (format "%s:" (clojure.string/capitalize (clojure.string/replace category "-" " "))))
         (println (format "  Operations: %d" (:count stats)))
         (println (format "  Total time: %.2f ms" (:total stats)))
         (println (format "  Mean time: %.2f ms" (:mean stats)))

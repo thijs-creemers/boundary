@@ -9,6 +9,8 @@
 ;; Load the modules under test
 (load-file "scripts/helpers.clj")
 (load-file "scripts/library_metadata.clj")
+(require '[helpers :as helpers]
+         '[library-metadata :as library-metadata])
 
 ;; =============================================================================
 ;; Metadata Structure Tests

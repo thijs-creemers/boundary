@@ -21,6 +21,7 @@
 
 ;; Load library metadata for custom template generation
 (load-file "scripts/library_metadata.clj")
+(require '[library-metadata :as library-metadata])
 
 ;; =============================================================================
 ;; Template Loading
@@ -97,8 +98,7 @@
    Priority:
    1. BOUNDARY_REPO_PATH environment variable
    2. Parent directory (if current dir is starter subdirectory)
-   3. Sibling directory (../boundary if starter is standalone)
-   4. Hardcoded fallback (for backward compatibility)"
+   3. Sibling directory (../boundary if starter is standalone)"
   []
   (or (System/getenv "BOUNDARY_REPO_PATH")
       ;; If we're in boundary/starter, parent is the boundary repo
@@ -117,25 +117,24 @@
             boundary-sibling (io/file parent-dir "boundary")]
         (when (and (.exists boundary-sibling)
                    (.exists (io/file boundary-sibling "libs")))  ; Verify it's the boundary repo
-          (.getAbsolutePath boundary-sibling)))
-      ;; Fallback to hardcoded path (original behavior)
-      "/Users/thijscreemers/work/tcbv/boundary"))
+          (.getAbsolutePath boundary-sibling)))))
 
 (defn get-boundary-git-sha
   "Get the current git SHA from the boundary repository.
    Falls back to a known working commit if git command fails.
    Uses BOUNDARY_REPO_PATH environment variable if set."
   []
-  (try
-    (let [boundary-repo-path (get-boundary-repo-path)
-          result (shell/sh "git" "rev-parse" "HEAD" :dir boundary-repo-path)]
-      (if (zero? (:exit result))
-        (str/trim (:out result))
-        ;; Fallback to a known commit from 2026-03-14
+  (if-let [boundary-repo-path (get-boundary-repo-path)]
+    (try
+      (let [result (shell/sh "git" "rev-parse" "HEAD" :dir boundary-repo-path)]
+        (if (zero? (:exit result))
+          (str/trim (:out result))
+          ;; Fallback to a known commit from 2026-03-14
+          "8b1899d8cdb678563cb65b1fc7415905bb787302"))
+      (catch Exception _
+        ;; If anything fails, use fallback
         "8b1899d8cdb678563cb65b1fc7415905bb787302"))
-    (catch Exception _
-      ;; If anything fails, use fallback
-      "8b1899d8cdb678563cb65b1fc7415905bb787302")))
+    "8b1899d8cdb678563cb65b1fc7415905bb787302"))
 
 (defn boundary-lib->dep
   "Convert boundary library keyword to deps.edn dependency entry.
@@ -190,7 +189,7 @@
    - :db-choice - :sqlite, :postgres, or :both (default: from template)"
   ([template] (template->deps-edn template {}))
   ([template {:keys [db-choice] :or {db-choice nil}}]
-   (let [{:keys [dependencies boundary-libs paths aliases db-drivers]} template
+   (let [{:keys [dependencies boundary-libs paths aliases]} template
 
          ;; Convert boundary libs to deps
          boundary-deps (into {} (map boundary-lib->dep boundary-libs))

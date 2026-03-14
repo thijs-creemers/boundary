@@ -11,13 +11,16 @@
 ;; Load the modules under test
 (load-file "scripts/helpers.clj")
 (load-file "scripts/library_metadata.clj")
+(require '[helpers :as helpers]
+         '[library-metadata :as library-metadata])
 
 ;; =============================================================================
 ;; Test Helpers
 ;; =============================================================================
 
-(defn cleanup-test-templates []
+(defn cleanup-test-templates
   "Remove all test templates from saved-templates/"
+  []
   (let [dir (io/file "saved-templates")]
     (when (.exists dir)
       (doseq [file (.listFiles dir)
@@ -27,12 +30,14 @@
         (when-not (= (.getName file) ".gitkeep")
           (.delete file))))))
 
-(defn setup-test-env []
+(defn setup-test-env
   "Setup test environment"
+  []
   (cleanup-test-templates))
 
-(defn teardown-test-env []
+(defn teardown-test-env
   "Cleanup test environment"
+  []
   (cleanup-test-templates))
 
 ;; =============================================================================

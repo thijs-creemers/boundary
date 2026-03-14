@@ -2,7 +2,7 @@
   (:require
     [integrant.core :as ig]
     [reitit.ring :as ring]
-    [hiccup.core :as hiccup]
+    [hiccup2.core :as hiccup]
     [ring.adapter.jetty :as jetty]
     [ring.util.response :as resp]))
 

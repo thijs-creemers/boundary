@@ -13,12 +13,16 @@
 (ns setup
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
-            [clojure.edn :as edn]))
+            [clojure.edn :as edn]
+            [clojure.set :as set]))
 
 ;; Load helper scripts
 (load-file "scripts/helpers.clj")
 (load-file "scripts/file_generators.clj")
 (load-file "scripts/library_metadata.clj")
+(require '[helpers :as helpers]
+         '[file-generators :as file-generators]
+         '[library-metadata :as library-metadata])
 
 ;; =============================================================================
 ;; ANSI Color Helpers
@@ -166,10 +170,10 @@
   (println)
 
   ;; Build lookup table for numbering
-  (let [optional-libs (concat
-                       (library-metadata/get-libraries-by-category :auth)
-                       (library-metadata/get-libraries-by-category :ui)
-                       (sort (library-metadata/get-libraries-by-category :feature)))]
+  (let [_optional-libs (concat
+                        (library-metadata/get-libraries-by-category :auth)
+                        (library-metadata/get-libraries-by-category :ui)
+                        (sort (library-metadata/get-libraries-by-category :feature)))]
 
     ;; Foundation (required, grayed out)
     (println (dim "  Foundation (required):"))
@@ -212,8 +216,9 @@
             (println (str "    " (bold (str num ".")) " " (:name lib) " - " (:description lib)))))
         (println)))))
 
-(defn select-libraries []
+(defn select-libraries
   "Interactive multi-select library picker. Returns set of selected library IDs."
+  []
   (display-library-selection)
 
   (println (bold "Enter library numbers to toggle (space-separated), or 'done' when finished:"))
@@ -281,9 +286,10 @@
                 (recur new-selected))
               (recur selected))))))))
 
-(defn select-libraries-interactive []
+(defn select-libraries-interactive
   "Interactive library selection with dependency resolution and conflict checking.
    Returns map with :selected (user picks) and :resolved (with dependencies)."
+  []
   (loop []
     (let [;; User selection
           selected (select-libraries)
@@ -294,7 +300,7 @@
           resolved (library-metadata/resolve-dependencies selected)
 
           ;; Calculate auto-added
-          auto-added (clojure.set/difference resolved selected (library-metadata/get-required-libraries))
+          auto-added (set/difference resolved selected (library-metadata/get-required-libraries))
 
           ;; Check conflicts
           conflicts (library-metadata/check-conflicts resolved)]
@@ -331,7 +337,7 @@
   (println)
   (println (bold "Available Templates:"))
   (println)
-  (doseq [[idx {:keys [name description features libs use-case]}] (map-indexed vector templates)]
+  (doseq [[idx {:keys [name description libs use-case]}] (map-indexed vector templates)]
     (println (str "  " (bold (str (inc idx) ".")) " " (cyan name) " " (dim (str "(" libs " libraries)"))))
     (println (str "     " description))
     (println (str "     " (dim "Use case: ") use-case))
@@ -376,7 +382,7 @@
   (println (cyan "└────────────────────────────────────────────────────────┘"))
   (println))
 
-(defn display-success [project-name output-dir template-id jwt-secret]
+(defn display-success [output-dir template-id jwt-secret]
   (println)
   (println (green (bold "✓ Project generated successfully!")))
   (println)
@@ -469,7 +475,7 @@
                                   (println (bold "Edit template:"))
                                   (doseq [[idx {:keys [name]}] (map-indexed vector saved)]
                                     (println (str "  " (bold (str (inc idx) ".")) " " (cyan name))))
-                                  (print (str "  Template to edit: "))
+                                  (print "  Template to edit: ")
                                   (flush)
                                   (let [edit-input (str/trim (or (read-line) ""))
                                         edit-choice (try (Integer/parseInt edit-input) (catch Exception _ nil))]
@@ -490,7 +496,7 @@
                                   (println (bold "Duplicate template:"))
                                   (doseq [[idx {:keys [name]}] (map-indexed vector saved)]
                                     (println (str "  " (bold (str (inc idx) ".")) " " (cyan name))))
-                                  (print (str "  Template to duplicate: "))
+                                  (print "  Template to duplicate: ")
                                   (flush)
                                   (let [dup-input (str/trim (or (read-line) ""))
                                         dup-choice (try (Integer/parseInt dup-input) (catch Exception _ nil))]
@@ -499,14 +505,13 @@
                                         (loop []
                                           (let [new-name (prompt "New template name (kebab-case)" nil)]
                                             (if (valid-project-name? new-name)
-                                              (do
-                                                (try
-                                                  (helpers/duplicate-saved-template source-name new-name)
-                                                  (println (green (str "✓ Created '" new-name "' from '" source-name "'")))
-                                                  (recur)
-                                                  (catch Exception e
-                                                    (println (red (str "  Error: " (.getMessage e))))
-                                                    (recur))))
+                                              (try
+                                                (helpers/duplicate-saved-template source-name new-name)
+                                                (println (green (str "✓ Created '" new-name "' from '" source-name "'")))
+                                                (recur)
+                                                (catch Exception e
+                                                  (println (red (str "  Error: " (.getMessage e))))
+                                                  (recur)))
                                               (do
                                                 (println (red "  Must be kebab-case (e.g., my-template)"))
                                                 (recur))))))
@@ -521,7 +526,7 @@
                                   (println (bold "Rename template:"))
                                   (doseq [[idx {:keys [name]}] (map-indexed vector saved)]
                                     (println (str "  " (bold (str (inc idx) ".")) " " (cyan name))))
-                                  (print (str "  Template to rename: "))
+                                  (print "  Template to rename: ")
                                   (flush)
                                   (let [rename-input (str/trim (or (read-line) ""))
                                         rename-choice (try (Integer/parseInt rename-input) (catch Exception _ nil))]
@@ -530,14 +535,13 @@
                                         (loop []
                                           (let [new-name (prompt "New template name (kebab-case)" nil)]
                                             (if (valid-project-name? new-name)
-                                              (do
-                                                (try
-                                                  (helpers/rename-saved-template old-name new-name)
-                                                  (println (green (str "✓ Renamed '" old-name "' to '" new-name "'")))
-                                                  (recur)
-                                                  (catch Exception e
-                                                    (println (red (str "  Error: " (.getMessage e))))
-                                                    (recur))))
+                                              (try
+                                                (helpers/rename-saved-template old-name new-name)
+                                                (println (green (str "✓ Renamed '" old-name "' to '" new-name "'")))
+                                                (recur)
+                                                (catch Exception e
+                                                  (println (red (str "  Error: " (.getMessage e))))
+                                                  (recur)))
                                               (do
                                                 (println (red "  Must be kebab-case (e.g., my-template)"))
                                                 (recur))))))
@@ -553,7 +557,7 @@
                                   (println (bold "Delete saved template:"))
                                   (doseq [[idx {:keys [name]}] (map-indexed vector saved)]
                                     (println (str "  " (bold (str (inc idx) ".")) " " (cyan name))))
-                                  (print (str "  Template to delete: "))
+                                  (print "  Template to delete: ")
                                   (flush)
                                   (let [del-input (str/trim (or (read-line) ""))
                                         del-choice (try (Integer/parseInt del-input) (catch Exception _ nil))]
@@ -637,25 +641,25 @@
         ;; 4. Select Output Directory
         _ (println)
         output-dir (loop []
-                     (let [dir (prompt "Output directory" ".")]
-                       (let [full-path (if (= dir ".")
-                                         (str (System/getProperty "user.dir") "/" project-name)
-                                         (str dir "/" project-name))
-                             dir-file (io/file full-path)]
-                         (cond
-                           (.exists dir-file)
-                           (do
-                             (println (red (str "  Directory already exists: " full-path)))
-                             (if (confirm "  Overwrite?" false)
-                               full-path
-                               (recur)))
+                     (let [dir (prompt "Output directory" ".")
+                           full-path (if (= dir ".")
+                                       (str (System/getProperty "user.dir") "/" project-name)
+                                       (str dir "/" project-name))
+                           dir-file (io/file full-path)]
+                       (cond
+                         (.exists dir-file)
+                         (do
+                           (println (red (str "  Directory already exists: " full-path)))
+                           (if (confirm "  Overwrite?" false)
+                             full-path
+                             (recur)))
 
-                           (not (valid-directory? (.getParent dir-file)))
-                           (do
-                             (println (red "  Parent directory does not exist or is not writable"))
-                             (recur))
+                         (not (valid-directory? (.getParent dir-file)))
+                         (do
+                           (println (red "  Parent directory does not exist or is not writable"))
+                           (recur))
 
-                           :else full-path))))
+                         :else full-path)))
 
         ;; 5. Display Summary
         _ (display-summary project-name template-name db-name output-dir)
@@ -701,7 +705,7 @@
                   readme-path (str output-dir "/README.md")
                   readme-content (slurp readme-path)
                   jwt-secret (second (re-find #"JWT_SECRET=\"([^\"]+)\"" readme-content))]
-              (display-success project-name output-dir template-id jwt-secret))
+              (display-success output-dir template-id jwt-secret))
             (do
               (println)
               (println (red (bold "✗ Project generation failed")))
@@ -907,11 +911,10 @@
                       (println (str "  1. " (bold "cd ") full-path))
                       (println)
                       (when jwt-secret
-                        (do
-                          (println "  2. Set environment variables:")
-                          (println (str "     " (cyan (str "export JWT_SECRET=\"" jwt-secret "\""))))
-                          (println (str "     " (cyan "export BND_ENV=development")))
-                          (println)))
+                        (println "  2. Set environment variables:")
+                        (println (str "     " (cyan (str "export JWT_SECRET=\"" jwt-secret "\""))))
+                        (println (str "     " (cyan "export BND_ENV=development")))
+                        (println))
                       (println "  3. Start the REPL:")
                       (println (str "     " (cyan "clojure -M:repl-clj")))
                       (println)
@@ -926,7 +929,7 @@
                       (println "  - https://github.com/thijs-creemers/boundary")
                       (println))
                     ;; Built-in template - use full display-success
-                    (display-success project-name full-path template-id jwt-secret)))
+                    (display-success full-path template-id jwt-secret)))
                 (do
                   (println)
                   (println (red (bold "✗ Project generation failed")))

@@ -1,5 +1,7 @@
 (ns library-metadata
-  "Metadata for all Boundary libraries - dependencies, conflicts, descriptions")
+  "Metadata for all Boundary libraries - dependencies, conflicts, descriptions"
+  (:require [clojure.set :as set]
+            [clojure.string :as str]))
 
 (def libraries
   {:core
@@ -195,30 +197,35 @@
     :config-sections [:geo]
     :config-template {:geo {:enabled true}}}})
 
-(defn get-all-libraries []
+(defn get-all-libraries
   "Return all library definitions"
+  []
   libraries)
 
-(defn get-library [lib-id]
+(defn get-library
   "Get library metadata by ID"
+  [lib-id]
   (get libraries lib-id))
 
-(defn get-required-libraries []
+(defn get-required-libraries
   "Return list of required library IDs"
+  []
   (->> libraries
        (filter (fn [[_ lib]] (:required lib)))
        (map first)
        set))
 
-(defn get-optional-libraries []
+(defn get-optional-libraries
   "Return list of optional library IDs"
+  []
   (->> libraries
        (filter (fn [[_ lib]] (not (:required lib))))
        (map first)
        set))
 
-(defn get-libraries-by-category [category]
+(defn get-libraries-by-category
   "Get all libraries in a category"
+  [category]
   (->> libraries
        (filter (fn [[_ lib]] (= category (:category lib))))
        (map first)))
@@ -258,8 +265,8 @@
    Shows which libraries were auto-added and highlights them."
   [selected-libs resolved-libs]
   (let [required (get-required-libraries)
-        user-selected (clojure.set/difference selected-libs required)
-        auto-added (clojure.set/difference resolved-libs selected-libs required)
+        user-selected (set/difference selected-libs required)
+        auto-added (set/difference resolved-libs selected-libs required)
 
         ;; Build dependency tree structure
         build-tree (fn build-tree [lib-id indent visited]
@@ -270,7 +277,6 @@
                              is-auto (contains? auto-added lib-id)
                              is-user (contains? user-selected lib-id)
                              is-required (contains? required lib-id)
-                             prefix (str indent (if (empty? indent) "" "├─ "))
                              label (str (:name lib)
                                         (cond
                                           is-user " (selected)"
@@ -294,8 +300,8 @@
    Shows foundation, user-selected, and auto-added libraries."
   [selected-libs resolved-libs]
   (let [required (get-required-libraries)
-        user-selected (clojure.set/difference selected-libs required)
-        auto-added (clojure.set/difference resolved-libs selected-libs required)]
+        user-selected (set/difference selected-libs required)
+        auto-added (set/difference resolved-libs selected-libs required)]
 
     (println)
     (println "Library Summary:")
@@ -330,23 +336,23 @@
   [selected-libs]
   (let [resolved-libs (resolve-dependencies selected-libs)
         required (get-required-libraries)
-        user-selected (clojure.set/difference selected-libs required)
-        auto-added (clojure.set/difference resolved-libs selected-libs required)]
+        user-selected (set/difference selected-libs required)
+        auto-added (set/difference resolved-libs selected-libs required)]
 
     (str
      "Library Summary:\n\n"
      "  Foundation (always included):\n"
-     (clojure.string/join "\n"
+     (str/join "\n"
                           (map #(str "    - " (:name (get-library %))) (sort required)))
      "\n\n"
      (when (seq user-selected)
        (str "  Selected by you:\n"
-            (clojure.string/join "\n"
+            (str/join "\n"
                                  (map #(str "    - " (:name (get-library %))) (sort user-selected)))
             "\n\n"))
      (when (seq auto-added)
        (str "  Auto-added (dependencies):\n"
-            (clojure.string/join "\n"
+            (str/join "\n"
                                  (map #(str "    - " (:name (get-library %))) (sort auto-added)))
             "\n\n"))
      "  Total: " (count resolved-libs) " libraries\n")))
@@ -357,8 +363,8 @@
   [selected-libs]
   (let [resolved-libs (resolve-dependencies selected-libs)
         required (get-required-libraries)
-        user-selected (clojure.set/difference selected-libs required)
-        auto-added (clojure.set/difference resolved-libs selected-libs required)
+        user-selected (set/difference selected-libs required)
+        auto-added (set/difference resolved-libs selected-libs required)
 
         ;; Build dependency tree structure
         build-tree (fn build-tree [lib-id indent visited]
@@ -369,7 +375,6 @@
                              is-auto (contains? auto-added lib-id)
                              is-user (contains? user-selected lib-id)
                              is-required (contains? required lib-id)
-                             prefix (str indent (if (empty? indent) "" "├─ "))
                              label (str (:name lib)
                                         (cond
                                           is-user " (selected)"
@@ -384,5 +389,4 @@
         ;; Start from user-selected libraries
         trees (mapcat #(build-tree % "" #{}) (sort user-selected))]
 
-    (clojure.string/join "\n" (map #(str (:indent %) (:label %)) trees))))
-
+    (str/join "\n" (map #(str (:indent %) (:label %)) trees))))

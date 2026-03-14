@@ -3,11 +3,14 @@
    Tests that all templates can be generated and produce valid files."
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.java.io :as io]
-            [clojure.java.shell :as shell]))
+            [clojure.java.shell :as shell]
+            [clojure.string :as str]))
 
 ;; Load file generators
 (load-file "scripts/file_generators.clj")
 (load-file "scripts/helpers.clj")
+(require '[file-generators :as file-generators]
+         '[helpers :as helpers])
 
 ;; =============================================================================
 ;; Test Fixtures
@@ -15,8 +18,9 @@
 
 (def test-projects-dir "/tmp/boundary-integration-tests")
 
-(defn cleanup-test-dir [f]
+(defn cleanup-test-dir
   "Clean up test directory before and after tests."
+  [f]
   (when (.exists (io/file test-projects-dir))
     (shell/sh "rm" "-rf" test-projects-dir))
   (.mkdirs (io/file test-projects-dir))
@@ -37,7 +41,7 @@
 (defn file-contains? [dir filename pattern]
   (when-let [content (try (slurp (io/file dir filename))
                           (catch Exception _ nil))]
-    (clojure.string/includes? content pattern)))
+    (str/includes? content pattern)))
 
 (defn directory-exists? [dir dirname]
   (let [path (io/file dir dirname)]
@@ -76,8 +80,8 @@
 
       ;; Check deps.edn content
       (is (file-contains? output-dir "deps.edn" "org.clojure/clojure"))
-      (is (file-contains? output-dir "deps.edn" "org.boundary-app/boundary-core"))
-      (is (file-contains? output-dir "deps.edn" "org.boundary-app/boundary-platform"))
+      (is (file-contains? output-dir "deps.edn" "boundary/core"))
+      (is (file-contains? output-dir "deps.edn" "boundary/platform"))
       (is (file-contains? output-dir "deps.edn" "org.xerial/sqlite-jdbc"))
 
       ;; Check config.edn content
@@ -112,8 +116,8 @@
       (is (file-exists? output-dir ".env.example"))
 
       ;; Check deps.edn has web-app libraries
-      (is (file-contains? output-dir "deps.edn" "org.boundary-app/boundary-user"))
-      (is (file-contains? output-dir "deps.edn" "org.boundary-app/boundary-admin"))
+      (is (file-contains? output-dir "deps.edn" "boundary/user"))
+      (is (file-contains? output-dir "deps.edn" "boundary/admin"))
       (is (file-contains? output-dir "deps.edn" "hiccup/hiccup"))
       (is (file-contains? output-dir "deps.edn" "org.postgresql/postgresql"))
       (is (not (file-contains? output-dir "deps.edn" "org.xerial/sqlite-jdbc"))) ;; postgres only
@@ -146,11 +150,11 @@
       (is (file-exists? output-dir "deps.edn"))
 
       ;; Check deps.edn has saas libraries
-      (is (file-contains? output-dir "deps.edn" "org.boundary-app/boundary-storage"))
-      (is (file-contains? output-dir "deps.edn" "org.boundary-app/boundary-cache"))
-      (is (file-contains? output-dir "deps.edn" "org.boundary-app/boundary-jobs"))
-      (is (file-contains? output-dir "deps.edn" "org.boundary-app/boundary-email"))
-      (is (file-contains? output-dir "deps.edn" "org.boundary-app/boundary-tenant"))
+      (is (file-contains? output-dir "deps.edn" "boundary/storage"))
+      (is (file-contains? output-dir "deps.edn" "boundary/cache"))
+      (is (file-contains? output-dir "deps.edn" "boundary/jobs"))
+      (is (file-contains? output-dir "deps.edn" "boundary/email"))
+      (is (file-contains? output-dir "deps.edn" "boundary/tenant"))
 
       ;; Check both database drivers included
       (is (file-contains? output-dir "deps.edn" "org.xerial/sqlite-jdbc"))

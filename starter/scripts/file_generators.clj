@@ -16,11 +16,11 @@
 ;; - generate-project! - Full project generation
 
 (ns file-generators
-  (:require [clojure.java.io :as io]
-            [clojure.string :as str]))
+  (:require [clojure.java.io :as io]))
 
 ;; Load helpers for template processing
 (load-file "scripts/helpers.clj")
+(require '[helpers :as helpers])
 
 ;; =============================================================================
 ;; Directory Structure
@@ -263,6 +263,9 @@ clojure -M:repl-clj
 ---
 
 ## Testing
+
+Generated app tests depend on project libraries (for example Integrant/Reitit).
+If you run tests via `bb -e/load-file`, make sure you include the project classpath, or prefer the Clojure test alias.
 
 ```bash
 # Run all tests

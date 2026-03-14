@@ -3,9 +3,10 @@
 ;; Verification script for generated projects
 ;; Verifies everything that CAN be verified without published Boundary libraries
 
-(require '[clojure.java.io :as io]
-         '[clojure.string :as str]
-         '[clojure.edn :as edn])
+(ns verify-generated-projects
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.string :as str]))
 
 (defn file-exists? [dir filename]
   (.exists (io/file dir filename)))
@@ -105,10 +106,10 @@
       (println (str "  ✅ README mentions template: " template-name)))))
 
 (defn verify-project [project-dir template-name]
-  (println (str "\n" "=" 60))
+  (println (str "\n" (apply str (repeat 60 "="))))
   (println (str "Verifying: " project-dir))
   (println (str "Template: " template-name))
-  (println (str "=" 60))
+  (println (apply str (repeat 60 "=")))
 
   (verify-file-structure project-dir)
 
@@ -122,11 +123,11 @@
 
   (verify-readme-content project-dir template-name)
 
-  (println (str "\n" "=" 60))
+  (println (str "\n" (apply str (repeat 60 "="))))
   (println "✅ Verification complete!")
-  (println (str "=" 60)))
+  (println (apply str (repeat 60 "="))))
 
-(defn -main [& args]
+(defn -main [& _args]
   (println "\n🔬 Generated Project Verification Script")
   (println "Verifying all aspects that don't require published libraries\n")
 
@@ -140,10 +141,10 @@
           (verify-project project-dir template-name)
           (println (str "⚠️  Project not found: " project-dir))))))
 
-  (println "\n" "=" 60)
+  (println "\n" (apply str (repeat 60 "=")))
   (println "📝 Note: Cannot verify REPL loading until Boundary libraries are published")
   (println "All syntactic and structural checks passed ✅")
-  (println (str "=" 60 "\n")))
+  (println (str (apply str (repeat 60 "=")) "\n")))
 
 ;; Run if called as script
 (when (= *file* (System/getProperty "babashka.file"))

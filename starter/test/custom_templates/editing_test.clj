@@ -14,6 +14,7 @@
 
 ;; Load dependencies
 (load-file "scripts/helpers.clj")
+(require '[helpers :as helpers])
 
 ;; Test directory
 (def test-dir "saved-templates")
@@ -22,12 +23,14 @@
 ;; Test Fixtures
 ;; =============================================================================
 
-(defn setup-test-dir []
+(defn setup-test-dir
   "Create test directory if it doesn't exist."
+  []
   (.mkdirs (io/file test-dir)))
 
-(defn cleanup-test-templates []
+(defn cleanup-test-templates
   "Remove all .edn files from saved-templates (keep directory)."
+  []
   (when (.exists (io/file test-dir))
     (doseq [file (.listFiles (io/file test-dir))
             :when (and (.isFile file)

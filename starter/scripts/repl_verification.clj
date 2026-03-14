@@ -10,6 +10,7 @@
 
 (load-file "scripts/helpers.clj")
 (require '[helpers :as h])
+(require '[clojure.string :as str])
 
 (println "╔════════════════════════════════════════════════════════════════╗")
 (println "║  Boundary Template System - REPL Verification                 ║")
@@ -113,22 +114,22 @@
 (println "  Total dependencies:" (count (:deps minimal-deps)))
 (println "  Paths:" (:paths minimal-deps))
 (println "  DB driver: SQLite")
-(println "  Has boundary-core?" (contains? (:deps minimal-deps) 'org.boundary-app/boundary-core))
+(println "  Has boundary-core?" (contains? (:deps minimal-deps) 'boundary/core))
 (println)
 
 (println "web-app deps.edn:")
 (println "  Total dependencies:" (count (:deps web-app-deps)))
 (println "  DB driver: PostgreSQL")
-(println "  Has boundary-user?" (contains? (:deps web-app-deps) 'org.boundary-app/boundary-user))
-(println "  Has boundary-admin?" (contains? (:deps web-app-deps) 'org.boundary-app/boundary-admin))
+(println "  Has boundary-user?" (contains? (:deps web-app-deps) 'boundary/user))
+(println "  Has boundary-admin?" (contains? (:deps web-app-deps) 'boundary/admin))
 (println "  Has hiccup?" (contains? (:deps web-app-deps) 'hiccup/hiccup))
 (println)
 
 (println "saas deps.edn:")
 (println "  Total dependencies:" (count (:deps saas-deps)))
 (println "  DB drivers: Both SQLite and PostgreSQL")
-(println "  Has boundary-storage?" (contains? (:deps saas-deps) 'org.boundary-app/boundary-storage))
-(println "  Has boundary-cache?" (contains? (:deps saas-deps) 'org.boundary-app/boundary-cache))
+(println "  Has boundary-storage?" (contains? (:deps saas-deps) 'boundary/storage))
+(println "  Has boundary-cache?" (contains? (:deps saas-deps) 'boundary/cache))
 (println "  Has redis?" (contains? (:deps saas-deps) 'com.github.mfornos/jedis))
 (println)
 
@@ -150,18 +151,18 @@
 (println)
 
 (println "Aero-formatted output (for file writing):")
-(println "  Contains '#env JWT_SECRET'?" (clojure.string/includes? config-str "#env JWT_SECRET"))
+(println "  Contains '#env JWT_SECRET'?" (str/includes? config-str "#env JWT_SECRET"))
 (println)
 
 (println "Sample output (auth section):")
-(let [lines (clojure.string/split-lines config-str)
+(let [lines (str/split-lines config-str)
       auth-idx (.indexOf (vec lines) " :auth")
       sample (take 5 (drop auth-idx lines))]
   (doseq [line sample]
     (println "  " line)))
 (println)
 
-(assert (clojure.string/includes? config-str "#env JWT_SECRET"))
+(assert (str/includes? config-str "#env JWT_SECRET"))
 (println "✅ Aero tag conversion working")
 (println)
 
@@ -184,13 +185,13 @@
 (println "web-app .env.example:")
 (println "  Length:" (count web-app-env) "chars")
 (println "  Required vars:" (count (get-in web-app-resolved [:env-vars :required])))
-(println "  Contains JWT_SECRET?" (clojure.string/includes? web-app-env "JWT_SECRET="))
+(println "  Contains JWT_SECRET?" (str/includes? web-app-env "JWT_SECRET="))
 (println)
 
 (println "saas .env.example:")
 (println "  Length:" (count saas-env) "chars")
 (println "  Required vars:" (count (get-in saas-resolved [:env-vars :required])))
-(println "  Contains SMTP_HOST?" (clojure.string/includes? saas-env "SMTP_HOST="))
+(println "  Contains SMTP_HOST?" (str/includes? saas-env "SMTP_HOST="))
 (println)
 
 (println "✅ .env.example generation working")
@@ -208,21 +209,21 @@
 (def saas-readme (h/template->readme-sections saas-resolved))
 
 (println "minimal features (first 3):")
-(let [features (take 3 (clojure.string/split-lines (:features minimal-readme)))]
+(let [features (take 3 (str/split-lines (:features minimal-readme)))]
   (doseq [f features]
     (println "  " f)))
 (println)
 
 (println "web-app features include authentication?"
-         (clojure.string/includes? (:features web-app-readme) "authentication"))
+         (str/includes? (:features web-app-readme) "authentication"))
 (println "web-app features include admin UI?"
-         (clojure.string/includes? (:features web-app-readme) "admin"))
+         (str/includes? (:features web-app-readme) "admin"))
 (println)
 
 (println "saas features include multi-tenancy?"
-         (clojure.string/includes? (:features saas-readme) "Multi-tenancy"))
+         (str/includes? (:features saas-readme) "Multi-tenancy"))
 (println "saas features include background jobs?"
-         (clojure.string/includes? (:features saas-readme) "Background job"))
+         (str/includes? (:features saas-readme) "Background job"))
 (println)
 
 (println "✅ README generation working")

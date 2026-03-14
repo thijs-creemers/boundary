@@ -220,12 +220,9 @@ Boundary Starter is a production-ready project template system for the Boundary 
 
 ## Known Limitations
 
-### Expected Test Failures
-14 integration test failures are expected and documented:
-- Tests validate git dependency strategy
-- Checks look for `org.boundary-app/boundary-*` (Maven)
-- System uses `boundary/*` with git URLs
-- **System is fully functional** - this is a test assertion issue, not a runtime issue
+### Dependency Assertion Mismatch (Resolved)
+Starter tests previously expected outdated Maven-style `org.boundary-app/*` coordinates.
+Current templates and generators use `boundary/*` git dependencies, and test assertions have been updated to match.
 
 ### Manual Testing Pending
 Cross-platform manual testing documented but not yet executed:

@@ -50,6 +50,13 @@ clojure -M:repl-clj
 
 ## Testing
 
+`starter` includes two kinds of tests:
+- Script-level starter tests (Babashka-driven) in this repository.
+- Generated app tests (project dependencies required) in your generated project.
+
+If you run generated app tests with bare `bb -e/load-file`, dependency namespaces like `integrant.core` may fail to resolve.
+Use the project test alias instead:
+
 ```bash
 # Run all tests
 clojure -M:test:db/h2

@@ -1,11 +1,11 @@
 (ns helpers-test
   "Unit tests for template loading and merging logic"
   (:require [clojure.test :refer [deftest testing is]]
-            [clojure.java.io :as io]
             [clojure.string :as str]))
 
 ;; Load helpers from scripts (Babashka compatible)
 (load-file "scripts/helpers.clj")
+(require '[helpers :as helpers])
 
 ;; =============================================================================
 ;; Deep Merge Tests
@@ -101,12 +101,18 @@
 
 (deftest boundary-lib->dep-test
   (testing "Convert boundary library keyword to dep"
-    (is (= (helpers/boundary-lib->dep :user)
-           ['org.boundary-app/boundary-user {:mvn/version "1.0.0"}])))
+    (let [[artifact dep] (helpers/boundary-lib->dep :user)]
+      (is (= artifact 'boundary/user))
+      (is (= (:git/url dep) "https://github.com/thijs-creemers/boundary"))
+      (is (string? (:git/sha dep)))
+      (is (= (:deps/root dep) "libs/user"))))
 
   (testing "Convert core library"
-    (is (= (helpers/boundary-lib->dep :core)
-           ['org.boundary-app/boundary-core {:mvn/version "1.0.0"}]))))
+    (let [[artifact dep] (helpers/boundary-lib->dep :core)]
+      (is (= artifact 'boundary/core))
+      (is (= (:git/url dep) "https://github.com/thijs-creemers/boundary"))
+      (is (string? (:git/sha dep)))
+      (is (= (:deps/root dep) "libs/core")))))
 
 (deftest dependency->dep-test
   (testing "Convert maven dependency"
@@ -140,9 +146,9 @@
       (is (contains? (:deps deps) 'integrant/integrant))
 
       ;; Check boundary libs
-      (is (contains? (:deps deps) 'org.boundary-app/boundary-core))
-      (is (contains? (:deps deps) 'org.boundary-app/boundary-platform))
-      (is (contains? (:deps deps) 'org.boundary-app/boundary-observability))
+      (is (contains? (:deps deps) 'boundary/core))
+      (is (contains? (:deps deps) 'boundary/platform))
+      (is (contains? (:deps deps) 'boundary/observability))
 
       ;; Check aliases
       (is (contains? (:aliases deps) :repl-clj))

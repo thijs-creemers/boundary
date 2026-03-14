@@ -195,6 +195,35 @@ bb --version
 
 ---
 
+### Error: "Could not locate integrant/core.bb" (or similar) when running `bb -e`
+
+**Symptom**:
+```bash
+bb -e "(load-file \"test/boundary/app_test.clj\") ..."
+# Could not locate integrant/core.bb, integrant/core.clj or integrant/core.cljc on classpath.
+```
+
+**Cause**: `bb -e/load-file` is running without the generated project's full dependency classpath.
+
+**Solutions**:
+
+**Option 1: Use the project test alias (recommended)**
+```bash
+# In generated project directory
+clojure -M:test
+```
+
+**Option 2: If you must use `bb -e`, pass the Clojure classpath explicitly**
+```bash
+bb --classpath "$(clojure -Spath)" -e "(load-file \"test/boundary/app_test.clj\") ..."
+```
+
+**When to use what**:
+- Use `bb -e` for starter script tests under `starter/test/helpers` and `starter/test/custom_templates`.
+- Use `clojure -M:test` for generated app tests that require project dependencies.
+
+---
+
 ### Error: "Java not found"
 
 **Symptom**:
@@ -660,8 +689,8 @@ JVM_OPTS="-Dnrepl.port=7889" clojure -M:repl-clj
 **Option 1: Check Library Included**
 ```bash
 # In project directory
-cat deps.edn | grep boundary-user
-# Should show: org.boundary-app/boundary-user {:local/root ...}
+cat deps.edn | grep "boundary/user"
+# Should show: boundary/user {:git/url ... :deps/root "libs/user"}
 ```
 
 **Option 2: Verify Namespace Path**
@@ -911,8 +940,8 @@ clojure -M:repl-clj
 
 ```clojure
 ;; deps.edn (before)
-{:deps {org.boundary-app/boundary-core
-        {:git/url "https://github.com/boundary-app/boundary"
+{:deps {boundary/core
+        {:git/url "https://github.com/thijs-creemers/boundary"
          :git/sha "abc123..."
          :deps/root "libs/core"}}}
 
@@ -922,8 +951,8 @@ clojure -M:repl-clj
 ;; git log --oneline | head -1  # Get SHA
 
 ;; deps.edn (after)
-{:deps {org.boundary-app/boundary-core
-        {:git/url "https://github.com/boundary-app/boundary"
+{:deps {boundary/core
+        {:git/url "https://github.com/thijs-creemers/boundary"
          :git/sha "def456..."  ;; ← Update SHA
          :deps/root "libs/core"}}}
 ```
