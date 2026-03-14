@@ -225,7 +225,7 @@ Learn how modules enable microservices without rewrites.
 
 === Advanced Patterns
 
-*link:../architecture/interceptors[HTTP Interceptors]* +
+*link:../architecture/middleware-architecture[HTTP Interceptors]* +
 Composable request/response middleware for auth, rate limiting, and audit logging.
 
 *Example:*
@@ -365,7 +365,7 @@ Built-in support for SaaS applications with tenant isolation.
 * link:../architecture/overview[Architecture Overview]
 * link:../guides/[All Guides]
 * link:../reference/[API Reference]
-* link:../adr/[Architecture Decision Records]
+* Architecture Decision Records
 
 === Support Channels
 

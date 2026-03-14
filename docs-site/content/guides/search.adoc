@@ -1,6 +1,6 @@
 ---
 title: "Full-Text Search"
-weight: 60
+weight: 42
 ---
 
 = Full-Text Search
@@ -256,7 +256,7 @@ Run migrations with:
 
 [source,bash]
 ----
-clojure -M:migrate migrate
+clojure -M:migrate up
 ----
 
 If you are adding filters to an existing installation, apply the schema migration:
@@ -264,7 +264,7 @@ If you are adding filters to an existing installation, apply the schema migratio
 [source,bash]
 ----
 # Adds the filters column
-clojure -M:migrate migrate   # picks up 20260312000000-search-filters.up.sql
+clojure -M:migrate up   # picks up 20260312000000-search-filters.up.sql
 ----
 
 ''''

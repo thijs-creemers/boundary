@@ -1,3 +1,8 @@
+---
+title: "Database Adapter Architecture"
+weight: 13
+---
+
 = Database Adapter Architecture
 
 [abstract]
@@ -538,4 +543,4 @@ The protocol-based database adapter architecture provides a solid foundation for
 
 ---
 
-For detailed usage examples, see link:../reference/multi-db-usage.adoc[Multi-Database Usage Guide].
+For detailed usage examples, see link:../reference/multi-db-usage[Multi-Database Usage Guide].

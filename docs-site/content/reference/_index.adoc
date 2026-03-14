@@ -7,8 +7,39 @@ bookCollapseSection: false
 
 = Reference
 
-Detailed reference documentation for commands, configuration, and utilities.
+The reference section is lookup material — precise, exhaustive, and not tutorial-style. Start with the link:../getting-started/_index[Getting Started] path or the link:../guides/_index[Guides] if you are new to Boundary; come back here when you need exact option names, error codes, or schema shapes.
 
-== Reference Documentation
+== Reference Pages
 
-Browse reference documentation in the navigation menu on the left.
+[cols="1,2",options="header"]
+|===
+| Page
+| Contents
+
+| link:commands[CLI Command Reference]
+| All Boundary CLI commands, flags, and output formats
+
+| link:configuration[Configuration Reference]
+| Every Aero configuration key, profile, and environment variable
+
+| link:error-codes[Error Codes Reference]
+| HTTP error codes and exception-type mapping
+
+| link:multi-db-usage[Multi-Database Usage]
+| Using multiple database drivers in a single Boundary system
+
+| link:observability-reference[Observability Reference]
+| Observability module: providers, protocols, and configuration keys
+
+| link:scaffolder[Scaffolder Reference]
+| Complete scaffolder command and option reference
+
+| link:validation-patterns[Validation Patterns]
+| Patterns, conventions, and message-style guide for Malli validation
+
+| link:validation-guide[Validation Developer Guide]
+| Developer guide for Malli-based validation throughout the stack
+
+| link:ai[AI Reference]
+| Multi-provider AI module: protocols, providers, and configuration
+|===

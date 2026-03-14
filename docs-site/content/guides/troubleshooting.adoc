@@ -1,3 +1,9 @@
+---
+title: "Troubleshooting"
+weight: 99
+description: "Common issues and how to resolve them"
+---
+
 = Troubleshooting Guide
 
 [[overview]]
@@ -512,7 +518,7 @@ grep -E '^\s+:' deps.edn
 [[learn-more]]
 == Learn More
 
-* link:../how-to/run-tests-and-watch.adoc[Run Tests and Watch]
-* link:../how-to/configure-db.adoc[Configure Database]
-* link:../reference/configuration.adoc[Configuration Reference]
-* link:../reference/error-codes.adoc[Error Codes Reference]
+* link:run-tests-and-watch[Run Tests and Watch]
+* link:configure-db[Configure Database]
+* link:../reference/configuration[Configuration Reference]
+* link:../reference/error-codes[Error Codes Reference]

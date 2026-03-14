@@ -1,3 +1,9 @@
+---
+title: "Data Flow Architecture"
+weight: 5
+description: "How data flows through Boundary's architectural layers"
+---
+
 = Data Flow Architecture
 
 [abstract]
@@ -11,7 +17,7 @@ This document details how data flows through Boundary Framework's architectural 
 
 **Scope:** Data flow patterns, validation strategies, transformation pipelines, error handling
 
-**Prerequisites:** Understanding of link:overview.adoc[Architecture Overview], link:layer-separation.adoc[Layer Separation Guidelines], and link:components.adoc[Component Architecture]
+**Prerequisites:** Understanding of link:overview[Architecture Overview], link:layer-separation[Layer Separation Guidelines], and link:components[Component Architecture]
 
 == Key Takeaways
 
@@ -1012,9 +1018,9 @@ Boundary ensures consistent behavior across all interfaces through:
 
 Now that you understand data flow architecture, explore:
 
-1. **link:integration-patterns.adoc[Integration Patterns]** - Interface-specific implementation details
-2. **link:configuration-and-env.adoc[Configuration and Environment Management]** - Environment-specific data flow
-3. **link:error-handling-observability.adoc[Error Handling and Observability]** - Advanced error tracking and monitoring
+1. **link:integration-patterns[Integration Patterns]** - Interface-specific implementation details
+2. **link:configuration-and-env[Configuration and Environment Management]** - Environment-specific data flow
+3. **link:error-handling-observability[Error Handling and Observability]** - Advanced error tracking and monitoring
 
 == References
 

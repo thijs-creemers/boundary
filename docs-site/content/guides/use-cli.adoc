@@ -1,3 +1,9 @@
+---
+title: "Use the CLI"
+weight: 24
+description: "Using Babashka scripts for scaffolding, AI tools, and maintenance"
+---
+
 = Use the CLI
 
 [[overview]]

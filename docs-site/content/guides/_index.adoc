@@ -7,8 +7,65 @@ bookCollapseSection: false
 
 = Guides
 
-Step-by-step guides for common tasks and workflows in Boundary Framework.
+Step-by-step guides for building production applications with Boundary Framework. The guides below are organised into six logical groups — work through them in order when learning, or jump directly to the topic you need.
 
-== Available Guides
+== Core Concepts
 
-Browse all guides in the navigation menu on the left.
+Understand the architectural principles that Boundary enforces before writing any code.
+
+* link:functional-core-imperative-shell[Functional Core / Imperative Shell] — Why pure-function cores make testing and reasoning tractable
+* link:ports-and-adapters[Ports and Adapters] — Hexagonal architecture and dependency inversion in practice
+* link:modules-and-ownership[Modules and Domain Ownership] — How to slice a system into independent, ownable modules
+* link:validation-system[Validation System] — Malli-based schema validation throughout the stack
+* link:testing[Testing Guide] — Three-tier strategy: unit, integration, and contract tests
+
+== Setup
+
+Get your development environment and database wired up.
+
+* link:configure-db[Configure Database Connections] — SQLite, PostgreSQL, and H2 connection setup
+* link:database-setup[Database Setup] — Migrations, seeds, and schema management
+* link:ide-setup[IDE Setup] — Editor configuration for Cursive, Emacs/CIDER, and VSCode/Calva
+
+== Building
+
+Everything you need to add features to an existing or new module.
+
+* link:create-module[Create a New Module] — Scaffold a complete module with FC/IS structure
+* link:add-entity[Add a Domain Entity] — Schema, migration, and persistence in one pass
+* link:add-rest-endpoint[Add a REST API Endpoint] — Route, handler, and response shaping
+* link:implement-port-adapter[Implement a Port and Adapter] — Define a protocol and write an adapter
+* link:use-cli[Use the CLI] — Babashka scripts for scaffolding, AI tools, and maintenance
+* link:run-tests-and-watch[Run Tests in Watch Mode] — Kaocha watch mode and test filtering
+* link:enable-validation-devex[Enable Enhanced Validation] — Richer validation error messages for development
+
+== Auth & Security
+
+Authentication, multi-factor authentication, and repository security hardening.
+
+* link:authentication[Authentication] — JWT-based login flow and session management
+* link:mfa-setup[Multi-Factor Authentication] — TOTP-based MFA setup and verification
+* link:security-setup[Security Setup] — Branch protection, Clojars publishing, and access control
+
+== Enterprise Features
+
+Advanced capabilities that ship with the framework: jobs, caching, search, storage, and more.
+
+* link:background-jobs[Background Jobs] — Async work processing with retry logic
+* link:caching[Distributed Caching] — Redis and in-memory caching with TTL and atomic ops
+* link:search[Full-Text Search] — PostgreSQL native full-text search
+* link:file-storage[File Storage] — S3 and local storage with image processing
+* link:pagination[API Pagination] — Cursor and offset pagination strategies
+* link:reports[Reports] — `defreport` macro, PDF/CSV export, and scheduling
+* link:calendar[Calendar & Scheduling] — `defevent` macro, RRULE recurrence, and iCal
+* link:workflow[Workflow] — Workflow orchestration across module boundaries
+* link:ai[AI Tooling] — Multi-provider AI, NL scaffolding, and developer utilities
+
+== Observability & Ops
+
+Instrument your application and operate it reliably in production.
+
+* link:integrate-observability[Integrate Observability] — Logging, metrics, and error reporting
+* link:operations[Operations Runbook] — Deployment, health checks, and incident response
+* link:tenant-migration[Single to Multi-Tenant Migration] — Schema-per-tenant isolation upgrade path
+* link:admin-testing[Admin Testing] — Unit, integration, and contract tests for the admin module

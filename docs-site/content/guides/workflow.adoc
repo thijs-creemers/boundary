@@ -1,6 +1,6 @@
 ---
 title: "Workflow"
-weight: 65
+weight: 47
 ---
 
 = Workflow
@@ -313,7 +313,7 @@ Run migrations with:
 
 [source,bash]
 ----
-clojure -M:migrate migrate
+clojure -M:migrate up
 ----
 
 ''''

@@ -7,8 +7,35 @@ bookCollapseSection: false
 
 = API Reference
 
-Complete API documentation and examples for Boundary Framework.
+Complete API documentation and request/response examples for Boundary Framework. Each page covers one endpoint group: the HTTP contract, required fields, example payloads, and common error responses.
 
-== Endpoints
+For implementation guidance — how to add a new endpoint or wire up validation — see the link:../guides/add-rest-endpoint[Add a REST API Endpoint] guide.
 
-Browse API documentation in the navigation menu on the left.
+== Documented Endpoints
+
+[cols="1,2,3",options="header"]
+|===
+| Endpoint
+| Reference Page
+| Description
+
+| `POST /api/users`
+| link:post-users-example[Create User Example]
+| Create a new user account; returns the created resource with generated UUID
+
+| `GET /api/users` (paginated)
+| link:pagination[API Pagination]
+| Offset and cursor pagination patterns for list endpoints
+
+| `POST /api/mfa/setup` and related
+| link:mfa[MFA API Reference]
+| TOTP setup, verification, and backup-code endpoints
+
+| `GET /api/search`
+| link:search[Full-Text Search API]
+| PostgreSQL-powered full-text search with highlighting, ranking, and autocomplete
+
+| Calendar endpoints
+| link:calendar[Calendar API Reference]
+| Event creation, recurrence, conflict detection, and iCal export
+|===

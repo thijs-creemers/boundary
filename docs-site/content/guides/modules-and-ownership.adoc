@@ -1,3 +1,9 @@
+---
+title: "Modules and Domain Ownership"
+weight: 4
+description: "Organizing modules, domain boundaries, and team ownership"
+---
+
 = Modules and Domain Ownership
 
 [[overview]]
@@ -221,7 +227,7 @@ libs/core/src/boundary/core/utils/
 6. **Implement shell services** - Orchestrate core and adapters
 7. **Add interfaces** - REST endpoints, CLI commands
 
-See link:create-module.adoc[Create a New Module] for step-by-step instructions.
+See link:create-module[Create a New Module] for step-by-step instructions.
 
 [[lifecycle-evolution]]
 === Module Evolution
@@ -335,6 +341,6 @@ When creating or evaluating a module:
 
 * {xref-fc-is}[Functional Core / Imperative Shell]
 * {xref-ports-adapters}[Ports and Adapters Pattern]
-* link:create-module.adoc[Create a New Module]
-* link:../how-to/add-entity.adoc[Add a Domain Entity]
+* link:create-module[Create a New Module]
+* link:add-entity[Add a Domain Entity]
 * {xref-arch-components}[Component Architecture]

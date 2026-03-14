@@ -124,5 +124,5 @@ example-name/
 After exploring the examples:
 
 * link:../guides/create-module[Create Your Own Module] — Apply what you've learned
-* link:../architecture/fc-is[FC/IS Deep Dive] — Understand the underlying patterns
+* link:../architecture/overview[FC/IS Deep Dive] — Understand the underlying patterns
 * link:../guides[All Guides] — Topic-specific documentation

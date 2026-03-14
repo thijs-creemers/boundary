@@ -382,8 +382,8 @@ Test adapters directly using the `ReportGeneratorProtocol`:
 
 == Next Steps
 
-* *link:../background-jobs/[Background Jobs Guide]* — Queue large reports with `generate-async`
-* *link:../reference/scaffolder.adoc[Scaffolder Reference]* — Scaffold a new module with built-in report definitions
+* *link:background-jobs[Background Jobs Guide]* — Queue large reports with `generate-async`
+* *link:../reference/scaffolder[Scaffolder Reference]* — Scaffold a new module with built-in report definitions
 * *https://github.com/thijs-creemers/boundary/tree/main/libs/reports[boundary/reports source]* — Browse the library source code
 
 '''''

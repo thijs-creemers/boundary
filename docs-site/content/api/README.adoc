@@ -5,14 +5,14 @@ Boundary Framework.
 
 === Overview
 
-* link:index.adoc[*API Overview*] - API design principles, conventions,
+* link:index[*API Overview*] - API design principles, conventions,
 and patterns
 
 === Examples
 
 ==== Complete Implementations
 
-* link:post-users-example.adoc[*POST /users Example*] - Complete
+* link:post-users-example[*POST /users Example*] - Complete
 endpoint implementation walkthrough showing:
 ** Schema definition (Malli)
 ** Core business logic (pure functions)
@@ -47,5 +47,5 @@ implementation walkthroughs
 
 === For More Details
 
-See link:../guides/add-rest-endpoint.adoc[Add REST Endpoint] guide for
+See link:../guides/add-rest-endpoint[Add REST Endpoint] guide for
 step-by-step instructions on implementing new API endpoints.

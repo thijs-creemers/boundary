@@ -1,10 +1,16 @@
+---
+title: "Layer Separation Guidelines"
+weight: 2
+description: "Rules and examples for maintaining FC/IS architectural boundaries"
+---
+
 = Layer Separation Guidelines
 
 [abstract]
 --
 [WARNING]
 ====
-**UPDATED ARCHITECTURE**: This document describes the original FC/IS patterns. For the current clean architecture implementation with domain-centric infrastructure, see **link:clean-architecture-layers.adoc[Clean Architecture Layer Separation]**.
+**UPDATED ARCHITECTURE**: This document describes the original FC/IS patterns. For the current clean architecture implementation with domain-centric infrastructure, see **link:clean-architecture-layers[Clean Architecture Layer Separation]**.
 
 The examples in this document use the older `boundary.core.user` patterns which have been superseded by `boundary.user.shell.service` and `boundary.user.infrastructure.database`.
 ====
@@ -18,7 +24,7 @@ This document establishes explicit rules and guidelines for maintaining the Func
 
 **Scope:** FC/IS boundary rules, dependency constraints, code organization patterns, testing strategies
 
-**Prerequisites:** Understanding of link:overview.adoc[Architecture Overview] and functional programming principles
+**Prerequisites:** Understanding of link:overview[Architecture Overview] and functional programming principles
 
 == Key Takeaways
 
@@ -278,13 +284,14 @@ After reading this document, you will understand:
 
 === Recommended Namespace Layout
 
-```
+[source,text]
+----
 libs/{module}/src/boundary/{module}/
 ├── core/                  # Functional Core (pure domain logic)
 ├── ports.clj              # Abstract interfaces (protocols)
 ├── shell/                 # Imperative Shell (HTTP/CLI/DB adapters)
 └── schema.clj             # Malli schemas for validation
-```
+----
 
 === Dependency Direction Enforcement
 
@@ -566,9 +573,9 @@ libs/{module}/src/boundary/{module}/
 
 Now that you understand the layer separation rules, explore:
 
-1. **link:components.adoc[Component Architecture]** - How to organize namespaces and modules
-2. **link:ports-and-adapters.adoc[Ports and Adapters]** - Implementing dependency inversion
-3. **link:data-flow.adoc[Data Flow Architecture]** - Request processing patterns
+1. **link:components[Component Architecture]** - How to organize namespaces and modules
+2. **link:ports-and-adapters[Ports and Adapters]** - Implementing dependency inversion
+3. **link:data-flow[Data Flow Architecture]** - Request processing patterns
 
 == References
 

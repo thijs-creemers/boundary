@@ -8,50 +8,50 @@ implementations.
 
 ==== Foundational Patterns
 
-* link:overview.adoc[*Overview*] - High-level architecture overview and
+* link:overview[*Overview*] - High-level architecture overview and
 key concepts
-* link:ports-and-adapters.adoc[*Ports and Adapters*] - Hexagonal
+* link:ports-and-adapters[*Ports and Adapters*] - Hexagonal
 architecture implementation
-* link:clean-architecture-layers.adoc[*Clean Architecture Layers*] -
+* link:clean-architecture-layers[*Clean Architecture Layers*] -
 Layer organization and responsibilities
-* link:layer-separation.adoc[*Layer Separation*] - Strict separation
+* link:layer-separation[*Layer Separation*] - Strict separation
 rules between layers
 
 For the conceptual guide on FC/IS, see
-link:../guides/functional-core-imperative-shell.adoc[Functional Core /
+link:../guides/functional-core-imperative-shell[Functional Core /
 Imperative Shell] in the guides section.
 
 === System Components
 
-* link:components.adoc[*Components*] - System component design and
+* link:components[*Components*] - System component design and
 organization
-* link:data-flow.adoc[*Data Flow*] - Request/response data flow patterns
-* link:integration-patterns.adoc[*Integration Patterns*] - Module
+* link:data-flow[*Data Flow*] - Request/response data flow patterns
+* link:integration-patterns[*Integration Patterns*] - Module
 integration approaches
-* link:middleware-architecture.adoc[*Middleware Architecture*] -
+* link:middleware-architecture[*Middleware Architecture*] -
 Middleware design and usage
 
 === Infrastructure and Integration
 
 ==== Configuration and Environment
 
-* link:configuration-and-env.adoc[*Configuration and Environment*] -
+* link:configuration-and-env[*Configuration and Environment*] -
 Configuration management with Aero
-* link:database-adapters.adoc[*Database Adapters*] - Database
+* link:database-adapters[*Database Adapters*] - Database
 abstraction and adapter pattern
-* link:dynamic-driver-loading.adoc[*Dynamic Driver Loading*] - Runtime
+* link:dynamic-driver-loading[*Dynamic Driver Loading*] - Runtime
 driver loading strategy
 
 ==== Observability
 
-* link:error-handling-observability.adoc[*Error Handling and
+* link:error-handling-observability[*Error Handling and
 Observability*] - Error management strategy
-* link:observability-integration.adoc[*Observability Integration*] -
+* link:observability-integration[*Observability Integration*] -
 Logging, metrics, and monitoring integration
 
 === Shared Utilities
 
-* link:shared-utilities.adoc[*Shared Utilities*] - Common utility
+* link:shared-utilities[*Shared Utilities*] - Common utility
 modules and their usage
 
 === Architecture Diagrams

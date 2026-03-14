@@ -1,6 +1,6 @@
 ---
 title: "Database Setup Guide"
-weight: 40
+weight: 11
 description: "Configure and manage databases in Boundary Framework"
 ---
 

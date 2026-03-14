@@ -1,3 +1,9 @@
+---
+title: "Add a REST API Endpoint"
+weight: 22
+description: "How to add REST endpoints to an existing Boundary module"
+---
+
 = Add a REST API Endpoint
 
 [[overview]]
@@ -348,7 +354,7 @@ Try endpoints interactively with the "Try it out" button.
 
 [TIP]
 ====
-HTTP interceptors provide declarative cross-cutting concerns like authentication, authorization, and audit logging. See link:../architecture/http-interceptors.adoc[HTTP Interceptor Architecture] for details.
+HTTP interceptors provide declarative cross-cutting concerns like authentication, authorization, and audit logging. See link:../architecture/middleware-architecture[HTTP Interceptor Architecture] for details.
 ====
 
 === Optional Query Parameters
@@ -420,6 +426,6 @@ Always convert kebab-case to camelCase for JSON:
 
 * {xref-arch-data-flow}[Data Flow Architecture] - Request lifecycle
 * {xref-validation}[Validation System] - Malli schemas
-* link:../adr/ADR-008-normalized-routing-abstraction.adoc[ADR-008: Normalized Routing] - Routing architecture
-* link:../adr/ADR-010-http-interceptor-architecture.adoc[ADR-010: HTTP Interceptors] - Declarative cross-cutting concerns
-* link:../../docs/api/post-users-example.adoc[API Examples^] - More endpoint examples
+* ADR-008: Normalized Routing - Routing architecture
+* ADR-010: HTTP Interceptors - Declarative cross-cutting concerns
+* link:../api/post-users-example[API Examples] - More endpoint examples

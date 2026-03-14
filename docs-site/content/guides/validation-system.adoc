@@ -1,3 +1,9 @@
+---
+title: "Validation System"
+weight: 5
+description: "Understanding and using the Malli-based validation framework"
+---
+
 = Validation System
 
 [[overview]]
@@ -550,8 +556,8 @@ cat test/reports/coverage/invoice.txt
 [[learn-more]]
 == Learn More
 
-* link:enable-validation-devex.adoc[Enable Validation DevEx Features]
-* link:functional-core-imperative-shell.adoc[Functional Core / Imperative Shell]
-* link:modules-and-ownership.adoc[Modules and Domain Ownership]
-* link:../reference/validation-guide.adoc[Complete Validation Guide]
+* link:enable-validation-devex[Enable Validation DevEx Features]
+* link:functional-core-imperative-shell[Functional Core / Imperative Shell]
+* link:modules-and-ownership[Modules and Domain Ownership]
+* link:../reference/validation-guide[Complete Validation Guide]
 * https://github.com/metosin/malli[Malli Documentation]

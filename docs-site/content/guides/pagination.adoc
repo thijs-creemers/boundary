@@ -1,6 +1,6 @@
 ---
 title: "API Pagination"
-weight: 80
+weight: 44
 ---
 
 = API Pagination
@@ -1236,10 +1236,10 @@ WHERE relname = 'users';
 
 == Next Steps
 
-* *link:./search.md[Full-Text Search Guide]* - Combine pagination with search queries
-* *link:./caching.md[Distributed Caching Guide]* - Cache pagination results and COUNT queries
-* *link:./background-jobs.md[Background Jobs Guide]* - Paginate job results and history
-* *link:../reference/pagination-api.md[API Reference]* - Complete Pagination API documentation
+* *link:search[Full-Text Search Guide]* - Combine pagination with search queries
+* *link:caching[Distributed Caching Guide]* - Cache pagination results and COUNT queries
+* *link:background-jobs[Background Jobs Guide]* - Paginate job results and history
+* *link:../api/pagination[API Reference]* - Complete Pagination API documentation
 
 '''''
 

@@ -831,7 +831,7 @@ Deepen your architectural knowledge:
 
 * link:../guides/functional-core-imperative-shell[Functional Core / Imperative Shell] - Deep dive
 * link:../guides/ports-and-adapters[Ports and Adapters] - Hexagonal architecture
-* link:../architecture/interceptors[HTTP Interceptors] - Request/response middleware
+* link:../architecture/middleware-architecture[HTTP Interceptors] - Request/response middleware
 * link:../guides/modules-and-ownership[Modules and Ownership] - Module boundaries
 
 === Deploy to Production

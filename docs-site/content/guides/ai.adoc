@@ -1,6 +1,6 @@
 ---
 title: "AI Tooling"
-weight: 70
+weight: 48
 ---
 
 = AI Tooling

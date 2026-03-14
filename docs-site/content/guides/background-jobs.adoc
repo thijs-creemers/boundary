@@ -1203,9 +1203,9 @@ kubectl logs -l app=boundary-workers
 
 == Next Steps
 
-* *link:../caching/[Distributed Caching Guide]* - Cache frequently accessed data
-* *link:../integrate-observability/[Observability Guide]* - Monitor job processing metrics
-* *link:../../README.md[Module Development]* - Integrate jobs into your modules
+* *link:caching[Distributed Caching Guide]* - Cache frequently accessed data
+* *link:integrate-observability[Observability Guide]* - Monitor job processing metrics
+* *Module Development* - Integrate jobs into your modules
 * *https://github.com/thijs-creemers/boundary[GitHub Repository]* - View source code and examples
 
 '''''

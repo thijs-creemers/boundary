@@ -1,3 +1,9 @@
+---
+title: "Shared Utilities"
+weight: 11
+description: "Type conversion, case transformation, and validation utilities"
+---
+
 = Shared Utilities
 
 [abstract]
@@ -11,7 +17,7 @@ This document provides comprehensive documentation for Boundary Framework's shar
 
 **Scope:** Shared utility functions, type conversions, validation patterns, and case transformations
 
-**Prerequisites:** Understanding of link:overview.adoc[Architecture Overview] and basic Clojure concepts
+**Prerequisites:** Understanding of link:overview[Architecture Overview] and basic Clojure concepts
 
 == Key Takeaways
 
@@ -29,13 +35,14 @@ After reading this document, you will understand:
 
 The shared utilities are organized in a clear, purpose-driven structure:
 
-```
+[source,text]
+----
 libs/core/src/boundary/core/
 └── utils/
     ├── validation.clj         # Generic validation patterns and utilities
     ├── type_conversion.clj    # Generic type conversions (UUID, Instant, etc.)
     └── case_conversion.clj    # camelCase <-> kebab-case transformations
-```
+----
 
 === Design Principles
 
@@ -437,8 +444,8 @@ All shared utilities have extensive test coverage:
 
 Now that you understand shared utilities, explore how they integrate with:
 
-1. **link:components.adoc[Component Architecture]** - How utilities fit into the overall architecture
-2. **link:data-flow.adoc[Data Flow Architecture]** - Validation and transformation pipelines  
+1. **link:components[Component Architecture]** - How utilities fit into the overall architecture
+2. **link:data-flow[Data Flow Architecture]** - Validation and transformation pipelines  
 3. **Domain module documentation** - Specific integration examples
 
 == References

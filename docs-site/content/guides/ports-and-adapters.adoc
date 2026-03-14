@@ -1,3 +1,9 @@
+---
+title: "Ports and Adapters Pattern"
+weight: 3
+description: "Using protocol-based dependency inversion in Boundary"
+---
+
 = Ports and Adapters Pattern
 
 [[overview]]
@@ -653,8 +659,8 @@ Don't put business logic in adapters:
 [[learn-more]]
 == Learn More
 
-* link:functional-core-imperative-shell.adoc[Functional Core / Imperative Shell]
-* link:modules-and-ownership.adoc[Modules and Domain Ownership]
-* link:../how-to/implement-port-adapter.adoc[Implement a Port and Adapter]
+* link:functional-core-imperative-shell[Functional Core / Imperative Shell]
+* link:modules-and-ownership[Modules and Domain Ownership]
+* link:implement-port-adapter[Implement a Port and Adapter]
 * {xref-arch-ports-adapters}[Ports and Adapters Architecture]
 * {xref-arch-overview}[Architecture Overview]

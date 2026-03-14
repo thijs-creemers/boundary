@@ -1,3 +1,9 @@
+---
+title: "Create a New Module"
+weight: 20
+description: "Complete guide for creating a Boundary module with FC/IS structure"
+---
+
 = Create a New Module
 
 [[overview]]
@@ -5,7 +11,7 @@
 
 Boundary's module-centric architecture organizes code by domain. This guide shows how to create a new module (e.g., `orders`, `inventory`) using the production-ready scaffolder or manually.
 
-TIP: **Use the Scaffolder**: The recommended approach is to use Boundary's module scaffolder, which generates production-ready modules with zero errors in seconds. See link:../reference/scaffolder.adoc[Module Scaffolder Reference] for details.
+TIP: **Use the Scaffolder**: The recommended approach is to use Boundary's module scaffolder, which generates production-ready modules with zero errors in seconds. See link:../reference/scaffolder[Module Scaffolder Reference] for details.
 
 [[quick-start]]
 == Quick Start with Scaffolder
@@ -29,7 +35,7 @@ This generates:
 - ✅ All tests passing
 - ✅ Database migration ready
 
-See link:../reference/scaffolder.adoc[Module Scaffolder Reference] for complete documentation.
+See link:../reference/scaffolder[Module Scaffolder Reference] for complete documentation.
 
 TIP: Legacy sample modules (`billing`, `workflow`) were removed from the core repo to keep the framework domain-agnostic. Use your own domain names (e.g., `inventory`, `product`, `orders`) when scaffolding.
 
@@ -337,5 +343,5 @@ In `link:https://github.com/thijs-creemers/boundary/blob/main/libs/platform/src/
 
 * {xref-modules}[Modules and Domain Ownership]
 * {xref-fc-is}[Functional Core / Imperative Shell]
-* link:add-entity.adoc[Add a Domain Entity]
+* link:add-entity[Add a Domain Entity]
 * {xref-arch-components}[Component Architecture]

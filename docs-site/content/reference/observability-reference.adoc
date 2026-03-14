@@ -1,4 +1,10 @@
-== Observability Module Reference
+---
+title: "Observability Reference"
+weight: 50
+description: "Observability module: providers, protocols, and configuration"
+---
+
+= Observability Module Reference
 
 [[toc]]
 [[toctitle]]
@@ -1048,7 +1054,7 @@ Use the health check endpoints to verify adapter status:
 [[_see_also]]
 === link:#_see_also[]See Also
 
-* link:#architecture:error-handling-observability.adoc[Error Handling & Observability Architecture]
-* link:#architecture:observability-integration.adoc[Observability Integration Guide]
+* link:#architecture:error-handling-observability[Error Handling & Observability Architecture]
+* link:#architecture:observability-integration[Observability Integration Guide]
 * https://prometheus.io/docs/[Prometheus Documentation]
 * https://docs.sentry.io/[Sentry Documentation]

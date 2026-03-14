@@ -1,3 +1,9 @@
+---
+title: "Enable Enhanced Validation"
+weight: 26
+description: "Enable richer validation error messages and developer experience"
+---
+
 = Enable Enhanced Validation
 
 [[overview]]
@@ -9,7 +15,7 @@ Boundary includes an enhanced validation system with improved error messages, co
 ====
 **Complete Validation Documentation**
 
-This guide covers the basics. For comprehensive documentation including error message templates, snapshot testing, and coverage reporting, see link:../reference/validation-guide.adoc[Validation Developer Guide].
+This guide covers the basics. For comprehensive documentation including error message templates, snapshot testing, and coverage reporting, see link:../reference/validation-guide[Validation Developer Guide].
 ====
 
 [[enable-the-feature]]
@@ -294,12 +300,12 @@ Next steps:
 
 **Complete documentation:**
 
-* link:../reference/validation-guide.adoc[Validation Developer Guide] - Complete reference
+* link:../reference/validation-guide[Validation Developer Guide] - Complete reference
 * {xref-validation}[Validation System Concepts] - Architecture overview
-* link:../../docs/validation-patterns.adoc[Validation Patterns^] - Best practices
-* link:../../docs/adr/ADR-005-validation-devex-foundations.adoc[ADR-005^] - Design decisions
+* Validation Patterns - Best practices
+* ADR-005 - Design decisions
 
 **Related guides:**
 
-* link:run-tests-and-watch.adoc[Run Tests in Watch Mode] - Test workflow
+* link:run-tests-and-watch[Run Tests in Watch Mode] - Test workflow
 * {xref-troubleshooting}[Troubleshooting] - Common validation issues

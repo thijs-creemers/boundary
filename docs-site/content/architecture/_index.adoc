@@ -48,50 +48,50 @@ Consume REST endpoints for system integration
 
 === Foundation Documents
 
-link:overview.adoc[**Architecture Overview**]::
+link:overview[**Architecture Overview**]::
 High-level architectural vision, FC/IS paradigm, key design decisions, and trade-offs
 
-link:components.adoc[**Component Architecture**]::
+link:components[**Component Architecture**]::
 Namespace organization, module responsibilities, component interaction patterns
 
-link:layer-separation.adoc[**Layer Separation Guidelines**]::
+link:layer-separation[**Layer Separation Guidelines**]::
 Explicit rules for FC/IS boundaries, dependency constraints, testing strategies
 
-**link:clean-architecture-layers.adoc[Clean Architecture Layer Separation]**::
+**link:clean-architecture-layers[Clean Architecture Layer Separation]**::
 Updated guidelines following clean architecture principles with domain-centric infrastructure
 
 === Core Patterns
 
-link:ports-and-adapters.adoc[**Ports and Adapters**]::
+link:ports-and-adapters[**Ports and Adapters**]::
 Protocol definitions, adapter implementations, dependency injection patterns
 
-link:data-flow.adoc[**Data Flow Architecture**]::
+link:data-flow[**Data Flow Architecture**]::
 End-to-end data flow, validation pipelines, error propagation patterns
 
-link:integration-patterns.adoc[**Integration Patterns**]::
+link:integration-patterns[**Integration Patterns**]::
 REST API, CLI, and Web interface integration strategies
 
-**link:shared-utilities.adoc[Shared Utilities]**::
+**link:shared-utilities[Shared Utilities]**::
 Reusable type conversion, case transformation, and validation utilities
 NOTE: Legacy example domain modules (`billing`, `workflow`) have been removed from the core repository to keep Boundary domain-agnostic. Domain capabilities should be provided via pluggable providers; see ADR “Pluggable User/Auth/Authorization”.
 
 === Operational Concerns
 
-link:configuration-and-env.adoc[**Configuration and Environment Management**]::
+link:configuration-and-env[**Configuration and Environment Management**]::
 Configuration sources, environment overlays, secrets management
 
-link:error-handling-observability.adoc[**Error Handling and Observability**]::
+link:error-handling-observability[**Error Handling and Observability**]::
 Error taxonomies, structured logging, metrics, and tracing patterns
 
 == Quick Start Guide
 
 For newcomers to the Boundary framework:
 
-1. **Start with** link:overview.adoc[Architecture Overview] to understand the FC/IS paradigm
-2. **Review** link:layer-separation.adoc[Layer Separation Guidelines] to understand boundaries
-3. **Study** **link:clean-architecture-layers.adoc[Clean Architecture Layer Separation]** for updated patterns
-4. **Study** link:components.adoc[Component Architecture] for namespace organization
-5. **Implement** using patterns from link:ports-and-adapters.adoc[Ports and Adapters]
+1. **Start with** link:overview[Architecture Overview] to understand the FC/IS paradigm
+2. **Review** link:layer-separation[Layer Separation Guidelines] to understand boundaries
+3. **Study** **link:clean-architecture-layers[Clean Architecture Layer Separation]** for updated patterns
+4. **Study** link:components[Component Architecture] for namespace organization
+5. **Implement** using patterns from link:ports-and-adapters[Ports and Adapters]
 
 == Diagrams and Visual References
 
@@ -130,13 +130,14 @@ All architectural diagrams are maintained as PlantUML source files in `images/` 
 
 **Use placeholders and environment variables:**
 
-```clojure
+[source,clojure]
+----
 ;; ✅ Good: Environment variable reference
 {:database-url (env :DATABASE_URL)}
 
 ;; ❌ Bad: Hardcoded connection string
 {:database-url "postgresql://user:password@host/db"}
-```
+----
 ====
 
 === Building Documentation Locally
@@ -174,4 +175,4 @@ asciidoctor -r asciidoctor-diagram docs/architecture/overview.adoc
 
 ---
 
-**Next Steps:** Begin with link:overview.adoc[Architecture Overview] to understand Boundary's foundational principles and design philosophy.
+**Next Steps:** Begin with link:overview[Architecture Overview] to understand Boundary's foundational principles and design philosophy.

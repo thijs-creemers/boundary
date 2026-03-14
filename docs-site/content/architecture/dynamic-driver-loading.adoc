@@ -1,3 +1,8 @@
+---
+title: "Dynamic JDBC Driver Loading System"
+weight: 14
+---
+
 = Dynamic JDBC Driver Loading System
 
 [abstract]
@@ -85,7 +90,7 @@ When you call `initialize-databases!`, the system:
 [source,bash]
 ----
 # New simplified approach - loads all drivers automatically
-clojure -M:test
+clojure -M:test:db/h2
 
 # All environments work the same way
 clojure -M:dev    # Loads drivers based on dev config
@@ -213,7 +218,7 @@ clojure -M:prod:db/postgresql   # For prod with PostgreSQL
 [source,bash]
 ----
 # Simple, works everywhere
-clojure -M:test    # Automatically loads what test config needs
+clojure -M:test:db/h2    # Automatically loads what test config needs
 clojure -M:dev     # Automatically loads what dev config needs  
 clojure -M:prod    # Automatically loads what prod config needs
 ----
@@ -326,7 +331,7 @@ Run tests with:
 
 [source,bash]
 ----
-clojure -M:test
+clojure -M:test:db/h2
 ----
 
 All tests pass, including specific tests for the driver loading functionality.
@@ -378,9 +383,9 @@ All tests pass, including specific tests for the driver loading functionality.
 
 == Related Documentation
 
-* link:database-adapters.adoc[Database Adapter Architecture] - Protocol-based adapter system
-* link:../reference/multi-db-usage.adoc[Multi-Database Usage Guide] - Working with multiple databases
-* link:configuration-and-env.adoc[Configuration Management] - Environment configuration
+* link:database-adapters[Database Adapter Architecture] - Protocol-based adapter system
+* link:../reference/multi-db-usage[Multi-Database Usage Guide] - Working with multiple databases
+* link:configuration-and-env[Configuration Management] - Environment configuration
 
 == References
 
@@ -390,4 +395,4 @@ All tests pass, including specific tests for the driver loading functionality.
 
 ---
 
-For detailed usage examples and configuration patterns, see the link:database-adapters.adoc[Database Adapter Architecture] documentation.
+For detailed usage examples and configuration patterns, see the link:database-adapters[Database Adapter Architecture] documentation.

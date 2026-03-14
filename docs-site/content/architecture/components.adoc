@@ -1,3 +1,8 @@
+---
+title: "Component Architecture"
+weight: 12
+---
+
 = Component Architecture
 
 [abstract]
@@ -9,7 +14,7 @@ This page describes Boundary's concrete component boundaries and where each resp
 
 * Audience: module authors and maintainers
 * Scope: component responsibilities, interaction flow, and code locations
-* Prerequisite: link:overview.adoc[Architecture Overview]
+* Prerequisite: link:overview[Architecture Overview]
 
 == Component Types
 
@@ -181,7 +186,7 @@ When reviewing module changes:
 
 == Related Docs
 
-* link:overview.adoc[Architecture Overview]
-* link:layer-separation.adoc[Layer Separation]
-* link:ports-and-adapters.adoc[Ports and Adapters]
-* link:middleware-architecture.adoc[Middleware Architecture]
+* link:overview[Architecture Overview]
+* link:layer-separation[Layer Separation]
+* link:ports-and-adapters[Ports and Adapters]
+* link:middleware-architecture[Middleware Architecture]

@@ -1,6 +1,6 @@
 ---
 title: "IDE Setup Guide"
-weight: 20
+weight: 12
 description: "Configure your development environment for Clojure development with Boundary Framework"
 ---
 
@@ -75,22 +75,23 @@ Add to `.vscode/settings.json`:
   "editor.formatOnSave": true,
   "editor.bracketPairColorization.enabled": true
 }
-```text
-
-### Debugging
+[source,text]
+----
+=== Debugging
 
 Use `tap>` for debugging:
 
-```clojure
+[source,clojure]
+----
 (def result (some-function x))
 (tap> {:debug/result result})  ; View in Calva output
-```bash
-
+[source,bash]
+----
 ---
 
-## IntelliJ IDEA + Cursive
+== IntelliJ IDEA + Cursive
 
-### Installation
+=== Installation
 
 1. **Install IntelliJ IDEA**: Download Community or Ultimate from [jetbrains.com](https://www.jetbrains.com/idea/)
 
@@ -99,7 +100,7 @@ Use `tap>` for debugging:
    - Search "Cursive"
    - Install and restart
 
-### Project setup
+=== Project setup
 
 1. **Import Project**:
    - File → Open → Select `deps.edn`
@@ -111,7 +112,7 @@ Use `tap>` for debugging:
    - Set alias: `:repl-clj`
    - Click Run
 
-### Essential shortcuts
+=== Essential shortcuts
 
 | Action | Shortcut |
 |--------|----------|
@@ -121,13 +122,14 @@ Use `tap>` for debugging:
 
 ---
 
-## Emacs + CIDER
+== Emacs + CIDER
 
-### Installation
+=== Installation
 
 **Via package.el**:
 
-```elisp
+[source,elisp]
+----
 (require 'package)
 (add-to-list 'package-archives
              '("melpa" . "https://melpa.org/packages/"))
@@ -137,19 +139,20 @@ Use `tap>` for debugging:
 (package-install 'clojure-mode)
 (package-install 'cider)
 (package-install 'paredit)
-```bash
+[source,bash]
+----
+=== Project setup
 
-### Project setup
-
-```bash
+[source,bash]
+----
 cd boundary
 emacs
 M-x cider-jack-in
-```sql
-
+[source,sql]
+----
 Select alias: `:repl-clj`
 
-### Essential key bindings
+=== Essential key bindings
 
 | Action | Binding |
 |--------|---------|
@@ -158,11 +161,12 @@ Select alias: `:repl-clj`
 | **Load namespace** | `C-c C-n` |
 | **Run tests** | `C-c C-t n` |
 
-### Recommended configuration
+=== Recommended configuration
 
 Add to `~/.emacs.d/init.el`:
 
-```elisp
+[source,elisp]
+----
 ;; Enable paredit for all Clojure buffers
 (add-hook 'clojure-mode-hook #'paredit-mode)
 (add-hook 'cider-repl-mode-hook #'paredit-mode)
@@ -172,37 +176,39 @@ Add to `~/.emacs.d/init.el`:
 
 ;; Pretty printing
 (setq cider-repl-use-pretty-printing t)
-```bash
-
+[source,bash]
+----
 ---
 
-## Vim + vim-fireplace
+== Vim + vim-fireplace
 
-### Installation
+=== Installation
 
 **Via vim-plug**:
 
-```vim
+[source,vim]
+----
 call plug#begin('~/.vim/plugged')
 Plug 'tpope/vim-fireplace'
 Plug 'guns/vim-clojure-static'
 Plug 'guns/vim-sexp'
 call plug#end()
-```bash
-
+[source,bash]
+----
 Then run: `:PlugInstall`
 
-### Project setup
+=== Project setup
 
-```bash
+[source,bash]
+----
 cd boundary
 clojure -M:repl-clj  # Start REPL in terminal
 vim
-```bash
-
+[source,bash]
+----
 Vim-fireplace auto-connects to running nREPL.
 
-### Essential key bindings
+=== Essential key bindings
 
 | Action | Binding |
 |--------|---------|
@@ -212,114 +218,126 @@ Vim-fireplace auto-connects to running nREPL.
 
 ---
 
-## General setup (all editors)
+== General setup (all editors)
 
-### Git configuration
+=== Git configuration
 
-```bash
+[source,bash]
+----
 git config --global core.autocrlf input
 git config --global core.editor "code --wait"  # Or vim, emacs, etc.
-```bash
-
-### Code formatting
+[source,bash]
+----
+=== Code formatting
 
 **Manual format** (all editors):
-```bash
+[source,bash]
+----
 clojure -M:cljfmt check
 clojure -M:cljfmt fix
-```bash
-
+[source,bash]
+----
 **Auto-format on save**: Covered in editor-specific sections above
 
-### Linting with clj-kondo
+=== Linting with clj-kondo
 
 **Install**:
-```bash
+[source,bash]
+----
 brew install borkdude/brew/clj-kondo  # Mac
 # Or download from https://github.com/clj-kondo/clj-kondo
-```text
-
+[source,text]
+----
 **Run**:
-```bash
+[source,bash]
+----
 clj-kondo --lint src test libs/*/src libs/*/test
-```bash
-
-### nREPL Configuration
+[source,bash]
+----
+=== nREPL Configuration
 
 Default nREPL port: **7888** (configured in `deps.edn`)
 
 **Connect external editor**:
-```bash
+[source,bash]
+----
 # Start REPL first
 clojure -M:repl-clj
 
 # Then connect from editor to localhost:7888
-```bash
-
+[source,bash]
+----
 ---
 
-## Testing your setup
+== Testing your setup
 
-### 1. Start REPL
+=== 1. Start REPL
 
-```bash
+[source,bash]
+----
 clojure -M:repl-clj
-```bash
-
+[source,bash]
+----
 Should see: `nREPL server started on port 7888`
 
-### 2. Connect from Editor
+=== 2. Connect from Editor
 
 - VSCode: `Cmd+Shift+P` → "Calva: Connect to Running REPL"
 - IntelliJ: Tools → REPL → Connect to Remote REPL
 - Emacs: `M-x cider-connect`
 - Vim: Auto-connects
 
-### 3. Evaluate Code
+=== 3. Evaluate Code
 
 Try in any Clojure file:
 
-```clojure
+[source,clojure]
+----
 (+ 1 2)  ; Should return 3
 
 (require '[integrant.repl :as ig-repl])
 (ig-repl/go)  ; Start system
-```bash
-
+[source,bash]
+----
 If you see results, setup is complete! ✅
 
 ---
 
-## Troubleshooting
+== Troubleshooting
 
-### REPL Won't Start
+=== REPL Won't Start
 
 **Check Java version**:
-```bash
+[source,bash]
+----
 java -version  # Should be 11+
-```text
-
+[source,text]
+----
 **Check deps.edn**:
-```bash
+[source,bash]
+----
 clojure -Stree  # Should show dependency tree
-```bash
-
-### Editor won't connect
+[source,bash]
+----
+=== Editor won't connect
 
 **Verify nREPL port**:
-```bash
+[source,bash]
+----
 lsof -i :7888  # Should show running process
-```text
-
+[source,text]
+----
 **Check .nrepl-port file**:
-```bash
+[source,bash]
+----
 cat .nrepl-port  # Should contain "7888"
-```bash
-
-### Formatting not working
+[source,bash]
+----
+=== Formatting not working
 
 **Install cljfmt alias**:
-```bash
+[source,bash]
+----
 clojure -M:cljfmt check  # Should run without errors
 ----
 
@@ -331,9 +349,9 @@ If parentheses feel "`sticky`": - VSCode: Disable strict paredit in settings - E
 
 == Next steps
 
-* *Read*: link:../../AGENTS.md[AGENTS.md] - Development commands and patterns
-* *Try*: link:../getting-started/quickstart.md[Quickstart] - Build your first feature
-* *Explore*: link:testing.md[Testing Guide] - Write tests with REPL
+* *Read*: AGENTS.md - Development commands and patterns
+* *Try*: link:../getting-started/quickstart[Quickstart] - Build your first feature
+* *Explore*: link:testing[Testing Guide] - Write tests with REPL
 
 '''''
 

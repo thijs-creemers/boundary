@@ -44,10 +44,11 @@ Enterprise-grade full-text search using PostgreSQL’s native engine:
 [source,bash]
 ----
 curl "http://localhost:3000/api/search/users?q=john"
-```text
-
+[source,text]
+----
 Response:
-```json
+[source,json]
+----
 {
   "results": [
     {
@@ -64,25 +65,27 @@ Response:
   "total": 1,
   "took-ms": 15
 }
-```bash
+[source,bash]
+----
+=== With pagination
 
-### With pagination
-
-```bash
+[source,bash]
+----
 curl "http://localhost:3000/api/search/users?q=admin&from=20&size=10"
-```bash
+[source,bash]
+----
+=== Autocomplete
 
-### Autocomplete
-
-```bash
+[source,bash]
+----
 curl "http://localhost:3000/api/search/suggest?prefix=joh&field=name&index=users"
-```bash
-
+[source,bash]
+----
 ---
 
-## API endpoints
+== API endpoints
 
-### Search users
+=== Search users
 
 `GET /api/search/users`
 
@@ -100,7 +103,8 @@ curl "http://localhost:3000/api/search/suggest?prefix=joh&field=name&index=users
 **Response**: [Standard Format](#response-format)
 
 **Examples**:
-```bash
+[source,bash]
+----
 # Basic
 curl "http://localhost:3000/api/search/users?q=john"
 
@@ -109,25 +113,26 @@ curl "http://localhost:3000/api/search/users?q=admin&from=0&size=10"
 
 # Custom fields
 curl "http://localhost:3000/api/search/users?q=clojure&highlight_fields=bio"
-```bash
-
+[source,bash]
+----
 ---
 
-### Search items
+=== Search items
 
 `GET /api/search/items`
 
 **Query Parameters**: Same as user search, with `highlight_fields` default: `name,sku,location`
 
 **Examples**:
-```bash
+[source,bash]
+----
 curl "http://localhost:3000/api/search/items?q=laptop"
 curl "http://localhost:3000/api/search/items?q=SKU-12345"
-```bash
-
+[source,bash]
+----
 ---
 
-### Autocomplete
+=== Autocomplete
 
 `GET /api/search/suggest`
 
@@ -141,18 +146,19 @@ curl "http://localhost:3000/api/search/items?q=SKU-12345"
 | `limit` | integer | No | 10 | 50 | Max suggestions |
 
 **Response**:
-```json
+[source,json]
+----
 {
   "suggestions": [
     {"value": "John Smith", "score": 0.95}
   ],
   "total": 1
 }
-```bash
-
+[source,bash]
+----
 ---
 
-### Reindex
+=== Reindex
 
 `POST /api/search/reindex/:index`
 
@@ -169,14 +175,15 @@ Rebuild search index from database. Use after bulk imports or schema changes.
 
 ---
 
-### Statistics
+=== Statistics
 
 `GET /api/search/stats`
 
 Retrieve index statistics and query metrics.
 
 **Response**:
-```json
+[source,json]
+----
 {
   "indices": {
     "users": {
@@ -189,15 +196,16 @@ Retrieve index statistics and query metrics.
     "cache-hit-rate": 0.85
   }
 }
-```bash
-
+[source,bash]
+----
 ---
 
-## Query syntax
+== Query syntax
 
-### Basic search
+=== Basic search
 
-```bash
+[source,bash]
+----
 # Single word
 curl "http://localhost:3000/api/search/users?q=john"
 
@@ -206,28 +214,30 @@ curl "http://localhost:3000/api/search/users?q=software+engineer"
 
 # Phrase search
 curl "http://localhost:3000/api/search/users?q=%22software+engineer%22"
-```bash
-
-### Special characters
+[source,bash]
+----
+=== Special characters
 
 All special characters are safely handled:
-```bash
+[source,bash]
+----
 curl "http://localhost:3000/api/search/users?q=O%27Brien"
 curl "http://localhost:3000/api/search/items?q=SKU-12345"
-```bash
-
-### Case & Unicode
+[source,bash]
+----
+=== Case & Unicode
 
 - **Case insensitive**: `john` = `JOHN` = `JoHn`
 - **Unicode support**: Accents, emojis, CJK characters all work
 
 ---
 
-## Response format
+== Response format
 
-### Search response
+=== Search response
 
-```json
+[source,json]
+----
 {
   "results": [
     {
@@ -245,31 +255,33 @@ curl "http://localhost:3000/api/search/items?q=SKU-12345"
   "page": {"from": 0, "size": 20},
   "took-ms": 15
 }
-```text
-
+[source,text]
+----
 **Key Fields**:
 - `score`: Relevance (0-1, higher = more relevant)
 - `rank`: Position in results (1-based)
 - `_highlights`: Fields with `<mark>` tags around matches
 - `took-ms`: Query execution time
 
-### Error response
+=== Error response
 
-```json
+[source,json]
+----
 {
   "error": "Query parameter 'q' is required",
   "status": 400,
   "timestamp": "2026-01-04T20:45:00Z"
 }
-```bash
-
+[source,bash]
+----
 ---
 
-## Configuration
+== Configuration
 
-### Default config
+=== Default config
 
-```clojure
+[source,clojure]
+----
 {:boundary/search
  {:provider :postgresql
   :language "english"
@@ -278,9 +290,9 @@ curl "http://localhost:3000/api/search/items?q=SKU-12345"
   :ranking {:users {:recency-field :created-at
                     :recency-max-boost 2.0
                     :recency-decay-days 30}}}}
-```bash
-
-### Key options
+[source,bash]
+----
+=== Key options
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -292,9 +304,9 @@ curl "http://localhost:3000/api/search/items?q=SKU-12345"
 
 ---
 
-## Performance
+== Performance
 
-### Benchmarks
+=== Benchmarks
 
 PostgreSQL 18 on local development machine:
 
@@ -304,7 +316,7 @@ PostgreSQL 18 on local development machine:
 | Autocomplete | 1,000 docs | 10-20ms | < 50ms | ✅ Excellent |
 | Concurrent (10x) | - | 40-80ms | < 150ms | ✅ Good |
 
-### Dataset Guidelines
+=== Dataset Guidelines
 
 | Documents | Search Time | Index Size | Recommendation |
 |-----------|-------------|------------|----------------|
@@ -312,14 +324,15 @@ PostgreSQL 18 on local development machine:
 | 10K-100K | 60-150ms | 10-100MB | Good, consider Meilisearch if needed |
 | > 100K | > 150ms | > 100MB | Consider Elasticsearch |
 
-### Optimization
+=== Optimization
 
 **Database Indexes** - Verify GIN indexes exist:
-```sql
+[source,sql]
+----
 SELECT indexname FROM pg_indexes WHERE indexname LIKE '%search%';
 -- Expected: users_search_idx, items_search_idx
-```text
-
+[source,text]
+----
 **Query Optimization**:
 - Always paginate with `from` and `size`
 - Limit `highlight_fields` to displayed fields
@@ -327,21 +340,23 @@ SELECT indexname FROM pg_indexes WHERE indexname LIKE '%search%';
 - Use specific indexes (users or items)
 
 **PostgreSQL Tuning**:
-```sql
+[source,sql]
+----
 -- Add to postgresql.conf
 shared_buffers = 256MB
 work_mem = 16MB
 effective_cache_size = 1GB
 random_page_cost = 1.1  -- For SSD
-```bash
-
+[source,bash]
+----
 ---
 
-## Integration examples
+== Integration examples
 
-### Basic search UI
+=== Basic search UI
 
-```html
+[source,html]
+----
 <input type="text" id="search" placeholder="Search...">
 <div id="results"></div>
 
@@ -358,11 +373,12 @@ document.getElementById('search').addEventListener('input', async (e) => {
   `).join('');
 });
 </script>
-```bash
+[source,bash]
+----
+=== Autocomplete
 
-### Autocomplete
-
-```javascript
+[source,javascript]
+----
 nameInput.addEventListener('input', async (e) => {
   const prefix = e.target.value;
   if (prefix.length < 2) return;
@@ -374,11 +390,12 @@ nameInput.addEventListener('input', async (e) => {
   
   showSuggestions(suggestions);
 });
-```bash
+[source,bash]
+----
+=== Pagination
 
-### Pagination
-
-```javascript
+[source,javascript]
+----
 async function search(query, page = 0) {
   const res = await fetch(
     `/api/search/users?q=${encodeURIComponent(query)}&from=${page * 20}&size=20`
@@ -388,38 +405,42 @@ async function search(query, page = 0) {
   displayResults(data.results);
   displayPagination(page, Math.ceil(data.total / 20));
 }
-```bash
-
+[source,bash]
+----
 ---
 
-## Migration guide
+== Migration guide
 
-### From no search
+=== From no search
 
 **1. Run Migrations** - Create search columns and indexes:
-```bash
-clojure -M:migrate migrate
-```text
-
+[source,bash]
+----
+clojure -M:migrate up
+[source,text]
+----
 Adds `search_vector` columns with GIN indexes to `users` and `items` tables.
 
 **2. Configure Search** - Add to config:
-```clojure
+[source,clojure]
+----
 {:boundary/search
  {:provider :postgresql
   :language "english"}}
-```text
-
+[source,text]
+----
 **3. Initial Reindex**:
-```bash
+[source,bash]
+----
 curl -X POST "http://localhost:3000/api/search/reindex/users"
 curl -X POST "http://localhost:3000/api/search/reindex/items"
-```bash
-
-### Adding custom fields
+[source,bash]
+----
+=== Adding custom fields
 
 **1. Update GENERATED Column**:
-```sql
+[source,sql]
+----
 ALTER TABLE users DROP COLUMN search_vector;
 ALTER TABLE users ADD COLUMN search_vector tsvector
   GENERATED ALWAYS AS (
@@ -429,42 +450,46 @@ ALTER TABLE users ADD COLUMN search_vector tsvector
   ) STORED;
 
 CREATE INDEX users_search_idx ON users USING GIN (search_vector);
-```text
-
+[source,text]
+----
 **2. Reindex**:
-```bash
+[source,bash]
+----
 curl -X POST "http://localhost:3000/api/search/reindex/users"
-```bash
-
+[source,bash]
+----
 ---
 
-## Troubleshooting
+== Troubleshooting
 
-### No results
+=== No results
 
 **Check index exists**:
-```sql
+[source,sql]
+----
 SELECT count(*) FROM users WHERE search_vector IS NOT NULL;
-```text
-
+[source,text]
+----
 **Reindex if needed**:
-```bash
+[source,bash]
+----
 curl -X POST "http://localhost:3000/api/search/reindex/users"
-```bash
-
+[source,bash]
+----
 ---
 
-### Slow performance (> 100ms)
+=== Slow performance (> 100ms)
 
 **Check GIN index**:
-```sql
+[source,sql]
+----
 EXPLAIN ANALYZE
 SELECT * FROM users
 WHERE search_vector @@ plainto_tsquery('english', 'john')
 LIMIT 20;
 -- Should show "Bitmap Heap Scan" with GIN index
-```bash
-
+[source,bash]
+----
 **Solutions**:
 - Create missing index: `CREATE INDEX users_search_idx ON users USING GIN (search_vector);`
 - Analyze table: `ANALYZE users;`
@@ -473,29 +498,33 @@ LIMIT 20;
 
 ---
 
-### Highlighting not working
+=== Highlighting not working
 
 **Enable explicitly**:
-```bash
+[source,bash]
+----
 curl "http://localhost:3000/api/search/users?q=john&highlight=true"
-```text
-
+[source,text]
+----
 **Check config**:
-```clojure
+[source,clojure]
+----
 {:highlighting {:enabled? true :pre-tag "<mark>" :post-tag "</mark>"}}
-```bash
-
+[source,bash]
+----
 ---
 
-### Unexpected results
+=== Unexpected results
 
 **Check search_vector content**:
-```sql
+[source,sql]
+----
 SELECT id, name, search_vector FROM users LIMIT 5;
-```text
-
+[source,text]
+----
 **Adjust field weights**:
-```sql
+[source,sql]
+----
 -- Give more weight to name vs bio
 ALTER TABLE users DROP COLUMN search_vector;
 ALTER TABLE users ADD COLUMN search_vector tsvector
@@ -503,10 +532,11 @@ ALTER TABLE users ADD COLUMN search_vector tsvector
     setweight(to_tsvector('english', coalesce(name, '')), 'A') ||   -- 1.0x
     setweight(to_tsvector('english', coalesce(bio, '')), 'D')       -- 0.1x (was C)
   ) STORED;
-```text
-
+[source,text]
+----
 **Adjust recency boost**:
-```clojure
+[source,clojure]
+----
 {:ranking {:users {:recency-max-boost 3.0      ; Increase from 2.0
                    :recency-decay-days 14}}}   ; Shorten from 30
 ----
@@ -515,8 +545,8 @@ ALTER TABLE users ADD COLUMN search_vector tsvector
 
 === See also
 
-* link:pagination.md[API Pagination] - Cursor and offset pagination
-* link:../guides/database-setup.md[Database Setup] - PostgreSQL configuration
+* link:pagination[API Pagination] - Cursor and offset pagination
+* link:../guides/database-setup[Database Setup] - PostgreSQL configuration
 * https://www.postgresql.org/docs/current/textsearch.html[PostgreSQL Full-Text Search Docs]
 
 ==== Alternative solutions

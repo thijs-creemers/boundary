@@ -1,18 +1,6 @@
-# Boundary Framework - AI Agent Quick Reference
+# Boundary Framework — Developer Reference
 
-**AI Agent Quick Reference**: Essential patterns, commands, and conventions for working effectively with the Boundary Framework.
-
-> **🛑 CRITICAL REMINDERS - READ THESE FIRST**
->
-> **GIT OPERATIONS - REQUIRE EXPLICIT PERMISSION:**
-> - ❌ NEVER stage, commit, or push without explicit user permission
-> - ✅ ALWAYS show changes and ASK before committing
->
-> **CODE EDITING:**
-> - Use `clj-paren-repair` to fix unbalanced parentheses (never manually repair)
-> - Use `clj-nrepl-eval` for REPL evaluation during development
-> - **CRITICAL**: Always use kebab-case internally; convert snake_case/camelCase ONLY at system boundaries
-> - All documentation must be accurate and in English
+Essential commands, conventions, and patterns for working with the Boundary Framework.
 
 ---
 
@@ -79,7 +67,7 @@ clojure -T:build clean && clojure -T:build uber    # Build uberjar
 java -jar target/boundary-*.jar server             # Run standalone jar
 
 # Database Migrations
-clojure -M:migrate migrate                         # Run migrations
+clojure -M:migrate up                              # Run migrations
 
 # Scripting (Babashka)
 bb scaffold                                        # Interactive module scaffolding wizard

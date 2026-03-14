@@ -1,3 +1,9 @@
+---
+title: "Error Handling and Observability"
+weight: 10
+description: "Multi-layer interceptor pattern for error handling and observability"
+---
+
 = Error Handling and Observability
 
 [abstract]
@@ -13,7 +19,7 @@ This document outlines the implemented error handling strategies, observability 
 
 **Scope:** Implemented observability modules, error handling patterns, logging strategies, metrics collection, monitoring setup
 
-**Prerequisites:** Understanding of link:components.adoc[Component Architecture] and link:ports-and-adapters.adoc[Ports and Adapters]
+**Prerequisites:** Understanding of link:components[Component Architecture] and link:ports-and-adapters[Ports and Adapters]
 
 == Key Takeaways
 
@@ -612,7 +618,7 @@ Each module provides production-ready shell adapters:
 
 Explore:
 
-1. **link:integration-patterns.adoc[Integration Patterns]** - Connecting observability to external systems
+1. **link:integration-patterns[Integration Patterns]** - Connecting observability to external systems
 2. **Deployment guides** - Production monitoring setup with Prometheus, Grafana, and Sentry
 
 == References
