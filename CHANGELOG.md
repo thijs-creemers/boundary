@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### `boundary-ai` — new library (Phase 19 of Boundary Roadmap)
+- **Multi-provider AI abstraction**: `IAIProvider` protocol in `boundary.ai.ports` with `complete`, `complete-json`, and `provider-name` methods. Implementations: `OllamaProvider` (offline-first, no API key), `AnthropicProvider`, `OpenAIProvider`, `NoOpProvider` (test stub).
+- **Automatic provider fallback**: configure a `:fallback` provider in `:boundary/ai-service`; if the primary fails, the fallback is used transparently.
+- **Feature 1 — NL Scaffolding** (`bb scaffold ai "<description>"`): parses a natural language module description into a validated `ModuleGenerationRequest` spec and delegates to the existing scaffolder pipeline. Preview before confirming.
+- **Feature 2 — Error Explainer** (`bb ai explain`, `(ai/explain *e)`): reads a Clojure/Boundary stack trace, extracts referenced source files, and returns a structured root-cause + fix-suggestion using framework-specific system prompts.
+- **Feature 3 — Test Generator** (`bb ai gen-tests <file>`): reads a source file, detects test type (`:unit` for `core/`, `:contract` for `adapters/`, `:integration` otherwise), and generates a complete Kaocha-compatible test namespace.
+- **Feature 4 — SQL Copilot** (`bb ai sql "<description>"`, `(ai/sql "...")`): translates a natural language query description into HoneySQL map + explanation + raw SQL preview. Auto-discovers schema context from `schema.clj` files.
+- **Feature 5 — Documentation Wizard** (`bb ai docs --module <path> --type agents|openapi|readme`): generates AGENTS.md developer guides, OpenAPI 3.x YAML, or README.md from source files.
+- **REPL helpers** (`boundary.ai.shell.repl`): `(ai/explain *e)`, `(ai/sql "...")`, `(ai/gen-tests "path/to/file.clj")` — bind service once with `(ai/set-service! system-service)`.
+- **Integrant component**: `:boundary/ai-service` with `:provider`, `:model`, `:base-url`/`:api-key`, and optional `:fallback` sub-config.
+- **Malli schemas**: `Message`, `AIRequest`, `AIResponse`, `ProviderConfig`, `AIConfig`.
+- **Pure core layer** (`boundary.ai.core.*`): `prompts.clj` (system + user prompt builders for all 5 features), `context.clj` (module name extraction, stack trace parsing, function signature discovery, schema context), `parsing.clj` (JSON response parser, module spec → CLI args converter, SQL + test code extractors).
+- 24 tests, 81 assertions, 0 failures (`^:unit` + `^:integration`).
+- `libs/ai/AGENTS.md`: 7-section developer guide covering provider setup, REPL usage, CLI reference, common pitfalls (8 patterns), testing commands.
+- `libs/ai/deps.edn`: standalone library with `clj-http`, `cheshire`, `malli`, `integrant`, `tools.logging`.
+
+#### CI / developer experience
+- `.github/workflows/ci.yml`: `test-ai` job added (`needs: lint`); `libs/ai/src` added to the lint step; `test-ai` wired into `test-summary`.
+- `.github/workflows/publish.yml`: `boundary-ai` added to Layer 4 (standalone, no inter-library dependencies); updated release body and step summary.
+- `scripts/ai.clj`: new Babashka script — `bb ai explain`, `bb ai gen-tests`, `bb ai sql`, `bb ai docs`.
+- `scripts/scaffold.clj`: `bb scaffold ai "<description>"` subcommand added.
+- `bb.edn`: `ai` task added.
+- `AGENTS.md` and `CLAUDE.md`: `ai` added to library listing, test command reference, Babashka commands, and Library-Specific Guides table. Version bumped to 3.5.0.
+- `resources/conf/dev/config.edn`: `:boundary/ai-service` added (Ollama primary, Anthropic fallback).
+- `resources/conf/test/config.edn`: `:boundary/ai-service {:provider :no-op}` for test isolation.
+
 #### `boundary-calendar` — new library (Phase 2 / Q3 2026 roadmap)
 - **`defevent` macro** and in-process registry (atom-backed, same pattern as `defreport` in `boundary-reports`): register named event type schemas at load time; `get-event-type`, `list-event-types`, `clear-registry!`.
 - **`boundary.calendar.schema`**: Malli schemas — `EventData`, `EventDef`, `OccurrenceResult`, `ConflictResult`; helpers `valid-event?`, `explain-event`, `valid-event-def?`.

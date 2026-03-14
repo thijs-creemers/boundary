@@ -395,6 +395,27 @@
 ;; Help text
 ;; =============================================================================
 
+;; =============================================================================
+;; AI-powered NL scaffolding
+;; =============================================================================
+
+(defn wizard-ai [description]
+  (println)
+  (println (bold "\u2746 Boundary AI Scaffolder \u2014 Natural Language Module Generation"))
+  (println)
+  (println (dim (str "Parsing: " description)))
+  (println)
+  ;; Delegate to the AI CLI which outputs a JSON spec + preview, then asks to proceed
+  (try
+    (shell "clojure" "-M" "-m" "boundary.ai.shell.cli-entry" "scaffold-ai" description)
+    (catch Exception e
+      (println (red (str "AI scaffolder exited with error: " (.getMessage e))))
+      (System/exit 1))))
+
+;; =============================================================================
+;; Help text
+;; =============================================================================
+
 (def help-text
   (str (bold "Boundary Scaffolder \u2014 Interactive Wizard") "\n"
        "\n"
@@ -405,6 +426,7 @@
        "  bb scaffold field               Interactive wizard for adding a field\n"
        "  bb scaffold endpoint            Interactive wizard for adding an endpoint\n"
        "  bb scaffold adapter             Interactive wizard for adding an adapter\n"
+       "  bb scaffold ai <description>    AI-powered module generation from NL description\n"
        "\n"
        "Non-interactive passthrough (when args are provided directly):\n"
        "  bb scaffold generate --module-name foo --entity Foo --field bar:string\n"
@@ -412,6 +434,9 @@
        "\n"
        "The wizard delegates to:\n"
        "  clojure -M -m boundary.scaffolder.shell.cli-entry <command> [opts]\n"
+       "\n"
+       "For AI scaffolding, set one of:\n"
+       "  ANTHROPIC_API_KEY, OPENAI_API_KEY, or start Ollama locally\n"
        "\n"
        "For full CLI documentation:\n"
        "  clojure -M -m boundary.scaffolder.shell.cli-entry --help\n"
@@ -453,6 +478,13 @@
       (if (seq rest-args)
         (run-clojure! (into ["adapter"] rest-args))
         (wizard-adapter))
+
+      (= sub "ai")
+      (let [description (str/join " " rest-args)]
+        (if (seq description)
+          (wizard-ai description)
+          (do (println (red "Please provide a module description."))
+              (println "  Example: bb scaffold ai \"product module with name, price, stock\""))))
 
       :else
       (do

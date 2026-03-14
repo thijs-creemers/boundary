@@ -1,0 +1,518 @@
+---
+title: "AI Reference"
+weight: 95
+---
+
+= boundary-ai Reference
+
+Complete API reference for the `boundary-ai` library.
+
+''''
+
+== Overview
+
+`boundary-ai` is a framework-aware AI library for Boundary Framework. It abstracts multiple AI providers behind a single protocol and exposes five developer-experience features through a consistent service API.
+
+[cols="1,2",options="header"]
+|===
+| Library coordinate | `org.boundary-app/boundary-ai`
+| Integrant key | `:boundary/ai-service`
+| Test suite | `clojure -M:test:db/h2 :ai`
+| Source | `libs/ai/`
+|===
+
+''''
+
+== Protocol: `IAIProvider`
+
+Namespace: `boundary.ai.ports`
+
+All provider adapters implement this protocol.
+
+[source,clojure]
+----
+(defprotocol IAIProvider
+  (complete [this messages opts]
+    "Text completion.
+     messages - vector of {:role :system/:user/:assistant, :content str}
+     opts     - provider-specific options (e.g. {:model \"...\"})
+     Returns  {:text str :tokens int :provider kw :model str}
+           or {:error str ...} on failure.")
+
+  (complete-json [this messages schema opts]
+    "Structured JSON completion. Appends a JSON instruction to messages.
+     schema  - string name for the expected object type (informational only)
+     Returns {:data map :tokens int :provider kw :model str}
+           or {:error str ...} on failure.")
+
+  (provider-name [this]
+    "Returns :ollama, :anthropic, :openai, or :no-op."))
+----
+
+=== Return value shapes
+
+[source,clojure]
+----
+;; Successful text completion
+{:text     "Explanation of the root cause..."
+ :tokens   142
+ :provider :ollama
+ :model    "qwen2.5-coder:7b"}
+
+;; Successful JSON completion
+{:data     {:module-name "product" :entity "Product" :fields [...]}
+ :tokens   87
+ :provider :anthropic
+ :model    "claude-haiku-4-5-20251001"}
+
+;; Failure (any provider)
+{:error   "connection refused"
+ :provider :ollama
+ :model    "qwen2.5-coder:7b"}
+----
+
+''''
+
+== Providers
+
+=== OllamaProvider
+
+Namespace: `boundary.ai.shell.providers.ollama`
+
+[source,clojure]
+----
+(create-ollama-provider config)
+----
+
+[cols="1,1,2",options="header"]
+|===
+| Config key | Default | Description
+| `:base-url` | `"http://localhost:11434"` | Ollama server URL
+| `:model` | `"qwen2.5-coder:7b"` | Model name (must be pulled first)
+| `:timeout-ms` | `120000` | Request timeout in milliseconds
+|===
+
+`complete-json` prepends a system message instructing the model to respond with JSON only.
+
+=== AnthropicProvider
+
+Namespace: `boundary.ai.shell.providers.anthropic`
+
+[source,clojure]
+----
+(create-anthropic-provider config)
+----
+
+[cols="1,1,2",options="header"]
+|===
+| Config key | Default | Description
+| `:api-key` | — (required) | Anthropic API key (`$ANTHROPIC_API_KEY`)
+| `:model` | `"claude-haiku-4-5-20251001"` | Claude model ID
+| `:timeout-ms` | `60000` | Request timeout in milliseconds
+|===
+
+NOTE: `:system` role messages are extracted from the messages vector and passed as the top-level `:system` field — this is required by the Anthropic Messages API.
+
+=== OpenAIProvider
+
+Namespace: `boundary.ai.shell.providers.openai`
+
+[source,clojure]
+----
+(create-openai-provider config)
+----
+
+[cols="1,1,2",options="header"]
+|===
+| Config key | Default | Description
+| `:api-key` | — (required) | OpenAI API key (`$OPENAI_API_KEY`)
+| `:model` | `"gpt-4o-mini"` | OpenAI model ID
+| `:base-url` | `"https://api.openai.com/v1"` | API base URL
+| `:timeout-ms` | `60000` | Request timeout in milliseconds
+|===
+
+`complete-json` passes `{:response_format {:type "json_object"}}` to enable OpenAI's JSON mode.
+
+=== NoOpProvider
+
+Namespace: `boundary.ai.shell.providers.no-op`
+
+Returns deterministic canned responses. Used in `:test` config to avoid network calls.
+
+[source,clojure]
+----
+(create-no-op-provider)
+;; => NoOpProvider instance
+
+;; always returns:
+{:text "No-op AI response for testing" :tokens 0 :provider :no-op :model "no-op"}
+----
+
+''''
+
+== Service functions
+
+Namespace: `boundary.ai.shell.service`
+
+All functions accept an `AIService` map as the first argument:
+
+[source,clojure]
+----
+;; AIService shape (from Integrant)
+{:provider  <IAIProvider>   ; primary provider
+ :fallback  <IAIProvider>}  ; optional; tried if primary returns {:error ...}
+----
+
+All functions have a 3-arity form and an optional 4-arity form with `opts`:
+
+[source,clojure]
+----
+(f service ...args)            ; uses configured model
+(f service ...args {:model "claude-sonnet-4-6"})  ; override model for this call
+----
+
+---
+
+=== `scaffold-from-description`
+
+[source,clojure]
+----
+(scaffold-from-description service description project-root)
+(scaffold-from-description service description project-root opts)
+----
+
+Parses a natural language module description into a scaffolder spec.
+
+[cols="1,1,2",options="header"]
+|===
+| Arg | Type | Description
+| `service` | `AIService` | Integrant service map
+| `description` | `string` | Plain English module description
+| `project-root` | `string` | Project root path (used to list existing module names)
+| `opts` | `map` | Optional provider overrides
+|===
+
+Returns:
+
+[source,clojure]
+----
+;; Success
+{:module-name "product"
+ :entity      "Product"
+ :fields      [{:name "name" :type "string" :required true}
+               {:name "price" :type "decimal" :required true}]
+ :http        true
+ :web         true}
+
+;; Failure
+{:error "..."}
+----
+
+---
+
+=== `explain-error`
+
+[source,clojure]
+----
+(explain-error service stacktrace project-root)
+(explain-error service stacktrace project-root opts)
+----
+
+Explains a Clojure/Boundary stack trace and suggests a fix.
+
+[cols="1,1,2",options="header"]
+|===
+| Arg | Type | Description
+| `service` | `AIService` | Integrant service map
+| `stacktrace` | `string` | Stack trace text
+| `project-root` | `string` | Project root (used to load referenced source files)
+| `opts` | `map` | Optional provider overrides
+|===
+
+Internally:
+1. Truncates the stack trace to 60 lines
+2. Extracts `file.clj:N` references and loads source files (best-effort)
+3. Builds a context-rich prompt and delegates to the provider
+
+Returns `{:text str :tokens int :provider kw :model str}` or `{:error str}`.
+
+---
+
+=== `generate-tests`
+
+[source,clojure]
+----
+(generate-tests service source-path)
+(generate-tests service source-path opts)
+----
+
+Generates a test namespace for a Clojure source file.
+
+[cols="1,1,2",options="header"]
+|===
+| Arg | Type | Description
+| `service` | `AIService` | Integrant service map
+| `source-path` | `string` | Absolute or relative path to the `.clj` source file
+| `opts` | `map` | Optional provider overrides
+|===
+
+Internally:
+1. Reads the source file
+2. Infers test type: `^:unit` if path contains `core/`, otherwise `^:integration` or `^:contract`
+3. Derives the expected test namespace from the source path
+4. Strips markdown code fences from the AI response
+
+Returns `{:text str :tokens int :provider kw :model str}` where `:text` is the generated test source.
+
+---
+
+=== `sql-from-description`
+
+[source,clojure]
+----
+(sql-from-description service description project-root)
+(sql-from-description service description project-root opts)
+----
+
+Generates a HoneySQL query from a natural language description.
+
+[cols="1,1,2",options="header"]
+|===
+| Arg | Type | Description
+| `service` | `AIService` | Integrant service map
+| `description` | `string` | Plain English query description
+| `project-root` | `string` | Project root (used to find all `schema.clj` files)
+| `opts` | `map` | Optional provider overrides
+|===
+
+Returns:
+
+[source,clojure]
+----
+;; Success
+{:honeysql    "{:select [:u.id :u.email] :from [[:users :u]] ...}"
+ :explanation "Joins users to orders..."
+ :raw-sql     "SELECT u.id, u.email FROM users u ..."}
+
+;; Failure
+{:error "..."}
+----
+
+---
+
+=== `generate-docs`
+
+[source,clojure]
+----
+(generate-docs service module-path doc-type)
+(generate-docs service module-path doc-type opts)
+----
+
+Generates documentation for a Boundary module.
+
+[cols="1,1,2",options="header"]
+|===
+| Arg | Type | Description
+| `service` | `AIService` | Integrant service map
+| `module-path` | `string` | Path to the module root (e.g. `"libs/user"`)
+| `doc-type` | `keyword` | `:agents`, `:openapi`, or `:readme`
+| `opts` | `map` | Optional provider overrides
+|===
+
+[cols="1,2",options="header"]
+|===
+| `doc-type` | Output format
+| `:agents` | Markdown `AGENTS.md` with Purpose, Key Namespaces, Gotchas, Testing commands
+| `:openapi` | OpenAPI 3.x YAML inferred from Reitit routes and Malli schemas
+| `:readme` | Markdown `README.md` with description, usage, configuration, dependencies
+|===
+
+Source files are truncated to 150 lines each before being sent to the AI.
+
+Returns `{:text str :tokens int :provider kw :model str}` or `{:error str}`.
+
+''''
+
+== Malli Schemas
+
+Namespace: `boundary.ai.schema`
+
+[source,clojure]
+----
+(require '[boundary.ai.schema :as schema])
+
+;; Individual schemas
+schema/Message          ; {:role :system/:user/:assistant, :content str}
+schema/AIRequest        ; {:messages [Message], :opts map}
+schema/AIResponse       ; {:text str, :tokens int, :provider kw, :model str}
+schema/ProviderConfig   ; {:provider kw, :model str, ...}
+schema/AIConfig         ; {:provider kw, :model str, :fallback ProviderConfig?}
+
+;; Validators
+(schema/valid-message? {:role :user :content "hello"})   ;; => true
+(schema/valid-ai-response? {:text "ok" :tokens 5
+                             :provider :ollama :model "qwen2.5-coder:7b"})  ;; => true
+----
+
+''''
+
+== Pure core functions
+
+These are safe to call from any layer (including tests). They never perform I/O.
+
+=== `boundary.ai.core.prompts`
+
+[cols="1,2",options="header"]
+|===
+| Function | Description
+| `scaffolding-messages [description existing-modules]` | Messages vector for NL scaffolding
+| `error-explainer-messages [stacktrace source-files]` | Messages vector for error explanation
+| `test-generator-messages [source-path source-code test-type]` | Messages for test generation
+| `sql-copilot-messages [description schema-context]` | Messages for SQL generation
+| `docs-messages [module-path source-files doc-type]` | Messages for documentation generation
+|===
+
+All functions return a vector of `{:role kw :content str}` maps ready to pass to `IAIProvider/complete` or `IAIProvider/complete-json`.
+
+=== `boundary.ai.core.context`
+
+[cols="1,2",options="header"]
+|===
+| Function | Description
+| `extract-module-names [lib-dirs]` | List existing module names from directory basenames
+| `extract-file-references [stacktrace]` | Find `(file.clj:N)` patterns in a stack trace
+| `summarise-stacktrace [stacktrace]` | Truncate stack trace to first 60 lines
+| `summarise-stacktrace [stacktrace n]` | Truncate stack trace to first N lines
+| `extract-public-function-names [source]` | Regex-find all `(defn name` in source text
+| `determine-test-type [file-path]` | Return `:unit`, `:contract`, or `:integration`
+| `derive-test-ns [source-path]` | Derive test namespace string from source path
+| `extract-schema-context [schema-files]` | Build context string from `schema.clj` content map
+| `filter-clj-sources [all-files]` | Filter a file map to `.clj` paths only
+| `truncate-source [source]` | Truncate source to 150 lines
+| `truncate-source [source max-lines]` | Truncate source to N lines
+|===
+
+=== `boundary.ai.core.parsing`
+
+[cols="1,2",options="header"]
+|===
+| Function | Description
+| `parse-json-response [text]` | Strip markdown fences, parse JSON object; returns `nil` on parse failure
+| `parse-module-spec [response-text]` | Validate and normalise a module spec JSON; returns spec map or `{:error str}`
+| `module-spec->cli-args [spec]` | Convert a spec map to a vector of CLI args for the scaffolder
+| `parse-sql-response [response-text]` | Parse SQL copilot JSON into `{:honeysql :explanation :raw-sql}`
+| `parse-generated-tests [response-text]` | Strip code fences from a generated test response
+|===
+
+''''
+
+== Integrant component
+
+Key: `:boundary/ai-service`
+
+Namespace: `boundary.ai.shell.module-wiring`
+
+[source,clojure]
+----
+;; Full config shape
+{:boundary/ai-service
+ {:provider :ollama | :anthropic | :openai | :no-op  ; required
+  :model    "..."                                      ; optional — provider default used otherwise
+  :base-url "http://localhost:11434"                  ; Ollama only
+  :api-key  "..."                                     ; Anthropic / OpenAI only
+  :fallback {:provider :anthropic                     ; optional fallback provider
+             :model    "..."
+             :api-key  "..."}}}
+----
+
+`ig/init-key` builds the primary and optional fallback providers and returns `{:provider P :fallback F}`.
+
+`ig/halt-key!` is a no-op (providers are stateless HTTP clients).
+
+''''
+
+== REPL helpers
+
+Namespace: `boundary.ai.shell.repl`
+
+[source,clojure]
+----
+(require '[boundary.ai.shell.repl :as ai])
+
+;; Wire the service (call once in dev/user.clj or your REPL startup)
+(ai/set-service! system-map)
+
+;; Explain the most recent exception
+(ai/explain *e)
+
+;; Explain a string
+(ai/explain "clojure.lang.ExceptionInfo: Schema validation failed ...")
+
+;; Generate a HoneySQL query
+(ai/sql "find active users with orders in the last 7 days")
+
+;; Generate tests for a file
+(ai/gen-tests "libs/user/src/boundary/user/core/validation.clj")
+----
+
+''''
+
+== CLI commands (`bb ai`)
+
+Babashka script: `scripts/ai.clj`
+
+[cols="2,2",options="header"]
+|===
+| Command | Description
+| `bb ai explain [--file path]` | Explain a stack trace (also reads from stdin)
+| `bb ai gen-tests <file>` | Generate tests for a source file (output to stdout)
+| `bb ai sql <description>` | Generate HoneySQL query from description
+| `bb ai docs [--module path] [--type agents\|openapi\|readme]` | Generate documentation
+| `bb scaffold ai <description>` | NL module scaffolding (in `scripts/scaffold.clj`)
+|===
+
+All CLI commands delegate to `clojure -M -m boundary.ai.shell.cli-entry <subcommand> [args]`.
+
+''''
+
+== Dependency graph
+
+[source,text]
+----
+boundary-ai
+  └── boundary-core     (Malli, utilities)
+
+AI library internal layers:
+  shell/service.clj
+    ├── core/prompts.clj    (pure — no I/O)
+    ├── core/context.clj    (pure — no I/O)
+    ├── core/parsing.clj    (pure — no I/O)
+    └── shell/providers/    (I/O: HTTP to AI APIs)
+          ├── ollama.clj
+          ├── anthropic.clj
+          ├── openai.clj
+          └── no_op.clj
+----
+
+''''
+
+== Testing cheatsheet
+
+[source,bash]
+----
+# All tests (no network calls)
+clojure -M:test:db/h2 :ai
+
+# Unit only (pure prompt/context/parsing functions)
+clojure -M:test:db/h2 --focus-meta :unit :ai
+
+# Integration only (mock IAIProvider, no network)
+clojure -M:test:db/h2 --focus-meta :integration :ai
+
+# Contract (live Ollama required)
+OLLAMA_URL=http://localhost:11434 \
+  clojure -M:test:db/h2 --focus-meta :contract :ai
+
+# Lint
+clojure -M:clj-kondo --lint libs/ai/src libs/ai/test
+----
