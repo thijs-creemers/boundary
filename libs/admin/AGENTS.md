@@ -66,7 +66,7 @@ resources/conf/dev/
 
 1. **Server-side rendering**: All HTML generated via Hiccup (no build step)
 2. **Progressive enhancement**: HTMX for dynamic behavior
-3. **Design tokens**: Centralized in `resources/public/css/tokens.css`
+3. **Design tokens**: Stable contract in `resources/public/css/boundary-tokens.css` with optional theme override in `resources/public/css/tokens-openprops.css`
 4. **Icon library**: Use Lucide icons, never emoji in UI (CLI emoji is OK)
 
 ### Common UI Patterns

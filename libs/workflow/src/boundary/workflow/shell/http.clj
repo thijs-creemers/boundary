@@ -1,11 +1,14 @@
 (ns boundary.workflow.shell.http
   "HTTP API routes and admin web UI handlers for workflow management.
 
-   API Endpoints:
-     GET  /api/workflow/instances/:id          — current state + metadata
-     GET  /api/workflow/instances/:id/audit    — full audit log
-     POST /api/workflow/instances              — start a new workflow instance
-     POST /api/workflow/instances/:id/transition — execute a transition
+   API Endpoints (canonical):
+     GET  /api/v1/workflow/instances/:id            — current state + metadata
+     GET  /api/v1/workflow/instances/:id/audit      — full audit log
+     POST /api/v1/workflow/instances                — start a new workflow instance
+     POST /api/v1/workflow/instances/:id/transition — execute a transition
+
+   Compatibility:
+     /api/workflow/* redirects to /api/v1/workflow/* via versioning middleware.
 
    Admin Web UI (mounted under /web/admin):
      GET  /workflows        — list all workflow instances
@@ -85,7 +88,7 @@
 ;; =============================================================================
 
 (defn handle-get-instance
-  "GET /api/workflow/instances/:id"
+  "GET /api/v1/workflow/instances/:id"
   [engine request]
   (let [id-str   (get-in request [:path-params :id])
         id       (parse-uuid-param id-str "id")
@@ -99,7 +102,7 @@
          :body   (instance->response instance avail-ts)}))))
 
 (defn handle-get-audit-log
-  "GET /api/workflow/instances/:id/audit"
+  "GET /api/v1/workflow/instances/:id/audit"
   [engine request]
   (let [id-str (get-in request [:path-params :id])
         id     (parse-uuid-param id-str "id")
@@ -109,7 +112,7 @@
               :entries    (mapv audit-entry->response log-entries)}}))
 
 (defn handle-start-workflow
-  "POST /api/workflow/instances"
+  "POST /api/v1/workflow/instances"
   [engine request]
   (let [body        (get-in request [:parameters :body])
         workflow-id (keyword (:workflowId body))
@@ -127,7 +130,7 @@
        :body   (instance->response instance nil)})))
 
 (defn handle-transition
-  "POST /api/workflow/instances/:id/transition"
+  "POST /api/v1/workflow/instances/:id/transition"
   [engine request]
   (let [id-str     (get-in request [:path-params :id])
         id         (parse-uuid-param id-str "id")
