@@ -1,0 +1,93 @@
+{:meta
+ {:name        "Boundary Base Template"
+  :description "Core dependencies shared across all Boundary starter templates"
+  :version     "1.0.0"}
+
+ ;; Core Clojure dependencies (always included)
+ :dependencies
+ {:clojure        {:group "org.clojure/clojure" :version "1.12.4"}
+  :integrant      {:group "integrant/integrant" :version "1.0.1"}
+  :integrant-repl {:group "integrant/repl" :version "0.5.0"}
+  :aero           {:group "aero/aero" :version "1.1.6"}
+  :malli          {:group "metosin/malli" :version "0.20.0"}
+  :tools-cli      {:group "org.clojure/tools.cli" :version "1.3.250"}
+  :tools-logging  {:group "org.clojure/tools.logging" :version "1.3.1"}
+  :logback        {:group "ch.qos.logback/logback-classic" :version "1.5.23"}}
+
+ ;; Boundary libraries (minimum for any project)
+ :boundary-libs
+ [:core :observability :platform]
+
+ ;; Base configuration (can be extended by child templates)
+ :config
+ {:http    {:enabled true
+            :port    3000
+            :host    "0.0.0.0"}
+  :db      {:enabled true
+            :type    :sqlite
+            :path    "dev-database.db"}
+  :logging {:level  :info
+            :format :json}}
+
+ ;; Source paths (can be extended)
+ :paths
+ ["src" "resources" "test"]
+
+ ;; Base aliases (can be extended)
+ :aliases
+ {:repl-clj
+  {:extra-deps {:nrepl {:group "nrepl/nrepl" :version "1.5.1"}
+                :cider {:group "cider/cider-nrepl" :version "0.58.0"}}
+   :main-opts  ["-m" "nrepl.cmdline" "--port" "7888"
+                "--middleware" "[cider.nrepl/cider-middleware]"]}
+
+  :test
+  {:extra-paths ["test"]
+   :extra-deps  {:kaocha     {:group "lambdaisland/kaocha" :version "1.91.1392"}
+                 :h2         {:group "com.h2database/h2" :version "2.4.240"}
+                 :test-check {:group "org.clojure/test.check" :version "1.1.2"}}
+   :main-opts   ["-m" "kaocha.runner"]
+   :jvm-opts    ["-Denv=test"]}
+
+  :build
+  {:deps       {:tools-build {:group   "io.github.clojure/tools.build"
+                              :git/tag "v0.10.11"
+                              :git/sha "c6c670a4"}}
+   :ns-default "build"}}
+
+ ;; Database drivers (included based on db config)
+ :db-drivers
+ {:sqlite   {:group "org.xerial/sqlite-jdbc" :version "3.51.0.0"}
+  :postgres {:group "org.postgresql/postgresql" :version "42.7.8"}
+  :h2       {:group "com.h2database/h2" :version "2.4.240"}}
+
+ ;; Environment variables (required)
+ :env-vars
+ {:required []
+  :optional ["LOG_LEVEL" "HTTP_PORT"]}
+
+ ;; Migrations to run (can be extended)
+ :migrations []
+
+ ;; Integrant system keys (can be extended)
+ :integrant-keys
+ [:boundary/db-context
+  :boundary/http-server]
+
+ ;; HTTP routes (can be extended)
+ :routes
+ ["boundary.platform.shell.http/health-routes"]
+
+ ;; README sections (can be customized per template)
+ :readme-sections
+ {:features
+  ["Functional Core / Imperative Shell architecture"
+   "Integrant-based system lifecycle"
+   "Database connection pooling"
+   "HTTP server with health checks"]
+
+  :next-steps
+  ["Start the REPL with `clojure -M:repl-clj`"
+   "Start the system with `(ig-repl/go)`"
+   "Visit http://localhost:3000/health"
+   "Add your first module with `bb scaffold`"]}}

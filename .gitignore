@@ -50,3 +50,5 @@ docs-site/resources/_gen/
 docs-site/.hugo_build.lock
 
 existing-dir/
+.worktrees
+

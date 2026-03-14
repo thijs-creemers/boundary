@@ -1,0 +1,65 @@
+{:meta
+ {:name "Web Application Template"
+  :description "Full-featured web application with authentication, admin UI, and session management"
+  :version "1.0.0"
+  :extends :minimal}
+
+ ;; Additional dependencies for web features
+ :dependencies
+ {:ring-defaults {:group "ring/ring-defaults" :version "0.5.0"}
+  :hiccup {:group "hiccup/hiccup" :version "2.0.0-RC3"}}
+
+ ;; Add user management and admin UI libraries
+ :boundary-libs
+ [:user :admin]
+
+ ;; Enhanced config for auth and sessions
+ :config
+ {:auth {:enabled true
+         :jwt-secret :env/JWT_SECRET
+         :session-timeout-minutes 60
+         :mfa-enabled false}
+  :admin {:enabled true
+          :route-prefix "/admin"
+          :entities [:users]}}
+
+ ;; No additional paths
+ :paths []
+
+ ;; No additional aliases
+ :aliases {}
+
+ ;; Auth requires JWT secret
+ :env-vars
+ {:required ["JWT_SECRET"]
+  :optional ["SESSION_TIMEOUT_MINUTES" "MFA_ENABLED"]}
+
+ ;; User management migrations
+ :migrations
+ ["20240101_create_users"
+  "20240102_create_sessions"]
+
+ ;; Add auth and admin system keys
+ :integrant-keys
+ [:boundary/user-service
+  :boundary/auth-service
+  :boundary/admin-service]
+
+ ;; Add user and admin routes
+ :routes
+ ["boundary.user.shell.http/auth-routes"
+  "boundary.admin.shell.http/admin-routes"]
+
+ ;; Web app README sections
+ :readme-sections
+ {:features
+  ["🔐 JWT-based authentication with sessions"
+   "👤 User registration and login"
+   "⚡ Auto-generated admin CRUD UI (Hiccup + HTMX)"
+   "🎨 Server-side rendering (no build step)"]
+
+  :next-steps
+  ["Set JWT_SECRET in your .env file (minimum 32 characters)"
+   "Visit http://localhost:3000/admin to access the admin UI"
+   "Register your first user at http://localhost:3000/auth/register"
+   "Enable MFA by setting MFA_ENABLED=true in .env"]}}

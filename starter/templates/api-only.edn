@@ -1,0 +1,69 @@
+{:meta
+ {:name        "API-Only Template"
+  :description "RESTful JSON API with JWT authentication - no web UI, perfect for mobile backends and microservices"
+  :version     "1.0.0"
+  :extends     :minimal}
+
+ ;; No UI dependencies - API only
+ :dependencies {}
+
+ ;; Add user library for JWT auth (no admin UI)
+ :boundary-libs
+ [:user]
+
+ ;; API-focused config - JWT auth without sessions or MFA UI
+ :config
+ {:auth {:enabled                 true
+         :jwt-secret              :env/JWT_SECRET
+         :session-timeout-minutes 60
+         :mfa-enabled             false}
+  :api  {:enabled       true
+         :route-prefix  "/api/v1"
+         :cors          {:allowed-origins ["*"]
+                         :allowed-methods [:get :post :put :patch :delete]
+                         :allowed-headers ["Content-Type" "Authorization"]}
+         :rate-limiting {:enabled             true
+                         :requests-per-minute 60}}}
+
+ ;; No additional paths
+ :paths        []
+
+ ;; No additional aliases
+ :aliases      {}
+
+ ;; JWT secret required for API authentication
+ :env-vars
+ {:required ["JWT_SECRET"]
+  :optional ["API_RATE_LIMIT" "CORS_ORIGINS"]}
+
+ ;; User management migrations (no session table - stateless JWT)
+ :migrations
+ ["20240101_create_users"
+  "20240102_create_api_keys"]
+
+ ;; Add auth service (no admin UI service)
+ :integrant-keys
+ [:boundary/user-service
+  :boundary/auth-service]
+
+ ;; Add API auth routes (no admin UI routes)
+ :routes
+ ["boundary.user.shell.http/api-auth-routes"]
+
+ ;; API-focused README sections
+ :readme-sections
+ {:features
+  ["🔐 Stateless JWT authentication (no sessions)"
+   "🔑 API key management for service-to-service auth"
+   "🌐 CORS configuration for web/mobile clients"
+   "⚡ Rate limiting protection (configurable per endpoint)"
+   "📦 JSON-only responses (no HTML rendering)"
+   "🚀 Optimized for containerized deployment"]
+
+  :next-steps
+  ["Set JWT_SECRET in your .env file (minimum 32 characters)"
+   "Test authentication: POST /api/v1/auth/login with {\"email\": \"...\", \"password\": \"...\"}"
+   "Include JWT in requests: Authorization: Bearer <token>"
+   "Generate API keys: POST /api/v1/auth/api-keys"
+   "Configure CORS origins in config.edn for production"
+   "Add your API endpoints in src/boundary/app.clj"]}}
