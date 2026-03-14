@@ -550,11 +550,10 @@ Also add the lib's `:id` test suite to `tests.edn` and its source/test paths to 
 **For in-depth information, see:**
 
 - **[Documentation Index](dev-docs/content-readme.adoc)** - Main docs navigation
-- **[Architecture Guide](docs-site/content/architecture/)** - FC/IS patterns, design decisions
+- **[Architecture Guide](docs/modules/architecture/pages/fc-is.adoc)** - FC/IS patterns, design decisions
 - **[Module Scaffolding](libs/scaffolder/README.md)** - Complete scaffolding workflow
-- **[MFA Setup Guide](docs-site/content/guides/mfa-setup.adoc)** - Multi-factor authentication
-- **[API Pagination](docs-site/content/api/pagination.adoc)** - Offset and cursor pagination
-- **[Observability Integration](docs-site/content/guides/integrate-observability.adoc)** - Custom adapters, configuration
+- **[MFA Setup Guide](docs/modules/guides/pages/authentication.adoc)** - Multi-factor authentication
+- **[Observability Integration](docs/modules/libraries/pages/observability.adoc)** - Custom adapters, configuration
 - **[HTTP Interceptors](dev-docs/adr/ADR-010-http-interceptor-architecture.adoc)** - Technical specification
 - **[PRD](dev-docs/reference/boundary-prd.adoc)** - Product vision and requirements
 
