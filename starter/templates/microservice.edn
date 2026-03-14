@@ -1,0 +1,123 @@
+{:meta
+ {:name "Microservice Template"
+  :description "Lightweight containerized service - health checks, metrics, optional database, 12-factor app design"
+  :version "1.0.0"
+  :extends :minimal}
+
+ ;; No additional dependencies beyond minimal
+ :dependencies {}
+
+ ;; Same 3 libraries as minimal (core, observability, platform)
+ :boundary-libs []
+
+ ;; Microservice-specific configuration
+ :config
+ {:http {:enabled true
+         :port :env/PORT
+         :host "0.0.0.0"
+         :shutdown-timeout-ms 30000}  ; Graceful shutdown (30s)
+
+  :db {:enabled :env/DATABASE_ENABLED  ; Database is OPTIONAL
+       :type :env/DATABASE_TYPE
+       :url :env/DATABASE_URL}
+
+  :observability
+  {:health-checks
+   {:enabled true
+    :endpoints ["/health" "/ready" "/live"]}
+   :metrics
+   {:enabled true
+    :endpoint "/metrics"
+    :format :prometheus}
+   :distributed-tracing
+   {:enabled :env/TRACING_ENABLED
+    :service-name :env/SERVICE_NAME
+    :endpoint :env/TRACING_ENDPOINT}}
+
+  :app
+  {:service-name :env/SERVICE_NAME
+   :environment :env/ENVIRONMENT
+   :version :env/APP_VERSION}}
+
+ ;; No additional paths
+ :paths []
+
+ ;; No additional aliases
+ :aliases {}
+
+ ;; Environment variables (12-factor app)
+ :env-vars
+ {:required
+  ["SERVICE_NAME"           ; e.g., "user-service", "payment-processor"
+   "ENVIRONMENT"            ; e.g., "production", "staging", "development"
+   "APP_VERSION"]           ; e.g., "1.0.0", "git-sha-abc123"
+
+  :optional
+  ["PORT=3000"                    ; HTTP port (default: 3000)
+   "DATABASE_ENABLED=false"       ; Enable database (default: false)
+   "DATABASE_TYPE=postgres"       ; Database type if enabled
+   "DATABASE_URL="                ; Connection string if enabled
+   "TRACING_ENABLED=false"        ; Enable distributed tracing
+   "TRACING_ENDPOINT="            ; Jaeger/Zipkin endpoint
+   "LOG_LEVEL=info"               ; Logging level
+   "SHUTDOWN_TIMEOUT_MS=30000"]}  ; Graceful shutdown timeout
+
+ ;; No migrations by default (database is optional)
+ :migrations []
+
+ ;; Microservice-specific integrant keys
+ :integrant-keys
+ [:boundary/health-check-handler
+  :boundary/metrics-handler
+  :boundary/readiness-check]
+
+ ;; Health and metrics routes
+ :routes
+ [{:path "/health"
+   :method :get
+   :handler :boundary/health-check-handler
+   :description "Liveness probe - is the service running?"}
+  {:path "/ready"
+   :method :get
+   :handler :boundary/readiness-check
+   :description "Readiness probe - is the service ready to accept traffic?"}
+  {:path "/metrics"
+   :method :get
+   :handler :boundary/metrics-handler
+   :description "Prometheus metrics endpoint"}]
+
+ ;; Microservice README sections
+ :readme-sections
+ {:features
+  ["🏥 Production-grade health checks (`/health`, `/ready`, `/live`)"
+   "📊 Prometheus metrics endpoint (`/metrics`)"
+   "🐳 Container-ready with Dockerfile included"
+   "🔧 12-factor app design (environment-based config)"
+   "📦 Optional database (disabled by default for stateless services)"
+   "⚡ Graceful shutdown (configurable timeout)"
+   "🔍 Distributed tracing ready (Jaeger/Zipkin integration)"
+   "📝 Structured JSON logging"]
+
+  :architecture-notes
+  ["**Stateless by Design**: No sessions, no local state - perfect for horizontal scaling"
+   "**Database Optional**: Many microservices don't need persistence - enable via DATABASE_ENABLED=true"
+   "**Health vs Readiness**: `/health` = is process alive? `/ready` = can it serve traffic?"
+   "**12-Factor App**: All configuration via environment variables (see .env.example)"
+   "**Graceful Shutdown**: Service drains connections before stopping (default 30s)"]
+
+  :deployment
+  ["**Container Build**: `docker build -t my-service .`"
+   "**Kubernetes**: Use `/ready` for readiness probe, `/health` for liveness probe"
+   "**Service Mesh**: Works with Istio, Linkerd (metrics + tracing endpoints)"
+   "**Environment Variables**: Set SERVICE_NAME, ENVIRONMENT, APP_VERSION minimum"
+   "**Database**: Enable only if needed - set DATABASE_ENABLED=true + DATABASE_URL"]
+
+  :next-steps
+  ["Set required environment variables: SERVICE_NAME, ENVIRONMENT, APP_VERSION"
+   "Test health endpoints: `curl http://localhost:3000/health`"
+   "Test metrics endpoint: `curl http://localhost:3000/metrics`"
+   "Build container: `docker build -t my-service .`"
+   "Enable database if needed: Set DATABASE_ENABLED=true in .env"
+   "Configure distributed tracing: Set TRACING_ENABLED=true + TRACING_ENDPOINT"
+   "Add your business logic in `src/boundary/app.clj`"
+   "Deploy to Kubernetes with health/readiness probes"]}}

@@ -14,26 +14,49 @@
 
 ---
 
-## Quick Start
+## Install Prerequisites
 
-Get started in three commands using the [boundary-starter](https://github.com/thijs-creemers/boundary-starter) template:
+You need `curl`, `tar`, and Babashka (`bb`) for starter bootstrap.
 
+**macOS**
 ```bash
-git clone https://github.com/thijs-creemers/boundary-starter
-cd boundary-starter
-
-export JWT_SECRET="change-me-dev-secret-min-32-chars"
-export BND_ENV="development"
-
-clojure -M:repl-clj
+brew install babashka
+# curl and tar are preinstalled on macOS
 ```
 
-Then in the REPL:
+**Linux (Debian/Ubuntu)**
+```bash
+sudo apt-get update
+sudo apt-get install -y curl tar
+bash < <(curl -s https://raw.githubusercontent.com/babashka/babashka/master/install)
+```
 
-```clojure
-(require '[integrant.repl :as ig-repl])
-(ig-repl/go)
-;; Visit http://localhost:3000
+**Windows (PowerShell + Scoop)**
+```powershell
+scoop install curl tar babashka
+```
+
+---
+
+## Quick Start
+
+Get started with your Boundary project.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/starter/scripts/bootstrap.sh | bash
+cd boundary-starter
+
+bb setup
+```
+
+This downloads only starter essentials into `boundary-starter/`.
+
+If you prefer to use the full repository, from the repo root:
+
+```bash
+export JWT_SECRET="change-me-dev-secret-min-32-chars"
+export BND_ENV="development"
+clojure -M:repl-clj
 ```
 
 You get: SQLite database (zero-config), HTTP server on port 3000, a complete Integrant system, REPL-driven development, and a production-ready Dockerfile.

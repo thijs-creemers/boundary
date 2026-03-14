@@ -1,0 +1,94 @@
+{:meta
+ {:name "SaaS Application Template"
+  :description "Production-ready SaaS with multi-tenancy, file storage, background jobs, and email"
+  :version "1.0.0"
+  :extends :web-app}
+
+ ;; Additional dependencies for SaaS features
+ :dependencies
+ {:redis {:group "redis.clients/jedis" :version "7.1.0"}
+  :aws-s3 {:group "software.amazon.awssdk/s3" :version "2.39.5"}
+  :aws-s3-transfer {:group "software.amazon.awssdk/s3-transfer-manager" :version "2.39.5"}
+  :javax-mail {:group "com.sun.mail/javax.mail" :version "1.6.2"}}
+
+ ;; Add SaaS-specific libraries
+ :boundary-libs
+ [:storage :cache :jobs :email :tenant]
+
+ ;; Enhanced config for SaaS features
+ :config
+ {:storage {:enabled true
+            :provider :local  ; or :s3
+            :local-path "uploads"
+            :s3-bucket :env/S3_BUCKET
+            :s3-region :env/S3_REGION}
+
+  :cache {:enabled true
+          :provider :redis  ; or :in-memory
+          :redis-url :env/REDIS_URL
+          :ttl-seconds 3600}
+
+  :jobs {:enabled true
+         :worker-count 4
+         :queue-name "boundary-jobs"
+         :retry-limit 3}
+
+  :email {:enabled true
+          :provider :smtp
+          :smtp-host :env/SMTP_HOST
+          :smtp-port :env/SMTP_PORT
+          :smtp-username :env/SMTP_USERNAME
+          :smtp-password :env/SMTP_PASSWORD
+          :from-address :env/EMAIL_FROM}
+
+  :tenant {:enabled true
+           :strategy :schema  ; PostgreSQL schema-per-tenant
+           :auto-provision true}}
+
+ ;; No additional paths
+ :paths []
+
+ ;; No additional aliases
+ :aliases {}
+
+ ;; SaaS requires more environment variables
+ :env-vars
+ {:required ["JWT_SECRET" "SMTP_HOST" "SMTP_PORT" "EMAIL_FROM"]
+  :optional ["S3_BUCKET" "S3_REGION" "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY"
+             "REDIS_URL" "SMTP_USERNAME" "SMTP_PASSWORD" "TENANT_AUTO_PROVISION"]}
+
+ ;; Additional migrations for SaaS features
+ :migrations
+ ["20240103_create_tenants"
+  "20240104_create_storage_files"
+  "20240105_create_jobs"
+  "20240106_create_email_queue"]
+
+ ;; Add SaaS system keys
+ :integrant-keys
+ [:boundary/storage-service
+  :boundary/cache-service
+  :boundary/jobs-worker
+  :boundary/email-service
+  :boundary/tenant-service]
+
+ ;; Add SaaS routes
+ :routes
+ ["boundary.storage.shell.http/storage-routes"
+  "boundary.tenant.shell.http/tenant-routes"]
+
+ ;; SaaS README sections
+ :readme-sections
+ {:features
+  ["🏢 Multi-tenancy with schema isolation (PostgreSQL)"
+   "📁 File storage (local filesystem or S3)"
+   "⚙️ Background job processing with retry logic"
+   "📧 Transactional email via SMTP (async + jobs integration)"
+   "💾 Distributed caching (Redis or in-memory)"]
+
+  :next-steps
+  ["Configure SMTP settings in .env for email delivery"
+   "Set REDIS_URL for distributed caching (optional, uses in-memory fallback)"
+   "For S3 storage: set S3_BUCKET, S3_REGION, and AWS credentials"
+   "For production: switch database to PostgreSQL for multi-tenancy"
+   "Review tenant provisioning settings in config.edn"]}}

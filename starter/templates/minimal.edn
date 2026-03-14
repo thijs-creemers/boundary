@@ -1,0 +1,46 @@
+{:meta
+ {:name "Minimal Boundary Project"
+  :description "Bare minimum to run a Boundary application - HTTP server, database, and health checks only"
+  :version "1.0.0"
+  :extends :_base}
+
+ ;; No additional dependencies beyond _base
+ :dependencies {}
+
+ ;; Just core libraries (inherits :core :observability :platform from _base)
+ :boundary-libs []
+
+ ;; Minimal config (inherits base config)
+ :config {}
+
+ ;; No additional paths
+ :paths []
+
+ ;; No additional aliases
+ :aliases {}
+
+ ;; No extra environment variables
+ :env-vars
+ {:required []
+  :optional []}
+
+ ;; No migrations yet
+ :migrations []
+
+ ;; Minimal integrant keys (inherits from _base)
+ :integrant-keys []
+
+ ;; Just health routes (inherits from _base)
+ :routes []
+
+ ;; Minimal README sections
+ :readme-sections
+ {:features
+  ["Zero-config SQLite database"
+   "HTTP health check endpoint"
+   "REPL-driven development with Integrant"]
+
+  :next-steps
+  ["Add your first module with `bb scaffold`"
+   "Explore the codebase structure in `src/boundary/app.clj`"
+   "Run tests with `clojure -M:test:db/h2`"]}}
