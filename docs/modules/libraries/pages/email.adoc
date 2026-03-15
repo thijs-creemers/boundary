@@ -1,0 +1,88 @@
+= email
+:description: Email sending with SMTP support, async processing, and jobs integration.
+
+Email sending with SMTP support, validation, and optional async processing via the jobs module.
+Supports sync, async (future-based), and queued (jobs module) sending modes.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.email.core.email`
+| Pure functions: prepare, validate, add headers, summarize
+
+| `boundary.email.ports`
+| Protocols: `EmailSenderProtocol`, `EmailQueueProtocol`
+
+| `boundary.email.schema`
+| Malli schemas: `EmailAddress`, `Email`, `SendEmailInput`
+
+| `boundary.email.shell.adapters.smtp`
+| SMTP adapter — delegates to `boundary.external` SMTP transport
+
+| `boundary.email.shell.jobs-integration`
+| Optional integration with `boundary-jobs` for queued sending
+|===
+
+== Transport layer
+
+`boundary-email` delegates raw SMTP transport to `boundary-external`:
+
+[source]
+----
+boundary-email (application layer)  →  boundary-external (transport layer)
+  Email {id, created-at, metadata}  →  OutboundEmail {to, from, subject, body}
+  EmailSenderProtocol                →  ISmtpProvider (javax.mail)
+----
+
+== Sending email
+
+[source,clojure]
+----
+(require '[boundary.email.core.email :as email]
+         '[boundary.email.ports :as ports]
+         '[boundary.email.shell.adapters.smtp :as smtp])
+
+;; 1. Create sender
+(def sender (smtp/create-smtp-sender
+              {:host     "smtp.gmail.com"
+               :port     587
+               :username "user@gmail.com"
+               :password "app-password"
+               :tls?     true}))
+
+;; 2. Prepare email (pure — normalizes :to to vector, adds UUID + timestamp)
+(def prepared (email/prepare-email
+                {:to      "alice@example.com"
+                 :from    "no-reply@myapp.com"
+                 :subject "Welcome!"
+                 :body    "Thanks for signing up!"}))
+
+;; 3. Send
+(ports/send-email! sender prepared)
+----
+
+== Sending modes
+
+[cols="1,2",options="header"]
+|===
+| Mode | When to use
+
+| Sync (default)
+| Transactional emails where failure should block the request
+
+| Async (`future`)
+| Non-critical emails where a short delay is acceptable
+
+| Queued (`boundary-jobs`)
+| High volume or when retry logic is needed
+|===
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :email
+----

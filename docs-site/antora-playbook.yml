@@ -1,0 +1,20 @@
+site:
+  title: Boundary Framework
+  url: https://docs.boundary-app.org
+
+content:
+  sources:
+    - url: ..
+      branches: HEAD
+      start_path: docs
+
+ui:
+  bundle:
+    url: https://gitlab.com/antora/antora-ui-default/-/jobs/artifacts/HEAD/raw/build/ui-bundle.zip?job=bundle-stable
+    snapshot: true
+  supplemental_files: ./supplemental-ui
+
+asciidoc:
+  attributes:
+    page-pagination: true
+    source-highlighter: highlight.js

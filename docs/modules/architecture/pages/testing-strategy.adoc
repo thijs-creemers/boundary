@@ -1,0 +1,120 @@
+= Testing Strategy
+:description: How Boundary tests are structured across unit, integration, and contract levels.
+
+Boundary uses Kaocha as the test runner with H2 in-memory database for all test suites.
+
+== Three test levels
+
+[cols="1,1,3",options="header"]
+|===
+| Type | Metadata | What it covers
+
+| Unit
+| `^:unit`
+| Pure core functions. No database, no mocks, no network. Fast.
+
+| Integration
+| `^:integration`
+| Shell services with mocked/in-memory adapters. Validates service orchestration.
+
+| Contract
+| `^:contract`
+| Adapters against real H2 in-memory database. Validates SQL, migrations, mappings.
+|===
+
+== Running tests
+
+[source,bash]
+----
+# All tests
+clojure -M:test:db/h2
+
+# Single library
+clojure -M:test:db/h2 :core
+clojure -M:test:db/h2 :user
+
+# By metadata
+clojure -M:test:db/h2 --focus-meta :unit
+clojure -M:test:db/h2 --focus-meta :integration
+clojure -M:test:db/h2 --focus-meta :contract
+
+# Single namespace
+clojure -M:test:db/h2 --focus boundary.user.core.user-test
+
+# Watch mode
+clojure -M:test:db/h2 --watch :core
+
+# With JWT secret (required for auth tests)
+JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2 :user
+----
+
+== Unit test example
+
+Tests for core functions need no setup — just call the function and assert:
+
+[source,clojure]
+----
+(ns boundary.user.core.user-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [boundary.user.core.user :as user-core]))
+
+(deftest ^:unit test-prepare-user
+  (testing "adds UUID and timestamps"
+    (let [result (user-core/prepare-user {:email "alice@example.com"
+                                          :name "Alice"})]
+      (is (uuid? (:id result)))
+      (is (inst? (:created-at result)))
+      (is (= "alice@example.com" (:email result))))))
+----
+
+== Contract test example
+
+Contract tests use a real H2 database with applied migrations:
+
+[source,clojure]
+----
+(ns boundary.user.shell.persistence-test
+  (:require [clojure.test :refer [deftest is use-fixtures]]
+            [boundary.user.shell.persistence :as persistence]
+            [boundary.test.fixtures :as fixtures]))
+
+(use-fixtures :each fixtures/with-database)
+
+(deftest ^:contract test-create-and-find-user
+  (let [user {:id (random-uuid) :email "test@example.com" :name "Test"}
+        _    (persistence/create-user! db user)
+        found (persistence/find-user-by-email db "test@example.com")]
+    (is (= (:email user) (:email found)))))
+----
+
+== Test suite configuration
+
+Test suites are defined in `tests.edn`. Each library has its own `:id`:
+
+[source,clojure]
+----
+{:kaocha/tests
+ [{:kaocha.testable/id :core
+   :kaocha/source-paths ["libs/core/src"]
+   :kaocha/test-paths   ["libs/core/test"]}
+  {:kaocha.testable/id :user
+   :kaocha/source-paths ["libs/user/src"]
+   :kaocha/test-paths   ["libs/user/test"]}
+  ;; ...
+  ]}
+----
+
+== Custom reporter
+
+The test reporter shows green `✓` for passing and red `✗` for failing tests.
+It is configured automatically via `tests.edn`.
+
+== Validation snapshot tests
+
+For complex validation schemas, snapshot tests capture expected error messages:
+
+[source,bash]
+----
+# Update snapshots when validation messages change intentionally
+UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus user-validation-snapshot-test
+----

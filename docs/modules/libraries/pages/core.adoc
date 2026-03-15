@@ -1,0 +1,110 @@
+= core
+:description: Foundation library with validation, utilities, interceptor pipeline, and feature flags.
+
+Foundation library providing shared utilities used by all other Boundary modules.
+Contains *no shell layer* — everything is pure functions.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.core.validation`
+| Malli-based validation framework with error codes, messages, and "did you mean?" suggestions
+
+| `boundary.core.validation.registry`
+| Central registry for validation rules across modules
+
+| `boundary.core.validation.coverage`
+| Validation coverage reporting and analysis
+
+| `boundary.core.validation.snapshot`
+| Snapshot-based validation testing
+
+| `boundary.core.utils.case-conversion`
+| kebab-case / snake_case / camelCase conversions
+
+| `boundary.core.utils.type-conversion`
+| UUID, Instant, BigDecimal string conversions
+
+| `boundary.core.utils.pii-redaction`
+| PII filtering for logs and error reports
+
+| `boundary.core.utils.validation`
+| Generic validation helpers
+
+| `boundary.core.interceptor`
+| Interceptor pipeline runner (enter/leave/error phases)
+
+| `boundary.core.interceptor-context`
+| Interceptor context creation and management
+
+| `boundary.core.config.feature-flags`
+| Feature flag evaluation logic
+|===
+
+== Case conversion
+
+The most commonly used utilities across the entire monorepo:
+
+[source,clojure]
+----
+(require '[boundary.core.utils.case-conversion :as cc])
+
+;; Persistence boundary — DB record → Clojure entity
+(cc/snake-case->kebab-case-map db-record)
+
+;; Persistence boundary — Clojure entity → DB insert/update
+(cc/kebab-case->snake-case-map entity)
+
+;; HTTP boundary — Clojure entity → JSON response
+(cc/kebab-case->camel-case-map entity)
+
+;; HTTP boundary — JSON request → Clojure map
+(cc/camel-case->kebab-case-map api-input)
+----
+
+== Validation framework
+
+[source,clojure]
+----
+(require '[boundary.core.utils.validation :as validation])
+
+;; Generic validation with transformation
+(validation/validate-with-transform SomeSchema data mt/string-transformer)
+;=> {:valid? true :data transformed-data}
+;=> {:valid? false :errors validation-errors}
+
+;; CLI argument validation
+(validation/validate-cli-args CliSchema args cli-transformer)
+----
+
+== Interceptor pipeline
+
+The interceptor system supports enter/leave/error phases, used by both HTTP and service layers:
+
+[source,clojure]
+----
+(require '[boundary.core.interceptor :as ic])
+
+;; Enter phases run forward, leave phases run in reverse
+(ic/run-pipeline initial-ctx [interceptor1 interceptor2 interceptor3])
+;; Enter order:  int1 → int2 → int3
+;; Leave order:  int3 → int2 → int1
+----
+
+== Important conventions
+
+* *All functions must be pure* — no I/O, no logging, no side effects
+* This library has *no ports.clj or shell/* — it's entirely functional core
+* Only dependencies: `org.clojure/clojure` and `metosin/malli`
+* All other Boundary libraries depend on core
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :core
+clojure -M:test:db/h2 --focus-meta :unit   # All core tests are :unit
+----

@@ -1,0 +1,99 @@
+= tenant
+:description: Multi-tenancy with PostgreSQL schema-per-tenant isolation.
+
+Multi-tenancy with schema-per-tenant isolation on PostgreSQL.
+Provides tenant CRUD, schema provisioning, tenant resolution, and cross-module integration.
+
+NOTE: Requires PostgreSQL. Not supported with SQLite or H2.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.tenant.core.tenant`
+| Pure functions: slug validation, schema name generation, prepare-tenant, decisions
+
+| `boundary.tenant.ports`
+| Protocols: `ITenantRepository`, `ITenantService`, `ITenantSchemaProvider`
+
+| `boundary.tenant.schema`
+| Malli schemas: `Tenant`, `TenantInput`, `TenantUpdate`, `TenantSettings`
+
+| `boundary.tenant.shell.service`
+| Service layer with observability interceptors
+
+| `boundary.tenant.shell.persistence`
+| Database CRUD with case conversion
+
+| `boundary.tenant.shell.provisioning`
+| PostgreSQL schema provisioning/deprovisioning
+
+| `boundary.tenant.shell.http`
+| REST API handlers (CRUD + provision/suspend/activate)
+
+| `boundary.tenant.shell.module-wiring`
+| Integrant lifecycle (`ig/init-key`, `ig/halt-key!`)
+|===
+
+== Tenant lifecycle
+
+[source]
+----
+:active       → Created, schema not yet provisioned
+:provisioned  → PostgreSQL schema created and ready
+:suspended    → Access disabled (data preserved)
+:deleted      → Soft delete (schema can be deprovisioned)
+----
+
+== Slug and schema naming
+
+[source,clojure]
+----
+;; Slug: lowercase alphanumeric + hyphens, 2–100 chars
+(tenant/valid-slug? "acme-corp")     ;=> true
+(tenant/valid-slug? "ACME")          ;=> false (uppercase)
+(tenant/valid-slug? "acme_corp")     ;=> false (underscore)
+
+;; Slug → PostgreSQL schema name
+(tenant/slug->schema-name "acme-corp")  ;=> "tenant_acme_corp"
+----
+
+== Schema provisioning
+
+[source,clojure]
+----
+(require '[boundary.tenant.shell.provisioning :as provisioning])
+
+;; Provision: creates PostgreSQL schema and copies table structure
+(provisioning/provision-tenant! db-ctx tenant)
+;=> {:success? true :schema-name "tenant_acme_corp" :table-count 5}
+
+;; Execute queries in tenant schema context
+(provisioning/with-tenant-schema db-ctx "tenant_acme_corp"
+  (fn [tx]
+    ;; SET search_path TO tenant_acme_corp, public
+    (jdbc/execute! tx ["SELECT * FROM orders"])))
+----
+
+== HTTP API
+
+[source,bash]
+----
+POST   /api/tenants               # Create tenant
+GET    /api/tenants               # List tenants
+GET    /api/tenants/:slug         # Get tenant
+PATCH  /api/tenants/:slug         # Update tenant
+POST   /api/tenants/:slug/provision  # Provision schema
+POST   /api/tenants/:slug/suspend    # Suspend tenant
+POST   /api/tenants/:slug/activate   # Activate tenant
+DELETE /api/tenants/:slug            # Soft delete
+----
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :tenant
+----

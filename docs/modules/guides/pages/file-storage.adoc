@@ -1,0 +1,89 @@
+= File Storage
+:description: Storing and retrieving files with local filesystem and S3 backends.
+
+The `storage` library provides file storage with local and S3 backends behind a unified protocol.
+
+== Basic operations
+
+[source,clojure]
+----
+(require '[boundary.storage.ports :as ports])
+
+;; Store a file
+(ports/store-file storage
+  {:bytes (.getBytes "file content") :content-type "text/plain"}
+  {:filename "document.txt"})
+;=> {:key "ab/1234-uuid-hash.txt" :url "..." :size 7 :content-type "text/plain" :stored-at #inst"..."}
+
+;; Retrieve a file
+(ports/retrieve-file storage "ab/1234-uuid-hash.txt")
+;=> {:bytes #bytes[...] :metadata {...}}
+
+;; Check existence
+(ports/file-exists? storage "ab/1234-uuid-hash.txt")
+
+;; Delete
+(ports/delete-file storage "ab/1234-uuid-hash.txt")
+
+;; Signed URL (S3 only; local returns public URL)
+(ports/generate-signed-url storage "ab/1234-uuid-hash.txt" 3600) ; expires in 1 hour
+----
+
+== File validation
+
+[source,clojure]
+----
+(require '[boundary.storage.core.validation :as validation])
+
+;; Validate before storing
+(validation/validate-file
+  {:bytes file-bytes :content-type "image/png" :filename "photo.png"}
+  {:max-size-bytes (* 5 1024 1024)  ; 5 MB
+   :allowed-types  #{"image/jpeg" "image/png" "image/webp"}
+   :allowed-exts   #{".jpg" ".jpeg" ".png" ".webp"}})
+----
+
+== Image processing
+
+[source,clojure]
+----
+(require '[boundary.storage.ports :as ports])
+
+;; Resize image
+(ports/resize-image image-processor file-bytes
+                    {:width 800 :height 600 :maintain-aspect? true})
+
+;; Create thumbnail
+(ports/create-thumbnail image-processor file-bytes
+                        {:width 150 :height 150})
+----
+
+== Integrant configuration
+
+[source,clojure]
+----
+;; Local filesystem (development)
+:boundary/storage
+{:backend   :local
+ :base-path "/var/app/uploads"
+ :base-url  "http://localhost:3000/uploads"}
+
+;; AWS S3 (production)
+:boundary/storage
+{:backend    :s3
+ :bucket     #env AWS_S3_BUCKET
+ :region     #env AWS_REGION
+ :access-key #env AWS_ACCESS_KEY_ID
+ :secret-key #env AWS_SECRET_ACCESS_KEY}
+----
+
+== Storage key format
+
+Files are stored with content-addressed keys:
+
+* *Local*: `+{shard}/{timestamp}-{uuid}-{hash16}.{ext}+` where shard = first 2 chars of SHA-256
+* *S3*: `+{prefix}/{timestamp}-{uuid}-{hash16}.{ext}+`
+
+The SHA-256 hash prevents duplicate storage for identical files.
+
+See xref:libraries:storage.adoc[storage library] for the full reference.

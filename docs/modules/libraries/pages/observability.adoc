@@ -1,0 +1,79 @@
+= observability
+:description: Cross-cutting observability with logging, metrics, tracing, and error reporters.
+
+Cross-cutting observability for services and persistence layers:
+structured logging, metrics, tracing breadcrumbs, and pluggable error reporting adapters.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.observability.shell.service-interceptors`
+| Service-layer operation wrappers with standardized telemetry
+
+| `boundary.observability.shell.persistence-interceptors`
+| Persistence-layer wrappers for query telemetry and failures
+
+| `boundary.observability.shell.adapters.*`
+| Pluggable providers: no-op (default), Datadog, Sentry
+|===
+
+== Usage pattern
+
+Wrap service and persistence operations with observability interceptors:
+
+[source,clojure]
+----
+(require '[boundary.observability.shell.service-interceptors :as service-interceptors]
+         '[boundary.observability.shell.persistence-interceptors :as persistence-interceptors])
+
+;; Service layer — automatic logging, metrics, error reporting
+(defn create-user [this user-data]
+  (service-interceptors/execute-service-operation
+    :create-user
+    {:user-data user-data}
+    (fn [{:keys [params]}]
+      (let [user (user-core/prepare-user (:user-data params))]
+        (.create-user repository user)))))
+
+;; Persistence layer — automatic query telemetry
+(defn find-user-by-email [this email]
+  (persistence-interceptors/execute-persistence-operation
+    logger error-reporter
+    "find-user-by-email"
+    {:email email}
+    (fn []
+      (jdbc/execute-one! ctx query))))
+----
+
+== Benefits
+
+* Consistent error handling and logging across all modules
+* Automatic metrics collection per operation
+* Automatic breadcrumbs for error tracking
+* ~50% code reduction compared to manual instrumentation
+
+== Adapters
+
+[cols="1,2",options="header"]
+|===
+| Adapter | When to use
+
+| `no-op` (default)
+| Development and tests
+
+| `datadog`
+| Production metrics and APM
+
+| `sentry`
+| Production error tracking
+|===
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :observability
+----

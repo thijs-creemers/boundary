@@ -1,0 +1,119 @@
+= Functional Core / Imperative Shell
+:description: The architectural pattern that Boundary enforces at every layer.
+
+FC/IS is the single most important concept in Boundary.
+It draws a hard boundary between *pure business logic* and *side effects*.
+
+== The two zones
+
+[source]
+----
+libs/{library}/src/boundary/{library}/
+├── core/       ← FUNCTIONAL CORE: pure functions only
+├── shell/      ← IMPERATIVE SHELL: all side effects
+├── ports.clj   ← interfaces between the zones
+└── schema.clj  ← Malli validation schemas
+----
+
+=== Functional Core (`core/`)
+
+* Pure functions only — given the same input, always the same output
+* No I/O of any kind (no `println`, no `log/info`, no `jdbc/execute!`)
+* No exception throwing (return error maps instead)
+* No `java.util.Date/new`, `UUID/randomUUID`, or any other non-deterministic calls
+
+[source,clojure]
+----
+;; ✅ CORRECT — pure function in core/
+(defn validate-email [email]
+  (when (re-matches #".+@.+\..+" email)
+    email))
+
+;; ❌ WRONG — side effect in core/
+(defn validate-email [email]
+  (log/info "Validating" email)  ; side effect!
+  (when (re-matches #".+@.+\..+" email) email))
+----
+
+=== Imperative Shell (`shell/`)
+
+* All side effects: database queries, HTTP calls, logging, file I/O
+* Validation (calls Malli, can throw exceptions)
+* Delegates business logic to core functions
+
+[source,clojure]
+----
+;; ✅ CORRECT — I/O in shell/
+(defn create-user [this input]
+  (let [[valid? errors data] (validate UserInput input)]  ; validation here
+    (if valid?
+      (let [user (user-core/prepare-user data)]  ; pure core function
+        (persistence/insert-user! (:db this) user))  ; side effect here
+      (throw (ex-info "Validation failed"
+                      {:type :validation-error :errors errors})))))
+----
+
+== Dependency rules
+
+[cols="1,1,1",options="header"]
+|===
+| From | To | Allowed?
+
+| Shell
+| Core
+| Yes
+
+| Core
+| Ports
+| Yes
+
+| Shell
+| Adapters
+| Yes
+
+| Core
+| Shell
+| *Never*
+
+| Core
+| Adapters
+| *Never*
+|===
+
+The most common violation is when a core namespace requires a shell namespace (e.g., for logging or persistence).
+clj-kondo and the test suite will catch this, but the structure is self-enforcing if you think in terms of:
+*"Can I test this function without any mocks?"*
+
+== Why this matters
+
+=== Tests without mocks
+
+Core functions are plain Clojure functions. Testing them requires no database, no HTTP server, no mocks:
+
+[source,clojure]
+----
+(deftest test-prepare-user
+  (is (= {:name "Alice" :email "alice@example.com"}
+         (user-core/prepare-user {:name "Alice" :email "alice@example.com"}))))
+----
+
+=== Predictable behaviour
+
+When you see a function in `core/`, you know it has no surprises.
+It won't log to Datadog, won't write to disk, won't call an external API.
+
+=== Safe refactoring
+
+Side effects are isolated in `shell/`. The core contains the rules.
+Swapping from PostgreSQL to DynamoDB means changing `shell/persistence.clj`,
+not touching any business logic.
+
+== Detecting violations
+
+[source,bash]
+----
+# clj-kondo catches cross-layer requires
+clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
+----
+
+The rule to remember: *if a namespace path contains `core/`, it must not require any path containing `shell/`.*

@@ -1,0 +1,154 @@
+= Key Concepts
+:description: The core ideas you need to understand before working with Boundary.
+
+== Functional Core / Imperative Shell
+
+The most important concept in Boundary. Every module is split into two zones:
+
+[source]
+----
+┌─────────────────────────────────────────────┐
+│         IMPERATIVE SHELL (shell/*)          │
+│  I/O, validation, logging, side effects     │
+└─────────────────────────────────────────────┘
+                    ↓ calls
+┌─────────────────────────────────────────────┐
+│           PORTS (ports.clj)                 │
+│  Protocol definitions (interfaces)          │
+└─────────────────────────────────────────────┘
+                    ↑ implements
+┌─────────────────────────────────────────────┐
+│         FUNCTIONAL CORE (core/*)            │
+│  Pure functions, business logic only        │
+└─────────────────────────────────────────────┘
+----
+
+*Dependency rules:*
+
+* Shell → Core: allowed
+* Core → Ports: allowed
+* Shell → Adapters: allowed
+* Core → Shell: *never*
+
+See xref:architecture:fc-is.adoc[FC/IS Architecture] for the full explanation.
+
+== Ports and Adapters
+
+Ports are Clojure protocols that define *what* a component can do, without specifying *how*:
+
+[source,clojure]
+----
+;; ports.clj — the interface
+(defprotocol IUserRepository
+  (find-user-by-email [this email])
+  (create-user! [this user]))
+
+;; shell/adapters/postgres.clj — one implementation
+(defrecord PostgresUserRepo [db-ctx]
+  IUserRepository
+  (find-user-by-email [this email] ...))
+
+;; shell/adapters/in-memory.clj — test implementation
+(defrecord InMemoryUserRepo [store]
+  IUserRepository
+  (find-user-by-email [this email] ...))
+----
+
+Swapping the implementation requires zero changes to business logic.
+
+== Case conventions
+
+A frequent source of bugs. Boundary uses three different naming conventions at different boundaries:
+
+[cols="1,1,2",options="header"]
+|===
+| Boundary | Convention | Example
+
+| All Clojure code
+| `kebab-case`
+| `:password-hash`, `:created-at`
+
+| Database (at boundary only)
+| `snake_case`
+| `password_hash`, `created_at`
+
+| API/JSON (at boundary only)
+| `camelCase`
+| `passwordHash`, `createdAt`
+|===
+
+*Always use `boundary.core.utils.case-conversion` for conversions. Never convert manually.*
+
+[source,clojure]
+----
+(require '[boundary.core.utils.case-conversion :as cc])
+
+;; DB record → Clojure entity
+(cc/snake-case->kebab-case-map db-record)
+
+;; Clojure entity → DB record
+(cc/kebab-case->snake-case-map entity)
+
+;; Clojure entity → API response
+(cc/kebab-case->camel-case-map entity)
+----
+
+See xref:architecture:conventions.adoc[Conventions] for the full guide.
+
+== Integrant lifecycle
+
+Boundary uses Integrant for dependency injection and system lifecycle management.
+All components are defined as Integrant keys in `config.edn`.
+
+[source,bash]
+----
+# In the REPL
+(ig-repl/go)     # Start all components
+(ig-repl/reset)  # Reload changed namespaces and restart
+(ig-repl/halt)   # Stop all components
+----
+
+NOTE: After changing a `defrecord`, use `(ig-repl/halt)` + `(ig-repl/go)` instead of `reset`.
+`reset` does not recreate existing records.
+
+== Malli schemas
+
+Boundary uses Malli for all validation and schema definitions.
+Schemas live in `schema.clj` at the root of each module:
+
+[source,clojure]
+----
+(def UserInput
+  [:map
+   [:email    [:string {:min 1 :max 255}]]
+   [:password [:string {:min 8 :max 128}]]
+   [:name     {:optional true} :string]])
+----
+
+== Testing pyramid
+
+[cols="1,1,2",options="header"]
+|===
+| Type | Metadata | What it tests
+
+| Unit
+| `^:unit`
+| Pure core functions — no mocks, no DB
+
+| Integration
+| `^:integration`
+| Shell services with mocked adapters
+
+| Contract
+| `^:contract`
+| Adapters against real H2 in-memory DB
+|===
+
+[source,bash]
+----
+clojure -M:test:db/h2 --focus-meta :unit         # Only unit tests
+clojure -M:test:db/h2 --focus-meta :integration  # Only integration tests
+clojure -M:test:db/h2 --focus-meta :contract     # Only contract tests
+----
+
+See xref:architecture:testing-strategy.adoc[Testing Strategy] for the full guide.

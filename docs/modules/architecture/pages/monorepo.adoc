@@ -1,0 +1,135 @@
+= Monorepo Structure
+:description: How the Boundary repository is organized and how libraries relate.
+
+Boundary is a monorepo of 19 independently publishable libraries under `libs/`.
+Each library can be published to Clojars as a standalone dependency.
+
+== Top-level layout
+
+[source]
+----
+boundary/
+├── src/boundary/          ← Main application (same core/shell structure)
+├── libs/                  ← 19 independently publishable libraries
+│   ├── core/
+│   ├── observability/
+│   ├── platform/
+│   ├── user/
+│   └── ...
+├── starter/               ← Minimal starter template
+├── examples/              ← Reference applications
+│   └── ecommerce-api/     ← Most comprehensive example
+├── docs/                  ← Documentation (this site)
+├── dev-docs/              ← Internal: ADRs, decisions, presentations
+├── resources/conf/        ← Aero-based configuration
+│   ├── dev/
+│   ├── test/
+│   ├── acc/
+│   └── prod/
+├── deps.edn               ← Root deps with all aliases
+└── tests.edn              ← Kaocha test suite definitions
+----
+
+== Library structure
+
+Each library under `libs/` follows the same pattern:
+
+[source]
+----
+libs/{library}/
+├── src/boundary/{library}/
+│   ├── core/              ← Pure functions
+│   ├── shell/             ← Side effects
+│   ├── ports.clj          ← Protocol definitions
+│   └── schema.clj         ← Malli schemas
+├── test/boundary/{library}/
+│   ├── core/              ← Unit tests (^:unit)
+│   └── shell/             ← Integration + contract tests
+└── AGENTS.md              ← Library-specific dev guide
+----
+
+== Library overview
+
+[cols="1,3",options="header"]
+|===
+| Library | Purpose
+
+| xref:libraries:core.adoc[core]
+| Foundation: validation, utilities, interceptor pipeline, feature flags
+
+| xref:libraries:observability.adoc[observability]
+| Logging, metrics, error reporting (Datadog, Sentry)
+
+| xref:libraries:platform.adoc[platform]
+| HTTP, database, CLI infrastructure
+
+| xref:libraries:user.adoc[user]
+| Authentication, authorization, MFA, session management
+
+| xref:libraries:admin.adoc[admin]
+| Auto-generated CRUD admin UI (Hiccup + HTMX)
+
+| xref:libraries:storage.adoc[storage]
+| File storage: local filesystem and S3
+
+| xref:libraries:scaffolder.adoc[scaffolder]
+| Interactive module code generator
+
+| xref:libraries:cache.adoc[cache]
+| Distributed caching: Redis and in-memory
+
+| xref:libraries:jobs.adoc[jobs]
+| Background job processing with retry logic
+
+| xref:libraries:email.adoc[email]
+| Email: SMTP, async, jobs integration
+
+| xref:libraries:tenant.adoc[tenant]
+| Multi-tenancy with PostgreSQL schema-per-tenant isolation
+
+| xref:libraries:realtime.adoc[realtime]
+| WebSocket / SSE for real-time features
+
+| xref:libraries:external.adoc[external]
+| External service adapters: Stripe, Twilio, IMAP
+
+| xref:libraries:reports.adoc[reports]
+| PDF, Excel, Word generation via `defreport` macro
+
+| xref:libraries:calendar.adoc[calendar]
+| Recurring events, iCal export/import, conflict detection
+
+| xref:libraries:workflow.adoc[workflow]
+| Declarative state machine workflows with audit trail
+
+| xref:libraries:search.adoc[search]
+| Full-text search: PostgreSQL FTS with LIKE fallback
+
+| xref:libraries:geo.adoc[geo]
+| Geocoding (OSM/Google/Mapbox), DB cache, Haversine distance
+
+| xref:libraries:ai.adoc[ai]
+| Framework-aware AI tooling: NL scaffolding, error explainer, test generator
+|===
+
+== Running tests per library
+
+[source,bash]
+----
+clojure -M:test:db/h2 :core
+clojure -M:test:db/h2 :user
+clojure -M:test:db/h2 :admin
+# etc.
+----
+
+== Configuration
+
+Aero-based configuration with environment profiles in `resources/conf/{env}/config.edn`.
+The active environment is controlled by the `BND_ENV` environment variable.
+
+[source,bash]
+----
+export BND_ENV=development   # loads resources/conf/dev/config.edn
+export BND_ENV=test          # loads resources/conf/test/config.edn
+export BND_ENV=production    # loads resources/conf/prod/config.edn
+----

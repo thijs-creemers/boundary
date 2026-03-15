@@ -246,5 +246,4 @@ clojure -M:test:db/h2 :observability --focus-meta :unit
 ## Links
 
 - [Library README](README.md)
-- [Observability Integration Guide](../../docs-site/content/architecture/observability-integration.adoc)
 - [Root AGENTS Guide](../../AGENTS.md)

@@ -1,0 +1,115 @@
+= calendar
+:description: Recurring events, RRULE recurrence, iCal export/import, and conflict detection.
+
+Handles recurring events, timezone-aware occurrence expansion, conflict detection,
+iCal export/import, and admin UI components for scheduling applications.
+
+== Key namespaces
+
+[cols="1,2,3",options="header"]
+|===
+| Namespace | Layer | Responsibility
+
+| `boundary.calendar.schema`
+| shared
+| Malli schemas: `EventData`, `EventDef`, `OccurrenceResult`, `ConflictResult`
+
+| `boundary.calendar.ports`
+| shared
+| `CalendarAdapterProtocol` interface
+
+| `boundary.calendar.core.event`
+| core
+| `defevent` macro, registry, `duration`, `all-day?`, `within-range?`
+
+| `boundary.calendar.core.recurrence`
+| core
+| RRULE parsing, `occurrences`, `next-occurrence`, `expand-event`
+
+| `boundary.calendar.core.conflict`
+| core
+| `overlaps?`, `conflicts?`, `find-conflicts`
+
+| `boundary.calendar.core.ui`
+| core
+| Pure Hiccup: `month-view`, `week-view`, `mini-calendar`, `event-badge`
+
+| `boundary.calendar.shell.adapters.ical`
+| shell
+| ical4j adapter (`ICalAdapter`)
+
+| `boundary.calendar.shell.service`
+| shell
+| Public API: `export-ical`, `import-ical`, `ical-feed-response`
+|===
+
+== Defining event types
+
+[source,clojure]
+----
+(require '[boundary.calendar.core.event :as event])
+
+(event/defevent appointment-event
+  {:id     :appointment
+   :label  "Appointment"
+   :schema [:map
+            [:patient-id :uuid]
+            [:room       :string]]})
+
+(event/get-event-type :appointment)   ;=> {:id :appointment ...}
+(event/list-event-types)              ;=> [:appointment ...]
+----
+
+== Recurring events (RRULE)
+
+[source,clojure]
+----
+(require '[boundary.calendar.core.recurrence :as recurrence])
+
+;; Expand weekly recurring event
+(recurrence/occurrences event-data start-dt end-dt)
+
+;; Next occurrence after a date
+(recurrence/next-occurrence event-data after-dt)
+
+;; Full expansion with metadata
+(recurrence/expand-event event-data range-start range-end)
+----
+
+== Conflict detection
+
+[source,clojure]
+----
+(require '[boundary.calendar.core.conflict :as conflict])
+
+(conflict/overlaps? event-a event-b)    ;=> true/false
+(conflict/find-conflicts new-event existing-events)
+;=> [{:event existing-event :overlap-start ... :overlap-end ...}]
+----
+
+== iCal export / import
+
+[source,clojure]
+----
+(require '[boundary.calendar.shell.service :as cal])
+
+;; Export to iCal string
+(cal/export-ical events)
+
+;; Import from iCal string
+(cal/import-ical ical-string)
+
+;; HTTP response for iCal feed (subscription URL)
+(cal/ical-feed-response events {:filename "appointments.ics"})
+----
+
+== Dependencies
+
+Uses `org.mnode.ical4j/ical4j {:mvn/version "4.0.3"}` (note: group ID is `org.mnode.ical4j`, Java packages are still `net.fortuna.ical4j.*`).
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :calendar
+----

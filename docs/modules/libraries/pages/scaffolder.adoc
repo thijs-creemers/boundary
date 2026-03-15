@@ -1,0 +1,92 @@
+= scaffolder
+:description: Interactive module code generator for Boundary projects.
+
+Generates new Boundary modules with complete FC/IS structure, tests, and migrations.
+
+== Commands
+
+[source,bash]
+----
+bb scaffold           # Show help and all commands
+bb scaffold generate  # Generate a new module (interactive wizard)
+bb scaffold new       # Bootstrap a new Boundary project
+bb scaffold field     # Add a field to an existing entity
+bb scaffold endpoint  # Add an endpoint to an existing module
+bb scaffold adapter   # Generate a new adapter implementation
+----
+
+== Generating a module
+
+=== Interactive wizard (recommended)
+
+[source,bash]
+----
+bb scaffold generate
+----
+
+The wizard guides you through all options, shows a summary, prints the equivalent
+raw command, then runs the generator.
+
+=== Non-interactive
+
+[source,bash]
+----
+bb scaffold generate \
+  --module-name product \
+  --entity Product \
+  --field name:string:required \
+  --field sku:string:required:unique \
+  --field price:decimal:required
+
+# Preview without writing
+bb scaffold generate --dry-run --module-name product --entity Product \
+  --field name:string:required
+----
+
+== AI-assisted scaffolding
+
+[source,bash]
+----
+# Interactive confirm
+bb scaffold ai "product module with name, price, stock"
+
+# Non-interactive
+bb scaffold ai "product module with name, price, stock" --yes
+----
+
+== What gets generated
+
+For a module with 3 fields:
+
+* 9 source files: core, shell (persistence, service, http, module-wiring), ports, schema
+* 3 test files: unit (`^:unit`), integration (`^:integration`), contract (`^:contract`)
+* 1 SQL migration file
+* Zero linting errors, complete FC/IS architecture
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.scaffolder.shell.cli-entry`
+| CLI entrypoint
+
+| `boundary.scaffolder.core.*`
+| Pure generation logic and naming/field transforms
+
+| `boundary.scaffolder.shell.templates.*`
+| File templates and output orchestration
+|===
+
+== Gotchas
+
+* Regenerated files can drift if templates are updated without updating test fixtures
+* Generated field names use kebab-case internally; convert only at HTTP/DB boundaries
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :scaffolder
+----

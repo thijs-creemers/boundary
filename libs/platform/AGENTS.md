@@ -251,5 +251,3 @@ clojure -M:test:db/h2 :platform --focus-meta :integration
 
 - [Library README](README.md)
 - [Root AGENTS Guide](../../AGENTS.md)
-- [Architecture Overview](../../docs-site/content/architecture/overview.adoc)
-- [Middleware Architecture](../../docs-site/content/architecture/middleware-architecture.adoc)

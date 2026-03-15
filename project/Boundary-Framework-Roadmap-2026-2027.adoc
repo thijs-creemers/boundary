@@ -6,7 +6,7 @@
 :source-highlighter: rouge
 :experimental:
 :last-update-label!:
-Thijs Creemers <thijs@boundary-app.org>
+Thijs Creemers <thijs.creemers@boundary-app.org>
 v1.0, {docdate}
 
 [abstract]
@@ -1320,7 +1320,7 @@ Savings:     €45k         €75k        €135k       €300k
 
 Voor vragen over deze roadmap:
 
-* **Auteur**: Thijs Creemers (thijs@tcbv.nl)
+* **Auteur**: Thijs Creemers (thijs.creemers@boundary-app.org)
 * **Laatst bijgewerkt**: {docdate}
 * **Versie**: 1.0
 

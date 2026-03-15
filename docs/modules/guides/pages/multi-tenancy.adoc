@@ -1,0 +1,76 @@
+= Multi-Tenancy
+:description: Setting up schema-per-tenant isolation with the tenant library.
+
+The `tenant` library provides multi-tenancy with PostgreSQL schema-per-tenant isolation.
+
+NOTE: Multi-tenancy requires PostgreSQL. It is not available with SQLite or H2.
+
+== Tenant lifecycle
+
+[source]
+----
+:active       → Tenant created, schema not yet provisioned
+:provisioned  → PostgreSQL schema created and ready for use
+:suspended    → Access disabled (data preserved)
+:deleted      → Soft delete (schema can be deprovisioned)
+----
+
+== Tenant slugs and schema names
+
+Slugs must be lowercase alphanumeric with hyphens, 2–100 characters:
+
+[source,clojure]
+----
+(tenant/valid-slug? "acme-corp")   ;=> true
+(tenant/valid-slug? "ACME")        ;=> false (uppercase)
+(tenant/valid-slug? "acme_corp")   ;=> false (underscore)
+
+;; Slug → PostgreSQL schema name
+(tenant/slug->schema-name "acme-corp")  ;=> "tenant_acme_corp"
+----
+
+== HTTP API
+
+[source,bash]
+----
+# Create tenant
+curl -X POST http://localhost:3000/api/tenants \
+  -H "Content-Type: application/json" \
+  -d '{"name": "ACME Corp", "slug": "acme-corp"}'
+
+# Provision (creates PostgreSQL schema)
+curl -X POST http://localhost:3000/api/tenants/acme-corp/provision \
+  -H "Authorization: Bearer <admin-token>"
+
+# Suspend
+curl -X POST http://localhost:3000/api/tenants/acme-corp/suspend \
+  -H "Authorization: Bearer <admin-token>"
+
+# Activate
+curl -X POST http://localhost:3000/api/tenants/acme-corp/activate \
+  -H "Authorization: Bearer <admin-token>"
+----
+
+== Executing queries in tenant context
+
+[source,clojure]
+----
+(require '[boundary.tenant.shell.provisioning :as provisioning])
+
+(provisioning/with-tenant-schema db-ctx "tenant_acme_corp"
+  (fn [tx]
+    ;; Sets: SET search_path TO tenant_acme_corp, public
+    (jdbc/execute! tx ["SELECT * FROM orders"])))
+----
+
+== Integrant configuration
+
+[source,clojure]
+----
+:boundary/tenant-service
+{:db         #ig/ref :boundary/db
+ :cache      #ig/ref :boundary/cache   ; optional
+ :job-queue  #ig/ref :boundary/job-queue}  ; optional
+----
+
+See xref:libraries:tenant.adoc[tenant library] for the full reference.

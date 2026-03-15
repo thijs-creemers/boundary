@@ -1,0 +1,57 @@
+= Boundary Framework
+:description: Batteries-included Clojure web framework enforcing the Functional Core / Imperative Shell pattern.
+
+**Boundary** brings Django's productivity and Rails' conventions to Clojure — with functional programming rigor.
+It is a batteries-included web framework that enforces the *Functional Core / Imperative Shell (FC/IS)* pattern:
+pure business logic in `core/`, side effects in `shell/`, and clean interfaces through `ports.clj` protocols.
+
+== What Boundary provides
+
+* *19 independently publishable libraries* on Clojars — use only what you need
+* *Scaffolder* that generates production-ready modules (entity + routes + tests) in seconds
+* *Auto-generated admin UI* from your schema — no manual forms
+* *Built-in observability*, RFC 5988 pagination, and declarative interceptors
+* *Framework-aware AI tooling* — NL scaffolding, error explainer, test generator, SQL copilot
+
+== Where to start
+
+[cols="1,3",options="header"]
+|===
+| I want to...
+| Go to
+
+| Try Boundary in minutes
+| xref:getting-started:quickstart.adoc[Quickstart]
+
+| Understand the design philosophy
+| xref:getting-started:why-boundary.adoc[Why Boundary?]
+
+| Learn the core architecture
+| xref:architecture:fc-is.adoc[Functional Core / Imperative Shell]
+
+| Add a module to an existing app
+| xref:guides:create-module.adoc[Create a Module]
+
+| Browse all 19 libraries
+| xref:libraries:index.adoc[Library Overview]
+|===
+
+== Essential commands
+
+[source,bash]
+----
+# Start a new project
+curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/starter/scripts/bootstrap.sh | bash
+cd boundary-starter && bb setup
+
+# REPL-driven development
+export JWT_SECRET="change-me-dev-secret-min-32-chars"
+export BND_ENV="development"
+clojure -M:repl-clj
+
+# Scaffold a new module (interactive)
+bb scaffold
+
+# Run all tests
+clojure -M:test:db/h2
+----

@@ -1,0 +1,12 @@
+* Guides
+** xref:guides:create-module.adoc[Create a Module]
+** xref:guides:validation.adoc[Validation]
+** xref:guides:authentication.adoc[Authentication & JWT]
+** xref:guides:background-jobs.adoc[Background Jobs]
+** xref:guides:file-storage.adoc[File Storage]
+** xref:guides:multi-tenancy.adoc[Multi-Tenancy]
+** xref:guides:realtime.adoc[Real-Time (WebSocket)]
+** xref:guides:testing.adoc[Testing]
+** xref:guides:repl-workflow.adoc[REPL Workflow]
+** xref:guides:debugging.adoc[Debugging]
+** xref:guides:deployment.adoc[Deployment]

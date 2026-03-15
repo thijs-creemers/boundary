@@ -1,0 +1,109 @@
+= Authentication & JWT
+:description: Setting up authentication, JWT tokens, sessions, and MFA in Boundary.
+
+Boundary's `user` library handles the full authentication lifecycle:
+user registration, login, JWT tokens, sessions, and multi-factor authentication.
+
+== Prerequisites
+
+[source,bash]
+----
+export JWT_SECRET="minimum-32-character-secret-key"
+----
+
+The JWT secret must be at least 32 characters. Tests that exercise auth also require this variable:
+
+[source,bash]
+----
+JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2 :user
+----
+
+== Login
+
+[source,bash]
+----
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "secret"}'
+----
+
+Response:
+
+[source,json]
+----
+{
+  "token": "eyJhbG...",
+  "user": {"id": "...", "email": "user@example.com", "role": "user"}
+}
+----
+
+== Protected routes
+
+Add the auth interceptor to routes that require authentication:
+
+[source,clojure]
+----
+[{:path "/api/profile"
+  :methods {:get {:handler 'handlers/get-profile
+                  :interceptors ['auth/require-authenticated]
+                  :summary "Get current user profile"}}}]
+----
+
+== Multi-Factor Authentication (MFA)
+
+MFA uses TOTP (Time-based One-Time Passwords, compatible with Google Authenticator / Authy).
+
+=== Setup flow
+
+[source,bash]
+----
+# 1. Start MFA setup (returns a secret + QR code URL)
+curl -X POST http://localhost:3000/api/auth/mfa/setup \
+  -H "Authorization: Bearer <token>"
+
+# 2. Enable MFA (verify with first TOTP code)
+curl -X POST http://localhost:3000/api/auth/mfa/enable \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"secret": "...", "verificationCode": "123456"}'
+----
+
+=== Login with MFA enabled
+
+[source,bash]
+----
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "secret", "mfaCode": "123456"}'
+----
+
+=== Disable MFA
+
+[source,bash]
+----
+curl -X POST http://localhost:3000/api/auth/mfa/disable \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"verificationCode": "123456"}'
+----
+
+== Session management
+
+[source,bash]
+----
+# List active sessions
+curl http://localhost:3000/api/auth/sessions \
+  -H "Authorization: Bearer <token>"
+
+# Revoke a specific session
+curl -X DELETE http://localhost:3000/api/auth/sessions/{session-id} \
+  -H "Authorization: Bearer <token>"
+----
+
+== Key security notes
+
+* `JWT_SECRET` must be set; missing it causes startup failures
+* Internal entities use `:password-hash` (kebab-case) — never `:password_hash`
+* The `user` library enforces account lockout after repeated failed login attempts
+
+See xref:libraries:user.adoc[user library] for the complete reference.

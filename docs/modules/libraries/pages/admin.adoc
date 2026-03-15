@@ -1,0 +1,94 @@
+= admin
+:description: Auto-generated CRUD admin UI built with Hiccup and HTMX.
+
+Admin UI and CRUD management tooling for Boundary entities.
+Generates admin interfaces automatically from entity configuration — no manual forms.
+
+== Technology stack
+
+[cols="1,2",options="header"]
+|===
+| Technology | Purpose
+
+| Hiccup
+| HTML generation (Clojure data structures → HTML)
+
+| HTMX
+| Dynamic interactions without a frontend build step
+
+| Pico CSS
+| Minimal, semantic CSS framework
+
+| Lucide icons
+| Icon set via `boundary.shared.ui.core.icons`
+|===
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.admin.core.ui`
+| Main admin UI rendering (tables, forms, layout composition)
+
+| `boundary.shared.ui.core.icons`
+| Shared Lucide icon rendering
+
+| `boundary.admin.shell.http`
+| Admin HTTP handlers and HTMX fragment endpoints
+|===
+
+== Entity configuration
+
+Admin entity configs are modular — each module owns its config file:
+
+[source]
+----
+resources/conf/dev/
+├── config.edn              ← Main config (uses Aero #include)
+└── admin/
+    └── users.edn           ← User module's entity config
+    └── products.edn        ← Product module's entity config
+----
+
+[source,clojure]
+----
+;; admin/products.edn
+{:products
+ {:label           "Products"
+  :list-fields     [:name :sku :price :created-at]
+  :search-fields   [:name :sku]
+  :hide-fields     #{:deleted-at}
+  :readonly-fields #{:id :created-at :updated-at}}}
+----
+
+[source,clojure]
+----
+;; config.edn — include all entity configs
+:boundary/admin
+{:enabled?   true
+ :entities   #merge [#include "admin/users.edn"
+                     #include "admin/products.edn"]
+ :pagination {:default-page-size 25}}
+----
+
+== Adding a new module
+
+1. Create `+resources/conf/dev/admin/{module}.edn+`
+2. Add `+#include "admin/{module}.edn"+` to the `#merge` vector in `config.edn`
+3. `(ig-repl/reset)` to reload configuration
+
+== UI conventions
+
+* Standalone data-entry forms (login, register, create/edit) get `form.form-card` class
+* Button-wrapper forms (logout, delete, revoke) get no class
+* Page header pattern: `h1` + `p` in a plain `[:div]`, with `.page-actions` as sibling
+* Tables: `[:div.table-wrapper > table.data-table]`
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :admin
+----

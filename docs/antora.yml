@@ -1,0 +1,10 @@
+name: boundary
+title: Boundary Framework
+version: ~
+start_page: ROOT:index.adoc
+nav:
+  - modules/ROOT/nav.adoc
+  - modules/getting-started/nav.adoc
+  - modules/architecture/nav.adoc
+  - modules/guides/nav.adoc
+  - modules/libraries/nav.adoc

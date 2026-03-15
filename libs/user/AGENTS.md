@@ -231,6 +231,8 @@ curl -X POST http://localhost:3000/api/auth/login \
   -d '{"email": "user@example.com", "password": "...", "mfa-code": "BACKUP-CODE"}'
 ```
 
+**Details**: See [MFA Setup Guide](../../docs/modules/guides/pages/authentication.adoc) for complete MFA setup guide
+
 ---
 
 ## Gotchas
@@ -265,5 +267,5 @@ UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 \
 ## Links
 
 - [Library README](README.md)
-- [MFA API Documentation](../../docs-site/content/api/mfa.adoc)
+- [MFA Setup Guide](../../docs/modules/guides/pages/authentication.adoc)
 - [Root AGENTS Guide](../../AGENTS.md)

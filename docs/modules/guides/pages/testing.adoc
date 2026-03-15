@@ -1,0 +1,124 @@
+= Testing
+:description: Writing and running tests in Boundary projects.
+
+See xref:architecture:testing-strategy.adoc[Testing Strategy] for the conceptual overview.
+This guide covers the practical how-to.
+
+== Test commands
+
+[source,bash]
+----
+# All tests
+clojure -M:test:db/h2
+
+# Single library
+clojure -M:test:db/h2 :core
+clojure -M:test:db/h2 :user
+
+# By tag
+clojure -M:test:db/h2 --focus-meta :unit
+clojure -M:test:db/h2 --focus-meta :integration
+clojure -M:test:db/h2 --focus-meta :contract
+
+# Single namespace
+clojure -M:test:db/h2 --focus boundary.user.core.user-test
+
+# Watch mode
+clojure -M:test:db/h2 --watch :core
+clojure -M:test:db/h2 --watch --focus-meta :unit
+
+# Auth tests (JWT secret required)
+JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2 :user
+----
+
+== Writing unit tests
+
+Tag with `^:unit`. Call core functions directly — no setup needed:
+
+[source,clojure]
+----
+(ns boundary.product.core.product-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [boundary.product.core.product :as product-core]))
+
+(deftest ^:unit test-prepare-product
+  (testing "returns a product with a generated id"
+    (let [result (product-core/prepare-product {:name "Widget" :price 9.99M})]
+      (is (uuid? (:id result)))
+      (is (= "Widget" (:name result)))
+      (is (= 9.99M (:price result)))))
+
+  (testing "adds timestamps"
+    (let [result (product-core/prepare-product {:name "Widget" :price 9.99M})]
+      (is (inst? (:created-at result)))
+      (is (inst? (:updated-at result))))))
+----
+
+== Writing integration tests
+
+Tag with `^:integration`. Use in-memory adapters to test service orchestration:
+
+[source,clojure]
+----
+(ns boundary.product.shell.service-test
+  (:require [clojure.test :refer [deftest is use-fixtures]]
+            [boundary.product.shell.service :as service]
+            [boundary.product.shell.adapters.in-memory :as mem]))
+
+(defn with-service [f]
+  (let [repo (mem/create-in-memory-repo)]
+    (binding [*service* (service/create-product-service {:repo repo})]
+      (f))))
+
+(use-fixtures :each with-service)
+
+(deftest ^:integration test-create-product
+  (let [result (service/create-product *service* {:name "Widget" :price 9.99M})]
+    (is (= "Widget" (:name result)))
+    (is (uuid? (:id result)))))
+----
+
+== Writing contract tests
+
+Tag with `^:contract`. Test against real H2 in-memory database:
+
+[source,clojure]
+----
+(ns boundary.product.shell.persistence-test
+  (:require [clojure.test :refer [deftest is use-fixtures]]
+            [boundary.product.shell.persistence :as persistence]
+            [boundary.test.fixtures :as fixtures]))
+
+(use-fixtures :each fixtures/with-database)
+
+(deftest ^:contract test-round-trip
+  (let [product {:id (random-uuid) :name "Widget" :price 9.99M
+                 :created-at (java.time.Instant/now)}
+        _       (persistence/create-product! db product)
+        found   (persistence/find-product-by-id db (:id product))]
+    (is (= (:name product) (:name found)))
+    (is (= (:price product) (:price found)))))
+----
+
+== Test suite in tests.edn
+
+Add new libraries to `tests.edn`:
+
+[source,clojure]
+----
+{:kaocha/tests
+ [;; existing suites ...
+  {:kaocha.testable/id :product
+   :kaocha/source-paths ["libs/product/src"]
+   :kaocha/test-paths   ["libs/product/test"]
+   :kaocha/ns-patterns  ["boundary.product.*-test"]}]}
+----
+
+== AI test generation
+
+[source,bash]
+----
+bb ai gen-tests libs/product/src/boundary/product/core/product.clj
+----
+
+Generates a complete test namespace from the source file, using Boundary conventions.

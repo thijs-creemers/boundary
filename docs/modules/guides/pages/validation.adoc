@@ -1,0 +1,110 @@
+= Validation
+:description: Using Malli schemas and the Boundary validation framework.
+
+Boundary uses Malli for all validation. Schemas live in `schema.clj` at the root of each module.
+Validation always happens in the shell, never in core.
+
+== Defining schemas
+
+[source,clojure]
+----
+;; schema.clj
+(def UserInput
+  [:map
+   [:email    [:string {:min 1 :max 255}]]
+   [:password [:string {:min 8 :max 128}]]
+   [:name     {:optional true} :string]])
+
+(def User
+  [:map
+   [:id         :uuid]
+   [:email      :string]
+   [:name       {:optional true} :string]
+   [:created-at inst?]
+   [:updated-at inst?]])
+----
+
+== Validating in the shell
+
+[source,clojure]
+----
+(require '[boundary.core.utils.validation :as validation])
+
+(defn create-user [this input]
+  (let [{:keys [valid? data errors]}
+        (validation/validate-with-transform UserInput input mt/string-transformer)]
+    (if valid?
+      (do-create (:db this) data)
+      (throw (ex-info "Validation failed"
+                      {:type :validation-error :errors errors})))))
+----
+
+== CLI argument validation
+
+[source,clojure]
+----
+(require '[boundary.core.utils.validation :as v])
+
+(def CLIArgs
+  [:map
+   [:module-name [:string {:min 1}]]
+   [:entity      [:string {:min 1}]]])
+
+(v/validate-cli-args CLIArgs args cli-transformer)
+----
+
+== Validation coverage reporting
+
+[source,clojure]
+----
+(require '[boundary.core.validation.coverage :as coverage])
+
+;; Report which fields are validated vs. unvalidated
+(coverage/report UserInput)
+----
+
+== Snapshot testing for validation
+
+For complex schemas, lock in the expected error messages:
+
+[source,bash]
+----
+# Run snapshot tests
+clojure -M:test:db/h2 --focus user-validation-snapshot-test
+
+# Update snapshots when messages change intentionally
+UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus user-validation-snapshot-test
+----
+
+== Common schema types
+
+[cols="1,2",options="header"]
+|===
+| Type | Usage
+
+| `:string`
+| `[:string {:min 1 :max 255}]`
+
+| `:int`
+| `[:int {:min 0}]`
+
+| `:decimal`
+| `:decimal` (for money/prices)
+
+| `:uuid`
+| `:uuid`
+
+| `inst?`
+| `:inst?` (timestamps)
+
+| Optional field
+| `[:name {:optional true} :string]`
+
+| Nullable field
+| `[:field [:maybe :string]]`
+
+| Enum
+| `[:role [:enum :admin :user :guest]]`
+|===
+
+See xref:libraries:core.adoc[core library] for the full validation framework reference.

@@ -1,0 +1,13 @@
+{
+  "name": "boundary-docs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "antora antora-playbook.yml",
+    "build:clean": "antora --clean antora-playbook.yml"
+  },
+  "devDependencies": {
+    "@antora/cli": "3.1.9",
+    "@antora/site-generator": "3.1.9"
+  }
+}

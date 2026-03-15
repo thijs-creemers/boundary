@@ -1,0 +1,105 @@
+= REPL Workflow
+:description: Day-to-day development with the Boundary REPL.
+
+Boundary is designed for REPL-driven development. The nREPL server runs on port 7888.
+
+== Starting the system
+
+[source,bash]
+----
+export JWT_SECRET="change-me-dev-secret-min-32-chars"
+export BND_ENV="development"
+clojure -M:repl-clj
+----
+
+[source,clojure]
+----
+(require '[integrant.repl :as ig-repl])
+(require 'conf.dev.system)
+
+(ig-repl/go)    ; Start all components
+(ig-repl/reset) ; Reload changed namespaces and restart
+(ig-repl/halt)  ; Stop all components
+----
+
+== Connecting via nREPL
+
+[source,bash]
+----
+# Find the port
+clj-nrepl-eval --discover-ports
+
+# Evaluate code
+clj-nrepl-eval -p 7888 "(+ 1 2)"
+----
+
+== Accessing system components
+
+[source,clojure]
+----
+;; Get a running service from the Integrant system
+(def user-svc (get integrant.repl.state/system :boundary/user-service))
+(def db (get integrant.repl.state/system :boundary/db))
+
+;; Call service methods directly
+(require '[boundary.user.ports :as ports])
+(ports/list-users user-svc {:limit 10})
+
+;; Query the database directly
+(require '[next.jdbc :as jdbc])
+(jdbc/execute! db ["SELECT * FROM users LIMIT 5"])
+----
+
+== Reloading namespaces
+
+[source,clojure]
+----
+;; Reload a single namespace
+(require '[boundary.user.core.user :as user-core] :reload)
+
+;; Full system reset (handles most changes)
+(ig-repl/reset)
+
+;; After changing a defrecord, do a full restart
+(ig-repl/halt)
+(ig-repl/go)
+----
+
+NOTE: `(ig-repl/reset)` does not recreate `defrecord` instances.
+If you changed a record definition and the change isn't taking effect, do a full halt + go.
+
+== Testing logic interactively
+
+[source,clojure]
+----
+;; Test core functions directly (no system needed)
+(require '[boundary.user.core.user :as user-core])
+(user-core/prepare-user {:email "alice@example.com" :name "Alice"})
+
+;; Test a service method
+(def admin-svc (get integrant.repl.state/system :boundary/admin-service))
+(require '[boundary.admin.ports :as admin-ports])
+(admin-ports/list-entities admin-svc :users {:limit 5})
+----
+
+== Debugging database state
+
+[source,clojure]
+----
+(def ds (get-in integrant.repl.state/system [:boundary/db-context :datasource]))
+(jdbc/execute! ds ["SELECT id, email FROM users WHERE id = ?" some-uuid])
+----
+
+== Useful REPL snippets
+
+[source,clojure]
+----
+;; Check what's in the system
+(keys integrant.repl.state/system)
+
+;; Inspect config
+(require '[aero.core :as aero])
+(aero/read-config (clojure.java.io/resource "conf/dev/config.edn"))
+----
+
+See xref:guides:debugging.adoc[Debugging] for troubleshooting strategies.

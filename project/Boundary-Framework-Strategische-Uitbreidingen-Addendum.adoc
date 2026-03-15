@@ -6,7 +6,7 @@
 :source-highlighter: rouge
 :experimental:
 :last-update-label!:
-Thijs Creemers <thijs@tcbv.nl>
+Thijs Creemers <thijs.creemers@boundary-app.org>
 v1.1, {docdate}
 
 [abstract]
@@ -1768,7 +1768,7 @@ Door **6 high-priority libraries** te implementeren in 2026 (Phases 1-3), kan Bo
 
 ---
 
-**Vragen of feedback?** Contact Thijs Creemers <thijs@tcbv.nl>
+**Vragen of feedback?** Contact Thijs Creemers <thijs.creemers@boundary-app.org>
 
 **Document versie**: v1.1, {docdate} (Addendum OTTO analyse)
 
