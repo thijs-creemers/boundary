@@ -1,0 +1,85 @@
+/* ============================================================
+   Boundary Framework — custom documentation theme
+   Brand color: #1a1f2e (dark navy)
+   ============================================================ */
+
+/* ----- Navbar / header ------------------------------------ */
+
+.navbar {
+  background-color: #1a1f2e;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.navbar-brand .navbar-item {
+  color: #f0f4f8;
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-left: 1rem;
+}
+
+.navbar-brand .navbar-item:hover,
+.navbar-brand .navbar-item:focus {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+/* Logo image injected before the site title text */
+.navbar-brand .navbar-item::before {
+  content: '';
+  display: inline-block;
+  width: 100px;
+  height: 100px;
+  background-image: url(../img/boundary-logo.png);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+/* Hamburger lines (mobile) */
+.navbar-burger span {
+  background-color: #f0f4f8;
+}
+
+.navbar-burger:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Navbar menu items (if components dropdown is visible) */
+.navbar-menu .navbar-item,
+.navbar-menu .navbar-link {
+  color: #f0f4f8;
+}
+
+.navbar-menu .navbar-item:hover,
+.navbar-menu .navbar-link:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.navbar-dropdown {
+  background-color: #252c3f;
+  border-top: 2px solid #3a4562;
+}
+
+/* ----- Sidebar nav: accent the active item --------------- */
+
+.nav-list .nav-item > a.is-current,
+.nav-panel-menu .nav-item > a.is-current {
+  color: #1a1f2e;
+  font-weight: 600;
+}
+
+/* ----- In-page links: brand accent ----------------------- */
+
+.doc a {
+  color: #2e4db0;
+}
+
+.doc a:hover {
+  color: #1a1f2e;
+}

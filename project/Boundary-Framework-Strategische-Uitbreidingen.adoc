@@ -6,7 +6,7 @@
 :source-highlighter: rouge
 :experimental:
 :last-update-label!:
-Thijs Creemers <thijs@tcbv.nl>
+Thijs Creemers <thijs.creemers@boundary-app.org>
 v1.0, {docdate}
 
 [abstract]
@@ -1877,7 +1877,7 @@ De WBA conversie-analyse heeft waardevolle inzichten opgeleverd over functionali
 
 ---
 
-**Vragen of feedback?** Contact Thijs Creemers <thijs@tcbv.nl>
+**Vragen of feedback?** Contact Thijs Creemers <thijs.creemers@boundary-app.org>
 
 **Document versie**: v1.0, {docdate}
 
