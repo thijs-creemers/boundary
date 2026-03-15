@@ -135,12 +135,14 @@ The component map returned by Integrant:
 
 ## HTTP API
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/workflow/instances` | Start a new workflow instance |
-| `GET` | `/api/workflow/instances/:id` | Current state + allowed transitions |
-| `GET` | `/api/workflow/instances/:id/audit` | Full audit log |
-| `POST` | `/api/workflow/instances/:id/transition` | Execute a transition |
+| Method | Canonical Path | Description |
+|--------|----------------|-------------|
+| `POST` | `/api/v1/workflow/instances` | Start a new workflow instance |
+| `GET` | `/api/v1/workflow/instances/:id` | Current state + allowed transitions |
+| `GET` | `/api/v1/workflow/instances/:id/audit` | Full audit log |
+| `POST` | `/api/v1/workflow/instances/:id/transition` | Execute a transition |
+
+Unversioned `/api/workflow/*` paths are backward-compatibility redirects to `/api/v1/workflow/*`.
 
 ---
 

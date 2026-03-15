@@ -135,7 +135,7 @@
      {:user user
       :flash flash
       :skip-header true
-      :css ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
+      :css ["/css/pico.min.css" "/css/boundary-tokens.css" "/css/admin.css" "/css/app.css"]
       ;; Alpine.js must load BEFORE HTMX for proper MutationObserver setup
       :js ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js" "/js/forms.js" "/js/keyboard.js"]})))
 
@@ -423,51 +423,51 @@
         has-active-filters? (seq current-filters)
         current-filters (or current-filters {})]
     (when (or (seq filterable-fields) (seq current-filters))
-    [:div.filter-builder
-     [:div.filter-builder-header
-      [:span.filter-builder-title "Filters"]
-      (when has-active-filters?
-        [:button.text-button
-         {:type "button"
-          :hx-get (str "/web/admin/" (name entity-name) "/table")
-          :hx-target "#filter-table-container"
-          :hx-trigger "click"}
-         (icons/icon :x {:size 14})
-         " Clear all"])]
+      [:div.filter-builder
+       [:div.filter-builder-header
+        [:span.filter-builder-title "Filters"]
+        (when has-active-filters?
+          [:button.text-button
+           {:type "button"
+            :hx-get (str "/web/admin/" (name entity-name) "/table")
+            :hx-target "#filter-table-container"
+            :hx-trigger "click"}
+           (icons/icon :x {:size 14})
+           " Clear all"])]
 
       ;; Form wrapper for all filters
-     [:form.filter-form
-      {:hx-get (str "/web/admin/" (name entity-name) "/table")
-       :hx-target "#filter-table-container"
-       :hx-trigger "submit, change delay:500ms from:find input, change from:find select"
-       :hx-push-url "true"}
+       [:form.filter-form
+        {:hx-get (str "/web/admin/" (name entity-name) "/table")
+         :hx-target "#filter-table-container"
+         :hx-trigger "submit, change delay:500ms from:find input, change from:find select"
+         :hx-push-url "true"}
 
       ;; Active filter rows
-      (when has-active-filters?
-        [:div.filter-rows
-         (for [[field-name filter-value] current-filters]
-           (when-let [field-config (get-in entity-config [:fields field-name])]
-             (render-filter-row entity-name field-name field-config filter-value)))])
+        (when has-active-filters?
+          [:div.filter-rows
+           (for [[field-name filter-value] current-filters]
+             (when-let [field-config (get-in entity-config [:fields field-name])]
+               (render-filter-row entity-name field-name field-config filter-value)))])
 
       ;; Add filter dropdown
-      (when (seq filterable-fields)
-        [:div.filter-add-row
-         [:select.filter-field-select
-          {:name "add_filter_field"
-           :hx-get (str "/web/admin/" (name entity-name) "/table")
-           :hx-target "#filter-table-container"
-           :hx-trigger "change"
-           :hx-include "closest form"}
-          [:option {:value ""} "+ Add filter..."]
-          (for [field-name filterable-fields
-                :when (not (contains? current-filters field-name))]
-            (let [field-config (get-in entity-config [:fields field-name])
-                  field-label (:label field-config (str/capitalize (name field-name)))]
-              [:option {:value (name field-name)} field-label]))]])
+        (when (seq filterable-fields)
+          [:div.filter-add-row
+           [:select.filter-field-select
+            {:name "add_filter_field"
+             :hx-get (str "/web/admin/" (name entity-name) "/table")
+             :hx-target "#filter-table-container"
+             :hx-trigger "change"
+             :hx-include "closest form"}
+            [:option {:value ""} "+ Add filter..."]
+            (for [field-name filterable-fields
+                  :when (not (contains? current-filters field-name))]
+              (let [field-config (get-in entity-config [:fields field-name])
+                    field-label (:label field-config (str/capitalize (name field-name)))]
+                [:option {:value (name field-name)} field-label]))]])
 
       ;; Apply button (for manual submission if auto-trigger doesn't work)
-      (when has-active-filters?
-        [:button.button.primary {:type "submit"} "Apply Filters"])]])))
+        (when has-active-filters?
+          [:button.button.primary {:type "submit"} "Apply Filters"])]])))
 
 (defn render-field-value
   "Render field value for display in table or detail view.

@@ -273,7 +273,7 @@
       (instances-table instances)]
      {:user  user
       :flash flash
-      :css   ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
+      :css   ["/css/pico.min.css" "/css/boundary-tokens.css" "/css/admin.css" "/css/app.css"]
       :js    ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]})))
 
 (defn instance-detail-page
@@ -342,5 +342,5 @@
        (audit-log-table audit-entries)]]
      {:user  user
       :flash flash
-      :css   ["/css/pico.min.css" "/css/tokens.css" "/css/admin.css" "/css/app.css"]
+      :css   ["/css/pico.min.css" "/css/boundary-tokens.css" "/css/admin.css" "/css/app.css"]
       :js    ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]})))

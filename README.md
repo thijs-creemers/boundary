@@ -175,35 +175,6 @@ See [AGENTS.md](./AGENTS.md) for the complete command reference, common pitfalls
 
 ---
 
-## Installing Prerequisites
-
-**macOS**
-```bash
-brew install openjdk clojure/tools/clojure
-```
-
-**Linux (Debian/Ubuntu)**
-```bash
-sudo apt-get install -y openjdk-17-jdk
-curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh
-chmod +x linux-install.sh && sudo ./linux-install.sh
-```
-
-**Linux (RHEL/Fedora)**
-```bash
-sudo dnf install -y java-17-openjdk java-17-openjdk-devel
-curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh
-chmod +x linux-install.sh && sudo ./linux-install.sh
-```
-
-**Windows**
-```powershell
-scoop bucket add java && scoop install openjdk17
-scoop bucket add scoop-clojure && scoop install clojure
-```
-
----
-
 ## Using Individual Libraries
 
 ```clojure

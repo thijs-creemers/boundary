@@ -57,7 +57,11 @@
       "Bash(bb scaffold:*)",
       "Bash(pandoc:*)",
       "Bash(read md:*)",
-      "WebFetch(domain:www.ical4j.org)"
+      "WebFetch(domain:www.ical4j.org)",
+      "Bash(do echo:*)",
+      "Bash(done)",
+      "Bash(do:*)",
+      "Bash(/tmp/check_links2.sh:*)"
     ]
   },
   "enabledMcpjsonServers": [
