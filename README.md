@@ -188,7 +188,11 @@ See [AGENTS.md](./AGENTS.md) for the complete command reference, common pitfalls
 ```
 
 ---
+## Website
 
+https://boundary-app.org
+
+---
 ## License
 
 Copyright 2024–2026 Thijs Creemers. All rights reserved.
