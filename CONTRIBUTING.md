@@ -36,7 +36,7 @@ When reporting bugs:
 Before proposing new features:
 
 - Check existing issues and PRD documentation
-- Ensure alignment with [Functional Core / Imperative Shell principles](docs/architecture/overview.adoc)
+- Ensure alignment with [Functional Core / Imperative Shell principles](docs/modules/architecture/pages/fc-is.adoc)
 - Consider how it fits the module-centric architecture
 - Discuss in an issue before implementing
 
@@ -103,7 +103,7 @@ user=> (ig-repl/reset)                       # Reload and restart system
 clojure -M:test:db/h2
 
 # Lint code
-clojure -M:clj-kondo --lint src test
+clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
 ```
 
 ### 🎯 **Pull Request Process**
@@ -130,43 +130,47 @@ clojure -M:clj-kondo --lint src test
 
 #### How to Update AGENTS.md
 
-1. **Use the maintenance template**: See [docs/templates/warp-maintenance-template.md](docs/templates/warp-maintenance-template.md)
-2. **Test all commands**: Ensure every command in the guide works
-3. **Verify links**: Check all internal documentation links  
-4. **Update code examples**: Refresh examples to match actual source code
-5. **Test with fresh environment**: Have someone unfamiliar verify the quick start
+1. **Test all commands**: Ensure every command in the guide works
+2. **Verify links**: Check all internal documentation links (`bb check-links`)
+3. **Update code examples**: Refresh examples to match actual source code
+4. **Test with fresh environment**: Have someone unfamiliar verify the quick start
 
 #### Architecture Documentation
 
 For changes to core architecture:
 
-- Update relevant files in [docs/architecture/](docs/architecture/)
-- Consider if PRD updates are needed
+- Update relevant files in [docs/modules/architecture/pages/](docs/modules/architecture/pages/)
 - Update architecture diagrams if structural changes occur
 
 ## Module Development Guidelines
 
 ### 🏗️ **Creating a New Module**
 
-When adding a new domain module:
+When adding a new domain module, use the scaffolding tool:
 
-1. **Create module structure**:
-   ```
-   src/boundary/new-module/
-   ├── core/           # Pure business logic
-   ├── ports.clj       # Abstract interfaces  
-   ├── schema.clj      # Domain schemas
-   ├── http.clj        # HTTP handlers
-   ├── cli.clj         # CLI commands
-   └── shell/          # Shell orchestration
-       ├── adapters.clj
-       └── service.clj
-   ```
+```bash
+bb scaffold                                          # Interactive wizard
+bb scaffold ai "product module with name, price"    # AI-assisted (with confirmation)
+bb scaffold ai "product module with name, price" --yes  # AI-assisted (non-interactive)
+```
 
-2. **Update AGENTS.md**: Add to module examples and structure section
-3. **Update build system**: Add to any module-specific build configurations
-4. **Add tests**: Create corresponding test structure
-5. **Update documentation**: Reference in architecture docs
+This generates the standard library structure under `libs/{module}/`:
+
+```
+libs/new-module/
+└── src/boundary/new-module/
+    ├── core/           # Pure business logic
+    ├── ports.clj       # Abstract interfaces
+    ├── schema.clj      # Domain schemas
+    └── shell/          # Shell orchestration (persistence, service, http, cli)
+```
+
+Manual steps after scaffolding:
+
+1. **Update AGENTS.md**: Add to module examples and structure section
+2. **Update `tests.edn`**: Add a test suite entry for the new library
+3. **Add tests**: Create corresponding test structure under `libs/{module}/test/`
+4. **Update documentation**: Reference in architecture docs if applicable
 
 ### 🔌 **Port and Adapter Development**
 
@@ -216,8 +220,8 @@ Reviewers will check for:
 ### 📚 **Resources**
 
 - **[Developer Guide (AGENTS.md)](./AGENTS.md)**: Complete development reference
-- **[Architecture Documentation](docs/architecture/)**: Detailed architectural guides
-- **[PRD](docs/boundary.prd.adoc)**: Complete product requirements
+- **[Architecture Documentation](docs/modules/architecture/pages/)**: Detailed architectural guides
+- **[Library Documentation](docs/modules/libraries/pages/)**: Per-library reference pages
 
 ### 💬 **Communication**
 
