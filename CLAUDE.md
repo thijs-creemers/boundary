@@ -41,6 +41,7 @@ bb deploy --all                    # Deploy all 19 libraries to Clojars
 bb deploy --missing                # Deploy only libraries not yet on Clojars
 bb deploy core platform user       # Deploy specific libraries
 bb create-admin      # Create first admin user for a new project (interactive wizard)
+bb create-admin --dir examples/ecommerce-api  # Target a sub-project's database
 bb create-admin --env prod --email admin@app.com --name "Admin"  # Non-interactive
 bb check-links       # Validate local markdown links in AGENTS.md files
 bb smoke-check       # Verify deps.edn aliases and key tool entrypoints

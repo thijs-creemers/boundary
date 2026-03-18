@@ -4,9 +4,10 @@
 ;; Interactive wizard to create the first admin user for a new Boundary project.
 ;;
 ;; Usage (via bb.edn task):
-;;   bb create-admin                                  -- interactive wizard
-;;   bb create-admin --env prod                       -- use production config
-;;   bb create-admin --email a@b.com --name "Admin"   -- skip prompts
+;;   bb create-admin                                             -- interactive wizard (root project)
+;;   bb create-admin --dir examples/ecommerce-api               -- target a sub-project
+;;   bb create-admin --env prod                                  -- use production config
+;;   bb create-admin --email a@b.com --name "Admin"             -- skip prompts
 ;;
 ;; Usage (direct):
 ;;   bb scripts/create_admin.clj
@@ -47,15 +48,15 @@
 (defn parse-args
   "Parse --key value pairs from args into a map."
   [args]
-  (loop [[flag & rest :as remaining] args
+  (loop [[flag & more :as remaining] args
          opts {}]
     (cond
       (empty? remaining) opts
-      (= flag "--help")  (recur rest (assoc opts :help true))
-      (= flag "-h")      (recur rest (assoc opts :help true))
-      (and (str/starts-with? flag "--") (seq rest))
-      (recur (rest rest) (assoc opts (keyword (subs flag 2)) (first rest)))
-      :else (recur rest opts))))
+      (= flag "--help")  (recur more (assoc opts :help true))
+      (= flag "-h")      (recur more (assoc opts :help true))
+      (and (str/starts-with? flag "--") (seq more))
+      (recur (rest more) (assoc opts (keyword (subs flag 2)) (first more)))
+      :else (recur more opts))))
 
 ;; =============================================================================
 ;; Help
@@ -65,7 +66,8 @@
   (println (bold "bb create-admin") "— Create initial admin user for a Boundary project")
   (println)
   (println (bold "Usage:"))
-  (println "  bb create-admin                            Interactive wizard")
+  (println "  bb create-admin                            Interactive wizard (root project)")
+  (println "  bb create-admin --dir examples/ecommerce-api  Target a sub-project")
   (println "  bb create-admin --env prod                 Use production config")
   (println "  bb create-admin --email EMAIL --name NAME  Skip email/name prompts")
   (println)
@@ -73,6 +75,7 @@
   (println "  --email EMAIL    Admin user email address")
   (println "  --name  NAME     Admin user full name")
   (println "  --env   ENV      Config environment: dev (default), test, acc, prod")
+  (println "  --dir   DIR      Run from this directory (for sub-projects like examples/ecommerce-api)")
   (println "  -h, --help       Show this help")
   (println)
   (println (bold "Notes:"))
@@ -115,7 +118,8 @@
                           (recur))
                       input)))
 
-          env   (or (:env opts) "dev")]
+          env   (or (:env opts) "dev")
+          dir   (:dir opts)]
 
       (println)
       (println (bold "Summary"))
@@ -123,14 +127,31 @@
       (println (str "  Name   : " (cyan name)))
       (println (str "  Role   : " (cyan "admin")))
       (println (str "  Config : " (cyan env)))
-      (println)
-      (println (dim "You will now be prompted for a password (input is hidden)."))
+      (when dir
+        (println (str "  Dir    : " (cyan dir))))
       (println)
 
-      ;; Delegate to the Boundary CLI; --password-prompt handles hidden input and
-      ;; the password policy check without exposing the value on the command line.
-      (let [result (p/shell
-                    {:continue true}
+      ;; Read password here in Babashka where terminal access is guaranteed.
+      ;; Pipe it to the subprocess via stdin so it is consumed immediately
+      ;; and never stored in the environment or process arguments.
+      (let [password (loop []
+                       (let [p (if-let [console (System/console)]
+                                 (String. (.readPassword console "Password: " (into-array Object [])))
+                                 (do (print "Password: ") (flush) (str/trim (or (read-line) ""))))
+                             confirm (if-let [console (System/console)]
+                                       (String. (.readPassword console "Confirm password: " (into-array Object [])))
+                                       (do (print "Confirm password: ") (flush) (str/trim (or (read-line) ""))))]
+                         (cond
+                           (str/blank? p)   (do (println (red "  Password cannot be empty.")) (recur))
+                           (not= p confirm) (do (println (red "  Passwords do not match.")) (recur))
+                           (< (count p) 8)  (do (println (red "  Password must be at least 8 characters.")) (recur))
+                           :else p)))
+
+            shell-opts (cond-> {:continue true :in (str password "\n")}
+                         dir (assoc :dir dir))
+
+            result (p/shell
+                    shell-opts
                     "clojure"
                     (str "-J-Denv=" env)
                     "-M:cli:db"

@@ -53,4 +53,12 @@
    :main-opts   ["-m" "kaocha.runner"]}
 
   :run
-  {:main-opts ["-m" "ecommerce.main"]}}}
+  {:main-opts ["-m" "ecommerce.main"]}
+
+  ;; Used by `bb create-admin --dir examples/ecommerce-api`
+  :cli
+  {:main-opts ["-m" "boundary.cli"]
+   :jvm-opts  ["-Denv=dev"]}
+
+  :db
+  {:extra-deps {org.xerial/sqlite-jdbc {:mvn/version "3.51.1.0"}}}}}

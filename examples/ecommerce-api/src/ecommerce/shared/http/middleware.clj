@@ -9,25 +9,26 @@
 ;; =============================================================================
 
 (defn wrap-json-body
-  "Parse JSON request body into :json-body key."
+  "Parse JSON request body into :json-body key.
+   Only activates when Content-Type is application/json."
   [handler]
   (fn [request]
-    (if-let [body (:body request)]
-      (try
-        (let [body-str (if (string? body)
-                         body
-                         (slurp body))
-              parsed (when-not (str/blank? body-str)
-                       (json/parse-string body-str true))]
-          (handler (assoc request :json-body parsed)))
-        (catch Exception _
-          (-> (response/response 
-               (json/generate-string 
-                {:error {:code "invalid_json"
-                         :message "Invalid JSON in request body"}}))
-              (response/status 400)
-              (response/content-type "application/json"))))
-      (handler request))))
+    (let [content-type (get-in request [:headers "content-type"] "")]
+      (if (and (str/includes? content-type "application/json")
+               (:body request))
+        (try
+          (let [body-str (slurp (:body request))
+                parsed   (when-not (str/blank? body-str)
+                           (json/parse-string body-str true))]
+            (handler (assoc request :json-body parsed)))
+          (catch Exception _
+            (-> (response/response
+                 (json/generate-string
+                  {:error {:code    "invalid_json"
+                           :message "Invalid JSON in request body"}}))
+                (response/status 400)
+                (response/content-type "application/json"))))
+        (handler request)))))
 
 ;; =============================================================================
 ;; Session ID (for cart)

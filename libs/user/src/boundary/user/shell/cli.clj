@@ -37,7 +37,7 @@
 
 (def user-create-options
   [[nil "--email EMAIL" "User email address (required)"
-   :validate [#(re-matches #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" %)
+    :validate [#(re-matches #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" %)
                "Must be a valid email address"]]
    [nil "--name NAME" "User full name (required)"]
    [nil "--role ROLE" "User role: admin, user, or viewer (required)"
@@ -294,6 +294,23 @@
              (str "\nDetails: " details))))))
 
 ;; =============================================================================
+;; Password Input
+;; =============================================================================
+
+(defn read-hidden-password
+  "Read a password without echoing input.
+   When called from bb create-admin the password is piped via stdin, so
+   System/console returns null and read-line reads the piped value.
+   When invoked standalone with a real TTY, System/console provides hidden input."
+  [label]
+  (if-let [console (System/console)]
+    (String. (.readPassword console (str label ": ") (into-array Object [])))
+    (do
+      (print (str label ": "))
+      (flush)
+      (str/trim (or (read-line) "")))))
+
+;; =============================================================================
 ;; Command Execution
 ;; =============================================================================
 
@@ -321,7 +338,12 @@
    This version demonstrates the interceptor-based approach that eliminates
    manual observability boilerplate while providing comprehensive tracking."
   [service _error-reporter opts]
-  (let [;; Create context for the operation
+  (let [;; Resolve --password-prompt before entering the pipeline
+        opts (if (and (:password-prompt opts) (not (:password opts)))
+               (assoc opts :password (read-hidden-password "Password"))
+               opts)
+
+        ;; Create context for the operation
         context (create-cli-interceptor-context
                  :user-create
                  service

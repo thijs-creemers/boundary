@@ -1,0 +1,31 @@
+{;; =============================================================================
+ ;; Boundary CLI configuration for ecommerce-api (dev)
+ ;;
+ ;; Used by `bb create-admin --dir examples/ecommerce-api` to connect to the
+ ;; same SQLite database as the running ecommerce-api app.
+ ;; =============================================================================
+
+ :active
+ {:boundary/sqlite
+  {:db   "ecommerce-dev.db"
+   :pool {:minimum-idle          1
+          :maximum-pool-size     3
+          :connection-timeout-ms 10000}}
+
+  :boundary/settings
+  {:user-validation
+   {:password-policy   {:min-length             8
+                        :max-length             128
+                        :require-uppercase?     false
+                        :require-lowercase?     false
+                        :require-numbers?       false
+                        :require-special-chars? false
+                        :forbidden-patterns     #{}}
+    :name-restrictions {:min-length 1 :max-length 100}
+    :role-restrictions {:allowed-roles       #{:user :admin}
+                        :admin-email-domains #{}
+                        :default-role        :user}
+    :user-limits       {:max-users      10000
+                        :check-enabled? false}}}}
+
+ :inactive {}}
