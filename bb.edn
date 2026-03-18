@@ -28,4 +28,9 @@
   deploy
   {:doc "Deploy Boundary libraries to Clojars (bb deploy --help for usage)"
    :task (do (require 'deploy)
-             (apply (resolve 'deploy/-main) *command-line-args*))}}}
+             (apply (resolve 'deploy/-main) *command-line-args*))}
+
+  create-admin
+  {:doc "Create the first admin user for a new Boundary project (interactive wizard)"
+   :task (do (require 'create-admin)
+             (apply (resolve 'create-admin/-main) *command-line-args*))}}}

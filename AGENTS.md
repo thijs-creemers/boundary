@@ -77,6 +77,9 @@ bb ai explain --file stacktrace.txt                # Explain error via AI
 bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate test namespace
 bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL
 bb ai docs --module libs/user --type agents                       # Generate AGENTS.md
+bb create-admin                                    # Create first admin user for a new project (interactive wizard)
+bb create-admin --env prod                         # Use production config
+bb create-admin --email a@b.com --name "Admin"     # Skip email/name prompts (password still prompted securely)
 bb check-links                                     # Validate local markdown links in AGENTS.md files
 bb smoke-check                                     # Verify deps.edn aliases and key tool entrypoints
 bb install-hooks                                   # Configure git hooks path to .githooks
