@@ -37,6 +37,9 @@ bb ai explain --file stacktrace.txt  # Explain Clojure/Boundary error via AI
 bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate test namespace
 bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL description
 bb ai docs --module libs/user --type agents                       # Generate AGENTS.md
+bb deploy --all                    # Deploy all 19 libraries to Clojars
+bb deploy --missing                # Deploy only libraries not yet on Clojars
+bb deploy core platform user       # Deploy specific libraries
 bb check-links       # Validate local markdown links in AGENTS.md files
 bb smoke-check       # Verify deps.edn aliases and key tool entrypoints
 bb install-hooks     # Configure git hooks path to .githooks

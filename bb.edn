@@ -23,4 +23,9 @@
   ai
   {:doc "Framework-aware AI tooling (bb ai [explain|gen-tests|sql|docs])"
    :task (do (require 'ai)
-             (apply (resolve 'ai/-main) *command-line-args*))}}}
+             (apply (resolve 'ai/-main) *command-line-args*))}
+
+  deploy
+  {:doc "Deploy Boundary libraries to Clojars (bb deploy --help for usage)"
+   :task (do (require 'deploy)
+             (apply (resolve 'deploy/-main) *command-line-args*))}}}
