@@ -27,6 +27,9 @@
 (def ^:dynamic *verbose* false)
 (def ^:dynamic *out-dir* "build/docs-lint")
 
+(def doc-modules
+  #{"ROOT" "architecture" "getting-started" "guides" "libraries"})
+
 ;; Files/directories to scan
 (def include-patterns
   ["README.md"
@@ -175,6 +178,33 @@
                       (str/starts-with? % "#")))
          (map (fn [path] {:text "" :path path})))))
 
+(defn- current-doc-module [file-path]
+  (second (re-find #"docs/modules/([^/]+)/" file-path)))
+
+(defn- resolve-adoc-link [base-dir file-path file-dir clean-path]
+  (cond
+    (str/starts-with? clean-path "/")
+    (io/file base-dir (subs clean-path 1))
+
+    ;; Antora style xref/module target: module:page.adoc
+    (and (str/includes? clean-path ":")
+         (not (re-find #"^[a-zA-Z]+://" clean-path)))
+    (let [[module target] (str/split clean-path #":" 2)]
+      (if (and (contains? doc-modules module)
+               (str/ends-with? target ".adoc"))
+        (io/file base-dir (str "docs/modules/" module "/pages/" target))
+        (io/file file-dir clean-path)))
+
+    ;; Antora nav files typically target pages in their own module.
+    (and (str/ends-with? file-path "/nav.adoc")
+         (str/ends-with? clean-path ".adoc")
+         (current-doc-module file-path))
+    (io/file base-dir
+             (str "docs/modules/" (current-doc-module file-path) "/pages/" clean-path))
+
+    :else
+    (io/file file-dir clean-path)))
+
 (defn check-internal-links [file-path content]
   (let [base-dir (System/getProperty "user.dir")
         file-dir (.getParent (io/file base-dir file-path))
@@ -185,9 +215,11 @@
          (map (fn [{:keys [path]}]
                 ;; Strip anchor from path
                 (let [clean-path (first (str/split path #"#"))
-                      resolved (if (str/starts-with? clean-path "/")
-                                 (io/file base-dir (subs clean-path 1))
-                                 (io/file file-dir clean-path))]
+                      resolved (if (str/ends-with? file-path ".adoc")
+                                 (resolve-adoc-link base-dir file-path file-dir clean-path)
+                                 (if (str/starts-with? clean-path "/")
+                                   (io/file base-dir (subs clean-path 1))
+                                   (io/file file-dir clean-path)))]
                   (when-not (.exists resolved)
                     {:type :broken-link
                      :file file-path
@@ -226,6 +258,13 @@
   (let [lines (str/split-lines content)
         refs (extract-namespace-references content)]
     (->> refs
+         ;; Ignore file references and placeholder examples used in docs prose.
+         (remove #(or (str/ends-with? % ".adoc")
+                      (str/ends-with? % ".md")
+                      (str/ends-with? % ".txt")
+                      (str/ends-with? % ".")
+                      (str/starts-with? % "boundary.product.")
+                      (= % "boundary.test.fixtures")))
          (remove #(contains? known-namespaces %))
          ;; Also allow partial matches (e.g., boundary.user matches boundary.user.core.user)
          (remove (fn [ref]

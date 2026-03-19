@@ -39,7 +39,7 @@ clojure -M:test:db/h2 --focus-meta :integration
 clojure -M:test:db/h2 --focus-meta :contract
 
 # Single namespace
-clojure -M:test:db/h2 --focus boundary.user.core.user-test
+clojure -M:test:db/h2 --focus user-property-test
 
 # Watch mode
 clojure -M:test:db/h2 --watch :core
@@ -54,9 +54,9 @@ Tests for core functions need no setup — just call the function and assert:
 
 [source,clojure]
 ----
-(ns boundary.user.core.user-test
+(ns myapp.user.core.user-test
   (:require [clojure.test :refer [deftest is testing]]
-            [boundary.user.core.user :as user-core]))
+            [myapp.user.core.user :as user-core]))
 
 (deftest ^:unit test-prepare-user
   (testing "adds UUID and timestamps"
@@ -73,10 +73,10 @@ Contract tests use a real H2 database with applied migrations:
 
 [source,clojure]
 ----
-(ns boundary.user.shell.persistence-test
+(ns myapp.user.shell.persistence-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [boundary.user.shell.persistence :as persistence]
-            [boundary.test.fixtures :as fixtures]))
+            [myapp.user.shell.persistence :as persistence]
+            [myapp.test.fixtures :as fixtures]))
 
 (use-fixtures :each fixtures/with-database)
 

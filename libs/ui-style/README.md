@@ -11,7 +11,11 @@ Namespace/API:
 - `boundary.ui-style/base-css`
 - `boundary.ui-style/pilot-css`
 - `boundary.ui-style/admin-pilot-css`
+- `boundary.ui-style/base-js`
+- `boundary.ui-style/pilot-js`
+- `boundary.ui-style/admin-pilot-js`
 - `(boundary.ui-style/bundle :base|:pilot|:admin-pilot)`
+- `(boundary.ui-style/js-bundle :base|:pilot|:admin-pilot)`
 
 Rules:
 1. Forms are rendered with the same form classes and token variables across modules.
@@ -43,11 +47,16 @@ Contains:
 - Shared CSS tokens/components:
   - `resources/public/css/boundary-tokens.css`
   - `resources/public/css/tokens-openprops.css`
-  - `resources/public/css/tokens.css`
   - `resources/public/css/app.css`
   - `resources/public/css/admin.css`
   - `resources/public/css/pico.min.css`
   - `resources/public/css/vendor/open-props/*`
+- Shared JavaScript assets:
+  - `resources/public/js/theme.js`
+  - `resources/public/js/alpine.min.js`
+  - `resources/public/js/htmx.min.js`
+  - `resources/public/js/forms.js`
+  - `resources/public/js/keyboard.js`
 
 Build from monorepo root:
 

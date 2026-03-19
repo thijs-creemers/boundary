@@ -12,14 +12,19 @@
   (ui-style/bundle :base))
 
 (def ^:private default-js
-  ;; Alpine.js must load BEFORE HTMX for proper MutationObserver setup
-  ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"])
+  (ui-style/js-bundle :base))
 
 (def pilot-css
   (ui-style/bundle :pilot))
 
 (def admin-pilot-css
   (ui-style/bundle :admin-pilot))
+
+(def pilot-js
+  (ui-style/js-bundle :pilot))
+
+(def admin-pilot-js
+  (ui-style/js-bundle :admin-pilot))
 
 (defn main-navigation
   "Main site navigation component.
@@ -112,6 +117,7 @@
   (page-layout title
                content
                (merge {:css pilot-css
+                       :js pilot-js
                        :body-attrs {:class "bg-base-200 text-base-content"}}
                       opts)))
 
@@ -121,6 +127,7 @@
   (page-layout title
                content
                (merge {:css admin-pilot-css
+                       :js admin-pilot-js
                        :body-attrs {:class "bg-base-200 text-base-content"}}
                       opts)))
 

@@ -33,6 +33,7 @@ clojure -M:test:db/h2 :reports                     # Reports library tests
 clojure -M:test:db/h2 :calendar                    # Calendar library tests
 clojure -M:test:db/h2 :geo                         # Geo library tests
 clojure -M:test:db/h2 :ai                          # AI library tests
+clojure -M:test:db/h2 :ui-style                    # UI style library tests
 
 # Testing - By metadata category
 clojure -M:test:db/h2 --focus-meta :unit           # Unit tests only

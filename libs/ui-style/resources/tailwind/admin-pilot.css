@@ -487,12 +487,6 @@ input[type="number"] {
   white-space: nowrap;
 }
 
-.admin-content .data-table th a {
-  padding: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-}
-
 .admin-content .data-table th.sortable-header .sort-icon {
   display: inline-flex;
   align-items: center;
@@ -1346,10 +1340,6 @@ input[type="number"] {
   justify-content: center;
   margin-left: 0.15rem;
   vertical-align: middle;
-}
-
-.audit-table-card #audit-table th.sortable-header .sort-icon svg {
-  display: inline-block;
 }
 
 .audit-table-card #audit-table th:nth-child(2),

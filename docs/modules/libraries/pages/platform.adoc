@@ -10,13 +10,13 @@ CLI/runtime wiring, and shared platform adapters used by feature modules.
 |===
 | Namespace | Purpose
 
-| `boundary.platform.http.interceptors`
+| `boundary.platform.shell.http.interceptors`
 | HTTP interceptor composition and execution
 
-| `boundary.platform.http.routes`
+| `boundary.platform.shell.interfaces.http.routes`
 | Normalized route handling and dispatch
 
-| `boundary.platform.db.*`
+| `boundary.platform.shell.adapters.database.*`
 | Database setup, context, and shared persistence infrastructure
 |===
 

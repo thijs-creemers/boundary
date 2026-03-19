@@ -6,8 +6,9 @@
 
 Central app-wide styling contract for Boundary:
 - style bundles (`:base`, `:pilot`, `:admin-pilot`)
+- JavaScript bundles (`:base`, `:pilot`, `:admin-pilot`)
 - design tokens and theme overrides
-- shared CSS assets used by admin/user modules
+- shared CSS/JS assets used by admin/user modules
 
 ## Source Of Truth
 

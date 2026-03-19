@@ -134,9 +134,7 @@
      (admin-shell content (assoc opts :page-title page-title))
      {:user user
       :flash flash
-      :skip-header true
-      ;; Alpine.js must load BEFORE HTMX for proper MutationObserver setup
-      :js ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js" "/js/forms.js" "/js/keyboard.js"]})))
+      :skip-header true})))
 
 (defn admin-home
   "Admin dashboard home page content.

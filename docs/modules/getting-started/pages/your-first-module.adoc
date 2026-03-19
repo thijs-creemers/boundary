@@ -11,7 +11,7 @@ For a `product` module with `name`, `sku`, and `price` fields:
 [source]
 ----
 libs/product/
-├── src/boundary/product/
+├── src/product/
 │   ├── core/
 │   │   └── product.clj      ← Pure business logic
 │   ├── shell/
@@ -21,7 +21,7 @@ libs/product/
 │   │   └── module-wiring.clj
 │   ├── ports.clj            ← Protocol definitions
 │   └── schema.clj           ← Malli validation schemas
-├── test/boundary/product/
+├── test/product/
 │   ├── core/product_test.clj          ← Unit tests
 │   ├── shell/service_test.clj         ← Integration tests
 │   └── shell/persistence_test.clj     ← Contract tests

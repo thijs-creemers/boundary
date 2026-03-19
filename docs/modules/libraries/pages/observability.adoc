@@ -10,42 +10,40 @@ structured logging, metrics, tracing breadcrumbs, and pluggable error reporting 
 |===
 | Namespace | Purpose
 
-| `boundary.observability.shell.service-interceptors`
-| Service-layer operation wrappers with standardized telemetry
+| `boundary.observability.logging.ports`
+| Logging protocol used by shell/service layers for structured events
 
-| `boundary.observability.shell.persistence-interceptors`
-| Persistence-layer wrappers for query telemetry and failures
+| `boundary.observability.metrics.ports`
+| Metrics protocol for counters, gauges, and timing instrumentation
 
-| `boundary.observability.shell.adapters.*`
+| `boundary.observability.*.shell.adapters.*`
 | Pluggable providers: no-op (default), Datadog, Sentry
 |===
 
 == Usage pattern
 
-Wrap service and persistence operations with observability interceptors:
+Use observability ports from services/adapters:
 
 [source,clojure]
 ----
-(require '[boundary.observability.shell.service-interceptors :as service-interceptors]
-         '[boundary.observability.shell.persistence-interceptors :as persistence-interceptors])
+(require '[boundary.observability.logging.ports :as log-ports]
+         '[boundary.observability.metrics.ports :as metrics-ports])
 
 ;; Service layer — automatic logging, metrics, error reporting
 (defn create-user [this user-data]
-  (service-interceptors/execute-service-operation
-    :create-user
-    {:user-data user-data}
-    (fn [{:keys [params]}]
-      (let [user (user-core/prepare-user (:user-data params))]
-        (.create-user repository user)))))
+  (log-ports/info logger
+                  {:event :create-user
+                   :email (:email user-data)})
+  (metrics-ports/increment-counter! metrics :users.created 1)
+  (let [user (user-core/prepare-user user-data)]
+    (.create-user repository user)))
 
 ;; Persistence layer — automatic query telemetry
-(defn find-user-by-email [this email]
-  (persistence-interceptors/execute-persistence-operation
-    logger error-reporter
-    "find-user-by-email"
-    {:email email}
-    (fn []
-      (jdbc/execute-one! ctx query))))
+(defn find-user-by-email [ctx email]
+  (let [start (System/nanoTime)
+        result (jdbc/execute-one! ctx query)]
+    (metrics-ports/record-timing! metrics :users.find-by-email.ns (- (System/nanoTime) start))
+    result))
 ----
 
 == Benefits

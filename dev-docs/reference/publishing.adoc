@@ -19,7 +19,8 @@ This guide documents how to build, test, and publish the Boundary framework libr
 |*observability* |`org.boundary-app/boundary-observability` |core
 |*platform* |`org.boundary-app/boundary-platform` |core, observability
 |*user* |`org.boundary-app/boundary-user` |platform
-|*admin* |`org.boundary-app/boundary-admin` |platform, user
+|*ui-style* |`org.boundary-app/boundary-ui-style` |None
+|*admin* |`org.boundary-app/boundary-admin` |platform, user, ui-style
 |*storage* |`org.boundary-app/boundary-storage` |platform
 |*scaffolder* |`org.boundary-app/boundary-scaffolder` |core
 |===
@@ -150,7 +151,8 @@ Libraries must be published in dependency order:
 4. **scaffolder** (depends on core)
 5. **user** (depends on platform)
 6. **storage** (depends on platform)
-7. **admin** (depends on platform, user)
+7. **ui-style** (no runtime deps, but should be published before admin)
+8. **admin** (depends on platform, user, ui-style)
 
 ### Publish a single library
 
@@ -165,7 +167,7 @@ clojure -T:build deploy
 #!/bin/bash
 set -e  # Exit on error
 
-LIBS_ORDER="core observability platform scaffolder user storage admin"
+LIBS_ORDER="core observability platform scaffolder user storage ui-style admin"
 
 for lib in $LIBS_ORDER; do
   echo "========================================="

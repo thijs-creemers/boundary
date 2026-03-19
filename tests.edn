@@ -19,7 +19,8 @@
                         "libs/reports/src"
                         "libs/calendar/src"
                         "libs/geo/src"
-                        "libs/ai/src"]
+                        "libs/ai/src"
+                        "libs/ui-style/src"]
 
   :tests [{:id :unit
            :test-paths ["test"
@@ -41,7 +42,8 @@
                         "libs/reports/test"
                         "libs/calendar/test"
                         "libs/geo/test"
-                        "libs/ai/test"]
+                        "libs/ai/test"
+                        "libs/ui-style/test"]
            :ns-patterns ["boundary.*-test"]
            :randomize? true}
 
@@ -121,7 +123,11 @@
 
           {:id :ai
            :test-paths ["libs/ai/test"]
-           :ns-patterns ["boundary.ai.*-test"]}]
+           :ns-patterns ["boundary.ai.*-test"]}
+
+          {:id :ui-style
+           :test-paths ["libs/ui-style/test"]
+           :ns-patterns ["boundary.ui-style.*-test"]}]
 
   :plugins [:kaocha.plugin/randomize
             :kaocha.plugin/filter

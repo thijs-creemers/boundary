@@ -437,7 +437,7 @@ Both values are submitted when checkbox is checked, resulting in an array.
 
 ## Additional UI Notes
 
-- Keep inline JavaScript short. Move multi-step logic to `resources/public/js/`.
+- Keep inline JavaScript short. Move multi-step logic to `libs/ui-style/resources/public/js/`.
 - Keep related event handlers consistent (`select-all` and item checkboxes should compute counts the same way).
 - Use Lucide icons in UI; avoid emoji in interface components.
 
