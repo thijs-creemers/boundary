@@ -204,6 +204,31 @@
       (is (vector? result))
       (is (= :div.empty-state (first result))))))
 
+(deftest table-wrapper-test
+  (testing "Wraps table with default wrapper classes"
+    (let [table [:table [:tbody [:tr [:td "x"]]]]
+          result (components/table-wrapper table)]
+      (is (= :div (first result)))
+      (is (str/includes? (get-in result [1 :class]) "table-wrapper"))
+      (is (= table (nth result 2)))))
+
+  (testing "Accepts options map and appends children"
+    (let [table [:table [:tbody [:tr [:td "x"]]]]
+          pagination [:div.pagination "Page 1"]
+          result (components/table-wrapper table {:id "audit-table-wrap"} pagination)]
+      (is (= :div (first result)))
+      (is (= "audit-table-wrap" (get-in result [1 :id])))
+      (is (= table (nth result 2)))
+      (is (= pagination (nth result 3)))))
+
+  (testing "Accepts children without options map"
+    (let [table [:table [:tbody [:tr [:td "x"]]]]
+          pagination [:div.pagination "Page 1"]
+          result (components/table-wrapper table pagination)]
+      (is (= :div (first result)))
+      (is (= table (nth result 2)))
+      (is (= pagination (nth result 3))))))
+
 ;; =============================================================================
 ;; Message Components Tests
 ;; =============================================================================

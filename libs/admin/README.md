@@ -255,7 +255,7 @@ The admin interface uses:
 - **CSS custom properties** for theming
 - **Dark mode** support via `prefers-color-scheme`
 
-Custom styling can be added via `resources/public/css/admin.css`.
+Custom styling can be added via `libs/ui-style/resources/public/css/admin.css`.
 
 ## Relationship to Other Libraries
 

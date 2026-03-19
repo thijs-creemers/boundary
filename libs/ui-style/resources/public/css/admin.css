@@ -705,7 +705,7 @@
 }
 
 .admin-content .data-table th.sortable-header.sort-dir-desc .sort-icon {
-  transform: rotate(180deg);
+  transform: none;
 }
 
 .admin-content .data-table th.sortable-header:hover::before {

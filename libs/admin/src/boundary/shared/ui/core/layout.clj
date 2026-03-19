@@ -5,7 +5,21 @@
    consistent look and feel across all domain modules."
   (:require [boundary.shared.ui.core.alpine :as alpine]
             [boundary.shared.ui.core.components :as components]
-            [boundary.shared.ui.core.icons :as icons]))
+            [boundary.shared.ui.core.icons :as icons]
+            [boundary.ui-style :as ui-style]))
+
+(def ^:private default-css
+  (ui-style/bundle :base))
+
+(def ^:private default-js
+  ;; Alpine.js must load BEFORE HTMX for proper MutationObserver setup
+  ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"])
+
+(def pilot-css
+  (ui-style/bundle :pilot))
+
+(def admin-pilot-css
+  (ui-style/bundle :admin-pilot))
 
 (defn main-navigation
   "Main site navigation component.
@@ -60,11 +74,11 @@
    Returns:
      Complete HTML page structure"
   [title content & [opts]]
-  (let [{:keys [user flash css js skip-header]
-         :or   {css         ["/css/pico.min.css" "/css/boundary-tokens.css" "/css/tokens-openprops.css" "/css/app.css"]
-                ;; Alpine.js must load BEFORE HTMX for proper MutationObserver setup
-                js          ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]
-                skip-header false}} opts]
+  (let [{:keys [user flash css js skip-header body-attrs]
+         :or   {css         default-css
+                js          default-js
+                skip-header false
+                body-attrs  {}}} opts]
     [:html {:lang "en"}
      [:head
       [:meta {:charset "UTF-8"}]
@@ -75,7 +89,7 @@
       [:link {:rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@fontsource/geist-mono@5.0.3/index.min.css"}]
       (for [css-file css]
         [:link {:rel "stylesheet" :href css-file}])]
-     [:body
+     [:body body-attrs
       (when-not skip-header
         [:header.site-header
          (main-navigation {:user user})])
@@ -91,6 +105,24 @@
         (into [:main.main-content] children))
       (for [js-file js]
         [:script {:src js-file}])]]))
+
+(defn pilot-page-layout
+  "Page layout using shared daisyUI pilot styling."
+  [title content & [opts]]
+  (page-layout title
+               content
+               (merge {:css pilot-css
+                       :body-attrs {:class "bg-base-200 text-base-content"}}
+                      opts)))
+
+(defn admin-pilot-page-layout
+  "Page layout using admin daisyUI pilot styling."
+  [title content & [opts]]
+  (page-layout title
+               content
+               (merge {:css admin-pilot-css
+                       :body-attrs {:class "bg-base-200 text-base-content"}}
+                      opts)))
 
 (defn error-layout
   "Error page layout.
@@ -109,7 +141,8 @@
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
     [:title (str status " - " title)]
-    [:link {:rel "stylesheet" :href "/css/site.css"}]]
+    (for [css-file default-css]
+      [:link {:rel "stylesheet" :href css-file}])]
    [:body
     [:div.error-page
      [:h1 title]

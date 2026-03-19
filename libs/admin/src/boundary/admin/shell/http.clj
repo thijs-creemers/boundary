@@ -164,13 +164,19 @@
      (parse-query-params {sort email sort-dir desc role admin})
      => {:sort :email :sort-dir :desc :filters {:role admin}}"
   [params]
-  (let [page (when-let [p (get params "page")] (parse-long p))
+  (let [params (into {}
+                     (for [[k v] params]
+                       [(if (keyword? k) (name k) (str k))
+                        v]))
+        page (when-let [p (get params "page")] (parse-long p))
         page-size (when-let [ps (get params "page-size")] (parse-long ps))
         limit (when-let [l (get params "limit")] (parse-long l))
         offset (when-let [o (get params "offset")] (parse-long o))
-        sort (when-let [s (get params "sort")] (keyword s))
+        sort (when-let [s (get params "sort")]
+               (keyword (if (keyword? s) (name s) (str s))))
         ; Accept both "dir" and "sort-dir" for backward compatibility
-        sort-dir (when-let [sd (or (get params "dir") (get params "sort-dir"))] (keyword sd))
+        sort-dir (when-let [sd (or (get params "dir") (get params "sort-dir"))]
+                   (keyword (if (keyword? sd) (name sd) (str sd))))
         search (get params "search")
         add-filter-field (get params "add_filter_field")
         remove-filter-field (get params "remove_filter")

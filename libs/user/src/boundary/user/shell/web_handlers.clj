@@ -93,6 +93,12 @@
                                    :body-length (count (str body-content))})
      response)))
 
+(def ^:private htmx-no-cache-headers
+  {"Cache-Control" "no-store, no-cache, must-revalidate, max-age=0"
+   "Pragma"        "no-cache"
+   "Expires"       "0"
+   "Vary"          "HX-Request"})
+
 (defn- remove-nil-values
   "Remove keys with nil values from a map.
    
@@ -205,8 +211,8 @@
       (catch Exception e
         (log/error e "Error in dashboard-page-handler")
         (html-response
-         (layout/page-layout "Error"
-                             (ui/error-message (.getMessage e)))
+         (layout/pilot-page-layout "Error"
+                                   (ui/error-message (.getMessage e)))
          500)))))
 
 (defn users-page-handler
@@ -238,8 +244,8 @@
       (catch Exception e
         (clojure.tools.logging/error e "Error in users-page-handler")
         (html-response
-         (layout/page-layout "Error"
-                             (ui/error-message (.getMessage e)))
+         (layout/pilot-page-layout "Error"
+                                   (ui/error-message (.getMessage e)))
          500)))))
 
 (defn user-detail-page-handler
@@ -271,8 +277,8 @@
          400))
       (catch Exception e
         (html-response
-         (layout/page-layout "Error"
-                             (ui/error-message (.getMessage e)))
+         (layout/pilot-page-layout "Error"
+                                   (ui/error-message (.getMessage e)))
          500)))))
 
 (defn create-user-page-handler
@@ -428,8 +434,8 @@
           (catch Exception e
             (log/error e "Login error" {:email (:email prepared-data)})
             (html-response
-             (layout/page-layout "Login error"
-                                 (ui/error-message (.getMessage e)))
+             (layout/pilot-page-layout "Login error"
+                                       (ui/error-message (.getMessage e)))
              500)))))))
 
 (defn logout-handler
@@ -517,8 +523,8 @@
               (response/redirect "/web/login")))
           (catch Exception e
             (html-response
-             (layout/page-layout "Registration error"
-                                 (ui/error-message (.getMessage e)))
+             (layout/pilot-page-layout "Registration error"
+                                       (ui/error-message (.getMessage e)))
              500)))))))
 
 ;; =============================================================================
@@ -572,10 +578,10 @@
             qp          (merge (:query-params request)
                                (select-keys form-params ["q" "role" "status" "sort" "dir" "page" "page-size"]))
             _table-query (web-table/parse-table-query
-                         qp
-                         {:default-sort      :created-at
-                          :default-dir       :desc
-                          :default-page-size 20})
+                          qp
+                          {:default-sort      :created-at
+                           :default-dir       :desc
+                           :default-page-size 20})
             _filters     (web-table/parse-search-filters qp)]
         (when (or (empty? ids) (str/blank? (str action)))
           (throw (ex-info "No users selected or action missing"
@@ -824,7 +830,11 @@
         (html-response (ui/error-message (.getMessage e)) 500)))))
 
 (defn revoke-session-handler
-  "Handler for revoking a single session (POST /web/sessions/:token/revoke).
+  "Handler for revoking a single session.
+
+   Supports:
+   - POST /web/sessions/revoke (preferred; token in form param)
+   - POST /web/sessions/:token/revoke (legacy; token in path)
    
    Invalidates the specified session token, forcing that device to sign in again.
    
@@ -837,11 +847,21 @@
   [user-service _config]
   (fn [request]
     (try
-      (let [session-token (get-in request [:path-params :token])
+      (let [session-token (or (get-in request [:form-params "session-token"])
+                              (get-in request [:params :session-token])
+                              (get-in request [:path-params :token]))
             user-id (get-in request [:form-params "user-id"])]
+        (when (str/blank? (str session-token))
+          (throw (ex-info "Missing session token" {:type :validation-error})))
         (user-ports/logout-user user-service session-token)
         (-> (response/redirect (str "/web/users/" user-id "/sessions"))
             (assoc :flash {:success "Session revoked successfully"})))
+      (catch clojure.lang.ExceptionInfo e
+        (if (= :validation-error (:type (ex-data e)))
+          (html-response (ui/error-message "Invalid session token") 400)
+          (do
+            (log/error e "Error revoking session")
+            (html-response (ui/error-message (.getMessage e)) 500))))
       (catch Exception e
         (log/error e "Error revoking session")
         (html-response (ui/error-message (.getMessage e)) 500)))))
@@ -977,8 +997,8 @@
       (catch Exception e
         (log/error e "Error in audit-page-handler")
         (html-response
-         (layout/page-layout "Error"
-                             (ui/error-message (.getMessage e)))
+         (layout/pilot-page-layout "Error"
+                                   (ui/error-message (.getMessage e)))
          500)))))
 
 (defn audit-table-fragment-handler
@@ -1006,7 +1026,7 @@
             list-opts   (build-audit-list-opts table-query filters)
             audit-result (user-ports/list-audit-logs user-service list-opts)
             _page-opts    {:table-query table-query
-                          :filters     filters}]
+                           :filters     filters}]
         (html-response
          (user-ui/audit-logs-table
           (:audit-logs audit-result)
@@ -1038,6 +1058,10 @@
     (try
       (let [current-user (:user request)
             user-id (:id current-user)
+            hx-request? (some-> (get-in request [:headers "hx-request"])
+                                str/lower-case
+                                (= "true"))
+            hx-target (get-in request [:headers "hx-target"])
             ;; Get fresh user data
             user (user-ports/get-user-by-id user-service user-id)
             ;; Get MFA status
@@ -1045,17 +1069,26 @@
             page-opts {:user current-user
                        :flash (:flash request)}]
         (if user
-          (html-response (profile-ui/profile-page user mfa-status page-opts))
+          (cond
+            ;; HTMX fragment requests from profile cards (e.g. Cancel in edit form)
+            (and hx-request? (= "#profile-info-card" hx-target))
+            (html-response (profile-ui/profile-info-fragment user))
+
+            (and hx-request? (= "#preferences-card" hx-target))
+            (html-response (profile-ui/preferences-fragment user))
+
+            :else
+            (html-response (profile-ui/profile-page user mfa-status page-opts)))
           (html-response
            (layout/error-layout 404 "Profile Not Found"
                                 "Your profile could not be loaded.")
            404)))
       (catch Exception e
         (log/error e "Error in profile-page-handler")
-         (html-response
-          (layout/page-layout "Error"
-                              (ui/error-message (.getMessage e)))
-          500)))))
+        (html-response
+         (layout/pilot-page-layout "Error"
+                                   (ui/error-message (.getMessage e)))
+         500)))))
 
 (defn profile-edit-form-handler
   "Handler to show profile edit form (GET /web/profile/edit).
@@ -1080,6 +1113,21 @@
           (html-response (ui/error-message "User not found") 404)))
       (catch Exception e
         (log/error e "Error in profile-edit-form-handler")
+        (html-response (ui/error-message (.getMessage e)) 500)))))
+
+(defn profile-info-fragment-handler
+  "Handler to return profile info card fragment (GET /web/profile/info)."
+  [user-service _config]
+  (fn [request]
+    (try
+      (let [current-user (:user request)
+            user-id (:id current-user)
+            user (user-ports/get-user-by-id user-service user-id)]
+        (if user
+          (html-response (profile-ui/profile-info-fragment user))
+          (html-response (ui/error-message "User not found") 404)))
+      (catch Exception e
+        (log/error e "Error in profile-info-fragment-handler")
         (html-response (ui/error-message (.getMessage e)) 500)))))
 
 (defn profile-edit-handler
@@ -1115,13 +1163,13 @@
                                                                (merge clean-user prepared-data))]
               ;; Return success with updated info card
               (html-response
-               (profile-ui/profile-info-card updated-user)))
+               (profile-ui/profile-info-fragment updated-user)))
             (catch Exception e
               (log/error e "Error updating profile")
               (html-response (ui/error-message (.getMessage e)) 500)))))
       (catch Exception e
-         (log/error e "Error in profile-edit-handler")
-         (html-response (ui/error-message (.getMessage e)) 500)))))
+        (log/error e "Error in profile-edit-handler")
+        (html-response (ui/error-message (.getMessage e)) 500)))))
 
 (defn preferences-edit-form-handler
   "Handler to show preferences edit form (GET /web/profile/preferences/edit).
@@ -1146,6 +1194,21 @@
           (html-response (ui/error-message "User not found") 404)))
       (catch Exception e
         (log/error e "Error in preferences-edit-form-handler")
+        (html-response (ui/error-message (.getMessage e)) 500)))))
+
+(defn preferences-fragment-handler
+  "Handler to return preferences card fragment (GET /web/profile/preferences)."
+  [user-service _config]
+  (fn [request]
+    (try
+      (let [current-user (:user request)
+            user-id (:id current-user)
+            user (user-ports/get-user-by-id user-service user-id)]
+        (if user
+          (html-response (profile-ui/preferences-fragment user))
+          (html-response (ui/error-message "User not found") 404)))
+      (catch Exception e
+        (log/error e "Error in preferences-fragment-handler")
         (html-response (ui/error-message (.getMessage e)) 500)))))
 
 (defn preferences-edit-handler
@@ -1176,7 +1239,7 @@
                                                              (merge clean-user prepared-data))]
             ;; Return success with updated preferences card
             (html-response
-             (profile-ui/preferences-card updated-user)))
+             (profile-ui/preferences-fragment updated-user)))
           (catch Exception e
             (log/error e "Error updating preferences")
             (html-response (ui/error-message (.getMessage e)) 500))))
@@ -1200,7 +1263,13 @@
      Ring handler function"
   [_config]
   (fn [_request]
-    (html-response (profile-ui/password-change-card true))))
+    (html-response (profile-ui/password-section-fragment true) 200 htmx-no-cache-headers)))
+
+(defn password-section-fragment-handler
+  "Handler to show collapsed password section fragment (GET /web/profile/password)."
+  [_config]
+  (fn [_request]
+    (html-response (profile-ui/password-section-fragment false) 200 htmx-no-cache-headers)))
 
 (defn password-change-handler
   "Handler for password change submission (POST /web/profile/password).
@@ -1225,27 +1294,30 @@
         ;; Validate passwords match
         (if (not= new-password confirm-password)
           (html-response
-           (profile-ui/password-change-card true
-                                            {:confirm-password ["Passwords do not match"]})
-           400)
+           (profile-ui/password-section-fragment true
+                                                 {:confirm-password ["Passwords do not match"]})
+           400
+           htmx-no-cache-headers)
           (try
             ;; Call service to change password
             (user-ports/change-password user-service user-id current-password new-password)
             ;; Return success message
-            (html-response (profile-ui/password-change-success))
+            (html-response (profile-ui/password-change-success) 200 htmx-no-cache-headers)
             (catch clojure.lang.ExceptionInfo e
               (let [data (ex-data e)]
                 (case (:type data)
                   :invalid-current-password
                   (html-response
-                   (profile-ui/password-change-card true
-                                                    {:current-password ["Current password is incorrect"]})
-                   400)
+                   (profile-ui/password-section-fragment true
+                                                         {:current-password ["Current password is incorrect"]})
+                   400
+                   htmx-no-cache-headers)
                   :password-policy-violation
                   (html-response
-                   (profile-ui/password-change-card true
-                                                    {:new-password ["Password does not meet requirements"]})
-                   400)
+                   (profile-ui/password-section-fragment true
+                                                         {:new-password ["Password does not meet requirements"]})
+                   400
+                   htmx-no-cache-headers)
                   ;; Default error
                   (html-response (ui/error-message (.getMessage e)) 500))))
             (catch Exception e
@@ -1279,8 +1351,8 @@
       (catch Exception e
         (log/error e "Error in mfa-setup-page-handler")
         (html-response
-         (layout/page-layout "Error"
-                             (ui/error-message (.getMessage e)))
+         (layout/pilot-page-layout "Error"
+                                   (ui/error-message (.getMessage e)))
          500)))))
 
 (defn mfa-setup-initiate-handler
@@ -1403,8 +1475,8 @@
       (catch Exception e
         (log/error e "Error in mfa-backup-codes-page-handler")
         (html-response
-         (layout/page-layout "Error"
-                             (ui/error-message (.getMessage e)))
+         (layout/pilot-page-layout "Error"
+                                   (ui/error-message (.getMessage e)))
          500)))))
 
 (defn mfa-disable-page-handler
@@ -1427,8 +1499,8 @@
       (catch Exception e
         (log/error e "Error in mfa-disable-page-handler")
         (html-response
-         (layout/page-layout "Error"
-                             (ui/error-message (.getMessage e)))
+         (layout/pilot-page-layout "Error"
+                                   (ui/error-message (.getMessage e)))
          500)))))
 
 (defn mfa-disable-handler
@@ -1468,5 +1540,3 @@
       (catch Exception e
         (log/error e "Error in mfa-disable-handler")
         (html-response (ui/error-message (.getMessage e)) 500)))))
-
-

@@ -18,7 +18,9 @@
            "libs/reports/src" "libs/reports/test"           ;; Phase 16: Reports
            "libs/calendar/src" "libs/calendar/test"           ;; Phase 17: Calendar
            "libs/geo/src" "libs/geo/test"                  ;; Phase 18: Geo
-           "libs/ai/src" "libs/ai/test"]                  ;; Phase 19: AI
+           "libs/ai/src" "libs/ai/test"                    ;; Phase 19: AI
+           "libs/ui-style/src"                              ;; Shared UI style API
+           "libs/ui-style/resources"]                      ;; Shared UI styles (CSS/Tailwind)
 
  :deps    {org.clojure/clojure               {:mvn/version "1.12.4"}
            cheshire/cheshire                 {:mvn/version "6.1.0"} ;; process json
@@ -190,4 +192,3 @@
 
            :docs      {:exec-fn   clojure.core/sh
                        :exec-args ["scripts/build-docs.sh"]}}}
-

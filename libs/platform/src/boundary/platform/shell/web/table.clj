@@ -16,6 +16,12 @@
    "
   (:require [clojure.string :as str]))
 
+(defn- get-param
+  "Read a query param from map supporting both string and keyword keys."
+  [query-params key-name]
+  (or (get query-params key-name)
+      (get query-params (keyword key-name))))
+
 (defn- parse-long-safe [^String s]
   (when (and s (not (str/blank? s)))
     (try
@@ -35,9 +41,9 @@
     Returns:
       Map with :q, :role, :status keys (only non-blank values included)"
    [query-params]
-   (let [q      (get query-params "q")
-         role   (get query-params "role")
-         status (get query-params "status")]
+   (let [q      (get-param query-params "q")
+         role   (get-param query-params "role")
+         status (get-param query-params "status")]
      (cond-> {}
        (some-> q str/blank? not)       (assoc :q q)
        (some-> role str/blank? not)    (assoc :role role)
@@ -64,10 +70,10 @@
    Returns a map with keys :sort, :dir, :page, :page-size, :offset, :limit.
    "
   [query-params {:keys [default-sort default-dir default-page-size]}]
-  (let [sort-str  (get query-params "sort")
-        dir-str   (get query-params "dir")
-        page-str  (get query-params "page")
-        size-str  (get query-params "page-size")
+  (let [sort-str  (get-param query-params "sort")
+        dir-str   (get-param query-params "dir")
+        page-str  (get-param query-params "page")
+        size-str  (get-param query-params "page-size")
         sort-k    (some-> sort-str keyword)
         dir-k     (case (some-> dir-str keyword)
                     :desc :desc

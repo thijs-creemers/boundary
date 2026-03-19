@@ -519,6 +519,11 @@
                 :middleware [auth-middleware]}
       :methods {:post {:handler (web-handlers/revoke-all-sessions-handler user-service config)
                        :summary "Revoke all user sessions"}}}
+     {:path    "/sessions/revoke"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:post {:handler (web-handlers/revoke-session-handler user-service config)
+                       :summary "Revoke specific session"}}}
      {:path    "/sessions/:token/revoke"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
@@ -548,6 +553,11 @@
                  :middleware [auth-middleware]}
        :methods {:get {:handler (web-handlers/profile-edit-form-handler user-service config)
                        :summary "Show profile edit form (HTMX fragment)"}}}
+      {:path    "/profile/info"
+       :meta    {:no-doc     true
+                 :middleware [auth-middleware]}
+       :methods {:get {:handler (web-handlers/profile-info-fragment-handler user-service config)
+                       :summary "Show profile info card (HTMX fragment)"}}}
       {:path    "/profile/preferences/edit"
        :meta    {:no-doc     true
                  :middleware [auth-middleware]}
@@ -556,7 +566,9 @@
       {:path    "/profile/preferences"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
-      :methods {:post {:handler (web-handlers/preferences-edit-handler user-service config)
+      :methods {:get  {:handler (web-handlers/preferences-fragment-handler user-service config)
+                       :summary "Show preferences card (HTMX fragment)"}
+                :post {:handler (web-handlers/preferences-edit-handler user-service config)
                        :summary "Update preferences (HTMX fragment)"}}}
      {:path    "/profile/password/form"
       :meta    {:no-doc     true
@@ -566,7 +578,9 @@
      {:path    "/profile/password"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
-      :methods {:post {:handler (web-handlers/password-change-handler user-service config)
+      :methods {:get  {:handler (web-handlers/password-section-fragment-handler config)
+                       :summary "Show collapsed password section (HTMX fragment)"}
+                :post {:handler (web-handlers/password-change-handler user-service config)
                        :summary "Change password (HTMX fragment)"}}}
      ;; MFA routes
      {:path    "/profile/mfa/setup"
@@ -617,5 +631,3 @@
     {:api    (normalized-api-routes user-service mfa-service)
      :web    (when web-ui-enabled? (normalized-web-routes user-service mfa-service config))
      :static []}))
-
-
