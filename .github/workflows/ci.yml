@@ -55,7 +55,37 @@ jobs:
             libs/calendar/src \
             libs/reports/src \
             libs/geo/src \
-            libs/ai/src
+            libs/ai/src \
+            libs/ui-style/src
+
+  # =============================================================================
+  # Build shared UI assets
+  # =============================================================================
+  build-ui-assets:
+    name: Build UI Assets
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build admin CSS bundle
+        run: npm run build:css:admin
+
+      - name: Verify generated UI assets
+        run: |
+          test -f libs/ui-style/resources/public/css/daisy-admin.css
+          test -f libs/ui-style/resources/public/js/theme.js
+          test -f libs/ui-style/resources/public/js/htmx.min.js
 
   # =============================================================================
   # Documentation drift check (failing gate)
@@ -281,6 +311,33 @@ jobs:
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
         run: clojure -M:test:db/h2 :admin
+
+  test-ui-style:
+    name: Test boundary/ui-style
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13.5.2
+        with:
+          cli: 1.11.1.1347
+
+      - name: Cache dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Run tests
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :ui-style
 
   test-storage:
     name: Test boundary/storage
@@ -669,7 +726,7 @@ jobs:
   test-summary:
     name: All Tests Passed
     runs-on: ubuntu-latest
-    needs: [test-core, test-observability, test-platform, test-user, test-admin, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-calendar, test-reports, test-geo, test-ai]
+    needs: [build-ui-assets, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-calendar, test-reports, test-geo, test-ai]
 
     steps:
       - name: Summary
@@ -681,6 +738,7 @@ jobs:
           echo "  - boundary/platform"
           echo "  - boundary/user"
           echo "  - boundary/admin"
+          echo "  - boundary/ui-style"
           echo "  - boundary/storage"
           echo "  - boundary/cache"
           echo "  - boundary/jobs"

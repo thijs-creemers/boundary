@@ -1,0 +1,28 @@
+= ui-style
+:description: Shared UI styling contract and asset bundles for Boundary modules.
+
+The `ui-style` library centralizes app-wide UI assets and conventions:
+
+* CSS bundles (`:base`, `:pilot`, `:admin-pilot`)
+* JavaScript bundles (`:base`, `:pilot`, `:admin-pilot`)
+* Shared design tokens and reusable UI primitives
+
+It prevents per-module style drift by making layout namespaces consume the same bundle API.
+
+== Coordinates
+
+[source,clojure]
+----
+{:deps {org.boundary-app/boundary-ui-style {:mvn/version "1.0.0-alpha"}}}
+----
+
+== API
+
+Namespace: `boundary.ui-style`
+
+* `base-css`, `pilot-css`, `admin-pilot-css`
+* `base-js`, `pilot-js`, `admin-pilot-js`
+* `(bundle k)` for CSS bundle selection
+* `(js-bundle k)` for JS bundle selection
+
+For implementation details and migration notes, see `libs/ui-style/README.md` in the repository.

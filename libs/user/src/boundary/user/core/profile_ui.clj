@@ -8,6 +8,15 @@
             [boundary.shared.ui.core.icons :as icons]
             [clojure.string :as str]))
 
+(declare profile-info-fragment
+         preferences-fragment
+         password-section-fragment)
+
+(defn- page-layout
+  "Profile page layout with daisyUI pilot styling."
+  [title content & [opts]]
+  (layout/pilot-page-layout title content opts))
+
 ;; =============================================================================
 ;; Helper Functions
 ;; =============================================================================
@@ -41,28 +50,34 @@
      Hiccup structure for profile info card"
   [user]
   [:div.profile-card
-    [:div.card-header
-     [:h2 "Profile Information"]
-     [:button.button.secondary {:type "button"
-                                :hx-get "/web/profile/edit"
-                                :hx-target "#profile-info-card"
-                                :hx-swap "outerHTML"}
-      (icons/icon :edit {:size 16})
-      " Edit"]]
-   [:div#profile-info-card.card-body
-    [:div.info-row
-     [:label "Name"]
-     [:span (:name user)]]
-    [:div.info-row
-     [:label "Email"]
-     [:span (:email user)]]
-    [:div.info-row
-     [:label "Role"]
-     [:span.role-badge {:class (name (:role user))}
-      (format-role (:role user))]]
-    [:div.info-row
-     [:label "Member since"]
-     [:span (format-date (:created-at user))]]]])
+   [:div.card-header
+    [:h2 "Profile Information"]
+    [:button.button.secondary {:type "button"
+                               :hx-get "/web/profile/edit"
+                               :hx-target "#profile-info-card"
+                               :hx-swap "outerHTML"}
+     (icons/icon :edit {:size 16})
+     " Edit"]]
+   (profile-info-fragment user)])
+
+(defn profile-info-fragment
+  "Profile information card-body fragment for HTMX swaps."
+  [user]
+  [:div#profile-info-card.card-body
+   [:div.info-row
+    [:label "Name"]
+    [:span (:name user)]]
+   [:div.info-row
+    [:label "Email"]
+    [:span (:email user)]]
+   [:div.info-row
+    [:label "Role"]
+    (ui/badge (format-role (:role user))
+              {:variant :outline
+               :class "user-role-badge profile-role-badge"})]
+   [:div.info-row
+    [:label "Member since"]
+    [:span (format-date (:created-at user))]]])
 
 (defn profile-edit-form
   "Display editable profile form (HTMX partial).
@@ -88,15 +103,17 @@
        [:small.text-muted "(cannot be changed)"]]]
      [:div.info-row
       [:label "Role"]
-      [:span.role-badge {:class (name (:role user))}
-       (format-role (:role user)) " "
+      [:div.profile-role-inline
+       (ui/badge (format-role (:role user))
+                 {:variant :outline
+                  :class "user-role-badge profile-role-badge"})
        [:small.text-muted "(managed by admins)"]]]
      [:div.form-actions
       [:button.button.primary {:type "submit"}
        (icons/icon :save {:size 16})
        " Save Changes"]
       [:button.button.secondary {:type "button"
-                                 :hx-get "/web/profile"
+                                 :hx-get "/web/profile/info"
                                  :hx-target "#profile-info-card"
                                  :hx-swap "outerHTML"}
        "Cancel"]]]]))
@@ -111,28 +128,33 @@
      Hiccup structure for preferences card"
   [user]
   [:div.profile-card
-    [:div.card-header
-     [:h2 "Preferences"]
-     [:button.button.secondary {:type "button"
-                                :hx-get "/web/profile/preferences/edit"
-                                :hx-target "#preferences-card"
-                                :hx-swap "outerHTML"}
-      (icons/icon :edit {:size 16})
-      " Edit"]]
-   [:div#preferences-card.card-body
-    [:div.info-row
-     [:label "Date Format"]
-     [:span (case (:date-format user)
-              :iso "ISO (2024-01-10)"
-              :us "US (01/10/2024)"
-              :eu "EU (10/01/2024)"
-              "Not set")]]
-    [:div.info-row
-     [:label "Time Format"]
-     [:span (case (:time-format user)
-              :12h "12-hour (3:30 PM)"
-              :24h "24-hour (15:30)"
-              "Not set")]]]])
+   [:div.card-header
+    [:h2 "Preferences"]
+    [:button.button.secondary {:type "button"
+                               :hx-get "/web/profile/preferences/edit"
+                               :hx-target "#preferences-card"
+                               :hx-swap "outerHTML"}
+     (icons/icon :edit {:size 16})
+     " Edit"]]
+   (preferences-fragment user)])
+
+(defn preferences-fragment
+  "Preferences card-body fragment for HTMX swaps."
+  [user]
+  [:div#preferences-card.card-body
+   [:div.info-row
+    [:label "Date Format"]
+    [:span (case (:date-format user)
+             :iso "ISO (2024-01-10)"
+             :us "US (01/10/2024)"
+             :eu "EU (10/01/2024)"
+             "Not set")]]
+   [:div.info-row
+    [:label "Time Format"]
+    [:span (case (:time-format user)
+             :12h "12-hour (3:30 PM)"
+             :24h "24-hour (15:30)"
+             "Not set")]]])
 
 (defn preferences-edit-form
   "Display editable preferences form (HTMX partial).
@@ -169,7 +191,7 @@
        (icons/icon :save {:size 16})
        " Save Preferences"]
       [:button.button.secondary {:type "button"
-                                 :hx-get "/web/profile"
+                                 :hx-get "/web/profile/preferences"
                                  :hx-target "#preferences-card"
                                  :hx-swap "outerHTML"}
        "Cancel"]]]]))
@@ -189,40 +211,46 @@
      Hiccup structure for password change card"
   ([expanded?] (password-change-card expanded? {}))
   ([expanded? errors]
-    [:div.profile-card
-     [:div.card-header
-      [:h2 "Password"]
-      [:span.text-muted "••••••••"]]
-    (if-not expanded?
-      [:div#password-section.card-body
-       [:button.button.secondary {:type "button"
-                                  :hx-get "/web/profile/password/form"
-                                  :hx-target "#password-section"
-                                  :hx-swap "outerHTML"}
-        (icons/icon :key {:size 16})
-        " Change Password"]]
-      [:div#password-section.card-body
-       [:form {:hx-post "/web/profile/password"
-               :hx-target "#password-section"
-               :hx-swap "outerHTML"}
-        (ui/form-field :current-password "Current Password"
-                       (ui/password-input :current-password "" {:required true})
-                       (:current-password errors))
-        (ui/form-field :new-password "New Password"
-                       (ui/password-input :new-password "" {:required true})
-                       (:new-password errors))
-        (ui/form-field :confirm-password "Confirm New Password"
-                       (ui/password-input :confirm-password "" {:required true})
-                       (:confirm-password errors))
-        [:div.form-actions
-         [:button.button.primary {:type "submit"}
-          (icons/icon :save {:size 16})
-          " Change Password"]
-         [:button.button.secondary {:type "button"
-                                    :hx-get "/web/profile"
-                                    :hx-target "body"
-                                    :hx-swap "innerHTML"}
-          "Cancel"]]]])]))
+   [:div.profile-card
+    [:div.card-header
+     [:h2 "Password"]
+     [:span.text-muted "••••••••"]]
+    (password-section-fragment expanded? errors)]))
+
+(defn password-section-fragment
+  "Password card-body fragment for HTMX swaps."
+  ([expanded?] (password-section-fragment expanded? {}))
+  ([expanded? errors]
+   (if-not expanded?
+     [:div#password-section.card-body
+      [:button.button.secondary {:type "button"
+                                 :hx-get "/web/profile/password/form?fragment=1"
+                                 :hx-target "#password-section"
+                                 :hx-swap "outerHTML"}
+       (icons/icon :key {:size 16})
+       " Change Password"]]
+     [:div#password-section.card-body
+      [:form {:hx-post "/web/profile/password"
+              :hx-target "#password-section"
+              :hx-swap "outerHTML"}
+       (ui/form-field :current-password "Current Password"
+                      (ui/password-input :current-password "" {:required true})
+                      (:current-password errors))
+       (ui/form-field :new-password "New Password"
+                      (ui/password-input :new-password "" {:required true})
+                      (:new-password errors))
+       (ui/form-field :confirm-password "Confirm New Password"
+                      (ui/password-input :confirm-password "" {:required true})
+                      (:confirm-password errors))
+       [:div.form-actions
+        [:button.button.primary {:type "submit"}
+         (icons/icon :save {:size 16})
+         " Change Password"]
+        [:button.button.secondary {:type "button"
+                                   :hx-get "/web/profile/password?fragment=1"
+                                   :hx-target "#password-section"
+                                   :hx-swap "outerHTML"}
+         "Cancel"]]]])))
 
 (defn password-change-success
   "Display success message after password change.
@@ -234,9 +262,9 @@
    [:div.alert.alert-success
     (icons/icon :check-circle {:size 20})
     " Password changed successfully"]
-   [:button.button.secondary {:hx-get "/web/profile"
-                              :hx-target "body"
-                              :hx-swap "innerHTML"}
+   [:button.button.secondary {:hx-get "/web/profile/password?fragment=1"
+                              :hx-target "#password-section"
+                              :hx-swap "outerHTML"}
     "Back to Profile"]])
 
 ;; =============================================================================
@@ -253,16 +281,18 @@
     Returns:
       Hiccup structure for MFA status card"
   [_user mfa-status]
-   [:div.profile-card
-    [:div.card-header
-     [:h2 "Two-Factor Authentication"]
+  [:div.profile-card
+   [:div.card-header
+    [:h2 "Two-Factor Authentication"]
     (if (:enabled mfa-status)
-      [:span.status-badge.active
-       (icons/icon :shield {:size 16})
-       " Enabled"]
-      [:span.status-badge.inactive
-       (icons/icon :shield {:size 16})
-       " Not Enabled"])]
+      (ui/badge "Enabled"
+                {:variant :success
+                 :class "user-status-badge mfa-status-badge"
+                 :icon (icons/icon :shield {:size 16})})
+      (ui/badge "Not Enabled"
+                {:variant :neutral
+                 :class "user-status-badge mfa-status-badge"
+                 :icon (icons/icon :shield {:size 16})}))]
    [:div.card-body
     (if (:enabled mfa-status)
       ;; MFA is enabled
@@ -275,13 +305,13 @@
          [:div.info-row
           [:label "Enabled since"]
           [:span (format-date (:enabled-at mfa-status))]])
-        [:div.info-row
-         [:label "Backup codes"]
-         [:span (:backup-codes-remaining mfa-status) " remaining"]]
-        [:div.form-actions
-         [:a.button.danger {:href "/web/profile/mfa/disable"}
-          (icons/icon :unlock {:size 16})
-          " Disable MFA"]]]
+       [:div.info-row
+        [:label "Backup codes"]
+        [:span (:backup-codes-remaining mfa-status) " remaining"]]
+       [:div.form-actions
+        [:a.button.danger {:href "/web/profile/mfa/disable"}
+         (icons/icon :unlock {:size 16})
+         " Disable MFA"]]]
       ;; MFA is not enabled
       [:div
        [:p "Add an extra layer of security to your account by enabling two-factor authentication."]
@@ -303,14 +333,14 @@
    Returns:
      Complete HTML page for MFA setup"
   [& [opts]]
-  (layout/page-layout
+  (page-layout
    "Set Up Two-Factor Authentication"
-   [:div.profile-page
-    [:div.page-header
+   [:div.profile-page.profile-shell
+    [:div.page-header.profile-header
      [:h1
       [:a {:href "/web/profile"} (icons/icon :chevron-left {:size 20})]
       " Set Up Two-Factor Authentication"]]
-    [:div.profile-content
+    [:div.profile-content.profile-grid
      [:div.mfa-setup-intro
       [:p "Two-factor authentication adds an extra layer of security to your account. You'll need:"]
       [:ul
@@ -432,12 +462,12 @@
            [:a.button.primary {:href "/web/profile"}
             "Done - Return to Profile"]]]]
      (if full-page?
-       (layout/page-layout
+       (page-layout
         "Two-Factor Authentication Backup Codes"
-        [:div.profile-page
-         [:div.page-header
+        [:div.profile-page.profile-shell
+         [:div.page-header.profile-header
           [:h1 "Backup Codes"]]
-         [:div.profile-content
+         [:div.profile-content.profile-grid
           content]]
         opts)
        content))))
@@ -457,14 +487,14 @@
      Complete HTML page for MFA disable confirmation"
   ([errors] (mfa-disable-confirm-page errors {}))
   ([errors opts]
-   (layout/page-layout
+   (page-layout
     "Disable Two-Factor Authentication"
-    [:div.profile-page
-     [:div.page-header
+    [:div.profile-page.profile-shell
+     [:div.page-header.profile-header
       [:h1
        [:a {:href "/web/profile"} (icons/icon :chevron-left {:size 20})]
        " Disable Two-Factor Authentication"]]
-     [:div.profile-content
+     [:div.profile-content.profile-grid
       [:div.alert.alert-warning
        (icons/icon :alert-circle {:size 20})
        " Warning: Disabling two-factor authentication will make your account less secure."]
@@ -498,24 +528,24 @@
    Returns:
      Complete HTML page for user profile"
   [user mfa-status & [opts]]
-   (layout/page-layout
-    "Profile & Security"
-    [:div.profile-page
-     [:div.page-header
-      [:h1 "Profile & Security"]]
-     [:div.profile-content
-      (profile-info-card user)
-      (preferences-card user)
-      (password-change-card false)
-      (mfa-status-card user mfa-status)
-      [:div.profile-card
-       [:div.card-header
-        [:h2 "Active Sessions"]]
-       [:div.card-body
-        [:div.info-row
-         [:label "Sessions"]
-         [:span
-          [:a {:href (str "/web/users/" (:id user) "/sessions")}
-           "Manage Sessions "
-           (icons/icon :chevron-right {:size 16})]]]]]]]
+  (page-layout
+   "Profile & Security"
+   [:div.profile-page.profile-shell
+    [:div.page-header.profile-header
+     [:h1 "Profile & Security"]]
+    [:div.profile-content.profile-grid
+     (profile-info-card user)
+     (preferences-card user)
+     (password-change-card false)
+     (mfa-status-card user mfa-status)
+     [:div.profile-card
+      [:div.card-header
+       [:h2 "Active Sessions"]]
+      [:div.card-body
+       [:div.info-row
+        [:label "Sessions"]
+        [:span
+         [:a {:href (str "/web/users/" (:id user) "/sessions")}
+          "Manage Sessions "
+          (icons/icon :chevron-right {:size 16})]]]]]]]
    opts))

@@ -59,15 +59,16 @@ resources/conf/dev/
 |------------|---------|----------|
 | **Hiccup** | HTML generation | `libs/{library}/src/boundary/{library}/core/ui.clj` |
 | **HTMX** | Dynamic interactions | Inline attributes in Hiccup |
-| **Pico CSS** | Base framework | `resources/public/css/` |
+| **Pico CSS** | Base framework | `libs/ui-style/resources/public/css/` |
 | **Lucide Icons** | Icon system | `libs/admin/src/boundary/shared/ui/core/icons.clj` |
 
 ### UI Architecture Principles
 
 1. **Server-side rendering**: All HTML generated via Hiccup (no build step)
 2. **Progressive enhancement**: HTMX for dynamic behavior
-3. **Design tokens**: Stable contract in `resources/public/css/boundary-tokens.css` with optional theme override in `resources/public/css/tokens-openprops.css`
+3. **Design tokens**: Stable contract in `libs/ui-style/resources/public/css/boundary-tokens.css` with optional theme override in `libs/ui-style/resources/public/css/tokens-openprops.css`
 4. **Icon library**: Use Lucide icons, never emoji in UI (CLI emoji is OK)
+5. **Bundle contract**: Use `boundary.ui-style` bundles (via shared layout fns), never ad-hoc `:css [...]` lists in feature namespaces
 
 ### Common UI Patterns
 
@@ -145,7 +146,7 @@ libs/{module}/src/boundary/{module}/core/
 
 ### CSS Architecture
 
-**Location**: `resources/public/css/`
+**Location**: `libs/ui-style/resources/public/css/`
 
 ```
 css/
@@ -170,6 +171,11 @@ boundary-tokens.css   ← Token defaults (Boundary navy/green palette)
 tokens-openprops.css  ← Theme override (Cyberpunk Professionalism; load last to win)
 app.css               ← Component styles
 ```
+
+Use central bundle keys from `boundary.ui-style`:
+- `:base` for legacy/base pages
+- `:pilot` for pilot user/profile/audit pages
+- `:admin-pilot` for admin CRUD pages
 
 **CSS Organisation Rules**:
 1. Component CSS (`app.css`, `admin.css`) must only reference token variables — never hardcode values
@@ -262,7 +268,7 @@ Override whichever variables you want; leave the rest untouched (they fall back 
 
 **Option B — Add a separate theme file**
 
-1. Create `resources/public/css/my-brand.css`:
+1. Create `libs/ui-style/resources/public/css/my-brand.css`:
 ```css
 /* Brand theme — overrides boundary-tokens.css defaults */
 /* Import Open Props if you want its color scales */
@@ -431,7 +437,7 @@ Both values are submitted when checkbox is checked, resulting in an array.
 
 ## Additional UI Notes
 
-- Keep inline JavaScript short. Move multi-step logic to `resources/public/js/`.
+- Keep inline JavaScript short. Move multi-step logic to `libs/ui-style/resources/public/js/`.
 - Keep related event handlers consistent (`select-all` and item checkboxes should compute counts the same way).
 - Use Lucide icons in UI; avoid emoji in interface components.
 

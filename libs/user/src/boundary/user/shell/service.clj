@@ -259,8 +259,12 @@
          ;; 1. Find and invalidate session using impure shell persistence layer
          (if-let [session (.find-session-by-token session-repository session-token)]
             (let [_invalidated-session (.invalidate-session session-repository session-token)
-                 ;; Get user info for audit log
-                 user (.find-user-by-id user-repository (:user_id session))]
+                  session-user-id (or (:user-id session) (:user_id session))
+                  session-ip-address (or (:ip-address session) (:ip_address session))
+                  session-user-agent (or (:user-agent session) (:user_agent session))
+                  ;; Get user info for audit log
+                  user (when session-user-id
+                         (.find-user-by-id user-repository session-user-id))]
 
              ;; 2. Invalidate session cache entry
              (when cache
@@ -271,8 +275,8 @@
                (let [audit-entry (audit-core/logout-audit-entry
                                   (:id user)
                                   (:email user)
-                                  (:ip_address session)  ; Use IP from session
-                                  (:user_agent session))] ; Use user-agent from session
+                                  session-ip-address  ; Use IP from session
+                                  session-user-agent)] ; Use user-agent from session
                  (.create-audit-log audit-repository audit-entry)))
 
              ;; Return result

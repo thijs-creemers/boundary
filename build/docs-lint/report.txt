@@ -1,0 +1,10 @@
+Boundary Docs Lint Report
+=========================
+
+Summary:
+  Files scanned: 61
+  Total warnings: 0
+
+By type:
+
+Warnings:

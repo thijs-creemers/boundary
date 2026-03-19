@@ -1,7 +1,6 @@
 (ns boundary.shared.ui.core.table
   "Shared table UI helpers (sorting, paging) for Hiccup-based web UIs."
-  (:require [boundary.platform.shell.web.table :as web-table]
-            [boundary.shared.ui.core.icons :as icons]))
+  (:require [boundary.platform.shell.web.table :as web-table]))
 
 (defn sortable-th
   "Reusable sortable table header cell.
@@ -16,41 +15,46 @@
    - :page-size     current page-size (integer)
    - :hx-target     HTMX target selector (string)
    - :hx-push-url?  bool, default true
+   - :push-url-base optional path used for browser URL updates (defaults to :base-url)
    - :extra-params  map of additional query params (keyword/string keys)
 
    Behaviour:
    - Clicking toggles :dir between :asc and :desc for the same :field.
    - When changing sort field or direction, page is reset to 1.
    "
-   [{:keys [label field current-sort current-dir base-url _page page-size
+   [{:keys [label field current-sort current-dir base-url push-url-base _page page-size
             hx-target hx-push-url? extra-params]}]
    (let [active?  (= current-sort field)
          next-dir (if (and active? (= current-dir :asc)) :desc :asc)
-         icon-key (cond
-                    (not active?) nil
-                    (= current-dir :asc) :chevron-up
-                    :else :chevron-down)
+         icon-symbol (cond
+                       (not active?) nil
+                       (= current-dir :asc) "↑"
+                       :else "↓")
          page*    1
          base-q   (web-table/table-query->params
                    {:sort field :dir next-dir :page page* :page-size page-size})
-        extra-q  (into {}
-                       (for [[k v] extra-params]
-                         [(name k) (str v)]))
-        qs-map   (merge base-q extra-q)
-        url      (str base-url "?" (web-table/encode-query-params qs-map))]
+         extra-q  (into {}
+                        (for [[k v] extra-params]
+                          [(name k) (str v)]))
+         qs-map   (merge base-q extra-q)
+         query-str (web-table/encode-query-params qs-map)
+         url      (str base-url "?" query-str)
+         push-url (when hx-push-url?
+                    (str (or push-url-base base-url) "?" query-str))]
      [:th
       {:hx-get     url
        :hx-target  hx-target
-       :hx-push-url (when hx-push-url? "true")
+       :hx-push-url push-url
+       :hx-params  "none"
        :class      (str "sortable-header"
                         (when active? " sortable-header--active")
                         (when active? (str " sort-dir-" (name current-dir))))
        :role       "button"
        :tabindex   "0"}
       [:span.sort-label label]
-      (when icon-key
+      (when icon-symbol
         [:span.sort-icon
-         (icons/icon icon-key {:size 12})])]))
+         icon-symbol])]))
 
 (defn pagination
   "Render pagination controls for a table.
@@ -60,10 +64,11 @@
    - :total-count   total number of items
    - :base-url      base URL for hx-get links (e.g. \"/web/users/table\")
    - :hx-target     HTMX target selector
+   - :push-url-base optional path used for browser URL updates (defaults to :base-url)
    - :extra-params  map of additional query params (filters, etc.)
 
    Returns nil when a single page is sufficient."
-  [{:keys [table-query total-count base-url hx-target extra-params]}]
+  [{:keys [table-query total-count base-url push-url-base hx-target extra-params]}]
   (let [{:keys [page page-size]} table-query
         total-count  (long (or total-count 0))
         page-size    (long (max 1 (or page-size 20)))
@@ -86,6 +91,12 @@
                              base (web-table/table-query->params tq)
                              qs   (merge base extra-q)]
                          (str base-url "?" (web-table/encode-query-params qs))))
+        mk-push-url  (fn [page*]
+                       (let [tq   (assoc table-query :page page*)
+                             base (web-table/table-query->params tq)
+                             qs   (merge base extra-q)]
+                         (str (or push-url-base base-url) "?"
+                              (web-table/encode-query-params qs))))
         prev-page    (max 1 (dec page))
         next-page    (min total-pages (inc page))]
     (when show-pages?
@@ -97,7 +108,8 @@
         [:button {:type       "button"
                   :hx-get     (mk-url prev-page)
                   :hx-target  hx-target
-                  :hx-push-url "true"
+                  :hx-push-url (mk-push-url prev-page)
+                  :hx-params  "none"
                   :disabled   (<= page 1)}
          "Previous"]
         [:span.page-status
@@ -106,6 +118,7 @@
         [:button {:type       "button"
                   :hx-get     (mk-url next-page)
                   :hx-target  hx-target
-                  :hx-push-url "true"
+                  :hx-push-url (mk-push-url next-page)
+                  :hx-params  "none"
                   :disabled   (>= page total-pages)}
          "Next"]]])))

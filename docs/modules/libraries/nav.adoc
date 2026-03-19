@@ -3,6 +3,7 @@
 ** xref:libraries:core.adoc[core]
 ** xref:libraries:observability.adoc[observability]
 ** xref:libraries:platform.adoc[platform]
+** xref:libraries:ui-style.adoc[ui-style]
 ** xref:libraries:user.adoc[user]
 ** xref:libraries:admin.adoc[admin]
 ** xref:libraries:storage.adoc[storage]

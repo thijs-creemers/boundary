@@ -12,6 +12,7 @@
      index-detail-page    — index config + live search test form (full page)"
   (:require [boundary.shared.ui.core.icons :as icons]
             [boundary.shared.ui.core.layout :as layout]
+            [boundary.shared.ui.core.components :as ui]
             [clojure.string :as str]))
 
 ;; =============================================================================
@@ -19,21 +20,24 @@
 ;; =============================================================================
 
 (defn- language-badge [language]
-  [:span.status-badge (name language)])
+  (ui/badge (name language) {:variant :neutral
+                             :class "status-badge"}))
 
 (defn- doc-count-badge [n]
-  [:span.status-badge {:class (if (pos? (or n 0)) "success" "")}
-   (str (or n 0) " docs")])
+  (ui/badge (str (or n 0) " docs")
+            {:variant (if (pos? (or n 0)) :success :neutral)
+             :class "status-badge"}))
 
 (defn field-weight-badge
   "Render a field weight label as a colored badge."
   [weight]
-  (let [badge-class (case weight
-                      (:a :A) "success"
-                      (:b :B) "info"
-                      "")]
-    [:span.status-badge {:class badge-class}
-     (str "Weight-" (str/upper-case (name weight)))]))
+  (let [variant (case weight
+                  (:a :A) :success
+                  (:b :B) :info
+                  :neutral)]
+    (ui/badge (str "Weight-" (str/upper-case (name weight)))
+              {:variant variant
+               :class "status-badge"})))
 
 ;; =============================================================================
 ;; Indices List Page
@@ -57,37 +61,36 @@
      opts    - map with :user, :flash (passed to page-layout)"
   [indices opts]
   (let [{:keys [user flash]} opts]
-    (layout/page-layout
+    (layout/admin-pilot-page-layout
      "Search Indices — Admin"
      [:div {:style "padding: 1.5rem;"}
-      [:div {:style "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;"}
-       [:h1 {:style "margin: 0; display: flex; align-items: center; gap: 0.5rem;"}
+      [:div.page-header
+       [:h1.page-title
         (icons/icon :search {:size 24})
         "Search Indices"]
-       [:a {:href "/web/dashboard" :role "button" :class "secondary outline"}
+       [:a.button.secondary {:href "/web/dashboard"}
         "← Dashboard"]]
       [:p {:style "color: var(--muted-color); margin-top: 0;"}
        "Registered full-text search indices and their document counts."]
       (if (seq indices)
-        [:table {:class "data-table"}
-         [:thead
-          [:tr
-           [:th "Index ID"]
-           [:th "Entity Type"]
-           [:th "Language"]
-           [:th "Fields"]
-           [:th "Documents"]]]
-         [:tbody
-          (for [idx indices]
-            (index-row idx))]]
+        (ui/table-wrapper
+         [:table {:class "data-table ui-table"}
+          [:thead
+           [:tr
+            [:th "Index ID"]
+            [:th "Entity Type"]
+            [:th "Language"]
+            [:th "Fields"]
+            [:th "Documents"]]]
+          [:tbody
+           (for [idx indices]
+             (index-row idx))]])
         [:div.empty-state
          (icons/icon :search {:size 32})
          [:h3 "No search indices registered"]
          [:p "Use " [:code "defsearch"] " to define a search index."]])]
      {:user  user
-      :flash flash
-      :css   ["/css/pico.min.css" "/css/boundary-tokens.css" "/css/admin.css" "/css/app.css"]
-      :js    ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]})))
+      :flash flash})))
 
 ;; =============================================================================
 ;; Index Detail + Live Search Page
@@ -127,17 +130,18 @@
       [:small {:style "color: var(--muted-color);"}
        (str "Showing first " (count results))])]
    (if (seq results)
-     [:table {:class "data-table"}
-      [:thead
-       [:tr
-        [:th "Entity Type"]
-        [:th "Entity ID"]
-        [:th "Rank"]
-        [:th "Snippet"]
-        [:th "Metadata"]]]
-      [:tbody
-       (for [r results]
-         (search-result-row r))]]
+     (ui/table-wrapper
+      [:table {:class "data-table ui-table"}
+       [:thead
+        [:tr
+         [:th "Entity Type"]
+         [:th "Entity ID"]
+         [:th "Rank"]
+         [:th "Snippet"]
+         [:th "Metadata"]]]
+       [:tbody
+        (for [r results]
+          (search-result-row r))]])
      [:div.empty-state
       (icons/icon :search {:size 32})
       [:p "No results found for \"" (or query "") "\"."]])])
@@ -154,7 +158,7 @@
   (let [{:keys [user flash]} opts
         {:keys [id entity-type language fields doc-count]} index-info
         index-name (name id)]
-    (layout/page-layout
+    (layout/admin-pilot-page-layout
      (str "Search: " index-name " - Admin")
      [:div {:style "padding: 1.5rem;"}
       [:nav {:aria-label "Breadcrumb"
@@ -207,6 +211,4 @@
           (icons/icon :search {:size 32})
           [:p "Enter a query above to test this search index."]]])]
      {:user  user
-      :flash flash
-      :css   ["/css/pico.min.css" "/css/boundary-tokens.css" "/css/admin.css" "/css/app.css"]
-      :js    ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]})))
+      :flash flash})))

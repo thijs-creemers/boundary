@@ -131,7 +131,7 @@ This keeps business logic fast to test (no mocks needed), easy to reason about, 
 | Database | `snake_case` |
 | API (JSON) | `camelCase` |
 
-Use `boundary.shared.core.utils.case-conversion` for conversions. Never convert manually.
+Use `boundary.core.utils.case-conversion` for conversions. Never convert manually.
 
 ---
 

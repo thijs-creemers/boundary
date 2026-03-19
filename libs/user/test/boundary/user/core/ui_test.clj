@@ -3,7 +3,8 @@
    
    Tests cover all user UI components including table rows, forms,
    success messages, and complete page compositions based on User schema."
-  (:require [clojure.test :refer [deftest testing is]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest testing is]]
             [boundary.user.core.ui :as ui]))
 
 ;; =============================================================================
@@ -53,14 +54,16 @@
       (let [role-cell (nth row 3)]
         (is (vector? role-cell))
         (is (= :span (first role-cell)))
-        (is (= "role-badge admin" (get-in role-cell [1 :class])))
+        (is (str/includes? (get-in role-cell [1 :class]) "user-role-badge"))
+        (is (str/includes? (get-in role-cell [1 :class]) "ui-badge"))
         (is (= "Admin" (nth role-cell 2))))
 
       ;; Status badge cell
       (let [status-cell (nth row 4)]
         (is (vector? status-cell))
         (is (= :span (first status-cell)))
-        (is (= "status-badge active" (get-in status-cell [1 :class])))
+        (is (str/includes? (get-in status-cell [1 :class]) "user-status-badge"))
+        (is (str/includes? (get-in status-cell [1 :class]) "ui-badge-success"))
         (is (= "Active" (nth status-cell 2))))))
 
   (testing "generates correct table row for inactive user"
@@ -72,7 +75,8 @@
       ;; Status badge: inactive
       (let [status-cell (nth row 4)]
         (is (= "Inactive" (nth status-cell 2)))
-        (is (= "status-badge inactive" (get-in status-cell [1 :class]))))))
+        (is (str/includes? (get-in status-cell [1 :class]) "user-status-badge"))
+        (is (str/includes? (get-in status-cell [1 :class]) "ui-badge-warning")))))
 
   (testing "handles different role types"
     (let [viewer-user (assoc sample-user :role :viewer)
@@ -103,6 +107,40 @@
       (is (= "/web/users/table" (:hx-get attrs)))
       (is (= "#users-table-container" (:hx-target attrs)))
       (is (= "userCreated from:body, userUpdated from:body, userDeleted from:body" (:hx-trigger attrs))))))
+
+(deftest audit-logs-table-test
+  (testing "renders non-empty audit table without throwing and keeps wrapper container"
+    (let [audit-log {:action :login
+                     :result :success
+                     :created-at "2026-03-19T08:00:00Z"
+                     :actor-email "admin@example.com"
+                     :target-user-email "user@example.com"
+                     :ip-address "127.0.0.1"}
+          table-query {:sort :created-at
+                       :dir :desc
+                       :page 1
+                       :page-size 50
+                       :offset 0
+                       :limit 50}
+          result (ui/audit-logs-table [audit-log] table-query 1 {})]
+      (is (vector? result))
+      (is (= :div#audit-table-container (first result)))
+      (let [html (str result)]
+        (is (re-find #"audit-table" html))
+        (is (re-find #"audit-action-badge" html))))))
+
+(deftest session-row-test
+  (testing "posts revoke action to stable endpoint with token in hidden field"
+      (let [session {:session-token "abc/def+ghi=="
+                   :user-agent "Mozilla/5.0 Chrome"
+                   :ip-address "127.0.0.1"
+                   :created-at (java.time.Instant/parse "2026-03-19T08:00:00Z")
+                   :last-accessed-at (java.time.Instant/parse "2026-03-19T08:00:00Z")}
+          row (ui/session-row session "different-current-token" "user-123")
+          row-html (str row)]
+      (is (re-find #"/web/sessions/revoke" row-html))
+      (is (re-find #":name \"session-token\"" row-html))
+      (is (re-find #"abc/def\+ghi==" row-html)))))
 
 ;; =============================================================================
 ;; User Form Component Tests
