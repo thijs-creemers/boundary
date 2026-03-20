@@ -16,7 +16,8 @@
 ;; - generate-project! - Full project generation
 
 (ns file-generators
-  (:require [clojure.java.io :as io]))
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]))
 
 ;; Load helpers for template processing
 (load-file "scripts/helpers.clj")
@@ -35,6 +36,7 @@
               "resources/conf/dev"
               "resources/conf/dev/admin"
               "resources/public"
+              "scripts"
               "target"
               ".clj-kondo"]]
     (doseq [dir dirs]
@@ -372,6 +374,230 @@ java -jar target/" project-name "-*.jar
      :size (.length output-file)}))
 
 ;; =============================================================================
+;; gen_agents script + bb.edn Generation
+;; =============================================================================
+
+(defn write-gen-agents-script!
+  "Copy scripts/gen_agents.clj into the generated project's scripts/ directory.
+   The script is self-contained so it works independently of the starter."
+  [output-dir]
+  (let [source      (io/file "scripts/gen_agents.clj")
+        output-file (io/file output-dir "scripts/gen_agents.clj")]
+    (io/copy source output-file)
+    {:file (.getPath output-file)
+     :size (.length output-file)}))
+
+(def bb-edn-content
+  "{:tasks
+ {scaffold
+  {:doc \"Interactive module scaffolding wizard (bb scaffold [generate|new|field|endpoint|adapter|ai]\"
+   :task (apply shell \"bb scripts/scaffold.clj\" *command-line-args*)}
+
+  gen-agents
+  {:doc \"Regenerate AGENTS.md from deps.edn (bb gen-agents [--dry-run])\"
+   :task (apply shell \"bb scripts/gen_agents.clj\" *command-line-args*)}}}")
+
+(defn write-bb-edn!
+  "Write bb.edn for the generated project."
+  [output-dir]
+  (let [output-file (io/file output-dir "bb.edn")]
+    (spit output-file bb-edn-content)
+    {:file (.getPath output-file)
+     :size (.length output-file)}))
+
+;; =============================================================================
+;; AGENTS.md Generation
+;; =============================================================================
+
+(def ^:private github-base
+  "https://github.com/tcbv/boundary/blob/main")
+
+(def ^:private lib-guide-info
+  {:core         {:path "libs/core/AGENTS.md"          :desc "Validation, case conversion, interceptor pipeline, feature flags"}
+   :observability {:path "libs/observability/AGENTS.md" :desc "Logging, metrics, service/persistence interceptor patterns"}
+   :platform     {:path "libs/platform/AGENTS.md"      :desc "HTTP interceptor architecture, routing, DB infrastructure"}
+   :user         {:path "libs/user/AGENTS.md"          :desc "Authentication, authorization, MFA, session management"}
+   :admin        {:path "libs/admin/AGENTS.md"         :desc "Auto-CRUD admin UI (Hiccup, HTMX), entity config, form pitfalls"}
+   :storage      {:path "libs/storage/AGENTS.md"       :desc "File storage (local/S3), validation, image processing, signed URLs"}
+   :scaffolder   {:path "libs/scaffolder/AGENTS.md"    :desc "Module code generation commands and workflow"}
+   :cache        {:path "libs/cache/AGENTS.md"         :desc "Distributed caching, TTL, atomic ops, tenant-scoped cache"}
+   :jobs         {:path "libs/jobs/AGENTS.md"          :desc "Background job processing, retry logic, worker pools, dead letter queue"}
+   :email        {:path "libs/email/AGENTS.md"         :desc "SMTP sending, async/queued modes, jobs integration"}
+   :tenant       {:path "libs/tenant/AGENTS.md"        :desc "Multi-tenancy, schema-per-tenant, provisioning, lifecycle states"}
+   :realtime     {:path "libs/realtime/AGENTS.md"      :desc "WebSocket messaging, JWT auth, pub/sub, message routing"}
+   :workflow     {:path "libs/workflow/AGENTS.md"      :desc "State machine definitions, transitions, lifecycle hooks, auto-transitions"}
+   :search       {:path "libs/search/AGENTS.md"        :desc "Document indexing, FTS/LIKE strategy, filter support, migrations"}
+   :external     {:path "libs/external/AGENTS.md"      :desc "Stripe payments, Twilio SMS/WhatsApp, SMTP transport, IMAP mailbox"}
+   :reports      {:path "libs/reports/AGENTS.md"       :desc "defreport macro, PDF/CSV export, scheduling"}
+   :calendar     {:path "libs/calendar/AGENTS.md"      :desc "defevent macro, RRULE recurrence, iCal, conflict detection, Hiccup UI"}
+   :geo          {:path "libs/geo/AGENTS.md"           :desc "Geocoding (OSM/Google/Mapbox), DB cache, rate limiting, Haversine distance"}
+   :ai           {:path "libs/ai/AGENTS.md"            :desc "Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, error explainer, SQL copilot"}
+   :ui-style     {:path "libs/ui-style/AGENTS.md"      :desc "Shared UI style bundles, design tokens, CSS assets"}})
+
+(defn- agents-env-table
+  "Render the environment variables as a markdown table.
+   BND_ENV is always first; required and optional come from the resolved template."
+  [template]
+  (let [required (get-in template [:env-vars :required] [])
+        optional (get-in template [:env-vars :optional] [])
+        rows (concat
+              [["BND_ENV" "Yes" "`development` / `test` / `production`"]]
+              (map #(vector % "Yes" "") required)
+              (map #(vector % "No"  "") optional))]
+    (str
+     "| Variable | Required | Notes |\n"
+     "|----------|----------|-------|\n"
+     (str/join "\n"
+               (map (fn [[v req notes]] (str "| `" v "` | " req " | " notes " |"))
+                    rows)))))
+
+(defn- agents-lib-table
+  "Render included boundary libs as a markdown table with links to their AGENTS.md on GitHub."
+  [libs]
+  (str
+   "| Library | Guide | Purpose |\n"
+   "|---------|-------|---------|\n"
+   (str/join "\n"
+             (for [lib libs
+                   :let [info (get lib-guide-info lib)]
+                   :when info]
+               (str "| **" (name lib) "**"
+                    " | [AGENTS.md](" github-base "/" (:path info) ")"
+                    " | " (:desc info) " |")))))
+
+(defn agents-md-content
+  "Generate AGENTS.md content tailored to the resolved template and project."
+  [template project-name db-choice]
+  (let [libs       (:boundary-libs template)
+        has-user?  (some #{:user}   libs)
+        has-pg?    (= db-choice :postgres)]
+    (str
+     "# " project-name " — Development Guide\n\n"
+     "> Built with [Boundary Framework](https://github.com/tcbv/boundary).  \n"
+     "> Full framework reference: [Boundary AGENTS.md](" github-base "/AGENTS.md)\n\n"
+     "---\n\n"
+
+     "## Quick Reference\n\n"
+     "```bash\n"
+     "# REPL\n"
+     "clojure -M:repl-clj\n\n"
+     "# In REPL:\n"
+     "(require '[integrant.repl :as ig-repl])\n"
+     "(ig-repl/go)      ; Start system\n"
+     "(ig-repl/reset)   ; Reload changed namespaces and restart\n"
+     "(ig-repl/halt)    ; Stop system\n\n"
+     "# Testing\n"
+     "clojure -M:test                    ; All tests\n"
+     "clojure -M:test --watch            ; Watch mode\n"
+     (when has-user?
+       "JWT_SECRET=\"dev-secret-32-chars-minimum\" clojure -M:test  ; Auth tests\n")
+     "\n"
+     "# Scaffolding\n"
+     "bb scaffold                                        ; Interactive module wizard\n"
+     "bb scaffold ai \"product with name, price, stock\"  ; AI-powered NL scaffolding\n\n"
+     "# Build\n"
+     "clojure -T:build clean && clojure -T:build uber\n"
+     "java -jar target/" project-name "-*.jar\n"
+     "```\n\n"
+     "---\n\n"
+
+     "## Environment Variables\n\n"
+     (agents-env-table template) "\n\n"
+     (when has-pg?
+       (str "> **PostgreSQL**: set `DATABASE_URL` to a valid JDBC URL,\n"
+            "> e.g. `jdbc:postgresql://localhost:5432/mydb?user=myuser&password=secret`\n\n"))
+     "---\n\n"
+
+     "## Architecture: Functional Core / Imperative Shell\n\n"
+     "```\n"
+     "src/boundary/" project-name "/\n"
+     "├── core/       # Pure functions ONLY — no I/O, no logging, no exceptions\n"
+     "├── shell/      # All side effects: persistence, services, HTTP handlers\n"
+     "├── ports.clj   # Protocol definitions (interfaces)\n"
+     "└── schema.clj  # Malli validation schemas\n"
+     "```\n\n"
+     "**Dependency rules (strictly enforced):**\n"
+     "- Shell → Core (allowed)\n"
+     "- Core → Ports (allowed)\n"
+     "- Core → Shell (NEVER — violates FC/IS)\n\n"
+     "---\n\n"
+
+     "## Included Libraries\n\n"
+     (agents-lib-table libs) "\n\n"
+     "---\n\n"
+
+     "## Key Conventions\n\n"
+     "### Case conversion\n\n"
+     "| Location | Format | Example |\n"
+     "|----------|--------|---------|\n"
+     "| All Clojure code | kebab-case | `:password-hash`, `:created-at` |\n"
+     "| Database boundary only | snake_case | `password_hash`, `created_at` |\n"
+     "| API boundary only | camelCase | `passwordHash`, `createdAt` |\n\n"
+     "```clojure\n"
+     "(require '[boundary.core.utils.case-conversion :as cc])\n\n"
+     ";; DB → Clojure (at persistence boundary)\n"
+     "(cc/snake-case->kebab-case-map db-record)\n\n"
+     ";; Clojure → DB (at persistence boundary)\n"
+     "(cc/kebab-case->snake-case-map entity)\n"
+     "```\n\n"
+     "### Adding new fields — always synchronize:\n\n"
+     "1. Malli schema in `schema.clj`\n"
+     "2. Database column (new migration)\n"
+     "3. Persistence layer transformations in `shell/persistence.clj`\n\n"
+     "---\n\n"
+
+     "## Common Pitfalls\n\n"
+     "### 1. `defrecord` changes require full restart\n\n"
+     "`(ig-repl/reset)` does not recreate `defrecord` instances. Use:\n\n"
+     "```clojure\n"
+     "(ig-repl/halt)\n"
+     "(ig-repl/go)\n"
+     "```\n\n"
+     "### 2. Always include `:type` in `ex-info`\n\n"
+     "```clojure\n"
+     ";; Every (throw (ex-info ...)) must carry :type\n"
+     "(throw (ex-info \"Not found\" {:type :not-found :id id}))\n"
+     ";; Valid types: :validation-error :not-found :unauthorized\n"
+     ";;              :forbidden :conflict :internal-error\n"
+     "```\n\n"
+     "### 3. API routes — normalized map format, not Reitit vectors\n\n"
+     "```clojure\n"
+     ";; WRONG\n"
+     "[[\"api/my-resource\" {:get {:handler ...}}]]\n\n"
+     ";; CORRECT — versioning middleware adds /api/v1 automatically\n"
+     "[{:path \"/my-resource\" :methods {:get {:handler ... :summary \"...\"}}}]\n"
+     "```\n\n"
+     "### 4. Parenthesis repair — never fix manually\n\n"
+     "```bash\n"
+     "clj-paren-repair src/boundary/" project-name "/core/my_module.clj\n"
+     "```\n\n"
+     "---\n\n"
+
+     "## REPL Debugging\n\n"
+     "```clojure\n"
+     ";; Access a running service component\n"
+     "(def my-svc (get integrant.repl.state/system :boundary/my-service))\n\n"
+     ";; Reload a namespace after editing\n"
+     "(require '[boundary." project-name ".core.my-module :as m] :reload)\n\n"
+     ";; Query the database directly\n"
+     "(def ds (get-in integrant.repl.state/system [:boundary/db-context :datasource]))\n"
+     "(next.jdbc/execute! ds [\"SELECT * FROM my_table LIMIT 10\"])\n"
+     "```\n\n"
+     "---\n\n"
+
+     "*Generated with Boundary Framework — "
+     "template: `" (get-in template [:meta :name]) "`*\n")))
+
+(defn write-agents-md!
+  "Write AGENTS.md for the generated project."
+  [template output-dir project-name db-choice]
+  (let [content     (agents-md-content template project-name db-choice)
+        output-file (io/file output-dir "AGENTS.md")]
+    (spit output-file content)
+    {:file (.getPath output-file)
+     :size (.length output-file)}))
+
+;; =============================================================================
 ;; Full Project Generation
 ;; =============================================================================
 
@@ -451,6 +677,20 @@ java -jar target/" project-name "-*.jar
      (write-app-test-clj! output-dir)
      (println "   ✓ test/boundary/app_test.clj")
      (println)
+
+     ;; Step 10: Write AGENTS.md
+     (println "🤖 Writing AGENTS.md...")
+     (let [result (write-agents-md! template output-dir project-name (get opts :db-choice :sqlite))]
+       (println (str "   ✓ " (:file result) " (" (:size result) " bytes)"))
+       (println))
+
+     ;; Step 11: Write bb.edn + gen_agents script
+     (println "📋 Writing bb.edn and scripts/gen_agents.clj...")
+     (let [bb-result  (write-bb-edn! output-dir)
+           gen-result (write-gen-agents-script! output-dir)]
+       (println (str "   ✓ " (:file bb-result)))
+       (println (str "   ✓ " (:file gen-result)))
+       (println))
 
      (let [elapsed (- (System/currentTimeMillis) start-time)]
        (println "✅ Project generation complete!")

@@ -1,4 +1,8 @@
 {:tasks
  {setup
   {:doc "Interactive wizard to create a new Boundary project"
-   :task (apply shell "bb scripts/setup.clj" *command-line-args*)}}}
+   :task (apply shell "bb scripts/setup.clj" *command-line-args*)}
+
+  gen-agents
+  {:doc "Regenerate AGENTS.md from deps.edn (bb gen-agents [--project-dir DIR] [--dry-run])"
+   :task (apply shell "bb scripts/gen_agents.clj" *command-line-args*)}}}

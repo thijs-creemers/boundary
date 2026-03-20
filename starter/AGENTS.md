@@ -79,6 +79,17 @@ They cannot be deselected.
 When a selected library requires another library (e.g., `calendar` requires `storage`),
 the setup wizard auto-adds the dependency with a warning. No manual intervention needed.
 
+## Commands
+
+```bash
+# Create a new project (interactive)
+bb setup
+
+# Regenerate AGENTS.md for an existing project
+bb gen-agents --project-dir ../my-project
+bb gen-agents --project-dir ../my-project --dry-run   # preview only
+```
+
 ## `bb setup` wizard
 
 ```bash
@@ -143,8 +154,11 @@ A generated project has this structure:
 ```
 {project-name}/
 ├── deps.edn                        ← All Boundary libs as git deps
-├── bb.edn                          ← `bb scaffold` task wired in
+├── bb.edn                          ← `bb scaffold` and `bb gen-agents` tasks
 ├── build.clj                       ← Uberjar build script
+├── AGENTS.md                       ← Project-local dev guide (template-aware)
+├── scripts/
+│   └── gen_agents.clj              ← Self-contained AGENTS.md regenerator
 ├── src/boundary/{project-name}/
 │   └── app.clj                     ← Integrant system entry point
 ├── test/boundary/{project-name}/
@@ -154,6 +168,17 @@ A generated project has this structure:
 │   └── system.clj                  ← REPL system helper
 └── .env.example                    ← Required env vars
 ```
+
+### Regenerating AGENTS.md after adding libraries
+
+When you add a new Boundary library to `deps.edn`, run from your project root:
+
+```bash
+bb gen-agents           # Regenerate AGENTS.md
+bb gen-agents --dry-run # Preview without writing
+```
+
+The script reads `deps.edn`, detects which boundary libraries are present, and rewrites AGENTS.md accordingly.
 
 ## Environment variables
 
