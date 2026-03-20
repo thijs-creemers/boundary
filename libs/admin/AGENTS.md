@@ -16,37 +16,117 @@ Admin UI and CRUD management tooling for Boundary entities, including HTMX-drive
 
 ## Admin Entity Configuration
 
-Admin entity configurations are modular - each module owns its entity config in `resources/conf/{env}/admin/{module}.edn`:
+Admin entity configurations are modular — each module owns its entity config in `resources/conf/{env}/admin/{module}.edn`.
+
+**For the full configuration reference** (all keys, field types, filter operators, JOIN queries, has-many relations), see **[`README.md`](README.md)**.
 
 ```
 resources/conf/dev/
 ├── config.edn              ← Main config, uses #include
 └── admin/
-    └── users.edn           ← User module's entity config
+    ├── users.edn
+    ├── products.edn
+    └── orders.edn
 ```
 
 **Main config uses Aero's `#include`**:
 ```clojure
 :boundary/admin
 {:enabled?         true
- :entities         #merge [#include "admin/users.edn"]
- :pagination       {...}}
+ :base-path        "/web/admin"
+ :require-role     :admin
+ :entity-discovery {:mode :allowlist :allowlist #{:users :products}}
+ :entities         #merge [#include "admin/users.edn"
+                           #include "admin/products.edn"]
+ :pagination       {:default-page-size 20 :max-page-size 200}}
 ```
 
-**Module entity file** (`admin/users.edn`):
+**Adding a new entity**: create `admin/{module}.edn` and add it to `:entities #merge [...]`.
+Also add the entity keyword to `:entity-discovery :allowlist`.
+
+---
+
+## Common Configuration Gotchas
+
+### 1. Entity Not Visible in Sidebar
+
+**Cause**: Entity keyword not in `:entity-discovery :allowlist`.
+
 ```clojure
-{:users
- {:label           "Users"
-  :list-fields     [:email :name :role :created-at]
-  :search-fields   [:email :name]
-  :hide-fields     #{:password-hash :deleted-at}
-  :readonly-fields #{:id :created-at :updated-at}}}
+;; ❌ WRONG — products.edn exists but entity is not in allowlist
+:entity-discovery {:mode :allowlist :allowlist #{:users}}
+
+;; ✅ CORRECT
+:entity-discovery {:mode :allowlist :allowlist #{:users :products}}
 ```
 
-**Adding new modules**: Create `admin/{module}.edn` and add to the `#merge` vector:
+### 2. Filters Not Appearing for a Field
+
+**Cause**: Field is not listed in `:fields` with `:filterable true`.
+
 ```clojure
-:entities #merge [#include "admin/users.edn"
-                  #include "admin/inventory.edn"]
+;; ❌ WRONG — field exists but no filter in dropdown
+{:status {:type :enum :label "Status"}}
+
+;; ✅ CORRECT
+{:status {:type :enum :label "Status" :filterable true
+          :options [[:active "Active"] [:inactive "Inactive"]]}}
+```
+
+Note: `:filterable false` explicitly disables a field from the filter dropdown (use this for fields covered by free-text `:search-fields`).
+
+### 3. query-overrides — WHERE Clause Hits Wrong Table
+
+**Cause**: `:field-aliases` missing for a field used in search/filter/sort.
+
+When you define `:query-overrides`, all fields used in `WHERE` or `ORDER BY` clauses must be listed in `:field-aliases` pointing to their qualified `table.column` reference. Without this, the query uses the bare keyword (e.g. `:email`) which is ambiguous when two tables have the same column name.
+
+```clojure
+;; ❌ WRONG — :email used in search but not aliased → ambiguous column error
+:query-overrides
+{:from   [[:auth_users :a]]
+ :join   [[:users :u] [:= :a.id :u.id]]
+ :select [:a.id :a.email :u.name]}
+;; :search-fields [:email] → generates WHERE email ILIKE ... → ambiguous!
+
+;; ✅ CORRECT — alias every field used in search/filter/sort
+:query-overrides
+{:from          [[:auth_users :a]]
+ :join          [[:users :u] [:= :a.id :u.id]]
+ :select        [:a.id :a.email :u.name]
+ :field-aliases {:id    :a.id
+                 :email :a.email
+                 :name  :u.name}}
+```
+
+### 4. soft-delete with query-overrides — Wrong Table Updated
+
+**Cause**: `:soft-delete-table` not specified when using `:query-overrides`.
+
+The service soft-deletes by running `UPDATE <table> SET deleted_at = ? WHERE id = ?`. With query-overrides the primary table is inferred from `:from`, but if `deleted_at` lives on a different table (e.g. `auth_users` not `users`), you must specify it explicitly.
+
+```clojure
+:query-overrides
+{:from              [[:auth_users :a]]
+ :join              [[:users :u] [:= :a.id :u.id]]
+ ...
+ :soft-delete-table :auth_users}   ; ← required when deleted_at is not in first :from table
+```
+
+### 5. has-many — Child Not Shown
+
+**Checklist**:
+- `:entity` key must match the entity keyword in `:entity-discovery :allowlist`
+- `:table` must be the actual DB table name (snake_case keyword)
+- `:foreign-key` is the FK column on the **child** table (kebab-case)
+
+```clojure
+:has-many
+[{:entity      :order-items    ; must be in allowlist
+  :table       :order_items    ; DB table (snake_case)
+  :foreign-key :order-id       ; FK on order_items table (kebab-case)
+  :label       "Order Items"
+  :fields      [:product-name :quantity]}]
 ```
 
 ---
@@ -472,5 +552,5 @@ When making UI changes, always test:
 
 ## Links
 
-- [Library README](README.md)
+- [Library README](README.md) — full entity configuration reference (all keys, field types, filters, JOINs, has-many)
 - [Root AGENTS Guide](../../AGENTS.md)

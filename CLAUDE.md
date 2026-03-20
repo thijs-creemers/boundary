@@ -37,7 +37,7 @@ bb ai explain --file stacktrace.txt  # Explain Clojure/Boundary error via AI
 bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate test namespace
 bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL description
 bb ai docs --module libs/user --type agents                       # Generate AGENTS.md
-bb deploy --all                    # Deploy all 19 libraries to Clojars
+bb deploy --all                    # Deploy all 20 libraries to Clojars
 bb deploy --missing                # Deploy only libraries not yet on Clojars
 bb deploy core platform user       # Deploy specific libraries
 bb create-admin      # Create first admin user for a new project (interactive wizard)
@@ -51,7 +51,7 @@ bb scripts/docs_lint.clj  # Run documentation drift linter directly
 
 ## Architecture: Functional Core / Imperative Shell
 
-This is a Clojure monorepo with 19 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:
+This is a Clojure monorepo with 20 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:
 
 ```
 libs/{library}/src/boundary/{library}/
@@ -66,7 +66,7 @@ libs/{library}/src/boundary/{library}/
 - Core → Ports (allowed)
 - Core → Shell (NEVER - this violates FC/IS)
 
-**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, workflow, search, reports, calendar, geo, ai
+**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, workflow, search, reports, calendar, geo, ai, ui-style
 
 The main application source in `src/boundary/` follows the same core/shell structure. The `examples/` directory contains reference applications (ecommerce-api is the most comprehensive).
 
@@ -119,6 +119,7 @@ Each library has its own `AGENTS.md` with library-specific documentation:
 - `libs/calendar/AGENTS.md` - `defevent` macro, RRULE recurrence, iCal, conflict detection, Hiccup UI
 - `libs/geo/AGENTS.md` - Multi-provider geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
 - `libs/ai/AGENTS.md` - Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
+- `libs/ui-style/AGENTS.md` - Shared UI style bundles (`:base`, `:pilot`, `:admin-pilot`), design tokens, CSS/JS assets
 
 ## Custom Test Reporter
 
@@ -126,4 +127,4 @@ The Kaocha reporter at `dev/boundary/test/reporter.clj` shows green ✓ for pass
 
 ## Further Reading
 
-See `AGENTS.md` for detailed development workflows, common pitfalls (8 documented patterns), debugging strategies, and general conventions.
+See `AGENTS.md` for detailed development workflows, common pitfalls (10 documented patterns), debugging strategies, and general conventions.
