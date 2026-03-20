@@ -53,13 +53,13 @@
    [:nav.admin-sidebar-nav
     [:h3 "Entities"]
     [:ul.entity-list
-     (for [entity entities]
-       (let [entity-config (get entity-configs entity)
-             label (:label entity-config (str/capitalize (name entity)))
-             icon (:icon entity-config :database)
+     (for [entity entities
+           :let  [entity-config (get entity-configs entity)]
+           :when (not (:sidebar-hidden entity-config))]
+       (let [label      (:label entity-config (str/capitalize (name entity)))
+             icon       (:icon entity-config :database)
              is-active? (= entity current-entity)]
          [:li {:class (when is-active? "active")}
-          ;; Auto-close mobile drawer when navigating
           [:a (merge {:href (str "/web/admin/" (name entity))
                       :data-label label}
                      (alpine/sidebar-nav-link-attrs))
@@ -1194,15 +1194,20 @@
    Notes:
      If :field-groups is configured, renders fields in grouped sections.
      Otherwise, renders flat list of editable fields."
-  [entity-name entity-config record errors _permissions]
+  [entity-name entity-config record errors _permissions & [cancel-url]]
   (let [editable-fields (:editable-fields entity-config)
         field-groups (compute-field-groups entity-config)
         primary-key (:primary-key entity-config :id)
         record-id (get record primary-key)
         is-edit? (some? record)
-        form-action (if is-edit?
-                      (str "/web/admin/" (name entity-name) "/" record-id)
-                      (str "/web/admin/" (name entity-name)))
+        form-action-base (if is-edit?
+                           (str "/web/admin/" (name entity-name) "/" record-id)
+                           (str "/web/admin/" (name entity-name)))
+        default-list-url (str "/web/admin/" (name entity-name))
+        ; Preserve return_to through form submission so the update handler can redirect back
+        form-action (if (and is-edit? cancel-url (not= cancel-url default-list-url))
+                      (str form-action-base "?return_to=" cancel-url)
+                      form-action-base)
         _form-method (if is-edit? "PUT" "POST")
         hx-attr (if is-edit? :hx-put :hx-post)
         required-fields (filter (fn [field-name]
@@ -1219,9 +1224,10 @@
              "hx-on::afterRequest" (str "if (event.detail.successful) { localStorage.setItem('"
                                         optional-details-key
                                         "', 'false'); }")}
-            ;; Update URL to list page after successful edit
+            ;; After a successful edit, push the same URL (including return_to) so the
+            ;; browser stays on the detail page with context intact
             (when is-edit?
-              {:hx-push-url (str "/web/admin/" (name entity-name))}))
+              {:hx-push-url form-action}))
      ;; No longer need hidden _method field since HTMX sends proper HTTP method
      [:div.form-card {:class "form-card overflow-hidden"}
       [:div.form-card-body {:class "form-card-body space-y-4"}
@@ -1283,8 +1289,68 @@
         (if is-edit? "Update" "Create")]
        [:a.button.secondary
         {:class "gap-2"
-         :href (str "/web/admin/" (name entity-name))}
+         :href (or cancel-url (str "/web/admin/" (name entity-name)))}
         "Cancel"]]]]))
+
+(defn parent-context-banner
+  "Renders a read-only info strip showing key fields from a parent record.
+   Shown at the top of a child entity edit page (e.g. order-item → order).
+
+   Args:
+     ctx: {:config {:label \"Order\" :fields [:order-number :status ...]}
+           :record  parent-record-map}"
+  [{:keys [config record]}]
+  (let [label  (:label config)
+        fields (:fields config [])]
+    [:div.parent-context-banner
+     [:span.parent-context-label label]
+     [:div.parent-context-fields
+      (for [f fields]
+        (when-let [v (get record f)]
+          [:div.parent-context-field
+           [:span.parent-context-field-label
+            (-> (name f) (str/replace #"-" " ") str/capitalize)]
+           [:span.parent-context-field-value (str v)]]))]]))
+
+(defn related-records-table
+  "Render a table of related records for a has-many relationship.
+   When :editable true, adds an Edit link per row.
+
+   Args:
+     relationship: {:label \"Order Items\" :fields [...] :editable true}
+     records:      vector of record maps (kebab-case keys)
+
+   Returns:
+     Hiccup table structure"
+  [relationship records]
+  (let [fields    (:fields relationship)
+        label     (:label relationship)
+        editable? (:editable relationship)
+        entity    (name (:entity relationship))]
+    [:div.related-records {:class "space-y-3 mt-6"}
+     [:h2.section-title label]
+     (if (empty? records)
+       [:p.empty-state "No " label " found."]
+       [:div.table-wrapper
+        [:table.related-table
+         [:thead
+          [:tr
+           (for [f fields]
+             [:th (-> (name f) (str/replace #"-" " ") str/capitalize)])
+           (when editable?
+             [:th])]]
+         [:tbody
+          (for [record records]
+            [:tr
+             (for [f fields]
+               [:td (or (get record f) "—")])
+             (when editable?
+               [:td
+                [:a.button.secondary
+                 {:href (str "/web/admin/" entity "/" (:id record)
+                             (when-let [rt (:return-to relationship)]
+                               (str "?return_to=" rt)))}
+                 "Edit"]])])]]])]))
 
 (defn entity-detail-page
   "Entity detail/edit page.
@@ -1295,23 +1361,22 @@
      record: Entity record (nil for create)
      errors: Optional validation errors
      permissions: Permission flags
-     opts: Optional map with :flash
+     opts: Optional map with :flash and :related-records
 
    Returns:
      Hiccup page structure"
   [entity-name entity-config record errors permissions & [opts]]
-  (let [{:keys [flash]} opts
-        label (:label entity-config)
-        is-edit? (some? record)
-        page-title (if is-edit?
-                     (str "Edit " label)
-                     (str "Create " label))]
+  (let [{:keys [flash return-to sibling-nav]} opts
+        label      (:label entity-config)
+        is-edit?   (some? record)
+        page-title (if is-edit? (str "Edit " label) (str "Create " label))
+        list-url   (or return-to (str "/web/admin/" (name entity-name)))]
     [:div.entity-detail-page {:class "space-y-4"}
      (when flash
        (let [flash-type (or (:type flash)
-                            (first (keys flash))) ; Old format: {:error "msg"}
-             flash-msg (or (:message flash)
-                           (first (vals flash)))] ; Old format: {:error "msg"}
+                            (first (keys flash)))
+             flash-msg  (or (:message flash)
+                            (first (vals flash)))]
          [:div {:class (str "alert alert-" (name flash-type))}
           flash-msg]))
      [:div.page-header {:class "space-y-3"}
@@ -1319,15 +1384,29 @@
        [:div.page-breadcrumbs
         [:a {:href "/web/admin"} "Admin"]
         " / "
-        [:a {:href (str "/web/admin/" (name entity-name))} label]
+        [:a {:href list-url} label]
         " / "
         [:span page-title]]
        [:div.page-header-actions {:class "flex flex-wrap items-center gap-2"}
         [:a.button.secondary
          {:class "gap-2"
-          :href (str "/web/admin/" (name entity-name))}
+          :href list-url}
          (icons/icon :chevron-left {:size 16})
          "Back to list"]
+        (when sibling-nav
+          [:div.sibling-nav
+           (if (:prev-url sibling-nav)
+             [:a.button.secondary {:href (:prev-url sibling-nav) :title "Previous"}
+              (icons/icon :chevron-left {:size 14})]
+             [:span.button.secondary.disabled {:aria-disabled "true"}
+              (icons/icon :chevron-left {:size 14})])
+           [:span.sibling-nav-count
+            (:position sibling-nav) " / " (:total sibling-nav)]
+           (if (:next-url sibling-nav)
+             [:a.button.secondary {:href (:next-url sibling-nav) :title "Next"}
+              (icons/icon :chevron-right {:size 14})]
+             [:span.button.secondary.disabled {:aria-disabled "true"}
+              (icons/icon :chevron-right {:size 14})])])
         (when is-edit?
           [:a.button.primary
            {:class "gap-2"
@@ -1345,9 +1424,14 @@
            (icons/icon :trash {:size 16})
            "Delete"])]]
       [:h1.page-title page-title]]
+     (when-let [ctx (:parent-context opts)]
+       (parent-context-banner ctx))
      (when (seq errors)
        (ui/validation-errors errors))
-     (entity-form entity-name entity-config record errors permissions)]))
+     (entity-form entity-name entity-config record errors permissions list-url)
+     (when-let [related-records (:related-records opts)]
+       (for [[rel records] related-records]
+         (related-records-table rel records)))]))
 
 (defn entity-new-page
   "Entity creation page (convenience wrapper).

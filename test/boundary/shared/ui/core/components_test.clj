@@ -14,58 +14,63 @@
 (deftest text-input-test
   (testing "Basic text input generation"
     (let [result (components/text-input :name "John Doe")]
-      (is (= [:input {:type "text" :name "name" :id "name" :value "John Doe"}]
+      (is (= [:input {:type "text" :name "name" :id "name" :value "John Doe"
+                      :class "form-control ui-input"}]
              result))))
 
   (testing "Text input with additional options"
     (let [result (components/text-input :email "test@example.com"
-                                        {:class "form-control" :placeholder "Enter email"})]
+                                        {:class "custom-class" :placeholder "Enter email"})]
       (is (= [:input {:type "text" :name "email" :id "email" :value "test@example.com"
-                      :class "form-control" :placeholder "Enter email"}]
+                      :class "custom-class form-control ui-input" :placeholder "Enter email"}]
              result))))
 
   (testing "Text input with nil value"
     (let [result (components/text-input :description nil)]
-      (is (= [:input {:type "text" :name "description" :id "description" :value ""}]
+      (is (= [:input {:type "text" :name "description" :id "description" :value ""
+                      :class "form-control ui-input"}]
              result)))))
 
 (deftest email-input-test
   (testing "Email input generation"
     (let [result (components/email-input :user-email "user@domain.com")]
       (is (= [:input {:type "email" :name "user-email" :id "user-email"
-                      :value "user@domain.com"}]
+                      :value "user@domain.com" :class "form-control ui-input"}]
              result))))
 
   (testing "Email input with validation attributes"
     (let [result (components/email-input :email "" {:required true :pattern ".*@.*"})]
       (is (= [:input {:type "email" :name "email" :id "email" :value ""
-                      :required true :pattern ".*@.*"}]
+                      :required true :pattern ".*@.*" :class "form-control ui-input"}]
              result)))))
 
 (deftest password-input-test
   (testing "Password input generation"
     (let [result (components/password-input :password "secret123")]
       (is (= [:input {:type "password" :name "password" :id "password"
-                      :value "secret123"}]
+                      :value "secret123" :class "form-control ui-input"}]
              result))))
 
   (testing "Password input with security attributes"
     (let [result (components/password-input :new-password ""
                                             {:autocomplete "new-password" :minlength 8})]
       (is (= [:input {:type "password" :name "new-password" :id "new-password"
-                      :value "" :autocomplete "new-password" :minlength 8}]
+                      :value "" :autocomplete "new-password" :minlength 8
+                      :class "form-control ui-input"}]
              result)))))
 
 (deftest textarea-test
   (testing "Basic textarea generation"
     (let [result (components/textarea :description "Long description text")]
-      (is (= [:textarea {:name "description" :id "description" :rows 4 :cols 50}
+      (is (= [:textarea {:name "description" :id "description" :rows 4 :cols 50
+                         :class "form-control ui-input"}
               "Long description text"]
              result))))
 
   (testing "Textarea with size attributes"
     (let [result (components/textarea :notes "" {:rows 5 :cols 50})]
-      (is (= [:textarea {:name "notes" :id "notes" :rows 5 :cols 50} ""]
+      (is (= [:textarea {:name "notes" :id "notes" :rows 5 :cols 50
+                         :class "form-control ui-input"} ""]
              result)))))
 
 (deftest select-field-test
@@ -74,7 +79,7 @@
           result (components/select-field :role options :user)]
       (is (vector? result))
       (is (= :select (first result)))
-      (is (= {:name "role" :id "role"} (second result)))
+      (is (= {:name "role" :id "role" :class "form-control ui-input"} (second result)))
       (is (= 3 (count result))) ; select tag + attributes + options
       (let [option-elements (nth result 2)]
         (is (some #(= [:option {:value "user" :selected true} "Regular User"] %)
@@ -95,7 +100,8 @@
       (is (= 2 (count result)))
       (is (= [:input {:type "hidden" :name "active" :value "false"}]
              (first result)))
-      (is (= [:input {:type "checkbox" :name "active" :id "active" :value "true" :checked true}]
+      (is (= [:input {:type "checkbox" :name "active" :id "active" :value "true"
+                      :checked true :class "form-checkbox"}]
              (second result)))))
 
   (testing "Unchecked checkbox generation"
@@ -104,7 +110,8 @@
       (is (= 2 (count result)))
       (is (= [:input {:type "hidden" :name "notifications" :value "false"}]
              (first result)))
-      (is (= [:input {:type "checkbox" :name "notifications" :id "notifications" :value "true"}]
+      (is (= [:input {:type "checkbox" :name "notifications" :id "notifications"
+                      :value "true" :class "form-checkbox"}]
              (second result)))))
 
   (testing "Checkbox with additional attributes"
@@ -113,7 +120,8 @@
       (is (= 2 (count result)))
       (is (= [:input {:type "hidden" :name "terms" :value "false"}]
              (first result)))
-      (is (= [:input {:type "checkbox" :name "terms" :id "terms" :value "accepted" :checked true :required true}]
+      (is (= [:input {:type "checkbox" :name "terms" :id "terms" :value "accepted"
+                      :checked true :required true :class "form-checkbox"}]
              (second result))))))
 
 ;; =============================================================================

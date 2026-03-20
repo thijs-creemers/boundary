@@ -1,17 +1,26 @@
 {;; =============================================================================
- ;; Boundary CLI configuration for ecommerce-api (dev)
+ ;; Ecommerce API — dev configuration
  ;;
- ;; Used by `bb create-admin --dir examples/ecommerce-api` to connect to the
- ;; same SQLite database as the running ecommerce-api app.
+ ;; Loaded by the app (system.clj) and by `bb create-admin --dir examples/ecommerce-api`.
  ;; =============================================================================
 
  :active
- {:boundary/sqlite
+ {:server {:port 3002 :join? false}
+
+  ;; HikariCP datasource (ecommerce repositories)
+  :database {:dbtype "sqlite" :dbname "ecommerce-dev.db"}
+
+  ;; Boundary db-context (user + admin modules)
+  :db-context {:adapter :sqlite :database-path "ecommerce-dev.db"}
+
+  ;; Boundary CLI db connection — used by `bb create-admin`
+  :boundary/sqlite
   {:db   "ecommerce-dev.db"
    :pool {:minimum-idle          1
           :maximum-pool-size     3
           :connection-timeout-ms 10000}}
 
+  ;; Boundary settings — used by `bb create-admin` + user module
   :boundary/settings
   {:user-validation
    {:password-policy   {:min-length             8
@@ -26,6 +35,30 @@
                         :admin-email-domains #{}
                         :default-role        :user}
     :user-limits       {:max-users      10000
-                        :check-enabled? false}}}}
+                        :check-enabled? false}}}
+
+  ;; Admin UI
+  :boundary/admin
+  {:enabled?         true
+   :base-path        "/web/admin"
+   :require-role     :admin
+   :entity-discovery {:mode      :allowlist
+                      :allowlist #{:products :orders :order-items :users}}
+   :entities         #merge [#include "../admin/products.edn"
+                             #include "../admin/orders.edn"
+                             #include "../admin/order-items.edn"
+                             #include "../admin/users.edn"]
+   :pagination       {:default-page-size 20
+                      :max-page-size     200}}
+
+  ;; User module
+  :user {:validation {:password-min-length 8
+                      :require-uppercase   false
+                      :require-digits      false}}
+
+  ;; Payment provider
+  :payment {:provider       :mock
+            :webhook-secret "whsec_test_secret_for_development"
+            :api-key        "sk_test_mock_key"}}
 
  :inactive {}}

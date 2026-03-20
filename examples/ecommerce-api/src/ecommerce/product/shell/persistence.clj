@@ -54,15 +54,15 @@
 
 (defrecord SQLiteProductRepository [datasource]
   ports/IProductRepository
-  
+
   (find-by-id [_ product-id]
-    (let [result (jdbc/execute-one! 
+    (let [result (jdbc/execute-one!
                   datasource
                   ["SELECT * FROM products WHERE id = ?" (str product-id)]
                   {:builder-fn rs/as-unqualified-maps})]
       (when result
         (db->product (update-keys result #(keyword "products" (name %)))))))
-  
+
   (find-by-slug [_ slug]
     (let [result (jdbc/execute-one!
                   datasource
@@ -70,7 +70,7 @@
                   {:builder-fn rs/as-unqualified-maps})]
       (when result
         (db->product (update-keys result #(keyword "products" (name %)))))))
-  
+
   (find-by-ids [_ product-ids]
     (if (empty? product-ids)
       []
@@ -79,9 +79,9 @@
             params (mapv str product-ids)
             results (jdbc/execute! datasource (into [sql] params)
                                    {:builder-fn rs/as-unqualified-maps})]
-        (mapv #(db->product (update-keys % (fn [k] (keyword "products" (name k))))) 
+        (mapv #(db->product (update-keys % (fn [k] (keyword "products" (name k)))))
               results))))
-  
+
   (list-products [_ options]
     (let [{:keys [limit offset active]
            :or {limit 20 offset 0}} options
@@ -89,23 +89,23 @@
                        ["WHERE active = ?" (if active 1 0)]
                        ["WHERE 1=1"])
           count-sql (str "SELECT COUNT(*) as cnt FROM products " (first base-where))
-          count-result (jdbc/execute-one! datasource 
+          count-result (jdbc/execute-one! datasource
                                           (if (second base-where)
                                             [count-sql (second base-where)]
                                             [count-sql])
                                           {:builder-fn rs/as-unqualified-maps})
           total (:cnt count-result)
-          sql (str "SELECT * FROM products " (first base-where) 
+          sql (str "SELECT * FROM products " (first base-where)
                    " ORDER BY created_at DESC LIMIT ? OFFSET ?")
           params (if (second base-where)
-                   [sql (second base-where) limit offset]
-                   [sql limit offset])
+                   [sql (second base-where) (or limit 20) (or offset 0)]
+                   [sql (or limit 20) (or offset 0)])
           results (jdbc/execute! datasource params
                                  {:builder-fn rs/as-unqualified-maps})]
-      {:products (mapv #(db->product (update-keys % (fn [k] (keyword "products" (name k))))) 
+      {:products (mapv #(db->product (update-keys % (fn [k] (keyword "products" (name k)))))
                        results)
        :total total}))
-  
+
   (save! [this product]
     (let [existing (ports/find-by-id this (:id product))
           db-product (product->db product)]
@@ -125,12 +125,12 @@
                          ["INSERT INTO products (id, name, slug, description, price_cents, 
                            currency, stock, active, created_at, updated_at) 
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                          (:id db-product) (:name db-product) (:slug db-product) 
-                          (:description db-product) (:price_cents db-product) 
+                          (:id db-product) (:name db-product) (:slug db-product)
+                          (:description db-product) (:price_cents db-product)
                           (:currency db-product) (:stock db-product) (:active db-product)
                           (:created_at db-product) (:updated_at db-product)])
           product))))
-  
+
   (delete! [_ product-id]
     (let [result (jdbc/execute-one! datasource
                                     ["DELETE FROM products WHERE id = ?" (str product-id)])]

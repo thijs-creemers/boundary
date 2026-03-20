@@ -80,14 +80,35 @@
   "Order API routes."
   [order-service]
   [["/api/checkout"
-    {:post {:handler (checkout-handler order-service)
-            :summary "Create order from cart"}}]
+    {:tags ["orders"]
+     :post {:handler (checkout-handler order-service)
+            :summary "Create order from cart"
+            :swagger {:parameters [{:name "body" :in "body" :required true
+                                    :schema {:type "object"
+                                             :required ["email" "name" "shipping-address"]
+                                             :properties {:email            {:type "string" :description "Customer email"}
+                                                          :name             {:type "string" :description "Customer full name"}
+                                                          :shipping-address {:type "object"
+                                                                             :description "Shipping address"
+                                                                             :properties {:line1       {:type "string"}
+                                                                                          :line2       {:type "string"}
+                                                                                          :city        {:type "string"}
+                                                                                          :postal-code {:type "string"}
+                                                                                          :country     {:type "string"}}}}}}]}}}]
    ["/api/orders"
-    {:get {:handler (list-orders-handler order-service)
-           :summary "List customer orders"}}]
+    {:tags ["orders"]
+     :get {:handler (list-orders-handler order-service)
+           :summary "List customer orders"
+           :swagger {:parameters [{:name "email"  :in "query" :required true  :type "string"  :description "Customer email address"}
+                                  {:name "limit"  :in "query" :required false :type "integer" :description "Max results (default 20)"}
+                                  {:name "offset" :in "query" :required false :type "integer" :description "Pagination offset (default 0)"}]}}}]
    ["/api/orders/:id"
-    {:get {:handler (get-order-handler order-service)
-           :summary "Get order by ID or number"}}]
+    {:tags ["orders"]
+     :get {:handler (get-order-handler order-service)
+           :summary "Get order by ID or number"
+           :swagger {:parameters [{:name "id" :in "path" :required true :type "string" :description "Order UUID or order number (e.g. ORD-20260101-00001)"}]}}}]
    ["/api/orders/:id/cancel"
-    {:post {:handler (cancel-order-handler order-service)
-            :summary "Cancel an order"}}]])
+    {:tags ["orders"]
+     :post {:handler (cancel-order-handler order-service)
+            :summary "Cancel an order"
+            :swagger {:parameters [{:name "id" :in "path" :required true :type "string" :description "Order UUID"}]}}}]])

@@ -77,15 +77,29 @@
   "Cart API routes."
   [cart-service]
   [["/api/cart"
-    {:get {:handler (get-cart-handler cart-service)
+    {:tags ["cart"]
+     :get {:handler (get-cart-handler cart-service)
            :summary "Get current cart"}
      :delete {:handler (clear-cart-handler cart-service)
               :summary "Clear cart"}}]
    ["/api/cart/items"
-    {:post {:handler (add-item-handler cart-service)
-            :summary "Add item to cart"}}]
+    {:tags ["cart"]
+     :post {:handler (add-item-handler cart-service)
+            :summary "Add item to cart"
+            :swagger {:parameters [{:name "body" :in "body" :required true
+                                    :schema {:type "object"
+                                             :required ["product-id"]
+                                             :properties {:product-id {:type "string" :description "Product UUID"}
+                                                          :quantity   {:type "integer" :description "Quantity to add (default 1)"}}}}]}}}]
    ["/api/cart/items/:product-id"
-    {:patch {:handler (update-item-handler cart-service)
-             :summary "Update item quantity"}
+    {:tags ["cart"]
+     :swagger {:parameters [{:name "product-id" :in "path" :required true :type "string" :description "Product UUID"}]}
+     :patch {:handler (update-item-handler cart-service)
+             :summary "Update item quantity"
+             :swagger {:parameters [{:name "product-id" :in "path" :required true :type "string" :description "Product UUID"}
+                                    {:name "body" :in "body" :required true
+                                     :schema {:type "object"
+                                              :required ["quantity"]
+                                              :properties {:quantity {:type "integer" :description "New quantity"}}}}]}}
      :delete {:handler (remove-item-handler cart-service)
               :summary "Remove item from cart"}}]])

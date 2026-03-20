@@ -242,10 +242,10 @@
              resolved-default-sort  (get field-aliases default-sort default-sort)
              soft-delete-field      (get field-aliases :deleted-at :deleted_at)
 
-              resolved-filters (when filters
-                               (into {} (map (fn [[field spec]]
-                                              [(get field-aliases field field) spec])
-                                            filters)))
+             resolved-filters (when filters
+                                (into {} (map (fn [[field spec]]
+                                                [(get field-aliases field field) spec])
+                                              filters)))
 
              ; Build query components
              search-where (build-search-where search-term resolved-search-fields)
@@ -329,13 +329,14 @@
               ; hide-fields are for display only, data can still be provided
              sanitized-data (apply dissoc data readonly-fields)
 
-               ; Add generated ID and timestamps - convert to strings at boundary
+               ; Add generated ID and timestamps - only set columns that exist in the table
              now-str (type-conversion/instant->string (Instant/now))
              generated-id (UUID/randomUUID)
              id-str (type-conversion/uuid->string generated-id)
-             prepared-data (assoc sanitized-data
-                                  :id id-str
-                                  :created-at now-str)
+             entity-fields (:fields entity-config)
+             prepared-data (cond-> (assoc sanitized-data :id id-str)
+                             (contains? entity-fields :created-at) (assoc :created-at now-str)
+                             (contains? entity-fields :updated-at) (assoc :updated-at now-str))
 
               ; Convert all typed values (UUID, Instant) to strings for database
              db-ready-data (prepare-values-for-db prepared-data)
@@ -372,9 +373,11 @@
               ; hide-fields are for display only, data can still be provided
              sanitized-data (apply dissoc data (conj readonly-fields primary-key))
 
-               ; Add updated timestamp - convert to string for PostgreSQL
+               ; Only set timestamp columns that exist in the table
              now-str (type-conversion/instant->string (Instant/now))
-             prepared-data (assoc sanitized-data :updated-at now-str)
+             entity-fields (:fields entity-config)
+             prepared-data (cond-> sanitized-data
+                             (contains? entity-fields :updated-at) (assoc :updated-at now-str))
 
               ; Convert all typed values (UUID, Instant) to strings for database
              db-ready-data (prepare-values-for-db prepared-data)
@@ -576,7 +579,21 @@
          {:success-count affected-count
           :failed-count (- (count ids) affected-count)
           :errors []}))
-     db-ctx)))  ; Week 2+: Track individual failures
+     db-ctx))
+
+  (list-related-entities [_ _parent-entity-name parent-id relationship]
+    (persist-interceptors/execute-persistence-operation
+     :admin-list-related-entities
+     {:parent-id parent-id :entity (name (:entity relationship))}
+     (fn [{:keys [_params]}]
+       (let [table   (:table relationship)
+             fk-col  (case-conversion/kebab-case->snake-case-keyword (:foreign-key relationship))
+             query   {:select [:*]
+                      :from   [table]
+                      :where  [:= fk-col (str parent-id)]}
+             results (db/execute-query! db-ctx query)]
+         (mapv case-conversion/snake-case->kebab-case-map results)))
+     db-ctx)))
 
 ;; =============================================================================
 ;; Factory Function

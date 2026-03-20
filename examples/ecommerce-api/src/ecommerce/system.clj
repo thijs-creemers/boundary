@@ -10,6 +10,9 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.resource :refer [wrap-resource]]
             [reitit.ring :as ring]
+            [reitit.swagger :as swagger]
+            [reitit.swagger-ui :as swagger-ui]
+            [cheshire.core :as json]
             ;; Modules
             [ecommerce.product.shell.persistence :as product-persistence]
             [ecommerce.product.shell.service :as product-service]
@@ -43,13 +46,13 @@
 ;; =============================================================================
 
 (defn load-config
-  "Load configuration from EDN file."
+  "Load configuration from resources/conf/{profile}/config.edn."
   ([]
    (load-config :dev))
   ([profile]
-   (let [config-file (io/resource (str "config/" (name profile) ".edn"))]
+   (let [config-file (io/resource (str "conf/" (name profile) "/config.edn"))]
      (if config-file
-       (aero/read-config config-file)
+       (:active (aero/read-config config-file))
        (throw (ex-info "Config file not found" {:profile profile}))))))
 
 ;; =============================================================================
@@ -188,8 +191,26 @@
   (let [{:keys [product-service cart-service order-service payment-service]} services
         payment-config (:payment config)
 
+        ;; Swagger/OpenAPI routes
+        ;; The swagger handler returns a Clojure map as :body; ring-jetty needs
+        ;; a String, so we serialize it with cheshire before it hits the stack.
+        raw-swagger-handler (swagger/create-swagger-handler)
+        swagger-routes [["/swagger.json"
+                         {:get {:no-doc true
+                                :handler (fn [req]
+                                           (let [resp (raw-swagger-handler req)]
+                                             (-> resp
+                                                 (update :body json/generate-string)
+                                                 (assoc-in [:headers "Content-Type"] "application/json"))))}}]
+                        ["/api-docs/*"
+                         {:get {:no-doc true
+                                :handler (swagger-ui/create-swagger-ui-handler
+                                          {:url "/swagger.json"
+                                           :config {:validatorUrl nil}})}}]]
+
         ;; Existing REST API routes (unchanged)
         api-routes (vec (concat
+                         swagger-routes
                          (product-http/routes product-service)
                          (cart-http/routes cart-service)
                          (order-http/routes order-service)
@@ -210,7 +231,10 @@
 
         all-routes (vec (concat api-routes web-routes))
 
-        router  (ring/router all-routes {:conflicts nil})
+        router  (ring/router all-routes {:conflicts nil
+                                         :data {:swagger {:info {:title "Ecommerce API"
+                                                                 :description "REST API for the Boundary ecommerce example"
+                                                                 :version "1.0.0"}}}})
         handler (-> (ring/ring-handler router (ring/create-default-handler))
                     admin-http/wrap-method-override  ; reads :form-params for PUT/DELETE override
                     wrap-params                      ; parse form + query params

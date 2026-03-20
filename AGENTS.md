@@ -487,6 +487,37 @@ java.time.temporal.ChronoUnit/DAYS
 - Use IDE or REPL to verify before committing
 - Test changes via REPL immediately after editing
 
+### 10. Swagger/OpenAPI — Parameters Invisible Without Explicit Declaration
+
+**Problem**: Routes with path or query parameters show no input fields in Swagger UI.
+
+**Root Cause**: `reitit-swagger` only auto-generates parameter fields when the router has a coercion layer configured (Malli/Spec/Schema). Without coercion, Swagger UI renders endpoints with no inputs regardless of route patterns like `/:id`.
+
+**Solution**: Add a `:swagger` key with raw OpenAPI 2.0 parameter specs to every handler (or route) that has path or query parameters:
+
+```clojure
+;; Path parameter — on the method
+:get {:handler ...
+      :summary "Get product by slug"
+      :swagger {:parameters [{:name "slug" :in "path" :required true :type "string"
+                              :description "Product slug (e.g. boundary-tshirt)"}]}}
+
+;; Query parameters — on the method
+:get {:handler ...
+      :summary "List customer orders"
+      :swagger {:parameters [{:name "email"  :in "query" :required true  :type "string"}
+                             {:name "limit"  :in "query" :required false :type "integer"}
+                             {:name "offset" :in "query" :required false :type "integer"}]}}
+
+;; Shared path param when a route has multiple methods — put :swagger at route level
+["/api/cart/items/:product-id"
+ {:swagger {:parameters [{:name "product-id" :in "path" :required true :type "string"}]}
+  :patch  {:handler ... :summary "Update item quantity"}
+  :delete {:handler ... :summary "Remove item from cart"}}]
+```
+
+**Rule**: after adding any new parameterised route, immediately add the `:swagger` block. Without it the parameter is invisible to API consumers using the Swagger UI.
+
 ---
 
 ## Key Technologies
@@ -566,6 +597,28 @@ When a new library is added under `libs/`, update **`.github/workflows/ci.yml`**
 3. **`test-summary` job** — add `test-{name}` to the `needs:` array and add an echo line.
 
 Also add the lib's `:id` test suite to `tests.edn` and its source/test paths to the root `deps.edn`.
+
+---
+
+## Ecommerce API Example (`examples/ecommerce-api/`)
+
+A complete reference application demonstrating Boundary patterns with SQLite, Integrant, Reitit, and Swagger UI.
+
+```bash
+# Run from examples/ecommerce-api/
+clojure -M:run          # Start server on port 3002
+```
+
+**Swagger UI**: `http://localhost:3002/api-docs/`
+**OpenAPI spec**: `http://localhost:3002/swagger.json`
+
+### Swagger parameter documentation
+
+The app reads `query-params`/`path-params` directly and does **not** configure reitit coercion middleware. This means Swagger will not auto-generate input fields from route patterns. See **Common Pitfalls #10** for the required `:swagger` parameter pattern.
+
+### SQLite `nil` LIMIT/OFFSET pitfall
+
+Clojure's `{:or {limit 20 offset 0}}` destructuring only fires for **absent** keys. If the caller passes `{:limit nil :offset nil}` (e.g. from `some->` on missing query params), the defaults are ignored and `LIMIT nil` causes `SQLITE_MISMATCH`. Always guard with `(or limit 20)` / `(or offset 0)` at the point where the SQL params vector is assembled.
 
 ---
 

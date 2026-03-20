@@ -3,6 +3,7 @@
 [![Status](https://img.shields.io/badge/status-in%20development-yellow)]()
 [![Clojure](https://img.shields.io/badge/clojure-1.12+-blue)]()
 [![License](https://img.shields.io/badge/license-EPL--2.0-green)]()
+[![Clojars Project](https://img.shields.io/clojars/v/org.boundary-app/boundary-tenant.svg)](https://clojars.org/org.boundary-app/boundary-tenant)
 
 Production-grade multi-tenancy support for the Boundary Framework with isolated database schemas, tenant-scoped caching, and tenant context propagation across background jobs.
 

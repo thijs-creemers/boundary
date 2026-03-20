@@ -101,15 +101,32 @@
   "Payment API routes."
   [payment-service payment-config]
   [["/api/payments/intents"
-    {:post {:handler (create-payment-intent-handler payment-service)
-            :summary "Create payment intent"}}]
+    {:tags ["payments"]
+     :post {:handler (create-payment-intent-handler payment-service)
+            :summary "Create payment intent"
+            :swagger {:parameters [{:name "body" :in "body" :required true
+                                    :schema {:type "object"
+                                             :required ["order-id"]
+                                             :properties {:order-id {:type "string" :description "Order UUID"}}}}]}}}]
    ["/api/payments/orders/:order-id"
-    {:get {:handler (get-payment-status-handler payment-service)
-           :summary "Get payment status for order"}}]
+    {:tags ["payments"]
+     :get {:handler (get-payment-status-handler payment-service)
+           :summary "Get payment status for order"
+           :swagger {:parameters [{:name "order-id" :in "path" :required true :type "string" :description "Order UUID"}]}}}]
    ["/api/webhooks/payment"
-    {:post {:handler (webhook-handler payment-service payment-config)
-            :summary "Handle payment webhooks"}}]
+    {:tags ["payments"]
+     :post {:handler (webhook-handler payment-service payment-config)
+            :summary "Handle payment webhooks"
+            :swagger {:parameters [{:name "stripe-signature" :in "header" :required true :type "string" :description "Stripe webhook signature header"}
+                                   {:name "body" :in "body" :required true
+                                    :schema {:type "object" :description "Stripe webhook event payload"}}]}}}]
    ;; Development endpoint
    ["/api/payments/simulate"
-    {:post {:handler (simulate-payment-handler payment-service)
-            :summary "Simulate payment (dev only)"}}]])
+    {:tags ["payments"]
+     :post {:handler (simulate-payment-handler payment-service)
+            :summary "Simulate payment (dev only)"
+            :swagger {:parameters [{:name "body" :in "body" :required true
+                                    :schema {:type "object"
+                                             :required ["order-id"]
+                                             :properties {:order-id {:type "string" :description "Order UUID"}
+                                                          :success  {:type "boolean" :description "Whether payment succeeds (default true)"}}}}]}}}]])
