@@ -705,12 +705,32 @@
 }
 
 .admin-content .data-table th.sortable-header.sort-dir-desc .sort-icon {
-  transform: none;
+  transform: rotate(180deg);
 }
 
 .admin-content .data-table th.sortable-header:hover::before {
   background: var(--brand-shell-subtle);
   border-color: var(--accent-secondary);
+}
+
+.admin-content .data-table th a {
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  position: relative;
+  z-index: 1;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+}
+
+.admin-content .data-table th a:hover {
+  color: var(--text-primary);
+}
+
+.admin-content .data-table th a svg {
+  color: var(--accent-primary);
 }
 
 .admin-content .data-table tbody tr:hover {
@@ -810,6 +830,118 @@
 .admin-content .data-table th.actions-header,
 .admin-content .data-table td.actions-cell {
   width: 80px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Sibling navigation (prev / count / next) in page header */
+.admin-content .sibling-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.admin-content .sibling-nav .button {
+  border: none;
+  border-radius: 0;
+  padding: var(--space-1) var(--space-2);
+  line-height: 1;
+}
+.admin-content .sibling-nav .button.disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+.admin-content .sibling-nav-count {
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  white-space: nowrap;
+  border-left: 1px solid var(--border-default);
+  border-right: 1px solid var(--border-default);
+  line-height: calc(var(--space-1) * 2 + 14px); /* align with icon buttons */
+}
+
+/* Parent context banner — shown at the top of a child entity edit page */
+.admin-content .parent-context-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+.admin-content .parent-context-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.admin-content .parent-context-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.admin-content .parent-context-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.admin-content .parent-context-field-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1;
+}
+.admin-content .parent-context-field-value {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+}
+
+/* Related records sub-table (has-many) — clean standalone table, no entity-list hacks */
+.admin-content .related-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  table-layout: auto;
+}
+.admin-content .related-table th,
+.admin-content .related-table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--border-default);
+  white-space: nowrap;
+  overflow: visible;
+}
+.admin-content .related-table th {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: linear-gradient(180deg, var(--surface-1), var(--surface-2));
+  box-shadow: inset 0 -1px 0 var(--border-default);
+}
+.admin-content .related-table td:first-child {
+  width: 100%;
+}
+.admin-content .related-table tbody tr:hover {
+  background: linear-gradient(90deg, var(--brand-core-subtle), var(--brand-shell-subtle));
+}
+.admin-content .related-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.admin-content .related-table th:last-child,
+.admin-content .related-table td:last-child {
+  width: 1%;
   text-align: right;
   white-space: nowrap;
 }
