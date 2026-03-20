@@ -6,328 +6,306 @@ description: "Complete guide to building and publishing Boundary Framework libra
 
 = Publishing Libraries
 
-== Boundary Libraries Publishing Guide
+This guide covers everything needed to publish Boundary libraries to Clojars — locally or via GitHub Actions.
 
-This guide documents how to build, test, and publish the Boundary framework libraries to Clojars.
+---
 
-=== Library overview
+== Prerequisites
 
-[width="100%",cols="26%,36%,38%",options="header",]
-|===
-|Library |Artifact ID |Dependencies
-|*core* |`org.boundary-app/boundary-core` |None
-|*observability* |`org.boundary-app/boundary-observability` |core
-|*platform* |`org.boundary-app/boundary-platform` |core, observability
-|*user* |`org.boundary-app/boundary-user` |platform
-|*ui-style* |`org.boundary-app/boundary-ui-style` |None
-|*admin* |`org.boundary-app/boundary-admin` |platform, user, ui-style
-|*storage* |`org.boundary-app/boundary-storage` |platform
-|*scaffolder* |`org.boundary-app/boundary-scaffolder` |core
-|===
+=== Clojars account
 
-=== Prerequisites
+Create an account at https://clojars.org[clojars.org] if you don't have one.
 
-==== 1. Clojars Account
+=== Deploy token
 
-Create an account at https://clojars.org[clojars.org] if you don’t have one.
+Clojars requires a deploy token — **not** your account password.
 
-==== 2. Deploy Token
+. Log in at https://clojars.org
+. Go to *Profile → Deploy Tokens*
+. Click *Generate Token*, name it (e.g. `boundary-deploy`)
+. Copy the token immediately — it is shown only once
 
-Generate a deploy token: 1. Go to https://clojars.org/tokens[Clojars Dashboard] 2. Click "`Generate Token`" 3. Name it (e.g., "`boundary-deploy`") 4. Copy the token (shown only once)
+The token looks like: `CLOJARS_XXXXXXXXXXXXXXXXXXXXXXXX`
 
-==== 3. Environment Variables
-
-Set your Clojars credentials:
+=== Local environment variables
 
 [source,bash]
 ----
-export CLOJARS_USERNAME=your-username
-export CLOJARS_PASSWORD=your-deploy-token
-```text
+export CLOJARS_USERNAME=your-clojars-username   # username, not email
+export CLOJARS_PASSWORD=your-deploy-token        # token from above
+----
 
-Or add to `~/.m2/settings.xml`:
+Add these to your shell profile (`~/.zshrc` or `~/.bashrc`) for convenience.
 
-```xml
-<settings>
-  <servers>
-    <server>
-      <id>clojars</id>
-      <username>your-username</username>
-      <password>your-deploy-token</password>
-    </server>
-  </servers>
-</settings>
-```bash
+---
 
-## Version management
+== Library overview
 
-### Version format
+All 20 libraries are published to the `org.boundary-app` group on Clojars, in dependency order:
 
-Libraries use semantic versioning: `MAJOR.MINOR.PATCH`
+[cols="1,2,2",options="header"]
+|===
+|Library |Artifact ID |Depends on
 
-- **MAJOR**: Breaking changes
-- **MINOR**: New features (backward compatible)
-- **PATCH**: Bug fixes (backward compatible)
+|*core*         |`org.boundary-app/boundary-core`          |—
+|*observability*|`org.boundary-app/boundary-observability` |core
+|*platform*     |`org.boundary-app/boundary-platform`      |core, observability
+|*user*         |`org.boundary-app/boundary-user`          |platform
+|*storage*      |`org.boundary-app/boundary-storage`       |platform
+|*scaffolder*   |`org.boundary-app/boundary-scaffolder`    |core
+|*cache*        |`org.boundary-app/boundary-cache`         |platform
+|*jobs*         |`org.boundary-app/boundary-jobs`          |platform
+|*realtime*     |`org.boundary-app/boundary-realtime`      |platform
+|*email*        |`org.boundary-app/boundary-email`         |platform
+|*tenant*       |`org.boundary-app/boundary-tenant`        |platform, user
+|*workflow*     |`org.boundary-app/boundary-workflow`      |platform
+|*search*       |`org.boundary-app/boundary-search`        |platform
+|*external*     |`org.boundary-app/boundary-external`      |platform
+|*geo*          |`org.boundary-app/boundary-geo`           |platform
+|*reports*      |`org.boundary-app/boundary-reports`       |platform
+|*calendar*     |`org.boundary-app/boundary-calendar`      |platform
+|*ai*           |`org.boundary-app/boundary-ai`            |platform
+|*ui-style*     |`org.boundary-app/boundary-ui-style`      |—
+|*admin*        |`org.boundary-app/boundary-admin`         |platform, user, ui-style
+|===
 
-### Current versioning strategy
+---
 
-The `build.clj` files use git-based versioning:
+== Version management
 
-```clojure
-(def version (format "0.1.%s" (b/git-count-revs nil)))
-```bash
+Each library has a `(def version "…")` in its `build.clj`. All libraries share the same version string.
 
-This creates versions like `0.1.42` based on git commit count.
+=== Bumping the version
 
-### Manual version override
+[source,bash]
+----
+# From the repository root — updates all 20 build.clj files at once
+sed -i '' 's/(def version "OLD")/(def version "NEW")/' libs/*/build.clj
 
-For release versions, update `build.clj`:
+# Verify
+grep "^(def version" libs/*/build.clj
+----
 
-```clojure
-;; Replace dynamic version with fixed version
-(def version "1.0.0")
-```bash
+=== Version format
 
-## Building libraries
+Boundary follows semantic versioning:
 
-### Build a single library
+* `1.0.0-alpha-N` — alpha release, N is a sequential counter
+* `1.0.0-beta-N` — beta release
+* `1.0.0` — stable release
+* `1.0.1` — patch release
 
-```bash
+[IMPORTANT]
+====
+Clojars does **not** allow overwriting an existing version.
+Always bump the version before deploying — you cannot re-deploy the same version string.
+====
+
+---
+
+== Deploying locally
+
+=== All 20 libraries in one command
+
+[source,bash]
+----
+bb deploy --all
+----
+
+This deploys in dependency order with a 30-second pause between libraries to allow Clojars indexing.
+
+=== Only libraries not yet on Clojars
+
+[source,bash]
+----
+bb deploy --missing
+----
+
+Useful when resuming a partially failed deploy run.
+
+=== Specific libraries
+
+[source,bash]
+----
+bb deploy core platform user
+----
+
+=== Single library manually
+
+[source,bash]
+----
 cd libs/core
 clojure -T:build clean
-clojure -T:build jar
-```yaml
-
-Output: `libs/core/target/boundary-core-0.1.X.jar`
-
-### Build all libraries
-
-```bash
-for lib in core observability platform user admin storage scaffolder; do
-  echo "Building $lib..."
-  (cd libs/$lib && clojure -T:build clean && clojure -T:build jar)
-done
-```bash
-
-## Testing before publishing
-
-### Run all tests
-
-```bash
-# From repository root
-clojure -M:test:db/h2
-```bash
-
-### Lint all libraries
-
-```bash
-clojure -M:clj-kondo --lint libs/*/src libs/*/test
-```bash
-
-### Test local installation
-
-Install to local Maven repository:
-
-```bash
-cd libs/core
-clojure -T:build install
-```text
-
-Verify installation:
-
-```bash
-ls ~/.m2/repository/com/github/thijs-creemers/boundary-core/
-```bash
-
-## Publishing to Clojars
-
-### Publish order (IMPORTANT!)
-
-Libraries must be published in dependency order:
-
-1. **core** (no dependencies)
-2. **observability** (depends on core)
-3. **platform** (depends on core, observability)
-4. **scaffolder** (depends on core)
-5. **user** (depends on platform)
-6. **storage** (depends on platform)
-7. **ui-style** (no runtime deps, but should be published before admin)
-8. **admin** (depends on platform, user, ui-style)
-
-### Publish a single library
-
-```bash
-cd libs/core
 clojure -T:build deploy
-```bash
-
-### Publish all libraries (in order)
-
-```bash
-#!/bin/bash
-set -e  # Exit on error
-
-LIBS_ORDER="core observability platform scaffolder user storage ui-style admin"
-
-for lib in $LIBS_ORDER; do
-  echo "========================================="
-  echo "Publishing boundary-$lib..."
-  echo "========================================="
-  (cd libs/$lib && clojure -T:build deploy)
-  echo "✅ boundary-$lib published successfully"
-  echo ""
-  # Wait for Clojars to index the library
-  sleep 30
-done
-
-echo "🎉 All libraries published!"
-```bash
-
-### Verify publication
-
-Check Clojars:
-- https://clojars.org/org.boundary-app/boundary-core
-- https://clojars.org/org.boundary-app/boundary-observability
-- etc.
-
-## Updating dependencies between libraries
-
-When publishing new versions, update inter-library dependencies:
-
-### Current: local development
-
-```clojure
-;; libs/observability/deps.edn
-{:deps {boundary/core {:local/root "../core"}}}
-```bash
-
-### For publishing: Maven coordinates
-
-```clojure
-;; libs/observability/deps.edn (for release)
-{:deps {org.boundary-app/boundary-core {:mvn/version "0.1.42"}}}
-```bash
-
-### Switching between local and published
-
-Use Clojure CLI aliases:
-
-```clojure
-;; deps.edn
-{:deps {org.boundary-app/boundary-core {:mvn/version "0.1.42"}}
- 
- :aliases
- {:local {:override-deps {org.boundary-app/boundary-core {:local/root "../core"}}}}}
-```yaml
-
-Development: `clojure -M:local:test`  
-Production: `clojure -M:test`
-
-## Release checklist
-
-Before releasing a new version:
-
-- [ ] All tests pass: `clojure -M:test:db/h2`
-- [ ] No lint errors: `clojure -M:clj-kondo --lint libs/*/src`
-- [ ] Update CHANGELOG.md
-- [ ] Update version in build.clj (if not using git-based)
-- [ ] Commit all changes
-- [ ] Create git tag: `git tag v0.1.0`
-- [ ] Push tag: `git push origin v0.1.0`
-- [ ] Publish in dependency order
-- [ ] Verify on Clojars
-- [ ] Update README installation instructions
-
-## Troubleshooting
-
-### "Unauthorized" Error
 ----
 
-Error deploying artifact: Unauthorized
+=== Verify publication
 
-[source,text]
-----
-
-**Solution**: Check CLOJARS_USERNAME and CLOJARS_PASSWORD environment variables.
-
-### "Version Already Exists" Error
-----
-
-Error: version 0.1.42 already exists
-
-[source,text]
-----
-
-**Solution**: Bump version number or delete the existing version on Clojars (only possible within 24 hours of upload).
-
-### Dependency resolution errors
-----
-
-Could not find artifact org.boundary-app/boundary-core
+After deploying, check that the artifacts are visible on Clojars:
 
 [source,bash]
 ----
-
-**Solution**: 
-1. Publish core library first
-2. Wait for Clojars indexing (~1 minute)
-3. Clear local cache: `rm -rf ~/.m2/repository/com/github/thijs-creemers/`
-
-### POM generation issues
-
-If POM is malformed:
-
-```bash
-cd libs/core
-clojure -T:build clean
-clojure -T:build jar
-# Check generated POM
-cat target/classes/META-INF/maven/org.boundary-app/boundary-core/pom.xml
-```bash
-
-## GitHub actions (future)
-
-For automated publishing, create `.github/workflows/publish.yml`:
-
-```yaml
-name: Publish to Clojars
-
-on:
-  push:
-    tags:
-      - 'v*'
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # For git-count-revs
-      
-      - uses: DeLaGuardo/setup-clojure@master
-        with:
-          cli: 'latest'
-      
-      - name: Publish libraries
-        env:
-          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
-          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
-        run: |
-          for lib in core observability platform scaffolder user storage admin; do
-            (cd libs/$lib && clojure -T:build deploy)
-            sleep 30
-          done
+# Quick check — expects HTTP 200 for each library
+bb deploy --missing   # libraries not yet published will be listed
 ----
 
-=== Support
+Or open in a browser: https://clojars.org/org.boundary-app/boundary-core
 
-For issues with publishing: - Check https://github.com/clojars/clojars-web/wiki[Clojars documentation] - Open an issue on the Boundary repository
+---
 
-'''''
+== Deploying via GitHub Actions
 
-=== See also
+The workflow is defined in `.github/workflows/publish.yml`.
 
-* link:../guides/security-setup.md[Security Setup] - Repository security and Clojars access control
-* link:../guides/operations.adoc[Operations Guide] - Production deployment after publishing
-* link:../guides/testing.md[Testing Guide] - Test before publishing
+=== One-time setup: GitHub secrets
+
+Add the following secrets to the GitHub repository:
+
+*GitHub → Settings → Secrets and variables → Actions → New repository secret*
+
+[cols="1,2",options="header"]
+|===
+|Secret name |Value
+|`CLOJARS_USERNAME` |Your Clojars username (not email)
+|`CLOJARS_PASSWORD` |Your Clojars deploy token (from clojars.org/tokens)
+|===
+
+=== Trigger: push a version tag
+
+This is the normal release flow:
+
+[source,bash]
+----
+# 1. Bump versions in all build.clj files
+sed -i '' 's/(def version "1.0.0-alpha-3")/(def version "1.0.1-alpha-4")/' libs/*/build.clj
+
+# 2. Commit and tag
+git add libs/*/build.clj
+git commit -m "Bump version to 1.0.1-alpha-4"
+git tag v1.0.1-alpha-4
+git push origin main --tags
+----
+
+GitHub Actions will:
+
+. Build the Tailwind CSS bundle (required for the `ui-style` jar)
+. Run `bb deploy --all` with the repository secrets as credentials
+. Create a GitHub Release marked as pre-release for alpha/beta versions
+
+=== Trigger: manual dispatch
+
+For deploying without a tag (e.g. re-running after a partial failure):
+
+. Go to *GitHub → Actions → Publish to Clojars*
+. Click *Run workflow*
+. Optionally enter a version label for the release notes
+
+---
+
+== What the workflow does
+
+[source,yaml]
+----
+- Setup Clojure + Babashka       # DeLaGuardo/setup-clojure with bb: latest
+- Cache ~/.m2 and ~/.gitlibs     # Speeds up subsequent runs
+- npm ci + npm run build:css:admin  # Builds Tailwind CSS for ui-style jar
+- bb deploy --all                # Deploys all 20 libs in order, 30s between each
+- Create GitHub Release          # Only on tag pushes; pre-release for alpha/beta
+----
+
+Total CI time is approximately 15–20 minutes (20 libraries × 30s indexing pause + build time).
+
+---
+
+== Release checklist
+
+Before pushing a release tag:
+
+* [ ] All tests pass: `clojure -M:test:db/h2`
+* [ ] No lint errors: `clojure -M:clj-kondo --lint src test libs/*/src libs/*/test`
+* [ ] `CHANGELOG.md` updated
+* [ ] Version bumped in all `build.clj` files
+* [ ] Changes committed and pushed to `main`
+* [ ] Local deploy works: `bb deploy core` (quick smoke check)
+
+---
+
+== Troubleshooting
+
+=== 401 Unauthorized
+
+[source]
+----
+authentication failed for https://clojars.org/repo/..., status: 401 Unauthorized
+----
+
+Work through these causes in order:
+
+==== 1. Account password used instead of deploy token _(most common)_
+
+`CLOJARS_PASSWORD` must be a deploy token, not your login password.
+See <<_prerequisites>> for how to generate one.
+
+==== 2. GitHub secret missing or empty
+
+The CI log masks any set value as `***` — even an empty string.
+Verify both secrets exist and are non-empty:
+*GitHub → Settings → Secrets and variables → Actions*
+
+==== 3. Group `org.boundary-app` not verified
+
+Clojars requires proof of domain ownership for groups outside `io.github.*` / `com.github.*`.
+For `org.boundary-app`, add a DNS TXT record for `boundary-app.org` as described at
+https://github.com/clojars/clojars-web/wiki/Verified-Group-Names[Clojars: Verified Group Names].
+
+=== Version already exists
+
+[source]
+----
+Error: version 1.0.0-alpha already exists on clojars
+----
+
+Bump the version in all `build.clj` files and redeploy.
+Deleting an existing version on Clojars is only possible within 24 hours of upload.
+
+=== Dependency not found after deploy
+
+[source]
+----
+Could not find artifact org.boundary-app/boundary-core:jar:1.0.1-alpha-4
+----
+
+. Check that the library was actually published: open `https://clojars.org/org.boundary-app/boundary-core`
+. Wait 1–2 minutes for Clojars to finish indexing
+. Clear your local Maven cache: +
+  `rm -rf ~/.m2/repository/org/boundary-app/`
+
+=== CSS not included in ui-style jar
+
+The compiled Tailwind CSS (`daisy-admin.css`) is gitignored and must be built before packaging.
+
+Locally:
+[source,bash]
+----
+npm ci && npm run build:css:admin
+cd libs/ui-style && clojure -T:build deploy
+----
+
+In CI this is handled automatically by the workflow's *Build shared UI CSS bundle* step.
+
+=== Inspecting a generated POM
+
+[source,bash]
+----
+cd libs/core
+clojure -T:build clean && clojure -T:build jar
+cat target/classes/META-INF/maven/org.boundary-app/boundary-core/pom.xml
+----
+
+---
+
+== See also
+
+* link:../guides/security-setup.md[Security Setup] — Clojars access control and token rotation
+* link:../guides/operations.adoc[Operations Guide] — Production deployment after publishing
+* link:../guides/testing.md[Testing Guide] — Running tests before publishing

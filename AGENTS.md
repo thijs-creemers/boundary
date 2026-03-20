@@ -600,12 +600,15 @@ Also add the lib's `:id` test suite to `tests.edn` and its source/test paths to 
 
 ---
 
-## Ecommerce API Example (`examples/ecommerce-api/`)
+## Ecommerce API Example
 
 A complete reference application demonstrating Boundary patterns with SQLite, Integrant, Reitit, and Swagger UI.
+Source: https://github.com/tcbv/boundary-examples/tree/main/ecommerce-api
 
 ```bash
-# Run from examples/ecommerce-api/
+# Clone boundary-examples and run from ecommerce-api/
+git clone https://github.com/tcbv/boundary-examples
+cd boundary-examples/ecommerce-api
 clojure -M:run          # Start server on port 3002
 ```
 

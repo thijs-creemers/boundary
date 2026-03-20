@@ -41,7 +41,6 @@ bb deploy --all                    # Deploy all 20 libraries to Clojars
 bb deploy --missing                # Deploy only libraries not yet on Clojars
 bb deploy core platform user       # Deploy specific libraries
 bb create-admin      # Create first admin user for a new project (interactive wizard)
-bb create-admin --dir examples/ecommerce-api  # Target a sub-project's database
 bb create-admin --env prod --email admin@app.com --name "Admin"  # Non-interactive
 bb check-links       # Validate local markdown links in AGENTS.md files
 bb smoke-check       # Verify deps.edn aliases and key tool entrypoints
@@ -68,7 +67,7 @@ libs/{library}/src/boundary/{library}/
 
 **Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, workflow, search, reports, calendar, geo, ai, ui-style
 
-The main application source in `src/boundary/` follows the same core/shell structure. The `examples/` directory contains reference applications (ecommerce-api is the most comprehensive).
+The main application source in `src/boundary/` follows the same core/shell structure. Example applications live at https://github.com/tcbv/boundary-examples
 
 ## Critical Conventions
 
