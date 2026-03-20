@@ -18,7 +18,7 @@
 (defn setup-test-db []
   (let [^HikariDataSource datasource (connection/->pool
                                       com.zaxxer.hikari.HikariDataSource
-                                      {:jdbcUrl "jdbc:h2:mem:user-service-logout-audit;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1"
+                                      {:jdbcUrl (str "jdbc:h2:mem:logout-audit-" (UUID/randomUUID) ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1")
                                        :username "sa"
                                        :password ""})
         db-ctx {:datasource datasource

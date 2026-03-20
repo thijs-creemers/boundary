@@ -330,7 +330,18 @@
        {:success-count 5 :failed-count 0 :errors []}
 
      Example:
-       (bulk-delete-entities service :users [id1 id2 id3])"))
+       (bulk-delete-entities service :users [id1 id2 id3])")
+
+  (list-related-entities [this parent-entity-name parent-id relationship]
+    "Fetch related records for a has-many relationship.
+
+     Args:
+       parent-entity-name: keyword — the owning entity (e.g. :orders)
+       parent-id:          string  — ID of the parent record
+       relationship:       map     — {:entity :order-items :table :order_items
+                                      :foreign-key :order-id :label \"...\" :fields [...]}
+     Returns:
+       Vector of records (kebab-case keys) or []"))
 
 ;; =============================================================================
 ;; Action Executor Ports

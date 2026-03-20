@@ -1,0 +1,16 @@
+{:order-items
+ {:label          "Order Items"
+  :sidebar-hidden true
+  :list-fields     [:product-name :quantity :product-price-cents :total-cents]
+  :search-fields   [:product-name]
+  :hide-fields     #{:product-id :order-id}
+  :readonly-fields #{:id :order-id :product-id :created-at}
+  :fields
+  {:product-name        {:type :string :label "Product name" :required true}
+   :quantity            {:type :int    :label "Quantity"}
+   :product-price-cents {:type :int    :label "Unit price (cents)"}
+   :total-cents         {:type :int    :label "Total (cents)"}}
+  :parent-context {:label  "Order"
+                   :fields [:order-number :status :customer-name :customer-email]}
+  :default-sort     :created-at
+  :default-sort-dir :asc}}

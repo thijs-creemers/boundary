@@ -70,14 +70,14 @@
 
 (defrecord SQLiteOrderRepository [datasource]
   ports/IOrderRepository
-  
+
   (find-by-id [_ order-id]
     (let [result (jdbc/execute-one! datasource
                                     ["SELECT * FROM orders WHERE id = ?" (str order-id)]
                                     {:builder-fn rs/as-unqualified-maps})]
       (when result
         (db->order result (fetch-order-items datasource order-id)))))
-  
+
   (find-by-number [_ order-number]
     (let [result (jdbc/execute-one! datasource
                                     ["SELECT * FROM orders WHERE order_number = ?" order-number]
@@ -85,7 +85,7 @@
       (when result
         (let [order-id (str->uuid (:id result))]
           (db->order result (fetch-order-items datasource order-id))))))
-  
+
   (find-by-payment-intent [_ payment-intent-id]
     (let [result (jdbc/execute-one! datasource
                                     ["SELECT * FROM orders WHERE payment_intent_id = ?" payment-intent-id]
@@ -93,7 +93,7 @@
       (when result
         (let [order-id (str->uuid (:id result))]
           (db->order result (fetch-order-items datasource order-id))))))
-  
+
   (list-by-customer [_ email options]
     (let [{:keys [limit offset] :or {limit 20 offset 0}} options
           count-result (jdbc/execute-one! datasource
@@ -102,14 +102,14 @@
           total (:cnt count-result)
           results (jdbc/execute! datasource
                                  ["SELECT * FROM orders WHERE customer_email = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
-                                  email limit offset]
+                                  email (or limit 20) (or offset 0)]
                                  {:builder-fn rs/as-unqualified-maps})]
       {:orders (mapv (fn [row]
                        (let [order-id (str->uuid (:id row))]
                          (db->order row (fetch-order-items datasource order-id))))
                      results)
        :total total}))
-  
+
   (save! [this order]
     (let [existing (ports/find-by-id this (:id order))]
       (if existing
@@ -142,7 +142,7 @@
                           (instant->str (:paid-at order)) (instant->str (:shipped-at order))
                           (instant->str (:delivered-at order)) (instant->str (:cancelled-at order))])
           order))))
-  
+
   (save-items! [_ order-id items]
     (doseq [item items]
       (jdbc/execute! datasource

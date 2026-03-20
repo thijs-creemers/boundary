@@ -263,70 +263,70 @@
      (parse-form-params {price 19.99 quantity 5} entity-config)
      => {:price 19.99 :quantity 5}"
   [params entity-config]
-   (reduce-kv
-    (fn [acc field-name value]
-      (let [field-keyword (keyword field-name)
-            field-config (get-in entity-config [:fields field-keyword])
-            field-type (:type field-config :string)
-            
+  (reduce-kv
+   (fn [acc field-name value]
+     (let [field-keyword (keyword field-name)
+           field-config (get-in entity-config [:fields field-keyword])
+           field-type (:type field-config :string)
+
             ; Handle array values (e.g., from checkbox + hidden field pattern)
             ; Take the last value when multiple values are submitted
-            normalized-value (if (vector? value)
+           normalized-value (if (vector? value)
                               (last value)
                               value)
 
              ; Convert string value to appropriate type
-            typed-value (cond
+           typed-value (cond
                            ; Empty strings become nil
-                          (str/blank? normalized-value) nil
+                         (str/blank? normalized-value) nil
 
                            ; Boolean checkbox values
                            ; Checked: sends "true" (from value attribute)
                            ; Unchecked: sends "false" (from hidden field)
-                          (= field-type :boolean)
-                          (= normalized-value "true")
+                         (= field-type :boolean)
+                         (= normalized-value "true")
 
                            ; Integer values - wrap in try/catch for invalid input
-                          (= field-type :int)
-                          (try
-                            (parse-long normalized-value)
-                            (catch NumberFormatException _
-                              (throw (ex-info "Invalid integer value"
-                                              {:type :validation-error
-                                               :field field-keyword
-                                               :value normalized-value
-                                               :message (str "Field '" (name field-keyword) "' must be a valid integer")}))))
+                         (= field-type :int)
+                         (try
+                           (parse-long normalized-value)
+                           (catch NumberFormatException _
+                             (throw (ex-info "Invalid integer value"
+                                             {:type :validation-error
+                                              :field field-keyword
+                                              :value normalized-value
+                                              :message (str "Field '" (name field-keyword) "' must be a valid integer")}))))
 
                            ; Decimal values - wrap in try/catch for invalid input
-                          (= field-type :decimal)
-                          (try
-                            (bigdec normalized-value)
-                            (catch NumberFormatException _
-                              (throw (ex-info "Invalid decimal value"
-                                              {:type :validation-error
-                                               :field field-keyword
-                                               :value normalized-value
-                                               :message (str "Field '" (name field-keyword) "' must be a valid decimal")}))))
+                         (= field-type :decimal)
+                         (try
+                           (bigdec normalized-value)
+                           (catch NumberFormatException _
+                             (throw (ex-info "Invalid decimal value"
+                                             {:type :validation-error
+                                              :field field-keyword
+                                              :value normalized-value
+                                              :message (str "Field '" (name field-keyword) "' must be a valid decimal")}))))
 
                            ; UUID values - wrap in try/catch for invalid input
-                          (= field-type :uuid)
-                          (try
-                            (UUID/fromString normalized-value)
-                            (catch IllegalArgumentException _
-                              (throw (ex-info "Invalid UUID value"
-                                              {:type :validation-error
-                                               :field field-keyword
-                                               :value normalized-value
-                                               :message (str "Field '" (name field-keyword) "' must be a valid UUID")}))))
+                         (= field-type :uuid)
+                         (try
+                           (UUID/fromString normalized-value)
+                           (catch IllegalArgumentException _
+                             (throw (ex-info "Invalid UUID value"
+                                             {:type :validation-error
+                                              :field field-keyword
+                                              :value normalized-value
+                                              :message (str "Field '" (name field-keyword) "' must be a valid UUID")}))))
 
                            ; Default: keep as string
-                          :else normalized-value)]
+                         :else normalized-value)]
 
-        (if (or typed-value (= field-type :boolean))
-          (assoc acc field-keyword typed-value)
-          acc)))
-    {}
-    params))
+       (if (or typed-value (= field-type :boolean))
+         (assoc acc field-keyword typed-value)
+         acc)))
+   {}
+   params))
 
 ;; =============================================================================
 ;; Handler Helpers
@@ -451,13 +451,13 @@
           (ring-response/redirect (str "/web/admin/" (name (first entities)))))
 
         ; No entities configured
-         (html-response
-          (admin-ui/admin-layout
-           [:div.empty-state
-            [:div.empty-state-icon
-             (icons/icon :database {:size 48})]
-            [:h2 "No Entities Configured"]
-            [:p "Add entities to the :boundary/admin :entity-discovery :allowlist in your config."]]
+        (html-response
+         (admin-ui/admin-layout
+          [:div.empty-state
+           [:div.empty-state-icon
+            (icons/icon :database {:size 48})]
+           [:h2 "No Entities Configured"]
+           [:p "Add entities to the :boundary/admin :entity-discovery :allowlist in your config."]]
           {:user user
            :current-entity nil
            :entities []
@@ -531,15 +531,15 @@
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
-          
+
           ; Check if this is an HTMX request or direct browser navigation
           is-htmx? (get-in request [:headers "hx-request"])
-          
+
           ; If not HTMX, redirect to main entity page with query params
           _ (when-not is-htmx?
               (let [query-string (:query-string request)
                     redirect-url (str "/web/admin/" (name entity-name)
-                                     (when query-string (str "?" query-string)))]
+                                      (when query-string (str "?" query-string)))]
                 (throw (ex-info "Redirect to full page"
                                 {:type :redirect
                                  :location redirect-url
@@ -575,20 +575,90 @@
           htmx-target (get-in request [:headers "hx-target"])
           filters (:filters options)]
 
-       (if (= htmx-target "filter-table-container")
+      (if (= htmx-target "filter-table-container")
          ; Filter action: return filter builder + table so the filter UI stays visible
-         (htmx-fragment-response
-          [:div#filter-table-container
-           (admin-ui/render-filter-builder entity-name entity-config filters)
-           (admin-ui/entity-table entity-name records entity-config table-query total-count permissions filters)])
+        (htmx-fragment-response
+         [:div#filter-table-container
+          (admin-ui/render-filter-builder entity-name entity-config filters)
+          (admin-ui/entity-table entity-name records entity-config table-query total-count permissions filters)])
          ; Search / sort / pagination: return just the table
-         (htmx-fragment-response
-          (admin-ui/entity-table entity-name records entity-config table-query total-count permissions filters))))))
-
+        (htmx-fragment-response
+         (admin-ui/entity-table entity-name records entity-config table-query total-count permissions filters))))))
 
 ;; =============================================================================
 ;; Entity Detail/Edit Handlers
 ;; =============================================================================
+
+(defn- build-entity-detail-opts
+  "Builds opts for entity-detail-page and the surrounding admin-layout.
+   Shared between entity-detail-handler and update-entity-handler.
+
+   Returns a map with:
+     :entities       - all available entity names
+     :entity-configs - map of entity-name -> entity-config
+     :page-opts      - opts map for entity-detail-page
+                       (related-records, return-to, parent-context, sibling-nav)"
+  [admin-service schema-provider entity-name entity-config record request]
+  (let [entities        (ports/list-available-entities schema-provider)
+        entity-configs  (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
+
+        ; Related records for has-many relationships on this entity
+        primary-key     (:primary-key entity-config :id)
+        record-id       (str (get record primary-key))
+        has-many-rels   (get entity-config :has-many [])
+        parent-url      (str "/web/admin/" (name entity-name) "/" record-id)
+        related-records (when (seq has-many-rels)
+                          (mapv (fn [rel]
+                                  [(cond-> rel (:editable rel) (assoc :return-to parent-url))
+                                   (ports/list-related-entities admin-service entity-name record-id rel)])
+                                has-many-rels))
+
+        ; Return URL when navigating back from a child entity (e.g. order-items → order)
+        return-to   (get-in request [:query-params "return_to"])
+
+        ; Parse parent entity + id from return_to (/web/admin/{entity}/{id})
+        parent-ref  (when return-to
+                      (let [parts (remove str/blank? (str/split return-to #"/"))]
+                        (when (>= (count parts) 4)
+                          {:entity (keyword (nth parts 2))
+                           :id     (nth parts 3)})))
+
+        ; Parent context banner
+        parent-context (when-let [ctx-cfg (:parent-context entity-config)]
+                         (when (and parent-ref
+                                    (ports/validate-entity-exists schema-provider (:entity parent-ref)))
+                           (when-let [parent-rec (ports/get-entity admin-service
+                                                                   (:entity parent-ref)
+                                                                   (:id parent-ref))]
+                             {:config ctx-cfg :record parent-rec})))
+
+        ; Sibling navigation — prev/next within the parent's has-many list
+        sibling-nav (when (and parent-ref (:parent-context entity-config)
+                               (ports/validate-entity-exists schema-provider (:entity parent-ref)))
+                      (let [parent-cfg   (ports/get-entity-config schema-provider (:entity parent-ref))
+                            matching-rel (first (filter #(= (:entity %) entity-name)
+                                                        (:has-many parent-cfg [])))]
+                        (when matching-rel
+                          (let [siblings   (ports/list-related-entities admin-service
+                                                                        (:entity parent-ref)
+                                                                        (:id parent-ref)
+                                                                        matching-rel)
+                                current-id record-id
+                                ids        (mapv #(str (:id %)) siblings)
+                                idx        (.indexOf ^java.util.List ids current-id)
+                                nav-url    #(str "/web/admin/" (name entity-name) "/" %
+                                                 "?return_to=" return-to)]
+                            (when (>= idx 0)
+                              (cond-> {:position (inc idx) :total (count ids)}
+                                (> idx 0)                (assoc :prev-url (nav-url (nth ids (dec idx))))
+                                (< idx (dec (count ids))) (assoc :next-url (nav-url (nth ids (inc idx))))))))))]
+
+    {:entities       entities
+     :entity-configs entity-configs
+     :page-opts      {:related-records related-records
+                      :return-to       return-to
+                      :parent-context  parent-context
+                      :sibling-nav     sibling-nav}}))
 
 (defn entity-detail-handler
   "Handler for entity detail/edit page.
@@ -621,20 +691,16 @@
                                :entity-name entity-name
                                :id id})))
 
-          ; Get all available entities for sidebar
-          entities (ports/list-available-entities schema-provider)
-          entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
-
-          ; Get permissions
-          permissions (permissions/get-entity-permissions user entity-name entity-config)]
+          permissions (permissions/get-entity-permissions user entity-name entity-config)
+          ctx         (build-entity-detail-opts admin-service schema-provider entity-name entity-config record request)]
 
       (html-response
        (admin-ui/admin-layout
-        (admin-ui/entity-detail-page entity-name entity-config record {} permissions {})
+        (admin-ui/entity-detail-page entity-name entity-config record {} permissions (:page-opts ctx))
         {:user user
          :current-entity entity-name
-         :entities entities
-         :entity-configs entity-configs})))))
+         :entities (:entities ctx)
+         :entity-configs (:entity-configs ctx)})))))
 
 (defn new-entity-handler
   "Handler for new entity creation form.
@@ -782,50 +848,40 @@
           validation-result (ports/validate-entity-data admin-service entity-name form-data)]
 
       (if (:valid? validation-result)
-        ; Update entity and redirect
+        ; Update entity and re-render detail page with success flash
         (let [_updated-entity (ports/update-entity admin-service entity-name id form-data)
+              updated-record  (ports/get-entity admin-service entity-name id)
+              permissions     (permissions/get-entity-permissions user entity-name entity-config)
+              ctx             (build-entity-detail-opts admin-service schema-provider entity-name entity-config updated-record request)]
 
-              ; Fetch list page data
-              entities (ports/list-available-entities schema-provider)
-              entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
-
-              ; Get entity list with default options
-              result (ports/list-entities admin-service entity-name {})
-              records (:records result)
-              total-count (:total-count result)
-              table-query {:page-size (:page-size result)
-                           :page (:page-number result)}
-
-              permissions (permissions/get-entity-permissions user entity-name entity-config)]
-
-          ; Return list page HTML with success message
           (html-response
            (admin-ui/admin-layout
-            (admin-ui/entity-list-page entity-name records entity-config table-query total-count permissions {})
+            (admin-ui/entity-detail-page entity-name entity-config updated-record {} permissions
+                                         (assoc (:page-opts ctx) :flash
+                                                {:type :success
+                                                 :message (str (:label entity-config) " updated successfully")}))
             {:user user
              :current-entity entity-name
-             :entities entities
-             :entity-configs entity-configs
-             :flash {:type :success
-                     :message (str (:label entity-config) " updated successfully")}})))
+             :entities (:entities ctx)
+             :entity-configs (:entity-configs ctx)})))
 
-        ; Validation errors - re-render form
-        (let [entities (ports/list-available-entities schema-provider)
-              entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
-              permissions (permissions/get-entity-permissions user entity-name entity-config)
-              errors (ui-validation/explain->field-errors (:errors validation-result))
+        ; Validation errors - re-render form with flash inside page content
+        (let [permissions (permissions/get-entity-permissions user entity-name entity-config)
+              errors      (ui-validation/explain->field-errors (:errors validation-result))
               ; Merge form data with original record for display
-              record (merge (ports/get-entity admin-service entity-name id) form-data)]
+              record      (merge (ports/get-entity admin-service entity-name id) form-data)
+              ctx         (build-entity-detail-opts admin-service schema-provider entity-name entity-config record request)]
 
           (html-response
            (admin-ui/admin-layout
-            (admin-ui/entity-detail-page entity-name entity-config record errors permissions {})
+            (admin-ui/entity-detail-page entity-name entity-config record errors permissions
+                                         (assoc (:page-opts ctx) :flash
+                                                {:type :error
+                                                 :message "Please fix the errors below"}))
             {:user user
              :current-entity entity-name
-             :entities entities
-             :entity-configs entity-configs
-             :flash {:type :error
-                     :message "Please fix the errors below"}})))))))
+             :entities (:entities ctx)
+             :entity-configs (:entity-configs ctx)})))))))
 
 ;; =============================================================================
 ;; Delete Handlers

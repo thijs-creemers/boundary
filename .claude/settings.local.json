@@ -61,7 +61,10 @@
       "Bash(do echo:*)",
       "Bash(done)",
       "Bash(do:*)",
-      "Bash(/tmp/check_links2.sh:*)"
+      "Bash(/tmp/check_links2.sh:*)",
+      "Bash(bb verify-doc-links:*)"
+      "Bash(/tmp/check_links2.sh:*)",
+      "Bash(cp:*)"
     ]
   },
   "enabledMcpjsonServers": [

@@ -50,9 +50,14 @@
 (defn routes
   "Product API routes."
   [product-service]
-  [["/api/products" 
-    {:get {:handler (list-products-handler product-service)
-           :summary "List active products"}}]
-   ["/api/products/:slug" 
-    {:get {:handler (get-product-handler product-service)
-           :summary "Get product by slug"}}]])
+  [["/api/products"
+    {:tags ["products"]
+     :get {:handler (list-products-handler product-service)
+           :summary "List active products"
+           :swagger {:parameters [{:name "limit"  :in "query" :required false :type "integer" :description "Max results (default 20)"}
+                                  {:name "offset" :in "query" :required false :type "integer" :description "Pagination offset (default 0)"}]}}}]
+   ["/api/products/:slug"
+    {:tags ["products"]
+     :get {:handler (get-product-handler product-service)
+           :summary "Get product by slug"
+           :swagger {:parameters [{:name "slug" :in "path" :required true :type "string" :description "Product slug (e.g. boundary-tshirt)"}]}}}]])

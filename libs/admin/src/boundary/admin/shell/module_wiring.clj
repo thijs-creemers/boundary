@@ -16,6 +16,14 @@
    [boundary.admin.shell.http :as http]))
 
 ;; =============================================================================
+;; Admin Config Component (pass-through holder referenced by other components)
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/admin [_ config] config)
+
+(defmethod ig/halt-key! :boundary/admin [_ _] nil)
+
+;; =============================================================================
 ;; Schema Provider Component
 ;; =============================================================================
 

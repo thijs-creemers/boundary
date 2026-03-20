@@ -5,6 +5,11 @@
    :task (do (require 'check-agents-links)
              (System/exit ((resolve 'check-agents-links/-main))))}
 
+  verify-doc-links
+  {:doc "Verify internal links in docs/ documentation files (.md and .adoc)"
+   :task (do (require 'verify-doc-links)
+             (System/exit ((resolve 'verify-doc-links/-main))))}
+
   smoke-check
   {:doc "Run command smoke checks (verify deps.edn aliases and key commands)"
    :task (do (require 'smoke-check)
@@ -28,4 +33,9 @@
   deploy
   {:doc "Deploy Boundary libraries to Clojars (bb deploy --help for usage)"
    :task (do (require 'deploy)
-             (apply (resolve 'deploy/-main) *command-line-args*))}}}
+             (apply (resolve 'deploy/-main) *command-line-args*))}
+
+  create-admin
+  {:doc "Create the first admin user for a new Boundary project (interactive wizard)"
+   :task (do (require 'create-admin)
+             (apply (resolve 'create-admin/-main) *command-line-args*))}}}

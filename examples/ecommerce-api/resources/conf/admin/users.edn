@@ -1,0 +1,41 @@
+{:users
+ {:label           "Users"
+  :list-fields     [:email :name :role :active :created-at]
+  :search-fields   [:email :name]
+  :hide-fields     #{:password-hash
+                     :mfa-secret
+                     :mfa-backup-codes
+                     :mfa-backup-codes-used
+                     :deleted-at}
+  :readonly-fields #{:id :created-at :updated-at}
+
+  :fields
+  {:email      {:filterable false}
+   :name       {:filterable false}
+   :role       {:type :enum    :label "Role"
+                :options [[:admin "Admin"] [:user "User"] [:viewer "Viewer"]]
+                :filterable true}
+   :active     {:type :boolean :label "Active"  :filterable true}
+   :created-at {:type :instant :label "Created" :filterable true}}
+
+  :field-order     [:email :name :role :active :created-at :updated-at]
+
+  :field-groups
+  [{:id :identity :label "Identity" :fields [:email :name]}
+   {:id :access   :label "Access"   :fields [:role :active]}]
+
+  ;; Multi-table JOIN: email lives in auth_users, profile fields in users
+  :query-overrides
+  {:from             [[:auth_users :a]]
+   :join             [[:users :u] [:= :a.id :u.id]]
+   :select           [:a.id :a.email :a.active :a.mfa_enabled
+                      :a.created_at :a.updated_at :a.deleted_at
+                      :u.name :u.role]
+   :field-aliases    {:id         :a.id
+                      :email      :a.email
+                      :active     :a.active
+                      :deleted-at :a.deleted_at
+                      :created-at :a.created_at
+                      :name       :u.name
+                      :role       :u.role}
+   :soft-delete-table :auth_users}}}

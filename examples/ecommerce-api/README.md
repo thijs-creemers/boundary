@@ -10,6 +10,7 @@ This example demonstrates:
 - ✅ Mock Stripe payment integration with webhooks
 - ✅ SQLite database with migrations
 - ✅ Comprehensive test coverage
+- ✅ Admin UI via `boundary-admin` (products, orders, users CRUD)
 
 **Complexity:** ⭐⭐⭐ Advanced  
 **Time to complete:** 2-3 hours  
@@ -128,7 +129,24 @@ In the REPL:
 ;; Server running at http://localhost:3002
 ```
 
-### 4. Test the API
+### 4. Set Up the Admin UI
+
+The admin UI (`/web/admin/`) requires a user with the `admin` role. Create one from the project root:
+
+```bash
+# Interactive wizard (run form boundary root)
+bb create-admin --dir examples/ecommerce-api
+
+# Or non-interactive
+bb create-admin --env dev --email admin@example.com --name "Admin"
+```
+
+Then open `http://localhost:3002/web/admin/` and log in. The admin panel shows:
+- **Products** — full CRUD (create, edit, delete, filter by active)
+- **Orders** — list + edit status (pending → paid → shipped → ...)
+- **Users** — list + edit role/active flag
+
+### 5. Test the API
 
 ```bash
 # List products
@@ -170,9 +188,17 @@ ecommerce-api/
 ├── README.md                    # This file
 ├── deps.edn                     # Dependencies
 ├── resources/
-│   └── config/
-│       ├── dev.edn             # Development config
-│       └── test.edn            # Test config
+│   ├── config/
+│   │   ├── dev.edn             # Development config (server, DB, admin, user)
+│   │   ├── test.edn            # Test config
+│   │   └── admin/
+│   │       ├── products.edn    # Admin entity config — products
+│   │       ├── orders.edn      # Admin entity config — orders
+│   │       └── users.edn       # Admin entity config — users (auth_users JOIN)
+│   └── public/                 # Static assets (served at /css, /js, /assets)
+│       ├── css/                # Pico CSS, Boundary design tokens, admin.css, app.css
+│       ├── js/                 # Alpine.js, HTMX, theme/forms/keyboard helpers
+│       └── assets/             # Boundary logo images
 ├── migrations/
 │   ├── 001-create-products.sql # Products + seed data
 │   ├── 002-create-carts.sql    # Carts + items
@@ -456,11 +482,13 @@ curl http://localhost:3002/api/orders/$ORDER_ID | jq '.data.status'
    ```
 3. Update system.clj to use based on config
 
-### Add User Authentication
+### Associate Orders with Users
 
-1. Create `user/` module with JWT tokens
-2. Add authentication middleware
-3. Associate carts and orders with user IDs
+The admin UI already includes user management. To link orders to authenticated users:
+
+1. Add `user-id` column to the orders migration
+2. Capture the logged-in user from the session in the checkout handler
+3. Filter orders by `user-id` in the order repository
 
 ### Add Inventory Management
 

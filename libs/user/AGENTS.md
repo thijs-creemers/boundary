@@ -249,6 +249,37 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 ---
 
+## Project Setup — Creating the First Admin User
+
+Use `bb create-admin` to bootstrap an admin account after setting up a new project. It wraps the Boundary CLI in an interactive wizard.
+
+```bash
+# Interactive wizard (prompts for email, name, and password)
+bb create-admin
+
+# Specify environment (default: dev)
+bb create-admin --env prod
+
+# Skip email/name prompts — only the password is asked interactively
+bb create-admin --email admin@myapp.com --name "Admin User"
+
+# Full help
+bb create-admin --help
+```
+
+**Pre-requisite**: run database migrations first.
+
+```bash
+clojure -M:migrate up
+bb create-admin
+```
+
+The password is never passed on the command line. The wizard delegates to the Boundary CLI's `--password-prompt` option, which reads it via a hidden TTY prompt and validates it against the configured password policy.
+
+The wizard accepts `--env dev|test|acc|prod` to pick the Aero config profile and the correct database connection.
+
+---
+
 ## Gotchas
 
 - `JWT_SECRET` must be set (≥ 32 chars) for all auth-related tests and runtime operations.

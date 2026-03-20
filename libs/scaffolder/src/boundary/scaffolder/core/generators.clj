@@ -58,7 +58,8 @@
    [:id :uuid]
 %s
    [:created-at inst?]
-   [:updated-at {:optional true} [:maybe inst?]]])
+   [:updated-at {:optional true} [:maybe inst?]]
+   [:deleted-at {:optional true} [:maybe inst?]]])
 
 ;; =============================================================================
 ;; API Request Schemas
@@ -353,7 +354,8 @@ CREATE TABLE IF NOT EXISTS %s (
   id UUID PRIMARY KEY,
 %s,
   created_at TIMESTAMP NOT NULL,
-  updated_at TIMESTAMP
+  updated_at TIMESTAMP,
+  deleted_at TIMESTAMP
 );
 
 -- Indexes
@@ -1039,7 +1041,7 @@ Distributed under the Eclipse Public License version 2.0.
      String content for migration SQL
    
    Pure: true"
-   [_module-name entity-name field migration-number]
+  [_module-name entity-name field migration-number]
   (let [table-name (template/kebab->snake (template/pluralize (str/lower-case entity-name)))
         field-ctx (template/build-field-context field)
         field-name (:field-name-snake field-ctx)

@@ -46,6 +46,9 @@
       <sourceFolder url="file://$MODULE_DIR$/libs/geo/test" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/ui-style/resources" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/ui-style/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/ecommerce-api/resources" type="java-resource" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/ecommerce-api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/ecommerce-api/test" isTestSource="true" />
     </content>
   </component>
   <component name="BuildSystem">
