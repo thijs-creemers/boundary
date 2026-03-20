@@ -79,7 +79,7 @@ correct
 
 [source,bash]
 ----
-python3 verify-doc-links.py
+bb verify-doc-links
 ----
 
 This will show all broken internal links within the docs/ directory.
