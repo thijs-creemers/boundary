@@ -636,5 +636,5 @@ Clojure's `{:or {limit 20 offset 0}}` destructuring only fires for **absent** ke
 
 ---
 
-**Last Updated**: 2026-03-14
-**Version**: 3.5.0 (AI library: multi-provider AI tooling, NL scaffolding, error explainer, test generator, SQL copilot, docs wizard)
+**Last Updated**: 2026-03-20
+**Version**: 4.0.0 (UI Style library: shared CSS/JS bundles, design tokens, Tailwind admin-pilot theme)
