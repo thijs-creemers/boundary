@@ -705,32 +705,12 @@
 }
 
 .admin-content .data-table th.sortable-header.sort-dir-desc .sort-icon {
-  transform: rotate(180deg);
+  transform: none;
 }
 
 .admin-content .data-table th.sortable-header:hover::before {
   background: var(--brand-shell-subtle);
   border-color: var(--accent-secondary);
-}
-
-.admin-content .data-table th a {
-  color: inherit;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  position: relative;
-  z-index: 1;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
-}
-
-.admin-content .data-table th a:hover {
-  color: var(--text-primary);
-}
-
-.admin-content .data-table th a svg {
-  color: var(--accent-primary);
 }
 
 .admin-content .data-table tbody tr:hover {

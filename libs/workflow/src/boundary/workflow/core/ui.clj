@@ -14,6 +14,7 @@
      instance-detail-page — full page: instance detail with state viz + audit trail"
   (:require [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.icons :as icons]
+            [boundary.shared.ui.core.components :as ui]
             [clojure.string :as str]))
 
 ;; =============================================================================
@@ -38,13 +39,14 @@
   ([state-kw]
    (state-badge state-kw :default))
   ([state-kw variant]
-   (let [class (case variant
-                 :current  "status-badge success"
-                 :reachable "status-badge info"
-                 :visited  "status-badge"
-                 "status-badge")]
-     [:span {:class class}
-      (name state-kw)])))
+   (let [badge-variant (case variant
+                         :current :success
+                         :reachable :info
+                         :visited :neutral
+                         :neutral)]
+     (ui/badge (name state-kw)
+               {:variant badge-variant
+                :class "status-badge"}))))
 
 ;; =============================================================================
 ;; State Machine Visualization
@@ -68,50 +70,45 @@
     [:div
      (if (nil? definition)
        [:div
-        [:p {:style "color: var(--muted-color); font-size: 0.9em;"}
-         "Workflow definition not loaded in registry."]
+        [:p.text-muted "Workflow definition not loaded in registry."]
         [:div {:style "display: flex; gap: 0.5rem; flex-wrap: wrap;"}
          (state-badge current-state :current)]]
        (let [all-states  (:states definition)
              transitions (:transitions definition)
              initial     (:initial-state definition)
-             ;; States reachable in one hop from current state
              reachable   (set (map :to
                                    (filter #(= current-state (:from %)) transitions)))
-             ;; Render initial state first, then rest sorted alphabetically
              ordered     (concat [initial]
                                  (sort-by name (disj (set all-states) initial)))
-             ;; Compute variant for each state
              state-var   (fn [s]
                            (cond
-                             (= s current-state)   :current
+                             (= s current-state) :current
                              (contains? visited s) :visited
                              (contains? reachable s) :reachable
-                             :else                   :default))]
+                             :else :default))]
          [:div
-          ;; State badges row
           [:div {:style "display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;"}
            (for [s ordered]
              (state-badge s (state-var s)))]
-          ;; Transition reference table (collapsible)
           [:details
            [:summary {:style "cursor: pointer; font-size: 0.9em; margin-bottom: 0.5rem;"}
             "View all transitions (" (count transitions) ")"]
-           [:table {:class "data-table" :style "margin-top: 0.5rem;"}
-            [:thead
-             [:tr
-              [:th "From"]
-              [:th "→ To"]
-              [:th "Required permissions"]]]
-            [:tbody
-             (for [{:keys [from to required-permissions]} transitions]
-               [:tr
-                [:td (state-badge from (state-var from))]
-                [:td (state-badge to (state-var to))]
-                [:td
-                 (if (seq required-permissions)
-                   (str/join ", " (map name required-permissions))
-                   [:span {:style "color: var(--muted-color);"} "—"])]])]]]]))]))
+           (ui/table-wrapper
+            [:table {:class "data-table ui-table" :style "margin-top: 0.5rem;"}
+             [:thead
+              [:tr
+               [:th "From"]
+               [:th "→ To"]
+               [:th "Required permissions"]]]
+             [:tbody
+              (for [{:keys [from to required-permissions]} transitions]
+                [:tr
+                 [:td (state-badge from (state-var from))]
+                 [:td (state-badge to (state-var to))]
+                 [:td
+                  (if (seq required-permissions)
+                    (str/join ", " (map name required-permissions))
+                    [:span.text-muted "—"])]])]])]]))]))
 
 ;; =============================================================================
 ;; Audit Log Table
@@ -131,31 +128,32 @@
      (icons/icon :file-text {:size 32})
      [:h3 "No transitions recorded"]
      [:p "This instance has not had any state transitions yet."]]
-    [:table {:class "data-table"}
-     [:thead
-      [:tr
-       [:th "When"]
-       [:th "Transition"]
-       [:th "From state"]
-       [:th "To state"]
-       [:th "Actor roles"]
-       [:th "Context"]]]
-     [:tbody
-      (for [entry entries]
-        [:tr
-         [:td {:style "white-space: nowrap; font-size: 0.85em;"}
-          (str (:occurred-at entry))]
-         [:td [:code (name (:transition entry))]]
-         [:td (state-badge (:from-state entry) :visited)]
-         [:td (state-badge (:to-state entry) :current)]
-         [:td
-          (if (seq (:actor-roles entry))
-            (str/join ", " (map name (:actor-roles entry)))
-            [:span {:style "color: var(--muted-color);"} "—"])]
-         [:td
-          (if (:context entry)
-            [:code {:style "font-size: 0.8em;"} (pr-str (:context entry))]
-            [:span {:style "color: var(--muted-color);"} "—"])]])]]))
+    (ui/table-wrapper
+     [:table {:class "data-table ui-table"}
+      [:thead
+       [:tr
+        [:th "When"]
+        [:th "Transition"]
+        [:th "From state"]
+        [:th "To state"]
+        [:th "Actor roles"]
+        [:th "Context"]]]
+      [:tbody
+       (for [entry entries]
+         [:tr
+          [:td {:style "white-space: nowrap; font-size: 0.85em;"}
+           (str (:occurred-at entry))]
+          [:td [:code (name (:transition entry))]]
+          [:td (state-badge (:from-state entry) :visited)]
+          [:td (state-badge (:to-state entry) :current)]
+          [:td
+           (if (seq (:actor-roles entry))
+             (str/join ", " (map name (:actor-roles entry)))
+             [:span.text-muted "—"])]
+          [:td
+           (if (:context entry)
+             [:code {:style "font-size: 0.8em;"} (pr-str (:context entry))]
+             [:span.text-muted "—"])]])]])))
 
 ;; =============================================================================
 ;; Instances Table
@@ -175,33 +173,34 @@
      (icons/icon :layout-list {:size 32})
      [:h3 "No workflow instances"]
      [:p "No workflow instances have been created yet."]]
-    [:table {:class "data-table"}
-     [:thead
-      [:tr
-       [:th "Instance ID"]
-       [:th "Workflow"]
-       [:th "Entity type"]
-       [:th "Entity ID"]
-       [:th "Current state"]
-       [:th "Updated"]]]
-     [:tbody
-      (for [inst instances]
-        (let [id-str (str (:id inst))
-              short-id (subs id-str 0 (min 8 (count id-str)))]
-          [:tr {:onclick (str "window.location.href='/web/admin/workflows/" id-str "'")
-                :style "cursor: pointer;"}
-           [:td
-            [:a {:href (str "/web/admin/workflows/" id-str)}
-             [:code {:style "font-size: 0.85em;"} short-id "…"]]]
-           [:td [:code (name (:workflow-id inst))]]
-           [:td [:code (name (:entity-type inst))]]
-           [:td
-            (let [eid-str (str (:entity-id inst))
-                  short-eid (subs eid-str 0 (min 8 (count eid-str)))]
-              [:code {:style "font-size: 0.85em;"} short-eid "…"])]
-           [:td (state-badge (:current-state inst) :current)]
-           [:td {:style "font-size: 0.85em; white-space: nowrap;"}
-            (str (:updated-at inst))]]))]]))
+    (ui/table-wrapper
+     [:table {:class "data-table ui-table"}
+      [:thead
+       [:tr
+        [:th "Instance ID"]
+        [:th "Workflow"]
+        [:th "Entity type"]
+        [:th "Entity ID"]
+        [:th "Current state"]
+        [:th "Updated"]]]
+      [:tbody
+       (for [inst instances]
+         (let [id-str (str (:id inst))
+               short-id (subs id-str 0 (min 8 (count id-str)))]
+           [:tr {:onclick (str "window.location.href='/web/admin/workflows/" id-str "'")
+                 :style "cursor: pointer;"}
+            [:td
+             [:a {:href (str "/web/admin/workflows/" id-str)}
+              [:code {:style "font-size: 0.85em;"} short-id "…"]]]
+            [:td [:code (name (:workflow-id inst))]]
+            [:td [:code (name (:entity-type inst))]]
+            [:td
+             (let [eid-str (str (:entity-id inst))
+                   short-eid (subs eid-str 0 (min 8 (count eid-str)))]
+               [:code {:style "font-size: 0.85em;"} short-eid "…"])]
+            [:td (state-badge (:current-state inst) :current)]
+            [:td {:style "font-size: 0.85em; white-space: nowrap;"}
+             (str (:updated-at inst))]]))]])))
 
 ;; =============================================================================
 ;; Filter Form
@@ -216,31 +215,21 @@
    Returns:
      Hiccup form structure"
   [params]
-  [:form {:method "GET"
-          :action "/web/admin/workflows"
-          :style "display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1.5rem;"}
-   [:label {:style "display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875em;"}
+  [:form.workflow-filter-form {:method "GET"
+                               :action "/web/admin/workflows"}
+   [:label.form-field
     "Workflow ID"
-    [:input {:type "text"
-             :name "workflow-id"
-             :placeholder "e.g. order-workflow"
-             :value (get params "workflow-id" "")
-             :style "width: 180px;"}]]
-   [:label {:style "display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875em;"}
+    (ui/text-input :workflow-id (get params "workflow-id" "")
+                   {:placeholder "e.g. order-workflow"})]
+   [:label.form-field
     "Entity type"
-    [:input {:type "text"
-             :name "entity-type"
-             :placeholder "e.g. order"
-             :value (get params "entity-type" "")
-             :style "width: 140px;"}]]
-   [:label {:style "display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875em;"}
+    (ui/text-input :entity-type (get params "entity-type" "")
+                   {:placeholder "e.g. order"})]
+   [:label.form-field
     "Current state"
-    [:input {:type "text"
-             :name "state"
-             :placeholder "e.g. pending"
-             :value (get params "state" "")
-             :style "width: 130px;"}]]
-   [:button {:type "submit" :class "secondary" :style "height: fit-content;"}
+    (ui/text-input :state (get params "state" "")
+                   {:placeholder "e.g. pending"})]
+   [:button.button.secondary {:type "submit"}
     (icons/icon :search {:size 14})
     " Search"]])
 
@@ -260,21 +249,19 @@
      Complete HTML page structure (doctype + html)"
   [instances params opts]
   (let [{:keys [user flash]} opts]
-    (layout/page-layout
+    (layout/admin-pilot-page-layout
      "Workflow Instances — Admin"
-     [:div {:style "padding: 1.5rem;"}
-      [:div {:style "display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;"}
-       [:h1 {:style "margin: 0; display: flex; align-items: center; gap: 0.5rem;"}
+     [:div.workflow-page
+      [:div.page-header
+       [:h1.page-title
         (icons/icon :layout-list {:size 24})
         "Workflow Instances"]
-       [:a {:href "/web/dashboard" :role "button" :class "secondary outline"}
+       [:a.button.secondary {:href "/web/dashboard"}
         "← Dashboard"]]
       (instances-filter-form params)
       (instances-table instances)]
      {:user  user
-      :flash flash
-      :css   ["/css/pico.min.css" "/css/boundary-tokens.css" "/css/admin.css" "/css/app.css"]
-      :js    ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]})))
+      :flash flash})))
 
 (defn instance-detail-page
   "Render the workflow instance detail page.
@@ -294,9 +281,9 @@
   (let [{:keys [user flash]} opts
         visited-states (map :to-state audit-entries)
         wf-name (name (:workflow-id instance))]
-    (layout/page-layout
+    (layout/admin-pilot-page-layout
      (str "Workflow: " wf-name " — Admin")
-     [:div {:style "padding: 1.5rem;"}
+     [:div.workflow-page
       ;; Breadcrumb
       [:nav {:aria-label "Breadcrumb"
              :style "margin-bottom: 1rem; font-size: 0.9em;"}
@@ -341,6 +328,4 @@
          " recorded"]]
        (audit-log-table audit-entries)]]
      {:user  user
-      :flash flash
-      :css   ["/css/pico.min.css" "/css/boundary-tokens.css" "/css/admin.css" "/css/app.css"]
-      :js    ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js"]})))
+      :flash flash})))

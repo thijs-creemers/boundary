@@ -204,7 +204,7 @@
   /* app.css compatibility alias */
   --font-size-sm: var(--text-sm);
 
-  /* Line heights — tokens.css names */
+  /* Line heights — legacy token names */
   --leading-tight:   1.25;
   --leading-normal:  1.5;
   --leading-relaxed: 1.625;
@@ -270,7 +270,7 @@
   --z-overlay:        var(--z-modal-backdrop);   /* app.css alias */
 
   /* ============================================================================
-     LEGACY ALIASES — backward compat with admin.css + tokens.css consumers
+     LEGACY ALIASES — backward compat with admin.css + older token consumers
      ============================================================================ */
 
   /* Accent (admin.css uses --accent-* naming) */

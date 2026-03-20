@@ -38,6 +38,18 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-publish-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build shared UI CSS bundle
+        run: npm run build:css:admin
       
       - name: Determine version
         id: version
@@ -323,8 +335,22 @@ jobs:
         run: sleep 30
 
       # ===========================================================================
-      # LAYER 5: Admin (depends on user)
+      # LAYER 5: UI style and Admin
       # ===========================================================================
+
+      - name: Publish boundary-ui-style
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: |
+          echo "Publishing boundary-ui-style..."
+          cd libs/ui-style
+          clojure -T:build clean
+          clojure -T:build deploy
+          echo "✅ boundary-ui-style published"
+
+      - name: Wait for Clojars indexing (ui-style)
+        run: sleep 30
       
       - name: Publish boundary-admin
         env:
@@ -351,32 +377,33 @@ jobs:
           body: |
             ## Boundary Framework v${{ steps.version.outputs.version }}
 
-            All 19 libraries published to Clojars:
+            All 20 libraries published to Clojars:
 
-            - [boundary-core](https://clojars.org/io.github.tcbv/boundary-core)
-            - [boundary-observability](https://clojars.org/io.github.tcbv/boundary-observability)
-            - [boundary-platform](https://clojars.org/io.github.tcbv/boundary-platform)
-            - [boundary-user](https://clojars.org/io.github.tcbv/boundary-user)
-            - [boundary-admin](https://clojars.org/io.github.tcbv/boundary-admin)
-            - [boundary-storage](https://clojars.org/io.github.tcbv/boundary-storage)
-            - [boundary-scaffolder](https://clojars.org/io.github.tcbv/boundary-scaffolder)
-            - [boundary-cache](https://clojars.org/io.github.tcbv/boundary-cache)
-            - [boundary-jobs](https://clojars.org/io.github.tcbv/boundary-jobs)
-            - [boundary-realtime](https://clojars.org/io.github.tcbv/boundary-realtime)
-            - [boundary-email](https://clojars.org/io.github.tcbv/boundary-email)
-            - [boundary-tenant](https://clojars.org/io.github.tcbv/boundary-tenant)
-            - [boundary-workflow](https://clojars.org/io.github.tcbv/boundary-workflow)
-            - [boundary-search](https://clojars.org/io.github.tcbv/boundary-search)
-            - [boundary-external](https://clojars.org/io.github.tcbv/boundary-external)
-            - [boundary-reports](https://clojars.org/io.github.tcbv/boundary-reports)
-            - [boundary-calendar](https://clojars.org/io.github.tcbv/boundary-calendar)
-            - [boundary-geo](https://clojars.org/io.github.tcbv/boundary-geo)
-            - [boundary-ai](https://clojars.org/io.github.tcbv/boundary-ai)
+            - [boundary-core](https://clojars.org/org.boundary-app/boundary-core)
+            - [boundary-observability](https://clojars.org/org.boundary-app/boundary-observability)
+            - [boundary-platform](https://clojars.org/org.boundary-app/boundary-platform)
+            - [boundary-user](https://clojars.org/org.boundary-app/boundary-user)
+            - [boundary-ui-style](https://clojars.org/org.boundary-app/boundary-ui-style)
+            - [boundary-admin](https://clojars.org/org.boundary-app/boundary-admin)
+            - [boundary-storage](https://clojars.org/org.boundary-app/boundary-storage)
+            - [boundary-scaffolder](https://clojars.org/org.boundary-app/boundary-scaffolder)
+            - [boundary-cache](https://clojars.org/org.boundary-app/boundary-cache)
+            - [boundary-jobs](https://clojars.org/org.boundary-app/boundary-jobs)
+            - [boundary-realtime](https://clojars.org/org.boundary-app/boundary-realtime)
+            - [boundary-email](https://clojars.org/org.boundary-app/boundary-email)
+            - [boundary-tenant](https://clojars.org/org.boundary-app/boundary-tenant)
+            - [boundary-workflow](https://clojars.org/org.boundary-app/boundary-workflow)
+            - [boundary-search](https://clojars.org/org.boundary-app/boundary-search)
+            - [boundary-external](https://clojars.org/org.boundary-app/boundary-external)
+            - [boundary-reports](https://clojars.org/org.boundary-app/boundary-reports)
+            - [boundary-calendar](https://clojars.org/org.boundary-app/boundary-calendar)
+            - [boundary-geo](https://clojars.org/org.boundary-app/boundary-geo)
+            - [boundary-ai](https://clojars.org/org.boundary-app/boundary-ai)
             
             ### Installation
             
             ```clojure
-            {:deps {io.github.tcbv/boundary-platform {:mvn/version "${{ steps.version.outputs.version }}"}}
+            {:deps {org.boundary-app/boundary-platform {:mvn/version "${{ steps.version.outputs.version }}"}}
             ```
             
             See [CHANGELOG.md](https://github.com/thijs-creemers/boundary/blob/main/CHANGELOG.md) for details.
@@ -387,7 +414,7 @@ jobs:
         run: |
           echo "# ✅ Publish Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "All 19 libraries published to Clojars:" >> $GITHUB_STEP_SUMMARY
+          echo "All 20 libraries published to Clojars:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Library | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
@@ -395,6 +422,7 @@ jobs:
           echo "| boundary-observability | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "| boundary-platform | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "| boundary-user | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          echo "| boundary-ui-style | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "| boundary-storage | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "| boundary-scaffolder | ✅ Published |" >> $GITHUB_STEP_SUMMARY
           echo "| boundary-cache | ✅ Published |" >> $GITHUB_STEP_SUMMARY

@@ -39,13 +39,13 @@
       <sourceFolder url="file://$MODULE_DIR$/libs/calendar/test" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/libs/reports/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/reports/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/starter/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/starter/test" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/dev" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/libs/ai/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/ai/test" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/geo/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/geo/test" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/ui-style/resources" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/ui-style/src" isTestSource="false" />
     </content>
   </component>
   <component name="BuildSystem">

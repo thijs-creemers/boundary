@@ -101,9 +101,9 @@
                                             :aria-label "Open menu"}
                                            (alpine/mobile-menu-toggle-attrs))
          (icons/icon :menu {:size 24})]
-        [:h1 (or page-title "Admin Dashboard")]
+        [:h1 {:class "text-lg font-semibold"} (or page-title "Admin Dashboard")]
         [:div.admin-topbar-actions
-         [:span (str "Welcome, " (:display-name user (:email user)))]
+         [:span {:class "badge badge-ghost"} (str "Welcome, " (:display-name user (:email user)))]
          (icons/theme-toggle-button)
          [:form {:method "POST" :action "/web/logout" :class "logout-form"}
           [:button {:type "submit" :class "logout-button" :aria-label "Logout"}
@@ -129,15 +129,12 @@
                 "Admin Dashboard")
         page-title (when current-entity
                      (:label (get entity-configs current-entity)))]
-    (layout/page-layout
+    (layout/admin-pilot-page-layout
      title
      (admin-shell content (assoc opts :page-title page-title))
      {:user user
       :flash flash
-      :skip-header true
-      :css ["/css/pico.min.css" "/css/boundary-tokens.css" "/css/admin.css" "/css/app.css"]
-      ;; Alpine.js must load BEFORE HTMX for proper MutationObserver setup
-      :js ["/js/theme.js" "/js/alpine.min.js" "/js/htmx.min.js" "/js/forms.js" "/js/keyboard.js"]})))
+      :skip-header true})))
 
 (defn admin-home
   "Admin dashboard home page content.
@@ -150,23 +147,29 @@
    Returns:
      Hiccup structure for dashboard"
   [entities entity-configs & [stats]]
-  [:div.admin-home
-   [:h1 "Admin Dashboard"]
-   [:p "Manage your application entities."]
+  [:div.admin-home {:class "space-y-4"}
+   [:section.admin-home-hero
+    [:div.admin-home-hero-inner
+     [:div
+      [:span.admin-home-kicker "Control Center"]
+      [:h1 "Admin Dashboard"]
+      [:p "Manage your application entities."]]]]
    [:div.entity-grid
     (for [entity entities]
       (let [entity-config (get entity-configs entity)
             label (:label entity-config)
             description (:description entity-config)
-            icon (:icon entity-config "📄")
+            icon (:icon entity-config :database)
             count (get-in stats [entity :count] 0)]
         [:div.entity-card
-         [:a {:href (str "/web/admin/" (name entity))}
-          [:div.entity-card-icon icon]
+         [:a {:href (str "/web/admin/" (name entity))
+              :class "entity-card-link"}
+          [:div.entity-card-head
+           [:div.entity-card-icon (icons/icon icon {:size 18})]
+           [:span.entity-card-count (str count " records")]]
           [:div.entity-card-title label]
           (when description
-            [:div.entity-card-description description])
-          [:div.entity-card-count (str count " records")]]]))]])
+            [:div.entity-card-description description])]]))]])
 
 ;; =============================================================================
 ;; Entity List Components
@@ -483,11 +486,13 @@
   (let [field-type (:type field-config :string)]
     (cond
       (nil? value)
-      [:span.null-value "—"]
+      [:span.null-value {:class "badge ui-badge ui-badge-neutral null-value"} "—"]
 
       (= field-type :boolean)
-      [:span {:class (str "badge " (if value "badge-success" "badge-secondary"))}
-       (if value "Yes" "No")]
+      (ui/badge (if value "Yes" "No")
+                {:variant (if value :success :neutral)
+                 :class (str "admin-bool-badge "
+                             (if value "admin-bool-badge-true" "admin-bool-badge-false"))})
 
       (= field-type :instant)
       (str value)
@@ -496,10 +501,11 @@
       (str value)
 
       (= field-type :uuid)
-      [:span.uuid-value (str value)]
+      [:span.uuid-value {:class "font-mono text-xs opacity-80"} (str value)]
 
       (= field-type :enum)
-      [:span.enum-badge (str/capitalize (name value))]
+      [:span.enum-badge {:class "badge ui-badge ui-badge-outline enum-badge"}
+       (str/capitalize (name value))]
 
       (= field-type :json)
       [:code (str value)]
@@ -762,13 +768,14 @@
       :hx-trigger "entityCreated from:body, entityUpdated from:body, entityDeleted from:body"
       :hx-target hx-target}
      (if (empty? records)
-       [:div.empty-state
+       [:div.empty-state {:class "p-10 text-center"}
         [:div.empty-state-icon
          (icons/icon :inbox {:size 48})]
-        [:p "No records found."]
+        [:p {:class "mt-2 text-base-content/70"} "No records found."]
         (when (:can-create permissions)
           [:a.button.primary
-           {:href (str "/web/admin/" (name entity-name) "/new")}
+           {:class "mt-4"
+            :href (str "/web/admin/" (name entity-name) "/new")}
            "Create First Record"])]
        [:div.table-wrapper
         ;; Form for checkbox submission (hidden inputs + table)
@@ -782,16 +789,16 @@
          (for [[k v] filter-params]
            [:input {:type "hidden" :name k :value v}])
 
-         [:table.data-table
+         [:table.data-table {:class "data-table table"}
            ;; Explicit column widths for table-layout: fixed
           [:colgroup
-           [:col {:style "width: 48px;"}]  ; Checkbox
+           [:col {:class "col-select"}]  ; Checkbox
            (for [_ list-fields]
              [:col])  ; Auto-width for data columns
-           [:col {:style "width: 80px;"}]]  ; Actions
+           [:col {:class "col-actions"}]]  ; Actions
           [:thead
            [:tr
-            [:th
+            [:th {:class "checkbox-header"}
              ;; Alpine.js select-all checkbox with reactive binding
              [:input (alpine/select-all-checkbox-attrs)]]
             (for [field list-fields]
@@ -803,19 +810,21 @@
                                          :current-sort sort
                                          :current-dir dir
                                          :base-url base-url
+                                         :push-url-base (str "/web/admin/" (name entity-name))
                                          :page page
                                          :page-size page-size
                                          :hx-target hx-target
                                          :hx-push-url? true
                                          :extra-params filters})
                   [:th (:label field-config (str/capitalize (name field)))])))
-            [:th "Actions"]]]
+            [:th {:class "actions-header"} "Actions"]]]
           [:tbody
            (for [record records]
              (entity-table-row entity-name record entity-config permissions))]]]
         (table-ui/pagination {:table-query table-query
                               :total-count total-count
                               :base-url base-url
+                              :push-url-base (str "/web/admin/" (name entity-name))
                               :hx-target hx-target
                               :extra-params filters})])]))
 
@@ -841,10 +850,11 @@
         search-value (:search search)]
     ;; Alpine.js bulk selection scope - wraps toolbar and table
     ;; selectedIds array is shared between delete button and checkboxes
-    [:div.entity-list-page (alpine/bulk-selection-attrs)
+    [:div.entity-list-page (merge (alpine/bulk-selection-attrs)
+                                  {:class "space-y-4"})
      (when flash
        (for [[type message] flash]
-         [:div {:class (str "alert alert-" (name type))} message]))
+         [:div {:class (str "alert alert-" (name type) " mb-2")} message]))
 
      [:section.entity-list-hero
       [:div.entity-list-hero-inner
@@ -853,22 +863,24 @@
         [:h1.entity-list-title label]
         [:p.entity-list-subtitle
          (str "Manage " (str/lower-case label) ". " total-count " total")]]
-       [:div.entity-list-hero-actions
+       [:div.entity-list-hero-actions {:class "flex items-center gap-2"}
         (when (:can-create permissions)
           [:a.button.primary
-           {:href (str "/web/admin/" (name entity-name) "/new")
+           {:class "gap-2"
+            :href (str "/web/admin/" (name entity-name) "/new")
             :aria-label (str "Create new " (name entity-name))}
            (icons/icon :plus {:size 18})
            [:span "New " (str/capitalize (name entity-name))]])]]]
 
        ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
-     [:div.table-toolbar-container
+     [:div.table-toolbar-container {:class "space-y-3"}
         ;; Search bar (separate row)
       [:div.toolbar-row-search
        (when has-search?
-         [:div.toolbar-search
+         [:div.toolbar-search {:class "flex items-center gap-2"}
           [:input.search-input {:type "text"
                                 :name "search"
+                                :class "search-input w-full"
                                 :placeholder (str "Search " (str/join ", " (map name search-fields)) "...")
                                 :value (or search-value "")
                                 :hx-get (str "/web/admin/" (name entity-name) "/table")
@@ -890,8 +902,8 @@
              (icons/icon :x {:size 20})])])]
 
        ;; Actions row (delete + create buttons)
-      [:div.toolbar-row-actions
-       [:div.record-meta
+      [:div.toolbar-row-actions {:class "gap-3"}
+       [:div.record-meta {:class "flex items-center gap-2"}
         [:span.record-count
          (str total-count " " label)]
         [:span.selection-count
@@ -915,7 +927,7 @@
                  :hx-confirm "Are you sure you want to delete selected records?"})
          (icons/icon :trash {:size 18})]]
 
-       [:div.toolbar-actions
+       [:div.toolbar-actions {:class "flex items-center gap-2"}
         [:button.icon-button.ghost {:type "button"
                                     :aria-label "Refresh list"
                                     :hx-get (str "/web/admin/" (name entity-name) "/table")
@@ -924,7 +936,7 @@
          (icons/icon :refresh {:size 18})]]]]
 
        ;; Filter builder + Table wrapper (THIS is the HTMX target for filter updates)
-     [:div#filter-table-container
+     [:div#filter-table-container {:class "space-y-3"}
       ;; Filter builder (will be updated by HTMX)
       (render-filter-builder entity-name entity-config filters)
       ;; Table (will also be updated by HTMX)
@@ -1026,7 +1038,9 @@
        ;; Boolean input
        (= widget-type :checkbox)
        (list
-        (ui/checkbox field-name value {:required required? :disabled readonly?})
+        (ui/checkbox field-name value {:required required?
+                                       :disabled readonly?
+                                       :class "checkbox checkbox-sm"})
         (when help-text
           [:span.help-text help-text]))
 
@@ -1154,13 +1168,15 @@
    Returns:
      Hiccup fieldset/group structure"
   [group entity-config record errors]
-  [:div.form-field-group {:data-group-id (name (:id group))}
-   [:h3 (:label group)]
-   (for [field-name (:fields group)]
-     (let [field-config (get-in entity-config [:fields field-name])
-           field-value (get record field-name)
-           field-errors (get errors field-name)]
-       (render-field-widget field-name field-value field-config field-errors)))])
+  [:div.form-field-group {:class "form-field-group"
+                          :data-group-id (name (:id group))}
+   [:h3.form-section-title (:label group)]
+   [:div.form-fields
+    (for [field-name (:fields group)]
+      (let [field-config (get-in entity-config [:fields field-name])
+            field-value (get record field-name)
+            field-errors (get errors field-name)]
+        (render-field-widget field-name field-value field-config field-errors)))]])
 
 (defn entity-form
   "Render entity create/edit form.
@@ -1207,32 +1223,33 @@
             (when is-edit?
               {:hx-push-url (str "/web/admin/" (name entity-name))}))
      ;; No longer need hidden _method field since HTMX sends proper HTTP method
-     [:div.form-card
-      [:div.form-card-body
+     [:div.form-card {:class "form-card overflow-hidden"}
+      [:div.form-card-body {:class "form-card-body space-y-4"}
        [:div.form-meta
         [:span.form-meta-label "Required fields are marked with *"]]
        (cond
          ;; Priority 1: Use configured field groups if present
          field-groups
-         [:div.form-sections
+         [:div.form-sections {:class "form-sections"}
           (for [group field-groups]
             (render-field-group group entity-config record errors))]
 
          ;; Priority 2: Split into required/optional sections if both exist
          (and (seq required-fields) (seq optional-fields))
-         [:div.form-sections
-          [:div.form-section
-           [:div.form-section-header
+         [:div.form-sections {:class "form-sections"}
+          [:div.form-section {:class "form-section"}
+           [:div.form-section-header {:class "form-section-header"}
             [:h3.form-section-title "Required details"]
             [:p.form-section-description "Complete these fields to save the record."]]
-           [:div.form-fields
+           [:div.form-fields {:class "form-fields"}
             (for [field-name required-fields]
               (let [field-config (get-in entity-config [:fields field-name])
                     field-value (get record field-name)
                     field-errors (get errors field-name)]
                 (render-field-widget field-name field-value field-config field-errors)))]]
           [:details.form-section.form-section-optional
-           {:x-data "{open: true}"
+           {:class "form-section form-section-optional"
+            :x-data "{open: true}"
             :x-init (str "open = (localStorage.getItem('"
                          optional-details-key
                          "') ?? 'true') === 'true'")
@@ -1240,13 +1257,13 @@
             :x-on:toggle (str "localStorage.setItem('"
                               optional-details-key
                               "', $el.open ? 'true' : 'false')")}
-           [:summary.form-section-toggle
-            [:div.form-section-header
+           [:summary.form-section-toggle {:class "form-section-toggle"}
+            [:div.form-section-header {:class "form-section-header"}
              [:h3.form-section-title "Optional details"]
              [:p.form-section-description "Add extra context when available."]]
             [:span.form-section-toggle-icon
              (icons/icon :chevron-down {:size 16})]]
-           [:div.form-fields
+           [:div.form-fields {:class "form-fields"}
             (for [field-name optional-fields]
               (let [field-config (get-in entity-config [:fields field-name])
                     field-value (get record field-name)
@@ -1255,17 +1272,18 @@
 
          ;; Priority 3: Flat rendering (all fields in one section)
          :else
-         [:div.form-fields
+         [:div.form-fields {:class "form-fields"}
           (for [field-name editable-fields]
             (let [field-config (get-in entity-config [:fields field-name])
                   field-value (get record field-name)
                   field-errors (get errors field-name)]
               (render-field-widget field-name field-value field-config field-errors)))])]
-      [:div.form-actions
-       [:button.button.primary {:type "submit"}
+      [:div.form-actions {:class "form-actions justify-end border-t border-base-300 pt-4 mt-4"}
+       [:button.button.primary {:class "gap-2" :type "submit"}
         (if is-edit? "Update" "Create")]
        [:a.button.secondary
-        {:href (str "/web/admin/" (name entity-name))}
+        {:class "gap-2"
+         :href (str "/web/admin/" (name entity-name))}
         "Cancel"]]]]))
 
 (defn entity-detail-page
@@ -1288,7 +1306,7 @@
         page-title (if is-edit?
                      (str "Edit " label)
                      (str "Create " label))]
-    [:div.entity-detail-page
+    [:div.entity-detail-page {:class "space-y-4"}
      (when flash
        (let [flash-type (or (:type flash)
                             (first (keys flash))) ; Old format: {:error "msg"}
@@ -1296,7 +1314,7 @@
                            (first (vals flash)))] ; Old format: {:error "msg"}
          [:div {:class (str "alert alert-" (name flash-type))}
           flash-msg]))
-     [:div.page-header
+     [:div.page-header {:class "space-y-3"}
       [:div.page-header-row
        [:div.page-breadcrumbs
         [:a {:href "/web/admin"} "Admin"]
@@ -1304,19 +1322,22 @@
         [:a {:href (str "/web/admin/" (name entity-name))} label]
         " / "
         [:span page-title]]
-       [:div.page-header-actions
+       [:div.page-header-actions {:class "flex flex-wrap items-center gap-2"}
         [:a.button.secondary
-         {:href (str "/web/admin/" (name entity-name))}
+         {:class "gap-2"
+          :href (str "/web/admin/" (name entity-name))}
          (icons/icon :chevron-left {:size 16})
          "Back to list"]
         (when is-edit?
           [:a.button.primary
-           {:href (str "/web/admin/" (name entity-name) "/new")}
+           {:class "gap-2"
+            :href (str "/web/admin/" (name entity-name) "/new")}
            (icons/icon :plus {:size 16})
            (str "New " label)])
         (when (and is-edit? (:can-delete permissions))
           [:button.button.danger
            {:type "button"
+            :class "gap-2"
             :hx-delete (str "/web/admin/" (name entity-name) "/" (get record (:primary-key entity-config :id)))
             :hx-target "body"
             :hx-swap "outerHTML"
@@ -1384,7 +1405,7 @@
    Returns:
      Hiccup page structure"
   [reason & [user]]
-  (layout/page-layout
+  (layout/admin-pilot-page-layout
    "Access Denied"
    [:div.error-page.admin-forbidden
     [:h1 "403 - Access Denied"]
@@ -1407,7 +1428,7 @@
    Returns:
      Hiccup page structure"
   [entity-name user]
-  (layout/page-layout
+  (layout/admin-pilot-page-layout
    "Not Found"
    [:div.error-page.admin-not-found
     [:h1 "404 - Entity Not Found"]

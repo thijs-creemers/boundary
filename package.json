@@ -2,8 +2,16 @@
   "name": "boundary-framework",
   "version": "1.0.0",
   "description": "Boundary Framework - Module-centric Clojure framework",
-  "scripts": {},
+  "scripts": {
+    "build:css:admin": "tailwindcss -i ./libs/ui-style/resources/tailwind/admin-pilot.css -o ./libs/ui-style/resources/public/css/daisy-admin.css --minify",
+    "watch:css:admin": "tailwindcss -i ./libs/ui-style/resources/tailwind/admin-pilot.css -o ./libs/ui-style/resources/public/css/daisy-admin.css --watch"
+  },
   "dependencies": {
     "@playwright/test": "^1.58.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.2.2",
+    "daisyui": "^5.5.19",
+    "tailwindcss": "^4.2.2"
   }
 }

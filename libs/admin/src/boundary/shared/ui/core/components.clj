@@ -5,6 +5,14 @@
    No domain-specific logic should be placed here - only pure presentation functions."
   (:require [hiccup2.core :as h]))
 
+(defn- merge-class
+  "Merge CSS classes into attrs map without dropping existing classes."
+  [attrs class-name]
+  (let [existing (:class attrs)]
+    (assoc attrs :class (if (seq existing)
+                          (str existing " " class-name)
+                          class-name))))
+
 ;; =============================================================================
 ;; Form Components
 ;; =============================================================================
@@ -26,8 +34,10 @@
                     :name (name field-key)
                     :value (or value "")}
         ;; Remove type from opts since we handle it separately
-        filtered-opts (dissoc opts :type)]
-    [:input (merge base-attrs filtered-opts)]))
+        filtered-opts (dissoc opts :type)
+        attrs (-> (merge base-attrs filtered-opts)
+                  (merge-class "form-control ui-input"))]
+    [:input attrs]))
 
 (defn email-input
   "Email input component.
@@ -68,12 +78,13 @@
   [field-key value & [opts]]
   (let [{:keys [rows cols placeholder class]
          :or {rows 4 cols 50}} opts]
-    [:textarea (merge {:id (name field-key)
-                       :name (name field-key)
-                       :rows rows
-                       :cols cols}
-                      (when placeholder {:placeholder placeholder})
-                      (when class {:class class}))
+    [:textarea (-> (merge {:id (name field-key)
+                           :name (name field-key)
+                           :rows rows
+                           :cols cols}
+                          (when placeholder {:placeholder placeholder})
+                          (when class {:class class}))
+                   (merge-class "form-control ui-input"))
      (or value "")]))
 
 (defn select-field
@@ -94,9 +105,10 @@
                        options)
         ;; Normalize selected-value to string for comparison
         selected-str (if (keyword? selected-value) (name selected-value) (str selected-value))]
-    [:select (merge {:id (name field-key)
-                     :name (name field-key)}
-                    (when class {:class class}))
+    [:select (-> (merge {:id (name field-key)
+                         :name (name field-key)}
+                        (when class {:class class}))
+                 (merge-class "form-control ui-input"))
      (for [[value label] option-pairs]
        (let [;; Convert value to string for HTML attribute
              value-str (if (keyword? value) (name value) (str value))]
@@ -126,7 +138,8 @@
      ;; Hidden field ensures "false" is sent when checkbox is unchecked
      [:input {:type "hidden" :name field-name :value "false"}]
      ;; Checkbox - when checked, its value="true" overrides the hidden false
-     [:input (merge base-attrs checked-attrs opts)])))
+     [:input (-> (merge base-attrs checked-attrs opts)
+                 (merge-class "form-checkbox"))])))
 
 (defn form-field
   "Form field wrapper with label and error display.
@@ -222,7 +235,9 @@
   (let [{:keys [id class hx-get hx-target hx-trigger]} opts]
     (if (empty? rows)
       [:div.empty-state "No data available."]
-      [:table (merge {:class (or class "data-table")}
+      [:table (merge {:class (if (seq class)
+                               (str class " ui-table")
+                               "data-table ui-table")}
                      (when id {:id id})
                      (when hx-get {:hx-get hx-get})
                      (when hx-target {:hx-target hx-target})
@@ -236,6 +251,46 @@
           [:tr
            (for [cell row]
              [:td cell])])]])))
+
+(defn table-wrapper
+  "Wrap a table in the canonical responsive table container.
+
+   Accepted forms:
+   - (table-wrapper table-html)
+   - (table-wrapper table-html {:class ...})
+   - (table-wrapper table-html child1 child2 ...)
+   - (table-wrapper table-html {:class ...} child1 child2 ...)"
+  [table-html & args]
+  (let [first-arg (first args)
+        [opts children] (if (map? first-arg)
+                          [first-arg (rest args)]
+                          [{} args])]
+    (into [:div (merge {:class "table-wrapper ui-table-wrapper"} opts)
+           table-html]
+          children)))
+
+(defn badge
+  "Canonical badge component.
+
+   opts:
+   - :variant one of :success :info :warning :danger :neutral :outline
+   - :class extra class names
+   - :icon optional hiccup icon shown before text"
+  [text & [opts]]
+  (let [{:keys [variant class icon]} opts
+        variant-class (case variant
+                        :success "ui-badge-success"
+                        :info "ui-badge-info"
+                        :warning "ui-badge-warning"
+                        :danger "ui-badge-danger"
+                        :outline "ui-badge-outline"
+                        "ui-badge-neutral")
+        classes (str "badge ui-badge " variant-class
+                     (when (seq class) (str " " class)))
+        children (cond-> []
+                   icon (conj icon)
+                   true (conj text))]
+    (into [:span {:class classes}] children)))
 
 ;; =============================================================================
 ;; Message Components
@@ -302,9 +357,9 @@
           (let [field-label (when field (name field))
                 ;; Ensure field-errors is always a collection
                 errors-coll (cond
-                             (coll? field-errors) field-errors
-                             field-errors [field-errors]
-                             :else [])]
+                              (coll? field-errors) field-errors
+                              field-errors [field-errors]
+                              :else [])]
             (for [error errors-coll]
               [:li (if field-label
                      (str field-label ": " error)

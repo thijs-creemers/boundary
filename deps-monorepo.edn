@@ -23,6 +23,8 @@
                       "libs/storage/src"
                       "libs/external/src"
                       "libs/scaffolder/src"
+                      "libs/ui-style/src"
+                      "libs/ui-style/resources"
                       "resources"
                       "dev"]
         :extra-deps {;; All library dependencies (merged for dev)

@@ -11,7 +11,8 @@
      month-view     — full month calendar grid
      week-view      — 7-column week grid with hourly rows
      mini-calendar  — compact month navigator for sidebars"
-  (:require [clojure.string :as str])
+  (:require [boundary.shared.ui.core.components :as ui]
+            [clojure.string :as str])
   (:import [java.time Instant ZoneId ZonedDateTime LocalDate Month]
            [java.time.format DateTimeFormatter]
            [java.util Locale]))
@@ -83,7 +84,8 @@
          time-str (format-time zdt)]
      [:div {:class "event-badge"
             :title (:title event)}
-      [:span.event-time time-str]
+      (ui/badge time-str {:variant :info
+                          :class "event-time"})
       [:span.event-title (:title event)]])))
 
 ;; =============================================================================

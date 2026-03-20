@@ -11,6 +11,14 @@
             [boundary.platform.shell.web.table :as web-table]
             [clojure.string :as str]))
 
+(defn- page-layout
+  "User module page layout with daisyUI pilot styling."
+  [title content & [opts]]
+  (layout/pilot-page-layout
+   title
+   content
+   opts))
+
 ;; =============================================================================
 ;; User Table Components
 ;; =============================================================================
@@ -29,10 +37,16 @@
     [(:id user)
      (:name user)
      (:email user)
-     [:span {:class (str "role-badge " (name role))}
-      (-> role name str/capitalize)]
-     [:span {:class (str "status-badge " (if active? "active" "inactive"))}
-      (if active? "Active" "Inactive")]]))
+     (ui/badge (-> role name str/capitalize)
+               {:variant (case role
+                           :admin :info
+                           :user :neutral
+                           :viewer :outline
+                           :neutral)
+                :class "user-role-badge"})
+     (ui/badge (if active? "Active" "Inactive")
+               {:variant (if active? :success :warning)
+                :class "user-status-badge"})]))
 
 (defn users-table-fragment
   "Generate just the users table container fragment (for HTMX refresh).
@@ -86,6 +100,7 @@
                                     :current-sort sort
                                     :current-dir  dir
                                     :base-url     base-url
+                                    :push-url-base "/web/users"
                                     :page         page
                                     :page-size    page-size
                                     :hx-target    hx-target
@@ -96,6 +111,7 @@
                                     :current-sort sort
                                     :current-dir  dir
                                     :base-url     base-url
+                                    :push-url-base "/web/users"
                                     :page         page
                                     :page-size    page-size
                                     :hx-target    hx-target
@@ -106,6 +122,7 @@
                                     :current-sort sort
                                     :current-dir  dir
                                     :base-url     base-url
+                                    :push-url-base "/web/users"
                                     :page         page
                                     :page-size    page-size
                                     :hx-target    hx-target
@@ -128,6 +145,7 @@
           (table-ui/pagination {:table-query  table-query
                                 :total-count total-count
                                 :base-url    base-url
+                                :push-url-base "/web/users"
                                 :hx-target   hx-target
                                 :extra-params filters})]]]))))
 
@@ -291,7 +309,6 @@
        (if active?
          [:button.button.danger
           {:type "button"
-           :style "margin-left: 10px;"
            :onclick (str "if(confirm('Are you sure you want to deactivate this user?')) {"
                          "fetch('/web/users/" (:id user) "', {method: 'DELETE', headers: {'HX-Request': 'true'}});"
                          "window.location.href='/web/users';"
@@ -300,7 +317,6 @@
          ;; Reactivate button for inactive users - uses the same update endpoint but sets active=true
          [:button.button.primary
           {:type "button"
-           :style "margin-left: 10px;"
            :onclick (str "const form = this.closest('form');"
                          "const activeCheckbox = form.querySelector('input[name=active]');"
                          "activeCheckbox.checked = true;"
@@ -372,30 +388,29 @@
      Hiccup structure showing success message"
   [user]
   (let [active? (boolean (:active user))]
-    (layout/page-layout
+    (page-layout
      "Account Created"
-     [:div.register-page
-      [:div {:style "max-width: 600px; margin: 0 auto; text-align: center;"}
-       [:div {:style "background: var(--color-success-light); border: 2px solid var(--color-success); border-radius: var(--radius-xl); padding: var(--space-8); margin-bottom: var(--space-6);"}
-        [:div {:style "font-size: 4rem; margin-bottom: var(--space-4);"} "✓"]
-        [:h1 {:style "margin: 0 0 var(--space-4) 0; color: var(--color-success-dark);"} "Account Created Successfully!"]
-        [:p {:style "font-size: var(--text-lg); color: var(--text-primary); margin-bottom: var(--space-6);"}
-         "Welcome to Boundary, " [:strong (:name user)] "!"]
-        [:div {:style "background: var(--bg-primary); border-radius: var(--radius-lg); padding: var(--space-6); margin-bottom: var(--space-6);"}
-         [:p {:style "margin: 0 0 var(--space-2) 0; color: var(--text-secondary); font-size: var(--text-sm);"} "Your account has been created with the following details:"]
-         [:div {:style "text-align: left; margin-top: var(--space-4);"}
-          [:div {:style "display: flex; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--border-default);"}
-           [:span {:style "font-weight: var(--font-medium); color: var(--text-secondary);"} "Email:"]
-           [:span {:style "color: var(--text-primary);"} (:email user)]]
-          [:div {:style "display: flex; justify-content: space-between; padding: var(--space-3) 0; border-bottom: 1px solid var(--border-default);"}
-           [:span {:style "font-weight: var(--font-medium); color: var(--text-secondary);"} "Name:"]
-           [:span {:style "color: var(--text-primary);"} (:name user)]]
-          [:div {:style "display: flex; justify-content: space-between; padding: var(--space-3) 0;"}
-           [:span {:style "font-weight: var(--font-medium); color: var(--text-secondary);"} "Status:"]
-           [:span {:style "color: var(--color-success-dark); font-weight: var(--font-semibold);"} (if active? "Active" "Inactive")]]]]
-        [:div {:style "margin-top: var(--space-6);"}
-         [:p {:style "color: var(--text-secondary); margin-bottom: var(--space-4);"} "You can now sign in with your email and password."]
-         [:a.button.primary {:href "/web/login" :style "display: inline-block; min-width: 200px;"} "Sign In"]]]]]
+     [:div.user-created-page.auth-page
+      [:div.user-created-card
+       [:div.user-created-check "✓"]
+       [:h1 "Account Created Successfully!"]
+       [:p.user-created-lead
+        "Welcome to Boundary, " [:strong (:name user)] "!"]
+       [:div.user-created-summary
+        [:p "Your account has been created with the following details:"]
+        [:div.user-created-details
+         [:div.user-created-row
+          [:span.user-created-label "Email:"]
+          [:span (:email user)]]
+         [:div.user-created-row
+          [:span.user-created-label "Name:"]
+          [:span (:name user)]]
+         [:div.user-created-row
+          [:span.user-created-label "Status:"]
+          [:span.user-created-status (if active? "Active" "Inactive")]]]]
+       [:div.user-created-actions
+        [:p "You can now sign in with your email and password."]
+        [:a.button.primary {:href "/web/login"} "Sign In"]]]]
      {:skip-header false})))
 
 (defn user-updated-success
@@ -478,14 +493,14 @@
                           :offset    0
                           :limit     20})
          filters     (or (:filters opts) {})]
-     (layout/page-layout
+     (page-layout
       "Users"
       [:div.users-page
        [:div.page-header
         [:h1 "Users"]
         [:div.page-actions
             ;; Bulk action selector and button
-         [:div.bulk-action-controls {:style "display: flex; gap: 0.5rem; align-items: center;"}
+         [:div.bulk-action-controls
           [:select#bulk-action-select
            {:onchange "document.getElementById('bulk-action-input').value = this.value;"}
            [:option {:value "deactivate"} "Deactivate"]
@@ -502,7 +517,7 @@
          [:details#search-filter-details.search-filter-inline
           [:summary.search-toggle
            (icons/icon :search {:size 16})
-           [:span {:style "margin-left: 0.5rem;"} "Filters"]]
+           [:span "Filters"]]
           [:div.search-filter-overlay
            {:onclick "if(event.target === this) document.getElementById('search-filter-details').open = false;"}
            [:form.search-filter-form
@@ -544,7 +559,7 @@
   [user & [opts]]
   (let [current-user (:user opts)
         is-admin? (= :admin (:role current-user))]
-    (layout/page-layout
+    (page-layout
      (str "User: " (:name user))
      [:div.user-detail-page
       [:div.page-header
@@ -552,13 +567,12 @@
        [:div.page-actions
          ;; Admin-only hard delete button
         (when (and is-admin? (not (:active user)))
-          [:form {:method "post"
-                  :action (str "/web/users/" (:id user) "/hard-delete")
-                  :style "display: inline-block; margin-right: 10px;"
-                  :onsubmit "return confirm('⚠️  PERMANENT DELETE\\n\\nThis will IRREVERSIBLY delete this user and ALL related data.\\n\\nThis action cannot be undone.\\n\\nAre you absolutely sure?');"}
+          [:form.hard-delete-form {:method "post"
+                                   :action (str "/web/users/" (:id user) "/hard-delete")
+                                   :onsubmit "return confirm('⚠️  PERMANENT DELETE\\n\\nThis will IRREVERSIBLY delete this user and ALL related data.\\n\\nThis action cannot be undone.\\n\\nAre you absolutely sure?');"}
            [:button.button.danger {:type "submit"}
             (icons/icon :trash {:size 16})
-            [:span {:style "margin-left: 0.5rem;"} "Permanently Delete"]]])
+            [:span "Permanently Delete"]]])
         [:a.button.secondary {:href (str "/web/users/" (:id user) "/sessions")} "View Sessions"]
         [:a.button {:href "/web/users"} "← Back to Users"]]]
       (user-detail-form user)]
@@ -575,7 +589,7 @@
    Returns:
      Complete HTML page for creating users"
   [& [data errors opts]]
-  (layout/page-layout
+  (page-layout
    "Create User"
    [:div.create-user-page
     [:div.page-header
@@ -598,7 +612,7 @@
    Returns:
      Complete HTML page structure"
   [& [opts]]
-  (layout/page-layout
+  (page-layout
    "Welcome"
    [:div.web-root-page
     [:div.web-root-content
@@ -624,33 +638,34 @@
       errors - map of field keyword -> vector of error messages"
   [data errors]
   (let [_err (fn [k]
-              (when-let [es (seq (get errors k))]
-                [:div.validation-errors
-                 (for [e es]
-                   [:p e])]))]
-    [:div#login-form
-     [:h2
-      (icons/icon :log-in {:size 24})
-      [:span {:style "margin-left: 0.5rem;"} "Sign in"]]
-     [:form {:method "post"
-             :action "/web/login"
-             :class  "form-card"}
+               (when-let [es (seq (get errors k))]
+                 [:div.validation-errors
+                  (for [e es]
+                    [:p e])]))]
+    [:div#login-form {:class "auth-card ui-card"}
+     [:div.card-body
+      [:h2.auth-title
+       (icons/icon :log-in {:size 24})
+       [:span "Sign in"]]
+      [:form {:method "post"
+              :action "/web/login"
+              :class  "form-card ui-form-shell"}
        ;; Hidden field to preserve return-to URL
-      (when (:return-to data)
-        [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
-      (ui/form-field :email "Email"
-                     (ui/email-input :email (:email data) {:required true})
-                     (:email errors))
-      (ui/form-field :password "Password"
-                     (ui/password-input :password "" {:required true})
-                     (:password errors))
-      (ui/form-field :remember "Remember me"
-                     (ui/checkbox :remember (boolean (:remember data)))
-                     nil)
-      (ui/submit-button "Sign in" {:loading-text "Signing in..."})]
-     [:div {:style "margin-top: 1.5rem; text-align: center; padding-top: 1.5rem; border-top: 1px solid var(--border-default);"}
-      [:p {:style "color: var(--text-secondary); margin-bottom: 0.5rem;"} "Dont have an account?"]
-      [:a {:href "/web/register" :class "button secondary" :style "display: inline-block;"} "Create Account"]]]))
+       (when (:return-to data)
+         [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
+       (ui/form-field :email "Email"
+                      (ui/email-input :email (:email data) {:required true})
+                      (:email errors))
+       (ui/form-field :password "Password"
+                      (ui/password-input :password "" {:required true})
+                      (:password errors))
+       (ui/form-field :remember "Remember me"
+                      (ui/checkbox :remember (boolean (:remember data)))
+                      nil)
+       (ui/submit-button "Sign in" {:loading-text "Signing in..."})]
+      [:div.auth-footer
+       [:p "Dont have an account?"]
+       [:a.button.secondary {:href "/web/register"} "Create Account"]]]]))
 
 (defn login-page
   "Complete login page.
@@ -663,10 +678,10 @@
   (let [data-with-return (if (:return-to opts)
                            (assoc data :return-to (:return-to opts))
                            data)]
-    (layout/page-layout
+    (page-layout
      "Sign in"
-     [:div.login-page
-      [:div.page-header
+     [:div.login-page.auth-page
+      [:div.page-header.auth-header
        [:h1 "Boundary"]
        [:p "Sign in to manage users"]]
       (login-form data-with-return errors)]
@@ -684,50 +699,51 @@
       errors - map of field keyword -> vector of error messages"
   [data errors]
   (let [_err (fn [k]
-              (when-let [es (seq (get errors k))]
-                [:div.validation-errors
-                 (for [e es]
-                   [:p e])]))]
-    [:div#mfa-login-form
-     [:h2
-      (icons/icon :shield {:size 24})
-      [:span {:style "margin-left: 0.5rem;"} "Two-Factor Authentication"]]
-     [:p {:style "margin-bottom: 1.5rem; color: var(--text-secondary);"}
-      "Please enter the 6-digit code from your authenticator app or use one of your backup codes."]
-     [:form {:method "post"
-             :action "/web/login"
-             :class  "form-card"}
+               (when-let [es (seq (get errors k))]
+                 [:div.validation-errors
+                  (for [e es]
+                    [:p e])]))]
+    [:div#mfa-login-form {:class "auth-card ui-card"}
+     [:div.card-body
+      [:h2.auth-title
+       (icons/icon :shield {:size 24})
+       [:span "Two-Factor Authentication"]]
+      [:p.auth-subtitle
+       "Please enter the 6-digit code from your authenticator app or use one of your backup codes."]
+      [:form {:method "post"
+              :action "/web/login"
+              :class  "form-card ui-form-shell"}
       ;; Hidden fields to preserve login data
-      (when (:return-to data)
-        [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
-      [:input {:type "hidden" :name "email" :value (:email data)}]
-      [:input {:type "hidden" :name "password" :value (:password data)}]
-      (when (:remember data)
-        [:input {:type "hidden" :name "remember" :value "on"}])
+       (when (:return-to data)
+         [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
+       [:input {:type "hidden" :name "email" :value (:email data)}]
+       [:input {:type "hidden" :name "password" :value (:password data)}]
+       (when (:remember data)
+         [:input {:type "hidden" :name "remember" :value "on"}])
 
       ;; MFA code input
-      (ui/form-field :mfa-code "Authentication Code"
-                     [:input {:type "text"
-                              :id "mfa-code"
-                              :name "mfa-code"
-                              :placeholder "000000"
-                              :autocomplete "one-time-code"
-                              :inputmode "numeric"
-                              :pattern "[0-9]{6}"
-                              :maxlength "6"
-                              :required true
-                              :autofocus true
-                              :style "font-size: 1.2rem; letter-spacing: 0.3rem; text-align: center; font-family: monospace;"}]
-                     (:mfa-code errors))
+       (ui/form-field :mfa-code "Authentication Code"
+                      [:input {:type "text"
+                               :id "mfa-code"
+                               :name "mfa-code"
+                               :placeholder "000000"
+                               :autocomplete "one-time-code"
+                               :inputmode "numeric"
+                               :pattern "[0-9]{6}"
+                               :maxlength "6"
+                               :required true
+                               :autofocus true
+                               :class "mfa-code-input"}]
+                      (:mfa-code errors))
 
-      [:div {:style "display: flex; gap: 0.5rem;"}
-       (ui/submit-button "Verify" {:loading-text "Verifying..."})
-       [:a.button.secondary {:href "/web/login"} "Cancel"]]]
-     [:div {:style "margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-default);"}
-      [:p {:style "color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;"}
-       "Lost access to your authenticator app?"]
-      [:p {:style "font-size: 0.875rem;"}
-       "Enter one of your backup codes instead of the 6-digit code."]]]))
+       [:div.mfa-login-actions
+        (ui/submit-button "Verify" {:loading-text "Verifying..."})
+        [:a.button.secondary {:href "/web/login"} "Cancel"]]]
+      [:div.auth-footer
+       [:p
+        "Lost access to your authenticator app?"]
+       [:p
+        "Enter one of your backup codes instead of the 6-digit code."]]]]))
 
 (defn mfa-login-page
   "Complete MFA login page (shown after successful password verification).
@@ -740,10 +756,10 @@
   (let [data-with-return (if (:return-to opts)
                            (assoc data :return-to (:return-to opts))
                            data)]
-    (layout/page-layout
+    (page-layout
      "Two-Factor Authentication"
-     [:div.mfa-login-page
-      [:div.page-header
+     [:div.mfa-login-page.auth-page
+      [:div.page-header.auth-header
        [:h1 "Boundary"]
        [:p "Two-factor authentication required"]]
       (mfa-login-form data-with-return errors)]
@@ -762,32 +778,33 @@
      password-violations - optional password violations from policy check
      policy - optional password policy configuration"
   ([data errors password-violations policy]
-   [:div#register-form
-    [:h2
-     (icons/icon :user-plus {:size 24})
-     [:span {:style "margin-left: 0.5rem;"} "Create Account"]]
-    [:form {:method "post"
-            :action "/web/register"
-            :class  "form-card"}
-     (ui/form-field :name "Name"
-                    (ui/text-input :name (:name data) {:required true})
-                    (:name errors))
-     (ui/form-field :email "Email"
-                    (ui/email-input :email (:email data) {:required true})
-                    (:email errors))
-      ;; Password field with validation feedback
-     [:div {:class "form-field"}
-      [:label {:for "password"} "Password"]
-      (ui/password-input :password "" {:required true})
-       ;; Show password requirements if policy provided
-      (when policy
-        (password-requirements-list (or password-violations []) policy))
-       ;; Show validation errors if present
-      (when (seq (:password errors))
-        [:div.validation-errors
-         (for [err (:password errors)]
-           [:p err])])]
-     (ui/submit-button "Create Account" {:loading-text "Creating..."})]])
+   [:div#register-form {:class "auth-card ui-card"}
+    [:div.card-body
+     [:h2.auth-title
+      (icons/icon :user-plus {:size 24})
+      [:span "Create Account"]]
+     [:form {:method "post"
+             :action "/web/register"
+             :class  "form-card ui-form-shell"}
+      (ui/form-field :name "Name"
+                     (ui/text-input :name (:name data) {:required true})
+                     (:name errors))
+      (ui/form-field :email "Email"
+                     (ui/email-input :email (:email data) {:required true})
+                     (:email errors))
+       ;; Password field with validation feedback
+      [:div {:class "form-field"}
+       [:label {:for "password"} "Password"]
+       (ui/password-input :password "" {:required true})
+        ;; Show password requirements if policy provided
+       (when policy
+         (password-requirements-list (or password-violations []) policy))
+        ;; Show validation errors if present
+       (when (seq (:password errors))
+         [:div.validation-errors
+          (for [err (:password errors)]
+            [:p err])])]
+      (ui/submit-button "Create Account" {:loading-text "Creating..."})]]])
   ([data errors]
    (register-form data errors nil {:min-length 8 :require-numbers true})))
 
@@ -799,15 +816,15 @@
      errors - validation errors (may be nil)
      opts   - page options (user context, flash messages, etc.)"
   [& [data errors opts]]
-  (layout/page-layout
+  (page-layout
    "Create Account"
-   [:div.register-page
-    [:div.page-header
+   [:div.register-page.auth-page
+    [:div.page-header.auth-header
      [:h1 "Create Account"]
      [:div.page-actions
       [:a.button {:href "/web/login"}
        (icons/icon :arrow-left {:size 16})
-       [:span {:style "margin-left: 0.5rem;"} "Back to Login"]]]]
+       [:span "Back to Login"]]]]
     (register-form data errors)]
    opts))
 
@@ -891,8 +908,9 @@
      [:td
       (when-not is-current?
         [:form {:method "post"
-                :action (str "/web/sessions/" (:session-token session) "/revoke")
-                :style "display: inline;"}
+                :action "/web/sessions/revoke"
+                :class "session-revoke-form"}
+         [:input {:type "hidden" :name "session-token" :value (:session-token session)}]
          [:input {:type "hidden" :name "user-id" :value user-id}]
          [:button.button.secondary.small
           {:type "submit"
@@ -913,19 +931,20 @@
    Pure: false (delegates to session-row)"
   [sessions current-token user-id]
   (if (empty? sessions)
-    [:div.empty-state "No active sessions."]
-    [:div.table-wrapper
-     [:table {:class "data-table"}
-      [:thead
-       [:tr
-        [:th "Device / Browser"]
-        [:th "IP Address"]
-        [:th "Last Active"]
-        [:th "Created"]
-        [:th "Actions"]]]
-      [:tbody
-       (for [session sessions]
-         (session-row session current-token user-id))]]]))
+    [:div.empty-state.card "No active sessions."]
+    [:div.sessions-table-shell
+     (ui/table-wrapper
+      [:table {:class "data-table"}
+       [:thead
+        [:tr
+         [:th "Device / Browser"]
+         [:th "IP Address"]
+         [:th "Last Active"]
+         [:th "Created"]
+         [:th "Actions"]]]
+       [:tbody
+        (for [session sessions]
+          (session-row session current-token user-id))]])]))
 
 (defn user-sessions-page
   "Complete page for managing user sessions.
@@ -941,7 +960,7 @@
      
    Pure: false"
   [user sessions current-token opts]
-  (layout/page-layout
+  (page-layout
    (str "Sessions for " (:name user))
    [:div.user-sessions-page
     [:div.page-header
@@ -951,8 +970,8 @@
      [:div.page-actions
       [:a.button.secondary {:href (str "/web/admin/users/" (:id user))} "\u2190 Back to User"]
       (when (> (count sessions) 1)
-        [:form {:method "post"
-                :action (str "/web/users/" (:id user) "/sessions/revoke-all")}
+        [:form.session-revoke-all-form {:method "post"
+                                        :action (str "/web/users/" (:id user) "/sessions/revoke-all")}
          [:input {:type "hidden" :name "keep-current" :value "true"}]
          [:button.button.danger
           {:type "submit"
@@ -977,19 +996,19 @@
    Pure: true"
   [action]
   (let [action-name (name action)
-        action-class (case action
-                       :create "success"
-                       :update "info"
-                       :delete "danger"
-                       :deactivate "warning"
-                       :activate "success"
-                       :login "info"
-                       :logout "secondary"
-                       :role-change "warning"
-                       :bulk-action "info"
-                       "secondary")]
-    [:span {:class (str "action-badge " action-class)}
-     (str/capitalize action-name)]))
+        variant (case action
+                  :create :success
+                  :update :info
+                  :delete :danger
+                  :deactivate :warning
+                  :activate :success
+                  :login :info
+                  :logout :neutral
+                  :role-change :warning
+                  :bulk-action :info
+                  :neutral)]
+    (ui/badge (str/capitalize action-name) {:variant variant
+                                            :class "audit-action-badge"})))
 
 (defn result-badge
   "Display result status with appropriate styling.
@@ -1003,8 +1022,12 @@
    Pure: true"
   [result]
   (if (= result :success)
-    [:span.result-badge.success (icons/icon :check-circle {:size 15}) " Success"]
-    [:span.result-badge.danger  (icons/icon :x-circle {:size 15}) " Failure"]))
+    (ui/badge "Success" {:variant :success
+                         :class "audit-result-badge"
+                         :icon (icons/icon :check-circle {:size 15})})
+    (ui/badge "Failure" {:variant :danger
+                         :class "audit-result-badge"
+                         :icon (icons/icon :x-circle {:size 15})})))
 
 (defn format-audit-timestamp
   "Format timestamp for audit log display.
@@ -1036,7 +1059,8 @@
   [audit-log]
   (let [action (:action audit-log)
         result (:result audit-log)
-        created-at (:created-at audit-log)]
+        created-at (:created-at audit-log)
+        error-msg (:error-message audit-log)]
     [:tr
      [:td (format-audit-timestamp created-at)]
      [:td (action-badge action)]
@@ -1044,19 +1068,85 @@
      [:td (or (:target-user-email audit-log) "-")]
      [:td (result-badge result)]
      [:td (or (:ip-address audit-log) "-")]
-     [:td [:button.button.small.secondary.icon-only
-           {:type "button"
-            :title "View details"
-            :onclick (str "alert('Details:\\n"
-                          "Action: " (name action) "\\n"
-                          "Actor: " (or (:actor-email audit-log) "System") "\\n"
-                          "Target: " (or (:target-user-email audit-log) "-") "\\n"
-                          "IP: " (or (:ip-address audit-log) "-") "\\n"
-                          "User Agent: " (or (:user-agent audit-log) "-") "\\n"
-                          (when (:error-message audit-log)
-                            (str "Error: " (:error-message audit-log) "\\n"))
-                          "');")}
-           (icons/icon :eye {:size 15})]]]))
+     [:td
+      [:button.button.small.secondary.audit-detail-trigger
+       {:type "button"
+        :title "View details"
+        :data-action (name action)
+        :data-actor (or (:actor-email audit-log) "System")
+        :data-target (or (:target-user-email audit-log) "-")
+        :data-ip (or (:ip-address audit-log) "-")
+        :data-user-agent (or (:user-agent audit-log) "-")
+        :data-error (or error-msg "")
+        :data-timestamp (or (format-audit-timestamp created-at) "-")}
+       (icons/icon :eye {:size 15})]]]))
+
+(defn audit-detail-modal
+  "Reusable modal for viewing audit log details."
+  []
+  [:dialog#audit-detail-modal.modal
+   [:div.modal-box.audit-detail-modal
+    [:h3 "Audit Details"]
+    [:div.audit-detail-grid
+     [:div.audit-detail-row
+      [:span.audit-detail-label "Timestamp"]
+      [:code#audit-detail-timestamp.audit-detail-value "-"]]
+     [:div.audit-detail-row
+      [:span.audit-detail-label "Action"]
+      [:code#audit-detail-action.audit-detail-value "-"]]
+     [:div.audit-detail-row
+      [:span.audit-detail-label "Actor"]
+      [:span#audit-detail-actor.audit-detail-value "-"]]
+     [:div.audit-detail-row
+      [:span.audit-detail-label "Target"]
+      [:span#audit-detail-target.audit-detail-value "-"]]
+     [:div.audit-detail-row
+      [:span.audit-detail-label "IP"]
+      [:span#audit-detail-ip.audit-detail-value "-"]]
+     [:div.audit-detail-row
+      [:span.audit-detail-label "User Agent"]
+      [:span#audit-detail-user-agent.audit-detail-value "-"]]
+     [:div#audit-detail-error-row.audit-detail-row.hidden
+      [:span.audit-detail-label "Error"]
+      [:code#audit-detail-error.audit-detail-value "-"]]]
+    [:div.modal-action
+     [:form {:method "dialog"}
+      [:button.button.secondary {:type "submit"} "Close"]]]]])
+
+(defn audit-detail-modal-script
+  "Script for wiring audit detail buttons to modal."
+  []
+  [:script
+   "(() => {
+      if (window.__boundaryAuditModalInit) return;
+      window.__boundaryAuditModalInit = true;
+      document.addEventListener('click', (event) => {
+        const trigger = event.target.closest('.audit-detail-trigger');
+        if (!trigger) return;
+        const modal = document.getElementById('audit-detail-modal');
+        if (!modal) return;
+        const setText = (id, value) => {
+          const node = document.getElementById(id);
+          if (node) node.textContent = value || '-';
+        };
+        setText('audit-detail-timestamp', trigger.dataset.timestamp);
+        setText('audit-detail-action', trigger.dataset.action);
+        setText('audit-detail-actor', trigger.dataset.actor);
+        setText('audit-detail-target', trigger.dataset.target);
+        setText('audit-detail-ip', trigger.dataset.ip);
+        setText('audit-detail-user-agent', trigger.dataset.userAgent);
+        setText('audit-detail-error', trigger.dataset.error);
+        const errorRow = document.getElementById('audit-detail-error-row');
+        if (errorRow) {
+          if (trigger.dataset.error) {
+            errorRow.classList.remove('hidden');
+          } else {
+            errorRow.classList.add('hidden');
+          }
+        }
+        modal.showModal();
+      });
+    })();"])
 
 (defn audit-logs-table
   "Generate audit logs table.
@@ -1091,7 +1181,7 @@
         {:hx-get hx-url
          :hx-trigger "auditRefresh from:body"
          :hx-target hx-target}
-        [:div.table-wrapper
+        (ui/table-wrapper
          [:table {:class "data-table" :id "audit-table"}
           [:thead
            [:tr
@@ -1100,6 +1190,7 @@
                                    :current-sort sort
                                    :current-dir dir
                                    :base-url base-url
+                                   :push-url-base "/web/audit"
                                    :page page
                                    :page-size page-size
                                    :hx-target hx-target
@@ -1115,11 +1206,12 @@
            (for [audit-log audit-logs]
              (audit-log-row audit-log))]]
          (table-ui/pagination
-          {:table-query table-query
+         {:table-query table-query
            :total-count total-count
            :base-url base-url
+           :push-url-base "/web/audit"
            :hx-target hx-target
-           :extra-params filter-params})]]))))
+           :extra-params filter-params}))]))))
 
 (defn audit-filters
   "Generate filter form for audit logs.
@@ -1132,11 +1224,11 @@
      
    Pure: true"
   [filters]
-  [:div.filters-panel
+  [:div.filters-panel.audit-filters-card
    [:h3 "Filters"]
-   [:form {:hx-get "/web/audit/table"
-           :hx-target "#audit-table-container"
-           :hx-push-url "true"}
+   [:form.audit-filters-form {:hx-get "/web/audit/table"
+                              :hx-target "#audit-table-container"
+                              :hx-push-url "true"}
     [:div.filter-group
      [:label {:for "action"} "Action"]
      [:select {:name "action" :id "action"}
@@ -1198,19 +1290,23 @@
   ([audit-logs table-query total-count opts]
    (audit-page audit-logs table-query total-count {} opts))
   ([audit-logs table-query total-count filters opts]
-   (layout/page-layout
+   (page-layout
     "Audit Logs"
     [:div.audit-page
      [:div.page-header
-      [:h1 "Audit Trail"]
-      [:p "Complete history of all user-related actions and system events"]]
+      [:div
+       [:h1 "Audit Trail"]
+       [:p "Complete history of all user-related actions and system events"]]]
 
-     [:div.audit-content
+     [:div.audit-content.audit-layout
       [:div.filters-sidebar
        (audit-filters filters)]
 
       [:div.audit-main
-       (audit-logs-table audit-logs table-query total-count filters)]]]
+       [:div.audit-table-card
+        (audit-logs-table audit-logs table-query total-count filters)]]
+      (audit-detail-modal)
+      (audit-detail-modal-script)]]
     opts)))
 
 ;; =============================================================================
@@ -1272,7 +1368,7 @@
         login-count (:login-count user 0)
         last-login (:last-login user)
         created-at (:created-at user)]
-    (layout/page-layout
+    (page-layout
      "Dashboard"
      [:div.dashboard-page
       [:div.welcome-section
@@ -1305,26 +1401,26 @@
           (if mfa-enabled? "Enabled" "Disabled")]]]]
 
        ;; Action Cards
-       [:div.dashboard-cards
-        [:div.dashboard-card
-         [:div.card-icon (icons/icon :user {:size 32})]
-         [:h2 "Profile & Security"]
-         [:p "Manage your profile, password, two-factor authentication, and preferences"]
-         [:a.button.secondary {:href "/web/profile"} "View Profile"]]
+      [:div.dashboard-cards
+       [:div.dashboard-card
+        [:div.card-icon (icons/icon :user {:size 32})]
+        [:h2 "Profile & Security"]
+        [:p "Manage your profile, password, two-factor authentication, and preferences"]
+        [:a.button.secondary {:href "/web/profile"} "View Profile"]]
 
-        [:div.dashboard-card
-         [:div.card-icon (icons/icon :lock {:size 32})]
-         [:h2 "Active Sessions"]
-         [:p (str "You have " active-sessions " active session"
-                  (when (not= active-sessions 1) "s"))]
-         [:a.button.secondary {:href (str "/web/users/" (:id user) "/sessions")}
-          "Manage Sessions"]]
+       [:div.dashboard-card
+        [:div.card-icon (icons/icon :lock {:size 32})]
+        [:h2 "Active Sessions"]
+        [:p (str "You have " active-sessions " active session"
+                 (when (not= active-sessions 1) "s"))]
+        [:a.button.secondary {:href (str "/web/users/" (:id user) "/sessions")}
+         "Manage Sessions"]]
 
         ;; Admin Panel card - only for admin users
-        (when (= :admin (:role user))
-          [:div.dashboard-card
-           [:div.card-icon (icons/icon :shield {:size 32})]
-           [:h2 "Admin Panel"]
-           [:p "Manage users, view audit trails, and configure system settings"]
-           [:a.button.secondary {:href "/web/admin/"} "Go to Admin Panel"]])]]
+       (when (= :admin (:role user))
+         [:div.dashboard-card
+          [:div.card-icon (icons/icon :shield {:size 32})]
+          [:h2 "Admin Panel"]
+          [:p "Manage users, view audit trails, and configure system settings"]
+          [:a.button.secondary {:href "/web/admin/"} "Go to Admin Panel"]])]]
      opts)))

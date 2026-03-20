@@ -20,6 +20,20 @@ Authentication and authorization domain: user lifecycle, credentials, sessions/t
 
 ---
 
+## UI Contract
+
+User web pages must use shared layout functions that already apply the central bundle contract from `boundary.ui-style`.
+
+Rules:
+- Use `layout/pilot-page-layout` for user/profile/audit pages.
+- Do not pass module-local hardcoded `:css [...]` lists from user feature namespaces.
+- Keep form/table/badge visuals on shared classes and token variables (no per-page color overrides).
+
+Reference:
+- `libs/ui-style/README.md` (bundle keys and style contract)
+
+---
+
 ## Authentication Flow
 
 ### Register → Login → Use Token → Logout

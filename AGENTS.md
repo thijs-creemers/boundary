@@ -33,6 +33,7 @@ clojure -M:test:db/h2 :reports                     # Reports library tests
 clojure -M:test:db/h2 :calendar                    # Calendar library tests
 clojure -M:test:db/h2 :geo                         # Geo library tests
 clojure -M:test:db/h2 :ai                          # AI library tests
+clojure -M:test:db/h2 :ui-style                    # UI style library tests
 
 # Testing - By metadata category
 clojure -M:test:db/h2 --focus-meta :unit           # Unit tests only
@@ -133,7 +134,8 @@ libs/
 ├── reports/       # Report definitions, PDF/CSV export, scheduling (defreport macro)
 ├── calendar/      # Calendar events, RRULE recurrence, iCal export/import, conflict detection
 ├── geo/           # Geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
-└── ai/            # Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
+├── ai/            # Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
+└── ui-style/      # Shared UI style bundles, tokens, and CSS assets contract
 ```
 
 ---
@@ -551,6 +553,7 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 | **calendar** | [`libs/calendar/AGENTS.md`](libs/calendar/AGENTS.md) | `defevent` macro, RRULE recurrence (DST-aware), conflict detection, iCal export/import, Hiccup UI |
 | **geo** | [`libs/geo/AGENTS.md`](libs/geo/AGENTS.md) | Multi-provider geocoding (OSM/Google/Mapbox), DB cache, rate limiting, Haversine distance |
 | **ai** | [`libs/ai/AGENTS.md`](libs/ai/AGENTS.md) | Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, error explainer, test generator, SQL copilot, docs wizard |
+| **ui-style** | [`libs/ui-style/AGENTS.md`](libs/ui-style/AGENTS.md) | App-wide UI contract: style bundles (`:base`, `:pilot`, `:admin-pilot`), tokens, and shared CSS assets |
 
 ---
 
