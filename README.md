@@ -43,7 +43,7 @@ scoop install curl tar babashka
 Get started with your Boundary project.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/starter/scripts/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/tcbv/boundary-starter/main/scripts/bootstrap.sh | bash
 cd boundary-starter
 
 bb setup

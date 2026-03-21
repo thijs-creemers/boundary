@@ -1,6 +1,0 @@
-{:product
- {:label           "Products"
-  :list-fields     [:name :sku :price :created-at]
-  :search-fields   [:name :sku]
-  :hide-fields     #{:deleted-at}
-  :readonly-fields #{:id :created-at :updated-at}}}
