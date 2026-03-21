@@ -41,7 +41,7 @@ pure business logic in `core/`, side effects in `shell/`, and clean interfaces t
 [source,bash]
 ----
 # Start a new project
-curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/starter/scripts/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary-starter/main/scripts/bootstrap.sh | bash
 cd boundary-starter && bb setup
 
 # REPL-driven development

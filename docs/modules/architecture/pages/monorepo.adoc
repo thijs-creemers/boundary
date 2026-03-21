@@ -16,9 +16,6 @@ boundary/
 │   ├── platform/
 │   ├── user/
 │   └── ...
-├── starter/               ← Minimal starter template
-├── examples/              ← Reference applications
-│   └── ecommerce-api/     ← Most comprehensive example
 ├── docs/                  ← Documentation (this site)
 ├── dev-docs/              ← Internal: ADRs, decisions, presentations
 ├── resources/conf/        ← Aero-based configuration
@@ -29,6 +26,11 @@ boundary/
 ├── deps.edn               ← Root deps with all aliases
 └── tests.edn              ← Kaocha test suite definitions
 ----
+
+The starter template and example applications live in separate repositories:
+
+* https://github.com/thijs-creemers/boundary-starter[boundary-starter] — project scaffolding wizard
+* https://github.com/thijs-creemers/boundary-examples[boundary-examples] — reference applications (ecommerce-api, blog-app, and more)
 
 == Library structure
 

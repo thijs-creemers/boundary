@@ -1,5 +1,0 @@
-{:boundary/admin {:enabled? true
-                  :entities #merge [#include "admin/users.edn"
-                                    #include "admin/product.edn"]}
- :boundary/server {:port #or [#env PORT 3000]
-                   :admin #ig/ref :boundary/admin}}

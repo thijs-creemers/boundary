@@ -1,4 +1,0 @@
-{:tasks
- {setup
-  {:doc "Interactive wizard to create a new Boundary project"
-   :task (apply shell "bb scripts/setup.clj" *command-line-args*)}}}

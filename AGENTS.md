@@ -550,6 +550,12 @@ export DB_PASSWORD="dev_password"
 
 ---
 
+## Git Policy
+
+- **Never commit or push without explicit user approval.** Always show the intended changes and wait for the user to say "commit" or "push" before running `git commit` or `git push`.
+
+---
+
 ## Maintenance Notes
 
 - Keep command examples in one place (`Quick Reference`); avoid duplicate command blocks elsewhere in this file.
@@ -600,12 +606,15 @@ Also add the lib's `:id` test suite to `tests.edn` and its source/test paths to 
 
 ---
 
-## Ecommerce API Example (`examples/ecommerce-api/`)
+## Ecommerce API Example
 
 A complete reference application demonstrating Boundary patterns with SQLite, Integrant, Reitit, and Swagger UI.
+Source: https://github.com/thijs-creemers/boundary-examples/tree/main/ecommerce-api
 
 ```bash
-# Run from examples/ecommerce-api/
+# Clone boundary-examples and run from ecommerce-api/
+git clone https://github.com/thijs-creemers/boundary-examples
+cd boundary-examples/ecommerce-api
 clojure -M:run          # Start server on port 3002
 ```
 
