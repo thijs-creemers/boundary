@@ -1,4 +1,4 @@
-= User Module Implementation Documentation
+= User Module Implementation
 :toc:
 :toc-placement: preamble
 :sectlinks:
@@ -6,883 +6,468 @@
 
 == Overview
 
-This document captures the implementation details, architectural decisions, and design patterns used in the Boundary User Module. It serves as both implementation guidance and architectural reference for the module-centric, hexagonal architecture approach.
+The user module (`libs/user`) is Boundary's reference implementation of the FC/IS pattern with multi-tenancy support. It handles authentication, session management, user profiles, MFA, and audit logging.
 
-=== Module Structure
+=== Current Module Structure
 
-The User Module follows Boundary's standardized module structure:
-
-```
+[source]
+----
 libs/user/src/boundary/user/
-├── schema.clj          # Comprehensive schema definitions (✅ Implemented)
-├── ports.clj           # Port interfaces/contracts (✅ Implemented)  
-├── core/               # Pure business logic (TODO)
-│   ├── user.clj        # User domain operations
-│   └── session.clj     # Session management
-├── http.clj            # HTTP handlers & routes (TODO)
-├── cli.clj             # CLI commands & parsing (TODO)
-└── shell/              # Shell layer adapters
-    ├── adapters.clj    # SQLite repository implementations (✅ Implemented)
-    └── service.clj     # Service orchestration (TODO)
-```
-
-== Schema Implementation (`boundary.user.schema`)
-
-=== Design Philosophy
-
-The schema implementation embodies several key architectural principles:
-
-**🎯 Type Safety First**
-- Comprehensive Malli schema validation for all data boundaries
-- Explicit transformation between external and internal formats
-- Fail-fast validation with detailed error reporting
-
-**🔄 Multi-Interface Support**
-- Unified schema definitions supporting HTTP API, CLI, and internal operations
-- Transformer pipeline handling format conversions (camelCase ↔ kebab-case)
-- String-to-type coercions for CLI input (booleans, UUIDs, enums)
-
-**🏢 Multi-Tenancy by Design**
-
-- User context propagation through all operations
-- Security-first approach to data access
-
-=== Domain Entity Schemas
-
-==== Core Entities
-
-**User Entity**
-- Complete user domain model with ID, email, name, and role
-- Audit fields: `created-at`, `updated-at`, `deleted-at` for soft deletion
-- Role-based access control with `:admin`, `:user`, `:viewer` roles
-- Active/inactive status management
-
-**UserPreferences**
-- Comprehensive preference management for notifications, UI, and localization
-- Structured notification preferences (email, push, SMS)
-- Theme, language, timezone, and format preferences
-- Extensible design for future preference categories
-
-**UserSession**
-- Secure session management with cryptographic tokens
-- Session metadata: user agent, IP address, access tracking
-- Expiration and revocation support for security
-- User context for session isolation
-
-**UserProfile**
-- Extended user information combining core user data with preferences
-- Statistics tracking: login count, last login timestamp
-- Optional profile fields: avatar, bio, phone, location
-- Composed entity supporting rich user experiences
-
-=== API Integration Schemas
-
-==== Request Schemas
-
-**Input Validation Pipeline**
-1. **Raw Input**: JSON, CLI args, form data
-2. **Schema Lookup**: Identify appropriate Malli schema  
-3. **Type Coercion**: Transform types using Malli transformers
-4. **Validation**: Verify structure and constraints
-5. **Core Processing**: Clean, validated data to pure functions
-
-**Key Request Schemas:**
-- `CreateUserRequest`: New user registration with optional preferences
-- `UpdateUserRequest`: Partial user updates with change tracking
-- `LoginRequest`: Authentication with client metadata
-- Password management schemas for security operations
-
-==== Response Schemas
-
-**Output Transformation Pipeline**
-1. **Domain Entity**: Internal representation with kebab-case keys
-2. **Response Mapping**: Convert to external API format
-3. **Field Transformation**: kebab-case → camelCase for JSON API
-4. **Type Conversion**: UUIDs → strings, Instants → ISO 8601
-5. **Client Response**: Consistent API format
-
-**Key Response Schemas:**
-- `UserResponse`: Public user data for API consumption
-- `UserProfileResponse`: Rich profile with preferences and metadata
-- `LoginResponse`: Authentication result with session information
-- `PaginatedUsersResponse`: Collection responses with metadata
-
-=== CLI Integration
-
-**String-to-Type Conversion Pipeline**
-- Boolean conversion: "true"/"false", "1"/"0", "yes"/"no", "on"/"off"
-- Integer parsing with error handling
-- UUID string parsing with validation
-- Keyword conversion for enums
-- Graceful error handling for invalid inputs
+├── schema.clj               # Malli schemas: AuthUser, TenantUser, User, UserSession, UserAuditLog
+├── ports.clj                # Port protocols: IUserRepository, IUserSessionRepository, etc.
+├── core/
+│   ├── user.clj             # Pure user entity logic
+│   ├── session.clj          # Pure session logic
+│   ├── authentication.clj   # Pure authentication logic (password, lockout, MFA flow)
+│   ├── mfa.clj              # Pure MFA logic (TOTP, backup codes)
+│   ├── audit.clj            # Pure audit entry constructors
+│   ├── validation.clj       # Reusable validation helpers
+│   ├── ui.clj               # Hiccup UI components (user listing, forms)
+│   └── profile_ui.clj       # Hiccup profile UI components
+└── shell/
+    ├── service.clj           # UserService — orchestrates core + persistence
+    ├── persistence.clj       # IUserRepository + IUserSessionRepository (DB adapter)
+    ├── auth.clj              # AuthenticationService implementation
+    ├── auth_persistence.clj  # AuthUserRepository — reads/writes public.auth_users
+    ├── mfa.clj               # MfaService implementation
+    ├── http.clj              # REST API + Web UI route definitions
+    ├── web_handlers.clj      # HTMX web UI handlers
+    ├── http_interceptors.clj # HTTP-layer interceptors (auth, audit context)
+    ├── interceptors.clj      # Service-layer interceptors (session list pipeline)
+    ├── middleware.clj        # Ring middleware (request context binding)
+    ├── cli.clj               # CLI command definitions
+    ├── cli_entry.clj         # CLI entry point
+    └── module_wiring.clj     # Integrant component definitions
+----
+
+'''
+
+== Multi-Tenancy Architecture
+
+=== Split-Table Design (ADR-004)
+
+The user module implements a *split-table architecture* to support schema-per-tenant multi-tenancy cleanly:
+
+[cols="1,2,3"]
+|===
+|Table |Schema Location |Contents
+
+|`auth_users`
+|`public` (shared, global)
+|Email, password hash, MFA state, failed login count, lockout
+
+|`users`
+|`tenant_<slug>` (per-tenant, isolated)
+|Name, role, avatar URL, preferences (theme, timezone, notifications), login count
+
+|`user_sessions`
+|Depends on deployment
+|Session tokens, expiry, IP, user agent
+
+|`user_audit_log`
+|Depends on deployment
+|Full audit trail: action, actor, target, changes, result
+|===
+
+A single user ID exists in *one row* of `public.auth_users` and *one row per tenant* in `tenant_<slug>.users`. The same person logging into two different tenants gets different name, role, and preference settings.
+
+=== The Three Schema Entities
+
+[source,clojure]
+----
+;; Global — lives in public.auth_users
+(def AuthUser
+  [:map
+   [:id :uuid]
+   [:email ...]
+   [:password-hash :string]
+   [:active :boolean]
+   [:mfa-enabled :boolean]
+   [:mfa-secret [:maybe :string]]
+   [:mfa-backup-codes [:maybe [:vector :string]]]
+   [:failed-login-count :int]
+   [:lockout-until [:maybe inst?]]
+   ;; + audit timestamps
+   ])
+
+;; Per-tenant — lives in tenant_<slug>.users
+(def TenantUser
+  [:map
+   [:id :uuid]
+   [:tenant-id [:maybe :uuid]]
+   [:name :string]
+   [:role [:enum :admin :user :viewer]]
+   [:avatar-url :string]
+   [:login-count :int]
+   ;; + flattened preferences (notifications, theme, language, timezone, date/time format)
+   ;; + audit timestamps
+   ])
+
+;; Merged domain entity — used throughout business logic
+(def User
+  ;; AuthUser fields + TenantUser fields merged into one map
+  ;; The persistence layer is responsible for JOIN and field routing on writes
+  )
+----
+
+=== Non-Tenant Mode
+
+When the `boundary-tenant` module is *not* active, the framework operates in single-tenant mode:
+
+* The `users` table lives in the default public schema rather than a `tenant_<slug>` schema
+* `:tenant-id` fields are `nil` or omitted throughout
+* All other module behaviour (auth, sessions, MFA, audit) is identical
 
-=== Advanced Schema Features
+The persistence layer handles both modes transparently via the database context (`ctx`) passed at initialisation — no conditional branching is needed in service or core code.
 
-==== Schema Transformers
+'''
 
-**Three-Tier Transformation System:**
+== Schemas (`boundary.user.schema`)
 
-1. **`user-request-transformer`**: External → Internal
-   - camelCase API keys → kebab-case internal keys
-   - String enums → keywords
-   - String booleans → boolean values
-   - Extra field stripping for security
+=== Domain Entities
 
-2. **`user-response-transformer`**: Internal → External  
-   - kebab-case keys → camelCase API format
-   - UUIDs → string representation
-   - Instants → ISO 8601 strings
-   - Keywords → string enums
+[cols="1,3"]
+|===
+|Schema |Purpose
 
-3. **`cli-transformer`**: CLI strings → Types
-   - Flexible boolean parsing with multiple formats
-   - Safe integer and UUID parsing with fallbacks
-   - Enum string-to-keyword conversion
+|`AuthUser`
+|Persisted to `public.auth_users`. Holds global auth credentials. Never exposed directly via API.
 
-==== Validation Functions
+|`TenantUser`
+|Persisted to `tenant_<slug>.users`. Holds tenant-specific profile and preferences.
 
-**Type-Safe Validation with Context**
-```clojure
-;; Example validation pipeline
-(defn validate-create-user-request [request-data]
-  (let [transformed-data (m/transform CreateUserRequest request-data user-request-transformer)]
-    (if (m/validate CreateUserRequest transformed-data)
-      {:valid? true :data transformed-data}
-      {:valid? false :errors (m/explain CreateUserRequest transformed-data)})))
-```
+|`User`
+|Merged domain entity used everywhere in business logic. Combines fields from both tables.
 
-==== Schema Registry
+|`UserSession`
+|One session per login. Holds token, expiry, IP, user agent, revocation timestamp.
 
-**Organized Schema Access**
-- Domain entities: User, UserPreferences, UserSession, UserProfile
-- API requests: All input schemas organized by operation
-- API responses: All output schemas with consistent formatting
-- CLI arguments: Command-line specific schemas with string handling
+|`UserAuditLog`
+|Immutable record of every user-affecting action (create, update, delete, login, logout, role-change, bulk-action).
+|===
 
-==== Testing Support
+=== Request / Response Schemas
 
-**Built-in Data Generation**
-- `generate-user`: Creates valid user entities for testing
-- `generate-user-preferences`: Generates preference configurations
-- `generate-create-user-request`: API request test data
-- Configurable overrides for specific test scenarios
+[cols="1,2"]
+|===
+|Schema |Description
 
-=== Implementation Benefits
+|`CreateUserRequest`
+|New user: email, name, password, role, optional preferences. `:closed true` — rejects unknown keys.
 
-**✅ Type Safety Throughout**
-- Compile-time schema validation
-- Runtime type checking at boundaries
-- Clear error messages for validation failures
+|`UpdateUserRequest`
+|Partial update: all fields optional. Routes auth fields to `auth_users`, profile fields to `users`.
 
-**✅ Interface Consistency**
-- Unified data handling across HTTP API, CLI, and internal operations
-- Consistent transformation patterns
-- Predictable data formats
+|`LoginRequest`
+|Email + password + optional MFA code, remember flag, IP, user-agent.
 
-**✅ Multi-Tenancy Security**
+|`MFASetupRequest` / `MFAEnableRequest` / `MFAVerifyRequest` / `MFADisableRequest`
+|MFA lifecycle schemas.
 
-- Automatic user context validation
-- Secure data access patterns
+|`UserResponse`
+|Public user data in camelCase. Sensitive fields (`password-hash`, `mfa-secret`, `mfa-backup-codes`) are always stripped.
 
-**✅ Developer Experience**
-- Comprehensive documentation and examples
-- Schema introspection utilities
-- Testing data generators
-- Clear error reporting
+|`LoginResponse`
+|Auth result. May carry `:requiresMfa true` before TOTP verification, then `:sessionToken` on success.
 
-== Ports Implementation (`boundary.user.ports`)
+|`MFASetupResponse`
+|TOTP secret, QR code data URL, backup codes list.
+|===
 
-=== Design Philosophy
+=== Transformation Pipeline
 
-The ports implementation embodies hexagonal architecture principles:
+[source]
+----
+HTTP/CLI Input (camelCase)
+    │
+    ▼  user-request-transformer
+    │  • camelCase → kebab-case
+    │  • string enums → keywords
+    │  • string booleans → booleans
+    ▼
+Domain Entity (kebab-case)
+    │
+    │  Business logic in core.*
+    ▼
+Domain Entity (kebab-case)
+    │
+    ▼  user-response-transformer
+    │  • kebab-case → camelCase
+    │  • inst? → ISO 8601 string
+    │  • UUID → string
+    │  • keyword → string enum
+    │  • strip sensitive fields
+    │  • remove nil values
+    ▼
+API Response (camelCase)
+----
 
-**🔌 Dependency Inversion**
-- Core business logic depends only on abstract interfaces
-- Multiple adapter implementations possible (PostgreSQL, H2, in-memory, cloud services)
-- Testable architecture with easy mocking
+'''
 
-**🏗️ Port Categories**
-- **Data Persistence**: Repository patterns for data access
-- **Communication**: Email and notification services  
-- **System Services**: Event bus, audit logging, time services
+== Ports (`boundary.user.ports`)
 
-**📋 Contract-First Design**
-- Comprehensive method documentation with examples
-- Clear input/output specifications
-- Error handling patterns
-- Performance considerations
+[cols="1,3"]
+|===
+|Protocol |Responsibility
 
-=== Data Persistence Ports
+|`IUserRepository`
+|CRUD on the merged `User` entity. Writes are split across `auth_users` and `users` internally.
 
-==== IUserRepository
+|`IUserSessionRepository`
+|Session lifecycle: create, validate by token, invalidate, invalidate all, list by user.
 
-**Comprehensive User Data Access**
+|`IAuthUserRepository`
+|Direct access to `public.auth_users` for authentication: find by email, update password, update MFA state, update lockout.
 
-*Basic CRUD Operations:*
-- `find-user-by-id`: Single user lookup with active status filtering
-- `find-user-by-email`: Email-based lookup
-- `find-users`: Paginated queries with filtering and sorting
-- `create-user`: New user creation with automatic ID/timestamp generation
-- `update-user`: User modification with automatic timestamp updates
-- `soft-delete-user`: Safe deletion preserving data for compliance
-- `hard-delete-user`: Permanent deletion for GDPR compliance
+|`IAuditRepository`
+|Write and query `user_audit_log`. Supports filtering by actor, target, action type, date range.
 
-*Business-Specific Queries:*
-- `find-active-users-by-role`: Role-based user filtering
-- `count-users`: Analytics and capacity planning
-- `find-users-created-since`: Growth tracking and recent user analysis
-- `find-users-by-email-domain`: Organization-based user management
+|`IEmailService`
+|Transactional email (welcome, password reset, notifications).
 
-*Batch Operations:*
-- `create-users-batch`: Bulk user import with transaction safety
-- `update-users-batch`: Bulk updates with atomicity guarantees
+|`INotificationService`
+|Multi-channel notification delivery (email, push, SMS, in-app).
+|===
 
-==== IUserSessionRepository
+'''
 
-**Secure Session Management**
+== Shell Components
 
-*Session Lifecycle:*
-- `create-session`: Secure token generation and session tracking
-- `find-session-by-token`: Authentication validation with automatic expiry
-- `invalidate-session`: Logout functionality with audit trail
-- `invalidate-all-user-sessions`: Security incident response
+=== Service Layer (`service.clj`)
 
-*Session Monitoring:*
-- `find-sessions-by-user`: Security monitoring and device management
-- `cleanup-expired-sessions`: Maintenance and storage optimization
+The `UserService` record coordinates the full user lifecycle:
 
-=== Communication Ports
+[source,clojure]
+----
+(defrecord UserService
+  [user-repository
+   session-repository
+   audit-repository
+   validation-config
+   auth-service       ; delegates auth to AuthenticationService
+   cache])            ; optional Redis cache for session/user lookups
+----
 
-==== IEmailService
+Key responsibilities:
 
-**Transactional Email Capabilities**
+* User CRUD — delegates persistence to `IUserRepository`, business rules to `core.user`
+* Session management — delegates to `IUserSessionRepository` + `core.session`
+* Audit recording — every mutating operation produces an `UserAuditLog` entry via `core.audit`
+* Cache integration — session tokens and user lookups optionally cached in Redis
 
-*Generic Email Operations:*
-- Template-based email generation
-- Multi-format support (HTML, plain text)
-- Attachment handling
-- Delivery tracking and error reporting
+The `*audit-context*` dynamic var is bound per-request by HTTP/CLI interceptors and carries `:actor-id`, `:actor-email`, `:ip-address`, and `:user-agent` for automatic audit trail population.
 
-*Specialized User Emails:*
-- Welcome email automation
-- Password reset security workflows
-- Account notification system
+=== Authentication Service (`auth.clj`)
 
-==== INotificationService
+Separate from `UserService` to keep concerns clear:
 
-**Multi-Channel Notification System**
+[source,clojure]
+----
+(defrecord AuthenticationService
+  [user-repository
+   session-repository
+   mfa-service
+   auth-config])
+----
 
-*Notification Delivery:*
-- Channel preferences: email, push, SMS, in-app
-- Priority-based routing
-- Bulk notification efficiency
-- Delivery result tracking
+Handles:
 
-*Preference Management:*
-- User-controlled notification settings
-- Channel-specific configurations
-- Type-based notification filtering
+* Password verification via `core.authentication`
+* Account lockout (N failed attempts → lockout until timestamp)
+* MFA flow: if enabled, login returns `:requiresMfa true` after password check; second call with `:mfa-code` completes auth
+* Session creation on successful full authentication
 
-=== System Service Ports
+=== Auth Persistence (`auth_persistence.clj`)
 
-==== IEventBus
+Dedicated repository for `public.auth_users`. Keeps auth-specific queries (password lookup, MFA state, lockout) separate from the profile queries in `persistence.clj`.
 
-**Inter-Module Communication**
+=== MFA Service (`mfa.clj`)
 
-*Event Publishing:*
-- Structured domain events with metadata
-- Correlation ID tracking for request tracing
-- User context propagation
-- Synchronous/asynchronous processing support
+Implements TOTP-based MFA:
 
-*Event Subscription:*
-- Module-level event subscriptions
-- Handler function registration
-- Subscription management
+* Setup: generates Base32 secret + QR code URL + backup codes
+* Enable: verifies TOTP code before activating
+* Verify: accepts 6-digit TOTP code or a one-time backup code
+* Disable: requires current password (and optionally current TOTP code)
 
-*Event History:*
-- Event replay capabilities
-- Debugging and audit support
-- Filtered event retrieval
+=== Persistence Layer (`persistence.clj`)
 
-==== IAuditService
+Implements `IUserRepository` and `IUserSessionRepository` against the database context. Key design points:
 
-**Compliance and Security Logging**
-
-*Audit Logging:*
-- User action tracking with full context
-- System event logging
-- Immutable audit trails
-- Change tracking (before/after states)
-
-*Audit Queries:*
-- Compliance reporting
-- Security incident investigation
-- Filtered audit trail retrieval
-- Multi-dimensional filtering support
-
-==== ITimeService
-
-**Deterministic Time Operations**
-
-*Time Management:*
-- Current timestamp generation
-- Timezone-aware date operations
-- Duration calculations
-- Business hours validation
-
-*Testing Support:*
-- Time mocking capabilities
-- Deterministic time operations
-- Consistent temporal logic
-
-=== Port Implementation Benefits
-
-**🔧 Flexibility**
-- Multiple adapter implementations per port
-- Environment-specific optimizations
-- Technology stack independence
-
-**🧪 Testability**  
-- Easy mocking for unit tests
-- Contract-based testing
-- Isolated component testing
-
-**📈 Scalability**
-- Performance-optimized implementations
-- Batch operation support
-- Efficient query patterns
-
-**🔒 Security**
-
-- Audit trail requirements
-- Security context propagation
-
-== SQLite Adapter Implementation (`boundary.user.shell.adapters`)
-
-=== Design Philosophy
-
-The SQLite adapter implementation provides production-ready, concrete implementations of the user module ports:
-
-**🗄️ SQLite-Optimized Design**
-- Leverages SQLite's unique features and constraints
-- Efficient query patterns for embedded database scenarios
-- Proper handling of SQLite type system and limitations
-- Connection pooling and transaction management
-
-**🔄 Seamless Data Transformation**
-- Bidirectional entity ↔ database record conversion
-- Type-safe transformations (UUID, Instant, Enum handling)
-- Field name mapping (kebab-case ↔ snake_case)
-- SQLite-specific type adaptations
-
-**🔒 Security and Compliance**
-
-- Soft delete implementation for data retention
-- Comprehensive audit logging
-- Cryptographically secure session tokens
-
-=== Database Schema Design
-
-==== Users Table Schema
-
-```sql
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  email TEXT NOT NULL,
-  name TEXT NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('admin', 'user', 'viewer')),
-  active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
-  
-  created_at TEXT NOT NULL,
-  updated_at TEXT,
-  deleted_at TEXT,
-  
-  -- Constraints
-  UNIQUE(email),
-  
-  -- Performance Indexes
-  
-  INDEX idx_users_email (email),
-  INDEX idx_users_role (role),
-  INDEX idx_users_active (active),
-  INDEX idx_users_created_at (created_at),
-  INDEX idx_users_deleted_at (deleted_at)
-);
-```
-
-**Design Decisions:**
-- **Text-based UUIDs**: SQLite doesn't have native UUID type
-- **Integer booleans**: SQLite boolean representation (0/1)
-- **ISO 8601 timestamps**: Text-based timestamp storage for portability
-- **Unique constraint**: Prevents duplicate emails globally
-- **Strategic indexing**: Covers common query patterns for optimal performance
-
-==== User Sessions Table Schema
-
-```sql
-CREATE TABLE IF NOT EXISTS user_sessions (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  
-  session_token TEXT NOT NULL UNIQUE,
-  expires_at TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  user_agent TEXT,
-  ip_address TEXT,
-  last_accessed_at TEXT,
-  revoked_at TEXT,
-  
-  -- Foreign key constraint
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  
-  -- Performance Indexes
-  INDEX idx_sessions_token (session_token),
-  INDEX idx_sessions_user_id (user_id),
-  
-  INDEX idx_sessions_expires_at (expires_at),
-  INDEX idx_sessions_revoked_at (revoked_at)
-);
-```
-
-**Design Decisions:**
-- **Cascade deletion**: Sessions automatically cleaned up when users are deleted
-- **Unique session tokens**: Prevents token collision attacks
-- **Optional metadata**: User agent and IP tracking for security
-- **Expiry and revocation**: Dual session invalidation mechanisms
-
-=== Data Transformation Layer
-
-==== Type Conversion Functions
-
-**UUID Handling:**
-```clojure
-(defn- uuid->string [uuid]
-  (when uuid (.toString uuid)))
-
-(defn- string->uuid [s]
-  (when (and s (not= s "")) (UUID/fromString s)))
-```
-
-**Timestamp Handling:**
-```clojure
-(defn- instant->string [instant]
-  (when instant (.toString instant)))
-
-(defn- string->instant [s]
-  (when (and s (not= s "")) (Instant/parse s)))
-```
-
-**Boolean/Integer Conversion:**
-```clojure
-(defn- boolean->int [b] (if b 1 0))
-(defn- int->boolean [i] (= i 1))
-```
-
-==== Entity Transformation Pipeline
-
-**User Entity Conversion:**
-```clojure
-(defn- user-entity->db [user-entity]
-  (-> user-entity
-      (update :id uuid->string)
-      (update :role keyword->string)
-      (update :active boolean->int)
-      (update :user-id uuid->string)
-      (update :created-at instant->string)
-      (update :updated-at instant->string)
-      (update :deleted-at instant->string)
-      ;; Convert kebab-case to snake_case
-      (clojure.set/rename-keys {:user-id :user_id
-                               :created-at :created_at
-                               :updated-at :updated_at
-                               :deleted-at :deleted_at})))
-```
-
-=== Repository Implementations
-
-==== SQLiteUserRepository Features
-
-**Comprehensive CRUD Operations:**
-- ✅ **Single User Queries**: Optimized lookups by ID and email
-- ✅ **Advanced Filtering**: Paginated queries with role, status, and email domain filters
-- ✅ **Soft Delete Support**: Timestamp-based deletion with data preservation
-- ✅ **Batch Operations**: Transaction-safe bulk operations for data import/update
-
-**Business Query Optimizations:**
-```clojure
-;; Example: Role-based user query with performance optimization
-(find-active-users-by-role [_ role]
-  (let [query {:select [:*]
-               :from [:users]
-               :where [:and
-                      [:= :id (uuid->string user-id)]
-                      [:= :role (keyword->string role)]
-                      [:= :active 1]
-                      [:is :deleted_at nil]]
-               :order-by [[:created_at :desc]]}]
-    ;; Uses idx_users_role index for optimal performance
-    (map db->user-entity (execute-query! datasource query))))
-```
-
-**Transaction Safety:**
-- All batch operations wrapped in database transactions
-- Automatic rollback on failure
-- Consistent error handling and logging
-- Connection reuse for performance
-
-==== SQLiteUserSessionRepository Features
-
-**Secure Session Management:**
-- ✅ **Cryptographic Token Generation**: Double UUID concatenation for entropy
-- ✅ **Automatic Expiry Checking**: Session validity verification on every lookup
-- ✅ **Access Tracking**: Last-accessed timestamp updates for security monitoring
-- ✅ **Bulk Invalidation**: Security incident response capabilities
-
-**Session Security Implementation:**
-```clojure
-(defn- generate-session-token []
-  (let [uuid1 (UUID/randomUUID)
-        uuid2 (UUID/randomUUID)]
-    (str (.toString uuid1) (.toString uuid2))))
-
-(find-session-by-token [_ session-token]
-  (let [now (time/instant)
-        query {:select [:*]
-               :from [:user_sessions]
-               :where [:and
-                      [:= :session_token session-token]
-                      [:> :expires_at (instant->string now)]
-                      [:is :revoked_at nil]]}]
-    ;; Automatic access tracking and expiry validation
-    (when-let [session (execute-one! datasource query)]
-      (update-access-timestamp! session-token now)
-      (db->session-entity session))))
-```
-
-=== Performance Optimizations
-
-==== Query Execution Framework
-
-**Structured Logging and Monitoring:**
-```clojure
-(defn- execute-query! [datasource query-map]
-  (let [sql-query (sql/format query-map {:dialect :sqlite})
-        start-time (System/currentTimeMillis)]
-    (log/debug "Executing query" {:sql (first sql-query) :params (rest sql-query)})
-    (try
-      (let [result (jdbc/execute! datasource sql-query {:builder-fn rs/as-unqualified-lower-maps})
-            duration (- (System/currentTimeMillis) start-time)]
-        (log/debug "Query completed" {:duration-ms duration :row-count (count result)})
-        result)
-      (catch Exception e
-        (log/error "Query failed" {:sql (first sql-query) :error (.getMessage e)})
-        (throw e)))))
-```
-
-**SQLite Dialect Optimization:**
-- HoneySQL configured for SQLite-specific SQL generation
-- Proper LIMIT/OFFSET handling for pagination
-- Index-aware query planning
-- Connection pooling support
-
-==== Database Indexing Strategy
-
-**Multi-Column Indexes:**
-- `idx_users_email`: Email lookups
-- `idx_users_role`: Role-based filtering
-- `idx_users_active`: Active user queries
-
-**Single-Column Indexes:**
-- `idx_users_created_at`: Time-based user queries and sorting
-- `idx_users_deleted_at`: Soft-delete filtering performance
-- `idx_sessions_token`: Session token lookups (authentication)
-- `idx_sessions_expires_at`: Expiry cleanup and validation
-
-=== Error Handling and Reliability
-
-==== Comprehensive Error Management
-
-**Exception Handling Pattern:**
-```clojure
-(update-user [_ user-entity]
-  (let [affected-rows (execute-update! datasource update-query)]
-    (if (> affected-rows 0)
-      (do
-        (log/info "User updated successfully" {:user-id (:id user-entity)})
-        updated-user)
-      (throw (ex-info "User not found or update failed"
-                     {:type :user-not-found
-                      :user-id (:id user-entity)})))))
-```
-
-**Logging Levels:**
-- **DEBUG**: Query execution details and performance metrics
-- **INFO**: Successful operations and business events
-- **WARN**: Recoverable errors and security concerns
-- **ERROR**: Unrecoverable errors with full context
-
-==== Transaction Management
-
-**Batch Operation Safety:**
-```clojure
-(create-users-batch [_ user-entities]
-  (jdbc/with-transaction [tx datasource]
-    (let [users-with-metadata (generate-user-metadata user-entities)]
-      (doseq [user users-with-metadata]
-        (execute-insert! tx user))
-      (log/info "Users batch created successfully" {:count (count user-entities)})
-      users-with-metadata)))
-```
-
-=== Factory Functions and Initialization
-
-==== Database Schema Initialization
-
-```clojure
-(defn initialize-database! [datasource]
-  (log/info "Initializing user module database schema")
-  (try
-    (jdbc/execute! datasource [user-table-ddl])
-    (jdbc/execute! datasource [user-sessions-table-ddl])
-    (log/info "Database schema initialized successfully")
-    (catch Exception e
-      (log/error "Failed to initialize database schema" {:error (.getMessage e)})
-      (throw e))))
-```
-
-==== Repository Factory
-
-```clojure
-(defn make-sqlite-repositories [datasource]
-  (log/info "Creating SQLite repositories for user module")
-  (initialize-database! datasource)
-  {:user-repository (make-sqlite-user-repository datasource)
-   :session-repository (make-sqlite-user-session-repository datasource)})
-```
-
-=== Shared SQLite Utilities Integration
-
-**🔄 Architectural Refactoring**
-
-The user adapter implementation leverages shared type conversion utilities from `boundary.core.utils.type-conversion` and SQLite database utilities from `boundary.platform.shell.adapters.database.sqlite`:
-
-```clojure
-;; Before: Duplicate utility functions in each adapter
-(defn- uuid->string [uuid] ...)
-(defn- string->uuid [s] ...)
-(defn- boolean->int [b] ...)
-(defn- kebab-case->snake-case [m] ...)
-
-;; After: Using centralized shared utilities
-(type-conversion/uuid->string user-id)
-(type-conversion/string->uuid db-field)
-(type-conversion/boolean->int active-flag)
-(type-conversion/kebab-case->snake-case user-map)
-(sqlite/execute-query! datasource query)
-```
-
-**Key Refactoring Benefits:**
-- **Code Reuse**: Generic type conversions shared across all modules
-- **Consistency**: Uniform behavior for all data transformations
-- **Maintenance**: Single source of truth for type conversion logic
-- **Testing**: Type conversions can be tested independently
-- **Separation of Concerns**: Database-specific vs generic utilities
-
-**Shared Utility Usage:**
-```clojure
-;; Type conversions using shared utilities
-(defn- user-entity->db [user-entity]
-  (-> user-entity
-      (update :id type-conversion/uuid->string)
-      (update :role type-conversion/keyword->string)
-      (update :active type-conversion/boolean->int)
-      type-conversion/kebab-case->snake-case))
-
-;; Database operations using SQLite utilities  
-(sqlite/execute-query! datasource query)
-(sqlite/execute-update! datasource query)
-(sqlite/with-transaction [tx datasource] ...)
-```
-
-=== Implementation Benefits
-
-**✅ Production-Ready Reliability**
-- Comprehensive error handling and recovery
-- Transaction safety for data consistency
-- Performance monitoring and optimization
-- Robust connection management
-
-**✅ SQLite-Optimized Performance**
-- Database-specific query optimizations leveraging shared utilities
-- Strategic indexing for common access patterns
-- Efficient batch operations with shared transaction management
-- Minimal memory footprint with shared connection pooling
-
-**✅ Security and Compliance**
-
-- Cryptographically secure session management
-- Comprehensive audit logging through shared utilities
-- Soft delete for data retention compliance
-
-**✅ Development and Testing Support**
-- Easy setup with automatic schema initialization
-- Comprehensive logging for debugging via shared framework
-- Clean factory functions for dependency injection
-- Contract compliance with port interfaces
-
-**✅ Architectural Consistency**
-- Shared SQLite utilities ensure consistent behavior
-- Reusable patterns across different modules
-- Centralized SQLite optimizations and best practices
-- Simplified maintenance and updates
-
-=== Usage Examples
-
-==== Basic Repository Usage
-
-```clojure
-;; Create repositories
-(def repos (make-sqlite-repositories sqlite-datasource))
-(def user-repo (:user-repository repos))
-(def session-repo (:session-repository repos))
-
-;; Create a new user
-(def new-user (ports/create-user user-repo
-                {:email "john@example.com"
-                 :name "John Doe"
-                 :role :user
-                 :active true
-                 :user-id user-id}))
-
-;; Create session for authentication
-(def session (ports/create-session session-repo
-               {:user-id (:id new-user)
-                :user-id user-id
-                :expires-at (time/plus (time/instant) (time/hours 24))
-                :user-agent "Mozilla/5.0..."
-                :ip-address "192.168.1.1"}))
-
-;; Find user by email
-(def found-user (ports/find-user-by-email user-repo "john@example.com"))
-
-;; Validate session
-(def active-session (ports/find-session-by-token session-repo (:session-token session)))
-```
-
-==== Advanced Query Usage
-
-```clojure
-;; Paginated user listing with filters
-(def user-page (ports/find-users user-repo
-                 {:limit 20
-                  :offset 0
-                  :sort-by :created-at
-                  :sort-direction :desc
-                  :filter-role :user
-                  :filter-active true}))
-
-;; Business analytics
-(def admin-count (count (ports/find-active-users-by-role user-repo :admin)))
-(def total-users (ports/count-users user-repo))
-(def recent-users (ports/find-users-created-since user-repo 
-                    (time/minus (time/instant) (time/days 7))))
-```
-
-== Architectural Patterns
-
-=== Module-Centric Design
-
-**Benefits Realized:**
-- **Domain Ownership**: User module controls all user-related schemas and ports
-- **Independent Evolution**: Module can evolve without affecting others
-- **Team Autonomy**: Complete vertical slice ownership
-- **Feature Flagging**: Module-level enablement/disablement
-- **Testing Isolation**: Complete module functionality testing
-
-=== Hexagonal Architecture Implementation
-
-**Port-Adapter Pattern:**
-- **Ports**: Abstract interfaces defining capabilities needed by core logic
-- **Adapters**: Concrete implementations using specific technologies
-- **Core**: Pure business logic depending only on port abstractions
-- **Shell**: Infrastructure and side-effect management
-
-**Dependency Inversion:**
-- Core business logic → Port interfaces ← Adapter implementations
-- Enables testing with mock implementations
-- Supports multiple deployment environments
-- Facilitates technology migrations
-
-=== Data Flow Architecture
-
-**Request Processing Pipeline:**
-1. **Input Validation**: Schema-based validation and transformation
-2. **Port Invocation**: Core logic calls port methods
-3. **Adapter Execution**: Concrete implementations handle infrastructure
-4. **Response Transformation**: Output formatting for client consumption
-5. **Audit/Logging**: Cross-cutting concerns handled by shell
-
-== Future Considerations
-
-=== Extension Points
-
-**Schema Evolution:**
-- Additional user profile fields
-- New preference categories
-- Enhanced validation rules
-
-
-**Port Expansion:**
-- Additional repository query methods
-- New communication channels
-- Enhanced system services
-- Custom business-specific ports
-
-**Adapter Implementations:**
-- Cloud-native storage backends
-- Message queue integrations
-- External service integrations
-- Performance-optimized implementations
-
-=== Performance Optimizations
-
-**Repository Patterns:**
-- Connection pooling strategies
-- Query optimization guidelines
-- Caching layer integration
-- Batch operation efficiency
-
-**Communication Efficiency:**
-- Notification batching
-- Template caching
-- Delivery optimization
-- Error handling strategies
-
-=== Security Enhancements
-
-**Data Protection:**
-- Field-level encryption
-- PII handling procedures
-- Data retention policies
-- GDPR compliance automation
-
-**Access Control:**
-- Fine-grained permissions
-- Role-based data filtering
-- Audit trail enhancement
-- Security event correlation
-
-== Conclusion
-
-The User Module implementation demonstrates Boundary's module-centric, hexagonal architecture principles in practice. The comprehensive schema system provides type safety and interface consistency, while the port definitions enable flexible, testable, and scalable implementations.
-
-Key achievements:
-- **Type-safe data handling** across all interfaces
-- **Flexible architecture** supporting multiple adapter implementations  
-- **Comprehensive documentation** enabling team collaboration
-- **Testing-friendly design** with built-in utilities
-- **Security-first approach** with audit trails
-- **Future-proof extensibility** through modular design patterns
-
-This implementation serves as a template for other modules in the Boundary framework, establishing patterns and practices that ensure consistency and quality across the entire system.
+* **Split writes**: `create-user` inserts into `auth_users` first (establishes the UUID), then into the tenant `users` table
+* **Merged reads**: queries JOIN `auth_users a` with `users u` on `a.id = u.id` to return a flat `User` map
+* **Update routing**: `update-user` inspects which fields belong to which table and issues separate UPDATE statements
+* **Tenant-aware queries**: tenant context is carried in the `ctx` (database context), not as an explicit parameter on every call
+* **Schema initialisation**: `initialize-user-schema!` creates all four tables from Malli schema definitions via `db-schema/initialize-tables-from-schemas!`
+
+=== HTTP Layer (`http.clj`)
+
+Routes exported in normalised format (ADR-008):
+
+[source,clojure]
+----
+{:api  [...]   ; mounted under /api  by the top-level router
+ :web  [...]   ; mounted under /     for HTMX web UI
+ :static [...] ; CSS, JS, module assets}
+----
+
+REST API endpoints:
+
+[cols="1,1,2"]
+|===
+|Method |Path |Purpose
+
+|POST |`/api/users` |Create user
+|GET |`/api/users` |List users (paginated, filterable)
+|GET |`/api/users/:id` |Get user by ID
+|PUT |`/api/users/:id` |Update user
+|DELETE |`/api/users/:id` |Soft delete user
+|POST |`/api/sessions` |Create session (programmatic login)
+|GET |`/api/sessions/:token` |Validate session
+|DELETE |`/api/sessions/:token` |Invalidate session (logout)
+|POST |`/api/auth/login` |Authenticate (email + password + optional MFA)
+|===
+
+Web UI endpoints (HTMX):
+
+[cols="1,1"]
+|===
+|Path |Purpose
+|`GET /users` |Users listing page
+|`GET /users/new` |Create user form
+|`GET /users/:id` |User detail / edit page
+|`POST /users` |Create user (HTMX fragment)
+|`PUT /users/:id` |Update user (HTMX fragment)
+|`DELETE /users/:id` |Delete user (HTMX fragment)
+|===
+
+Error types follow RFC 7807 problem details:
+
+[cols="1,1,1"]
+|===
+|Error type |HTTP status |Title
+|`:user-exists` |409 |User Already Exists
+|`:user-not-found` |404 |User Not Found
+|`:session-not-found` |404 |Session Not Found
+|`:deletion-not-allowed` |403 |Deletion Not Allowed
+|`:hard-deletion-not-allowed` |403 |Hard Deletion Not Allowed
+|===
+
+'''
+
+== Integrant Wiring (`module_wiring.clj`)
+
+Components and their dependencies:
+
+[source]
+----
+:boundary/user-db-schema       ← ctx
+:boundary/auth-user-repository ← ctx
+:boundary/user-repository      ← ctx
+:boundary/session-repository   ← ctx
+:boundary/audit-repository     ← ctx, pagination-config
+
+:boundary/mfa-service          ← user-repository, mfa-config
+:boundary/auth-service         ← user-repository, session-repository,
+                                  mfa-service, auth-config
+
+:boundary/user-service         ← user-repository, session-repository,
+                                  audit-repository, validation-config,
+                                  auth-service, cache (optional)
+
+:boundary/user-routes          ← user-service, mfa-service, config
+----
+
+NOTE: `:boundary/user-http-handler` has been removed. If it appears in a config file it will throw a descriptive error pointing to the migration path.
+
+'''
+
+== Observability
+
+All observability is handled automatically by interceptors — there are no manual `log/info` or metrics calls in service or core functions for routine operations.
+
+* **HTTP layer**: `http_interceptors.clj` binds audit context, handles auth checks
+* **Service layer**: `boundary.platform.shell.service-interceptors` wraps service methods for entry/exit logging, timing histograms, and error reporting
+* **Persistence layer**: `boundary.platform.shell.persistence-interceptors` wraps DB operations for query logging and timing
+* **Audit trail**: `*audit-context*` dynamic var carries actor identity from the request into the service layer without threading it through every function signature
+
+'''
+
+== Data Flow: Login with MFA
+
+[source]
+----
+POST /api/auth/login  {email, password}
+    │
+    ▼  HTTP interceptor: bind audit context (ip, user-agent)
+    │
+    ▼  AuthenticationService.authenticate
+    │   ├── auth_persistence: find-by-email → AuthUser row
+    │   ├── core.authentication: verify-password (bcrypt)
+    │   ├── core.authentication: check-lockout
+    │   └── core.authentication: mfa-required? → true
+    │
+    ▼  HTTP response: {requiresMfa: true}
+
+POST /api/auth/login  {email, password, mfaCode}
+    │
+    ▼  AuthenticationService.authenticate
+    │   ├── mfa-service: verify-totp-code
+    │   ├── persistence: create-session → UserSession
+    │   ├── service: write audit log entry (action: :login, result: :success)
+    │   └── cache: store session token (if cache configured)
+    │
+    ▼  HTTP response: {sessionToken, user: {...}}
+----
+
+'''
+
+== Data Flow: Create User (Multi-Tenant)
+
+[source]
+----
+POST /api/users  {email, name, password, role}
+    │
+    ▼  Validation: CreateUserRequest schema (camelCase → kebab-case)
+    │
+    ▼  UserService.create-user
+    │   ├── core.user: build-new-user (generate UUID, hash password, defaults)
+    │   ├── auth_persistence: insert into public.auth_users (email, password-hash, active)
+    │   ├── persistence: insert into tenant_<slug>.users (name, role, preferences)
+    │   ├── service: write audit log entry (action: :create, result: :success)
+    │   └── (optional) email-service: send welcome email
+    │
+    ▼  Response: UserResponse (sensitive fields stripped, camelCase)
+----
+
+In single-tenant mode the second insert targets `public.users` instead of `tenant_<slug>.users`. Everything else is identical.
+
+'''
+
+== Testing
+
+[cols="1,2,2"]
+|===
+|Test type |Location |Scope
+
+|Unit
+|`libs/user/test/boundary/user/core/`
+|Pure functions in `core.*` — no DB, no mocks
+
+|Integration
+|`libs/user/test/boundary/user/shell/`
+|Service methods with in-memory/mock adapters
+
+|Contract
+|`libs/user/test/boundary/user/shell/`
+|Persistence adapters against H2 in-memory DB
+|===
+
+[source,bash]
+----
+# Run all user module tests
+clojure -M:test:db/h2 :user
+
+# Auth tests require JWT secret
+JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2 :user
+----

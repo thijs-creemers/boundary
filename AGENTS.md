@@ -635,7 +635,7 @@ Clojure's `{:or {limit 20 offset 0}}` destructuring only fires for **absent** ke
 
 **For in-depth information, see:**
 
-- **[Documentation Index](dev-docs/content-readme.adoc)** - Main docs navigation
+- **[Documentation Index](dev-docs/README.adoc)** - Main docs navigation
 - **[Architecture Guide](docs/modules/architecture/pages/fc-is.adoc)** - FC/IS patterns, design decisions
 - **[Module Scaffolding](libs/scaffolder/README.md)** - Complete scaffolding workflow
 - **[MFA Setup Guide](docs/modules/guides/pages/authentication.adoc)** - Multi-factor authentication

@@ -67,6 +67,34 @@ This document is the **canonical reference** for repository structure and paths 
 |`libs/external`
 |External service adapters: raw transport and third-party APIs
 |SMTP transport (javax.mail), IMAP mailbox, Stripe payments + webhook verification, Twilio SMS / WhatsApp
+
+|`libs/workflow`
+|State machine orchestration
+|`defworkflow` macro, guards, side effects via jobs, lifecycle hooks, auto-transitions, audit trail, REST API
+
+|`libs/search`
+|Full-text search
+|Index management, query building, search result UI components, admin integration
+
+|`libs/reports`
+|Report generation and export
+|`defreport` macro, PDF export (OpenHTMLToPDF), CSV/Excel export (Docjure), scheduler integration
+
+|`libs/calendar`
+|Calendar and scheduling
+|`defevent` macro, RRULE recurrence (ical4j), iCal import/export, conflict detection, Hiccup calendar views
+
+|`libs/geo`
+|Geocoding and geospatial utilities
+|Multi-provider geocoding (OSM / Google / Mapbox), DB-backed cache, Haversine distance calculation
+
+|`libs/ai`
+|AI integration and developer tooling
+|Multi-provider AI (Ollama / Anthropic / OpenAI), NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
+
+|`libs/ui-style`
+|Shared UI style bundles
+|Compiled CSS/JS assets, design tokens, `:base`, `:pilot`, `:admin-pilot` bundles (Tailwind + DaisyUI)
 |===
 
 [[canonical-paths]]
@@ -167,7 +195,14 @@ boundary/
 │   ├── email/
 │   ├── realtime/
 │   ├── tenant/
-│   └── external/
+│   ├── external/
+│   ├── workflow/
+│   ├── search/
+│   ├── reports/
+│   ├── calendar/
+│   ├── geo/
+│   ├── ai/
+│   └── ui-style/
 ├── resources/
 │   ├── conf/                    # Environment-based configuration
 │   │   └── dev/
@@ -226,6 +261,19 @@ realtime --> platform
 
 tenant --> platform
 tenant --> cache
+
+workflow --> platform
+workflow --> admin
+
+search --> platform
+search --> admin
+
+# Standalone libraries (no internal deps)
+reports   # uses openhtmltopdf + docjure directly
+calendar  # uses ical4j directly
+geo       # uses clj-http + next.jdbc directly
+ai        # uses clj-http + integrant directly
+ui-style  # CSS/JS assets only
 ----
 
 **Rules:**
@@ -235,6 +283,8 @@ tenant --> cache
 * `platform` provides infrastructure that other modules consume
 * Domain libraries (`user`, `admin`, `storage`, `cache`, `jobs`, `realtime`, `tenant`) depend on platform
 * `email` delegates raw SMTP transport to `external`; `external` sits at the platform level
+* `workflow` and `search` integrate with the admin UI and therefore depend on `admin`
+* `reports`, `calendar`, `geo`, `ai`, and `ui-style` are standalone — no internal library dependencies
 
 [[configuration]]
 == Configuration Structure
@@ -293,14 +343,8 @@ Test metadata tags:
 * `:integration` - Service-level tests
 * `:contract` - Database contract tests
 
-[[migration-from-old-structure]]
-== Migration from Old Structure
-
-See link:migrations/library-split.adoc[Library Split Migration Guide] for the complete mapping from pre-split paths to current paths.
-
 [[related-documentation]]
 == Related Documentation
 
 * link:development-commands.adoc[Development Commands] - Test, lint, REPL, build commands
-* link:migrations/library-split.adoc[Library Split Migration] - Old to new path mapping
-* link:../architecture/overview.adoc[Architecture Overview] - FC/IS patterns and design
+* link:publishing.adoc[Publishing Guide] - Building and deploying all 20 libraries to Clojars

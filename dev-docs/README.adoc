@@ -37,10 +37,6 @@ Post-implementation analyses and migration reports documenting completed refacto
 * link:change-reports/PEDESTAL_ADAPTER_ABANDONMENT.adoc[Pedestal Adapter Abandonment]
 * link:change-reports/SERVICE-METHOD-RENAMING-MIGRATION.adoc[Service Method Renaming Migration]
 
-=== link:presentations/[Presentations]
-
-Presentation slides and speaker notes for conference talks and internal knowledge sharing.
-
 === link:implementation/[Implementation Notes]
 
 Detailed implementation notes and internal technical documentation.
@@ -52,8 +48,6 @@ Detailed implementation notes and internal technical documentation.
 * link:DECISIONS.adoc[DECISIONS] — Key project decisions log
 * link:DOCKER_DEVELOPMENT.adoc[Docker Development] — Docker-based development setup
 * link:DOCS_LINT.adoc[Docs Lint] — Documentation linting tooling and rules
-* link:LINK_ISSUES.adoc[Link Issues] — Known link/reference issues
-* link:alpha-release-checklist.adoc[Alpha Release Checklist] — Pre-release checklist
 * link:roadmap.adoc[Roadmap] — Project roadmap and planned features
 
 === link:reference/[Internal Reference]
@@ -63,7 +57,6 @@ Internal reference documents not intended for end users.
 * link:reference/boundary-prd.adoc[Product Requirements Document]
 * link:reference/development-commands.adoc[Development Commands (Internal)]
 * link:reference/docs-maintenance-checklist.adoc[Docs Maintenance Checklist]
-* link:reference/historical-docs-triage.adoc[Historical Docs Triage]
 * link:reference/publishing.adoc[Publishing Guide]
 * link:reference/repo-structure.adoc[Repository Structure]
 * link:reference/user-module-observability.adoc[User Module Observability Notes]
