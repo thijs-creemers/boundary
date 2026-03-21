@@ -64,7 +64,8 @@
       "Bash(/tmp/check_links2.sh:*)",
       "Bash(bb verify-doc-links:*)",
       "Bash(cp:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(rsync:*)"
     ]
   },
   "enabledMcpjsonServers": [
