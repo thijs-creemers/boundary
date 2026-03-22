@@ -212,6 +212,24 @@
      :soft-delete-table (or (:soft-delete-table overrides) table-name)}))
 
 ;; =============================================================================
+;; Split-Table Update Helpers
+;; =============================================================================
+
+(defn- split-update-data
+  "Partition prepared-data into primary-table and secondary-table maps.
+   Each half gets an updated-at timestamp when the entity config declares one.
+   Halves with no fields are returned as empty maps (callers should skip empty UPDATEs)."
+  [prepared-data secondary-fields entity-fields now-str]
+  (let [secondary-data (select-keys prepared-data secondary-fields)
+        primary-data   (apply dissoc prepared-data secondary-fields)
+        add-ts         (fn [m]
+                         (cond-> m
+                           (and (seq m) (contains? entity-fields :updated-at))
+                           (assoc :updated-at now-str)))]
+    {:primary-data   (add-ts primary-data)
+     :secondary-data (add-ts secondary-data)}))
+
+;; =============================================================================
 ;; Admin Service Implementation
 ;; =============================================================================
 
@@ -388,11 +406,32 @@
               ;; Convert UUID to string for PostgreSQL compatibility
              id-str (type-conversion/uuid->string id)
 
-              ; Update without RETURNING (H2 compatibility)
-             update-query {:update table-name
-                           :set db-data
-                           :where [:= primary-key id-str]}
-             _ (db/execute-one! db-ctx update-query)
+             split-cfg (:split-table-update entity-config)
+
+             _ (if split-cfg
+                 (let [{:keys [secondary-table secondary-fields]} split-cfg
+                       {:keys [primary-data secondary-data]}
+                       (split-update-data sanitized-data secondary-fields entity-fields now-str)
+                       primary-db   (-> primary-data
+                                        prepare-values-for-db
+                                        case-conversion/kebab-case->snake-case-map)
+                       secondary-db (-> secondary-data
+                                        prepare-values-for-db
+                                        case-conversion/kebab-case->snake-case-map)]
+                   (db/with-transaction* db-ctx
+                     (fn [tx]
+                       (when (seq primary-db)
+                         (db/execute-one! tx {:update table-name
+                                              :set    primary-db
+                                              :where  [:= primary-key id-str]}))
+                       (when (seq secondary-db)
+                         (db/execute-one! tx {:update secondary-table
+                                              :set    secondary-db
+                                              :where  [:= primary-key id-str]})))))
+                 ;; non-split path: unchanged
+                 (db/execute-one! db-ctx {:update table-name
+                                          :set    db-data
+                                          :where  [:= primary-key id-str]}))
 
               ; Fetch the updated record using join-aware query
              {:keys [from-clause select-clause join-clause field-aliases]} (resolve-query-config entity-config)

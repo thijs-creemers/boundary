@@ -849,9 +849,8 @@
 
       (if (:valid? validation-result)
         ; Update entity and re-render detail page with success flash
-        (let [_updated-entity (ports/update-entity admin-service entity-name id form-data)
-              updated-record  (ports/get-entity admin-service entity-name id)
-              permissions     (permissions/get-entity-permissions user entity-name entity-config)
+        (let [updated-record (ports/update-entity admin-service entity-name id form-data)
+              permissions    (permissions/get-entity-permissions user entity-name entity-config)
               ctx             (build-entity-detail-opts admin-service schema-provider entity-name entity-config updated-record request)]
 
           (html-response
