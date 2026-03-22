@@ -492,8 +492,15 @@
                ; Convert ID to string
                id-str (type-conversion/uuid->string id)
 
-               ; Execute update
-               update-query {:update table-name
+               ; Determine which table owns this field (handles split-table entities)
+               split-cfg (:split-table-update entity-config)
+               effective-table (if (and split-cfg
+                                        (contains? (:secondary-fields split-cfg) field))
+                                 (:secondary-table split-cfg)
+                                 table-name)
+
+               ; Execute update against the correct table
+               update-query {:update effective-table
                              :set db-data
                              :where [:= primary-key id-str]}
                _ (db/execute-one! db-ctx update-query)
