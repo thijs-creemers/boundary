@@ -1208,8 +1208,8 @@
         form-action (if (and is-edit? cancel-url (not= cancel-url default-list-url))
                       (str form-action-base "?return_to=" cancel-url)
                       form-action-base)
-        _form-method (if is-edit? "PUT" "POST")
-        hx-attr (if is-edit? :hx-put :hx-post)
+        _form-method "POST"
+        hx-attr :hx-post
         required-fields (filter (fn [field-name]
                                   (true? (get-in entity-config [:fields field-name :required])))
                                 editable-fields)
@@ -1228,7 +1228,7 @@
             ;; browser stays on the detail page with context intact
             (when is-edit?
               {:hx-push-url form-action}))
-     ;; No longer need hidden _method field since HTMX sends proper HTTP method
+     [:input {:type "hidden" :name "_method" :value (if is-edit? "PUT" "POST")}]
      [:div.form-card {:class "form-card overflow-hidden"}
       [:div.form-card-body {:class "form-card-body space-y-4"}
        [:div.form-meta

@@ -61,14 +61,16 @@
      {:from          [[:test_auth :a]]
       :join          [[:test_profiles :p] [:= :a.id :p.id]]
       :select        [:a.id :a.email :a.active
-                      :a.updated_at :a.created_at
+                      :a.updated_at :a.created_at :a.deleted_at
                       :p.name]
       :field-aliases {:id         :a.id
                       :email      :a.email
                       :active     :a.active
+                      :deleted-at :a.deleted_at
                       :updated-at :a.updated_at
                       :created-at :a.created_at
-                      :name       :p.name}}}
+                      :name       :p.name}
+      :soft-delete-table :test_auth}}
 
     :plain-items
     {:label           "Plain Items"
@@ -90,6 +92,7 @@
            id         UUID         PRIMARY KEY,
            email      VARCHAR(255) NOT NULL UNIQUE,
            active     BOOLEAN      NOT NULL DEFAULT TRUE,
+           deleted_at TIMESTAMP,
            updated_at TIMESTAMP,
            created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP)"})
   ;; Primary table (profile-like, entity name maps here for schema discovery)
@@ -196,6 +199,14 @@
       (ports/update-entity *admin-service* :test-profiles id {:email "changed@example.com"})
       (is (= "changed@example.com" (:email (fetch-auth-row id))))
       (is (= "Unchanged" (:name (fetch-profile-row id)))))))
+
+(deftest get-entity-with-soft-delete-alias-does-not-build-ambiguous-where
+  (testing "Joined entity read uses aliased deleted-at field in soft-delete WHERE clause"
+    (let [id (insert-split-user! "alias@example.com" "Alias User")]
+      (is (= "alias@example.com"
+             (:email (ports/get-entity *admin-service* :test-profiles id))))
+      (is (= "Alias User"
+             (:name (ports/get-entity *admin-service* :test-profiles id)))))))
 
 (deftest transaction-rolls-back-primary-on-secondary-failure
   (testing "When secondary UPDATE fails, primary UPDATE is rolled back"

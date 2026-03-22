@@ -266,65 +266,68 @@
   (reduce-kv
    (fn [acc field-name value]
      (let [field-keyword (keyword field-name)
-           field-config (get-in entity-config [:fields field-keyword])
-           field-type (:type field-config :string)
+           field-config (get-in entity-config [:fields field-keyword])]
+       (if (or (= field-name "_method")
+               (nil? field-config))
+         acc
+         (let [field-type (:type field-config :string)
 
-            ; Handle array values (e.g., from checkbox + hidden field pattern)
-            ; Take the last value when multiple values are submitted
-           normalized-value (if (vector? value)
-                              (last value)
-                              value)
+               ; Handle array values (e.g., from checkbox + hidden field pattern)
+               ; Take the last value when multiple values are submitted
+               normalized-value (if (vector? value)
+                                  (last value)
+                                  value)
 
-             ; Convert string value to appropriate type
-           typed-value (cond
-                           ; Empty strings become nil
-                         (str/blank? normalized-value) nil
+               ; Convert string value to appropriate type
+               typed-value (cond
+                             ; Empty strings become nil
+                             (str/blank? normalized-value) nil
 
-                           ; Boolean checkbox values
-                           ; Checked: sends "true" (from value attribute)
-                           ; Unchecked: sends "false" (from hidden field)
-                         (= field-type :boolean)
-                         (= normalized-value "true")
+                             ; Boolean checkbox values
+                             ; Checked: sends "true" (from value attribute)
+                             ; Unchecked: sends "false" (from hidden field)
+                             (= field-type :boolean)
+                             (= normalized-value "true")
 
-                           ; Integer values - wrap in try/catch for invalid input
-                         (= field-type :int)
-                         (try
-                           (parse-long normalized-value)
-                           (catch NumberFormatException _
-                             (throw (ex-info "Invalid integer value"
-                                             {:type :validation-error
-                                              :field field-keyword
-                                              :value normalized-value
-                                              :message (str "Field '" (name field-keyword) "' must be a valid integer")}))))
+                             ; Integer values - wrap in try/catch for invalid input
+                             (= field-type :int)
+                             (try
+                               (parse-long normalized-value)
+                               (catch NumberFormatException _
+                                 (throw (ex-info "Invalid integer value"
+                                                 {:type :validation-error
+                                                  :field field-keyword
+                                                  :value normalized-value
+                                                  :message (str "Field '" (name field-keyword) "' must be a valid integer")}))))
 
-                           ; Decimal values - wrap in try/catch for invalid input
-                         (= field-type :decimal)
-                         (try
-                           (bigdec normalized-value)
-                           (catch NumberFormatException _
-                             (throw (ex-info "Invalid decimal value"
-                                             {:type :validation-error
-                                              :field field-keyword
-                                              :value normalized-value
-                                              :message (str "Field '" (name field-keyword) "' must be a valid decimal")}))))
+                             ; Decimal values - wrap in try/catch for invalid input
+                             (= field-type :decimal)
+                             (try
+                               (bigdec normalized-value)
+                               (catch NumberFormatException _
+                                 (throw (ex-info "Invalid decimal value"
+                                                 {:type :validation-error
+                                                  :field field-keyword
+                                                  :value normalized-value
+                                                  :message (str "Field '" (name field-keyword) "' must be a valid decimal")}))))
 
-                           ; UUID values - wrap in try/catch for invalid input
-                         (= field-type :uuid)
-                         (try
-                           (UUID/fromString normalized-value)
-                           (catch IllegalArgumentException _
-                             (throw (ex-info "Invalid UUID value"
-                                             {:type :validation-error
-                                              :field field-keyword
-                                              :value normalized-value
-                                              :message (str "Field '" (name field-keyword) "' must be a valid UUID")}))))
+                             ; UUID values - wrap in try/catch for invalid input
+                             (= field-type :uuid)
+                             (try
+                               (UUID/fromString normalized-value)
+                               (catch IllegalArgumentException _
+                                 (throw (ex-info "Invalid UUID value"
+                                                 {:type :validation-error
+                                                  :field field-keyword
+                                                  :value normalized-value
+                                                  :message (str "Field '" (name field-keyword) "' must be a valid UUID")}))))
 
-                           ; Default: keep as string
-                         :else normalized-value)]
+                             ; Default: keep as string
+                             :else normalized-value)]
 
-       (if (or typed-value (= field-type :boolean))
-         (assoc acc field-keyword typed-value)
-         acc)))
+           (if (or typed-value (= field-type :boolean))
+             (assoc acc field-keyword typed-value)
+             acc)))))
    {}
    params))
 
@@ -1200,6 +1203,8 @@
       :meta {:middleware [auth-middleware]}
       :methods {:get {:handler (entity-detail-handler admin-service schema-provider config)
                       :summary "Entity detail/edit page"}
+                :post {:handler (update-entity-handler admin-service schema-provider config)
+                       :summary "Update entity via form POST"}
                 :put {:handler (update-entity-handler admin-service schema-provider config)
                       :summary "Update entity"}
                 :delete {:handler (delete-entity-handler admin-service schema-provider config)
@@ -1217,3 +1222,4 @@
   {:api []  ; Week 2+: JSON API endpoints
    :web (normalized-web-routes admin-service schema-provider config user-service)
    :static []})  ; Week 2+: Admin-specific static assets
+

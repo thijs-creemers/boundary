@@ -44,6 +44,7 @@
             [boundary.core.interceptor :as interceptor]
             [boundary.observability.metrics.ports :as metrics-ports]
             [boundary.observability.errors.core :as error-reporting]
+            [cheshire.core :as json]
             [clojure.string :as str])
   (:import [java.time Instant]
            [java.util UUID]))
@@ -108,12 +109,22 @@
    Returns:
      Ring response map"
   [context]
-  (or (:response context)
-      {:status 500
-       :headers {"Content-Type" "application/json"}
-       :body {:error "Internal server error"
-              :message "No response generated"
-              :correlation-id (:correlation-id context)}}))
+  (let [response (or (:response context)
+                     {:status 500
+                      :headers {"Content-Type" "application/json"}
+                      :body {:error "Internal server error"
+                             :message "No response generated"
+                             :correlation-id (:correlation-id context)}})
+        content-type (some-> (get-in response [:headers "Content-Type"])
+                             str/lower-case)]
+    ;; Ring/Jetty cannot stream raw Clojure maps or vectors. JSON error/API
+    ;; responses in this stack are produced as Clojure data, so encode them here
+    ;; before the response leaves the HTTP interceptor boundary.
+    (if (and (not (string? (:body response)))
+             (some? (:body response))
+             (str/includes? (or content-type "") "application/json"))
+      (update response :body json/generate-string)
+      response)))
 
 (defn set-response
   "Sets the Ring response in the HTTP context.

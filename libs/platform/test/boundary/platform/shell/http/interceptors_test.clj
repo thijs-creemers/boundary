@@ -1,5 +1,6 @@
 (ns boundary.platform.shell.http.interceptors-test
-  (:require [clojure.test :refer [deftest testing is]]
+  (:require [cheshire.core :as json]
+            [clojure.test :refer [deftest testing is]]
             [boundary.platform.shell.http.interceptors :as http-interceptors]))
 
 ;; ==============================================================================
@@ -56,7 +57,19 @@
     (let [ctx {:correlation-id "test-123"}
           response (http-interceptors/extract-response ctx)]
       (is (= 500 (:status response)))
-      (is (= "test-123" (:correlation-id (:body response)))))))
+      (is (= "test-123"
+             (:correlation-id (json/parse-string (:body response) true))))))
+
+  (testing "encodes JSON map bodies before returning the Ring response"
+    (let [ctx {:response {:status 400
+                          :headers {"Content-Type" "application/json"}
+                          :body {:error "validation-error"
+                                 :message "Invalid input"}}}
+          response (http-interceptors/extract-response ctx)]
+      (is (string? (:body response)))
+      (is (= {:error "validation-error"
+              :message "Invalid input"}
+             (json/parse-string (:body response) true))))))
 
 (deftest set-response-test
   (testing "sets response in context"

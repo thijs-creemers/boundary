@@ -36,8 +36,8 @@ resources/conf/dev/
  :base-path        "/web/admin"
  :require-role     :admin
  :entity-discovery {:mode :allowlist :allowlist #{:users :products}}
- :entities         #merge [#include "admin/users.edn"
-                           #include "admin/products.edn"]
+ :entities         #merge [#include "conf/dev/admin/users.edn"
+                           #include "conf/dev/admin/products.edn"]
  :pagination       {:default-page-size 20 :max-page-size 200}}
 ```
 
@@ -58,6 +58,18 @@ Also add the entity keyword to `:entity-discovery :allowlist`.
 
 ;; ✅ CORRECT
 :entity-discovery {:mode :allowlist :allowlist #{:users :products}}
+```
+
+### 1b. Entity Config Not Loaded At All
+
+**Cause**: `#include` path resolved relative to the classpath root, but config used a relative-looking path such as `admin/users.edn`.
+
+```clojure
+;; ❌ WRONG — may resolve to a missing include in Aero-based app config loading
+:entities #merge [#include "admin/users.edn"]
+
+;; ✅ CORRECT — classpath path from resources root
+:entities #merge [#include "conf/dev/admin/users.edn"]
 ```
 
 ### 2. Filters Not Appearing for a Field
@@ -99,9 +111,9 @@ When you define `:query-overrides`, all fields used in `WHERE` or `ORDER BY` cla
                  :name  :u.name}}
 ```
 
-### 4. soft-delete with query-overrides — Wrong Table Updated
+### 4. soft-delete with query-overrides — Wrong Table Updated or Ambiguous `deleted_at`
 
-**Cause**: `:soft-delete-table` not specified when using `:query-overrides`.
+**Cause**: `:soft-delete-table` not specified when using `:query-overrides`, or `:deleted-at` is not aliased in `:field-aliases`.
 
 The service soft-deletes by running `UPDATE <table> SET deleted_at = ? WHERE id = ?`. With query-overrides the primary table is inferred from `:from`, but if `deleted_at` lives on a different table (e.g. `auth_users` not `users`), you must specify it explicitly.
 
@@ -109,7 +121,11 @@ The service soft-deletes by running `UPDATE <table> SET deleted_at = ? WHERE id 
 :query-overrides
 {:from              [[:auth_users :a]]
  :join              [[:users :u] [:= :a.id :u.id]]
- ...
+ :select            [:a.id :a.email :a.deleted_at :u.name]
+ :field-aliases     {:id         :a.id
+                     :email      :a.email
+                     :deleted-at :a.deleted_at
+                     :name       :u.name}
  :soft-delete-table :auth_users}   ; ← required when deleted_at is not in first :from table
 ```
 

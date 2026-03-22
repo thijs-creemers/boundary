@@ -68,16 +68,18 @@ resources/conf/dev/
 ;; config.edn — include all entity configs
 :boundary/admin
 {:enabled?   true
- :entities   #merge [#include "admin/users.edn"
-                     #include "admin/products.edn"]
+ :entities   #merge [#include "conf/dev/admin/users.edn"
+                     #include "conf/dev/admin/products.edn"]
  :pagination {:default-page-size 25}}
 ----
 
 == Adding a new module
 
 1. Create `+resources/conf/dev/admin/{module}.edn+`
-2. Add `+#include "admin/{module}.edn"+` to the `#merge` vector in `config.edn`
+2. Add `+#include "conf/dev/admin/{module}.edn"+` to the `#merge` vector in `config.edn`
 3. `(ig-repl/reset)` to reload configuration
+
+For Aero-based config loading, the `#include` path is resolved from the classpath root. Use `conf/dev/admin/...`, not `admin/...`.
 
 == UI conventions
 

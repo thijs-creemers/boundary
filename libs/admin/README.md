@@ -73,10 +73,10 @@ Add to `resources/conf/dev/config.edn`:
  :entity-discovery {:mode      :allowlist
                     :allowlist #{:users :products :orders}}
 
- ;; Per-entity configuration (use Aero #include for separate files)
- :entities         #merge [#include "admin/users.edn"
-                           #include "admin/products.edn"
-                           #include "admin/orders.edn"]
+ ;; Per-entity configuration (use classpath-resolved Aero #include paths)
+ :entities         #merge [#include "conf/dev/admin/users.edn"
+                           #include "conf/dev/admin/products.edn"
+                           #include "conf/dev/admin/orders.edn"]
 
  ;; Pagination defaults
  :pagination       {:default-page-size 20
@@ -94,13 +94,15 @@ Add to `resources/conf/dev/config.edn`:
 ### 3. Entity Config Files
 
 Each entity gets its own file in `resources/conf/{env}/admin/<entity>.edn`.
-Use Aero's `#merge` + `#include` to load them:
+Use Aero's `#merge` + classpath-resolved `#include` paths to load them:
 
 ```clojure
 ;; config.edn
-:entities #merge [#include "admin/users.edn"
-                  #include "admin/products.edn"]
+:entities #merge [#include "conf/dev/admin/users.edn"
+                  #include "conf/dev/admin/products.edn"]
 ```
+
+When you load config via `aero/read-config`, resolve includes from the classpath root, not relative to `config.edn`. In practice that means `conf/dev/admin/users.edn`, not `admin/users.edn`.
 
 ---
 
@@ -312,6 +314,7 @@ When `:soft-delete true` is set on an entity:
 When `:soft-delete false` (the default), delete is permanent (`DELETE FROM …`).
 
 For entities using `:query-overrides`, set `:soft-delete-table` to tell the service which table to `UPDATE` on delete (defaults to the primary table in `:from`).
+Also alias `:deleted-at` in `:field-aliases` so joined reads and filters do not fall back to a bare `deleted_at` column reference.
 
 ---
 

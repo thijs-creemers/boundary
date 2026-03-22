@@ -516,6 +516,28 @@
           ;; Should return error
           (is (some? response)))))))
 
+(deftest update-entity-via-post-method-override-test
+  (testing "POST /web/admin/:entity/:id with _method=PUT updates the entity"
+    (let [user (create-test-user! "override@example.com" "Original Name" true)
+          user-id (:id user)
+          request (make-request :post (str "/web/admin/test-users/" user-id) admin-user
+                                {:path {:entity "test-users" :id (str user-id)}
+                                 :form {"email" "override@example.com"
+                                        "name" "Updated Via Override"
+                                        "password-hash" "hash123"
+                                        "active" "false"
+                                        "_method" "PUT"}})
+          response (*handler* request)
+          updated-record (db/execute-one! *db-ctx*
+                                          {:select [:*]
+                                           :from [:test_users]
+                                           :where [:= :id user-id]})]
+      (is (some? response))
+      (is (= 200 (:status response)))
+      (is (not (str/includes? (:body response) "Please fix the errors below")))
+      (is (= "Updated Via Override" (:name updated-record)))
+      (is (= false (:active updated-record))))))
+
 ;; =============================================================================
 ;; Delete Entity Endpoint Tests
 ;; =============================================================================
