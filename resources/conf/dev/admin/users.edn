@@ -9,7 +9,17 @@
                      :mfa-backup-codes
                      :mfa-backup-codes-used
                      :deleted-at}
-  :readonly-fields #{:id :created-at :updated-at}
+  ;; UPDATE targets the users (profile) table for primary fields.
+  ;; email and active live in auth_users and are routed there via :split-table-update.
+  ;; mfa-enabled is controlled by the MFA enrollment flow, not the generic edit form.
+  :table-name      :users
+  :readonly-fields #{:id :mfa-enabled :created-at :updated-at}
+
+  ;; Split-table update: fields listed under :secondary-fields are written to
+  ;; :secondary-table instead of the primary :table-name.  Both UPDATEs run in
+  ;; a single transaction so they commit or roll back atomically.
+  :split-table-update {:secondary-table :auth_users
+                       :secondary-fields #{:email :active}}
 
   ;; Field filter config — drives the "Add filter" dropdown in the admin list view.
   ;; Fields not listed here (e.g. :email, :name) are covered by the free-text search.

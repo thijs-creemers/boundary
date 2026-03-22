@@ -110,14 +110,16 @@
             (let [error-data (ex-data exception)
                   error-type (or (:type error-data) "database-error")]
 
-;; Skip error reporting at persistence layer - handled at service layer
+              ;; Skip error reporting at persistence layer - handled at service layer
               ;; This prevents protocol errors when called from contexts without proper error reporting setup
 
-              ;; Add structured error information to context
+              ;; Add structured error information to context and preserve :error so
+              ;; execute-persistence-operation can rethrow instead of returning nil.
               (assoc ctx :error-info {:operation operation-name
                                       :error-type error-type
                                       :error-message (when exception (.getMessage exception))
-                                      :params params})))})
+                                      :params params}
+                     :error exception)))})
 
 (def persistence-result-validation
   "Validates and normalizes persistence operation results."
