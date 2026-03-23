@@ -183,10 +183,7 @@
                              (catch Exception _ false)))]
       (if authenticated?
         (response/redirect "/web/dashboard")
-        (-> (user-ui/web-root-page {})
-            ui/render-html
-            response/response
-            (response/content-type "text/html"))))))
+        (html-response request (user-ui/web-root-page {}))))))
 
 (defn dashboard-page-handler
   "Handler for the dashboard page (GET /web/dashboard).

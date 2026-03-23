@@ -273,8 +273,8 @@
         ;; Add method override middleware for HTML form PUT/DELETE support
         ;; Add tenant middleware to the chain (before method override)
         router-config {:middleware (concat
-                                    (when i18n-middleware-fn [i18n-middleware-fn])
                                     tenant-middleware
+                                    (when i18n-middleware-fn [i18n-middleware-fn])
                                     [(fn [handler]
                                        (fn [request]
                                          (if (= :post (:request-method request))

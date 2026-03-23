@@ -40,7 +40,8 @@
    Returns:
      locale keyword or nil"
   [request]
-  (when-let [lang (get-in request [:tenant :default-language])]
+  (when-let [lang (or (get-in request [:tenant :settings :language])
+                      (get-in request [:tenant :default-language]))]
     (when (and (string? lang) (seq lang))
       (keyword lang))))
 

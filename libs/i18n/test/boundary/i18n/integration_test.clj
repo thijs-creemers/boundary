@@ -95,6 +95,18 @@
       (wrapped request)
       (is (= [:en] (:i18n/locale-chain @captured)) "should use English as default")))
 
+  (testing "wrap-i18n uses tenant language when user language is absent"
+    (let [cat      (catalogue/load-catalogue "boundary/i18n/translations")
+          captured (atom nil)
+          handler  (fn [req] (reset! captured req) {:status 200 :body ""})
+          wrapped  (middleware/wrap-i18n handler {:catalogue      cat
+                                                  :default-locale :en})
+          request  {:session {}
+                    :tenant  {:settings {:language "nl"}}}]
+      (wrapped request)
+      (is (= [:nl :en] (:i18n/locale-chain @captured))
+          "should use tenant locale before default when user locale is missing")))
+
   (testing "injected t-fn renders Dutch when user language is nl"
     (let [cat     (catalogue/load-catalogue "boundary/i18n/translations")
           result  (atom nil)
