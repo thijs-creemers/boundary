@@ -37,6 +37,7 @@ jobs:
       - name: Lint with clj-kondo
         run: |
           clojure -M:clj-kondo --lint \
+            boundary-tools/src \
             libs/core/src \
             libs/observability/src \
             libs/platform/src \
@@ -133,13 +134,12 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup Babashka
-        run: |
-          curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install
-          chmod +x install
-          sudo ./install --dir /usr/local/bin
+        uses: DeLaGuardo/setup-clojure@13.5.2
+        with:
+          bb: latest
 
       - name: Check AGENTS links
-        run: bb scripts/check_agents_links.clj
+        run: bb check-links
 
   # =============================================================================
   # Fast command smoke checks (aliases + key docs/dev commands)
@@ -166,10 +166,9 @@ jobs:
           restore-keys: ${{ runner.os }}-clojure-
 
       - name: Setup Babashka
-        run: |
-          curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install
-          chmod +x install
-          sudo ./install --dir /usr/local/bin
+        uses: DeLaGuardo/setup-clojure@13.5.2
+        with:
+          bb: latest
 
       - name: Run command smoke check
         run: bb smoke-check
@@ -732,10 +731,9 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup Babashka
-        run: |
-          curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install
-          chmod +x install
-          sudo ./install --dir /usr/local/bin
+        uses: DeLaGuardo/setup-clojure@13.5.2
+        with:
+          bb: latest
 
       - name: Scan for unexternalised strings
         run: bb i18n:scan
