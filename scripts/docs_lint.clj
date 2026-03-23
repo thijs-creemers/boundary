@@ -353,55 +353,55 @@
   (println "Boundary Docs Lint")
   (println "==================")
   (println)
-  
+
   ;; Discover context
   (print "Discovering namespaces...")
   (let [known-namespaces (discover-namespaces)]
     (println " found" (count known-namespaces)))
-  
+
   (print "Discovering aliases...")
   (let [known-aliases (discover-aliases)]
     (println " found" (count known-aliases) (vec known-aliases)))
-  
+
   (print "Discovering libraries...")
   (let [known-libs (discover-libraries)]
     (println " found" (count known-libs) (vec known-libs)))
-  
+
   (print "Discovering doc files...")
   (let [doc-files (discover-doc-files)]
     (println " found" (count doc-files))
     (println)
-    
+
     (let [known-namespaces (discover-namespaces)
           known-aliases (discover-aliases)
           known-libs (discover-libraries)
-          
+
           ;; Run all checks
           warnings (->> doc-files
                         (mapcat #(lint-file % known-namespaces known-aliases known-libs))
                         (remove nil?)
                         (vec))
-          
+
           ;; Group by type
           by-type (group-by :type warnings)
-          
+
           ;; Summary
           summary {:total (count warnings)
                    :by-type (into {} (map (fn [[k v]] [k (count v)]) by-type))
                    :files-scanned (count doc-files)}
-          
+
           report {:summary summary
                   :warnings warnings
                   :scanned-files doc-files}]
-      
+
       ;; Ensure output directory exists
       (let [out-dir (io/file *out-dir*)]
         (.mkdirs out-dir)
-        
+
         ;; Write EDN report
         (spit (io/file out-dir "report.edn")
               (pr-str report))
-        
+
         ;; Write text report
         (spit (io/file out-dir "report.txt")
               (with-out-str
@@ -421,30 +421,30 @@
                   (println (str "  [" (name (:type w)) "] " (:file w)
                                 (when (:line w) (str ":" (:line w)))
                                 " - " (:message w)))))))
-      
+
       ;; Console summary
       (println "Results:")
       (println "  Files scanned:" (count doc-files))
       (println "  Total warnings:" (count warnings))
       (println)
-      
+
       (when (seq warnings)
         (println "By type:")
         (doseq [[t cnt] (sort-by val > (:by-type summary))]
           (println (str "  " (name t) ": " cnt)))
         (println)
-        
+
         (println "Top warnings (max 10):")
         (doseq [w (take 10 warnings)]
           (println (str "  [" (name (:type w)) "] " (:file w)
                         (when (:line w) (str ":" (:line w)))
                         " - " (:message w)))))
-      
+
       (println)
       (println "Reports written to:" *out-dir*)
       (println "  - report.edn")
       (println "  - report.txt")
-      
+
       ;; Always exit 0 (warn-only)
       report)))
 

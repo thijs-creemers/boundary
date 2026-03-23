@@ -3,17 +3,8 @@ Boundary Docs Lint Report
 
 Summary:
   Files scanned: 57
-  Total warnings: 7
+  Total warnings: 0
 
 By type:
-  unknown-namespace: 6
-  unknown-alias: 1
 
 Warnings:
-  [unknown-namespace] AGENTS.md:704 - Unknown namespace reference: boundary.tools.scaffold
-  [unknown-namespace] AGENTS.md:705 - Unknown namespace reference: boundary.tools.ai
-  [unknown-namespace] AGENTS.md:706 - Unknown namespace reference: boundary.tools.i18n
-  [unknown-namespace] AGENTS.md:707 - Unknown namespace reference: boundary.tools.admin
-  [unknown-namespace] AGENTS.md:708 - Unknown namespace reference: boundary.tools.deploy
-  [unknown-namespace] AGENTS.md:709 - Unknown namespace reference: boundary.tools.dev
-  [unknown-alias] AGENTS.md:412 - Unknown deps.edn alias: :run
