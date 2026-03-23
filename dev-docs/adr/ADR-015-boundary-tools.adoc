@@ -189,6 +189,11 @@ bb deploy --all                   ; deploy all 21 artifacts (20 libs + tools)
 bb deploy --missing               ; deploy artifacts not yet on Clojars
 ----
 
+For tagged GitHub releases, the tag only triggers the publish workflow.
+The actual versions published to Clojars still come from each artifact's own
+`build.clj`, so a full tagged release requires coordinated version bumps
+across all included artifacts.
+
 === 4. Monorepo alignment
 
 The monorepo's own `bb.edn` is refactored to consume `boundary-tools` as a

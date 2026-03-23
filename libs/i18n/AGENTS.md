@@ -78,6 +78,11 @@ Resolved by `boundary.i18n.shell.render/resolve-markers` during `render`.
 ```
 
 `locale-chain` is built by `wrap-i18n` from: `[user-locale tenant-locale default :en]`.
+In the current HTTP pipeline:
+
+- user locale comes from `[:session :user :language]`
+- tenant locale comes from `[:tenant :settings :language]`
+- `[:tenant :default-language]` is also accepted as a backward-compatible fallback
 
 ---
 
@@ -191,7 +196,7 @@ Handlers retrieve it via `(get request :i18n/t identity)`.
 ## Common Pitfalls
 
 1. **Hiccup vs. HTML strings** — `render` passes strings through unchanged; markers only resolve in Hiccup vectors.
-2. **`:i18n/t` not in request** — middleware must run before handlers; `(get request :i18n/t identity)` falls back to `identity` safely.
+2. **`:i18n/t` not in request** — middleware must run before handlers; `(get request :i18n/t identity)` is only safe for plain strings. If a handler may render `[:t ...]` markers, prefer a 1/2/3-arity fallback function instead of bare `identity`.
 3. **Namespace typos** — `:user/sign-i` (missing `n`) returns key string gracefully, but `bb i18n:unused` will flag it.
 4. **Plural maps need `:many`** — `{:one "…"}` without `:many` will return `nil` for n>1 unless `:many` is present.
 5. **Dev? mode** — when `:dev? true`, resolved markers are wrapped in `[:span {:data-i18n "..."}]` for browser inspection.
