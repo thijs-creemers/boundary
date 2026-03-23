@@ -20,7 +20,9 @@
            "libs/geo/src" "libs/geo/test"                  ;; Phase 18: Geo
            "libs/ai/src" "libs/ai/test"                    ;; Phase 19: AI
            "libs/ui-style/src"                              ;; Shared UI style API
-           "libs/ui-style/resources"]                      ;; Shared UI assets (CSS/JS/Tailwind)
+           "libs/ui-style/resources"                       ;; Shared UI assets (CSS/JS/Tailwind)
+           "libs/i18n/src" "libs/i18n/test"                ;; Phase 20: Internationalisation
+           "libs/i18n/resources"]                          ;; i18n translation catalogues
 
  :deps    {org.clojure/clojure               {:mvn/version "1.12.4"}
            cheshire/cheshire                 {:mvn/version "6.1.0"} ;; process json

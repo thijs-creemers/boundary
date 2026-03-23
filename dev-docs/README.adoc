@@ -26,7 +26,7 @@ Each ADR describes the context, the decision, and its consequences.
 * link:adr/ADR-008-normalized-routing-abstraction.adoc[ADR-008: Normalized Routing Abstraction]
 * link:adr/ADR-009-reitit-exclusive-router.adoc[ADR-009: Reitit Exclusive Router]
 * link:adr/ADR-010-http-interceptor-architecture.adoc[ADR-010: HTTP Interceptor Architecture]
-* link:adr/ADR-pluggable-auth.adoc[ADR: Pluggable Auth]
+* link:adr/ADR-014-pluggable-auth.adoc[ADR: Pluggable Auth]
 
 === link:change-reports/[Change Reports]
 

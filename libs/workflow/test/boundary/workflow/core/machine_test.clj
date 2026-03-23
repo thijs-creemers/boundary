@@ -78,3 +78,17 @@
 (deftest ^:unit transitions-test
   (testing "returns the transitions vector"
     (is (= 5 (count (machine/transitions order-def))))))
+
+(deftest ^:unit defworkflow-registers-from-caller-namespace-test
+  (testing "defworkflow can be expanded from a non-library namespace"
+    (let [result (binding [*ns* (create-ns 'boundary.workflow.test-sandbox)]
+                   (clojure.core/refer 'clojure.core)
+                   (eval
+                    '(boundary.workflow.core.machine/defworkflow sandbox-workflow
+                       {:id :sandbox-workflow
+                        :initial-state :draft
+                        :states #{:draft :done}
+                        :transitions [{:from :draft :to :done :name :finish}]}))
+                   (machine/get-workflow :sandbox-workflow))]
+      (is (= :sandbox-workflow (:id result)))
+      (is (= :draft (:initial-state result))))))

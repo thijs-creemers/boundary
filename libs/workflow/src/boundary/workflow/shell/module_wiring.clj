@@ -3,12 +3,17 @@
 
    Config keys:
 
+   :boundary/workflow-db-schema
+     {:ctx (ig/ref :boundary/db-context)}
+
    :boundary/workflow
      Minimal config (no side-effects):
-       {:db-ctx (ig/ref :boundary/db-context)}
+       {:db-ctx    (ig/ref :boundary/db-context)
+        :db-schema (ig/ref :boundary/workflow-db-schema)}
 
      Full config (with jobs side-effects):
        {:db-ctx        (ig/ref :boundary/db-context)
+        :db-schema     (ig/ref :boundary/workflow-db-schema)
         :job-queue     (ig/ref :boundary/job-queue)
         :guard-registry {}}
 
@@ -25,9 +30,21 @@
             [boundary.workflow.shell.http :as workflow-http]
             [clojure.tools.logging :as log]))
 
+(defmethod ig/init-key :boundary/workflow-db-schema
+  [_ {:keys [ctx]}]
+  (log/info "Initializing workflow database schema")
+  (persistence/initialize-workflow-schema! ctx)
+  {:status :initialized})
+
+(defmethod ig/halt-key! :boundary/workflow-db-schema
+  [_ _]
+  (log/info "Workflow database schema component halted"))
+
 (defmethod ig/init-key :boundary/workflow
-  [_ {:keys [db-ctx job-queue guard-registry]}]
+  [_ {:keys [db-ctx db-schema job-queue guard-registry]}]
   (log/info "Initializing workflow component")
+  (when-not db-schema
+    (log/warn "Workflow component started without :db-schema dependency"))
   (let [datasource (:datasource db-ctx)
         store      (persistence/create-workflow-store datasource)
         registry   (machine/create-workflow-registry)

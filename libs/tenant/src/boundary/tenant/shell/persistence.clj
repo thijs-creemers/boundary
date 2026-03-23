@@ -7,7 +7,8 @@
             [boundary.tenant.schema :as tenant-schema]
             [cheshire.core]
             [clojure.set]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log])
+  (:import [org.postgresql.util PGobject]))
 
 ;; =============================================================================
 ;; Schema Initialization
@@ -47,6 +48,14 @@
                                   :updated-at :updated_at
                                   :deleted-at :deleted_at}))))
 
+(defn- parse-json-value [value]
+  (cond
+    (nil? value) nil
+    (map? value) value
+    (string? value) (cheshire.core/parse-string value true)
+    (instance? PGobject value) (some-> value .getValue (cheshire.core/parse-string true))
+    :else value))
+
 (defn- db->tenant-entity
   [ctx db-record]
   (when db-record
@@ -61,7 +70,7 @@
           (update :created-at type-conversion/string->instant)
           (update :updated-at type-conversion/string->instant)
           (update :deleted-at type-conversion/string->instant)
-          (update :settings #(when % (cheshire.core/parse-string % true)))))))
+          (update :settings parse-json-value)))))
 
 (defrecord TenantRepository [ctx logger error-reporter]
   ports/ITenantRepository

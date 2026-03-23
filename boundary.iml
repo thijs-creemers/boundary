@@ -46,9 +46,9 @@
       <sourceFolder url="file://$MODULE_DIR$/libs/geo/test" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/ui-style/resources" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/ui-style/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/examples/ecommerce-api/resources" type="java-resource" />
-      <sourceFolder url="file://$MODULE_DIR$/examples/ecommerce-api/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/examples/ecommerce-api/test" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/i18n/resources" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/i18n/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/i18n/test" isTestSource="false" />
     </content>
   </component>
   <component name="BuildSystem">

@@ -40,12 +40,12 @@
                          {:from :pending  :to :cancelled}
                          {:from :paid     :to :cancelled}]})
 
-   The var `order-workflow` is bound to the definition map.
-   The workflow is registered under :order-workflow."
+  The var `order-workflow` is bound to the definition map.
+  The workflow is registered under :order-workflow."
   [sym definition-map]
   `(do
      (def ~sym ~definition-map)
-     (swap! registry-atom assoc (:id ~sym) ~sym)
+     (register-workflow! ~sym)
      ~sym))
 
 ;; =============================================================================

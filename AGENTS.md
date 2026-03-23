@@ -136,6 +136,9 @@ libs/
 ├── geo/           # Geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
 ├── ai/            # Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
 └── ui-style/      # Shared UI style bundles, tokens, and CSS assets contract
+
+# boundary-tools (at repo root, not under libs/)
+boundary-tools/    # Developer tooling: scaffolding, AI, i18n, deploy, dev utilities
 ```
 
 ---
@@ -550,6 +553,53 @@ export DB_PASSWORD="dev_password"
 
 ---
 
+## Internationalisation (i18n) — ADR-013
+
+Translation keys live as `[:t :key]` data markers inside Hiccup trees.
+A shell-layer `postwalk` resolves them before HTML is emitted.
+
+### Workflow: adding a new string
+
+1. **Add to `en.edn`** first — `libs/i18n/resources/boundary/i18n/translations/en.edn`
+2. **Add to `nl.edn`** — `libs/i18n/resources/boundary/i18n/translations/nl.edn`
+3. **Use marker in Hiccup** — `[:t :user/my-key]` instead of `"Hardcoded string"`
+4. **Verify** — `bb i18n:scan` (exits 0 if no unexternalised literals remain)
+5. **Check parity** — `bb i18n:missing` reports gaps between locales
+
+### Marker syntax
+
+```clojure
+[:t :user/sign-in]                        ; simple lookup
+[:t :user/greeting {:name "Alice"}]       ; interpolation
+[:t :user/items {:n 3} 3]                 ; plural (4th arg = count)
+```
+
+### Babashka tooling
+
+```bash
+bb i18n:find "Sign in"      ; search catalogue + codebase
+bb i18n:scan                ; CI gate — exit 1 if literals found
+bb i18n:missing             ; report translation gaps
+bb i18n:unused              ; report unreferenced catalogue keys
+```
+
+### Key namespaces in catalogues
+
+| Namespace | Module |
+|-----------|--------|
+| `:common/*` | Shared across all modules |
+| `:user/*` | User module |
+| `:admin/*` | Admin module |
+| `:search/*` | Search module |
+| `:calendar/*` | Calendar module |
+| `:workflow/*` | Workflow module |
+
+### Full documentation
+
+See `libs/i18n/AGENTS.md` for complete API reference, middleware wiring, and common pitfalls.
+
+---
+
 ## Git Policy
 
 - **Never commit or push without explicit user approval.** Always show the intended changes and wait for the user to say "commit" or "push" before running `git commit` or `git push`.
@@ -631,6 +681,47 @@ Clojure's `{:or {limit 20 offset 0}}` destructuring only fires for **absent** ke
 
 ---
 
+## boundary-tools — The 21st Artifact
+
+`boundary-tools` is a standalone, independently publishable Clojars artifact containing all portable Babashka developer tooling. It lives at `boundary-tools/` (not under `libs/`) and is consumed by the monorepo via a local path dep:
+
+```clojure
+;; bb.edn (monorepo)
+{:deps {org.boundary-app/boundary-tools {:local/root "boundary-tools"}}}
+```
+
+Any project using `boundary-starter` or starting fresh should consume it via:
+
+```clojure
+;; bb.edn (consumer project)
+{:deps {org.boundary-app/boundary-tools {:mvn/version "1.0.0-alpha"}}}
+```
+
+### Namespaces
+
+| Namespace | Entry point |
+|---|---|
+| `boundary.tools.scaffold` | `bb scaffold` |
+| `boundary.tools.ai` | `bb ai` |
+| `boundary.tools.i18n` | `bb i18n:find/scan/missing/unused` |
+| `boundary.tools.admin` | `bb create-admin` |
+| `boundary.tools.deploy` | `bb deploy` (handles all 21 artifacts) |
+| `boundary.tools.dev` | `bb check-links`, `bb smoke-check`, `bb install-hooks` |
+
+### Releasing boundary-tools
+
+```bash
+# Bump version in boundary-tools/build.clj, then:
+bb deploy boundary-tools
+
+# Or directly:
+cd boundary-tools && clojure -T:build clean && clojure -T:build deploy
+```
+
+See `boundary-tools/AGENTS.md` for the full command reference.
+
+---
+
 ## Detailed Documentation
 
 **For in-depth information, see:**
@@ -645,5 +736,5 @@ Clojure's `{:or {limit 20 offset 0}}` destructuring only fires for **absent** ke
 
 ---
 
-**Last Updated**: 2026-03-20
-**Version**: 4.0.0 (UI Style library: shared CSS/JS bundles, design tokens, Tailwind admin-pilot theme)
+**Last Updated**: 2026-03-23
+**Version**: 5.0.0 (boundary-tools: portable developer tooling extracted as 21st Clojars artifact; ADR-015)

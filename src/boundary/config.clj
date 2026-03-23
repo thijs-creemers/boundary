@@ -286,7 +286,8 @@
                                      :metrics-emitter (ig/ref :boundary/metrics)
                                      :error-reporter (ig/ref :boundary/error-reporting)
                                      :tenant-service (ig/ref :boundary/tenant-service)
-                                     :db-context (ig/ref :boundary/db-context)}
+                                     :db-context (ig/ref :boundary/db-context)
+                                     :i18n (ig/ref :boundary/i18n)}
                               admin-enabled?
                               (assoc :admin-routes (ig/ref :boundary/admin-routes))
                               workflow-enabled?
@@ -449,6 +450,17 @@
       (:boundary.external/stripe active) (assoc :boundary.external/stripe (:boundary.external/stripe active))
       (:boundary.external/twilio active) (assoc :boundary.external/twilio (:boundary.external/twilio active)))))
 
+(defn- i18n-module-config
+  "Return Integrant configuration for the i18n module.
+
+   Reads :boundary/i18n from active config. Falls back to sensible defaults
+   (English-only, classpath catalogue) when the key is absent."
+  [config]
+  (let [i18n-cfg (get-in config [:active :boundary/i18n]
+                         {:catalogue-path "boundary/i18n/translations"
+                          :default-locale :en})]
+    {:boundary/i18n i18n-cfg}))
+
 (defn ig-config
   "Generate Integrant configuration map from loaded config.
 
@@ -474,6 +486,7 @@
      (integrant.core/init ig-cfg)"
   [config]
   (merge (core-system-config config)
+         (i18n-module-config config)
          (user-module-config config)
          (tenant-module-config config)
          (admin-module-config config)

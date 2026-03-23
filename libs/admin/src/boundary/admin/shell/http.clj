@@ -14,6 +14,7 @@
    [boundary.admin.ports :as ports]
    [boundary.admin.core.ui :as admin-ui]
    [boundary.admin.core.permissions :as permissions]
+   [boundary.i18n.shell.render :as i18n]
    [boundary.shared.ui.core.components :as ui-components]
    [boundary.shared.ui.core.icons :as icons]
    [boundary.shared.ui.core.validation :as ui-validation]
@@ -385,32 +386,35 @@
   (UUID/fromString (get-in request [:path-params :id])))
 
 (defn html-response
-  "Create HTML response with standard headers.
-   
-   Converts Hiccup data to HTML string if needed.
+  "Create HTML response with standard headers, resolving [:t ...] i18n markers.
 
    Args:
+     request: Ring request map (used to extract :i18n/t translation function)
      html: Hiccup data structure or HTML string
 
    Returns:
      Ring response map"
-  [html]
-  (let [body-content (if (string? html)
-                       html
-                       (ui-components/render-html html))]
+  [request html]
+  (let [fallback-t (fn
+                     ([k] (name k))
+                     ([k _params] (name k))
+                     ([k _params _n] (name k)))
+        t-fn (get request :i18n/t fallback-t)
+        body-content (i18n/render html t-fn)]
     (-> (ring-response/response body-content)
         (ring-response/content-type "text/html; charset=utf-8"))))
 
 (defn htmx-fragment-response
-  "Create HTMX fragment response.
+  "Create HTMX fragment response, resolving [:t ...] i18n markers.
 
    Args:
-     html: Hiccup HTML string for fragment
+     request: Ring request map
+     html: Hiccup data or HTML string
 
    Returns:
      Ring response map with HTMX headers"
-  [html]
-  (-> (html-response html)
+  [request html]
+  (-> (html-response request html)
       (ring-response/header "HX-Trigger" "entityListUpdated")))
 
 (defn redirect-to-entity-list
@@ -451,17 +455,17 @@
           (ring-response/redirect (str "/web/admin/" (name (first entities)))))
 
         ; No entities configured
-        (html-response
-         (admin-ui/admin-layout
-          [:div.empty-state
-           [:div.empty-state-icon
-            (icons/icon :database {:size 48})]
-           [:h2 "No Entities Configured"]
-           [:p "Add entities to the :boundary/admin :entity-discovery :allowlist in your config."]]
-          {:user user
-           :current-entity nil
-           :entities []
-           :entity-configs {}}))))))
+        (html-response request
+                       (admin-ui/admin-layout
+                        [:div.empty-state
+                         [:div.empty-state-icon
+                          (icons/icon :database {:size 48})]
+                         [:h2 "No Entities Configured"]
+                         [:p "Add entities to the :boundary/admin :entity-discovery :allowlist in your config."]]
+                        {:user user
+                         :current-entity nil
+                         :entities []
+                         :entity-configs {}}))))))
 
 ;; =============================================================================
 ;; Entity List Handlers
@@ -513,14 +517,14 @@
           ; Flash message from redirects
           flash (:flash request)]
 
-      (html-response
-       (admin-ui/admin-layout
-        (admin-ui/entity-list-page entity-name records entity-config table-query total-count permissions options)
-        {:user user
-         :current-entity entity-name
-         :entities entities
-         :entity-configs entity-configs
-         :flash flash})))))
+      (html-response request
+                     (admin-ui/admin-layout
+                      (admin-ui/entity-list-page entity-name records entity-config table-query total-count permissions options)
+                      {:user user
+                       :current-entity entity-name
+                       :entities entities
+                       :entity-configs entity-configs
+                       :flash flash})))))
 
 (defn entity-table-fragment-handler
   "HTMX handler for entity table fragment.
@@ -577,13 +581,13 @@
 
       (if (= htmx-target "filter-table-container")
          ; Filter action: return filter builder + table so the filter UI stays visible
-        (htmx-fragment-response
-         [:div#filter-table-container
-          (admin-ui/render-filter-builder entity-name entity-config filters)
-          (admin-ui/entity-table entity-name records entity-config table-query total-count permissions filters)])
+        (htmx-fragment-response request
+                                [:div#filter-table-container
+                                 (admin-ui/render-filter-builder entity-name entity-config filters)
+                                 (admin-ui/entity-table entity-name records entity-config table-query total-count permissions filters)])
          ; Search / sort / pagination: return just the table
-        (htmx-fragment-response
-         (admin-ui/entity-table entity-name records entity-config table-query total-count permissions filters))))))
+        (htmx-fragment-response request
+                                (admin-ui/entity-table entity-name records entity-config table-query total-count permissions filters))))))
 
 ;; =============================================================================
 ;; Entity Detail/Edit Handlers
@@ -694,13 +698,13 @@
           permissions (permissions/get-entity-permissions user entity-name entity-config)
           ctx         (build-entity-detail-opts admin-service schema-provider entity-name entity-config record request)]
 
-      (html-response
-       (admin-ui/admin-layout
-        (admin-ui/entity-detail-page entity-name entity-config record {} permissions (:page-opts ctx))
-        {:user user
-         :current-entity entity-name
-         :entities (:entities ctx)
-         :entity-configs (:entity-configs ctx)})))))
+      (html-response request
+                     (admin-ui/admin-layout
+                      (admin-ui/entity-detail-page entity-name entity-config record {} permissions (:page-opts ctx))
+                      {:user user
+                       :current-entity entity-name
+                       :entities (:entities ctx)
+                       :entity-configs (:entity-configs ctx)})))))
 
 (defn new-entity-handler
   "Handler for new entity creation form.
@@ -729,13 +733,13 @@
           ; Get permissions
           permissions (permissions/get-entity-permissions user entity-name entity-config)]
 
-      (html-response
-       (admin-ui/admin-layout
-        (admin-ui/entity-detail-page entity-name entity-config nil {} permissions {})
-        {:user user
-         :current-entity entity-name
-         :entities entities
-         :entity-configs entity-configs})))))
+      (html-response request
+                     (admin-ui/admin-layout
+                      (admin-ui/entity-detail-page entity-name entity-config nil {} permissions {})
+                      {:user user
+                       :current-entity entity-name
+                       :entities entities
+                       :entity-configs entity-configs})))))
 
 ;; =============================================================================
 ;; Create/Update Handlers
@@ -789,15 +793,15 @@
               permissions (permissions/get-entity-permissions user entity-name entity-config)]
 
           ; Return list page HTML with success message
-          (html-response
-           (admin-ui/admin-layout
-            (admin-ui/entity-list-page entity-name records entity-config table-query total-count permissions {})
-            {:user user
-             :current-entity entity-name
-             :entities entities
-             :entity-configs entity-configs
-             :flash {:type :success
-                     :message (str (:label entity-config) " created successfully")}})))
+          (html-response request
+                         (admin-ui/admin-layout
+                          (admin-ui/entity-list-page entity-name records entity-config table-query total-count permissions {})
+                          {:user user
+                           :current-entity entity-name
+                           :entities entities
+                           :entity-configs entity-configs
+                           :flash {:type :success
+                                   :message (str (:label entity-config) " created successfully")}})))
 
         ; Validation errors - re-render form
         (let [entities (ports/list-available-entities schema-provider)
@@ -805,15 +809,15 @@
               permissions (permissions/get-entity-permissions user entity-name entity-config)
               errors (ui-validation/explain->field-errors (:errors validation-result))]
 
-          (html-response
-           (admin-ui/admin-layout
-            (admin-ui/entity-detail-page entity-name entity-config form-data errors permissions {})
-            {:user user
-             :current-entity entity-name
-             :entities entities
-             :entity-configs entity-configs
-             :flash {:type :error
-                     :message "Please fix the errors below"}})))))))
+          (html-response request
+                         (admin-ui/admin-layout
+                          (admin-ui/entity-detail-page entity-name entity-config form-data errors permissions {})
+                          {:user user
+                           :current-entity entity-name
+                           :entities entities
+                           :entity-configs entity-configs
+                           :flash {:type :error
+                                   :message "Please fix the errors below"}})))))))
 
 (defn update-entity-handler
   "Handler for updating existing entity.
@@ -853,16 +857,16 @@
               permissions    (permissions/get-entity-permissions user entity-name entity-config)
               ctx             (build-entity-detail-opts admin-service schema-provider entity-name entity-config updated-record request)]
 
-          (html-response
-           (admin-ui/admin-layout
-            (admin-ui/entity-detail-page entity-name entity-config updated-record {} permissions
-                                         (assoc (:page-opts ctx) :flash
-                                                {:type :success
-                                                 :message (str (:label entity-config) " updated successfully")}))
-            {:user user
-             :current-entity entity-name
-             :entities (:entities ctx)
-             :entity-configs (:entity-configs ctx)})))
+          (html-response request
+                         (admin-ui/admin-layout
+                          (admin-ui/entity-detail-page entity-name entity-config updated-record {} permissions
+                                                       (assoc (:page-opts ctx) :flash
+                                                              {:type :success
+                                                               :message (str (:label entity-config) " updated successfully")}))
+                          {:user user
+                           :current-entity entity-name
+                           :entities (:entities ctx)
+                           :entity-configs (:entity-configs ctx)})))
 
         ; Validation errors - re-render form with flash inside page content
         (let [permissions (permissions/get-entity-permissions user entity-name entity-config)
@@ -871,16 +875,16 @@
               record      (merge (ports/get-entity admin-service entity-name id) form-data)
               ctx         (build-entity-detail-opts admin-service schema-provider entity-name entity-config record request)]
 
-          (html-response
-           (admin-ui/admin-layout
-            (admin-ui/entity-detail-page entity-name entity-config record errors permissions
-                                         (assoc (:page-opts ctx) :flash
-                                                {:type :error
-                                                 :message "Please fix the errors below"}))
-            {:user user
-             :current-entity entity-name
-             :entities (:entities ctx)
-             :entity-configs (:entity-configs ctx)})))))))
+          (html-response request
+                         (admin-ui/admin-layout
+                          (admin-ui/entity-detail-page entity-name entity-config record errors permissions
+                                                       (assoc (:page-opts ctx) :flash
+                                                              {:type :error
+                                                               :message "Please fix the errors below"}))
+                          {:user user
+                           :current-entity entity-name
+                           :entities (:entities ctx)
+                           :entity-configs (:entity-configs ctx)})))))))
 
 ;; =============================================================================
 ;; Delete Handlers
@@ -969,8 +973,8 @@
                        :message (str "Deleted " success-count ", failed " failed-count)})]
 
       ; Return table HTML fragment
-      (htmx-fragment-response
-       (admin-ui/entity-table entity-name records entity-config table-query total-count permissions {} flash-msg)))))
+      (htmx-fragment-response request
+                              (admin-ui/entity-table entity-name records entity-config table-query total-count permissions {} flash-msg)))))
 
 ;; =============================================================================
 ;; Inline Editing Handlers (Week 2)
@@ -1053,8 +1057,8 @@
           current-value (get record field)]
 
       ; Return inline edit form fragment
-      (html-response
-       (admin-ui/render-inline-edit-form entity-name id field current-value field-config)))))
+      (html-response request
+                     (admin-ui/render-inline-edit-form entity-name id field current-value field-config)))))
 
 (defn update-field-handler
   "Handler for PATCH /:entity/:id/:field - updates single field.
@@ -1095,18 +1099,18 @@
               new-value (get updated-record field)]
 
           ; Return updated cell HTML with success indicator
-          (-> (html-response
-               (admin-ui/render-inline-edit-cell entity-name id field new-value field-config))
+          (-> (html-response request
+                             (admin-ui/render-inline-edit-cell entity-name id field new-value field-config))
               (ring-response/header "HX-Trigger" "entityUpdated")))
 
         (catch Exception e
           (let [error-data (ex-data e)]
             (if (= (:type error-data) :validation-error)
               ; Return inline form with error message
-              (html-response
-               (admin-ui/render-inline-edit-form-with-error
-                entity-name id field parsed-value field-config
-                (get-in error-data [:errors field] ["Validation failed"])))
+              (html-response request
+                             (admin-ui/render-inline-edit-form-with-error
+                              entity-name id field parsed-value field-config
+                              (get-in error-data [:errors field] ["Validation failed"])))
               ; Re-throw other errors
               (throw e))))))))
 
@@ -1135,8 +1139,8 @@
           current-value (get record field)]
 
       ; Return original cell HTML
-      (html-response
-       (admin-ui/render-inline-edit-cell entity-name id field current-value field-config)))))
+      (html-response request
+                     (admin-ui/render-inline-edit-cell entity-name id field current-value field-config)))))
 
 ;; =============================================================================
 ;; Route Definitions

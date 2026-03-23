@@ -1,41 +1,38 @@
-{:paths ["scripts"]
+{:paths ["scripts"]   ; still needed for docs_lint.clj + verify_doc_links.clj
+ :deps  {org.boundary-app/boundary-tools {:local/root "boundary-tools"}}
  :tasks
- {check-links
-  {:doc "Validate local markdown links in AGENTS documentation"
-   :task (do (require 'check-agents-links)
-             (System/exit ((resolve 'check-agents-links/-main))))}
+ {:requires ([boundary.tools.scaffold :as scaffold]
+             [boundary.tools.ai       :as ai]
+             [boundary.tools.i18n     :as i18n]
+             [boundary.tools.admin    :as admin]
+             [boundary.tools.deploy   :as deploy]
+             [boundary.tools.dev      :as dev])
 
+  scaffold      {:doc "Interactive module scaffolding wizard (bb scaffold [generate|new|field|endpoint|adapter|ai])"
+                 :task (apply scaffold/-main *command-line-args*)}
+  scaffold:ai   {:doc "NL scaffolding via AI (--yes for non-interactive)"
+                 :task (apply scaffold/-main "ai" *command-line-args*)}
+  ai            {:doc "Framework-aware AI tooling (bb ai [explain|gen-tests|sql|docs])"
+                 :task (apply ai/-main *command-line-args*)}
+  deploy        {:doc "Deploy Boundary libraries to Clojars (bb deploy --help for usage)"
+                 :task (apply deploy/-main *command-line-args*)}
+  create-admin  {:doc "Create the first admin user for a new Boundary project (interactive wizard)"
+                 :task (apply admin/-main *command-line-args*)}
+  check-links   {:doc "Validate local markdown links in AGENTS documentation"
+                 :task (dev/check-links)}
+  smoke-check   {:doc "Run command smoke checks (verify deps.edn aliases and key commands)"
+                 :task (dev/smoke-check)}
+  install-hooks {:doc "Configure git hooks path to .githooks"
+                 :task (dev/install-hooks)}
+  i18n:find     {:doc "Find a translation key by substring or exact keyword (bb i18n:find \"Sign in\")"
+                 :task (apply i18n/-main "find" *command-line-args*)}
+  i18n:scan     {:doc "Scan core/ui.clj files for unexternalised string literals (exits 1 if found)"
+                 :task (i18n/-main "scan")}
+  i18n:missing  {:doc "Report translation keys present in en.edn but missing from other locales"
+                 :task (i18n/-main "missing")}
+  i18n:unused   {:doc "Report catalogue keys not referenced in any source file"
+                 :task (i18n/-main "unused")}
   verify-doc-links
   {:doc "Verify internal links in docs/ documentation files (.md and .adoc)"
    :task (do (require 'verify-doc-links)
-             (System/exit ((resolve 'verify-doc-links/-main))))}
-
-  smoke-check
-  {:doc "Run command smoke checks (verify deps.edn aliases and key commands)"
-   :task (do (require 'smoke-check)
-             ((resolve 'smoke-check/-main)))}
-
-  install-hooks
-  {:doc "Configure git hooks path to .githooks"
-   :task (do (babashka.process/shell "git" "config" "core.hooksPath" ".githooks")
-             (println "Configured git hooks path: .githooks"))}
-
-  scaffold
-  {:doc "Interactive module scaffolding wizard (bb scaffold [generate|new|field|endpoint|adapter|ai])"
-   :task (do (require 'scaffold)
-             (apply (resolve 'scaffold/-main) *command-line-args*))}
-
-  ai
-  {:doc "Framework-aware AI tooling (bb ai [explain|gen-tests|sql|docs])"
-   :task (do (require 'ai)
-             (apply (resolve 'ai/-main) *command-line-args*))}
-
-  deploy
-  {:doc "Deploy Boundary libraries to Clojars (bb deploy --help for usage)"
-   :task (do (require 'deploy)
-             (apply (resolve 'deploy/-main) *command-line-args*))}
-
-  create-admin
-  {:doc "Create the first admin user for a new Boundary project (interactive wizard)"
-   :task (do (require 'create-admin)
-             (apply (resolve 'create-admin/-main) *command-line-args*))}}}
+             (System/exit ((resolve 'verify-doc-links/-main))))}}}

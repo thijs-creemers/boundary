@@ -37,6 +37,9 @@
     (testing "Timestamp type (inst? symbol)"
       (is (= "TIMESTAMP WITH TIME ZONE" (malli-type->column-type h2-ctx 'inst?))))
 
+    (testing "Timestamp type (inst? function)"
+      (is (= "TIMESTAMP WITH TIME ZONE" (malli-type->column-type h2-ctx inst?))))
+
     (testing "Enum type"
       (is (= "VARCHAR(50)" (malli-type->column-type h2-ctx :enum))))
 
@@ -45,6 +48,9 @@
 
     (testing "JSON/Map type"
       (is (= "CLOB" (malli-type->column-type h2-ctx :map))))
+
+    (testing "Text type"
+      (is (= "CLOB" (malli-type->column-type h2-ctx :text))))
 
     (testing "Regex type (email pattern etc.)"
       (is (= "VARCHAR(255)" (malli-type->column-type h2-ctx :re))))
@@ -124,11 +130,19 @@
   (testing "DDL with inst? timestamp fields"
     (let [malli-schema [:map
                         [:id :uuid]
-                        [:created-at 'inst?]
-                        [:updated-at [:maybe 'inst?]]]
+                        [:created-at inst?]
+                        [:updated-at [:maybe inst?]]]
           ddl (schema/generate-table-ddl h2-ctx "events" malli-schema)]
       (is (.contains ddl "created_at TIMESTAMP WITH TIME ZONE NOT NULL"))
       (is (.contains ddl "updated_at TIMESTAMP WITH TIME ZONE")))))
+
+(deftest generate-table-ddl-with-text-test
+  (testing "DDL with text field"
+    (let [malli-schema [:map
+                        [:id :uuid]
+                        [:payload :text]]
+          ddl (schema/generate-table-ddl h2-ctx "payloads" malli-schema)]
+      (is (.contains ddl "payload CLOB NOT NULL")))))
 
 (deftest generate-table-ddl-with-enum-test
   (testing "DDL with enum field includes CHECK constraint"

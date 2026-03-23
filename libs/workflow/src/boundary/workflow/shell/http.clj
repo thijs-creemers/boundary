@@ -16,7 +16,8 @@
 
    All routes require authentication (actor extracted from ring request).
    Caller is responsible for mounting under an authenticated router."
-  (:require [boundary.workflow.ports :as ports]
+  (:require [boundary.i18n.shell.render :as i18n]
+            [boundary.workflow.ports :as ports]
             [boundary.workflow.core.ui :as workflow-ui]
             [boundary.shared.ui.core.components :as ui]
             [boundary.user.shell.middleware :as user-middleware]
@@ -189,13 +190,14 @@
 ;; =============================================================================
 
 (defn- html-response
-  "Create a text/html Ring response."
-  ([hiccup]
-   (html-response hiccup 200))
-  ([hiccup status]
-   {:status  status
-    :headers {"Content-Type" "text/html; charset=utf-8"}
-    :body    (ui/render-html hiccup)}))
+  "Create a text/html Ring response, resolving [:t ...] i18n markers."
+  ([request hiccup]
+   (html-response request hiccup 200))
+  ([request hiccup status]
+   (let [t-fn (get request :i18n/t identity)]
+     {:status  status
+      :headers {"Content-Type" "text/html; charset=utf-8"}
+      :body    (i18n/render hiccup t-fn)})))
 
 (defn- parse-list-opts
   "Extract list-instances filter options from query-params."
@@ -223,12 +225,12 @@
           instances (ports/list-instances store opts)
           page-opts {:user  (:user request)
                      :flash (:flash request)}]
-      (html-response (workflow-ui/instances-page instances qp page-opts)))
+      (html-response request (workflow-ui/instances-page instances qp page-opts)))
     (catch Exception e
       (log/error e "Error in handle-list-instances-web")
-      (html-response
-       [:div [:h2 "Error"] [:p (.getMessage e)]]
-       500))))
+      (html-response request
+                     [:div [:h2 "Error"] [:p (.getMessage e)]]
+                     500))))
 
 (defn handle-get-instance-web
   "GET /workflows/:id — render the workflow instance detail page."
@@ -238,20 +240,20 @@
           id       (parse-uuid-param id-str "id")
           instance (ports/find-instance store id)]
       (if (nil? instance)
-        (html-response
-         [:div [:h2 "Not Found"] [:p (str "Workflow instance " id-str " not found.")]]
-         404)
+        (html-response request
+                       [:div [:h2 "Not Found"] [:p (str "Workflow instance " id-str " not found.")]]
+                       404)
         (let [definition  (ports/get-workflow registry (:workflow-id instance))
               audit-log   (ports/find-audit-log store id)
               page-opts   {:user  (:user request)
                            :flash (:flash request)}]
-          (html-response
-           (workflow-ui/instance-detail-page instance definition audit-log page-opts)))))
+          (html-response request
+                         (workflow-ui/instance-detail-page instance definition audit-log page-opts)))))
     (catch Exception e
       (log/error e "Error in handle-get-instance-web")
-      (html-response
-       [:div [:h2 "Error"] [:p (.getMessage e)]]
-       500))))
+      (html-response request
+                     [:div [:h2 "Error"] [:p (.getMessage e)]]
+                     500))))
 
 ;; =============================================================================
 ;; Normalized web route definitions

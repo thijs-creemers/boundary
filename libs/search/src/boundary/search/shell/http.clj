@@ -11,7 +11,8 @@
      GET    /search                        — list all indices
      GET    /search/:index-id              — index detail + live search form
      POST   /search/:index-id/search       — HTMX search results fragment"
-  (:require [boundary.search.ports :as ports]
+  (:require [boundary.i18n.shell.render :as i18n]
+            [boundary.search.ports :as ports]
             [boundary.search.core.ui :as search-ui]
             [boundary.shared.ui.core.components :as ui]
             [clojure.tools.logging :as log])
@@ -33,12 +34,13 @@
                        :message (str param-name " must be a valid UUID")})))))
 
 (defn- html-response
-  ([hiccup]
-   (html-response hiccup 200))
-  ([hiccup status]
-   {:status  status
-    :headers {"Content-Type" "text/html; charset=utf-8"}
-    :body    (ui/render-html hiccup)}))
+  ([request hiccup]
+   (html-response request hiccup 200))
+  ([request hiccup status]
+   (let [t-fn (get request :i18n/t identity)]
+     {:status  status
+      :headers {"Content-Type" "text/html; charset=utf-8"}
+      :body    (i18n/render hiccup t-fn)})))
 
 ;; =============================================================================
 ;; API handlers
@@ -133,7 +135,7 @@
   (let [indices   (ports/list-indices engine)
         page-opts {:user  (:user request)
                    :flash (:flash request)}]
-    (html-response (search-ui/indices-page indices page-opts))))
+    (html-response request (search-ui/indices-page indices page-opts))))
 
 (defn handle-get-index-web
   "GET /web/admin/search/:index-id"
@@ -142,14 +144,16 @@
         indices    (ports/list-indices engine)
         index-info (first (filter #(= index-id (:id %)) indices))
         page-opts  {:user  (:user request)
-                    :flash (:flash request)}]
+                    :flash (:flash request)}
+        t-fn       (get request :i18n/t identity)]
     (if (nil? index-info)
       {:status  404
        :headers {"Content-Type" "text/html; charset=utf-8"}
-       :body    (ui/render-html
-                 [:div [:p "Search index " [:code (name index-id)] " not found."]])}
-      (html-response
-       (search-ui/index-detail-page index-info nil nil page-opts)))))
+       :body    (i18n/render
+                 [:div [:p "Search index " [:code (name index-id)] " not found."]]
+                 t-fn)}
+      (html-response request
+                     (search-ui/index-detail-page index-info nil nil page-opts)))))
 
 (defn handle-search-fragment
   "POST /web/admin/search/:index-id/search — HTMX fragment"
@@ -158,15 +162,17 @@
         form-params (get-in request [:form-params] {})
         query       (get form-params "query" "")
         results     (ports/search engine index-id query
-                                  {:limit 20 :highlight? true})]
+                                  {:limit 20 :highlight? true})
+        t-fn        (get request :i18n/t identity)]
     {:status  200
      :headers {"Content-Type" "text/html; charset=utf-8"}
-     :body    (ui/render-html
+     :body    (i18n/render
                (search-ui/search-results-fragment
                 (:results results)
                 (:query results)
                 (:total results)
-                (:took-ms results)))}))
+                (:took-ms results))
+               t-fn)}))
 
 ;; =============================================================================
 ;; Route definitions

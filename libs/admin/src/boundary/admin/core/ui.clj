@@ -40,18 +40,18 @@
     (icons/brand-logo {:size 140 :class "sidebar-brand-logo"})
     [:div.sidebar-controls
      [:button.sidebar-toggle {:type "button"
-                              :aria-label "Toggle sidebar"
+                              :aria-label [:t :admin/sidebar-toggle-button]
                               :title "Toggle sidebar (Ctrl+B)"
                               (keyword "@click") "$store.sidebar.toggle()"}
       (icons/icon :panel-left {:size 20})]
      [:button.sidebar-pin {:type "button"
-                           :aria-label "Pin sidebar"
+                           :aria-label [:t :admin/sidebar-pin-button]
                            :title "Pin sidebar open"
                            (keyword "@click") "$store.sidebar.togglePin()"
                            :x-bind:aria-pressed "$store.sidebar.pinned"}
       (icons/icon :pin {:size 20})]]]
    [:nav.admin-sidebar-nav
-    [:h3 "Entities"]
+    [:h3 [:t :admin/sidebar-entities-title]]
     [:ul.entity-list
      (for [entity entities
            :let  [entity-config (get entity-configs entity)]
@@ -69,11 +69,11 @@
     [:a (merge {:href "/web/dashboard"}
                (alpine/sidebar-nav-link-attrs))
      (icons/icon :home {:size 20})
-     [:span.nav-text "Dashboard"]]
+     [:span.nav-text [:t :admin/sidebar-dashboard]]]
     [:a (merge {:href "/web"}
                (alpine/sidebar-nav-link-attrs))
      (icons/icon :external-link {:size 20})
-     [:span.nav-text "Main Site"]]]])
+     [:span.nav-text [:t :admin/sidebar-main-site]]]]])
 
 (defn admin-shell
   "New admin shell layout with collapsible sidebar (Phase 2).
@@ -98,18 +98,18 @@
       [:div.admin-main
        [:header.admin-topbar
         [:button.mobile-menu-toggle (merge {:type "button"
-                                            :aria-label "Open menu"}
+                                            :aria-label [:t :admin/menu-open-button]}
                                            (alpine/mobile-menu-toggle-attrs))
          (icons/icon :menu {:size 24})]
-        [:h1 {:class "text-lg font-semibold"} (or page-title "Admin Dashboard")]
+        [:h1 {:class "text-lg font-semibold"} (or page-title [:t :admin/page-heading])]
         [:div.admin-topbar-actions
-         [:span {:class "badge badge-ghost"} (str "Welcome, " (:display-name user (:email user)))]
+         [:span {:class "badge badge-ghost"} [:t :admin/header-welcome {:name (:display-name user (:email user))}]]
          (icons/theme-toggle-button)
          [:form {:method "POST" :action "/web/logout" :class "logout-form"}
-          [:button {:type "submit" :class "logout-button" :aria-label "Logout"}
+          [:button {:type "submit" :class "logout-button" :aria-label [:t :admin/button-logout]}
            [:span.logout-icon
-            (icons/icon :log-out {:size 18 :aria-label "Logout"})]
-           [:span.sr-only "Logout"]]]]]
+            (icons/icon :log-out {:size 18 :aria-label [:t :admin/button-logout]})]
+           [:span.sr-only [:t :admin/button-logout]]]]]]
        [:main.admin-content
         content]]]]))
 
@@ -125,8 +125,8 @@
   [content opts]
   (let [{:keys [user current-entity entity-configs flash]} opts
         title (if current-entity
-                (str "Admin - " (:label (get entity-configs current-entity)))
-                "Admin Dashboard")
+                [:t :admin/page-title {:label (:label (get entity-configs current-entity))}]
+                [:t :admin/page-title-dashboard])
         page-title (when current-entity
                      (:label (get entity-configs current-entity)))]
     (layout/admin-pilot-page-layout
@@ -151,9 +151,9 @@
    [:section.admin-home-hero
     [:div.admin-home-hero-inner
      [:div
-      [:span.admin-home-kicker "Control Center"]
-      [:h1 "Admin Dashboard"]
-      [:p "Manage your application entities."]]]]
+      [:span.admin-home-kicker [:t :admin/page-kicker]]
+      [:h1 [:t :admin/page-heading]]
+      [:p [:t :admin/page-description]]]]]
    [:div.entity-grid
     (for [entity entities]
       (let [entity-config (get entity-configs entity)
@@ -166,7 +166,7 @@
               :class "entity-card-link"}
           [:div.entity-card-head
            [:div.entity-card-icon (icons/icon icon {:size 18})]
-           [:span.entity-card-count (str count " records")]]
+           [:span.entity-card-count [:t :admin/entity-card-count {:count count}]]]
           [:div.entity-card-title label]
           (when description
             [:div.entity-card-description description])]]))]])
@@ -198,15 +198,15 @@
         [:div.search-controls
          [:input {:type "text"
                   :name "search"
-                  :placeholder (str "Search " (str/join ", " (map name search-fields)) "...")
+                  :placeholder [:t :admin/filter-placeholder-search {:fields (str/join ", " (map name search-fields))}]
                   :value (or current-search "")
                   :autofocus true
                   :class "search-input"}]
-         [:button.icon-button {:type "submit" :aria-label "Search"}
+         [:button.icon-button {:type "submit" :aria-label [:t :common/button-search]}
           (icons/icon :search {:size 20})]
          (when (seq current-search)
            [:button.icon-button.secondary {:type "button"
-                                           :aria-label "Clear search"
+                                           :aria-label [:t :admin/button-clear-search]
                                            :onclick (str "window.location.href='/web/admin/" (name entity-name) "';")}
             (icons/icon :x {:size 20})])]]])))
 
@@ -290,13 +290,13 @@
        [:input.filter-value-input
         {:type (if (#{:int :decimal} field-type) "number" "text")
          :name (str "filters[" (name field-name) "][min]")
-         :placeholder "Min"
+         :placeholder [:t :admin/filter-range-min]
          :value (get filter-value :min "")}]
-       [:span.range-separator "to"]
+       [:span.range-separator [:t :admin/filter-range-separator]]
        [:input.filter-value-input
         {:type (if (#{:int :decimal} field-type) "number" "text")
          :name (str "filters[" (name field-name) "][max]")
-         :placeholder "Max"
+         :placeholder [:t :admin/filter-range-max]
          :value (get filter-value :max "")}]]
 
       ;; Multi-select for :in and :not-in operators
@@ -322,15 +322,15 @@
       (= field-type :boolean)
       [:select.filter-value-input
        {:name (str "filters[" (name field-name) "][value]")}
-       [:option {:value ""} "Select..."]
-       [:option {:value "true" :selected (= (:value filter-value) true)} "Yes"]
-       [:option {:value "false" :selected (= (:value filter-value) false)} "No"]]
+       [:option {:value ""} [:t :admin/select-placeholder]]
+       [:option {:value "true" :selected (= (:value filter-value) true)} [:t :common/option-yes]]
+       [:option {:value "false" :selected (= (:value filter-value) false)} [:t :common/option-no]]]
 
       ;; Enum field with options - dropdown
       (and (= field-type :enum) options)
       [:select.filter-value-input
        {:name (str "filters[" (name field-name) "][value]")}
-       [:option {:value ""} "Select..."]
+       [:option {:value ""} [:t :admin/select-placeholder]]
        (for [[value label] options]
          [:option {:value (name value)
                    :selected (= (:value filter-value) value)}
@@ -348,7 +348,7 @@
       [:input.filter-value-input
        {:type "number"
         :name (str "filters[" (name field-name) "][value]")
-        :placeholder "Enter value"
+        :placeholder [:t :admin/filter-enter-value]
         :value (or (:value filter-value) "")}]
 
       ;; Default: text input
@@ -356,7 +356,7 @@
       [:input.filter-value-input
        {:type "text"
         :name (str "filters[" (name field-name) "][value]")
-        :placeholder "Enter value"
+        :placeholder [:t :admin/filter-enter-value]
         :value (or (:value filter-value) "")}])))
 
 (defn render-filter-row
@@ -397,7 +397,7 @@
       ;; Remove filter button
      [:button.icon-button.secondary
       {:type "button"
-       :aria-label "Remove filter"
+       :aria-label [:t :admin/button-remove-filter]
        :hx-get (str "/web/admin/" (name entity-name) "/table")
        :hx-target "#filter-table-container"
        :hx-trigger "click"
@@ -428,7 +428,7 @@
     (when (or (seq filterable-fields) (seq current-filters))
       [:div.filter-builder
        [:div.filter-builder-header
-        [:span.filter-builder-title "Filters"]
+        [:span.filter-builder-title [:t :admin/filters-title]]
         (when has-active-filters?
           [:button.text-button
            {:type "button"
@@ -436,7 +436,7 @@
             :hx-target "#filter-table-container"
             :hx-trigger "click"}
            (icons/icon :x {:size 14})
-           " Clear all"])]
+           " " [:t :admin/button-clear-all-filters]])]
 
       ;; Form wrapper for all filters
        [:form.filter-form
@@ -461,7 +461,7 @@
              :hx-target "#filter-table-container"
              :hx-trigger "change"
              :hx-include "closest form"}
-            [:option {:value ""} "+ Add filter..."]
+            [:option {:value ""} [:t :admin/filter-add-option]]
             (for [field-name filterable-fields
                   :when (not (contains? current-filters field-name))]
               (let [field-config (get-in entity-config [:fields field-name])
@@ -470,7 +470,7 @@
 
       ;; Apply button (for manual submission if auto-trigger doesn't work)
         (when has-active-filters?
-          [:button.button.primary {:type "submit"} "Apply Filters"])]])))
+          [:button.button.primary {:type "submit"} [:t :admin/button-apply-filters]])]])))
 
 (defn render-field-value
   "Render field value for display in table or detail view.
@@ -553,7 +553,7 @@
                  :hx-trigger "dblclick"
                  :hx-target "this"
                  :hx-swap "innerHTML"
-                 :title "Double-click to edit"}
+                 :title [:t :admin/cell-dblclick-hint]}
             (render-field-value field value field-config)]
            ; Non-editable cell
            [:td {:class (str "field-" (name field))
@@ -563,7 +563,7 @@
       (when (:can-edit permissions)
         [:a.icon-button.secondary
          {:href (str "/web/admin/" (name entity-name) "/" record-id)
-          :aria-label "Edit"}
+          :aria-label [:t :common/button-edit]}
          (icons/icon :edit {:size 18})])]]))
 
 ;; =============================================================================
@@ -590,12 +590,12 @@
           :hx-trigger "dblclick"
           :hx-target "this"
           :hx-swap "innerHTML"
-          :title "Double-click to edit"}
+          :title [:t :admin/cell-dblclick-hint]}
      [:span.cell-content
       (render-field-value field value field-config)]
      [:span.inline-edit-hint
       (icons/icon :pencil {:size 14})
-      " Edit"]]))
+      " " [:t :common/button-edit]]]))
 
 (defn render-inline-edit-form
   "Render inline edit form for a single field.
@@ -771,12 +771,12 @@
        [:div.empty-state {:class "p-10 text-center"}
         [:div.empty-state-icon
          (icons/icon :inbox {:size 48})]
-        [:p {:class "mt-2 text-base-content/70"} "No records found."]
+        [:p {:class "mt-2 text-base-content/70"} [:t :admin/empty-state-no-records]]
         (when (:can-create permissions)
           [:a.button.primary
            {:class "mt-4"
             :href (str "/web/admin/" (name entity-name) "/new")}
-           "Create First Record"])]
+           [:t :admin/button-create-first-record]])]
        [:div.table-wrapper
         ;; Form for checkbox submission (hidden inputs + table)
         [:form#table-form
@@ -817,7 +817,7 @@
                                          :hx-push-url? true
                                          :extra-params filters})
                   [:th (:label field-config (str/capitalize (name field)))])))
-            [:th {:class "actions-header"} "Actions"]]]
+            [:th {:class "actions-header"} [:t :admin/column-actions]]]]
           [:tbody
            (for [record records]
              (entity-table-row entity-name record entity-config permissions))]]]
@@ -859,10 +859,10 @@
      [:section.entity-list-hero
       [:div.entity-list-hero-inner
        [:div.entity-list-title-group
-        [:span.entity-list-kicker "Admin collection"]
+        [:span.entity-list-kicker [:t :admin/list-kicker]]
         [:h1.entity-list-title label]
         [:p.entity-list-subtitle
-         (str "Manage " (str/lower-case label) ". " total-count " total")]]
+         [:t :admin/list-description {:label (str/lower-case label) :count total-count}]]]
        [:div.entity-list-hero-actions {:class "flex items-center gap-2"}
         (when (:can-create permissions)
           [:a.button.primary
@@ -870,7 +870,7 @@
             :href (str "/web/admin/" (name entity-name) "/new")
             :aria-label (str "Create new " (name entity-name))}
            (icons/icon :plus {:size 18})
-           [:span "New " (str/capitalize (name entity-name))]])]]]
+           [:t :admin/button-new {:entity (str/capitalize (name entity-name))}]])]]]
 
        ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
      [:div.table-toolbar-container {:class "space-y-3"}
@@ -881,7 +881,7 @@
           [:input.search-input {:type "text"
                                 :name "search"
                                 :class "search-input w-full"
-                                :placeholder (str "Search " (str/join ", " (map name search-fields)) "...")
+                                :placeholder [:t :admin/filter-placeholder-search {:fields (str/join ", " (map name search-fields))}]
                                 :value (or search-value "")
                                 :hx-get (str "/web/admin/" (name entity-name) "/table")
                                 :hx-target "#entity-table-container"
@@ -889,7 +889,7 @@
                                 :hx-trigger "keyup changed delay:300ms, search"
                                 :hx-include "this"}]
           [:button.icon-button {:type "button"
-                                :aria-label "Search"
+                                :aria-label [:t :common/button-search]
                                 :hx-get (str "/web/admin/" (name entity-name) "/table")
                                 :hx-target "#entity-table-container"
                                 :hx-push-url "true"
@@ -897,7 +897,7 @@
            (icons/icon :search {:size 20})]
           (when (seq search-value)
             [:button.icon-button.secondary {:type "button"
-                                            :aria-label "Clear search"
+                                            :aria-label [:t :admin/button-clear-search]
                                             :onclick (str "window.location.href='/web/admin/" (name entity-name) "';")}
              (icons/icon :x {:size 20})])])]
 
@@ -923,13 +923,13 @@
                  :value "delete"
                  :id "bulk-delete-btn"
                  :form "bulk-action-form"
-                 :aria-label "Delete selected"
-                 :hx-confirm "Are you sure you want to delete selected records?"})
+                 :aria-label [:t :admin/button-delete-selected]
+                 :hx-confirm [:t :admin/confirm-delete-selected]})
          (icons/icon :trash {:size 18})]]
 
        [:div.toolbar-actions {:class "flex items-center gap-2"}
         [:button.icon-button.ghost {:type "button"
-                                    :aria-label "Refresh list"
+                                    :aria-label [:t :admin/button-refresh]
                                     :hx-get (str "/web/admin/" (name entity-name) "/table")
                                     :hx-target "#entity-table-container"
                                     :hx-push-url "true"}
@@ -1232,7 +1232,7 @@
      [:div.form-card {:class "form-card overflow-hidden"}
       [:div.form-card-body {:class "form-card-body space-y-4"}
        [:div.form-meta
-        [:span.form-meta-label "Required fields are marked with *"]]
+        [:span.form-meta-label [:t :admin/form-required-fields-note]]]
        (cond
          ;; Priority 1: Use configured field groups if present
          field-groups
@@ -1245,8 +1245,8 @@
          [:div.form-sections {:class "form-sections"}
           [:div.form-section {:class "form-section"}
            [:div.form-section-header {:class "form-section-header"}
-            [:h3.form-section-title "Required details"]
-            [:p.form-section-description "Complete these fields to save the record."]]
+            [:h3.form-section-title [:t :admin/form-section-required]]
+            [:p.form-section-description [:t :admin/form-section-required-description]]]
            [:div.form-fields {:class "form-fields"}
             (for [field-name required-fields]
               (let [field-config (get-in entity-config [:fields field-name])
@@ -1265,8 +1265,8 @@
                               "', $el.open ? 'true' : 'false')")}
            [:summary.form-section-toggle {:class "form-section-toggle"}
             [:div.form-section-header {:class "form-section-header"}
-             [:h3.form-section-title "Optional details"]
-             [:p.form-section-description "Add extra context when available."]]
+             [:h3.form-section-title [:t :admin/form-section-optional]]
+             [:p.form-section-description [:t :admin/form-section-optional-description]]]
             [:span.form-section-toggle-icon
              (icons/icon :chevron-down {:size 16})]]
            [:div.form-fields {:class "form-fields"}
@@ -1286,11 +1286,11 @@
               (render-field-widget field-name field-value field-config field-errors)))])]
       [:div.form-actions {:class "form-actions justify-end border-t border-base-300 pt-4 mt-4"}
        [:button.button.primary {:class "gap-2" :type "submit"}
-        (if is-edit? "Update" "Create")]
+        (if is-edit? [:t :admin/button-update] [:t :admin/button-create])]
        [:a.button.secondary
         {:class "gap-2"
          :href (or cancel-url (str "/web/admin/" (name entity-name)))}
-        "Cancel"]]]]))
+        [:t :common/button-cancel]]]]]))
 
 (defn parent-context-banner
   "Renders a read-only info strip showing key fields from a parent record.
@@ -1330,7 +1330,7 @@
     [:div.related-records {:class "space-y-3 mt-6"}
      [:h2.section-title label]
      (if (empty? records)
-       [:p.empty-state "No " label " found."]
+       [:p.empty-state [:t :admin/relationship-empty-state {:label label}]]
        [:div.table-wrapper
         [:table.related-table
          [:thead
@@ -1350,7 +1350,7 @@
                  {:href (str "/web/admin/" entity "/" (:id record)
                              (when-let [rt (:return-to relationship)]
                                (str "?return_to=" rt)))}
-                 "Edit"]])])]]])]))
+                 [:t :common/button-edit]]])])]]])]))
 
 (defn entity-detail-page
   "Entity detail/edit page.
@@ -1369,7 +1369,7 @@
   (let [{:keys [flash return-to sibling-nav]} opts
         label      (:label entity-config)
         is-edit?   (some? record)
-        page-title (if is-edit? (str "Edit " label) (str "Create " label))
+        page-title (if is-edit? [:t :admin/page-edit-title {:label label}] [:t :admin/page-create-title {:label label}])
         list-url   (or return-to (str "/web/admin/" (name entity-name)))]
     [:div.entity-detail-page {:class "space-y-4"}
      (when flash
@@ -1392,7 +1392,7 @@
          {:class "gap-2"
           :href list-url}
          (icons/icon :chevron-left {:size 16})
-         "Back to list"]
+         [:t :admin/button-back-to-list]]
         (when sibling-nav
           [:div.sibling-nav
            (if (:prev-url sibling-nav)
@@ -1412,7 +1412,7 @@
            {:class "gap-2"
             :href (str "/web/admin/" (name entity-name) "/new")}
            (icons/icon :plus {:size 16})
-           (str "New " label)])
+           [:t :admin/form-create-heading {:label label}]])
         (when (and is-edit? (:can-delete permissions))
           [:button.button.danger
            {:type "button"
@@ -1420,9 +1420,9 @@
             :hx-delete (str "/web/admin/" (name entity-name) "/" (get record (:primary-key entity-config :id)))
             :hx-target "body"
             :hx-swap "outerHTML"
-            :hx-confirm "Delete this record? This action cannot be undone."}
+            :hx-confirm [:t :admin/confirm-delete-record]}
            (icons/icon :trash {:size 16})
-           "Delete"])]]
+           [:t :common/button-delete]])]]
       [:h1.page-title page-title]]
      (when-let [ctx (:parent-context opts)]
        (parent-context-banner ctx))
@@ -1464,16 +1464,16 @@
   [entity-name record-id]
   [:div.modal#confirm-delete-modal
    [:div.modal-content
-    [:h3 "Confirm Delete"]
-    [:p "Are you sure you want to delete this record? This action cannot be undone."]
+    [:h3 [:t :admin/modal-confirm-delete-title]]
+    [:p [:t :admin/modal-confirm-delete-message]]
     [:div.modal-actions
      [:button.button.danger
       {:hx-delete (str "/web/admin/" (name entity-name) "/" record-id)
        :hx-target "#entity-table-container"}
-      "Delete"]
+      [:t :common/button-delete]]
      [:button.button.secondary
       {:onclick "closeModal('confirm-delete-modal')"}
-      "Cancel"]]]])
+      [:t :common/button-cancel]]]]])
 
 ;; =============================================================================
 ;; Error Pages
@@ -1490,16 +1490,16 @@
      Hiccup page structure"
   [reason & [user]]
   (layout/admin-pilot-page-layout
-   "Access Denied"
+   [:t :admin/page-access-denied-title]
    [:div.error-page.admin-forbidden
-    [:h1 "403 - Access Denied"]
-    [:p.error-message "You do not have permission to access the admin interface."]
+    [:h1 "403 - " [:t :admin/page-access-denied-title]]
+    [:p.error-message [:t :admin/page-access-denied-message]]
     (when reason
       [:p.error-reason reason])
     [:div.error-actions
      (if user
-       [:a.button {:href "/"} "Go to Dashboard"]
-       [:a.button {:href "/web/login"} "Login"])]]
+       [:a.button {:href "/"} [:t :admin/button-go-dashboard]]
+       [:a.button {:href "/web/login"} [:t :admin/button-login]])]]
    {:user user}))
 
 (defn admin-not-found-page
@@ -1513,12 +1513,12 @@
      Hiccup page structure"
   [entity-name user]
   (layout/admin-pilot-page-layout
-   "Not Found"
+   [:t :admin/page-not-found-title]
    [:div.error-page.admin-not-found
-    [:h1 "404 - Entity Not Found"]
-    [:p.error-message (str "The entity '" (name entity-name) "' does not exist or is not accessible.")]
+    [:h1 "404 - " [:t :admin/page-not-found-title]]
+    [:p.error-message [:t :admin/page-not-found-message {:name (name entity-name)}]]
     [:div.error-actions
-     [:a.button {:href "/web/admin"} "Back to Admin"]]]
+     [:a.button {:href "/web/admin"} [:t :admin/button-back-to-admin]]]]
    {:user user}))
 
 ;; =============================================================================

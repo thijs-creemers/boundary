@@ -70,7 +70,7 @@
     [:div
      (if (nil? definition)
        [:div
-        [:p.text-muted "Workflow definition not loaded in registry."]
+        [:p.text-muted [:t :workflow/definition-not-loaded]]
         [:div {:style "display: flex; gap: 0.5rem; flex-wrap: wrap;"}
          (state-badge current-state :current)]]
        (let [all-states  (:states definition)
@@ -92,14 +92,14 @@
              (state-badge s (state-var s)))]
           [:details
            [:summary {:style "cursor: pointer; font-size: 0.9em; margin-bottom: 0.5rem;"}
-            "View all transitions (" (count transitions) ")"]
+            [:t :workflow/link-view-all-transitions {:count (count transitions)}]]
            (ui/table-wrapper
             [:table {:class "data-table ui-table" :style "margin-top: 0.5rem;"}
              [:thead
               [:tr
-               [:th "From"]
-               [:th "→ To"]
-               [:th "Required permissions"]]]
+               [:th [:t :workflow/column-from]]
+               [:th "→ " [:t :workflow/column-to]]
+               [:th [:t :workflow/column-required-permissions]]]]
              [:tbody
               (for [{:keys [from to required-permissions]} transitions]
                 [:tr
@@ -126,18 +126,18 @@
   (if (empty? entries)
     [:div.empty-state
      (icons/icon :file-text {:size 32})
-     [:h3 "No transitions recorded"]
-     [:p "This instance has not had any state transitions yet."]]
+     [:h3 [:t :workflow/empty-state-no-transitions]]
+     [:p [:t :workflow/empty-state-transitions-description]]]
     (ui/table-wrapper
      [:table {:class "data-table ui-table"}
       [:thead
        [:tr
-        [:th "When"]
-        [:th "Transition"]
-        [:th "From state"]
-        [:th "To state"]
-        [:th "Actor roles"]
-        [:th "Context"]]]
+        [:th [:t :workflow/audit-column-when]]
+        [:th [:t :workflow/audit-column-transition]]
+        [:th [:t :workflow/audit-column-from]]
+        [:th [:t :workflow/audit-column-to]]
+        [:th [:t :workflow/audit-column-actors]]
+        [:th [:t :workflow/audit-column-context]]]]
       [:tbody
        (for [entry entries]
          [:tr
@@ -171,18 +171,18 @@
   (if (empty? instances)
     [:div.empty-state
      (icons/icon :layout-list {:size 32})
-     [:h3 "No workflow instances"]
-     [:p "No workflow instances have been created yet."]]
+     [:h3 [:t :workflow/empty-state-no-instances]]
+     [:p [:t :workflow/empty-state-instances-description]]]
     (ui/table-wrapper
      [:table {:class "data-table ui-table"}
       [:thead
        [:tr
-        [:th "Instance ID"]
-        [:th "Workflow"]
-        [:th "Entity type"]
-        [:th "Entity ID"]
-        [:th "Current state"]
-        [:th "Updated"]]]
+        [:th [:t :workflow/column-instance-id]]
+        [:th [:t :workflow/column-workflow]]
+        [:th [:t :workflow/column-entity-type]]
+        [:th [:t :workflow/column-entity-id]]
+        [:th [:t :workflow/column-current-state]]
+        [:th [:t :workflow/column-updated]]]]
       [:tbody
        (for [inst instances]
          (let [id-str (str (:id inst))
@@ -218,20 +218,20 @@
   [:form.workflow-filter-form {:method "GET"
                                :action "/web/admin/workflows"}
    [:label.form-field
-    "Workflow ID"
+    [:t :workflow/filter-label-workflow-id]
     (ui/text-input :workflow-id (get params "workflow-id" "")
-                   {:placeholder "e.g. order-workflow"})]
+                   {:placeholder [:t :workflow/filter-placeholder-workflow-id]})]
    [:label.form-field
-    "Entity type"
+    [:t :workflow/filter-label-entity-type]
     (ui/text-input :entity-type (get params "entity-type" "")
-                   {:placeholder "e.g. order"})]
+                   {:placeholder [:t :workflow/filter-placeholder-entity-type]})]
    [:label.form-field
-    "Current state"
+    [:t :workflow/filter-label-current-state]
     (ui/text-input :state (get params "state" "")
-                   {:placeholder "e.g. pending"})]
+                   {:placeholder [:t :workflow/filter-placeholder-current-state]})]
    [:button.button.secondary {:type "submit"}
     (icons/icon :search {:size 14})
-    " Search"]])
+    " " [:t :common/button-search]]])
 
 ;; =============================================================================
 ;; Full Pages
@@ -250,14 +250,14 @@
   [instances params opts]
   (let [{:keys [user flash]} opts]
     (layout/admin-pilot-page-layout
-     "Workflow Instances — Admin"
+     [:t :workflow/page-instances-title]
      [:div.workflow-page
       [:div.page-header
        [:h1.page-title
         (icons/icon :layout-list {:size 24})
-        "Workflow Instances"]
+        [:t :workflow/page-instances-heading]]
        [:a.button.secondary {:href "/web/dashboard"}
-        "← Dashboard"]]
+        [:t :workflow/button-dashboard]]]
       (instances-filter-form params)
       (instances-table instances)]
      {:user  user
@@ -282,37 +282,37 @@
         visited-states (map :to-state audit-entries)
         wf-name (name (:workflow-id instance))]
     (layout/admin-pilot-page-layout
-     (str "Workflow: " wf-name " — Admin")
+     [:t :workflow/page-detail-title {:name wf-name}]
      [:div.workflow-page
       ;; Breadcrumb
       [:nav {:aria-label "Breadcrumb"
              :style "margin-bottom: 1rem; font-size: 0.9em;"}
-       [:a {:href "/web/admin/workflows"} "Workflow Instances"]
+       [:a {:href "/web/admin/workflows"} [:t :workflow/breadcrumb-instances]]
        " / "
        [:code {:style "font-size: inherit;"} (str (:id instance))]]
 
       ;; Instance summary card
       [:article
        [:header
-        [:h2 {:style "margin: 0;"} "Instance Details"]]
+        [:h2 {:style "margin: 0;"} [:t :workflow/card-details-title]]]
        [:dl {:style "display: grid; grid-template-columns: 140px 1fr; gap: 0.4rem 1rem; margin: 0;"}
-        [:dt "Workflow"]
+        [:dt [:t :workflow/detail-workflow]]
         [:dd [:code (name (:workflow-id instance))]]
-        [:dt "Entity type"]
+        [:dt [:t :workflow/detail-entity-type]]
         [:dd [:code (name (:entity-type instance))]]
-        [:dt "Entity ID"]
+        [:dt [:t :workflow/detail-entity-id]]
         [:dd [:code (str (:entity-id instance))]]
-        [:dt "Current state"]
+        [:dt [:t :workflow/detail-state]]
         [:dd (state-badge (:current-state instance) :current)]
-        [:dt "Created"]
+        [:dt [:t :workflow/detail-created]]
         [:dd {:style "font-size: 0.9em;"} (str (:created-at instance))]
-        [:dt "Updated"]
+        [:dt [:t :workflow/detail-updated]]
         [:dd {:style "font-size: 0.9em;"} (str (:updated-at instance))]]]
 
       ;; State machine visualization card
       [:article
        [:header
-        [:h2 {:style "margin: 0 0 1rem;"} "State Machine"]]
+        [:h2 {:style "margin: 0 0 1rem;"} [:t :workflow/card-state-machine-title]]]
        (state-machine-vis definition (:current-state instance) visited-states)]
 
       ;; Audit trail card
@@ -320,12 +320,9 @@
        [:header {:style "margin-bottom: 1rem;"}
         [:h2 {:style "margin: 0; display: flex; align-items: center; gap: 0.5rem;"}
          (icons/icon :file-text {:size 20})
-         "Audit Trail"]
+         [:t :workflow/card-audit-title]]
         [:small {:style "color: var(--muted-color);"}
-         (count audit-entries)
-         " transition"
-         (when (not= 1 (count audit-entries)) "s")
-         " recorded"]]
+         [:t :workflow/audit-count {:count (count audit-entries)} (count audit-entries)]]]
        (audit-log-table audit-entries)]]
      {:user  user
       :flash flash})))

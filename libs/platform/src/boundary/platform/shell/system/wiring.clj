@@ -41,6 +41,8 @@
             [boundary.workflow.shell.module-wiring] ;; Load workflow module init/halt methods
             [boundary.search.shell.module-wiring] ;; Load search module init/halt methods
             [boundary.external.shell.module-wiring] ;; Load external adapters init/halt methods
+            [boundary.i18n.shell.module-wiring] ;; Load i18n module init/halt methods
+            [boundary.i18n.shell.middleware :as i18n-middleware]
             [cheshire.core]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -102,7 +104,7 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes admin-routes tenant-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service db-context]}]
+  [_ {:keys [user-routes admin-routes tenant-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service db-context i18n]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)
@@ -254,6 +256,11 @@
                 :metrics-emitter metrics-emitter
                 :error-reporter error-reporter}
 
+        ;; Build i18n middleware (always present — falls back to identity t-fn if not configured)
+        i18n-middleware-fn (when i18n
+                             (fn [handler]
+                               (i18n-middleware/wrap-i18n handler i18n)))
+
         ;; Build middleware chain with tenant support
         ;; Tenant middleware is added ONLY if tenant-service is provided
         tenant-middleware (when (and tenant-service db-context)
@@ -266,6 +273,7 @@
         ;; Add method override middleware for HTML form PUT/DELETE support
         ;; Add tenant middleware to the chain (before method override)
         router-config {:middleware (concat
+                                    (when i18n-middleware-fn [i18n-middleware-fn])
                                     tenant-middleware
                                     [(fn [handler]
                                        (fn [request]
