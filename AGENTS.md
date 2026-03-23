@@ -718,6 +718,11 @@ bb deploy boundary-tools
 cd boundary-tools && clojure -T:build clean && clojure -T:build deploy
 ```
 
+For a full tagged Clojars release, remember that `.github/workflows/publish.yml`
+runs `bb deploy --all`. That means every artifact included in the release must
+have a fresh, unpublished version in its own `build.clj` before you push the
+tag; the tag only triggers the workflow, it does not override artifact versions.
+
 See `boundary-tools/AGENTS.md` for the full command reference.
 
 ---

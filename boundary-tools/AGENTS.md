@@ -107,6 +107,11 @@ Required environment variables:
 - `CLOJARS_USERNAME` — your Clojars username
 - `CLOJARS_PASSWORD` — your Clojars deploy token
 
+Important release note:
+- `bb deploy --all` publishes every artifact listed in `boundary.tools.deploy/all-libs`, including `boundary-tools`.
+- A Git tag only triggers the GitHub Actions workflow; actual artifact versions still come from each artifact's `build.clj`.
+- For a tagged full release, bump every included artifact to an unpublished version first, otherwise the workflow will fail on the first duplicate version.
+
 ### `bb check-links` — Validate AGENTS.md links
 
 ```bash
