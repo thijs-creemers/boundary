@@ -218,9 +218,9 @@
       (catch Exception e
         (log/error e "Error in dashboard-page-handler")
         (html-response request
-         (layout/pilot-page-layout "Error"
-                                   (ui/error-message (.getMessage e)))
-         500)))))
+                       (layout/pilot-page-layout "Error"
+                                                 (ui/error-message (.getMessage e)))
+                       500)))))
 
 (defn users-page-handler
   "Handler for the users listing page (GET /web/users).
@@ -244,16 +244,16 @@
                           :table-query table-query
                           :filters     filters}]
         (html-response request
-         (user-ui/users-page
-          (:users users-result)
-          (:total-count users-result)
-          page-opts)))
+                       (user-ui/users-page
+                        (:users users-result)
+                        (:total-count users-result)
+                        page-opts)))
       (catch Exception e
         (clojure.tools.logging/error e "Error in users-page-handler")
         (html-response request
-         (layout/pilot-page-layout "Error"
-                                   (ui/error-message (.getMessage e)))
-         500)))))
+                       (layout/pilot-page-layout "Error"
+                                                 (ui/error-message (.getMessage e)))
+                       500)))))
 
 (defn user-detail-page-handler
   "Handler for individual user detail page (GET /web/users/:id).
@@ -274,19 +274,19 @@
         (if user-result
           (html-response request (user-ui/user-detail-page user-result page-opts))
           (html-response request
-           (layout/error-layout 404 "User Not Found"
-                                "The requested user could not be found.")
-           404)))
+                         (layout/error-layout 404 "User Not Found"
+                                              "The requested user could not be found.")
+                         404)))
       (catch IllegalArgumentException _
         (html-response request
-         (layout/error-layout 400 "Invalid User ID"
-                              "User ID must be a valid UUID.")
-         400))
+                       (layout/error-layout 400 "Invalid User ID"
+                                            "User ID must be a valid UUID.")
+                       400))
       (catch Exception e
         (html-response request
-         (layout/pilot-page-layout "Error"
-                                   (ui/error-message (.getMessage e)))
-         500)))))
+                       (layout/pilot-page-layout "Error"
+                                                 (ui/error-message (.getMessage e)))
+                       500)))))
 
 (defn create-user-page-handler
   "Handler for the create user page (GET /web/users/new).
@@ -340,11 +340,11 @@
       (if-not valid?
         ;; Re-render login page with validation errors, preserving return-to
         (html-response request
-         (user-ui/login-page prepared-data validation-errors
-                             {:user (get request :user)
-                              :flash (get request :flash)
-                              :return-to raw-return-to})
-         400)
+                       (user-ui/login-page prepared-data validation-errors
+                                           {:user (get request :user)
+                                            :flash (get request :flash)
+                                            :return-to raw-return-to})
+                       400)
         (try
           ;; Use IUserService/authenticate-user with validated data
           (let [auth-result (user-ports/authenticate-user user-service validated-data)
@@ -405,12 +405,12 @@
               (do
                 (log/info "MFA code required for login" {:email (:email prepared-data)})
                 (html-response request
-                 (user-ui/mfa-login-page prepared-data
-                                         {}
-                                         {:user (get request :user)
-                                          :flash (get request :flash)
-                                          :return-to return-to})
-                 200))
+                               (user-ui/mfa-login-page prepared-data
+                                                       {}
+                                                       {:user (get request :user)
+                                                        :flash (get request :flash)
+                                                        :return-to return-to})
+                               200))
 
               ;; Authentication failed (e.g. wrong password or invalid MFA code)
               :else
@@ -424,26 +424,26 @@
                                           :reason (:reason auth-result)
                                           :message (:message auth-result)})
                 (html-response request
-                 (if (:mfa-code prepared-data)
+                               (if (:mfa-code prepared-data)
                    ;; If MFA code was provided, show MFA page with error
-                   (user-ui/mfa-login-page prepared-data
-                                           {:mfa-code [error-message]}
-                                           {:user (get request :user)
-                                            :flash (get request :flash)
-                                            :return-to return-to})
+                                 (user-ui/mfa-login-page prepared-data
+                                                         {:mfa-code [error-message]}
+                                                         {:user (get request :user)
+                                                          :flash (get request :flash)
+                                                          :return-to return-to})
                    ;; Otherwise show regular login page
-                   (user-ui/login-page prepared-data
-                                       {:password [error-message]}
-                                       {:user (get request :user)
-                                        :flash (get request :flash)
-                                        :return-to return-to}))
-                 401))))
+                                 (user-ui/login-page prepared-data
+                                                     {:password [error-message]}
+                                                     {:user (get request :user)
+                                                      :flash (get request :flash)
+                                                      :return-to return-to}))
+                               401))))
           (catch Exception e
             (log/error e "Login error" {:email (:email prepared-data)})
             (html-response request
-             (layout/pilot-page-layout "Login error"
-                                       (ui/error-message (.getMessage e)))
-             500)))))))
+                           (layout/pilot-page-layout "Login error"
+                                                     (ui/error-message (.getMessage e)))
+                           500)))))))
 
 (defn logout-handler
   "POST /web/logout - clear session cookie and redirect to login."
@@ -496,10 +496,10 @@
           (validate-request-data user-schema/CreateUserRequest prepared-data)]
       (if-not valid?
         (html-response request
-         (user-ui/register-page prepared-data validation-errors
-                                {:user (get request :user)
-                                 :flash (get request :flash)})
-         400)
+                       (user-ui/register-page prepared-data validation-errors
+                                              {:user (get request :user)
+                                               :flash (get request :flash)})
+                       400)
         (try
           (let [user-result (user-ports/register-user user-service prepared-data)
                 ;; Automatically authenticate the newly registered user
@@ -530,9 +530,9 @@
               (response/redirect "/web/login")))
           (catch Exception e
             (html-response request
-             (layout/pilot-page-layout "Registration error"
-                                       (ui/error-message (.getMessage e)))
-             500)))))))
+                           (layout/pilot-page-layout "Registration error"
+                                                     (ui/error-message (.getMessage e)))
+                           500)))))))
 
 ;; =============================================================================
 ;; HTMX Fragment Handlers
@@ -554,11 +554,11 @@
             list-opts   (build-user-list-opts table-query filters)
             users-result (user-ports/list-users user-service list-opts)]
         (html-response request
-         (user-ui/users-table-fragment
-          (:users users-result)
-          table-query
-          (:total-count users-result)
-          filters)))
+                       (user-ui/users-table-fragment
+                        (:users users-result)
+                        table-query
+                        (:total-count users-result)
+                        filters)))
       (catch Exception e
         (html-response request (ui/error-message (.getMessage e)) 500)))))
 
@@ -676,6 +676,7 @@
           (let [user-result (user-ports/register-user user-service prepared-data)]
             ;; Redirect to user detail page instead of showing success message
             (html-response
+             request
              [:div
               [:script "window.location.href = '/web/users/" (:id user-result) "';"]]
              201
@@ -722,6 +723,7 @@
                       user-result (user-ports/update-user-profile user-service user-data)]
                   ;; Re-render the form with updated user data and a success indicator
                   (html-response
+                   request
                    [:div
                     [:div.success-banner {:style "background: #d4edda; color: #155724; padding: 10px; margin-bottom: 15px; border-radius: 4px;"}
                      "✓ User updated successfully"]
@@ -781,9 +783,9 @@
         ;; Check if current user is admin
         (if-not (= :admin (:role current-user))
           (html-response request
-           (layout/error-layout 403 "Access Denied"
-                                "Only administrators can permanently delete users.")
-           403)
+                         (layout/error-layout 403 "Access Denied"
+                                              "Only administrators can permanently delete users.")
+                         403)
           (do
             (user-ports/permanently-delete-user user-service uuid)
             (-> (response/redirect "/web/users")
@@ -827,8 +829,8 @@
         (if user
           (html-response request (user-ui/user-sessions-page user sessions current-token opts))
           (html-response request
-           (layout/error-layout 404 "User Not Found" "The requested user could not be found.")
-           404)))
+                         (layout/error-layout 404 "User Not Found" "The requested user could not be found.")
+                         404)))
       (catch IllegalArgumentException e
         (log/error e "Invalid user ID format - user-id:" (get-in request [:path-params :id]) "path-params:" (:path-params request))
         (html-response request (ui/error-message "Invalid user ID") 400))
@@ -995,18 +997,18 @@
                           :table-query table-query
                           :filters     filters}]
         (html-response request
-         (user-ui/audit-page
-          (:audit-logs audit-result)
-          table-query
-          (:total-count audit-result)
-          filters
-          page-opts)))
+                       (user-ui/audit-page
+                        (:audit-logs audit-result)
+                        table-query
+                        (:total-count audit-result)
+                        filters
+                        page-opts)))
       (catch Exception e
         (log/error e "Error in audit-page-handler")
         (html-response request
-         (layout/pilot-page-layout "Error"
-                                   (ui/error-message (.getMessage e)))
-         500)))))
+                       (layout/pilot-page-layout "Error"
+                                                 (ui/error-message (.getMessage e)))
+                       500)))))
 
 (defn audit-table-fragment-handler
   "Handler for the audit table fragment (GET /web/audit/table).
@@ -1035,11 +1037,11 @@
             _page-opts    {:table-query table-query
                            :filters     filters}]
         (html-response request
-         (user-ui/audit-logs-table
-          (:audit-logs audit-result)
-          table-query
-          (:total-count audit-result)
-          filters)))
+                       (user-ui/audit-logs-table
+                        (:audit-logs audit-result)
+                        table-query
+                        (:total-count audit-result)
+                        filters)))
       (catch Exception e
         (log/error e "Error in audit-table-fragment-handler")
         (html-response request (ui/error-message (.getMessage e)) 500)))))
@@ -1087,15 +1089,15 @@
             :else
             (html-response request (profile-ui/profile-page user mfa-status page-opts)))
           (html-response request
-           (layout/error-layout 404 "Profile Not Found"
-                                "Your profile could not be loaded.")
-           404)))
+                         (layout/error-layout 404 "Profile Not Found"
+                                              "Your profile could not be loaded.")
+                         404)))
       (catch Exception e
         (log/error e "Error in profile-page-handler")
         (html-response request
-         (layout/pilot-page-layout "Error"
-                                   (ui/error-message (.getMessage e)))
-         500)))))
+                       (layout/pilot-page-layout "Error"
+                                                 (ui/error-message (.getMessage e)))
+                       500)))))
 
 (defn profile-edit-form-handler
   "Handler to show profile edit form (GET /web/profile/edit).
@@ -1159,8 +1161,8 @@
         (if-not valid?
           ;; Return form with errors
           (html-response request
-           (profile-ui/profile-edit-form (merge current-user prepared-data) validation-errors)
-           400)
+                         (profile-ui/profile-edit-form (merge current-user prepared-data) validation-errors)
+                         400)
           (try
             ;; Get existing user and update
             (let [user (user-ports/get-user-by-id user-service user-id)
@@ -1170,7 +1172,7 @@
                                                                (merge clean-user prepared-data))]
               ;; Return success with updated info card
               (html-response request
-               (profile-ui/profile-info-fragment updated-user)))
+                             (profile-ui/profile-info-fragment updated-user)))
             (catch Exception e
               (log/error e "Error updating profile")
               (html-response request (ui/error-message (.getMessage e)) 500)))))
@@ -1246,7 +1248,7 @@
                                                              (merge clean-user prepared-data))]
             ;; Return success with updated preferences card
             (html-response request
-             (profile-ui/preferences-fragment updated-user)))
+                           (profile-ui/preferences-fragment updated-user)))
           (catch Exception e
             (log/error e "Error updating preferences")
             (html-response request (ui/error-message (.getMessage e)) 500))))
@@ -1301,10 +1303,10 @@
         ;; Validate passwords match
         (if (not= new-password confirm-password)
           (html-response request
-           (profile-ui/password-section-fragment true
-                                                 {:confirm-password ["Passwords do not match"]})
-           400
-           htmx-no-cache-headers)
+                         (profile-ui/password-section-fragment true
+                                                               {:confirm-password ["Passwords do not match"]})
+                         400
+                         htmx-no-cache-headers)
           (try
             ;; Call service to change password
             (user-ports/change-password user-service user-id current-password new-password)
@@ -1315,16 +1317,16 @@
                 (case (:type data)
                   :invalid-current-password
                   (html-response request
-                   (profile-ui/password-section-fragment true
-                                                         {:current-password ["Current password is incorrect"]})
-                   400
-                   htmx-no-cache-headers)
+                                 (profile-ui/password-section-fragment true
+                                                                       {:current-password ["Current password is incorrect"]})
+                                 400
+                                 htmx-no-cache-headers)
                   :password-policy-violation
                   (html-response request
-                   (profile-ui/password-section-fragment true
-                                                         {:new-password ["Password does not meet requirements"]})
-                   400
-                   htmx-no-cache-headers)
+                                 (profile-ui/password-section-fragment true
+                                                                       {:new-password ["Password does not meet requirements"]})
+                                 400
+                                 htmx-no-cache-headers)
                   ;; Default error
                   (html-response request (ui/error-message (.getMessage e)) 500))))
             (catch Exception e
@@ -1358,9 +1360,9 @@
       (catch Exception e
         (log/error e "Error in mfa-setup-page-handler")
         (html-response request
-         (layout/pilot-page-layout "Error"
-                                   (ui/error-message (.getMessage e)))
-         500)))))
+                       (layout/pilot-page-layout "Error"
+                                                 (ui/error-message (.getMessage e)))
+                       500)))))
 
 (defn mfa-setup-initiate-handler
   "Handler for MFA setup initiation (POST /web/profile/mfa/setup).
@@ -1384,7 +1386,7 @@
           (let [{:keys [secret qr-code-url issuer account-name backup-codes]} setup-result]
             ;; Return QR code step (backup codes passed via hidden form field)
             (html-response request
-             (profile-ui/mfa-qr-code-step secret qr-code-url issuer account-name backup-codes)))
+                           (profile-ui/mfa-qr-code-step secret qr-code-url issuer account-name backup-codes)))
           ;; Error during setup
           (html-response request (ui/error-message (:error setup-result)) 500)))
       (catch Exception e
@@ -1433,9 +1435,9 @@
             (if (:success? enable-result)
               ;; Success - show backup codes directly (HTMX response)
               (html-response request
-               (profile-ui/mfa-backup-codes-display backup-codes false
-                                                    {:user current-user
-                                                     :flash {:success "Two-factor authentication enabled successfully"}}))
+                             (profile-ui/mfa-backup-codes-display backup-codes false
+                                                                  {:user current-user
+                                                                   :flash {:success "Two-factor authentication enabled successfully"}}))
               ;; Invalid code
               (let [qr-code-url (str "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="
                                      (java.net.URLEncoder/encode
@@ -1447,9 +1449,9 @@
                     issuer (get config :app-name "Boundary")
                     account-name (:email current-user)]
                 (html-response request
-                 (profile-ui/mfa-qr-code-step secret qr-code-url issuer account-name backup-codes
-                                              {:verification-code ["Invalid verification code. Please try again."]})
-                 400))))
+                               (profile-ui/mfa-qr-code-step secret qr-code-url issuer account-name backup-codes
+                                                            {:verification-code ["Invalid verification code. Please try again."]})
+                               400))))
           ;; No setup data in form
           (html-response request (ui/error-message "MFA setup data missing. Please start again.") 400)))
       (catch Exception e
@@ -1476,15 +1478,15 @@
                        :flash flash}]
         (if backup-codes
           (html-response request
-           (profile-ui/mfa-backup-codes-display backup-codes true page-opts))
+                         (profile-ui/mfa-backup-codes-display backup-codes true page-opts))
           ;; No backup codes in flash - redirect to profile
           (response/redirect "/web/profile")))
       (catch Exception e
         (log/error e "Error in mfa-backup-codes-page-handler")
         (html-response request
-         (layout/pilot-page-layout "Error"
-                                   (ui/error-message (.getMessage e)))
-         500)))))
+                       (layout/pilot-page-layout "Error"
+                                                 (ui/error-message (.getMessage e)))
+                       500)))))
 
 (defn mfa-disable-page-handler
   "Handler for MFA disable confirmation page (GET /web/profile/mfa/disable).
@@ -1506,9 +1508,9 @@
       (catch Exception e
         (log/error e "Error in mfa-disable-page-handler")
         (html-response request
-         (layout/pilot-page-layout "Error"
-                                   (ui/error-message (.getMessage e)))
-         500)))))
+                       (layout/pilot-page-layout "Error"
+                                                 (ui/error-message (.getMessage e)))
+                       500)))))
 
 (defn mfa-disable-handler
   "Handler for MFA disable submission (POST /web/profile/mfa/disable).
@@ -1538,12 +1540,12 @@
               (-> (response/redirect "/web/profile")
                   (assoc :flash {:success "Two-factor authentication has been disabled"}))
               (html-response request
-               (profile-ui/mfa-disable-confirm-page {:password [(:error disable-result)]})
-               400)))
+                             (profile-ui/mfa-disable-confirm-page {:password [(:error disable-result)]})
+                             400)))
           ;; Password incorrect
           (html-response request
-           (profile-ui/mfa-disable-confirm-page {:password ["Incorrect password"]})
-           400)))
+                         (profile-ui/mfa-disable-confirm-page {:password ["Incorrect password"]})
+                         400)))
       (catch Exception e
         (log/error e "Error in mfa-disable-handler")
         (html-response request (ui/error-message (.getMessage e)) 500)))))

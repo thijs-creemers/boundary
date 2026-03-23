@@ -386,8 +386,8 @@
       (is (some #(and (vector? %) (= :aside.admin-sidebar (first %)))
                 (tree-seq vector? seq shell)))
 
-      ;; Should have topbar with user info
-      (is (str/includes? (str shell) "Welcome"))
+      ;; Should have topbar with user info (i18n key + interpolated name)
+      (is (str/includes? (str shell) ":admin/header-welcome"))
       (is (str/includes? (str shell) "Test User"))
 
       ;; Should have main content area
@@ -427,18 +427,19 @@
       (is (vector? home))
       (is (= :div.admin-home (first home)))
 
-      ;; Should have dashboard title
-      (is (str/includes? (str home) "Admin Dashboard"))
+      ;; Should have dashboard title (i18n key)
+      (is (str/includes? (str home) ":admin/page-heading"))
 
       ;; Should have entity cards
       (is (str/includes? (str home) "Users"))
       (is (str/includes? (str home) "Orders"))
       (is (str/includes? (str home) "Products"))
 
-      ;; Should show record counts
-      (is (str/includes? (str home) "42 records"))
-      (is (str/includes? (str home) "156 records"))
-      (is (str/includes? (str home) "89 records"))
+      ;; Should show record counts via i18n key with count param
+      (is (str/includes? (str home) ":admin/entity-card-count"))
+      (is (str/includes? (str home) "{:count 42}"))
+      (is (str/includes? (str home) "{:count 156}"))
+      (is (str/includes? (str home) "{:count 89}"))
 
       ;; Entity cards should link to entity pages
       (is (str/includes? (str home) "/web/admin/users"))
@@ -455,8 +456,8 @@
         (is (vector? form))
         (is (= :div.entity-search-form (first form)))
 
-        ;; Should have search input
-        (is (str/includes? (str form) "Search"))
+        ;; Should have search input (i18n key for placeholder/aria-label)
+        (is (str/includes? (str form) ":admin/filter-placeholder-search"))
 
         ;; Should have current search value
         (is (str/includes? (str form) "test"))
@@ -523,11 +524,11 @@
                                    {:page 1 :page-size 20} 0
                                    sample-permissions nil)]
         (is (vector? table))
-        ;; Should show empty state message
-        (is (str/includes? (str table) "No records found"))
+        ;; Should show empty state message (i18n key)
+        (is (str/includes? (str table) ":admin/empty-state-no-records"))
 
-        ;; Should show create button if can-create
-        (is (str/includes? (str table) "Create First Record"))))))
+        ;; Should show create button if can-create (i18n key)
+        (is (str/includes? (str table) ":admin/button-create-first-record"))))))
 
 (deftest entity-list-page-test
   (testing "Complete entity list page"
@@ -573,11 +574,11 @@
         (is (str/includes? (str form) "Email"))
         (is (str/includes? (str form) "Name"))
 
-        ;; Should have submit button with "Create"
-        (is (str/includes? (str form) "Create"))
+        ;; Should have submit button with create i18n key
+        (is (str/includes? (str form) ":admin/button-create"))
 
-        ;; Should have cancel link
-        (is (str/includes? (str form) "Cancel"))))
+        ;; Should have cancel link with i18n key
+        (is (str/includes? (str form) ":common/button-cancel"))))
 
     (testing "Edit form (existing record)"
       (let [form (ui/entity-form :users sample-entity-config sample-record nil sample-permissions)]
@@ -590,8 +591,8 @@
         (is (str/includes? (str form) "user@example.com"))
         (is (str/includes? (str form) "Sample User"))
 
-        ;; Should have submit button with "Update"
-        (is (str/includes? (str form) "Update"))))
+        ;; Should have submit button with update i18n key
+        (is (str/includes? (str form) ":admin/button-update"))))
 
     (testing "Form with validation errors"
       (let [errors {:email ["Required field"] :name ["Too short"]}
@@ -614,8 +615,8 @@
         (is (str/includes? (str page) "Admin"))
         (is (str/includes? (str page) "Users"))
 
-        ;; Should have page title
-        (is (str/includes? (str page) "Edit Users"))
+        ;; Should have page title (i18n key)
+        (is (str/includes? (str page) ":admin/page-edit-title"))
 
         ;; Should contain the form
         (is (str/includes? (str page) "user@example.com"))))
@@ -625,8 +626,8 @@
                                         nil sample-permissions nil)]
         (is (vector? page))
 
-        ;; Should have "Create" in title
-        (is (str/includes? (str page) "Create Users"))))))
+        ;; Should have create title i18n key
+        (is (str/includes? (str page) ":admin/page-create-title"))))))
 
 (deftest entity-new-page-test
   (testing "Entity creation page (convenience wrapper)"
@@ -634,8 +635,8 @@
       (is (vector? page))
       (is (= :div.entity-detail-page (first page)))
 
-      ;; Should be a create page
-      (is (str/includes? (str page) "Create Users")))))
+      ;; Should be a create page (i18n key)
+      (is (str/includes? (str page) ":admin/page-create-title")))))
 
 ;; =============================================================================
 ;; Dialog Component Tests
@@ -647,16 +648,16 @@
       (is (vector? dialog))
       (is (= :div.modal#confirm-delete-modal (first dialog)))
 
-      ;; Should have warning message
-      (is (str/includes? (str dialog) "Confirm Delete"))
-      (is (str/includes? (str dialog) "cannot be undone"))
+      ;; Should have warning message (i18n keys)
+      (is (str/includes? (str dialog) ":admin/modal-confirm-delete-title"))
+      (is (str/includes? (str dialog) ":admin/modal-confirm-delete-message"))
 
       ;; Should have HTMX delete button
       (is (str/includes? (str dialog) "hx-delete"))
       (is (str/includes? (str dialog) "/web/admin/users/123"))
 
-      ;; Should have cancel button
-      (is (str/includes? (str dialog) "Cancel")))))
+      ;; Should have cancel button (i18n key)
+      (is (str/includes? (str dialog) ":common/button-cancel")))))
 
 ;; =============================================================================
 ;; Error Page Tests
@@ -669,20 +670,20 @@
 
       ;; Should show 403 status
       (is (str/includes? (str page) "403"))
-      (is (str/includes? (str page) "Access Denied"))
+      (is (str/includes? (str page) ":admin/page-access-denied-title"))
 
       ;; Should show reason
       (is (str/includes? (str page) "You must be an admin"))
 
-      ;; Should have link to dashboard (user is logged in)
-      (is (str/includes? (str page) "Dashboard")))
+      ;; Should have link to dashboard (user is logged in, i18n key)
+      (is (str/includes? (str page) ":admin/button-go-dashboard")))
 
     (testing "Forbidden page for unauthenticated user"
       (let [page (ui/admin-forbidden-page "Not authenticated" nil)]
         (is (vector? page))
 
-        ;; Should have link to login
-        (is (str/includes? (str page) "Login"))))))
+        ;; Should have link to login (i18n key)
+        (is (str/includes? (str page) ":admin/button-login"))))))
 
 (deftest admin-not-found-page-test
   (testing "404 Not Found error page for admin entities"
@@ -691,13 +692,13 @@
 
       ;; Should show 404 status
       (is (str/includes? (str page) "404"))
-      (is (str/includes? (str page) "Not Found"))
+      (is (str/includes? (str page) ":admin/page-not-found-title"))
 
       ;; Should mention the entity
       (is (str/includes? (str page) "users"))
 
-      ;; Should have link back to admin
-      (is (str/includes? (str page) "Back to Admin")))))
+      ;; Should have link back to admin (i18n key)
+      (is (str/includes? (str page) ":admin/button-back-to-admin")))))
 
 ;; =============================================================================
 ;; HTMX Integration Tests
@@ -793,25 +794,25 @@
       (let [page (ui/entity-list-page :users [sample-record] sample-entity-config
                                       {:page 1 :page-size 20} 1 sample-permissions nil)
             page-str (str page)]
-        ;; Search button should have aria-label
+        ;; Search button should have aria-label (i18n key)
         (is (str/includes? page-str "aria-label"))
-        (is (str/includes? page-str "Search"))))
+        (is (str/includes? page-str ":common/button-search"))))
 
     (testing "Sidebar buttons have aria-label"
       (let [sidebar (ui/admin-sidebar [:users :orders] sample-entity-configs :users)
             sidebar-str (str sidebar)]
-        ;; Toggle and pin buttons should have aria-label
+        ;; Toggle and pin buttons should have aria-label (i18n keys)
         (is (str/includes? sidebar-str "aria-label"))
-        (is (str/includes? sidebar-str "Toggle sidebar"))
-        (is (str/includes? sidebar-str "Pin sidebar"))))
+        (is (str/includes? sidebar-str ":admin/sidebar-toggle-button"))
+        (is (str/includes? sidebar-str ":admin/sidebar-pin-button"))))
 
     (testing "Table row actions have aria-label"
       (let [row (ui/entity-table-row :users sample-record sample-entity-config
                                      {:can-edit true :can-delete false})
             row-str (str row)]
-        ;; Edit button should have aria-label
+        ;; Edit button should have aria-label (i18n key)
         (is (str/includes? row-str "aria-label"))
-        (is (str/includes? row-str "Edit"))))))
+        (is (str/includes? row-str ":common/button-edit"))))))
 
 (deftest accessibility-semantic-html-test
   (testing "Pages use semantic HTML elements"

@@ -218,7 +218,7 @@
           response (handler request)]
 
       (is (= 200 (:status response)))
-      (is (html-contains? response "No users found"))))
+      (is (html-contains? response "empty-state-no-users"))))
 
   (testing "handles service errors gracefully"
     (let [service (reify ports/IUserService
@@ -316,7 +316,7 @@
 
       (is (= 200 (:status response)))
       (is (= "text/html; charset=utf-8" (get-in response [:headers "Content-Type"])))
-      (is (html-contains? response "Create New User"))
+      (is (html-contains? response "form-create-title"))
       (is (html-contains? response "form"))))
 
   (testing "includes flash messages when present"
@@ -524,8 +524,8 @@
       (is (= 200 (:status response)))
       (is (= "text/html; charset=utf-8" (get-in response [:headers "Content-Type"])))
       (is (has-header? response "HX-Trigger" "userDeleted"))
-      (is (html-contains? response "User Deleted Successfully"))
-      (is (html-contains? response (str (:id user))))))
+      (is (html-contains? response "message-deleted"))
+      (is (html-contains? response "/web/users"))))
 
   (testing "returns error for invalid UUID"
     (let [service (create-mock-service)
