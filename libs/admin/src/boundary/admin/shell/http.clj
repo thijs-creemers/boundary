@@ -15,7 +15,6 @@
    [boundary.admin.core.ui :as admin-ui]
    [boundary.admin.core.permissions :as permissions]
    [boundary.i18n.shell.render :as i18n]
-   [boundary.shared.ui.core.components :as ui-components]
    [boundary.shared.ui.core.icons :as icons]
    [boundary.shared.ui.core.validation :as ui-validation]
    [boundary.platform.core.http.problem-details :as problem-details]

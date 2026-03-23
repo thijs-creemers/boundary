@@ -19,7 +19,6 @@
   (:require [boundary.i18n.shell.render :as i18n]
             [boundary.workflow.ports :as ports]
             [boundary.workflow.core.ui :as workflow-ui]
-            [boundary.shared.ui.core.components :as ui]
             [boundary.user.shell.middleware :as user-middleware]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]))

@@ -14,7 +14,6 @@
   (:require [boundary.i18n.shell.render :as i18n]
             [boundary.search.ports :as ports]
             [boundary.search.core.ui :as search-ui]
-            [boundary.shared.ui.core.components :as ui]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]))
 
