@@ -1,4 +1,4 @@
-= ADR-011: Pluggable User / Auth / Authorization
+= ADR-014: Pluggable User / Auth / Authorization
 :revdate: 2026-01-02
 :revremark: Make identity/auth/authorization pluggable like DB and observability
 :toc:

@@ -70,11 +70,31 @@
              (:postgresql :h2 :ansi) "INTEGER"
              "INTEGER")
 
+      :bigint (case dialect
+                :sqlite "INTEGER"
+                :mysql "BIGINT"
+                (:postgresql :h2 :ansi) "BIGINT"
+                "BIGINT")
+
       :boolean (case dialect
                  :sqlite "INTEGER"
                  :mysql "TINYINT(1)"
                  (:postgresql :h2 :ansi) "BOOLEAN"
                  "BOOLEAN")
+
+      :text (case dialect
+              :sqlite "TEXT"
+              :mysql "LONGTEXT"
+              :postgresql "TEXT"
+              (:h2 :ansi) "CLOB"
+              "TEXT")
+
+      inst? (case dialect
+              :sqlite "TEXT"
+              :mysql "DATETIME"
+              :postgresql "TIMESTAMPTZ"
+              (:h2 :ansi) "TIMESTAMP WITH TIME ZONE"
+              "TIMESTAMP")
 
       'inst? (case dialect
                :sqlite "TEXT"
@@ -379,4 +399,3 @@
                  {:error (.getMessage e)
                   :dialect (protocols/dialect (:adapter ctx))})
       (throw e))))
-

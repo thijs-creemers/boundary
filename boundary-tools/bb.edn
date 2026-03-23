@@ -1,0 +1,33 @@
+{:paths ["src"]
+ :tasks
+ {:requires ([boundary.tools.scaffold :as scaffold]
+             [boundary.tools.ai       :as ai]
+             [boundary.tools.i18n     :as i18n]
+             [boundary.tools.admin    :as admin]
+             [boundary.tools.deploy   :as deploy]
+             [boundary.tools.dev      :as dev])
+
+  scaffold      {:doc "Interactive module scaffolding wizard"
+                 :task (apply scaffold/-main *command-line-args*)}
+  scaffold:ai   {:doc "NL scaffolding via AI"
+                 :task (apply scaffold/-main "ai" *command-line-args*)}
+  ai            {:doc "Framework-aware AI tooling (explain|gen-tests|sql|docs)"
+                 :task (apply ai/-main *command-line-args*)}
+  deploy        {:doc "Deploy Boundary libraries to Clojars (--help for usage)"
+                 :task (apply deploy/-main *command-line-args*)}
+  create-admin  {:doc "Create the first admin user (interactive wizard)"
+                 :task (apply admin/-main *command-line-args*)}
+  check-links   {:doc "Validate local markdown links in AGENTS documentation"
+                 :task (dev/check-links)}
+  smoke-check   {:doc "Verify deps.edn aliases and key tool entrypoints"
+                 :task (dev/smoke-check)}
+  install-hooks {:doc "Configure git hooks path to .githooks"
+                 :task (dev/install-hooks)}
+  i18n:find     {:doc "Find a translation key by substring or exact keyword"
+                 :task (apply i18n/-main "find" *command-line-args*)}
+  i18n:scan     {:doc "Scan core/ui.clj files for unexternalised string literals"
+                 :task (i18n/-main "scan")}
+  i18n:missing  {:doc "Report translation keys missing from locale files"
+                 :task (i18n/-main "missing")}
+  i18n:unused   {:doc "Report catalogue keys not referenced in source"
+                 :task (i18n/-main "unused")}}}

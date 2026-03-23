@@ -1,18 +1,15 @@
 #!/usr/bin/env bb
-;; scripts/create_admin.clj
+;; boundary-tools/src/boundary/tools/admin.clj
 ;;
 ;; Interactive wizard to create the first admin user for a new Boundary project.
 ;;
 ;; Usage (via bb.edn task):
-;;   bb create-admin                                             -- interactive wizard (root project)
-;;   bb create-admin --dir examples/ecommerce-api               -- target a sub-project
-;;   bb create-admin --env prod                                  -- use production config
-;;   bb create-admin --email a@b.com --name "Admin"             -- skip prompts
-;;
-;; Usage (direct):
-;;   bb scripts/create_admin.clj
+;;   bb create-admin                                         -- interactive wizard
+;;   bb create-admin --env prod                              -- use production config
+;;   bb create-admin --email a@b.com --name "Admin"         -- skip email/name prompts
+;;   bb create-admin --dir examples/ecommerce-api           -- target a sub-project
 
-(ns create-admin
+(ns boundary.tools.admin
   (:require [clojure.string :as str]
             [babashka.process :as p]))
 
@@ -20,34 +17,29 @@
 ;; ANSI helpers
 ;; =============================================================================
 
-(defn bold   [s] (str "\033[1m"  s "\033[0m"))
-(defn green  [s] (str "\033[32m" s "\033[0m"))
-(defn red    [s] (str "\033[31m" s "\033[0m"))
-(defn yellow [s] (str "\033[33m" s "\033[0m"))
-(defn cyan   [s] (str "\033[36m" s "\033[0m"))
-(defn dim    [s] (str "\033[2m"  s "\033[0m"))
+(defn- bold   [s] (str "\033[1m"  s "\033[0m"))
+(defn- green  [s] (str "\033[32m" s "\033[0m"))
+(defn- red    [s] (str "\033[31m" s "\033[0m"))
+(defn- cyan   [s] (str "\033[36m" s "\033[0m"))
+(defn- dim    [s] (str "\033[2m"  s "\033[0m"))
 
 ;; =============================================================================
 ;; Input helpers
 ;; =============================================================================
 
-(defn prompt
-  "Print a prompt and read a line of input."
-  [label]
+(defn- prompt [label]
   (print (str (cyan "? ") (bold label) ": "))
   (flush)
   (str/trim (or (read-line) "")))
 
-(defn valid-email? [s]
+(defn- valid-email? [s]
   (boolean (re-matches #"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" s)))
 
 ;; =============================================================================
 ;; Argument parsing
 ;; =============================================================================
 
-(defn parse-args
-  "Parse --key value pairs from args into a map."
-  [args]
+(defn- parse-args [args]
   (loop [[flag & more :as remaining] args
          opts {}]
     (cond
@@ -62,8 +54,8 @@
 ;; Help
 ;; =============================================================================
 
-(defn print-help []
-  (println (bold "bb create-admin") "— Create initial admin user for a Boundary project")
+(defn- print-help []
+  (println (bold "bb create-admin") "\u2014 Create initial admin user for a Boundary project")
   (println)
   (println (bold "Usage:"))
   (println "  bb create-admin                            Interactive wizard (root project)")
@@ -75,7 +67,7 @@
   (println "  --email EMAIL    Admin user email address")
   (println "  --name  NAME     Admin user full name")
   (println "  --env   ENV      Config environment: dev (default), test, acc, prod")
-  (println "  --dir   DIR      Run from this directory (for sub-projects like examples/ecommerce-api)")
+  (println "  --dir   DIR      Run from this directory (for sub-projects)")
   (println "  -h, --help       Show this help")
   (println)
   (println (bold "Notes:"))
@@ -83,7 +75,7 @@
   (println "  Run database migrations first: clojure -M:migrate up"))
 
 ;; =============================================================================
-;; Main
+;; Main entry point
 ;; =============================================================================
 
 (defn -main [& args]
@@ -94,28 +86,21 @@
       (System/exit 0))
 
     (println)
-    (println (bold (cyan "Boundary — Create Admin User")))
+    (println (bold (cyan "Boundary \u2014 Create Admin User")))
     (println (dim "Sets up the first administrator account for your project."))
     (println)
 
-    ;; Collect email
     (let [email (loop []
                   (let [input (or (:email opts) (prompt "Admin email address"))]
                     (cond
-                      (str/blank? input)
-                      (do (println (red "  Email is required."))
-                          (recur))
-                      (not (valid-email? input))
-                      (do (println (red "  Not a valid email address."))
-                          (recur))
+                      (str/blank? input)    (do (println (red "  Email is required.")) (recur))
+                      (not (valid-email? input)) (do (println (red "  Not a valid email address.")) (recur))
                       :else input)))
 
-          ;; Collect full name
           name  (loop []
                   (let [input (or (:name opts) (prompt "Full name"))]
                     (if (str/blank? input)
-                      (do (println (red "  Name is required."))
-                          (recur))
+                      (do (println (red "  Name is required.")) (recur))
                       input)))
 
           env   (or (:env opts) "dev")
@@ -131,16 +116,13 @@
         (println (str "  Dir    : " (cyan dir))))
       (println)
 
-      ;; Read password here in Babashka where terminal access is guaranteed.
-      ;; Pipe it to the subprocess via stdin so it is consumed immediately
-      ;; and never stored in the environment or process arguments.
       (let [password (loop []
-                       (let [p (if-let [console (System/console)]
-                                 (String. (.readPassword console "Password: " (into-array Object [])))
-                                 (do (print "Password: ") (flush) (str/trim (or (read-line) ""))))
-                             confirm (if-let [console (System/console)]
-                                       (String. (.readPassword console "Confirm password: " (into-array Object [])))
-                                       (do (print "Confirm password: ") (flush) (str/trim (or (read-line) ""))))]
+                       (let [read-pw  (fn [label]
+                                        (if-let [c (System/console)]
+                                          (String. (.readPassword c (str label ": ") (into-array Object [])))
+                                          (do (print (str label ": ")) (flush) (str/trim (or (read-line) "")))))
+                             p        (read-pw "Password")
+                             confirm  (read-pw "Confirm password")]
                          (cond
                            (str/blank? p)   (do (println (red "  Password cannot be empty.")) (recur))
                            (not= p confirm) (do (println (red "  Passwords do not match.")) (recur))
@@ -170,3 +152,7 @@
             (println (red (bold "Failed to create admin user.")))
             (println (dim "  See the output above for details."))
             (System/exit 1)))))))
+
+;; Run when executed directly (not via bb.edn task)
+(when (= *file* (System/getProperty "babashka.file"))
+  (apply -main *command-line-args*))

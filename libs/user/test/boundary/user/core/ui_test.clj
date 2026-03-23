@@ -64,7 +64,7 @@
         (is (= :span (first status-cell)))
         (is (str/includes? (get-in status-cell [1 :class]) "user-status-badge"))
         (is (str/includes? (get-in status-cell [1 :class]) "ui-badge-success"))
-        (is (= "Active" (nth status-cell 2))))))
+        (is (= [:t :user/badge-active] (nth status-cell 2))))))
 
   (testing "generates correct table row for inactive user"
     (let [row (ui/user-row inactive-user)]
@@ -74,7 +74,7 @@
 
       ;; Status badge: inactive
       (let [status-cell (nth row 4)]
-        (is (= "Inactive" (nth status-cell 2)))
+        (is (= [:t :user/badge-inactive] (nth status-cell 2)))
         (is (str/includes? (get-in status-cell [1 :class]) "user-status-badge"))
         (is (str/includes? (get-in status-cell [1 :class]) "ui-badge-warning")))))
 
@@ -99,7 +99,7 @@
     (let [table (ui/users-table [])]
       ;; New structure: container div with empty state inside
       (is (= :div#users-table-container (first table)))
-      (is (some #(= [:div.empty-state "No users found."] %) table))))
+      (is (some #(= [:div.empty-state [:t :user/empty-state-no-users]] %) table))))
 
   (testing "includes HTMX attributes for dynamic updates"
     (let [table (ui/users-table sample-users)
@@ -131,12 +131,12 @@
 
 (deftest session-row-test
   (testing "posts revoke action to stable endpoint with token in hidden field"
-      (let [session {:session-token "abc/def+ghi=="
-                   :user-agent "Mozilla/5.0 Chrome"
-                   :ip-address "127.0.0.1"
-                   :created-at (java.time.Instant/parse "2026-03-19T08:00:00Z")
-                   :last-accessed-at (java.time.Instant/parse "2026-03-19T08:00:00Z")}
-          row (ui/session-row session "different-current-token" "user-123")
+    (let [session  {:session-token    "abc/def+ghi=="
+                    :user-agent       "Mozilla/5.0 Chrome"
+                    :ip-address       "127.0.0.1"
+                    :created-at       (java.time.Instant/parse "2026-03-19T08:00:00Z")
+                    :last-accessed-at (java.time.Instant/parse "2026-03-19T08:00:00Z")}
+          row      (ui/session-row session "different-current-token" "user-123")
           row-html (str row)]
       (is (re-find #"/web/sessions/revoke" row-html))
       (is (re-find #":name \"session-token\"" row-html))
@@ -152,7 +152,7 @@
       (is (vector? form))
       ;; New structure: div with ID instead of class
       (is (= :div#user-detail (first form)))
-      (is (= [:h2 "User Details"] (second form)))))
+      (is (= [:h2 [:t :user/form-detail-title]] (second form)))))
 
   (testing "includes HTMX form attributes"
     (let [form (ui/user-detail-form sample-user)
@@ -172,10 +172,10 @@
   (testing "includes all required form fields"
     (let [form (ui/user-detail-form sample-user)
           form-content (str form)]
-      (is (re-find #"Name" form-content))
-      (is (re-find #"Email" form-content))
-      (is (re-find #"Role" form-content))
-      (is (re-find #"Active" form-content)))))
+      (is (re-find #"label-name" form-content))
+      (is (re-find #"label-email" form-content))
+      (is (re-find #"label-role" form-content))
+      (is (re-find #"field-active" form-content)))))
 
 (deftest create-user-form-test
   (testing "generates form with correct structure"
@@ -183,7 +183,7 @@
       (is (vector? form))
       ;; New structure: div with ID instead of class
       (is (= :div#create-user-form (first form)))
-      (is (= [:h2 "Create New User"] (second form)))))
+      (is (= [:h2 [:t :user/form-create-title]] (second form)))))
 
   (testing "accepts data and errors parameters"
     (let [form (ui/create-user-form create-user-data validation-errors)]
@@ -207,7 +207,7 @@
   (testing "includes password field (not in detail form)"
     (let [form (ui/create-user-form)
           form-content (str form)]
-      (is (re-find #"Password" form-content)))))
+      (is (re-find #"field-password" form-content)))))
 
 ;; =============================================================================
 ;; Success Message Component Tests  
@@ -219,23 +219,23 @@
       (is (vector? page))
       (is (= :html (first page)))
       (let [content (str page)]
-        (is (re-find #"Account Created Successfully!" content))
+        (is (re-find #"page-created-heading" content))
         (is (re-find #"John Doe" content))
         (is (re-find #"john@example.com" content))
-        (is (re-find #"Active" content)))))
+        (is (re-find #"badge-active" content)))))
 
   (testing "includes sign in link"
     (let [page (ui/user-created-success sample-user)
           content (str page)]
       (is (re-find #"/web/login" content))
-      (is (re-find #"Sign In" content)))))
+      (is (re-find #"button-signin" content)))))
 
 (deftest user-updated-success-test
   (testing "generates success message with user details"
     (let [message (ui/user-updated-success sample-user)]
       (is (vector? message))
       (let [content (str message)]
-        (is (re-find #"User Updated Successfully!" content))
+        (is (re-find #"message-updated" content))
         (is (re-find #"John Doe" content))
         (is (re-find #"john@example.com" content)))))
 
@@ -244,23 +244,23 @@
           content (str message)]
       ;; New URLs: /web/users/123
       (is (re-find #"/web/users/123" content))
-      (is (re-find #"View User" content)))))
+      (is (re-find #"button-view-user" content)))))
 
 (deftest user-deleted-success-test
   (testing "generates success message with user ID"
     (let [message (ui/user-deleted-success 123)]
       (is (vector? message))
       (let [content (str message)]
-        (is (re-find #"User Deleted Successfully!" content))
-        (is (re-find #"User.*123" content))
-        (is (re-find #"has been removed" content)))))
+        (is (re-find #"message-deleted" content))
+        (is (re-find #"123" content))
+        (is (re-find #"message-deleted-details" content)))))
 
   (testing "includes navigation link to users list"
     (let [message (ui/user-deleted-success 123)
           content (str message)]
       ;; New URLs: /web/users
       (is (re-find #"/web/users" content))
-      (is (re-find #"View All Users" content)))))
+      (is (re-find #"button-view-all-users" content)))))
 
 ;; =============================================================================
 ;; Validation Error Component Tests
@@ -285,8 +285,8 @@
     (let [page (ui/users-page sample-users)]
       (is (vector? page))
       (let [content (str page)]
-        (is (re-find #"Users" content))
-        (is (re-find #"Create User" content))
+        (is (re-find #"page-users-title" content))
+        (is (re-find #"button-create" content))
         ;; New URLs: /web/users/new
         (is (re-find #"/web/users/new" content)))))
 
@@ -308,7 +308,7 @@
       (let [content (str page)]
         (is (re-find #"User: John Doe" content))
         (is (re-find #"John Doe" content))
-        (is (re-find #"Back to Users" content)))))
+        (is (re-find #"button-back-to-users" content)))))
 
   (testing "accepts optional parameters"
     (let [opts {:flash {:info "User updated"}}
@@ -318,7 +318,7 @@
   (testing "includes user detail form"
     (let [page (ui/user-detail-page sample-user)
           content (str page)]
-      (is (re-find #"User Details" content))
+      (is (re-find #"form-detail-title" content))
       (is (re-find #"john@example.com" content)))))
 
 (deftest create-user-page-test
@@ -326,9 +326,9 @@
     (let [page (ui/create-user-page)]
       (is (vector? page))
       (let [content (str page)]
-        (is (re-find #"Create User" content))
-        (is (re-find #"Create New User" content))
-        (is (re-find #"Back to Users" content)))))
+        (is (re-find #"page-create-user-title" content))
+        (is (re-find #"form-create-title" content))
+        (is (re-find #"button-back-to-users" content)))))
 
   (testing "accepts data parameter"
     (let [page (ui/create-user-page create-user-data)]
@@ -346,8 +346,8 @@
   (testing "includes create user form"
     (let [page (ui/create-user-page)
           content (str page)]
-      (is (re-find #"Create New User" content))
-      (is (re-find #"Password" content)))))
+      (is (re-find #"form-create-title" content))
+      (is (re-find #"field-password" content)))))
 
 ;; =============================================================================
 ;; Integration Tests

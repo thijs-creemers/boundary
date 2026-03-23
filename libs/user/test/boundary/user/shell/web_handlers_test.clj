@@ -218,7 +218,7 @@
           response (handler request)]
 
       (is (= 200 (:status response)))
-      (is (html-contains? response "No users found"))))
+      (is (html-contains? response "empty-state-no-users"))))
 
   (testing "handles service errors gracefully"
     (let [service (reify ports/IUserService
@@ -245,6 +245,34 @@
 
       (is (= 500 (:status response)))
       (is (html-contains? response "Database connection failed")))))
+
+(deftest web-root-page-handler-test
+  (testing "renders translated public landing page through html-response"
+    (let [service (create-mock-service)
+          handler (web-handlers/web-root-page-handler service {})
+          request {:i18n/t (fn
+                             ([k] (case k
+                                    :user/page-welcome-heading "Welcome"
+                                    :user/page-welcome-description "Sign in to continue"
+                                    :user/link-signin "Sign in"
+                                    (name k)))
+                             ([k _params] (name k))
+                             ([k _params _n] (name k)))}
+          response (handler request)]
+      (is (= 200 (:status response)))
+      (is (= "text/html; charset=utf-8" (get-in response [:headers "Content-Type"])))
+      (is (html-contains? response "Welcome"))
+      (is (html-contains? response "Sign in to continue"))
+      (is (html-contains? response "/web/login"))))
+
+  (testing "redirects authenticated users to dashboard"
+    (let [service (create-mock-service {:sessions {"valid-token" {:user-id (UUID/randomUUID)
+                                                                  :expires-at (.plusSeconds (Instant/now) 3600)}}})
+          handler (web-handlers/web-root-page-handler service {})
+          request {:cookies {"session-token" {:value "valid-token"}}}
+          response (handler request)]
+      (is (= 302 (:status response)))
+      (is (= "/web/dashboard" (get-in response [:headers "Location"]))))))
 
 (deftest user-detail-page-handler-test
   (testing "renders user detail page for existing user"
@@ -316,7 +344,7 @@
 
       (is (= 200 (:status response)))
       (is (= "text/html; charset=utf-8" (get-in response [:headers "Content-Type"])))
-      (is (html-contains? response "Create New User"))
+      (is (html-contains? response "form-create-title"))
       (is (html-contains? response "form"))))
 
   (testing "includes flash messages when present"
@@ -524,8 +552,8 @@
       (is (= 200 (:status response)))
       (is (= "text/html; charset=utf-8" (get-in response [:headers "Content-Type"])))
       (is (has-header? response "HX-Trigger" "userDeleted"))
-      (is (html-contains? response "User Deleted Successfully"))
-      (is (html-contains? response (str (:id user))))))
+      (is (html-contains? response "message-deleted"))
+      (is (html-contains? response "/web/users"))))
 
   (testing "returns error for invalid UUID"
     (let [service (create-mock-service)

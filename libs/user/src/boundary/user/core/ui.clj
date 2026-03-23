@@ -44,7 +44,7 @@
                            :viewer :outline
                            :neutral)
                 :class "user-role-badge"})
-     (ui/badge (if active? "Active" "Inactive")
+     (ui/badge (if active? [:t :user/badge-active] [:t :user/badge-inactive])
                {:variant (if active? :success :warning)
                 :class "user-status-badge"})]))
 
@@ -74,7 +74,7 @@
         {:hx-get     hx-url
          :hx-trigger "userCreated from:body, userUpdated from:body, userDeleted from:body"
          :hx-target  hx-target}
-        [:div.empty-state "No users found."]]
+        [:div.empty-state [:t :user/empty-state-no-users]]]
        [:div#users-table-container
         {:hx-get     hx-url
          :hx-trigger "userCreated from:body, userUpdated from:body, userDeleted from:body"
@@ -95,7 +95,7 @@
            [:thead
             [:tr
              [:th.checkbox-header ""]
-             (table-ui/sortable-th {:label        "ID"
+             (table-ui/sortable-th {:label        [:t :common/column-id]
                                     :field        :id
                                     :current-sort sort
                                     :current-dir  dir
@@ -106,7 +106,7 @@
                                     :hx-target    hx-target
                                     :hx-push-url? true
                                     :extra-params filters})
-             (table-ui/sortable-th {:label        "Name"
+             (table-ui/sortable-th {:label        [:t :common/column-name]
                                     :field        :name
                                     :current-sort sort
                                     :current-dir  dir
@@ -117,7 +117,7 @@
                                     :hx-target    hx-target
                                     :hx-push-url? true
                                     :extra-params filters})
-             (table-ui/sortable-th {:label        "Email"
+             (table-ui/sortable-th {:label        [:t :common/column-email]
                                     :field        :email
                                     :current-sort sort
                                     :current-dir  dir
@@ -128,8 +128,8 @@
                                     :hx-target    hx-target
                                     :hx-push-url? true
                                     :extra-params filters})
-             [:th "Role"]
-             [:th "Status"]]]
+             [:th [:t :common/column-role]]
+             [:th [:t :common/column-status]]]]
            [:tbody
             (for [user users
                   :when (nil? (:deleted-at user))
@@ -216,26 +216,26 @@
   (let [violation-codes (set (map :code violations))
         requirements [{:code :too-short
                        :met? (not (contains? violation-codes :too-short))
-                       :message (str "At least " (get policy :min-length 8) " characters")}
+                       :message [:t :user/password-requirement-min-length {:n (get policy :min-length 8)}]}
                       {:code :missing-uppercase
                        :met? (not (contains? violation-codes :missing-uppercase))
-                       :message "One uppercase letter"
+                       :message [:t :user/password-requirement-uppercase]
                        :required? (get policy :require-uppercase false)}
                       {:code :missing-lowercase
                        :met? (not (contains? violation-codes :missing-lowercase))
-                       :message "One lowercase letter"
+                       :message [:t :user/password-requirement-lowercase]
                        :required? (get policy :require-lowercase false)}
                       {:code :missing-number
                        :met? (not (contains? violation-codes :missing-number))
-                       :message "One number"
+                       :message [:t :user/password-requirement-number]
                        :required? (get policy :require-numbers true)}
                       {:code :missing-special-char
                        :met? (not (contains? violation-codes :missing-special-char))
-                       :message "One special character (!@#$%^&*...)"
+                       :message [:t :user/password-requirement-special-char]
                        :required? (get policy :require-special-chars false)}]
         active-requirements (filter #(not= false (:required? %)) requirements)]
     [:div.password-requirements
-     [:h4 "Password Requirements"]
+     [:h4 [:t :user/password-requirements-title]]
      [:ul.requirements-list
       (for [req active-requirements]
         (password-requirement-item req))]]))
@@ -258,10 +258,10 @@
                    (<= violation-count 2) :weak
                    :else :very-weak)
         strength-label (case strength
-                         :strong "Strong"
-                         :medium "Medium"
-                         :weak "Weak"
-                         :very-weak "Very Weak")
+                         :strong [:t :user/password-strength-strong]
+                         :medium [:t :user/password-strength-medium]
+                         :weak   [:t :user/password-strength-weak]
+                         :very-weak [:t :user/password-strength-very-weak])
         strength-class (name strength)]
     [:div.password-strength-indicator
      [:div.strength-meter {:class (str "strength-" strength-class)}
@@ -283,28 +283,28 @@
   [user]
   (let [active? (boolean (:active user))]
     [:div#user-detail
-     [:h2 "User Details"]
+     [:h2 [:t :user/form-detail-title]]
      [:form {:hx-put    (str "/web/users/" (:id user))
              :hx-target "#user-detail"
              :class     "form-card"}
-      (ui/form-field :name "Name"
+      (ui/form-field :name [:t :common/label-name]
                      (ui/text-input :name (:name user) {:required true})
                      nil)
-      (ui/form-field :email "Email"
+      (ui/form-field :email [:t :common/label-email]
                      (ui/email-input :email (:email user) {:required true})
                      nil)
-      (ui/form-field :role "Role"
+      (ui/form-field :role [:t :common/label-role]
                      (ui/select-field :role
                                       [[:admin "Admin"]
                                        [:user "User"]
                                        [:viewer "Viewer"]]
                                       (:role user))
                      nil)
-      (ui/form-field :active "Active"
+      (ui/form-field :active [:t :user/field-active]
                      (ui/checkbox :active active?)
                      nil)
       [:div.form-actions
-       (ui/submit-button "Update User" {:loading-text "Updating..."})
+       (ui/submit-button [:t :user/button-update] {:loading-text "Updating..."})
        ;; Show appropriate action button based on active status
        (if active?
          [:button.button.danger
@@ -313,7 +313,7 @@
                          "fetch('/web/users/" (:id user) "', {method: 'DELETE', headers: {'HX-Request': 'true'}});"
                          "window.location.href='/web/users';"
                          "}")}
-          "Deactivate User"]
+          [:t :user/button-deactivate]]
          ;; Reactivate button for inactive users - uses the same update endpoint but sets active=true
          [:button.button.primary
           {:type "button"
@@ -321,7 +321,7 @@
                          "const activeCheckbox = form.querySelector('input[name=active]');"
                          "activeCheckbox.checked = true;"
                          "form.requestSubmit();")}
-          "Reactivate User"])]]]))
+          [:t :user/button-reactivate]])]]]))
 
 (defn create-user-form
   "Generate a form for creating new users based on CreateUserRequest schema.
@@ -336,19 +336,19 @@
      Hiccup structure for create user form"
   ([data errors password-violations policy]
    [:div#create-user-form
-    [:h2 "Create New User"]
+    [:h2 [:t :user/form-create-title]]
     [:form {:hx-post   "/web/users"
             :hx-target "#create-user-form"
             :class     "form-card"}
-     (ui/form-field :name "Name"
+     (ui/form-field :name [:t :common/label-name]
                     (ui/text-input :name (:name data) {:required true})
                     (:name errors))
-     (ui/form-field :email "Email"
+     (ui/form-field :email [:t :common/label-email]
                     (ui/email-input :email (:email data) {:required true})
                     (:email errors))
      ;; Password field with validation feedback
      [:div {:class "form-field"}
-      [:label {:for "password"} "Password"]
+      [:label {:for "password"} [:t :user/field-password]]
       (ui/password-input :password "" {:required true})
       ;; Show password requirements if policy provided
       (when policy
@@ -358,17 +358,17 @@
         [:div.validation-errors
          (for [err (:password errors)]
            [:p err])])]
-     (ui/form-field :role "Role"
+     (ui/form-field :role [:t :common/label-role]
                     (ui/select-field :role
                                      [[:user "User"]
                                       [:admin "Admin"]
                                       [:viewer "Viewer"]]
                                      (:role data))
                     (:role errors))
-     (ui/form-field :send-welcome "Send Welcome Email"
+     (ui/form-field :send-welcome [:t :user/checkbox-send-welcome]
                     (ui/checkbox :send-welcome (get data :send-welcome true))
                     nil)
-     (ui/submit-button "Create User" {:loading-text "Creating..."})]])
+     (ui/submit-button [:t :user/button-create] {:loading-text "Creating..."})]])
   ([data errors]
    (create-user-form data errors nil {:min-length 8 :require-numbers true}))
   ([]
@@ -389,15 +389,15 @@
   [user]
   (let [active? (boolean (:active user))]
     (page-layout
-     "Account Created"
+     [:t :user/page-created-title]
      [:div.user-created-page.auth-page
       [:div.user-created-card
        [:div.user-created-check "✓"]
-       [:h1 "Account Created Successfully!"]
+       [:h1 [:t :user/page-created-heading]]
        [:p.user-created-lead
-        "Welcome to Boundary, " [:strong (:name user)] "!"]
+        [:t :user/page-created-welcome {:name (:name user)}]]
        [:div.user-created-summary
-        [:p "Your account has been created with the following details:"]
+        [:p [:t :user/page-created-details-intro]]
         [:div.user-created-details
          [:div.user-created-row
           [:span.user-created-label "Email:"]
@@ -407,10 +407,10 @@
           [:span (:name user)]]
          [:div.user-created-row
           [:span.user-created-label "Status:"]
-          [:span.user-created-status (if active? "Active" "Inactive")]]]]
+          [:span.user-created-status (if active? [:t :user/badge-active] [:t :user/badge-inactive])]]]]
        [:div.user-created-actions
-        [:p "You can now sign in with your email and password."]
-        [:a.button.primary {:href "/web/login"} "Sign In"]]]]
+        [:p [:t :user/page-created-signin-prompt]]
+        [:a.button.primary {:href "/web/login"} [:t :user/button-signin]]]]]
      {:skip-header false})))
 
 (defn user-updated-success
@@ -424,11 +424,11 @@
   [user]
   (ui/success-message
    [:div
-    [:h3 "User Updated Successfully!"]
-    [:p "Updated user: " (:name user) " (" (:email user) ")"]
+    [:h3 [:t :user/message-updated]]
+    [:p [:t :user/message-updated-details {:name (:name user) :email (:email user)}]]
     [:div.user-details
      [:p "Role: " (str/upper-case (name (:role user)))]]
-    [:a.button {:href (str "/web/users/" (:id user))} "View User"]]))
+    [:a.button {:href (str "/web/users/" (:id user))} [:t :user/button-view-user]]]))
 (defn user-deleted-success
   "Generate success message for user deletion.
    
@@ -440,9 +440,9 @@
   [user-id]
   (ui/success-message
    [:div
-    [:h3 "User Deleted Successfully!"]
-    [:p "User " user-id " has been removed."]
-    [:a.button {:href "/web/users"} "View All Users"]]))
+    [:h3 [:t :user/message-deleted]]
+    [:p [:t :user/message-deleted-details {:id user-id}]]
+    [:a.button {:href "/web/users"} [:t :user/button-view-all-users]]]))
 
 ;; =============================================================================
 ;; User-specific Validation Display
@@ -494,30 +494,30 @@
                           :limit     20})
          filters     (or (:filters opts) {})]
      (page-layout
-      "Users"
+      [:t :user/page-users-title]
       [:div.users-page
        [:div.page-header
-        [:h1 "Users"]
+        [:h1 [:t :user/page-users-title]]
         [:div.page-actions
             ;; Bulk action selector and button
          [:div.bulk-action-controls
           [:select#bulk-action-select
            {:onchange "document.getElementById('bulk-action-input').value = this.value;"}
-           [:option {:value "deactivate"} "Deactivate"]
-           [:option {:value "activate"} "Activate"]
-           [:option {:value "delete"} "Delete Permanently"]
-           [:option {:value "role-admin"} "Change Role to Admin"]
-           [:option {:value "role-user"} "Change Role to User"]]
+           [:option {:value "deactivate"} [:t :user/bulk-action-deactivate]]
+           [:option {:value "activate"} [:t :user/bulk-action-activate]]
+           [:option {:value "delete"} [:t :user/bulk-action-delete]]
+           [:option {:value "role-admin"} [:t :user/bulk-action-role-admin]]
+           [:option {:value "role-user"} [:t :user/bulk-action-role-user]]]
           [:button#bulk-action-btn.icon-button.danger
            {:disabled true
             :title "Apply action to selected users"
             :onclick "const action = document.getElementById('bulk-action-select').value; const count = document.querySelectorAll('input[name=\"user-ids\"]:checked').length; if(confirm(`Are you sure you want to ${action} ${count} selected user(s)?`)) { document.getElementById('bulk-action-form').submit(); }"}
-           "Apply to Selected"]]
+           [:t :user/button-apply-bulk]]]
            ;; Inline compact search/filter with overlay
          [:details#search-filter-details.search-filter-inline
           [:summary.search-toggle
            (icons/icon :search {:size 16})
-           [:span "Filters"]]
+           [:span [:t :user/button-filters-label]]]
           [:div.search-filter-overlay
            {:onclick "if(event.target === this) document.getElementById('search-filter-details').open = false;"}
            [:form.search-filter-form
@@ -525,7 +525,7 @@
              :action "/web/users"
              :onsubmit "setTimeout(() => document.getElementById('search-filter-details').open = false, 100);"}
             [:div.filter-header
-             [:h3 "Search & Filter"]
+             [:h3 [:t :user/filters-search-title]]
              [:button.close-button
               {:type "button"
                :onclick "document.getElementById('search-filter-details').open = false;"
@@ -533,17 +533,17 @@
               "×"]]
             [:input {:type        "search"
                      :name        "q"
-                     :placeholder "Search email..."
+                     :placeholder [:t :user/filter-placeholder-email]
                      :value       (get filters :q "")}]
             [:select {:name "role"}
-             [:option {:value "" :selected (nil? (:role filters))} "All roles"]
-             [:option {:value "user" :selected (= "user" (:role filters))} "User"]
-             [:option {:value "admin" :selected (= "admin" (:role filters))} "Admin"]
-             [:option {:value "viewer" :selected (= "viewer" (:role filters))} "Viewer"]]
+             [:option {:value "" :selected (nil? (:role filters))} [:t :common/filter-all-roles]]
+             [:option {:value "user" :selected (= "user" (:role filters))} [:t :common/role-user]]
+             [:option {:value "admin" :selected (= "admin" (:role filters))} [:t :common/role-admin]]
+             [:option {:value "viewer" :selected (= "viewer" (:role filters))} [:t :common/role-viewer]]]
             [:div.filter-actions
-             [:button.button.small {:type "submit"} "Apply"]
-             [:a.button.small.secondary {:href "/web/users"} "Clear"]]]]]
-         [:a.button.primary {:href "/web/users/new"} "Create User"]]]
+             [:button.button.small {:type "submit"} [:t :common/button-apply]]
+             [:a.button.small.secondary {:href "/web/users"} [:t :common/button-clear]]]]]]
+         [:a.button.primary {:href "/web/users/new"} [:t :user/button-create]]]]
        (users-table users table-query total-count filters)]
       opts))))
 
@@ -572,9 +572,9 @@
                                    :onsubmit "return confirm('⚠️  PERMANENT DELETE\\n\\nThis will IRREVERSIBLY delete this user and ALL related data.\\n\\nThis action cannot be undone.\\n\\nAre you absolutely sure?');"}
            [:button.button.danger {:type "submit"}
             (icons/icon :trash {:size 16})
-            [:span "Permanently Delete"]]])
-        [:a.button.secondary {:href (str "/web/users/" (:id user) "/sessions")} "View Sessions"]
-        [:a.button {:href "/web/users"} "← Back to Users"]]]
+            [:span [:t :user/button-delete-permanently]]]])
+        [:a.button.secondary {:href (str "/web/users/" (:id user) "/sessions")} [:t :user/button-view-sessions]]
+        [:a.button {:href "/web/users"} [:t :user/button-back-to-users]]]]
       (user-detail-form user)]
      opts)))
 
@@ -590,12 +590,12 @@
      Complete HTML page for creating users"
   [& [data errors opts]]
   (page-layout
-   "Create User"
+   [:t :user/page-create-user-title]
    [:div.create-user-page
     [:div.page-header
-     [:h1 "Create New User"]
+     [:h1 [:t :user/form-create-title]]
      [:div.page-actions
-      [:a.button {:href "/web/users"} "← Back to Users"]]]
+      [:a.button {:href "/web/users"} [:t :user/button-back-to-users]]]]
     (create-user-form data errors)]
    opts))
 
@@ -613,17 +613,17 @@
      Complete HTML page structure"
   [& [opts]]
   (page-layout
-   "Welcome"
+   [:t :user/page-welcome-title]
    [:div.web-root-page
     [:div.web-root-content
      [:div.web-root-logo
       (icons/brand-logo {:size 180})]
-     [:h1 "Welcome to Boundary"]
-     [:p "Manage your users, sessions and audit trail."]
+     [:h1 [:t :user/page-welcome-heading]]
+     [:p [:t :user/page-welcome-description]]
      [:div.web-root-actions
       [:a.button.primary {:href "/web/login"}
        (icons/icon :log-in {:size 18})
-       [:span "Sign in"]]]]]
+       [:span [:t :user/link-signin]]]]]]
    (assoc opts :skip-header true)))
 
 ;; =============================================================================
@@ -646,26 +646,26 @@
      [:div.card-body
       [:h2.auth-title
        (icons/icon :log-in {:size 24})
-       [:span "Sign in"]]
+       [:span [:t :user/link-signin]]]
       [:form {:method "post"
               :action "/web/login"
               :class  "form-card ui-form-shell"}
        ;; Hidden field to preserve return-to URL
        (when (:return-to data)
          [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
-       (ui/form-field :email "Email"
+       (ui/form-field :email [:t :common/label-email]
                       (ui/email-input :email (:email data) {:required true})
                       (:email errors))
-       (ui/form-field :password "Password"
+       (ui/form-field :password [:t :user/field-password]
                       (ui/password-input :password "" {:required true})
                       (:password errors))
-       (ui/form-field :remember "Remember me"
+       (ui/form-field :remember [:t :user/field-remember]
                       (ui/checkbox :remember (boolean (:remember data)))
                       nil)
-       (ui/submit-button "Sign in" {:loading-text "Signing in..."})]
+       (ui/submit-button [:t :user/link-signin] {:loading-text "Signing in..."})]
       [:div.auth-footer
-       [:p "Dont have an account?"]
-       [:a.button.secondary {:href "/web/register"} "Create Account"]]]]))
+       [:p [:t :user/text-no-account]]
+       [:a.button.secondary {:href "/web/register"} [:t :user/button-create-account]]]]]))
 
 (defn login-page
   "Complete login page.
@@ -679,11 +679,11 @@
                            (assoc data :return-to (:return-to opts))
                            data)]
     (page-layout
-     "Sign in"
+     [:t :user/link-signin]
      [:div.login-page.auth-page
       [:div.page-header.auth-header
        [:h1 "Boundary"]
-       [:p "Sign in to manage users"]]
+       [:p [:t :user/login-subtitle]]]
       (login-form data-with-return errors)]
      opts)))
 
@@ -707,9 +707,9 @@
      [:div.card-body
       [:h2.auth-title
        (icons/icon :shield {:size 24})
-       [:span "Two-Factor Authentication"]]
+       [:span [:t :user/mfa-title]]]
       [:p.auth-subtitle
-       "Please enter the 6-digit code from your authenticator app or use one of your backup codes."]
+       [:t :user/mfa-prompt]]
       [:form {:method "post"
               :action "/web/login"
               :class  "form-card ui-form-shell"}
@@ -722,7 +722,7 @@
          [:input {:type "hidden" :name "remember" :value "on"}])
 
       ;; MFA code input
-       (ui/form-field :mfa-code "Authentication Code"
+       (ui/form-field :mfa-code [:t :user/mfa-code-label]
                       [:input {:type "text"
                                :id "mfa-code"
                                :name "mfa-code"
@@ -737,13 +737,11 @@
                       (:mfa-code errors))
 
        [:div.mfa-login-actions
-        (ui/submit-button "Verify" {:loading-text "Verifying..."})
-        [:a.button.secondary {:href "/web/login"} "Cancel"]]]
+        (ui/submit-button [:t :user/button-verify] {:loading-text "Verifying..."})
+        [:a.button.secondary {:href "/web/login"} [:t :common/button-cancel]]]]
       [:div.auth-footer
-       [:p
-        "Lost access to your authenticator app?"]
-       [:p
-        "Enter one of your backup codes instead of the 6-digit code."]]]]))
+       [:p [:t :user/mfa-lost-access]]
+       [:p [:t :user/mfa-backup-codes-prompt]]]]]))
 
 (defn mfa-login-page
   "Complete MFA login page (shown after successful password verification).
@@ -757,11 +755,11 @@
                            (assoc data :return-to (:return-to opts))
                            data)]
     (page-layout
-     "Two-Factor Authentication"
+     [:t :user/mfa-title]
      [:div.mfa-login-page.auth-page
       [:div.page-header.auth-header
        [:h1 "Boundary"]
-       [:p "Two-factor authentication required"]]
+       [:p [:t :user/mfa-subtitle]]]
       (mfa-login-form data-with-return errors)]
      opts)))
 
@@ -782,14 +780,14 @@
     [:div.card-body
      [:h2.auth-title
       (icons/icon :user-plus {:size 24})
-      [:span "Create Account"]]
+      [:span [:t :user/button-create-account]]]
      [:form {:method "post"
              :action "/web/register"
              :class  "form-card ui-form-shell"}
-      (ui/form-field :name "Name"
+      (ui/form-field :name [:t :common/label-name]
                      (ui/text-input :name (:name data) {:required true})
                      (:name errors))
-      (ui/form-field :email "Email"
+      (ui/form-field :email [:t :common/label-email]
                      (ui/email-input :email (:email data) {:required true})
                      (:email errors))
        ;; Password field with validation feedback
@@ -804,7 +802,7 @@
          [:div.validation-errors
           (for [err (:password errors)]
             [:p err])])]
-      (ui/submit-button "Create Account" {:loading-text "Creating..."})]]])
+      (ui/submit-button [:t :user/button-create-account] {:loading-text "Creating..."})]]])
   ([data errors]
    (register-form data errors nil {:min-length 8 :require-numbers true})))
 
@@ -817,14 +815,14 @@
      opts   - page options (user context, flash messages, etc.)"
   [& [data errors opts]]
   (page-layout
-   "Create Account"
+   [:t :user/page-create-account-title]
    [:div.register-page.auth-page
     [:div.page-header.auth-header
-     [:h1 "Create Account"]
+     [:h1 [:t :user/button-create-account]]
      [:div.page-actions
       [:a.button {:href "/web/login"}
        (icons/icon :arrow-left {:size 16})
-       [:span "Back to Login"]]]]
+       [:span [:t :user/button-back-to-login]]]]]
     (register-form data errors)]
    opts))
 
@@ -931,17 +929,17 @@
    Pure: false (delegates to session-row)"
   [sessions current-token user-id]
   (if (empty? sessions)
-    [:div.empty-state.card "No active sessions."]
+    [:div.empty-state.card [:t :user/sessions-empty-state]]
     [:div.sessions-table-shell
      (ui/table-wrapper
       [:table {:class "data-table"}
        [:thead
         [:tr
-         [:th "Device / Browser"]
-         [:th "IP Address"]
-         [:th "Last Active"]
-         [:th "Created"]
-         [:th "Actions"]]]
+         [:th [:t :user/column-device]]
+         [:th [:t :common/column-ip-address]]
+         [:th [:t :user/column-last-active]]
+         [:th [:t :common/column-created]]
+         [:th [:t :common/column-actions]]]]
        [:tbody
         (for [session sessions]
           (session-row session current-token user-id))]])]))
@@ -961,14 +959,14 @@
    Pure: false"
   [user sessions current-token opts]
   (page-layout
-   (str "Sessions for " (:name user))
+   [:t :user/page-sessions-title {:name (:name user)}]
    [:div.user-sessions-page
     [:div.page-header
      [:div
-      [:h1 "Active Sessions"]
-      [:p "Manage active sessions for " [:strong (:name user)]]]
+      [:h1 [:t :user/sessions-title]]
+      [:p [:t :user/sessions-manage-for {:name (:name user)}]]]
      [:div.page-actions
-      [:a.button.secondary {:href (str "/web/admin/users/" (:id user))} "\u2190 Back to User"]
+      [:a.button.secondary {:href (str "/web/admin/users/" (:id user))} [:t :user/button-back-to-user]]
       (when (> (count sessions) 1)
         [:form.session-revoke-all-form {:method "post"
                                         :action (str "/web/users/" (:id user) "/sessions/revoke-all")}
@@ -976,7 +974,7 @@
          [:button.button.danger
           {:type "submit"
            :onclick "return confirm('Revoke all other sessions? This will log out all other devices.');"}
-          "Revoke All Others"]])]]
+          [:t :user/button-revoke-all-others]]])]]
     (sessions-list sessions current-token (:id user))]
    opts))
 
@@ -1022,12 +1020,12 @@
    Pure: true"
   [result]
   (if (= result :success)
-    (ui/badge "Success" {:variant :success
-                         :class "audit-result-badge"
-                         :icon (icons/icon :check-circle {:size 15})})
-    (ui/badge "Failure" {:variant :danger
-                         :class "audit-result-badge"
-                         :icon (icons/icon :x-circle {:size 15})})))
+    (ui/badge [:t :common/audit-success] {:variant :success
+                                          :class "audit-result-badge"
+                                          :icon (icons/icon :check-circle {:size 15})})
+    (ui/badge [:t :common/audit-failure] {:variant :danger
+                                          :class "audit-result-badge"
+                                          :icon (icons/icon :x-circle {:size 15})})))
 
 (defn format-audit-timestamp
   "Format timestamp for audit log display.
@@ -1086,32 +1084,32 @@
   []
   [:dialog#audit-detail-modal.modal
    [:div.modal-box.audit-detail-modal
-    [:h3 "Audit Details"]
+    [:h3 [:t :user/audit-modal-title]]
     [:div.audit-detail-grid
      [:div.audit-detail-row
-      [:span.audit-detail-label "Timestamp"]
+      [:span.audit-detail-label [:t :common/audit-timestamp]]
       [:code#audit-detail-timestamp.audit-detail-value "-"]]
      [:div.audit-detail-row
-      [:span.audit-detail-label "Action"]
+      [:span.audit-detail-label [:t :common/audit-action]]
       [:code#audit-detail-action.audit-detail-value "-"]]
      [:div.audit-detail-row
-      [:span.audit-detail-label "Actor"]
+      [:span.audit-detail-label [:t :common/audit-actor]]
       [:span#audit-detail-actor.audit-detail-value "-"]]
      [:div.audit-detail-row
-      [:span.audit-detail-label "Target"]
+      [:span.audit-detail-label [:t :common/audit-target]]
       [:span#audit-detail-target.audit-detail-value "-"]]
      [:div.audit-detail-row
-      [:span.audit-detail-label "IP"]
+      [:span.audit-detail-label [:t :common/audit-ip]]
       [:span#audit-detail-ip.audit-detail-value "-"]]
      [:div.audit-detail-row
-      [:span.audit-detail-label "User Agent"]
+      [:span.audit-detail-label [:t :user/audit-user-agent]]
       [:span#audit-detail-user-agent.audit-detail-value "-"]]
      [:div#audit-detail-error-row.audit-detail-row.hidden
-      [:span.audit-detail-label "Error"]
+      [:span.audit-detail-label [:t :common/audit-error]]
       [:code#audit-detail-error.audit-detail-value "-"]]]
     [:div.modal-action
      [:form {:method "dialog"}
-      [:button.button.secondary {:type "submit"} "Close"]]]]])
+      [:button.button.secondary {:type "submit"} [:t :common/button-close]]]]]])
 
 (defn audit-detail-modal-script
   "Script for wiring audit detail buttons to modal."
@@ -1176,7 +1174,7 @@
         {:hx-get hx-url
          :hx-trigger "auditRefresh from:body"
          :hx-target hx-target}
-        [:div.empty-state "No audit logs found."]]
+        [:div.empty-state [:t :user/audit-empty-state]]]
        [:div#audit-table-container
         {:hx-get hx-url
          :hx-trigger "auditRefresh from:body"
@@ -1185,7 +1183,7 @@
          [:table {:class "data-table" :id "audit-table"}
           [:thead
            [:tr
-            (table-ui/sortable-th {:label "Timestamp"
+            (table-ui/sortable-th {:label [:t :common/audit-timestamp]
                                    :field :created-at
                                    :current-sort sort
                                    :current-dir dir
@@ -1196,17 +1194,17 @@
                                    :hx-target hx-target
                                    :hx-push-url? true
                                    :extra-params filters})
-            [:th "Action"]
-            [:th "Actor"]
-            [:th "Target User"]
-            [:th "Result"]
-            [:th "IP Address"]
-            [:th "Actions"]]]
+            [:th [:t :common/audit-action]]
+            [:th [:t :common/audit-actor]]
+            [:th [:t :user/audit-column-target]]
+            [:th [:t :user/audit-column-result]]
+            [:th [:t :common/column-ip-address]]
+            [:th [:t :common/column-actions]]]]
           [:tbody
            (for [audit-log audit-logs]
              (audit-log-row audit-log))]]
          (table-ui/pagination
-         {:table-query table-query
+          {:table-query table-query
            :total-count total-count
            :base-url base-url
            :push-url-base "/web/audit"
@@ -1225,33 +1223,33 @@
    Pure: true"
   [filters]
   [:div.filters-panel.audit-filters-card
-   [:h3 "Filters"]
+   [:h3 [:t :user/audit-filters-title]]
    [:form.audit-filters-form {:hx-get "/web/audit/table"
                               :hx-target "#audit-table-container"
                               :hx-push-url "true"}
     [:div.filter-group
-     [:label {:for "action"} "Action"]
+     [:label {:for "action"} [:t :common/audit-action]]
      [:select {:name "action" :id "action"}
-      [:option {:value ""} "All Actions"]
-      [:option {:value "create" :selected (= "create" (:action filters))} "Create"]
-      [:option {:value "update" :selected (= "update" (:action filters))} "Update"]
-      [:option {:value "delete" :selected (= "delete" (:action filters))} "Delete"]
-      [:option {:value "activate" :selected (= "activate" (:action filters))} "Activate"]
-      [:option {:value "deactivate" :selected (= "deactivate" (:action filters))} "Deactivate"]
-      [:option {:value "login" :selected (= "login" (:action filters))} "Login"]
-      [:option {:value "logout" :selected (= "logout" (:action filters))} "Logout"]
-      [:option {:value "role-change" :selected (= "role-change" (:action filters))} "Role Change"]
-      [:option {:value "bulk-action" :selected (= "bulk-action" (:action filters))} "Bulk Action"]]]
+      [:option {:value ""} [:t :common/audit-all-actions]]
+      [:option {:value "create" :selected (= "create" (:action filters))} [:t :common/audit-create]]
+      [:option {:value "update" :selected (= "update" (:action filters))} [:t :common/audit-update]]
+      [:option {:value "delete" :selected (= "delete" (:action filters))} [:t :common/audit-delete]]
+      [:option {:value "activate" :selected (= "activate" (:action filters))} [:t :common/audit-activate]]
+      [:option {:value "deactivate" :selected (= "deactivate" (:action filters))} [:t :common/audit-deactivate]]
+      [:option {:value "login" :selected (= "login" (:action filters))} [:t :common/audit-login]]
+      [:option {:value "logout" :selected (= "logout" (:action filters))} [:t :common/audit-logout]]
+      [:option {:value "role-change" :selected (= "role-change" (:action filters))} [:t :common/audit-role-change]]
+      [:option {:value "bulk-action" :selected (= "bulk-action" (:action filters))} [:t :common/audit-bulk-action]]]]
 
     [:div.filter-group
-     [:label {:for "result"} "Result"]
+     [:label {:for "result"} [:t :user/audit-filter-result-label]]
      [:select {:name "result" :id "result"}
-      [:option {:value ""} "All Results"]
-      [:option {:value "success" :selected (= "success" (:result filters))} "Success"]
-      [:option {:value "failure" :selected (= "failure" (:result filters))} "Failure"]]]
+      [:option {:value ""} [:t :common/audit-all-results]]
+      [:option {:value "success" :selected (= "success" (:result filters))} [:t :common/audit-success]]
+      [:option {:value "failure" :selected (= "failure" (:result filters))} [:t :common/audit-failure]]]]
 
     [:div.filter-group
-     [:label {:for "target-email"} "Target User Email"]
+     [:label {:for "target-email"} [:t :user/audit-filter-target-email]]
      [:input {:type "text"
               :name "target-email"
               :id "target-email"
@@ -1259,7 +1257,7 @@
               :value (:target-email filters)}]]
 
     [:div.filter-group
-     [:label {:for "actor-email"} "Actor Email"]
+     [:label {:for "actor-email"} [:t :user/audit-filter-actor-email]]
      [:input {:type "text"
               :name "actor-email"
               :id "actor-email"
@@ -1267,11 +1265,11 @@
               :value (:actor-email filters)}]]
 
     [:div.form-actions
-     [:button.button.primary {:type "submit"} "Apply"]
+     [:button.button.primary {:type "submit"} [:t :common/button-apply]]
      [:button.button.secondary
       {:type "button"
        :onclick "window.location.href='/web/audit'"}
-      "Clear"]]]])
+      [:t :common/button-clear]]]]])
 
 (defn audit-page
   "Full audit logs page with layout.
@@ -1291,12 +1289,12 @@
    (audit-page audit-logs table-query total-count {} opts))
   ([audit-logs table-query total-count filters opts]
    (page-layout
-    "Audit Logs"
+    [:t :user/page-audit-title]
     [:div.audit-page
      [:div.page-header
       [:div
-       [:h1 "Audit Trail"]
-       [:p "Complete history of all user-related actions and system events"]]]
+       [:h1 [:t :user/page-audit-heading]]
+       [:p [:t :user/page-audit-description]]]]
 
      [:div.audit-content.audit-layout
       [:div.filters-sidebar
@@ -1369,58 +1367,57 @@
         last-login (:last-login user)
         created-at (:created-at user)]
     (page-layout
-     "Dashboard"
+     [:t :user/page-dashboard-title]
      [:div.dashboard-page
       [:div.welcome-section
-       [:h1 "Welcome, " (:name user)]
-       [:p.subtitle "You're logged into Boundary Framework"]]
+       [:h1 [:t :user/dashboard-welcome {:name (:name user)}]]
+       [:p.subtitle [:t :user/dashboard-subtitle]]]
 
       ;; Account Stats Summary
       [:div.dashboard-stats
        [:div.stat-card
         [:div.stat-icon (icons/icon :calendar {:size 20})]
         [:div.stat-content
-         [:div.stat-label "Member since"]
+         [:div.stat-label [:t :user/stat-member-since]]
          [:div.stat-value (format-date-short created-at)]]]
        [:div.stat-card
         [:div.stat-icon (icons/icon :log-in {:size 20})]
         [:div.stat-content
-         [:div.stat-label "Total logins"]
+         [:div.stat-label [:t :user/stat-total-logins]]
          [:div.stat-value (str login-count)]]]
        [:div.stat-card
         [:div.stat-icon (icons/icon :clock {:size 20})]
         [:div.stat-content
-         [:div.stat-label "Last login"]
+         [:div.stat-label [:t :user/stat-last-login]]
          [:div.stat-value (format-date-relative last-login)]]]
        [:div.stat-card
         [:div.stat-icon {:class (if mfa-enabled? "text-success" "text-warning")}
          (icons/icon :shield {:size 20})]
         [:div.stat-content
-         [:div.stat-label "Two-Factor Auth"]
+         [:div.stat-label [:t :user/stat-mfa]]
          [:div.stat-value {:class (if mfa-enabled? "text-success" "text-warning")}
-          (if mfa-enabled? "Enabled" "Disabled")]]]]
+          (if mfa-enabled? [:t :common/status-enabled] [:t :common/status-disabled])]]]]
 
        ;; Action Cards
       [:div.dashboard-cards
        [:div.dashboard-card
         [:div.card-icon (icons/icon :user {:size 32})]
-        [:h2 "Profile & Security"]
-        [:p "Manage your profile, password, two-factor authentication, and preferences"]
-        [:a.button.secondary {:href "/web/profile"} "View Profile"]]
+        [:h2 [:t :user/dashboard-card-profile-title]]
+        [:p [:t :user/dashboard-card-profile-description]]
+        [:a.button.secondary {:href "/web/profile"} [:t :user/button-view-profile]]]
 
        [:div.dashboard-card
         [:div.card-icon (icons/icon :lock {:size 32})]
-        [:h2 "Active Sessions"]
-        [:p (str "You have " active-sessions " active session"
-                 (when (not= active-sessions 1) "s"))]
+        [:h2 [:t :user/dashboard-card-sessions-title]]
+        [:p [:t :user/dashboard-card-sessions-description {:n active-sessions} active-sessions]]
         [:a.button.secondary {:href (str "/web/users/" (:id user) "/sessions")}
-         "Manage Sessions"]]
+         [:t :user/button-manage-sessions]]]
 
         ;; Admin Panel card - only for admin users
        (when (= :admin (:role user))
          [:div.dashboard-card
           [:div.card-icon (icons/icon :shield {:size 32})]
-          [:h2 "Admin Panel"]
-          [:p "Manage users, view audit trails, and configure system settings"]
-          [:a.button.secondary {:href "/web/admin/"} "Go to Admin Panel"]])]]
+          [:h2 [:t :user/dashboard-card-admin-title]]
+          [:p [:t :user/dashboard-card-admin-description]]
+          [:a.button.secondary {:href "/web/admin/"} [:t :user/button-admin-panel]]])]]
      opts)))

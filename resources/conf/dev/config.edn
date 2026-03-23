@@ -114,6 +114,12 @@
   :boundary/search
   {:enabled? true}
 
+  ;; Internationalisation — marker-based i18n with EDN catalogues
+  :boundary/i18n
+  {:catalogue-path "boundary/i18n/translations"
+   :default-locale :en
+   :dev?           true}
+
   ;; AI tooling — offline-first via Ollama, with Anthropic cloud fallback
   ;; Move to :inactive to disable. Set ANTHROPIC_API_KEY to enable cloud fallback.
   :boundary/ai-service

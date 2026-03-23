@@ -73,7 +73,12 @@
    :dsn #env "SENTRY_DSN"
    :environment "prod"
    :release #or [#env "APP_RELEASE" #env "VERSION"]
-   :sample-rate 1.0}}
+   :sample-rate 1.0}
+
+  ;; Internationalisation — marker-based i18n with EDN catalogues
+  :boundary/i18n
+  {:catalogue-path "boundary/i18n/translations"
+   :default-locale :en}}
 
  :inactive
  {;; Cache configuration — move :boundary/cache to :active to enable Redis caching.

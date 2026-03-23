@@ -154,7 +154,8 @@
           :or   {timezone "UTC"}} opts
          days-count (days-in-month year month)
          offset     (first-day-of-week-offset year month)
-         day-names  ["Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun"]
+         day-names  [[:t :calendar/day-mon] [:t :calendar/day-tue] [:t :calendar/day-wed]
+                     [:t :calendar/day-thu] [:t :calendar/day-fri] [:t :calendar/day-sat] [:t :calendar/day-sun]]
          ;; Build flat list: nil for filler cells, LocalDate for real days
          all-cells  (concat (repeat offset nil)
                             (map #(LocalDate/of year month %) (range 1 (inc days-count))))
@@ -203,7 +204,8 @@
   ([start-date events opts]
    (let [{:keys [today timezone]
           :or   {timezone "UTC"}} opts
-         day-names  ["Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun"]
+         day-names  [[:t :calendar/day-mon] [:t :calendar/day-tue] [:t :calendar/day-wed]
+                     [:t :calendar/day-thu] [:t :calendar/day-fri] [:t :calendar/day-sat] [:t :calendar/day-sun]]
          week-dates (map #(.plusDays start-date %) (range 7))
          hours      (range 24)]
      [:div {:class "calendar-week"}
@@ -274,17 +276,19 @@
       [:div.mini-header
        [:a {:href (str "?year=" prev-year "&month=" prev-month)
             :class "mini-nav"
-            :aria-label "Previous month"}
+            :aria-label [:t :calendar/button-prev-month]}
         "‹"]
        [:span.mini-title (str (month-name month) " " year)]
        [:a {:href (str "?year=" next-year "&month=" next-month)
             :class "mini-nav"
-            :aria-label "Next month"}
+            :aria-label [:t :calendar/button-next-month]}
         "›"]]
       [:div.mini-grid
        ;; Day-of-week header (single letter)
        [:div.mini-row.header-row
-        (for [d ["M" "T" "W" "T" "F" "S" "S"]]
+        (for [d [[:t :calendar/day-letter-m] [:t :calendar/day-letter-t] [:t :calendar/day-letter-w]
+                 [:t :calendar/day-letter-t] [:t :calendar/day-letter-f] [:t :calendar/day-letter-s]
+                 [:t :calendar/day-letter-s]]]
           [:div.mini-day-header d])]
        ;; Week rows
        (for [week weeks]

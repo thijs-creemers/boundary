@@ -3,7 +3,8 @@
 
    Implements IWorkflowStore using next.jdbc + HoneySQL.
    Applies snake_case <-> kebab-case conversion at the DB boundary only."
-  (:require [boundary.workflow.ports :as ports]
+  (:require [boundary.platform.shell.adapters.database.common.core :as db]
+            [boundary.workflow.ports :as ports]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
@@ -11,6 +12,43 @@
             [clojure.edn :as edn])
   (:import [java.util UUID]
            [java.time Instant]))
+
+(def ^:private workflow-ddl
+  ["CREATE TABLE IF NOT EXISTS workflow_instances (
+      id TEXT PRIMARY KEY,
+      workflow_id TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      current_state TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      metadata TEXT
+    )"
+   "CREATE INDEX IF NOT EXISTS idx_workflow_instances_entity
+      ON workflow_instances (entity_type, entity_id)"
+   "CREATE TABLE IF NOT EXISTS workflow_audit (
+      id TEXT PRIMARY KEY,
+      instance_id TEXT NOT NULL REFERENCES workflow_instances(id),
+      workflow_id TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      transition TEXT NOT NULL,
+      from_state TEXT NOT NULL,
+      to_state TEXT NOT NULL,
+      actor_id TEXT,
+      actor_roles TEXT,
+      context TEXT,
+      occurred_at TEXT NOT NULL
+    )"
+   "CREATE INDEX IF NOT EXISTS idx_workflow_audit_instance_id
+      ON workflow_audit (instance_id)"])
+
+(defn initialize-workflow-schema!
+  "Initialize database schema for workflow persistence."
+  [ctx]
+  (log/info "Initializing workflow schema")
+  (doseq [statement workflow-ddl]
+    (db/execute-ddl! ctx statement)))
 
 ;; =============================================================================
 ;; Type conversion helpers

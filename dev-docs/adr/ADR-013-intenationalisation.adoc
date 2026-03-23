@@ -1,0 +1,648 @@
+= ADR-013: Internationalisation (i18n) — Multi-Language Support
+:status: Proposed
+:date: 2026-03-23
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+Boundary apps currently render all user-visible strings in English.  The `users`
+table already carries a `:language` column (stored as BCP 47 tag, e.g. `"en"`,
+`"nl"`, `"fr"`) and the `User` schema exposes it as the optional `:language`
+field.  There is no mechanism yet to use that value for string lookup.
+
+Requirements for a Boundary i18n solution:
+
+1. **String externalisation** — all user-facing strings must be addressable by a
+   namespaced key; no hard-coded literals in Hiccup or handler code.
+2. **Default language** — English (`:en`) is the canonical source; every key
+   must have an English entry.
+3. **Per-user language** — the language displayed is driven by `:language` stored
+   in the user profile; users can change it in their profile settings.
+4. **Fallback chain** — when a translation is missing the system falls through:
+   user profile language → tenant default → application default (`:en`).
+5. **Parameter substitution** — translations may include `{name}`-style
+   placeholders for dynamic values.
+6. **Plural forms** — at minimum singular/plural forms must be expressible.
+7. **Framework alignment** — pure functions in `core/`, I/O in `shell/`,
+   catalogues live in EDN files; no macro magic; no code generation.
+8. **Independently publishable** — the library must be releasable as
+   `org.boundary-app/boundary-i18n`.
+
+=== Current state
+
+* `:language` field: present in `user-preferences-flat-fields` in
+  `libs/user/src/boundary/user/schema.clj`.
+* No translation lookup, no middleware, no catalogue files.
+* All Hiccup UI functions receive raw strings directly.
+
+=== Considered approaches
+
+[cols="1,2,2", options="header"]
+|===
+| Approach | Pros | Cons
+
+| **Custom EDN catalogue** (chosen)
+| Zero extra dependency; idiomatic Clojure maps; full control; easy to test
+| Plural / ICU patterns need hand-rolled helper
+
+| https://github.com/ptaoussanis/tempura[Tempura]
+| Battle-tested; handles plurals, parameters, fallback natively
+| Additional dependency; slightly different key convention from Boundary style
+
+| Java `ResourceBundle`
+| JVM standard; handles locale negotiation natively
+| `.properties` files alien to Clojure; no EDN; verbose API
+|===
+
+== Decision
+
+=== 1. New library — `libs/i18n/`
+
+A new, independently publishable library is created:
+
+----
+libs/i18n/
+├── src/boundary/i18n/
+│   ├── core/
+│   │   └── translate.clj      ; pure lookup, fallback, interpolation, plurals
+│   ├── shell/
+│   │   ├── catalogue.clj      ; loads EDN files from classpath (I/O)
+│   │   ├── middleware.clj     ; Ring middleware — resolves locale per request
+│   │   └── render.clj         ; marker resolution + Hiccup → HTML rendering
+│   ├── ports.clj              ; ICatalogue protocol
+│   └── schema.clj             ; Malli schemas for config + validation
+├── test/boundary/i18n/
+│   ├── core/
+│   │   └── translate_test.clj
+│   └── shell/
+│       ├── catalogue_test.clj
+│       └── render_test.clj
+└── resources/boundary/i18n/
+    └── translations/
+        ├── en.edn             ; canonical English strings (always complete)
+        └── nl.edn             ; Dutch strings (may be partial)
+----
+
+=== 2. Translation catalogue format (EDN)
+
+Each locale file is a plain Clojure map with namespaced keyword keys.
+Modules own their own sub-tree under their library name.
+
+[source,edn]
+----
+;; resources/boundary/i18n/translations/en.edn
+{:user/login-page-title      "Sign in"
+ :user/email-label           "Email address"
+ :user/password-label        "Password"
+ :user/submit-label          "Sign in"
+ :user/error-invalid-creds   "Invalid email or password."
+ :user/n-sessions            {:one "{n} active session"
+                              :many "{n} active sessions"}
+ :admin/users-page-title     "Users"
+ :admin/create-user-button   "Create user"
+ :common/save                "Save"
+ :common/cancel              "Cancel"
+ :common/delete              "Delete"}
+----
+
+[source,edn]
+----
+;; resources/boundary/i18n/translations/nl.edn
+{:user/login-page-title      "Inloggen"
+ :user/email-label           "E-mailadres"
+ :user/password-label        "Wachtwoord"
+ :user/submit-label          "Inloggen"
+ :user/error-invalid-creds   "Ongeldig e-mailadres of wachtwoord."
+ :user/n-sessions            {:one "{n} actieve sessie"
+                              :many "{n} actieve sessies"}
+ :admin/users-page-title     "Gebruikers"
+ :admin/create-user-button   "Gebruiker aanmaken"
+ :common/save                "Opslaan"
+ :common/cancel              "Annuleren"
+ :common/delete              "Verwijderen"}
+----
+
+=== 3. Core — pure translation functions
+
+`libs/i18n/src/boundary/i18n/core/translate.clj`
+
+[source,clojure]
+----
+(ns boundary.i18n.core.translate)
+
+(defn t
+  "Looks up key in catalogue with locale fallback chain.
+   params (optional) is a map of placeholder values, e.g. {:name \"Alice\"}.
+   n (optional) selects plural form (:one / :many)."
+  ([catalogue locales key]
+   (t catalogue locales key {} nil))
+  ([catalogue locales key params]
+   (t catalogue locales key params nil))
+  ([catalogue locales key params n]
+   (let [entry (some #(get-in catalogue [% key]) locales)]
+     (cond
+       (nil? entry)  (str key)               ; graceful degradation
+       (map? entry)  (-> (if (= n 1) (:one entry) (:many entry))
+                         (interpolate params))
+       :else         (interpolate entry params)))))
+
+(defn- interpolate
+  "Replaces {placeholder} tokens in s with values from params map."
+  [s params]
+  (reduce-kv (fn [acc k v] (clojure.string/replace acc (str "{" (name k) "}") (str v)))
+             s
+             params))
+----
+
+Locale resolution follows a priority chain represented as a vector:
+
+[source,clojure]
+----
+; example resolved chain for user with :language "nl", tenant default "fr"
+[:nl :fr :en]
+----
+
+=== 4. Shell — catalogue loading
+
+`libs/i18n/src/boundary/i18n/shell/catalogue.clj`
+
+[source,clojure]
+----
+(ns boundary.i18n.shell.catalogue
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]))
+
+(defn load-catalogue
+  "Loads all EDN translation files from the classpath path.
+   Returns a map of locale keyword → translation map."
+  [base-path]
+  (->> (file-seq (io/file (io/resource base-path)))
+       (filter #(.endsWith (.getName %) ".edn"))
+       (reduce (fn [acc f]
+                 (let [locale (keyword (first (clojure.string/split (.getName f) #"\.")))]
+                   (assoc acc locale (edn/read-string (slurp f)))))
+               {})))
+----
+
+=== 5. Shell — Ring middleware
+
+`libs/i18n/src/boundary/i18n/shell/middleware.clj`
+
+Locale resolution per request, injected into `request` under `:i18n/locale-chain`
+and `:i18n/t` (a partially applied `translate/t`):
+
+[source,clojure]
+----
+(defn wrap-i18n
+  "Injects resolved locale chain and translate fn into every request.
+   opts:
+     :catalogue        — loaded translation map (from load-catalogue)
+     :default-locale   — fallback when user has no preference (default :en)
+     :get-user-locale  — fn [request] → locale string or nil (e.g. from session)"
+  [handler {:keys [catalogue default-locale get-user-locale]
+            :or   {default-locale :en}}]
+  (fn [request]
+    (let [user-locale   (some-> (get-user-locale request) keyword)
+          locale-chain  (distinct (filter some? [user-locale default-locale :en]))
+          translate-fn  (fn
+                          ([key]          (t catalogue locale-chain key))
+                          ([key params]   (t catalogue locale-chain key params))
+                          ([key params n] (t catalogue locale-chain key params n)))]
+      (handler (assoc request
+                      :i18n/locale-chain locale-chain
+                      :i18n/t            translate-fn)))))
+----
+
+=== 6. Integrant system key
+
+The catalogue is loaded once at system startup and shared across requests.
+
+`resources/conf/dev/config.edn`:
+
+[source,edn]
+----
+:boundary/i18n {:catalogue-path "boundary/i18n/translations"
+                :default-locale :en}
+----
+
+The Integrant init method calls `load-catalogue` and returns the map; the Ring
+router receives it as a dependency and passes it to `wrap-i18n`.
+
+=== 7. User profile integration
+
+The `:language` field is already present in the `users` table and the `User`
+schema.  The `get-user-locale` function extracts it from the session-stored user:
+
+[source,clojure]
+----
+(defn get-user-locale [request]
+  (get-in request [:session :user :language]))
+----
+
+No schema or migration changes are required.
+
+=== 8. Hiccup / UI integration — marker-based approach
+
+Rather than passing a `t` function into every UI function, translation keys are
+expressed as **data markers** directly inside the Hiccup tree.  The `:t` tag is
+not a valid HTML element; it acts purely as a translation placeholder that the
+shell resolves before rendering.
+
+This pattern mirrors Ring's response coercion for content types: the handler
+returns a Clojure data structure, and the shell layer transforms it at the HTTP
+boundary — here by resolving markers and converting Hiccup to an HTML string.
+
+==== Marker syntax
+
+[cols="2,3", options="header"]
+|===
+| Form | Use
+
+| `[:t :some/key]`
+| Simple string lookup
+
+| `[:t :some/key {:name "Alice"}]`
+| String with parameter substitution
+
+| `[:t :some/key {:n 5} 5]`
+| Plural form — fourth element is the count
+|===
+
+==== Core UI functions — unchanged signatures
+
+Core functions remain **pure and argument-free** with respect to i18n.  String
+literals are replaced by `[:t :key]` markers; no other change is needed.
+
+[source,clojure]
+----
+;; libs/user/src/boundary/user/core/ui.clj  — no t argument
+(defn login-page []
+  (layout/base-page
+    {:title [:t :user/login-page-title]}
+    [:main
+     [:h1 [:t :user/login-page-title]]
+     (form/form-card
+       [:div.field
+        [:label [:t :user/email-label]]
+        (ui/email-input {:name "email"})]
+       [:div.field
+        [:label [:t :user/password-label]]
+        (ui/password-input {:name "password"})]
+       (ui/submit-button [:t :user/submit-label]))]))
+----
+
+Testing a UI function requires no mock — the output is inspected as plain data:
+
+[source,clojure]
+----
+(deftest login-page-test
+  (let [hiccup (user-ui/login-page)]
+    (is (= [:t :user/login-page-title]
+           (get-in hiccup [:title])))))
+----
+
+==== Shell — marker resolver and renderer
+
+`libs/i18n/src/boundary/i18n/shell/render.clj`
+
+`resolve-markers` accepts an optional `:dev?` flag.  In development mode each
+resolved marker is wrapped in a `<span>` carrying the translation key as a
+`data-i18n` attribute and a `title` tooltip, making keys discoverable in the
+browser without changing the visible text.  In production mode the flag is
+absent and only the plain string is emitted.
+
+[source,clojure]
+----
+(ns boundary.i18n.shell.render
+  (:require [clojure.walk :as walk]
+            [boundary.i18n.core.translate :as translate]
+            [hiccup2.core :as h]))
+
+(defn resolve-markers
+  "Walks a Hiccup tree and replaces [:t key], [:t key params], and
+   [:t key params n] nodes with their translated strings.
+   When dev? is true, wraps each resolved string in a span that exposes
+   the translation key via data-i18n and title attributes."
+  [hiccup t-fn & {:keys [dev?]}]
+  (walk/postwalk
+    (fn [node]
+      (if (and (vector? node) (= :t (first node)))
+        (let [[_ key params n] node
+              translated (t-fn key (or params {}) n)]
+          (if dev?
+            [:span {:data-i18n (str key) :title (str key)} translated]
+            translated))
+        node))
+    hiccup))
+
+(defn render
+  "Resolves i18n markers in hiccup, then renders to an HTML string.
+   Replaces bare render-html calls in web handlers.
+   dev? is read from the Integrant config and controls key annotation."
+  [hiccup t-fn & {:keys [dev?]}]
+  (-> hiccup (resolve-markers t-fn :dev? dev?) h/html str))
+----
+
+In development the browser DevTools inspector shows `data-i18n=":user/email-label"`
+on every translated element, and hovering displays the key as a tooltip — without
+any change to visible text or page structure.
+
+==== Shell web handlers — one-line change per handler
+
+Handlers extract `t-fn` from the request (injected by `wrap-i18n`) and pass it
+to `i18n/render` instead of the bare `render-html`.  UI function call sites are
+**not** changed.
+
+[source,clojure]
+----
+;; libs/user/src/boundary/user/shell/web_handlers.clj
+(defn login-page-handler [request]
+  (let [t (:i18n/t request)]
+    {:status 200
+     :headers {"content-type" "text/html"}
+     :body (i18n/render (user-ui/login-page) t)}))
+;;          ^^^^^^^^^^^ replaces render-html — only change needed per handler
+----
+
+There are approximately 38 handler functions in the user module that need this
+one-line substitution.  No UI function signatures change.
+
+==== Known limitations — where markers must not be used
+
+Markers work only in positions where the Hiccup data structure preserves the
+vector until `resolve-markers` runs.  They break silently wherever a component
+or helper calls `str`, `clojure.string/*`, `format`, or any Java interop on the
+marker value *before* rendering, because those calls receive the raw vector
+instead of the resolved string.
+
+[cols="1,1", options="header"]
+|===
+| Works ✓ | Breaks ✗
+
+| Child position: `[:h1 [:t :key]]`
+| `(str [:t :key])` → `"[:t :key]"`
+
+| Attribute value: `{:placeholder [:t :key]}`
+| `(clojure.string/upper-case [:t :key])`
+
+| Passed to component that places it as child: +
+  `(submit-button [:t :key])` where `submit-button` does `[:button label]`
+| Passed to component that calls str on it: +
+  `(submit-button [:t :key])` where `submit-button` does `{:aria-label (str label)}`
+
+| Parameter map: `[:t :key {:n count} count]`
+| Concatenation: `(str "prefix-" [:t :key])`
+|===
+
+**Convention:** a `[:t ...]` marker may only appear in a position that Hiccup
+treats as a child node or attribute value.  It must never be passed to a
+function that consumes it as a string before the Hiccup tree is returned.
+This convention is enforced by code review; a future linting rule could flag
+`(str ...)` calls whose argument could be a marker vector.
+
+=== 9. Language selector in user profile UI
+
+A `<select>` element is added to the user profile form with the list of
+available locales (derived from the catalogue keys).  Submitting the form
+updates `:language` on the `users` table via the existing `update-user` flow —
+no new API endpoints or service methods are needed.
+
+=== 10. Developer tooling — `bb i18n`
+
+Losing the direct string→code mapping is the main DX trade-off of the marker
+approach.  A Babashka task restores this in a single command.
+
+==== `bb i18n find`
+
+Searches the translation catalogue for a substring and then greps the codebase
+for every occurrence of the matching key.  Accepts both a free-text string and
+an exact key.
+
+[source,bash]
+----
+bb i18n find "Invalid email"
+# key:  :user/error-invalid-creds
+# en:   "Invalid email or password."
+# nl:   "Ongeldig e-mailadres of wachtwoord."
+# used in:
+#   libs/user/src/boundary/user/core/ui.clj:45
+#   libs/user/src/boundary/user/core/ui.clj:89
+
+bb i18n find :user/error-invalid-creds   ; search by key instead of string
+----
+
+==== `bb i18n missing`
+
+Reports keys present in `en.edn` but absent in one or more other locale files,
+so translation gaps are visible before deploying a new language.
+
+[source,bash]
+----
+bb i18n missing
+# nl  3 missing keys:
+#   :admin/bulk-delete-confirm
+#   :common/loading
+#   :user/mfa-backup-used
+----
+
+==== `bb i18n unused`
+
+Reports keys defined in the catalogue that do not appear anywhere in the
+codebase, identifying stale entries that can be removed.
+
+[source,bash]
+----
+bb i18n unused
+# 2 unused keys in en.edn:
+#   :user/old-register-title
+#   :common/deprecated-action
+----
+
+==== `bb i18n scan`
+
+Scans all `core/ui.clj` files for plain string literals that look like
+user-facing text (capitalised strings) and reports them as unexternalised
+strings.  This supports the recommended workflow of writing plain strings
+during UI design and performing the i18n pass once the UI is stable.
+
+[source,bash]
+----
+bb i18n scan
+# 2 unexternalised strings found in core/ui.clj files:
+#   libs/user/src/boundary/user/core/ui.clj:112   "Forgot password?"
+#   libs/admin/src/boundary/admin/core/ui.clj:67   "No records found."
+----
+
+`bb i18n scan` exits non-zero when unexternalised strings are found, making it
+suitable as a CI gate.  It is intended to run after a screen is approved and
+stable, not during active UI development.
+
+==== Recommended development workflow
+
+[cols="1,3", options="header"]
+|===
+| Phase | Action
+
+| New screen — iterating
+| Write plain English strings in Hiccup; focus on layout and behaviour
+
+| Screen stable / approved
+| Run `bb i18n scan` to list all string literals +
+  Replace each with `[:t :module/key]` and add the key to `en.edn`
+
+| Pull request
+| CI runs `bb i18n scan`; fails if any unexternalised strings remain in
+  `core/ui.clj` files
+
+| New language added
+| Run `bb i18n missing` to identify keys that still need translation
+
+| String reported by user
+| Run `bb i18n find "that string"` to locate the key and all code usages
+
+| Catalogue cleanup
+| Run `bb i18n unused` to find and remove stale keys
+|===
+
+The four commands together cover the full i18n lifecycle: authoring →
+externalisation → gap detection → traceability → cleanup.
+
+=== 11. Per-module ownership of translation keys
+
+Each library that introduces UI strings is responsible for its own key namespace
+within the shared EDN files.  Convention:
+
+* `libs/user/` → keys under `:user/*`
+* `libs/admin/` → keys under `:admin/*`
+* `libs/platform/` → keys under `:platform/*`
+* Cross-cutting labels → `:common/*`
+
+There is no per-library EDN file; all locales live in a single file per locale
+so translators have one file to edit per language.
+
+== Implementation Phases
+
+=== Phase 1 — Core library and English catalogue
+- [ ] Create `libs/i18n/` library skeleton (ports, schema, core, shell)
+- [ ] Implement `translate/t` with fallback chain, interpolation, plural forms
+- [ ] Implement `catalogue/load-catalogue` (classpath EDN loader)
+- [ ] Implement `middleware/wrap-i18n`
+- [ ] Implement `render/resolve-markers` and `render/render` (with `:dev?` flag)
+- [ ] Create `resources/boundary/i18n/translations/en.edn` with all existing
+      strings from `libs/user/` and `libs/admin/`
+- [ ] Implement `bb i18n find`, `bb i18n missing`, `bb i18n unused`, `bb i18n scan` Babashka tasks
+- [ ] Unit tests: translate_test (fallback, interpolation, plurals, missing key)
+- [ ] Unit tests: render_test (marker resolution, dev-mode annotations, nested markers,
+      unknown key passthrough)
+- [ ] Contract test: catalogue_test (round-trip load + lookup)
+
+=== Phase 2 — Dutch (nl) catalogue + user profile selector
+- [ ] Create `resources/boundary/i18n/translations/nl.edn` (full translation)
+- [ ] Add language `<select>` to user profile form (admin + web handlers)
+- [ ] Wire `wrap-i18n` into the Ring handler stack (Integrant config)
+- [ ] Integration test: profile language change → subsequent page renders in nl
+
+=== Phase 3 — Migrate all UI strings
+- [ ] Run `bb i18n scan` to enumerate all unexternalised string literals
+      (~97 functions across 6 files; no signature changes required)
+- [ ] Replace string literals with `[:t :key]` markers and add keys to `en.edn`
+- [ ] Replace `render-html` calls with `(i18n/render hiccup t)` in all handlers
+      (~38 handler functions; one-line change each)
+- [ ] Enable `bb i18n scan` as a CI gate (exits non-zero on violations)
+- [ ] Update `libs/*/AGENTS.md` with i18n conventions and recommended workflow
+
+=== Phase 4 — Documentation + scaffolder support
+- [ ] Add i18n section to root `AGENTS.md`
+- [ ] Create `libs/i18n/AGENTS.md`
+- [ ] Extend `bb scaffold` to generate `[:t :module/key]` stubs and matching
+      `en.edn` entries when creating a new module with UI endpoints
+
+== Consequences
+
+=== Positive
+
+* All user-facing strings are now translatable without touching source code.
+* Locale resolution is pure and testable; UI functions remain side-effect free.
+* The `:language` field already on the `users` table is put to use with no
+  schema or migration changes.
+* Adding a new language requires only a new EDN file — no code changes.
+* Graceful degradation: missing translation keys fall back to `:en`, and if
+  still missing, render the keyword as a string (visible in QA, harmless in
+  production for a brief period).
+* String→code traceability is restored via `bb i18n find`: a reported string
+  maps to a key in seconds, and the key maps to every code location.
+* In development, translation keys are visible as `data-i18n` attributes and
+  hover tooltips in the browser — no context-switching to EDN files needed.
+
+=== Negative
+
+* A `postwalk` traversal over the Hiccup tree is performed on every HTML
+  response.  In practice this is negligible compared to a typical database
+  query, but it is an additional allocation per request.
+* EDN files must be kept in sync across languages; there is no compile-time
+  check for missing keys in non-English locales (a linting task can close this
+  gap later).
+* Plural support covers only the common two-form (one / many) pattern; languages
+  with more plural forms (e.g. Polish, Arabic) would need an extended rule
+  engine.
+* The `:t` marker convention must be documented and enforced by code review;
+  there is no compiler-level guarantee that `[:t :wrong/key]` refers to an
+  existing catalogue entry.
+
+=== Neutral
+
+* Date, time, and number formatting is handled separately by the existing
+  `:date-format`, `:time-format`, and `:timezone` user preferences (already
+  stored on the user profile); these are out of scope for this ADR.
+* Right-to-left (RTL) language support requires CSS changes beyond the scope of
+  this ADR; the translation mechanism itself is RTL-agnostic.
+
+== Alternatives Considered
+
+=== UI integration: explicit `t` argument on every UI function
+
+The initial ADR draft passed a `t` function as the first argument to every UI
+function, propagating it down through all helpers.
+
+*Rejected* because it requires changing ~97 function signatures and all their
+call sites — a large, mechanical refactor with no architectural benefit.  The
+marker approach achieves the same result with zero signature changes.
+
+=== UI integration: dynamic var `*t*`
+
+A request-scoped dynamic var (e.g. `(def ^:dynamic *t* ...)`) bound with
+`binding` inside top-level handlers, so internal helpers call `(*t* :key)`
+without receiving an argument.
+
+*Rejected* because dynamic vars are invisible in function signatures, behave
+unexpectedly with `lazy-seq` and futures, and are harder to reason about in
+tests.  The marker approach is more explicit and has no hidden state.
+
+=== Tempura
+
+https://github.com/ptaoussanis/tempura[Tempura] is a mature Clojure i18n
+library with built-in fallback, ICU plural rules, and parameter substitution.
+
+*Rejected* because the custom approach requires no extra dependency, matches
+Boundary's EDN-first philosophy, and keeps the full implementation within the
+team's control.  Tempura can be adopted as a drop-in replacement for the core
+`translate/t` function later if richer plural rules are needed.
+
+=== Per-library translation files
+
+Keeping a `translations/` directory in each library was considered so ownership
+is clearer.
+
+*Rejected* because translators would need to edit 20+ files per language, and
+merging them at runtime adds complexity without meaningful benefit.
+
+== References
+
+* ADR-006 — Web UI Architecture (HTMX + Hiccup)
+* ADR-012 — User Module / Split-Table Architecture (`:language` field)
+* https://www.rfc-editor.org/rfc/rfc5646[BCP 47 Language Tags (RFC 5646)]
+* https://github.com/ptaoussanis/tempura[Tempura — Clojure i18n library]
