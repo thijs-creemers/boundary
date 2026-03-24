@@ -89,9 +89,7 @@
       [:meta {:charset "UTF-8"}]
       [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
       [:title title]
-      [:link {:rel "preconnect" :href "https://cdn.jsdelivr.net"}]
-      [:link {:rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@fontsource/geist@5.0.3/index.min.css"}]
-      [:link {:rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@fontsource/geist-mono@5.0.3/index.min.css"}]
+      [:link {:rel "stylesheet" :href "/css/local-fonts.css"}]
       (for [css-file css]
         [:link {:rel "stylesheet" :href css-file}])]
      [:body body-attrs

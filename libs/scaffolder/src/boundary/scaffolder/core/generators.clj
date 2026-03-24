@@ -796,6 +796,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
  :tasks
  {:requires ([boundary.tools.scaffold :as scaffold]
              [boundary.tools.ai       :as ai]
+             [boundary.tools.deps     :as deps]
              [boundary.tools.i18n     :as i18n]
              [boundary.tools.admin    :as admin]
              [boundary.tools.deploy   :as deploy]
@@ -809,6 +810,9 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
 
   ;; Bootstrap the first admin user (prompts for password securely)
   create-admin  {:task (apply admin/-main *command-line-args*)}
+
+  ;; Check and optionally update outdated Maven dependencies
+  upgrade-outdated {:task (apply deps/-main *command-line-args*)}
 
   ;; Publish libraries to Clojars
   deploy        {:task (apply deploy/-main *command-line-args*)}
