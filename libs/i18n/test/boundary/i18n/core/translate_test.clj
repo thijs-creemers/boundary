@@ -1,6 +1,7 @@
 (ns boundary.i18n.core.translate-test
   "Unit tests for the pure translation functions."
   (:require [boundary.i18n.core.translate :as sut]
+            [boundary.i18n.shell.catalogue :as catalogue]
             [clojure.test :refer [deftest is testing]]))
 
 (def ^:private catalogue
@@ -101,3 +102,9 @@
   (testing "multiple fallback levels work correctly"
     (let [cat {:en {:key "English"} :fr {} :nl {}}]
       (is (= "English" (sut/t cat [:nl :fr :en] :key))))))
+
+(deftest ^:unit catalogue-protocol-test
+  (testing "MapCatalogue records are resolved via the ICatalogue protocol"
+    (let [cat (catalogue/create-map-catalogue catalogue)]
+      (is (= "Aanmelden" (sut/t cat [:nl :en] :user/sign-in)))
+      (is (= "Sign in" (sut/t cat [:fr :en] :user/sign-in))))))

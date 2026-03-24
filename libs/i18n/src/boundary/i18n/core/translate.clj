@@ -91,10 +91,17 @@
    (t catalogue locale-chain key params nil))
   ([catalogue locale-chain key params n]
    (let [entry (some (fn [locale]
-                       (if (map? catalogue)
+                       (cond
+                         ;; defrecord catalogue implementations also satisfy map?,
+                         ;; so prefer the protocol when available.
+                         (satisfies? ports/ICatalogue catalogue)
+                         (ports/lookup catalogue locale key)
+
+                         (map? catalogue)
                          (get-in catalogue [locale key])
-                         ;; ICatalogue protocol
-                         (ports/lookup catalogue locale key)))
+
+                         :else
+                         nil))
                      locale-chain)
          resolved (if entry
                     (if n
