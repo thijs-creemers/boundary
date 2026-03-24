@@ -775,6 +775,55 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
 "
           name))
 
+(defn generate-project-bb-edn
+  "Generate bb.edn for a new project.
+
+   Wires boundary-tools so all bb tasks (scaffold, i18n, deploy, etc.)
+   are available out of the box.
+
+   Args:
+     _name - Project name (unused, kept for API consistency)
+
+   Returns:
+     String content for bb.edn
+
+   Pure: true"
+  [_name]
+  ";; bb.edn — Babashka task runner for this Boundary project
+;; All tasks are provided by boundary-tools; no local scripts needed.
+{:deps {org.boundary-app/boundary-tools {:mvn/version \"1.0.0-alpha\"}}
+
+ :tasks
+ {:requires ([boundary.tools.scaffold :as scaffold]
+             [boundary.tools.ai       :as ai]
+             [boundary.tools.i18n     :as i18n]
+             [boundary.tools.admin    :as admin]
+             [boundary.tools.deploy   :as deploy]
+             [boundary.tools.dev      :as dev])
+
+  ;; Generate a new FC/IS module interactively
+  scaffold      {:task (apply scaffold/-main *command-line-args*)}
+
+  ;; AI-assisted tooling (NL scaffolding, error explainer, SQL copilot, docs wizard)
+  ai            {:task (apply ai/-main *command-line-args*)}
+
+  ;; Bootstrap the first admin user (prompts for password securely)
+  create-admin  {:task (apply admin/-main *command-line-args*)}
+
+  ;; Publish libraries to Clojars
+  deploy        {:task (apply deploy/-main *command-line-args*)}
+
+  ;; Developer utilities
+  check-links   {:task (dev/check-links)}
+  smoke-check   {:task (dev/smoke-check)}
+  install-hooks {:task (dev/install-hooks)}
+
+  ;; i18n tooling
+  i18n:find     {:task (apply i18n/-main \"find\" *command-line-args*)}
+  i18n:scan     {:task (i18n/-main \"scan\")}
+  i18n:missing  {:task (i18n/-main \"missing\")}
+  i18n:unused   {:task (i18n/-main \"unused\")}}}")
+
 (defn generate-project-readme
   "Generate README.md for a new project."
   [name]

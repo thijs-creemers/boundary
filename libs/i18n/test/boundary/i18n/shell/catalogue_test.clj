@@ -25,7 +25,14 @@
   (testing "skips locales that have no EDN file on classpath"
     (let [cat (sut/load-catalogue "boundary/i18n/translations" [:en :zz])]
       (is (contains? cat :en))
-      (is (not (contains? cat :zz))))))
+      (is (not (contains? cat :zz)))))
+
+  (testing "merges multiple catalogue paths with later paths overriding earlier ones"
+    (let [cat (sut/load-catalogue ["boundary/i18n/translations"
+                                   "boundary/i18n/test_overrides"])]
+      (is (= "Continue" (get-in cat [:en :user/button-signin])))
+      (is (= "Doorgaan" (get-in cat [:nl :user/button-signin])))
+      (is (= "Hello from override" (get-in cat [:en :zzpguard/test-key]))))))
 
 ;; =============================================================================
 ;; MapCatalogue (ICatalogue protocol)

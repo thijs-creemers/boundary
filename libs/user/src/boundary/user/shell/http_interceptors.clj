@@ -1,13 +1,13 @@
 (ns boundary.user.shell.http-interceptors
   "HTTP-level interceptors for user module authentication, authorization, and audit.
-   
+
    These interceptors work with the HTTP interceptor architecture (ADR-010) and operate
    on HTTP contexts with enter/leave/error semantics.
-   
+
    Key Differences from Domain Interceptors:
    - Domain interceptors (user.shell.interceptors) handle validation/transformation pipelines
    - HTTP interceptors (this namespace) handle cross-cutting HTTP concerns (auth, audit, rate-limit)
-   
+
    HTTP Context Shape:
    {:request       Ring request map
     :response      Ring response map
@@ -16,7 +16,7 @@
     :attrs         Additional attributes
     :correlation-id UUID
     :started-at    Instant}
-   
+
    Usage in Normalized Routes:
    {:path \"/users\"
     :methods {:post {:handler create-user-handler
@@ -24,7 +24,8 @@
                                     'user.http-interceptors/require-admin
                                     'user.http-interceptors/log-action]}}}"
   (:require [boundary.observability.logging.ports :as logging]
-            [boundary.observability.metrics.ports :as metrics]))
+            [boundary.observability.metrics.ports :as metrics]
+            [boundary.tenant.core.membership :as membership-core]))
 
 ;; =============================================================================
 ;; Helper Functions
@@ -384,19 +385,98 @@
 
 (defn create-custom-stack
   "Creates a custom interceptor stack from components.
-   
+
    Args:
      components: Map of interceptor components
        - :auth - Authentication interceptor (optional)
        - :authz - Authorization interceptor (optional)
        - :audit - Audit interceptor (optional)
-   
+
    Returns:
      Vector of interceptors in correct order
-   
+
    Example:
    (create-custom-stack {:auth require-authenticated
                          :authz (require-role \"manager\")
                          :audit log-all-actions})"
   [{:keys [auth authz audit]}]
   (filterv some? [auth authz audit]))
+
+;; =============================================================================
+;; Tenant Membership Interceptors (ADR-016)
+;; =============================================================================
+
+(def require-tenant-member
+  "Requires an active tenant membership to be present on the request.
+
+   Reads :tenant-membership set by wrap-tenant-membership middleware.
+   Short-circuits with 403 when no active membership is found.
+
+   Usage:
+   {:path \"/api/tenants/:tenant-id/documents\"
+    :methods {:get {:handler list-documents
+                    :interceptors ['user.http-interceptors/require-authenticated
+                                   'user.http-interceptors/require-tenant-member]}}}"
+  {:name  ::require-tenant-member
+   :enter (fn [{:keys [request correlation-id system] :as ctx}]
+            (let [membership (:tenant-membership request)]
+              (if (and membership (membership-core/active-member? membership))
+                ctx
+                (do
+                  (when-let [logger (:logger system)]
+                    (logging/warn logger "Active tenant membership required"
+                                  {:uri            (:uri request)
+                                   :correlation-id correlation-id}))
+                  (when-let [metrics (:metrics-emitter system)]
+                    (metrics/increment metrics "http.auth.failures"
+                                       {:reason "not-a-member"}))
+                  (assoc ctx :response
+                         (create-error-response 403 "forbidden"
+                                                "Active tenant membership required"
+                                                correlation-id))))))})
+
+(defn require-tenant-role
+  "Factory function: returns an interceptor that requires the given tenant role(s).
+
+   Reads :tenant-membership set by wrap-tenant-membership middleware.
+   Short-circuits with 403 when the membership is absent or has insufficient role.
+
+   Args:
+     allowed-roles - set of allowed role keywords, e.g. #{:admin}
+
+   Returns:
+     Interceptor map."
+  [allowed-roles]
+  {:name  ::require-tenant-role
+   :enter (fn [{:keys [request correlation-id system] :as ctx}]
+            (let [membership (:tenant-membership request)]
+              (if (and membership
+                       (membership-core/active-member? membership)
+                       (membership-core/has-role? membership allowed-roles))
+                ctx
+                (do
+                  (when-let [logger (:logger system)]
+                    (logging/warn logger "Insufficient tenant role"
+                                  {:uri            (:uri request)
+                                   :required-roles allowed-roles
+                                   :actual-role    (:role membership)
+                                   :correlation-id correlation-id}))
+                  (when-let [metrics (:metrics-emitter system)]
+                    (metrics/increment metrics "http.auth.failures"
+                                       {:reason "insufficient-tenant-role"}))
+                  (assoc ctx :response
+                         (create-error-response 403 "forbidden"
+                                                "Insufficient tenant role"
+                                                correlation-id))))))})
+
+(def require-tenant-admin
+  "Requires the current user to have the :admin role in the active tenant membership.
+
+   Shorthand for (require-tenant-role #{:admin}).
+
+   Usage:
+   {:path \"/api/tenants/:tenant-id/settings\"
+    :methods {:put {:handler update-settings
+                    :interceptors ['user.http-interceptors/require-authenticated
+                                   'user.http-interceptors/require-tenant-admin]}}}"
+  (require-tenant-role #{:admin}))

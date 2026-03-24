@@ -13,6 +13,7 @@
 ** xref:libraries:email.adoc[email]
 ** xref:libraries:tenant.adoc[tenant]
 ** xref:libraries:realtime.adoc[realtime]
+** xref:libraries:i18n.adoc[i18n]
 ** xref:libraries:external.adoc[external]
 ** xref:libraries:workflow.adoc[workflow]
 ** xref:libraries:search.adoc[search]

@@ -36,12 +36,31 @@
 
   (activate-tenant [this tenant-id]))
 
+(defprotocol ITenantMembershipRepository
+  (find-membership-by-id              [this membership-id])
+  (find-membership-by-user-and-tenant [this user-id tenant-id])
+  (find-memberships-by-tenant         [this tenant-id options])
+  (find-memberships-by-user           [this user-id])
+  (create-membership                  [this membership-entity])
+  (update-membership                  [this membership-entity])
+  (membership-exists?                 [this user-id tenant-id]))
+
+(defprotocol ITenantMembershipService
+  (invite-user           [this tenant-id user-id role])
+  (accept-invitation     [this membership-id])
+  (update-member-role    [this membership-id role])
+  (suspend-member        [this membership-id])
+  (revoke-member         [this membership-id])
+  (get-membership        [this membership-id])
+  (get-active-membership [this user-id tenant-id])
+  (list-tenant-members   [this tenant-id options]))
+
 (defprotocol ITenantSchemaProvider
   "Protocol for executing code within a tenant's database schema context.
    
    This protocol abstracts tenant schema switching operations, allowing
    different implementations for different database types (PostgreSQL vs others)."
-  
+
   (with-tenant-schema [this db-ctx schema-name f]
     "Execute function f within the specified tenant schema context.
      

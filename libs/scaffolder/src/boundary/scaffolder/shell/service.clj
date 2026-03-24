@@ -2,7 +2,7 @@
   "Scaffolder service implementation for module generation.
    
    Orchestrates template rendering and file generation."
-(:require [boundary.scaffolder.ports :as ports]
+  (:require [boundary.scaffolder.ports :as ports]
             [boundary.scaffolder.schema :as schema]
             [boundary.scaffolder.core.template :as template]
             [boundary.scaffolder.core.generators :as generators]
@@ -15,11 +15,11 @@
   []
   (try
     (let [migrations-dir (io/file "resources/migrations")
-          files (when (.exists migrations-dir) 
+          files (when (.exists migrations-dir)
                   (map #(.getName %) (.listFiles migrations-dir)))
-          numbers (keep #(when-let [m (re-find #"^(\d+)" %)] 
-                          (Integer/parseInt (second m))) 
-                       (or files []))
+          numbers (keep #(when-let [m (re-find #"^(\d+)" %)]
+                           (Integer/parseInt (second m)))
+                        (or files []))
           max-num (if (seq numbers) (apply max numbers) 0)]
       (format "%03d" (inc max-num)))
     (catch Exception _
@@ -122,32 +122,32 @@
     (try
       (let [{:keys [module-name entity field dry-run]} request
             migration-number (get-next-migration-number)
-            
+
             ;; Generate migration content
-            migration-content (generators/generate-add-field-migration 
+            migration-content (generators/generate-add-field-migration
                                module-name entity field migration-number)
-            
+
             ;; Generate schema instructions
             schema-instructions (generators/generate-add-field-schema-comment
                                  module-name entity field)
-            
+
             ;; Define files
             field-name-snake (template/kebab->snake (name (:name field)))
             table-name (template/kebab->snake (template/pluralize (str/lower-case entity)))
-            files [{:path (format "migrations/%s_add_%s_to_%s.sql" 
+            files [{:path (format "migrations/%s_add_%s_to_%s.sql"
                                   migration-number field-name-snake table-name)
                     :content migration-content
                     :action :create}
                    {:path (format "src/boundary/%s/schema.clj" module-name)
                     :content schema-instructions
                     :action :update}]]
-        
+
         ;; Write migration file (unless dry-run)
         (when-not dry-run
           (let [file (io/file (:path (first files)))]
             (.mkdirs (.getParentFile file))
             (spit file (:content (first files)))))
-        
+
         {:success true
          :module-name module-name
          :files files
@@ -155,65 +155,65 @@
                      ["Dry run - no files were written"
                       "Manual schema update required - see instructions in output"]
                      ["Manual schema update required - see instructions above"])})
-      
+
       (catch Exception e
         {:success false
          :module-name (:module-name request)
          :files []
          :errors [(str "Add field failed: " (.getMessage e))]})))
-  
+
   (add-endpoint [_this request]
     (try
       (let [{:keys [module-name path method handler-name dry-run]} request
-            
+
             ;; Generate endpoint definition instructions
             endpoint-content (generators/generate-endpoint-definition
                               module-name path method handler-name)
-            
+
             files [{:path (format "src/boundary/%s/shell/http.clj" module-name)
                     :content endpoint-content
                     :action :update}]]
-        
+
         {:success true
          :module-name module-name
          :files files
          :warnings ["Manual code update required - see instructions in output"
                     (when dry-run "Dry run - showing what to add")]})
-      
+
       (catch Exception e
         {:success false
          :module-name (:module-name request)
          :files []
          :errors [(str "Add endpoint failed: " (.getMessage e))]})))
-  
+
   (add-adapter [_this request]
     (try
       (let [{:keys [module-name port adapter-name methods dry-run]} request
-            
+
             ;; Generate adapter file content
             adapter-content (generators/generate-adapter-file
-                             module-name port adapter-name 
+                             module-name port adapter-name
                              (or methods [{:name "example-method" :args ["arg1"]}]))
-            
-            adapter-path (format "src/boundary/%s/shell/adapters/%s.clj" 
+
+            adapter-path (format "src/boundary/%s/shell/adapters/%s.clj"
                                  module-name adapter-name)
             files [{:path adapter-path
                     :content adapter-content
                     :action :create}]]
-        
+
         ;; Write adapter file (unless dry-run)
         (when-not dry-run
           (let [file (io/file adapter-path)]
             (.mkdirs (.getParentFile file))
             (spit file adapter-content)))
-        
+
         {:success true
          :module-name module-name
          :files files
          :warnings (if dry-run
                      ["Dry run - no files were written"]
                      ["Implement TODO methods in the generated adapter"])})
-      
+
       (catch Exception e
         {:success false
          :module-name (:module-name request)
@@ -224,15 +224,19 @@
     (try
       (let [{:keys [name output-dir force dry-run]} request
             project-root (if (= output-dir ".") name (str output-dir "/" name))
-            
+
             ;; Generate file contents
-            deps-content (generators/generate-project-deps name)
+            deps-content   (generators/generate-project-deps name)
+            bb-edn-content (generators/generate-project-bb-edn name)
             readme-content (generators/generate-project-readme name)
             config-content (generators/generate-project-config name)
-            main-content (generators/generate-project-main name)
-            
+            main-content   (generators/generate-project-main name)
+
             files [{:path (str project-root "/deps.edn")
                     :content deps-content
+                    :action :create}
+                   {:path (str project-root "/bb.edn")
+                    :content bb-edn-content
                     :action :create}
                    {:path (str project-root "/README.md")
                     :content readme-content
@@ -240,25 +244,25 @@
                    {:path (str project-root "/resources/conf/dev/config.edn")
                     :content config-content
                     :action :create}
-                   {:path (format "%s/src/%s/app.clj" 
+                   {:path (format "%s/src/%s/app.clj"
                                   project-root (str/replace name "-" "/"))
                     :content main-content
                     :action :create}]]
-        
+
         ;; Check for existing directory if not forcing
-        (when (and (not force) 
+        (when (and (not force)
                    (not dry-run)
                    (.exists (io/file project-root)))
           (throw (ex-info (str "Directory already exists: " project-root)
                           {:type :conflict :path project-root})))
-        
+
         ;; Write files (unless dry-run)
         (when-not dry-run
           (doseq [{:keys [path content]} files]
             (let [file (io/file path)]
               (.mkdirs (.getParentFile file))
               (spit file content))))
-        
+
         {:success true
          :name name
          :files files

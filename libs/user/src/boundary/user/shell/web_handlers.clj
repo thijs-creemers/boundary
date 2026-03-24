@@ -475,7 +475,8 @@
   [_config]
   (fn [request]
     (let [page-opts {:user (get request :user)
-                     :flash (get request :flash)}]
+                     :flash (get request :flash)
+                     :return-to (get-in request [:query-params "return-to"])}]
       (html-response request (user-ui/register-page {} {} page-opts)))))
 
 (defn register-submit-handler
@@ -483,6 +484,8 @@
   [user-service _config]
   (fn [request]
     (let [form-data (:form-params request)
+          raw-return-to (or (get form-data "return-to")
+                            (get-in request [:query-params "return-to"]))
           prepared-data {:name (get form-data "name")
                          :email (get form-data "email")
                          :password (get form-data "password")
@@ -495,7 +498,8 @@
         (html-response request
                        (user-ui/register-page prepared-data validation-errors
                                               {:user (get request :user)
-                                               :flash (get request :flash)})
+                                               :flash (get request :flash)
+                                               :return-to raw-return-to})
                        400)
         (try
           (let [user-result (user-ports/register-user user-service prepared-data)
@@ -508,9 +512,10 @@
                 auth-result (user-ports/authenticate-user user-service auth-data)]
             (if (:authenticated auth-result)
               (let [session (:session auth-result)
-                    session-token (:session-token session)]
+                    session-token (:session-token session)
+                    return-to (safe-return-url raw-return-to "/web/profile")]
                 ;; Automatically log in and redirect to profile with welcome message
-                (-> (response/redirect "/web/profile")
+                (-> (response/redirect return-to)
                     (assoc :status 303) ; See Other
                     (assoc :flash {:type :success
                                    :message (str "Welcome to Boundary, " (:name user-result) "! "

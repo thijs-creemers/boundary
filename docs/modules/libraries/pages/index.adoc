@@ -1,7 +1,7 @@
 = Library Overview
-:description: All 20 independently publishable Boundary libraries.
+:description: All 21 independently publishable Boundary libraries.
 
-Boundary is a monorepo of 20 libraries, each independently publishable to Clojars.
+Boundary is a monorepo of 21 libraries, each independently publishable to Clojars.
 Every library follows the same FC/IS structure, making the codebase instantly familiar across modules.
 
 == Foundation
@@ -21,6 +21,9 @@ Every library follows the same FC/IS structure, making the codebase instantly fa
 
 | xref:ui-style.adoc[ui-style]
 | Shared UI contract: centralized CSS/JS bundles, tokens, and reusable style conventions across modules.
+
+| xref:i18n.adoc[i18n]
+| Internationalisation: marker-based translation, locale chain resolution, EDN catalogues, Ring middleware, and Babashka tooling.
 |===
 
 == Application

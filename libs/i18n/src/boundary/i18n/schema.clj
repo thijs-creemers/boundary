@@ -9,7 +9,8 @@
 (def I18nConfig
   "Configuration map for the :boundary/i18n Integrant component."
   [:map
-   [:catalogue-path :string]
+   [:catalogue-path {:optional true} :string]
+   [:catalogue-paths {:optional true} [:vector :string]]
    [:default-locale {:optional true} :keyword]
    [:dev?           {:optional true} :boolean]])
 
