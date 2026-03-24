@@ -3,37 +3,20 @@
             [boundary.tenant.shell.membership-service :as sut]
             [boundary.tenant.ports :as ports]
             [boundary.observability.errors.ports :as error-ports]
-            [boundary.observability.logging.ports :as logging-ports]
-            [boundary.observability.metrics.ports :as metrics-ports])
+            [boundary.observability.metrics.ports :as metrics-ports]
+            [boundary.observability.logging.shell.adapters.no-op :as no-op-logging])
   (:import (java.util UUID)))
 
 ^{:kaocha.testable/meta {:unit true :tenant true}}
 
 ;; =============================================================================
-;; Mock observability services (copied from service_test.clj pattern)
+;; Mock observability services
 ;; =============================================================================
 
-(def mock-logger
-  (reify
-    logging-ports/ILogger
-    (log* [_ _level _message _context _exception] nil)
-    (trace [_ _message] nil)
-    (trace [_ _message _context] nil)
-    (debug [_ _message] nil)
-    (debug [_ _message _context] nil)
-    (info [_ _message] nil)
-    (info [_ _message _context] nil)
-    (warn [_ _message] nil)
-    (warn [_ _message _context] nil)
-    (warn [_ _message _context _exception] nil)
-    (error [_ _message] nil)
-    (error [_ _message _context] nil)
-    (error [_ _message _context _exception] nil)
-    (fatal [_ _message] nil)
-    (fatal [_ _message _context] nil)
-    (fatal [_ _message _context _exception] nil)
-    Object
-    (toString [_] "MockLogger")))
+;; Use the NoOpLoggingComponent which implements ILogger, IAuditLogger, and
+;; ILoggingContext — required because service-audit-logging calls audit-event
+;; whenever :user-id appears in operation params (e.g. invite-user).
+(def mock-logger (no-op-logging/create-logging-component {}))
 
 (def mock-metrics-emitter
   (reify
