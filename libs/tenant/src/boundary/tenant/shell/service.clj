@@ -85,6 +85,14 @@
 
              (try
                (.create-tenant-schema tenant-repository (:schema-name created-tenant))
+               (catch clojure.lang.ExceptionInfo e
+                 (if (= :not-supported (:type (ex-data e)))
+                   created-tenant
+                   (do
+                     (.delete-tenant tenant-repository tenant-id)
+                     (throw (ex-info "Failed to create tenant schema"
+                                     {:type :internal-error
+                                      :cause (.getMessage e)})))))
                (catch Exception e
                  (.delete-tenant tenant-repository tenant-id)
                  (throw (ex-info "Failed to create tenant schema"

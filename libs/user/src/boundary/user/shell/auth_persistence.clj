@@ -167,11 +167,6 @@
     (-> auth-user-entity
         (update :id type-conversion/uuid->string)
         (update :active #(protocols/boolean->db adapter %))
-        (update :created-at type-conversion/instant->string)
-        (update :updated-at type-conversion/instant->string)
-        (update :deleted-at type-conversion/instant->string)
-        (update :mfa-enabled-at type-conversion/instant->string)
-        (update :lockout-until type-conversion/instant->string)
         (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
         (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
         (clojure.set/rename-keys {:mfa-enabled :mfa_enabled

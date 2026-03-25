@@ -120,10 +120,12 @@ Require the wiring namespace in your system config loader:
 
 ## 6. DB Migration
 
-Run before first use (via `clojure -M:migrate up` or apply manually):
+Run before first use. When `boundary-geo` is on the classpath, `clojure -M:migrate up`
+now auto-discovers the library migration. Manual application is only needed if
+you are not using the standard Boundary migration CLI:
 
 ```sql
--- libs/geo/resources/boundary/geo/migrations/001-geo-cache.sql
+-- libs/geo/resources/boundary/geo/migrations/20260324010000-geo-cache.up.sql
 CREATE TABLE geo_cache (
   address_hash      TEXT PRIMARY KEY,
   lat               NUMERIC(10, 7) NOT NULL,

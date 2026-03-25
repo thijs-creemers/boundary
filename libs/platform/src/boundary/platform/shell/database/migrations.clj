@@ -7,14 +7,58 @@
    - Check migration status
    - Create new migrations
 
-   Migrations are stored in /migrations/ directory as SQL files."
+   Migrations are discovered from the application's `migrations/` directory and
+   from any library manifests published on the classpath."
   (:require [migratus.core :as migratus]
             [boundary.platform.shell.adapters.database.config :as db-config]
+            [clojure.edn :as edn]
             [clojure.tools.logging :as log]))
 
 ;; =============================================================================
 ;; Migration Configuration
 ;; =============================================================================
+
+(def ^:private migration-manifest-resource "boundary/migration-paths.edn")
+
+(defn- context-classloader
+  []
+  (or (.getContextClassLoader (Thread/currentThread))
+      (clojure.lang.RT/baseLoader)))
+
+(defn manifest-urls
+  []
+  (enumeration-seq (.getResources (context-classloader) migration-manifest-resource)))
+
+(defn- parse-migration-manifest [manifest-url]
+  (let [manifest-data (-> manifest-url slurp edn/read-string)
+        paths (cond
+                (vector? manifest-data) manifest-data
+                (map? manifest-data) (:paths manifest-data)
+                :else nil)]
+    (when-not (sequential? paths)
+      (throw (ex-info "Invalid migration manifest"
+                      {:resource migration-manifest-resource
+                       :url (str manifest-url)
+                       :expected "vector or map with :paths vector"})))
+    (->> paths
+         (filter string?)
+         (remove empty?))))
+
+(defn discover-migration-dirs
+  "Return the complete set of migration directories visible to the application.
+
+   The root application keeps using `migrations/`. Libraries can contribute
+   additional Migratus-compatible directories by publishing a
+   `boundary/migration-paths.edn` resource on the classpath."
+  []
+  (let [library-dirs (mapcat parse-migration-manifest (manifest-urls))
+        migration-dirs (->> (concat ["migrations/"] library-dirs)
+                            distinct
+                            vec)]
+    (log/info "Discovered migration directories"
+              {:count (count migration-dirs)
+               :dirs migration-dirs})
+    migration-dirs))
 
 (defn create-migratus-config
   "Creates Migratus configuration from database config.
@@ -22,11 +66,11 @@
    Args:
      db-config: Database configuration map with :datasource
 
-   Returns:
+  Returns:
      Migratus configuration map"
   [db-config]
   {:store                :database
-   :migration-dir        "migrations/"
+   :migration-dir        (discover-migration-dirs)
    :init-script          nil  ; No init script needed
    :init-in-transaction? false
    :migration-table-name "schema_migrations"
@@ -136,17 +180,24 @@
 
    Returns:
      Map with:
+     - :applied - List of applied migration IDs
+     - :total-applied - Count of applied migrations
      - :pending - List of pending migration IDs
      - :total-pending - Count of pending migrations"
   []
   (try
     (let [config (get-migration-config)
+          applied (migratus/completed-list config)
           pending (migratus/pending-list config)]
-      {:pending (vec pending)
+      {:applied (vec applied)
+       :total-applied (count applied)
+       :pending (vec pending)
        :total-pending (count pending)})
     (catch Exception e
       (log/error e "Failed to get migration status")
-      {:pending []
+      {:applied []
+       :total-applied 0
+       :pending []
        :total-pending 0
        :error (.getMessage e)})))
 

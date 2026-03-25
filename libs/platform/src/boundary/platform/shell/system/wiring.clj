@@ -104,17 +104,20 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes admin-routes tenant-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service db-context i18n]}]
+  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service membership-service db-context i18n]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)
   (require 'boundary.platform.shell.interfaces.http.tenant-middleware)
+  (require 'boundary.tenant.shell.membership-middleware)
   (let [;; Import compile-routes function
         compile-routes (ns-resolve 'boundary.platform.ports.http 'compile-routes)
 
         ;; Import tenant middleware
         tenant-mw-ns 'boundary.platform.shell.interfaces.http.tenant-middleware
         wrap-multi-tenant (ns-resolve tenant-mw-ns 'wrap-multi-tenant)
+        wrap-tenant-membership (ns-resolve 'boundary.tenant.shell.membership-middleware
+                                           'wrap-tenant-membership)
 
         ;; Create health check handler
         health-handler (let [health-fn (ns-resolve 'boundary.platform.shell.interfaces.http.common 'health-check-handler)]
@@ -200,6 +203,10 @@
         tenant-api-routes (or (:api tenant-routes) [])
         tenant-normalized-api (when (seq tenant-api-routes) tenant-api-routes)
 
+        ;; Extract tenant membership module routes (normalized format)
+        membership-api-routes (or (:api membership-routes) [])
+        membership-normalized-api (when (seq membership-api-routes) membership-api-routes)
+
         ;; Extract workflow module routes (normalized format) — may be nil if workflow disabled
         workflow-web-routes-raw (or (:web workflow-routes) [])
         workflow-api-routes (or (:api workflow-routes) [])
@@ -232,6 +239,7 @@
         all-api-routes (concat (or user-normalized-api [])
                                (or admin-normalized-api [])
                                (or tenant-normalized-api [])
+                               (or membership-normalized-api [])
                                (or workflow-normalized-api [])
                                (or search-normalized-api []))
 
@@ -268,12 +276,17 @@
                                (log/info "Adding multi-tenant middleware to HTTP pipeline")
                                (wrap-multi-tenant handler tenant-service db-context
                                                   {:require-tenant? false}))])
+        membership-middleware (when membership-service
+                                [(fn [handler]
+                                   (log/info "Adding tenant membership middleware to HTTP pipeline")
+                                   (wrap-tenant-membership membership-service handler))])
 
         ;; Compile routes using router adapter with system services
         ;; Add method override middleware for HTML form PUT/DELETE support
         ;; Add tenant middleware to the chain (before method override)
         router-config {:middleware (concat
                                     tenant-middleware
+                                    membership-middleware
                                     (when i18n-middleware-fn [i18n-middleware-fn])
                                     [(fn [handler]
                                        (fn [request]
@@ -299,6 +312,7 @@
                               :web (count (or admin-web-routes []))
                               :api (count (or admin-api-routes []))}
                :tenant-routes {:api (count (or tenant-api-routes []))}
+               :membership-routes {:api (count (or membership-api-routes []))}
                :workflow-routes {:web (count (or workflow-web-routes-raw []))
                                  :api (count (or workflow-api-routes []))}
                :search-routes {:web (count (or search-web-routes-raw []))

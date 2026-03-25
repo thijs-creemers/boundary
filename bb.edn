@@ -19,6 +19,10 @@
                     :task (apply deps/-main *command-line-args*)}
   deploy        {:doc "Deploy Boundary libraries to Clojars (bb deploy --help for usage)"
                  :task (apply deploy/-main *command-line-args*)}
+  migrate       {:doc "Run database migrations via the standard Boundary migrate CLI (bb migrate [up|status|rollback|create ...])"
+                 :task (apply dev/migrate *command-line-args*)}
+  coverage      {:doc "Run Cloverage coverage with the monorepo Boundary test/classpath setup"
+                 :task (clojure "-M:coverage:db")}
   create-admin  {:doc "Create the first admin user for a new Boundary project (interactive wizard)"
                  :task (apply admin/-main *command-line-args*)}
   check-links   {:doc "Validate local markdown links in AGENTS documentation"

@@ -64,7 +64,7 @@
     Object
     (toString [_] "MockErrorReporter")))
 
-(defrecord MockTenantRepository [state]
+(defrecord MockTenantRepository [state schema-error]
   ports/ITenantRepository
 
   (find-tenant-by-id [_ tenant-id]
@@ -95,6 +95,8 @@
     (boolean (some #(= slug (:slug %)) (vals @state))))
 
   (create-tenant-schema [_ _schema-name]
+    (when schema-error
+      (throw schema-error))
     nil)
 
   (drop-tenant-schema [_ _schema-name]
@@ -102,7 +104,7 @@
 
 (defn setup-mock-repository []
   (alter-var-root #'*tenant-repository*
-                  (constantly (->MockTenantRepository (atom {})))))
+                  (constantly (->MockTenantRepository (atom {}) nil))))
 
 (defn teardown-mock-repository []
   (alter-var-root #'*tenant-repository* (constantly nil)))
@@ -131,7 +133,26 @@
       (ports/create-new-tenant service {:slug "duplicate-test" :name "First"})
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Tenant slug already exists"
-                            (ports/create-new-tenant service {:slug "duplicate-test" :name "Duplicate"}))))))
+                            (ports/create-new-tenant service {:slug "duplicate-test" :name "Duplicate"})))))
+
+  (testing "allows tenant creation when schema provisioning is not supported"
+    (let [repository (->MockTenantRepository (atom {})
+                                             (ex-info "Tenant provisioning requires PostgreSQL database"
+                                                      {:type :not-supported
+                                                       :dialect :h2}))
+          service (sut/create-tenant-service repository {} mock-logger mock-metrics-emitter mock-error-reporter)
+          result (ports/create-new-tenant service {:slug "h2-test" :name "H2 Test"})]
+      (is (uuid? (:id result)))
+      (is (= "h2-test" (:slug result)))))
+
+  (testing "rolls back tenant creation for real schema provisioning failures"
+    (let [repository (->MockTenantRepository (atom {})
+                                             (ex-info "Boom" {:type :provisioning-error}))
+          service (sut/create-tenant-service repository {} mock-logger mock-metrics-emitter mock-error-reporter)]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"Failed to create tenant schema"
+                            (ports/create-new-tenant service {:slug "broken" :name "Broken"})))
+      (is (empty? (ports/find-all-tenants repository {:limit 100}))))))
 
 (deftest get-tenant-test
   (testing "retrieves existing tenant by ID"
@@ -144,7 +165,18 @@
     (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Tenant not found"
-                            (ports/get-tenant service (UUID/randomUUID)))))))
+                            (ports/get-tenant service (UUID/randomUUID))))))
+
+  (testing "retrieves existing tenant by slug"
+    (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
+          created (ports/create-new-tenant service {:slug "slug-test" :name "Slug Test"})]
+      (is (= created (ports/get-tenant-by-slug service "slug-test")))))
+
+  (testing "throws error for unknown slug"
+    (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"Tenant not found"
+                            (ports/get-tenant-by-slug service "missing-slug"))))))
 
 (deftest update-existing-tenant-test
   (testing "updates tenant name and status"
@@ -152,7 +184,20 @@
           created (ports/create-new-tenant service {:slug "update-test" :name "Old Name"})
           updated (ports/update-existing-tenant service (:id created) {:name "New Name" :status :suspended})]
       (is (= "New Name" (:name updated)))
-      (is (= :suspended (:status updated))))))
+      (is (= :suspended (:status updated)))))
+
+  (testing "rejects updates for missing tenants"
+    (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
+          ex (is (thrown? clojure.lang.ExceptionInfo
+                          (ports/update-existing-tenant service (UUID/randomUUID) {:name "Nope"})))]
+      (is (= :not-found (:type (ex-data ex))))))
+
+  (testing "rejects invalid statuses"
+    (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
+          created (ports/create-new-tenant service {:slug "bad-status" :name "Bad Status"})
+          ex (is (thrown? clojure.lang.ExceptionInfo
+                          (ports/update-existing-tenant service (:id created) {:status :archived})))]
+      (is (= :validation-error (:type (ex-data ex)))))))
 
 (deftest suspend-and-activate-tenant-test
   (testing "suspends active tenant"
@@ -175,4 +220,18 @@
       (ports/delete-existing-tenant service (:id created))
       (let [retrieved (ports/get-tenant service (:id created))]
         (is (= :deleted (:status retrieved)))
-        (is (some? (:deleted-at retrieved)))))))
+        (is (some? (:deleted-at retrieved))))))
+
+  (testing "rejects deleting an unknown tenant"
+    (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
+          ex (is (thrown? clojure.lang.ExceptionInfo
+                          (ports/delete-existing-tenant service (UUID/randomUUID))))]
+      (is (= :not-found (:type (ex-data ex))))))
+
+  (testing "rejects deleting an already deleted tenant"
+    (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
+          created (ports/create-new-tenant service {:slug "delete-twice" :name "Delete Twice"})]
+      (ports/delete-existing-tenant service (:id created))
+      (let [ex (is (thrown? clojure.lang.ExceptionInfo
+                            (ports/delete-existing-tenant service (:id created))))]
+        (is (= :validation-error (:type (ex-data ex))))))))

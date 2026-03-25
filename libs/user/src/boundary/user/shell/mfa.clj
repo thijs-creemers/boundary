@@ -14,7 +14,6 @@
             [clojure.string :as str]
             [clojure.tools.logging :as log])
   (:import (java.security SecureRandom)
-           (java.util Base64)
            (java.net URLEncoder)
            (java.time Instant)
            (org.apache.commons.codec.binary Base32)))
@@ -102,19 +101,18 @@
 (defn generate-backup-code
   "Shell function: Generate a single secure backup code.
    
-   Returns:
+  Returns:
      12-character alphanumeric backup code
      
    Side effects: Secure random generation"
   []
   (let [random (SecureRandom.)
-        bytes (byte-array 12)] ; 12 bytes = 96 bits, ensures 16 base64 chars
-    (.nextBytes random bytes)
-    (let [encoded (.encodeToString (Base64/getEncoder) bytes)
-          clean (str/replace encoded #"[^A-Za-z0-9]" "")
-          uppercase (str/upper-case clean)]
-      ;; Take first 12 chars, but safely handle edge case
-      (subs uppercase 0 (min 12 (count uppercase))))))
+        alphabet "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        alphabet-length (count alphabet)]
+    (apply str
+           (repeatedly 12
+                       (fn []
+                         (.charAt alphabet (.nextInt random alphabet-length)))))))
 
 (defn generate-backup-codes
   "Shell function: Generate multiple backup codes.

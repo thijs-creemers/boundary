@@ -1,5 +1,7 @@
 (ns boundary.tenant.shell.module-wiring
-  (:require [boundary.tenant.shell.membership-persistence :as membership-persistence]
+  (:require [boundary.tenant.shell.invite-persistence :as invite-persistence]
+            [boundary.tenant.shell.invite-service :as invite-service]
+            [boundary.tenant.shell.membership-persistence :as membership-persistence]
             [boundary.tenant.shell.membership-service :as membership-service]
             [boundary.tenant.shell.persistence :as tenant-persistence]
             [boundary.tenant.shell.service :as tenant-service]
@@ -104,6 +106,41 @@
 (defmethod ig/halt-key! :boundary/membership-service
   [_ _service]
   (log/info "Membership service halted (no cleanup needed)"))
+
+;; =============================================================================
+;; Invite Repository
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/invite-repository
+  [_ {:keys [ctx logger error-reporter]}]
+  (log/info "Initializing invite repository")
+  (let [repo (invite-persistence/create-invite-repository ctx logger error-reporter)]
+    (log/info "Invite repository initialized")
+    repo))
+
+(defmethod ig/halt-key! :boundary/invite-repository
+  [_ _repo]
+  (log/info "Invite repository halted (no cleanup needed)"))
+
+;; =============================================================================
+;; Invite Service
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/invite-service
+  [_ {:keys [repository membership-repository logger metrics-emitter error-reporter]}]
+  (log/info "Initializing invite service")
+  (let [service (invite-service/create-invite-service
+                 repository
+                 membership-repository
+                 logger
+                 metrics-emitter
+                 error-reporter)]
+    (log/info "Invite service initialized")
+    service))
+
+(defmethod ig/halt-key! :boundary/invite-service
+  [_ _service]
+  (log/info "Invite service halted (no cleanup needed)"))
 
 ;; =============================================================================
 ;; Membership Routes

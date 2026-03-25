@@ -18,6 +18,20 @@
 
 (def ^:dynamic *test-ctx* nil)
 
+(defn postgres-adapter-stub
+  []
+  (reify protocols/DBAdapter
+    (dialect [_] :postgresql)
+    (jdbc-driver [_] "org.postgresql.Driver")
+    (jdbc-url [_ _] "jdbc:postgresql://localhost:5432/test")
+    (pool-defaults [_] {})
+    (init-connection! [_ _ _] nil)
+    (build-where [_ _] [])
+    (boolean->db [_ _] 1)
+    (db->boolean [_ _] true)
+    (table-exists? [_ _ _] false)
+    (get-table-info [_ _ _] [])))
+
 (defn with-h2-database
   "Test fixture that creates an H2 in-memory database for testing."
   [f]
@@ -38,7 +52,7 @@
                              email VARCHAR(255) NOT NULL,
                              name VARCHAR(255) NOT NULL,
                              created_at TIMESTAMP NOT NULL)")
-      
+
       (binding [*test-ctx* ctx]
         (f))
       (finally
@@ -67,7 +81,7 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Tenant entity missing :schema-name"
                             (sut/provision-tenant! ctx nil)))))
-  
+
   (testing "rejects tenant entity without schema-name"
     (let [mock-adapter (reify protocols/DBAdapter
                          (dialect [_] :postgresql)
@@ -86,7 +100,7 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Tenant entity missing :schema-name"
                             (sut/provision-tenant! ctx tenant)))))
-  
+
   (testing "rejects non-PostgreSQL database"
     (let [mock-adapter (reify protocols/DBAdapter
                          (dialect [_] :sqlite)
@@ -105,7 +119,7 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"only supported for PostgreSQL"
                             (sut/provision-tenant! ctx tenant)))))
-  
+
   (testing "validates ex-info has correct type"
     (let [mock-adapter (reify protocols/DBAdapter
                          (dialect [_] :mysql)
@@ -126,7 +140,88 @@
         (is false "Should have thrown exception")
         (catch clojure.lang.ExceptionInfo e
           (is (= :not-supported (:type (ex-data e))))
-          (is (= :mysql (:dialect (ex-data e)))))))))
+          (is (= :mysql (:dialect (ex-data e))))))))
+
+  (testing "accepts PostgreSQL adapter when dialect is nil but driver is PostgreSQL"
+    (let [mock-adapter (reify protocols/DBAdapter
+                         (dialect [_] nil)
+                         (jdbc-driver [_] "org.postgresql.Driver")
+                         (jdbc-url [_ _] "jdbc:postgresql://localhost:5432/test")
+                         (pool-defaults [_] {})
+                         (init-connection! [_ _ _] nil)
+                         (build-where [_ _] [])
+                         (boolean->db [_ _] 1)
+                         (db->boolean [_ _] true)
+                         (table-exists? [_ _ _] false)
+                         (get-table-info [_ _ _] []))
+          ctx {:adapter mock-adapter
+               :datasource nil}]
+      (is (true? (#'sut/postgresql-context? ctx))))))
+
+^{:unit true}
+(deftest provision-tenant-existing-schema-and-failure-paths-test
+  (testing "already provisioned schemas return success when validation passes"
+    (let [ctx {:adapter (postgres-adapter-stub) :datasource nil}
+          tenant {:schema-name "tenant_existing"}]
+      (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (fn [_ schema-name]
+                                                                        (= "tenant_existing" schema-name))
+                    boundary.tenant.shell.provisioning/validate-provisioning (fn [_ _]
+                                                                               {:valid? true
+                                                                                :schema-name "tenant_existing"
+                                                                                :table-count 5
+                                                                                :errors []})]
+        (is (= {:success? true
+                :schema-name "tenant_existing"
+                :table-count 5
+                :message "Tenant schema already provisioned"}
+               (sut/provision-tenant! ctx tenant))))))
+
+  (testing "already provisioned schemas fail fast when validation fails"
+    (let [ctx {:adapter (postgres-adapter-stub) :datasource nil}
+          tenant {:schema-name "tenant_broken"}]
+      (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly true)
+                    boundary.tenant.shell.provisioning/validate-provisioning (fn [_ _]
+                                                                               {:valid? false
+                                                                                :schema-name "tenant_broken"
+                                                                                :table-count 0
+                                                                                :errors ["missing tables"]})]
+        (let [ex (is (thrown? clojure.lang.ExceptionInfo
+                              (sut/provision-tenant! ctx tenant)))]
+          (is (= :provisioning-error (:type (ex-data ex))))
+          (is (= ["missing tables"] (get-in (ex-data ex) [:validation :errors])))))))
+
+  (testing "failed provisioning attempts cleanup with drop schema"
+    (let [ctx {:adapter (postgres-adapter-stub) :datasource nil}
+          tenant {:schema-name "tenant_cleanup"}
+          executed-ddl (atom [])]
+      (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly false)
+                    boundary.tenant.shell.provisioning/create-schema! (fn [_ _] nil)
+                    boundary.tenant.shell.provisioning/copy-schema-structure! (fn [_ _]
+                                                                                (throw (ex-info "copy boom" {})))
+                    boundary.platform.shell.adapters.database.common.core/execute-ddl! (fn [_ sql]
+                                                                                         (swap! executed-ddl conj sql))]
+        (let [ex (is (thrown? clojure.lang.ExceptionInfo
+                              (sut/provision-tenant! ctx tenant)))]
+          (is (= :provisioning-error (:type (ex-data ex))))
+          (is (= "tenant_cleanup" (:schema-name (ex-data ex))))
+          (is (= ["DROP SCHEMA IF EXISTS tenant_cleanup CASCADE"] @executed-ddl)))))))
+
+^{:unit true}
+(deftest get-public-tables-filters-shared-tables-test
+  (testing "only tenant-scoped tables are copied into tenant schemas"
+    (with-redefs [db/execute-query! (fn [_ _]
+                                      [{:table-name "assignments"}
+                                       {:table-name "auth_users"}
+                                       {:table-name "contractors"}
+                                       {:table-name "contracts"}
+                                       {:table-name "invoices"}
+                                       {:table-name "payments"}
+                                       {:table-name "tenant_memberships"}
+                                       {:table-name "timesheets"}
+                                       {:table-name "user_sessions"}
+                                       {:table-name "users"}])]
+      (is (= ["assignments" "contractors" "contracts" "invoices" "timesheets"]
+             (#'sut/get-public-tables {:adapter nil :datasource nil}))))))
 
 ^{:unit true}
 (deftest deprovision-tenant-validation-test
@@ -147,7 +242,7 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Tenant entity missing :schema-name"
                             (sut/deprovision-tenant! ctx nil)))))
-  
+
   (testing "rejects tenant entity without schema-name"
     (let [mock-adapter (reify protocols/DBAdapter
                          (dialect [_] :postgresql)
@@ -165,7 +260,175 @@
           tenant {:name "Test Tenant"}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Tenant entity missing :schema-name"
-                            (sut/deprovision-tenant! ctx tenant))))))
+                            (sut/deprovision-tenant! ctx tenant)))))
+
+  (testing "returns success when schema is already absent"
+    (let [ctx {:adapter nil :datasource nil}
+          tenant {:schema-name "tenant_missing"}]
+      (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly false)]
+        (is (= {:success? true
+                :schema-name "tenant_missing"
+                :message "Tenant schema does not exist (already deprovisioned)"}
+               (sut/deprovision-tenant! ctx tenant))))))
+
+  (testing "wraps drop failures as deprovisioning errors"
+    (let [ctx {:adapter nil :datasource nil}
+          tenant {:schema-name "tenant_locked"}]
+      (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly true)
+                    boundary.platform.shell.adapters.database.common.core/execute-ddl!
+                    (fn [_ _] (throw (ex-info "drop boom" {})))]
+        (let [ex (is (thrown? clojure.lang.ExceptionInfo
+                              (sut/deprovision-tenant! ctx tenant)))]
+          (is (= :deprovisioning-error (:type (ex-data ex))))
+          (is (= "tenant_locked" (:schema-name (ex-data ex))))
+          (is (= "drop boom" (:cause (ex-data ex))))))))
+
+  (testing "drops existing schemas successfully"
+    (let [ctx {:adapter nil :datasource nil}
+          tenant {:schema-name "tenant_drop_me"}
+          executed-ddl (atom [])]
+      (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly true)
+                    boundary.platform.shell.adapters.database.common.core/execute-ddl!
+                    (fn [_ sql]
+                      (swap! executed-ddl conj sql))]
+        (is (= {:success? true
+                :schema-name "tenant_drop_me"
+                :message "Tenant schema deprovisioned successfully"}
+               (sut/deprovision-tenant! ctx tenant)))
+        (is (= ["DROP SCHEMA tenant_drop_me CASCADE"] @executed-ddl))))))
+
+^{:unit true}
+(deftest provisioning-helper-functions-test
+  (testing "create-schema! only issues DDL when schema is missing"
+    (let [executed-ddl (atom [])]
+      (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly false)
+                    boundary.platform.shell.adapters.database.common.core/execute-ddl!
+                    (fn [_ sql]
+                      (swap! executed-ddl conj sql))]
+        (#'sut/create-schema! {:adapter nil :datasource nil} "tenant_new")
+        (is (= ["CREATE SCHEMA tenant_new"] @executed-ddl))))
+
+    (let [executed-ddl (atom [])]
+      (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly true)
+                    boundary.platform.shell.adapters.database.common.core/execute-ddl!
+                    (fn [_ sql]
+                      (swap! executed-ddl conj sql))]
+        (#'sut/create-schema! {:adapter nil :datasource nil} "tenant_existing")
+        (is (= [] @executed-ddl)))))
+
+  (testing "copy-schema-structure copies every tenant-scoped public table"
+    (let [copied (atom [])]
+      (with-redefs [boundary.tenant.shell.provisioning/get-public-tables (fn [_]
+                                                                           ["contracts" "timesheets"])
+                    boundary.tenant.shell.provisioning/copy-table-structure! (fn [_ table schema]
+                                                                               (swap! copied conj [table schema]))]
+        (is (= ["contracts" "timesheets"]
+               (#'sut/copy-schema-structure! {:adapter nil :datasource nil} "tenant_copy")))
+        (is (= [["contracts" "tenant_copy"]
+                ["timesheets" "tenant_copy"]]
+               @copied)))))
+
+  (testing "validate-provisioning reports missing schema, empty schema, success, and query failures"
+    (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly false)]
+      (is (= {:valid? false
+              :schema-name "tenant_missing"
+              :errors ["Schema does not exist after provisioning"]}
+             (#'sut/validate-provisioning {:adapter nil :datasource nil} "tenant_missing"))))
+
+    (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly true)
+                  boundary.platform.shell.adapters.database.common.core/execute-one! (fn [_ _]
+                                                                                       {:count 0})]
+      (is (= {:valid? false
+              :schema-name "tenant_empty"
+              :table-count 0
+              :errors ["No tables found in schema after provisioning"]}
+             (#'sut/validate-provisioning {:adapter nil :datasource nil} "tenant_empty"))))
+
+    (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly true)
+                  boundary.platform.shell.adapters.database.common.core/execute-one! (fn [_ _]
+                                                                                       {:count 5})]
+      (is (= {:valid? true
+              :schema-name "tenant_ok"
+              :table-count 5
+              :errors []}
+             (#'sut/validate-provisioning {:adapter nil :datasource nil} "tenant_ok"))))
+
+    (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly true)
+                  boundary.platform.shell.adapters.database.common.core/execute-one! (fn [_ _]
+                                                                                       (throw (ex-info "validation boom" {})))]
+      (let [result (#'sut/validate-provisioning {:adapter nil :datasource nil} "tenant_boom")]
+        (is (false? (:valid? result)))
+        (is (= "tenant_boom" (:schema-name result)))
+        (is (= ["Validation failed: validation boom"] (:errors result)))))))
+
+^{:unit true}
+(deftest with-tenant-schema-test
+  (testing "rejects non-PostgreSQL contexts"
+    (let [ctx {:adapter (reify protocols/DBAdapter
+                          (dialect [_] :sqlite)
+                          (jdbc-driver [_] "org.sqlite.JDBC")
+                          (jdbc-url [_ _] nil)
+                          (pool-defaults [_] {})
+                          (init-connection! [_ _ _] nil)
+                          (build-where [_ _] [])
+                          (boolean->db [_ value] value)
+                          (db->boolean [_ value] value)
+                          (table-exists? [_ _ _] false)
+                          (get-table-info [_ _ _] []))
+               :datasource ::ds
+               :database-type :sqlite}]
+      (try
+        (sut/with-tenant-schema ctx "tenant_x" identity)
+        (is false "Expected with-tenant-schema to throw")
+        (catch clojure.lang.ExceptionInfo ex
+          (is (= :unsupported-database (:type (ex-data ex)))))
+        (catch Throwable ex
+          (is false (str "Unexpected exception: " ex))))))
+
+  (testing "sets search_path and executes the callback inside a transaction"
+    (let [queries (atom [])
+          adapter (postgres-adapter-stub)]
+      (with-redefs [boundary.platform.shell.adapters.database.common.core/with-transaction*
+                    (fn [tx-ctx f]
+                      (is (= adapter (:adapter tx-ctx)))
+                      (is (= ::ds (:datasource tx-ctx)))
+                      (f {:adapter (:adapter tx-ctx)
+                          :datasource ::tx}))
+                    boundary.platform.shell.adapters.database.common.core/execute-query!
+                    (fn [tx query]
+                      (swap! queries conj [tx query])
+                      nil)]
+        (is (= :done
+               (sut/with-tenant-schema {:adapter adapter
+                                        :datasource ::ds}
+                 "tenant_alpha"
+                 (fn [tx]
+                   (is (= adapter (:adapter tx)))
+                   (is (= ::tx (:datasource tx)))
+                   :done))))
+        (is (= 1 (count @queries)))
+        (let [[tx query] (first @queries)]
+          (is (= adapter (:adapter tx)))
+          (is (= ::tx (:datasource tx)))
+          (is (= ["SET search_path TO tenant_alpha, public"] query))))))
+
+  (testing "wraps callback failures as tenant-context errors"
+    (let [adapter (postgres-adapter-stub)]
+      (with-redefs [boundary.platform.shell.adapters.database.common.core/with-transaction*
+                    (fn [tx-ctx f]
+                      (f {:adapter (:adapter tx-ctx)
+                          :datasource ::tx}))
+                    boundary.platform.shell.adapters.database.common.core/execute-query!
+                    (fn [_ _] nil)]
+        (let [ex (is (thrown? clojure.lang.ExceptionInfo
+                              (sut/with-tenant-schema {:adapter adapter
+                                                       :datasource ::ds}
+                                "tenant_alpha"
+                                (fn [_]
+                                  (throw (ex-info "callback boom" {}))))))]
+          (is (= :tenant-context-error (:type (ex-data ex))))
+          (is (= "tenant_alpha" (:schema-name (ex-data ex))))
+          (is (= "callback boom" (:cause (ex-data ex)))))))))
 
 ;; =============================================================================
 ;; Integration Tests (Real Database - H2 with PostgreSQL Mode)
@@ -182,10 +445,10 @@
                       :slug "test-tenant"}
               adapter (:adapter *test-ctx*)
               dialect (protocols/dialect adapter)]
-          
+
           (testing "H2 database detected"
             (is (= :ansi dialect)))  ; H2 in PostgreSQL compatibility mode reports as :ansi
-          
+
           (testing "provisioning on H2 throws not-supported error"
             ;; Provisioning should only work with PostgreSQL
             (is (thrown-with-msg? clojure.lang.ExceptionInfo

@@ -75,6 +75,35 @@
      :ip-address (:ip-address ctx)
      :user-agent (:user-agent ctx)}))
 
+(defn- tx-bind-repository
+  [repository tx-context]
+  (when repository
+    (assoc repository :ctx tx-context)))
+
+(defn- tx-bind-user-service
+  [user-service tx-context]
+  (let [user-repository (tx-bind-repository (:user-repository user-service) tx-context)
+        session-repository (tx-bind-repository (:session-repository user-service) tx-context)
+        audit-repository (tx-bind-repository (:audit-repository user-service) tx-context)
+        auth-service (some-> (:auth-service user-service)
+                             (assoc :user-repository user-repository
+                                    :session-repository session-repository))]
+    (assoc user-service
+           :user-repository user-repository
+           :session-repository session-repository
+           :audit-repository audit-repository
+           :auth-service auth-service)))
+
+(defn- tenant-reference-violation?
+  [e]
+  (let [message (.getMessage e)]
+    (boolean
+      (or (and (instance? org.postgresql.util.PSQLException e)
+               (= "23503" (.getSQLState ^org.postgresql.util.PSQLException e)))
+          (and message
+               (or (str/includes? message "tenant_memberships")
+                   (str/includes? message "tenant_member_invites")))))))
+
 ;; =============================================================================
 ;; Database-Agnostic User Service (I/O Shell Layer)
 ;; =============================================================================
@@ -151,6 +180,58 @@
                             :session-repository session-repository
                             :auth-service auth-service}})]
       result))
+
+  (register-or-authenticate-user [this user-data login-context]
+    (let [{:keys [user created? authenticated? auth-result]}
+          (.claim-user-identity ^boundary.user.ports.IUserService this
+                                {:user-data user-data
+                                 :login-context login-context})]
+      {:user user
+       :created? created?
+       :authenticated? (if created? false authenticated?)
+       :auth-result (if created? nil auth-result)}))
+
+  (claim-user-identity [this {:keys [user-data login-context tx-context]}]
+    (service-interceptors/execute-service-operation
+     :claim-user-identity
+     {:email (:email user-data)}
+     (fn [_]
+       (let [service (if tx-context
+                       (tx-bind-user-service this tx-context)
+                       this)]
+         (if-let [existing-user (.find-user-by-email (:user-repository service) (:email user-data))]
+           (let [auth-result (.authenticate-user ^boundary.user.ports.IUserService service
+                                                (merge {:email (:email user-data)
+                                                        :password (:password user-data)
+                                                        :remember false}
+                                                       login-context))]
+             (if (:authenticated auth-result)
+               {:mode :authenticated
+                :user (:user auth-result)
+                :created? false
+                :authenticated? true
+                :auth-result auth-result}
+               (throw (ex-info "Existing account could not be verified"
+                               {:type :unauthorized
+                                :email (:email existing-user)}))))
+           (let [_ (.register-user ^boundary.user.ports.IUserService service user-data)
+                 auth-result (.authenticate-user ^boundary.user.ports.IUserService service
+                                                (merge {:email (:email user-data)
+                                                        :password (:password user-data)
+                                                        :remember false}
+                                                       login-context))]
+             (when-not (:authenticated auth-result)
+               (throw (ex-info "Authentication failed after creating account"
+                               {:type :internal-error
+                                :email (:email user-data)})))
+             {:mode :registered
+              :user (:user auth-result)
+              :created? true
+              :authenticated? true
+              :auth-result auth-result}))))
+     {:system {:user-repository user-repository
+               :session-repository session-repository
+               :auth-service auth-service}}))
 
   (authenticate-user [_ user-credentials]
     (service-interceptors/execute-service-operation
@@ -233,7 +314,8 @@
                  (if (:valid? validation-result)
                    ;; Update session access time and cache the valid session
                    (let [updated-session-data (session-core/update-session-access session current-time)
-                         updated-session (.update-session session-repository updated-session-data)]
+                         updated-session (or (.update-session session-repository updated-session-data)
+                                            updated-session-data)]
                      (when cache
                        (let [expires-at (:expires-at updated-session)
                              ttl-seconds (when expires-at
@@ -432,7 +514,15 @@
        (let [user-id (:user-id params)
              ;; Get user details before deletion for audit trail
              user (.find-user-by-id user-repository user-id)
-             result (.hard-delete-user user-repository user-id)]
+             result (try
+                      (.hard-delete-user user-repository user-id)
+                      (catch Exception e
+                        (if (tenant-reference-violation? e)
+                          (throw (ex-info "Cannot permanently delete user with tenant memberships or accepted invites"
+                                          {:type :hard-deletion-not-allowed
+                                           :user-id user-id}
+                                          e))
+                          (throw e))))]
 
          ;; Invalidate user cache on hard delete
          (when (and result cache)

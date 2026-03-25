@@ -345,11 +345,11 @@
                     :schema-name schema-name})
 
         (try
-          ;; Set search_path for this request
-          (set-tenant-schema db-context schema-name)
-
-          ;; Execute handler in tenant schema context
-          (handler request)
+          (db/with-transaction [tx db-context]
+            ;; Keep the same JDBC connection for the full request so the
+            ;; tenant search_path actually applies to all downstream queries.
+            (set-tenant-schema tx schema-name)
+            (handler request))
 
           (catch Exception e
             (log/error "Failed to execute request in tenant schema"
@@ -361,19 +361,7 @@
              :headers {"Content-Type" "application/json"}
              :body {:error "Internal server error"
                     :message "Failed to execute request"
-                    :correlation-id (:correlation-id request)}})
-
-          (finally
-            ;; CRITICAL: Reset search_path before returning connection to pool
-            ;; Without this, next request could inherit tenant schema
-            (try
-              (db/execute-ddl! db-context "SET search_path TO public")
-              (log/debug "Reset search_path to public"
-                         {:tenant-id (:id tenant)})
-              (catch Exception e
-                (log/error e "Failed to reset search_path after request"
-                           {:tenant-id (:id tenant)
-                            :schema-name schema-name}))))))
+                    :correlation-id (:correlation-id request)}})))
 
       ;; No tenant - continue without schema switching
       (handler request))))

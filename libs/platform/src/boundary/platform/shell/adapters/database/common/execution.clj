@@ -5,9 +5,12 @@
    manages transactions, and handles side effects like logging."
   (:require [boundary.platform.core.database.query :as core-query]
             [boundary.platform.core.database.validation :as core-validation]
+            [boundary.core.utils.type-conversion :as type-conversion]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
             [boundary.core.utils.case-conversion :as case-conv]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [clojure.walk :as walk]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]))
 
@@ -45,9 +48,61 @@
   ;; This prevents protocol errors when called from contexts without proper error reporting setup
   nil)
 
+(def ^:dynamic *transaction-datasource*
+  "Bound transaction connection used by database execution helpers.
+
+   This ensures all nested database calls inside a transaction share the same
+   JDBC connection instead of borrowing a new one from the pool."
+  nil)
+
+(defn current-datasource
+  "Return the active JDBC executor for the current call.
+
+   Prefer a transaction-bound connection when present so transaction-scoped
+   settings like PostgreSQL `search_path` remain in effect for all downstream
+   queries."
+  [ctx]
+  (or *transaction-datasource*
+      (:datasource ctx)))
+
 ;; =============================================================================
 ;; Query Execution
 ;; =============================================================================
+
+(defn- normalize-query-params
+  "Convert JDBC-unfriendly values in a query map to database-safe values.
+
+   Instants are stored as ISO-8601 strings throughout the project, so convert
+   them recursively before formatting or executing SQL."
+  [query-map]
+  (walk/postwalk (fn [value]
+                   (if (instance? java.time.Instant value)
+                     (type-conversion/instant->string value)
+                     value))
+                 query-map))
+
+(defn- prepare-sql-query
+  "Normalize supported query inputs into a JDBC-ready `[sql & params]` vector."
+  [ctx query]
+  (cond
+    (map? query)
+    (let [adapter-dialect (protocols/dialect (:adapter ctx))
+          normalized-query (normalize-query-params query)]
+      {:query normalized-query
+       :sql-query (core-query/format-sql adapter-dialect normalized-query)})
+
+    (string? query)
+    {:query query
+     :sql-query [query]}
+
+    (vector? query)
+    {:query query
+     :sql-query query}
+
+    :else
+    (throw (IllegalArgumentException.
+            (str "Unsupported query input. Expected HoneySQL map, SQL string, or JDBC vector. Got: "
+                 (type query))))))
 
 (defn execute-query!
   "Execute SELECT query and return results.
@@ -66,18 +121,22 @@
      (execute-query! ctx {:select [:*] :from [:users] :where [:= :active true]})"
   [ctx query-map]
   (validate-context ctx)
-  ;; Validate query-map before formatting to avoid wasting resources
-  (when (or (nil? query-map) (not (map? query-map)) (empty? query-map))
+  ;; Validate query input before formatting to avoid wasting resources
+  (when (or (nil? query-map)
+            (and (map? query-map) (empty? query-map))
+            (and (vector? query-map) (empty? query-map))
+            (and (string? query-map) (str/blank? query-map)))
     (throw (IllegalArgumentException. "Invalid or empty query map provided")))
 
-  ;; Pure: format query using core function
+  ;; Pure: format query using core function when needed
   (let [adapter-dialect (protocols/dialect (:adapter ctx))
-        sql-query (core-query/format-sql adapter-dialect query-map)
+        {:keys [query sql-query]} (prepare-sql-query ctx query-map)
         start-time (System/currentTimeMillis)
         operation-details {:adapter adapter-dialect
                            :operation-type "query"
-                           :table (or (get-in query-map [:from 0])
-                                      (get-in query-map [:select-from 0])
+                           :table (or (when (map? query)
+                                        (or (get-in query [:from 0])
+                                            (get-in query [:select-from 0])))
                                       "unknown")}]
 
     ;; Add breadcrumb for operation start
@@ -91,7 +150,7 @@
 
     (try
       ;; Side effect: database I/O
-      (let [raw-result (jdbc/execute! (:datasource ctx) sql-query
+      (let [raw-result (jdbc/execute! (current-datasource ctx) sql-query
                                       {:builder-fn rs/as-unqualified-lower-maps})
             ;; Convert result keys from snake_case to kebab-case
             result (mapv case-conv/snake-case->kebab-case-map raw-result)
@@ -165,18 +224,19 @@
   [ctx query-map]
   (validate-context ctx)
 
-  ;; Pure: format query using core function
+  ;; Pure: format query using core function when needed
   (let [adapter-dialect (protocols/dialect (:adapter ctx))
-        sql-query (core-query/format-sql adapter-dialect query-map)
+        {:keys [query sql-query]} (prepare-sql-query ctx query-map)
         start-time (System/currentTimeMillis)
         operation-type (cond
-                         (contains? query-map :insert-into) "insert"
-                         (contains? query-map :update) "update"
-                         (contains? query-map :delete-from) "delete"
+                         (and (map? query) (contains? query :insert-into)) "insert"
+                         (and (map? query) (contains? query :update)) "update"
+                         (and (map? query) (contains? query :delete-from)) "delete"
                          :else "modify")
-        table-name (or (get query-map :insert-into)
-                       (get query-map :update)
-                       (get query-map :delete-from)
+        table-name (or (when (map? query)
+                         (or (get query :insert-into)
+                             (get query :update)
+                             (get query :delete-from)))
                        "unknown")
         operation-details {:adapter adapter-dialect
                            :operation-type operation-type
@@ -193,7 +253,7 @@
 
     (try
       ;; Side effect: database I/O
-      (let [result (jdbc/execute! (:datasource ctx) sql-query)
+      (let [result (jdbc/execute! (current-datasource ctx) sql-query)
             duration (- (System/currentTimeMillis) start-time)
             affected-rows (::jdbc/update-count (first result))
             success-details (merge operation-details
@@ -260,27 +320,28 @@
                 :query-count (count query-maps)})
 
     (try
-      (jdbc/with-transaction [tx-conn (:datasource ctx)]
-        (let [tx-ctx (assoc ctx :datasource tx-conn)
-              start-time (System/currentTimeMillis)
-              results (mapv (fn [query-map]
-                              (if (contains? query-map :select)
-                                (execute-query! tx-ctx query-map)
-                                (execute-update! tx-ctx query-map)))
-                            query-maps)
-              duration (- (System/currentTimeMillis) start-time)
-              success-details (merge operation-details
-                                     {:duration-ms duration
-                                      :results-count (count results)})]
+      (jdbc/with-transaction [tx-conn (current-datasource ctx)]
+        (binding [*transaction-datasource* tx-conn]
+          (let [tx-ctx (assoc ctx :datasource tx-conn)
+                start-time (System/currentTimeMillis)
+                results (mapv (fn [query-map]
+                                (if (contains? query-map :select)
+                                  (execute-query! tx-ctx query-map)
+                                  (execute-update! tx-ctx query-map)))
+                              query-maps)
+                duration (- (System/currentTimeMillis) start-time)
+                success-details (merge operation-details
+                                       {:duration-ms duration
+                                        :results-count (count results)})]
 
-          ;; Add breadcrumb for successful completion
-          (add-database-breadcrumb "batch" :success success-details)
+            ;; Add breadcrumb for successful completion
+            (add-database-breadcrumb "batch" :success success-details)
 
-          (log/info "Batch operation completed"
-                    {:adapter (protocols/dialect (:adapter ctx))
-                     :query-count (count query-maps)
-                     :duration-ms duration})
-          results))
+            (log/info "Batch operation completed"
+                      {:adapter (protocols/dialect (:adapter ctx))
+                       :query-count (count query-maps)
+                       :duration-ms duration})
+            results)))
 
       (catch Exception e
         ;; Add breadcrumb for error
@@ -318,30 +379,31 @@
     ;; Add breadcrumb for transaction start
     (add-database-breadcrumb "transaction" :start operation-details)
 
-    (jdbc/with-transaction [tx-conn (:datasource ctx)]
-      (try
-        (let [tx-ctx (assoc ctx :datasource tx-conn)
-              result (f tx-ctx)
-              success-details (merge operation-details {:status "committed"})]
+    (jdbc/with-transaction [tx-conn (current-datasource ctx)]
+      (binding [*transaction-datasource* tx-conn]
+        (try
+          (let [tx-ctx (assoc ctx :datasource tx-conn)
+                result (f tx-ctx)
+                success-details (merge operation-details {:status "committed"})]
 
-          ;; Add breadcrumb for successful transaction
-          (add-database-breadcrumb "transaction" :success success-details)
+            ;; Add breadcrumb for successful transaction
+            (add-database-breadcrumb "transaction" :success success-details)
 
-          (log/debug "Transaction completed successfully"
-                     {:adapter (protocols/dialect (:adapter ctx))})
-          result)
+            (log/debug "Transaction completed successfully"
+                       {:adapter (protocols/dialect (:adapter ctx))})
+            result)
 
-        (catch Exception e
-          ;; Add breadcrumb for transaction error
-          (let [error-details (merge operation-details
-                                     {:error (.getMessage e)
-                                      :status "rolled-back"})]
-            (add-database-breadcrumb "transaction" :error error-details))
+          (catch Exception e
+            ;; Add breadcrumb for transaction error
+            (let [error-details (merge operation-details
+                                       {:error (.getMessage e)
+                                        :status "rolled-back"})]
+              (add-database-breadcrumb "transaction" :error error-details))
 
 ;; Skip error reporting since database layer doesn't have error context
-          ;; This prevents protocol errors when called from contexts without proper error reporting setup
+            ;; This prevents protocol errors when called from contexts without proper error reporting setup
 
-          (log/error "Transaction failed, rolling back"
-                     {:adapter (protocols/dialect (:adapter ctx))
-                      :error (.getMessage e)})
-          (throw e))))))
+            (log/error "Transaction failed, rolling back"
+                       {:adapter (protocols/dialect (:adapter ctx))
+                        :error (.getMessage e)})
+            (throw e)))))))

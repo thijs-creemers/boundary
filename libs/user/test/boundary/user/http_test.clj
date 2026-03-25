@@ -52,6 +52,23 @@
       (swap! state assoc user-id created-user)
       created-user))
 
+  (register-or-authenticate-user [_ user-data login-context]
+    (if-let [existing (->> @state vals (filter #(= (:email %) (:email user-data))) first)]
+      {:user existing
+       :created? false
+       :authenticated? true
+       :auth-result (.authenticate-user ^boundary.user.ports.IUserService _ (merge user-data login-context))}
+      {:user (.register-user ^boundary.user.ports.IUserService _ user-data)
+       :created? true
+       :authenticated? false
+       :auth-result nil}))
+
+  (claim-user-identity [_ {:keys [user-data login-context]}]
+    (let [result (.register-or-authenticate-user ^boundary.user.ports.IUserService _
+                                               user-data
+                                               login-context)]
+      (assoc result :mode (if (:created? result) :registered :authenticated))))
+
   (get-user-by-id [_ user-id]
     (get @state user-id))
 

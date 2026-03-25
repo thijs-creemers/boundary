@@ -7,6 +7,12 @@
 (defn- current-timestamp []
   (Instant/now))
 
+(defn- active-admin-memberships
+  [membership-repository tenant-id]
+  (->> (ports/find-memberships-by-tenant membership-repository tenant-id {:limit 250 :offset 0})
+       (filter #(and (= :admin (:role %))
+                     (= :active (:status %))))))
+
 (defrecord MembershipService [membership-repository logger metrics-emitter error-reporter]
   ports/ITenantMembershipService
 
@@ -23,6 +29,38 @@
                             :tenant-id tenant-id})))
          (let [now        (current-timestamp)
                membership (membership-core/prepare-invitation user-id tenant-id role now)]
+           (ports/create-membership membership-repository membership))))
+     {:logger          logger
+      :metrics-emitter metrics-emitter
+      :error-reporter  error-reporter}))
+
+  (bootstrap-open? [_ tenant-id]
+    (service-interceptors/execute-service-operation
+     :bootstrap-open?
+     {:tenant-id tenant-id}
+     (fn [{:keys [params]}]
+       (empty? (active-admin-memberships membership-repository (:tenant-id params))))
+     {:logger          logger
+      :metrics-emitter metrics-emitter
+      :error-reporter  error-reporter}))
+
+  (bootstrap-first-member [_ tenant-id user-id role]
+    (service-interceptors/execute-service-operation
+     :bootstrap-first-member
+     {:tenant-id tenant-id :user-id user-id :role role}
+     (fn [{:keys [params]}]
+       (let [{:keys [tenant-id user-id role]} params]
+         (when-not (.bootstrap-open? ^boundary.tenant.ports.ITenantMembershipService _ tenant-id)
+           (throw (ex-info "Tenant already has an active admin"
+                           {:type      :conflict
+                            :tenant-id tenant-id})))
+         (when (ports/membership-exists? membership-repository user-id tenant-id)
+           (throw (ex-info "Membership already exists for this user in tenant"
+                           {:type      :conflict
+                            :user-id   user-id
+                            :tenant-id tenant-id})))
+         (let [now        (current-timestamp)
+               membership (membership-core/prepare-active-membership user-id tenant-id role now)]
            (ports/create-membership membership-repository membership))))
      {:logger          logger
       :metrics-emitter metrics-emitter

@@ -443,11 +443,13 @@
                            500)))))))
 
 (defn logout-handler
-  "POST /web/logout - clear session cookie and redirect to login."
+  "POST /web/logout - clear session cookie and redirect to home."
   [user-service _config]
   (fn [request]
     (let [session-token (or (get-in request [:cookies "session-token" :value])
-                            (get-in request [:headers "x-session-token"]))]
+                            (get-in request [:headers "x-session-token"]))
+          token-preview (when session-token
+                          (subs session-token 0 (min 16 (count session-token))))]
       (spit "/tmp/middleware-debug.log"
             (str "LOGOUT HANDLER CALLED: has-token=" (boolean session-token)
                  " token=" (when session-token (subs session-token 0 (min 20 (count session-token)))) "...\n")
@@ -455,7 +457,7 @@
       (when session-token
         (try
           ;; Best-effort server-side logout
-          (log/info "Attempting to invalidate session" {:token (subs session-token 0 16)})
+          (log/info "Attempting to invalidate session" {:token token-preview})
           (let [result (user-ports/logout-user user-service session-token)]
             (log/info "Session invalidation result" {:result result})
             (spit "/tmp/middleware-debug.log"
@@ -466,7 +468,7 @@
             (spit "/tmp/middleware-debug.log"
                   (str "LOGOUT ERROR: " (.getMessage e) "\n")
                   :append true))))
-      (-> (response/redirect "/web/login")
+      (-> (response/redirect "/")
           (assoc :cookies {"session-token"
                            {:value "" :max-age 0 :path "/"}})))))
 

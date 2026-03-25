@@ -29,7 +29,7 @@
                  (cond-> {:error message}
                    details (assoc :details details))))
 
-(defn- parse-uuid
+(defn- parse-uuid-safe
   [s]
   (try
     (java.util.UUID/fromString s)
@@ -47,12 +47,12 @@
   (fn [request]
     (try
       (let [tenant-id-str (get-in request [:path-params :tenant-id])
-            tenant-id     (parse-uuid tenant-id-str)]
+            tenant-id     (parse-uuid-safe tenant-id-str)]
         (if-not tenant-id
           (error-response 400 "Invalid tenant ID format")
           (let [body    (or (:body-params request)
                             (json/parse-string (slurp (:body request)) true))
-                user-id (some-> (:userId body) parse-uuid)
+                user-id (some-> (:userId body) parse-uuid-safe)
                 role    (some-> (:role body) keyword)]
             (cond
               (nil? user-id)
@@ -82,7 +82,7 @@
   (fn [request]
     (try
       (let [tenant-id-str (get-in request [:path-params :tenant-id])
-            tenant-id     (parse-uuid tenant-id-str)]
+            tenant-id     (parse-uuid-safe tenant-id-str)]
         (if-not tenant-id
           (error-response 400 "Invalid tenant ID format")
           (let [params  (:params request)
@@ -104,8 +104,8 @@
     (try
       (let [tenant-id-str     (get-in request [:path-params :tenant-id])
             membership-id-str (get-in request [:path-params :id])
-            tenant-id         (parse-uuid tenant-id-str)
-            membership-id     (parse-uuid membership-id-str)]
+            tenant-id         (parse-uuid-safe tenant-id-str)
+            membership-id     (parse-uuid-safe membership-id-str)]
         (cond
           (nil? tenant-id)
           (error-response 400 "Invalid tenant ID format")
@@ -135,8 +135,8 @@
     (try
       (let [tenant-id-str     (get-in request [:path-params :tenant-id])
             membership-id-str (get-in request [:path-params :id])
-            tenant-id         (parse-uuid tenant-id-str)
-            membership-id     (parse-uuid membership-id-str)]
+            tenant-id         (parse-uuid-safe tenant-id-str)
+            membership-id     (parse-uuid-safe membership-id-str)]
         (cond
           (nil? tenant-id)
           (error-response 400 "Invalid tenant ID format")
@@ -184,8 +184,8 @@
     (try
       (let [tenant-id-str     (get-in request [:path-params :tenant-id])
             membership-id-str (get-in request [:path-params :id])
-            tenant-id         (parse-uuid tenant-id-str)
-            membership-id     (parse-uuid membership-id-str)]
+            tenant-id         (parse-uuid-safe tenant-id-str)
+            membership-id     (parse-uuid-safe membership-id-str)]
         (cond
           (nil? tenant-id)
           (error-response 400 "Invalid tenant ID format")
@@ -214,7 +214,7 @@
   (fn [request]
     (try
       (let [membership-id-str (get-in request [:path-params :id])
-            membership-id     (parse-uuid membership-id-str)]
+            membership-id     (parse-uuid-safe membership-id-str)]
         (if-not membership-id
           (error-response 400 "Invalid membership ID format")
           (let [membership (membership-ports/accept-invitation membership-service membership-id)]

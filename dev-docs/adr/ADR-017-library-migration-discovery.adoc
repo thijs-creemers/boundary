@@ -1,0 +1,107 @@
+= ADR-017: Library Migration Discovery
+:status: Proposed
+:date: 2026-03-24
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+Boundary applications can depend on framework libraries that introduce new
+database migrations over time.
+
+Today the migration CLI only points Migratus at the application-local
+`resources/migrations/` directory. That creates poor developer experience for
+consuming applications:
+
+* library migrations are invisible to `clojure -M:migrate up`
+* framework upgrades can leave the application schema behind
+* application developers have to manually inspect library repos and copy SQL
+  files into their own project
+* copied migrations drift from the source library and create ownership confusion
+
+This is especially problematic for reusable Boundary libraries such as
+`boundary-geo`, where the library owns a table contract but the consuming
+application must currently discover and copy that migration manually.
+
+== Decision
+
+Boundary will support automatic migration discovery for libraries.
+
+The migration system will keep using Migratus, but `:migration-dir` will become
+an aggregated set of directories:
+
+* application-local `migrations/`
+* library-provided migration directories declared through classpath manifests
+
+Library convention:
+
+* a library that owns database migrations publishes a
+  `boundary/migration-paths.edn` resource
+* that manifest contains a vector of Migratus-compatible resource directories,
+  or a map with `:paths`
+* each declared directory contains standard Migratus filenames such as
+  `20260324010000-geo-cache.up.sql` and `20260324010000-geo-cache.down.sql`
+
+Example manifest:
+
+[source,edn]
+----
+{:paths ["boundary/geo/migrations/"]}
+----
+
+Example resulting Migratus config:
+
+[source,clojure]
+----
+{:migration-dir ["migrations/"
+                 "boundary/geo/migrations/"
+                 "boundary/search/migrations/"]}
+----
+
+`clojure -M:migrate up` will therefore apply both application migrations and
+library-owned migrations without any manual copy step.
+
+== Consequences
+
+=== Positive
+
+* Framework upgrades can propagate schema changes automatically to consuming
+  applications
+* Migration ownership stays with the library that defines the table contract
+* Applications stop copying framework SQL into app-local folders
+* Monorepo and published-jar usage follow the same model
+* Migratus remains the single migration engine, so rollout and rollback stay
+  operationally familiar
+
+=== Negative
+
+* Libraries now need a small manifest resource in addition to migration SQL
+* Duplicate migration ids across application and libraries will fail fast and
+  must be coordinated
+* Monorepo wiring must include each library's `resources/` path when the root
+  app wants to consume those migrations directly from source
+
+== Migration Notes
+
+For library authors:
+
+1. Store library migrations under a stable resource directory such as
+   `resources/boundary/<library>/migrations/`.
+2. Use standard Migratus up/down filenames.
+3. Publish `resources/boundary/migration-paths.edn` with the directory path.
+
+For application authors:
+
+1. Continue placing app-specific migrations in `resources/migrations/`.
+2. Upgrade library versions as usual.
+3. Run `clojure -M:migrate up`; library migrations should now be discovered
+   automatically.
+
+== Related
+
+* ADR-001: Library Split
+* ADR-004: Multi-Tenancy Architecture
+* ADR-015: boundary-tools

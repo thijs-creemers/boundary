@@ -26,6 +26,7 @@ Add to your project's `bb.edn`:
   ai           {:task (apply ai/-main *command-line-args*)}
   create-admin {:task (apply admin/-main *command-line-args*)}
   deploy       {:task (apply deploy/-main *command-line-args*)}
+  migrate      {:task (apply dev/migrate *command-line-args*)}
   check-links  {:task (dev/check-links)}
   smoke-check  {:task (dev/smoke-check)}
   install-hooks {:task (dev/install-hooks)}
@@ -112,6 +113,19 @@ Important release note:
 - A Git tag only triggers the GitHub Actions workflow; actual artifact versions still come from each artifact's `build.clj`.
 - For a tagged full release, bump every included artifact to an unpublished version first, otherwise the workflow will fail on the first duplicate version.
 
+### `bb migrate` — Database migrations
+
+Thin Babashka wrapper around the standard `clojure -M:migrate` CLI, so projects
+can use a consistent `bb ...` developer workflow without introducing a second
+migration implementation.
+
+```bash
+bb migrate up
+bb migrate status
+bb migrate rollback
+bb migrate create add-search-index
+```
+
 ### `bb check-links` — Validate AGENTS.md links
 
 ```bash
@@ -157,7 +171,7 @@ Translation files live in `libs/i18n/resources/boundary/i18n/translations/`.
 | `boundary.tools.i18n` | i18n catalogue management (find/scan/missing/unused) |
 | `boundary.tools.admin` | First admin user creation wizard |
 | `boundary.tools.deploy` | Clojars deployment for all 21 Boundary artifacts |
-| `boundary.tools.dev` | check-links + smoke-check + install-hooks |
+| `boundary.tools.dev` | migrate + check-links + smoke-check + install-hooks |
 
 ---
 

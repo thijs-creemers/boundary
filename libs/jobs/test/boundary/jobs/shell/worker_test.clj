@@ -4,7 +4,8 @@
             [boundary.jobs.shell.worker :as worker]
             [boundary.jobs.shell.adapters.in-memory :as in-memory]
             [boundary.jobs.core.job :as job]
-            [boundary.jobs.ports :as ports])
+            [boundary.jobs.ports :as ports]
+            [clojure.tools.logging :as log])
   (:import [java.util UUID]
            [java.time Instant]))
 
@@ -127,64 +128,73 @@
             (finally
               (ports/stop-worker! worker-instance (:id (:state worker-instance))))))))))
 
+(defmacro with-silent-logging [& body]
+  `(with-redefs [log/info (constantly nil)
+                 log/error (constantly nil)
+                 log/debug (constantly nil)
+                 log/warn (constantly nil)]
+     ~@body))
+
 (deftest worker-handles-job-failure-test
-  (testing "Worker handles job failures and retries"
-    (let [queue (:queue *system*)
-          store (:store *system*)
-          attempt-count (atom 0)
-          handler-fn (fn [_args]
-                       (swap! attempt-count inc)
-                       {:success? false
-                        :error {:message "Simulated failure"
-                                :type "TestError"}})]
+  (with-silent-logging
+    (testing "Worker handles job failures and retries"
+      (let [queue (:queue *system*)
+            store (:store *system*)
+            attempt-count (atom 0)
+            handler-fn (fn [_args]
+                         (swap! attempt-count inc)
+                         {:success? false
+                          :error {:message "Simulated failure"
+                                  :type "TestError"}})]
 
-      ;; Register failing handler
-      (ports/register-handler! *registry* :test-job handler-fn)
+        ;; Register failing handler
+        (ports/register-handler! *registry* :test-job handler-fn)
 
-      ;; Create job with max-retries set to 0 so it fails immediately
-      (let [test-job (create-test-job {:max-retries 0})]
+        ;; Create job with max-retries set to 0 so it fails immediately
+        (let [test-job (create-test-job {:max-retries 0})]
+          (ports/enqueue-job! queue :default test-job)
+
+          ;; Start worker
+          (let [worker-instance (worker/create-worker
+                                 {:queue-name :default :poll-interval-ms 100}
+                                 queue store *registry*)]
+            (try
+              ;; Wait for job to be processed
+              (is (wait-for #(pos? @attempt-count) 5000))
+
+              ;; Verify job failed
+              (let [failed-job (ports/find-job store (:id test-job))]
+                (is (= :failed (:status failed-job)))
+                (is (= "Simulated failure" (get-in failed-job [:error :message]))))
+
+              (finally
+                (ports/stop-worker! worker-instance (:id (:state worker-instance)))))))))))
+
+(deftest worker-handles-missing-handler-test
+  (with-silent-logging
+    (testing "Worker handles jobs with no registered handler"
+      (let [queue (:queue *system*)
+            store (:store *system*)
+            test-job (create-test-job {:job-type :unregistered-job
+                                       :max-retries 0})]  ; No retries so it goes to :failed
+
         (ports/enqueue-job! queue :default test-job)
 
-        ;; Start worker
+        ;; Start worker (no handler registered)
         (let [worker-instance (worker/create-worker
                                {:queue-name :default :poll-interval-ms 100}
                                queue store *registry*)]
           (try
             ;; Wait for job to be processed
-            (is (wait-for #(pos? @attempt-count) 5000))
+            (Thread/sleep 500)
 
-            ;; Verify job failed
+            ;; Verify job failed with appropriate error
             (let [failed-job (ports/find-job store (:id test-job))]
               (is (= :failed (:status failed-job)))
-              (is (= "Simulated failure" (get-in failed-job [:error :message]))))
+              (is (re-find #"No handler registered" (get-in failed-job [:error :message]))))
 
             (finally
               (ports/stop-worker! worker-instance (:id (:state worker-instance))))))))))
-
-(deftest worker-handles-missing-handler-test
-  (testing "Worker handles jobs with no registered handler"
-    (let [queue (:queue *system*)
-          store (:store *system*)
-          test-job (create-test-job {:job-type :unregistered-job
-                                     :max-retries 0})]  ; No retries so it goes to :failed
-
-      (ports/enqueue-job! queue :default test-job)
-
-      ;; Start worker (no handler registered)
-      (let [worker-instance (worker/create-worker
-                             {:queue-name :default :poll-interval-ms 100}
-                             queue store *registry*)]
-        (try
-          ;; Wait for job to be processed
-          (Thread/sleep 500)
-
-          ;; Verify job failed with appropriate error
-          (let [failed-job (ports/find-job store (:id test-job))]
-            (is (= :failed (:status failed-job)))
-            (is (re-find #"No handler registered" (get-in failed-job [:error :message]))))
-
-          (finally
-            (ports/stop-worker! worker-instance (:id (:state worker-instance)))))))))
 
 (deftest worker-processes-priority-jobs-test
   (testing "Worker processes jobs in priority order"

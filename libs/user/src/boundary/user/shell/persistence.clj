@@ -169,6 +169,7 @@
           type-conversion/snake-case->kebab-case
           ;; Type conversions
           (update :id type-conversion/string->uuid)
+          (update :tenant-id type-conversion/string->uuid)
           (update :role type-conversion/string->keyword)
           (update :active #(protocols/db->boolean adapter %))
           (update :created-at type-conversion/string->instant)
@@ -197,10 +198,6 @@
       (dissoc :remember-me) ;; Remove remember-me flag (used for expiry calculation only)
       (update :id type-conversion/uuid->string)
       (update :user-id type-conversion/uuid->string)
-      (update :expires-at type-conversion/instant->string)
-      (update :created-at type-conversion/instant->string)
-      (update :last-accessed-at type-conversion/instant->string)
-      (update :revoked-at type-conversion/instant->string)
       ;; Convert kebab-case to snake_case
       (clojure.set/rename-keys {:user-id :user_id
                                 :session-token :session_token
@@ -241,7 +238,6 @@
       (update :actor-id #(when % (type-conversion/uuid->string %)))
       (update :target-user-id type-conversion/uuid->string)
       (update :result type-conversion/keyword->string)
-      (update :created-at type-conversion/instant->string)
       ;; Convert maps to JSON strings for JSONB columns
       (update :changes #(when % (cheshire.core/generate-string %)))
       (update :metadata #(when % (cheshire.core/generate-string %)))

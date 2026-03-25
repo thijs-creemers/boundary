@@ -1,6 +1,7 @@
 (ns boundary.platform.shell.interfaces.http.tenant-middleware-test
   "Tests for multi-tenant HTTP middleware."
   (:require [clojure.test :refer [deftest testing is]]
+            [boundary.platform.shell.adapters.database.common.core :as db]
             [boundary.platform.shell.interfaces.http.tenant-middleware :as tenant-mw]
             [boundary.platform.shell.adapters.database.protocols]
             [boundary.tenant.ports :as tenant-ports]
@@ -329,7 +330,8 @@
   (testing "switches schema when tenant present"
     (let [db-ctx (create-mock-db-context)
           handler (tenant-mw/wrap-tenant-schema schema-tracking-handler db-ctx)]
-      (with-redefs [next.jdbc/execute! (fn [_ds [sql]]
+      (with-redefs [db/with-transaction* (fn [ctx f] (f ctx))
+                    next.jdbc/execute! (fn [_ds [sql]]
                                          (swap! (:schema-calls-atom db-ctx) conj sql)
                                          nil)]
         (let [request {:tenant test-tenant-1
@@ -338,9 +340,7 @@
               response (handler request)]
           
           (is (= 200 (:status response)))
-          ;; Should set tenant schema AND reset to public in finally block
-          (is (= ["SET search_path TO tenant_acme_corp, public"
-                  "SET search_path TO public"]
+          (is (= ["SET search_path TO tenant_acme_corp, public"]
                  ((:get-schema-calls db-ctx))))))))
   
   (testing "does not switch schema when no tenant"
@@ -359,7 +359,8 @@
   (testing "handles schema switch failure gracefully"
     (let [db-ctx (create-mock-db-context)
           handler (tenant-mw/wrap-tenant-schema schema-tracking-handler db-ctx)]
-      (with-redefs [next.jdbc/execute! (fn [_ _] (throw (Exception. "Schema not found")))]
+      (with-redefs [db/with-transaction* (fn [ctx f] (f ctx))
+                    next.jdbc/execute! (fn [_ _] (throw (Exception. "Schema not found")))]
         (let [request {:tenant test-tenant-1
                        :uri "/api/users"
                        :request-method :get}
@@ -380,7 +381,8 @@
                    schema-tracking-handler 
                    tenant-service 
                    db-ctx)]
-      (with-redefs [next.jdbc/execute! (fn [_ds [sql]]
+      (with-redefs [db/with-transaction* (fn [ctx f] (f ctx))
+                    next.jdbc/execute! (fn [_ds [sql]]
                                          (swap! (:schema-calls-atom db-ctx) conj sql)
                                          nil)]
         (let [request {:server-name "acme-corp.myapp.com"
@@ -390,8 +392,7 @@
           
           (is (= 200 (:status response)))
           (is (= "acme-corp" (get-in response [:body :tenant :slug])))
-          (is (= ["SET search_path TO tenant_acme_corp, public"
-                  "SET search_path TO public"]
+          (is (= ["SET search_path TO tenant_acme_corp, public"]
                  ((:get-schema-calls db-ctx))))))))
   
   (testing "combined middleware with require-tenant option"
@@ -402,7 +403,8 @@
                    tenant-service 
                    db-ctx
                    {:require-tenant? true})]
-      (with-redefs [next.jdbc/execute! (fn [_ds [sql]]
+      (with-redefs [db/with-transaction* (fn [ctx f] (f ctx))
+                    next.jdbc/execute! (fn [_ds [sql]]
                                          (swap! (:schema-calls-atom db-ctx) conj sql)
                                          nil)]
         (let [request {:server-name "nonexistent.myapp.com"
@@ -421,7 +423,8 @@
                    tenant-service 
                    db-ctx
                    {:require-tenant? false})]
-      (with-redefs [next.jdbc/execute! (fn [_ds [sql]]
+      (with-redefs [db/with-transaction* (fn [ctx f] (f ctx))
+                    next.jdbc/execute! (fn [_ds [sql]]
                                          (swap! (:schema-calls-atom db-ctx) conj sql)
                                          nil)]
         (let [request {:server-name "localhost"

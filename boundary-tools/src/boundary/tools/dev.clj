@@ -4,6 +4,7 @@
 ;; Development utilities for Boundary projects:
 ;;   - check-links    Validate local markdown links in AGENTS documentation
 ;;   - smoke-check    Verify deps.edn aliases and key tool entrypoints
+;;   - migrate        Babashka passthrough to the standard migrate CLI
 ;;   - install-hooks  Configure git hooks path to .githooks
 
 (ns boundary.tools.dev
@@ -112,6 +113,45 @@
   (println "[smoke] Command smoke checks passed"))
 
 ;; =============================================================================
+;; migrate — bb passthrough to clojure -M:migrate
+;; =============================================================================
+
+(defn migrate
+  "Run the standard Boundary migrate CLI via bb for a shorter DX path.
+
+   Examples:
+     bb migrate up
+     bb migrate status
+     bb migrate create add-tenant-memberships"
+  [& args]
+  (if (or (empty? args)
+          (#{"--help" "-h" "help"} (first args)))
+    (do
+      (println "Boundary migration CLI")
+      (println)
+      (println "Usage:")
+      (println "  bb migrate [command] [options]")
+      (println)
+      (println "Commands:")
+      (println "  up                 Run all pending migrations")
+      (println "  rollback           Roll back the last migration")
+      (println "  status             Show current migration status")
+      (println "  create <name>      Create a new migration file")
+      (println "  init               Initialize migration tracking")
+      (println "  reset              Roll back all migrations and re-apply them")
+      (println)
+      (println "Examples:")
+      (println "  bb migrate up")
+      (println "  bb migrate status")
+      (println "  bb migrate create add-tenant-memberships")
+      (System/exit 0))
+    (let [result (apply shell {:out :inherit
+                               :err :inherit
+                               :continue true}
+                        "clojure" "-M:migrate" args)]
+      (System/exit (:exit result)))))
+
+;; =============================================================================
 ;; install-hooks — configure git hooks path to .githooks
 ;; =============================================================================
 
@@ -128,10 +168,11 @@
 (defn -main [& args]
   (let [[cmd] args]
     (case cmd
+      "migrate"       (apply migrate (rest args))
       "check-links"   (check-links)
       "smoke-check"   (smoke-check)
       "install-hooks" (install-hooks)
-      (do (println "Usage: bb dev <check-links|smoke-check|install-hooks>")
+      (do (println "Usage: bb dev <migrate|check-links|smoke-check|install-hooks>")
           (System/exit 1)))))
 
 ;; Run when executed directly (not via bb.edn task)

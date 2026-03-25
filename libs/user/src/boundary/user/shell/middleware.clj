@@ -28,6 +28,23 @@
     (when (str/starts-with? auth-header "Bearer ")
       (str/trim (subs auth-header 7)))))
 
+(defn- decode-token
+  "Decode percent-encoded session tokens from cookies/headers.
+
+   Some HTTP clients send cookie values back URL-encoded (for example `%2F`
+   and `%3D`). Session lookup must use the raw token persisted in the database,
+   so decode percent escapes when present. Do not treat raw `+` as a space,
+   because session tokens are ordinary Base64 strings and may legitimately
+   contain `+`."
+  [token]
+  (when token
+    (if (str/includes? token "%")
+      (try
+        (java.net.URLDecoder/decode (str/replace token "+" "%2B") "UTF-8")
+        (catch IllegalArgumentException _
+          token))
+      token)))
+
 (defn extract-session-token
   "Extracts session token from request headers or cookies.
    
@@ -43,9 +60,9 @@
   [request]
   (or
     ;; Check X-Session-Token header
-   (get-in request [:headers "x-session-token"])
+   (some-> (get-in request [:headers "x-session-token"]) decode-token)
     ;; Check session-token cookie
-   (get-in request [:cookies "session-token" :value])))
+   (some-> (get-in request [:cookies "session-token" :value]) decode-token)))
 
 (defn create-unauthorized-response
   "Creates standardized 401 Unauthorized response.

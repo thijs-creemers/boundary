@@ -137,6 +137,45 @@
                             #"Membership already exists"
                             (ports/invite-user service tenant-id user-id :admin))))))
 
+(deftest bootstrap-first-member-test
+  (testing "creates the first membership directly in :active status"
+    (let [service   (make-service)
+          tenant-id (UUID/randomUUID)
+          user-id   (UUID/randomUUID)
+          result    (ports/bootstrap-first-member service tenant-id user-id :admin)]
+      (is (uuid? (:id result)))
+      (is (= tenant-id (:tenant-id result)))
+      (is (= user-id (:user-id result)))
+      (is (= :admin (:role result)))
+      (is (= :active (:status result)))
+      (is (some? (:accepted-at result)))))
+
+  (testing "rejects bootstrap when the tenant already has an active admin"
+    (let [service   (make-service)
+          tenant-id (UUID/randomUUID)]
+      (ports/bootstrap-first-member service tenant-id (UUID/randomUUID) :admin)
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"Tenant already has an active admin"
+                            (ports/bootstrap-first-member service tenant-id (UUID/randomUUID) :admin))))))
+
+(deftest bootstrap-open-test
+  (testing "returns true when tenant has no active admin"
+    (let [service   (make-service)
+          tenant-id (UUID/randomUUID)]
+      (is (true? (ports/bootstrap-open? service tenant-id)))))
+
+  (testing "returns true when tenant only has non-admin memberships"
+    (let [service   (make-service)
+          tenant-id (UUID/randomUUID)]
+      (ports/invite-user service tenant-id (UUID/randomUUID) :member)
+      (is (true? (ports/bootstrap-open? service tenant-id)))))
+
+  (testing "returns false when tenant already has an active admin"
+    (let [service   (make-service)
+          tenant-id (UUID/randomUUID)]
+      (ports/bootstrap-first-member service tenant-id (UUID/randomUUID) :admin)
+      (is (false? (ports/bootstrap-open? service tenant-id))))))
+
 (deftest accept-invitation-test
   (testing "transitions membership to :active"
     (let [service      (make-service)

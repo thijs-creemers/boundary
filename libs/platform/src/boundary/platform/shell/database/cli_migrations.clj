@@ -167,6 +167,11 @@
   (println "  # Roll back last migration")
   (println "  clojure -M -m boundary.platform.shell.database.cli-migrations rollback\n"))
 
+(defn exit!
+  "Wrapper around System/exit to keep CLI dispatch testable."
+  [status]
+  (System/exit status))
+
 ;; =============================================================================
 ;; Main Entry Point
 ;; =============================================================================
@@ -183,14 +188,14 @@
       (:help options)
       (do
         (print-help)
-        (System/exit 0))
+        (exit! 0))
 
       ;; No command provided
       (nil? command)
       (do
         (println "❌ Error: No command specified\n")
         (print-help)
-        (System/exit 1))
+        (exit! 1))
 
       ;; Parse errors
       errors
@@ -200,7 +205,7 @@
           (println "  " error))
         (println)
         (print-help)
-        (System/exit 1))
+        (exit! 1))
 
       ;; Execute command
       :else
@@ -217,4 +222,4 @@
                        (println (format "❌ Unknown command: %s\n" command))
                        (print-help)
                        1))]
-        (System/exit status)))))
+        (exit! status)))))

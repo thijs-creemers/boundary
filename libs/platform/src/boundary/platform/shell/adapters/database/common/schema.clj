@@ -24,7 +24,7 @@
      (table-exists? ctx :users)"
   [ctx table-name]
   (execution/validate-context ctx)
-  (protocols/table-exists? (:adapter ctx) (:datasource ctx) table-name))
+  (protocols/table-exists? (:adapter ctx) (execution/current-datasource ctx) table-name))
 
 (defn get-table-info
   "Get column information for a table using adapter-specific introspection.
@@ -40,7 +40,7 @@
      (get-table-info ctx :users)"
   [ctx table-name]
   (execution/validate-context ctx)
-  (protocols/get-table-info (:adapter ctx) (:datasource ctx) table-name))
+  (protocols/get-table-info (:adapter ctx) (execution/current-datasource ctx) table-name))
 
 ;; =============================================================================
 ;; DDL Execution
@@ -65,7 +65,7 @@
                {:adapter (protocols/dialect (:adapter ctx))
                 :statement-preview statement-preview})
     (try
-      (let [result (jdbc/execute! (:datasource ctx) [ddl-statement])]
+      (let [result (jdbc/execute! (execution/current-datasource ctx) [ddl-statement])]
         (log/info "DDL statement executed successfully"
                   {:adapter (protocols/dialect (:adapter ctx))
                    :statement-preview statement-preview})

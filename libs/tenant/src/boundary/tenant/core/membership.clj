@@ -1,6 +1,5 @@
 (ns boundary.tenant.core.membership
-  (:import (java.util UUID)
-           (java.time Instant)))
+  (:import (java.util UUID)))
 
 (defn prepare-invitation
   "Creates a new membership map in :invited status.
@@ -21,6 +20,31 @@
    :status      :invited
    :invited-at  now
    :accepted-at nil
+   :created-at  now
+   :updated-at  nil})
+
+(defn prepare-active-membership
+  "Creates a new membership map directly in :active status.
+
+   Intended for initial tenant bootstrap flows where the first member
+   should become active immediately after account verification.
+
+   Args:
+     user-id   - UUID of the user
+     tenant-id - UUID of the tenant
+     role      - one of :admin :member :viewer :contractor
+     now       - java.time.Instant for timestamp fields
+
+   Returns:
+     New active membership map ready for persistence."
+  [user-id tenant-id role now]
+  {:id          (UUID/randomUUID)
+   :tenant-id   tenant-id
+   :user-id     user-id
+   :role        role
+   :status      :active
+   :invited-at  now
+   :accepted-at now
    :created-at  now
    :updated-at  nil})
 

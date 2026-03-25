@@ -490,6 +490,50 @@
                               :name \"New User\"
                               :role :user})")
 
+  (register-or-authenticate-user [this user-data login-context]
+    "Create a new user or claim an existing account by authenticating it.
+
+     Intended for invite and activation flows where:
+     - a brand new user should be registered with a password, or
+     - an existing user with the same email should prove account ownership
+       by authenticating with that password.
+
+     Args:
+       user-data: Map with at least {:email string :name string :password string :role keyword}
+       login-context: Map with optional login/session context
+                     {:ip-address string :user-agent string :mfa-code string}
+
+     Returns:
+       {:user user-entity
+        :created? boolean
+        :authenticated? boolean
+        :auth-result optional-auth-result}
+
+     Throws:
+       - ExceptionInfo with :type :unauthorized when existing account cannot be verified
+       - Same validation/registration exceptions as register-user for invalid new accounts")
+
+  (claim-user-identity [this request]
+    "Transaction-aware identity claim for invite and activation flows.
+
+     Args:
+       request: {:user-data {...}
+                 :login-context {...}
+                 :tx-context optional-db-tx}
+
+     Returns:
+       {:mode :registered|:authenticated
+        :user user-entity
+        :created? boolean
+        :authenticated? boolean
+        :auth-result optional-auth-result}
+
+     Behavior:
+       - registers a new user when the email does not exist yet
+       - authenticates an existing user to prove account ownership
+       - returns an authenticated session result for the claimed identity
+       - when :tx-context is provided, all repository operations use that DB transaction")
+
   (get-user-by-id [this user-id]
     "Retrieve user by ID with service-level validation.
      

@@ -534,11 +534,13 @@
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:get {:handler (web-handlers/audit-page-handler user-service config)
+                      :interceptors ['boundary.user.shell.http-interceptors/require-platform-admin]
                       :summary "Audit trail page"}}}
      {:path    "/audit/table"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:get {:handler (web-handlers/audit-table-fragment-handler user-service config)
+                      :interceptors ['boundary.user.shell.http-interceptors/require-platform-admin]
                       :summary "Audit table fragment (HTMX refresh)"}}}
       ;; Profile routes
       {:path    "/profile"

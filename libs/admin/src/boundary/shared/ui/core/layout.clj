@@ -26,6 +26,13 @@
 (def admin-pilot-js
   (ui-style/js-bundle :admin-pilot))
 
+(defn platform-admin?
+  "Returns true when the user is a platform-level admin without tenant context."
+  [user]
+  (and user
+       (= :admin (:role user))
+       (nil? (:tenant-id user))))
+
 (defn main-navigation
   "Main site navigation component.
    
@@ -35,11 +42,12 @@
    Returns:
      Hiccup navigation structure"
   [& [opts]]
-  (let [{:keys [user]} opts]
+  (let [{:keys [user brand brand-href]} opts]
     [:nav
-     [:a.logo {:href (if user "/web/dashboard" "/")}
-      (icons/brand-logo {:size 140})]
-     (when user
+     [:a.logo {:href (or brand-href (if user "/web/dashboard" "/"))}
+      (or brand
+          (icons/brand-logo {:size 140}))]
+     (when (platform-admin? user)
        [:div.nav-links
         [:a {:href "/web/audit"}
          (icons/icon :file-text {:size 18})
@@ -79,7 +87,7 @@
    Returns:
      Complete HTML page structure"
   [title content & [opts]]
-  (let [{:keys [user flash css js skip-header body-attrs]
+  (let [{:keys [user flash css js skip-header body-attrs brand brand-href]
          :or   {css         default-css
                 js          default-js
                 skip-header false
@@ -95,7 +103,9 @@
      [:body body-attrs
       (when-not skip-header
         [:header.site-header
-         (main-navigation {:user user})])
+         (main-navigation {:user user
+                           :brand brand
+                           :brand-href brand-href})])
       (let [children (cond-> []
                        flash (conj [:div.flash-messages
                                     (let [flash-type (or (:type flash)

@@ -47,6 +47,8 @@
 
 (defprotocol ITenantMembershipService
   (invite-user           [this tenant-id user-id role])
+  (bootstrap-open?       [this tenant-id])
+  (bootstrap-first-member [this tenant-id user-id role])
   (accept-invitation     [this membership-id])
   (update-member-role    [this membership-id role])
   (suspend-member        [this membership-id])
@@ -54,6 +56,50 @@
   (get-membership        [this membership-id])
   (get-active-membership [this user-id tenant-id])
   (list-tenant-members   [this tenant-id options]))
+
+(defprotocol ITenantInviteRepository
+  (find-invite-by-id [this invite-id])
+  (find-pending-invite-by-token-hash [this token-hash])
+  (find-pending-invite-by-email-and-tenant [this tenant-id email])
+  (find-invites-by-tenant [this tenant-id options])
+  (create-invite [this invite-entity])
+  (update-invite [this invite-entity]))
+
+(defprotocol ITenantInviteService
+  (invite-external-member [this tenant-id email role options])
+  (get-external-invite [this invite-id])
+  (get-external-invite-by-token [this token])
+  (accept-external-invite [this token accepted-by-user-id])
+  (revoke-external-invite [this invite-id])
+  (list-tenant-invites [this tenant-id options]))
+
+(defprotocol ITenantInviteAcceptanceService
+  (load-external-invite-for-acceptance [this request]
+    "Resolve a pending invite for an acceptance flow.
+
+     Request shape:
+       {:token raw-token
+        :tx-context optional-db-tx}
+
+     Returns:
+       Pending invite entity
+
+     Throws:
+       - :not-found when no pending invite exists for the token
+       - :validation-error when the invite has expired")
+  (accept-external-invite! [this request]
+    "Atomically accept a pending external invite.
+
+     Request shape:
+       {:token raw-token
+        :accepted-by-user-id uuid
+        :tx-context optional-db-tx
+        :hooks {:after-accept-tx (fn [{:keys [invite membership tx-context]}] ...)}}
+
+     Returns:
+       {:invite updated-invite
+        :membership created-membership
+        :effects {:after-accept-tx hook-result}}"))
 
 (defprotocol ITenantSchemaProvider
   "Protocol for executing code within a tenant's database schema context.

@@ -81,6 +81,9 @@ bb ai docs --module libs/user --type agents                       # Generate AGE
 bb create-admin                                    # Create first admin user for a new project (interactive wizard)
 bb create-admin --env prod                         # Use production config
 bb create-admin --email a@b.com --name "Admin"     # Skip email/name prompts (password still prompted securely)
+bb migrate up                                      # Run pending database migrations
+bb migrate status                                  # Show current migration status
+bb coverage                                        # Run Cloverage coverage with the monorepo test/classpath setup
 bb check-links                                     # Validate local markdown links in AGENTS.md files
 bb smoke-check                                     # Verify deps.edn aliases and key tool entrypoints
 bb install-hooks                                   # Configure git hooks path to .githooks
@@ -706,7 +709,7 @@ Any project using `boundary-starter` or starting fresh should consume it via:
 | `boundary.tools.i18n` | `bb i18n:find/scan/missing/unused` |
 | `boundary.tools.admin` | `bb create-admin` |
 | `boundary.tools.deploy` | `bb deploy` (handles all 21 artifacts) |
-| `boundary.tools.dev` | `bb check-links`, `bb smoke-check`, `bb install-hooks` |
+| `boundary.tools.dev` | `bb migrate`, `bb check-links`, `bb smoke-check`, `bb install-hooks` |
 
 ### Releasing boundary-tools
 

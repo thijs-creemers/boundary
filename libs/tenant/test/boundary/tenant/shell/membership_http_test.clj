@@ -58,6 +58,24 @@
         (swap! memberships assoc (:id m) m)
         m)))
 
+  (bootstrap-open? [_ tenant-id]
+    (empty? (filter #(= tenant-id (:tenant-id %)) (vals @memberships))))
+
+  (bootstrap-first-member [_ tenant-id user-id role]
+    (when-not (.bootstrap-open? ^boundary.tenant.ports.ITenantMembershipService _ tenant-id)
+      (throw (ex-info "Tenant already has members" {:type :conflict})))
+    (let [m {:id          (UUID/randomUUID)
+             :tenant-id   tenant-id
+             :user-id     user-id
+             :role        role
+             :status      :active
+             :invited-at  (Instant/now)
+             :accepted-at (Instant/now)
+             :created-at  (Instant/now)
+             :updated-at  nil}]
+      (swap! memberships assoc (:id m) m)
+      m))
+
   (accept-invitation [_ membership-id]
     (if-let [m (get @memberships membership-id)]
       (if (= :invited (:status m))
