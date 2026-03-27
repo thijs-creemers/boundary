@@ -30,14 +30,17 @@
      entities: Vector of entity name keywords available to user
      entity-configs: Map of entity-name -> entity-config
      current-entity: Currently active entity name (optional)
+     opts: Optional map; supports :logo-url for a custom brand image
 
    Returns:
      Hiccup sidebar structure with entity list"
-  [entities entity-configs current-entity]
+  [entities entity-configs current-entity opts]
   ;; Alpine.js sidebar - hover expand/collapse via $store.sidebar
   [:aside.admin-sidebar (alpine/sidebar-attrs)
    [:div.admin-sidebar-header
-    (icons/brand-logo {:size 140 :class "sidebar-brand-logo"})
+    (if-let [logo-url (:logo-url opts)]
+      [:img.sidebar-brand-logo {:src logo-url :alt "" :style "height:40px; width:auto; display:block;"}]
+      (icons/brand-logo {:size 140 :class "sidebar-brand-logo"}))
     [:div.sidebar-controls
      [:button.sidebar-toggle {:type "button"
                               :aria-label [:t :admin/sidebar-toggle-button]
@@ -93,7 +96,7 @@
      ;; Initialize Alpine store for sidebar state management
      (alpine/sidebar-store-init)
      [:div.admin-shell (alpine/sidebar-shell-attrs)
-      (admin-sidebar entities entity-configs current-entity)
+      (admin-sidebar entities entity-configs current-entity opts)
       [:div.admin-overlay (alpine/sidebar-overlay-attrs)]
       [:div.admin-main
        [:header.admin-topbar
@@ -169,7 +172,14 @@
            [:span.entity-card-count [:t :admin/entity-card-count {:count count}]]]
           [:div.entity-card-title label]
           (when description
-            [:div.entity-card-description description])]]))]])
+            [:div.entity-card-description description])]]))
+    [:div.entity-card
+     [:a {:href "/web/audit" :class "entity-card-link"}
+      [:div.entity-card-head
+       [:div.entity-card-icon (icons/icon :file-text {:size 18})]
+       [:span]]
+      [:div.entity-card-title [:t :admin/audit-trail-title]]
+      [:div.entity-card-description [:t :admin/audit-trail-description]]]]]])
 
 ;; =============================================================================
 ;; Entity List Components

@@ -1,57 +1,362 @@
 = Multi-Tenancy
-:description: Setting up schema-per-tenant isolation with the tenant library.
+:description: Implementing schema-per-tenant isolation, membership management, and invite flows with the tenant library.
 
-The `tenant` library provides multi-tenancy with PostgreSQL schema-per-tenant isolation.
+The `tenant` library provides full multi-tenancy: PostgreSQL schema-per-tenant isolation,
+membership management with roles, and a secure email invite flow.
 
-NOTE: Multi-tenancy requires PostgreSQL. It is not available with SQLite or H2.
+NOTE: Schema-per-tenant provisioning requires PostgreSQL.
+H2 and SQLite skip provisioning with a warning and are fine for unit/integration tests.
 
-== Tenant lifecycle
+== Prerequisites
+
+* PostgreSQL database (for production)
+* `boundary/tenant` and `boundary/platform` libraries on the classpath
+* User authentication middleware already configured (tenant middleware runs after auth)
+
+Run database migrations before starting the server:
+
+[source,bash]
+----
+clojure -M:migrate up
+----
+
+This creates three tables in the `public` schema:
+`tenants`, `tenant_memberships`, and `tenant_member_invites`.
+
+== Step 1 — Configure Integrant
+
+Add the tenant components to your `config.edn`:
+
+[source,clojure]
+----
+;; Initialise DB tables (run once on startup)
+:boundary/tenant-db-schema
+{:db-context #ig/ref :boundary/db-context
+ :logger     #ig/ref :boundary/logger}
+
+;; Tenant CRUD
+:boundary/tenant-repository
+{:db-context     #ig/ref :boundary/db-context
+ :logger         #ig/ref :boundary/logger
+ :error-reporter #ig/ref :boundary/error-reporter}
+
+:boundary/tenant-service
+{:tenant-repository #ig/ref :boundary/tenant-repository
+ :logger            #ig/ref :boundary/logger
+ :metrics-emitter   #ig/ref :boundary/metrics-emitter
+ :error-reporter    #ig/ref :boundary/error-reporter}
+
+;; Membership management
+:boundary/membership-repository
+{:db-context     #ig/ref :boundary/db-context
+ :logger         #ig/ref :boundary/logger
+ :error-reporter #ig/ref :boundary/error-reporter}
+
+:boundary/membership-service
+{:repository      #ig/ref :boundary/membership-repository
+ :logger          #ig/ref :boundary/logger
+ :metrics-emitter #ig/ref :boundary/metrics-emitter
+ :error-reporter  #ig/ref :boundary/error-reporter}
+
+;; Email invite flow
+:boundary/invite-repository
+{:db-context     #ig/ref :boundary/db-context
+ :logger         #ig/ref :boundary/logger
+ :error-reporter #ig/ref :boundary/error-reporter}
+
+:boundary/invite-service
+{:repository            #ig/ref :boundary/invite-repository
+ :membership-repository #ig/ref :boundary/membership-repository
+ :logger                #ig/ref :boundary/logger
+ :metrics-emitter       #ig/ref :boundary/metrics-emitter
+ :error-reporter        #ig/ref :boundary/error-reporter}
+
+;; Routes (merged into top-level router)
+:boundary/tenant-routes
+{:tenant-service #ig/ref :boundary/tenant-service
+ :db-context     #ig/ref :boundary/db-context}
+
+:boundary/membership-routes
+{:service #ig/ref :boundary/membership-service}
+----
+
+== Step 2 — Add middleware to your Ring stack
+
+Three middlewares must be composed in the correct order.
+Each one depends on data set by the previous.
+
+[source,clojure]
+----
+(require '[boundary.platform.shell.interfaces.http.tenant-middleware :as tm]
+         '[boundary.tenant.shell.membership-middleware :refer [wrap-tenant-membership]])
+
+(defn build-handler [routes system]
+  (-> (create-router routes)
+      ;; 3. Enrich request with :tenant-membership (needs :user + :tenant)
+      (wrap-tenant-membership (:boundary/membership-service system))
+      ;; 2. Resolve :tenant from subdomain / JWT / header; set search_path
+      (tm/wrap-multi-tenant (:boundary/tenant-service system)
+                            {:require-tenant? true
+                             :cache (tm/create-tenant-cache)})
+      ;; 1. Authenticate user; sets :user on request
+      (wrap-user-authentication (:boundary/user-service system))))
+----
+
+After this middleware stack the request map contains:
+
+[source,clojure]
+----
+{:user             {:id #uuid "..." :email "..." :role :user}
+ :tenant           {:id #uuid "..." :slug "acme-corp" :status :provisioned}
+ :tenant-membership {:id #uuid "..." :tenant-id #uuid "..." :user-id #uuid "..."
+                     :role :admin :status :active}}
+----
+
+=== Tenant resolution strategies
+
+`wrap-multi-tenant` (and `wrap-tenant-resolution` underneath) tries three sources in order:
 
 [source]
 ----
-:active       → Tenant created, schema not yet provisioned
-:provisioned  → PostgreSQL schema created and ready for use
-:suspended    → Access disabled (data preserved)
-:deleted      → Soft delete (schema can be deprovisioned)
+1. Subdomain        acme-corp.myapp.com  →  slug = "acme-corp"
+2. JWT claim        token payload  :tenant-slug  or  :tenant-id
+3. HTTP header      X-Tenant-Slug  or  X-Tenant-Id
 ----
 
-== Tenant slugs and schema names
+=== Options
 
-Slugs must be lowercase alphanumeric with hyphens, 2–100 characters:
+[source,clojure]
+----
+(tm/wrap-multi-tenant handler tenant-service
+  {:require-tenant? true    ; return 404 when tenant cannot be resolved (default false)
+   :cache           cache}) ; atom-based cache, TTL 1 hour (omit to disable caching)
+----
+
+== Step 3 — Protect routes with interceptors
+
+Import the interceptors from the `user` library:
+
+[source,clojure]
+----
+(require '[boundary.user.shell.http-interceptors :as auth])
+----
+
+=== Require active membership (any role)
+
+[source,clojure]
+----
+{:path    "/api/tenants/:tenant-id/dashboard"
+ :methods {:get {:handler   dashboard-handler
+                 :interceptors [auth/require-authenticated
+                                auth/require-tenant-member]}}}
+----
+
+=== Require a specific role
+
+[source,clojure]
+----
+{:path    "/api/tenants/:tenant-id/settings"
+ :methods {:put {:handler   update-settings-handler
+                 :interceptors [auth/require-authenticated
+                                (auth/require-tenant-role #{:admin})]}}}
+----
+
+=== Require tenant admin (shorthand)
+
+[source,clojure]
+----
+{:path    "/api/tenants/:tenant-id/members"
+ :methods {:post {:handler   invite-member-handler
+                  :interceptors [auth/require-authenticated
+                                 auth/require-tenant-admin]}}}
+----
+
+=== Web routes — HTML redirect instead of JSON 403
+
+For server-rendered HTML routes, use `require-web-tenant-admin`.
+It redirects to `/web/login?return-to=<uri>` for `/web/*` paths
+instead of returning a bare JSON 403:
+
+[source,clojure]
+----
+{:path    "/web/tenants/:tenant-id/settings"
+ :methods {:get {:handler   settings-page-handler
+                 :interceptors [auth/require-authenticated
+                                auth/require-web-tenant-admin]}}}
+----
+
+== Step 4 — Bootstrap the first admin member
+
+A freshly created tenant has no members.
+Use `bootstrap-open?` to check, then create the first active membership directly:
+
+[source,clojure]
+----
+(require '[boundary.tenant.core.membership :as m]
+         '[boundary.tenant.ports :as ports])
+
+(defn on-tenant-created! [tenant user-id membership-service]
+  (when (ports/bootstrap-open? membership-service (:id tenant))
+    (ports/create-active-membership! membership-service
+      {:tenant-id (:id tenant)
+       :user-id   user-id
+       :role      :admin})))
+----
+
+== Tenant CRUD
+
+=== Create a tenant
+
+[source,bash]
+----
+curl -X POST http://localhost:3000/api/v1/tenants \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "ACME Corp", "slug": "acme-corp"}'
+----
+
+Response:
+
+[source,json]
+----
+{"id": "...", "slug": "acme-corp", "name": "ACME Corp", "status": "active",
+ "createdAt": "2026-03-27T..."}
+----
+
+=== Lifecycle operations
+
+[source,bash]
+----
+# Provision PostgreSQL schema
+curl -X POST http://localhost:3000/api/v1/tenants/<id>/provision \
+  -H "Authorization: Bearer <admin-token>"
+
+# Suspend (disables access, preserves data)
+curl -X POST http://localhost:3000/api/v1/tenants/<id>/suspend \
+  -H "Authorization: Bearer <admin-token>"
+
+# Re-activate
+curl -X POST http://localhost:3000/api/v1/tenants/<id>/activate \
+  -H "Authorization: Bearer <admin-token>"
+----
+
+=== Tenant lifecycle states
+
+[source]
+----
+:active       → Created, schema not yet provisioned
+:provisioned  → PostgreSQL schema created and ready
+:suspended    → Access disabled (data preserved)
+:deleted      → Soft delete; schema NOT auto-dropped
+----
+
+=== Slug rules
+
+Slugs must be lowercase alphanumeric + hyphens, 2–100 characters:
 
 [source,clojure]
 ----
 (tenant/valid-slug? "acme-corp")   ;=> true
-(tenant/valid-slug? "ACME")        ;=> false (uppercase)
-(tenant/valid-slug? "acme_corp")   ;=> false (underscore)
+(tenant/valid-slug? "ACME")        ;=> false  ; uppercase
+(tenant/valid-slug? "acme_corp")   ;=> false  ; underscore
 
-;; Slug → PostgreSQL schema name
+;; Slug → PostgreSQL schema name (hyphens become underscores)
 (tenant/slug->schema-name "acme-corp")  ;=> "tenant_acme_corp"
 ----
 
-== HTTP API
+== Membership management
+
+=== Invite a user
 
 [source,bash]
 ----
-# Create tenant
-curl -X POST http://localhost:3000/api/tenants \
+curl -X POST http://localhost:3000/api/v1/tenants/<tenant-id>/memberships \
+  -H "Authorization: Bearer <admin-token>" \
   -H "Content-Type: application/json" \
-  -d '{"name": "ACME Corp", "slug": "acme-corp"}'
+  -d '{"userId": "<user-id>", "role": "member"}'
+----
 
-# Provision (creates PostgreSQL schema)
-curl -X POST http://localhost:3000/api/tenants/acme-corp/provision \
-  -H "Authorization: Bearer <admin-token>"
+=== Accept an invitation
 
-# Suspend
-curl -X POST http://localhost:3000/api/tenants/acme-corp/suspend \
-  -H "Authorization: Bearer <admin-token>"
+[source,bash]
+----
+curl -X POST http://localhost:3000/api/v1/memberships/<membership-id>/accept \
+  -H "Authorization: Bearer <user-token>"
+----
 
-# Activate
-curl -X POST http://localhost:3000/api/tenants/acme-corp/activate \
+=== Update role or status
+
+[source,bash]
+----
+curl -X PUT http://localhost:3000/api/v1/tenants/<tenant-id>/memberships/<membership-id> \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"role": "admin"}'
+----
+
+=== Revoke membership
+
+[source,bash]
+----
+curl -X DELETE http://localhost:3000/api/v1/tenants/<tenant-id>/memberships/<membership-id> \
   -H "Authorization: Bearer <admin-token>"
 ----
 
-== Executing queries in tenant context
+=== Available roles and statuses
+
+Roles: `:admin`, `:member`, `:viewer`, `:contractor`
+
+[source]
+----
+Membership lifecycle:
+  :invited  ──accept──→  :active
+  :active   ──suspend──→ :suspended
+  :active   ──revoke──→  :revoked
+  :invited  ──revoke──→  :revoked
+----
+
+== Email invite flow
+
+For inviting users who don't have an account yet (or whose user ID you don't know),
+use the token-based external invite flow.
+
+=== Create an invite
+
+[source,clojure]
+----
+(require '[boundary.tenant.ports :as ports])
+
+;; Returns {:invite {...} :token "<raw-token>"}
+;; Send :token to the user via email — it is NOT stored in the database
+(let [{:keys [invite token]}
+      (ports/create-external-invite! invite-service
+        {:tenant-id  tenant-id
+         :email      "alice@example.com"
+         :role       :member
+         :expires-in (java.time.Duration/ofDays 7)})]
+  (email/send-invite! email-service (:email invite) token))
+----
+
+=== Accept an invite (two-phase)
+
+[source,clojure]
+----
+;; Phase 1 — validate (no mutations)
+(let [result (ports/load-external-invite-for-acceptance invite-service raw-token)]
+  ;; result = {:invite {...} :tenant {...}}
+  ;; throws ex-info {:type :validation-error} when expired or already used
+
+  ;; Phase 2 — atomic accept; creates membership in same transaction
+  (ports/accept-external-invite! invite-service raw-token user-id
+    {:after-accept-tx (fn [tx invite membership]
+                        ;; optional: run additional work in same transaction
+                        )}))
+----
+
+NOTE: The raw token is never stored. Only the SHA-256 hash is kept in the database.
+Always send the raw token to the user and discard it after.
+
+== Executing queries in tenant schema context
 
 [source,clojure]
 ----
@@ -59,18 +364,35 @@ curl -X POST http://localhost:3000/api/tenants/acme-corp/activate \
 
 (provisioning/with-tenant-schema db-ctx "tenant_acme_corp"
   (fn [tx]
-    ;; Sets: SET search_path TO tenant_acme_corp, public
+    ;; Executes: SET search_path TO tenant_acme_corp, public
     (jdbc/execute! tx ["SELECT * FROM orders"])))
 ----
 
-== Integrant configuration
+== Common pitfalls
 
-[source,clojure]
+* **Middleware order matters** — `wrap-tenant-membership` must run after both user auth and tenant resolution.
+  Wrong order → `:tenant-membership` is always `nil`.
+* **Re-inviting an existing member** — throws `{:type :conflict}` because `(tenant_id, user_id)` is unique.
+  Check for an existing membership first.
+* **Expired invites** — `load-external-invite-for-acceptance` throws `:validation-error` for expired tokens.
+  Surface this to the user as a 400, not a 500.
+* **H2 provisioning** — `provision-tenant!` silently skips on H2. Tests that check schema isolation
+  must run against PostgreSQL.
+* **`require-tenant-member` returns 403** — check that `wrap-tenant-membership` is in the middleware stack
+  and that the user has an `:active` membership (not `:invited` or `:suspended`).
+
+== Testing
+
+[source,bash]
 ----
-:boundary/tenant-service
-{:db         #ig/ref :boundary/db
- :cache      #ig/ref :boundary/cache   ; optional
- :job-queue  #ig/ref :boundary/job-queue}  ; optional
+# Full tenant test suite
+clojure -M:test:db/h2 :tenant
+
+# Focused suites
+clojure -M:test:db/h2 --focus boundary.tenant.core.membership-test
+clojure -M:test:db/h2 --focus boundary.tenant.shell.membership-service-test
+clojure -M:test:db/h2 --focus boundary.tenant.shell.invite-service-test
+clojure -M:test:db/h2 --focus boundary.tenant.integration-test
 ----
 
-See xref:libraries:tenant.adoc[tenant library] for the full reference.
+See xref:../../../libs/tenant/AGENTS.md[tenant AGENTS.md] for the full library reference.

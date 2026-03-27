@@ -320,6 +320,8 @@
  :admin/filter-range-separator     "tot"
  :admin/filter-enter-value         "Voer waarde in"
  :admin/cell-dblclick-hint         "Dubbelklik om te bewerken"
+ :admin/audit-trail-title          "Audittrail"
+ :admin/audit-trail-description    "Bekijk systeemactiviteit en auditlogboeken."
 
  ;; =============================================================================
  ;; Zoekmodule
@@ -419,4 +421,7 @@
  :workflow/card-state-machine-title     "Toestandsmachine"
  :workflow/card-audit-title             "Audittrail"
  :workflow/audit-count                  {:one "{count} overgang geregistreerd"
-                                         :many "{count} overgangen geregistreerd"}}
+                                         :many "{count} overgangen geregistreerd"}
+
+ ;; Branding — override in app-specific translations (e.g. :boundary/app-name "MijnApp")
+ :boundary/app-name "Boundary"}

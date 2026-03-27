@@ -2,9 +2,12 @@
   "User module CLI entrypoint wrapper.
 
   Encapsulates user-specific CLI startup so that the top-level CLI can
-  remain as module-agnostic as possible and delegate into this module."
-  (:require [boundary.config :as config]
-            [boundary.user.shell.cli :as user-cli]
+  remain as module-agnostic as possible and delegate into this module.
+
+  Note: boundary.config is loaded lazily via requiring-resolve so this
+  namespace compiles cleanly when boundary/src is not on the classpath
+  (e.g. when using zzp-guard's :dev-local alias during REPL development)."
+  (:require [boundary.user.shell.cli :as user-cli]
             [boundary.user.shell.persistence :as user-persistence]
             [boundary.user.shell.service :as user-service]
             [boundary.user.shell.auth :as user-auth]
@@ -24,11 +27,15 @@
     (try
       (log/info "Starting Boundary User CLI" {:args args})
 
-      ;; Load configuration
-      (let [cfg (config/load-config)
+      ;; Load configuration — boundary.config is loaded lazily so this lib
+      ;; compiles even when boundary/src is not on the classpath.
+      (let [load-config        (requiring-resolve 'boundary.config/load-config)
+            db-spec            (requiring-resolve 'boundary.config/db-spec)
+            user-val-config    (requiring-resolve 'boundary.config/user-validation-config)
+            cfg                (load-config)
             ;; Derive database configuration for the active adapter
-            db-conf (config/db-spec cfg)
-            db-ctx (db-factory/db-context db-conf)]
+            db-conf            (db-spec cfg)
+            db-ctx             (db-factory/db-context db-conf)]
 
         (try
           ;; Initialize database schema
@@ -47,12 +54,12 @@
                 _error-reporter (no-op-error-reporting/create-error-reporter nil)
 
                 ;; Validation and auth configuration
-                validation-cfg (config/user-validation-config cfg)
+                validation-cfg (user-val-config cfg)
                 auth-cfg {} ; no special auth config for CLI yet
-                
+
                 ;; Create MFA service (required by auth service)
                 mfa-svc (user-mfa/create-mfa-service user-repo {})
-                
+
                 ;; Create auth service with MFA support
                 auth-svc (user-auth/create-authentication-service
                           user-repo session-repo mfa-svc auth-cfg)

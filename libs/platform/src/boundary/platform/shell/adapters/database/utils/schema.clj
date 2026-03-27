@@ -182,9 +182,10 @@
      
    Returns:
      String column definition"
-  [ctx {:keys [name type optional? schema]}]
+  [ctx {:keys [name type optional? schema properties]}]
   (let [column-name (col-name name) ; Convert kebab-case to snake_case
-        column-type (malli-type->column-type ctx type)
+        column-type (or (:db-type properties)
+                        (malli-type->column-type ctx type))
         not-null (if optional? "" " NOT NULL")
         primary-key (if (= name "id") " PRIMARY KEY" "")
         ; Handle enum constraints

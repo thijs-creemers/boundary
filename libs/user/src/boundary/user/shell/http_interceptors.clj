@@ -25,7 +25,8 @@
                                     'user.http-interceptors/log-action]}}}"
   (:require [boundary.observability.logging.ports :as logging]
             [boundary.observability.metrics.ports :as metrics]
-            [boundary.tenant.core.membership :as membership-core]))
+            [boundary.tenant.core.membership :as membership-core]
+            [clojure.string :as str]))
 
 ;; =============================================================================
 ;; Helper Functions
@@ -535,3 +536,42 @@
                     :interceptors ['user.http-interceptors/require-authenticated
                                    'user.http-interceptors/require-tenant-admin]}}}"
   (require-tenant-role #{:admin}))
+
+(def require-web-tenant-admin
+  "Requires the current user to have the :admin role in the active tenant membership.
+
+   Like require-tenant-admin, but web-aware: when the request URI starts with /web
+   it redirects to /web/login (302) instead of returning a JSON 403. Use this on
+   HTML routes so the browser lands on the login page rather than a bare error body.
+
+   Usage:
+   {:path \"/web/tenants/:tenant-id/settings\"
+    :methods {:get {:handler settings-page
+                    :interceptors ['user.http-interceptors/require-authenticated
+                                   'user.http-interceptors/require-web-tenant-admin]}}}"
+  {:name  ::require-web-tenant-admin
+   :enter (fn [{:keys [request correlation-id system] :as ctx}]
+            (let [membership (:tenant-membership request)]
+              (if (and membership
+                       (membership-core/active-member? membership)
+                       (membership-core/has-role? membership #{:admin}))
+                ctx
+                (do
+                  (when-let [logger (:logger system)]
+                    (logging/warn logger "Insufficient tenant role"
+                                  {:uri            (:uri request)
+                                   :actual-role    (:role membership)
+                                   :correlation-id correlation-id}))
+                  (when-let [metrics (:metrics-emitter system)]
+                    (metrics/increment metrics "http.auth.failures"
+                                       {:reason "insufficient-tenant-role"}))
+                  (assoc ctx :response
+                         (if (str/starts-with? (get request :uri "") "/web")
+                           {:status  302
+                            :headers {"Location" (str "/web/login?return-to="
+                                                      (java.net.URLEncoder/encode
+                                                       (:uri request) "UTF-8"))}
+                            :body    ""}
+                           (create-error-response 403 "forbidden"
+                                                  "Insufficient tenant role"
+                                                  correlation-id)))))))})

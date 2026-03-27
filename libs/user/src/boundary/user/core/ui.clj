@@ -682,7 +682,9 @@
      [:t :user/link-signin]
      [:div.login-page.auth-page
       [:div.page-header.auth-header
-       [:h1 "Boundary"]
+       (when-let [logo-url (:logo-url opts)]
+         [:img.auth-logo {:src logo-url :alt "" :style "height:48px; width:auto; display:block; margin:0 auto 12px;"}])
+       [:h1 [:t :boundary/app-name]]
        [:p [:t :user/login-subtitle]]]
       (login-form data-with-return errors)]
      opts)))
@@ -758,7 +760,9 @@
      [:t :user/mfa-title]
      [:div.mfa-login-page.auth-page
       [:div.page-header.auth-header
-       [:h1 "Boundary"]
+       (when-let [logo-url (:logo-url opts)]
+         [:img.auth-logo {:src logo-url :alt "" :style "height:48px; width:auto; display:block; margin:0 auto 12px;"}])
+       [:h1 [:t :boundary/app-name]]
        [:p [:t :user/mfa-subtitle]]]
       (mfa-login-form data-with-return errors)]
      opts)))

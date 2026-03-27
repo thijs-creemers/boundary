@@ -278,3 +278,52 @@
           "Authz should pass")
       (is (= 201 (get-in after-audit [:response :status]))
           "Should preserve successful response"))))
+
+;; =============================================================================
+;; Tenant Membership Interceptor Tests (ADR-016)
+;; =============================================================================
+
+(deftest require-web-tenant-admin-test
+  (let [active-admin-membership {:status :active :role :admin}
+        active-member-membership {:status :active :role :member}]
+
+    (testing "allows active admin membership"
+      (let [ctx (create-test-context {:uri "/web/tenants/t1/settings"
+                                      :tenant-membership active-admin-membership})
+            result ((:enter http-int/require-web-tenant-admin) ctx)]
+        (is (nil? (:response result)))))
+
+    (testing "redirects to /web/login for web routes when no membership"
+      (let [ctx (create-test-context {:uri "/web/tenants/t1/settings"})
+            result ((:enter http-int/require-web-tenant-admin) ctx)]
+        (is (= 302 (get-in result [:response :status])))
+        (is (clojure.string/starts-with? (get-in result [:response :headers "Location"])
+                                         "/web/login?return-to="))))
+
+    (testing "redirects to /web/login for web routes with insufficient role"
+      (let [ctx (create-test-context {:uri "/web/tenants/t1/settings"
+                                      :tenant-membership active-member-membership})
+            result ((:enter http-int/require-web-tenant-admin) ctx)]
+        (is (= 302 (get-in result [:response :status])))
+        (is (clojure.string/starts-with? (get-in result [:response :headers "Location"])
+                                         "/web/login?return-to="))))
+
+    (testing "return-to URL is encoded in the redirect location"
+      (let [ctx (create-test-context {:uri "/web/tenants/t1/settings?tab=users"})
+            result ((:enter http-int/require-web-tenant-admin) ctx)]
+        (is (= 302 (get-in result [:response :status])))
+        (is (clojure.string/includes? (get-in result [:response :headers "Location"])
+                                      "%3F"))))
+
+    (testing "returns 403 JSON for non-web routes when no membership"
+      (let [ctx (create-test-context {:uri "/api/tenants/t1/settings"})
+            result ((:enter http-int/require-web-tenant-admin) ctx)]
+        (is (= 403 (get-in result [:response :status])))
+        (is (= "forbidden" (get-in result [:response :body :error])))))
+
+    (testing "returns 403 JSON for non-web routes with insufficient role"
+      (let [ctx (create-test-context {:uri "/api/tenants/t1/settings"
+                                      :tenant-membership active-member-membership})
+            result ((:enter http-int/require-web-tenant-admin) ctx)]
+        (is (= 403 (get-in result [:response :status])))
+        (is (= "forbidden" (get-in result [:response :body :error])))))))

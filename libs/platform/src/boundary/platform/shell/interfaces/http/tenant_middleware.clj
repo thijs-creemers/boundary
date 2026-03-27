@@ -345,11 +345,12 @@
                     :schema-name schema-name})
 
         (try
-          (db/with-transaction [tx db-context]
-            ;; Keep the same JDBC connection for the full request so the
-            ;; tenant search_path actually applies to all downstream queries.
-            (set-tenant-schema tx schema-name)
-            (handler request))
+          (db/with-transaction* db-context
+            (fn [tx]
+              ;; Keep the same JDBC connection for the full request so the
+              ;; tenant search_path actually applies to all downstream queries.
+              (set-tenant-schema tx schema-name)
+              (handler request)))
 
           (catch Exception e
             (log/error "Failed to execute request in tenant schema"

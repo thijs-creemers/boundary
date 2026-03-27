@@ -493,7 +493,37 @@ java.time.temporal.ChronoUnit/DAYS
 - Use IDE or REPL to verify before committing
 - Test changes via REPL immediately after editing
 
-### 10. Swagger/OpenAPI — Parameters Invisible Without Explicit Declaration
+### 10. Forward References — Define Before Use
+
+**Problem**: Clojure compiles a file top-to-bottom. A `defn` (or `defn-`) that calls another function defined *later* in the same file causes a compile-time error.
+
+**Symptom**:
+```
+Unable to resolve symbol: my-helper in this context
+  Syntax error compiling at (my_file.clj:42:5)
+```
+
+**Root Cause**: Private helpers placed *after* the public functions that call them.
+
+```clojure
+;; ❌ WRONG — system-component is called before it is defined
+(defn dev-resend-invite! [...]
+  (let [svc (system-component :boundary/my-service)] ...))  ; used here
+
+(defn- system-component [k]   ; defined here — too late!
+  (get integrant.repl.state/system k))
+
+;; ✅ CORRECT — helper defined first
+(defn- system-component [k]
+  (get integrant.repl.state/system k))
+
+(defn dev-resend-invite! [...]
+  (let [svc (system-component :boundary/my-service)] ...))
+```
+
+**Rule**: Private helpers must always appear *above* the first function that calls them. This applies in `src/`, `dev/`, and `test/` files alike.
+
+### 11. Swagger/OpenAPI — Parameters Invisible Without Explicit Declaration
 
 **Problem**: Routes with path or query parameters show no input fields in Swagger UI.
 
@@ -634,7 +664,7 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 | **cache** | [`libs/cache/AGENTS.md`](libs/cache/AGENTS.md) | Distributed caching protocols, TTL, atomic ops, tenant-scoped cache |
 | **jobs** | [`libs/jobs/AGENTS.md`](libs/jobs/AGENTS.md) | Background job processing, retry logic, worker pools, dead letter queue |
 | **email** | [`libs/email/AGENTS.md`](libs/email/AGENTS.md) | SMTP sending, async/queued modes, jobs integration |
-| **tenant** | [`libs/tenant/AGENTS.md`](libs/tenant/AGENTS.md) | Multi-tenancy, schema-per-tenant, provisioning, lifecycle states |
+| **tenant** | [`libs/tenant/AGENTS.md`](libs/tenant/AGENTS.md) | Multi-tenancy, schema-per-tenant, provisioning, lifecycle states, membership management (ADR-016), email invite flow |
 | **realtime** | [`libs/realtime/AGENTS.md`](libs/realtime/AGENTS.md) | WebSocket messaging, JWT auth, pub/sub, message routing |
 | **workflow** | [`libs/workflow/AGENTS.md`](libs/workflow/AGENTS.md) | State machine definitions, transitions, lifecycle hooks, auto-transitions |
 | **search** | [`libs/search/AGENTS.md`](libs/search/AGENTS.md) | Document indexing, FTS/LIKE strategy, filter support, migrations |
@@ -744,5 +774,5 @@ See `boundary-tools/AGENTS.md` for the full command reference.
 
 ---
 
-**Last Updated**: 2026-03-23
-**Version**: 5.0.0 (boundary-tools: portable developer tooling extracted as 21st Clojars artifact; ADR-015)
+**Last Updated**: 2026-03-27
+**Version**: 5.1.0 (tenant membership management: ADR-016 — membership lifecycle, email invite flow, tenant-aware interceptors)

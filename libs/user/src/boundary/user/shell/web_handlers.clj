@@ -305,7 +305,7 @@
 
 (defn login-page-handler
   "GET /web/login - render login page."
-  [_config]
+  [config]
   (fn [request]
     (let [return-to (get-in request [:query-params "return-to"])
           ;; Check if we have a remembered email from previous login
@@ -316,12 +316,13 @@
                          {})
           page-opts {:user (get request :user)
                      :flash (get request :flash)
-                     :return-to return-to}]
+                     :return-to return-to
+                     :logo-url (get-in config [:boundary/settings :logo-url])}]
       (html-response request (user-ui/login-page initial-data {} page-opts)))))
 
 (defn login-submit-handler
   "POST /web/login - validate credentials, authenticate, set session cookie."
-  [user-service _config]
+  [user-service config]
   (fn [request]
     (let [form-data (:form-params request)
           raw-return-to (or (get form-data "return-to")
@@ -333,14 +334,16 @@
                          :ip-address (:remote-addr request)
                          :user-agent (get-in request [:headers "user-agent"])}
           [valid? validation-errors validated-data]
-          (validate-request-data user-schema/LoginRequest prepared-data)]
+          (validate-request-data user-schema/LoginRequest prepared-data)
+          logo-url (get-in config [:boundary/settings :logo-url])]
       (if-not valid?
         ;; Re-render login page with validation errors, preserving return-to
         (html-response request
                        (user-ui/login-page prepared-data validation-errors
                                            {:user (get request :user)
                                             :flash (get request :flash)
-                                            :return-to raw-return-to})
+                                            :return-to raw-return-to
+                                            :logo-url logo-url})
                        400)
         (try
           ;; Use IUserService/authenticate-user with validated data
@@ -406,7 +409,8 @@
                                                        {}
                                                        {:user (get request :user)
                                                         :flash (get request :flash)
-                                                        :return-to return-to})
+                                                        :return-to return-to
+                                                        :logo-url logo-url})
                                200))
 
               ;; Authentication failed (e.g. wrong password or invalid MFA code)
@@ -427,13 +431,15 @@
                                                          {:mfa-code [error-message]}
                                                          {:user (get request :user)
                                                           :flash (get request :flash)
-                                                          :return-to return-to})
+                                                          :return-to return-to
+                                                          :logo-url logo-url})
                    ;; Otherwise show regular login page
                                  (user-ui/login-page prepared-data
                                                      {:password [error-message]}
                                                      {:user (get request :user)
                                                       :flash (get request :flash)
-                                                      :return-to return-to}))
+                                                      :return-to return-to
+                                                      :logo-url logo-url}))
                                401))))
           (catch Exception e
             (log/error e "Login error" {:email (:email prepared-data)})
@@ -1242,7 +1248,8 @@
             user-id (:id current-user)
             form-data (:form-params request)
             prepared-data {:date-format (keyword (get form-data "date-format"))
-                           :time-format (keyword (get form-data "time-format"))}]
+                           :time-format (keyword (get form-data "time-format"))
+                           :language    (get form-data "language")}]
         (try
           ;; Get existing user and update preferences
           (let [user (user-ports/get-user-by-id user-service user-id)

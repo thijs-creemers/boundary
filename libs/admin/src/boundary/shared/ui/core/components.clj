@@ -3,7 +3,8 @@
    
    These are reusable, generic components that can be used across all domain modules.
    No domain-specific logic should be placed here - only pure presentation functions."
-  (:require [hiccup2.core :as h]))
+  (:require [hiccup2.core :as h]
+            [hiccup.util :as hutil]))
 
 (defn- merge-class
   "Merge CSS classes into attrs map without dropping existing classes."
@@ -322,7 +323,9 @@
   [message & [opts]]
   (let [{:keys [class]} opts]
     [:div {:class (or class "alert alert-error")}
-     message]))
+     (if (string? message)
+       (hutil/escape-html message)
+       message)]))
 
 (defn info-message
   "Info message component.
