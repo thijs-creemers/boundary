@@ -35,6 +35,18 @@
   [status]
   (normalize-event-type status :mollie))
 
+(defn mollie-status->payment-status
+  "Map a Mollie payment status string to a PaymentStatusResult :status keyword.
+   Returns :pending for unrecognised statuses (e.g. \"open\", \"expired\")."
+  [status]
+  (case status
+    "paid"       :paid
+    "failed"     :failed
+    "canceled"   :cancelled
+    "cancelled"  :cancelled
+    "expired"    :failed
+    :pending))
+
 (defn stripe-event->event-type
   "Map a Stripe event type string to an internal event-type keyword."
   [event-type]

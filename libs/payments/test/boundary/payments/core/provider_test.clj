@@ -7,7 +7,7 @@
 ;; cents->euro
 ;; =============================================================================
 
-(deftest cents->euro-test
+(deftest ^:unit cents->euro-test
   (testing "converts whole euro amounts"
     (is (= "1.00"   (provider/cents->euro 100)))
     (is (= "10.00"  (provider/cents->euro 1000)))
@@ -28,7 +28,7 @@
 ;; normalize-event-type — Mollie
 ;; =============================================================================
 
-(deftest normalize-event-type-mollie-test
+(deftest ^:unit normalize-event-type-mollie-test
   (testing "maps Mollie paid status"
     (is (= :payment.paid (provider/normalize-event-type "paid" :mollie))))
 
@@ -53,7 +53,7 @@
 ;; normalize-event-type — Stripe
 ;; =============================================================================
 
-(deftest normalize-event-type-stripe-test
+(deftest ^:unit normalize-event-type-stripe-test
   (testing "maps payment_intent.succeeded"
     (is (= :payment.paid (provider/normalize-event-type "payment_intent.succeeded" :stripe))))
 
@@ -75,7 +75,7 @@
 ;; normalize-event-type — unknown provider
 ;; =============================================================================
 
-(deftest normalize-event-type-unknown-provider-test
+(deftest ^:unit normalize-event-type-unknown-provider-test
   (testing "returns nil for unknown provider"
     (is (nil? (provider/normalize-event-type "paid" :unknown-psp)))
     (is (nil? (provider/normalize-event-type "paid" nil)))))
@@ -84,7 +84,7 @@
 ;; mollie-status->event-type (convenience wrapper)
 ;; =============================================================================
 
-(deftest mollie-status->event-type-test
+(deftest ^:unit mollie-status->event-type-test
   (testing "delegates to normalize-event-type :mollie"
     (is (= :payment.paid      (provider/mollie-status->event-type "paid")))
     (is (= :payment.failed    (provider/mollie-status->event-type "failed")))
@@ -93,10 +93,35 @@
     (is (nil?                  (provider/mollie-status->event-type "open")))))
 
 ;; =============================================================================
+;; mollie-status->payment-status (status keyword mapping)
+;; =============================================================================
+
+(deftest ^:unit mollie-status->payment-status-test
+  (testing "maps paid to :paid (not :payment.paid)"
+    (is (= :paid (provider/mollie-status->payment-status "paid"))))
+
+  (testing "maps failed to :failed"
+    (is (= :failed (provider/mollie-status->payment-status "failed"))))
+
+  (testing "maps canceled to :cancelled"
+    (is (= :cancelled (provider/mollie-status->payment-status "canceled"))))
+
+  (testing "maps cancelled to :cancelled"
+    (is (= :cancelled (provider/mollie-status->payment-status "cancelled"))))
+
+  (testing "maps expired to :failed"
+    (is (= :failed (provider/mollie-status->payment-status "expired"))))
+
+  (testing "returns :pending for unrecognised statuses"
+    (is (= :pending (provider/mollie-status->payment-status "open")))
+    (is (= :pending (provider/mollie-status->payment-status "pending")))
+    (is (= :pending (provider/mollie-status->payment-status "created")))))
+
+;; =============================================================================
 ;; stripe-event->event-type (convenience wrapper)
 ;; =============================================================================
 
-(deftest stripe-event->event-type-test
+(deftest ^:unit stripe-event->event-type-test
   (testing "delegates to normalize-event-type :stripe"
     (is (= :payment.paid       (provider/stripe-event->event-type "payment_intent.succeeded")))
     (is (= :payment.failed     (provider/stripe-event->event-type "payment_intent.payment_failed")))

@@ -3,8 +3,8 @@
   (:require [boundary.payments.core.provider :as provider]
             [boundary.payments.ports :as ports]
             [cheshire.core :as json]
-            [clojure.tools.logging :as log]
-            [hato.client :as hato])
+            [clj-http.client :as http]
+            [clojure.tools.logging :as log])
   (:import [java.util UUID]))
 
 (def ^:private mollie-api-base "https://api.mollie.com/v2")
@@ -17,14 +17,11 @@
 
 (defn- fetch-payment [api-key payment-id]
   (let [url      (str mollie-api-base "/payments/" payment-id)
-        response (hato/get url {:headers        (mollie-headers api-key)
-                                :as             :string
-                                :throw-on-error? false})]
+        response (http/get url {:headers          (mollie-headers api-key)
+                                :as               :string
+                                :throw-exceptions false})]
     (when (= 200 (:status response))
       (json/parse-string (:body response) true))))
-
-(defn- mollie-status->event-type [status]
-  (provider/mollie-status->event-type status))
 
 (defrecord MolliePaymentProvider [api-key webhook-base-url]
   ports/IPaymentProvider
@@ -33,16 +30,16 @@
     (let [checkout-id  (str (UUID/randomUUID))
           webhook      (or webhook-url (str webhook-base-url "/api/v1/payments/webhook"))
           payload      {:amount      {:currency (or currency "EUR")
-                                      :value    (format "%.2f" (/ (double amount-cents) 100.0))}
+                                      :value    (provider/cents->euro amount-cents)}
                         :description description
                         :redirectUrl redirect-url
                         :webhookUrl  webhook
                         :metadata    (merge {:checkout-id checkout-id} metadata)}
-          response     (hato/post (str mollie-api-base "/payments")
-                                  {:headers         (mollie-headers api-key)
-                                   :body            (json/generate-string payload)
-                                   :as              :string
-                                   :throw-on-error? false})
+          response     (http/post (str mollie-api-base "/payments")
+                                  {:headers          (mollie-headers api-key)
+                                   :body             (json/generate-string payload)
+                                   :as               :string
+                                   :throw-exceptions false})
           body         (json/parse-string (:body response) true)]
       (log/infof "Mollie create-checkout: status=%d id=%s" (:status response) (:id body))
       (when-not (#{200 201} (:status response))
@@ -56,7 +53,7 @@
   (get-payment-status [_ provider-checkout-id]
     (let [payment (fetch-payment api-key provider-checkout-id)]
       (if payment
-        {:status              (or (mollie-status->event-type (:status payment)) :pending)
+        {:status              (provider/mollie-status->payment-status (:status payment))
          :provider-payment-id (:id payment)}
         {:status :pending :provider-payment-id nil})))
 
@@ -72,7 +69,7 @@
                        (or (:id raw-body) (str raw-body)))
           payment    (when payment-id (fetch-payment api-key payment-id))
           status     (:status payment)
-          event-type (mollie-status->event-type status)]
+          event-type (provider/mollie-status->event-type status)]
       (log/infof "Mollie webhook: payment-id=%s status=%s → event=%s"
                  payment-id status event-type)
       (when-not event-type

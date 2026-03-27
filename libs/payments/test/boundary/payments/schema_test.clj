@@ -8,7 +8,7 @@
 ;; CheckoutRequest
 ;; =============================================================================
 
-(deftest checkout-request-schema-test
+(deftest ^:unit checkout-request-schema-test
   (testing "accepts a valid checkout request"
     (is (m/validate schema/CheckoutRequest
                     {:amount-cents 4900
@@ -63,7 +63,7 @@
 ;; CheckoutResult
 ;; =============================================================================
 
-(deftest checkout-result-schema-test
+(deftest ^:unit checkout-result-schema-test
   (testing "accepts a valid checkout result"
     (is (m/validate schema/CheckoutResult
                     {:checkout-url         "https://psp.example.com/pay/abc"
@@ -81,7 +81,7 @@
 ;; PaymentStatusResult
 ;; =============================================================================
 
-(deftest payment-status-result-schema-test
+(deftest ^:unit payment-status-result-schema-test
   (testing "accepts all valid statuses"
     (doseq [status [:pending :paid :failed :cancelled]]
       (is (m/validate schema/PaymentStatusResult {:status status})
@@ -102,7 +102,7 @@
 ;; WebhookResult
 ;; =============================================================================
 
-(deftest webhook-result-schema-test
+(deftest ^:unit webhook-result-schema-test
   (testing "accepts all valid event types"
     (doseq [event-type [:payment.paid :payment.failed :payment.cancelled :payment.authorized]]
       (is (m/validate schema/WebhookResult

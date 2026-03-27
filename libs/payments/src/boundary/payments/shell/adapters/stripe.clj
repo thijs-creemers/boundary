@@ -3,10 +3,12 @@
   (:require [boundary.payments.core.provider :as provider]
             [boundary.payments.ports :as ports]
             [cheshire.core :as json]
+            [clj-http.client :as http]
             [clojure.string :as str]
-            [clojure.tools.logging :as log]
-            [hato.client :as hato])
+            [clojure.tools.logging :as log])
   (:import [java.nio.charset StandardCharsets]
+           [java.security MessageDigest]
+           [java.util UUID]
            [javax.crypto Mac]
            [javax.crypto.spec SecretKeySpec]))
 
@@ -36,6 +38,9 @@
 (defn- hex-encode [^bytes b]
   (apply str (map #(format "%02x" (bit-and % 0xff)) b)))
 
+(defn- constant-time-equal? [^String a ^String b]
+  (MessageDigest/isEqual (.getBytes a "UTF-8") (.getBytes b "UTF-8")))
+
 (defn- compute-stripe-signature [raw-body timestamp webhook-secret]
   (let [signed-payload (str timestamp "." raw-body)
         key-bytes      (.getBytes ^String webhook-secret StandardCharsets/UTF_8)
@@ -53,9 +58,13 @@
             [k v]))))
 
 (defn- stripe-checkout-params
-  "Build form-encoded params map for a Stripe Checkout Session."
-  [{:keys [amount-cents currency description redirect-url]}]
-  ;; Stripe Checkout Session uses nested form params for line_items
+  "Build form-encoded params map for a Stripe Checkout Session.
+   Includes a checkout_id in payment_intent_data metadata so that
+   payment_intent.* webhook events can be correlated back to the session."
+  [{:keys [amount-cents currency description redirect-url checkout-id]}]
+  ;; Stripe Checkout Session uses nested form params for line_items.
+  ;; payment_intent_data[metadata][checkout_id] propagates to the
+  ;; PaymentIntent object, which is :data.object in webhook events.
   {"line_items[0][price_data][currency]"                    (str/lower-case (or currency "eur"))
    "line_items[0][price_data][unit_amount]"                 (str amount-cents)
    "line_items[0][price_data][product_data][name]"          description
@@ -63,19 +72,21 @@
    "payment_method_types[0]"                                "card"
    "mode"                                                   "payment"
    "success_url"                                            redirect-url
-   "cancel_url"                                             redirect-url})
+   "cancel_url"                                             redirect-url
+   "payment_intent_data[metadata][checkout_id]"             checkout-id})
 
 (defrecord StripePaymentProvider [api-key webhook-secret]
   ports/IPaymentProvider
 
   (create-checkout-session [_ opts]
-    (let [params   (stripe-checkout-params opts)
-          response (hato/post (str stripe-api-base "/checkout/sessions")
-                              {:headers         (merge (stripe-headers api-key)
-                                                       {"Content-Type" "application/x-www-form-urlencoded"})
-                               :body            (form-encode params)
-                               :as              :string
-                               :throw-on-error? false})
+    (let [checkout-id (str (UUID/randomUUID))
+          params   (stripe-checkout-params (assoc opts :checkout-id checkout-id))
+          response (http/post (str stripe-api-base "/checkout/sessions")
+                              {:headers           (merge (stripe-headers api-key)
+                                                         {"Content-Type" "application/x-www-form-urlencoded"})
+                               :body              (form-encode params)
+                               :as                :string
+                               :throw-exceptions  false})
           body     (json/parse-string (:body response) true)]
       (log/infof "Stripe create-checkout: status=%d id=%s" (:status response) (:id body))
       (when-not (#{200 201} (:status response))
@@ -88,9 +99,9 @@
 
   (get-payment-status [_ provider-checkout-id]
     (let [url      (str stripe-api-base "/checkout/sessions/" provider-checkout-id)
-          response (hato/get url {:headers         (stripe-headers api-key)
-                                  :as              :string
-                                  :throw-on-error? false})
+          response (http/get url {:headers          (stripe-headers api-key)
+                                  :as               :string
+                                  :throw-exceptions false})
           body     (json/parse-string (:body response) true)]
       {:status              (case (:payment_status body)
                               "paid"                 :paid
@@ -102,10 +113,19 @@
     (let [sig-header (or (get headers "stripe-signature")
                          (get headers "Stripe-Signature"))
           parts      (parse-stripe-signature-header sig-header)
-          ts         (get parts "t")
+          ts-str     (get parts "t")
           v1         (get parts "v1")]
-      (if (and ts v1 webhook-secret)
-        (= (compute-stripe-signature raw-body ts webhook-secret) v1)
+      (if (and ts-str v1 webhook-secret)
+        (try
+          (let [ts        (Long/parseLong ts-str)
+                now-epoch (quot (System/currentTimeMillis) 1000)
+                age       (Math/abs (- now-epoch ts))]
+            (and (<= age 300)
+                 (constant-time-equal?
+                  (compute-stripe-signature raw-body ts-str webhook-secret) v1)))
+          (catch NumberFormatException _
+            (log/warnf "Stripe webhook: malformed timestamp in Stripe-Signature header: %s" ts-str)
+            false))
         false)))
 
   (process-webhook [_ raw-body _headers]

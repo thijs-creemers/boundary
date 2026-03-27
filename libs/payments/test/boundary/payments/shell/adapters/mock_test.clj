@@ -17,7 +17,7 @@
 ;; create-checkout-session
 ;; =============================================================================
 
-(deftest create-checkout-session-test
+(deftest ^:integration create-checkout-session-test
   (testing "returns checkout-url and provider-checkout-id"
     (let [result (ports/create-checkout-session provider base-request)]
       (is (string? (:checkout-url result)))
@@ -54,7 +54,7 @@
 ;; get-payment-status
 ;; =============================================================================
 
-(deftest get-payment-status-test
+(deftest ^:integration get-payment-status-test
   (testing "always returns :paid status"
     (let [result (ports/get-payment-status provider "mock-checkout-123")]
       (is (= :paid (:status result)))))
@@ -67,7 +67,7 @@
 ;; verify-webhook-signature
 ;; =============================================================================
 
-(deftest verify-webhook-signature-test
+(deftest ^:integration verify-webhook-signature-test
   (testing "always returns true regardless of body or headers"
     (is (true? (ports/verify-webhook-signature provider "" {})))
     (is (true? (ports/verify-webhook-signature provider "anything" {"Stripe-Signature" "wrong"})))
@@ -77,7 +77,7 @@
 ;; process-webhook
 ;; =============================================================================
 
-(deftest process-webhook-test
+(deftest ^:integration process-webhook-test
   (testing "returns :payment.paid event type"
     (let [result (ports/process-webhook provider "{}" {})]
       (is (= :payment.paid (:event-type result)))))

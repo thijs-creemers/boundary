@@ -32,7 +32,8 @@
 (defn- stripe-sig-header [body timestamp secret]
   (str "t=" timestamp ",v1=" (compute-signature body timestamp secret)))
 
-(def ^:private test-timestamp "1700000000")
+(def ^:private test-timestamp
+  (str (quot (System/currentTimeMillis) 1000)))
 
 (def ^:private paid-event
   {:type "payment_intent.succeeded"
@@ -43,7 +44,7 @@
 ;; verify-webhook-signature
 ;; =============================================================================
 
-(deftest verify-webhook-signature-test
+(deftest ^:integration verify-webhook-signature-test
   (let [body (json/generate-string paid-event)]
 
     (testing "returns true for a valid signature — lowercase header key"
@@ -70,13 +71,27 @@
     (testing "returns false when body is empty and signature does not match"
       (let [sig (stripe-sig-header body test-timestamp test-secret)]
         (is (false? (ports/verify-webhook-signature
-                     provider "" {"stripe-signature" sig})))))))
+                     provider "" {"stripe-signature" sig})))))
+
+    (testing "returns false when timestamp is older than 300 seconds"
+      (let [old-ts (str (- (quot (System/currentTimeMillis) 1000) 301))
+            sig    (stripe-sig-header body old-ts test-secret)]
+        (is (false? (ports/verify-webhook-signature
+                     provider body {"stripe-signature" sig})))))
+
+    (testing "returns false on malformed (non-numeric) timestamp — no NumberFormatException"
+      (is (false? (ports/verify-webhook-signature
+                   provider body {"stripe-signature" "t=not-a-number,v1=deadbeef"}))))
+
+    (testing "returns false on empty timestamp string"
+      (is (false? (ports/verify-webhook-signature
+                   provider body {"stripe-signature" "t=,v1=deadbeef"}))))))
 
 ;; =============================================================================
 ;; process-webhook — event type mapping
 ;; =============================================================================
 
-(deftest process-webhook-event-types-test
+(deftest ^:integration process-webhook-event-types-test
   (testing "payment_intent.succeeded → :payment.paid"
     (let [body (json/generate-string {:type "payment_intent.succeeded"
                                       :data {:object {:id "pi_1" :metadata {}}}})
@@ -116,7 +131,7 @@
 ;; process-webhook — field extraction
 ;; =============================================================================
 
-(deftest process-webhook-field-extraction-test
+(deftest ^:integration process-webhook-field-extraction-test
   (let [body   (json/generate-string paid-event)
         result (ports/process-webhook provider body {})]
 
@@ -133,3 +148,21 @@
       (let [result (ports/process-webhook provider paid-event {})]
         (is (= :payment.paid (:event-type result)))
         (is (= "pi_test_123" (:provider-payment-id result)))))))
+
+;; =============================================================================
+;; process-webhook — metadata round-trip
+;; =============================================================================
+
+(deftest ^:integration process-webhook-metadata-round-trip-test
+  (testing "checkout_id from PaymentIntent metadata is recovered as provider-checkout-id"
+    (let [event {:type "payment_intent.succeeded"
+                 :data {:object {:id       "pi_round_trip"
+                                 :metadata {:checkout_id "cs_original_session"}}}}
+          result (ports/process-webhook provider (json/generate-string event) {})]
+      (is (= "cs_original_session" (:provider-checkout-id result)))))
+
+  (testing "provider-checkout-id is nil when metadata has no checkout_id"
+    (let [event {:type "payment_intent.succeeded"
+                 :data {:object {:id "pi_no_meta" :metadata {}}}}
+          result (ports/process-webhook provider (json/generate-string event) {})]
+      (is (nil? (:provider-checkout-id result))))))

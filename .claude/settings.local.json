@@ -66,7 +66,8 @@
       "Bash(cp:*)",
       "Bash(xargs:*)",
       "Bash(rsync:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(gh pr:*)"
     ]
   },
   "enabledMcpjsonServers": [
