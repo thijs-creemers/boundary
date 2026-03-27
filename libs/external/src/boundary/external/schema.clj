@@ -75,47 +75,6 @@
    [:since {:optional true} inst?]])
 
 ;; =============================================================================
-;; Stripe Schemas
-;; =============================================================================
-
-(def StripeConfig
-  "Stripe API configuration schema."
-  [:map
-   [:api-key [:string {:min 1}]]
-   [:webhook-secret {:optional true} [:string {:min 1}]]
-   [:api-version {:optional true} [:string {:min 1}]]
-   [:base-url {:optional true} [:string {:min 1}]]])
-
-(def CreatePaymentIntentInput
-  "Input for creating a Stripe payment intent."
-  [:map
-   [:amount [:int {:min 1}]]
-   [:currency [:string {:min 3 :max 3}]]
-   [:description {:optional true} :string]
-   [:metadata {:optional true} [:map-of :keyword :any]]
-   [:customer-id {:optional true} :string]])
-
-(def PaymentIntent
-  "Stripe payment intent schema."
-  [:map
-   [:id :string]
-   [:status :string]
-   [:amount :int]
-   [:currency :string]
-   [:client-secret {:optional true} :string]
-   [:created-at inst?]
-   [:metadata {:optional true} [:map-of :string :any]]])
-
-(def StripeWebhookEvent
-  "Stripe webhook event schema."
-  [:map
-   [:id :string]
-   [:type :string]
-   [:api-version {:optional true} :string]
-   [:created-at inst?]
-   [:data :map]])
-
-;; =============================================================================
 ;; Twilio Schemas
 ;; =============================================================================
 
@@ -158,11 +117,6 @@
   "Validate IMAP configuration against schema."
   [config]
   (m/validate ImapConfig config))
-
-(defn valid-stripe-config?
-  "Validate Stripe configuration against schema."
-  [config]
-  (m/validate StripeConfig config))
 
 (defn valid-twilio-config?
   "Validate Twilio configuration against schema."

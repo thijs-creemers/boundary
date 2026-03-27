@@ -1,12 +1,10 @@
 (ns boundary.external.ports
   "Protocol definitions for external service adapters.
 
-   Defines four integration protocols:
-   - ISmtpProvider      — outbound email via SMTP
-   - IImapMailbox       — inbound email via IMAP
-   - IStripePayments    — Stripe payment intent operations
-   - IStripeWebhooks    — Stripe webhook signature verification
-   - ITwilioMessaging   — Twilio SMS and WhatsApp messaging")
+   Defines three integration protocols:
+   - ISmtpProvider    — outbound email via SMTP
+   - IImapMailbox     — inbound email via IMAP
+   - ITwilioMessaging — Twilio SMS and WhatsApp messaging")
 
 ;; =============================================================================
 ;; SMTP Protocol
@@ -79,69 +77,6 @@
 
   (close! [this]
     "Close IMAP connection. Returns true."))
-
-;; =============================================================================
-;; Stripe Protocols
-;; =============================================================================
-
-(defprotocol IStripePayments
-  "Protocol for Stripe payment intent operations."
-
-  (create-payment-intent! [this input]
-    "Create a Stripe payment intent.
-
-    Args:
-      input - CreatePaymentIntentInput map with :amount :currency etc.
-
-    Returns:
-      Map with:
-        :success?      - boolean
-        :data          - PaymentIntent map (if successful)
-        :error         - map {:message :type :code} (if failed)")
-
-  (retrieve-payment-intent! [this id]
-    "Retrieve a payment intent by ID.
-
-    Returns same shape as create-payment-intent!")
-
-  (confirm-payment-intent! [this id]
-    "Confirm a payment intent by ID.
-
-    Returns same shape as create-payment-intent!")
-
-  (cancel-payment-intent! [this id]
-    "Cancel a payment intent by ID.
-
-    Returns same shape as create-payment-intent!")
-
-  (list-payment-intents! [this params]
-    "List payment intents with optional filters.
-
-    Args:
-      params - map with optional :limit :starting-after :customer
-
-    Returns:
-      Map with:
-        :success?   - boolean
-        :data       - vector of PaymentIntent maps
-        :has-more?  - boolean
-        :error      - map {:message :type} (if failed)"))
-
-(defprotocol IStripeWebhooks
-  "Protocol for Stripe webhook event verification."
-
-  (verify-webhook! [this payload signature]
-    "Verify a Stripe webhook signature and parse the event.
-
-    Args:
-      payload   - raw request body string
-      signature - value of Stripe-Signature header
-
-    Returns:
-      Map with:
-        :valid?  - boolean
-        :event   - StripeWebhookEvent map (if valid)
-        :error   - string describing failure (if invalid)"))
 
 ;; =============================================================================
 ;; Twilio Protocol

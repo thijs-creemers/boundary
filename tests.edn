@@ -13,6 +13,7 @@
                         "libs/email/src"
                         "libs/tenant/src"
                         "libs/realtime/src"
+                        "libs/payments/src"
                         "libs/external/src"
                         "libs/workflow/src"
                         "libs/search/src"
@@ -37,6 +38,7 @@
                         "libs/email/test"
                         "libs/tenant/test"
                         "libs/realtime/test"
+                        "libs/payments/test"
                         "libs/external/test"
                         "libs/workflow/test"
                         "libs/search/test"
@@ -98,6 +100,10 @@
           {:id :realtime
            :test-paths ["libs/realtime/test"]
            :ns-patterns ["boundary.realtime.*-test"]}
+
+          {:id :payments
+           :test-paths ["libs/payments/test"]
+           :ns-patterns ["boundary.payments.*-test"]}
 
           {:id :external
            :test-paths ["libs/external/test"]

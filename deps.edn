@@ -12,6 +12,7 @@
            "libs/email/src" "libs/email/test"               ;; Phase 11: Email
            "libs/tenant/src" "libs/tenant/test"             ;; Phase 7: Tenant
            "libs/realtime/src" "libs/realtime/test"         ;; Phase 12: Realtime
+           "libs/payments/src" "libs/payments/test"           ;; Payments: PSP abstraction
            "libs/external/src" "libs/external/test"         ;; Phase 13: External
            "libs/workflow/src" "libs/workflow/test"           ;; Phase 14: Workflow
            "libs/search/src" "libs/search/test"              ;; Phase 15: Search
@@ -85,6 +86,8 @@
            ;; Email - javax.mail for SMTP
            com.sun.mail/javax.mail           {:mvn/version "1.6.2"}
 
+           ;; HTTP clients
+           hato/hato         {:mvn/version "1.0.0"}
            ;; External service adapters - HTTP client for Stripe/Twilio REST APIs
            clj-http/clj-http {:mvn/version "3.13.1"}
 
@@ -191,6 +194,7 @@
                                      "--src-ns-path" "libs/realtime/src"
                                      "--src-ns-path" "libs/workflow/src"
                                      "--src-ns-path" "libs/search/src"
+                                     "--src-ns-path" "libs/payments/src"
                                      "--src-ns-path" "libs/external/src"
                                      "--src-ns-path" "libs/reports/src"
                                      "--src-ns-path" "libs/calendar/src"
@@ -213,6 +217,7 @@
                                      "--test-ns-path" "libs/realtime/test"
                                      "--test-ns-path" "libs/workflow/test"
                                      "--test-ns-path" "libs/search/test"
+                                     "--test-ns-path" "libs/payments/test"
                                      "--test-ns-path" "libs/external/test"
                                      "--test-ns-path" "libs/reports/test"
                                      "--test-ns-path" "libs/calendar/test"
@@ -237,6 +242,7 @@
                                      "libs/realtime/src" "libs/realtime/test"
                                      "libs/workflow/src" "libs/workflow/test"
                                      "libs/search/src" "libs/search/test"
+                                     "libs/payments/src" "libs/payments/test"
                                      "libs/external/src" "libs/external/test"
                                      "libs/reports/src" "libs/reports/test"
                                      "libs/calendar/src" "libs/calendar/test"

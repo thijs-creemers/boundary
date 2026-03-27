@@ -1,0 +1,203 @@
+= Payments
+:description: Integrating PSP checkout flows (Mollie, Stripe, Mock) with the payments library.
+
+The `payments` library provides a PSP-agnostic checkout abstraction.
+Swap between Mollie, Stripe, and a development mock by changing a single config value —
+no application code changes required.
+
+NOTE: This library handles the **checkout-session flow** (create → redirect → webhook → status).
+For communication channels (email, SMS), see the `external` library.
+
+== Supported providers
+
+[cols="1,3"]
+|===
+| `:mock`   | Auto-approves all payments. No network calls. Use in development and tests.
+| `:mollie` | Mollie REST API. Webhook via form-POST. No HMAC signing.
+| `:stripe` | Stripe Checkout Sessions. Webhook verified with HMAC-SHA256.
+|===
+
+== Step 1 — Configure Integrant
+
+Add one key to your `config.edn`:
+
+[source,clojure]
+----
+;; resources/conf/dev/config.edn — development
+:boundary/payment-provider
+{:provider :mock}
+
+;; resources/conf/prod/config.edn — Mollie
+:boundary/payment-provider
+{:provider          :mollie
+ :api-key           #env MOLLIE_API_KEY
+ :webhook-base-url  #env APP_BASE_URL}   ; e.g. "https://app.example.com"
+
+;; resources/conf/prod/config.edn — Stripe
+:boundary/payment-provider
+{:provider         :stripe
+ :api-key          #env STRIPE_SECRET_KEY
+ :webhook-secret   #env STRIPE_WEBHOOK_SECRET}
+----
+
+Inject it wherever payment operations are needed:
+
+[source,clojure]
+----
+:boundary/order-service
+{:payment-provider #ig/ref :boundary/payment-provider
+ ...}
+----
+
+== Step 2 — Create a checkout session
+
+[source,clojure]
+----
+(require '[boundary.payments.ports :as psp])
+
+(defn initiate-payment! [payment-provider order]
+  (let [{:keys [checkout-url provider-checkout-id]}
+        (psp/create-checkout-session payment-provider
+          {:amount-cents  (:total-cents order)
+           :currency      "EUR"
+           :description   (str "Order #" (:id order))
+           :redirect-url  (str base-url "/orders/" (:id order) "/confirmation")
+           :webhook-url   (str base-url "/api/v1/payments/webhook")
+           :metadata      {:order-id (str (:id order))}})]
+    ;; Store provider-checkout-id on the order so you can look it up later
+    (save-checkout-id! order provider-checkout-id)
+    ;; Redirect the user to the PSP
+    checkout-url))
+----
+
+=== Amount rules
+
+* Always use **integer cents** — `11900` for €119,00. Never pass floats.
+* Currency as **ISO 4217 string** — `"EUR"`, `"USD"`.
+
+== Step 3 — Add a webhook endpoint
+
+[source,clojure]
+----
+(require '[boundary.payments.ports :as psp])
+
+(defn payment-webhook-handler [request payment-provider]
+  ;; IMPORTANT: read raw body BEFORE any body-parsing middleware
+  (let [raw-body (slurp (:body request))
+        headers  (:headers request)]
+    (if (psp/verify-webhook-signature payment-provider raw-body headers)
+      (let [{:keys [event-type provider-checkout-id]}
+            (psp/process-webhook payment-provider raw-body headers)]
+        (case event-type
+          :payment.paid      (activate-order! provider-checkout-id)
+          :payment.failed    (mark-order-failed! provider-checkout-id)
+          :payment.cancelled (cancel-order! provider-checkout-id)
+          nil) ; ignore unrecognized events
+        {:status 200 :body ""})
+      {:status 400 :body "Invalid signature"})))
+----
+
+Route definition:
+
+[source,clojure]
+----
+{:path    "/payments/webhook"
+ :methods {:post {:handler   payment-webhook-handler
+                  :summary   "PSP webhook receiver"}}}
+----
+
+WARNING: The webhook route must receive the **raw body string** before body-parsing middleware runs.
+Stripe computes the HMAC over the raw request body. Parsing it first invalidates the signature.
+
+=== Normalized event types
+
+[cols="1,3"]
+|===
+| `:payment.paid`       | Payment successfully completed
+| `:payment.authorized` | Authorized but not yet captured
+| `:payment.failed`     | Payment attempt failed
+| `:payment.cancelled`  | Cancelled by user or PSP
+|===
+
+== Step 4 — Check payment status
+
+Use `get-payment-status` to poll a payment (e.g. on the confirmation page):
+
+[source,clojure]
+----
+(let [{:keys [status provider-payment-id]}
+      (psp/get-payment-status payment-provider provider-checkout-id)]
+  (case status
+    :paid      (render-success-page order)
+    :pending   (render-pending-page order)
+    :failed    (render-failure-page order)
+    :cancelled (render-cancelled-page order)))
+----
+
+== Provider notes
+
+=== Mock
+
+The mock provider is ideal for development and automated tests:
+
+[source,bash]
+----
+# Mock checkout URL lands on your own handler — add it to your dev routes
+GET /web/payment/mock-return?checkout-id=<uuid>
+----
+
+[source,clojure]
+----
+;; In tests
+(require '[boundary.payments.shell.adapters.mock :as mock])
+(def test-provider (mock/->MockPaymentProvider))
+----
+
+=== Mollie
+
+* Mollie does NOT sign webhooks with HMAC — `verify-webhook-signature` always returns `true`.
+* Verify by calling `get-payment-status` with the payment ID received in the webhook body.
+* `:webhook-base-url` is your application's public base URL; the adapter appends `/api/v1/payments/webhook`.
+
+=== Stripe
+
+* Stripe signs webhooks with HMAC-SHA256 — always call `verify-webhook-signature` first.
+* Set `STRIPE_WEBHOOK_SECRET` from the Stripe dashboard (Webhooks → signing secret).
+* In development, use the Stripe CLI to forward events to `localhost`:
+
+[source,bash]
+----
+stripe listen --forward-to localhost:3000/api/v1/payments/webhook
+----
+
+The CLI prints the webhook signing secret — use it as `STRIPE_WEBHOOK_SECRET` in dev.
+
+== Testing
+
+[source,bash]
+----
+# All payments tests
+clojure -M:test:db/h2 :payments
+
+# Only pure function tests
+clojure -M:test:db/h2 --focus-meta :unit
+----
+
+Always use the mock provider in tests:
+
+[source,clojure]
+----
+(require '[boundary.payments.shell.adapters.mock :as mock])
+
+(deftest checkout-test
+  (let [provider (mock/->MockPaymentProvider)
+        result   (psp/create-checkout-session provider
+                   {:amount-cents 4900
+                    :currency     "EUR"
+                    :description  "Test order"
+                    :redirect-url "https://example.com/done"})]
+    (is (string? (:checkout-url result)))
+    (is (string? (:provider-checkout-id result)))))
+----
+
+See xref:../../../libs/payments/AGENTS.md[payments AGENTS.md] for the full library reference.

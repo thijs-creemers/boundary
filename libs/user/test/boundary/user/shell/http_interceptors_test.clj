@@ -1,6 +1,7 @@
 (ns boundary.user.shell.http-interceptors-test
   "Tests for HTTP-level user authentication/authorization interceptors."
-  (:require [clojure.test :refer [deftest testing is]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest testing is]]
             [boundary.user.shell.http-interceptors :as http-int]))
 
 ;; =============================================================================
