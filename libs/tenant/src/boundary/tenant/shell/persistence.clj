@@ -4,6 +4,7 @@
             [boundary.platform.shell.adapters.database.utils.schema :as db-schema]
             [boundary.platform.shell.persistence-interceptors :as persistence-interceptors]
             [boundary.tenant.ports :as ports]
+            [boundary.tenant.shell.provisioning :as provisioning]
             [boundary.tenant.schema :as tenant-schema]
             [cheshire.core]
             [clojure.set]
@@ -17,7 +18,7 @@
 (defn initialize-tenant-schema!
   "Initialize database schema for tenant entities using Malli schema definitions.
 
-   Creates the tenants table from the Tenant Malli schema.
+   Creates the tenants and tenant_memberships tables from the Malli schemas.
 
    Args:
      ctx: Database context
@@ -27,7 +28,9 @@
   [ctx]
   (log/info "Initializing tenant schema from Malli definitions")
   (db-schema/initialize-tables-from-schemas! ctx
-                                             {"tenants" tenant-schema/Tenant}))
+                                             {"tenants" tenant-schema/Tenant
+                                              "tenant_memberships" tenant-schema/TenantMembership
+                                              "tenant_member_invites" tenant-schema/TenantInvite}))
 
 ;; =============================================================================
 ;; Entity Transformations
@@ -39,9 +42,6 @@
     (-> tenant-entity
         (update :id type-conversion/uuid->string)
         (update :status type-conversion/keyword->string)
-        (update :created-at type-conversion/instant->string)
-        (update :updated-at type-conversion/instant->string)
-        (update :deleted-at type-conversion/instant->string)
         (update :settings #(when % (cheshire.core/generate-string %)))
         (clojure.set/rename-keys {:schema-name :schema_name
                                   :created-at :created_at
@@ -178,7 +178,7 @@
      {:schema-name schema-name}
      (fn [{:keys [params]}]
        (let [schema-name (:schema-name params)]
-         (db/execute-ddl! ctx (str "CREATE SCHEMA IF NOT EXISTS " schema-name))
+         (provisioning/provision-tenant! ctx {:schema-name schema-name})
          nil))
      ctx))
 

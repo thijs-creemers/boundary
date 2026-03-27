@@ -682,7 +682,9 @@
      [:t :user/link-signin]
      [:div.login-page.auth-page
       [:div.page-header.auth-header
-       [:h1 "Boundary"]
+       (when-let [logo-url (:logo-url opts)]
+         [:img.auth-logo {:src logo-url :alt "" :style "height:48px; width:auto; display:block; margin:0 auto 12px;"}])
+       [:h1 [:t :boundary/app-name]]
        [:p [:t :user/login-subtitle]]]
       (login-form data-with-return errors)]
      opts)))
@@ -758,7 +760,9 @@
      [:t :user/mfa-title]
      [:div.mfa-login-page.auth-page
       [:div.page-header.auth-header
-       [:h1 "Boundary"]
+       (when-let [logo-url (:logo-url opts)]
+         [:img.auth-logo {:src logo-url :alt "" :style "height:48px; width:auto; display:block; margin:0 auto 12px;"}])
+       [:h1 [:t :boundary/app-name]]
        [:p [:t :user/mfa-subtitle]]]
       (mfa-login-form data-with-return errors)]
      opts)))
@@ -771,7 +775,7 @@
   "Form for self-service account creation.
 
    Args:
-     data   - map with optional :name / :email
+     data   - map with optional :name / :email / :return-to
      errors - map of field keyword -> vector of error messages
      password-violations - optional password violations from policy check
      policy - optional password policy configuration"
@@ -784,6 +788,8 @@
      [:form {:method "post"
              :action "/web/register"
              :class  "form-card ui-form-shell"}
+      (when (:return-to data)
+        [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
       (ui/form-field :name [:t :common/label-name]
                      (ui/text-input :name (:name data) {:required true})
                      (:name errors))
@@ -814,17 +820,20 @@
      errors - validation errors (may be nil)
      opts   - page options (user context, flash messages, etc.)"
   [& [data errors opts]]
-  (page-layout
-   [:t :user/page-create-account-title]
-   [:div.register-page.auth-page
-    [:div.page-header.auth-header
-     [:h1 [:t :user/button-create-account]]
-     [:div.page-actions
-      [:a.button {:href "/web/login"}
-       (icons/icon :arrow-left {:size 16})
-       [:span [:t :user/button-back-to-login]]]]]
-    (register-form data errors)]
-   opts))
+  (let [data-with-return (if (:return-to opts)
+                           (assoc data :return-to (:return-to opts))
+                           data)]
+    (page-layout
+     [:t :user/page-create-account-title]
+     [:div.register-page.auth-page
+      [:div.page-header.auth-header
+       [:h1 [:t :user/button-create-account]]
+       [:div.page-actions
+        [:a.button {:href "/web/login"}
+         (icons/icon :arrow-left {:size 16})
+         [:span [:t :user/button-back-to-login]]]]]
+      (register-form data-with-return errors)]
+     opts)))
 
 ;; =============================================================================
 ;; Session Management UI

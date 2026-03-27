@@ -16,18 +16,24 @@
 ;; Redis availability check
 ;; =============================================================================
 
+(defonce ^:private redis-availability (atom nil))
+
 (defn redis-available?
   "Check if Redis is reachable on localhost:6379."
   []
-  (try
-    (let [pool (redis-adapter/create-redis-pool {:host "localhost" :port 6379 :timeout 1000})
-          ^redis.clients.jedis.Jedis jedis (.getResource pool)
-          pong (.ping jedis)]
-      (.close jedis)
-      (redis-adapter/close-redis-pool! pool)
-      (= "PONG" pong))
-    (catch Exception _
-      false)))
+  (if-let [cached @redis-availability]
+    cached
+    (let [result (try
+                   (let [pool (redis-adapter/create-redis-pool {:host "localhost" :port 6379 :timeout 1000})
+                         ^redis.clients.jedis.Jedis jedis (.getResource pool)
+                         pong (.ping jedis)]
+                     (.close jedis)
+                     (redis-adapter/close-redis-pool! pool)
+                     (= "PONG" pong))
+                   (catch Exception _
+                     false))]
+      (reset! redis-availability result)
+      result)))
 
 ;; =============================================================================
 ;; Test fixtures

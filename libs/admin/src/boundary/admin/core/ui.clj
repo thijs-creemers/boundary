@@ -30,50 +30,55 @@
      entities: Vector of entity name keywords available to user
      entity-configs: Map of entity-name -> entity-config
      current-entity: Currently active entity name (optional)
+     opts: Optional map; supports :logo-url for a custom brand image
 
    Returns:
      Hiccup sidebar structure with entity list"
-  [entities entity-configs current-entity]
-  ;; Alpine.js sidebar - hover expand/collapse via $store.sidebar
-  [:aside.admin-sidebar (alpine/sidebar-attrs)
-   [:div.admin-sidebar-header
-    (icons/brand-logo {:size 140 :class "sidebar-brand-logo"})
-    [:div.sidebar-controls
-     [:button.sidebar-toggle {:type "button"
-                              :aria-label [:t :admin/sidebar-toggle-button]
-                              :title "Toggle sidebar (Ctrl+B)"
-                              (keyword "@click") "$store.sidebar.toggle()"}
-      (icons/icon :panel-left {:size 20})]
-     [:button.sidebar-pin {:type "button"
-                           :aria-label [:t :admin/sidebar-pin-button]
-                           :title "Pin sidebar open"
-                           (keyword "@click") "$store.sidebar.togglePin()"
-                           :x-bind:aria-pressed "$store.sidebar.pinned"}
-      (icons/icon :pin {:size 20})]]]
-   [:nav.admin-sidebar-nav
-    [:h3 [:t :admin/sidebar-entities-title]]
-    [:ul.entity-list
-     (for [entity entities
-           :let  [entity-config (get entity-configs entity)]
-           :when (not (:sidebar-hidden entity-config))]
-       (let [label      (:label entity-config (str/capitalize (name entity)))
-             icon       (:icon entity-config :database)
-             is-active? (= entity current-entity)]
-         [:li {:class (when is-active? "active")}
-          [:a (merge {:href (str "/web/admin/" (name entity))
-                      :data-label label}
-                     (alpine/sidebar-nav-link-attrs))
-           (icons/icon icon {:size 20})
-           [:span.nav-text label]]]))]]
-   [:div.admin-sidebar-footer
-    [:a (merge {:href "/web/dashboard"}
-               (alpine/sidebar-nav-link-attrs))
-     (icons/icon :home {:size 20})
-     [:span.nav-text [:t :admin/sidebar-dashboard]]]
-    [:a (merge {:href "/web"}
-               (alpine/sidebar-nav-link-attrs))
-     (icons/icon :external-link {:size 20})
-     [:span.nav-text [:t :admin/sidebar-main-site]]]]])
+  ([entities entity-configs current-entity]
+   (admin-sidebar entities entity-configs current-entity {}))
+  ([entities entity-configs current-entity opts]
+   ;; Alpine.js sidebar - hover expand/collapse via $store.sidebar
+   [:aside.admin-sidebar (alpine/sidebar-attrs)
+    [:div.admin-sidebar-header
+     (if-let [logo-url (:logo-url opts)]
+       [:img.sidebar-brand-logo {:src logo-url :alt "" :style "height:40px; width:auto; display:block;"}]
+       (icons/brand-logo {:size 140 :class "sidebar-brand-logo"}))
+     [:div.sidebar-controls
+      [:button.sidebar-toggle {:type "button"
+                               :aria-label [:t :admin/sidebar-toggle-button]
+                               :title "Toggle sidebar (Ctrl+B)"
+                               (keyword "@click") "$store.sidebar.toggle()"}
+       (icons/icon :panel-left {:size 20})]
+      [:button.sidebar-pin {:type "button"
+                            :aria-label [:t :admin/sidebar-pin-button]
+                            :title "Pin sidebar open"
+                            (keyword "@click") "$store.sidebar.togglePin()"
+                            :x-bind:aria-pressed "$store.sidebar.pinned"}
+       (icons/icon :pin {:size 20})]]]
+    [:nav.admin-sidebar-nav
+     [:h3 [:t :admin/sidebar-entities-title]]
+     [:ul.entity-list
+      (for [entity entities
+            :let  [entity-config (get entity-configs entity)]
+            :when (not (:sidebar-hidden entity-config))]
+        (let [label      (:label entity-config (str/capitalize (name entity)))
+              icon       (:icon entity-config :database)
+              is-active? (= entity current-entity)]
+          [:li {:class (when is-active? "active")}
+           [:a (merge {:href (str "/web/admin/" (name entity))
+                       :data-label label}
+                      (alpine/sidebar-nav-link-attrs))
+            (icons/icon icon {:size 20})
+            [:span.nav-text label]]]))]]
+    [:div.admin-sidebar-footer
+     [:a (merge {:href "/web/dashboard"}
+                (alpine/sidebar-nav-link-attrs))
+      (icons/icon :home {:size 20})
+      [:span.nav-text [:t :admin/sidebar-dashboard]]]
+     [:a (merge {:href "/web"}
+                (alpine/sidebar-nav-link-attrs))
+      (icons/icon :external-link {:size 20})
+      [:span.nav-text [:t :admin/sidebar-main-site]]]]]))
 
 (defn admin-shell
   "New admin shell layout with collapsible sidebar (Phase 2).
@@ -93,7 +98,7 @@
      ;; Initialize Alpine store for sidebar state management
      (alpine/sidebar-store-init)
      [:div.admin-shell (alpine/sidebar-shell-attrs)
-      (admin-sidebar entities entity-configs current-entity)
+      (admin-sidebar entities entity-configs current-entity opts)
       [:div.admin-overlay (alpine/sidebar-overlay-attrs)]
       [:div.admin-main
        [:header.admin-topbar
@@ -169,7 +174,14 @@
            [:span.entity-card-count [:t :admin/entity-card-count {:count count}]]]
           [:div.entity-card-title label]
           (when description
-            [:div.entity-card-description description])]]))]])
+            [:div.entity-card-description description])]]))
+    [:div.entity-card
+     [:a {:href "/web/audit" :class "entity-card-link"}
+      [:div.entity-card-head
+       [:div.entity-card-icon (icons/icon :file-text {:size 18})]
+       [:span]]
+      [:div.entity-card-title [:t :admin/audit-trail-title]]
+      [:div.entity-card-description [:t :admin/audit-trail-description]]]]]])
 
 ;; =============================================================================
 ;; Entity List Components

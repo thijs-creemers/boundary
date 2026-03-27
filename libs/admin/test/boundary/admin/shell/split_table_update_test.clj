@@ -19,6 +19,7 @@
             [boundary.platform.shell.adapters.database.common.execution :as db]
             [boundary.observability.logging.shell.adapters.no-op :as logging-no-op]
             [boundary.observability.errors.shell.adapters.no-op :as error-reporting-no-op]
+            [boundary.test.logging :refer [with-silent-logging]]
             [clojure.test :refer [deftest is testing use-fixtures]])
   (:import [java.util UUID]
            [java.time Instant]))
@@ -31,7 +32,7 @@
 
 (def test-db-config
   {:adapter :h2
-   :database-path "mem:admin_split_table_test;DB_CLOSE_DELAY=-1"
+   :database-path nil
    :pool {:minimum-idle 1
           :maximum-pool-size 3}})
 
@@ -116,7 +117,11 @@
   (db/execute-update! db-ctx {:raw "DROP TABLE IF EXISTS plain_items"}))
 
 (defn setup-test-system! []
-  (let [db-ctx          (db-factory/db-context test-db-config)
+  (let [db-config       (assoc test-db-config
+                               :database-path
+                               (str "mem:admin_split_table_test_" (UUID/randomUUID)
+                                    ";DB_CLOSE_DELAY=-1"))
+        db-ctx          (db-factory/db-context db-config)
         logger          (logging-no-op/create-logging-component {})
         error-reporter  (error-reporting-no-op/create-error-reporting-component {})
         schema-provider (schema-repo/create-schema-repository db-ctx admin-config)
@@ -198,19 +203,20 @@
       (is (= "Unchanged" (:name (fetch-profile-row id)))))))
 
 (deftest transaction-rolls-back-primary-on-secondary-failure
-  (testing "When secondary UPDATE fails, primary UPDATE is rolled back"
-    ;; Arrange: two users; B's email will be the duplicate target
-    (let [id-a (insert-split-user! "user-a@example.com" "User A")
-          _    (insert-split-user! "user-b@example.com" "User B")]
-      ;; Act: try to set A's email to B's (UNIQUE violation) while also changing A's name.
-      ;; The secondary UPDATE (test_auth.email) should fail, rolling back the profile UPDATE.
-      (is (thrown? Exception
-                   (ports/update-entity *admin-service* :test-profiles id-a
-                                        {:email "user-b@example.com" :name "Collided"})))
-      ;; Assert: A's name must still be "User A" — the primary UPDATE was rolled back
-      (is (= "User A" (:name (fetch-profile-row id-a))))
-      ;; Assert: A's email is still its original value
-      (is (= "user-a@example.com" (:email (fetch-auth-row id-a)))))))
+  (with-silent-logging
+    (testing "When secondary UPDATE fails, primary UPDATE is rolled back"
+      ;; Arrange: two users; B's email will be the duplicate target
+      (let [id-a (insert-split-user! "user-a@example.com" "User A")
+            _    (insert-split-user! "user-b@example.com" "User B")]
+        ;; Act: try to set A's email to B's (UNIQUE violation) while also changing A's name.
+        ;; The secondary UPDATE (test_auth.email) should fail, rolling back the profile UPDATE.
+        (is (thrown? Exception
+                     (ports/update-entity *admin-service* :test-profiles id-a
+                                          {:email "user-b@example.com" :name "Collided"})))
+        ;; Assert: A's name must still be "User A" — the primary UPDATE was rolled back
+        (is (= "User A" (:name (fetch-profile-row id-a))))
+        ;; Assert: A's email is still its original value
+        (is (= "user-a@example.com" (:email (fetch-auth-row id-a))))))))
 
 (deftest inline-edit-secondary-field-routes-to-correct-table
   (testing "update-entity-field for a secondary field writes to the secondary table"

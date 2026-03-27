@@ -117,6 +117,36 @@ Make user, auth, and authorization logic pluggable (like observability and datab
 * HTTP/CLI interceptors call ports, not concrete user namespaces
 * Token shape and policy engine as adapters (JWT/opaque/PASETO, RBAC/OPA/etc.)
 
+==== ADR-016: Tenant User Membership
+
+ADR-016-tenant-user-membership.adoc
+
+Introduce `tenant_memberships` as a first-class framework concept in
+`boundary-tenant`, separating global user identity from tenant-scoped roles and
+membership lifecycle.
+
+*Key Decisions:*
+
+* Keep global user roles reserved for platform/system permissions
+* Model tenant access through explicit memberships
+* Allow one user to belong to multiple tenants
+* Derive tenant authorization from membership role and status
+
+==== ADR-017: Library Migration Discovery
+
+ADR-017-library-migration-discovery.adoc
+
+Allow Boundary libraries to publish Migratus migration directories through a
+classpath manifest so consuming applications automatically apply library-owned
+schema changes via the normal `clojure -M:migrate up` flow.
+
+*Key Decisions:*
+
+* Keep application-local `migrations/` as the default migration source
+* Let libraries advertise extra migration dirs via `boundary/migration-paths.edn`
+* Aggregate all discovered dirs into Migratus `:migration-dir`
+* Require standard Migratus up/down filenames for library migrations
+
 === Related Documentation
 
 * link:../architecture/[Architecture] - Detailed architecture

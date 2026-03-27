@@ -57,6 +57,17 @@
          columns-str
          "\n)")))
 
+(def ^:private tenant-scoped-tables
+  "Public tables whose structure belongs in tenant schemas.
+
+   Shared platform/auth tables must stay in `public` and must never be
+   provisioned into `tenant_<slug>` schemas."
+  #{"contractors"
+    "contracts"
+    "assignments"
+    "timesheets"
+    "invoices"})
+
 (defn- get-public-tables
   "Get list of all tables in public schema.
    
@@ -72,7 +83,10 @@
                  AND table_type = 'BASE TABLE'
                  AND table_name NOT IN ('flyway_schema_history', 'migratus_migrations')
                ORDER BY table_name"]
-    (mapv :table_name (db/execute-query! ctx [query]))))
+    (->> (db/execute-query! ctx [query])
+         (map :table-name)
+         (filter tenant-scoped-tables)
+         vec)))
 
 ;; =============================================================================
 ;; Schema Provisioning Operations
@@ -105,6 +119,19 @@
                   :error-type (type e)
                   :error-message (.getMessage e)})
       false)))
+
+(defn- postgresql-context?
+  "Return true when the database context points at PostgreSQL.
+
+   Some parts of the platform still report PostgreSQL via a nil HoneySQL
+   dialect because PostgreSQL is the library default. Fall back to the JDBC
+   driver so provisioning and schema switching still work in real runtimes."
+  [ctx]
+  (let [adapter (:adapter ctx)
+        dialect (protocols/dialect adapter)
+        driver (some-> adapter protocols/jdbc-driver)]
+    (or (= :postgresql dialect)
+        (= "org.postgresql.Driver" driver))))
 
 (defn- create-schema!
   "Create PostgreSQL schema if it doesn't exist.
@@ -252,7 +279,7 @@
                        :field :schema-name
                        :tenant-entity tenant-entity})))
 
-    (when-not (= :postgresql dialect)
+    (when-not (postgresql-context? ctx)
       (log/warn "Tenant provisioning only supported for PostgreSQL, skipping"
                 {:dialect dialect :schema-name schema-name})
       (throw (ex-info "Tenant provisioning only supported for PostgreSQL"
@@ -397,33 +424,33 @@
      - Falls back to public schema if error
      - Schema must exist before calling this function"
   [ctx tenant-schema-name f]
-  (when-not (= (:database-type ctx) :postgresql)
+  (when-not (postgresql-context? ctx)
     (throw (ex-info "Tenant schema context only supported for PostgreSQL"
                     {:type :unsupported-database
-                     :database-type (:database-type ctx)})))
+                     :database-type (:database-type ctx)
+                     :dialect (some-> (:adapter ctx) protocols/dialect)})))
 
-  (let [datasource (:datasource ctx)]
-    (db/with-transaction [tx datasource]
-      (try
-        ;; Set search_path for this transaction
-        ;; Format: "SET search_path TO tenant_schema, public"
-        ;; This ensures tenant tables are found first, with public as fallback
-        (db/execute-query! tx [(str "SET search_path TO " tenant-schema-name ", public")])
-        (log/debug "Set search_path for transaction"
-                   {:schema tenant-schema-name})
+  (db/with-transaction [tx ctx]
+    (try
+      ;; Set search_path for this transaction
+      ;; Format: "SET search_path TO tenant_schema, public"
+      ;; This ensures tenant tables are found first, with public as fallback
+      (db/execute-query! tx [(str "SET search_path TO " tenant-schema-name ", public")])
+      (log/debug "Set search_path for transaction"
+                 {:schema tenant-schema-name})
 
-        ;; Execute function in tenant context
-        (f tx)
+      ;; Execute function in tenant context
+      (f tx)
 
-        (catch Exception e
-          (log/error e "Error executing in tenant schema context"
-                     {:schema tenant-schema-name
-                      :error (.getMessage e)})
-          (throw (ex-info "Tenant context execution failed"
-                          {:type :tenant-context-error
-                           :schema-name tenant-schema-name
-                           :cause (.getMessage e)}
-                          e)))))))
+      (catch Exception e
+        (log/error e "Error executing in tenant schema context"
+                   {:schema tenant-schema-name
+                    :error (.getMessage e)})
+        (throw (ex-info "Tenant context execution failed"
+                        {:type :tenant-context-error
+                         :schema-name tenant-schema-name
+                         :cause (.getMessage e)}
+                        e))))))
 
 ;; =============================================================================
 ;; Tenant Schema Provider (Protocol Implementation)
@@ -449,4 +476,3 @@
          (jdbc/execute! tx [\"SELECT * FROM users\"])))"
   []
   (->TenantSchemaProvider))
-

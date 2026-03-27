@@ -47,6 +47,24 @@
       (swap! state assoc user-id created-user)
       created-user))
 
+  (register-or-authenticate-user [_ user-data _login-context]
+    (if-let [existing (->> @state vals (filter #(= (:email %) (:email user-data))) first)]
+      {:user existing
+       :created? false
+       :authenticated? true
+       :auth-result nil}
+      (let [created (.register-user ^boundary.user.ports.IUserService _ user-data)]
+        {:user created
+         :created? true
+         :authenticated? false
+         :auth-result nil})))
+
+  (claim-user-identity [_ {:keys [user-data login-context]}]
+    (let [result (.register-or-authenticate-user ^boundary.user.ports.IUserService _
+                                                user-data
+                                                login-context)]
+      (assoc result :mode (if (:created? result) :registered :authenticated))))
+
   (get-user-by-id [_ user-id]
     (get @state user-id))
 
@@ -222,6 +240,8 @@
 
   (testing "handles service errors gracefully"
     (let [service (reify ports/IUserService
+                    (register-or-authenticate-user [_ _ _] {:user nil :created? false :authenticated? false :auth-result nil})
+                    (claim-user-identity [_ _] {:mode :authenticated :user nil :created? false :authenticated? false :auth-result nil})
                     (register-user [_ _] (throw (UnsupportedOperationException.)))
                     (get-user-by-id [_ _] nil)
                     (get-user-by-email [_ _] nil)
@@ -311,6 +331,8 @@
   (testing "handles service errors gracefully"
     (let [user (create-test-user {})
           service (reify ports/IUserService
+                    (register-or-authenticate-user [_ _ _] {:user nil :created? false :authenticated? false :auth-result nil})
+                    (claim-user-identity [_ _] {:mode :authenticated :user nil :created? false :authenticated? false :auth-result nil})
                     (register-user [_ _] (throw (UnsupportedOperationException.)))
                     (get-user-by-id [_ _]
                       (throw (Exception. "Database error")))
@@ -378,6 +400,8 @@
 
   (testing "handles errors"
     (let [service (reify ports/IUserService
+                    (register-or-authenticate-user [_ _ _] {:user nil :created? false :authenticated? false :auth-result nil})
+                    (claim-user-identity [_ _] {:mode :authenticated :user nil :created? false :authenticated? false :auth-result nil})
                     (register-user [_ _] (throw (UnsupportedOperationException.)))
                     (get-user-by-id [_ _] nil)
                     (get-user-by-email [_ _] nil)
@@ -435,6 +459,8 @@
 
   (testing "handles service errors"
     (let [service (reify ports/IUserService
+                    (register-or-authenticate-user [_ _ _] {:user nil :created? false :authenticated? false :auth-result nil})
+                    (claim-user-identity [_ _] {:mode :authenticated :user nil :created? false :authenticated? false :auth-result nil})
                     (register-user [_ _]
                       (throw (Exception. "Email already exists")))
                     (get-user-by-id [_ _] nil)
@@ -511,6 +537,8 @@
   (testing "handles service errors gracefully"
     (let [user (create-test-user {})
           service (reify ports/IUserService
+                    (register-or-authenticate-user [_ _ _] {:user nil :created? false :authenticated? false :auth-result nil})
+                    (claim-user-identity [_ _] {:mode :authenticated :user nil :created? false :authenticated? false :auth-result nil})
                     ;; minimal no-op implementations for unused methods
                     (register-user [_ _] (throw (UnsupportedOperationException.)))
                     (get-user-by-id [_ _] user)
@@ -568,6 +596,8 @@
   (testing "handles service errors"
     (let [user (create-test-user {})
           service (reify ports/IUserService
+                    (register-or-authenticate-user [_ _ _] {:user nil :created? false :authenticated? false :auth-result nil})
+                    (claim-user-identity [_ _] {:mode :authenticated :user nil :created? false :authenticated? false :auth-result nil})
                     (register-user [_ _] nil)
                     (get-user-by-id [_ _] nil)
                     (get-user-by-email [_ _] nil)

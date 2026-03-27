@@ -320,6 +320,8 @@
  :admin/filter-range-separator     "to"
  :admin/filter-enter-value         "Enter value"
  :admin/cell-dblclick-hint         "Double-click to edit"
+ :admin/audit-trail-title          "Audit Trail"
+ :admin/audit-trail-description    "View system activity and audit logs."
 
  ;; =============================================================================
  ;; Search module
@@ -419,4 +421,7 @@
  :workflow/card-state-machine-title     "State Machine"
  :workflow/card-audit-title             "Audit Trail"
  :workflow/audit-count                  {:one "{count} transition recorded"
-                                         :many "{count} transitions recorded"}}
+                                         :many "{count} transitions recorded"}
+
+ ;; Branding — override in app-specific translations (e.g. :boundary/app-name "MyApp")
+ :boundary/app-name "Boundary"}

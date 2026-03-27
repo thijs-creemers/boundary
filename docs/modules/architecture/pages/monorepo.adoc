@@ -1,7 +1,7 @@
 = Monorepo Structure
 :description: How the Boundary repository is organized and how libraries relate.
 
-Boundary is a monorepo of 20 independently publishable libraries under `libs/`.
+Boundary is a monorepo of 21 independently publishable libraries under `libs/`.
 Each library can be published to Clojars as a standalone dependency.
 
 == Top-level layout
@@ -10,7 +10,7 @@ Each library can be published to Clojars as a standalone dependency.
 ----
 boundary/
 ├── src/                   ← Main application source tree
-├── libs/                  ← 20 independently publishable libraries
+├── libs/                  ← 21 independently publishable libraries
 │   ├── core/
 │   ├── observability/
 │   ├── platform/
@@ -94,6 +94,9 @@ libs/{library}/
 
 | xref:libraries:realtime.adoc[realtime]
 | WebSocket / SSE for real-time features
+
+| xref:libraries:i18n.adoc[i18n]
+| Internationalisation: marker-based translation, locale chain, EDN catalogues
 
 | xref:libraries:external.adoc[external]
 | External service adapters: Stripe, Twilio, IMAP

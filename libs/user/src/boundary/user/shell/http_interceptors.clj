@@ -1,13 +1,13 @@
 (ns boundary.user.shell.http-interceptors
   "HTTP-level interceptors for user module authentication, authorization, and audit.
-   
+
    These interceptors work with the HTTP interceptor architecture (ADR-010) and operate
    on HTTP contexts with enter/leave/error semantics.
-   
+
    Key Differences from Domain Interceptors:
    - Domain interceptors (user.shell.interceptors) handle validation/transformation pipelines
    - HTTP interceptors (this namespace) handle cross-cutting HTTP concerns (auth, audit, rate-limit)
-   
+
    HTTP Context Shape:
    {:request       Ring request map
     :response      Ring response map
@@ -16,7 +16,7 @@
     :attrs         Additional attributes
     :correlation-id UUID
     :started-at    Instant}
-   
+
    Usage in Normalized Routes:
    {:path \"/users\"
     :methods {:post {:handler create-user-handler
@@ -24,21 +24,44 @@
                                     'user.http-interceptors/require-admin
                                     'user.http-interceptors/log-action]}}}"
   (:require [boundary.observability.logging.ports :as logging]
-            [boundary.observability.metrics.ports :as metrics]))
+            [boundary.observability.metrics.ports :as metrics]
+            [boundary.tenant.core.membership :as membership-core]
+            [clojure.string :as str]))
 
 ;; =============================================================================
 ;; Helper Functions
 ;; =============================================================================
 
 (defn- get-user
-  "Extracts user from session."
+  "Extracts the authenticated user from the normalized request shape.
+
+   Supports both:
+   - :user added by Ring authentication middleware
+   - [:session :user] for older/session-shaped callers"
   [request]
-  (get-in request [:session :user]))
+  (or (:user request)
+      (get-in request [:session :user])))
 
 (defn- authenticated?
   "Checks if request has authenticated user."
   [request]
   (some? (get-user request)))
+
+(defn- normalize-role
+  "Normalize role representations to a keyword when possible."
+  [role]
+  (cond
+    (keyword? role) role
+    (string? role) (keyword role)
+    :else nil))
+
+(defn- admin-user?
+  "Return true when a user has an admin role.
+
+   Accept both keyword and string role representations to keep the interceptors
+   compatible with older session payloads and newer normalized user maps."
+  [user]
+  (= :admin (normalize-role (:role user))))
 
 (defn- create-error-response
   "Creates standardized error response."
@@ -55,9 +78,9 @@
 ;; =============================================================================
 
 (def require-authenticated
-  "Requires an authenticated user in session.
+  "Requires an authenticated user on the request.
    
-   Checks for user in request session. If not present, short-circuits
+   Checks for user in the normalized request shape. If not present, short-circuits
    with 401 Unauthorized response.
    
    Usage:
@@ -71,7 +94,7 @@
                 ;; Log successful authentication check
                 (when-let [logger (:logger system)]
                   (logging/debug logger "Authentication check passed"
-                                 {:user-id (get-in request [:session :user :id])
+                                 {:user-id (:id (get-user request))
                                   :correlation-id correlation-id}))
                 ctx)
               (do
@@ -111,7 +134,7 @@
                 ;; Log attempt to access unauthenticated-only route
                 (when-let [logger (:logger system)]
                   (logging/debug logger "Already authenticated, access denied"
-                                 {:user-id (get-in request [:session :user :id])
+                                 {:user-id (:id (get-user request))
                                   :uri (:uri request)
                                   :correlation-id correlation-id}))
 
@@ -132,13 +155,13 @@
    
    Usage:
    {:path \"/users\"
-    :methods {:post {:handler create-user
-                     :interceptors ['user.http-interceptors/require-authenticated
+   :methods {:post {:handler create-user
+                    :interceptors ['user.http-interceptors/require-authenticated
                                     'user.http-interceptors/require-admin]}}}"
   {:name :require-admin
    :enter (fn [{:keys [request correlation-id system] :as ctx}]
             (let [user (get-user request)]
-              (if (and user (= "admin" (:role user)))
+              (if (and user (admin-user? user))
                 (do
                   ;; Log successful authorization
                   (when-let [logger (:logger system)]
@@ -166,11 +189,42 @@
                                                 "Admin role required"
                                                 correlation-id))))))})
 
+(def require-platform-admin
+  "Requires the current user to be a platform-level admin without tenant context."
+  {:name :require-platform-admin
+   :enter (fn [{:keys [request correlation-id system] :as ctx}]
+            (let [user (get-user request)]
+              (if (and user
+                       (admin-user? user)
+                       (nil? (:tenant-id user)))
+                (do
+                  (when-let [logger (:logger system)]
+                    (logging/debug logger "Platform admin authorization check passed"
+                                   {:user-id (:id user)
+                                    :correlation-id correlation-id}))
+                  ctx)
+                (do
+                  (when-let [logger (:logger system)]
+                    (logging/warn logger "Platform admin required but not present"
+                                  {:user-id (:id user)
+                                   :user-role (:role user)
+                                   :tenant-id (:tenant-id user)
+                                   :uri (:uri request)
+                                   :correlation-id correlation-id}))
+                  (when-let [metrics (:metrics-emitter system)]
+                    (metrics/increment metrics "http.auth.failures"
+                                       {:reason "insufficient-permissions"
+                                        :required-role "platform-admin"}))
+                  (assoc ctx :response
+                         (create-error-response 403 "forbidden"
+                                                "Platform admin required"
+                                                correlation-id))))))})
+
 (defn require-role
   "Factory function to create role-checking interceptor.
    
    Args:
-     required-role: Role string to check (e.g., \"admin\", \"user\", \"viewer\")
+     required-role: Role keyword or string to check (e.g., :admin or \"admin\")
    
    Returns:
      Interceptor that checks for the required role
@@ -183,8 +237,11 @@
   [required-role]
   {:name (keyword (str "require-" required-role))
    :enter (fn [{:keys [request correlation-id system] :as ctx}]
-            (let [user (get-user request)]
-              (if (and user (= required-role (:role user)))
+            (let [user (get-user request)
+                  normalized-required-role (if (keyword? required-role)
+                                             required-role
+                                             (keyword required-role))]
+              (if (and user (= normalized-required-role (normalize-role (:role user))))
                 (do
                   ;; Log successful authorization
                   (when-let [logger (:logger system)]
@@ -198,7 +255,7 @@
                     (logging/warn logger (str "Role required: " required-role)
                                   {:user-id (:id user)
                                    :user-role (:role user)
-                                   :required-role required-role
+                                   :required-role normalized-required-role
                                    :uri (:uri request)
                                    :correlation-id correlation-id}))
 
@@ -206,7 +263,7 @@
                   (when-let [metrics (:metrics-emitter system)]
                     (metrics/increment metrics "http.auth.failures"
                                        {:reason "insufficient-permissions"
-                                        :required-role required-role}))
+                                        :required-role normalized-required-role}))
 
                   ;; Short-circuit with 403
                   (assoc ctx :response
@@ -229,7 +286,7 @@
             (let [user (get-user request)
                   target-id (:id path-params)
                   user-id (str (:id user))
-                  is-admin? (= "admin" (:role user))
+                  is-admin? (admin-user? user)
                   is-self? (= target-id user-id)]
               (if (or is-admin? is-self?)
                 (do
@@ -384,19 +441,137 @@
 
 (defn create-custom-stack
   "Creates a custom interceptor stack from components.
-   
+
    Args:
      components: Map of interceptor components
        - :auth - Authentication interceptor (optional)
        - :authz - Authorization interceptor (optional)
        - :audit - Audit interceptor (optional)
-   
+
    Returns:
      Vector of interceptors in correct order
-   
+
    Example:
    (create-custom-stack {:auth require-authenticated
                          :authz (require-role \"manager\")
                          :audit log-all-actions})"
   [{:keys [auth authz audit]}]
   (filterv some? [auth authz audit]))
+
+;; =============================================================================
+;; Tenant Membership Interceptors (ADR-016)
+;; =============================================================================
+
+(def require-tenant-member
+  "Requires an active tenant membership to be present on the request.
+
+   Reads :tenant-membership set by wrap-tenant-membership middleware.
+   Short-circuits with 403 when no active membership is found.
+
+   Usage:
+   {:path \"/api/tenants/:tenant-id/documents\"
+    :methods {:get {:handler list-documents
+                    :interceptors ['user.http-interceptors/require-authenticated
+                                   'user.http-interceptors/require-tenant-member]}}}"
+  {:name  ::require-tenant-member
+   :enter (fn [{:keys [request correlation-id system] :as ctx}]
+            (let [membership (:tenant-membership request)]
+              (if (and membership (membership-core/active-member? membership))
+                ctx
+                (do
+                  (when-let [logger (:logger system)]
+                    (logging/warn logger "Active tenant membership required"
+                                  {:uri            (:uri request)
+                                   :correlation-id correlation-id}))
+                  (when-let [metrics (:metrics-emitter system)]
+                    (metrics/increment metrics "http.auth.failures"
+                                       {:reason "not-a-member"}))
+                  (assoc ctx :response
+                         (create-error-response 403 "forbidden"
+                                                "Active tenant membership required"
+                                                correlation-id))))))})
+
+(defn require-tenant-role
+  "Factory function: returns an interceptor that requires the given tenant role(s).
+
+   Reads :tenant-membership set by wrap-tenant-membership middleware.
+   Short-circuits with 403 when the membership is absent or has insufficient role.
+
+   Args:
+     allowed-roles - set of allowed role keywords, e.g. #{:admin}
+
+   Returns:
+     Interceptor map."
+  [allowed-roles]
+  {:name  ::require-tenant-role
+   :enter (fn [{:keys [request correlation-id system] :as ctx}]
+            (let [membership (:tenant-membership request)]
+              (if (and membership
+                       (membership-core/active-member? membership)
+                       (membership-core/has-role? membership allowed-roles))
+                ctx
+                (do
+                  (when-let [logger (:logger system)]
+                    (logging/warn logger "Insufficient tenant role"
+                                  {:uri            (:uri request)
+                                   :required-roles allowed-roles
+                                   :actual-role    (:role membership)
+                                   :correlation-id correlation-id}))
+                  (when-let [metrics (:metrics-emitter system)]
+                    (metrics/increment metrics "http.auth.failures"
+                                       {:reason "insufficient-tenant-role"}))
+                  (assoc ctx :response
+                         (create-error-response 403 "forbidden"
+                                                "Insufficient tenant role"
+                                                correlation-id))))))})
+
+(def require-tenant-admin
+  "Requires the current user to have the :admin role in the active tenant membership.
+
+   Shorthand for (require-tenant-role #{:admin}).
+
+   Usage:
+   {:path \"/api/tenants/:tenant-id/settings\"
+    :methods {:put {:handler update-settings
+                    :interceptors ['user.http-interceptors/require-authenticated
+                                   'user.http-interceptors/require-tenant-admin]}}}"
+  (require-tenant-role #{:admin}))
+
+(def require-web-tenant-admin
+  "Requires the current user to have the :admin role in the active tenant membership.
+
+   Like require-tenant-admin, but web-aware: when the request URI starts with /web
+   it redirects to /web/login (302) instead of returning a JSON 403. Use this on
+   HTML routes so the browser lands on the login page rather than a bare error body.
+
+   Usage:
+   {:path \"/web/tenants/:tenant-id/settings\"
+    :methods {:get {:handler settings-page
+                    :interceptors ['user.http-interceptors/require-authenticated
+                                   'user.http-interceptors/require-web-tenant-admin]}}}"
+  {:name  ::require-web-tenant-admin
+   :enter (fn [{:keys [request correlation-id system] :as ctx}]
+            (let [membership (:tenant-membership request)]
+              (if (and membership
+                       (membership-core/active-member? membership)
+                       (membership-core/has-role? membership #{:admin}))
+                ctx
+                (do
+                  (when-let [logger (:logger system)]
+                    (logging/warn logger "Insufficient tenant role"
+                                  {:uri            (:uri request)
+                                   :actual-role    (:role membership)
+                                   :correlation-id correlation-id}))
+                  (when-let [metrics (:metrics-emitter system)]
+                    (metrics/increment metrics "http.auth.failures"
+                                       {:reason "insufficient-tenant-role"}))
+                  (assoc ctx :response
+                         (if (str/starts-with? (get request :uri "") "/web")
+                           {:status  302
+                            :headers {"Location" (str "/web/login?return-to="
+                                                      (java.net.URLEncoder/encode
+                                                       (:uri request) "UTF-8"))}
+                            :body    ""}
+                           (create-error-response 403 "forbidden"
+                                                  "Insufficient tenant role"
+                                                  correlation-id)))))))})

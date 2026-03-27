@@ -91,10 +91,11 @@ Add to `resources/conf/{env}/config.edn` and require `boundary.geo.shell.module-
 
 ## DB Migration
 
-Run once before using DB-backed caching:
+Run once before using DB-backed caching. When `boundary-geo` is on the
+classpath, `clojure -M:migrate up` now auto-discovers this migration:
 
 ```sql
--- libs/geo/resources/boundary/geo/migrations/001-geo-cache.sql
+-- libs/geo/resources/boundary/geo/migrations/20260324010000-geo-cache.up.sql
 CREATE TABLE geo_cache (
   address_hash      TEXT PRIMARY KEY,
   lat               NUMERIC(10, 7) NOT NULL,

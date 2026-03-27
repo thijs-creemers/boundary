@@ -4,7 +4,8 @@
    Config key: :boundary/i18n
 
    Example (development):
-     :boundary/i18n {:catalogue-path \"boundary/i18n/translations\"
+     :boundary/i18n {:catalogue-paths [\"boundary/i18n/translations\"
+                                       \"my_app/i18n/translations\"]
                      :default-locale :en
                      :dev? true}
 
@@ -20,17 +21,20 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/i18n
-  [_ {:keys [catalogue-path default-locale dev?]
+  [_ {:keys [catalogue-path catalogue-paths default-locale dev?]
       :or   {default-locale :en}}]
-  (log/info "Initializing i18n service" {:catalogue-path catalogue-path
-                                         :default-locale default-locale})
-  (let [data      (catalogue/load-catalogue catalogue-path)
-        cat       (catalogue/create-map-catalogue data)
-        locales   (set (keys data))]
-    (log/info "i18n service initialized" {:locales locales})
-    {:catalogue      cat
-     :default-locale default-locale
-     :dev?           (boolean dev?)}))
+  (let [resolved-paths (or catalogue-paths
+                           (when catalogue-path [catalogue-path]))]
+    (log/info "Initializing i18n service" {:catalogue-paths resolved-paths
+                                           :default-locale default-locale})
+    (let [data    (catalogue/load-catalogue resolved-paths)
+          cat     (catalogue/create-map-catalogue data)
+          locales (set (keys data))]
+      (log/info "i18n service initialized" {:locales locales})
+      {:catalogue       cat
+       :default-locale  default-locale
+       :catalogue-paths resolved-paths
+       :dev?            (boolean dev?)})))
 
 (defmethod ig/halt-key! :boundary/i18n
   [_ _]

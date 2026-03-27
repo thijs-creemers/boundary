@@ -25,7 +25,7 @@
    Note: Timestamps use :inst (java.time.Instant) internally."
   [:map {:title "Tenant"}
    [:id :uuid]
-   [:slug [:re {:error/message "Invalid slug (must be lowercase alphanumeric with hyphens, 2-100 chars)"} 
+   [:slug [:re {:error/message "Invalid slug (must be lowercase alphanumeric with hyphens, 2-100 chars)"}
            slug-regex]]
    [:name [:string {:min 1 :max 255}]]
    [:schema-name [:string {:min 1 :max 63}]] ; PostgreSQL schema name limit
@@ -178,6 +178,146 @@
   (m/explain Tenant tenant-data))
 
 ;; =============================================================================
+;; Membership Schemas
+;; =============================================================================
+
+(def TenantMembership
+  [:map {:title "TenantMembership"}
+   [:id :uuid]
+   [:tenant-id :uuid]
+   [:user-id :uuid]
+   [:role [:enum :admin :member :viewer :contractor]]
+   [:status [:enum :invited :active :suspended :revoked]]
+   [:invited-at inst?]
+   [:accepted-at {:optional true} [:maybe inst?]]
+   [:created-at inst?]
+   [:updated-at {:optional true} [:maybe inst?]]])
+
+(def CreateMembershipRequest
+  [:map {:title "Create Membership Request"}
+   [:user-id :uuid]
+   [:role [:enum :admin :member :viewer :contractor]]])
+
+(def UpdateMembershipRequest
+  [:map {:title "Update Membership Request"}
+   [:role {:optional true} [:enum :admin :member :viewer :contractor]]
+   [:status {:optional true} [:enum :suspended :revoked]]])
+
+(def MembershipResponse
+  "Schema for membership responses (camelCase for API compatibility)."
+  [:map {:title "Membership Response"}
+   [:id :string]
+   [:tenantId :string]
+   [:userId :string]
+   [:role :string]
+   [:status :string]
+   [:invitedAt :string]
+   [:acceptedAt {:optional true} [:maybe :string]]
+   [:createdAt :string]
+   [:updatedAt {:optional true} [:maybe :string]]])
+
+;; =============================================================================
+;; Membership-Specific Transformation Functions
+;; =============================================================================
+
+(defn membership-specific-kebab->camel
+  "Transforms membership-specific kebab-case internal keys to camelCase API keys.
+   Removes null values for cleaner API responses."
+  [value]
+  (-> value
+      case-conversion/kebab-case->camel-case-map
+      (cond->
+       (:id value) (assoc :id (type-conversion/uuid->string (:id value)))
+       (:tenant-id value) (assoc :tenantId (type-conversion/uuid->string (:tenant-id value)))
+       (:user-id value) (assoc :userId (type-conversion/uuid->string (:user-id value)))
+       (:role value) (assoc :role (type-conversion/keyword->string (:role value)))
+       (:status value) (assoc :status (type-conversion/keyword->string (:status value)))
+       (:invited-at value) (assoc :invitedAt (type-conversion/instant->string (:invited-at value)))
+       (:accepted-at value) (assoc :acceptedAt (type-conversion/instant->string (:accepted-at value)))
+       (:created-at value) (assoc :createdAt (type-conversion/instant->string (:created-at value)))
+       (:updated-at value) (assoc :updatedAt (type-conversion/instant->string (:updated-at value))))
+      (#(into {} (remove (fn [[_ v]] (nil? v)) %)))))
+
+(def membership-response-transformer
+  "Transforms internal membership data to external API format."
+  (mt/transformer
+   {:name :membership-response
+    :transformers
+    {:map {:compile (fn [_schema _options] membership-specific-kebab->camel)}
+     :uuid {:compile (fn [_schema _options] type-conversion/uuid->string)}
+     :inst {:compile (fn [_schema _options] type-conversion/instant->string)}
+     :enum {:compile (fn [_schema _options] type-conversion/keyword->string)}}}))
+
+;; =============================================================================
+;; Invite Schemas
+;; =============================================================================
+
+(def TenantInvite
+  [:map {:title "TenantInvite"}
+   [:id :uuid]
+   [:tenant-id :uuid]
+   [:email [:string {:min 3 :max 320}]]
+   [:role [:enum :admin :member :viewer :contractor]]
+   [:status [:enum :pending :accepted :revoked]]
+   [:token-hash [:string {:min 32 :max 255}]]
+   [:expires-at inst?]
+   [:accepted-at {:optional true} [:maybe inst?]]
+   [:revoked-at {:optional true} [:maybe inst?]]
+   [:accepted-by-user-id {:optional true} [:maybe :uuid]]
+   [:metadata {:optional true} [:maybe :map]]
+   [:created-at inst?]
+   [:updated-at {:optional true} [:maybe inst?]]])
+
+(def CreateInviteRequest
+  [:map {:title "Create Invite Request"}
+   [:email :string]
+   [:role [:enum :admin :member :viewer :contractor]]
+   [:expires-at {:optional true} [:maybe inst?]]
+   [:metadata {:optional true} [:maybe :map]]])
+
+(def InviteResponse
+  [:map {:title "Invite Response"}
+   [:id :string]
+   [:tenantId :string]
+   [:email :string]
+   [:role :string]
+   [:status :string]
+   [:expiresAt :string]
+   [:acceptedAt {:optional true} [:maybe :string]]
+   [:revokedAt {:optional true} [:maybe :string]]
+   [:acceptedByUserId {:optional true} [:maybe :string]]
+   [:metadata {:optional true} :map]
+   [:createdAt :string]
+   [:updatedAt {:optional true} [:maybe :string]]])
+
+(defn invite-specific-kebab->camel
+  "Transforms invite-specific kebab-case internal keys to camelCase API keys."
+  [value]
+  (-> value
+      case-conversion/kebab-case->camel-case-map
+      (cond->
+       (:id value) (assoc :id (type-conversion/uuid->string (:id value)))
+       (:tenant-id value) (assoc :tenantId (type-conversion/uuid->string (:tenant-id value)))
+       (:role value) (assoc :role (type-conversion/keyword->string (:role value)))
+       (:status value) (assoc :status (type-conversion/keyword->string (:status value)))
+       (:expires-at value) (assoc :expiresAt (type-conversion/instant->string (:expires-at value)))
+       (:accepted-at value) (assoc :acceptedAt (type-conversion/instant->string (:accepted-at value)))
+       (:revoked-at value) (assoc :revokedAt (type-conversion/instant->string (:revoked-at value)))
+       (:accepted-by-user-id value) (assoc :acceptedByUserId (type-conversion/uuid->string (:accepted-by-user-id value)))
+       (:created-at value) (assoc :createdAt (type-conversion/instant->string (:created-at value)))
+       (:updated-at value) (assoc :updatedAt (type-conversion/instant->string (:updated-at value))))
+      (#(into {} (remove (fn [[_ v]] (nil? v)) %)))))
+
+(def invite-response-transformer
+  (mt/transformer
+   {:name :invite-response
+    :transformers
+    {:map {:compile (fn [_schema _options] invite-specific-kebab->camel)}
+     :uuid {:compile (fn [_schema _options] type-conversion/uuid->string)}
+     :inst {:compile (fn [_schema _options] type-conversion/instant->string)}
+     :enum {:compile (fn [_schema _options] type-conversion/keyword->string)}}}))
+
+;; =============================================================================
 ;; Schema Registry
 ;; =============================================================================
 
@@ -185,12 +325,19 @@
   "Registry of all tenant module schemas for easy access."
   {:domain-entities
    {:tenant Tenant
-    :tenant-settings TenantSettings}
+    :tenant-settings TenantSettings
+    :tenant-membership TenantMembership
+    :tenant-invite TenantInvite}
    :api-requests
    {:create-tenant CreateTenantRequest
-    :update-tenant UpdateTenantRequest}
+    :update-tenant UpdateTenantRequest
+    :create-membership CreateMembershipRequest
+    :update-membership UpdateMembershipRequest
+    :create-invite CreateInviteRequest}
    :api-responses
-   {:tenant TenantResponse}})
+   {:tenant TenantResponse
+    :membership MembershipResponse
+    :invite InviteResponse}})
 
 (defn get-schema
   "Retrieves a schema from the registry by category and name."

@@ -1,285 +1,306 @@
 (ns boundary.platform.shell.adapters.database.config-factory-test
-  "Tests for database adapter factory and creation logic."
-  (:require [clojure.test :refer [deftest is testing]]
-            [boundary.platform.shell.adapters.database.config :as config]
-            [boundary.platform.shell.adapters.database.config-factory :as factory]
-            [boundary.platform.shell.adapters.database.protocols :as protocols]))
+  (:require [boundary.platform.shell.adapters.database.config-factory :as sut]
+            [boundary.platform.shell.adapters.database.config :as db-config]
+            [boundary.platform.shell.adapters.database.common.core :as db-core]
+            [boundary.platform.shell.adapters.database.protocols :as protocols]
+            [clojure.test :refer [deftest is testing]]
+            [clojure.string :as str]))
 
-;; =============================================================================
-;; Test Data and Fixtures
-;; =============================================================================
+(defn- adapter-stub
+  [dialect]
+  (reify protocols/DBAdapter
+    (dialect [_] dialect)
+    (jdbc-driver [_] "driver")
+    (jdbc-url [_ _] nil)
+    (pool-defaults [_] {})
+    (init-connection! [_ _ _] nil)
+    (build-where [_ _] nil)
+    (boolean->db [_ value] value)
+    (db->boolean [_ value] value)
+    (table-exists? [_ _ _] false)
+    (get-table-info [_ _ _] [])))
 
-(def sample-config
-  "Sample configuration for testing adapter creation"
-  {:active
-   {:boundary/sqlite
-    {:db "test-database.db"
-     :pool {:minimum-idle 1
-            :maximum-pool-size 3}}
+(deftest create-config-context-selects-requested-config
+  (let [adapter (adapter-stub :sqlite)]
+      (with-redefs [db-config/get-active-db-configs
+                    (fn [env]
+                      (is (= "test" env))
+                      {:boundary/sqlite {:adapter :sqlite :database-path "dev.db"}
+                       :boundary/h2 {:adapter :h2 :database-path "mem:test"}})
+                    boundary.platform.shell.adapters.database.config-factory/create-config-adapter
+                    (fn [adapter-type env]
+                      (is (= :sqlite adapter-type))
+                      (is (= "test" env))
+                      adapter)
+                    db-core/create-connection-pool
+                    (fn [arg cfg]
+                      (is (= adapter arg))
+                      (is (= {:adapter :sqlite
+                              :database-path "dev.db"}
+                             cfg))
+                      ::datasource)]
+      (is (= {:adapter adapter
+              :datasource ::datasource
+              :config-key :boundary/sqlite
+              :environment "test"}
+             (sut/create-config-context "test" :boundary/sqlite))))))
 
-    :boundary/h2
-    {:memory true
-     :pool {:minimum-idle 1
-            :maximum-pool-size 5}}
+(deftest get-default-context-prefers-sqlite-when-available
+  (let [sqlite-ctx {:adapter (adapter-stub :sqlite)
+                    :datasource ::sqlite-ds}
+        h2-ctx {:adapter (adapter-stub :h2)
+                :datasource ::h2-ds}]
+    (with-redefs [boundary.platform.shell.adapters.database.config-factory/create-active-contexts
+                  (fn [_]
+                    {:boundary/h2 h2-ctx
+                     :boundary/sqlite sqlite-ctx})]
+      (is (= {:adapter (:adapter sqlite-ctx)
+              :datasource ::sqlite-ds}
+             (sut/get-default-context "test"))))))
 
-    :boundary/postgresql
-    {:host "localhost"
-     :port 5432
-     :dbname "test_db"
-     :user "test_user"
-     :password "test_password"}}
+(deftest create-active-contexts-and-health-check-cover-success-and-failure
+  (testing "active contexts are created for every active config"
+    (with-redefs [boundary.platform.shell.adapters.database.config/get-active-db-configs
+                  (fn [_]
+                    {:boundary/sqlite {:adapter :sqlite}
+                     :boundary/h2 {:adapter :h2}})
+                  boundary.platform.shell.adapters.database.config-factory/create-config-context
+                  (fn [env config-key]
+                    {:environment env
+                     :config-key config-key
+                     :adapter (adapter-stub (case config-key
+                                              :boundary/sqlite :sqlite
+                                              :h2))
+                     :datasource config-key})]
+      (is (= #{:boundary/sqlite :boundary/h2}
+             (set (keys (sut/create-active-contexts "test")))))))
 
-   :inactive
-   {:boundary/mysql
-    {:host "localhost"
-     :port 3306
-     :dbname "test_db"
-     :user "root"
-     :password "password"}}})
+  (testing "health-check records healthy and unhealthy adapters and closes pools"
+    (let [closed (atom [])]
+      (with-redefs [boundary.platform.shell.adapters.database.config-factory/create-active-contexts
+                    (fn [_]
+                      {:boundary/sqlite {:adapter (adapter-stub :sqlite)
+                                         :datasource ::sqlite-ds}
+                       :boundary/postgresql {:adapter (adapter-stub :postgresql)
+                                             :datasource ::pg-ds}})
+                    boundary.platform.shell.adapters.database.common.core/execute-query!
+                    (fn [ctx _]
+                      (if (= ::pg-ds (:datasource ctx))
+                        (throw (ex-info "query boom" {}))
+                        [{:one 1}]))
+                    boundary.platform.shell.adapters.database.common.core/close-connection-pool!
+                    (fn [datasource]
+                      (swap! closed conj datasource))]
+        (let [result (sut/health-check "test")]
+          (is (= :healthy (get-in result [:boundary/sqlite :status])))
+          (is (= :unhealthy (get-in result [:boundary/postgresql :status])))
+          (is (= "query boom" (get-in result [:boundary/postgresql :error])))
+          (is (= [::sqlite-ds ::pg-ds] @closed))))))
 
-;; =============================================================================
-;; Adapter Creation Tests
-;; =============================================================================
+  (testing "config validation delegates directly to db-config"
+    (with-redefs [boundary.platform.shell.adapters.database.config/validate-database-configs
+                  (fn [env]
+                    (is (= "test" env))
+                    {:valid? true :errors []})]
+      (is (= {:valid? true :errors []}
+             (sut/validate-environment-config "test"))))))
 
-(deftest test-create-adapter-sqlite
-  (testing "Creating SQLite adapter"
-    (let [config {:db "test.db" :pool {:minimum-idle 1}}
-          adapter (factory/create-adapter :boundary/sqlite config)]
-      (is (some? adapter) "Adapter should be created")
-      (is (satisfies? protocols/DBAdapter adapter)
-          "Should satisfy DatabaseAdapter protocol")
+(deftest adapter-availability-and-context-lifecycle-helpers
+  (with-redefs [boundary.platform.shell.adapters.database.config/get-active-adapters
+                (fn [_] [:sqlite :postgresql])
+                boundary.platform.shell.adapters.database.config/adapter-active?
+                (fn [adapter-type _] (= adapter-type :sqlite))]
+    (is (= [:sqlite :postgresql] (sut/get-active-adapter-types "test")))
+    (is (true? (sut/adapter-available? :sqlite "test")))
+    (is (thrown-with-msg? IllegalStateException
+                          #"Available adapters: \[:sqlite :postgresql\]"
+                          (sut/ensure-adapter-available! :mysql "test"))))
 
-      ;; Test protocol methods
-      (let [dialect (protocols/dialect adapter)
-            jdbc-url (protocols/jdbc-url adapter {:db "test.db"})]
-        (is (= dialect :sqlite) "SQLite adapter should return :sqlite dialect")
-        (is (string? jdbc-url) "JDBC URL should be a string")
-        (is (.contains jdbc-url "sqlite") "SQLite JDBC URL should contain 'sqlite'"))
+  (testing "with-config-context and with-default-context always close datasources"
+    (let [closed (atom [])]
+      (with-redefs [boundary.platform.shell.adapters.database.config-factory/create-config-context
+                    (fn [_ _] {:datasource ::config-ds})
+                    boundary.platform.shell.adapters.database.config-factory/get-default-context
+                    (fn [_] {:datasource ::default-ds})
+                    boundary.platform.shell.adapters.database.common.core/close-connection-pool!
+                    (fn [datasource]
+                      (swap! closed conj datasource))]
+        (is (= :config-ok
+               (sut/with-config-context "test" :boundary/sqlite (fn [_] :config-ok))))
+        (is (= :default-ok
+               (sut/with-default-context "test" (fn [_] :default-ok))))
+        (is (= [::config-ds ::default-ds] @closed)))))
 
-      (let [dialect (protocols/dialect adapter)]
-        (is (some? dialect) "Should have a dialect")))))
+  (testing "default context errors when no adapters are active"
+    (with-redefs [boundary.platform.shell.adapters.database.config-factory/create-active-contexts (fn [_] {})]
+      (is (thrown-with-msg? IllegalStateException
+                            #"No active database adapters found"
+                            (sut/get-default-context "test"))))))
 
-(deftest test-create-adapter-h2
-  (testing "Creating H2 adapter"
-    (let [config {:memory true :pool {:minimum-idle 1}}
-          adapter (factory/create-adapter :boundary/h2 config)]
-      (is (some? adapter) "Adapter should be created")
-      (is (satisfies? protocols/DBAdapter adapter)
-          "Should satisfy DatabaseAdapter protocol")
+(deftest adapter-loading-and-default-environment-helpers
+  (testing "inactive adapters are rejected with a helpful error"
+    (with-redefs [boundary.platform.shell.adapters.database.config/adapter-active? (constantly false)]
+      (is (thrown-with-msg? IllegalStateException
+                            #"Database adapter :mysql is not active in environment test"
+                            (sut/create-config-adapter :mysql "test")))))
 
-      (let [dialect (protocols/dialect adapter)
-            jdbc-url (protocols/jdbc-url adapter {:memory true})]
-        (is (= dialect :h2) "H2 adapter should return :h2 dialect")
-        (is (string? jdbc-url) "JDBC URL should be a string")
-        (is (.contains jdbc-url "h2:") "H2 JDBC URL should contain 'h2:'")
-        (is (.contains jdbc-url "mem:") "In-memory H2 should contain 'mem:' in URL")))))
+  (testing "active adapters return their constructor when the namespace loads"
+    (with-redefs [boundary.platform.shell.adapters.database.config/adapter-active? (constantly true)
+                  require (fn [ns-sym]
+                            (is (= 'boundary.platform.shell.adapters.database.sqlite.core ns-sym))
+                            true)
+                  find-ns (fn [ns-sym]
+                            (when (= 'boundary.platform.shell.adapters.database.sqlite.core ns-sym)
+                              'fake-ns))
+                  ns-resolve (fn [ns-obj fn-sym]
+                               (is (= 'fake-ns ns-obj))
+                               (is (= 'new-adapter fn-sym))
+                               (fn [] ::sqlite-adapter))]
+      (is (= ::sqlite-adapter
+             ((#'boundary.platform.shell.adapters.database.config-factory/load-adapter-constructor-if-active
+               :sqlite
+               "test"))))))
 
-(deftest test-create-adapter-postgresql
-  (testing "Creating PostgreSQL adapter"
-    (let [config {:host "localhost"
-                  :port 5432
-                  :dbname "testdb"
-                  :user "testuser"
-                  :password "testpass"}
-          adapter (factory/create-adapter :boundary/postgresql config)]
-      (is (some? adapter) "Adapter should be created")
-      (is (satisfies? protocols/DBAdapter adapter)
-          "Should satisfy DatabaseAdapter protocol")
+  (testing "active adapters surface namespace load failures clearly"
+    (with-redefs [boundary.platform.shell.adapters.database.config/adapter-active? (constantly true)
+                  require (fn [_] (throw (RuntimeException. "boom")))]
+      (is (thrown-with-msg? RuntimeException
+                            #"Failed to load active database adapter: :sqlite for environment: test"
+                            (#'boundary.platform.shell.adapters.database.config-factory/load-adapter-constructor-if-active
+                             :sqlite
+                             "test")))))
 
-      (let [dialect (protocols/dialect adapter)
-            jdbc-url (protocols/jdbc-url adapter config)]
-        (is (= dialect :postgresql) "PostgreSQL adapter should return :postgresql dialect")
-        (is (string? jdbc-url) "JDBC URL should be a string")
-        (is (.contains jdbc-url "postgresql") "PostgreSQL JDBC URL should contain 'postgresql'")))))
+  (testing "default helpers delegate through detected environment"
+    (with-redefs [boundary.platform.shell.adapters.database.config/detect-environment (constantly "detected")
+                  boundary.platform.shell.adapters.database.config-factory/create-active-contexts
+                  (fn
+                    ([] {:boundary/sqlite {:datasource ::detected-ds}})
+                    ([env]
+                     (is (= "detected" env))
+                     {:boundary/sqlite {:datasource ::detected-ds}}))
+                  boundary.platform.shell.adapters.database.common.core/close-connection-pool!
+                  (fn [_] nil)]
+      (is (= {:datasource ::detected-ds}
+             (sut/get-default-context)))
+      (is (= {:boundary/sqlite {:datasource ::detected-ds}}
+             (sut/create-active-contexts)))
+      (is (= :ok
+             (sut/with-default-context (fn [_] :ok)))))))
 
-(deftest test-create-adapter-mysql
-  (testing "Creating MySQL adapter"
-    (let [config {:host "localhost"
-                  :port 3306
-                  :dbname "testdb"
-                  :user "root"
-                  :password "password"}
-          adapter (factory/create-adapter :boundary/mysql config)]
-      (is (some? adapter) "Adapter should be created")
-      (is (satisfies? protocols/DBAdapter adapter)
-          "Should satisfy DatabaseAdapter protocol")
+(deftest config-context-and-health-check-failure-paths
+  (testing "missing config keys produce a useful error message"
+    (with-redefs [boundary.platform.shell.adapters.database.config/get-active-db-configs
+                  (fn [_]
+                    {:boundary/sqlite {:adapter :sqlite}
+                     :boundary/h2 {:adapter :h2}})]
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Configuration key :boundary/postgresql not found in active configs"
+                            (sut/create-config-context "test" :boundary/postgresql)))))
 
-      (let [dialect (protocols/dialect adapter)
-            jdbc-url (protocols/jdbc-url adapter config)]
-        (is (= dialect :mysql) "MySQL adapter should return :mysql dialect")
-        (is (string? jdbc-url) "JDBC URL should be a string")
-        (is (.contains jdbc-url "mysql") "MySQL JDBC URL should contain 'mysql'")))))
+  (testing "create-active-contexts rethrows context creation failures"
+    (with-redefs [boundary.platform.shell.adapters.database.config/get-active-db-configs
+                  (fn [_]
+                    {:boundary/sqlite {:adapter :sqlite}})
+                  boundary.platform.shell.adapters.database.config-factory/create-config-context
+                  (fn [_ _]
+                    (throw (ex-info "context boom" {})))]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"context boom"
+                            (sut/create-active-contexts "test")))))
 
-(deftest test-create-adapter-unknown
-  (testing "Creating unknown adapter should throw"
-    (is (thrown? Exception
-                 (factory/create-adapter :boundary/unknown {:some "config"})
-                 "Should throw exception for unknown adapter type"))))
+  (testing "health-check closes datasources even when query execution throws"
+    (let [closed (atom [])]
+      (with-redefs [boundary.platform.shell.adapters.database.config-factory/create-active-contexts
+                    (fn [_]
+                      {:boundary/sqlite {:adapter (adapter-stub :sqlite)
+                                         :datasource ::sqlite-ds}})
+                    boundary.platform.shell.adapters.database.common.core/execute-query!
+                    (fn [_ _]
+                      (throw (ex-info "unhealthy" {})))
+                    boundary.platform.shell.adapters.database.common.core/close-connection-pool!
+                    (fn [datasource]
+                      (swap! closed conj datasource))]
+        (let [result (sut/health-check "test")]
+          (is (= :unhealthy (get-in result [:boundary/sqlite :status])))
+          (is (= [::sqlite-ds] @closed))))))
 
-;; =============================================================================
-;; Active Adapters Creation Tests
-;; =============================================================================
+  (testing "with-context helpers close datasources on exceptions"
+    (let [closed (atom [])]
+      (with-redefs [boundary.platform.shell.adapters.database.config-factory/create-config-context
+                    (fn [_ _] {:datasource ::config-ds})
+                    boundary.platform.shell.adapters.database.config-factory/get-default-context
+                    (fn [_] {:datasource ::default-ds})
+                    boundary.platform.shell.adapters.database.common.core/close-connection-pool!
+                    (fn [datasource]
+                      (swap! closed conj datasource))]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"config path failure"
+                              (sut/with-config-context "test" :boundary/sqlite
+                                (fn [_] (throw (ex-info "config path failure" {}))))))
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"default path failure"
+                              (sut/with-default-context "test"
+                                (fn [_] (throw (ex-info "default path failure" {}))))))
+        (is (= [::config-ds ::default-ds] @closed))))))
 
-(deftest test-create-active-adapters
-  (testing "Creating all active adapters from configuration"
-    (let [adapters (factory/create-active-adapters sample-config)]
-      (is (map? adapters) "Should return a map of adapters")
-      (is (= 3 (count adapters)) "Should have 3 active adapters")
+(deftest compatibility-helper-functions
+  (testing "supported adapter helpers expose the expected compatibility surface"
+    (is (true? (sut/adapter-supported? :boundary/sqlite)))
+    (is (false? (sut/adapter-supported? :boundary/unknown)))
+    (is (= [:boundary/sqlite :boundary/h2 :boundary/postgresql :boundary/mysql :boundary/settings :boundary/logging]
+           (sut/list-available-adapters))))
 
-      ;; Check each adapter exists and is properly typed
-      (is (contains? adapters :boundary/sqlite) "Should contain SQLite adapter")
-      (is (contains? adapters :boundary/h2) "Should contain H2 adapter")
-      (is (contains? adapters :boundary/postgresql) "Should contain PostgreSQL adapter")
-      (is (not (contains? adapters :boundary/mysql)) "Should not contain inactive MySQL adapter")
+  (testing "adapter config validation handles positive and negative cases"
+    (is (true? (sut/valid-adapter-config? :boundary/sqlite {:db "dev.db"})))
+    (is (true? (sut/valid-adapter-config? :boundary/h2 {:memory true})))
+    (is (true? (sut/valid-adapter-config? :boundary/postgresql
+                                          {:host "localhost" :port 5432 :dbname "app" :user "u" :password "p"})))
+    (is (true? (sut/valid-adapter-config? :boundary/settings {:anything true})))
+    (is (false? (sut/valid-adapter-config? :boundary/sqlite {:db 42})))
+    (is (false? (sut/valid-adapter-config? :boundary/postgresql {:host "localhost"})))
+    (is (false? (sut/valid-adapter-config? :boundary/unknown {:db "x"}))))
 
-      ;; Check all adapters satisfy the protocol
-      (doseq [[adapter-key adapter] adapters]
-        (is (satisfies? protocols/DBAdapter adapter)
-            (str "Adapter " adapter-key " should satisfy DatabaseAdapter protocol"))))))
+  (testing "create-adapter and create-active-adapters validate inputs and produce compatible adapters"
+    (is (thrown-with-msg? IllegalArgumentException
+                          #"Configuration cannot be null"
+                          (sut/create-adapter :boundary/sqlite nil)))
+    (is (thrown-with-msg? IllegalArgumentException
+                          #"Unsupported adapter type"
+                          (sut/create-adapter :boundary/unknown {})))
+    (is (thrown-with-msg? IllegalArgumentException
+                          #"Invalid configuration for adapter type: :boundary/sqlite"
+                          (sut/create-adapter :boundary/sqlite {:db 42})))
+    (let [sqlite-adapter (sut/create-adapter :boundary/sqlite {:db "dev.db"})
+          active (sut/create-active-adapters {:active {:boundary/sqlite {:db "dev.db"}}
+                                              :boundary/unknown {:db "ignored"}})]
+      (is (= :sqlite (protocols/dialect sqlite-adapter)))
+      (is (= "jdbc:sqlite:dev.db" (protocols/jdbc-url sqlite-adapter {})))
+      (is (= #{:boundary/sqlite} (set (keys active))))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Configuration must contain an :active section"
+                            (sut/create-active-adapters {})))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"The :active section must be a map"
+                            (sut/create-active-adapters {:active []}))))))
 
-(deftest test-create-active-adapters-empty-config
-  (testing "Creating adapters from empty active configuration"
-    (let [empty-config {:active {} :inactive {}}
-          adapters (factory/create-active-adapters empty-config)]
-      (is (map? adapters) "Should return a map even with empty config")
-      (is (empty? adapters) "Should be empty map with no active adapters"))))
-
-(deftest test-create-active-adapters-missing-active-section
-  (testing "Creating adapters from config missing active section should throw"
-    (let [invalid-config {:inactive {:boundary/sqlite {:db "test.db"}}}]
-      (is (thrown? Exception (factory/create-active-adapters invalid-config))
-          "Should throw exception when :active section is missing"))))
-
-;; =============================================================================
-;; Adapter Configuration Validation Tests
-;; =============================================================================
-
-(deftest test-validate-adapter-configs
-  (testing "Validating adapter configurations before creation"
-    (testing "Valid configurations should pass"
-      (let [configs {:boundary/sqlite {:db "test.db"}
-                     :boundary/h2 {:memory true}
-                     :boundary/postgresql {:host "localhost" :port 5432
-                                           :dbname "test" :user "user" :password "pass"}}]
-        (doseq [[adapter-type config] configs]
-          (is (factory/valid-adapter-config? adapter-type config)
-              (str "Valid config for " adapter-type " should pass validation")))))
-
-    (testing "Invalid configurations should fail"
-      (let [invalid-configs {:boundary/sqlite {} ; missing :db
-                             :boundary/postgresql {:host "localhost"} ; missing required fields
-                             :boundary/mysql {:port 3306}}] ; missing host and other required
-        (doseq [[adapter-type config] invalid-configs]
-          (is (not (factory/valid-adapter-config? adapter-type config))
-              (str "Invalid config for " adapter-type " should fail validation")))))))
-
-;; =============================================================================
-;; Adapter Registry Tests
-;; =============================================================================
-
-(deftest test-list-available-adapters
-  (testing "Listing available adapter types"
-    (let [available-adapters (factory/list-available-adapters)]
-      (is (coll? available-adapters) "Should return a collection")
-      (is (>= (count available-adapters) 4) "Should have at least 4 adapters")
-      (is (contains? (set available-adapters) :boundary/sqlite) "Should include SQLite")
-      (is (contains? (set available-adapters) :boundary/h2) "Should include H2")
-      (is (contains? (set available-adapters) :boundary/postgresql) "Should include PostgreSQL")
-      (is (contains? (set available-adapters) :boundary/mysql) "Should include MySQL"))))
-
-(deftest test-adapter-supported
-  (testing "Checking if adapter types are supported"
-    (is (factory/adapter-supported? :boundary/sqlite) "SQLite should be supported")
-    (is (factory/adapter-supported? :boundary/h2) "H2 should be supported")
-    (is (factory/adapter-supported? :boundary/postgresql) "PostgreSQL should be supported")
-    (is (factory/adapter-supported? :boundary/mysql) "MySQL should be supported")
-    (is (not (factory/adapter-supported? :boundary/nonexistent)) "Nonexistent adapter should not be supported")))
-
-;; =============================================================================
-;; Connection Specification Tests
-;; =============================================================================
-
-(deftest test-jdbc-url-format
-  (testing "JDBC URLs should be properly formatted"
-    (let [sqlite-adapter (factory/create-adapter :boundary/sqlite {:db "test.db"})
-          h2-adapter (factory/create-adapter :boundary/h2 {:memory true})]
-      (testing "SQLite JDBC URL"
-        (let [jdbc-url (protocols/jdbc-url sqlite-adapter {:db "test.db"})]
-          (is (string? jdbc-url) "JDBC URL should be a string")
-          (is (.contains jdbc-url "sqlite") "SQLite JDBC URL should contain 'sqlite'")))
-
-      (testing "H2 JDBC URL"
-        (let [jdbc-url (protocols/jdbc-url h2-adapter {:memory true})]
-          (is (string? jdbc-url) "JDBC URL should be a string")
-          (is (.contains jdbc-url "h2") "H2 JDBC URL should contain 'h2'"))))))
-
-;; =============================================================================
-;; Adapter Pool Configuration Tests  
-;; =============================================================================
-
-(deftest test-pool-configuration-handling
-  (testing "Pool configuration should be properly handled"
-    (let [config-with-pool {:db "test.db"
-                            :pool {:minimum-idle 5
-                                   :maximum-pool-size 20
-                                   :connection-timeout-ms 30000}}
-          config-without-pool {:db "test.db"}]
-
-      (testing "Config with explicit pool settings"
-        (let [adapter (factory/create-adapter :boundary/sqlite config-with-pool)]
-          (is (some? adapter) "Adapter should be created with pool config")))
-
-      (testing "Config without pool settings should use defaults"
-        (let [adapter (factory/create-adapter :boundary/sqlite config-without-pool)]
-          (is (some? adapter) "Adapter should be created without explicit pool config"))))))
-
-;; =============================================================================
-;; Error Handling Tests
-;; =============================================================================
-
-(deftest test-error-handling
-  (testing "Factory should handle errors gracefully"
-    (testing "Malformed configuration"
-      (is (thrown? Exception
-                   (factory/create-adapter :boundary/sqlite "not-a-map"))
-          "Should throw on non-map configuration"))
-
-    (testing "Null configuration"
-      (is (thrown? Exception
-                   (factory/create-adapter :boundary/sqlite nil))
-          "Should throw on null configuration"))
-
-    (testing "Configuration with invalid types"
-      (is (thrown? Exception
-                   (factory/create-adapter :boundary/postgresql
-                                           {:host 123 :port "not-a-number"}))
-          "Should throw on configuration with wrong data types"))))
-
-;; =============================================================================
-;; Integration Tests
-;; =============================================================================
-
-(deftest test-factory-integration-with-real-configs
-  (testing "Factory should work with real configuration files"
-    ; This test loads actual config files and verifies factory can create adapters
-    (doseq [env ["dev" "test" "prod"]]
-      (testing (str "Environment: " env)
-        (try
-          ; Load real config (this might fail if config loading isn't implemented)
-          (let [config (config/load-config env)
-                adapters (factory/create-active-adapters config)]
-            (is (map? adapters) (str "Should create adapters map for " env))
-            (is (seq adapters) (str "Should have at least one adapter for " env))
-
-            ; Verify all created adapters are valid
-            (doseq [[adapter-key adapter] adapters]
-              (is (satisfies? protocols/DBAdapter adapter)
-                  (str "Adapter " adapter-key " should satisfy protocol in " env))))
-          (catch Exception e
-            ; If config loading fails, that's okay - it means the real config system isn't ready
-            ; But we should still document this expectation
-            (println (str "Note: Could not test real config for " env ": " (.getMessage e)))))))))
-
-;; Run all tests
-(defn run-config-factory-tests []
-  (clojure.test/run-tests 'boundary.platform.shell.adapters.database.config-factory-test))
+(deftest print-environment-summary-renders-validation-and-adapter-information
+  (let [printed (atom [])]
+    (with-redefs [boundary.platform.shell.adapters.database.config/print-config-summary
+                  (fn [env]
+                    (swap! printed conj (str "summary:" env)))
+                  boundary.platform.shell.adapters.database.config-factory/validate-environment-config
+                  (fn [_]
+                    {:valid? false
+                     :errors [{:adapter :sqlite :error "missing db"}]})
+                  boundary.platform.shell.adapters.database.config-factory/get-active-adapter-types
+                  (fn [_]
+                    [:sqlite :h2])
+                  println
+                  (fn [& args]
+                    (swap! printed conj (str/join " " args)))]
+      (sut/print-environment-summary "test")
+      (is (some #(str/includes? % "Database Environment Summary: test") @printed))
+      (is (some #(str/includes? % "Configuration Validation: FAILED") @printed))
+      (is (some #(str/includes? % "summary:test") @printed))
+      (is (some #(str/includes? % "✅ :sqlite") @printed))
+      (is (some #(str/includes? % "✅ :h2") @printed)))))

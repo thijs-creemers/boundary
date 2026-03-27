@@ -5,7 +5,7 @@
 ;;
 ;; Usage (via bb.edn task):
 ;;   bb deploy                         -- show help
-;;   bb deploy --all                   -- deploy all 21 artifacts in dependency order
+;;   bb deploy --all                   -- deploy all 22 artifacts in dependency order
 ;;   bb deploy core platform user      -- deploy specific libs
 ;;   bb deploy --missing               -- deploy only libs not yet on Clojars
 ;;
@@ -37,6 +37,7 @@
   ["core"
    "observability"
    "platform"
+   "i18n"
    "user"
    "storage"
    "scaffolder"
@@ -157,7 +158,7 @@
   (println (bold "bb deploy") "— Deploy Boundary libraries to Clojars")
   (println)
   (println "Usage:")
-  (println "  bb deploy --all              Deploy all 21 artifacts in dependency order")
+  (println "  bb deploy --all              Deploy all 22 artifacts in dependency order")
   (println "  bb deploy --missing          Deploy only artifacts not yet on Clojars")
   (println "  bb deploy <lib> [lib...]     Deploy specific libraries")
   (println)

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+  <!-- Keep test and coverage output quiet by default while still surfacing real errors. -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <logger name="boundary" level="ERROR" additivity="false">
+    <appender-ref ref="CONSOLE" />
+  </logger>
+
+  <logger name="org.eclipse.jetty" level="ERROR" />
+  <logger name="com.zaxxer.hikari" level="ERROR" />
+  <logger name="org.apache" level="ERROR" />
+  <logger name="io.netty" level="ERROR" />
+  <logger name="com.github.seancorfield.next.jdbc" level="ERROR" />
+  <logger name="n.fortuna.ical4j" level="ERROR" />
+
+  <root level="ERROR">
+    <appender-ref ref="CONSOLE" />
+  </root>
+
+</configuration>

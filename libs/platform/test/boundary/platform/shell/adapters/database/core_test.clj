@@ -16,7 +16,8 @@
             [boundary.platform.shell.adapters.database.protocols :as protocols]
             [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.tools.logging :as log])
-  (:import (java.util UUID)))
+  (:import (java.time Instant)
+           (java.util UUID)))
 
 ;; =============================================================================
 ;; Test Fixtures and Setup
@@ -56,6 +57,12 @@
                             published BOOLEAN DEFAULT false,
                             view_count INTEGER DEFAULT 0,
                             FOREIGN KEY (user_id) REFERENCES test_users(id)
+                          )")
+
+    (db/execute-ddl! ctx "CREATE TABLE IF NOT EXISTS test_events (
+                            id UUID PRIMARY KEY,
+                            occurred_at VARCHAR(255) NOT NULL,
+                            updated_at VARCHAR(255)
                           )")
     ctx))
 
@@ -131,6 +138,12 @@
         (is (= user-id (:id result)))
         (is (= "single@test.com" (:email result)))))))
 
+(deftest test-execute-query-with-jdbc-vector
+  (testing "Raw JDBC vectors are accepted for direct SQL queries"
+    (let [ctx @test-ctx
+          result (db/execute-query! ctx ["SELECT 42 AS answer"])]
+      (is (= [{:answer 42}] result)))))
+
 (deftest test-execute-update
   (testing "Execute-update returns affected row count"
     (let [ctx @test-ctx
@@ -157,6 +170,30 @@
                                               :set {:name "Won't work"}
                                               :where [:= :id user-id]})]
         (is (= 0 affected))))))
+
+(deftest test-instant-values-are-normalized-before-db-execution
+  (testing "Instant values are converted to ISO strings for inserts, updates, and predicates"
+    (let [ctx @test-ctx
+          event-id (UUID/randomUUID)
+          occurred-at (Instant/parse "2026-03-24T10:15:30Z")
+          updated-at (Instant/parse "2026-03-24T11:15:30Z")]
+      (is (= 1 (db/execute-update! ctx {:insert-into :test_events
+                                        :values [{:id event-id
+                                                  :occurred_at occurred-at}]})))
+      (is (= [{:id event-id
+               :occurred-at (.toString occurred-at)
+               :updated-at nil}]
+             (db/execute-query! ctx {:select [:*]
+                                     :from [:test_events]
+                                     :where [:= :occurred_at occurred-at]})))
+
+      (is (= 1 (db/execute-update! ctx {:update :test_events
+                                        :set {:updated_at updated-at}
+                                        :where [:= :id event-id]})))
+      (is (= [{:updated-at (.toString updated-at)}]
+             (db/execute-query! ctx {:select [:updated_at]
+                                     :from [:test_events]
+                                     :where [:= :updated_at updated-at]}))))))
 
 (deftest test-transactions
   (testing "Transaction commit and rollback behavior"

@@ -1,0 +1,138 @@
+= i18n
+:description: Internationalisation for Boundary apps: marker-based translation, locale chain resolution, EDN catalogues, and Ring middleware.
+
+Internationalisation for Boundary apps: marker-based translation, locale chain resolution, EDN catalogues, and Ring middleware. Follows ADR-013.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.i18n.core.translate`
+| Pure `t/3` function: locale chain lookup, interpolation, pluralisation
+
+| `boundary.i18n.ports`
+| `ICatalogue` protocol with `lookup` method
+
+| `boundary.i18n.shell.catalogue`
+| `load-catalogue` from classpath EDN files; `MapCatalogue` implementation
+
+| `boundary.i18n.shell.middleware`
+| `wrap-i18n`: injects `:i18n/locale-chain` and `:i18n/t` into Ring request
+
+| `boundary.i18n.shell.render`
+| `resolve-markers` and `render`: postwalk resolving `[:t :key]` in Hiccup
+
+| `boundary.i18n.shell.module-wiring`
+| Integrant `:boundary/i18n` component
+|===
+
+== Marker syntax
+
+[source,clojure]
+----
+;; Simple lookup
+[:t :user/sign-in]
+
+;; With interpolation params
+[:t :user/greeting {:name "Alice"}]
+
+;; With plural count (4th element)
+[:t :user/items {:n 3} 3]
+----
+
+Markers are resolved by `boundary.i18n.shell.render/resolve-markers` during `render`. They can appear anywhere in a Hiccup tree. Strings pass through unchanged.
+
+== Locale chain
+
+`wrap-i18n` builds an ordered locale chain from the Ring request:
+
+. User locale — `[:session :user :language]`
+. Tenant locale — `[:tenant :settings :language]`
+. Default locale from Integrant config
+. Hard fallback: `:en`
+
+Missing keys degrade to `(str key)` (e.g. `"user/sign-in"`). They never throw.
+
+== Catalogue format
+
+[source,clojure]
+----
+{:user/sign-in    "Sign In"
+ :user/greeting   {:one "Hello {name}" :many "Hello everyone"}
+ :user/items      {:zero "No items" :one "{n} item" :many "{n} items"}
+ :common/button-cancel "Cancel"}
+----
+
+Key namespacing conventions: `:common/*` for shared UI strings, `:user/*`, `:admin/*`, `:search/*`, etc. per module. English and Dutch catalogues are included out of the box.
+
+== Integrant configuration
+
+[source,edn]
+----
+;; config.edn
+:boundary/i18n {:catalogue-path "boundary/i18n/translations"
+                :default-locale :en
+                :dev?           true}   ; omit or false in production
+----
+
+The component is injected into `:boundary/http-handler` as `:i18n`. With `:dev? true`, resolved markers are wrapped in `[:span {:data-i18n "..."}]` for browser inspection.
+
+== Middleware
+
+`boundary.i18n.shell.middleware/wrap-i18n` injects into every Ring request:
+
+[cols="1,3",options="header"]
+|===
+| Key | Description
+
+| `:i18n/locale-chain`
+| Ordered vector of locales to try, e.g. `[:nl :en]`
+
+| `:i18n/t`
+| Translation function — `(fn [key])`, `(fn [key params])`, `(fn [key params n])`
+|===
+
+[source,clojure]
+----
+;; In a handler
+(let [t (get request :i18n/t identity)]
+  (t :user/sign-in)
+  (t :user/greeting {:name "Alice"})
+  (t :user/items {:n 3} 3))
+----
+
+== Adding a locale
+
+. Add `libs/i18n/resources/boundary/i18n/translations/fr.edn`.
+. Update `load-catalogue` default locales or pass it explicitly from config.
+. Run `bb i18n:missing` to see which keys need translating.
+
+== Babashka tooling
+
+[source,bash]
+----
+# Find a key by substring or exact keyword
+bb i18n:find "Sign in"
+bb i18n:find :user/sign-in
+
+# Scan core/ui.clj files for unexternalised string literals (CI gate)
+bb i18n:scan
+
+# Report translation gaps (keys in en.edn missing from other locales)
+bb i18n:missing
+
+# Report catalogue keys not referenced in any source file
+bb i18n:unused
+----
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :i18n
+
+# Unit tests only
+clojure -M:test:db/h2 :i18n --focus-meta :unit
+----

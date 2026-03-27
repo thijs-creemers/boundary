@@ -1,0 +1,98 @@
+= ADR-016: Tenant User Membership
+:status: Proposed
+:date: 2026-03-24
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+Boundary currently models tenant context primarily through a direct relationship
+between a user profile and a tenant, typically via a single `tenant_id` on the
+user-side profile record.
+
+That model is too restrictive for the next class of Boundary applications:
+
+* one person may need access to multiple tenants
+* tenant-scoped roles must not be conflated with platform/global roles
+* contractor, member, viewer, and tenant-admin relationships are tenant-local
+* onboarding, invitations, suspension, and acceptance are membership lifecycle
+  concerns, not global user concerns
+
+The ZZPGuard onboarding work exposed this gap directly. A temporary patch used
+the existing global `:admin` user role to represent a tenant admin. That is
+incorrect because global `:admin` is reserved for platform/system
+administration. The missing concept is a tenant-scoped membership model.
+
+== Decision
+
+Boundary will extend the `boundary-tenant` library with a first-class
+`tenant_memberships` concept.
+
+The framework will model three separate concerns:
+
+* `users`
+  - global identity, authentication, security, profile
+* `tenants`
+  - organisation / tenant entity
+* `tenant_memberships`
+  - tenant-scoped relationship between a user and a tenant
+
+Initial membership shape:
+
+[source,clojure]
+----
+{:id uuid
+ :tenant-id uuid
+ :user-id uuid
+ :role #{:admin :member :viewer :contractor}
+ :status #{:invited :active :suspended :revoked}
+ :invited-at inst?
+ :accepted-at [:maybe inst?]
+ :created-at inst?
+ :updated-at [:maybe inst?]}
+----
+
+Framework rules:
+
+1. Global user roles remain reserved for platform/system concerns.
+2. Tenant permissions are derived from membership role, not from global user role.
+3. A single user may have zero, one, or many tenant memberships.
+4. Tenant onboarding should create or activate a membership, not elevate a
+   global user role.
+5. HTTP middleware and authorization helpers should expose active tenant
+   membership context to applications.
+
+== Consequences
+
+=== Positive
+
+* Correct separation between platform administration and tenant administration
+* Multi-tenant user access becomes a supported framework capability
+* Cleaner support for invites, membership lifecycle, and tenant-local roles
+* Applications like ZZPGuard can model tenant admins and cross-tenant
+  contractors without app-local workarounds
+
+=== Negative
+
+* Requires schema, repository, service, and middleware changes in the framework
+* Existing applications using `user.tenant-id` directly will need a migration path
+* Authorization helpers will need to be updated to resolve membership context
+
+== Migration Notes
+
+Applications should treat current direct `user.tenant-id` usage as transitional.
+
+Migration path:
+
+1. Introduce `tenant_memberships` in the framework.
+2. Add compatibility helpers to derive current tenant context from memberships.
+3. Move tenant-scoped authorization to membership role checks.
+4. Gradually deprecate direct single-tenant assumptions in user-facing flows.
+
+== Related
+
+* ADR-004: Multi-Tenancy Architecture
+* ADR-014: Pluggable User / Auth / Authorization

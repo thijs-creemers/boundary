@@ -281,11 +281,13 @@
         http-handler-config (cond-> {:config config
                                      :user-routes (ig/ref :boundary/user-routes)
                                      :tenant-routes (ig/ref :boundary/tenant-routes)
+                                     :membership-routes (ig/ref :boundary/membership-routes)
                                      :router (ig/ref :boundary/router)
                                      :logger (ig/ref :boundary/logging)
                                      :metrics-emitter (ig/ref :boundary/metrics)
                                      :error-reporter (ig/ref :boundary/error-reporting)
                                      :tenant-service (ig/ref :boundary/tenant-service)
+                                     :membership-service (ig/ref :boundary/membership-service)
                                      :db-context (ig/ref :boundary/db-context)
                                      :i18n (ig/ref :boundary/i18n)}
                               admin-enabled?
@@ -396,6 +398,16 @@
       :logger (ig/ref :boundary/logging)
       :error-reporter (ig/ref :boundary/error-reporting)}
 
+     :boundary/membership-repository
+     {:ctx (ig/ref :boundary/db-context)
+      :logger (ig/ref :boundary/logging)
+      :error-reporter (ig/ref :boundary/error-reporting)}
+
+     :boundary/invite-repository
+     {:ctx (ig/ref :boundary/db-context)
+      :logger (ig/ref :boundary/logging)
+      :error-reporter (ig/ref :boundary/error-reporting)}
+
      :boundary/tenant-service
      {:tenant-repository (ig/ref :boundary/tenant-repository)
       :validation-config validation-cfg
@@ -403,8 +415,26 @@
       :metrics-emitter (ig/ref :boundary/metrics)
       :error-reporter (ig/ref :boundary/error-reporting)}
 
+     :boundary/membership-service
+     {:repository (ig/ref :boundary/membership-repository)
+      :logger (ig/ref :boundary/logging)
+      :metrics-emitter (ig/ref :boundary/metrics)
+      :error-reporter (ig/ref :boundary/error-reporting)}
+
+     :boundary/invite-service
+     {:repository (ig/ref :boundary/invite-repository)
+      :membership-repository (ig/ref :boundary/membership-repository)
+      :logger (ig/ref :boundary/logging)
+      :metrics-emitter (ig/ref :boundary/metrics)
+      :error-reporter (ig/ref :boundary/error-reporting)}
+
      :boundary/tenant-routes
      {:tenant-service (ig/ref :boundary/tenant-service)
+      :db-context (ig/ref :boundary/db-context)
+      :config config}
+
+     :boundary/membership-routes
+     {:service (ig/ref :boundary/membership-service)
       :config config}}))
 
 (defn- workflow-module-config
@@ -529,5 +559,4 @@
   ;; Halt system
   (ig/halt! system)
   ...)
-
 

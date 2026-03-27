@@ -36,6 +36,12 @@
       (log/debug "Loading i18n catalogue" {:locale locale :path resource-path})
       (edn/read-string (slurp resource)))))
 
+(defn- normalize-base-paths [base-paths]
+  (cond
+    (string? base-paths) [base-paths]
+    (sequential? base-paths) (vec (remove nil? base-paths))
+    :else []))
+
 (defn load-catalogue
   "Load translation catalogue from classpath EDN files.
 
@@ -48,15 +54,18 @@
 
    Returns:
      Nested map {locale-keyword {key string-or-plural-map}}"
-  ([base-path]
-   (load-catalogue base-path [:en :nl]))
-  ([base-path locales]
-   (reduce (fn [acc locale]
-             (if-let [entries (load-locale-edn base-path locale)]
-               (assoc acc locale entries)
-               acc))
+  ([base-paths]
+   (load-catalogue base-paths [:en :nl]))
+  ([base-paths locales]
+   (reduce (fn [acc base-path]
+             (reduce (fn [locale-acc locale]
+                       (if-let [entries (load-locale-edn base-path locale)]
+                         (update locale-acc locale (fnil merge {}) entries)
+                         locale-acc))
+                     acc
+                     locales))
            {}
-           locales)))
+           (normalize-base-paths base-paths))))
 
 ;; =============================================================================
 ;; MapCatalogue — ICatalogue implementation backed by an in-memory map

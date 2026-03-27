@@ -4,20 +4,54 @@
 
 ## Purpose
 
-Multi-tenancy with schema-per-tenant isolation on PostgreSQL. Provides tenant CRUD, schema provisioning, tenant resolution, and cross-module integration (jobs, cache).
+Multi-tenancy with schema-per-tenant isolation on PostgreSQL. Provides:
+- **Tenant CRUD** — create, update, suspend, activate, soft-delete
+- **Schema provisioning** — per-tenant PostgreSQL schema creation
+- **Membership management** — invite users, accept invitations, manage roles and status (ADR-016)
+- **Email invite flow** — token-based external invites with expiry and revocation
+- **Tenant resolution** — subdomain, JWT, or header-based tenant detection (via `platform` library)
+
+---
 
 ## Key Namespaces
 
+### Core (pure functions)
+
 | Namespace | Purpose |
 |-----------|---------|
-| `boundary.tenant.core.tenant` | Pure functions: slug validation, schema name generation, prepare-tenant, decisions |
-| `boundary.tenant.ports` | Protocols: ITenantRepository, ITenantService, ITenantSchemaProvider |
-| `boundary.tenant.schema` | Malli schemas: Tenant, TenantInput, TenantUpdate, TenantSettings |
-| `boundary.tenant.shell.service` | Service layer with observability interceptors |
-| `boundary.tenant.shell.persistence` | Database CRUD with case conversion |
+| `boundary.tenant.core.tenant` | Slug validation, schema name generation, `prepare-tenant`, lifecycle decisions |
+| `boundary.tenant.core.membership` | Membership lifecycle: prepare-invitation, accept, suspend, revoke, role updates, `active-member?`, `has-role?` |
+| `boundary.tenant.core.invite` | Invite lifecycle: create, check expiry, accept, revoke; token hashing |
+
+### Ports (protocols)
+
+| Namespace | Protocols |
+|-----------|-----------|
+| `boundary.tenant.ports` | `ITenantRepository`, `ITenantService`, `ITenantMembershipRepository`, `ITenantMembershipService`, `ITenantInviteRepository`, `ITenantInviteService`, `ITenantInviteAcceptanceService`, `ITenantSchemaProvider` |
+
+### Shell (side-effecting)
+
+| Namespace | Purpose |
+|-----------|---------|
+| `boundary.tenant.shell.service` | `TenantService` — tenant CRUD with observability interceptors |
+| `boundary.tenant.shell.persistence` | `TenantRepository` — DB CRUD with case/type conversion |
 | `boundary.tenant.shell.provisioning` | PostgreSQL schema provisioning/deprovisioning |
-| `boundary.tenant.shell.http` | REST API handlers (CRUD + provision/suspend/activate) |
-| `boundary.tenant.shell.module-wiring` | Integrant lifecycle (ig/init-key, ig/halt-key!) |
+| `boundary.tenant.shell.http` | Tenant REST API handlers (CRUD + provision/suspend/activate) |
+| `boundary.tenant.shell.membership_service` | `MembershipService` — membership management |
+| `boundary.tenant.shell.membership_persistence` | `MembershipRepository` — DB CRUD for memberships |
+| `boundary.tenant.shell.membership_http` | Membership REST API handlers |
+| `boundary.tenant.shell.membership_middleware` | `wrap-tenant-membership` Ring middleware |
+| `boundary.tenant.shell.invite_service` | `InviteService` + `InviteAcceptanceService` — email invite flows |
+| `boundary.tenant.shell.invite_persistence` | `InviteRepository` — DB CRUD for invites |
+| `boundary.tenant.shell.module_wiring` | Integrant `init-key` / `halt-key!` definitions |
+
+### Schema
+
+| Namespace | Contents |
+|-----------|---------|
+| `boundary.tenant.schema` | `Tenant`, `TenantMembership`, `TenantInvite`, `TenantSettings`, input schemas, camelCase request/response transformers |
+
+---
 
 ## Slug and Schema Naming
 
@@ -32,14 +66,139 @@ Multi-tenancy with schema-per-tenant isolation on PostgreSQL. Provides tenant CR
 (tenant/slug->schema-name "acme-corp")  ;=> "tenant_acme_corp"
 ```
 
+---
+
 ## Tenant Lifecycle States
 
 ```
 :active       → Created, not yet provisioned
 :provisioned  → Schema created and ready
 :suspended    → Access disabled (data preserved)
-:deleted      → Soft delete (schema can be deprovisioned)
+:deleted      → Soft delete (schema NOT auto-dropped)
 ```
+
+---
+
+## Membership Management (ADR-016)
+
+### Entity shape
+
+```clojure
+{:id          uuid
+ :tenant-id   uuid
+ :user-id     uuid
+ :role        :admin | :member | :viewer | :contractor
+ :status      :invited | :active | :suspended | :revoked
+ :invited-at  inst
+ :accepted-at inst   ; set when :invited → :active
+ :created-at  inst
+ :updated-at  inst}
+```
+
+### Membership lifecycle
+
+```
+:invited  ──accept──→  :active
+:active   ──suspend──→ :suspended
+:active   ──revoke──→  :revoked
+:invited  ──revoke──→  :revoked
+:suspended ──revoke──→ :revoked
+```
+
+### Core helpers
+
+```clojure
+(require '[boundary.tenant.core.membership :as m])
+
+;; Prepare a new invitation (status :invited)
+(m/prepare-invitation user-id tenant-id :admin (Instant/now))
+
+;; Prepare a direct active membership (bootstrap / no-invite flow)
+(m/prepare-active-membership user-id tenant-id :admin (Instant/now))
+
+;; Transitions
+(m/accept-invitation  membership (Instant/now))  ; :invited  → :active
+(m/suspend-membership membership (Instant/now))  ; → :suspended
+(m/revoke-membership  membership (Instant/now))  ; → :revoked
+(m/update-role        membership :member (Instant/now))
+
+;; Predicate helpers (used by interceptors)
+(m/active-member? membership)              ;=> true/false
+(m/has-role? membership #{:admin})         ;=> true/false
+```
+
+### Bootstrap flow — first admin
+
+When a tenant is created there are no memberships yet.
+Use `bootstrap-open?` before calling the membership service:
+
+```clojure
+(when (m/bootstrap-open? tenant-id membership-service)
+  (membership-ports/create-active-membership!
+    membership-service
+    {:tenant-id tenant-id :user-id user-id :role :admin}))
+```
+
+### HTTP routes (membership)
+
+```
+POST   /tenants/:tenant-id/memberships          ; Invite user (admin only)
+GET    /tenants/:tenant-id/memberships          ; List members (admin only)
+GET    /tenants/:tenant-id/memberships/:id      ; Get membership (admin only)
+PUT    /tenants/:tenant-id/memberships/:id      ; Update role/status (admin only)
+DELETE /tenants/:tenant-id/memberships/:id      ; Revoke membership (admin only)
+POST   /memberships/:id/accept                  ; Accept invitation (authenticated user)
+```
+
+---
+
+## Email Invite Flow
+
+### Entity shape
+
+```clojure
+{:id                  uuid
+ :tenant-id           uuid
+ :email               string           ; normalized (lowercase)
+ :role                keyword
+ :status              :pending | :accepted | :revoked
+ :token-hash          string           ; SHA-256 of the raw token (never stored plain)
+ :expires-at          inst
+ :accepted-at         inst
+ :revoked-at          inst
+ :accepted-by-user-id uuid
+ :metadata            map
+ :created-at          inst
+ :updated-at          inst}
+```
+
+### Token security
+
+The raw token is **never** stored in the database:
+
+```clojure
+;; 1. Generate raw token (32 random bytes, URL-safe base64)
+(invite-core/generate-token)   ;=> "aB3cD..."
+
+;; 2. Hash before storing
+(invite-core/hash-token raw-token)   ;=> "sha256hex..."
+
+;; 3. Store only the hash; send raw token to user via email
+```
+
+### Acceptance flow (two-phase, transactional)
+
+```clojure
+;; Phase 1: load and validate (does not mutate)
+(invite-ports/load-external-invite-for-acceptance invite-service token)
+;=> {:invite ... :tenant ...}  or throws :validation-error if expired/invalid
+
+;; Phase 2: atomic accept — creates membership in same transaction
+(invite-ports/accept-external-invite! invite-service token user-id
+  {:after-accept-tx (fn [tx invite membership] ...)})
+```
+
+---
 
 ## Schema Provisioning
 
@@ -55,43 +214,145 @@ Multi-tenancy with schema-per-tenant isolation on PostgreSQL. Provides tenant CR
     (jdbc/execute! tx ["SELECT * FROM users"])))
 ```
 
-## HTTP API Routes
+---
 
+## Middleware
+
+### `wrap-tenant-membership` (from `membership_middleware`)
+
+Enriches the Ring request with `:tenant-membership` for the current user+tenant pair.
+Must run **after** both `wrap-tenant-resolution` (platform) and user authentication middleware.
+
+```clojure
+(require '[boundary.tenant.shell.membership_middleware :refer [wrap-tenant-membership]])
+
+;; In your Ring handler stack
+(-> handler
+    (wrap-tenant-membership membership-service)
+    (wrap-user-authentication user-service)
+    (wrap-tenant-resolution tenant-service {:require-tenant? true}))
 ```
-GET    /tenants              # List tenants
-POST   /tenants              # Create tenant
-GET    /tenants/:id          # Get tenant
-PUT    /tenants/:id          # Update tenant
-DELETE /tenants/:id          # Soft delete
-POST   /tenants/:id/suspend  # Suspend tenant
-POST   /tenants/:id/activate # Activate tenant
-POST   /tenants/:id/provision # Provision schema
+
+Result on request: `{:tenant {...} :user {...} :tenant-membership {:status :active :role :admin ...}}`
+
+### Tenant resolution (platform library)
+
+See `libs/platform/AGENTS.md` for `wrap-tenant-resolution`, `wrap-tenant-schema`, and `wrap-multi-tenant`.
+
+---
+
+## Interceptors (from `user` library)
+
+The four tenant-aware HTTP interceptors live in `boundary.user.shell.http-interceptors`:
+
+| Interceptor | Behaviour on failure |
+|-------------|---------------------|
+| `require-tenant-member` | 403 JSON — active membership required |
+| `require-tenant-role` | 403 JSON — factory fn, e.g. `(require-tenant-role #{:admin :member})` |
+| `require-tenant-admin` | 403 JSON — shorthand for `(require-tenant-role #{:admin})` |
+| `require-web-tenant-admin` | 302 redirect to `/web/login` for `/web/*` routes, 403 JSON otherwise |
+
+```clojure
+;; API route — protected by tenant admin
+{:path    "/tenants/:tenant-id/settings"
+ :methods {:put {:handler   update-settings
+                 :interceptors [http-int/require-authenticated
+                                http-int/require-tenant-admin]}}}
+
+;; Web route — HTML redirect instead of JSON 403
+{:path    "/web/tenants/:tenant-id/settings"
+ :methods {:get {:handler   settings-page
+                 :interceptors [http-int/require-authenticated
+                                http-int/require-web-tenant-admin]}}}
 ```
+
+---
+
+## Integrant Keys
+
+| Key | Component |
+|-----|-----------|
+| `:boundary/tenant-db-schema` | Initialise tables (`tenants`, `tenant_memberships`, `tenant_member_invites`) |
+| `:boundary/tenant-repository` | `TenantRepository` record |
+| `:boundary/tenant-service` | `TenantService` record |
+| `:boundary/tenant-routes` | Normalized tenant API routes |
+| `:boundary/membership-repository` | `MembershipRepository` record |
+| `:boundary/membership-service` | `MembershipService` record |
+| `:boundary/membership-routes` | Normalized membership API routes |
+| `:boundary/invite-repository` | `InviteRepository` record |
+| `:boundary/invite-service` | `InviteService` + `InviteAcceptanceService` record |
+
+---
+
+## Database Tables
+
+```sql
+-- Core tenant table (original migration)
+tenants (id, slug, name, schema_name, status, settings JSONB,
+         created_at, updated_at, deleted_at)
+
+-- ADR-016 migrations
+tenant_memberships (id, tenant_id, user_id, role, status,
+                    invited_at, accepted_at, created_at, updated_at)
+                   UNIQUE(tenant_id, user_id)
+
+tenant_member_invites (id, tenant_id, email, role, status,
+                       token_hash UNIQUE, expires_at,
+                       accepted_at, revoked_at, accepted_by_user_id,
+                       metadata JSONB, created_at, updated_at)
+```
+
+Run migrations:
+```bash
+clojure -M:migrate up
+```
+
+---
 
 ## Gotchas
 
-1. **PostgreSQL only** for production - provisioning throws on other databases
-2. **H2 (tests)** skips provisioning with warning - can't test schema isolation in H2
-3. **Soft deletes** - `:deleted-at` timestamp set, schema NOT auto-dropped. Call `deprovision-tenant!` separately
-4. **Settings are JSONB** - nested map stored as JSON in PostgreSQL, parsed via Cheshire
-5. **Case conversion** at persistence boundary: kebab → snake (entity→db), snake → kebab (db→entity)
-6. **UUID and Instant** stored as strings in DB, converted via `type-conversion` utilities
+1. **PostgreSQL only** for production — provisioning throws on other databases
+2. **H2 (tests)** skips provisioning with warning — schema isolation can't be tested in H2
+3. **Soft deletes** — `:deleted-at` set on tenant; schema NOT auto-dropped; call `deprovision-tenant!` separately
+4. **Settings are JSONB** — nested map stored as JSON, parsed via Cheshire
+5. **Case conversion** — kebab↔snake at persistence boundary, kebab↔camelCase at HTTP boundary
+6. **UUID and Instant** stored as strings in DB, converted at persistence layer
+7. **Unique membership constraint** — `(tenant_id, user_id)` is unique; re-inviting the same user throws `:conflict`
+8. **Token never in DB** — always store the SHA-256 hash; raw token is sent to the user and then discarded
+9. **Invite acceptance is transactional** — use the two-phase `load-external-invite-for-acceptance` / `accept-external-invite!` pair; never mutate invite and membership in separate transactions
+10. **`wrap-tenant-membership` depends on `:user` and `:tenant`** — both must be on the request before this middleware runs
+
+---
 
 ## Cross-Module Integration
 
-Other modules use tenant context:
-- **Jobs**: `boundary.jobs.shell.tenant-context/enqueue-tenant-job!` - jobs execute in tenant schema
-- **Cache**: `boundary.cache.shell.tenant-cache/create-tenant-cache` - keys prefixed with tenant ID
+| Module | Integration point |
+|--------|-------------------|
+| **Jobs** | `boundary.jobs.shell.tenant-context/enqueue-tenant-job!` — jobs execute in tenant schema |
+| **Cache** | `boundary.cache.shell.tenant-cache/create-tenant-cache` — keys prefixed with tenant ID |
+| **Platform** | `wrap-tenant-resolution`, `wrap-tenant-schema`, `wrap-multi-tenant` — tenant detection and schema switching |
+| **User** | `require-tenant-member`, `require-tenant-admin`, `require-web-tenant-admin` interceptors |
+
+---
 
 ## Testing
 
 ```bash
-clojure -M:test:db/h2 :tenant
-clojure -M:test:db/h2 --focus boundary.tenant.core.tenant-test       # Unit
-clojure -M:test:db/h2 --focus boundary.tenant.shell.service-test     # Service
+clojure -M:test:db/h2 :tenant                                             # All tenant tests
+clojure -M:test:db/h2 --focus boundary.tenant.core.tenant-test            # Slug/schema pure functions
+clojure -M:test:db/h2 --focus boundary.tenant.core.membership-test        # Membership pure functions
+clojure -M:test:db/h2 --focus boundary.tenant.shell.service-test          # TenantService (mocked repo)
+clojure -M:test:db/h2 --focus boundary.tenant.shell.membership-service-test  # MembershipService
+clojure -M:test:db/h2 --focus boundary.tenant.shell.invite-service-test   # InviteService
+clojure -M:test:db/h2 --focus boundary.tenant.shell.persistence-test      # Contract tests (H2)
+clojure -M:test:db/h2 --focus boundary.tenant.integration-test            # End-to-end flows
 ```
+
+---
 
 ## Links
 
-- [Library README](README.md)
+- [Tenant Implementation How-to](../../docs/modules/guides/pages/multi-tenancy.adoc)
 - [Root AGENTS Guide](../../AGENTS.md)
+- [Platform AGENTS — tenant middleware](../platform/AGENTS.md)
+- [User AGENTS — auth interceptors](../user/AGENTS.md)

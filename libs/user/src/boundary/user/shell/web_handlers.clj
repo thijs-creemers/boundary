@@ -305,7 +305,7 @@
 
 (defn login-page-handler
   "GET /web/login - render login page."
-  [_config]
+  [config]
   (fn [request]
     (let [return-to (get-in request [:query-params "return-to"])
           ;; Check if we have a remembered email from previous login
@@ -316,12 +316,13 @@
                          {})
           page-opts {:user (get request :user)
                      :flash (get request :flash)
-                     :return-to return-to}]
+                     :return-to return-to
+                     :logo-url (get-in config [:boundary/settings :logo-url])}]
       (html-response request (user-ui/login-page initial-data {} page-opts)))))
 
 (defn login-submit-handler
   "POST /web/login - validate credentials, authenticate, set session cookie."
-  [user-service _config]
+  [user-service config]
   (fn [request]
     (let [form-data (:form-params request)
           raw-return-to (or (get form-data "return-to")
@@ -333,14 +334,16 @@
                          :ip-address (:remote-addr request)
                          :user-agent (get-in request [:headers "user-agent"])}
           [valid? validation-errors validated-data]
-          (validate-request-data user-schema/LoginRequest prepared-data)]
+          (validate-request-data user-schema/LoginRequest prepared-data)
+          logo-url (get-in config [:boundary/settings :logo-url])]
       (if-not valid?
         ;; Re-render login page with validation errors, preserving return-to
         (html-response request
                        (user-ui/login-page prepared-data validation-errors
                                            {:user (get request :user)
                                             :flash (get request :flash)
-                                            :return-to raw-return-to})
+                                            :return-to raw-return-to
+                                            :logo-url logo-url})
                        400)
         (try
           ;; Use IUserService/authenticate-user with validated data
@@ -406,7 +409,8 @@
                                                        {}
                                                        {:user (get request :user)
                                                         :flash (get request :flash)
-                                                        :return-to return-to})
+                                                        :return-to return-to
+                                                        :logo-url logo-url})
                                200))
 
               ;; Authentication failed (e.g. wrong password or invalid MFA code)
@@ -427,13 +431,15 @@
                                                          {:mfa-code [error-message]}
                                                          {:user (get request :user)
                                                           :flash (get request :flash)
-                                                          :return-to return-to})
+                                                          :return-to return-to
+                                                          :logo-url logo-url})
                    ;; Otherwise show regular login page
                                  (user-ui/login-page prepared-data
                                                      {:password [error-message]}
                                                      {:user (get request :user)
                                                       :flash (get request :flash)
-                                                      :return-to return-to}))
+                                                      :return-to return-to
+                                                      :logo-url logo-url}))
                                401))))
           (catch Exception e
             (log/error e "Login error" {:email (:email prepared-data)})
@@ -443,11 +449,13 @@
                            500)))))))
 
 (defn logout-handler
-  "POST /web/logout - clear session cookie and redirect to login."
+  "POST /web/logout - clear session cookie and redirect to home."
   [user-service _config]
   (fn [request]
     (let [session-token (or (get-in request [:cookies "session-token" :value])
-                            (get-in request [:headers "x-session-token"]))]
+                            (get-in request [:headers "x-session-token"]))
+          token-preview (when session-token
+                          (subs session-token 0 (min 16 (count session-token))))]
       (spit "/tmp/middleware-debug.log"
             (str "LOGOUT HANDLER CALLED: has-token=" (boolean session-token)
                  " token=" (when session-token (subs session-token 0 (min 20 (count session-token)))) "...\n")
@@ -455,7 +463,7 @@
       (when session-token
         (try
           ;; Best-effort server-side logout
-          (log/info "Attempting to invalidate session" {:token (subs session-token 0 16)})
+          (log/info "Attempting to invalidate session" {:token token-preview})
           (let [result (user-ports/logout-user user-service session-token)]
             (log/info "Session invalidation result" {:result result})
             (spit "/tmp/middleware-debug.log"
@@ -466,7 +474,7 @@
             (spit "/tmp/middleware-debug.log"
                   (str "LOGOUT ERROR: " (.getMessage e) "\n")
                   :append true))))
-      (-> (response/redirect "/web/login")
+      (-> (response/redirect "/")
           (assoc :cookies {"session-token"
                            {:value "" :max-age 0 :path "/"}})))))
 
@@ -475,7 +483,8 @@
   [_config]
   (fn [request]
     (let [page-opts {:user (get request :user)
-                     :flash (get request :flash)}]
+                     :flash (get request :flash)
+                     :return-to (get-in request [:query-params "return-to"])}]
       (html-response request (user-ui/register-page {} {} page-opts)))))
 
 (defn register-submit-handler
@@ -483,6 +492,8 @@
   [user-service _config]
   (fn [request]
     (let [form-data (:form-params request)
+          raw-return-to (or (get form-data "return-to")
+                            (get-in request [:query-params "return-to"]))
           prepared-data {:name (get form-data "name")
                          :email (get form-data "email")
                          :password (get form-data "password")
@@ -495,7 +506,8 @@
         (html-response request
                        (user-ui/register-page prepared-data validation-errors
                                               {:user (get request :user)
-                                               :flash (get request :flash)})
+                                               :flash (get request :flash)
+                                               :return-to raw-return-to})
                        400)
         (try
           (let [user-result (user-ports/register-user user-service prepared-data)
@@ -508,9 +520,10 @@
                 auth-result (user-ports/authenticate-user user-service auth-data)]
             (if (:authenticated auth-result)
               (let [session (:session auth-result)
-                    session-token (:session-token session)]
+                    session-token (:session-token session)
+                    return-to (safe-return-url raw-return-to "/web/profile")]
                 ;; Automatically log in and redirect to profile with welcome message
-                (-> (response/redirect "/web/profile")
+                (-> (response/redirect return-to)
                     (assoc :status 303) ; See Other
                     (assoc :flash {:type :success
                                    :message (str "Welcome to Boundary, " (:name user-result) "! "
@@ -1235,7 +1248,8 @@
             user-id (:id current-user)
             form-data (:form-params request)
             prepared-data {:date-format (keyword (get form-data "date-format"))
-                           :time-format (keyword (get form-data "time-format"))}]
+                           :time-format (keyword (get form-data "time-format"))
+                           :language    (get form-data "language")}]
         (try
           ;; Get existing user and update preferences
           (let [user (user-ports/get-user-by-id user-service user-id)

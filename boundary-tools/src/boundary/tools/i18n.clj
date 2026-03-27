@@ -21,27 +21,42 @@
 ;; Helpers
 ;; =============================================================================
 
-(def ^:private translations-dir
-  "libs/i18n/resources/boundary/i18n/translations")
+(defn- detect-boundary-root []
+  (cond
+    (fs/exists? "libs/i18n/resources/boundary/i18n/translations") "."
+    (fs/exists? "../boundary/libs/i18n/resources/boundary/i18n/translations") "../boundary"
+    :else nil))
 
-(def ^:private ui-src-dirs
-  ["libs/user/src" "libs/admin/src" "libs/search/src"
-   "libs/calendar/src" "libs/calendar/src"
-   "libs/workflow/src" "src"])
+(defn- translations-dir []
+  (when-let [boundary-root (detect-boundary-root)]
+    (str boundary-root "/libs/i18n/resources/boundary/i18n/translations")))
+
+(defn- ui-src-dirs []
+  (let [boundary-root (detect-boundary-root)
+        boundary-dirs (when boundary-root
+                        [(str boundary-root "/libs/user/src")
+                         (str boundary-root "/libs/admin/src")
+                         (str boundary-root "/libs/search/src")
+                         (str boundary-root "/libs/calendar/src")
+                         (str boundary-root "/libs/workflow/src")])]
+    (->> (concat ["src"] boundary-dirs)
+         distinct
+         (filter fs/exists?))))
 
 (defn- load-edn [path]
   (when (fs/exists? path)
     (edn/read-string (slurp (str path)))))
 
 (defn- load-locale [locale]
-  (load-edn (str translations-dir "/" (name locale) ".edn")))
+  (when-let [dir (translations-dir)]
+    (load-edn (str dir "/" (name locale) ".edn"))))
 
 (defn- flat-keys [m]
   (set (keys m)))
 
 (defn- grep [pattern paths & {:keys [quiet?]}]
   (let [args (concat ["rg" "--no-heading" "-n" pattern] paths)
-        result (proc/shell {:out :string :err :string :continue true} args)]
+        result (apply proc/shell {:out :string :err :string :continue true} args)]
     (when-not quiet?
       (print (:out result)))
     (:out result)))
@@ -54,6 +69,11 @@
   "Find a key (by substring or exact keyword) in en.edn, then grep codebase."
   [query]
   (let [en (load-locale :en)]
+    (when-not en
+      (println "No Boundary i18n catalogue found. Expected either:")
+      (println "  libs/i18n/resources/boundary/i18n/translations")
+      (println "  ../boundary/libs/i18n/resources/boundary/i18n/translations")
+      (System/exit 1))
     (println (str "=== Catalogue entries matching: " query " ==="))
     (doseq [[k v] (sort-by first en)
             :when (or (str/includes? (str v) query)
@@ -61,7 +81,7 @@
       (println (format "  %-50s %s" k v)))
     (println)
     (println (str "=== Source references matching: " query " ==="))
-    (grep query ui-src-dirs)))
+    (grep query (ui-src-dirs))))
 
 ;; =============================================================================
 ;; scan — find unexternalised string literals in core/ui.clj files
@@ -74,7 +94,7 @@
    Heuristic: strings that start with an uppercase letter and are at least 4
    chars long, in Hiccup position (not attribute values or CSS classes)."
   []
-  (let [ui-files (mapcat #(fs/glob % "**/core/ui.clj") ui-src-dirs)
+  (let [ui-files (mapcat #(fs/glob % "**/core/ui.clj") (ui-src-dirs))
         ;; Pattern: string literals starting with uppercase, min 4 chars,
         ;; that look like user-visible text (not CSS classes or :keywords)
         ;; Exclude strings that are all-caps (constants) or contain slashes (paths)
@@ -111,6 +131,9 @@
   (let [en-keys (flat-keys (load-locale :en))
         locales [:nl]
         found-missing? (atom false)]
+    (when-not en-keys
+      (println "No Boundary i18n catalogue found.")
+      (System/exit 1))
     (doseq [locale locales]
       (let [other-keys (flat-keys (load-locale locale))
             gaps       (set/difference en-keys other-keys)]
@@ -133,7 +156,7 @@
   []
   (let [en-keys  (flat-keys (load-locale :en))
         all-src  (concat
-                  (mapcat #(fs/glob % "**/*.clj") ui-src-dirs)
+                  (mapcat #(fs/glob % "**/*.clj") (ui-src-dirs))
                   (fs/glob "src" "**/*.clj"))
         content  (str/join "\n" (map #(slurp (str %)) all-src))
         used     (into #{} (keep (fn [k]
@@ -141,6 +164,9 @@
                                      k))
                                  en-keys))
         unused   (set/difference en-keys used)]
+    (when-not en-keys
+      (println "No Boundary i18n catalogue found.")
+      (System/exit 1))
     (if (seq unused)
       (do
         (println (str "Unused catalogue keys (" (count unused) "):"))

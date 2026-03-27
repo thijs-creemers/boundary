@@ -1,0 +1,143 @@
+= ADR-018: Admin Module — :belongs-to Widget voor Foreign Key Lookups
+:status: Proposed
+:date: 2026-03-26
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+De admin module ondersteunt momenteel geen native foreign key lookups. Als een
+entiteit een UUID-kolom bevat die verwijst naar een andere entiteit (bijv.
+`contractor.tenant_id → tenants.id`), kan de admin UI alleen de UUID tonen —
+niet de mensleesbare naam van de gerelateerde entiteit.
+
+De huidige workaround is `:query-overrides :join` in de entity-config EDN:
+
+[source,edn]
+----
+:query-overrides
+{:select [:contractors.* [:public.tenants/name :tenant-name]]
+ :join   [[:public.tenants]
+          [:= [:cast :contractors/tenant_id :uuid] :public.tenants/id]]}
+----
+
+Dit heeft drie problemen:
+
+1. *Cross-schema joins* — in schema-per-tenant setups staan gerelateerde
+   entiteiten mogelijk in een ander PostgreSQL-schema (`public.tenants` vs.
+   `tenant_abc.contractors`). De EDN-config moet dan schema-gekwalificeerde
+   tabelnamen bevatten, wat de config koppelt aan de database-inrichting.
+
+2. *Test-incompatibiliteit* — H2 (de in-memory testdatabase) ondersteunt
+   PostgreSQL-specifieke cast-syntax (`::uuid`) niet. Elke join met
+   type-conversie breekt de test-suite tenzij apart opgevangen.
+
+3. *Beheerbaarheid* — HoneySQL join-syntax in EDN-bestanden is foutgevoelig,
+   niet valideerbaar door de schema-provider, en slecht leesbaar voor
+   niet-Clojure-ontwikkelaars die entiteit-configuraties beheren.
+
+=== Concrete aanleiding
+
+Bij de implementatie van de ZZPGuard admin-configuratie voor `contractors` was
+de wens om naast het `tenant-id` (UUID) ook de `tenant-naam` te tonen in het
+detail-scherm. Dit kon niet zonder bovenstaande workaround.
+
+== Decision
+
+De admin module krijgt ondersteuning voor een nieuw veld-type en widget:
+`:belongs-to`.
+
+=== EDN-configuratie (app-kant)
+
+[source,edn]
+----
+:tenant-name
+{:type        :belongs-to
+ :widget      :belongs-to
+ :label       "Tenant"
+ :readonly    true
+ :relation    {:entity       :tenants
+               :foreign-key  :tenant-id
+               :display-field :name}}
+----
+
+=== Gedrag
+
+* Bij het ophalen van een entiteit (detail én lijst) lost de service de
+  `:belongs-to` velden op via een extra query of JOIN, afhankelijk van de
+  database-adapter.
+* De waarde die in de UI wordt getoond is de waarde van `:display-field` op de
+  gerelateerde entiteit.
+* Het veld is altijd read-only (schrijven via een foreign key lookup is niet
+  ondersteund in v1).
+* In de lijstweergave wordt de display-waarde getoond; sorteren op dit veld is
+  optioneel en per-config instelbaar.
+
+=== Implementatie-aanpak
+
+==== Schema (`boundary.admin.schema`)
+
+* `FieldType` krijgt `:belongs-to` als nieuwe waarde.
+* `FieldWidget` krijgt `:belongs-to` als nieuwe waarde.
+* Nieuwe optionele sleutel `:relation` op `FieldConfig`:
++
+[source,clojure]
+----
+[:relation {:optional true}
+ [:map
+  [:entity        :keyword]   ; naam van de gerelateerde entiteit
+  [:foreign-key   :keyword]   ; veld op de huidige entiteit (de FK)
+  [:display-field :keyword]]] ; veld op de gerelateerde entiteit om te tonen
+----
+
+==== Service (`boundary.admin.shell.service`)
+
+* `list-entities` en `get-entity` detecteren `:belongs-to` velden in de
+  entity-config en voegen de opgezochte waarden toe aan elk record vóór
+  teruggave.
+* De opzoeking is een aparte `get-entity` aanroep per unieke FK-waarde
+  (batching als optimalisatie in een latere iteratie).
+* Cross-schema opzoeking wordt afgehandeld door de schema-provider: die kent
+  de tabel- en schema-naam van de gerelateerde entiteit.
+
+==== UI (`boundary.admin.core.ui`)
+
+* Het `:belongs-to` widget rendert het veld als read-only tekst (identiek aan
+  een `:text-input` met `readonly: true`).
+* In formulieren is het veld niet bewerkbaar.
+
+=== Niet in scope (v1)
+
+* Bewerkbare belongs-to (bijv. een dropdown om de FK te wijzigen).
+* Meerdere display-fields samenvoegen (bijv. `first-name + last-name`).
+* Sorteren op belongs-to kolommen in de lijstweergave.
+* Automatische batching van opzoekingen.
+
+== Consequences
+
+=== Positief
+
+* Geen raw SQL of HoneySQL in EDN-configuraties voor eenvoudige FK-lookups.
+* Werkt met alle database-adapters (H2, PostgreSQL) zonder adapter-specifieke
+  cast-syntax.
+* Consistent met de bestaande `:has-many` relatie-configuratie in de admin
+  module.
+* EDN-config blijft declaratief en valideerbaar via Malli.
+
+=== Negatief / risico
+
+* Extra database-query per `:belongs-to` veld per rij (N+1 risico bij grote
+  lijsten). Mitigatie: batching in een volgende iteratie, of optionele JOIN-
+  strategie per entity-config.
+* De schema-provider moet de tabel-locatie van gerelateerde entiteiten kennen
+  (cross-schema). Dit vereist dat alle entiteiten in de allowlist zijn
+  opgenomen, of dat de schema-provider een fallback heeft voor onbekende
+  entiteiten.
+
+== Gerelateerde ADRs
+
+* ADR-004 — Multi-tenancy Architecture (schema-per-tenant isolatie)
+* ADR-008 — Normalized Routing Abstraction

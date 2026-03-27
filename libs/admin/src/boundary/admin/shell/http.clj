@@ -15,12 +15,10 @@
    [boundary.admin.core.ui :as admin-ui]
    [boundary.admin.core.permissions :as permissions]
    [boundary.i18n.shell.render :as i18n]
-   [boundary.shared.ui.core.icons :as icons]
    [boundary.shared.ui.core.validation :as ui-validation]
    [boundary.platform.core.http.problem-details :as problem-details]
    [boundary.user.shell.middleware :as user-middleware]
    [clojure.string :as str]
-   [clojure.tools.logging :as log]
    [ring.util.response :as ring-response])
   (:import [java.util UUID]))
 
@@ -437,34 +435,20 @@
 ;; =============================================================================
 
 (defn admin-home-handler
-  "Handler for admin home page - shows dashboard or first entity.
-
-    Week 1: Simple redirect to first entity in list
-    Week 2+: Dashboard with stats, recent activity, quick actions"
-  [_admin-service schema-provider _config]
+  "Handler for admin home page — shows dashboard with entity tiles."
+  [_admin-service schema-provider config]
   (fn [request]
     (let [user (require-admin-user! request)
-          _ (log/info "After require-admin-user!" {:user-email (:email user)})
-          entities (ports/list-available-entities schema-provider)]
-
-      (if (seq entities)
-        ; Redirect to first entity
-        (do
-          (log/info "Redirecting to first entity" {:entity (first entities)})
-          (ring-response/redirect (str "/web/admin/" (name (first entities)))))
-
-        ; No entities configured
-        (html-response request
-                       (admin-ui/admin-layout
-                        [:div.empty-state
-                         [:div.empty-state-icon
-                          (icons/icon :database {:size 48})]
-                         [:h2 "No Entities Configured"]
-                         [:p "Add entities to the :boundary/admin :entity-discovery :allowlist in your config."]]
-                        {:user user
-                         :current-entity nil
-                         :entities []
-                         :entity-configs {}}))))))
+          entities (ports/list-available-entities schema-provider)
+          entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)]
+      (html-response request
+                     (admin-ui/admin-layout
+                      (admin-ui/admin-home entities entity-configs)
+                      {:user user
+                       :current-entity nil
+                       :entities entities
+                       :entity-configs entity-configs
+                       :logo-url (:logo-url config)})))))
 
 ;; =============================================================================
 ;; Entity List Handlers
@@ -478,7 +462,7 @@
     - Column sorting (ascending/descending)
     - Pagination (page-based)
     - Field filters"
-  [admin-service schema-provider _config]
+  [admin-service schema-provider config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -523,7 +507,8 @@
                        :current-entity entity-name
                        :entities entities
                        :entity-configs entity-configs
-                       :flash flash})))))
+                       :flash flash
+                       :logo-url (:logo-url config)})))))
 
 (defn entity-table-fragment-handler
   "HTMX handler for entity table fragment.
@@ -667,7 +652,7 @@
   "Handler for entity detail/edit page.
 
    Shows form for editing existing entity."
-  [admin-service schema-provider _config]
+  [admin-service schema-provider config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -703,13 +688,14 @@
                       {:user user
                        :current-entity entity-name
                        :entities (:entities ctx)
-                       :entity-configs (:entity-configs ctx)})))))
+                       :entity-configs (:entity-configs ctx)
+                       :logo-url (:logo-url config)})))))
 
 (defn new-entity-handler
   "Handler for new entity creation form.
 
    Shows empty form for creating new entity."
-  [_admin-service schema-provider _config]
+  [_admin-service schema-provider config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -738,7 +724,8 @@
                       {:user user
                        :current-entity entity-name
                        :entities entities
-                       :entity-configs entity-configs})))))
+                       :entity-configs entity-configs
+                       :logo-url (:logo-url config)})))))
 
 ;; =============================================================================
 ;; Create/Update Handlers
@@ -748,7 +735,7 @@
   "Handler for creating new entity.
 
    Validates form data, creates entity, redirects to list with flash message."
-  [admin-service schema-provider _config]
+  [admin-service schema-provider config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -799,6 +786,7 @@
                            :current-entity entity-name
                            :entities entities
                            :entity-configs entity-configs
+                           :logo-url (:logo-url config)
                            :flash {:type :success
                                    :message (str (:label entity-config) " created successfully")}})))
 
@@ -815,6 +803,7 @@
                            :current-entity entity-name
                            :entities entities
                            :entity-configs entity-configs
+                           :logo-url (:logo-url config)
                            :flash {:type :error
                                    :message "Please fix the errors below"}})))))))
 
@@ -822,7 +811,7 @@
   "Handler for updating existing entity.
 
    Validates form data, updates entity, redirects to list with flash message."
-  [admin-service schema-provider _config]
+  [admin-service schema-provider config]
   (fn [request]
     (let [user (require-admin-user! request)
           entity-name (get-entity-name request)
@@ -865,7 +854,8 @@
                           {:user user
                            :current-entity entity-name
                            :entities (:entities ctx)
-                           :entity-configs (:entity-configs ctx)})))
+                           :entity-configs (:entity-configs ctx)
+                           :logo-url (:logo-url config)})))
 
         ; Validation errors - re-render form with flash inside page content
         (let [permissions (permissions/get-entity-permissions user entity-name entity-config)
@@ -883,7 +873,8 @@
                           {:user user
                            :current-entity entity-name
                            :entities (:entities ctx)
-                           :entity-configs (:entity-configs ctx)})))))))
+                           :entity-configs (:entity-configs ctx)
+                           :logo-url (:logo-url config)})))))))
 
 ;; =============================================================================
 ;; Delete Handlers
