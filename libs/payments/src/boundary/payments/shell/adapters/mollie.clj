@@ -26,6 +26,8 @@
 (defrecord MolliePaymentProvider [api-key webhook-base-url]
   ports/IPaymentProvider
 
+  (provider-name [_] :mollie)
+
   (create-checkout-session [_ {:keys [amount-cents currency description redirect-url webhook-url metadata]}]
     (let [checkout-id  (str (UUID/randomUUID))
           webhook      (or webhook-url (str webhook-base-url "/api/v1/payments/webhook"))

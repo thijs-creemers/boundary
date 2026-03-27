@@ -2,6 +2,9 @@
   "Payment provider abstraction — enables swappable PSP adapters (Mock, Mollie, Stripe).")
 
 (defprotocol IPaymentProvider
+  (provider-name [this])
+  ;; Returns a keyword identifying the provider: :mock, :mollie, :stripe
+
   (create-checkout-session [this {:keys [amount-cents currency description
                                          redirect-url webhook-url metadata]}])
   ;; Returns {:checkout-url "..." :provider-checkout-id "..."}

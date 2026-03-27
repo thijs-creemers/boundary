@@ -8,6 +8,8 @@
 (defrecord MockPaymentProvider []
   ports/IPaymentProvider
 
+  (provider-name [_] :mock)
+
   (create-checkout-session [_ {:keys [amount-cents currency description metadata]}]
     (let [checkout-id (str (UUID/randomUUID))
           payment-id  (:payment-id metadata)]

@@ -78,6 +78,8 @@
 (defrecord StripePaymentProvider [api-key webhook-secret]
   ports/IPaymentProvider
 
+  (provider-name [_] :stripe)
+
   (create-checkout-session [_ opts]
     (let [checkout-id (str (UUID/randomUUID))
           params   (stripe-checkout-params (assoc opts :checkout-id checkout-id))
