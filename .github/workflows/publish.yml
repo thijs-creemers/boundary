@@ -72,7 +72,7 @@ jobs:
           body: |
             ## Boundary Framework v${{ steps.version.outputs.version }}
 
-            All 21 libraries published to Clojars.
+            All 22 libraries published to Clojars.
 
             ```clojure
             org.boundary-app/boundary-platform {:mvn/version "${{ steps.version.outputs.version }}"}
@@ -85,4 +85,4 @@ jobs:
       - name: Summary
         run: |
           echo "## ✅ Publish Complete" >> $GITHUB_STEP_SUMMARY
-          echo "All 21 libraries published to Clojars." >> $GITHUB_STEP_SUMMARY
+          echo "All 22 libraries published to Clojars." >> $GITHUB_STEP_SUMMARY

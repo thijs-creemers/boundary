@@ -41,7 +41,7 @@ Add these to your shell profile (`~/.zshrc` or `~/.bashrc`) for convenience.
 
 == Library overview
 
-All 20 libraries are published to the `org.boundary-app` group on Clojars, in dependency order:
+All 22 libraries are published to the `org.boundary-app` group on Clojars, in dependency order:
 
 [cols="1,2,2",options="header"]
 |===
@@ -50,6 +50,7 @@ All 20 libraries are published to the `org.boundary-app` group on Clojars, in de
 |*core*         |`org.boundary-app/boundary-core`          |—
 |*observability*|`org.boundary-app/boundary-observability` |core
 |*platform*     |`org.boundary-app/boundary-platform`      |core, observability
+|*i18n*         |`org.boundary-app/boundary-i18n`          |—
 |*user*         |`org.boundary-app/boundary-user`          |platform
 |*storage*      |`org.boundary-app/boundary-storage`       |platform
 |*scaffolder*   |`org.boundary-app/boundary-scaffolder`    |core
@@ -61,6 +62,7 @@ All 20 libraries are published to the `org.boundary-app` group on Clojars, in de
 |*workflow*     |`org.boundary-app/boundary-workflow`      |platform
 |*search*       |`org.boundary-app/boundary-search`        |platform
 |*external*     |`org.boundary-app/boundary-external`      |platform
+|*payments*     |`org.boundary-app/boundary-payments`      |—
 |*geo*          |`org.boundary-app/boundary-geo`           |platform
 |*reports*      |`org.boundary-app/boundary-reports`       |platform
 |*calendar*     |`org.boundary-app/boundary-calendar`      |platform
@@ -114,7 +116,7 @@ Always bump the version before deploying — you cannot re-deploy the same versi
 
 == Deploying locally
 
-=== All 21 artifacts in one command
+=== All 23 artifacts in one command
 
 [source,bash]
 ----
@@ -221,11 +223,11 @@ For deploying without a tag (e.g. re-running after a partial failure):
 - Setup Clojure + Babashka       # DeLaGuardo/setup-clojure with bb: latest
 - Cache ~/.m2 and ~/.gitlibs     # Speeds up subsequent runs
 - npm ci + npm run build:css:admin  # Builds Tailwind CSS for ui-style jar
-- bb deploy --all                # Deploys all 21 artifacts in order, 30s between each
+- bb deploy --all                # Deploys all 23 artifacts in order, 30s between each
 - Create GitHub Release          # Only on tag pushes; pre-release for alpha/beta
 ----
 
-Total CI time is approximately 15–20 minutes (21 artifacts × 30s indexing pause + build time).
+Total CI time is approximately 15–20 minutes (23 artifacts × 30s indexing pause + build time).
 
 ---
 
