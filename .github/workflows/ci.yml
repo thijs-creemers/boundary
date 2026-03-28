@@ -189,8 +189,11 @@ jobs:
         with:
           bb: latest
 
-      - name: Validate config (all environments)
-        run: bb doctor --env all --ci
+      - name: Validate dev config
+        run: bb doctor --env dev --ci
+
+      - name: Validate test config
+        run: bb doctor --env test --ci
 
   # =============================================================================
   # Test individual libraries (run from root to ensure all dependencies available)
