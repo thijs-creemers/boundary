@@ -99,6 +99,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filter-key->json-key` utility in `boundary.search.core.index` (kebab → snake conversion for JSON storage).
 - Migration: `resources/migrations/20260312000000-search-filters.{up,down}.sql`.
 
+#### `boundary-admin` — tenant entity + dashboard stats
+- **Tenant admin entity config**: `resources/conf/{dev,test}/admin/tenants.edn` — list/search fields, status enum filter (active/suspended/deleted), field groups (Identity, State, Settings), readonly system fields.
+- **Dashboard entity counts**: `admin-home-handler` now calls `count-entities` for each registered entity and passes the stats map to `admin-home`, so entity tiles show real counts instead of always displaying "0".
+- Tenants registered in dev and test config allowlists (`#{:users :tenants}`).
+
 #### `boundary-tenant` — convenience functions and protocol extension
 - `tenant-provisioned?` public function in `boundary.tenant.shell.provisioning`: checks if a tenant's schema exists in PostgreSQL; returns `false` for non-PostgreSQL databases; throws on missing `:schema-name`.
 - `list-tenant-schemas` public function in `boundary.tenant.shell.provisioning`: lists all `tenant_*` schemas in PostgreSQL; returns empty vector for non-PostgreSQL databases.
