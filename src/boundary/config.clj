@@ -477,8 +477,18 @@
     (cond-> {}
       (:boundary.external/smtp   active) (assoc :boundary.external/smtp   (:boundary.external/smtp   active))
       (:boundary.external/imap   active) (assoc :boundary.external/imap   (:boundary.external/imap   active))
-      (:boundary.external/stripe active) (assoc :boundary.external/stripe (:boundary.external/stripe active))
       (:boundary.external/twilio active) (assoc :boundary.external/twilio (:boundary.external/twilio active)))))
+
+(defn- payments-module-config
+  "Return Integrant configuration for the payments module.
+
+   Wires the :boundary/payment-provider component with the configured PSP adapter
+   (mock, mollie, or stripe). Enabled when :boundary/payment-provider is present
+   in the active config."
+  [config]
+  (let [payments-cfg (get-in config [:active :boundary/payment-provider])]
+    (when payments-cfg
+      {:boundary/payment-provider payments-cfg})))
 
 (defn- i18n-module-config
   "Return Integrant configuration for the i18n module.
@@ -522,7 +532,8 @@
          (admin-module-config config)
          (workflow-module-config config)
          (search-module-config config)
-         (external-module-config config)))
+         (external-module-config config)
+         (payments-module-config config)))
 
 ;; =============================================================================
 ;; REPL Utilities

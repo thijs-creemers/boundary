@@ -67,7 +67,10 @@ Every library follows the same FC/IS structure, making the codebase instantly fa
 | Library | Purpose
 
 | xref:external.adoc[external]
-| External service adapters: Stripe payments, Twilio SMS/WhatsApp, SMTP/IMAP.
+| External service adapters: Twilio SMS/WhatsApp, SMTP/IMAP.
+
+| xref:payments.adoc[payments]
+| Payment provider abstraction: Stripe, Mollie, and Mock adapters with checkout-session flow and webhook verification.
 
 | xref:workflow.adoc[workflow]
 | Declarative state machine workflows with permission-based transitions and audit trail.

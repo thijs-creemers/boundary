@@ -10,3 +10,4 @@
 ** xref:guides:repl-workflow.adoc[REPL Workflow]
 ** xref:guides:debugging.adoc[Debugging]
 ** xref:guides:deployment.adoc[Deployment]
+** xref:guides:payments.adoc[Payments]

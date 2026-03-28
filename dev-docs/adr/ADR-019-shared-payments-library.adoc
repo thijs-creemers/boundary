@@ -1,0 +1,306 @@
+= ADR-019: Shared Payments Library for PSP Integrations
+:status: Accepted
+:date: 2026-03-27
+:deciders: boundary-team
+
+== Status
+
+Accepted
+
+== Context
+
+=== Background
+
+ZZPGuard requires a payment module to handle SaaS subscription payments during
+tenant onboarding. The initial implementation placed both the PSP integration
+and the payment lifecycle directly inside the `zzp-guard` application.
+
+This is a short-term solution: every Boundary application that processes payments
+(subscriptions, marketplace transactions, one-off purchases) would have to solve
+the same integration problem independently. PSP-specific code then duplicates
+across applications, leading to:
+
+* Duplicated webhook verification logic (Stripe HMAC, Mollie form-POST).
+* Inconsistent event-type normalisation across applications.
+* No shared test vehicle: each app writes its own mock adapters.
+* Difficult PSP swapping: coupling between business logic and provider-specific
+  APIs lives in the application layer.
+
+=== Payment domain in ZZPGuard
+
+The ZZPGuard payment domain covers *tenant subscriptions* (SaaS billing): an
+agency selects a plan (`starter` / `groei` / `pro` / `business`), pays via a PSP,
+and the plan is activated on the tenant after payment is confirmed. The application
+maintains a `Payment` record per tenant with statuses
+`pending → authorized → paid | failed | cancelled | refunded`.
+
+PSP interaction follows a fixed checkout flow:
+
+[source]
+----
+tenant fills in form
+  → app creates tenant (inactive)
+  → app requests a checkout session from PSP
+  → user completes payment on PSP page
+  → PSP sends webhook to app
+  → app verifies signature
+  → app processes event (payment succeeded / failed)
+  → app activates tenant (on :paid)
+----
+
+This flow is generic enough to offer as a shared framework component.
+
+=== Requirements for the abstraction
+
+A PSP abstraction in the Boundary Framework must satisfy:
+
+. *Checkout session flow* — create → redirect → webhook → status: the full
+  payment path behind a single protocol.
+. *Webhook verification* — provider-specific signing methods (HMAC-SHA256 for
+  Stripe, no signing for Mollie) hidden transparently behind one interface.
+. *Normalised event types* — independent of PSP terminology
+  (`:payment.paid`, `:payment.failed`, `:payment.cancelled`,
+  `:payment.authorized`).
+. *Mock adapter* — in-memory implementation with no network calls for
+  development and automated tests.
+. *Swappable providers* — change PSP by updating a single Integrant config key,
+  with no code changes in the application.
+
+== Decision
+
+A new shared library `boundary/libs/payments` is created as part of the
+Boundary Framework monorepo.
+
+=== Namespace structure
+
+[source]
+----
+boundary/libs/payments/
+├── src/boundary/payments/
+│   ├── ports.clj              ; IPaymentProvider protocol
+│   ├── schema.clj             ; Malli: CheckoutRequest, CheckoutResult,
+│   │                          ;        PaymentStatusResult, WebhookResult
+│   ├── core/
+│   │   └── provider.clj       ; Pure helpers: cents->euro,
+│   │                          ;  normalize-event-type, status-mappers
+│   └── shell/
+│       ├── adapters/
+│       │   ├── mock.clj        ; MockPaymentProvider
+│       │   ├── mollie.clj      ; MolliePaymentProvider
+│       │   └── stripe.clj      ; StripePaymentProvider
+│       └── module_wiring.clj   ; Integrant :boundary/payment-provider
+----
+
+=== `IPaymentProvider` protocol
+
+The central protocol in `boundary.payments.ports`:
+
+[source,clojure]
+----
+(defprotocol IPaymentProvider
+  (create-checkout-session [this opts])
+  ;; opts: {:amount-cents pos-int
+  ;;        :currency     "EUR"        ; ISO 4217
+  ;;        :description  string
+  ;;        :redirect-url string       ; where PSP sends the user after payment
+  ;;        :webhook-url  string       ; optional; Mollie uses this
+  ;;        :metadata     map}         ; optional; passed through to PSP
+  ;; Returns: {:checkout-url string :provider-checkout-id string}
+
+  (get-payment-status [this provider-checkout-id])
+  ;; Returns: {:status :pending|:paid|:failed|:cancelled
+  ;;           :provider-payment-id string}
+
+  (verify-webhook-signature [this raw-body headers])
+  ;; Returns: boolean
+
+  (process-webhook [this raw-body headers]))
+  ;; Returns: {:event-type           keyword   ; see normalised types below
+  ;;           :provider-payment-id  string
+  ;;           :provider-checkout-id string
+  ;;           :payload              map}
+----
+
+==== Normalised event types
+
+[cols="1,2",options="header"]
+|===
+| Keyword | Meaning
+| `:payment.paid`        | Payment successfully completed
+| `:payment.authorized`  | Authorised, not yet captured
+| `:payment.failed`      | Payment attempt failed
+| `:payment.cancelled`   | Cancelled by the user or PSP
+|===
+
+=== Adapters
+
+==== Mock (`:mock`)
+
+In-memory implementation with no network calls. Auto-approves every payment.
+
+* `create-checkout-session` → `{:checkout-url "/web/payment/mock-return?checkout-id=<uuid>&payment-id=<id>"}`
+  (`payment-id` is forwarded via `:metadata`).
+* `verify-webhook-signature` → always `true`.
+* `get-payment-status` → always `{:status :paid}`.
+* `process-webhook` accepts a map or JSON string containing `:checkout-id`
+  and derives `provider-checkout-id` from it.
+
+Use in all development environments and automated tests.
+
+==== Mollie (`:mollie`)
+
+* REST API: `https://api.mollie.com/v2/payments`
+* Webhook: form-POST with only `id=<payment-id>` (no HMAC signing).
+* `verify-webhook-signature` → always `true`; real verification via
+  `get-payment-status` (Mollie model: retrieve the payment by ID and inspect
+  its status).
+* Status mapping: `"paid"` → `:payment.paid`, `"failed"` →
+  `:payment.failed`, `"canceled"/"cancelled"` → `:payment.cancelled`.
+* Configuration: `:api-key` and `:webhook-base-url`.
+
+==== Stripe (`:stripe`)
+
+* REST API: `https://api.stripe.com/v1/checkout/sessions`
+* Webhook: HMAC-SHA256 over `timestamp.raw-body`, verified with the
+  `Stripe-Signature` header and `:webhook-secret`.
+* `verify-webhook-signature` performs real signature verification.
+* Event mapping: `"payment_intent.succeeded"` → `:payment.paid`, etc.
+* Configuration: `:api-key` and `:webhook-secret`.
+
+=== Integrant key
+
+[source,clojure]
+----
+;; config.edn
+:boundary/payment-provider
+{:provider         :mock        ; :mock | :mollie | :stripe
+ :api-key          #env PSP_API_KEY
+ :webhook-secret   #env PSP_WEBHOOK_SECRET   ; Stripe only
+ :webhook-base-url #env APP_BASE_URL}        ; Mollie only
+----
+
+One key, one provider at a time. Swap PSP by changing `:provider` — no code
+changes required.
+
+=== Webhook calling convention
+
+The application is responsible for the correct calling order:
+
+[source,clojure]
+----
+(defn handle-payment-webhook [request payment-provider]
+  (let [raw-body (slurp (:body request))   ; BEFORE any body-parsing!
+        headers  (:headers request)]
+    (if (ports/verify-webhook-signature payment-provider raw-body headers)
+      (let [{:keys [event-type provider-checkout-id]}
+            (ports/process-webhook payment-provider raw-body headers)]
+        (case event-type
+          :payment.paid      (activate-order! provider-checkout-id)
+          :payment.failed    (mark-order-failed! provider-checkout-id)
+          :payment.cancelled (cancel-order! provider-checkout-id)
+          nil))
+      {:status 401 :body "Invalid webhook signature"})))
+----
+
+*Important:* the webhook route must read the *raw body string* before any
+body-parsing middleware runs. Stripe's HMAC is computed over the exact raw
+string; once the body is parsed the signature no longer matches.
+
+=== Boundary: what does NOT belong in the library
+
+The library provides only the PSP abstraction. The following remain
+application responsibilities:
+
+* The `Payment` domain model (entity fields, statuses, lifecycle).
+* Persistence of `Payment` records.
+* Mapping from payment status to business logic (e.g. activating a tenant
+  after `:payment.paid`).
+* UI flow (checkout page, mock-return handler, success page).
+* Malli schemas for the application-specific payment record.
+
+=== Dependency management
+
+Development (monorepo, local `deps.edn`):
+
+[source,clojure]
+----
+;; :dev-local alias in application deps.edn
+org.boundary-app/boundary-payments {:local/root "../boundary/libs/payments"}
+----
+
+Production (published on Clojars):
+
+[source,clojure]
+----
+org.boundary-app/boundary-payments {:mvn/version "0.x.x"}
+----
+
+=== Considered alternatives
+
+==== Option A: App-local PSP code (rejected)
+
+Implement the PSP integration and `IPaymentProvider` per application.
+
+*Rejected because:*
+
+* Duplicates webhook verification logic across applications.
+* No shared test surface (each app writes its own stubs).
+* Swapping PSP requires code changes throughout the application layer.
+
+==== Option B: Direct PSP SDK as a dependency (rejected)
+
+Use the official Java/Clojure PSP SDKs directly in the application
+(e.g. `stripe-java`).
+
+*Rejected because:*
+
+* No uniform abstraction: application code is directly coupled to
+  provider-specific types and calls.
+* Swapping PSP requires broad refactoring.
+* Official Clojure PSP wrappers are often not actively maintained.
+* Harder to test (PSP SDKs are more difficult to stub than a simple protocol).
+
+==== Option C: Generic third-party payment library (rejected)
+
+Use an existing Clojure library such as `clj-stripe` or `commerce`.
+
+*Rejected because:*
+
+* No support for the Integrant lifecycle model used by Boundary.
+* Does not cover all required providers (Mollie + Stripe + Mock).
+* No control over the webhook pattern and event normalisation.
+* Adds a transitive dependency without benefit over a lightweight own protocol.
+
+== Consequences
+
+=== Positive
+
+* *Reusability* — every Boundary application with payments takes one dependency
+  and immediately has Mock, Mollie, and Stripe available.
+* *PSP independence* — application code works against the `IPaymentProvider`
+  protocol; swap PSP by changing one config value.
+* *Testability* — the Mock adapter eliminates external PSP calls in all tests;
+  pure helpers in `core/provider.clj` are independently testable.
+* *Consistency* — normalised event types across providers mean application logic
+  does not branch per PSP.
+* *FC/IS compliance* — pure helpers in `core/`, adapters in `shell/`, protocol
+  in `ports.clj` follows the standard Boundary layer model.
+
+=== Negative / risks
+
+* *Adding a provider requires work* — a new provider (e.g. Adyen) needs a new
+  adapter namespace and a mapping of its provider-specific events.
+* *Mollie has no HMAC* — `verify-webhook-signature` always returns `true` for
+  Mollie; security via `get-payment-status` is two steps rather than one.
+* *Stripe form encoding* — Stripe Checkout Sessions requires nested form params
+  as string keys (`"line_items[0][price_data][currency]"`); this is error-prone
+  when extending checkout session options in the future.
+* *Amounts always in cents* — callers must consistently use integer cents;
+  floats or euro strings lead to silent arithmetic errors.
+
+== Related ADRs
+
+* ADR-001 — Library Split (monorepo structure and dependency management)
+* ADR-010 — HTTP Interceptor Architecture (webhook route without body-parsing
+  middleware)
+* ADR-016 — Tenant User Membership (tenant activation after payment)

@@ -1,8 +1,10 @@
 = external
-:description: External service adapters: Stripe, Twilio, SMTP, and IMAP.
+:description: External service adapters: Twilio, SMTP, and IMAP.
 
 External third-party service adapters following the FC/IS pattern.
-Four implemented adapters: SMTP, IMAP, Stripe, and Twilio.
+Three active adapters: SMTP, IMAP, and Twilio.
+
+NOTE: Stripe payments have moved to xref:payments.adoc[payments] library.
 
 == Key namespaces
 

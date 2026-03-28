@@ -41,6 +41,7 @@
             [boundary.workflow.shell.module-wiring] ;; Load workflow module init/halt methods
             [boundary.search.shell.module-wiring] ;; Load search module init/halt methods
             [boundary.external.shell.module-wiring] ;; Load external adapters init/halt methods
+            [boundary.payments.shell.module-wiring] ;; Load payments module init/halt methods
             [boundary.i18n.shell.module-wiring] ;; Load i18n module init/halt methods
             [boundary.i18n.shell.middleware :as i18n-middleware]
             [cheshire.core]

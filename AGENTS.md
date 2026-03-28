@@ -29,6 +29,7 @@ clojure -M:test:db/h2 :realtime                    # Realtime library tests
 clojure -M:test:db/h2 :workflow                    # Workflow library tests
 clojure -M:test:db/h2 :search                      # Search library tests
 clojure -M:test:db/h2 :external                    # External adapters tests
+clojure -M:test:db/h2 :payments                    # Payments library tests
 clojure -M:test:db/h2 :reports                     # Reports library tests
 clojure -M:test:db/h2 :calendar                    # Calendar library tests
 clojure -M:test:db/h2 :geo                         # Geo library tests
@@ -133,7 +134,8 @@ libs/
 ├── tenant/        # Multi-tenancy (PostgreSQL schema-per-tenant)
 ├── workflow/      # State machine workflows with audit trails
 ├── search/        # Full-text search (PostgreSQL FTS / H2 LIKE)
-├── external/      # External service adapters (Stripe, Twilio, SMTP/IMAP)
+├── payments/      # PSP abstraction: Mollie, Stripe, Mock (checkout-session flow)
+├── external/      # External communication adapters: SMTP, IMAP, Twilio
 ├── reports/       # Report definitions, PDF/CSV export, scheduling (defreport macro)
 ├── calendar/      # Calendar events, RRULE recurrence, iCal export/import, conflict detection
 ├── geo/           # Geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
@@ -668,7 +670,8 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 | **realtime** | [`libs/realtime/AGENTS.md`](libs/realtime/AGENTS.md) | WebSocket messaging, JWT auth, pub/sub, message routing |
 | **workflow** | [`libs/workflow/AGENTS.md`](libs/workflow/AGENTS.md) | State machine definitions, transitions, lifecycle hooks, auto-transitions |
 | **search** | [`libs/search/AGENTS.md`](libs/search/AGENTS.md) | Document indexing, FTS/LIKE strategy, filter support, migrations |
-| **external** | [`libs/external/AGENTS.md`](libs/external/AGENTS.md) | Stripe payments + webhooks, Twilio SMS/WhatsApp, SMTP transport, IMAP mailbox |
+| **payments** | [`libs/payments/AGENTS.md`](libs/payments/AGENTS.md) | PSP abstraction (Mollie, Stripe, Mock), checkout-session flow, webhook verification |
+| **external** | [`libs/external/AGENTS.md`](libs/external/AGENTS.md) | Twilio SMS/WhatsApp, SMTP transport, IMAP mailbox |
 | **reports** | [`libs/reports/AGENTS.md`](libs/reports/AGENTS.md) | `defreport` macro, registry, PDF/CSV export, scheduling |
 | **calendar** | [`libs/calendar/AGENTS.md`](libs/calendar/AGENTS.md) | `defevent` macro, RRULE recurrence (DST-aware), conflict detection, iCal export/import, Hiccup UI |
 | **geo** | [`libs/geo/AGENTS.md`](libs/geo/AGENTS.md) | Multi-provider geocoding (OSM/Google/Mapbox), DB cache, rate limiting, Haversine distance |

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### `boundary-payments` — new library
+- **Multi-provider payment abstraction**: `IPaymentProvider` protocol in `boundary.payments.ports` with `create-checkout-session`, `get-payment-status`, `process-webhook`, and `verify-webhook-signature` methods. Implementations: `StripePaymentProvider`, `MolliePaymentProvider`, `MockPaymentProvider` (development/tests).
+- **Malli schemas**: `CheckoutRequest`, `CheckoutResult`, `PaymentStatusResult` (`:pending`/`:paid`/`:failed`/`:cancelled`), `WebhookResult` (`:payment.paid`/`:payment.failed`/`:payment.cancelled`/`:payment.authorized`).
+- **Pure core layer** (`boundary.payments.core.provider`): `cents->euro`, `normalize-event-type`, `mollie-status->event-type`, `mollie-status->payment-status`, `stripe-event->event-type`.
+- **Stripe adapter**: Checkout Session creation with `payment_intent_data[metadata][checkout_id]` for webhook correlation, HMAC-SHA256 signature verification with constant-time comparison, 300s timestamp tolerance, graceful handling of malformed `Stripe-Signature` headers.
+- **Mollie adapter**: Payment creation via Mollie API v2, status polling via `get-payment-status`, form-POST webhook processing with payment fetch-back verification.
+- **Integrant component**: `:boundary/payment-provider` with `:provider` (`:mock`/`:mollie`/`:stripe`), `:api-key`, `:webhook-secret`, `:webhook-base-url`.
+- **Application wiring**: `payments-module-config` in `boundary.config`, `boundary.payments.shell.module-wiring` loaded via platform wiring, `boundary/payments` dependency added to `libs/platform/deps.edn`.
+- 19 tests, 111 assertions, 0 failures (`^:unit` + `^:integration`).
+- `libs/payments/deps.edn`: standalone library with `clj-http`, `cheshire`, `malli`, `integrant`, `tools.logging`.
+
 #### `boundary-ai` — new library (Phase 19 of Boundary Roadmap)
 - **Multi-provider AI abstraction**: `IAIProvider` protocol in `boundary.ai.ports` with `complete`, `complete-json`, and `provider-name` methods. Implementations: `OllamaProvider` (offline-first, no API key), `AnthropicProvider`, `OpenAIProvider`, `NoOpProvider` (test stub).
 - **Automatic provider fallback**: configure a `:fallback` provider in `:boundary/ai-service`; if the primary fails, the fallback is used transparently.
@@ -90,7 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `boundary-external` promoted from "In Development" to "Active" (Stripe, Twilio, SMTP/IMAP adapters production-capable).
+- `boundary-external` promoted from "In Development" to "Active" (Twilio, SMTP/IMAP adapters production-capable). Stripe moved to `boundary-payments`.
 - Root `AGENTS.md` updated: `workflow` and `search` added to library structure, test commands, and Library-Specific Guides table. Version bumped to 3.3.0.
 - `libs/workflow/AGENTS.md` and `libs/search/AGENTS.md` updated to document all new features.
 - `docs-site/content/guides/workflow.adoc` and `docs-site/content/guides/search.adoc` updated with new API examples, filter DDL, migration notes, and hook/auto-transition reference.

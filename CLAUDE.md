@@ -37,7 +37,7 @@ bb ai explain --file stacktrace.txt  # Explain Clojure/Boundary error via AI
 bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate test namespace
 bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL description
 bb ai docs --module libs/user --type agents                       # Generate AGENTS.md
-bb deploy --all                    # Deploy all 20 libraries to Clojars
+bb deploy --all                    # Deploy all 21 libraries to Clojars
 bb deploy --missing                # Deploy only libraries not yet on Clojars
 bb deploy core platform user       # Deploy specific libraries
 bb create-admin      # Create first admin user for a new project (interactive wizard)
@@ -50,7 +50,7 @@ bb scripts/docs_lint.clj  # Run documentation drift linter directly
 
 ## Architecture: Functional Core / Imperative Shell
 
-This is a Clojure monorepo with 20 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:
+This is a Clojure monorepo with 21 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:
 
 ```
 libs/{library}/src/boundary/{library}/
@@ -65,7 +65,7 @@ libs/{library}/src/boundary/{library}/
 - Core → Ports (allowed)
 - Core → Shell (NEVER - this violates FC/IS)
 
-**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, workflow, search, reports, calendar, geo, ai, ui-style
+**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, payments, workflow, search, reports, calendar, geo, ai, ui-style
 
 The main application source in `src/boundary/` follows the same core/shell structure. Example applications live at https://github.com/tcbv/boundary-examples
 
@@ -111,7 +111,8 @@ Each library has its own `AGENTS.md` with library-specific documentation:
 - `libs/email/AGENTS.md` - SMTP sending, async/queued modes
 - `libs/tenant/AGENTS.md` - Multi-tenancy, schema-per-tenant
 - `libs/realtime/AGENTS.md` - WebSocket messaging, pub/sub
-- `libs/external/AGENTS.md` - External service adapters (skeleton)
+- `libs/external/AGENTS.md` - External service adapters (Twilio, SMTP, IMAP)
+- `libs/payments/AGENTS.md` - PSP abstraction (Mollie, Stripe, Mock), checkout flow, webhook verification
 - `libs/workflow/AGENTS.md` - Workflow orchestration
 - `libs/search/AGENTS.md` - Full-text search
 - `libs/reports/AGENTS.md` - `defreport` macro, PDF/CSV export, scheduling
