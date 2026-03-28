@@ -1,6 +1,6 @@
 # Multi-Tenancy Module
 
-[![Status](https://img.shields.io/badge/status-in%20development-yellow)]()
+[![Status](https://img.shields.io/badge/status-stable-brightgreen)]()
 [![Clojure](https://img.shields.io/badge/clojure-1.12+-blue)]()
 [![License](https://img.shields.io/badge/license-EPL--2.0-green)]()
 [![Clojars Project](https://img.shields.io/clojars/v/org.boundary-app/boundary-tenant.svg)](https://clojars.org/org.boundary-app/boundary-tenant)
@@ -76,14 +76,16 @@ Production-grade multi-tenancy support for the Boundary Framework with isolated 
 
 ### 4. HTTP Tenant Resolution
 
-```clojure
-(require '[boundary.tenant.shell.middleware :as tenant-middleware])
+Tenant middleware lives in the **platform** library (`boundary.platform.shell.interfaces.http.tenant-middleware`):
 
-;; Add tenant resolution middleware
+```clojure
+(require '[boundary.platform.shell.interfaces.http.tenant-middleware :as tenant-mw])
+
+;; Add tenant resolution middleware (resolves tenant from subdomain/header/token)
 (def app
   (-> routes
-      (tenant-middleware/wrap-tenant-resolver tenant-service)
-      (tenant-middleware/wrap-require-tenant)))  ; Optional: enforce tenant
+      (tenant-mw/wrap-tenant-resolution tenant-service
+        {:require-tenant? true})))  ; Pass true to enforce tenant on all routes
 
 ;; Handler receives tenant context
 (defn get-users-handler [request]
@@ -94,6 +96,10 @@ Production-grade multi-tenancy support for the Boundary Framework with isolated 
      :body {:tenant (:slug tenant)
             :users (list-tenant-users db-ctx tenant-id)}}))
 ```
+
+**Middleware locations:**
+- **Platform lib:** `wrap-tenant-resolution` (resolves tenant from request), `wrap-tenant-schema` (sets DB search_path), `wrap-multi-tenant` (combines both)
+- **Tenant lib:** `wrap-tenant-membership` (checks user membership in tenant)
 
 ## Tenant Provisioning
 
@@ -226,8 +232,8 @@ Provisioning creates an isolated PostgreSQL schema for each tenant:
 ;; Usage
 (def app
   (-> routes
-      (tenant-middleware/wrap-tenant-resolver 
-        tenant-service 
+      (tenant-mw/wrap-tenant-resolution
+        tenant-service
         {:resolver (subdomain-resolver tenant-service)})))
 
 ;; Request: https://acme-corp.myapp.com/dashboard
@@ -371,7 +377,7 @@ See [Cache Module README](../cache/README.md#tenant-scoping) for details.
  :boundary/tenant-middleware
  {:tenant-service #ig/ref :boundary/tenant-service
   :resolver :subdomain  ; :subdomain, :header, or custom fn
-  :require-tenant? false}}  ; Set true to enforce tenant on all routes
+  :require-tenant? false}}  ; Pass true to wrap-tenant-resolution to enforce
 ```
 
 ### Database Migrations
@@ -512,11 +518,15 @@ clojure -M:test:db/h2 --focus boundary.tenant.shell.provisioning-test  # Provisi
 
 ### Middleware
 
-**`boundary.tenant.shell.middleware`**
+**`boundary.platform.shell.interfaces.http.tenant-middleware`** (platform lib):
 
-- `(wrap-tenant-resolver handler service opts)` - Add tenant to request
-- `(wrap-require-tenant handler)` - Enforce tenant presence
+- `(wrap-tenant-resolution handler service opts)` - Resolve tenant from request (subdomain/header/token); pass `:require-tenant? true` to enforce tenant presence
 - `(wrap-tenant-schema handler db-ctx)` - Automatic schema switching
+- `(wrap-multi-tenant handler service db-ctx opts)` - Combines resolution + schema switching
+
+**`boundary.tenant.shell.middleware`** (tenant lib):
+
+- `(wrap-tenant-membership handler membership-service)` - Verify user membership in tenant
 
 ## Architecture
 
@@ -528,11 +538,11 @@ The tenant module follows **Functional Core / Imperative Shell**:
 - **Shell** (`shell/middleware.clj`): HTTP tenant resolution
 - **Ports** (`ports.clj`): Protocol definitions
 
-## Database Support & Limitations
+## Database Support
 
-### Current Support: PostgreSQL Only
+### PostgreSQL Only (See ADR-020)
 
-The tenant module currently requires **PostgreSQL 12+** for the schema-per-tenant isolation model.
+The tenant module requires **PostgreSQL 12+** for the schema-per-tenant isolation model.
 
 **Why PostgreSQL?**
 - Uses PostgreSQL schemas (namespaces) for logical isolation
@@ -541,101 +551,11 @@ The tenant module currently requires **PostgreSQL 12+** for the schema-per-tenan
 - Clean queries without `tenant_id` filtering
 - Proven at scale (1000s of tenants)
 
-**Other Databases**: Not currently supported for production use.
+**Other Databases**: Not supported for provisioning. Projects on MySQL or SQLite must implement their own row-level `WHERE tenant_id = ?` filtering outside this library.
 
-### Future Database Support
+**H2**: Used as a fast in-memory test database only. Provisioning functions gracefully return `false` / empty results / throw `:not-supported` on non-PostgreSQL contexts.
 
-Support for additional databases is planned for future releases:
-
-#### MySQL Support (Planned for v1.1+)
-
-MySQL's "database" concept (similar to PostgreSQL schemas) could provide equivalent isolation:
-
-```sql
--- Create database per tenant
-CREATE DATABASE tenant_acme_corp;
-
--- Switch database context
-USE tenant_acme_corp;
-```
-
-**Status**: Design phase, estimated 2-3 weeks implementation effort
-
-**Trade-offs**:
-- ✅ Similar isolation to PostgreSQL
-- ✅ Clean query patterns
-- ⚠️ Higher overhead (database vs schema)
-- ⚠️ Lower tenant limits (~10k databases vs ~100k schemas)
-
----
-
-#### SQLite Support (Planned for v1.2+)
-
-SQLite lacks schema support, requiring row-level isolation with `tenant_id` columns:
-
-```sql
--- Every table needs tenant_id column
-CREATE TABLE users (
-  id TEXT PRIMARY KEY,
-  tenant_id TEXT NOT NULL,  -- Add to all tables
-  name TEXT,
-  email TEXT
-);
-
--- Every query must filter by tenant_id
-SELECT * FROM users WHERE tenant_id = ?;
-```
-
-**Status**: Design phase, estimated 4-5 weeks implementation effort
-
-**Target Use Case**: Development/testing environments only (not production SaaS)
-
-**Trade-offs**:
-- ✅ Works with SQLite (portable, embedded)
-- ✅ Single file database
-- ❌ **High data leak risk** (manual filtering required)
-- ❌ No database-level enforcement
-- ❌ Query complexity increases
-- ❌ Harder to prove compliance
-
-**Mitigation**: Query interceptors + extensive testing for SQLite mode
-
----
-
-### Database Support Roadmap
-
-| Database | Current | Planned | Strategy | Priority | ETA |
-|----------|---------|---------|----------|----------|-----|
-| PostgreSQL 12+ | ✅ Supported | ✅ Continue | Schema-per-tenant | P0 | Now |
-| MySQL 8.0+ | ❌ Not supported | 🟡 Planned | Database-per-tenant | P2 | v1.1 |
-| SQLite 3.35+ | ❌ Not supported | 🟡 Planned | Row-level (dev only) | P3 | v1.2 |
-| H2 | ⚠️ Testing only | 🟡 Planned | Row-level | P4 | v2.0 |
-| SQL Server | ❌ Not supported | 📝 Proposed | Schema-per-tenant | P5 | TBD |
-| Oracle | ❌ Not supported | 📝 Proposed | Schema-per-tenant | P6 | TBD |
-
-**Legend**:
-- ✅ Production-ready
-- ⚠️ Testing/development only
-- 🟡 Planned (design complete)
-- 📝 Proposed (under consideration)
-- ❌ Not supported
-
----
-
-### Request Database Support
-
-Need support for a specific database? Open a GitHub issue with:
-
-1. **Database & Version**: Which database and minimum version
-2. **Use Case**: Production requirement or development convenience
-3. **Scale**: Expected number of tenants
-4. **Constraints**: Why PostgreSQL isn't an option
-
-We prioritize database support based on:
-- User demand (3+ production users)
-- Maintainability (stable JDBC drivers)
-- Isolation capabilities (database-level enforcement)
-- Test infrastructure (CI/CD compatibility)
+The decision to keep PostgreSQL-only is documented in [ADR-020](../../dev-docs/adr/ADR-020-tenant-database-scope.adoc). The `ITenantSchemaProvider` protocol provides an extension point if a different database backend is needed in the future.
 
 ---
 

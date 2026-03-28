@@ -99,8 +99,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filter-key->json-key` utility in `boundary.search.core.index` (kebab → snake conversion for JSON storage).
 - Migration: `resources/migrations/20260312000000-search-filters.{up,down}.sql`.
 
+#### `boundary-tenant` — convenience functions and protocol extension
+- `tenant-provisioned?` public function in `boundary.tenant.shell.provisioning`: checks if a tenant's schema exists in PostgreSQL; returns `false` for non-PostgreSQL databases; throws on missing `:schema-name`.
+- `list-tenant-schemas` public function in `boundary.tenant.shell.provisioning`: lists all `tenant_*` schemas in PostgreSQL; returns empty vector for non-PostgreSQL databases.
+- `ITenantSchemaProvider` protocol extended with `tenant-provisioned?` and `list-tenant-schemas` methods; `TenantSchemaProvider` record updated to implement both.
+- `dev-docs/adr/ADR-020-tenant-database-scope.adoc`: decision to keep tenant provisioning PostgreSQL-only; MySQL/SQLite version promises removed from README.
+
 ### Changed
 
+- `boundary-tenant` promoted from "Active" to "Stable" in `PROJECT_STATUS.adoc`. All convenience functions documented in README are now implemented; 70 tests, 474 assertions, 0 failures.
+- `boundary-tenant` README: fixed middleware naming (`wrap-tenant-resolver` → `wrap-tenant-resolution`), removed non-existent `wrap-require-tenant` (use `:require-tenant? true` option instead), clarified middleware locations (platform lib vs tenant lib), replaced MySQL/SQLite roadmap promises with ADR-020 reference.
+- `boundary-tenant` integration tests: removed stale "DEFERRED" comment — tests pass with mock observability services and H2 in-memory DB.
 - `boundary-external` promoted from "In Development" to "Active" (Twilio, SMTP/IMAP adapters production-capable). Stripe moved to `boundary-payments`.
 - Root `AGENTS.md` updated: `workflow` and `search` added to library structure, test commands, and Library-Specific Guides table. Version bumped to 3.3.0.
 - `libs/workflow/AGENTS.md` and `libs/search/AGENTS.md` updated to document all new features.

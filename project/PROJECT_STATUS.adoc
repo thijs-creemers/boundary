@@ -1,5 +1,5 @@
 = Project Status
-:revdate: 2026-03-13
+:revdate: 2026-03-28
 :toc: macro
 :toclevels: 2
 
@@ -7,9 +7,9 @@ Current status snapshot for the Boundary framework monorepo.
 
 == Summary
 
-Boundary is at `v1.0.0-alpha` and operates as a 17-library monorepo with consistent Functional Core / Imperative Shell architecture.
+Boundary is at `v1.0.1-alpha-7` and operates as a 22-library monorepo (plus `boundary-tools`) with consistent Functional Core / Imperative Shell architecture.
 All core platform capabilities are implemented. CI is comprehensive. Documentation is actively maintained.
-Primary remaining work is in marked in-development libraries, not foundational architecture.
+Roadmap Phases 1-2 (workflow, search, reports, calendar) are complete. Geo (Phase 4) was delivered ahead of schedule. Payments library is publish-ready. Phase 3 (push, audience) is the next priority.
 
 == Snapshot
 
@@ -18,10 +18,13 @@ Primary remaining work is in marked in-development libraries, not foundational a
 |Area |Status
 
 |Latest release tag
-|`v1.0.0-alpha` (see `CHANGELOG.md`)
+|`v1.0.1-alpha-7` (see `CHANGELOG.md`)
 
 |Libraries
-|17 libraries in `libs/`: `core`, `observability`, `platform`, `user`, `admin`, `storage`, `scaffolder`, `cache`, `jobs`, `email`, `realtime`, `tenant`, `workflow`, `search`, `reports`, `calendar`, `external`
+|22 libraries in `libs/`: `core`, `observability`, `platform`, `i18n`, `user`, `admin`, `storage`, `scaffolder`, `cache`, `jobs`, `email`, `realtime`, `tenant`, `workflow`, `search`, `reports`, `calendar`, `external`, `payments`, `geo`, `ai`, `ui-style`
+
+|Tooling
+|`boundary-tools/` — scaffolding, AI assistance, i18n, deploy, dev utilities (published separately)
 
 |Architecture model
 |FC/IS enforced across all modules (`core/`, `shell/`, `ports.clj`)
@@ -38,6 +41,11 @@ Primary remaining work is in marked in-development libraries, not foundational a
 
 == Module Status
 
+**Status definitions**:
+
+* **Stable** — Feature-complete, production-ready, all tests passing, no known limitations. Safe to depend on in production projects.
+* **Active** — Implemented and functional, but with known limitations or not yet validated for production use. See notes for specifics.
+
 [cols="1,2,2"]
 |===
 |Library |Status |Notes
@@ -53,6 +61,10 @@ Primary remaining work is in marked in-development libraries, not foundational a
 |`boundary-platform`
 |Stable
 |HTTP, database, CLI, and migration infrastructure.
+
+|`boundary-i18n`
+|Stable
+|Internationalization and locale management.
 
 |`boundary-user`
 |Stable
@@ -83,8 +95,8 @@ Primary remaining work is in marked in-development libraries, not foundational a
 |SMTP sending, async, and jobs integration.
 
 |`boundary-tenant`
-|Active
-|PostgreSQL schema-per-tenant; cross-module integration in place.
+|Stable
+|PostgreSQL schema-per-tenant, membership, invites. See ADR-020 for database scope.
 
 |`boundary-realtime`
 |Active (single-server)
@@ -92,23 +104,39 @@ Primary remaining work is in marked in-development libraries, not foundational a
 
 |`boundary-workflow`
 |Stable
-|State-machine workflows with permissions, guards, lifecycle hooks, auto-transitions, and audit trails.
+|State-machine workflows with permissions, guards, lifecycle hooks, auto-transitions, and audit trails. Roadmap Phase 1.
 
 |`boundary-search`
 |Stable
-|Full-text search (PostgreSQL FTS / H2 LIKE fallback), weighted fields, filter support, and admin UI.
+|Full-text search (PostgreSQL FTS / H2 LIKE fallback), weighted fields, filter support, and admin UI. Roadmap Phase 1.
 
 |`boundary-reports`
-|Active
-|PDF, Excel, DOCX generation via `defreport` macro.
+|Stable
+|PDF, Excel, DOCX generation via `defreport` macro. All success criteria met. Roadmap Phase 2.
 
 |`boundary-calendar`
 |Stable
-|Recurring events (RFC 5545 RRULE), iCal export/import, conflict detection, Hiccup UI components.
+|Recurring events (RFC 5545 RRULE), iCal export/import, conflict detection, Hiccup UI components. Roadmap Phase 2.
 
 |`boundary-external`
 |Active
-|Stripe payments + webhooks, Twilio SMS/WhatsApp, SMTP transport, IMAP mailbox adapters. Not production-ready.
+|Twilio SMS/WhatsApp, SMTP transport, IMAP mailbox adapters. Not production-ready.
+
+|`boundary-payments`
+|Stable
+|PSP abstraction (Mollie, Stripe, Mock), checkout flow, webhook verification. 19 tests, 111 assertions.
+
+|`boundary-geo`
+|Stable
+|Multi-provider geocoding (OSM/Google/Mapbox), DB-backed cache, rate limiting, Haversine distance. Roadmap Phase 4 (delivered early).
+
+|`boundary-ai`
+|Stable
+|Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, error explainer, test generator, SQL copilot, docs wizard.
+
+|`boundary-ui-style`
+|Stable
+|Shared UI style bundles (`:base`, `:pilot`, `:admin-pilot`), design tokens, CSS/JS assets.
 |===
 
 == CI / Automation
@@ -118,21 +146,49 @@ The main CI workflow (`.github/workflows/ci.yml`) runs:
 * `lint` — clj-kondo
 * `docs-lint` — documentation drift linter
 * `agents-links` — `bb scripts/check_agents_links.clj`
-* Per-library test jobs for all 17 libraries
+* Per-library test jobs for all 22 libraries
 * Whole-suite test job (`clojure -M:test:db/h2`)
 * `test-summary` gate
+
+== Roadmap Status
+
+See `Boundary-Framework-Roadmap-2026-2027.adoc` for full detail.
+
+[cols="1,2,1"]
+|===
+|Phase |Libraries |Status
+
+|Phase 1 (Q2 2026)
+|workflow, search
+|Done
+
+|Phase 2 (Q3 2026)
+|reports, calendar
+|Done
+
+|Phase 3 (Q4 2026)
+|push, audience
+|Not started
+
+|Phase 4 (Q1 2027)
+|geo, forms
+|Partial (geo done, forms not started)
+|===
 
 == Known Gaps
 
 * `boundary-external` is explicitly in-development and not production-ready.
 * `boundary-realtime` multi-server scaling (Redis-backed registry/pub-sub) is still roadmap.
+* Roadmap Phase 3 libraries (`boundary-push`, `boundary-audience`) not yet implemented.
+* Roadmap Phase 4 library `boundary-forms` not yet implemented.
 * Some historical documents in `docs/archive/` are stale and should not be used as operational source-of-truth.
 
 == Recommended Priorities
 
-. Validate `boundary-external` adapters against live Stripe/Twilio sandboxes and mark production-ready.
+. Start Roadmap Phase 3: implement `boundary-push` (21d) and `boundary-audience` (18d).
+. Validate `boundary-external` adapters against live Twilio sandboxes and mark production-ready.
 . Decide realtime scaling path (single-node hardening vs Redis-backed) and align tests/docs.
-. Advance `boundary-reports` and `boundary-calendar` CI coverage (add per-library jobs to CI).
+. Publish `v1.0.1-alpha-7` to Clojars (all 23 artifacts including payments).
 . Keep CI signal quality high: fast per-library feedback and enforced docs/link hygiene.
 
 == Maintenance Rules

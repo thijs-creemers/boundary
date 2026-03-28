@@ -430,6 +430,51 @@
           (is (= "tenant_alpha" (:schema-name (ex-data ex))))
           (is (= "callback boom" (:cause (ex-data ex)))))))))
 
+^{:unit true}
+(deftest tenant-provisioned?-test
+  (testing "returns false for non-PostgreSQL (H2) context"
+    (with-h2-database
+      (fn []
+        (is (false? (sut/tenant-provisioned? *test-ctx* {:schema-name "tenant_test"}))))))
+
+  (testing "throws on missing :schema-name"
+    (let [ctx {:adapter (postgres-adapter-stub) :datasource nil}]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"Tenant entity missing :schema-name"
+                            (sut/tenant-provisioned? ctx {})))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"Tenant entity missing :schema-name"
+                            (sut/tenant-provisioned? ctx nil)))))
+
+  (testing "delegates to schema-exists? for PostgreSQL context"
+    (let [ctx {:adapter (postgres-adapter-stub) :datasource nil}]
+      (with-redefs [boundary.tenant.shell.provisioning/schema-exists?
+                    (fn [_ schema-name] (= "tenant_found" schema-name))]
+        (is (true? (sut/tenant-provisioned? ctx {:schema-name "tenant_found"})))
+        (is (false? (sut/tenant-provisioned? ctx {:schema-name "tenant_missing"})))))))
+
+^{:unit true}
+(deftest list-tenant-schemas-test
+  (testing "returns empty vector for non-PostgreSQL (H2) context"
+    (with-h2-database
+      (fn []
+        (is (= [] (sut/list-tenant-schemas *test-ctx*))))))
+
+  (testing "queries information_schema for PostgreSQL context"
+    (let [ctx {:adapter (postgres-adapter-stub) :datasource nil}]
+      (with-redefs [boundary.platform.shell.adapters.database.common.core/execute-query!
+                    (fn [_ _]
+                      [{:schema-name "tenant_acme"}
+                       {:schema-name "tenant_globex"}])]
+        (is (= ["tenant_acme" "tenant_globex"]
+               (sut/list-tenant-schemas ctx))))))
+
+  (testing "returns empty vector when no tenant schemas exist in PostgreSQL"
+    (let [ctx {:adapter (postgres-adapter-stub) :datasource nil}]
+      (with-redefs [boundary.platform.shell.adapters.database.common.core/execute-query!
+                    (fn [_ _] [])]
+        (is (= [] (sut/list-tenant-schemas ctx)))))))
+
 ;; =============================================================================
 ;; Integration Tests (Real Database - H2 with PostgreSQL Mode)
 ;; =============================================================================

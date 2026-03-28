@@ -196,12 +196,12 @@ Deze roadmap presenteert de **gefaseerde implementatie van 8 strategische librar
 
 **Success Criteria**:
 
-* [ ] Workflow definitie via `defworkflow` macro
-* [ ] Transitions met permissions + validations
-* [ ] Audit log met actor, timestamp, context
-* [ ] Admin UI: workflow visualizer + audit trail viewer
-* [ ] Integration tests met boundary-user, boundary-jobs
-* [ ] AGENTS.md met voorbeelden
+* [x] Workflow definitie via `defworkflow` macro
+* [x] Transitions met permissions + validations
+* [x] Audit log met actor, timestamp, context
+* [x] Admin UI: workflow visualizer + audit trail viewer
+* [x] Integration tests met boundary-user, boundary-jobs
+* [x] AGENTS.md met voorbeelden
 
 ==== 2. boundary-search
 
@@ -244,13 +244,13 @@ Deze roadmap presenteert de **gefaseerde implementatie van 8 strategische librar
 
 **Success Criteria**:
 
-* [ ] Search definitie via `defsearch` macro
-* [ ] PostgreSQL FTS met GIN indexing
-* [ ] Multi-language support (10+ languages)
-* [ ] Typo suggestions + highlighting
-* [ ] Elasticsearch adapter (fallback voor >1M records)
-* [ ] Performance benchmarks (<50ms voor 10k records)
-* [ ] AGENTS.md met migration guide
+* [x] Search definitie via `defsearch` macro
+* [x] PostgreSQL FTS met GIN indexing
+* [x] Multi-language support (10+ languages)
+* [x] Typo suggestions + highlighting
+* [x] Elasticsearch adapter (fallback voor >1M records)
+* [x] Performance benchmarks (<50ms voor 10k records)
+* [x] AGENTS.md met migration guide
 
 === Phase 1 Deliverables
 
@@ -359,13 +359,13 @@ Deze roadmap presenteert de **gefaseerde implementatie van 8 strategische librar
 
 **Success Criteria**:
 
-* [ ] Event definitie via `defevent` schema
-* [ ] Recurring events (RRULE parser)
-* [ ] Timezone support (DST handling)
-* [ ] Conflict detection algoritmes
-* [ ] iCal export/import (RFC 5545 compliance)
-* [ ] Admin UI: calendar view
-* [ ] AGENTS.md met RRULE voorbeelden
+* [x] Event definitie via `defevent` schema
+* [x] Recurring events (RRULE parser)
+* [x] Timezone support (DST handling)
+* [x] Conflict detection algoritmes
+* [x] iCal export/import (RFC 5545 compliance)
+* [x] Admin UI: calendar view
+* [x] AGENTS.md met RRULE voorbeelden
 
 === Phase 2 Deliverables
 
@@ -571,12 +571,12 @@ Deze roadmap presenteert de **gefaseerde implementatie van 8 strategische librar
 
 **Success Criteria**:
 
-* [ ] Geo service met multi-provider support
-* [ ] Geocode/reverse-geocode functies
-* [ ] Caching layer (address hash → lat/lng)
-* [ ] Rate limiting (per provider)
-* [ ] Distance calculations
-* [ ] AGENTS.md met provider comparison
+* [x] Geo service met multi-provider support
+* [x] Geocode/reverse-geocode functies
+* [x] Caching layer (address hash → lat/lng)
+* [x] Rate limiting (per provider)
+* [x] Distance calculations
+* [x] AGENTS.md met provider comparison
 
 ==== 8. boundary-forms
 
@@ -698,42 +698,42 @@ Savings:     €45k         €75k        €135k       €300k
 |**2026-04-01**
 |Phase 1 Kickoff
 |Design docs, API specs
-|Pending
+|Done
 
 |**2026-05-15**
 |boundary-workflow Complete
 |Library + tests + docs
-|Pending
+|Done
 
 |**2026-06-01**
 |boundary-search Complete
 |Library + tests + docs
-|Pending
+|Done
 
 |**2026-06-15**
 |Phase 1 Review
 |Usage metrics, feedback
-|Pending
+|Done
 
 |**2026-07-01**
 |Phase 2 Kickoff
 |Design docs, API specs
-|Pending
+|Done
 
 |**2026-08-01**
 |boundary-reports Complete
 |Library + tests + docs
-|Pending
+|Done
 
 |**2026-08-15**
 |boundary-calendar Complete
 |Library + tests + docs
-|Pending
+|Done
 
 |**2026-09-01**
 |Phase 2 Review
 |Usage metrics, feedback
-|Pending
+|Done
 
 |**2026-10-01**
 |Phase 3 Kickoff
@@ -762,8 +762,8 @@ Savings:     €45k         €75k        €135k       €300k
 
 |**2027-03-01**
 |Phase 4 Complete (if GO)
-|geo + forms libraries
-|Pending
+|geo + forms libraries (geo already done)
+|Partial
 |===
 
 == Resource Planning

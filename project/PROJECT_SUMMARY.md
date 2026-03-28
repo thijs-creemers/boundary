@@ -39,13 +39,14 @@ Use `boundary.shared.core.utils.case-conversion`. Never convert manually.
 
 ---
 
-## Libraries (17)
+## Libraries (22)
 
 | Library | Description |
 |---------|-------------|
 | `core` | Validation, utilities, interceptor pipeline, feature flags |
 | `observability` | Logging, metrics, error reporting |
 | `platform` | HTTP, database, CLI infrastructure |
+| `i18n` | Internationalization and locale management |
 | `user` | JWT auth, MFA, session management |
 | `admin` | Auto-CRUD admin UI (Hiccup + HTMX) |
 | `storage` | Local and S3 file storage |
@@ -55,11 +56,17 @@ Use `boundary.shared.core.utils.case-conversion`. Never convert manually.
 | `email` | SMTP, async, jobs integration |
 | `tenant` | Multi-tenancy, PostgreSQL schema-per-tenant |
 | `realtime` | WebSocket / SSE |
-| `external` | Stripe, Twilio, IMAP adapters |
+| `external` | Twilio SMS/WhatsApp, SMTP transport, IMAP adapters |
+| `payments` | PSP abstraction (Mollie, Stripe, Mock), checkout flow, webhooks |
+| `geo` | Multi-provider geocoding (OSM/Google/Mapbox), caching, distance |
 | `reports` | PDF / Excel / DOCX via `defreport` |
 | `calendar` | Recurring events, iCal, conflict detection |
 | `workflow` | State machine workflows with audit trail |
 | `search` | Full-text search (PostgreSQL FTS / LIKE fallback) |
+| `ai` | Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, tools |
+| `ui-style` | Shared UI style bundles, design tokens, CSS/JS assets |
+
+Additionally, `boundary-tools/` provides developer tooling (scaffolding, AI assistance, i18n management, deploy) and is published separately.
 
 ---
 

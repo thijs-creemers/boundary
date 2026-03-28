@@ -109,18 +109,28 @@
 
   (with-tenant-schema [this db-ctx schema-name f]
     "Execute function f within the specified tenant schema context.
-     
+
      For PostgreSQL: Sets search_path to tenant schema for the duration of f
      For other databases: May use row-level filtering or other mechanisms
-     
+
      Args:
        db-ctx: Database context map with :datasource
        schema-name: Tenant schema name (e.g., 'tenant_acme_corp')
        f: Function to execute, receives transaction context as argument
-       
+
      Returns:
        Result of executing f
-       
+
      Throws:
        ex-info with :type :unsupported-database if database doesn't support schemas
-       ex-info with :type :schema-not-found if schema doesn't exist"))
+       ex-info with :type :schema-not-found if schema doesn't exist")
+
+  (tenant-provisioned? [this db-ctx tenant-entity]
+    "Check if a tenant's database schema has been provisioned.
+     Returns true if the schema exists in PostgreSQL, false otherwise.
+     Returns false for non-PostgreSQL databases.")
+
+  (list-tenant-schemas [this db-ctx]
+    "List all tenant_* schemas in the database.
+     Returns a vector of schema name strings.
+     Returns empty vector for non-PostgreSQL databases."))

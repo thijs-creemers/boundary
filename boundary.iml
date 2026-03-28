@@ -49,6 +49,9 @@
       <sourceFolder url="file://$MODULE_DIR$/libs/i18n/resources" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/i18n/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/i18n/test" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/geo/resources" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/payments/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/libs/payments/test" isTestSource="false" />
     </content>
   </component>
   <component name="BuildSystem">

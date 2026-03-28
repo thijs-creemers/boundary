@@ -315,18 +315,18 @@
               ;; Validate
               validation (validate-provisioning ctx schema-name)]
           (if (:valid? validation)
-              (do
-                (log/info "Tenant provisioning completed successfully"
-                          {:schema-name schema-name
-                           :table-count (count tables)})
-                {:success? true
-                 :schema-name schema-name
-                 :table-count (count tables)
-                 :message "Tenant schema provisioned successfully"})
-              (throw (ex-info "Tenant provisioning validation failed"
-                              {:type :provisioning-error
-                               :schema-name schema-name
-                               :validation validation}))))
+            (do
+              (log/info "Tenant provisioning completed successfully"
+                        {:schema-name schema-name
+                         :table-count (count tables)})
+              {:success? true
+               :schema-name schema-name
+               :table-count (count tables)
+               :message "Tenant schema provisioned successfully"})
+            (throw (ex-info "Tenant provisioning validation failed"
+                            {:type :provisioning-error
+                             :schema-name schema-name
+                             :validation validation}))))
 
         (catch Exception e
           (log/error e "Tenant provisioning failed" {:schema-name schema-name})
@@ -343,6 +343,33 @@
                            :schema-name schema-name
                            :cause (.getMessage e)}
                           e)))))))
+
+(defn tenant-provisioned?
+  "Check if a tenant's database schema has been provisioned.
+   Returns true if the schema exists in PostgreSQL, false otherwise.
+   Returns false for non-PostgreSQL databases."
+  [ctx tenant-entity]
+  (let [schema-name (:schema-name tenant-entity)]
+    (when-not schema-name
+      (throw (ex-info "Tenant entity missing :schema-name"
+                      {:type :validation-error
+                       :field :schema-name})))
+    (if (postgresql-context? ctx)
+      (schema-exists? ctx schema-name)
+      false)))
+
+(defn list-tenant-schemas
+  "List all tenant schemas in the database.
+   Returns a vector of schema name strings matching the tenant_* pattern.
+   Returns empty vector for non-PostgreSQL databases."
+  [ctx]
+  (if (postgresql-context? ctx)
+    (let [query ["SELECT schema_name FROM information_schema.schemata
+                  WHERE schema_name LIKE 'tenant_%'
+                  ORDER BY schema_name"]]
+      (->> (db/execute-query! ctx query)
+           (mapv :schema-name)))
+    []))
 
 (defn deprovision-tenant!
   "Deprovision tenant database schema.
@@ -460,7 +487,13 @@
   ports/ITenantSchemaProvider
 
   (with-tenant-schema [_ db-ctx schema-name f]
-    (with-tenant-schema db-ctx schema-name f)))
+    (with-tenant-schema db-ctx schema-name f))
+
+  (tenant-provisioned? [_ db-ctx tenant-entity]
+    (tenant-provisioned? db-ctx tenant-entity))
+
+  (list-tenant-schemas [_ db-ctx]
+    (list-tenant-schemas db-ctx)))
 
 (defn create-tenant-schema-provider
   "Create a new tenant schema provider instance.
