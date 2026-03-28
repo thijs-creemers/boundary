@@ -1,0 +1,97 @@
+= ADR-020: PostgreSQL-Only Tenant Provisioning
+:status: Accepted
+:date: 2026-03-28
+:deciders: boundary-team
+
+== Status
+
+Accepted
+
+== Context
+
+=== Background
+
+The `boundary-tenant` library implements schema-per-tenant isolation using
+PostgreSQL's `CREATE SCHEMA` / `SET search_path` mechanism. This approach
+provides strong, database-enforced tenant boundaries with sub-millisecond
+schema switching and clean queries that do not require manual `tenant_id`
+filtering.
+
+The library's README historically documented future database support with
+specific version targets:
+
+* MySQL 8.0+ via database-per-tenant (planned for v1.1)
+* SQLite 3.35+ via row-level `tenant_id` filtering (planned for v1.2)
+* H2 row-level filtering (planned for v2.0)
+
+=== Current state
+
+No Boundary project has requested MySQL or SQLite support for production
+multi-tenancy. All production deployments use PostgreSQL. The library has
+68 tests and 466 assertions with 0 failures, covering provisioning, membership,
+invites, jobs integration, cache integration, and end-to-end lifecycle flows.
+
+H2 is used exclusively as a fast in-memory test database. Provisioning functions
+correctly return `:not-supported` on non-PostgreSQL contexts.
+
+=== Problem
+
+Keeping version-specific promises (v1.1, v1.2) for MySQL and SQLite in the
+README creates an implicit commitment that diverts attention from the proven
+PostgreSQL path. Implementing these alternatives would require:
+
+* New isolation strategies per database (database-per-tenant for MySQL,
+  row-level filtering for SQLite)
+* Additional query interceptors to prevent tenant data leaks in row-level mode
+* Separate CI matrices per database engine
+* Ongoing maintenance across multiple code paths
+
+This effort is not justified without concrete project demand.
+
+== Decision
+
+Tenant provisioning is explicitly scoped to **PostgreSQL only**. The library
+will not implement MySQL, SQLite, or other database provisioning strategies
+until a Boundary project requires it.
+
+Specifically:
+
+. Remove version-specific database support promises from the README.
+. Document PostgreSQL as the sole supported database for schema-per-tenant.
+. Keep non-PostgreSQL contexts gracefully handled (return `false` / empty
+  results / throw `:not-supported` as appropriate).
+. Revisit this decision when a project submits a concrete requirement for an
+  alternative database.
+
+== Consequences
+
+=== Positive
+
+* *Reduced maintenance burden* — one provisioning code path to maintain, test,
+  and reason about.
+* *Clearer documentation* — users know exactly what is supported without
+  speculative roadmap items.
+* *Focused testing* — H2 tests verify business logic; PostgreSQL contract tests
+  verify provisioning. No need for MySQL/SQLite CI matrices.
+* *Simpler security model* — PostgreSQL schema isolation is database-enforced;
+  row-level filtering requires application-level enforcement and is inherently
+  riskier.
+
+=== Negative / risks
+
+* *Projects on MySQL must use row-level filtering outside the library* — they
+  cannot use `provision-tenant!` or `with-tenant-schema` and must implement
+  their own `WHERE tenant_id = ?` patterns.
+* *Perception of limited scope* — potential adopters using MySQL/SQLite may
+  view the library as not applicable to their stack.
+
+=== Mitigation
+
+The `ITenantSchemaProvider` protocol and `with-tenant-schema` function provide
+a clear extension point. If MySQL support becomes necessary, a
+`MysqlTenantSchemaProvider` can be implemented without modifying existing code.
+
+== Related ADRs
+
+* ADR-004 — Multi-Tenancy Architecture (original schema-per-tenant decision)
+* ADR-016 — Tenant User Membership (membership and invite flows)
