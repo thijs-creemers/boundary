@@ -436,14 +436,15 @@
 
 (defn admin-home-handler
   "Handler for admin home page — shows dashboard with entity tiles."
-  [_admin-service schema-provider config]
+  [admin-service schema-provider config]
   (fn [request]
     (let [user (require-admin-user! request)
           entities (ports/list-available-entities schema-provider)
-          entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)]
+          entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
+          stats (into {} (map (fn [e] [e {:count (ports/count-entities admin-service e {})}])) entities)]
       (html-response request
                      (admin-ui/admin-layout
-                      (admin-ui/admin-home entities entity-configs)
+                      (admin-ui/admin-home entities entity-configs stats)
                       {:user user
                        :current-entity nil
                        :entities entities
