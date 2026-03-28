@@ -1,7 +1,7 @@
 (ns build
   (:require [clojure.tools.build.api :as b]))
 
-(def lib 'org.boundary-app/boundary-i18n)
+(def lib 'org.boundary-app/boundary-payments)
 (def version "1.0.1-alpha-7")
 (def class-dir "target/classes")
 (def basis (b/create-basis {:project "deps.edn"}))
@@ -20,7 +20,7 @@
                       :connection "scm:git:git://github.com/thijs-creemers/boundary.git"
                       :developerConnection "scm:git:ssh://git@github.com/thijs-creemers/boundary.git"
                       :tag (str "v" version)}
-                :pom-data [[:description "Internationalisation (i18n) for Boundary framework: marker-based translation, locale selection, Hiccup postwalk rendering, and catalogue management"]
+                :pom-data [[:description "PSP abstraction for Boundary framework: multi-provider payment processing (Mollie, Stripe, Mock), checkout flow, webhook verification"]
                            [:url "https://github.com/thijs-creemers/boundary"]
                            [:licenses
                             [:license
