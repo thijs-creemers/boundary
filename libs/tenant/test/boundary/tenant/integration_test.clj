@@ -19,35 +19,26 @@
    - ADR-004: Multi-tenancy architecture requirements
    - Tasks 1-5: Provisioning, jobs, cache implementations
 
-   ⚠️ TEST STATUS (2026-02-09):
-   These E2E tests are currently DEFERRED due to mock observability service
-   compatibility issues with the service interceptor framework. The issue is
-   with test infrastructure, NOT business logic.
-
-   Business functionality is fully verified via comprehensive module-level tests:
-   - Provisioning: 250+ assertions, 0 failures
-   - Jobs integration: 10 tests, 80 assertions, 0 failures
-   - Cache integration: 20 tests, 182 assertions, 0 failures
-
-   These E2E tests will be completed in a dedicated test infrastructure
-   refinement session once proper mock/stub patterns are established."
- (:require [boundary.cache.ports :as cache-ports]
-           [boundary.cache.shell.adapters.in-memory :as mem-cache]
-           [boundary.cache.shell.tenant-cache :as tenant-cache]
-           [boundary.jobs.ports :as job-ports]
-           [boundary.jobs.shell.tenant-context :as tenant-jobs]
-           [boundary.observability.errors.shell.adapters.no-op :as noop-errors]
-           [boundary.observability.logging.shell.adapters.no-op :as noop-logging]
-           [boundary.observability.metrics.shell.adapters.no-op :as noop-metrics]
-           [boundary.platform.shell.adapters.database.common.core :as db]
-           [boundary.platform.shell.adapters.database.factory :as db-factory]
-           [boundary.tenant.ports :as tenant-ports]
-           [boundary.tenant.shell.persistence :as tenant-persistence]
-           [boundary.tenant.shell.provisioning :as provisioning]
-           [boundary.tenant.shell.service :as tenant-service]
-           [clojure.test :refer [deftest is testing use-fixtures]]
-           [clojure.tools.logging :as log])
- (:import (java.util UUID)))
+   All E2E tests pass with mock observability services and H2 in-memory DB.
+   PostgreSQL-specific tests (schema provisioning, schema switching) are skipped
+   on H2 and validated separately via provisioning_test.clj."
+  (:require [boundary.cache.ports :as cache-ports]
+            [boundary.cache.shell.adapters.in-memory :as mem-cache]
+            [boundary.cache.shell.tenant-cache :as tenant-cache]
+            [boundary.jobs.ports :as job-ports]
+            [boundary.jobs.shell.tenant-context :as tenant-jobs]
+            [boundary.observability.errors.shell.adapters.no-op :as noop-errors]
+            [boundary.observability.logging.shell.adapters.no-op :as noop-logging]
+            [boundary.observability.metrics.shell.adapters.no-op :as noop-metrics]
+            [boundary.platform.shell.adapters.database.common.core :as db]
+            [boundary.platform.shell.adapters.database.factory :as db-factory]
+            [boundary.tenant.ports :as tenant-ports]
+            [boundary.tenant.shell.persistence :as tenant-persistence]
+            [boundary.tenant.shell.provisioning :as provisioning]
+            [boundary.tenant.shell.service :as tenant-service]
+            [clojure.test :refer [deftest is testing use-fixtures]]
+            [clojure.tools.logging :as log])
+  (:import (java.util UUID)))
 
 ;; =============================================================================
 ;; Dynamic Test Bindings
