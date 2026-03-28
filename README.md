@@ -6,7 +6,7 @@
 
 ## Why Boundary?
 
-**For developers:** 20 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
+**For developers:** 21 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
 
 **Ship faster:** The scaffolder generates production-ready modules (entity + routes + tests) in seconds. The admin UI auto-generates CRUD interfaces from your schema — no manual forms. Built-in observability, RFC 5988 pagination, and declarative interceptors mean you write business logic, not plumbing.
 
@@ -77,7 +77,7 @@ Each library also has its own `AGENTS.md` with library-specific documentation.
 
 ## Libraries
 
-Boundary is a monorepo of **20 independently publishable libraries**:
+Boundary is a monorepo of **21 independently publishable libraries**:
 
 | Library | Description |
 |---------|-------------|
@@ -93,7 +93,8 @@ Boundary is a monorepo of **20 independently publishable libraries**:
 | [email](libs/email/) | Production-ready email: SMTP, async, jobs integration |
 | [tenant](libs/tenant/) | Multi-tenancy with PostgreSQL schema-per-tenant isolation |
 | [realtime](libs/realtime/) | WebSocket / SSE for real-time features |
-| [external](libs/external/) | External service adapters: Stripe, Twilio, IMAP |
+| [external](libs/external/) | External service adapters: Twilio, IMAP |
+| [payments](libs/payments/) | Payment provider abstraction: Stripe, Mollie, Mock |
 | [reports](libs/reports/) | PDF, Excel, and Word (DOCX) generation via `defreport` |
 | [calendar](libs/calendar/) | Recurring events, iCal export/import, conflict detection |
 | [workflow](libs/workflow/) | Declarative state machine workflows with audit trail |

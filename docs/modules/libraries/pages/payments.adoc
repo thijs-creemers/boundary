@@ -1,0 +1,78 @@
+= payments
+:description: Payment provider abstraction: Stripe, Mollie, and Mock adapters.
+
+Multi-provider payment abstraction following the FC/IS pattern.
+Three adapters: Stripe, Mollie, and Mock (development/tests).
+
+== Key namespaces
+
+[source]
+----
+boundary.payments.schema                        — Malli schemas: CheckoutRequest, CheckoutResult,
+                                                  PaymentStatusResult, WebhookResult
+boundary.payments.ports                         — IPaymentProvider protocol: create-checkout-session,
+                                                  get-payment-status, process-webhook, verify-webhook-signature
+boundary.payments.core.provider                 — Pure helpers: cents->euro, event-type mapping,
+                                                  status mapping (Mollie/Stripe)
+boundary.payments.shell.adapters.stripe         — StripePaymentProvider (Checkout Sessions, HMAC webhooks)
+boundary.payments.shell.adapters.mollie         — MolliePaymentProvider (Mollie API v2, fetch-back verification)
+boundary.payments.shell.adapters.mock           — MockPaymentProvider (auto-approve, no external calls)
+boundary.payments.shell.module-wiring           — Integrant :boundary/payment-provider component
+----
+
+== Enabling a provider
+
+Configure `:boundary/payment-provider` in `config.edn`:
+
+[source,clojure]
+----
+;; Mock (development — default)
+:boundary/payment-provider
+{:provider :mock}
+
+;; Stripe
+:boundary/payment-provider
+{:provider       :stripe
+ :api-key        #env STRIPE_SECRET_KEY
+ :webhook-secret #env STRIPE_WEBHOOK_SECRET}
+
+;; Mollie
+:boundary/payment-provider
+{:provider         :mollie
+ :api-key          #env MOLLIE_API_KEY
+ :webhook-base-url #env APP_BASE_URL}
+----
+
+== Usage
+
+[source,clojure]
+----
+(require '[boundary.payments.ports :as payments])
+
+;; Create checkout session
+(payments/create-checkout-session provider
+  {:amount-cents 4900
+   :currency     "EUR"
+   :description  "Monthly subscription"
+   :redirect-url "https://app.example.com/return"})
+;; => {:checkout-url "https://..." :provider-checkout-id "cs_..."}
+
+;; Check payment status
+(payments/get-payment-status provider "cs_abc123")
+;; => {:status :paid :provider-payment-id "pi_..."}
+
+;; Verify and process webhook
+(when (payments/verify-webhook-signature provider raw-body headers)
+  (payments/process-webhook provider raw-body headers))
+;; => {:event-type :payment.paid :provider-payment-id "pi_..."
+;;     :provider-checkout-id "cs_..." :payload {...}}
+----
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :payments
+----
+
+See xref:guides:payments.adoc[Payments Guide] for the full integration walkthrough.

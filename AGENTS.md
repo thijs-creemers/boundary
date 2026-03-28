@@ -29,6 +29,7 @@ clojure -M:test:db/h2 :realtime                    # Realtime library tests
 clojure -M:test:db/h2 :workflow                    # Workflow library tests
 clojure -M:test:db/h2 :search                      # Search library tests
 clojure -M:test:db/h2 :external                    # External adapters tests
+clojure -M:test:db/h2 :payments                    # Payments library tests
 clojure -M:test:db/h2 :reports                     # Reports library tests
 clojure -M:test:db/h2 :calendar                    # Calendar library tests
 clojure -M:test:db/h2 :geo                         # Geo library tests

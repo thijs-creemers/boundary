@@ -81,7 +81,19 @@
    :default-locale :en}}
 
  :inactive
- {;; Cache configuration — move :boundary/cache to :active to enable Redis caching.
+ {;; Payment provider — move to :active with the desired PSP adapter.
+  ;; Stripe:
+  ;;   :boundary/payment-provider
+  ;;   {:provider       :stripe
+  ;;    :api-key        #env STRIPE_SECRET_KEY
+  ;;    :webhook-secret #env STRIPE_WEBHOOK_SECRET}
+  ;; Mollie:
+  ;;   :boundary/payment-provider
+  ;;   {:provider         :mollie
+  ;;    :api-key          #env MOLLIE_API_KEY
+  ;;    :webhook-base-url #env APP_BASE_URL}
+
+  ;; Cache configuration — move :boundary/cache to :active to enable Redis caching.
   ;; Requires a Redis instance. Production-grade pool settings included.
   :boundary/cache
   {:provider    :redis

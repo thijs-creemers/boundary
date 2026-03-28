@@ -15,6 +15,7 @@
 ** xref:libraries:realtime.adoc[realtime]
 ** xref:libraries:i18n.adoc[i18n]
 ** xref:libraries:external.adoc[external]
+** xref:libraries:payments.adoc[payments]
 ** xref:libraries:workflow.adoc[workflow]
 ** xref:libraries:search.adoc[search]
 ** xref:libraries:reports.adoc[reports]

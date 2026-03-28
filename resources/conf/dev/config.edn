@@ -120,6 +120,11 @@
    :default-locale :en
    :dev?           true}
 
+  ;; Payment provider — mock adapter for development (no external calls)
+  ;; Move to :inactive and configure :mollie or :stripe for real PSP testing.
+  :boundary/payment-provider
+  {:provider :mock}
+
   ;; AI tooling — offline-first via Ollama, with Anthropic cloud fallback
   ;; Move to :inactive to disable. Set ANTHROPIC_API_KEY to enable cloud fallback.
   :boundary/ai-service
@@ -226,10 +231,8 @@
    :password #env IMAP_PASSWORD
    :ssl?     true}
 
-  :boundary.external/stripe
-  {:api-key        #env STRIPE_API_KEY
-   :webhook-secret #env STRIPE_WEBHOOK_SECRET
-   :api-version    "2024-04-10"}
+  ;; Stripe payments now handled by :boundary/payment-provider (libs/payments).
+  ;; Configure with {:provider :stripe :api-key ... :webhook-secret ...} in :active.
 
   :boundary.external/twilio
   {:account-sid  #env TWILIO_ACCOUNT_SID

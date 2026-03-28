@@ -54,7 +54,11 @@
 
   ;; AI tooling — no-op provider for tests (no network calls, no API keys)
   :boundary/ai-service
-  {:provider :no-op}}
+  {:provider :no-op}
+
+  ;; Payment provider — mock adapter for tests (no external calls)
+  :boundary/payment-provider
+  {:provider :mock}}
 
  :inactive
  {  ;; Alternative test database configurations
