@@ -10,6 +10,7 @@
             [boundary.ai.core.parsing :as parsing]
             [boundary.ai.core.prompts :as prompts]
             [boundary.ai.ports :as ports]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging :as log]))
@@ -264,7 +265,7 @@
        (let [edn-text (:text result)
              ;; Extract entity name from the EDN (first key)
              entity-name (try
-                           (let [parsed (read-string edn-text)]
+                           (let [parsed (edn/read-string edn-text)]
                              (when (map? parsed)
                                (name (first (keys parsed)))))
                            (catch Exception _ nil))]

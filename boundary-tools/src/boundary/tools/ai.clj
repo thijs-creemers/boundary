@@ -12,14 +12,8 @@
 ;;   bb ai docs --module <path> [--type agents|openapi|readme]
 
 (ns boundary.tools.ai
-  (:require [babashka.process :refer [shell]]))
-
-;; =============================================================================
-;; ANSI helpers
-;; =============================================================================
-
-(defn- bold [s] (str "\033[1m" s "\033[0m"))
-(defn- red  [s] (str "\033[31m" s "\033[0m"))
+  (:require [boundary.tools.ansi :refer [bold red]]
+            [babashka.process :refer [shell]]))
 
 ;; =============================================================================
 ;; Run Clojure AI CLI

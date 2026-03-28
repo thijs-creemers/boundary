@@ -15,6 +15,8 @@
             [boundary.ai.shell.providers.ollama :as ollama]
             [boundary.ai.shell.providers.openai :as openai]
             [boundary.ai.shell.service :as svc]
+            [cheshire.core :as json]
+            [clojure.java.io :as io]
             [clojure.java.shell :as sh]
             [clojure.string :as str]
             [clojure.tools.cli :as cli])
@@ -272,6 +274,8 @@
             (if (or (:yes options) (confirm? "Write this entity config?"))
               (let [dev-path  (str (:root options) "/resources/conf/dev/admin/" entity-name ".edn")
                     test-path (str (:root options) "/resources/conf/test/admin/" entity-name ".edn")]
+                (io/make-parents dev-path)
+                (io/make-parents test-path)
                 (spit dev-path (:text result))
                 (spit test-path (:text result))
                 (println)
@@ -302,16 +306,15 @@
       (if (:error result)
         (do (println (red (str "Error: " (:error result)))) (System/exit 1))
         ;; Output the JSON data to stdout for the Babashka setup wizard to consume
-        (let [data (:data result)]
-          (println (str "{"
-                        "\"project-name\":\"" (get data "project-name" "my-app") "\","
-                        "\"database\":\"" (get data "database" "postgresql") "\","
-                        "\"ai-provider\":\"" (get data "ai-provider" "none") "\","
-                        "\"payment\":\"" (get data "payment" "none") "\","
-                        "\"cache\":\"" (get data "cache" "none") "\","
-                        "\"email\":\"" (get data "email" "none") "\","
-                        "\"admin-ui\":" (get data "admin-ui" true)
-                        "}")))))))
+        (let [data   (:data result)
+              output {"project-name" (get data "project-name" "my-app")
+                      "database"     (get data "database" "postgresql")
+                      "ai-provider"  (get data "ai-provider" "none")
+                      "payment"      (get data "payment" "none")
+                      "cache"        (get data "cache" "none")
+                      "email"        (get data "email" "none")
+                      "admin-ui"     (get data "admin-ui" true)}]
+          (println (json/generate-string output)))))))
 
 ;; =============================================================================
 ;; Main

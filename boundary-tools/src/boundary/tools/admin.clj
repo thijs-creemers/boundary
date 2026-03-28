@@ -10,18 +10,9 @@
 ;;   bb create-admin --dir examples/ecommerce-api           -- target a sub-project
 
 (ns boundary.tools.admin
-  (:require [clojure.string :as str]
+  (:require [boundary.tools.ansi :refer [bold green red cyan dim]]
+            [clojure.string :as str]
             [babashka.process :as p]))
-
-;; =============================================================================
-;; ANSI helpers
-;; =============================================================================
-
-(defn- bold   [s] (str "\033[1m"  s "\033[0m"))
-(defn- green  [s] (str "\033[32m" s "\033[0m"))
-(defn- red    [s] (str "\033[31m" s "\033[0m"))
-(defn- cyan   [s] (str "\033[36m" s "\033[0m"))
-(defn- dim    [s] (str "\033[2m"  s "\033[0m"))
 
 ;; =============================================================================
 ;; Input helpers

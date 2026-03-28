@@ -2,9 +2,19 @@ Boundary Docs Lint Report
 =========================
 
 Summary:
-  Files scanned: 57
-  Total warnings: 0
+  Files scanned: 60
+  Total warnings: 8
 
 By type:
+  unknown-namespace: 6
+  broken-link: 2
 
 Warnings:
+  [broken-link] docs/modules/guides/pages/multi-tenancy.adoc - Broken link: ../../../libs/tenant/AGENTS.md
+  [unknown-namespace] docs/modules/guides/pages/multi-tenancy.adoc:392 - Unknown namespace reference: boundary.tenant.core.membership-test
+  [unknown-namespace] docs/modules/guides/pages/multi-tenancy.adoc:393 - Unknown namespace reference: boundary.tenant.shell.membership-service-test
+  [unknown-namespace] docs/modules/guides/pages/multi-tenancy.adoc:394 - Unknown namespace reference: boundary.tenant.shell.invite-service-test
+  [unknown-namespace] docs/modules/guides/pages/multi-tenancy.adoc:395 - Unknown namespace reference: boundary.tenant.integration-test
+  [broken-link] docs/modules/guides/pages/payments.adoc - Broken link: ../../../libs/payments/AGENTS.md
+  [unknown-namespace] docs/modules/libraries/pages/external.adoc:18 - Unknown namespace reference: boundary.external.core.stripe
+  [unknown-namespace] docs/modules/libraries/pages/external.adoc:22 - Unknown namespace reference: boundary.external.shell.adapters.stripe

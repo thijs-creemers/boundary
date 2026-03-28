@@ -7,16 +7,9 @@
 ;; Invoked via: bb ai admin-entity "products with name, price, status"
 
 (ns boundary.tools.admin-entity
-  (:require [clojure.string :as str]
+  (:require [boundary.tools.ansi :refer [bold red dim]]
+            [clojure.string :as str]
             [babashka.process :refer [shell]]))
-
-;; =============================================================================
-;; ANSI helpers
-;; =============================================================================
-
-(defn- bold   [s] (str "\033[1m"  s "\033[0m"))
-(defn- red    [s] (str "\033[31m" s "\033[0m"))
-(defn- dim    [s] (str "\033[2m"  s "\033[0m"))
 
 ;; =============================================================================
 ;; Main entry point

@@ -191,6 +191,25 @@
    [[:circle {:cx "12" :cy "12" :r "10"}]
     [:polyline {:points "12 6 12 12 16 14"}]]
 
+   :clipboard
+   [[:rect {:width "8" :height "4" :x "8" :y "2" :rx "1" :ry "1"}]
+    [:path {:d "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"}]]
+
+   :briefcase
+   [[:path {:d "M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"}]
+    [:rect {:width "20" :height "14" :x "2" :y "6" :rx "2"}]]
+
+   :credit-card
+   [[:rect {:width "20" :height "14" :x "2" :y "5" :rx "2"}]
+    [:line {:x1 "2" :x2 "22" :y1 "10" :y2 "10"}]]
+
+   :building-2
+   [[:path {:d "M10 12h4"}]
+    [:path {:d "M10 8h4"}]
+    [:path {:d "M14 21v-3a2 2 0 0 0-4 0v3"}]
+    [:path {:d "M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"}]
+    [:path {:d "M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"}]]
+
    ;; ===== Security =====
    :lock
    [[:rect {:width "18" :height "11" :x "3" :y "11" :rx "2" :ry "2"}]
@@ -455,24 +474,23 @@
 
 (comment
   ;; Usage examples:
-  
+
   ;; Basic icon
   (icon :home)
-  
+
   ;; Icon with custom size
   (icon :users {:size 20})
-  
+
   ;; Icon with custom styling
   (icon :settings {:class "text-primary-600" :size 16 :stroke-width 2.5})
-  
+
   ;; Icon button with accessibility
   (icon-button :edit {:label "Edit user" :size 18})
-  
+
   ;; List all available icons
   (available-icons)
   ;=> [:alert-circle :arrow-down :arrow-up :arrow-up-down :calendar ...]
-  
+
   ;; Brand logo
   (brand-logo)
-  (brand-logo {:size 40 :class "header-logo"})
-  )
+  (brand-logo {:size 40 :class "header-logo"}))

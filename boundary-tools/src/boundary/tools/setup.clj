@@ -9,20 +9,11 @@
 ;;   bb setup --database postgresql --payment stripe       # Non-interactive flags
 
 (ns boundary.tools.setup
-  (:require [clojure.java.io :as io]
+  (:require [boundary.tools.ansi :refer [bold green red cyan yellow dim]]
+            [cheshire.core :as json]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [babashka.process :refer [shell]]))
-
-;; =============================================================================
-;; ANSI helpers
-;; =============================================================================
-
-(defn- bold   [s] (str "\033[1m"  s "\033[0m"))
-(defn- green  [s] (str "\033[32m" s "\033[0m"))
-(defn- red    [s] (str "\033[31m" s "\033[0m"))
-(defn- cyan   [s] (str "\033[36m" s "\033[0m"))
-(defn- yellow [s] (str "\033[33m" s "\033[0m"))
-(defn- dim    [s] (str "\033[2m"  s "\033[0m"))
 
 ;; =============================================================================
 ;; Input helpers (follows scaffold.clj pattern)
@@ -455,25 +446,18 @@
   "Parse AI setup-parse JSON result into a setup spec."
   [json-str]
   (try
-    (let [;; Simple JSON parsing for Babashka (no cheshire)
-          clean (-> json-str str/trim
+    (let [clean (-> json-str str/trim
                     (str/replace #"^```json\s*" "")
                     (str/replace #"\s*```$" ""))
-          ;; Parse key-value pairs from JSON
-          extract (fn [key-name]
-                    (when-let [m (re-find (re-pattern (str "\"" key-name "\"\\s*:\\s*\"([^\"]+)\"")) clean)]
-                      (second m)))
-          extract-bool (fn [key-name]
-                         (when-let [m (re-find (re-pattern (str "\"" key-name "\"\\s*:\\s*(true|false)")) clean)]
-                           (= "true" (second m))))]
-      {:project-name (or (extract "project-name") "my-app")
-       :database     (keyword (or (extract "database") "postgresql"))
-       :ai-provider  (keyword (or (extract "ai-provider") "none"))
-       :payment      (keyword (or (extract "payment") "none"))
-       :cache        (keyword (or (extract "cache") "none"))
-       :email        (keyword (or (extract "email") "none"))
-       :admin-ui     (if (some? (extract-bool "admin-ui"))
-                       (extract-bool "admin-ui")
+          data  (json/parse-string clean)]
+      {:project-name (or (get data "project-name") "my-app")
+       :database     (keyword (or (get data "database") "postgresql"))
+       :ai-provider  (keyword (or (get data "ai-provider") "none"))
+       :payment      (keyword (or (get data "payment") "none"))
+       :cache        (keyword (or (get data "cache") "none"))
+       :email        (keyword (or (get data "email") "none"))
+       :admin-ui     (if (some? (get data "admin-ui"))
+                       (boolean (get data "admin-ui"))
                        true)})
     (catch Exception e
       (println (red (str "Failed to parse AI response: " (.getMessage e))))

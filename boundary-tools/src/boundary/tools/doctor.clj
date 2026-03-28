@@ -10,20 +10,11 @@
 ;;   bb doctor --ci                 # Exit non-zero on any error (CI mode)
 
 (ns boundary.tools.doctor
-  (:require [clojure.edn :as edn]
+  (:require [boundary.tools.ansi :refer [bold green red yellow dim]]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]))
-
-;; =============================================================================
-;; ANSI helpers
-;; =============================================================================
-
-(defn- bold   [s] (str "\033[1m"  s "\033[0m"))
-(defn- green  [s] (str "\033[32m" s "\033[0m"))
-(defn- red    [s] (str "\033[31m" s "\033[0m"))
-(defn- yellow [s] (str "\033[33m" s "\033[0m"))
-(defn- dim    [s] (str "\033[2m"  s "\033[0m"))
 
 ;; =============================================================================
 ;; Known valid providers
@@ -259,16 +250,34 @@
 ;; =============================================================================
 
 (defn- extract-active-section
-  "Extract the raw text of the :active section from config.edn.
-   This avoids false positives from #env vars in :inactive blocks."
+  "Extract the raw text of the :active block from config.edn using balanced brace matching.
+   This avoids false positives from #env vars in :inactive blocks.
+   Skips occurrences of :active inside ;; comments."
   [config-text]
-  (let [;; Find the :active block start and extract text until :inactive
-        active-idx (str/index-of config-text ":active")
-        inactive-idx (str/index-of config-text ":inactive")]
-    (if (and active-idx inactive-idx (< active-idx inactive-idx))
-      (subs config-text active-idx inactive-idx)
-      ;; Fallback to full text if structure not found
-      config-text)))
+  (let [lines (str/split-lines config-text)
+        ;; Find the line with :active that is not inside a comment
+        active-line-idx (first (keep-indexed
+                                (fn [i line]
+                                  (let [trimmed (str/trim line)]
+                                    (when (and (not (str/starts-with? trimmed ";"))
+                                               (str/includes? line ":active"))
+                                      i)))
+                                lines))]
+    (if-not active-line-idx
+      config-text
+      ;; Walk forward from :active, counting braces to find the balanced {} block
+      (let [text-from-active (str/join "\n" (subvec (vec lines) active-line-idx))
+            open-idx         (str/index-of text-from-active "{")]
+        (if-not open-idx
+          config-text
+          (loop [i     (inc open-idx)
+                 depth 1]
+            (cond
+              (>= i (count text-from-active)) config-text ; unbalanced, fallback
+              (zero? depth) (subs text-from-active 0 i)
+              :else (let [c (nth text-from-active i)]
+                      (recur (inc i)
+                             (case c \{ (inc depth) \} (dec depth) depth))))))))))
 
 (defn run-checks
   "Run all doctor checks for a given environment.

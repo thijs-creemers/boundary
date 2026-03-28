@@ -48,6 +48,15 @@
                  :task (i18n/-main "missing")}
   i18n:unused   {:doc "Report catalogue keys not referenced in any source file"
                  :task (i18n/-main "unused")}
+  test:tools {:doc "Run boundary-tools unit tests (bb test:tools)"
+              :extra-paths ["boundary-tools/test"]
+              :task (do (require 'boundary.tools.doctor-test
+                                 'boundary.tools.integrate-test)
+                        (let [summary (clojure.test/run-tests
+                                       'boundary.tools.doctor-test
+                                       'boundary.tools.integrate-test)]
+                          (when (pos? (+ (:fail summary) (:error summary)))
+                            (System/exit 1))))}
   verify-doc-links
   {:doc "Verify internal links in docs/ documentation files (.md and .adoc)"
    :task (do (require 'verify-doc-links)
