@@ -1,0 +1,19 @@
+{:tenants
+ {:label       "Tenants"
+  :description "Multi-tenant organizations"
+  :icon        :building-2
+  :table-name  :tenants
+  :list-fields [:slug :name :status :created-at]
+  :search-fields [:slug :name]
+  :hide-fields #{:deleted-at}
+  :readonly-fields #{:id :schema-name :created-at :updated-at}
+  :fields
+  {:status     {:type :enum :label "Status"
+                :options [[:active "Active"] [:suspended "Suspended"] [:deleted "Deleted"]]
+                :filterable true}
+   :created-at {:type :instant :label "Created" :filterable true}}
+  :field-order [:slug :name :status :schema-name :settings :created-at :updated-at]
+  :field-groups
+  [{:id :identity :label "Identity" :fields [:slug :name]}
+   {:id :state    :label "State"    :fields [:status :schema-name]}
+   {:id :config   :label "Settings" :fields [:settings]}]}}
