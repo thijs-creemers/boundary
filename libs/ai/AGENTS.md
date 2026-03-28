@@ -10,6 +10,8 @@
 3. **Test Generator** — generate a complete test namespace for a source file (`bb ai gen-tests <file>`)
 4. **SQL Copilot** — translate a description into HoneySQL format (`bb ai sql "..."`)
 5. **Documentation Wizard** — generate AGENTS.md, OpenAPI YAML, or README (`bb ai docs --module ...`)
+6. **Admin Entity Generator** — generate admin UI entity EDN config from a description (`bb ai admin-entity "..."`)
+7. **Setup Parser** — parse a NL project setup description into a config spec (`bb setup ai "..."`)
 
 **Provider strategy:** offline-first via Ollama (no data leaves the machine by default), with cloud fallback via `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`.
 
@@ -23,14 +25,14 @@
 |-----------|-------|----------------|
 | `boundary.ai.schema` | shared | Malli schemas: `Message`, `AIRequest`, `AIResponse`, `ProviderConfig`, `AIConfig` |
 | `boundary.ai.ports` | shared | `IAIProvider` protocol: `complete`, `complete-json`, `provider-name` |
-| `boundary.ai.core.prompts` | core | Pure prompt builders for all 5 features |
+| `boundary.ai.core.prompts` | core | Pure prompt builders for all 7 features |
 | `boundary.ai.core.context` | core | Pure context extractors (module names, stack traces, function signatures, schema) |
 | `boundary.ai.core.parsing` | core | Pure response parsers (JSON, module spec, SQL response, test code) |
 | `boundary.ai.shell.providers.ollama` | shell | Ollama HTTP adapter (`OllamaProvider`) |
 | `boundary.ai.shell.providers.anthropic` | shell | Anthropic API adapter (`AnthropicProvider`) |
 | `boundary.ai.shell.providers.openai` | shell | OpenAI API adapter (`OpenAIProvider`) |
 | `boundary.ai.shell.providers.no-op` | shell | Test stub (`NoOpProvider`) |
-| `boundary.ai.shell.service` | shell | Public API: `scaffold-from-description`, `explain-error`, `generate-tests`, `sql-from-description`, `generate-docs` |
+| `boundary.ai.shell.service` | shell | Public API: `scaffold-from-description`, `explain-error`, `generate-tests`, `sql-from-description`, `generate-docs`, `generate-admin-entity`, `parse-setup-description` |
 | `boundary.ai.shell.repl` | shell | REPL helpers: `explain`, `sql`, `gen-tests` |
 | `boundary.ai.shell.cli-entry` | shell | `-main` for `clojure -M -m boundary.ai.shell.cli-entry` |
 | `boundary.ai.shell.module-wiring` | shell | Integrant `:boundary/ai-service` |
@@ -100,6 +102,14 @@ Require the wiring namespace in your system config loader:
 ;; Documentation Wizard
 (ai/generate-docs service "libs/user" :agents)
 ;; => {:text "# boundary-user — Dev Guide\n..." :tokens 800 ...}
+
+;; Admin Entity Generator
+(ai/generate-admin-entity service "products with name, price, status" ".")
+;; => {:text "{:products {:label \"Products\" ...}}" :entity-name "products"}
+
+;; Setup Parser (used by bb setup ai)
+(ai/parse-setup-description service "PostgreSQL with Stripe and Redis")
+;; => {:data {"project-name" "my-app" "database" "postgresql" "payment" "stripe" "cache" "redis" ...}}
 ```
 
 ### REPL helpers
@@ -139,6 +149,13 @@ bb ai sql "find active users with orders in the last 7 days"
 bb ai docs --module libs/user --type agents
 bb ai docs --module libs/user --type openapi
 bb ai docs --module libs/user --type readme
+
+# Admin Entity Generator
+bb ai admin-entity "products with name, price, status (active/archived), category"
+bb ai admin-entity "invoices with number, customer, total, due-date, paid status" --yes
+
+# Setup Parser (typically called via bb setup ai, not directly)
+bb ai setup-parse "PostgreSQL with Stripe payments and Redis caching"
 ```
 
 **Provider selection** (environment variables):
@@ -174,6 +191,15 @@ The CLI entrypoint (`-main`) constructs the provider from env vars at startup. I
 
 ### 8. Anthropic system messages are separate from the messages array
 The Anthropic API requires system messages to be passed as a top-level `:system` field, not inside the messages array. The `AnthropicProvider` handles this automatically by filtering `:system` role messages out of the `messages` vector.
+
+### 9. `generate-admin-entity` returns EDN text, not parsed data
+The return value is `{:text "<edn-string>" :entity-name "products"}`. The EDN is returned as a string so it can be written directly to a file. Parse it with `read-string` if you need the data structure.
+
+### 10. `generate-admin-entity` discovers existing entities from disk
+It reads all `.edn` files from `resources/conf/dev/admin/` and includes them in the prompt as examples, so AI-generated entities follow the same style as existing ones. The `project-root` argument controls where it looks.
+
+### 11. `setup-parse` returns JSON-like data, not EDN keywords
+The setup parser returns a map with string keys (e.g., `{"database" "postgresql"}`) because it uses `complete-json`. The Babashka setup wizard handles keyword conversion.
 
 ---
 

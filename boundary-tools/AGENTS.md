@@ -4,7 +4,7 @@
 **Version:** `1.0.0-alpha`
 **Published to:** [Clojars](https://clojars.org/org.boundary-app/boundary-tools)
 
-Developer tooling for the Boundary framework: scaffolding, AI assistance, i18n management, deployment, and development utilities — all packaged as a single Clojars artifact that any Boundary project can consume.
+Developer tooling for the Boundary framework: scaffolding, AI assistance, config management, i18n management, deployment, and development utilities — all packaged as a single Clojars artifact that any Boundary project can consume.
 
 ---
 
@@ -15,15 +15,21 @@ Add to your project's `bb.edn`:
 ```clojure
 {:deps {org.boundary-app/boundary-tools {:mvn/version "1.0.0-alpha"}}
  :tasks
- {:requires ([boundary.tools.scaffold :as scaffold]
-             [boundary.tools.ai       :as ai]
-             [boundary.tools.i18n     :as i18n]
-             [boundary.tools.admin    :as admin]
-             [boundary.tools.deploy   :as deploy]
-             [boundary.tools.dev      :as dev])
+ {:requires ([boundary.tools.scaffold  :as scaffold]
+             [boundary.tools.ai        :as ai]
+             [boundary.tools.i18n      :as i18n]
+             [boundary.tools.admin     :as admin]
+             [boundary.tools.deploy    :as deploy]
+             [boundary.tools.dev       :as dev]
+             [boundary.tools.doctor    :as doctor]
+             [boundary.tools.setup     :as setup]
+             [boundary.tools.integrate :as integrate])
 
   scaffold     {:task (apply scaffold/-main *command-line-args*)}
   ai           {:task (apply ai/-main *command-line-args*)}
+  doctor       {:task (apply doctor/-main *command-line-args*)}
+  setup        {:task (apply setup/-main *command-line-args*)}
+  scaffold:integrate {:task (apply integrate/-main *command-line-args*)}
   create-admin {:task (apply admin/-main *command-line-args*)}
   deploy       {:task (apply deploy/-main *command-line-args*)}
   migrate      {:task (apply dev/migrate *command-line-args*)}
@@ -48,6 +54,126 @@ org.boundary-app/boundary-tools {:mvn/version "1.0.1-alpha"}
 
 ## Command reference
 
+### `bb doctor` — Config Doctor
+
+Validates your Boundary config files for common mistakes. Rule-based (no AI needed) — runs 6 checks against your `config.edn` and project files.
+
+```bash
+bb doctor                    # Check dev environment (default)
+bb doctor --env prod         # Check a specific environment
+bb doctor --env all          # Check all environments (dev, test, acc, prod)
+bb doctor --ci               # Exit non-zero on any error (for CI pipelines)
+```
+
+**Checks performed:**
+
+| Check | Level | What it catches |
+|-------|-------|-----------------|
+| `env-refs` | error | `#env VAR` references in the `:active` section that have no `#or` fallback and are not set in the environment |
+| `providers` | error | Unknown `:provider` values (e.g. `:provider :reddis` instead of `:redis`) |
+| `jwt-secret` | error | `JWT_SECRET` not set when the user module is active |
+| `admin-parity` | warn | Admin entity EDN files that exist in `dev/admin/` but not `test/admin/` (or vice versa) |
+| `prod-placeholders` | error | Placeholder values like `company.com`, `example.com`, `TODO` in prod/acc configs |
+| `wiring-requires` | warn | Active Integrant modules missing their `module-wiring` require in `wiring.clj` |
+
+**Example output:**
+
+```
+Boundary Config Doctor — dev
+
+  ✓ env-refs             All #env references resolved or have defaults
+  ✗ jwt-secret           JWT_SECRET not set (required by user module)
+                         Fix: export JWT_SECRET="your-32-char-secret"
+  ✓ providers            All provider values are known
+  ⚠ admin-parity         dev/admin/users.edn has :split-table-update, test does not
+  ✓ prod-placeholders    Placeholder check skipped (non-production env)
+  ✓ wiring-requires      All active modules wired
+
+Summary: 4 passed, 1 warning, 1 error
+```
+
+**Known valid providers** (used by the `providers` check):
+
+```clojure
+{:boundary/logging          #{:no-op :stdout :slf4j :file}
+ :boundary/metrics          #{:no-op :prometheus :datadog-statsd}
+ :boundary/error-reporting  #{:no-op :sentry}
+ :boundary/payment-provider #{:mock :mollie :stripe}
+ :boundary/ai-service       #{:ollama :anthropic :openai :no-op}
+ :boundary/cache            #{:redis :in-memory}}
+```
+
+**CI integration example** (GitHub Actions):
+
+```yaml
+- name: Config validation
+  run: bb doctor --ci
+```
+
+---
+
+### `bb setup` — Config Setup Wizard
+
+Generates `config.edn` for dev and test environments plus a `.env.example` file. Three modes: interactive wizard, CLI flags, or AI-powered natural language.
+
+```bash
+# Interactive wizard — guided prompts for database, AI, payments, cache, etc.
+bb setup
+
+# Non-interactive flags — useful for CI or scripting
+bb setup --database postgresql --payment stripe --ai-provider anthropic --cache redis
+
+# AI-powered — describe your setup in natural language
+bb setup ai "PostgreSQL with Stripe payments and Redis caching"
+
+# Minimal setup
+bb setup --database h2 --payment none --ai-provider none
+```
+
+**What it generates:**
+
+| File | Purpose |
+|------|---------|
+| `resources/conf/dev/config.edn` | Full dev config with `:active`/`:inactive` sections |
+| `resources/conf/test/config.edn` | Test config with H2 in-memory DB and mock/no-op providers |
+| `.env.example` | All required env vars with comments and sensible defaults |
+
+**Available options:**
+
+| Option | Values | Default |
+|--------|--------|---------|
+| `--project-name` | any kebab-case string | `my-app` |
+| `--database` | `postgresql`, `sqlite`, `h2`, `mysql` | `postgresql` |
+| `--ai-provider` | `ollama`, `anthropic`, `openai`, `none` | `none` |
+| `--payment` | `none`, `mock`, `stripe`, `mollie` | `none` |
+| `--cache` | `none`, `redis`, `in-memory` | `none` |
+| `--email` | `none`, `smtp` | `none` |
+| `--admin-ui` | `true`, `false` | `true` |
+
+**Example workflow** — setting up a new project:
+
+```bash
+# 1. Generate config files
+bb setup --database postgresql --payment mock --ai-provider ollama
+
+# 2. Copy and fill in environment variables
+cp .env.example .env
+# Edit .env with your values
+
+# 3. Verify the generated config
+bb doctor
+
+# 4. Run migrations
+bb migrate up
+
+# 5. Start the system
+clojure -M:repl-clj
+```
+
+**AI mode** delegates to `clojure -M -m boundary.ai.shell.cli-entry setup-parse` to parse the description, then renders templates from the parsed spec. Falls back to interactive mode if no AI provider is available.
+
+---
+
 ### `bb scaffold` — Interactive scaffolding wizard
 
 ```bash
@@ -59,11 +185,83 @@ bb scaffold endpoint                 # Interactive add-endpoint wizard
 bb scaffold adapter                  # Interactive add-adapter wizard
 bb scaffold ai "<description>"       # AI-powered module from NL description
 bb scaffold ai "<description>" --yes # Non-interactive (skip confirmation)
+bb scaffold integrate <module>       # Wire scaffolded module into project (see below)
 
 # Non-interactive passthrough (pass args directly to scaffolder CLI):
 bb scaffold generate --module-name foo --entity Foo --field name:string:required
 bb scaffold field --module-name foo --entity Foo --name price --type decimal
 ```
+
+---
+
+### `bb scaffold integrate` — Module Integration
+
+After scaffolding a new module with `bb scaffold generate`, this tool wires it into the project's `deps.edn`, `tests.edn`, and `wiring.clj`. Purely rule-based — no AI needed.
+
+```bash
+# Wire the "product" module into the project
+bb scaffold integrate product
+
+# Preview changes without writing any files
+bb scaffold integrate product --dry-run
+
+# Also available via the scaffold:integrate task
+bb scaffold:integrate product
+```
+
+**What it automates:**
+
+| Step | File Modified | What it does |
+|------|---------------|--------------|
+| Add source/test paths | `deps.edn` | Inserts `"libs/<module>/src"` and `"libs/<module>/test"` into `:paths` |
+| Add test suite | `tests.edn` | Adds a `{:id :<module>}` test suite entry for isolated test runs |
+| Add wiring require | `wiring.clj` | Adds `[boundary.<module>.shell.module-wiring]` to the require form |
+| Print config snippet | stdout | Generates an Integrant config template for manual insertion |
+
+**Example output:**
+
+```
+Boundary Module Integration — product
+
+Discovered: libs/product/
+  Source: libs/product/src
+  Tests:  libs/product/test
+  HTTP:   yes
+  Wiring: yes
+
+  ✓ deps.edn      Added "libs/product/src" "libs/product/test" to :paths
+  ✓ tests.edn     Added {:id :product} test suite
+  ✓ wiring.clj    Added [boundary.product.shell.module-wiring] require
+
+Manual steps remaining:
+  1. Add Integrant config to resources/conf/dev/config.edn:
+     (snippet shown)
+  2. Add matching config to resources/conf/test/config.edn
+  3. Run migrations: bb migrate up
+  4. Verify: clojure -M:test:db/h2 :product
+```
+
+**Why config.edn modification is manual:** Config files use Aero reader tags (`#env`, `#or`, `#include`, `#merge`) that aren't standard EDN. Programmatic modification risks corrupting these tags, so the tool generates a snippet and prints it for the developer to insert.
+
+**Complete scaffolding workflow:**
+
+```bash
+# 1. Generate the module
+bb scaffold generate --module-name product --entity Product \
+  --field name:string:required --field price:decimal:required
+
+# 2. Wire it into the project
+bb scaffold integrate product
+
+# 3. Add config (manually paste the printed snippet into config.edn)
+# 4. Run migrations
+bb migrate up
+
+# 5. Run tests
+clojure -M:test:db/h2 :product
+```
+
+---
 
 ### `bb ai` — Framework-aware AI tooling
 
@@ -76,12 +274,64 @@ bb ai gen-tests libs/user/src/...clj -o out  # Write tests to file
 bb ai sql "find active users last 7 days"    # HoneySQL from NL description
 bb ai docs --module libs/user                # Generate all docs
 bb ai docs --module libs/user --type agents  # Generate AGENTS.md only
+bb ai admin-entity "<description>"           # Generate admin entity EDN config
 ```
 
 Provider selection (first matching env var wins):
 - `ANTHROPIC_API_KEY` → Anthropic (Claude)
 - `OPENAI_API_KEY` → OpenAI (GPT)
 - `OLLAMA_URL` → Ollama (local, default `http://localhost:11434`)
+
+#### `bb ai admin-entity` — Admin Entity Generator
+
+Generates admin entity EDN configuration files from a natural language description. Uses AI to understand your entity and produce a complete config that matches the Boundary admin UI format.
+
+```bash
+# Generate an admin entity config
+bb ai admin-entity "products with name, price, status (active/archived), and category"
+
+# Skip confirmation and write immediately
+bb ai admin-entity "invoices with number, customer, total, status, due-date" --yes
+```
+
+**What it generates:**
+
+Writes EDN files to both `resources/conf/dev/admin/<entity>.edn` and `resources/conf/test/admin/<entity>.edn`.
+
+**Example generated EDN** (for `bb ai admin-entity "products with name, price, status"`):
+
+```edn
+{:products
+ {:label           "Products"
+  :table-name      :products
+  :list-fields     [:name :price :status :created-at]
+  :search-fields   [:name]
+  :hide-fields     #{:deleted-at}
+  :readonly-fields #{:id :created-at :updated-at}
+  :fields
+  {:status     {:type :enum :label "Status"
+                :options [[:active "Active"] [:archived "Archived"]]
+                :filterable true}
+   :price      {:type :decimal :label "Price"}
+   :created-at {:type :instant :label "Created" :filterable true}}
+  :field-order [:name :price :status :created-at :updated-at]
+  :field-groups
+  [{:id :identity :label "Identity" :fields [:name]}
+   {:id :details  :label "Details"  :fields [:price :status]}]}}
+```
+
+**After generation, register the entity:**
+
+```bash
+# 1. Add to the allowlist in config.edn:
+#    :entity-discovery {:allowlist #{:users :tenants :products}}
+# 2. Add the #include:
+#    :entities #merge [#include "admin/users.edn"
+#                      #include "admin/tenants.edn"
+#                      #include "admin/products.edn"]
+```
+
+---
 
 ### `bb create-admin` — Create first admin user
 
@@ -166,8 +416,12 @@ Translation files live in `libs/i18n/resources/boundary/i18n/translations/`.
 
 | Namespace | Purpose |
 |---|---|
-| `boundary.tools.scaffold` | Interactive scaffolding wizards + AI passthrough |
-| `boundary.tools.ai` | AI CLI frontend (explain, gen-tests, sql, docs) |
+| `boundary.tools.scaffold` | Interactive scaffolding wizards + AI passthrough + integrate dispatch |
+| `boundary.tools.ai` | AI CLI frontend (explain, gen-tests, sql, docs, admin-entity) |
+| `boundary.tools.doctor` | Config Doctor — rule-based config validation (6 checks) |
+| `boundary.tools.setup` | Config Setup Wizard — interactive + template-based config generation |
+| `boundary.tools.integrate` | Module Integration — wire scaffolded modules into deps/tests/wiring |
+| `boundary.tools.admin_entity` | Admin Entity Generator — Babashka wrapper for AI admin entity generation |
 | `boundary.tools.i18n` | i18n catalogue management (find/scan/missing/unused) |
 | `boundary.tools.admin` | First admin user creation wizard |
 | `boundary.tools.deploy` | Clojars deployment for all 21 Boundary artifacts |

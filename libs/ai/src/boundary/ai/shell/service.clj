@@ -223,3 +223,77 @@
                                  all-files))
          messages     (prompts/docs-messages module-path source-files doc-type)]
      (resolve-provider service messages opts))))
+
+;; =============================================================================
+;; Feature 6: Admin Entity Generator
+;; =============================================================================
+
+(defn- discover-admin-entities
+  "Load existing admin entity EDN files from resources/conf/dev/admin/.
+   Returns a seq of EDN content strings."
+  [project-root]
+  (let [dir (io/file project-root "resources" "conf" "dev" "admin")]
+    (if (and dir (.exists dir) (.isDirectory dir))
+      (->> (.listFiles dir)
+           (filter #(str/ends-with? (.getName %) ".edn"))
+           (mapv slurp))
+      [])))
+
+(defn generate-admin-entity
+  "Generate an admin entity EDN configuration from a NL description.
+
+   Args:
+     service      - AIService map
+     description  - NL entity description string
+     project-root - project root path string (for discovering existing entities)
+     opts         - optional completion opts
+
+   Returns:
+     {:text str :entity-name str}
+     where :text is the generated EDN string,
+     or {:error str} on failure."
+  ([service description project-root]
+   (generate-admin-entity service description project-root {}))
+  ([service description project-root opts]
+   (log/info "ai generate-admin-entity" {:description description})
+   (let [existing (discover-admin-entities project-root)
+         messages (prompts/admin-entity-messages description existing)
+         result   (resolve-provider service messages opts)]
+     (if (:error result)
+       result
+       (let [edn-text (:text result)
+             ;; Extract entity name from the EDN (first key)
+             entity-name (try
+                           (let [parsed (read-string edn-text)]
+                             (when (map? parsed)
+                               (name (first (keys parsed)))))
+                           (catch Exception _ nil))]
+         (if entity-name
+           {:text edn-text :entity-name entity-name}
+           {:error "AI response is not valid EDN with an entity key"
+            :raw-text edn-text}))))))
+
+;; =============================================================================
+;; Feature 7: Setup Parse (NL to setup spec)
+;; =============================================================================
+
+(defn parse-setup-description
+  "Parse a NL setup description into a structured setup spec.
+
+   Args:
+     service      - AIService map
+     description  - NL setup description string
+     opts         - optional completion opts
+
+   Returns:
+     {:data map} with the parsed setup spec as JSON-like data,
+     or {:error str} on failure."
+  ([service description]
+   (parse-setup-description service description {}))
+  ([service description opts]
+   (log/info "ai parse-setup-description" {:description description})
+   (let [messages (prompts/setup-parse-messages description)
+         result   (resolve-provider-json service messages "SetupSpec" opts)]
+     (if (:error result)
+       result
+       {:data (:data result)}))))

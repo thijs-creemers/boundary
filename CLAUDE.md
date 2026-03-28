@@ -37,6 +37,14 @@ bb ai explain --file stacktrace.txt  # Explain Clojure/Boundary error via AI
 bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate test namespace
 bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL description
 bb ai docs --module libs/user --type agents                       # Generate AGENTS.md
+bb ai admin-entity "products with name, price, status"            # Generate admin entity EDN config
+bb doctor                          # Validate config for common mistakes
+bb doctor --env all --ci           # Check all envs, exit non-zero on error (CI)
+bb setup                           # Interactive config setup wizard
+bb setup ai "PostgreSQL with Stripe payments"                     # AI-powered config setup
+bb setup --database postgresql --payment stripe                   # Non-interactive config setup
+bb scaffold integrate product      # Wire scaffolded module into deps/tests/wiring
+bb scaffold integrate product --dry-run                           # Preview integration changes
 bb deploy --all                    # Deploy all 21 libraries to Clojars
 bb deploy --missing                # Deploy only libraries not yet on Clojars
 bb deploy core platform user       # Deploy specific libraries

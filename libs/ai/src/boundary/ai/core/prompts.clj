@@ -337,3 +337,133 @@ Output ONLY the markdown content.")))
   [module-path source-files doc-type]
   [{:role :system :content (build-docs-system-prompt doc-type)}
    {:role :user   :content (build-docs-user-prompt module-path source-files doc-type)}])
+
+;; =============================================================================
+;; Feature 6: Admin Entity Generator
+;; =============================================================================
+
+(defn build-admin-entity-system-prompt
+  "Build the system prompt for the admin entity generator.
+
+   Args:
+     existing-entities - seq of EDN strings for existing entity configs
+
+   Returns a string."
+  [existing-entities]
+  (str framework-system-context "
+
+Your task: generate a Boundary admin entity configuration in EDN format.
+
+Admin entity configs define how entities appear in the admin UI. They are EDN maps stored
+in resources/conf/{dev,test}/admin/<entity>.edn.
+
+Output ONLY valid EDN with this structure:
+
+{:<entity-name>
+ {:label           \"Human Label\"
+  :table-name      :<entity-name>
+  :list-fields     [:field1 :field2 :status :created-at]
+  :search-fields   [:field1 :field2]
+  :hide-fields     #{:deleted-at}
+  :readonly-fields #{:id :created-at :updated-at}
+  :fields
+  {:status     {:type :enum :label \"Status\"
+                :options [[:active \"Active\"] [:archived \"Archived\"]]
+                :filterable true}
+   :created-at {:type :instant :label \"Created\" :filterable true}}
+  :field-order [:field1 :field2 :status :created-at :updated-at]
+  :field-groups
+  [{:id :identity :label \"Identity\" :fields [:field1 :field2]}
+   {:id :state    :label \"State\"    :fields [:status]}]}}
+
+Rules:
+- All keywords MUST be kebab-case
+- Always include :id, :created-at, :updated-at in :readonly-fields
+- Always include :deleted-at in :hide-fields
+- Always include :created-at with {:type :instant :label \"Created\" :filterable true}
+- For enum fields, provide :options as vectors of [keyword label] pairs
+- Field types: :string, :text, :int, :decimal, :boolean, :enum, :instant, :email, :uuid, :json
+- Group related fields logically into :field-groups
+- Output ONLY the EDN map, no explanation, no markdown fences"
+       (when (seq existing-entities)
+         (str "\n\nExisting entity configurations for reference:\n"
+              (str/join "\n---\n" existing-entities)))))
+
+(defn build-admin-entity-user-prompt
+  "Build the user message for admin entity generation.
+
+   Args:
+     description - NL description of the entity
+
+   Returns a string."
+  [description]
+  (str "Generate an admin entity EDN configuration for:\n\n" description))
+
+(defn admin-entity-messages
+  "Return a messages vector for the admin entity generator.
+
+   Args:
+     description       - NL entity description
+     existing-entities - seq of EDN strings for existing entity configs
+
+   Returns:
+     [{:role :system :content str} {:role :user :content str}]"
+  [description existing-entities]
+  [{:role :system :content (build-admin-entity-system-prompt existing-entities)}
+   {:role :user   :content (build-admin-entity-user-prompt description)}])
+
+;; =============================================================================
+;; Feature 7: Setup Parse (NL to setup spec)
+;; =============================================================================
+
+(defn build-setup-parse-system-prompt
+  "Build the system prompt for parsing NL config descriptions into setup specs.
+
+   Returns a string."
+  []
+  (str framework-system-context "
+
+Your task: parse a natural language description of a Boundary project setup into a JSON configuration spec.
+
+Output ONLY valid JSON with this exact structure:
+{
+  \"project-name\": \"kebab-case-name\",
+  \"database\": \"postgresql|sqlite|h2|mysql\",
+  \"ai-provider\": \"ollama|anthropic|openai|none\",
+  \"payment\": \"none|mock|stripe|mollie\",
+  \"cache\": \"none|redis|in-memory\",
+  \"email\": \"none|smtp\",
+  \"admin-ui\": true
+}
+
+Rules:
+- project-name defaults to \"my-app\" if not mentioned
+- database defaults to \"postgresql\" if not mentioned
+- ai-provider defaults to \"none\" if not mentioned
+- payment defaults to \"none\" if not mentioned
+- cache defaults to \"none\" if not mentioned
+- email defaults to \"none\" if not mentioned
+- admin-ui defaults to true if not mentioned
+- Output ONLY the JSON object, no explanation, no markdown fences"))
+
+(defn build-setup-parse-user-prompt
+  "Build the user message for setup parsing.
+
+   Args:
+     description - NL description of the desired setup
+
+   Returns a string."
+  [description]
+  (str "Parse this project setup description into the JSON spec:\n\n" description))
+
+(defn setup-parse-messages
+  "Return a messages vector for the setup parser.
+
+   Args:
+     description - NL setup description
+
+   Returns:
+     [{:role :system :content str} {:role :user :content str}]"
+  [description]
+  [{:role :system :content (build-setup-parse-system-prompt)}
+   {:role :user   :content (build-setup-parse-user-prompt description)}])

@@ -234,6 +234,86 @@
               (println (:text result)))))))))
 
 ;; =============================================================================
+;; Subcommand: admin-entity
+;; =============================================================================
+
+(def admin-entity-opts
+  [["-r" "--root ROOT" "Project root" :default "."]
+   ["-y" "--yes" "Skip confirmation and write immediately"]
+   ["-h" "--help"]])
+
+(defn cmd-admin-entity [args]
+  (let [{:keys [options arguments]} (cli/parse-opts args admin-entity-opts)
+        description (str/join " " arguments)]
+    (when (or (:help options) (str/blank? description))
+      (println "Usage: bb ai admin-entity <description>")
+      (println "  Example: bb ai admin-entity \"products with name, price, status\"")
+      (System/exit 0))
+    (println (bold "\u2746 Boundary AI Admin Entity Generator"))
+    (println)
+    (println (dim (str "Parsing: " description)))
+    (println)
+    (let [service (make-service-from-env)
+          result  (svc/generate-admin-entity service description (:root options))]
+      (if (:error result)
+        (do (println (red (str "Error: " (:error result))))
+            (when (:raw-text result)
+              (println)
+              (println (dim "Raw AI output:"))
+              (println (:raw-text result)))
+            (System/exit 1))
+        (do
+          (println (cyan "\u250c\u2500 Preview \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510"))
+          (doseq [line (str/split-lines (:text result))]
+            (println (str (cyan "\u2502") " " line)))
+          (println (cyan "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518"))
+          (println)
+          (let [entity-name (:entity-name result)]
+            (if (or (:yes options) (confirm? "Write this entity config?"))
+              (let [dev-path  (str (:root options) "/resources/conf/dev/admin/" entity-name ".edn")
+                    test-path (str (:root options) "/resources/conf/test/admin/" entity-name ".edn")]
+                (spit dev-path (:text result))
+                (spit test-path (:text result))
+                (println)
+                (println (green (str "\u2713 Written to " dev-path)))
+                (println (green (str "\u2713 Written to " test-path)))
+                (println)
+                (println (dim "Next steps:"))
+                (println (dim (str "  1. Add :" entity-name " to :entity-discovery :allowlist in config.edn")))
+                (println (dim (str "  2. Add #include \"admin/" entity-name ".edn\" to :entities in config.edn")))
+                (println (dim "  3. Review and customize the generated config")))
+              (println (yellow "Cancelled. No files were written.")))))))))
+
+;; =============================================================================
+;; Subcommand: setup-parse
+;; =============================================================================
+
+(def setup-parse-opts
+  [["-h" "--help"]])
+
+(defn cmd-setup-parse [args]
+  (let [{:keys [options arguments]} (cli/parse-opts args setup-parse-opts)
+        description (str/join " " arguments)]
+    (when (or (:help options) (str/blank? description))
+      (println "Usage: bb ai setup-parse <description>")
+      (System/exit 0))
+    (let [service (make-service-from-env)
+          result  (svc/parse-setup-description service description)]
+      (if (:error result)
+        (do (println (red (str "Error: " (:error result)))) (System/exit 1))
+        ;; Output the JSON data to stdout for the Babashka setup wizard to consume
+        (let [data (:data result)]
+          (println (str "{"
+                        "\"project-name\":\"" (get data "project-name" "my-app") "\","
+                        "\"database\":\"" (get data "database" "postgresql") "\","
+                        "\"ai-provider\":\"" (get data "ai-provider" "none") "\","
+                        "\"payment\":\"" (get data "payment" "none") "\","
+                        "\"cache\":\"" (get data "cache" "none") "\","
+                        "\"email\":\"" (get data "email" "none") "\","
+                        "\"admin-ui\":" (get data "admin-ui" true)
+                        "}")))))))
+
+;; =============================================================================
 ;; Main
 ;; =============================================================================
 
@@ -245,6 +325,8 @@
        "  bb ai gen-tests <file>                       Test generator\n"
        "  bb ai sql <description>                      SQL copilot (HoneySQL)\n"
        "  bb ai docs --module <path> [--type t]        Documentation wizard\n"
+       "  bb ai admin-entity <description>             Admin entity EDN generator\n"
+       "  bb ai setup-parse <description>              Parse NL setup description\n"
        "\n"
        "Provider selection (via environment variables):\n"
        "  ANTHROPIC_API_KEY   \u2192 Anthropic (Claude)\n"
@@ -275,6 +357,12 @@
 
       (= sub "docs")
       (cmd-docs rest-args)
+
+      (= sub "admin-entity")
+      (cmd-admin-entity rest-args)
+
+      (= sub "setup-parse")
+      (cmd-setup-parse rest-args)
 
       :else
       (do

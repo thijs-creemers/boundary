@@ -423,6 +423,7 @@
        "  bb scaffold endpoint            Interactive wizard for adding an endpoint\n"
        "  bb scaffold adapter             Interactive wizard for adding an adapter\n"
        "  bb scaffold ai <description> [--yes]    AI-powered module generation from NL description\n"
+       "  bb scaffold integrate <module> [--dry-run]  Wire module into deps/tests/wiring\n"
        "\n"
        "Non-interactive passthrough (when args are provided directly):\n"
        "  bb scaffold generate --module-name foo --entity Foo --field bar:string\n"
@@ -484,6 +485,10 @@
           (wizard-ai description yes?)
           (do (println (red "Please provide a module description."))
               (println "  Example: bb scaffold ai \"product module with name, price, stock\""))))
+
+      (= sub "integrate")
+      (do (require '[boundary.tools.integrate :as integrate])
+          (apply (resolve 'integrate/-main) rest-args))
 
       :else
       (do
