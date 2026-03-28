@@ -102,27 +102,16 @@
     (if (str/includes? tests-text suite-id)
       [tests-text []]
       (let [;; Build the new suite entry
-            ns-prefix (str/replace module-name "-" "-")  ; keep as-is for pattern
             new-suite (str "\n"
                            "          {:id :" module-name "\n"
                            "           :test-paths [\"libs/" module-name "/test\"]\n"
-                           "           :ns-patterns [\"boundary." ns-prefix ".*-test\"]}")
-            ;; Also add to the :unit suite's :test-paths
+                           "           :ns-patterns [\"boundary." module-name ".*-test\"]}")
             test-path-entry (str "\"libs/" module-name "/test\"")
             ;; Insert suite after last {:id :xxx} block
             [text1 ok1] (insert-after-last
                          tests-text
                          #":ns-patterns \[\"boundary\."
-                         new-suite)
-            ;; Insert test path in the :unit test-paths list
-            [text2 ok2] (if (str/includes? text1 test-path-entry)
-                          [text1 true]
-                          (insert-after-last
-                           text1
-                           #"\"libs/[a-z-]+/test\"\]"
-                           ;; This is tricky — just insert before the closing bracket
-                           ;; Actually, insert after last test path entry in the unit block
-                           nil))]
+                         new-suite)]
         ;; The unit test-paths insertion is complex with bracket matching,
         ;; just add the suite and note the unit paths need manual addition
         (if ok1

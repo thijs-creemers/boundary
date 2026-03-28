@@ -57,7 +57,7 @@
   (println (str (cyan "? ") (bold label)))
   (doseq [[i [k description]] (map-indexed vector options)]
     (println (str "    " (inc i) ") " (name k) "  " (dim description))))
-  (print (str "  Choice [1]: "))
+  (print "  Choice [1]: ")
   (flush)
   (let [input  (str/trim (or (read-line) ""))
         choice (when (seq input) (try (Integer/parseInt input) (catch Exception _ nil)))]
@@ -72,14 +72,13 @@
 ;; =============================================================================
 
 (defn- settings-template [project-name env]
-  (let [env-label (case env "dev" "development" "test" "test" "prod" "production" env)]
-    (str "  :boundary/settings\n"
-         "  {:name              \"" project-name "-" env "\"\n"
-         "   :version           \"0.1.0\"\n"
-         "   :date-format       \"yyyy-MM-dd\"\n"
-         "   :date-time-format  \"yyyy-MM-dd HH:mm:ss\"\n"
-         "   :currency/iso-code \"EUR\"\n"
-         "   :features          {:user-web-ui {:enabled? true}}}\n")))
+  (str "  :boundary/settings\n"
+       "  {:name              \"" project-name "-" env "\"\n"
+       "   :version           \"0.1.0\"\n"
+       "   :date-format       \"yyyy-MM-dd\"\n"
+       "   :date-time-format  \"yyyy-MM-dd HH:mm:ss\"\n"
+       "   :currency/iso-code \"EUR\"\n"
+       "   :features          {:user-web-ui {:enabled? true}}}\n"))
 
 (defn- postgresql-template [env]
   (if (= env "test")
@@ -354,7 +353,7 @@
 
 (defn wizard-interactive []
   (println)
-  (println (bold (str "✦ Boundary Config Setup Wizard")))
+  (println (bold "✦ Boundary Config Setup Wizard"))
   (println (dim "Generate config.edn, test config, and .env.example for your project."))
   (println)
 

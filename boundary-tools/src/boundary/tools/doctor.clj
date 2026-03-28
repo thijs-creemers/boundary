@@ -12,6 +12,7 @@
 (ns boundary.tools.doctor
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.set :as set]
             [clojure.string :as str]))
 
 ;; =============================================================================
@@ -62,7 +63,7 @@
   [config-text env-map]
   (let [all-refs     (extract-env-refs config-text)
         with-default (extract-or-defaults config-text)
-        unprotected  (clojure.set/difference all-refs with-default)
+        unprotected  (set/difference all-refs with-default)
         missing      (remove #(get env-map %) unprotected)]
     (if (seq missing)
       [{:id    :env-refs
@@ -121,8 +122,8 @@
   [dev-files test-files]
   (let [dev-names  (set (map #(.getName %) dev-files))
         test-names (set (map #(.getName %) test-files))
-        dev-only   (clojure.set/difference dev-names test-names)
-        test-only  (clojure.set/difference test-names dev-names)]
+        dev-only   (set/difference dev-names test-names)
+        test-only  (set/difference test-names dev-names)]
     (cond
       (and (empty? dev-only) (empty? test-only))
       [{:id :admin-parity :level :pass :msg "Admin entity files match between dev and test"}]
@@ -194,7 +195,7 @@
         wired-modules (->> (re-seq #"boundary\.([a-z0-9-]+)\.shell\.module-wiring" wiring-text)
                            (map second)
                            set)
-        missing (clojure.set/difference module-keys wired-modules)]
+        missing (set/difference module-keys wired-modules)]
     (if (seq missing)
       [{:id    :wiring-requires
         :level :warn
@@ -272,7 +273,7 @@
 (defn run-checks
   "Run all doctor checks for a given environment.
    Returns a seq of check result maps."
-  [env opts]
+  [env _opts]
   (let [config-text (load-raw-config env)
         env-map     (into {} (System/getenv))]
     (when-not config-text
