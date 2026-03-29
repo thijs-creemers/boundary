@@ -395,7 +395,7 @@
 ;; File writing
 ;; =============================================================================
 
-(def ^:private root-dir (System/getProperty "user.dir"))
+(defn- root-dir [] (System/getProperty "user.dir"))
 
 (defn- write-config-files!
   "Write generated config files to disk."
@@ -405,12 +405,12 @@
         env-example (build-env-example spec)]
 
     ;; Ensure directories exist
-    (io/make-parents (io/file root-dir "resources" "conf" "dev" "config.edn"))
-    (io/make-parents (io/file root-dir "resources" "conf" "test" "config.edn"))
+    (io/make-parents (io/file (root-dir) "resources" "conf" "dev" "config.edn"))
+    (io/make-parents (io/file (root-dir) "resources" "conf" "test" "config.edn"))
 
-    (spit (io/file root-dir "resources" "conf" "dev" "config.edn") dev-config)
-    (spit (io/file root-dir "resources" "conf" "test" "config.edn") test-config)
-    (spit (io/file root-dir ".env.example") env-example)
+    (spit (io/file (root-dir) "resources" "conf" "dev" "config.edn") dev-config)
+    (spit (io/file (root-dir) "resources" "conf" "test" "config.edn") test-config)
+    (spit (io/file (root-dir) ".env.example") env-example)
 
     (println)
     (println (green "✓") " Generated " (cyan "resources/conf/dev/config.edn"))

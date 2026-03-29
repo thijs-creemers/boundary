@@ -52,3 +52,9 @@ docs-site/.hugo_build.lock
 existing-dir/
 .worktrees
 
+re# Claude Code local settings
+.claude/settings.local.json
+
+# Generated lint reports
+build/docs-lint/
+

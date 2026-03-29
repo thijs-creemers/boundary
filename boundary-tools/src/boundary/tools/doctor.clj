@@ -240,10 +240,10 @@
 ;; Shell: file loading
 ;; =============================================================================
 
-(def ^:private root-dir (System/getProperty "user.dir"))
+(defn- root-dir [] (System/getProperty "user.dir"))
 
 (defn- config-path [env]
-  (str root-dir "/resources/conf/" env "/config.edn"))
+  (str (root-dir) "/resources/conf/" env "/config.edn"))
 
 (defn- load-raw-config
   "Slurp the raw config text for an environment."
@@ -271,18 +271,20 @@
                  'profile  (fn [v] v)}]
     (try
       (edn/read-string {:readers readers} config-text)
-      (catch Exception _
+      (catch Exception e
+        (println (yellow (str "  Warning: could not parse config.edn: " (.getMessage e))))
+        (println (dim "  Some checks (providers, jwt-secret, wiring) will be skipped."))
         nil))))
 
 (defn- list-admin-files [env]
-  (let [dir (io/file root-dir "resources" "conf" env "admin")]
+  (let [dir (io/file (root-dir) "resources" "conf" env "admin")]
     (when (.exists dir)
       (->> (.listFiles dir)
            (filter #(str/ends-with? (.getName %) ".edn"))
            vec))))
 
 (defn- load-wiring-text []
-  (let [f (io/file root-dir "libs/platform/src/boundary/platform/shell/system/wiring.clj")]
+  (let [f (io/file (root-dir) "libs/platform/src/boundary/platform/shell/system/wiring.clj")]
     (when (.exists f)
       (slurp f))))
 
@@ -413,7 +415,7 @@
       (print-help)
       (System/exit 0))
     (let [envs    (if (= (:env opts) "all")
-                    (let [conf-dir (io/file root-dir "resources" "conf")]
+                    (let [conf-dir (io/file (root-dir) "resources" "conf")]
                       (->> (.listFiles conf-dir)
                            (filter #(.isDirectory %))
                            (map #(.getName %))

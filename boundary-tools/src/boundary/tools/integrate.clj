@@ -16,14 +16,14 @@
 ;; Discovery
 ;; =============================================================================
 
-(def ^:private root-dir (System/getProperty "user.dir"))
+(defn- root-dir [] (System/getProperty "user.dir"))
 
 (defn- discover-module
   "Discover a scaffolded module under libs/<name>/.
    Returns a map of {:name :src-dir :test-dir :has-routes? :has-wiring?}
    or nil if the module doesn't exist."
   [module-name]
-  (let [lib-dir  (io/file root-dir "libs" module-name)
+  (let [lib-dir  (io/file (root-dir) "libs" module-name)
         src-dir  (io/file lib-dir "src" "boundary" module-name)
         test-dir (io/file lib-dir "test" "boundary" module-name)]
     (when (.exists lib-dir)
@@ -48,12 +48,12 @@
    Returns [updated-text inserted?]."
   [text pattern new-line]
   (let [lines      (str/split-lines text)
-        last-index (loop [i (dec (count lines))
-                          found -1]
+        ;; Scan backwards to find the last matching line
+        last-index (loop [i (dec (count lines))]
                      (cond
-                       (< i 0) found
+                       (< i 0) -1
                        (re-find pattern (nth lines i)) i
-                       :else (recur (dec i) found)))]
+                       :else (recur (dec i))))]
     (if (neg? last-index)
       [text false]
       (let [before (subvec (vec lines) 0 (inc last-index))
@@ -165,9 +165,9 @@
     (println)
 
     (let [;; Read files
-          deps-file    (io/file root-dir "deps.edn")
-          tests-file   (io/file root-dir "tests.edn")
-          wiring-file  (io/file root-dir "libs/platform/src/boundary/platform/shell/system/wiring.clj")
+          deps-file    (io/file (root-dir) "deps.edn")
+          tests-file   (io/file (root-dir) "tests.edn")
+          wiring-file  (io/file (root-dir) "libs/platform/src/boundary/platform/shell/system/wiring.clj")
 
           deps-text    (slurp deps-file)
           tests-text   (slurp tests-file)
