@@ -39,6 +39,24 @@
                  ":port #or [#env PORT 5432]"))))))
 
 ;; =============================================================================
+;; extract-fallback-env-refs
+;; =============================================================================
+
+(deftest extract-fallback-env-refs-test
+  (testing "extracts env refs inside :fallback blocks"
+    (is (= #{"ANTHROPIC_API_KEY"}
+           (doctor/extract-fallback-env-refs
+            ":fallback {:provider :anthropic :api-key #env ANTHROPIC_API_KEY}"))))
+
+  (testing "returns empty set when no fallback blocks"
+    (is (= #{} (doctor/extract-fallback-env-refs ":provider :ollama :api-key #env API_KEY"))))
+
+  (testing "handles nested braces in fallback"
+    (is (= #{"FALLBACK_KEY"}
+           (doctor/extract-fallback-env-refs
+            ":fallback {:provider :anthropic :opts {:key #env FALLBACK_KEY}}")))))
+
+;; =============================================================================
 ;; check-env-refs
 ;; =============================================================================
 
@@ -54,7 +72,21 @@
   (testing "errors when unprotected env var is missing"
     (let [result (doctor/check-env-refs "#env SECRET_KEY" {})]
       (is (= :error (:level (first result))))
-      (is (re-find #"SECRET_KEY" (:msg (first result)))))))
+      (is (re-find #"SECRET_KEY" (:msg (first result))))))
+
+  (testing "warns (not errors) for missing fallback env vars"
+    (let [config ":provider :ollama\n:fallback {:provider :anthropic :api-key #env ANTHROPIC_API_KEY}"
+          result (doctor/check-env-refs config {})]
+      (is (= :warn (:level (first result))))
+      (is (re-find #"ANTHROPIC_API_KEY" (:msg (first result))))))
+
+  (testing "errors on required but warns on fallback when both are missing"
+    (let [config (str "#env REQUIRED_KEY\n"
+                      ":fallback {:api-key #env FALLBACK_KEY}")
+          result (doctor/check-env-refs config {})]
+      (is (= 2 (count result)))
+      (is (= :error (:level (first result))))
+      (is (= :warn (:level (second result)))))))
 
 ;; =============================================================================
 ;; check-providers

@@ -48,23 +48,64 @@
        (map second)
        set))
 
+(defn extract-fallback-env-refs
+  "Extract env var names that appear inside :fallback blocks in config text.
+   These are optional — the fallback provider only runs when the primary fails."
+  [config-text]
+  (let [;; Find all :fallback { ... } blocks using brace-balanced extraction
+        matches (re-seq #":fallback\s*\{" config-text)]
+    (if-not (seq matches)
+      #{}
+      ;; For each :fallback occurrence, extract the balanced block and find #env refs inside
+      (loop [text config-text
+             refs #{}]
+        (let [idx (str/index-of text ":fallback")]
+          (if-not idx
+            refs
+            (let [open-idx (str/index-of text "{" idx)]
+              (if-not open-idx
+                refs
+                (let [block (loop [i (inc open-idx) depth 1 acc ""]
+                              (cond
+                                (>= i (count text)) acc
+                                (zero? depth) acc
+                                :else (let [c (nth text i)]
+                                        (recur (inc i)
+                                               (case c \{ (inc depth) \} (dec depth) depth)
+                                               (str acc c)))))]
+                  (recur (subs text (inc open-idx))
+                         (into refs (map second (re-seq #"#env\s+([A-Z_][A-Z0-9_]*)" block)))))))))))))
+
 (defn check-env-refs
   "Check that #env references without #or defaults are set in the environment.
+   Env vars inside :fallback blocks are treated as warnings (optional), not errors.
    Returns a seq of check result maps."
   [config-text env-map]
-  (let [all-refs     (extract-env-refs config-text)
-        with-default (extract-or-defaults config-text)
-        unprotected  (set/difference all-refs with-default)
-        missing      (remove #(get env-map %) unprotected)]
-    (if (seq missing)
-      [{:id    :env-refs
-        :level :error
-        :msg   (str "#env references without defaults are unset: " (str/join ", " (sort missing)))
-        :fix   (str "Export the missing variables:\n"
-                    (str/join "\n" (map #(str "  export " % "=\"...\"") (sort missing))))}]
-      [{:id    :env-refs
-        :level :pass
-        :msg   "All #env references resolved or have defaults"}])))
+  (let [all-refs      (extract-env-refs config-text)
+        with-default  (extract-or-defaults config-text)
+        fallback-refs (extract-fallback-env-refs config-text)
+        unprotected   (set/difference all-refs with-default)
+        missing       (remove #(get env-map %) unprotected)
+        ;; Split into required (error) and optional/fallback (warn)
+        required      (remove fallback-refs missing)
+        optional      (filter fallback-refs missing)]
+    (concat
+     (when (seq required)
+       [{:id    :env-refs
+         :level :error
+         :msg   (str "#env references without defaults are unset: " (str/join ", " (sort required)))
+         :fix   (str "Export the missing variables:\n"
+                     (str/join "\n" (map #(str "  export " % "=\"...\"") (sort required))))}])
+     (when (seq optional)
+       [{:id    :env-refs
+         :level :warn
+         :msg   (str "Optional fallback env vars not set: " (str/join ", " (sort optional)))
+         :fix   (str "These are in :fallback blocks and only needed if the primary provider fails.\n"
+                     "  To enable: " (str/join ", " (map #(str "export " % "=\"...\"") (sort optional))))}])
+     (when (and (empty? required) (empty? optional))
+       [{:id    :env-refs
+         :level :pass
+         :msg   "All #env references resolved or have defaults"}]))))
 
 (defn check-providers
   "Check that :provider values in the config are known/valid.
