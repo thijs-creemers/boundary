@@ -34,17 +34,18 @@
 
 (defn extract-env-refs
   "Extract all #env VAR references from raw config text.
+   Handles both unquoted (#env FOO) and quoted (#env \"FOO\") forms.
    Returns a set of env var name strings."
   [config-text]
-  (->> (re-seq #"#env\s+([A-Z_][A-Z0-9_]*)" config-text)
+  (->> (re-seq #"#env\s+\"?([A-Z_][A-Z0-9_]*)\"?" config-text)
        (map second)
        set))
 
 (defn extract-or-defaults
   "Extract env var names that are wrapped in #or (have a default).
-   Matches patterns like: #or [#env VAR default]"
+   Matches patterns like: #or [#env VAR default] and #or [#env \"VAR\" default]"
   [config-text]
-  (->> (re-seq #"#or\s+\[#env\s+([A-Z_][A-Z0-9_]*)\s+[^\]]" config-text)
+  (->> (re-seq #"#or\s+\[#env\s+\"?([A-Z_][A-Z0-9_]*)\"?\s+[^\]]" config-text)
        (map second)
        set))
 
@@ -74,7 +75,7 @@
                                                (case c \{ (inc depth) \} (dec depth) depth)
                                                (str acc c)))))]
                   (recur (subs text (inc open-idx))
-                         (into refs (map second (re-seq #"#env\s+([A-Z_][A-Z0-9_]*)" block)))))))))))))
+                         (into refs (map second (re-seq #"#env\s+\"?([A-Z_][A-Z0-9_]*)\"?" block)))))))))))))
 
 (defn check-env-refs
   "Check that #env references without #or defaults are set in the environment.

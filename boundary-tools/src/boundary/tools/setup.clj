@@ -523,9 +523,7 @@
               :admin-ui     (not= "false" (or (:admin-ui opts) "true"))}]
     (display-summary spec)
     (println)
-    (if (confirm "Generate these config files?" true)
-      (write-config-files! spec)
-      (println (yellow "Cancelled.")))))
+    (write-config-files! spec)))
 
 ;; =============================================================================
 ;; Help

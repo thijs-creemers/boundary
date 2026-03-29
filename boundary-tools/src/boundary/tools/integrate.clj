@@ -84,8 +84,45 @@
           [text2 [(str "Added " src-entry " " test-entry " to :paths")]]
           [deps-text [(red "Could not find insertion point in deps.edn — add paths manually")]])))))
 
+(defn- insert-unit-test-path
+  "Insert a test path into the :unit suite's :test-paths list.
+   Inserts after the last existing libs/*/test entry in the :unit block.
+   Returns [updated-text inserted?]."
+  [tests-text module-name]
+  (let [test-path-entry (str "\"libs/" module-name "/test\"")]
+    (if (str/includes? tests-text test-path-entry)
+      [tests-text true] ; already present
+      ;; Find the :unit suite block and insert after the last "libs/*/test" entry
+      ;; within the :test-paths vector that precedes the first :ns-patterns
+      (let [lines (vec (str/split-lines tests-text))
+            ;; Find the :id :unit line
+            unit-idx (first (keep-indexed
+                             (fn [i line]
+                               (when (re-find #":id\s+:unit" line) i))
+                             lines))]
+        (if-not unit-idx
+          [tests-text false]
+          ;; From :unit line, find the last "libs/*/test" line before :ns-patterns
+          (let [last-lib-test-idx
+                (loop [i (inc unit-idx)
+                       last-match nil]
+                  (cond
+                    (>= i (count lines)) last-match
+                    (re-find #":ns-patterns" (nth lines i)) last-match
+                    (re-find #"\"libs/[a-z0-9-]+/test\"" (nth lines i)) (recur (inc i) i)
+                    :else (recur (inc i) last-match)))]
+            (if-not last-lib-test-idx
+              [tests-text false]
+              (let [;; Match the indentation of the line we're inserting after
+                    indent (re-find #"^\s+" (nth lines last-lib-test-idx))
+                    new-line (str indent test-path-entry)
+                    before (subvec lines 0 (inc last-lib-test-idx))
+                    after (subvec lines (inc last-lib-test-idx))]
+                [(str/join "\n" (concat before [new-line] after)) true]))))))))
+
 (defn patch-tests-edn
-  "Add a per-library test suite entry to tests.edn.
+  "Add a per-library test suite entry to tests.edn and add the test path
+   to the :unit suite's :test-paths so the default test run includes it.
    Returns [updated-text changes-list]."
   [tests-text module-name]
   (let [suite-id (str ":id :" module-name)]
@@ -97,16 +134,17 @@
                            "           :test-paths [\"libs/" module-name "/test\"]\n"
                            "           :ns-patterns [\"boundary." module-name ".*-test\"]}")
             test-path-entry (str "\"libs/" module-name "/test\"")
-            ;; Insert suite after last {:id :xxx} block
+            ;; First, add test path to the :unit suite
+            [text0 ok0] (insert-unit-test-path tests-text module-name)
+            ;; Then insert per-library suite after last {:id :xxx} block
             [text1 ok1] (insert-after-last
-                         tests-text
+                         text0
                          #":ns-patterns \[\"boundary\."
                          new-suite)]
-        ;; The unit test-paths insertion is complex with bracket matching,
-        ;; just add the suite and note the unit paths need manual addition
         (if ok1
-          [text1 [(str "Added {:id :" module-name "} test suite")
-                  (str "Note: Also add " test-path-entry " to the :unit test-paths list")]]
+          [text1 (cond-> [(str "Added {:id :" module-name "} test suite")]
+                   ok0 (conj (str "Added " test-path-entry " to :unit test-paths"))
+                   (not ok0) (conj (str "Note: Also add " test-path-entry " to the :unit test-paths list")))]
           [tests-text [(red "Could not find insertion point in tests.edn — add suite manually")]])))))
 
 (defn patch-wiring
