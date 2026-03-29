@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### `boundary-realtime` — Ring WebSocket handler
+- **Ring 1.15 WebSocket upgrade handler** (`boundary.realtime.shell.handlers.ring-websocket`): bridges Ring's map-based `::ring.websocket/listener` response to the existing `IRealtimeService` connect/disconnect lifecycle. JWT authentication via `token` query parameter; on-open creates adapter and registers connection, on-close/on-error triggers disconnect cleanup.
+- `websocket-handler` accepts keyword options: `:token-param` (default `"token"`) and `:on-message` for optional client→server bidirectional messaging.
+- `ring/ring-core 1.15.3` added to `libs/realtime/deps.edn`.
+- 6 integration tests covering: missing token → 400, listener response structure, custom token param, on-open registration, on-close cleanup, on-error cleanup.
+
 #### `boundary-payments` — new library
 - **Multi-provider payment abstraction**: `IPaymentProvider` protocol in `boundary.payments.ports` with `create-checkout-session`, `get-payment-status`, `process-webhook`, and `verify-webhook-signature` methods. Implementations: `StripePaymentProvider`, `MolliePaymentProvider`, `MockPaymentProvider` (development/tests).
 - **Malli schemas**: `CheckoutRequest`, `CheckoutResult`, `PaymentStatusResult` (`:pending`/`:paid`/`:failed`/`:cancelled`), `WebhookResult` (`:payment.paid`/`:payment.failed`/`:payment.cancelled`/`:payment.authorized`).
