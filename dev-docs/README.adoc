@@ -6,7 +6,7 @@ This directory contains internal development artifacts for the Boundary Framewor
 These documents are intended for contributors, maintainers, and team members — not end users.
 They are plain AsciiDoc files readable directly in GitHub or any AsciiDoc viewer.
 
-For user-facing documentation, see the link:../docs-site/[docs-site/] Hugo site.
+For user-facing documentation, see the link:../docs/[docs/] Antora site.
 
 == Contents
 
@@ -26,7 +26,16 @@ Each ADR describes the context, the decision, and its consequences.
 * link:adr/ADR-008-normalized-routing-abstraction.adoc[ADR-008: Normalized Routing Abstraction]
 * link:adr/ADR-009-reitit-exclusive-router.adoc[ADR-009: Reitit Exclusive Router]
 * link:adr/ADR-010-http-interceptor-architecture.adoc[ADR-010: HTTP Interceptor Architecture]
-* link:adr/ADR-014-pluggable-auth.adoc[ADR: Pluggable Auth]
+* link:adr/ADR-011-calendar-library.adoc[ADR-011: Calendar Library]
+* link:adr/ADR-012 user module updates.adoc[ADR-012: User Module Admin Integration — Split-Table Architecture]
+* link:adr/ADR-013-intenationalisation.adoc[ADR-013: Internationalisation (i18n)]
+* link:adr/ADR-014-pluggable-auth.adoc[ADR-014: Pluggable User / Auth / Authorization]
+* link:adr/ADR-015-boundary-tools.adoc[ADR-015: boundary-tools — Developer Tooling Distribution]
+* link:adr/ADR-016-tenant-user-membership.adoc[ADR-016: Tenant User Membership]
+* link:adr/ADR-017-library-migration-discovery.adoc[ADR-017: Library Migration Discovery]
+* link:adr/ADR-018-admin-belongs-to-widget.adoc[ADR-018: Admin :belongs-to Widget]
+* link:adr/ADR-019-shared-payments-library.adoc[ADR-019: Shared Payments Library]
+* link:adr/ADR-020-tenant-database-scope.adoc[ADR-020: PostgreSQL-Only Tenant Provisioning]
 
 === link:change-reports/[Change Reports]
 
@@ -46,6 +55,21 @@ Presentation slides and speaker notes for conference talks and internal knowledg
 Detailed implementation notes and internal technical documentation.
 
 * link:implementation/user-module-implementation.adoc[User Module Implementation]
+
+=== Babashka Developer Tooling
+
+The `boundary-tools/` directory provides BB-based developer tools invoked via `bb.edn` tasks.
+See link:../boundary-tools/AGENTS.md[boundary-tools/AGENTS.md] for the full reference.
+
+Key tools:
+
+* `bb doctor` — Validate config for common mistakes
+* `bb setup` — Interactive config setup wizard (with optional AI mode)
+* `bb scaffold integrate <module>` — Wire scaffolded modules into deps/tests/wiring
+* `bb ai admin-entity <description>` — Generate admin entity EDN config via AI
+* `bb deploy` — Deploy libraries to Clojars
+* `bb create-admin` — Create first admin user
+* `bb test:tools` — Run boundary-tools unit tests
 
 === Top-Level Internal Docs
 

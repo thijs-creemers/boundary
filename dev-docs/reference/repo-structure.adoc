@@ -66,7 +66,47 @@ This document is the **canonical reference** for repository structure and paths 
 
 |`libs/external`
 |External service adapters: raw transport and third-party APIs
-|SMTP transport (javax.mail), IMAP mailbox, Stripe payments + webhook verification, Twilio SMS / WhatsApp
+|SMTP transport (javax.mail), IMAP mailbox, Twilio SMS / WhatsApp
+
+|`libs/payments`
+|Payment Service Provider abstraction
+|PSP protocols, Mollie/Stripe/Mock adapters, checkout flow, webhook verification
+
+|`libs/workflow`
+|Workflow orchestration engine
+|State machines, step execution, status tracking
+
+|`libs/search`
+|Full-text search
+|Search protocols, indexing, query building
+
+|`libs/reports`
+|Report generation (`defreport` macro)
+|PDF/CSV export, scheduling, report registry
+
+|`libs/calendar`
+|Calendar and event management (`defevent` macro)
+|RRULE recurrence, iCal export, conflict detection, Hiccup UI
+
+|`libs/geo`
+|Multi-provider geocoding
+|OSM/Google/Mapbox providers, DB-backed cache, Haversine distance
+
+|`libs/ai`
+|Multi-provider AI tooling
+|Ollama/Anthropic/OpenAI providers, NL scaffolding, error explainer, test generator, SQL copilot
+
+|`libs/i18n`
+|Internationalisation
+|EDN translation catalogues, locale resolution, marker-based i18n
+
+|`libs/ui-style`
+|Shared UI style bundles
+|CSS/JS assets, design tokens, Tailwind/DaisyUI builds (`:base`, `:pilot`, `:admin-pilot`)
+
+|`boundary-tools/`
+|Babashka developer tooling (not under `libs/`)
+|Scaffolding, AI CLI, config doctor, setup wizard, deploy, i18n tools
 |===
 
 [[canonical-paths]]
@@ -154,41 +194,59 @@ libs/user/
 [source]
 ----
 boundary/
-├── libs/                        # All library code
-│   ├── core/
-│   ├── observability/
-│   ├── platform/
-│   ├── user/
-│   ├── admin/
-│   ├── storage/
-│   ├── scaffolder/
-│   ├── cache/
-│   ├── jobs/
-│   ├── email/
-│   ├── realtime/
-│   ├── tenant/
-│   └── external/
+├── libs/                        # All 21 library modules
+│   ├── core/                    # Foundation utilities, validation
+│   ├── observability/           # Logging, metrics, error reporting
+│   ├── platform/                # HTTP, database, CLI infrastructure
+│   ├── user/                    # Authentication, authorization, MFA
+│   ├── admin/                   # Auto-CRUD admin interface
+│   ├── storage/                 # File storage (local + S3)
+│   ├── scaffolder/              # Module code generator
+│   ├── cache/                   # Distributed caching (Redis / in-memory)
+│   ├── jobs/                    # Background job processing
+│   ├── email/                   # Application-level email
+│   ├── realtime/                # WebSocket / SSE messaging
+│   ├── tenant/                  # Multi-tenancy (schema-per-tenant)
+│   ├── external/                # External adapters (SMTP, IMAP, Twilio)
+│   ├── payments/                # PSP abstraction (Mollie, Stripe, Mock)
+│   ├── workflow/                # Workflow orchestration
+│   ├── search/                  # Full-text search
+│   ├── reports/                 # Report generation (defreport)
+│   ├── calendar/                # Calendar / events (defevent)
+│   ├── geo/                     # Multi-provider geocoding
+│   ├── ai/                      # Multi-provider AI tooling
+│   ├── i18n/                    # Internationalisation
+│   └── ui-style/                # Shared UI style bundles
+├── boundary-tools/              # Babashka developer tooling (bb tasks)
+│   ├── src/boundary/tools/      # scaffold, ai, doctor, setup, deploy, etc.
+│   └── test/boundary/tools/     # Unit tests (bb test:tools)
 ├── resources/
-│   ├── conf/                    # Environment-based configuration
-│   │   └── dev/
-│   │       ├── config.edn
-│   │       └── admin/           # Module-specific admin configs
-│   │           └── users.edn
-│   ├── public/                  # Static assets
-│   │   ├── css/
-│   │   └── js/
+│   ├── conf/                    # Environment-based Aero configuration
+│   │   ├── dev/
+│   │   │   ├── config.edn
+│   │   │   └── admin/           # Admin entity configs
+│   │   ├── test/
+│   │   ├── prod/
+│   │   └── acc/
+│   ├── public/                  # Static assets (css, js)
 │   └── migrations/              # Database migrations
+├── docs/                        # Antora documentation site
+│   └── modules/                 # getting-started, architecture, guides, libraries
+├── dev-docs/                    # Internal developer documentation
+│   ├── adr/                     # Architecture Decision Records (ADR-001..020)
+│   └── reference/               # Commands, repo structure, publishing
 ├── scripts/                     # Tooling scripts
 │   └── docs_lint.clj
-├── dev/                         # Development utilities
-│   └── boundary/
-│       └── tools/
+├── dev/                         # Development utilities (REPL, test reporter)
 ├── build/                       # Build output (gitignored)
 ├── deps.edn                     # Root deps with aliases
+├── bb.edn                       # Babashka task definitions
 ├── tests.edn                    # Kaocha test configuration
-├── build.clj                    # Build tasks
+├── build.clj                    # Build tasks (uberjar)
 ├── AGENTS.md                    # AI agent quick reference
-└── README.md                    # Project landing page
+├── CLAUDE.md                    # Claude Code instructions
+├── CHANGELOG.md                 # Release notes
+└── BUILD.md                     # Uberjar build guide
 ----
 
 [[dependency-rules]]
@@ -198,34 +256,34 @@ Libraries have explicit dependency relationships:
 
 [source]
 ----
+;; Foundation
 platform --> core
 platform --> observability
 
+;; Infrastructure
 external --> platform
+cache    --> platform
+jobs     --> platform
+storage  --> core, platform
 
-user --> core
-user --> platform
-user --> observability
-
-admin --> core
-admin --> platform
-admin --> user
-
-storage --> core
-storage --> platform
-
-scaffolder --> core
-
-cache --> platform
-
-jobs --> platform
-
-email --> external
-
+;; Domain modules
+user     --> core, platform, observability
+admin    --> core, platform, user, ui-style
+tenant   --> platform, user
+email    --> platform, external
 realtime --> platform
+payments --> (standalone, no internal deps)
+workflow --> platform
+search   --> platform
+reports  --> platform
+calendar --> platform
+geo      --> platform
+ai       --> platform
 
-tenant --> platform
-tenant --> cache
+;; Standalone
+i18n      --> (standalone, no internal deps)
+ui-style  --> (standalone, no internal deps)
+scaffolder --> core
 ----
 
 **Rules:**
@@ -233,8 +291,10 @@ tenant --> cache
 * Libraries can only depend on libraries above them in the hierarchy
 * `core` has no internal dependencies (foundation layer)
 * `platform` provides infrastructure that other modules consume
-* Domain libraries (`user`, `admin`, `storage`, `cache`, `jobs`, `realtime`, `tenant`) depend on platform
+* Domain libraries (`user`, `admin`, `tenant`, `cache`, `jobs`, `realtime`, etc.) depend on platform
 * `email` delegates raw SMTP transport to `external`; `external` sits at the platform level
+* `payments`, `i18n`, and `ui-style` are standalone — no internal Boundary deps
+* `boundary-tools` is consumed via `{:local/root "boundary-tools"}` in `bb.edn`, not as a library dependency
 
 [[configuration]]
 == Configuration Structure
