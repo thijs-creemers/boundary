@@ -36,9 +36,9 @@
   ;; Defaults to no-op; can be switched to Sentry via ERROR_REPORTING_PROVIDER
   :boundary/error-reporting
   {:provider    #or [#env "ERROR_REPORTING_PROVIDER" :no-op]
-   :dsn         #env "SENTRY_DSN"
+   :dsn         #or [#env "SENTRY_DSN" ""]
    :environment #or [#env "APP_ENV" "test"]
-   :release     #or [#env "APP_RELEASE" #env "VERSION"]
+   :release     #or [#env "APP_RELEASE" "test"]
    :sample-rate 1.0}
 
   ;; Admin interface configuration (enabled in tests to satisfy system wiring)
