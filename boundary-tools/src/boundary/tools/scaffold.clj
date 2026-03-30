@@ -14,19 +14,9 @@
 ;;   bb scaffold ai "<description>" [--yes] -- AI-assisted module generation
 
 (ns boundary.tools.scaffold
-  (:require [clojure.string :as str]
+  (:require [boundary.tools.ansi :as ansi :refer [bold green cyan red yellow dim]]
+            [clojure.string :as str]
             [babashka.process :refer [shell]]))
-
-;; =============================================================================
-;; ANSI helpers
-;; =============================================================================
-
-(defn bold   [s] (str "\033[1m"  s "\033[0m"))
-(defn green  [s] (str "\033[32m" s "\033[0m"))
-(defn cyan   [s] (str "\033[36m" s "\033[0m"))
-(defn red    [s] (str "\033[31m" s "\033[0m"))
-(defn yellow [s] (str "\033[33m" s "\033[0m"))
-(defn dim    [s] (str "\033[2m"  s "\033[0m"))
 
 ;; =============================================================================
 ;; Validation helpers
@@ -423,6 +413,7 @@
        "  bb scaffold endpoint            Interactive wizard for adding an endpoint\n"
        "  bb scaffold adapter             Interactive wizard for adding an adapter\n"
        "  bb scaffold ai <description> [--yes]    AI-powered module generation from NL description\n"
+       "  bb scaffold integrate <module> [--dry-run]  Wire module into deps/tests/wiring\n"
        "\n"
        "Non-interactive passthrough (when args are provided directly):\n"
        "  bb scaffold generate --module-name foo --entity Foo --field bar:string\n"
@@ -484,6 +475,10 @@
           (wizard-ai description yes?)
           (do (println (red "Please provide a module description."))
               (println "  Example: bb scaffold ai \"product module with name, price, stock\""))))
+
+      (= sub "integrate")
+      (do (require '[boundary.tools.integrate :as integrate])
+          (apply (resolve 'integrate/-main) rest-args))
 
       :else
       (do

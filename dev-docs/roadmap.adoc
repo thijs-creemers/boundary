@@ -3,150 +3,130 @@
 :toclevels: 3
 :icons: font
 
-Boundary is approaching public readiness. This roadmap focuses on *quick release*, *developer adoption*, and *a smooth path to 1.0*. It avoids unnecessary feature expansion and prioritizes clarity, stability, and developer experience.
+Boundary is a module-centric Clojure framework implementing Functional Core / Imperative Shell. This roadmap tracks progress toward 1.0 and beyond. Updated March 2026.
 
-== Phase 0 — Alpha (Immediate Release)
+== Phase 0 — Alpha icon:check-circle[] *COMPLETE*
 *Goal: Make Boundary usable for early adopters with minimal friction.*
 
-=== Objectives
-- Freeze core APIs (FC/IS, Interceptors, Normalized Routing).
-- Provide a complete beginner-focused developer journey.
-- Publish the framework publicly for early feedback.
-
-=== Deliverables
-1. Normalize all modules to the new routing system.
-2. Update the scaffolder to generate:
-- normalized routes
-- interceptor hooks
-- minimal CRUD stubs
-3. Starter Project Template (`boundary-starter`):
-- User + Inventory modules
-- Login flow, CRUD example, minimal UI
-4. Minimal documentation set:
-- *Getting Started* (5 minutes)
-- *Your First Module* (20 minutes)
-- *Understanding FC/IS in Boundary*
-5. Public release:
-- GitHub repository open
-- Clojars deployment
-- Announcement on Clojurian Slack & Reddit
-
-=== Notes
-- Boundary is already technically mature; Alpha is about clarity, not features.
-- Focus on lowering friction for new developers.
+=== Delivered
+- [x] Core APIs frozen (FC/IS, Interceptors, Normalized Routing)
+- [x] All modules use the normalized routing system
+- [x] Scaffolder generates normalized routes, interceptor hooks, CRUD stubs
+- [x] Beginner documentation: Getting Started, Your First Module, FC/IS guide
+- [x] Public release: GitHub open, Clojars deployment (`bb deploy --all`)
+- [x] 21 independently publishable libraries under `libs/`
+- [x] Example application: `examples/ecommerce-api/`
 
 '''
 
-== Phase 1 — Beta (Developer Productivity & Confidence)
+== Phase 1 — Beta icon:check-circle[] *COMPLETE*
 *Goal: Make Boundary comfortable and delightful to build real-world applications.*
 
-=== Objectives
-- Improve day-to-day development experience.
-- Provide practical, real-world examples.
-- Strengthen web UI and CLI tooling.
-
-=== Deliverables
-1. CRUD Web UI for the User module:
-- Create, Edit, Delete
-- Uses HTMX patterns
-2. Example Interceptors:
-- Authentication
-- Audit Logging
-- Rate Limiting
-3. Scaffolder Improvements:
-- Optional UI generation flags
-- REST + CLI enhancements
-4. Example Applications:
-- Simple CRM (Users + Items + Sessions)
-- Inventory Tracker
-5. Documentation Expansion:
-- Error handling guide
-- Observability quickstart
-- CI/CD templates (Docker, Fly.io, Heroku)
-6. Basic Admin UX Patterns:
-- Forms, tables, pagination, layout guidance
-
-=== Notes
-- Beta is where developers realize: *“I can build production apps with this.”*
-- Examples matter more than new features.
+=== Delivered
+- [x] Full CRUD Web UI for User module (create, edit, delete, MFA, sessions) via HTMX + Hiccup
+- [x] Auto-CRUD Admin interface (`libs/admin`) with entity discovery, forms, filters, bulk actions
+- [x] Example interceptors: authentication, audit logging, rate limiting
+- [x] Scaffolder: NL mode (`bb scaffold ai`), interactive wizard, field/endpoint/adapter generation
+- [x] Payments library (`libs/payments`): Mollie, Stripe, Mock PSP adapters
+- [x] Multi-tenancy (`libs/tenant`): schema-per-tenant, provisioning, lifecycle states
+- [x] Distributed caching (`libs/cache`): Redis + in-memory adapters
+- [x] Background jobs (`libs/jobs`): worker pool, retry logic, dead letter queue
+- [x] Email (`libs/email`): domain model, SMTP adapter, jobs integration
+- [x] Real-time messaging (`libs/realtime`): WebSocket + Ring WebSocket handlers, pub/sub
+- [x] Internationalisation (`libs/i18n`): EDN catalogues, locale resolution, BB tooling
+- [x] Shared UI styles (`libs/ui-style`): Tailwind/DaisyUI bundles
+- [x] Antora documentation site (`docs/`)
+- [x] CI/CD: GitHub Actions publish workflow, `bb doctor --ci`
 
 '''
 
-== Phase 2 — v1.0 (Stability & Production Readiness)
+== Phase 2 — v1.0 (Stability & Production Readiness) icon:spinner[] *IN PROGRESS*
 *Goal: Make Boundary fully reliable and attractive for company-level adoption.*
 
 === Objectives
-- Build trust through stability and polish.
-- Provide migration and integration tooling.
-- Improve operational and security guidance.
+- Build trust through stability and polish
+- Provide config & integration tooling to reduce setup friction
+- Improve operational and security guidance
 
-=== Deliverables
-1. Migration Tooling:
-- Reitit → Boundary normalized routing
-- Django/Rails coexistence cookbook
-- Database migration best practices
-2. Admin UI Template:
-- CRUD component library
-- Authentication-aware layouts
-3. Security & Operations:
-- Security checklist
-- Health checks
-- Deployment patterns and reference configs
-4. Advanced Observability:
-- Datadog metrics provider
-- Request/session dashboards
-5. Performance Baseline:
-- CRUD benchmarks
-- Scaling & tuning recommendations
+=== Delivered
+- [x] Config Doctor (`bb doctor`): validates env refs, providers, JWT, admin parity, wiring
+- [x] Config Setup Wizard (`bb setup`): interactive + AI-powered config generation
+- [x] Module Integration (`bb scaffold integrate`): wires scaffolded modules into deps/tests/wiring
+- [x] Admin Entity Generator (`bb ai admin-entity`): AI-powered EDN config generation
+- [x] Datadog metrics provider (`libs/observability`)
+- [x] Performance optimisations: window functions, batch inserts, Redis SCAN, caching, gzip
+- [x] Tenant admin dashboard
 
-=== Notes
-- This phase turns Boundary from “promising” → “production-ready.”
-- Focus on reliability, documentation, and safe defaults.
+=== Remaining
+- [ ] Starter project template (`boundary-starter`) with guided walkthrough
+- [ ] Security checklist and health check endpoints
+- [ ] Deployment patterns: Docker, systemd, cloud reference configs
+- [ ] CRUD benchmarks and scaling/tuning recommendations
+- [ ] Database migration best practices guide
+
+'''
 
 == Phase 3 — Ecosystem Expansion (Post-1.0)
 *Goal: Build a vibrant Boundary ecosystem and optional advanced capabilities.*
 
-=== Potential Deliverables
-- Datomic / XTDB backend integration
-- Optional Workflow / Actor engine
-- Boundary SaaS Starter Kit (login, storage, admin)
-- Extension marketplace
-- Application templates:
-- API-only
-- Admin dashboard
-- SaaS boilerplate
+=== Delivered (ahead of schedule)
+- [x] Workflow engine (`libs/workflow`)
+- [x] Full-text search (`libs/search`)
+- [x] Report generation (`libs/reports`): `defreport` macro, PDF/CSV export
+- [x] Calendar / events (`libs/calendar`): `defevent` macro, RRULE recurrence, iCal
+- [x] Geocoding (`libs/geo`): OSM/Google/Mapbox providers, DB cache
+- [x] AI tooling (`libs/ai`): Ollama/Anthropic/OpenAI, NL scaffolding, error explainer, SQL copilot
 
-=== Notes
-- None of these items block adoption or 1.0.
-- These features accelerate long-term growth.
+=== Remaining
+- [ ] Datomic / XTDB backend integration
+- [ ] Boundary SaaS Starter Kit (login, storage, admin, payments)
+- [ ] Application templates: API-only, admin dashboard, SaaS boilerplate
+- [ ] Extension / plugin marketplace
 
+'''
 
 == Roadmap Summary
 
-[cols="3*"]
+[cols="1,2,1,1"]
 |===
-|Phase | Focus | Outcome
-|*Alpha* | Quick release, scaffolder, starter template, minimal docs | Early adopters can build apps immediately
-|*Beta* | Developer productivity, examples, web UI | Developers gain confidence and comfort
-|*v1.0* | Stability, migration, operational readiness | Companies can use Boundary in production
-|*Ecosystem* | Long-term enhancements | Boundary becomes a complete platform
+|Phase |Focus |Status |Libraries
+
+|*Alpha*
+|Quick release, scaffolder, docs, Clojars
+|icon:check-circle[] Complete
+|7 initial
+
+|*Beta*
+|Developer productivity, admin UI, domain modules
+|icon:check-circle[] Complete
+|21 libraries
+
+|*v1.0*
+|Config tooling, stability, production readiness
+|icon:spinner[] In progress
+|21 + boundary-tools
+
+|*Ecosystem*
+|Advanced capabilities, templates, integrations
+|Partially delivered
+|—
 |===
 
 == Strategic Notes
 
 === 1. Focus on onboarding, not architectural depth
-Boundary already has deep documentation. What’s missing is a guided, narrative experience for beginners.
+Boundary already has deep documentation. What's missing is a guided, narrative experience for beginners. The starter project template is the key remaining deliverable.
 
 === 2. Use the Scaffolder as your flagship feature
-Boundary’s scaffolder is a key differentiator. It should define the developer workflow from day one.
+Boundary's scaffolder (`bb scaffold`) is a key differentiator — it should define the developer workflow from day one. With NL scaffolding (`bb scaffold ai`) and module integration (`bb scaffold integrate`), the end-to-end module creation flow is now nearly automated.
 
-=== 3. Avoid overbuilding pre-release
-Modules like User and Inventory are not required to ship 1.0. Keep them out of the critical path.
+=== 3. Developer tooling reduces friction
+Config Doctor (`bb doctor`), Setup Wizard (`bb setup`), and the AI tools (`bb ai`) address the biggest friction points for new developers: configuration, debugging, and boilerplate.
 
 === 4. Publish early, iterate publicly
 The framework is already more mature than most early-stage OSS releases. Early feedback accelerates correctness.
 
-git config --worktree core.hooksPath .githooks'''
+'''
 
 == Next Review
 This roadmap is intended as a living document. Revisit every 2–3 weeks to adjust scope and priorities as adoption grows.

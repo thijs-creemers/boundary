@@ -12,14 +12,8 @@
 ;;   bb ai docs --module <path> [--type agents|openapi|readme]
 
 (ns boundary.tools.ai
-  (:require [babashka.process :refer [shell]]))
-
-;; =============================================================================
-;; ANSI helpers
-;; =============================================================================
-
-(defn- bold [s] (str "\033[1m" s "\033[0m"))
-(defn- red  [s] (str "\033[31m" s "\033[0m"))
+  (:require [boundary.tools.ansi :refer [bold red]]
+            [babashka.process :refer [shell]]))
 
 ;; =============================================================================
 ;; Run Clojure AI CLI
@@ -50,6 +44,7 @@
        "  bb ai sql <description>             Generate HoneySQL from description\n"
        "  bb ai docs --module <path>          Generate all docs (agents, openapi, readme)\n"
        "  bb ai docs --module <path> --type agents|openapi|readme\n"
+       "  bb ai admin-entity <description>    Generate admin entity EDN config\n"
        "\n"
        "Provider selection (environment variables):\n"
        "  ANTHROPIC_API_KEY   \u2192 Anthropic (Claude)\n"
@@ -63,6 +58,7 @@
        "  bb ai gen-tests libs/user/src/boundary/user/core/validation.clj\n"
        "  bb ai sql \"find active users with orders in the last 7 days\"\n"
        "  bb ai docs --module libs/user --type agents\n"
+       "  bb ai admin-entity \"products with name, price, status\"\n"
        "\n"
        "For NL module scaffolding:\n"
        "  bb scaffold ai \"product module with name, price, stock\"\n"
@@ -93,6 +89,12 @@
 
       (= sub "docs")
       (run-clojure! (into ["docs"] rest-args))
+
+      (= sub "admin-entity")
+      (run-clojure! (into ["admin-entity"] rest-args))
+
+      (= sub "setup-parse")
+      (run-clojure! (into ["setup-parse"] rest-args))
 
       :else
       (do

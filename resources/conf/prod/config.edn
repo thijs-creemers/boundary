@@ -17,7 +17,7 @@
 
    ;; User validation configuration - Production settings
    :user-validation
-   {:email-domain-allowlist #{"company.com" "partner.com"} ; Strict domain control in production
+   {:email-domain-allowlist #{#env ALLOWED_EMAIL_DOMAIN} ; Strict domain control in production
     :password-policy {:min-length 8
                       :max-length 128
                       :require-uppercase? true
@@ -30,7 +30,7 @@
                         :allowed-chars-regex "[\\p{L}\\s\\-'.]+" ; Supports Unicode letters including accented characters
                         :forbidden-names #{"admin" "root" "system" "test"}}
     :role-restrictions {:allowed-roles #{:user :admin :manager}
-                        :admin-email-domains #{"company.com"} ; Only company domain can be admin
+                        :admin-email-domains #{#env ADMIN_EMAIL_DOMAIN} ; Only admin domain can be admin
                         :default-role :user}
     :user-limits {:max-users 500 ; Production limit
                   :check-enabled? true} ; Enabled in production

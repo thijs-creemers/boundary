@@ -44,6 +44,19 @@ clojure -M:test:db/h2 :user           # User library tests
 clojure -M:test:db/h2 :admin          # Admin library tests
 clojure -M:test:db/h2 :storage        # Storage library tests
 clojure -M:test:db/h2 :scaffolder     # Scaffolder library tests
+clojure -M:test:db/h2 :cache          # Cache library tests
+clojure -M:test:db/h2 :jobs           # Jobs library tests
+clojure -M:test:db/h2 :email          # Email library tests
+clojure -M:test:db/h2 :realtime       # Realtime library tests
+clojure -M:test:db/h2 :tenant         # Tenant library tests
+clojure -M:test:db/h2 :external       # External adapters tests
+clojure -M:test:db/h2 :payments       # Payments library tests
+clojure -M:test:db/h2 :workflow       # Workflow library tests
+clojure -M:test:db/h2 :search         # Search library tests
+clojure -M:test:db/h2 :reports        # Reports library tests
+clojure -M:test:db/h2 :calendar       # Calendar library tests
+clojure -M:test:db/h2 :geo            # Geo library tests
+clojure -M:test:db/h2 :ai             # AI library tests
 ----
 
 [[test-metadata]]
@@ -222,8 +235,25 @@ clojure -M:migrate rollback
 [[scaffolding]]
 == Module Scaffolding
 
-[[scaffold-module]]
-=== Generate New Module
+[[scaffold-interactive]]
+=== Interactive Scaffolding Wizard
+
+[source,bash]
+----
+bb scaffold                        # Interactive wizard (generate/new/field/endpoint/adapter)
+----
+
+[[scaffold-ai]]
+=== NL Scaffolding via AI
+
+[source,bash]
+----
+bb scaffold ai "product module with name, price, stock"          # Interactive confirm
+bb scaffold ai "product module with name, price, stock" --yes    # Non-interactive
+----
+
+[[scaffold-generate]]
+=== Generate New Module (Direct CLI)
 
 [source,bash]
 ----
@@ -243,8 +273,118 @@ Generated files:
 
 See link:scaffolder.adoc[Scaffolder Reference] for complete options.
 
+[[scaffold-integrate]]
+=== Integrate Scaffolded Module
+
+After scaffolding a module, wire it into the project:
+
+[source,bash]
+----
+bb scaffold integrate product              # Wire module into deps.edn, tests.edn, wiring.clj
+bb scaffold integrate product --dry-run    # Preview changes without writing
+----
+
+This automates:
+
+* Adding source/test paths to `deps.edn`
+* Adding test suite to `tests.edn`
+* Adding module-wiring require to `wiring.clj`
+* Printing Integrant config snippet for manual insertion
+
 [[tools]]
-== Development Tools
+== Babashka Developer Tools
+
+All tools are defined in `bb.edn` and provided by the `boundary-tools/` package.
+
+[[tool-doctor]]
+=== Config Doctor
+
+Validate configuration for common mistakes:
+
+[source,bash]
+----
+bb doctor                      # Check dev environment
+bb doctor --env prod           # Check specific environment
+bb doctor --env all            # Check all environments
+bb doctor --ci                 # Exit non-zero on any error (CI mode)
+----
+
+Checks: `#env` references, provider values, JWT_SECRET, admin entity parity, prod placeholders, wiring requires.
+
+[[tool-setup]]
+=== Config Setup Wizard
+
+Generate initial config files for a new project:
+
+[source,bash]
+----
+bb setup                                                  # Interactive wizard
+bb setup ai "PostgreSQL with Stripe payments"             # AI-powered setup
+bb setup --database postgresql --payment stripe           # Non-interactive flags
+----
+
+[[tool-ai]]
+=== AI Tooling
+
+Framework-aware AI tools (requires Ollama, Anthropic, or OpenAI):
+
+[source,bash]
+----
+bb ai                                       # Show help
+bb ai explain                               # Explain error from stdin
+bb ai explain --file stacktrace.txt         # Explain error from file
+bb ai gen-tests <file>                      # Generate test namespace
+bb ai gen-tests <file> -o <output>          # Write tests to file
+bb ai sql "find active users with orders"   # Generate HoneySQL from description
+bb ai docs --module libs/user --type agents # Generate documentation
+bb ai admin-entity "products with name, price, status"  # Generate admin entity EDN
+----
+
+[[tool-create-admin]]
+=== Create Admin User
+
+[source,bash]
+----
+bb create-admin                                            # Interactive wizard
+bb create-admin --email admin@app.com --name "Admin"       # Non-interactive
+bb create-admin --env prod                                 # Use production config
+bb create-admin --dir examples/ecommerce-api               # Target a sub-project
+----
+
+[[tool-deploy]]
+=== Deploy to Clojars
+
+[source,bash]
+----
+bb deploy --all                  # Deploy all 21+ libraries to Clojars
+bb deploy --missing              # Deploy only libraries not yet on Clojars
+bb deploy core platform user     # Deploy specific libraries
+----
+
+[[tool-i18n]]
+=== Internationalisation
+
+[source,bash]
+----
+bb i18n:find "Sign in"    # Find a translation key by substring
+bb i18n:scan              # Scan for unexternalised string literals
+bb i18n:missing           # Report keys missing from non-en locales
+bb i18n:unused            # Report catalogue keys not referenced in source
+----
+
+[[tool-misc]]
+=== Other Tools
+
+[source,bash]
+----
+bb test:tools             # Run boundary-tools unit tests
+bb check-links            # Validate markdown links in AGENTS.md files
+bb smoke-check            # Verify deps.edn aliases and key tool entrypoints
+bb install-hooks          # Configure git hooks path to .githooks
+bb upgrade-outdated       # Check/upgrade outdated Maven deps (--update to apply)
+bb migrate up             # Run database migrations
+bb coverage               # Run Cloverage coverage report
+----
 
 [[tool-paren-repair]]
 === Fix Unbalanced Parentheses
@@ -325,6 +465,10 @@ clj-nrepl-eval -p 7888 "(require '[integrant.repl :as ig-repl]) (ig-repl/reset)"
 |HTTP server port
 |`3000`
 
+|`HTTP_HOST`
+|HTTP server bind address
+|`0.0.0.0`
+
 |`REPL_PORT`
 |nREPL server port
 |`7888`
@@ -332,6 +476,66 @@ clj-nrepl-eval -p 7888 "(require '[integrant.repl :as ig-repl]) (ig-repl/reset)"
 |`UPDATE_SNAPSHOTS`
 |Update test snapshots
 |`false`
+
+3+|**Database**
+
+|`POSTGRES_HOST`
+|PostgreSQL host
+|`localhost`
+
+|`POSTGRES_PORT`
+|PostgreSQL port
+|`5432`
+
+|`POSTGRES_DB`
+|PostgreSQL database name
+|`boundary_dev`
+
+|`POSTGRES_USER`
+|PostgreSQL user
+|`postgres`
+
+|`POSTGRES_PASSWORD`
+|PostgreSQL password
+|`postgres`
+
+3+|**AI Tooling**
+
+|`ANTHROPIC_API_KEY`
+|Anthropic (Claude) API key
+|(optional fallback)
+
+|`OPENAI_API_KEY`
+|OpenAI API key
+|(optional)
+
+|`OLLAMA_URL`
+|Ollama server URL
+|`http://localhost:11434`
+
+|`AI_MODEL`
+|Override default AI model
+|(provider-specific)
+
+3+|**Payments**
+
+|`STRIPE_SECRET_KEY`
+|Stripe secret API key
+|(required for Stripe)
+
+|`STRIPE_WEBHOOK_SECRET`
+|Stripe webhook signing secret
+|(required for Stripe webhooks)
+
+3+|**Clojars Publishing**
+
+|`CLOJARS_USERNAME`
+|Clojars username (not email)
+|(required for deploy)
+
+|`CLOJARS_PASSWORD`
+|Clojars deploy token
+|(required for deploy)
 |===
 
 [[troubleshooting]]

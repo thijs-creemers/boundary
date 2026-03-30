@@ -79,6 +79,12 @@ bb ai explain --file stacktrace.txt                # Explain error via AI
 bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate test namespace
 bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL
 bb ai docs --module libs/user --type agents                       # Generate AGENTS.md
+bb ai admin-entity "products with name, price, status"            # Generate admin entity EDN config
+bb doctor                                          # Validate config for common mistakes
+bb doctor --env all --ci                           # Check all environments (CI mode)
+bb setup                                           # Interactive config setup wizard
+bb setup ai "PostgreSQL with Stripe"               # AI-powered config setup
+bb scaffold integrate product                      # Wire scaffolded module into deps/tests/wiring
 bb create-admin                                    # Create first admin user for a new project (interactive wizard)
 bb create-admin --env prod                         # Use production config
 bb create-admin --email a@b.com --name "Admin"     # Skip email/name prompts (password still prompted securely)
@@ -739,6 +745,9 @@ Any project using `boundary-starter` or starting fresh should consume it via:
 |---|---|
 | `boundary.tools.scaffold` | `bb scaffold` |
 | `boundary.tools.ai` | `bb ai` |
+| `boundary.tools.doctor` | `bb doctor` — config validation (6 rule-based checks) |
+| `boundary.tools.setup` | `bb setup` — config setup wizard (interactive / flags / AI) |
+| `boundary.tools.integrate` | `bb scaffold integrate` — wire modules into deps/tests/wiring |
 | `boundary.tools.i18n` | `bb i18n:find/scan/missing/unused` |
 | `boundary.tools.admin` | `bb create-admin` |
 | `boundary.tools.deploy` | `bb deploy` (handles all 21 artifacts) |

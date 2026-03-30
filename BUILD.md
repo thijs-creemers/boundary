@@ -4,8 +4,8 @@ This document describes how to build and run the Boundary application as a stand
 
 ## Prerequisites
 
-- Clojure CLI tools (1.11+)
-- Java 11 or higher
+- Clojure CLI tools (1.12+)
+- Java 17 or higher
 - Git (for version numbering)
 
 ## Building the Uberjar
@@ -248,7 +248,7 @@ jobs:
           java-version: '17'
       - uses: DeLaGuardo/setup-clojure@12.5
         with:
-          cli: 1.11.1.1413
+          cli: 1.12.4.1597
       - run: clojure -T:build uber
       - uses: actions/upload-artifact@v3
         with:

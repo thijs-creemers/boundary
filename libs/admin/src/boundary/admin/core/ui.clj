@@ -62,7 +62,7 @@
             :let  [entity-config (get entity-configs entity)]
             :when (not (:sidebar-hidden entity-config))]
         (let [label      (:label entity-config (str/capitalize (name entity)))
-              icon       (:icon entity-config :database)
+              icon       (keyword (or (:icon entity-config) "database"))
               is-active? (= entity current-entity)]
           [:li {:class (when is-active? "active")}
            [:a (merge {:href (str "/web/admin/" (name entity))
@@ -164,7 +164,7 @@
       (let [entity-config (get entity-configs entity)
             label (:label entity-config)
             description (:description entity-config)
-            icon (:icon entity-config :database)
+            icon (keyword (or (:icon entity-config) "database"))
             count (get-in stats [entity :count] 0)]
         [:div.entity-card
          [:a {:href (str "/web/admin/" (name entity))

@@ -9,6 +9,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### `boundary-tools` — 4 new developer helper tools
+
+##### `bb doctor` — Config Doctor (rule-based)
+- **Rule-based config validation**: 6 checks against `config.edn` and project files — no AI required.
+- `env-refs` (error): detects `#env VAR` references in the `:active` section without `#or` fallback that are not set in the environment.
+- `providers` (error): validates `:provider` values against known sets (logging, metrics, error-reporting, payments, AI, cache).
+- `jwt-secret` (error): verifies `JWT_SECRET` is set when the user module is active.
+- `admin-parity` (warn): checks that admin entity EDN files exist in both `dev/admin/` and `test/admin/`.
+- `prod-placeholders` (error): flags placeholder values (`company.com`, `example.com`, `TODO`, `CHANGEME`) in prod/acc configs.
+- `wiring-requires` (warn): verifies active Integrant modules have their `module-wiring` require in `wiring.clj`.
+- CLI: `bb doctor [--env dev|prod|acc|all] [--ci]`. `--ci` exits non-zero on any error for CI pipelines.
+- Structured output with pass/warn/error indicators and actionable fix suggestions.
+- New namespace: `boundary.tools.doctor`.
+
+##### `bb setup` — Config Setup Wizard (templates + optional AI)
+- **Interactive config setup wizard** with three modes: guided prompts, CLI flags (`--database postgresql --payment stripe`), or AI-powered natural language (`bb setup ai "PostgreSQL with Stripe"`).
+- Generates `resources/conf/dev/config.edn`, `resources/conf/test/config.edn`, and `.env.example` from template fragments.
+- Component templates for all supported databases (PostgreSQL, SQLite, H2, MySQL), AI providers (Ollama, Anthropic, OpenAI), payment providers (Mock, Stripe, Mollie), cache (Redis, in-memory), and email (SMTP).
+- Test config always uses H2 in-memory + mock/no-op providers for fast isolated tests.
+- AI mode delegates to `boundary.ai.shell.cli-entry setup-parse`; falls back to interactive if no AI provider is available.
+- New namespace: `boundary.tools.setup`.
+
+##### `bb scaffold integrate` — Module Integration (rule-based)
+- **Automated module wiring** after `bb scaffold generate`: patches `deps.edn` (source/test paths), `tests.edn` (per-library suite), and `wiring.clj` (module-wiring require).
+- `--dry-run` mode previews all changes without writing files.
+- Detects already-integrated modules (idempotent).
+- Generates Integrant config snippet for manual insertion (config.edn uses Aero reader tags that can't be safely modified programmatically).
+- Accessible via both `bb scaffold integrate <module>` and `bb scaffold:integrate <module>`.
+- New namespace: `boundary.tools.integrate`.
+
+##### `bb ai admin-entity` — Admin Entity Generator (AI-powered)
+- **AI-powered admin entity EDN generation** from natural language descriptions (`bb ai admin-entity "products with name, price, status"`).
+- Discovers existing admin entities from `resources/conf/dev/admin/` and includes them as examples in the prompt for style consistency.
+- Preview + confirm flow; `--yes` flag for non-interactive use.
+- Writes to both `resources/conf/dev/admin/<entity>.edn` and `resources/conf/test/admin/<entity>.edn`.
+- Prints post-generation instructions (allowlist registration, `#include` directive).
+- Babashka wrapper: `boundary.tools.admin_entity`. Clojure-side additions:
+  - `boundary.ai.core.prompts`: `admin-entity-messages`, `setup-parse-messages` prompt builders.
+  - `boundary.ai.shell.service`: `generate-admin-entity`, `parse-setup-description` orchestration functions.
+  - `boundary.ai.shell.cli-entry`: `cmd-admin-entity`, `cmd-setup-parse` subcommands.
+
+##### CI / developer experience
+- `bb.edn`: 3 new tasks registered (`doctor`, `setup`, `scaffold:integrate`) + 3 new requires (`boundary.tools.doctor`, `boundary.tools.setup`, `boundary.tools.integrate`).
+- `bb ai` help text and dispatch updated with `admin-entity` and `setup-parse` subcommands.
+- `bb scaffold` help text and dispatch updated with `integrate` subcommand.
+- `AGENTS.md` (root): new tools added to Quick Reference and namespace table.
+- `CLAUDE.md`: new commands added to Scripting section.
+- `boundary-tools/AGENTS.md`: comprehensive documentation for all 4 tools with examples, tables, and workflow guides.
+- `libs/ai/AGENTS.md`: features list updated to 7, service API examples added, 3 new pitfalls documented (#9–#11).
 #### `boundary-realtime` — Ring WebSocket handler
 - **Ring 1.15 WebSocket upgrade handler** (`boundary.realtime.shell.handlers.ring-websocket`): bridges Ring's map-based `::ring.websocket/listener` response to the existing `IRealtimeService` connect/disconnect lifecycle. JWT authentication via `token` query parameter; on-open creates adapter and registers connection, on-close/on-error triggers disconnect cleanup.
 - `websocket-handler` accepts keyword options: `:token-param` (default `"token"`) and `:on-message` for optional client→server bidirectional messaging.
