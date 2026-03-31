@@ -390,7 +390,11 @@
      HTML string"
   [hiccup-data]
   ;; Hiccup2 returns RawString, must call str to get plain String for Ring
-  (str (h/html hiccup-data)))
+  (let [full-page? (and (vector? hiccup-data) (= :html (first hiccup-data)))
+        html-str   (str (h/html hiccup-data))]
+    (if full-page?
+      (str "<!DOCTYPE html>" html-str)
+      html-str)))
 
 (defn htmx-attrs
   "Helper to generate HTMX attributes map.

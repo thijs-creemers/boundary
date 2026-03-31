@@ -23,6 +23,7 @@
             [reitit.swagger :as swagger]
             [reitit.swagger-ui :as swagger-ui]
             [ring.middleware.cookies :refer [wrap-cookies]]
+            [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.middleware.resource :refer [wrap-resource]]))
 
 ;; =============================================================================
@@ -238,7 +239,9 @@
     ;; Wrap with resource middleware to serve static files from public/ directory
     ;; This intercepts requests for static files BEFORE they hit Reitit routing,
     ;; bypassing content negotiation middleware that causes 406 errors
-    (wrap-resource reitit-handler "public")))
+    (-> reitit-handler
+        (wrap-resource "public")
+        wrap-content-type)))
 
 ;; =============================================================================
 ;; Convenience Functions

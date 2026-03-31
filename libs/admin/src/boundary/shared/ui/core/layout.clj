@@ -87,7 +87,7 @@
    Returns:
      Complete HTML page structure"
   [title content & [opts]]
-  (let [{:keys [user flash css js skip-header body-attrs brand brand-href]
+  (let [{:keys [user flash css js skip-header body-attrs brand brand-href meta-description]
          :or   {css         default-css
                 js          default-js
                 skip-header false
@@ -96,6 +96,8 @@
      [:head
       [:meta {:charset "UTF-8"}]
       [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
+      (when meta-description
+        [:meta {:name "description" :content meta-description}])
       [:title title]
       [:link {:rel "stylesheet" :href "/css/local-fonts.css"}]
       (for [css-file css]

@@ -98,4 +98,9 @@
   ([hiccup t-fn opts]
    (if (string? hiccup)
      hiccup
-     (str (h/html (resolve-markers hiccup t-fn opts))))))
+     (let [resolved  (resolve-markers hiccup t-fn opts)
+           full-page? (and (vector? resolved) (= :html (first resolved)))
+           html-str  (str (h/html resolved))]
+       (if full-page?
+         (str "<!DOCTYPE html>" html-str)
+         html-str)))))
