@@ -508,23 +508,27 @@
    Provides defense-in-depth protection against common web vulnerabilities:
    - Content-Security-Policy: Prevent XSS attacks
    - X-Frame-Options: Prevent clickjacking
-   - Strict-Transport-Security: Force HTTPS
+   - Strict-Transport-Security: Force HTTPS (with preload)
    - X-Content-Type-Options: Prevent MIME sniffing
-   - X-XSS-Protection: Legacy XSS protection
-   - Referrer-Policy: Control referrer information"
-   {"Content-Security-Policy" (str "default-src 'self'; "
-                                   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; "
-                                   "style-src 'self' 'unsafe-inline' https://unpkg.com; "
-                                   "img-src 'self' data: https:; "
-                                   "font-src 'self' data:; "
-                                   "connect-src 'self'; "
-                                   "frame-ancestors 'none'; "
-                                   "base-uri 'self'; "
-                                   "form-action 'self'")
+   - Cross-Origin-Opener-Policy: Isolate top-level browsing context
+   - Referrer-Policy: Control referrer information
+
+   Note: script-src requires 'unsafe-eval' for Alpine.js v3 standard build.
+   Inline scripts are externalised (init.js) so 'unsafe-inline' is not needed."
+  {"Content-Security-Policy" (str "default-src 'self'; "
+                                  "script-src 'self' 'unsafe-eval'; "
+                                  "style-src 'self' 'unsafe-inline'; "
+                                  "img-src 'self' data: https:; "
+                                  "font-src 'self'; "
+                                  "connect-src 'self' wss:; "
+                                  "object-src 'none'; "
+                                  "frame-ancestors 'none'; "
+                                  "base-uri 'self'; "
+                                  "form-action 'self'")
    "X-Frame-Options" "DENY"
-   "Strict-Transport-Security" "max-age=31536000; includeSubDomains"
+   "Strict-Transport-Security" "max-age=31536000; includeSubDomains; preload"
    "X-Content-Type-Options" "nosniff"
-   "X-XSS-Protection" "1; mode=block"
+   "Cross-Origin-Opener-Policy" "same-origin"
    "Referrer-Policy" "strict-origin-when-cross-origin"
    "Permissions-Policy" "geolocation=(), microphone=(), camera=()"})
 

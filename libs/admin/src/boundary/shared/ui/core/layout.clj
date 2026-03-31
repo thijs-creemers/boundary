@@ -103,9 +103,7 @@
       (when theme-color
         [:meta {:name "theme-color" :content theme-color}])
       [:title title]
-      [:script (str "try{var t=localStorage.getItem('boundary-theme')"
-                    "||((window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches)?'dark':'light');"
-                    "document.documentElement.setAttribute('data-theme',t)}catch(e){}")]
+      [:script {:src "/js/init.js"}]
       extra-head
       (for [css-file css]
         [:link {:rel "stylesheet" :href css-file}])]
