@@ -99,7 +99,9 @@
       (when meta-description
         [:meta {:name "description" :content meta-description}])
       [:title title]
-      [:link {:rel "stylesheet" :href "/css/local-fonts.css"}]
+      [:script (str "try{var t=localStorage.getItem('boundary-theme')"
+                    "||((window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches)?'dark':'light');"
+                    "document.documentElement.setAttribute('data-theme',t)}catch(e){}")]
       (for [css-file css]
         [:link {:rel "stylesheet" :href css-file}])]
      [:body body-attrs
@@ -119,7 +121,7 @@
                        true (conj content))]
         (into [:main.main-content] children))
       (for [js-file js]
-        [:script {:src js-file}])]]))
+        [:script {:src js-file :defer true}])]]))
 
 (defn pilot-page-layout
   "Page layout using shared daisyUI pilot styling."
