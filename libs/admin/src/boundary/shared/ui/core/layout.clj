@@ -87,21 +87,26 @@
    Returns:
      Complete HTML page structure"
   [title content & [opts]]
-  (let [{:keys [user flash css js skip-header body-attrs brand brand-href meta-description]
+  (let [{:keys [user flash css js skip-header body-attrs brand brand-href
+                meta-description lang theme-color extra-head]
          :or   {css         default-css
                 js          default-js
                 skip-header false
-                body-attrs  {}}} opts]
-    [:html {:lang "en"}
+                body-attrs  {}
+                lang        "en"}} opts]
+    [:html {:lang lang}
      [:head
       [:meta {:charset "UTF-8"}]
       [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
       (when meta-description
         [:meta {:name "description" :content meta-description}])
+      (when theme-color
+        [:meta {:name "theme-color" :content theme-color}])
       [:title title]
       [:script (str "try{var t=localStorage.getItem('boundary-theme')"
                     "||((window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches)?'dark':'light');"
                     "document.documentElement.setAttribute('data-theme',t)}catch(e){}")]
+      extra-head
       (for [css-file css]
         [:link {:rel "stylesheet" :href css-file}])]
      [:body body-attrs
