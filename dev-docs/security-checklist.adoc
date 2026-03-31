@@ -1,0 +1,287 @@
+= Boundary Security Checklist
+:toc:
+:toclevels: 2
+:icons: font
+
+A production-readiness checklist for Boundary applications. Items marked icon:check-circle[] are handled by the framework; items marked icon:hand-o-right[] require application-level action.
+
+== 1. Transport Security
+
+[cols="1,4"]
+|===
+|Status |Item
+
+|icon:check-circle[]
+|**HSTS** — `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` set by default in HTTP interceptors (`libs/platform/src/boundary/platform/shell/http/interceptors.clj`)
+
+|icon:hand-o-right[]
+|**TLS termination** — Configure TLS at the reverse proxy (nginx, Caddy, cloud LB). Boundary listens on plain HTTP; terminate HTTPS in front of it. See `resources/deploy/nginx/boundary.conf` for a reference config.
+
+|icon:hand-o-right[]
+|**Certificate rotation** — Use Let's Encrypt / ACME or your cloud provider's managed certificates. Automate renewal.
+|===
+
+== 2. HTTP Security Headers
+
+All headers below are set by the `security-headers` interceptor. No application action required unless you need to customise them.
+
+[cols="1,4"]
+|===
+|Status |Item
+
+|icon:check-circle[]
+|**Content-Security-Policy** — `default-src 'self'; script-src 'self' 'unsafe-eval'` (Alpine.js requires unsafe-eval). Inline scripts are blocked.
+
+|icon:check-circle[]
+|**X-Frame-Options** — `DENY` (prevents clickjacking)
+
+|icon:check-circle[]
+|**X-Content-Type-Options** — `nosniff`
+
+|icon:check-circle[]
+|**Referrer-Policy** — `strict-origin-when-cross-origin`
+
+|icon:check-circle[]
+|**Cross-Origin-Opener-Policy** — `same-origin`
+
+|icon:check-circle[]
+|**Permissions-Policy** — Disables geolocation, microphone, camera by default
+|===
+
+== 3. Authentication & Session Management
+
+[cols="1,4"]
+|===
+|Status |Item
+
+|icon:check-circle[]
+|**Password hashing** — Buddy hashers (bcrypt) with configurable work factor
+
+|icon:check-circle[]
+|**JWT tokens** — Signed with `JWT_SECRET` env var. Never hardcode secrets.
+
+|icon:check-circle[]
+|**MFA support** — TOTP/HOTP via `one-time` library, integrated in user module
+
+|icon:check-circle[]
+|**Session revocation** — Session list with individual revoke support
+
+|icon:hand-o-right[]
+|**JWT_SECRET rotation** — Use a strong (32+ char) secret. Rotate periodically. Set via environment variable, never in config.edn.
+
+|icon:hand-o-right[]
+|**Session expiry** — Configure appropriate session TTL in production config. Shorter is more secure.
+|===
+
+== 4. Input Validation (Injection Prevention)
+
+[cols="1,4"]
+|===
+|Status |Item
+
+|icon:check-circle[]
+|**SQL injection** — HoneySQL parameterises all queries. Never concatenate user input into SQL strings.
+
+|icon:check-circle[]
+|**XSS** — Hiccup auto-escapes output by default. Do not use `[:div {:dangerouslySetInnerHTML ...}]` or raw HTML injection.
+
+|icon:check-circle[]
+|**Schema validation** — Malli schemas at API boundaries (`schema.clj` per library). Invalid input is rejected before reaching business logic.
+
+|icon:check-circle[]
+|**Open redirect protection** — `safe-return-url` in user web handlers rejects `//` and non-local paths.
+
+|icon:hand-o-right[]
+|**File uploads** — When using `libs/storage`, configure allowed MIME types and max file size. Do not serve uploads from the same domain without content-disposition headers.
+|===
+
+== 5. CSRF & CORS
+
+[cols="1,4"]
+|===
+|Status |Item
+
+|icon:check-circle[]
+|**CSRF tokens** — Ring anti-forgery middleware available. HTMX forms include anti-forgery tokens.
+
+|icon:hand-o-right[]
+|**CORS** — Configure allowed origins in production config (`boundary/http :cors`). Never use `*` in production. Restrict to your actual frontend domains.
+|===
+
+== 6. Rate Limiting & DDoS Mitigation
+
+[cols="1,4"]
+|===
+|Status |Item
+
+|icon:check-circle[]
+|**Rate limiting framework** — Redis-backed rate limiting available via `libs/cache`. Configurable per-endpoint.
+
+|icon:hand-o-right[]
+|**Enable rate limiting** — Activate the cache module (move from `:inactive` to `:active` in config.edn) and configure rate limits for auth endpoints (login, register, password reset).
+
+|icon:hand-o-right[]
+|**Reverse proxy rate limiting** — Add connection limits and request rate limiting at the nginx/LB layer as a first line of defence.
+|===
+
+== 7. Secrets Management
+
+[cols="1,4"]
+|===
+|Status |Item
+
+|icon:check-circle[]
+|**Environment variables** — All secrets use `#env` Aero tags. No secrets in config.edn files.
+
+|icon:check-circle[]
+|**Config Doctor** — `bb doctor` validates that required env vars are set and warns about missing secrets.
+
+|icon:hand-o-right[]
+|**Required secrets for production:**
+  `JWT_SECRET` (32+ chars),
+  `DB_PASSWORD`,
+  `SENTRY_DSN` (if using Sentry),
+  `REDIS_PASSWORD` (if using Redis),
+  `CLOJARS_USERNAME` / `CLOJARS_PASSWORD` (CI only)
+
+|icon:hand-o-right[]
+|**Secret rotation** — Establish a rotation schedule. Database passwords and JWT secrets should be rotated at least quarterly.
+
+|icon:hand-o-right[]
+|**Never commit secrets** — `.gitignore` excludes `.env` files. Verify before every push.
+|===
+
+== 8. Dependency Security
+
+[cols="1,4"]
+|===
+|Status |Item
+
+|icon:hand-o-right[]
+|**CVE scanning** — Add https://github.com/rm-hull/nvd-clojure[nvd-clojure] or https://github.com/clj-holmes/clj-watson[clj-watson] to your CI pipeline. Run `clojure -T:nvd check` regularly.
+
+|icon:hand-o-right[]
+|**Dependency updates** — Review `deps.edn` dependencies monthly. Use `clojure -X:deps find-versions` to check for updates.
+
+|icon:hand-o-right[]
+|**Lock files** — Consider using `deps-lock` or pinning SHA versions for critical dependencies in production.
+|===
+
+== 9. Observability & Incident Response
+
+[cols="1,4"]
+|===
+|Status |Item
+
+|icon:check-circle[]
+|**Structured logging** — SLF4J/Logback with correlation IDs per request
+
+|icon:check-circle[]
+|**Error reporting** — Sentry integration with breadcrumbs (prod config)
+
+|icon:check-circle[]
+|**Health endpoints** — `/health` (basic), `/health/ready` (dependency checks), `/health/live` (liveness)
+
+|icon:check-circle[]
+|**Metrics** — Datadog / Prometheus adapters available via `libs/observability`
+
+|icon:hand-o-right[]
+|**Alerting** — Configure alerts for: 5xx error rate spikes, health check failures, authentication failures exceeding threshold, database connection pool exhaustion.
+
+|icon:hand-o-right[]
+|**Audit logging** — Enable audit trail for sensitive operations (user creation, role changes, data deletion). The audit repository is wired; ensure your application logs critical actions.
+
+|icon:hand-o-right[]
+|**Log retention** — Production uses rolling file appender with 90-day retention. Verify this meets your compliance requirements.
+|===
+
+== 10. Repository & CI Security
+
+[cols="1,4"]
+|===
+|Status |Item
+
+|icon:check-circle[]
+|**Branch protection** — `scripts/configure-security.sh` configures required reviews, status checks, and admin enforcement on `main`
+
+|icon:check-circle[]
+|**CI gates** — Linting, full test suite, config doctor, i18n scan, docs drift check all run on PR
+
+|icon:check-circle[]
+|**Workflow permissions** — Read-only by default (`scripts/verify-security.sh` validates)
+
+|icon:hand-o-right[]
+|**CODEOWNERS** — Ensure `CODEOWNERS` file is current. Security-sensitive paths (`libs/user/`, `libs/platform/shell/http/`) should require senior review.
+
+|icon:hand-o-right[]
+|**Signed commits** — Consider requiring GPG-signed commits for production branches.
+|===
+
+== Pre-Deployment Verification
+
+Run these before every production deployment:
+
+[source,bash]
+----
+# 1. Config validation
+bb doctor --env prod --ci
+
+# 2. Full test suite
+JWT_SECRET="your-secret" clojure -M:test:db/h2
+
+# 3. Linting
+clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
+
+# 4. Security verification (GitHub settings)
+./scripts/verify-security.sh
+
+# 5. Dependency audit (if nvd-clojure is configured)
+clojure -T:nvd check
+----
+
+== OWASP Top 10 Coverage
+
+[cols="1,2,1"]
+|===
+|OWASP Category |Boundary Coverage |Action
+
+|A01: Broken Access Control
+|Role-based auth, session management, tenant isolation
+|Verify per-endpoint authorization in your app
+
+|A02: Cryptographic Failures
+|Bcrypt hashing, JWT signing, TLS guidance
+|Ensure TLS termination, rotate secrets
+
+|A03: Injection
+|HoneySQL parameterisation, Malli validation, Hiccup escaping
+|Never use raw SQL or unescaped HTML
+
+|A04: Insecure Design
+|FC/IS architecture, protocol-based ports, schema validation
+|Follow FC/IS patterns in custom modules
+
+|A05: Security Misconfiguration
+|Config Doctor, security headers, env-var secrets
+|Run `bb doctor --env prod` before deploy
+
+|A06: Vulnerable Components
+|—
+|Add nvd-clojure to CI
+
+|A07: Auth Failures
+|MFA, password policy, rate limiting framework
+|Enable rate limiting on auth endpoints
+
+|A08: Data Integrity Failures
+|Signed JWTs, anti-forgery tokens
+|Validate webhook signatures (payments module does this)
+
+|A09: Logging Failures
+|Structured logging, Sentry, correlation IDs, audit trail
+|Configure alerts, review logs regularly
+
+|A10: SSRF
+|—
+|Validate/allowlist any user-provided URLs before fetching
+|===

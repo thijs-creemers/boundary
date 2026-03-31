@@ -290,6 +290,7 @@
                                      :membership-service (ig/ref :boundary/membership-service)
                                      :db-context (ig/ref :boundary/db-context)
                                      :i18n (ig/ref :boundary/i18n)}
+                              cache-enabled? (assoc :cache (ig/ref :boundary/cache))
                               admin-enabled?
                               (assoc :admin-routes (ig/ref :boundary/admin-routes))
                               workflow-enabled?

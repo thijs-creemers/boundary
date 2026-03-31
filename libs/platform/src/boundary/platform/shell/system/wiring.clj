@@ -105,7 +105,7 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service membership-service db-context i18n]}]
+  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service membership-service db-context cache i18n]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)
@@ -127,6 +127,10 @@
                           (get-in config [:active :boundary/settings :version] "unknown")
                           nil))
 
+        ;; Create readiness handler with dependency checks
+        readiness-handler-fn (ns-resolve 'boundary.platform.shell.interfaces.http.common 'readiness-handler)
+        ready-handler (readiness-handler-fn db-context cache)
+
         ;; Define platform routes (health checks, etc.) in normalized format
         platform-routes [{:path "/"
                           :methods {:get {:handler (fn [request]
@@ -143,10 +147,8 @@
                                           :summary "Health check endpoint"
                                           :no-doc true}}}
                          {:path "/health/ready"
-                          :methods {:get {:handler (fn [_] {:status 200
-                                                            :headers {"Content-Type" "application/json"}
-                                                            :body (cheshire.core/generate-string {:status "ready"})})
-                                          :summary "Readiness check"
+                          :methods {:get {:handler ready-handler
+                                          :summary "Readiness check with dependency health"
                                           :no-doc true}}}
                          {:path "/health/live"
                           :methods {:get {:handler (fn [_] {:status 200
