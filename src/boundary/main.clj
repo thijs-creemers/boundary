@@ -9,11 +9,11 @@
      java -jar boundary-standalone.jar              # Start HTTP server
      java -jar boundary-standalone.jar server       # Start HTTP server explicitly
      java -jar boundary-standalone.jar cli [args]   # Run CLI commands"
-   (:require [boundary.config :as config]
-             [boundary.platform.shell.system.wiring] ; Required for Integrant init functions
-             [clojure.string :as str]
-             [clojure.tools.logging :as log]
-             [integrant.core :as ig])
+  (:require [boundary.config :as config]
+            [boundary.platform.shell.system.wiring] ; Required for Integrant init functions
+            [clojure.string :as str]
+            [clojure.tools.logging :as log]
+            [integrant.core :as ig])
   (:gen-class))
 
 (defn- print-usage
@@ -32,12 +32,12 @@
   (println "Environment Variables:")
   (println "  HTTP_PORT           - HTTP server port (default: 3000)")
   (println "  HTTP_HOST           - HTTP server host (default: 0.0.0.0)")
-  (println "  ENV                 - Environment profile (dev, prod, test)")
+  (println "  BND_ENV             - Environment profile (dev, prod, test, acc)")
   (println)
   (println "Examples:")
   (println "  java -jar boundary.jar")
   (println "  java -jar boundary.jar server")
-  (println "  ENV=prod java -jar boundary.jar server")
+  (println "  BND_ENV=prod java -jar boundary.jar server")
   (println "  java -jar boundary.jar cli user list"))
 
 (defn- start-server!

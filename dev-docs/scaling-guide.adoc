@@ -213,16 +213,16 @@ Boundary applications are stateless by design — scale horizontally by adding i
 === Scaling Pattern
 
 ----
-                    ┌─────────────┐
-                    │   nginx /   │
+                    ┌───────────-──┐
+                    │   nginx /    │
                     │ Load Balancer│
-                    └──────┬──────┘
+                    └──────┬──── ──┘
               ┌────────────┼────────────┐
               ▼            ▼            ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐
+        ┌─────────-─┐ ┌────────-──┐ ┌─────────-─┐
         │ Boundary  │ │ Boundary  │ │ Boundary  │
         │ Instance 1│ │ Instance 2│ │ Instance 3│
-        └─────┬────┘ └─────┬────┘ └─────┬────┘
+        └─────┬───-─┘ └─────┬─-───┘ └────┬──--──┘
               │             │            │
               ▼             ▼            ▼
         ┌──────────────────────────────────┐

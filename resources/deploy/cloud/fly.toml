@@ -11,7 +11,7 @@ primary_region = "ams"
   dockerfile = "resources/conf/dev/Dockerfile"
 
 [env]
-  BND_ENV = "production"
+  BND_ENV = "prod"
   HTTP_PORT = "3000"
   POSTGRES_HOST = "my-boundary-app-db.internal"
   POSTGRES_PORT = "5432"

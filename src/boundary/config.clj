@@ -31,7 +31,7 @@
      (load-config)
      (load-config {:profile :test})"
   ([] (load-config {}))
-  ([{:keys [profile] :or {profile :dev}}]
+  ([{:keys [profile] :or {profile (keyword (or (System/getenv "BND_ENV") "dev"))}}]
    (let [config-path (str "conf/" (name profile) "/config.edn")
          config-resource (io/resource config-path)]
      (if config-resource

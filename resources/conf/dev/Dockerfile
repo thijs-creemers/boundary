@@ -15,10 +15,11 @@ COPY build.clj .
 # Download dependencies (cached layer)
 RUN clojure -P -X:dev:test:build
 
-# Copy source code
+# Copy source code (including libs for monorepo build)
 COPY src ./src
 COPY resources ./resources
 COPY test ./test
+COPY libs ./libs
 
 # Build application
 ARG BUILD_TARGET=uber

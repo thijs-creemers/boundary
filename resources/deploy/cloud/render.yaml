@@ -13,7 +13,7 @@ services:
     healthCheckPath: /health/ready
     envVars:
       - key: BND_ENV
-        value: production
+        value: prod
       - key: HTTP_PORT
         value: "3000"
       - key: JWT_SECRET
