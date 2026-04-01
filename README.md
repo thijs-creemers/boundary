@@ -6,9 +6,11 @@
 
 ## Why Boundary?
 
-**For developers:** 21 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
+**For developers:** 22 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
 
-**Ship faster:** The scaffolder generates production-ready modules (entity + routes + tests) in seconds. The admin UI auto-generates CRUD interfaces from your schema — no manual forms. Built-in observability, RFC 5988 pagination, and declarative interceptors mean you write business logic, not plumbing.
+**Ship faster:** The scaffolder generates production-ready modules (entity + routes + tests) in seconds. The admin UI auto-generates CRUD interfaces from your schema — no manual forms. Built-in observability, RFC 5988 pagination, and declarative interceptors mean you write business logic, not plumbing. AI-powered tooling (`bb scaffold ai`, `bb ai gen-tests`, `bb ai sql`) accelerates common workflows.
+
+**Production-ready:** Reference deployment configs (systemd, nginx, Fly.io, Render), an OWASP-aligned security checklist, scaling guides, health check endpoints, and zero-downtime migration patterns — everything you need to ship with confidence.
 
 **Zero lock-in:** Each library is a standard `deps.edn` dependency. Swap what doesn't fit.
 
@@ -55,11 +57,11 @@ If you prefer to use the full repository, from the repo root:
 
 ```bash
 export JWT_SECRET="change-me-dev-secret-min-32-chars"
-export BND_ENV="development"
+export BND_ENV="dev"
 clojure -M:repl-clj
 ```
 
-You get: SQLite database (zero-config), HTTP server on port 3000, a complete Integrant system, REPL-driven development, and a production-ready Dockerfile.
+You get: SQLite database (zero-config), HTTP server on port 3000, a complete Integrant system, REPL-driven development, and production-ready deployment templates.
 
 ---
 
@@ -70,6 +72,10 @@ You get: SQLite database (zero-config), HTTP server on port 3000, a complete Int
 | [Documentation](./docs/) | Architecture guides, tutorials, library reference (Antora) |
 | [AGENTS.md](./AGENTS.md) | Commands, conventions, common pitfalls, debugging |
 | [dev-docs/adr/](./dev-docs/adr/) | Architecture Decision Records |
+| [Deployment Patterns](./docs/modules/guides/pages/deployment-patterns.adoc) | systemd, nginx, Fly.io, Render reference configs |
+| [Migrations Guide](./docs/modules/guides/pages/migrations.adoc) | Zero-downtime schema change patterns |
+| [Security Checklist](./dev-docs/security-checklist.adoc) | OWASP Top 10 aligned production checklist |
+| [Scaling Guide](./dev-docs/scaling-guide.adoc) | JVM, HikariCP, Redis, and HTTP tuning |
 
 Each library also has its own `AGENTS.md` with library-specific documentation.
 
@@ -77,7 +83,7 @@ Each library also has its own `AGENTS.md` with library-specific documentation.
 
 ## Libraries
 
-Boundary is a monorepo of **21 independently publishable libraries**:
+Boundary is a monorepo of **22 independently publishable libraries**:
 
 | Library | Description |
 |---------|-------------|
@@ -101,6 +107,7 @@ Boundary is a monorepo of **21 independently publishable libraries**:
 | [search](libs/search/) | Full-text search: PostgreSQL FTS with LIKE fallback for H2/SQLite |
 | [geo](libs/geo/) | Geocoding (OSM/Google/Mapbox), DB cache, Haversine distance |
 | [ai](libs/ai/) | Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard |
+| [i18n](libs/i18n/) | Marker-based internationalisation with translation catalogues |
 | [ui-style](libs/ui-style/) | Shared UI style bundles, design tokens, CSS/JS assets |
 
 ---
@@ -171,6 +178,14 @@ bb ai explain --file stacktrace.txt  # Explain error
 bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate tests
 bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL
 bb ai docs --module libs/user --type agents                       # Generate AGENTS.md
+
+# Operations
+bb doctor                          # Validate config for common mistakes
+bb doctor --env all --ci           # Check all envs, exit non-zero (CI)
+bb setup                           # Interactive config setup wizard
+bb setup ai "PostgreSQL with Stripe payments"  # AI-powered config setup
+bb deploy --all                    # Deploy all libraries to Clojars
+bb deploy --missing                # Deploy only unpublished libraries
 ```
 
 See [AGENTS.md](./AGENTS.md) for the complete command reference, common pitfalls, and debugging strategies.
@@ -181,15 +196,40 @@ See [AGENTS.md](./AGENTS.md) for the complete command reference, common pitfalls
 
 ```clojure
 ;; Validation utilities only
-{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.0-alpha"}}}
+{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-9"}}}
 
 ;; Full web application stack
-{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.0-alpha"}
-        org.boundary-app/boundary-user     {:mvn/version "1.0.0-alpha"}
-        org.boundary-app/boundary-admin    {:mvn/version "1.0.0-alpha"}}}
+{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-9"}
+        org.boundary-app/boundary-user     {:mvn/version "1.0.1-alpha-9"}
+        org.boundary-app/boundary-admin    {:mvn/version "1.0.1-alpha-9"}}}
 ```
 
 ---
+
+## Deployment
+
+Build the uberjar and deploy to any platform:
+
+```bash
+clojure -T:build clean && clojure -T:build uber
+BND_ENV=prod java -jar target/boundary-*-standalone.jar
+```
+
+Reference configurations are provided under `resources/deploy/`:
+
+| Template | Description |
+|----------|-------------|
+| [systemd](resources/deploy/systemd/) | Service unit + environment file for bare-metal/VM |
+| [nginx](resources/deploy/nginx/) | Reverse proxy with TLS, WebSocket support, static caching |
+| [Fly.io](resources/deploy/cloud/fly.toml) | Auto-scaling, health checks, Amsterdam region |
+| [Render](resources/deploy/cloud/render.yaml) | Blueprint with managed PostgreSQL |
+
+Health endpoints: `/health` (liveness), `/health/ready` (readiness with DB/cache checks), `/health/live` (container orchestrator).
+
+See the [Deployment Patterns guide](./docs/modules/guides/pages/deployment-patterns.adoc) for full instructions.
+
+---
+
 ## Website
 
 https://boundary-app.org
