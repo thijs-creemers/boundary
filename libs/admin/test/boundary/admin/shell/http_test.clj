@@ -119,55 +119,55 @@
                     (try
                       (or
                          ;; Iterate through routes IN ORDER (important for specificity)
-                         (some (fn [route]
-                                (let [route-path (:path route)
-                                      route-methods (:methods route)]
-                                  (when (contains? route-methods method)
+                       (some (fn [route]
+                               (let [route-path (:path route)
+                                     route-methods (:methods route)]
+                                 (when (contains? route-methods method)
                                     ;; Match path pattern
-                                    (let [route-parts (str/split route-path #"/")
-                                          path-parts (str/split normalized-path #"/")]
-                                      (when (and (= (count route-parts) (count path-parts))
+                                   (let [route-parts (str/split route-path #"/")
+                                         path-parts (str/split normalized-path #"/")]
+                                     (when (and (= (count route-parts) (count path-parts))
                                                 (every? (fn [[rp pp]]
-                                                         (or (= rp pp)
-                                                             (.startsWith rp ":")))
-                                                       (map vector route-parts path-parts)))
+                                                          (or (= rp pp)
+                                                              (.startsWith rp ":")))
+                                                        (map vector route-parts path-parts)))
                                         ;; Extract path params
-                                        (let [path-params (into {}
+                                       (let [path-params (into {}
                                                                (keep (fn [[rp pp]]
-                                                                      (when (.startsWith rp ":")
-                                                                        [(keyword (subs rp 1)) pp]))
-                                                                    (map vector route-parts path-parts)))
-                                              updated-request (update request :path-params merge path-params)
-                                              handler-fn (get-in route-methods [method :handler])
-                                              response (handler-fn updated-request)]
+                                                                       (when (.startsWith rp ":")
+                                                                         [(keyword (subs rp 1)) pp]))
+                                                                     (map vector route-parts path-parts)))
+                                             updated-request (update request :path-params merge path-params)
+                                             handler-fn (get-in route-methods [method :handler])
+                                             response (handler-fn updated-request)]
                                           ;; If response body is Hiccup (vector), render to HTML
-                                          (if (vector? (:body response))
-                                            (update response :body ui-components/render-html)
-                                            response)))))))
-                              routes)
-                         
+                                         (if (vector? (:body response))
+                                           (update response :body ui-components/render-html)
+                                           response)))))))
+                             routes)
+
                          ;; No route matched - return 404
-                         {:status 404
-                          :headers {"Content-Type" "text/html"}
-                          :body "Not Found"})
-                        (catch Exception e
+                       {:status 404
+                        :headers {"Content-Type" "text/html"}
+                        :body "Not Found"})
+                      (catch Exception e
                           ;; Basic error handling - return appropriate status code
-                          (let [error-data (ex-data e)]
-                            (cond
-                              (= :forbidden (:type error-data))
-                              {:status 403
-                               :headers {"Content-Type" "text/html"}
-                               :body "Forbidden"}
-                              
-                              (= :not-found (:type error-data))
-                              {:status 404
-                               :headers {"Content-Type" "text/html"}
-                               :body "Not Found"}
-                              
-                              :else
-                              {:status 500
-                               :headers {"Content-Type" "text/html"}
-                               :body (str "Internal Server Error: " (.getMessage e))}))))))]
+                        (let [error-data (ex-data e)]
+                          (cond
+                            (= :forbidden (:type error-data))
+                            {:status 403
+                             :headers {"Content-Type" "text/html"}
+                             :body "Forbidden"}
+
+                            (= :not-found (:type error-data))
+                            {:status 404
+                             :headers {"Content-Type" "text/html"}
+                             :body "Not Found"}
+
+                            :else
+                            {:status 500
+                             :headers {"Content-Type" "text/html"}
+                             :body (str "Internal Server Error: " (.getMessage e))}))))))]
 
     (create-test-table! db-ctx)
 
@@ -585,12 +585,7 @@
                                   {:path {:entity "test-users" :id (str fake-id)}})
             response (*handler* request)]
         ;; Should return 404 or throw exception
-        (is (some? response))))
-
-    (testing "422 Unprocessable Entity for validation errors"
-      ;; Week 1: Basic validation
-      ;; Week 2+: Full Malli validation with detailed errors
-      (is true)))) ; Placeholder
+        (is (some? response))))))
 
 ;; =============================================================================
 ;; Security Tests

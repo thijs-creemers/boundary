@@ -16,7 +16,6 @@
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.table :as table-ui]
             [boundary.shared.ui.core.alpine :as alpine]
-            [boundary.platform.shell.web.table :as web-table]
             [clojure.string :as str]))
 
 ;; =============================================================================
@@ -768,10 +767,10 @@
   (let [{:keys [sort dir page page-size]} table-query
         base-url (str "/web/admin/" (name entity-name) "/table")
         hx-target "#entity-table-container"
-        table-params (web-table/table-query->params table-query)
-        filter-params (web-table/search-filters->params (or filters {}))
+        table-params (table-ui/table-query->params table-query)
+        filter-params (table-ui/search-filters->params (or filters {}))
         qs-map (merge table-params filter-params)
-        hx-url (str base-url "?" (web-table/encode-query-params qs-map))
+        hx-url (str base-url "?" (table-ui/encode-query-params qs-map))
         list-fields (:list-fields entity-config)]
     ;; Table container - Alpine.js scope is at parent entity-list-page level
     ;; MutationObserver automatically handles HTMX DOM updates (no afterSwap needed)
@@ -1548,7 +1547,7 @@
      URL string with query parameters"
   [entity-name opts]
   (let [base-url (str "/web/admin/" (name entity-name) "/table")
-        params (web-table/encode-query-params opts)]
+        params (table-ui/encode-query-params opts)]
     (if (seq params)
       (str base-url "?" params)
       base-url)))
