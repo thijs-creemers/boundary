@@ -261,7 +261,6 @@
                              "user-agent" "test-client/2.0"}}
 
           context (pd/request->context request)
-          _ (println "DEBUG: Generated context:" context)
           enriched-context (pd/enrich-context context {:environment "test"})
           exception (create-test-exception :message "Integration test error"
                                            :data {:operation "create-user"})
@@ -355,7 +354,6 @@
                              "x-user-id" "user-456"}}
 
           context (pd/request->context request)
-          _ (println "DEBUG: Correlation test context:" context)
           exception (create-test-exception :message "Correlated error")
 
           problem-response (pd/exception->problem-response exception :context context)
@@ -417,9 +415,4 @@
           _ (error-reporting/report-enhanced-application-error
              mock-service exception "Test error" {} context)
           error-data (first (get-reported-errors mock-service))]
-      (println "Mock service data exists?" (not (nil? error-data)))
-      (println "Context exists?" (not (nil? (:context error-data))))
-      (println "All context keys:" (keys (:context error-data)))
-      (println "trace-id value:" (get-in error-data [:context :trace-id]))
-      (println "Expected correlation-id:" correlation-id)
       (is (= correlation-id (get-in error-data [:context :trace-id]))))))

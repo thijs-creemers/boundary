@@ -6,8 +6,7 @@
    report errors without dealing with protocol details directly."
   (:require
    [boundary.observability.errors.ports :as ports]
-   [clojure.string :as str]
-   [clojure.tools.logging :as log]))
+   [clojure.string :as str]))
 
 ;; =============================================================================
 ;; Context Management Utilities
@@ -377,9 +376,8 @@
   [reporter exception message context]
   (try
     (report-application-error reporter exception message context)
-    (catch Exception report-error
-      ;; If error reporting itself fails, log it but don't fail the application
-      (log/error report-error "Failed to report error to error reporting service")
+    (catch Exception _report-error
+      ;; If error reporting itself fails, return sentinel — callers can check for this
       "error-reporting-failed")))
 
 ;; =============================================================================
@@ -475,28 +473,6 @@
     (< (- current-time last-report-time) suppress-window)))
 
 ;; =============================================================================
-;; Error Metrics Integration
-;; =============================================================================
-
-(defn track-error-metrics
-  "Tracks error reporting metrics (requires metrics emitter).
-   
-   Args:
-     metrics-emitter - Metrics emitter instance (optional)
-     error-type      - Type of error
-     severity        - Error severity
-     service         - Service name
-   
-   Returns:
-     nil"
-  [metrics-emitter _error-type _severity _service]
-  (when metrics-emitter
-    ;; This would require the metrics component to be available
-    ;; Implementation would depend on the metrics core functions
-    (comment
-      "Track error count, error rate, and severity distribution")))
-
-;; =============================================================================
 ;; Configuration Helpers
 ;; =============================================================================
 
@@ -520,48 +496,3 @@
   [& configs]
   (apply merge-with (fn [a b] (if (coll? b) b a)) configs))
 
-;; =============================================================================
-;; Testing and Development Utilities
-;; =============================================================================
-
-(defn create-test-exception
-  "Creates a test exception for development and testing.
-   
-   Args:
-     message - Exception message
-     cause   - Optional cause exception
-   
-   Returns:
-     RuntimeException instance"
-  ([message]
-   (RuntimeException. message))
-  ([message cause]
-   (RuntimeException. message cause)))
-
-(defn simulate-error-scenarios
-  "Simulates various error scenarios for testing error reporting.
-   
-   Args:
-     reporter - IErrorReporter instance
-     context  - Base error context
-   
-   Returns:
-     Map of scenario results"
-  [reporter context]
-  {:validation-error
-   (report-validation-error reporter
-                            [{:field "email" :message "Invalid format"}]
-                            context)
-
-   :application-error
-   (report-application-error reporter
-                             (create-test-exception "Test application error")
-                             "Simulated application error"
-                             context)
-
-   :external-service-error
-   (report-external-service-error reporter
-                                  "payment-service"
-                                  "process-payment"
-                                  {:status 500 :message "Service unavailable"}
-                                  context)})
