@@ -28,6 +28,7 @@
                       (str/trim))
           ;; Try to extract just the JSON object if there's surrounding text
           json-str (or (re-find #"(?s)\{.*\}" cleaned) cleaned)]
+      ;; Coercive parse: external AI text → data; exception → error map
       (try
         (json/parse-string json-str true)
         (catch Exception _
