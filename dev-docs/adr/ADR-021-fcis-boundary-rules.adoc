@@ -1,0 +1,88 @@
+= ADR-021: FC/IS Boundary Rules
+:status: Accepted
+:date: 2026-04-03
+:deciders: boundary-team
+
+== Status
+
+Accepted
+
+== Context
+
+=== Background
+
+Boundary follows the Functional Core / Imperative Shell (FC/IS) architecture
+pattern. Each library is split into `core/` (pure functions) and `shell/`
+(side-effecting I/O, persistence, HTTP handlers). This separation enables
+fast unit testing without mocks and makes business logic easy to reason about.
+
+=== Problem
+
+The QA review (PRs #108–#116) discovered 5 instances where `core/` namespaces
+silently imported shell code or I/O libraries. These violations compiled and
+ran without error, but defeated the purpose of the FC/IS split: the "pure"
+core was performing side effects.
+
+No automated check existed to catch this at commit time or in CI.
+
+== Decision
+
+The following rules are enforced for all namespaces under `core/`:
+
+=== Forbidden imports in core namespaces
+
+. **Shell namespaces** — any namespace containing `.shell.` in its path
+. **Logging** — `clojure.tools.logging` (logging is a side effect)
+. **File I/O** — `clojure.java.io` (disk access is a side effect)
+. **Database** — `next.jdbc` and any sub-namespace (DB queries are side effects)
+. **HTTP clients** — `clj-http` and any sub-namespace (network I/O)
+
+=== Allowed exceptions
+
+**Coercive parsing** — `try`/`catch` blocks in core namespaces that parse
+external data (e.g. `Integer/parseInt`, `UUID/fromString`) and return error
+maps are permitted. These are pure data transformations where the exception
+is an implementation detail of the parsing, not a side-effect boundary.
+See `boundary.core.parsing` and PR #116 for the documented justification.
+
+=== Enforcement
+
+The rules are enforced by `boundary-tools/src/boundary/tools/check_fcis.clj`:
+
+* **CI gate:** `bb check:fcis` runs as a standalone job in `.github/workflows/ci.yml`
+* **Pre-commit hook:** `.githooks/pre-commit` runs `bb check:fcis` before every commit
+* **Local validation:** developers can run `bb check:fcis` at any time
+
+The script globs all `libs/*/src/boundary/*/core/**/*.clj` files, parses each
+`(ns ...)` form, extracts `:require` entries, and exits non-zero if any match
+the forbidden patterns.
+
+== Consequences
+
+=== Positive
+
+* *Prevents silent FC/IS violations* — core namespaces are guaranteed free of
+  shell imports, logging, I/O, and database code.
+* *Fast feedback* — the Babashka script runs in under 2 seconds, suitable for
+  pre-commit hooks.
+* *Documented convention* — new contributors can look up the rules in this ADR
+  rather than learning them through code review.
+
+=== Negative / risks
+
+* *False positives* — a namespace that happens to contain `.shell.` in its name
+  but is actually pure will be flagged. This is unlikely given the project's
+  naming conventions and can be addressed by renaming.
+* *Incomplete coverage* — the check only inspects `:require` directives, not
+  dynamic `require` or `resolve` calls. These are extremely rare in Boundary
+  and not worth the complexity of detecting.
+
+=== Mitigation
+
+If a legitimate exception is needed in the future, the forbidden patterns list
+in `check_fcis.clj` can be amended with an allowlist mechanism. Any such change
+should be accompanied by an update to this ADR.
+
+== Related ADRs
+
+* ADR-010 — HTTP Interceptor Architecture (shell-side interceptor patterns)

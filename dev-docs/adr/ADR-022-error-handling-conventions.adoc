@@ -1,0 +1,132 @@
+= ADR-022: Error Handling Conventions
+:status: Accepted
+:date: 2026-04-03
+:deciders: boundary-team
+
+== Status
+
+Accepted
+
+== Context
+
+=== Background
+
+Boundary's HTTP interceptor pipeline (ADR-010) transforms exceptions into
+structured HTTP responses. The `http-error-handler` interceptor inspects
+`ex-data` to determine the response status code, while
+`boundary.platform.core.http.problem-details` provides RFC 7807 mappings.
+
+=== Problem
+
+The QA review found inconsistent error handling across libraries:
+
+* Some code threw bare `IllegalArgumentException` or `Exception` without
+  `ex-info`, causing the error handler to return generic 500 responses.
+* Error types were undocumented — contributors had to read interceptor source
+  to discover valid `:type` keywords.
+* No diagnostic existed to catch missing `:type` fields during development.
+
+== Decision
+
+=== All errors use `ex-info` with `:type`
+
+Every exception intended to reach the HTTP error handler must use `ex-info`
+with a `:type` keyword in the data map:
+
+[source,clojure]
+----
+(throw (ex-info "User not found"
+                {:type :not-found
+                 :message "No user with that ID"}))
+----
+
+=== Canonical error types
+
+[cols="1,1,2"]
+|===
+| Error Type | HTTP Status | Usage
+
+| `:validation-error`
+| 400
+| Malli schema failures, invalid input
+
+| `:not-found`
+| 404
+| Entity not found by ID or slug
+
+| `:unauthorized`
+| 401
+| Missing or invalid authentication
+
+| `:forbidden`
+| 403
+| Authenticated but insufficient permissions
+
+| `:conflict`
+| 409
+| Duplicate entity, optimistic locking failure
+
+| `:redirect`
+| 302 (or custom)
+| Redirect with `:location` in ex-data
+
+| (any other)
+| 500
+| Unexpected internal error
+|===
+
+Additional specialized types (`:user-not-found`, `:resource-not-found`,
+`:auth-failed`, etc.) are defined in
+`boundary.platform.core.http.problem-details/default-error-mappings` and map
+to the same base status codes.
+
+=== Forbidden patterns
+
+* **Bare exceptions** — `(throw (Exception. "msg"))` without `ex-info` is
+  forbidden. These produce 500 responses with no structured data.
+* **`IllegalArgumentException` as flow control** — use `:validation-error`
+  type instead.
+* **Missing `:type`** — `(throw (ex-info "msg" {:foo "bar"}))` without
+  `:type` is caught by the `enforce-error-type?` diagnostic (see below).
+
+=== Development diagnostic: `enforce-error-type?`
+
+When the system configuration includes `{:enforce-error-type? true}`, the
+`http-error-handler` interceptor logs a warning and returns a diagnostic
+500 response for any `ex-info` that is missing the `:type` key. This is
+enabled in `dev` and `test` environments to catch violations early.
+
+In production, missing `:type` silently falls through to the default 500
+handler to avoid leaking internal diagnostics.
+
+== Consequences
+
+=== Positive
+
+* *Consistent API responses* — clients can rely on predictable status codes
+  and error structures for all error conditions.
+* *Better observability* — structured `:type` fields enable filtering and
+  alerting by error category in logging and monitoring.
+* *Early detection* — `enforce-error-type?` catches bare exceptions during
+  development before they reach production.
+* *Documented contract* — the canonical type table serves as a reference for
+  both backend and frontend developers.
+
+=== Negative / risks
+
+* *Migration effort* — existing code that throws bare exceptions must be
+  updated. This is a one-time cost, largely completed during the QA review.
+* *Type proliferation* — without governance, the set of `:type` keywords
+  could grow unbounded. The canonical table above is the authoritative list;
+  new types should be added here before use.
+
+=== Mitigation
+
+The security test suite (`boundary.platform.shell.security-test`) verifies
+that all canonical error types map to their expected HTTP status codes. Adding
+a new type without updating the test and this ADR will cause a test failure.
+
+== Related ADRs
+
+* ADR-010 — HTTP Interceptor Architecture (interceptor pipeline design)
+* ADR-021 — FC/IS Boundary Rules (core/shell separation)

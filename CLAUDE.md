@@ -54,6 +54,12 @@ bb check-links       # Validate local markdown links in AGENTS.md files
 bb smoke-check       # Verify deps.edn aliases and key tool entrypoints
 bb install-hooks     # Configure git hooks path to .githooks
 bb scripts/docs_lint.clj  # Run documentation drift linter directly
+
+# Quality Gates (CI + pre-commit)
+bb check:fcis                    # FC/IS enforcement: core/ must not import shell/IO/logging/DB
+bb check:placeholder-tests       # Detect (is true) placeholder assertions in tests
+bb check:deps                    # Verify library dependency direction + cycle detection
+clojure -M:test:db/h2 --focus-meta :security  # Security-focused tests (error mapping, CSRF, XSS, SQL)
 ```
 
 ## Architecture: Functional Core / Imperative Shell

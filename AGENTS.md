@@ -95,6 +95,12 @@ bb check-links                                     # Validate local markdown lin
 bb smoke-check                                     # Verify deps.edn aliases and key tool entrypoints
 bb install-hooks                                   # Configure git hooks path to .githooks
 bb scripts/docs_lint.clj                           # Run documentation drift linter directly
+
+# Quality Gates (all run in CI + check:fcis runs in pre-commit)
+bb check:fcis                                      # FC/IS enforcement: core/ must not import shell/IO/logging/DB
+bb check:placeholder-tests                         # Detect (is true) placeholder assertions in tests
+bb check:deps                                      # Verify library dependency direction + cycle detection
+clojure -M:test:db/h2 --focus-meta :security      # Security-focused tests (error mapping, CSRF, XSS, SQL)
 ```
 
 ### Architecture Quick Facts
@@ -656,6 +662,26 @@ See `libs/i18n/AGENTS.md` for complete API reference, middleware wiring, and com
 
 ---
 
+## Quality Gates
+
+Six automated safeguards run in CI (and `check:fcis` in pre-commit) to prevent regressions caught during QA review (PRs #108–#116).
+
+| Gate | Command | What it catches | Hard fail? |
+|------|---------|-----------------|------------|
+| **FC/IS enforcement** | `bb check:fcis` | Core namespaces importing shell, I/O, logging, or DB code | Yes |
+| **Placeholder tests** | `bb check:placeholder-tests` | `(is true)` / `(is (= true true))` masking missing coverage | Yes |
+| **Dependency direction** | `bb check:deps` | Core independence violations, circular deps between libraries | Yes (cycles/core); warn (undeclared) |
+| **Security tests** | `clojure -M:test:db/h2 --focus-meta :security` | Error→HTTP mapping, CSRF routing, XSS escaping, SQL injection, sensitive field leaks | Yes (test failure) |
+| **clj-kondo lint** | `clojure -M:clj-kondo --lint ...` | Static analysis (existing gate) | Yes |
+| **Config doctor** | `bb doctor --env dev --ci` | Configuration errors (existing gate) | Yes |
+
+**Scripts location:** `boundary-tools/src/boundary/tools/check_{fcis,tests,deps}.clj`
+**Security tests:** `libs/platform/test/boundary/platform/shell/security_test.clj` (tagged `^:security ^:unit`)
+**Handler test helpers:** `test/support/handler_test_helpers.clj` (Ring request builders, response assertions)
+**ADRs:** `dev-docs/adr/ADR-021-fcis-boundary-rules.adoc`, `ADR-022-error-handling-conventions.adoc`
+
+---
+
 ## Library-Specific Guides
 
 Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, and workflows.
@@ -752,6 +778,9 @@ Any project using `boundary-starter` or starting fresh should consume it via:
 | `boundary.tools.admin` | `bb create-admin` |
 | `boundary.tools.deploy` | `bb deploy` (handles all 21 artifacts) |
 | `boundary.tools.dev` | `bb migrate`, `bb check-links`, `bb smoke-check`, `bb install-hooks` |
+| `boundary.tools.check-fcis` | `bb check:fcis` — FC/IS boundary enforcement (ADR-021) |
+| `boundary.tools.check-tests` | `bb check:placeholder-tests` — placeholder assertion detection |
+| `boundary.tools.check-deps` | `bb check:deps` — dependency direction linting + cycle detection |
 
 ### Releasing boundary-tools
 

@@ -2,3 +2,4 @@
 set -euo pipefail
 
 bb scripts/check_agents_links.clj
+bb check:fcis

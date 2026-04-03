@@ -192,6 +192,21 @@ See [AGENTS.md](./AGENTS.md) for the complete command reference, common pitfalls
 
 ---
 
+## Quality Gates
+
+Six automated safeguards run in CI to catch regressions early. The FC/IS check also runs as a pre-commit hook.
+
+```bash
+bb check:fcis                    # Core namespaces must not import shell, I/O, logging, or DB
+bb check:placeholder-tests       # No (is true) placeholders masking missing coverage
+bb check:deps                    # Library dependency direction + cycle detection
+clojure -M:test:db/h2 --focus-meta :security  # Error mapping, CSRF, XSS, SQL parameterization
+```
+
+See [ADR-021](./dev-docs/adr/ADR-021-fcis-boundary-rules.adoc) (FC/IS rules) and [ADR-022](./dev-docs/adr/ADR-022-error-handling-conventions.adoc) (error handling conventions) for rationale.
+
+---
+
 ## Using Individual Libraries
 
 ```clojure
