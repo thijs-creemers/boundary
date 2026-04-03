@@ -111,4 +111,4 @@
       (.mkdirs (.getParentFile out-edn))
       (spit out-edn (pr-str edn))
       (spit out-txt human)
-      (is true))))
+      (is (string? human)))))

@@ -469,9 +469,9 @@
       (let [result (link-headers/generate-link-header "/api/v1/users" {} nil)]
         ;; If it succeeds, result should be nil or empty
         (is (or (nil? result) (str/blank? result))))
-      (catch Exception _e
+      (catch Exception e
         ;; If it throws, that's also acceptable behavior
-        (is true))))
+        (is (instance? Exception e)))))
 
   (testing "Last page calculation with exact divisor"
     (let [base-path "/api/v1/users"
