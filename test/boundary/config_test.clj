@@ -3,6 +3,28 @@
             [clojure.test :refer [deftest is testing]]
             [integrant.core :as ig]))
 
+;; ---------------------------------------------------------------------------
+;; Environment alias normalization
+;; ---------------------------------------------------------------------------
+
+(deftest normalize-env-aliases-test
+  (testing "long-form :profile values are normalized to short directory names"
+    (is (map? (sut/load-config {:profile :development})))
+    (is (map? (sut/load-config {:profile :production})))
+    (is (map? (sut/load-config {:profile :testing})))
+    (is (map? (sut/load-config {:profile :acceptance}))))
+
+  (testing "short-form values still work unchanged"
+    (is (map? (sut/load-config {:profile :dev})))
+    (is (map? (sut/load-config {:profile :test})))
+    (is (map? (sut/load-config {:profile :prod})))
+    (is (map? (sut/load-config {:profile :acc}))))
+
+  (testing "unknown profile still produces a clear error"
+    (let [ex (is (thrown? clojure.lang.ExceptionInfo
+                          (sut/load-config {:profile :nonexistent})))]
+      (is (= "Configuration file not found" (ex-message ex))))))
+
 (defn- base-config
   []
   {:active
