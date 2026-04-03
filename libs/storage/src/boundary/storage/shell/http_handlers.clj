@@ -2,11 +2,20 @@
   "HTTP handlers for file upload and download operations.
 
   Provides Ring-compatible handlers for file operations."
-(:require [boundary.storage.shell.service :as service]
+  (:require [boundary.storage.shell.service :as service]
             [boundary.platform.core.http.problem-details :as problem-details]
             [clojure.java.io :as io]
             [clojure.string :as str])
   (:import [java.io ByteArrayOutputStream]))
+
+;; ============================================================================
+;; Parsing Helpers
+;; ============================================================================
+
+(defn- parse-int-safe
+  "Parse string to int, returning nil on invalid input."
+  [^String s]
+  (try (Integer/parseInt s) (catch NumberFormatException _ nil)))
 
 ;; ============================================================================
 ;; Multipart File Helpers
@@ -78,8 +87,8 @@
 
           ;; Extract validation options from query params
           max-size (when-let [ms (get query-params "max-size")]
-                     (Integer/parseInt ms))
-allowed-types (when-let [types (get query-params "allowed-types")]
+                     (parse-int-safe ms))
+          allowed-types (when-let [types (get query-params "allowed-types")]
                           (str/split types #","))
           allowed-extensions (when-let [exts (get query-params "allowed-extensions")]
                                (str/split exts #","))]
@@ -131,7 +140,7 @@ allowed-types (when-let [types (get query-params "allowed-types")]
           visibility (when visibility-str (keyword visibility-str))
           create-thumbnail (= "true" (get multipart-params "create-thumbnail"))
           thumbnail-size (when-let [size (get multipart-params "thumbnail-size")]
-                           (Integer/parseInt size))]
+                           (parse-int-safe size))]
 
       (if-not file
         (problem-details/bad-request
@@ -224,7 +233,7 @@ allowed-types (when-let [types (get query-params "allowed-types")]
   (fn [{:keys [path-params query-params]}]
     (let [file-key (get path-params :file-key)
           expiration (if-let [exp (get query-params "expiration")]
-                       (Integer/parseInt exp)
+                       (parse-int-safe exp)
                        3600)]
 
       (if-not file-key
