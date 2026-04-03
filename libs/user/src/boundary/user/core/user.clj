@@ -381,10 +381,8 @@
     (= "system@example.com" (:email user))
     {:allowed? false :reason :system-user}
 
-    ;; Last admin user cannot be deleted
-    ;; (In real implementation, this would require context about other users)
+    ;; Last admin user cannot be deleted (full check in service layer)
     (= :admin (:role user))
-    ; (is-last-admin? user) - this would be checked in service layer
     {:allowed? false :reason :last-admin-user}
 
     :else
@@ -452,5 +450,3 @@
      :avg-events-per-day (if (> unique-days 0) (/ event-count unique-days) 0)
      :activity-score (min 100 (* (/ unique-days analysis-period-days) 100))
      :user-id (:id user)}))
-
-;; Functions already exist above - no stubs needed

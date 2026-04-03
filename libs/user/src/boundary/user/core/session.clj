@@ -4,12 +4,14 @@
 
 ;; Basic session validation
 (defn validate-session-creation-request
+  "Validate that session-data has the required :user-id key."
   [session-data]
   (if (and (map? session-data) (:user-id session-data))
     {:valid? true :data session-data}
     {:valid? false :errors {:user-id "required"}}))
 
 (defn is-session-valid?
+  "Check if session is valid: not nil, not revoked, and not expired."
   [session current-time]
   (cond
     (nil? session) {:valid? false :reason :not-found}
@@ -19,10 +21,12 @@
 
 ;; Session creation helpers  
 (defn generate-session-token
+  "Build a deterministic session token from a timestamp and nonce."
   [timestamp-ms nonce]
   (str "token-" timestamp-ms "-" nonce))
 
 (defn calculate-session-expiry
+  "Calculate session expiry instant. Remember-me sessions last 30 days, otherwise 24h."
   ([created-at remember-me?]
    (let [hours (if remember-me? (* 30 24) 24)]
      (.plusSeconds created-at (* hours 3600))))
@@ -31,6 +35,7 @@
      (.plusSeconds created-at (* hours 3600)))))
 
 (defn prepare-session-for-creation
+  "Assemble a complete session map from raw data, id, token, and timestamps."
   ([session-data current-time session-id token]
    (-> session-data
        (assoc :id session-id)
@@ -53,6 +58,7 @@
 
 ;; Session management
 (defn should-extend-session?
+  "Return true if session is close enough to expiry to warrant extension."
   [session current-time extension-policy]
   (let [time-until-expiry (.between java.time.temporal.ChronoUnit/SECONDS
                                     current-time (:expires-at session))
@@ -60,6 +66,7 @@
     (< time-until-expiry extension-threshold)))
 
 (defn update-session-access
+  "Update last-accessed-at and optionally extend expiry if near threshold."
   [session current-time]
   (let [updated-session (assoc session :last-accessed-at current-time)]
     (if (should-extend-session? session current-time {:extend-threshold-hours 2})
@@ -67,6 +74,7 @@
       updated-session)))
 
 (defn should-cleanup-session?
+  "Return true if session has been expired longer than the grace period."
   [session current-time cleanup-policy]
   (let [grace-period-days (get cleanup-policy :cleanup-grace-period-days 7)
         grace-period-seconds (* grace-period-days 24 3600)
@@ -74,15 +82,18 @@
     (.isBefore (:expires-at session) cleanup-threshold)))
 
 (defn mark-session-for-cleanup
+  "Mark session as revoked by setting :revoked-at to current time."
   [session current-time]
   (assoc session :revoked-at current-time))
 
 (defn filter-sessions-for-cleanup
+  "Return sessions that have been expired past the cleanup grace period."
   [sessions current-time]
   (filter #(should-cleanup-session? % current-time {:cleanup-grace-period-days 7}) sessions))
 
 ;; Security functions
 (defn detect-suspicious-activity?
+  "Detect suspicious patterns (IP change, concurrent sessions) between current and previous sessions."
   [session previous-sessions]
   (let [ip-changes (and (seq previous-sessions)
                         (not= (:ip-address session) (:ip-address (first previous-sessions))))
@@ -94,6 +105,7 @@
      :reasons reasons}))
 
 (defn calculate-session-risk-score
+  "Calculate a 0.0-1.0 risk score based on IP changes and concurrent sessions."
   [session previous-sessions]
   (let [suspicious-result (detect-suspicious-activity? session previous-sessions)
         base-score 0.1
@@ -102,11 +114,13 @@
     (+ base-score ip-change-score concurrent-score)))
 
 (defn should-require-additional-verification?
+  "Return true if session risk score exceeds the verification threshold (0.5)."
   [session previous-sessions]
   (> (calculate-session-risk-score session previous-sessions) 0.5))
 
 ;; Analytics functions
 (defn analyze-session-duration
+  "Calculate session duration in hours from creation to last access."
   [session now]
   (let [start-time (:created-at session)
         end-time (or (:last-accessed-at session) now)
@@ -115,6 +129,7 @@
      :duration-hours duration-hours}))
 
 (defn group-sessions-by-device-type
+  "Group sessions into :mobile, :desktop, or :other based on user-agent."
   [sessions]
   (group-by #(cond
                (.contains (:user-agent %) "Mobile") :mobile
@@ -122,6 +137,7 @@
                :else :other) sessions))
 
 (defn calculate-user-session-stats
+  "Compute active/inactive session counts for a given user-id."
   [sessions user-id]
   (let [user-sessions (filter #(= (:user-id %) user-id) sessions)
         active-sessions (filter #(nil? (:revoked-at %)) user-sessions)
@@ -133,6 +149,7 @@
 
 ;; Device management
 (defn extract-device-info
+  "Parse user-agent and ip-address into a device-info map with :device-type."
   [user-agent ip-address]
   {:device-type (cond
                   (.contains user-agent "iPhone") :mobile
@@ -142,6 +159,7 @@
    :user-agent user-agent})
 
 (defn is-same-device?
+  "Check if two device-info maps represent the same device (same IP and similar user-agent)."
   [device1 device2]
   (and (= (:ip-address device1) (:ip-address device2))
        (or (= (:user-agent device1) (:user-agent device2))

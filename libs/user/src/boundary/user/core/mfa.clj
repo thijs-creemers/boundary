@@ -9,7 +9,7 @@
    
    All functions are pure and deterministic - no I/O operations.
    TOTP generation and cryptographic operations are handled in the shell layer."
-(:require [clojure.string :as str]))
+  (:require [clojure.string :as str]))
 
 ;; =============================================================================
 ;; MFA Business Rules
@@ -308,9 +308,9 @@
      
    Returns:
      {:requires-mfa? boolean
-      :mfa-verified? boolean
-      :allow-login? boolean
-      :reason optional-string}
+      :mfa-verified? boolean-or-pending  ; :pending when shell verification needed
+      :allow-login? boolean-or-pending   ; :pending when shell verification needed
+      :reason string}
      
     Pure - MFA login flow decision logic."
   [user password-valid? mfa-code _risk-analysis]
