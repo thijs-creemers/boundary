@@ -1,5 +1,5 @@
-(ns boundary.core.interceptors-test
-  "Tests for universal interceptors."
+(ns boundary.platform.shell.interceptors-test
+  "Tests for platform shell interceptors (context, logging, metrics, effects, response shaping)."
   (:require [clojure.test :refer [deftest is testing]]
             [boundary.platform.shell.interceptors :as interceptors]
             [boundary.core.interceptor :as ic]
