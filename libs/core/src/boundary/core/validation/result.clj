@@ -1,16 +1,16 @@
 (ns boundary.core.validation.result
   "Standard validation result format and utilities.
-  
+
    This namespace defines the canonical result format for all validation
    operations in the Boundary framework, supporting both schema validation
    and business rule validation with structured errors and warnings.
-   
+
    Result Format:
      {:valid?   boolean                    ; Overall validation status
       :data     map                        ; Validated/transformed data (if valid)
       :errors   vector-of-error-maps       ; Validation errors (if invalid)
       :warnings vector-of-warning-maps}    ; Non-blocking warnings (optional)
-   
+
    Error/Warning Map Format:
      {:field   keyword                     ; Field identifier
       :code    keyword                     ; Error/warning code
@@ -18,12 +18,13 @@
       :params  map                         ; Template parameters
       :path    vector                      ; Path to error location
       :rule-id keyword}                    ; Optional: validation rule ID
-   
+
    Design Principles:
    - Forward compatibility: new keys can be added without breaking existing code
    - Feature-flag gated: new functionality controlled by BND_DEVEX_VALIDATION
    - I18n-ready: :code + :params enable future message translation
-   - FC/IS compliant: pure data structures, no side effects")
+   - FC/IS compliant: pure data structures, no side effects"
+  (:require [boundary.core.config.feature-flags :as flags]))
 
 ;; =============================================================================
 ;; Feature Flag Support
@@ -31,16 +32,14 @@
 
 (defn devex-validation-enabled?
   "Check if DevEx validation features are enabled.
-   
-    Reads BND_DEVEX_VALIDATION environment variable.
-    Default: false (backward compatible)
-    
-    Args: None
-    
-    Returns:
-      Boolean indicating if DevEx validation is enabled"
+
+   Delegates to the feature-flags system for consistent flag resolution.
+   Default: false (backward compatible).
+
+   Returns:
+     Boolean indicating if DevEx validation is enabled"
   []
-  (= "true" (System/getenv "BND_DEVEX_VALIDATION")))
+  (flags/enabled? :devex-validation))
 
 ;; =============================================================================
 ;; Result Constructors

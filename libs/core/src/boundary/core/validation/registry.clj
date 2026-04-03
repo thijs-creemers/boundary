@@ -64,11 +64,11 @@
         :validator-fn (fn [data] (some? (:email data)))})"
   [rule]
   (when-not (:rule-id rule)
-    (throw (IllegalArgumentException. "Rule must have :rule-id")))
+    (throw (ex-info "Rule must have :rule-id" {:rule rule})))
   (let [rule-id (:rule-id rule)]
     (when (get @registry rule-id)
-      (throw (IllegalArgumentException.
-              (str "Rule already registered: " rule-id))))
+      (throw (ex-info (str "Rule already registered: " rule-id)
+                      {:rule-id rule-id})))
     (swap! registry assoc rule-id rule)
     rule))
 

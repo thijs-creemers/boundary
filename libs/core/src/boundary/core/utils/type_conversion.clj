@@ -1,6 +1,7 @@
 (ns boundary.core.utils.type-conversion
   "Generic type and case conversion utilities."
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [boundary.core.utils.case-conversion :as case-conv])
   (:import [java.util UUID]
            [java.time Instant]))
 
@@ -39,16 +40,16 @@
     (cond
       (instance? Instant s)
       s  ; Already an Instant, return as-is
-      
+
       (instance? java.sql.Timestamp s)
       (.toInstant ^java.sql.Timestamp s)  ; Convert Timestamp to Instant
-      
+
       (string? s)
       (try
         (Instant/parse s)
         (catch Exception _
           nil))
-      
+
       :else
       nil)))
 
@@ -74,22 +75,16 @@
   (= i 1))
 
 (defn snake-case->kebab-case
-  "Convert snake_case keys to kebab-case keys in a map (nil-safe)."
+  "Convert snake_case keys to kebab-case keys in a map (nil-safe).
+   Delegates to boundary.core.utils.case-conversion/snake-case->kebab-case-map."
   [m]
-  (when m
-    (reduce-kv (fn [acc k v]
-                 (let [new-key (-> k name (str/replace #"_" "-") keyword)]
-                   (assoc acc new-key v)))
-               {} m)))
+  (case-conv/snake-case->kebab-case-map m))
 
 (defn kebab-case->snake-case
-  "Convert kebab-case keys to snake_case keys in a map (nil-safe)."
+  "Convert kebab-case keys to snake_case keys in a map (nil-safe).
+   Delegates to boundary.core.utils.case-conversion/kebab-case->snake-case-map."
   [m]
-  (when m
-    (reduce-kv (fn [acc k v]
-                 (let [new-key (-> k name (str/replace #"-" "_") keyword)]
-                   (assoc acc new-key v)))
-               {} m)))
+  (case-conv/kebab-case->snake-case-map m))
 
 (defn string->boolean
   "Convert string values to booleans with support for various formats."

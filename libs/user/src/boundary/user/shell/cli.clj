@@ -325,7 +325,7 @@
 (defn create-cli-interceptor-context
   "Creates interceptor context for CLI operations with real observability services."
   [operation-type user-service args options]
-  (-> (interceptor-context/create-cli-context-with-system
+  (-> (interceptor-context/create-cli-context
        operation-type
        (extract-observability-services user-service)
        args

@@ -330,7 +330,7 @@
    Example:
      {:value \"admim\" :allowed \"admin, user, viewer\" :suggestion \"admin\"}
      => \"Did you mean \\\"admin\\\"? Allowed values: admin, user, viewer\""
-  [{:keys [_ allowed suggestion]}]
+  [{:keys [allowed suggestion]}]
   (when (and suggestion allowed)
     (str "Did you mean \"" suggestion "\"? Allowed values: " allowed)))
 

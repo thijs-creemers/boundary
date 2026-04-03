@@ -1,12 +1,11 @@
 (ns boundary.core.interceptor-context
   "Context schema and validation for interceptor pipelines.
-   
+
    Defines the structure and validation rules for the context map that flows
    through interceptor pipelines, ensuring consistent data flow and preventing
    common runtime errors."
   (:require [malli.core :as m]
-            [malli.error :as me]
-            [boundary.platform.core.http.problem-details :as problem-details]))
+            [malli.error :as me]))
 
 ;; Core context schemas
 
@@ -195,8 +194,8 @@
     
     Returns:
       Boolean indicating result presence"
-   [context]
-   (contains? context :result))
+  [context]
+  (contains? context :result))
 
 (defn get-result
   "Extracts result from context."
@@ -215,8 +214,8 @@
     
     Returns:
       Boolean indicating operation success"
-   [context]
-   (= :success (get-in context [:result :status])))
+  [context]
+  (= :success (get-in context [:result :status])))
 
 (defn has-errors?
   "Checks if context contains validation or domain errors.
@@ -226,9 +225,9 @@
     
     Returns:
       Boolean indicating error presence"
-   [context]
-   (or (seq (:errors context))
-       (seq (get-in context [:result :errors]))))
+  [context]
+  (or (seq (:errors context))
+      (seq (get-in context [:result :errors]))))
 
 (defn halted?
   "Checks if pipeline execution should be halted.
@@ -238,8 +237,8 @@
     
     Returns:
       Boolean indicating halt flag status"
-   [context]
-   (:halt? context))
+  [context]
+  (:halt? context))
 
 (defn get-response
   "Extracts response from context."
@@ -283,6 +282,26 @@
   "Safely merges additional data into context."
   [context additional-data]
   (merge context additional-data))
+
+;; Default error mappings for exception→HTTP status resolution.
+;; Inlined from problem-details to avoid core→platform circular dependency.
+
+(def default-error-mappings
+  "Default mapping of exception types to HTTP status codes and titles."
+  {:validation-error          [400 "Validation Error"]
+   :invalid-request           [400 "Invalid Request"]
+   :unauthorized              [401 "Unauthorized"]
+   :auth-failed               [401 "Authentication Failed"]
+   :forbidden                 [403 "Forbidden"]
+   :not-found                 [404 "Not Found"]
+   :user-not-found            [404 "User Not Found"]
+   :resource-not-found        [404 "Resource Not Found"]
+   :conflict                  [409 "Conflict"]
+   :user-exists               [409 "User Already Exists"]
+   :resource-exists           [409 "Resource Already Exists"]
+   :business-rule-violation   [400 "Business Rule Violation"]
+   :deletion-not-allowed      [403 "Deletion Not Allowed"]
+   :hard-deletion-not-allowed [403 "Hard Deletion Not Allowed"]})
 
 ;; Pre-built context creators for common scenarios
 
@@ -333,15 +352,7 @@
   (assoc (create-initial-context op system
                                  :request {:args args :options options})
          :interface-type :cli
-         :error-mappings problem-details/default-error-mappings))
-
-(defn create-cli-context-with-system
-  "Creates context for CLI command processing with full system services."
-  [op system args options]
-  (assoc (create-initial-context op system
-                                 :request {:args args :options options})
-         :interface-type :cli
-         :error-mappings problem-details/default-error-mappings))
+         :error-mappings default-error-mappings))
 
 (defn create-service-context
   "Creates context for internal service calls."
