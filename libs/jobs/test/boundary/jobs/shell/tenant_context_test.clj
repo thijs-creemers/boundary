@@ -51,7 +51,9 @@
     (with-tenant-schema [_this _db-ctx _schema-name f]
       ;; In tests, just call the function without actual schema switching
       ;; since we're using mock datasources
-      (f {:datasource (Object.) :database-type :postgresql}))))
+      (f {:datasource (Object.) :database-type :postgresql}))
+    (tenant-provisioned? [_this _db-ctx _tenant-entity] true)
+    (list-tenant-schemas [_this _db-ctx] [])))
 
 (defn- create-mock-job-queue
   "Create mock job queue for testing."
