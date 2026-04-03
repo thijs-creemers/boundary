@@ -1,0 +1,190 @@
+= Deployment Patterns
+:description: Reference configurations for deploying Boundary applications.
+:toc:
+
+This guide covers deployment patterns beyond Docker (which is documented in xref:deployment.adoc[] and `dev-docs/DOCKER_DEVELOPMENT.adoc`). Reference configs are in `resources/deploy/`.
+
+== Prerequisites
+
+Build the uberjar before any deployment:
+
+[source,bash]
+----
+clojure -T:build clean && clojure -T:build uber
+# Produces target/boundary-*.jar
+----
+
+Run migrations before starting the server:
+
+[source,bash]
+----
+java -jar target/boundary-*.jar migrate up
+----
+
+== Environment Variables
+
+All deployments need these variables. See `resources/deploy/systemd/boundary.env.example` for a complete template.
+
+[cols="1,1,2",options="header"]
+|===
+| Variable | Required | Description
+
+| `BND_ENV` | Yes | `production` (or `acc` for staging)
+| `JWT_SECRET` | Yes | 32+ character signing secret
+| `POSTGRES_HOST` | Yes | Database hostname
+| `POSTGRES_PORT` | Yes | Database port (default 5432)
+| `POSTGRES_DB` | Yes | Database name
+| `POSTGRES_USER` | Yes | Database user
+| `POSTGRES_PASSWORD` | Yes | Database password
+| `HTTP_PORT` | No | App listen port (default 3000)
+| `SENTRY_DSN` | No | Error reporting DSN
+| `REDIS_HOST` | No | Required if cache/jobs enabled
+| `REDIS_PASSWORD` | No | Redis auth password
+|===
+
+== systemd (bare metal / VM)
+
+Reference files: `resources/deploy/systemd/`
+
+=== Setup
+
+[source,bash]
+----
+# 1. Create service user
+sudo useradd -r -s /usr/sbin/nologin boundary
+
+# 2. Deploy the jar
+sudo mkdir -p /opt/boundary/{logs,data}
+sudo cp target/boundary-*.jar /opt/boundary/boundary.jar
+sudo chown -R boundary:boundary /opt/boundary
+
+# 3. Configure secrets
+sudo mkdir -p /etc/boundary
+sudo cp resources/deploy/systemd/boundary.env.example /etc/boundary/boundary.env
+sudo chmod 600 /etc/boundary/boundary.env
+# Edit /etc/boundary/boundary.env with real values
+
+# 4. Install and start the service
+sudo cp resources/deploy/systemd/boundary.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now boundary
+----
+
+=== Operations
+
+[source,bash]
+----
+sudo systemctl status boundary     # Check status
+sudo journalctl -u boundary -f     # Tail logs
+sudo systemctl restart boundary    # Restart after deploy
+----
+
+The unit file automatically runs migrations via `ExecStartPre` before starting the server. On failure it restarts after 10 seconds (max 5 retries per minute).
+
+=== JVM Tuning
+
+The unit file sets default JVM options. Adjust for your server:
+
+[source,ini]
+----
+# In boundary.service — set heap to ~70% of available RAM
+Environment=JAVA_OPTS="-Xms512m -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+----
+
+[cols="1,2",options="header"]
+|===
+| Server RAM | Recommended `-Xmx`
+| 1 GB | 512m
+| 2 GB | 1g
+| 4 GB | 2g-3g
+| 8 GB+ | 4g-6g
+|===
+
+== nginx Reverse Proxy
+
+Reference file: `resources/deploy/nginx/boundary.conf`
+
+[source,bash]
+----
+# 1. Install
+sudo cp resources/deploy/nginx/boundary.conf /etc/nginx/sites-available/boundary
+sudo ln -s /etc/nginx/sites-available/boundary /etc/nginx/sites-enabled/
+
+# 2. Replace your-domain.com with your actual domain
+
+# 3. TLS (Let's Encrypt)
+sudo certbot --nginx -d your-domain.com
+
+# 4. Test and reload
+sudo nginx -t && sudo systemctl reload nginx
+----
+
+The config includes:
+
+- HTTP -> HTTPS redirect
+- WebSocket upgrade support for `/ws` (realtime module)
+- Suppressed access logs on `/health`
+- 30-day cache for static assets
+- Connection keepalive to the app
+
+== Cloud Platforms
+
+=== Fly.io
+
+Reference file: `resources/deploy/cloud/fly.toml`
+
+[source,bash]
+----
+# 1. Install flyctl: https://fly.io/docs/getting-started/installing-flyctl/
+
+# 2. Launch (first time)
+fly launch --copy-config
+
+# 3. Create database
+fly postgres create --name my-boundary-app-db
+fly postgres attach my-boundary-app-db
+
+# 4. Set secrets
+fly secrets set JWT_SECRET="your-secret-32-chars-min" POSTGRES_PASSWORD="..."
+
+# 5. Deploy
+fly deploy
+----
+
+The fly.toml configures:
+
+- Auto-scaling (min 1 machine, auto-stop idle)
+- Health checks against `/health/ready`
+- HTTPS enforcement
+- Amsterdam region (adjust `primary_region` as needed)
+
+=== Render
+
+Reference file: `resources/deploy/cloud/render.yaml`
+
+. Push to GitHub
+. Connect the repo on https://dashboard.render.com
+. Select the `render.yaml` Blueprint
+. Render auto-provisions PostgreSQL and wires environment variables
+
+The blueprint configures:
+
+- Web service + managed PostgreSQL
+- Auto-generated `JWT_SECRET`
+- Health checks against `/health/ready`
+- Frankfurt region
+
+== Health Check Integration
+
+All deployment patterns should use the health endpoints:
+
+[cols="1,2,2",options="header"]
+|===
+| Endpoint | Purpose | Use for
+
+| `/health` | Basic liveness + service info | Monitoring dashboards
+| `/health/ready` | Dependency checks (DB, cache) | Load balancer readiness probes, deploy gates
+| `/health/live` | Process alive | Container orchestrator liveness probes
+|===
+
+`/health/ready` returns 503 when any dependency is unreachable, making it safe for load balancer health checks — traffic won't be routed until the database is connected.

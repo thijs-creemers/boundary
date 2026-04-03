@@ -18,21 +18,35 @@
 ;; Configuration Loading
 ;; =============================================================================
 
+(def ^:private env-aliases
+  "Map long-form environment names to the short directory names under resources/conf/."
+  {"development" "dev"
+   "production"  "prod"
+   "acceptance"  "acc"
+   "testing"     "test"})
+
+(defn- normalize-env
+  "Normalize a BND_ENV value to one of the short config directory names (dev, test, prod, acc)."
+  [env]
+  (let [s (some-> env str .trim .toLowerCase)]
+    (get env-aliases s s)))
+
 (defn load-config
   "Load configuration from resources/conf/dev/config.edn using Aero.
-   
+
    Args:
      opts: Optional map with :profile key (defaults to :dev)
-   
+
    Returns:
      Configuration map with resolved environment variables and profile selection
-   
+
    Example:
      (load-config)
      (load-config {:profile :test})"
   ([] (load-config {}))
-  ([{:keys [profile] :or {profile :dev}}]
-   (let [config-path (str "conf/" (name profile) "/config.edn")
+  ([{:keys [profile] :or {profile (keyword (or (System/getenv "BND_ENV") "dev"))}}]
+   (let [profile (keyword (normalize-env (name profile)))
+         config-path (str "conf/" (name profile) "/config.edn")
          config-resource (io/resource config-path)]
      (if config-resource
        (do
@@ -290,6 +304,7 @@
                                      :membership-service (ig/ref :boundary/membership-service)
                                      :db-context (ig/ref :boundary/db-context)
                                      :i18n (ig/ref :boundary/i18n)}
+                              cache-enabled? (assoc :cache (ig/ref :boundary/cache))
                               admin-enabled?
                               (assoc :admin-routes (ig/ref :boundary/admin-routes))
                               workflow-enabled?

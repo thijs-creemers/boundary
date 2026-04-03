@@ -1,0 +1,304 @@
+= Database Migration Best Practices
+:description: Conventions, safe patterns, and recipes for Boundary database migrations.
+:toc:
+
+Boundary uses https://github.com/yogthos/migratus[Migratus] for SQL-based, versioned migrations. This guide covers conventions, safety patterns, and common recipes.
+
+== Quick Reference
+
+[source,bash]
+----
+# Run pending migrations
+clojure -M:migrate up
+
+# Rollback last migration
+clojure -M:migrate down
+
+# Check status (REPL)
+(require '[boundary.platform.shell.database.migrations :as mig])
+(mig/print-status)
+----
+
+== Naming Convention
+
+Migrations use timestamp-based IDs:
+
+----
+YYYYMMDDHHMMSS-description.up.sql
+YYYYMMDDHHMMSS-description.down.sql
+----
+
+Examples from the codebase:
+
+----
+20260301000000-performance-indexes.up.sql
+20260324000000-tenant-memberships.up.sql
+20260324001000-tenant-member-invites.up.sql
+----
+
+Rules:
+
+- **Always create both `.up.sql` and `.down.sql`** — every migration must be reversible
+- Use descriptive kebab-case names: `add-user-email-index`, `create-orders-table`
+- Increment the last 6 digits when creating multiple migrations on the same day (e.g. `000000`, `001000`, `002000`)
+
+== File Location
+
+[cols="1,3",options="header"]
+|===
+| Location | Purpose
+
+| `resources/migrations/`
+| Application-level migrations (main schema)
+
+| `libs/{lib}/resources/boundary/{lib}/migrations/`
+| Library-contributed migrations (auto-discovered)
+|===
+
+Libraries contribute migrations by publishing a `boundary/migration-paths.edn` manifest on the classpath:
+
+[source,clojure]
+----
+;; libs/geo/resources/boundary/migration-paths.edn
+{:paths ["boundary/geo/migrations/"]}
+----
+
+The migration system (`boundary.platform.shell.database.migrations`) discovers all manifests and merges their directories at startup.
+
+== Statement Separator
+
+Migratus uses `--;;` to separate SQL statements within a single migration file. Always use this between statements:
+
+[source,sql]
+----
+CREATE TABLE orders (...);
+--;;
+CREATE INDEX idx_orders_user_id ON orders (user_id);
+--;;
+CREATE INDEX idx_orders_status ON orders (status);
+----
+
+== Safe Migration Patterns
+
+=== Always use IF EXISTS / IF NOT EXISTS
+
+[source,sql]
+----
+-- up.sql
+CREATE TABLE IF NOT EXISTS products (...);
+--;;
+CREATE INDEX IF NOT EXISTS idx_products_name ON products (name);
+
+-- down.sql
+DROP INDEX IF EXISTS idx_products_name;
+--;;
+DROP TABLE IF EXISTS products;
+----
+
+This makes migrations idempotent — safe to re-run if a partial failure occurred.
+
+=== Add columns as nullable first
+
+Never add a `NOT NULL` column without a default in one step — it will fail on existing rows.
+
+[source,sql]
+----
+-- Step 1: add nullable column
+ALTER TABLE users ADD COLUMN phone VARCHAR(50);
+
+-- Step 2 (separate migration, after backfill): add constraint
+ALTER TABLE users ALTER COLUMN phone SET NOT NULL;
+----
+
+=== Add indexes without locking (PostgreSQL)
+
+On PostgreSQL, `CREATE INDEX` locks the table. Use `CONCURRENTLY` for large tables:
+
+[source,sql]
+----
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_orders_email ON orders (email);
+----
+
+NOTE: `CONCURRENTLY` cannot run inside a transaction. Migratus runs each statement separately when split by `--;;`, so this works.
+
+=== Foreign keys — order matters
+
+Create the referenced table before the referencing table. If they span separate migrations, use two migration files with ordered timestamps.
+
+=== Rename columns safely
+
+Renaming in one step breaks running application instances. Use a three-step approach:
+
+. Add new column, copy data
+. Deploy app that reads from new column
+. Drop old column
+
+[source,sql]
+----
+-- Migration 1: add new column
+ALTER TABLE users ADD COLUMN full_name VARCHAR(255);
+--;;
+UPDATE users SET full_name = name;
+
+-- Migration 2 (after app deploy): drop old column
+ALTER TABLE users DROP COLUMN name;
+----
+
+== Zero-Downtime Migrations
+
+For production deployments with no downtime:
+
+[cols="1,3",options="header"]
+|===
+| Operation | Safe approach
+
+| Add column
+| Add as nullable (no default needed). App ignores it until next deploy.
+
+| Remove column
+| Deploy app that stops reading it first. Then drop in next migration.
+
+| Add index
+| Use `CONCURRENTLY` on PostgreSQL. Other DBs: schedule during low traffic.
+
+| Add table
+| Always safe — nothing references it yet.
+
+| Drop table
+| Deploy app that stops using it first. Then drop.
+
+| Change column type
+| Add new column, backfill, deploy, drop old column (3 steps).
+|===
+
+The key principle: **schema changes and code changes deploy separately**. The database schema should always be compatible with both the old and new application version.
+
+== Multi-Tenant Migrations
+
+When using `boundary-tenant` (schema-per-tenant), migrations run in two scopes:
+
+. **Shared schema** (`public`) — tenant registry, shared tables. Use `resources/migrations/` as normal.
+. **Per-tenant schema** — tenant-specific tables. The tenant module applies these automatically during provisioning.
+
+For per-tenant migrations, prefix table names with the schema:
+
+[source,sql]
+----
+-- Runs in the tenant's schema context
+CREATE TABLE IF NOT EXISTS orders (
+  id         VARCHAR(255) PRIMARY KEY,
+  tenant_id  VARCHAR(255) NOT NULL,
+  ...
+);
+----
+
+Always include `tenant_id` in indexes for tenant-scoped queries:
+
+[source,sql]
+----
+CREATE INDEX IF NOT EXISTS idx_orders_tenant_status
+  ON orders (tenant_id, status);
+----
+
+== Large Data Backfills
+
+For migrations that update many rows, process in batches to avoid long locks:
+
+[source,sql]
+----
+-- PostgreSQL: batch update with CTE
+WITH batch AS (
+  SELECT id FROM users
+  WHERE status IS NULL
+  LIMIT 10000
+)
+UPDATE users SET status = 'active'
+WHERE id IN (SELECT id FROM batch);
+----
+
+For very large tables (millions of rows), write a Clojure migration script instead of SQL and run it as a one-off task outside the migration framework.
+
+== Testing Migrations
+
+- **CI runs all migrations against H2** — the test suite creates a fresh schema every run
+- **Test locally against PostgreSQL** before deploying to production (H2 doesn't support all PostgreSQL features like `CONCURRENTLY`)
+- **Rollback test**: run `migrate up`, then `migrate down`, then `migrate up` again. If it fails, your down migration is broken.
+
+[source,bash]
+----
+# Full roundtrip test
+clojure -M:migrate up
+clojure -M:migrate down
+clojure -M:migrate up
+----
+
+== Common Recipes
+
+=== Create a table with indexes
+
+[source,sql]
+----
+-- up.sql
+CREATE TABLE IF NOT EXISTS products (
+  id          VARCHAR(255)             NOT NULL PRIMARY KEY,
+  tenant_id   VARCHAR(255)             NOT NULL,
+  name        VARCHAR(255)             NOT NULL,
+  price       DECIMAL(10,2)            NOT NULL,
+  status      VARCHAR(50)              NOT NULL DEFAULT 'draft',
+  created_at  TIMESTAMP WITH TIME ZONE NOT NULL,
+  updated_at  TIMESTAMP WITH TIME ZONE
+);
+--;;
+CREATE INDEX IF NOT EXISTS idx_products_tenant_id ON products (tenant_id);
+--;;
+CREATE INDEX IF NOT EXISTS idx_products_status ON products (status);
+
+-- down.sql
+DROP TABLE IF EXISTS products;
+----
+
+=== Add a column with default
+
+[source,sql]
+----
+-- up.sql
+ALTER TABLE orders ADD COLUMN priority INTEGER DEFAULT 0;
+
+-- down.sql
+ALTER TABLE orders DROP COLUMN IF EXISTS priority;
+----
+
+=== Add a unique constraint
+
+[source,sql]
+----
+-- up.sql
+ALTER TABLE users ADD CONSTRAINT uq_users_email UNIQUE (email);
+
+-- down.sql
+ALTER TABLE users DROP CONSTRAINT IF EXISTS uq_users_email;
+----
+
+=== Add a foreign key
+
+[source,sql]
+----
+-- up.sql
+ALTER TABLE orders
+  ADD CONSTRAINT fk_orders_user_id
+  FOREIGN KEY (user_id) REFERENCES users (id);
+
+-- down.sql
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS fk_orders_user_id;
+----
+
+== Checklist Before Merging a Migration
+
+- [ ] Both `.up.sql` and `.down.sql` exist
+- [ ] Uses `IF EXISTS` / `IF NOT EXISTS` where applicable
+- [ ] Statements separated by `--;;`
+- [ ] No `NOT NULL` added to existing column without a default or backfill
+- [ ] Indexes use `CONCURRENTLY` for large tables (PostgreSQL)
+- [ ] Column names use `snake_case` (database boundary convention)
+- [ ] Tested roundtrip: up -> down -> up
+- [ ] Timestamp ID doesn't collide with existing migrations

@@ -1,0 +1,46 @@
+# render.yaml — Render Blueprint for Boundary
+# https://docs.render.com/blueprint-spec
+#
+# Deploy: connect your repo on render.com and select this blueprint
+
+services:
+  - type: web
+    name: boundary-app
+    runtime: docker
+    dockerfilePath: resources/conf/dev/Dockerfile
+    region: frankfurt
+    plan: standard
+    healthCheckPath: /health/ready
+    envVars:
+      - key: BND_ENV
+        value: prod
+      - key: HTTP_PORT
+        value: "3000"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: boundary-db
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: boundary-db
+          property: port
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: boundary-db
+          property: database
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: boundary-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: boundary-db
+          property: password
+
+databases:
+  - name: boundary-db
+    plan: standard
+    region: frankfurt
+    postgresMajorVersion: "16"

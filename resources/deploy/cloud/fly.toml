@@ -1,0 +1,41 @@
+# fly.toml — Fly.io reference configuration for Boundary
+# https://fly.io/docs/reference/configuration/
+#
+# Deploy: fly deploy
+# Secrets: fly secrets set JWT_SECRET="..." POSTGRES_PASSWORD="..."
+
+app = "my-boundary-app"
+primary_region = "ams"
+
+[build]
+  dockerfile = "resources/conf/dev/Dockerfile"
+
+[env]
+  BND_ENV = "prod"
+  HTTP_PORT = "3000"
+  POSTGRES_HOST = "my-boundary-app-db.internal"
+  POSTGRES_PORT = "5432"
+  POSTGRES_DB = "boundary"
+  POSTGRES_USER = "boundary"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = "stop"
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+[[services.http_checks]]
+  interval = "15s"
+  timeout = "5s"
+  grace_period = "30s"
+  path = "/health/ready"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "1gb"

@@ -1,0 +1,292 @@
+= Scaling & Tuning Guide
+:toc:
+:toclevels: 2
+:icons: font
+
+Production tuning recommendations for Boundary applications.
+
+== JVM Tuning
+
+=== Heap Sizing
+
+Set heap to approximately 70% of available RAM. The JVM needs headroom for metaspace, thread stacks, and direct buffers.
+
+[cols="1,1,1",options="header"]
+|===
+| Server RAM | `-Xms` | `-Xmx`
+| 1 GB | 256m | 512m
+| 2 GB | 512m | 1g
+| 4 GB | 1g | 2g-3g
+| 8 GB | 2g | 4g-6g
+| 16 GB+ | 4g | 8g-12g
+|===
+
+=== Garbage Collector
+
+Use G1GC (default on JDK 17+):
+
+[source,bash]
+----
+java -Xms512m -Xmx2g \
+     -XX:+UseG1GC \
+     -XX:MaxGCPauseMillis=200 \
+     -XX:+UseContainerSupport \
+     -Djava.security.egd=file:/dev/urandom \
+     -jar boundary.jar server
+----
+
+[cols="1,3",options="header"]
+|===
+| Flag | Purpose
+| `-XX:+UseG1GC` | Low-pause garbage collector (best for web apps)
+| `-XX:MaxGCPauseMillis=200` | Target max GC pause of 200ms
+| `-XX:+UseContainerSupport` | Respect Docker/cgroup memory limits
+| `-Djava.security.egd=...` | Faster random number generation (startup)
+|===
+
+For latency-sensitive applications on JDK 21+, consider ZGC:
+
+[source,bash]
+----
+java -XX:+UseZGC -XX:+ZGenerational -Xmx4g -jar boundary.jar server
+----
+
+=== Container Environments
+
+When running in Docker or Kubernetes, always set:
+
+- `-XX:+UseContainerSupport` (enabled by default on JDK 17+)
+- Explicit `-Xmx` matching your container memory limit minus ~25%
+- CPU limits: JDK auto-detects cgroup CPU limits for thread pools
+
+The included `Dockerfile` already sets these via `JAVA_OPTS`.
+
+== Database Connection Pool (HikariCP)
+
+=== Pool Sizing Formula
+
+A good starting point:
+
+----
+connections = (cpu_cores * 2) + effective_spindle_count
+----
+
+For SSDs (spindle count ≈ 1), a 4-core server needs ~9 connections. In practice:
+
+[cols="1,1,1",options="header"]
+|===
+| Deployment | `minimum-idle` | `maximum-pool-size`
+| Dev / single user | 2 | 5
+| Small production (1-50 concurrent) | 5 | 10
+| Medium production (50-200 concurrent) | 10 | 25
+| High traffic (200+ concurrent) | 10 | 50
+|===
+
+Configure in `resources/conf/prod/config.edn`:
+
+[source,clojure]
+----
+:boundary/postgresql
+{:pool {:minimum-idle 10
+        :maximum-pool-size 25
+        :connection-timeout-ms 30000   ;; Wait 30s for a connection
+        :idle-timeout-ms 600000        ;; Close idle connections after 10min
+        :max-lifetime-ms 1800000       ;; Recycle connections every 30min
+        :leak-detection-threshold-ms 60000}}  ;; Warn if connection held >60s
+----
+
+=== Monitoring Pool Health
+
+Watch for these symptoms:
+
+- **Connection timeouts** → Increase `maximum-pool-size` or optimise slow queries
+- **Leak detection warnings** → Find and fix unclosed connections (missing `with-open`)
+- **Idle connections at maximum** → Decrease `minimum-idle`
+
+The `/health/ready` endpoint checks database connectivity — integrate with your monitoring to detect pool exhaustion.
+
+== Redis / Cache Tuning
+
+=== Connection Pool
+
+[source,clojure]
+----
+:boundary/cache
+{:provider :redis
+ :max-total 20      ;; Max connections in pool
+ :max-idle  10      ;; Max idle connections
+ :min-idle  2       ;; Connections to keep warm
+ :timeout   2000    ;; Connection timeout (ms)
+ :default-ttl 300}  ;; Default cache TTL (seconds)
+----
+
+[cols="1,1,1,1",options="header"]
+|===
+| Deployment | `max-total` | `max-idle` | `min-idle`
+| Dev | 5 | 3 | 1
+| Small production | 10 | 5 | 2
+| High traffic | 50 | 20 | 5
+|===
+
+=== When to Use Caching
+
+[cols="1,3",options="header"]
+|===
+| Cache | Don't cache
+
+| User session data
+| Data that changes every request
+
+| Expensive query results (reports, aggregations)
+| Small single-row lookups (DB is fast enough)
+
+| Configuration / feature flags
+| Writes (use DB as source of truth)
+
+| External API responses (geocoding, exchange rates)
+| Security-sensitive data (tokens, passwords)
+|===
+
+Set TTL based on staleness tolerance:
+
+- User profiles: 60-300s
+- Configuration: 300-600s
+- Reports: 600-3600s
+- Feature flags: 30-60s
+
+== HTTP Server
+
+=== Thread Pool
+
+Jetty uses a default thread pool of 200 threads. For most Boundary apps this is sufficient. If you need to tune:
+
+[source,clojure]
+----
+;; In config.edn
+:boundary/http
+{:port 3000
+ :host "0.0.0.0"
+ :min-threads 10      ;; Minimum threads
+ :max-threads 200     ;; Maximum threads
+ :idle-timeout 60000} ;; Idle thread timeout (ms)
+----
+
+Rule of thumb: `max-threads` should be 2-4x your expected concurrent connections.
+
+=== Gzip Compression
+
+Gzip is enabled by default for responses >1KB. This reduces bandwidth 60-80% for JSON/HTML.
+
+=== Static Asset Caching
+
+The nginx reference config (`resources/deploy/nginx/boundary.conf`) sets 30-day cache headers on CSS/JS/images. For the built-in static serving, cache headers are set by the platform interceptors.
+
+== Horizontal Scaling
+
+Boundary applications are stateless by design — scale horizontally by adding instances behind a load balancer.
+
+=== Requirements for Horizontal Scaling
+
+[cols="1,3",options="header"]
+|===
+| Component | Consideration
+
+| Database
+| All instances connect to the same PostgreSQL. Increase pool size proportionally: if 1 instance uses 25 connections and you run 3 instances, the DB needs 75+ max connections.
+
+| Redis / Cache
+| All instances share the same Redis. This enables consistent cache across the cluster. Increase `max-total` per instance if needed.
+
+| Sessions
+| Store in database (default) or Redis — not in-memory. Boundary's session repository uses the DB, so sessions survive instance restarts.
+
+| File uploads
+| Use S3 or shared storage (`libs/storage`), not local disk.
+
+| Background jobs
+| The jobs module (`libs/jobs`) uses Redis for coordination. Multiple workers can process jobs concurrently without conflicts.
+
+| WebSockets
+| If using `libs/realtime`, add Redis pub/sub for cross-instance message delivery.
+|===
+
+=== Scaling Pattern
+
+----
+                    ┌───────────-──┐
+                    │   nginx /    │
+                    │ Load Balancer│
+                    └──────┬──── ──┘
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+        ┌─────────-─┐ ┌────────-──┐ ┌─────────-─┐
+        │ Boundary  │ │ Boundary  │ │ Boundary  │
+        │ Instance 1│ │ Instance 2│ │ Instance 3│
+        └─────┬───-─┘ └─────┬─-───┘ └────┬──--──┘
+              │             │            │
+              ▼             ▼            ▼
+        ┌──────────────────────────────────┐
+        │          PostgreSQL              │
+        └──────────────────────────────────┘
+        ┌──────────────────────────────────┐
+        │          Redis (optional)        │
+        └──────────────────────────────────┘
+----
+
+== Database Query Performance
+
+=== Indexing Strategy
+
+Always index:
+
+- Foreign keys (`tenant_id`, `user_id`)
+- Status/filter columns (`status`, `role`, `type`)
+- Timestamp columns used in range queries (`created_at`)
+- Composite indexes for common query patterns (`(tenant_id, status)`)
+
+The migration best practices guide covers index creation patterns: xref:migrations.adoc[].
+
+=== Query Optimization
+
+Boundary uses HoneySQL, which generates parameterised queries. Performance tips:
+
+- **Use pagination** — never `SELECT *` without `LIMIT`. The pagination config (`default-limit`, `max-limit`) prevents unbounded queries.
+- **Batch inserts** — use `insert-batch!` for bulk operations instead of individual inserts.
+- **Window functions** — for count + data queries, use `COUNT(*) OVER()` (already used in Boundary's pagination layer).
+- **Connection reuse** — HikariCP handles this. Avoid creating ad-hoc datasources.
+
+== Benchmarking
+
+Run the included benchmarks to baseline your system:
+
+[source,bash]
+----
+clojure -M:bench
+----
+
+This runs Criterium benchmarks for:
+
+- Malli schema validation (valid/invalid, decode, strip)
+- JSON serialization/deserialization (Cheshire)
+- Interceptor pipeline execution (2 and 11 interceptors, early termination)
+
+Run benchmarks on your production hardware class to get representative numbers. Results vary significantly between development laptops and production VMs.
+
+== Monitoring Checklist
+
+Set up alerts for these metrics:
+
+[cols="1,2,1",options="header"]
+|===
+| Metric | Alert threshold | Source
+
+| Response time (p99) | > 500ms | Datadog / Prometheus
+| Error rate (5xx) | > 1% | Datadog / nginx logs
+| DB connection pool wait | > 5s | HikariCP metrics
+| DB connection pool active | > 80% of max | HikariCP metrics
+| JVM heap usage | > 85% | JMX / Datadog
+| GC pause time | > 500ms | JVM GC logs
+| `/health/ready` failures | Any | Load balancer
+| Redis latency | > 10ms | Redis INFO
+| Disk usage | > 80% | OS metrics
+|===

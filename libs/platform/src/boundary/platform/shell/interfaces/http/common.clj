@@ -4,11 +4,12 @@
    This namespace provides common HTTP functionality including standardized
    error responses following RFC 7807 Problem Details specification and
    other utility functions used across HTTP interfaces.
-   
+
    Pure problem details transformations are now in boundary.platform.core.http.problem-details"
   (:require [boundary.platform.core.http.problem-details :as core-problem]
             [cheshire.core :as json]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.tools.logging :as log]))
 
 ;; =============================================================================
 ;; RFC 7807 Problem Details (Re-exported from core)
@@ -103,4 +104,83 @@
        {:status 200
         :headers {"Content-Type" "application/json"}
         :body (json/generate-string (merge base-health additional))}))))
+
+;; =============================================================================
+;; Component Health Checks
+;; =============================================================================
+
+(defn- check-database
+  "Check database connectivity by executing SELECT 1.
+
+   Args:
+     db-context: Database context {:datasource ds :adapter adapter}
+
+   Returns:
+     Component status map"
+  [db-context]
+  (try
+    (let [start (System/currentTimeMillis)
+          ds (:datasource db-context)]
+      (with-open [conn (.getConnection ds)]
+        (with-open [stmt (.prepareStatement conn "SELECT 1")]
+          (.execute stmt)))
+      {:status "ok"
+       :response-time-ms (- (System/currentTimeMillis) start)})
+    (catch Exception e
+      (log/warn e "Database health check failed")
+      {:status "down"
+       :error (.getMessage e)})))
+
+(defn- check-cache
+  "Check cache connectivity via ping.
+
+   Calls .ping on the cache component (ICacheManagement protocol).
+
+   Args:
+     cache: Cache component implementing ICacheManagement
+
+   Returns:
+     Component status map"
+  [cache]
+  (try
+    (let [start (System/currentTimeMillis)
+          reachable? (.ping cache)]
+      (if reachable?
+        {:status "ok"
+         :response-time-ms (- (System/currentTimeMillis) start)}
+        {:status "down"
+         :error "ping returned false"}))
+    (catch Exception e
+      (log/warn e "Cache health check failed")
+      {:status "down"
+       :error (.getMessage e)})))
+
+(defn readiness-handler
+  "Create a readiness check handler that verifies dependency health.
+
+   Checks database and (optionally) cache connectivity. Returns 200
+   when all components are healthy, 503 when any component is down.
+
+   Args:
+     db-context: Database context (required)
+     cache: Cache component (optional, nil if not configured)
+
+   Returns:
+     Ring handler function for readiness checks"
+  [db-context cache]
+  (fn [_request]
+    (let [components (cond-> {}
+                       db-context
+                       (assoc :database (check-database db-context))
+
+                       cache
+                       (assoc :cache (check-cache cache)))
+          all-ok? (every? #(= "ok" (:status %)) (vals components))
+          overall (if all-ok? "ok" "degraded")]
+      {:status (if all-ok? 200 503)
+       :headers {"Content-Type" "application/json"}
+       :body (json/generate-string
+              {:status overall
+               :components components
+               :timestamp (str (java.time.Instant/now))})})))
 

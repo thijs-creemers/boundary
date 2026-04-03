@@ -40,7 +40,7 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 
 '''
 
-== Phase 2 — v1.0 (Stability & Production Readiness) icon:spinner[] *IN PROGRESS*
+== Phase 2 — v1.0 (Stability & Production Readiness) icon:check-circle[] *COMPLETE*
 *Goal: Make Boundary fully reliable and attractive for company-level adoption.*
 
 === Objectives
@@ -56,13 +56,14 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 - [x] Datadog metrics provider (`libs/observability`)
 - [x] Performance optimisations: window functions, batch inserts, Redis SCAN, caching, gzip
 - [x] Tenant admin dashboard
-
-=== Remaining
-- [ ] Starter project template (`boundary-starter`) with guided walkthrough
-- [ ] Security checklist and health check endpoints
-- [ ] Deployment patterns: Docker, systemd, cloud reference configs
-- [ ] CRUD benchmarks and scaling/tuning recommendations
-- [ ] Database migration best practices guide
+- [x] Health check endpoints with dependency checks (`/health/ready` checks DB + cache connectivity)
+- [x] Security checklist (`dev-docs/security-checklist.adoc`): OWASP Top 10 alignment, headers, secrets, auth
+- [x] Deployment patterns: systemd, nginx, Fly.io, Render reference configs (`resources/deploy/`)
+- [x] Deployment patterns guide (`docs/modules/guides/pages/deployment-patterns.adoc`)
+- [x] Database migration best practices guide (`docs/modules/guides/pages/migrations.adoc`)
+- [x] Starter project walkthrough (`boundary-starter/WALKTHROUGH.adoc`): guided 10-minute experience
+- [x] CRUD benchmarks (`dev/boundary/bench/core.clj`): Criterium benchmarks via `clojure -M:bench`
+- [x] Scaling & tuning guide (`dev-docs/scaling-guide.adoc`): JVM, HikariCP, Redis, horizontal scaling
 
 '''
 
@@ -103,7 +104,7 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 
 |*v1.0*
 |Config tooling, stability, production readiness
-|icon:spinner[] In progress
+|icon:check-circle[] Complete
 |21 + boundary-tools
 
 |*Ecosystem*
@@ -115,7 +116,7 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 == Strategic Notes
 
 === 1. Focus on onboarding, not architectural depth
-Boundary already has deep documentation. What's missing is a guided, narrative experience for beginners. The starter project template is the key remaining deliverable.
+Boundary already has deep documentation. The guided walkthrough (`boundary-starter/WALKTHROUGH.adoc`) now provides a narrative, 10-minute experience for beginners.
 
 === 2. Use the Scaffolder as your flagship feature
 Boundary's scaffolder (`bb scaffold`) is a key differentiator — it should define the developer workflow from day one. With NL scaffolding (`bb scaffold ai`) and module integration (`bb scaffold integrate`), the end-to-end module creation flow is now nearly automated.
