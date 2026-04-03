@@ -4,7 +4,7 @@
    This is part of the imperative shell - it performs database I/O,
    manages transactions, and handles side effects like logging."
   (:require [boundary.platform.core.database.query :as core-query]
-            [boundary.platform.core.database.validation :as core-validation]
+            [boundary.platform.shell.database.validation :as core-validation]
             [boundary.core.utils.type-conversion :as type-conversion]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
             [boundary.core.utils.case-conversion :as case-conv]
