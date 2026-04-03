@@ -1,7 +1,7 @@
 (ns boundary.platform.shell.interfaces.http.common-test
   (:require [boundary.platform.shell.interfaces.http.common :as sut]
             [cheshire.core :as json]
-            [clojure.test :refer [deftest is testing]]))
+            [clojure.test :refer [deftest is]]))
 
 ;; =============================================================================
 ;; health-check-handler

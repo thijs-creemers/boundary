@@ -54,20 +54,21 @@
 
 (defn- valid-csrf-token?
   "Check if request has a valid CSRF token.
-   
-   For now, returns true if either:
-   - Request contains :anti-forgery-token in params/headers
-   - Anti-forgery middleware has already validated it
-   
-   TODO: Implement proper token validation when anti-forgery middleware is configured"
-  [request]
-  ;; For now, just check if token exists in request
-  ;; The actual validation should be done by ring.middleware.anti-forgery/wrap-anti-forgery
-  (or (get-in request [:params :csrf-token])
-      (get-in request [:headers "x-csrf-token"])
-      (get-in request [:form-params "__anti-forgery-token"])
-      ;; If anti-forgery middleware is active, it will have validated already
-      true)) ; TODO: Make this configurable
+
+   SECURITY NOTE — this function is a **stub**.  It always returns true because
+   the web UI does not yet emit CSRF tokens (no wrap-anti-forgery middleware,
+   no hidden-field / header generation in forms).  Enabling a real check here
+   without that infrastructure would break every state-changing web form.
+
+   To complete CSRF protection:
+   1. Add ring.middleware.anti-forgery/wrap-anti-forgery to the Ring middleware
+      stack so a session-bound token is generated and validated per request.
+   2. Emit the token in every HTML form (hidden field) and HTMX request (header).
+   3. Replace this stub with delegation to the anti-forgery middleware's
+      validation, or remove this interceptor entirely if the middleware handles
+      rejection."
+  [_request]
+  true)
 
 ;; ==============================================================================
 ;; HTTP Context Management
@@ -357,8 +358,7 @@
                   admin-route? (str/starts-with? (or uri "") "/web/admin")
                   state-changing? (#{:post :put :delete :patch} method)]
               (if (and web-route? state-changing? (not admin-route?))
-                ;; Web UI state-changing request (non-admin) - validate CSRF token
-                ;; TODO: Enable CSRF for admin routes once token generation is implemented
+                ;; Web UI state-changing request (non-admin) — validate CSRF token
                 (if (valid-csrf-token? request)
                   ctx
                   (set-response ctx {:status 403
@@ -366,7 +366,7 @@
                                      :body {:error "CSRF token validation failed"
                                             :message "Invalid or missing CSRF token"
                                             :type :csrf-validation-failed}}))
-                ;; Non-web route, safe method, or admin route - skip CSRF check
+                ;; Non-web route, safe method, or admin route — skip CSRF check
                 ctx)))})
 ;; ==============================================================================
 ;; Rate Limiting
