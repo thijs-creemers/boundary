@@ -15,7 +15,7 @@
 (defn- parse-int-safe
   "Parse string to int, returning nil on invalid input."
   [^String s]
-  (try (parse-int-safe s) (catch NumberFormatException _ nil)))
+  (try (Integer/parseInt s) (catch NumberFormatException _ nil)))
 
 ;; ============================================================================
 ;; Multipart File Helpers
