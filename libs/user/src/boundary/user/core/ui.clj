@@ -8,8 +8,34 @@
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.table :as table-ui]
             [boundary.shared.ui.core.icons :as icons]
-            [boundary.platform.shell.web.table :as web-table]
             [clojure.string :as str]))
+
+;; ---------------------------------------------------------------------------
+;; Table query helpers (inlined from platform to avoid core→shell dependency)
+;; ---------------------------------------------------------------------------
+
+(defn- table-query->params
+  "Convert a TableQuery map into a string-keyed param map for query strings."
+  [{:keys [sort dir page page-size]}]
+  {"sort"      (when sort (name sort))
+   "dir"       (when dir (name dir))
+   "page"      (str page)
+   "page-size" (str page-size)})
+
+(defn- encode-query-params
+  "Turn a string-keyed map into a query string (nil values are omitted)."
+  [m]
+  (->> m
+       (remove (comp nil? val))
+       (map (fn [[k v]] (str k "=" v)))
+       (str/join "&")))
+
+(defn- search-filters->params
+  "Convert parsed search/filter map back into a string-keyed param map."
+  [filters]
+  (into {}
+        (for [[k v] filters]
+          [(name k) (str v)])))
 
 (defn- page-layout
   "User module page layout with daisyUI pilot styling."
@@ -65,10 +91,10 @@
    (let [{:keys [sort dir page page-size]} table-query
          base-url      "/web/users/table"
          hx-target     "#users-table-container"
-         table-params  (web-table/table-query->params table-query)
-         filter-params (web-table/search-filters->params filters)
+         table-params  (table-query->params table-query)
+         filter-params (search-filters->params filters)
          qs-map        (merge table-params filter-params)
-         hx-url        (str base-url "?" (web-table/encode-query-params qs-map))]
+         hx-url        (str base-url "?" (encode-query-params qs-map))]
      (if (empty? users)
        [:div#users-table-container
         {:hx-get     hx-url
@@ -1174,10 +1200,10 @@
    (let [{:keys [sort dir page page-size]} table-query
          base-url "/web/audit/table"
          hx-target "#audit-table-container"
-         table-params (web-table/table-query->params table-query)
-         filter-params (web-table/search-filters->params filters)
+         table-params (table-query->params table-query)
+         filter-params (search-filters->params filters)
          qs-map (merge table-params filter-params)
-         hx-url (str base-url "?" (web-table/encode-query-params qs-map))]
+         hx-url (str base-url "?" (encode-query-params qs-map))]
      (if (empty? audit-logs)
        [:div#audit-table-container
         {:hx-get hx-url
