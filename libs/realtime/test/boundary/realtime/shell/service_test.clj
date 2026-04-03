@@ -416,7 +416,7 @@
 
       (testing "can disconnect"
         (ports/disconnect service conn-id)
-        (is true)))))
+        (is (= 0 (ports/send-to-user service test-user-id {:type "test"})))))))
 
 (deftest publish-adds-timestamp-test
   (testing "publish-to-topic adds timestamp if missing"
