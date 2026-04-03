@@ -72,13 +72,13 @@
 
 (defn- ns->boundary-lib
   "Given a namespace string like 'boundary.user.core.foo', extract the library
-   name 'user'. Returns nil for non-boundary namespaces."
+   name 'user'. Returns nil for non-boundary namespaces.
+   Maps boundary.shared.* to 'admin' (those namespaces live in libs/admin/src/)."
   [ns-str]
   (let [parts (str/split ns-str #"\.")]
     (when (and (>= (count parts) 2) (= "boundary" (first parts)))
-      ;; Handle compound lib names: boundary.ui-style.core → ui-style
-      ;; but also boundary.shared.* which is part of admin
-      (when-not (= "shared" (second parts))
+      (if (= "shared" (second parts))
+        "admin"
         (second parts)))))
 
 ;; ---------------------------------------------------------------------------
@@ -179,15 +179,20 @@
   (let [entries        (lib-dirs)
         declared-graph (build-declared-graph entries)
         actual-graph   (build-actual-graph entries)
-        core-issues    (check-core-independence declared-graph actual-graph)
-        undeclared     (check-undeclared-deps declared-graph actual-graph)
-        cycle-path     (find-cycle declared-graph)
-        ;; Hard failures: core independence violations and cycles
+        core-issues        (check-core-independence declared-graph actual-graph)
+        undeclared         (check-undeclared-deps declared-graph actual-graph)
+        declared-cycle     (find-cycle declared-graph)
+        actual-cycle       (find-cycle actual-graph)
+        ;; Hard failures: core independence violations and declared dependency cycles
         hard-failures  (concat core-issues
-                               (when cycle-path [{:type :cycle :path cycle-path}]))
+                               (when declared-cycle [{:type :declared-cycle :path declared-cycle}]))
         ;; Soft warnings: undeclared deps (monorepo shared classpath allows these)
         warnings       undeclared]
     ;; Print warnings (non-blocking)
+    (when actual-cycle
+      (println (ansi/yellow "Source-level cycle detected (not in deps.edn):"))
+      (println (str "  WARNING: " (str/join " -> " actual-cycle)))
+      (println))
     (when (seq warnings)
       (println (ansi/yellow "Undeclared dependency warnings:"))
       (doseq [v warnings]
@@ -205,8 +210,10 @@
             (println (str "  VIOLATION: core/deps.edn declares dependency on " (ansi/red (:dep v))))
             :core-actual-dep
             (println (str "  VIOLATION: core source requires " (ansi/red (:dep v)) " (core must be dependency-free)"))
-            :cycle
-            (println (str "  VIOLATION: circular dependency: " (ansi/red (str/join " -> " (:path v)))))))
+            :declared-cycle
+            (println (str "  VIOLATION: circular dependency in deps.edn: " (ansi/red (str/join " -> " (:path v)))))
+            :actual-cycle
+            (println (str "  VIOLATION: circular dependency in source requires: " (ansi/red (str/join " -> " (:path v)))))))
         (println)
         (println (str (count hard-failures) " violation(s) found."))
         (System/exit 1))

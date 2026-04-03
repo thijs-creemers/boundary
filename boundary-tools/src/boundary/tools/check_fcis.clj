@@ -61,19 +61,27 @@
 ;; File scanning
 ;; ---------------------------------------------------------------------------
 
+(defn- find-core-dirs
+  "Recursively find all directories named 'core' under a root directory."
+  [root]
+  (->> (file-seq root)
+       (filter #(and (.isDirectory %) (= "core" (.getName %))))))
+
 (defn- core-clj-files
-  "Find all .clj files under libs/*/src/boundary/*/core/."
+  "Find all .clj files under any core/ directory in libs/*/src/.
+   Covers both standard paths (boundary/<lib>/core/) and non-standard
+   ones like boundary/shared/ui/core/."
   []
-  (let [root   (io/file (System/getProperty "user.dir"))
-        libs   (io/file root "libs")]
+  (let [root (io/file (System/getProperty "user.dir"))
+        libs (io/file root "libs")]
     (when (.exists libs)
       (->> (.listFiles libs)
            (filter #(.isDirectory %))
            (mapcat (fn [lib-dir]
-                     (let [lib-name (.getName lib-dir)
-                           core-dir (io/file lib-dir "src" "boundary" lib-name "core")]
-                       (when (.exists core-dir)
-                         (file-seq core-dir)))))
+                     (let [src-dir (io/file lib-dir "src")]
+                       (when (.exists src-dir)
+                         (find-core-dirs src-dir)))))
+           (mapcat file-seq)
            (filter #(and (.isFile %) (str/ends-with? (.getName %) ".clj")))))))
 
 (defn- check-file
