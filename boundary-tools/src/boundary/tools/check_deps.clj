@@ -172,6 +172,22 @@
                                   :dep  dep})))))))))
 
 ;; ---------------------------------------------------------------------------
+;; Known cycle allowlist
+;; ---------------------------------------------------------------------------
+
+(def ^:private allowed-cycles
+  "Pre-existing source-level cycles that are acknowledged but not yet resolved.
+   Each entry is a set of the two libraries involved.
+   Remove entries as cycles are broken; adding new entries requires an ADR."
+  #{#{"admin" "user"}})
+
+(defn- allowed-cycle?
+  "Returns true if a cycle path only involves libraries in the allowlist."
+  [cycle-path]
+  (let [libs (set (butlast cycle-path))]
+    (contains? allowed-cycles libs)))
+
+;; ---------------------------------------------------------------------------
 ;; Entry point
 ;; ---------------------------------------------------------------------------
 
@@ -183,15 +199,17 @@
         undeclared         (check-undeclared-deps declared-graph actual-graph)
         declared-cycle     (find-cycle declared-graph)
         actual-cycle       (find-cycle actual-graph)
-        ;; Hard failures: core independence violations and declared dependency cycles
+        ;; Hard failures: core violations, declared cycles, and non-allowlisted actual cycles
         hard-failures  (concat core-issues
-                               (when declared-cycle [{:type :declared-cycle :path declared-cycle}]))
+                               (when declared-cycle [{:type :declared-cycle :path declared-cycle}])
+                               (when (and actual-cycle (not (allowed-cycle? actual-cycle)))
+                                 [{:type :actual-cycle :path actual-cycle}]))
         ;; Soft warnings: undeclared deps (monorepo shared classpath allows these)
         warnings       undeclared]
-    ;; Print warnings (non-blocking)
-    (when actual-cycle
-      (println (ansi/yellow "Source-level cycle detected (not in deps.edn):"))
-      (println (str "  WARNING: " (str/join " -> " actual-cycle)))
+    ;; Print allowlisted actual cycles as informational
+    (when (and actual-cycle (allowed-cycle? actual-cycle))
+      (println (ansi/yellow "Known source-level cycle (allowlisted):"))
+      (println (str "  " (str/join " -> " actual-cycle)))
       (println))
     (when (seq warnings)
       (println (ansi/yellow "Undeclared dependency warnings:"))
