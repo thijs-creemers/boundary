@@ -429,11 +429,7 @@
 
         ;; Verify adapter protocol works with H2
         (is (some? (ports/fetch-table-metadata repo :simple-table)))
-        (is (some? (ports/get-entity-config repo :simple-table)))))
-
-    (testing "Week 2+: PostgreSQL, MySQL, SQLite adapters"
-      ;; Placeholder for future multi-database testing
-      (is true))))
+        (is (some? (ports/get-entity-config repo :simple-table)))))))
 
 ;; =============================================================================
 ;; UI Config Merging Tests

@@ -402,27 +402,3 @@
             (is (= :forbidden (:type data)))
             (is (= 123 (:record-id data)))))))))
 
-;; =============================================================================
-;; Week 2+ Preview Tests (Placeholders)
-;; =============================================================================
-
-(deftest future-permission-features-test
-  (testing "Week 2+ features (not yet implemented)"
-    (testing "Entity-level permission configuration"
-      ;; Week 2+: Entity config can specify which roles can view/edit
-      ;; {:permissions {:view #{:admin :manager} :edit #{:admin}}}
-      (is true)) ; Placeholder
-
-    (testing "Field-level permissions"
-      ;; Week 2+: Hide certain fields for certain roles
-      ;; {:field-permissions {:salary {:view #{:admin}}}}
-      (is true)) ; Placeholder
-
-    (testing "Record-level permissions"
-      ;; Week 2+: User can only edit their own records
-      ;; (can-edit-entity? user :profiles {} {:user-id current-user-id})
-      (is true)) ; Placeholder
-
-    (testing "Permission groups"
-      ;; Week 2+: Define permission groups like :content-editors
-      (is true)))) ; Placeholder

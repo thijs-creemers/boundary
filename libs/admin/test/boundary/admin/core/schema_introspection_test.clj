@@ -369,13 +369,7 @@
                      :primary-key false}]
           config (introspection/parse-table-metadata :no-pk metadata)]
       ;; Should default to :id or first column
-      (is (keyword? (:primary-key config)))))
-
-  (testing "Table with composite primary key (Week 2+ support)"
-    ;; Week 1: Only single-column primary keys supported
-    ;; Week 2+: Add composite key support
-    (testing "Week 1 limitation: composite keys not fully supported"
-      (is true)))) ; Placeholder
+      (is (keyword? (:primary-key config))))))
 
 ;; =============================================================================
 ;; Field Ordering Tests

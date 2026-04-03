@@ -1,6 +1,33 @@
 (ns boundary.shared.ui.core.table
   "Shared table UI helpers (sorting, paging) for Hiccup-based web UIs."
-  (:require [boundary.platform.shell.web.table :as web-table]))
+  (:require [clojure.string :as str]))
+
+;; ---------------------------------------------------------------------------
+;; Query-param helpers (pure, inlined to avoid core→shell dependency)
+;; ---------------------------------------------------------------------------
+
+(defn table-query->params
+  "Convert a TableQuery map into a string-keyed param map for query strings."
+  [{:keys [sort dir page page-size]}]
+  {"sort"      (when sort (name sort))
+   "dir"       (when dir (name dir))
+   "page"      (str page)
+   "page-size" (str page-size)})
+
+(defn encode-query-params
+  "Turn a string-keyed map into a query string (nil values are omitted)."
+  [m]
+  (->> m
+       (remove (comp nil? val))
+       (map (fn [[k v]] (str k "=" v)))
+       (str/join "&")))
+
+(defn search-filters->params
+  "Convert parsed search/filter map back into a string-keyed param map."
+  [filters]
+  (into {}
+        (for [[k v] filters]
+          [(name k) (str v)])))
 
 (defn sortable-th
   "Reusable sortable table header cell.
@@ -22,39 +49,39 @@
    - Clicking toggles :dir between :asc and :desc for the same :field.
    - When changing sort field or direction, page is reset to 1.
    "
-   [{:keys [label field current-sort current-dir base-url push-url-base _page page-size
-            hx-target hx-push-url? extra-params]}]
-   (let [active?  (= current-sort field)
-         next-dir (if (and active? (= current-dir :asc)) :desc :asc)
-         icon-symbol (cond
-                       (not active?) nil
-                       (= current-dir :asc) "↑"
-                       :else "↓")
-         page*    1
-         base-q   (web-table/table-query->params
-                   {:sort field :dir next-dir :page page* :page-size page-size})
-         extra-q  (into {}
-                        (for [[k v] extra-params]
-                          [(name k) (str v)]))
-         qs-map   (merge base-q extra-q)
-         query-str (web-table/encode-query-params qs-map)
-         url      (str base-url "?" query-str)
-         push-url (when hx-push-url?
-                    (str (or push-url-base base-url) "?" query-str))]
-     [:th
-      {:hx-get     url
-       :hx-target  hx-target
-       :hx-push-url push-url
-       :hx-params  "none"
-       :class      (str "sortable-header"
-                        (when active? " sortable-header--active")
-                        (when active? (str " sort-dir-" (name current-dir))))
-       :role       "button"
-       :tabindex   "0"}
-      [:span.sort-label label]
-      (when icon-symbol
-        [:span.sort-icon
-         icon-symbol])]))
+  [{:keys [label field current-sort current-dir base-url push-url-base _page page-size
+           hx-target hx-push-url? extra-params]}]
+  (let [active?  (= current-sort field)
+        next-dir (if (and active? (= current-dir :asc)) :desc :asc)
+        icon-symbol (cond
+                      (not active?) nil
+                      (= current-dir :asc) "↑"
+                      :else "↓")
+        page*    1
+        base-q   (table-query->params
+                  {:sort field :dir next-dir :page page* :page-size page-size})
+        extra-q  (into {}
+                       (for [[k v] extra-params]
+                         [(name k) (str v)]))
+        qs-map   (merge base-q extra-q)
+        query-str (encode-query-params qs-map)
+        url      (str base-url "?" query-str)
+        push-url (when hx-push-url?
+                   (str (or push-url-base base-url) "?" query-str))]
+    [:th
+     {:hx-get     url
+      :hx-target  hx-target
+      :hx-push-url push-url
+      :hx-params  "none"
+      :class      (str "sortable-header"
+                       (when active? " sortable-header--active")
+                       (when active? (str " sort-dir-" (name current-dir))))
+      :role       "button"
+      :tabindex   "0"}
+     [:span.sort-label label]
+     (when icon-symbol
+       [:span.sort-icon
+        icon-symbol])]))
 
 (defn pagination
   "Render pagination controls for a table.
@@ -88,15 +115,15 @@
                              [(name k) (str v)]))
         mk-url       (fn [page*]
                        (let [tq   (assoc table-query :page page*)
-                             base (web-table/table-query->params tq)
+                             base (table-query->params tq)
                              qs   (merge base extra-q)]
-                         (str base-url "?" (web-table/encode-query-params qs))))
+                         (str base-url "?" (encode-query-params qs))))
         mk-push-url  (fn [page*]
                        (let [tq   (assoc table-query :page page*)
-                             base (web-table/table-query->params tq)
+                             base (table-query->params tq)
                              qs   (merge base extra-q)]
                          (str (or push-url-base base-url) "?"
-                              (web-table/encode-query-params qs))))
+                              (encode-query-params qs))))
         prev-page    (max 1 (dec page))
         next-page    (min total-pages (inc page))]
     (when show-pages?
