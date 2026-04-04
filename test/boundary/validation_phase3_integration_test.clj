@@ -306,7 +306,7 @@
 
 (deftest ^:phase3 ^:integration phase3-features-summary-test
   (testing "Phase 3 validation features are production-ready"
-    (is true "✓ Property-based generators: Deterministic test data generation")
-    (is true "✓ Behavior DSL: Declarative test scenarios with mutations")
-    (is true "✓ Snapshot testing: Regression detection with deterministic serialization")
-    (is true "✓ Coverage reporting: Validation rule execution tracking")))
+    (is (fn? gen/gen-valid-one) "Property-based generators available")
+    (is (fn? behavior/execute-scenario) "Behavior DSL scenario execution available")
+    (is (fn? snapshot/capture) "Snapshot testing capture available")
+    (is (fn? coverage/compute) "Coverage reporting computation available")))

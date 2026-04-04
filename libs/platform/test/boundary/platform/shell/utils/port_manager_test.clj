@@ -78,7 +78,7 @@
           (let [port (reserve-free-port)]
             (with-occupied-port port
               #(is (not (pm/port-available? port)))))))
-      (is true "Skipping socket-bind dependent port-availability assertions in sandbox"))))
+      (is (not (socket-bind-supported?)) "Skipping socket-bind dependent port-availability assertions in sandbox"))))
 
 (deftest test-find-available-port
   (testing "Find available port in range"

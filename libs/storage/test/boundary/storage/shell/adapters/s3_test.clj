@@ -110,7 +110,7 @@
 (defmacro when-s3 [& body]
   `(if (s3-available?)
      (do ~@body)
-     (is true "S3/MinIO not available — test skipped")))
+     (is (not (s3-available?)) "S3/MinIO not available — test skipped")))
 
 ;; =============================================================================
 ;; Basic file operations
@@ -118,67 +118,67 @@
 
 (deftest ^:integration s3-store-retrieve-test
   (when-s3
-    (testing "store and retrieve a file"
-      (let [content (.getBytes "Hello, S3!")
-            file-data {:bytes content :content-type "text/plain"}
-            metadata {:filename "hello.txt" :visibility :private}
-            result (ports/store-file *storage* file-data metadata)]
+   (testing "store and retrieve a file"
+     (let [content (.getBytes "Hello, S3!")
+           file-data {:bytes content :content-type "text/plain"}
+           metadata {:filename "hello.txt" :visibility :private}
+           result (ports/store-file *storage* file-data metadata)]
 
-        (is (some? (:key result)))
-        (is (= (count content) (:size result)))
-        (swap! *stored-keys* conj (:key result))
+       (is (some? (:key result)))
+       (is (= (count content) (:size result)))
+       (swap! *stored-keys* conj (:key result))
 
-        (let [retrieved (ports/retrieve-file *storage* (:key result))]
-          (is (some? retrieved))
-          (is (= (count content) (count (:bytes retrieved)))))))))
+       (let [retrieved (ports/retrieve-file *storage* (:key result))]
+         (is (some? retrieved))
+         (is (= (count content) (count (:bytes retrieved)))))))))
 
 (deftest ^:integration s3-file-exists-test
   (when-s3
-    (testing "file-exists? returns true after storing"
-      (let [content (.getBytes "existence test")
-            result (ports/store-file *storage*
-                                     {:bytes content :content-type "text/plain"}
-                                     {:filename "exist.txt" :visibility :private})]
-        (swap! *stored-keys* conj (:key result))
-        (is (true? (ports/file-exists? *storage* (:key result))))))
+   (testing "file-exists? returns true after storing"
+     (let [content (.getBytes "existence test")
+           result (ports/store-file *storage*
+                                    {:bytes content :content-type "text/plain"}
+                                    {:filename "exist.txt" :visibility :private})]
+       (swap! *stored-keys* conj (:key result))
+       (is (true? (ports/file-exists? *storage* (:key result))))))
 
-    (testing "file-exists? returns false for missing key"
-      (is (false? (ports/file-exists? *storage* "definitely-missing-xyz/abc"))))))
+   (testing "file-exists? returns false for missing key"
+     (is (false? (ports/file-exists? *storage* "definitely-missing-xyz/abc"))))))
 
 (deftest ^:integration s3-delete-file-test
   (when-s3
-    (testing "delete-file removes stored file"
-      (let [content (.getBytes "to delete")
-            result (ports/store-file *storage*
-                                     {:bytes content :content-type "text/plain"}
-                                     {:filename "delete-me.txt" :visibility :private})]
-        (is (true? (ports/delete-file *storage* (:key result))))
-        (is (false? (ports/file-exists? *storage* (:key result))))))))
+   (testing "delete-file removes stored file"
+     (let [content (.getBytes "to delete")
+           result (ports/store-file *storage*
+                                    {:bytes content :content-type "text/plain"}
+                                    {:filename "delete-me.txt" :visibility :private})]
+       (is (true? (ports/delete-file *storage* (:key result))))
+       (is (false? (ports/file-exists? *storage* (:key result))))))))
 
 (deftest ^:integration s3-retrieve-missing-test
   (when-s3
-    (testing "retrieve-file returns nil for missing key"
-      (is (nil? (ports/retrieve-file *storage* "no/such/file.txt"))))))
+   (testing "retrieve-file returns nil for missing key"
+     (is (nil? (ports/retrieve-file *storage* "no/such/file.txt"))))))
 
 (deftest ^:integration s3-signed-url-test
   (when-s3
-    (testing "generate-signed-url returns a URL string"
-      (let [content (.getBytes "signed content")
-            result (ports/store-file *storage*
-                                     {:bytes content :content-type "text/plain"}
-                                     {:filename "signed.txt" :visibility :private})]
-        (swap! *stored-keys* conj (:key result))
-        (let [url (ports/generate-signed-url *storage* (:key result) 60)]
-          (is (string? url))
-          (is (.startsWith url "http")))))))
+   (testing "generate-signed-url returns a URL string"
+     (let [content (.getBytes "signed content")
+           result (ports/store-file *storage*
+                                    {:bytes content :content-type "text/plain"}
+                                    {:filename "signed.txt" :visibility :private})]
+       (swap! *stored-keys* conj (:key result))
+       (let [url (ports/generate-signed-url *storage* (:key result) 60)]
+         (is (string? url))
+         (is (.startsWith url "http")))))))
 
 (deftest ^:integration s3-public-visibility-test
   (when-s3
-    (testing "public visibility returns direct URL"
-      (let [content (.getBytes "public content")
-            result (ports/store-file *storage*
-                                     {:bytes content :content-type "text/plain"}
-                                     {:filename "public.txt" :visibility :public})]
-        (swap! *stored-keys* conj (:key result))
-        (is (string? (:url result)))
-        (is (.startsWith (:url result) "https://"))))))
+   (testing "public visibility returns direct URL"
+     (let [content (.getBytes "public content")
+           result (ports/store-file *storage*
+                                    {:bytes content :content-type "text/plain"}
+                                    {:filename "public.txt" :visibility :public})]
+       (swap! *stored-keys* conj (:key result))
+       (is (string? (:url result)))
+       (is (.startsWith (:url result) "https://"))))))

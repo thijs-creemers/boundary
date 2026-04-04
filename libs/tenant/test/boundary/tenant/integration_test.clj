@@ -342,7 +342,8 @@
         (log/info "Schema switching test passed (provision-tenant! validates internally)"))
 
       ;; H2/non-PostgreSQL databases: schema-per-tenant not supported
-      (is true "Schema switching test skipped (non-PostgreSQL database)"))))
+      (is (not= :postgresql (get-in *test-ctx* [:adapter :dialect]))
+          "Schema switching test skipped (non-PostgreSQL database)"))))
 
 ;; =============================================================================
 ;; Test 4: Performance Benchmarks

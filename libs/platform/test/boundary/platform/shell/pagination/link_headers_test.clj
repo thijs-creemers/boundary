@@ -463,15 +463,9 @@
               (str/includes? result "name%20with%20spaces")))))
 
   (testing "Nil pagination metadata handles gracefully"
-    ;; Implementation should handle nil metadata gracefully
-    ;; Either return nil or empty string, not crash
-    (try
-      (let [result (link-headers/generate-link-header "/api/v1/users" {} nil)]
-        ;; If it succeeds, result should be nil or empty
-        (is (or (nil? result) (str/blank? result))))
-      (catch Exception e
-        ;; If it throws, that's also acceptable behavior
-        (is (instance? Exception e)))))
+    ;; generate-link-header returns nil for nil metadata (no links to build)
+    (let [result (link-headers/generate-link-header "/api/v1/users" {} nil)]
+      (is (nil? result) "Nil metadata should produce nil (no Link header)")))
 
   (testing "Last page calculation with exact divisor"
     (let [base-path "/api/v1/users"

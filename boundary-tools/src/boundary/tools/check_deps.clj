@@ -49,13 +49,48 @@
       (->> (file-seq src-dir)
            (filter #(and (.isFile %) (str/ends-with? (.getName %) ".clj")))))))
 
+(defn- extract-ns-form-text
+  "Extract the raw text of the (ns ...) form from file content using
+   balanced-paren counting. Avoids read-string on the full file which
+   fails on auto-resolved keywords like ::jdbc/opts or ::ring-ws/listener."
+  [content]
+  (let [idx (.indexOf ^String content "(ns ")]
+    (when (>= idx 0)
+      (loop [i idx depth 0]
+        (when (< i (count content))
+          (let [c (.charAt ^String content i)]
+            (cond
+              (= c \() (recur (inc i) (inc depth))
+              (= c \))
+              (if (= depth 1)
+                (subs content idx (inc i))
+                (recur (inc i) (dec depth)))
+              ;; Skip string contents (avoid counting parens inside strings)
+              (= c \")
+              (let [end (loop [j (inc i)]
+                          (if (>= j (count content)) j
+                              (let [ch (.charAt ^String content j)]
+                                (cond
+                                  (= ch \\) (recur (+ j 2))
+                                  (= ch \") (inc j)
+                                  :else     (recur (inc j))))))]
+                (recur end depth))
+              ;; Skip line comments (avoid counting parens in comments)
+              (= c \;)
+              (let [nl (.indexOf ^String content "\n" (int i))]
+                (recur (if (neg? nl) (count content) (inc nl)) depth))
+              :else (recur (inc i) depth))))))))
+
 (defn- read-ns-form
-  "Read the (ns ...) form from a Clojure file."
+  "Read the (ns ...) form from a Clojure file. Extracts only the ns form
+   text before calling read-string, so files with auto-resolved keywords
+   in function bodies are handled correctly."
   [file]
   (try
     (let [content (slurp file)
-          forms   (read-string (str "[" content "]"))]
-      (first (filter #(and (list? %) (= 'ns (first %))) forms)))
+          ns-text (extract-ns-form-text content)]
+      (when ns-text
+        (read-string ns-text)))
     (catch Exception _ nil)))
 
 (defn- extract-required-ns
@@ -72,13 +107,13 @@
 
 (defn- ns->boundary-lib
   "Given a namespace string like 'boundary.user.core.foo', extract the library
-   name 'user'. Returns nil for non-boundary namespaces."
+   name 'user'. Returns nil for non-boundary namespaces.
+   Maps boundary.shared.* to 'admin' (those namespaces live in libs/admin/src/)."
   [ns-str]
   (let [parts (str/split ns-str #"\.")]
     (when (and (>= (count parts) 2) (= "boundary" (first parts)))
-      ;; Handle compound lib names: boundary.ui-style.core → ui-style
-      ;; but also boundary.shared.* which is part of admin
-      (when-not (= "shared" (second parts))
+      (if (= "shared" (second parts))
+        "admin"
         (second parts)))))
 
 ;; ---------------------------------------------------------------------------
@@ -113,27 +148,36 @@
 ;; Cycle detection (DFS)
 ;; ---------------------------------------------------------------------------
 
-(defn- find-cycle
-  "DFS cycle detection on a graph. Returns the first cycle found as a vector
-   of lib names, or nil if no cycle exists."
+(defn- find-all-cycles
+  "DFS cycle detection on a graph. Returns all distinct cycles found as a
+   seq of vectors (each vector is a cycle path), or empty seq if acyclic.
+   Cycles are deduplicated by their set of directed edges so that two cycles
+   over the same nodes but with different edge patterns are both reported."
   [graph]
   (let [visited (atom #{})
         path    (atom [])
-        on-path (atom #{})]
+        on-path (atom #{})
+        cycles  (atom [])
+        seen-edge-sets (atom #{})]
     (letfn [(dfs [node]
               (when-not (@visited node)
-                (swap! visited conj node)
                 (swap! path conj node)
                 (swap! on-path conj node)
-                (let [result (some (fn [neighbor]
-                                     (if (@on-path neighbor)
-                                       (conj (vec (drop-while #(not= % neighbor) @path)) neighbor)
-                                       (dfs neighbor)))
-                                   (get graph node #{}))]
-                  (swap! path pop)
-                  (swap! on-path disj node)
-                  result)))]
-      (some dfs (keys graph)))))
+                (doseq [neighbor (get graph node #{})]
+                  (if (@on-path neighbor)
+                    (let [cycle-path (conj (vec (drop-while #(not= % neighbor) @path)) neighbor)
+                          edge-set (set (map vector (butlast cycle-path) (rest cycle-path)))]
+                      (when-not (contains? @seen-edge-sets edge-set)
+                        (swap! seen-edge-sets conj edge-set)
+                        (swap! cycles conj cycle-path)))
+                    (when-not (@visited neighbor)
+                      (dfs neighbor))))
+                (swap! path pop)
+                (swap! on-path disj node)
+                (swap! visited conj node)))]
+      (doseq [node (keys graph)]
+        (dfs node))
+      @cycles)))
 
 ;; ---------------------------------------------------------------------------
 ;; Validation
@@ -149,27 +193,67 @@
      (map (fn [d] {:type :core-actual-dep :dep d}) actual-deps))))
 
 (defn- check-undeclared-deps
-  "Verify every actual require-time dep exists in the declared graph (direct or transitive)."
+  "Verify every actual source-level require is declared as a direct dependency
+   in the library's own deps.edn. Transitive availability through another
+   library is not sufficient — each library must explicitly declare what it uses."
   [declared-graph actual-graph]
-  (let [;; Compute transitive closure of declared deps
-        transitive (fn transitive-deps [lib seen]
-                     (let [direct (get declared-graph lib #{})]
-                       (reduce (fn [acc dep]
-                                 (if (contains? acc dep)
-                                   acc
-                                   (into (conj acc dep)
-                                         (transitive-deps dep (conj acc dep)))))
-                               seen
-                               direct)))]
-    (->> actual-graph
-         (mapcat (fn [[lib actual-deps]]
-                   (let [all-declared (transitive lib #{})]
-                     (->> actual-deps
-                          (remove #(contains? all-declared %))
-                          (map (fn [dep]
-                                 {:type :undeclared-dep
-                                  :lib  lib
-                                  :dep  dep})))))))))
+  (->> actual-graph
+       (mapcat (fn [[lib actual-deps]]
+                 (let [direct-declared (get declared-graph lib #{})]
+                   (->> actual-deps
+                        (remove #(contains? direct-declared %))
+                        (map (fn [dep]
+                               {:type :undeclared-dep
+                                :lib  lib
+                                :dep  dep}))))))))
+
+;; ---------------------------------------------------------------------------
+;; Known cycle allowlist
+;; ---------------------------------------------------------------------------
+
+(def ^:private allowed-undeclared-deps
+  "Pre-existing [lib dep] pairs where a library :requires another Boundary
+   library without declaring it in deps.edn. These are acknowledged but not
+   yet resolved. Remove entries as deps.edn files are updated; adding new
+   entries requires an ADR."
+  #{["calendar" "admin"]
+    ["user" "i18n"]           ["user" "admin"]      ["user" "cache"]
+    ["user" "tenant"]         ["user" "observability"] ["user" "core"]
+    ["storage" "observability"]
+    ["admin" "i18n"]          ["admin" "core"]
+    ["workflow" "user"]       ["workflow" "i18n"]
+    ["jobs" "tenant"]
+    ["search" "i18n"]
+    ["platform" "user"]       ["platform" "i18n"]    ["platform" "admin"]
+    ["platform" "cache"]      ["platform" "workflow"] ["platform" "tenant"]
+    ["platform" "search"]     ["platform" "core"]    ["platform" "external"]})
+
+(defn- allowed-undeclared?
+  "Returns true if this undeclared dep is in the known allowlist."
+  [{:keys [lib dep]}]
+  (contains? allowed-undeclared-deps [lib dep]))
+
+(def ^:private allowed-cycle-edges
+  "Pre-existing directed source-level require edges that are acknowledged
+   but not yet resolved. A cycle is allowlisted when every directed edge
+   in its path is covered by this set.
+   Remove entries as cross-references are broken; adding new entries requires an ADR."
+  #{["admin" "user"]      ["user" "admin"]
+    ["platform" "user"]   ["user" "platform"]
+    ["user" "tenant"]
+    ["tenant" "platform"] ["platform" "tenant"]
+    ["platform" "workflow"] ["workflow" "platform"]
+    ["platform" "search"]   ["search" "platform"]
+    ["platform" "admin"]    ["admin" "platform"]
+    ["workflow" "user"]     ["workflow" "admin"]
+    ["search" "admin"]})
+
+(defn- allowed-cycle?
+  "Returns true if every directed edge in the cycle path is covered by the
+   allowlist. A cycle involving any new edge will fail."
+  [cycle-path]
+  (let [edges (map vector (butlast cycle-path) (rest cycle-path))]
+    (every? #(contains? allowed-cycle-edges %) edges)))
 
 ;; ---------------------------------------------------------------------------
 ;; Entry point
@@ -179,20 +263,33 @@
   (let [entries        (lib-dirs)
         declared-graph (build-declared-graph entries)
         actual-graph   (build-actual-graph entries)
-        core-issues    (check-core-independence declared-graph actual-graph)
-        undeclared     (check-undeclared-deps declared-graph actual-graph)
-        cycle-path     (find-cycle declared-graph)
-        ;; Hard failures: core independence violations and cycles
+        core-issues        (check-core-independence declared-graph actual-graph)
+        undeclared         (check-undeclared-deps declared-graph actual-graph)
+        declared-cycles    (find-all-cycles declared-graph)
+        actual-cycles      (find-all-cycles actual-graph)
+        allowed-actual     (filter allowed-cycle? actual-cycles)
+        new-actual         (remove allowed-cycle? actual-cycles)
+        allowed-undeclared  (filter allowed-undeclared? undeclared)
+        new-undeclared      (remove allowed-undeclared? undeclared)
+        ;; Hard failures: core violations, any declared cycle, any non-allowlisted actual cycle,
+        ;; any NEW undeclared direct dependency
         hard-failures  (concat core-issues
-                               (when cycle-path [{:type :cycle :path cycle-path}]))
-        ;; Soft warnings: undeclared deps (monorepo shared classpath allows these)
-        warnings       undeclared]
-    ;; Print warnings (non-blocking)
+                               (map (fn [p] {:type :declared-cycle :path p}) declared-cycles)
+                               (map (fn [p] {:type :actual-cycle :path p}) new-actual)
+                               new-undeclared)
+        ;; Soft warnings: allowlisted undeclared deps (pre-existing, acknowledged)
+        warnings       allowed-undeclared]
+    ;; Print allowlisted actual cycles as informational
+    (when (seq allowed-actual)
+      (println (ansi/yellow "Known source-level cycle(s) (allowlisted):"))
+      (doseq [c allowed-actual]
+        (println (str "  " (str/join " -> " c))))
+      (println))
     (when (seq warnings)
-      (println (ansi/yellow "Undeclared dependency warnings:"))
+      (println (ansi/yellow "Known undeclared dependencies (allowlisted):"))
       (doseq [v warnings]
-        (println (str "  WARNING: " (:lib v) " requires " (:dep v) " but it is not in deps.edn")))
-      (println (str (count warnings) " warning(s). Consider adding these to the library's deps.edn."))
+        (println (str "  " (:lib v) " requires " (:dep v) " (not in deps.edn)")))
+      (println (str (count warnings) " allowlisted. Remove entries as deps.edn files are updated."))
       (println))
     ;; Hard failures block CI
     (if (seq hard-failures)
@@ -205,8 +302,12 @@
             (println (str "  VIOLATION: core/deps.edn declares dependency on " (ansi/red (:dep v))))
             :core-actual-dep
             (println (str "  VIOLATION: core source requires " (ansi/red (:dep v)) " (core must be dependency-free)"))
-            :cycle
-            (println (str "  VIOLATION: circular dependency: " (ansi/red (str/join " -> " (:path v)))))))
+            :declared-cycle
+            (println (str "  VIOLATION: circular dependency in deps.edn: " (ansi/red (str/join " -> " (:path v)))))
+            :actual-cycle
+            (println (str "  VIOLATION: circular dependency in source requires: " (ansi/red (str/join " -> " (:path v)))))
+            :undeclared-dep
+            (println (str "  VIOLATION: " (:lib v) " requires " (ansi/red (:dep v)) " but it is not declared in deps.edn"))))
         (println)
         (println (str (count hard-failures) " violation(s) found."))
         (System/exit 1))

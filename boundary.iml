@@ -52,6 +52,8 @@
       <sourceFolder url="file://$MODULE_DIR$/libs/geo/resources" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/payments/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/payments/test" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/boundary-tools/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/boundary-tools/test" isTestSource="true" />
     </content>
   </component>
   <component name="BuildSystem">

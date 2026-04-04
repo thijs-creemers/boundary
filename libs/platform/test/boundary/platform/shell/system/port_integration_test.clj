@@ -122,7 +122,7 @@
               (is (.isStarted server))))
           (finally
             (stop-system system))))
-      (is true "Skipping socket-bind dependent HTTP startup test in sandbox"))))
+      (is (not (socket-bind-supported?)) "Skipping socket-bind dependent HTTP startup test in sandbox"))))
 
 (deftest test-http-server-port-conflict-resolution
   (testing "HTTP server resolves port conflicts using port-range fallback"
@@ -149,7 +149,7 @@
                   (stop-system system))))
             (finally
               (release-port blocking-socket)))))
-      (is true "Skipping socket-bind dependent conflict-resolution test in sandbox"))))
+      (is (not (socket-bind-supported?)) "Skipping socket-bind dependent conflict-resolution test in sandbox"))))
 
 (deftest test-http-server-config-integration
   (testing "HTTP server receives complete configuration including port-range"
@@ -172,7 +172,7 @@
 (deftest test-system-startup-failure-handling
   (testing "System handles startup failures gracefully"
     (if (socket-bind-supported?)
-        (let [{:keys [start end] :as port-range} (find-free-port-range 3)
+      (let [{:keys [start end] :as port-range} (find-free-port-range 3)
             sockets (mapv occupy-port (range start (inc end)))]
         (try
           ;; With all ports blocked and no random fallback in this test scenario,
@@ -189,7 +189,7 @@
           (finally
             (doseq [socket sockets]
               (release-port socket)))))
-      (is true "Skipping socket-bind dependent startup-failure test in sandbox"))))
+      (is (not (socket-bind-supported?)) "Skipping socket-bind dependent startup-failure test in sandbox"))))
 
 ;; =============================================================================
 ;; Docker Environment Simulation Tests
@@ -209,7 +209,7 @@
               (is (= requested-port actual-port)))
             (finally
               (stop-system system)))))
-      (is true "Skipping socket-bind dependent Docker behavior test in sandbox"))))
+      (is (not (socket-bind-supported?)) "Skipping socket-bind dependent Docker behavior test in sandbox"))))
 
 ;; =============================================================================
 ;; Configuration Validation Tests  
@@ -262,4 +262,4 @@
             (finally
               (doseq [system @systems]
                 (stop-system system))))))
-      (is true "Skipping socket-bind dependent multiple-startup test in sandbox"))))
+      (is (not (socket-bind-supported?)) "Skipping socket-bind dependent multiple-startup test in sandbox"))))
