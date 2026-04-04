@@ -97,9 +97,15 @@
     (let [lo (max 2 (- current siblings))
           hi (min (dec total-pages) (+ current siblings))]
       (concat [1]
-              (when (> lo 2) [:ellipsis])
+              (cond
+                (= lo 2) nil          ; no gap
+                (= lo 3) [2]          ; gap of 1 — show the page directly
+                :else     [:ellipsis]) ; gap > 1
               (range lo (inc hi))
-              (when (< hi (dec total-pages)) [:ellipsis])
+              (cond
+                (= hi (dec total-pages)) nil
+                (= hi (- total-pages 2)) [(dec total-pages)]
+                :else                    [:ellipsis])
               [total-pages]))))
 
 (defn pagination

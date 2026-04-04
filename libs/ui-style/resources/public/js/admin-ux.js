@@ -204,7 +204,18 @@
     var deleteBtn = backdrop.querySelector('.confirm-delete');
     cancelBtn.focus();
 
+    // Close on Escape
+    function onEsc(e) {
+      if (e.key === 'Escape') {
+        close(false);
+      }
+    }
+    document.addEventListener('keydown', onEsc);
+
     function close(confirmed) {
+      // Always clean up the Escape handler
+      document.removeEventListener('keydown', onEsc);
+
       backdrop.classList.add('closing');
       backdrop.addEventListener('animationend', function () {
         if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
@@ -222,15 +233,6 @@
     backdrop.addEventListener('click', function (e) {
       if (e.target === backdrop) close(false);
     });
-
-    // Close on Escape
-    function onEsc(e) {
-      if (e.key === 'Escape') {
-        close(false);
-        document.removeEventListener('keydown', onEsc);
-      }
-    }
-    document.addEventListener('keydown', onEsc);
   }
 
   // =========================================================================
