@@ -35,6 +35,7 @@ clojure -M:test:db/h2 :calendar                    # Calendar library tests
 clojure -M:test:db/h2 :geo                         # Geo library tests
 clojure -M:test:db/h2 :ai                          # AI library tests
 clojure -M:test:db/h2 :ui-style                    # UI style library tests
+clojure -M:test:db/h2 :i18n                        # i18n library tests
 
 # Testing - By metadata category
 clojure -M:test:db/h2 --focus-meta :unit           # Unit tests only
@@ -152,7 +153,8 @@ libs/
 ├── calendar/      # Calendar events, RRULE recurrence, iCal export/import, conflict detection
 ├── geo/           # Geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
 ├── ai/            # Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
-└── ui-style/      # Shared UI style bundles, tokens, and CSS assets contract
+├── ui-style/      # Shared UI style bundles, tokens, and CSS assets contract
+└── i18n/          # Marker-based internationalisation, translation catalogues, locale chains
 
 # boundary-tools (at repo root, not under libs/)
 boundary-tools/    # Developer tooling: scaffolding, AI, i18n, deploy, dev utilities
@@ -709,6 +711,7 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 | **geo** | [`libs/geo/AGENTS.md`](libs/geo/AGENTS.md) | Multi-provider geocoding (OSM/Google/Mapbox), DB cache, rate limiting, Haversine distance |
 | **ai** | [`libs/ai/AGENTS.md`](libs/ai/AGENTS.md) | Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, error explainer, test generator, SQL copilot, docs wizard |
 | **ui-style** | [`libs/ui-style/AGENTS.md`](libs/ui-style/AGENTS.md) | App-wide UI contract: style bundles (`:base`, `:pilot`, `:admin-pilot`), tokens, and shared CSS assets |
+| **i18n** | [`libs/i18n/AGENTS.md`](libs/i18n/AGENTS.md) | Marker-based i18n, translation catalogues, locale chains, scanning tools |
 
 ---
 
@@ -749,7 +752,7 @@ Clojure's `{:or {limit 20 offset 0}}` destructuring only fires for **absent** ke
 
 ---
 
-## boundary-tools — The 21st Artifact
+## boundary-tools — Developer Tooling Artifact
 
 `boundary-tools` is a standalone, independently publishable Clojars artifact containing all portable Babashka developer tooling. It lives at `boundary-tools/` (not under `libs/`) and is consumed by the monorepo via a local path dep:
 
@@ -776,11 +779,12 @@ Any project using `boundary-starter` or starting fresh should consume it via:
 | `boundary.tools.integrate` | `bb scaffold integrate` — wire modules into deps/tests/wiring |
 | `boundary.tools.i18n` | `bb i18n:find/scan/missing/unused` |
 | `boundary.tools.admin` | `bb create-admin` |
-| `boundary.tools.deploy` | `bb deploy` (handles all 21 artifacts) |
+| `boundary.tools.deploy` | `bb deploy` (handles all 22 libs + boundary-tools) |
 | `boundary.tools.dev` | `bb migrate`, `bb check-links`, `bb smoke-check`, `bb install-hooks` |
 | `boundary.tools.check-fcis` | `bb check:fcis` — FC/IS boundary enforcement (ADR-021) |
 | `boundary.tools.check-tests` | `bb check:placeholder-tests` — placeholder assertion detection |
 | `boundary.tools.check-deps` | `bb check:deps` — dependency direction linting + cycle detection |
+| `boundary.tools.parsing` | Shared source-parsing utilities for quality-gate checkers |
 
 ### Releasing boundary-tools
 
@@ -815,5 +819,5 @@ See `boundary-tools/AGENTS.md` for the full command reference.
 
 ---
 
-**Last Updated**: 2026-03-27
-**Version**: 5.1.0 (tenant membership management: ADR-016 — membership lifecycle, email invite flow, tenant-aware interceptors)
+**Last Updated**: 2026-04-04
+**Version**: 5.2.0 (quality gate improvements, i18n library documentation, boundary.tools.parsing extraction)
