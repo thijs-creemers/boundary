@@ -49,13 +49,48 @@
       (->> (file-seq src-dir)
            (filter #(and (.isFile %) (str/ends-with? (.getName %) ".clj")))))))
 
+(defn- extract-ns-form-text
+  "Extract the raw text of the (ns ...) form from file content using
+   balanced-paren counting. Avoids read-string on the full file which
+   fails on auto-resolved keywords like ::jdbc/opts or ::ring-ws/listener."
+  [content]
+  (let [idx (.indexOf ^String content "(ns ")]
+    (when (>= idx 0)
+      (loop [i idx depth 0]
+        (when (< i (count content))
+          (let [c (.charAt ^String content i)]
+            (cond
+              (= c \() (recur (inc i) (inc depth))
+              (= c \))
+              (if (= depth 1)
+                (subs content idx (inc i))
+                (recur (inc i) (dec depth)))
+              ;; Skip string contents (avoid counting parens inside strings)
+              (= c \")
+              (let [end (loop [j (inc i)]
+                          (if (>= j (count content)) j
+                              (let [ch (.charAt ^String content j)]
+                                (cond
+                                  (= ch \\) (recur (+ j 2))
+                                  (= ch \") (inc j)
+                                  :else     (recur (inc j))))))]
+                (recur end depth))
+              ;; Skip line comments (avoid counting parens in comments)
+              (= c \;)
+              (let [nl (.indexOf ^String content "\n" (int i))]
+                (recur (if (neg? nl) (count content) (inc nl)) depth))
+              :else (recur (inc i) depth))))))))
+
 (defn- read-ns-form
-  "Read the (ns ...) form from a Clojure file."
+  "Read the (ns ...) form from a Clojure file. Extracts only the ns form
+   text before calling read-string, so files with auto-resolved keywords
+   in function bodies are handled correctly."
   [file]
   (try
     (let [content (slurp file)
-          forms   (read-string (str "[" content "]"))]
-      (first (filter #(and (list? %) (= 'ns (first %))) forms)))
+          ns-text (extract-ns-form-text content)]
+      (when ns-text
+        (read-string ns-text)))
     (catch Exception _ nil)))
 
 (defn- extract-required-ns

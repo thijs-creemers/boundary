@@ -37,16 +37,63 @@
   (some #(re-find % ns-str) forbidden-require-patterns))
 
 ;; ---------------------------------------------------------------------------
+;; Source stripping — remove comments and string interiors so FQ-call
+;; scanning only matches executable code, not docstrings or comments.
+;; ---------------------------------------------------------------------------
+
+(defn- strip-comments-and-strings
+  "Replace comment text and string contents with spaces (preserving line
+   structure) so that regex matches only apply to executable code."
+  [content]
+  (-> content
+      (str/replace #"\"(?:[^\"\\]|\\.)*\""
+                   (fn [m] (str/replace m #"[^\n]" " ")))
+      (str/replace #";[^\n]*" (fn [m] (apply str (repeat (count m) \space))))))
+
+;; ---------------------------------------------------------------------------
 ;; ns form parsing
 ;; ---------------------------------------------------------------------------
 
+(defn- extract-ns-form-text
+  "Extract the raw text of the (ns ...) form from file content using
+   balanced-paren counting. Avoids read-string on the full file which
+   fails on auto-resolved keywords like ::jdbc/opts."
+  [content]
+  (let [idx (.indexOf ^String content "(ns ")]
+    (when (>= idx 0)
+      (loop [i idx depth 0]
+        (when (< i (count content))
+          (let [c (.charAt ^String content i)]
+            (cond
+              (= c \() (recur (inc i) (inc depth))
+              (= c \))
+              (if (= depth 1)
+                (subs content idx (inc i))
+                (recur (inc i) (dec depth)))
+              (= c \")
+              (let [end (loop [j (inc i)]
+                          (if (>= j (count content)) j
+                              (let [ch (.charAt ^String content j)]
+                                (cond
+                                  (= ch \\) (recur (+ j 2))
+                                  (= ch \") (inc j)
+                                  :else     (recur (inc j))))))]
+                (recur end depth))
+              (= c \;)
+              (let [nl (.indexOf ^String content "\n" (int i))]
+                (recur (if (neg? nl) (count content) (inc nl)) depth))
+              :else (recur (inc i) depth))))))))
+
 (defn- read-ns-form
-  "Read the (ns ...) form from a Clojure file. Returns nil if not found."
+  "Read the (ns ...) form from a Clojure file. Returns nil if not found.
+   Extracts only the ns form text before read-string, so files with
+   auto-resolved keywords in function bodies are handled correctly."
   [file]
   (try
     (let [content (slurp file)
-          forms   (read-string (str "[" content "]"))]
-      (first (filter #(and (list? %) (= 'ns (first %))) forms)))
+          ns-text (extract-ns-form-text content)]
+      (when ns-text
+        (read-string ns-text)))
     (catch Exception _
       nil)))
 
@@ -94,20 +141,21 @@
 
 (defn- scan-fq-calls
   "Scan file content for fully-qualified forbidden calls.
+   Comments and string contents are stripped first so that docstrings,
+   example text, and trailing comments are not flagged.
    Returns a seq of {:file :line :symbol} maps."
   [file content]
-  (let [lines (str/split-lines content)]
+  (let [cleaned (strip-comments-and-strings content)
+        lines   (str/split-lines cleaned)]
     (->> lines
          (map-indexed
           (fn [idx line]
-            ;; Skip comment lines
-            (when-not (re-find #"^\s*;" line)
-              (some (fn [pat]
-                      (when-let [m (re-find pat line)]
-                        {:file   (str file)
-                         :line   (inc idx)
-                         :symbol (str/replace m #"/$" "")}))
-                    forbidden-fq-patterns))))
+            (some (fn [pat]
+                    (when-let [m (re-find pat line)]
+                      {:file   (str file)
+                       :line   (inc idx)
+                       :symbol (str/replace m #"/$" "")}))
+                  forbidden-fq-patterns)))
          (remove nil?))))
 
 (defn- check-file
