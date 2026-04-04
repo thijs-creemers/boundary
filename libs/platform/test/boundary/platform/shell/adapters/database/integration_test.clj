@@ -147,34 +147,36 @@
     (integration/initialize-databases! "test")
 
     (let [active-dbs (integration/list-active-databases)]
-      (when-let [[adapter-key _] (first active-dbs)]
-        (testing (str "Query execution on " adapter-key)
-          (try
-            ;; Simple test query - use proper HoneySQL syntax
-            (let [result (integration/execute-query adapter-key {:select [[1 :test]]})] ; Fixed HoneySQL syntax
-              (is (some? result) "Query should return a result")
-              (is (coll? result) "Result should be a collection"))
-            (catch Exception e
-              ;; Since our dynamic driver loading works, we expect database-related errors
-              ;; rather than driver-loading errors
-              (is (or (.contains (.getMessage e) "Database query failed")
-                      (.contains (.getMessage e) "ClassNotFoundException")
-                      (.contains (.getMessage e) "No suitable driver")
-                      (.contains (.getMessage e) "Database initialization failed"))
-                  (str "Expected database or driver-related error, got: " (.getMessage e))))))
+      (if-let [[adapter-key _] (first active-dbs)]
+        (do
+          (testing (str "Query execution on " adapter-key)
+            (try
+              ;; Simple test query - use proper HoneySQL syntax
+              (let [result (integration/execute-query adapter-key {:select [[1 :test]]})]
+                (is (some? result) "Query should return a result")
+                (is (coll? result) "Result should be a collection"))
+              (catch Exception e
+                ;; Since our dynamic driver loading works, we expect database-related errors
+                ;; rather than driver-loading errors
+                (is (or (.contains (.getMessage e) "Database query failed")
+                        (.contains (.getMessage e) "ClassNotFoundException")
+                        (.contains (.getMessage e) "No suitable driver")
+                        (.contains (.getMessage e) "Database initialization failed"))
+                    (str "Expected database or driver-related error, got: " (.getMessage e))))))
 
-        (testing "Environment switching example"
-          ;; This should work even without JDBC drivers since it only loads configs
-          (try
-            (let [_result (integration/example-environment-switching)]
-              (is (some? (integration/list-active-databases)) "Environment switching example should complete"))
-            (catch Exception e
-              (println (str "Environment switching example failed: " (.getMessage e)))
-              ;; This test documents expected behavior even if it fails
-              (is false (str "Environment switching should not fail: " (.getMessage e)))))))
-      ;; PostgreSQL not available, skip test
-      (println "SKIPPED: test-example-functions (PostgreSQL not available)")
-      (is (some? active-dbs) "Database query integration test completed"))))
+          (testing "Environment switching example"
+            ;; This should work even without JDBC drivers since it only loads configs
+            (try
+              (let [_result (integration/example-environment-switching)]
+                (is (some? (integration/list-active-databases)) "Environment switching example should complete"))
+              (catch Exception e
+                (println (str "Environment switching example failed: " (.getMessage e)))
+                ;; This test documents expected behavior even if it fails
+                (is false (str "Environment switching should not fail: " (.getMessage e)))))))
+        ;; No active databases — skip
+        (do
+          (println "SKIPPED: test-query-execution (no active databases)")
+          (is (empty? active-dbs) "Skipped — no active databases"))))))
 
 ;; Run all tests
 (defn run-integration-tests []

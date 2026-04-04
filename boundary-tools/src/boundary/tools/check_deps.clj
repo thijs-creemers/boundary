@@ -175,6 +175,28 @@
 ;; Known cycle allowlist
 ;; ---------------------------------------------------------------------------
 
+(def ^:private allowed-undeclared-deps
+  "Pre-existing [lib dep] pairs where a library :requires another Boundary
+   library without declaring it in deps.edn. These are acknowledged but not
+   yet resolved. Remove entries as deps.edn files are updated; adding new
+   entries requires an ADR."
+  #{["calendar" "admin"]
+    ["user" "i18n"]           ["user" "admin"]      ["user" "cache"]
+    ["user" "tenant"]         ["user" "observability"] ["user" "core"]
+    ["storage" "observability"]
+    ["admin" "i18n"]          ["admin" "core"]
+    ["workflow" "user"]       ["workflow" "i18n"]
+    ["jobs" "tenant"]
+    ["search" "i18n"]
+    ["platform" "user"]       ["platform" "i18n"]    ["platform" "admin"]
+    ["platform" "cache"]      ["platform" "workflow"] ["platform" "tenant"]
+    ["platform" "search"]     ["platform" "core"]    ["platform" "external"]})
+
+(defn- allowed-undeclared?
+  "Returns true if this undeclared dep is in the known allowlist."
+  [{:keys [lib dep]}]
+  (contains? allowed-undeclared-deps [lib dep]))
+
 (def ^:private allowed-cycle-edges
   "Pre-existing directed source-level require edges that are acknowledged
    but not yet resolved. A cycle is allowlisted when every directed edge
@@ -211,12 +233,16 @@
         actual-cycles      (find-all-cycles actual-graph)
         allowed-actual     (filter allowed-cycle? actual-cycles)
         new-actual         (remove allowed-cycle? actual-cycles)
-        ;; Hard failures: core violations, any declared cycle, any non-allowlisted actual cycle
+        allowed-undeclared  (filter allowed-undeclared? undeclared)
+        new-undeclared      (remove allowed-undeclared? undeclared)
+        ;; Hard failures: core violations, any declared cycle, any non-allowlisted actual cycle,
+        ;; any NEW undeclared direct dependency
         hard-failures  (concat core-issues
                                (map (fn [p] {:type :declared-cycle :path p}) declared-cycles)
-                               (map (fn [p] {:type :actual-cycle :path p}) new-actual))
-        ;; Soft warnings: undeclared deps (monorepo shared classpath allows these)
-        warnings       undeclared]
+                               (map (fn [p] {:type :actual-cycle :path p}) new-actual)
+                               new-undeclared)
+        ;; Soft warnings: allowlisted undeclared deps (pre-existing, acknowledged)
+        warnings       allowed-undeclared]
     ;; Print allowlisted actual cycles as informational
     (when (seq allowed-actual)
       (println (ansi/yellow "Known source-level cycle(s) (allowlisted):"))
@@ -224,10 +250,10 @@
         (println (str "  " (str/join " -> " c))))
       (println))
     (when (seq warnings)
-      (println (ansi/yellow "Undeclared dependency warnings:"))
+      (println (ansi/yellow "Known undeclared dependencies (allowlisted):"))
       (doseq [v warnings]
-        (println (str "  WARNING: " (:lib v) " requires " (:dep v) " but it is not in deps.edn")))
-      (println (str (count warnings) " warning(s). Consider adding these to the library's deps.edn."))
+        (println (str "  " (:lib v) " requires " (:dep v) " (not in deps.edn)")))
+      (println (str (count warnings) " allowlisted. Remove entries as deps.edn files are updated."))
       (println))
     ;; Hard failures block CI
     (if (seq hard-failures)
@@ -243,7 +269,9 @@
             :declared-cycle
             (println (str "  VIOLATION: circular dependency in deps.edn: " (ansi/red (str/join " -> " (:path v)))))
             :actual-cycle
-            (println (str "  VIOLATION: circular dependency in source requires: " (ansi/red (str/join " -> " (:path v)))))))
+            (println (str "  VIOLATION: circular dependency in source requires: " (ansi/red (str/join " -> " (:path v)))))
+            :undeclared-dep
+            (println (str "  VIOLATION: " (:lib v) " requires " (ansi/red (:dep v)) " but it is not declared in deps.edn"))))
         (println)
         (println (str (count hard-failures) " violation(s) found."))
         (System/exit 1))
