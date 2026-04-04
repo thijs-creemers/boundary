@@ -15,7 +15,7 @@
 ;; constitutes an FC/IS violation.
 ;; ---------------------------------------------------------------------------
 
-(def ^:private forbidden-patterns
+(def ^:private forbidden-require-patterns
   "Patterns that must never appear in core namespace :require vectors."
   [#"\.shell\."
    #"^clojure\.tools\.logging$"
@@ -23,10 +23,18 @@
    #"^next\.jdbc"
    #"^clj-http"])
 
-(defn- forbidden?
-  "Returns true if `ns-str` matches any forbidden pattern."
+(def ^:private forbidden-fq-patterns
+  "Fully-qualified symbol prefixes that must never appear in core namespace bodies.
+   These catch calls like clojure.java.io/file even without a :require."
+  [#"clojure\.tools\.logging/"
+   #"clojure\.java\.io/"
+   #"next\.jdbc/"
+   #"clj-http\.\w+/"])
+
+(defn- forbidden-require?
+  "Returns true if `ns-str` matches any forbidden require pattern."
   [ns-str]
-  (some #(re-find % ns-str) forbidden-patterns))
+  (some #(re-find % ns-str) forbidden-require-patterns))
 
 ;; ---------------------------------------------------------------------------
 ;; ns form parsing
@@ -84,18 +92,48 @@
            (mapcat file-seq)
            (filter #(and (.isFile %) (str/ends-with? (.getName %) ".clj")))))))
 
+(defn- scan-fq-calls
+  "Scan file content for fully-qualified forbidden calls.
+   Returns a seq of {:file :line :symbol} maps."
+  [file content]
+  (let [lines (str/split-lines content)]
+    (->> lines
+         (map-indexed
+          (fn [idx line]
+            ;; Skip comment lines
+            (when-not (re-find #"^\s*;" line)
+              (some (fn [pat]
+                      (when-let [m (re-find pat line)]
+                        {:file   (str file)
+                         :line   (inc idx)
+                         :symbol (str/replace m #"/$" "")}))
+                    forbidden-fq-patterns))))
+         (remove nil?))))
+
 (defn- check-file
-  "Check a single core/ .clj file for forbidden requires.
+  "Check a single core/ .clj file for forbidden requires and
+   fully-qualified forbidden calls in the body.
    Returns a seq of violation maps, or empty seq if clean."
   [file]
-  (let [ns-form  (read-ns-form file)
-        requires (extract-requires ns-form)]
-    (->> requires
-         (filter #(forbidden? (str %)))
-         (map (fn [req]
-                {:file (str file)
-                 :ns   (str (second ns-form))
-                 :req  (str req)})))))
+  (let [content  (slurp file)
+        ns-form  (read-ns-form file)
+        ns-name  (str (second ns-form))
+        requires (extract-requires ns-form)
+        require-violations (->> requires
+                                (filter #(forbidden-require? (str %)))
+                                (map (fn [req]
+                                       {:file (str file)
+                                        :ns   ns-name
+                                        :req  (str req)
+                                        :kind :require})))
+        fq-violations (->> (scan-fq-calls file content)
+                           (map (fn [{:keys [line symbol]}]
+                                  {:file (str file)
+                                   :ns   ns-name
+                                   :req  symbol
+                                   :line line
+                                   :kind :fq-call})))]
+    (concat require-violations fq-violations)))
 
 ;; ---------------------------------------------------------------------------
 ;; Entry point
@@ -108,9 +146,12 @@
       (do
         (println (ansi/red "FC/IS violations found:"))
         (println)
-        (doseq [{:keys [file ns req]} violations]
-          (println (str "  VIOLATION: " file))
-          (println (str "    namespace " ns " requires " (ansi/red req))))
+        (doseq [{:keys [file ns req kind line]} violations]
+          (if (= kind :fq-call)
+            (do (println (str "  VIOLATION: " file ":" line))
+                (println (str "    namespace " ns " calls " (ansi/red req))))
+            (do (println (str "  VIOLATION: " file))
+                (println (str "    namespace " ns " requires " (ansi/red req))))))
         (println)
         (println (str (count violations) " violation(s) found. Core namespaces must not import shell, I/O, logging, or DB code."))
         (System/exit 1))

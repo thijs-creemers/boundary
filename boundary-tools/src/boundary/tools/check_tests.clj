@@ -10,12 +10,32 @@
             [boundary.tools.ansi :as ansi]))
 
 ;; ---------------------------------------------------------------------------
-;; Placeholder patterns
+;; Source stripping — remove comments and string interiors so regexes
+;; only match executable code, not docstrings or comment text.
+;; ---------------------------------------------------------------------------
+
+(defn- strip-comments-and-strings
+  "Replace comment text and string contents with spaces (preserving line
+   structure) so that regex matches only apply to executable code.
+   - Comment lines: everything from ; to end of line → spaces
+   - String literals: contents between double-quotes → spaces
+     (handles escaped quotes inside strings)"
+  [content]
+  (-> content
+      ;; Replace string contents with spaces (preserve newlines for line counting).
+      ;; Matches "..." including escaped quotes inside.
+      (str/replace #"\"(?:[^\"\\]|\\.)*\""
+                   (fn [m] (str/replace m #"[^\n]" " ")))
+      ;; Replace comment text with spaces
+      (str/replace #";[^\n]*" (fn [m] (apply str (repeat (count m) \space))))))
+
+;; ---------------------------------------------------------------------------
+;; Placeholder patterns (multiline-aware)
 ;; ---------------------------------------------------------------------------
 
 (def ^:private placeholder-patterns
-  "Regex patterns matching placeholder assertions, including multiline forms
-   like (is\\n  true) and (is\\n  (= true true))."
+  "Regex patterns matching placeholder assertions across line boundaries.
+   Applied to stripped source (no comments/strings) to avoid false positives."
   [#"(?s)\(\s*is\s+true\s*\)"
    #"(?s)\(\s*is\s+\(\s*=\s+true\s+true\s*\)\s*\)"])
 
@@ -48,21 +68,24 @@
 (defn- offset->line-number
   "Convert a character offset into a 1-based line number."
   [content offset]
-  (inc (count (filter #(= \newline %) (subs content 0 offset)))))
+  (inc (count (filter #(= \newline %) (subs content 0 (min offset (count content)))))))
 
 (defn- scan-file
-  "Scan a file for placeholder assertions, including multiline forms.
+  "Scan a file for placeholder assertions in executable code.
+   Comments and string contents are stripped first so that docstrings
+   and comment text like ';; changed from (is true)' are not flagged.
    Returns seq of match maps."
   [file]
-  (let [content (slurp file)]
+  (let [raw     (slurp file)
+        cleaned (strip-comments-and-strings raw)]
     (->> placeholder-patterns
          (mapcat (fn [pat]
-                   (let [matcher (re-matcher pat content)]
+                   (let [matcher (re-matcher pat cleaned)]
                      (loop [matches []]
                        (if (.find matcher)
                          (recur (conj matches
                                       {:file    (str file)
-                                       :line    (offset->line-number content (.start matcher))
+                                       :line    (offset->line-number raw (.start matcher))
                                        :content (str/trim (str/replace (.group matcher) #"\s+" " "))}))
                          matches)))))
          (distinct))))

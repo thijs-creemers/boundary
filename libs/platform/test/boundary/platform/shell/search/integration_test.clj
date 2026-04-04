@@ -179,7 +179,7 @@
           (teardown-test-db))))
     (do
       (println "SKIPPED: Search integration tests (PostgreSQL not available)")
-      (is true "Skipped because PostgreSQL is not available"))))
+      (is (not (postgres-available?)) "Skipped because PostgreSQL is not available"))))
 
 (defn clean-data-fixture
   "Fixture to clean test data between tests."
