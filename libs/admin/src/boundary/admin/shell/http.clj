@@ -905,11 +905,15 @@
 
           ; Delete entity (soft or hard based on schema)
           deleted? (ports/delete-entity admin-service entity-name id)
-          return-to (get-in request [:query-params "return_to"])]
+          return-to (get-in request [:query-params "return_to"])
+          ;; Only accept relative paths under /web/admin/ to prevent open redirects
+          safe-return-to (when (and (not-empty return-to)
+                                    (str/starts-with? return-to "/web/admin/"))
+                           return-to)]
 
       (if deleted?
         ; Success - redirect back to return_to (parent context) or entity list
-        (let [redirect-url (or (not-empty return-to)
+        (let [redirect-url (or safe-return-to
                                (str "/web/admin/" (name entity-name)))]
           (-> (ring-response/response "")
               (ring-response/status 200)

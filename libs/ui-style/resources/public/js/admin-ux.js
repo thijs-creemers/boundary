@@ -117,7 +117,7 @@
   // =========================================================================
 
   function initClickableRows() {
-    document.body.addEventListener('click', function (event) {
+    document.addEventListener('click', function (event) {
       // Find closest clickable row
       var row = event.target.closest('tr.clickable-row');
       if (!row) return;
@@ -241,18 +241,18 @@
 
   function init() {
     // Progress bar on HTMX requests
-    document.body.addEventListener('htmx:beforeRequest', function () {
+    document.addEventListener('htmx:beforeRequest', function () {
       showProgress();
     });
-    document.body.addEventListener('htmx:afterRequest', function () {
+    document.addEventListener('htmx:afterRequest', function () {
       hideProgress();
     });
-    document.body.addEventListener('htmx:responseError', function () {
+    document.addEventListener('htmx:responseError', function () {
       hideProgress();
     });
 
     // Skeleton on table requests
-    document.body.addEventListener('htmx:beforeRequest', function (event) {
+    document.addEventListener('htmx:beforeRequest', function (event) {
       var elt = event.detail.elt;
       if (!elt) return;
       // Only show skeleton for requests targeting the table container
@@ -268,7 +268,7 @@
 
     // Toast from HTMX HX-Trigger response header
     // Server can send: HX-Trigger: {"showToast": {"type": "success", "title": "Saved", "message": "Record updated"}}
-    document.body.addEventListener('showToast', function (event) {
+    document.addEventListener('showToast', function (event) {
       var detail = event.detail || {};
       showToast({
         type: detail.type || detail.value || 'info',
@@ -278,7 +278,7 @@
     });
 
     // Intercept hx-confirm on delete buttons with styled modal
-    document.body.addEventListener('htmx:confirm', function (event) {
+    document.addEventListener('htmx:confirm', function (event) {
       var elt = event.detail.elt;
       if (!elt) return;
 
