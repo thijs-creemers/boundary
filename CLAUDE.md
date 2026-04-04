@@ -45,7 +45,7 @@ bb setup ai "PostgreSQL with Stripe payments"                     # AI-powered c
 bb setup --database postgresql --payment stripe                   # Non-interactive config setup
 bb scaffold integrate product      # Wire scaffolded module into deps/tests/wiring
 bb scaffold integrate product --dry-run                           # Preview integration changes
-bb deploy --all                    # Deploy all 21 libraries to Clojars
+bb deploy --all                    # Deploy all 22 libraries to Clojars
 bb deploy --missing                # Deploy only libraries not yet on Clojars
 bb deploy core platform user       # Deploy specific libraries
 bb create-admin      # Create first admin user for a new project (interactive wizard)
@@ -64,7 +64,7 @@ clojure -M:test:db/h2 --focus-meta :security  # Security-focused tests (error ma
 
 ## Architecture: Functional Core / Imperative Shell
 
-This is a Clojure monorepo with 21 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:
+This is a Clojure monorepo with 22 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:
 
 ```
 libs/{library}/src/boundary/{library}/
@@ -79,7 +79,7 @@ libs/{library}/src/boundary/{library}/
 - Core → Ports (allowed)
 - Core → Shell (NEVER - this violates FC/IS)
 
-**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, payments, workflow, search, reports, calendar, geo, ai, ui-style
+**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, payments, workflow, search, reports, calendar, geo, ai, ui-style, i18n
 
 The main application source in `src/boundary/` follows the same core/shell structure. Example applications live at https://github.com/tcbv/boundary-examples
 
@@ -134,6 +134,7 @@ Each library has its own `AGENTS.md` with library-specific documentation:
 - `libs/geo/AGENTS.md` - Multi-provider geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
 - `libs/ai/AGENTS.md` - Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
 - `libs/ui-style/AGENTS.md` - Shared UI style bundles (`:base`, `:pilot`, `:admin-pilot`), design tokens, CSS/JS assets
+- `libs/i18n/AGENTS.md` - Marker-based i18n, translation catalogues, locale chains, scanning tools
 
 ## Custom Test Reporter
 
@@ -141,4 +142,4 @@ The Kaocha reporter at `dev/boundary/test/reporter.clj` shows green ✓ for pass
 
 ## Further Reading
 
-See `AGENTS.md` for detailed development workflows, common pitfalls (10 documented patterns), debugging strategies, and general conventions.
+See `AGENTS.md` for detailed development workflows, common pitfalls (11 documented patterns), debugging strategies, and general conventions.
