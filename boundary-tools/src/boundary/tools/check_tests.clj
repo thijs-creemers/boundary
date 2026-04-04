@@ -14,9 +14,10 @@
 ;; ---------------------------------------------------------------------------
 
 (def ^:private placeholder-patterns
-  "Regex patterns matching placeholder assertions."
-  [#"\(\s*is\s+true\s*\)"
-   #"\(\s*is\s+\(\s*=\s+true\s+true\s*\)\s*\)"])
+  "Regex patterns matching placeholder assertions, including multiline forms
+   like (is\\n  true) and (is\\n  (= true true))."
+  [#"(?s)\(\s*is\s+true\s*\)"
+   #"(?s)\(\s*is\s+\(\s*=\s+true\s+true\s*\)\s*\)"])
 
 ;; ---------------------------------------------------------------------------
 ;; File scanning
@@ -44,18 +45,27 @@
          (filter #(and (.isFile %)
                        (str/ends-with? (.getName %) ".clj"))))))
 
+(defn- offset->line-number
+  "Convert a character offset into a 1-based line number."
+  [content offset]
+  (inc (count (filter #(= \newline %) (subs content 0 offset)))))
+
 (defn- scan-file
-  "Scan a file for placeholder assertions. Returns seq of match maps."
+  "Scan a file for placeholder assertions, including multiline forms.
+   Returns seq of match maps."
   [file]
-  (let [lines (str/split-lines (slurp file))]
-    (->> lines
-         (map-indexed
-          (fn [idx line]
-            (when (some #(re-find % line) placeholder-patterns)
-              {:file    (str file)
-               :line    (inc idx)
-               :content (str/trim line)})))
-         (remove nil?))))
+  (let [content (slurp file)]
+    (->> placeholder-patterns
+         (mapcat (fn [pat]
+                   (let [matcher (re-matcher pat content)]
+                     (loop [matches []]
+                       (if (.find matcher)
+                         (recur (conj matches
+                                      {:file    (str file)
+                                       :line    (offset->line-number content (.start matcher))
+                                       :content (str/trim (str/replace (.group matcher) #"\s+" " "))}))
+                         matches)))))
+         (distinct))))
 
 ;; ---------------------------------------------------------------------------
 ;; Entry point

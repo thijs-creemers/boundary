@@ -157,27 +157,19 @@
      (map (fn [d] {:type :core-actual-dep :dep d}) actual-deps))))
 
 (defn- check-undeclared-deps
-  "Verify every actual require-time dep exists in the declared graph (direct or transitive)."
+  "Verify every actual source-level require is declared as a direct dependency
+   in the library's own deps.edn. Transitive availability through another
+   library is not sufficient — each library must explicitly declare what it uses."
   [declared-graph actual-graph]
-  (let [;; Compute transitive closure of declared deps
-        transitive (fn transitive-deps [lib seen]
-                     (let [direct (get declared-graph lib #{})]
-                       (reduce (fn [acc dep]
-                                 (if (contains? acc dep)
-                                   acc
-                                   (into (conj acc dep)
-                                         (transitive-deps dep (conj acc dep)))))
-                               seen
-                               direct)))]
-    (->> actual-graph
-         (mapcat (fn [[lib actual-deps]]
-                   (let [all-declared (transitive lib #{})]
-                     (->> actual-deps
-                          (remove #(contains? all-declared %))
-                          (map (fn [dep]
-                                 {:type :undeclared-dep
-                                  :lib  lib
-                                  :dep  dep})))))))))
+  (->> actual-graph
+       (mapcat (fn [[lib actual-deps]]
+                 (let [direct-declared (get declared-graph lib #{})]
+                   (->> actual-deps
+                        (remove #(contains? direct-declared %))
+                        (map (fn [dep]
+                               {:type :undeclared-dep
+                                :lib  lib
+                                :dep  dep}))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Known cycle allowlist
