@@ -904,13 +904,16 @@
           _ (permissions/assert-can-delete-entity! user entity-name entity-config)
 
           ; Delete entity (soft or hard based on schema)
-          deleted? (ports/delete-entity admin-service entity-name id)]
+          deleted? (ports/delete-entity admin-service entity-name id)
+          return-to (get-in request [:query-params "return_to"])]
 
       (if deleted?
-        ; Success - redirect back to entity list
-        (-> (ring-response/response "")
-            (ring-response/status 200)
-            (ring-response/header "HX-Redirect" (str "/web/admin/" (name entity-name))))
+        ; Success - redirect back to return_to (parent context) or entity list
+        (let [redirect-url (or (not-empty return-to)
+                               (str "/web/admin/" (name entity-name)))]
+          (-> (ring-response/response "")
+              (ring-response/status 200)
+              (ring-response/header "HX-Redirect" redirect-url)))
 
         ; Failed to delete
         (-> (ring-response/response "Failed to delete entity")

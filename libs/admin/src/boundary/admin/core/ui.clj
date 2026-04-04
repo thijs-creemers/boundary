@@ -1428,15 +1428,17 @@
            (icons/icon :plus {:size 16})
            [:t :admin/form-create-heading {:label label}]])
         (when (and is-edit? (:can-delete permissions))
-          [:button.button.danger
-           {:type "button"
-            :class "gap-2"
-            :hx-delete (str "/web/admin/" (name entity-name) "/" (get record (:primary-key entity-config :id)))
-            :hx-target "body"
-            :hx-swap "outerHTML"
-            :hx-confirm [:t :admin/confirm-delete-record]}
-           (icons/icon :trash {:size 16})
-           [:t :common/button-delete]])]]
+          (let [delete-url (cond-> (str "/web/admin/" (name entity-name) "/" (get record (:primary-key entity-config :id)))
+                             return-to (str "?return_to=" return-to))]
+            [:button.button.danger
+             {:type "button"
+              :class "gap-2"
+              :hx-delete delete-url
+              :hx-target "body"
+              :hx-swap "outerHTML"
+              :hx-confirm [:t :admin/confirm-delete-record]}
+             (icons/icon :trash {:size 16})
+             [:t :common/button-delete]]))]]
       [:h1.page-title page-title]]
      (when-let [ctx (:parent-context opts)]
        (parent-context-banner ctx))
