@@ -23,11 +23,12 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- test-clj-files
-  "Find all .clj files under libs/*/test/ and test/."
+  "Find all .clj files under libs/*/test/, test/, and boundary-tools/test/."
   []
-  (let [root     (io/file (System/getProperty "user.dir"))
-        libs-dir (io/file root "libs")
-        top-test (io/file root "test")
+  (let [root      (io/file (System/getProperty "user.dir"))
+        libs-dir  (io/file root "libs")
+        top-test  (io/file root "test")
+        tools-test (io/file root "boundary-tools" "test")
         lib-tests (when (.exists libs-dir)
                     (->> (.listFiles libs-dir)
                          (filter #(.isDirectory %))
@@ -36,8 +37,10 @@
                                      (when (.exists test-dir)
                                        (file-seq test-dir)))))))
         top-tests (when (.exists top-test)
-                    (file-seq top-test))]
-    (->> (concat lib-tests top-tests)
+                    (file-seq top-test))
+        tools-tests (when (.exists tools-test)
+                      (file-seq tools-test))]
+    (->> (concat lib-tests top-tests tools-tests)
          (filter #(and (.isFile %)
                        (str/ends-with? (.getName %) ".clj"))))))
 

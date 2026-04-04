@@ -113,27 +113,35 @@
 ;; Cycle detection (DFS)
 ;; ---------------------------------------------------------------------------
 
-(defn- find-cycle
-  "DFS cycle detection on a graph. Returns the first cycle found as a vector
-   of lib names, or nil if no cycle exists."
+(defn- find-all-cycles
+  "DFS cycle detection on a graph. Returns all distinct cycles found as a
+   seq of vectors (each vector is a cycle path), or empty seq if acyclic.
+   Cycles are deduplicated by the set of libraries involved."
   [graph]
   (let [visited (atom #{})
         path    (atom [])
-        on-path (atom #{})]
+        on-path (atom #{})
+        cycles  (atom [])
+        seen-cycle-sets (atom #{})]
     (letfn [(dfs [node]
               (when-not (@visited node)
-                (swap! visited conj node)
                 (swap! path conj node)
                 (swap! on-path conj node)
-                (let [result (some (fn [neighbor]
-                                     (if (@on-path neighbor)
-                                       (conj (vec (drop-while #(not= % neighbor) @path)) neighbor)
-                                       (dfs neighbor)))
-                                   (get graph node #{}))]
-                  (swap! path pop)
-                  (swap! on-path disj node)
-                  result)))]
-      (some dfs (keys graph)))))
+                (doseq [neighbor (get graph node #{})]
+                  (if (@on-path neighbor)
+                    (let [cycle-path (conj (vec (drop-while #(not= % neighbor) @path)) neighbor)
+                          cycle-set (set (butlast cycle-path))]
+                      (when-not (contains? @seen-cycle-sets cycle-set)
+                        (swap! seen-cycle-sets conj cycle-set)
+                        (swap! cycles conj cycle-path)))
+                    (when-not (@visited neighbor)
+                      (dfs neighbor))))
+                (swap! path pop)
+                (swap! on-path disj node)
+                (swap! visited conj node)))]
+      (doseq [node (keys graph)]
+        (dfs node))
+      @cycles)))
 
 ;; ---------------------------------------------------------------------------
 ;; Validation
@@ -175,17 +183,27 @@
 ;; Known cycle allowlist
 ;; ---------------------------------------------------------------------------
 
-(def ^:private allowed-cycles
-  "Pre-existing source-level cycles that are acknowledged but not yet resolved.
-   Each entry is a set of the two libraries involved.
-   Remove entries as cycles are broken; adding new entries requires an ADR."
-  #{#{"admin" "user"}})
+(def ^:private allowed-cycle-edges
+  "Pre-existing directed source-level require edges that are acknowledged
+   but not yet resolved. A cycle is allowlisted when every directed edge
+   in its path is covered by this set.
+   Remove entries as cross-references are broken; adding new entries requires an ADR."
+  #{["admin" "user"]      ["user" "admin"]
+    ["platform" "user"]   ["user" "platform"]
+    ["user" "tenant"]
+    ["tenant" "platform"] ["platform" "tenant"]
+    ["platform" "workflow"] ["workflow" "platform"]
+    ["platform" "search"]   ["search" "platform"]
+    ["platform" "admin"]    ["admin" "platform"]
+    ["workflow" "user"]     ["workflow" "admin"]
+    ["search" "admin"]})
 
 (defn- allowed-cycle?
-  "Returns true if a cycle path only involves libraries in the allowlist."
+  "Returns true if every directed edge in the cycle path is covered by the
+   allowlist. A cycle involving any new edge will fail."
   [cycle-path]
-  (let [libs (set (butlast cycle-path))]
-    (contains? allowed-cycles libs)))
+  (let [edges (map vector (butlast cycle-path) (rest cycle-path))]
+    (every? #(contains? allowed-cycle-edges %) edges)))
 
 ;; ---------------------------------------------------------------------------
 ;; Entry point
@@ -197,19 +215,21 @@
         actual-graph   (build-actual-graph entries)
         core-issues        (check-core-independence declared-graph actual-graph)
         undeclared         (check-undeclared-deps declared-graph actual-graph)
-        declared-cycle     (find-cycle declared-graph)
-        actual-cycle       (find-cycle actual-graph)
-        ;; Hard failures: core violations, declared cycles, and non-allowlisted actual cycles
+        declared-cycles    (find-all-cycles declared-graph)
+        actual-cycles      (find-all-cycles actual-graph)
+        allowed-actual     (filter allowed-cycle? actual-cycles)
+        new-actual         (remove allowed-cycle? actual-cycles)
+        ;; Hard failures: core violations, any declared cycle, any non-allowlisted actual cycle
         hard-failures  (concat core-issues
-                               (when declared-cycle [{:type :declared-cycle :path declared-cycle}])
-                               (when (and actual-cycle (not (allowed-cycle? actual-cycle)))
-                                 [{:type :actual-cycle :path actual-cycle}]))
+                               (map (fn [p] {:type :declared-cycle :path p}) declared-cycles)
+                               (map (fn [p] {:type :actual-cycle :path p}) new-actual))
         ;; Soft warnings: undeclared deps (monorepo shared classpath allows these)
         warnings       undeclared]
     ;; Print allowlisted actual cycles as informational
-    (when (and actual-cycle (allowed-cycle? actual-cycle))
-      (println (ansi/yellow "Known source-level cycle (allowlisted):"))
-      (println (str "  " (str/join " -> " actual-cycle)))
+    (when (seq allowed-actual)
+      (println (ansi/yellow "Known source-level cycle(s) (allowlisted):"))
+      (doseq [c allowed-actual]
+        (println (str "  " (str/join " -> " c))))
       (println))
     (when (seq warnings)
       (println (ansi/yellow "Undeclared dependency warnings:"))
