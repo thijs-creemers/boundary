@@ -116,13 +116,14 @@
 (defn- find-all-cycles
   "DFS cycle detection on a graph. Returns all distinct cycles found as a
    seq of vectors (each vector is a cycle path), or empty seq if acyclic.
-   Cycles are deduplicated by the set of libraries involved."
+   Cycles are deduplicated by their set of directed edges so that two cycles
+   over the same nodes but with different edge patterns are both reported."
   [graph]
   (let [visited (atom #{})
         path    (atom [])
         on-path (atom #{})
         cycles  (atom [])
-        seen-cycle-sets (atom #{})]
+        seen-edge-sets (atom #{})]
     (letfn [(dfs [node]
               (when-not (@visited node)
                 (swap! path conj node)
@@ -130,9 +131,9 @@
                 (doseq [neighbor (get graph node #{})]
                   (if (@on-path neighbor)
                     (let [cycle-path (conj (vec (drop-while #(not= % neighbor) @path)) neighbor)
-                          cycle-set (set (butlast cycle-path))]
-                      (when-not (contains? @seen-cycle-sets cycle-set)
-                        (swap! seen-cycle-sets conj cycle-set)
+                          edge-set (set (map vector (butlast cycle-path) (rest cycle-path)))]
+                      (when-not (contains? @seen-edge-sets edge-set)
+                        (swap! seen-edge-sets conj edge-set)
                         (swap! cycles conj cycle-path)))
                     (when-not (@visited neighbor)
                       (dfs neighbor))))

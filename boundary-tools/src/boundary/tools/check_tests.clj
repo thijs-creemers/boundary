@@ -35,9 +35,10 @@
 
 (def ^:private placeholder-patterns
   "Regex patterns matching placeholder assertions across line boundaries.
-   Applied to stripped source (no comments/strings) to avoid false positives."
-  [#"(?s)\(\s*is\s+true\s*\)"
-   #"(?s)\(\s*is\s+\(\s*=\s+true\s+true\s*\)\s*\)"])
+   Applied to stripped source (no comments/strings) to avoid false positives.
+   Both forms allow an optional trailing message argument (string, keyword, etc.)."
+  [#"(?s)\(\s*is\s+true(?=[\s)])[^)]*\)"
+   #"(?s)\(\s*is\s+\(\s*=\s+true\s+true\s*\)[^)]*\)"])
 
 ;; ---------------------------------------------------------------------------
 ;; File scanning
