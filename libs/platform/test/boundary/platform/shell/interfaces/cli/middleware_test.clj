@@ -235,8 +235,10 @@
 
       (try
         (cli-middleware/with-cli-error-reporting context operation)
+        (is false "Expected exception to be thrown")
         (catch Exception e
-          (is (instance? Exception e))
+          (is (= "Recursive test" (ex-message e))
+              "Should preserve original exception message")
           (is (contains? (ex-data e) :cli-context))))))
 
   (testing "preserves exception cause chain"

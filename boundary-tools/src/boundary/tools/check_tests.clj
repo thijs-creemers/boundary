@@ -41,7 +41,10 @@
 
    After stripping, string literals become whitespace, so predicates whose
    only argument is whitespace indicate tautological assertions on a string
-   literal (e.g. (is (some? \"always truthy\")) → (is (some?              )))."
+   literal (e.g. (is (some? \"always truthy\")) → (is (some?              ))).
+
+   (is (instance? Exception e)) inside a catch block is always true but the
+   checker detects the pattern structurally; review context to confirm."
   [;; (is true) / (is true "msg")
    #"(?s)\(\s*is\s+true(?=[\s)])[^)]*\)"
    ;; (is (= true true)) / (is (= true true) "msg")
@@ -52,7 +55,9 @@
    #"(?s)\(\s*is\s+\(\s*string\?\s+\)[^)]*\)"
    ;; (is (not nil)) / (is (not false)) — always true
    #"(?s)\(\s*is\s+\(\s*not\s+nil\s*\)[^)]*\)"
-   #"(?s)\(\s*is\s+\(\s*not\s+false\s*\)[^)]*\)"])
+   #"(?s)\(\s*is\s+\(\s*not\s+false\s*\)[^)]*\)"
+   ;; (is (instance? Exception <sym>)) — always true inside catch Exception
+   #"(?s)\(\s*is\s+\(\s*instance\?\s+Exception\s+\w+\s*\)[^)]*\)"])
 
 ;; ---------------------------------------------------------------------------
 ;; File scanning
