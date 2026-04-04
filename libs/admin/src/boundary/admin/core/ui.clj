@@ -938,7 +938,10 @@
                  :id "bulk-delete-btn"
                  :form "bulk-action-form"
                  :aria-label [:t :admin/button-delete-selected]
-                 :hx-confirm [:t :admin/confirm-delete-selected]})
+                 :hx-confirm [:t :admin/confirm-delete-selected]
+                 :data-confirm-title [:t :admin/modal-confirm-delete-title]
+                 :data-confirm-cancel [:t :admin/modal-button-cancel]
+                 :data-confirm-label [:t :admin/modal-button-delete]})
          (icons/icon :trash {:size 18})]]
 
        [:div.toolbar-actions {:class "flex items-center gap-2"}
@@ -1436,7 +1439,10 @@
               :hx-delete delete-url
               :hx-target "body"
               :hx-swap "outerHTML"
-              :hx-confirm [:t :admin/confirm-delete-record]}
+              :hx-confirm [:t :admin/confirm-delete-record]
+              :data-confirm-title [:t :admin/modal-confirm-delete-title]
+              :data-confirm-cancel [:t :admin/modal-button-cancel]
+              :data-confirm-label [:t :admin/modal-button-delete]}
              (icons/icon :trash {:size 16})
              [:t :common/button-delete]]))]]
       [:h1.page-title page-title]]

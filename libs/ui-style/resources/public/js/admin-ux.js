@@ -172,6 +172,7 @@
     var title = opts.title || 'Confirm Delete';
     var message = opts.message || 'Are you sure you want to delete this item? This action cannot be undone.';
     var detail = opts.detail || '';
+    var cancelLabel = opts.cancelLabel || 'Cancel';
     var confirmLabel = opts.confirmLabel || 'Delete';
     var onConfirm = opts.onConfirm || null;
 
@@ -193,7 +194,7 @@
           (detail ? '<div class="confirm-detail">' + escapeHtml(detail) + '</div>' : '') +
         '</div>' +
         '<div class="confirm-modal-footer">' +
-          '<button class="button secondary confirm-cancel">Cancel</button>' +
+          '<button class="button secondary confirm-cancel">' + escapeHtml(cancelLabel) + '</button>' +
           '<button class="button danger confirm-delete">' + escapeHtml(confirmLabel) + '</button>' +
         '</div>' +
       '</div>';
@@ -293,11 +294,15 @@
       event.preventDefault();
 
       var message = event.detail.question || 'Are you sure?';
+      var title = elt.getAttribute('data-confirm-title') || 'Confirm Delete';
+      var cancelLabel = elt.getAttribute('data-confirm-cancel') || 'Cancel';
+      var confirmLabel = elt.getAttribute('data-confirm-label') || 'Delete';
 
       showConfirmModal({
-        title: 'Confirm Delete',
+        title: title,
         message: message,
-        confirmLabel: 'Delete',
+        cancelLabel: cancelLabel,
+        confirmLabel: confirmLabel,
         onConfirm: function () {
           // issueRequest() is HTMX's built-in way to proceed after htmx:confirm
           event.detail.issueRequest(true);

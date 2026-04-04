@@ -322,6 +322,16 @@
  :admin/cell-dblclick-hint         "Dubbelklik om te bewerken"
  :admin/audit-trail-title          "Audittrail"
  :admin/audit-trail-description    "Bekijk systeemactiviteit en auditlogboeken."
+ :admin/pagination-showing         "Toont"
+ :admin/pagination-of              "van"
+ :admin/pagination-label           "Paginering"
+ :admin/pagination-first-page      "Eerste pagina"
+ :admin/pagination-previous-page   "Vorige pagina"
+ :admin/pagination-next-page       "Volgende pagina"
+ :admin/pagination-last-page       "Laatste pagina"
+ :admin/pagination-page            "Pagina {page}"
+ :admin/modal-button-cancel        "Annuleren"
+ :admin/modal-button-delete        "Verwijderen"
 
  ;; =============================================================================
  ;; Zoekmodule

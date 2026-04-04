@@ -163,16 +163,16 @@
                                    :hx-push-url (when-not active? (mk-push-url p))
                                    :hx-params  "none"
                                    :disabled   active?
-                                   :aria-label (str "Page " p)
+                                   :aria-label [:t :admin/pagination-page {:page p}]
                                    :aria-current (when active? "page")}
                           (str p)]))]
     (when show-pages?
       [:div.table-pagination
        [:div.page-info
-        [:span.hide-mobile "Showing "]
+        [:span.hide-mobile [:t :admin/pagination-showing] " "]
         [:strong (str from "–" to)]
-        (str " of " total-count)]
-       [:nav.pagination-nav {:aria-label "Pagination"}
+        " " [:t :admin/pagination-of] " " (str total-count)]
+       [:nav.pagination-nav {:aria-label [:t :admin/pagination-label]}
         ;; First page
         [:button.page-nav-btn {:type       "button"
                                :hx-get     (mk-url 1)
@@ -180,8 +180,8 @@
                                :hx-push-url (mk-push-url 1)
                                :hx-params  "none"
                                :disabled   (<= page 1)
-                               :aria-label "First page"
-                               :title      "First page"}
+                               :aria-label [:t :admin/pagination-first-page]
+                               :title      [:t :admin/pagination-first-page]}
          "«"]
         ;; Previous page
         [:button.page-nav-btn {:type       "button"
@@ -190,8 +190,8 @@
                                :hx-push-url (mk-push-url prev-page)
                                :hx-params  "none"
                                :disabled   (<= page 1)
-                               :aria-label "Previous page"
-                               :title      "Previous page"}
+                               :aria-label [:t :admin/pagination-previous-page]
+                               :title      [:t :admin/pagination-previous-page]}
          "‹"]
         ;; Page number buttons with ellipsis
         [:div.page-numbers
@@ -206,8 +206,8 @@
                                :hx-push-url (mk-push-url next-page)
                                :hx-params  "none"
                                :disabled   (>= page total-pages)
-                               :aria-label "Next page"
-                               :title      "Next page"}
+                               :aria-label [:t :admin/pagination-next-page]
+                               :title      [:t :admin/pagination-next-page]}
          "›"]
         ;; Last page
         [:button.page-nav-btn {:type       "button"
@@ -216,6 +216,6 @@
                                :hx-push-url (mk-push-url total-pages)
                                :hx-params  "none"
                                :disabled   (>= page total-pages)
-                               :aria-label "Last page"
-                               :title      "Last page"}
+                               :aria-label [:t :admin/pagination-last-page]
+                               :title      [:t :admin/pagination-last-page]}
          "»"]]])))

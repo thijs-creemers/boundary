@@ -322,6 +322,16 @@
  :admin/cell-dblclick-hint         "Double-click to edit"
  :admin/audit-trail-title          "Audit Trail"
  :admin/audit-trail-description    "View system activity and audit logs."
+ :admin/pagination-showing         "Showing"
+ :admin/pagination-of              "of"
+ :admin/pagination-label           "Pagination"
+ :admin/pagination-first-page      "First page"
+ :admin/pagination-previous-page   "Previous page"
+ :admin/pagination-next-page       "Next page"
+ :admin/pagination-last-page       "Last page"
+ :admin/pagination-page            "Page {page}"
+ :admin/modal-button-cancel        "Cancel"
+ :admin/modal-button-delete        "Delete"
 
  ;; =============================================================================
  ;; Search module
