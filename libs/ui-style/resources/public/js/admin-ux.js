@@ -122,9 +122,9 @@
       var row = event.target.closest('tr.clickable-row');
       if (!row) return;
 
-      // Don't navigate if clicking on interactive elements
+      // Don't navigate if clicking on interactive elements or editable cells
       var target = event.target;
-      if (target.closest('a, button, input, select, textarea, .actions-cell, .checkbox-cell')) {
+      if (target.closest('a, button, input, select, textarea, .actions-cell, .checkbox-cell, td.editable')) {
         return;
       }
 

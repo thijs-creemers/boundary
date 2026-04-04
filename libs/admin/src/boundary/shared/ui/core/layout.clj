@@ -103,10 +103,6 @@
       (when theme-color
         [:meta {:name "theme-color" :content theme-color}])
       [:title title]
-      [:link {:rel "preconnect" :href "https://fonts.googleapis.com"}]
-      [:link {:rel "preconnect" :href "https://fonts.gstatic.com" :crossorigin "anonymous"}]
-      [:link {:rel "stylesheet"
-              :href "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=JetBrains+Mono:wght@400;500;600&display=swap"}]
       [:script {:src "/js/init.js"}]
       extra-head
       (for [css-file css]
