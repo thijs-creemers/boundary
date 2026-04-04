@@ -153,15 +153,35 @@
     return html;
   }
 
+  // Stashed tbody content for restoration on error
+  var savedTbodyHtml = null;
+  var savedTbody = null;
+
   // Show skeleton when table container is being loaded via HTMX
   function handleTableSkeleton(event) {
     var target = event.detail.target || event.target;
     if (!target) return;
     var tbody = target.querySelector && target.querySelector('.data-table tbody');
     if (!tbody) return;
+    // Save current rows so we can restore on error
+    savedTbodyHtml = tbody.innerHTML;
+    savedTbody = tbody;
     var thead = target.querySelector('.data-table thead');
     var colCount = thead ? thead.querySelectorAll('th').length : 5;
     tbody.innerHTML = createSkeletonRows(8, colCount);
+  }
+
+  function restoreTableOnError() {
+    if (savedTbody && savedTbodyHtml !== null) {
+      savedTbody.innerHTML = savedTbodyHtml;
+    }
+    savedTbodyHtml = null;
+    savedTbody = null;
+  }
+
+  function clearSavedTable() {
+    savedTbodyHtml = null;
+    savedTbody = null;
   }
 
   // =========================================================================
@@ -247,9 +267,11 @@
     });
     document.addEventListener('htmx:afterRequest', function () {
       hideProgress();
+      clearSavedTable();
     });
     document.addEventListener('htmx:responseError', function () {
       hideProgress();
+      restoreTableOnError();
     });
 
     // Skeleton on table requests
