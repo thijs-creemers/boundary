@@ -96,6 +96,8 @@
     [:div.hiccup-fragment-wrapper
      ;; Initialize Alpine store for sidebar state management
      (alpine/sidebar-store-init)
+     ;; Toast notification container
+     [:div.toast-container {:role "status" :aria-live "polite"}]
      [:div.admin-shell (alpine/sidebar-shell-attrs)
       (admin-sidebar entities entity-configs current-entity opts)
       [:div.admin-overlay (alpine/sidebar-overlay-attrs)]
@@ -168,17 +170,15 @@
         [:div.entity-card
          [:a {:href (str "/web/admin/" (name entity))
               :class "entity-card-link"}
-          [:div.entity-card-head
-           [:div.entity-card-icon (icons/icon icon {:size 18})]
-           [:span.entity-card-count [:t :admin/entity-card-count {:count count}]]]
+          [:div.entity-card-icon (icons/icon icon {:size 20})]
           [:div.entity-card-title label]
           (when description
-            [:div.entity-card-description description])]]))
+            [:div.entity-card-description description])
+          [:div.entity-card-meta
+           [:span.entity-card-count [:t :admin/entity-card-count {:count count}]]]]]))
     [:div.entity-card
      [:a {:href "/web/audit" :class "entity-card-link"}
-      [:div.entity-card-head
-       [:div.entity-card-icon (icons/icon :file-text {:size 18})]
-       [:span]]
+      [:div.entity-card-icon (icons/icon :file-text {:size 20})]
       [:div.entity-card-title [:t :admin/audit-trail-title]]
       [:div.entity-card-description [:t :admin/audit-trail-description]]]]]])
 
@@ -545,7 +545,8 @@
         primary-key (:primary-key entity-config :id)
         record-id (get record primary-key)
         readonly-fields (set (:readonly-fields entity-config))]
-    [:tr {:class "entity-row"}
+    [:tr {:class "entity-row clickable-row"
+          :data-href (str "/web/admin/" (name entity-name) "/" record-id)}
      [:td.checkbox-cell
        ;; Alpine.js row checkbox with x-model binding to selectedIds array
       [:input (alpine/row-checkbox-attrs record-id)]]
@@ -575,7 +576,9 @@
         [:a.icon-button.secondary
          {:href (str "/web/admin/" (name entity-name) "/" record-id)
           :aria-label [:t :common/button-edit]}
-         (icons/icon :edit {:size 18})])]]))
+         (icons/icon :edit {:size 18})])
+      [:span.row-nav-hint
+       (icons/icon :chevron-right {:size 14})]]]))
 
 ;; =============================================================================
 ;; Inline Editing Components (Week 2)

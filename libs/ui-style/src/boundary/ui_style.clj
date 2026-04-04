@@ -45,7 +45,8 @@
   "Admin pilot JavaScript stack."
   (conj base-js
         "/js/forms.js"
-        "/js/keyboard.js"))
+        "/js/keyboard.js"
+        "/js/admin-ux.js"))
 
 (def js-bundles
   "Registry of known JavaScript bundles."

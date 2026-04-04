@@ -907,10 +907,10 @@
           deleted? (ports/delete-entity admin-service entity-name id)]
 
       (if deleted?
-        ; Success - trigger table refresh
+        ; Success - redirect back to entity list
         (-> (ring-response/response "")
             (ring-response/status 200)
-            (ring-response/header "HX-Trigger" "entityDeleted"))
+            (ring-response/header "HX-Redirect" (str "/web/admin/" (name entity-name))))
 
         ; Failed to delete
         (-> (ring-response/response "Failed to delete entity")

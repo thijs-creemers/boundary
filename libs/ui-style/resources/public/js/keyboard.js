@@ -123,6 +123,16 @@
    * Handle Escape - Close modal or cancel
    */
   function handleEscape() {
+    // Close confirm modal (styled delete dialog)
+    const confirmBackdrop = document.querySelector('.confirm-modal-backdrop');
+    if (confirmBackdrop) {
+      const cancelBtn = confirmBackdrop.querySelector('.confirm-cancel');
+      if (cancelBtn) {
+        cancelBtn.click();
+        return true;
+      }
+    }
+
     // Close any open modals
     const modal = document.querySelector('.modal[open], .modal.active, .modal-backdrop');
     if (modal) {
@@ -264,7 +274,7 @@
 
     // Expose help function and enable debugging
     window.stitch = window.stitch || {};
-    window.stitch.debug = true; // Enable debug by default for troubleshooting
+    window.stitch.debug = false;
     window.stitch.shortcuts = {
       help: showHelp,
       config: SHORTCUTS,
