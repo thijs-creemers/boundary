@@ -1,8 +1,9 @@
 #!/usr/bin/env bb
 ;; boundary-tools/src/boundary/tools/check_tests.clj
 ;;
-;; Detects placeholder test assertions like (is true) and (is (= true true))
-;; that pass green but provide no real coverage.
+;; Detects placeholder and tautological test assertions that pass green but
+;; provide no real coverage: (is true), (is (= true true)), predicates on
+;; string literals like (is (some? "...")), and (is (not nil/false)).
 
 (ns boundary.tools.check-tests
   (:require [clojure.java.io :as io]
@@ -36,9 +37,22 @@
 (def ^:private placeholder-patterns
   "Regex patterns matching placeholder assertions across line boundaries.
    Applied to stripped source (no comments/strings) to avoid false positives.
-   Both forms allow an optional trailing message argument (string, keyword, etc.)."
-  [#"(?s)\(\s*is\s+true(?=[\s)])[^)]*\)"
-   #"(?s)\(\s*is\s+\(\s*=\s+true\s+true\s*\)[^)]*\)"])
+   All forms allow an optional trailing message argument.
+
+   After stripping, string literals become whitespace, so predicates whose
+   only argument is whitespace indicate tautological assertions on a string
+   literal (e.g. (is (some? \"always truthy\")) → (is (some?              )))."
+  [;; (is true) / (is true "msg")
+   #"(?s)\(\s*is\s+true(?=[\s)])[^)]*\)"
+   ;; (is (= true true)) / (is (= true true) "msg")
+   #"(?s)\(\s*is\s+\(\s*=\s+true\s+true\s*\)[^)]*\)"
+   ;; (is (some? "literal")) — after stripping, arg is only whitespace
+   #"(?s)\(\s*is\s+\(\s*some\?\s+\)[^)]*\)"
+   ;; (is (string? "literal")) — after stripping, arg is only whitespace
+   #"(?s)\(\s*is\s+\(\s*string\?\s+\)[^)]*\)"
+   ;; (is (not nil)) / (is (not false)) — always true
+   #"(?s)\(\s*is\s+\(\s*not\s+nil\s*\)[^)]*\)"
+   #"(?s)\(\s*is\s+\(\s*not\s+false\s*\)[^)]*\)"])
 
 ;; ---------------------------------------------------------------------------
 ;; File scanning
