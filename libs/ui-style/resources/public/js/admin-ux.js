@@ -101,9 +101,22 @@
   function dismissToast(toast) {
     if (toast.classList.contains('removing')) return;
     toast.classList.add('removing');
-    toast.addEventListener('animationend', function () {
-      if (toast.parentNode) toast.parentNode.removeChild(toast);
-    });
+    removeAfterAnimation(toast);
+  }
+
+  /**
+   * Remove an element after its CSS animation completes, or immediately
+   * when prefers-reduced-motion disables animations.
+   */
+  function removeAfterAnimation(el) {
+    var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    } else {
+      el.addEventListener('animationend', function () {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      });
+    }
   }
 
   function escapeHtml(str) {
@@ -238,9 +251,7 @@
       document.removeEventListener('keydown', onEsc);
 
       backdrop.classList.add('closing');
-      backdrop.addEventListener('animationend', function () {
-        if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
-      });
+      removeAfterAnimation(backdrop);
 
       if (confirmed && onConfirm) {
         onConfirm();
