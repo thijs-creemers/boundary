@@ -8,31 +8,21 @@
 (ns boundary.tools.check-tests
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [boundary.tools.ansi :as ansi]))
-
-;; ---------------------------------------------------------------------------
-;; Source stripping — remove comments and string interiors so regexes
-;; only match executable code, not docstrings or comment text.
-;; ---------------------------------------------------------------------------
-
-(defn- strip-comments-and-strings
-  "Replace comment text and string contents with spaces (preserving line
-   structure) so that regex matches only apply to executable code.
-   - Comment lines: everything from ; to end of line → spaces
-   - String literals: contents between double-quotes → spaces
-     (handles escaped quotes inside strings)"
-  [content]
-  (-> content
-      ;; Replace string contents with spaces (preserve newlines for line counting).
-      ;; Matches "..." including escaped quotes inside.
-      (str/replace #"\"(?:[^\"\\]|\\.)*\""
-                   (fn [m] (str/replace m #"[^\n]" " ")))
-      ;; Replace comment text with spaces
-      (str/replace #";[^\n]*" (fn [m] (apply str (repeat (count m) \space))))))
+            [boundary.tools.ansi :as ansi]
+            [boundary.tools.parsing :as parsing]))
 
 ;; ---------------------------------------------------------------------------
 ;; Placeholder patterns (multiline-aware)
 ;; ---------------------------------------------------------------------------
+
+;; Skip-sentinel convention
+;; ~~~~~~~~~~~~~~~~~~~~~~~~
+;; Skip-sentinel assertions like (is (not (redis-available?)) "Redis not available")
+;; inside the else branch of an if are tautological by design. They exist solely to
+;; ensure each test function has at least one assertion for the Kaocha reporter.
+;; These are an accepted exception — the checker does not flag them because they are
+;; structurally different from literal placeholders: they contain a function call
+;; (e.g. redis-available?) rather than a bare literal like true, nil, or false.
 
 (def ^:private placeholder-patterns
   "Regex patterns matching placeholder assertions across line boundaries.
@@ -41,7 +31,13 @@
 
    After stripping, string literals become whitespace, so predicates whose
    only argument is whitespace indicate tautological assertions on a string
-   literal (e.g. (is (some? \"always truthy\")) → (is (some?              ))).
+   literal (e.g. (is (some? \"always truthy\")) -> (is (some?              ))).
+
+   Note: Skip-sentinel assertions like (is (not (condition?)) \"Resource not available\")
+   inside the else branch of an if are tautological by design. They exist solely to ensure
+   each test function has at least one assertion for the Kaocha reporter. These are an
+   accepted exception — the checker does not flag them because they are structurally
+   different from literal placeholders.
 
    (is (instance? Exception e)) inside a catch block is always true but the
    checker detects the pattern structurally; review context to confirm."
@@ -97,7 +93,7 @@
    Returns seq of match maps."
   [file]
   (let [raw     (slurp file)
-        cleaned (strip-comments-and-strings raw)]
+        cleaned (parsing/strip-comments-and-strings raw)]
     (->> placeholder-patterns
          (mapcat (fn [pat]
                    (let [matcher (re-matcher pat cleaned)]
