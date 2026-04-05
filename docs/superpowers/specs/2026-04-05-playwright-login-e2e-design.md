@@ -1,8 +1,8 @@
-# Playwright E2E Test Suite — Login Sequence
+# Login E2E Test Suite (Clojure + spel)
 
 **Date:** 2026-04-05
-**Branch:** `feat/playwright-test-login-sequence`
-**Status:** Design approved, scope narrowed 2026-04-05 after route verification
+**Branch:** `feat/playwright-test-login-sequence` (branch name retained; implementation uses Clojure/spel, not TypeScript/Playwright)
+**Status:** Design approved, scope narrowed 2026-04-05 after route verification; tech-stack switched to Clojure + spel 2026-04-05 after user feedback
 
 ## Scope correction (2026-04-05)
 
@@ -30,13 +30,33 @@ Dropped:
 Follow-up work (out of scope for this plan): building those HTML flows as
 production features would require their own brainstorm and design.
 
+## Tech-stack correction (2026-04-05)
+
+The original design proposed `@playwright/test` + TypeScript under an
+`e2e/` directory with its own `package.json`. User feedback flagged this
+as introducing an unwanted second ecosystem (Node, npm, TypeScript) into
+an otherwise Clojure-first monorepo.
+
+Revised approach: use [spel](https://github.com/Blockether/spel), an
+idiomatic Clojure wrapper around Playwright Java, as a sub-library at
+`libs/e2e/` with its own `deps.edn` pulling in `com.blockether/spel`.
+Tests live under `libs/e2e/test/boundary/e2e/` and run via Kaocha with
+`^:e2e` metadata. A new `:e2e` alias in the root `deps.edn` keeps spel
+opt-in so normal `clojure -M:test` runs don't download Playwright Java
+browsers. The server-side `/test/reset` endpoint, baseline seed, and
+profile-guarded wiring are unchanged.
+
+All scenarios (HTML flows and API endpoints) and the coverage goals
+remain identical. Only the test client and tooling have changed.
+
 ## Goal
 
-A Playwright end-to-end test suite that covers the full Boundary platform login
-sequence — both the HTML form flows (`/tenants/login`, `/tenants/activate`,
-`/portal/accept`) and the underlying `boundary-user` library API endpoints
-(`/api/auth/*`). Tests must run isolated with an H2 in-memory database and a
-clean state per test, and must pass in CI.
+An end-to-end test suite that covers the full Boundary platform login
+sequence — both the HTML form flows (`/web/login`, `/web/register`) and
+the underlying `boundary-user` library API endpoints (`/api/v1/auth/*`).
+Tests must run isolated with an H2 in-memory database and a clean state
+per test, and must pass in CI. Implementation is in Clojure using spel
+(Playwright Java wrapper) — no Node.js, npm, or TypeScript is introduced.
 
 ## Scope
 
@@ -84,45 +104,45 @@ directly.
 ### Directory layout
 
 ```
-e2e/
-├── package.json                  # @playwright/test, otplib, typescript
-├── playwright.config.ts          # baseURL, webServer, serial workers
-├── tsconfig.json
-├── fixtures/
-│   ├── app.ts                    # custom test() with resetDb + api + auto seed fixture
-│   ├── seed.ts                   # baseline seed definition (shared with Clojure via JSON contract)
-│   └── totp.ts                   # otplib-based TOTP helper
-├── helpers/
-│   ├── reset.ts                  # POST /test/reset wrapper
-│   ├── users.ts                  # createUserViaApi / enableMfaForUser / loginViaApi
-│   └── cookies.ts                # session-token cookie assertions
-└── tests/
-    ├── html/
-    │   ├── web-login.spec.ts
-    │   └── web-register.spec.ts
-    └── api/
-        ├── auth-login.spec.ts
-        ├── auth-register.spec.ts
-        ├── auth-mfa.spec.ts
-        └── auth-sessions.spec.ts
+libs/e2e/                            # New sub-library, opt-in via :e2e alias
+├── deps.edn                         # spel + kaocha + one-time + clj-http
+├── src/boundary/e2e/README.md       # placeholder; no production code
+└── test/boundary/e2e/
+    ├── helpers/
+    │   ├── reset.clj                # POST /test/reset via clj-http
+    │   ├── users.clj                # login/register/MFA via clj-http
+    │   ├── cookies.clj              # Set-Cookie parsing + HttpOnly assertions
+    │   └── totp.clj                 # one-time wrapper
+    ├── fixtures.clj                 # use-fixtures :each with-fresh-seed
+    ├── smoke_test.clj               # canary: server reachable + seed fixture works
+    ├── api/
+    │   ├── auth_login_test.clj
+    │   ├── auth_register_test.clj
+    │   ├── auth_mfa_test.clj
+    │   └── auth_sessions_test.clj
+    └── html/
+        ├── web_login_test.clj
+        └── web_register_test.clj
+
+deps.edn                             # NEW :e2e alias with com.blockether/spel dep
+tests.edn                            # NEW :e2e kaocha suite + :e2e focus-meta
 ```
 
 ### Clojure-side additions
 
-- **`bb e2e`** (new in `bb.edn`): thin orchestrator that runs `npx playwright
-  test` inside `e2e/`. Playwright's own `webServer` config starts the app, so
-  `bb e2e` is essentially `cd e2e && npx playwright test`. Added for
-  consistency with existing `bb scaffold` / `bb doctor` / `bb check:*`
-  commands.
-- **`bb run-e2e-server`** (new): starts the app in `:test` profile on a fixed
-  port (`3100`) with H2 in-memory, reset endpoint enabled. This is what
-  `playwright.config.ts` `webServer.command` invokes.
+- **`bb e2e`** (new in `bb.edn`): orchestrator task that starts the app in
+  `:test` profile on port 3100, waits for `/web/login` to respond, runs
+  `clojure -M:test:e2e :e2e` (kaocha with the `:e2e` alias active), and
+  tears down the server on exit. Single command for local + CI runs.
+- **`bb run-e2e-server`** (new): starts the app in `:test` profile on a
+  fixed port (`3100`) with H2 in-memory and `:test/reset-endpoint-enabled?`
+  true. Called by `bb e2e` and available for manual debugging.
 - **Test-only HTTP endpoint** `POST /test/reset` (details below).
 - **Test-support library source**: `libs/test-support/` (or `src/boundary/test_support/`
   if we keep it inside the main app to avoid publishable library) containing
   `core.clj` (pure seed specs) and `shell/reset.clj` + `shell/handler.clj`.
-- **CI job** in `.github/workflows/ci.yml` running `bb e2e` with Playwright
-  browser cache between runs.
+- **CI job** in `.github/workflows/ci.yml` running `bb e2e` with caches for
+  both Maven deps and the Playwright Java browser bundle that spel manages.
 
 ### Test reset endpoint
 
@@ -202,82 +222,76 @@ MFA-user, lockout-user, and duplicate-registration state is **not** in
 baseline — tests build it via helpers (hybrid approach). Keeps baseline small
 and per-test code readable.
 
-### Playwright fixture
+### Shared test fixture
 
-Custom `test` exported from `e2e/fixtures/app.ts`:
+A kaocha `use-fixtures :each` function at `libs/e2e/test/boundary/e2e/fixtures.clj`:
 
-```ts
-export const test = base.extend<{
-  resetDb: (seed?: 'baseline' | 'empty') => Promise<SeedResult>;
-  api: ApiClient;
-  seed: SeedResult;  // auto-fixture: runs resetDb('baseline') before every test
-}>({ ... });
+```clojure
+(def ^:dynamic *seed* nil)
+
+(defn with-fresh-seed [f]
+  (let [seed (reset/reset-db!)]
+    (binding [*seed* seed]
+      (f))))
 ```
 
-- `seed` is an **auto-fixture** — runs `POST /test/reset` before every test
-  and yields the generated fixture values. This is the "clean state per test"
-  guarantee required by acceptance criteria.
-- `api` wraps `request.newContext()` with `baseURL`, JSON headers, and
-  optional session-token cookie injection.
-- Tests needing an empty DB override explicitly:
-  `await resetDb('empty')` in the test body.
+- Every e2e test namespace declares `(use-fixtures :each fixtures/with-fresh-seed)` and reads `fx/*seed*` to get the baseline tenant/admin/user.
+- Tests needing an empty DB call `(reset/reset-db! {:seed :empty})` explicitly in the test body.
+- The "clean state per test" acceptance criterion is satisfied because `/test/reset` runs before every single test.
 
 ### Helpers
 
 | Helper | Purpose |
 |---|---|
-| `createUserViaApi(api, {email, password})` | `POST /api/auth/register`, returns `{user, sessionToken}` |
-| `enableMfaForUser(api, sessionToken)` | setup → enable with current TOTP code, returns secret |
-| `currentTotp(secret)` | pure `otplib.authenticator.generate(secret)` |
-| `loginViaApi(api, {email, password, mfaCode?})` | shared login for test setup phases |
-| `expectSessionCookie(response)` | asserts `Set-Cookie: session-token=...; HttpOnly`, returns token value |
-| `expectNoSessionCookie(response)` | asserts no session-token is set |
+| `reset/reset-db!` | `POST /test/reset` via clj-http, returns parsed `SeedResult` |
+| `users/login` | `POST /api/v1/auth/login` |
+| `users/register` | `POST /api/v1/auth/register` |
+| `users/enable-mfa!` | setup → enable with current TOTP code; returns `{:secret :backupCodes ...}` |
+| `users/disable-mfa!` | `POST /api/v1/auth/mfa/disable` (no body) |
+| `users/mfa-status` | `GET /api/v1/auth/mfa/status` |
+| `totp/current-code` / `totp/fresh-code` | TOTP via `one-time.core` |
+| `cookies/session-token` | parses `Set-Cookie: session-token`, asserts HttpOnly |
+| `cookies/no-session-token?` | asserts session-token is NOT set |
+| `cookies/remembered-email` | parses and URL-decodes the `remembered-email` cookie |
 
 ### HTML selectors
 
-- Forms: `page.locator('form.form-card')` (per Boundary UI convention stated
-  in the task).
-- Fields: `getByLabel(...)` for accessibility + stability.
-- Error messages: `form.getByRole('alert')` with text assertions. Exact
-  error strings are pulled from the existing `libs/user` / `libs/admin` i18n
-  catalogue during implementation — one source of truth, robust to copy
-  changes.
+- Forms: `form.form-card[action='/web/login']` (via spel's `page/visible?` / `page/locator`). The `form-card` class is the Boundary UI convention (verified at `libs/user/src/boundary/user/core/ui.clj:676`).
+- Fields by `name` attribute: `input[name='email']`, `input[name='password']`, etc. Matches the real form markup.
+- Error messages: `.validation-errors` — the class used by the `form-field` Hiccup helper.
 
 ### Cookie assertions
 
-Always via `response.headers()['set-cookie']` or `context.cookies()` — never
-`document.cookie`, because `session-token` is `HttpOnly`. Same for
-`remembered-email`.
+Always via response headers (`headersArray` equivalent — `:headers` map on clj-http responses, parsed by `helpers.cookies`) or via spel's `page/cookie`. Never via JS `document.cookie`, because `session-token` is `HttpOnly`. Same for `remembered-email`.
 
 ### Parallelism
 
-`fullyParallel: false`, `workers: 1`. A single shared app instance means
-parallel tests would step on each other's lockout counters and sessions.
-Serial execution is the honest trade-off. Estimated wall time: < 2 minutes.
+`workers: 1`. A single shared app instance means parallel tests would step on each other's lockout counters and sessions. Serial execution is the honest trade-off. Kaocha runs tests in a single JVM thread by default, matching this requirement without configuration. Estimated wall time: < 3 minutes.
 
 ## Components & data flow
 
 ```
 ┌─────────────────────────┐        ┌────────────────────────────┐
-│ playwright.config.ts    │  spawn │ bb run-e2e-server          │
-│   webServer.command ────┼───────▶│   :test profile + H2       │
-│   baseURL http://...    │  wait  │   :test/reset-enabled? true│
-└────────┬────────────────┘        └──────────┬─────────────────┘
+│ bb e2e task             │  spawn │ bb run-e2e-server (bg)     │
+│   1) start server       │───────▶│   :test profile + H2       │
+│   2) wait on /web/login │  wait  │   :test/reset-enabled? true│
+│   3) clojure -M:test:e2e│        └──────────┬─────────────────┘
+│   4) teardown on exit   │                   │
+└────────┬────────────────┘                   │
          │                                    │
-         │ test run (workers=1, serial)       │
+         │ kaocha :e2e suite (single JVM)     │
          ▼                                    │
 ┌─────────────────────────┐                   │
-│ fixtures/app.ts         │  POST /test/reset │
-│   seed auto-fixture ────┼──────────────────▶│──▶ boundary.test-support
-└────────┬────────────────┘                   │    .shell.reset/reset!
-         │ seed result                        │       truncate → seed
+│ fixtures/with-fresh-seed│  POST /test/reset │
+│   (use-fixtures :each) ─┼──────────────────▶│──▶ boundary.test-support
+└────────┬────────────────┘                   │    .shell.reset
+         │ binds *seed*                       │       truncate + seed
          ▼                                    │
 ┌─────────────────────────┐                   │
-│ test body               │  HTTP (HTML+API)  │
-│   page.goto / api.post ─┼──────────────────▶│──▶ reitit router
-│   assertions            │◀──────────────────┼──  /tenants/*, /portal/*,
-└─────────────────────────┘                   │    /api/auth/*
-                                              │
+│ test body               │  HTTP (clj-http)  │
+│   spel/with-testing-page┼──────────────────▶│──▶ reitit router
+│   + clj-http calls      │◀──────────────────┼──  /web/*, /api/v1/*
+└─────────────────────────┘                   │
                                               ▼
                                          H2 in-memory
 ```
@@ -287,13 +301,13 @@ Serial execution is the honest trade-off. Estimated wall time: < 2 minutes.
 - **App crash during reset**: `reset-handler` catches exceptions, returns
   `500` with error info, test fails with clear message. No silent partial
   state.
-- **Reset endpoint unreachable in CI**: Playwright `webServer.timeout = 60000`
-  + `/health` probe. If the server never comes up, the suite fails at
-  setup time, not with confusing test failures.
+- **Reset endpoint unreachable in CI**: `bb e2e` polls `GET /web/login` for
+  up to 60 seconds and throws `ex-info` if the server never comes up. If the
+  server dies mid-run, clj-http will surface connection refused errors
+  directly in the failing test, not as confusing assertion failures.
 - **Flaky TOTP timing** (MFA test running across 30-second window boundary):
-  helper generates code with `otplib.authenticator.generate`, retries once if
-  the window is about to roll over. (Edge case — acceptable to leave as a
-  known limitation if this proves rare.)
+  `helpers.totp/fresh-code` sleeps until the window has at least 2 seconds
+  left before returning a code. Cheap and removes the edge case entirely.
 - **Reset endpoint enabled in prod config**: startup assertion crashes the
   app; `bb doctor` catches it earlier in CI.
 
@@ -305,7 +319,7 @@ Serial execution is the honest trade-off. Estimated wall time: < 2 minutes.
   runs the full reset against H2 and verifies the seeded rows exist via
   direct queries. This is the safety net — if prod code paths that the seed
   uses break, this test catches it immediately.
-- Playwright suite itself is the integration/e2e layer — it is the test.
+- The spel/kaocha e2e suite at `libs/e2e/test/boundary/e2e/` is the integration/e2e layer — it is the test.
 
 ## CI integration
 
@@ -316,17 +330,16 @@ e2e:
   runs-on: ubuntu-latest
   steps:
     - checkout
-    - setup-java + setup-clojure + setup-babashka
-    - setup-node
-    - cache ~/.cache/ms-playwright
-    - cd e2e && npm ci
-    - cd e2e && npx playwright install --with-deps chromium
-    - bb e2e
-    - upload playwright-report on failure
+    - setup-java + setup-clojure (with bb) + cache maven deps
+    - cache Playwright browser bundle (~/.cache/ms-playwright)
+    - clojure -P -M:test:e2e              # warm deps incl. spel
+    - bb e2e                               # run the suite
+    - upload target/spel/ + target/test-output/ on failure
 ```
 
 Runs on PRs and pushes to `main`. Chromium-only (Firefox/WebKit add ~2x CI
-time for marginal coverage on server-rendered HTML).
+time for marginal coverage on server-rendered HTML). No Node.js / npm
+steps needed — everything is JVM/Clojure.
 
 ## Non-goals
 
@@ -338,7 +351,9 @@ time for marginal coverage on server-rendered HTML).
 
 ## Acceptance criteria
 
-- [ ] All ~33 scenarios implemented as Playwright tests, passing locally and in CI.
+- [ ] All ~28 scenarios implemented as Clojure/spel e2e tests, passing locally and in CI.
+- [ ] No Node.js, npm, or TypeScript introduced to the repo.
+- [ ] `com.blockether/spel` is the only new Clojars dependency, isolated under the `:e2e` alias / `libs/e2e` sub-library.
 - [ ] HTML form flows and API endpoints both covered.
 - [ ] Clean state per test via `/test/reset` + `seed` auto-fixture.
 - [ ] H2 in-memory, no external services.

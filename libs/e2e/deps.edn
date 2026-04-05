@@ -1,0 +1,35 @@
+;; End-to-end browser + API test suite for the Boundary platform.
+;;
+;; This library holds test code only — no production namespaces. It depends
+;; on `com.blockether/spel`, an idiomatic Clojure wrapper around Playwright
+;; Java that provides browser automation and HTTP-API helpers in a single
+;; ecosystem. No Node.js, no npm, no TypeScript.
+;;
+;; Unlike the other libs/*/deps.edn files, this one declares no :paths for
+;; production source — all code lives under `test/`. A placeholder `src/`
+;; directory is kept empty so existing tooling that assumes the standard
+;; library layout (`bb check:deps`, `build`, etc.) doesn't choke on it.
+{:paths ["src"]
+
+ :deps  {org.clojure/clojure        {:mvn/version "1.12.4"}
+
+         ;; The whole point: Clojure wrapper around Playwright Java.
+         ;; Provides browser + API testing helpers with shared traces.
+         com.blockether/spel        {:mvn/version "0.7.11"}
+
+         ;; Monorepo libraries the e2e suite depends on for helper data
+         ;; and protocol access (e.g. generating admin tokens directly,
+         ;; reading schema definitions for assertions).
+         boundary/user              {:local/root "../user"}
+         boundary/tenant            {:local/root "../tenant"}}
+
+ :aliases
+ {:test {:extra-paths ["test"]
+         :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                       com.h2database/h2   {:mvn/version "2.4.240"}
+                       ;; Used by helper namespaces for POST /test/reset
+                       clj-http/clj-http   {:mvn/version "3.13.1"}
+                       ;; TOTP helper (already used elsewhere in the repo)
+                       one-time/one-time   {:mvn/version "0.8.0"
+                                            :exclusions  [com.github.kenglxn.qrgen/javase]}}
+         :main-opts   ["-m" "kaocha.runner"]}}}

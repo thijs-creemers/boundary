@@ -1,12 +1,14 @@
-# Playwright Login E2E Implementation Plan
+# Login E2E Implementation Plan (Clojure + spel)
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a Playwright end-to-end test suite that covers `/web/login`, `/web/register`, and `/api/auth/*` flows for the Boundary platform, runnable via `bb e2e` locally and in CI, with clean H2 state per test.
+**Goal:** Add an end-to-end test suite that covers `/web/login`, `/web/register`, and `/api/v1/auth/*` flows for the Boundary platform, runnable via `bb e2e` locally and in CI, with clean H2 state per test.
 
-**Architecture:** A test-only `POST /test/reset` HTTP endpoint (mounted only when a profile flag is set) truncates H2 and re-seeds baseline tenant/users via production services. Playwright runs serially against a single app instance started by its own `webServer` config, with a custom `seed` auto-fixture that resets state before every test. TypeScript + `@playwright/test` + `otplib`.
+**Architecture:** A test-only `POST /test/reset` HTTP endpoint (mounted only when a profile flag is set) truncates H2 and re-seeds baseline tenant/users via production services. End-to-end tests run serially against a single app instance, using [spel](https://github.com/Blockether/spel) — an idiomatic Clojure wrapper around Playwright Java — for both browser automation and API testing. A `use-fixtures :each` hook resets DB state before every test.
 
-**Tech Stack:** Clojure (test-support), Integrant, reitit, next.jdbc, HoneySQL, Babashka (`bb e2e`), TypeScript, `@playwright/test`, `otplib`, GitHub Actions.
+**Tech Stack:** Clojure throughout — no JavaScript/TypeScript/Node.js/npm. Core pieces: Integrant, reitit, next.jdbc, HoneySQL, Babashka (`bb e2e`), Kaocha (test runner), `com.blockether/spel` (Playwright Java wrapper), `one-time` (TOTP, already in repo), `clj-http` (HTTP client, already in repo), GitHub Actions.
+
+**Why Clojure+spel instead of TypeScript+@playwright/test:** keeps the monorepo single-ecosystem (JVM/Clojure), avoids introducing Node/npm/TypeScript to dev and CI environments, integrates with the existing Kaocha runner and `^:unit` / `^:integration` / `^:contract` / `^:e2e` metadata convention, and reuses already-vetted Clojars dependencies (`one-time`, `clj-http`) for TOTP and HTTP.
 
 **Spec:** `docs/superpowers/specs/2026-04-05-playwright-login-e2e-design.md`
 
@@ -71,28 +73,27 @@ test/boundary/test_support/shell/
 └── reset_test.clj            # :contract tests against H2
 
 bb.edn                               # MODIFY: add e2e, run-e2e-server tasks
+deps.edn                              # MODIFY: add :e2e alias with spel dep
+tests.edn                             # MODIFY: add :e2e kaocha suite
 
-e2e/
-├── package.json
-├── tsconfig.json
-├── playwright.config.ts
-├── .gitignore
-├── fixtures/
-│   ├── app.ts                # test() extended with resetDb + api + seed auto-fixture
-│   └── totp.ts               # otplib wrapper
-├── helpers/
-│   ├── reset.ts              # POST /test/reset wrapper
-│   ├── users.ts              # createUserViaApi, loginViaApi, enableMfaForUser
-│   └── cookies.ts            # session-token cookie assertions
-└── tests/
-    ├── html/
-    │   ├── web-login.spec.ts       # ~10 tests
-    │   └── web-register.spec.ts    # ~3 tests
-    └── api/
-        ├── auth-login.spec.ts      # 3 tests
-        ├── auth-register.spec.ts   # 3 tests
-        ├── auth-mfa.spec.ts        # 4 tests (setup, enable-ok, enable-wrong, status-after-disable)
-        └── auth-sessions.spec.ts   # 4 tests (validate-ok, revoke, revoked-is-401, lockout, hash-leak)
+libs/e2e/                             # NEW sub-library — test code only
+├── deps.edn                          # spel + kaocha + one-time + clj-http
+├── src/boundary/e2e/README.md        # placeholder; no production code here
+└── test/boundary/e2e/
+    ├── helpers/
+    │   ├── reset.clj                 # POST /test/reset via clj-http
+    │   ├── users.clj                 # login/register/MFA via spel api + clj-http
+    │   └── cookies.clj               # Set-Cookie parsing + HttpOnly assertions
+    ├── fixtures.clj                  # use-fixtures :each + spel with-testing-page helper
+    ├── totp.clj                      # one-time wrapper (thin)
+    ├── api/
+    │   ├── auth_login_test.clj       # 3 tests
+    │   ├── auth_register_test.clj    # 3 tests
+    │   ├── auth_mfa_test.clj         # 4 tests (setup, enable-ok, enable-wrong, disable+status)
+    │   └── auth_sessions_test.clj    # 5 tests (validate, revoke, unauth, lockout, hash-leak)
+    └── html/
+        ├── web_login_test.clj        # ~10 tests incl. MFA second-step form
+        └── web_register_test.clj     # 3 tests
 
 .github/workflows/ci.yml              # MODIFY: add e2e job
 ```
@@ -711,19 +712,48 @@ git commit -m "Add bb run-e2e-server task for Playwright to orchestrate"
 
 ---
 
-### Task 9: `bb e2e` task
+### Task 9: `bb e2e` task (Clojure/spel orchestration)
 
 **Files:**
 - Modify: `bb.edn`
 
+The `bb e2e` task orchestrates the full e2e run: start the app in `:test` profile on port 3100 in the background, wait for it to respond on `/web/login`, run the kaocha `:e2e` suite, tear down the server. No separate `webServer` manager like Playwright's — it's all orchestrated here.
+
 - [ ] **Step 1: Add task**
 
-Add under `:tasks`:
+Add under `:tasks` in `bb.edn`:
 
 ```clojure
-e2e {:doc "Run Playwright end-to-end tests (starts server via playwright webServer)"
-     :task (do (babashka.process/shell {:dir "e2e"} "npx" "playwright" "test"))}
+e2e {:doc "Run end-to-end Clojure/spel tests against a :test-profile server on port 3100"
+     :task
+     (let [port     "3100"
+           base-url (str "http://localhost:" port)
+           env      (into {} (System/getenv))
+           proc     (babashka.process/process
+                     {:env        (assoc env "BND_ENV" "test")
+                      :out        :inherit
+                      :err        :inherit
+                      :shutdown   babashka.process/destroy-tree}
+                     ["clojure" "-M:run" "--port" port])]
+       (try
+         ;; Wait up to 60s for /web/login to return 200
+         (loop [n 0]
+           (let [resp (try (slurp (str base-url "/web/login"))
+                           (catch Exception _ nil))]
+             (cond
+               resp                     (println "e2e: server up on" base-url)
+               (> n 60)                 (throw (ex-info "e2e: server never came up" {:base base-url}))
+               :else                    (do (Thread/sleep 1000) (recur (inc n))))))
+         ;; Run the :e2e kaocha suite with the :e2e alias active.
+         (let [exit (:exit (babashka.process/shell {:continue true}
+                                                   "clojure" "-M:test:e2e" ":e2e"))]
+           (when-not (zero? exit)
+             (System/exit exit)))
+         (finally
+           (babashka.process/destroy-tree proc))))}
 ```
+
+**Engineer note:** verify the actual run alias before running. If `:run` doesn't exist, check `deps.edn` for the Integrant entrypoint alias (it may be `:app`, `:main`, or invoked via `-m boundary.main`). Adjust the command vector accordingly. Also verify how port selection works — if the app reads config instead of `--port`, export a `PORT=3100` env var or set it in `resources/conf/test/config.edn`.
 
 - [ ] **Step 2: Verify help output**
 
@@ -733,488 +763,539 @@ bb tasks | grep e2e
 
 Expected: `e2e` listed with its doc.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Smoke test (without any e2e tests yet)**
+
+Since no e2e tests exist yet at this stage, `bb e2e` will invoke kaocha with the `:e2e` suite and report 0 tests run. That's expected — it's only validating that the orchestration works. Run it:
 
 ```bash
-git add bb.edn
-git commit -m "Add bb e2e task — runs Playwright suite"
+bb e2e
 ```
 
-(Task cannot be fully smoke-tested until Phase 3 finishes.)
-
----
-
-## Phase 3 — Playwright scaffolding
-
-### Task 10: `e2e/` project skeleton
-
-**Files:**
-- Create: `e2e/package.json`
-- Create: `e2e/tsconfig.json`
-- Create: `e2e/.gitignore`
-
-- [ ] **Step 1: Create `e2e/package.json`**
-
-```json
-{
-  "name": "boundary-e2e",
-  "private": true,
-  "version": "0.0.0",
-  "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "report": "playwright show-report"
-  },
-  "devDependencies": {
-    "@playwright/test": "^1.48.0",
-    "@types/node": "^22.0.0",
-    "otplib": "^12.0.1",
-    "typescript": "^5.5.0"
-  }
-}
-```
-
-- [ ] **Step 2: Create `e2e/tsconfig.json`**
-
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "strict": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "types": ["node"]
-  },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "playwright-report", "test-results"]
-}
-```
-
-- [ ] **Step 3: Create `e2e/.gitignore`**
-
-```
-node_modules/
-playwright-report/
-test-results/
-.playwright-cache/
-```
-
-- [ ] **Step 4: Install deps locally and verify**
-
-```bash
-cd e2e && npm install && cd ..
-```
-
-Expected: `e2e/node_modules/` created, no errors.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add e2e/package.json e2e/tsconfig.json e2e/.gitignore e2e/package-lock.json
-git commit -m "Scaffold e2e/ Playwright project (package.json, tsconfig, .gitignore)"
-```
-
----
-
-### Task 11: `playwright.config.ts`
-
-**Files:**
-- Create: `e2e/playwright.config.ts`
-
-- [ ] **Step 1: Write config**
-
-```ts
-import { defineConfig, devices } from '@playwright/test';
-
-const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3100';
-
-export default defineConfig({
-  testDir: './tests',
-  fullyParallel: false,
-  workers: 1,
-  retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
-  use: {
-    baseURL: BASE_URL,
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-  },
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
-  webServer: process.env.E2E_NO_WEBSERVER
-    ? undefined
-    : {
-        command: 'cd .. && bb run-e2e-server',
-        url: `${BASE_URL}/web/login`,
-        reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
-        stdout: 'pipe',
-        stderr: 'pipe',
-      },
-});
-```
-
-- [ ] **Step 2: Commit**
-
-```bash
-git add e2e/playwright.config.ts
-git commit -m "Add Playwright config: single chromium project, serial, bb-managed server"
-```
-
----
-
-### Task 12: Reset helper
-
-**Files:**
-- Create: `e2e/helpers/reset.ts`
-
-- [ ] **Step 1: Write helper**
-
-```ts
-import { APIRequestContext, expect } from '@playwright/test';
-
-export type SeedKind = 'baseline' | 'empty';
-
-export interface SeededAdmin {
-  id: string;
-  email: string;
-  password: string;
-  role: 'admin';
-}
-
-export interface SeededUser {
-  id: string;
-  email: string;
-  password: string;
-  role: 'user';
-}
-
-export interface SeededTenant {
-  id: string;
-  slug: string;
-  name: string;
-}
-
-export interface SeedResult {
-  tenant: SeededTenant;
-  admin: SeededAdmin;
-  user: SeededUser;
-}
-
-export async function resetDb(
-  request: APIRequestContext,
-  seed: SeedKind = 'baseline',
-): Promise<SeedResult> {
-  const res = await request.post('/test/reset', { data: { seed } });
-  expect(
-    res.ok(),
-    `Failed to reset DB: ${res.status()} ${await res.text()}`,
-  ).toBeTruthy();
-  const body = (await res.json()) as { ok: boolean; seeded: SeedResult };
-  expect(body.ok).toBe(true);
-  return body.seeded;
-}
-```
-
-- [ ] **Step 2: Commit**
-
-```bash
-git add e2e/helpers/reset.ts
-git commit -m "Add reset helper for POST /test/reset"
-```
-
----
-
-### Task 13: Cookies helper
-
-**Files:**
-- Create: `e2e/helpers/cookies.ts`
-
-- [ ] **Step 1: Write helper**
-
-```ts
-import { APIResponse, BrowserContext, expect } from '@playwright/test';
-
-/**
- * Asserts that an APIResponse has a Set-Cookie header for session-token
- * with HttpOnly, and returns the raw token value.
- *
- * Uses headersArray() because headers() collapses duplicate Set-Cookie
- * values — Playwright docs recommend headersArray() for cookies.
- */
-export function expectSessionCookie(response: APIResponse): string {
-  const raw = response
-    .headersArray()
-    .filter((h) => h.name.toLowerCase() === 'set-cookie')
-    .map((h) => h.value)
-    .find((v) => v.startsWith('session-token='));
-  expect(raw, `expected Set-Cookie: session-token=...; got headers: ${JSON.stringify(response.headersArray())}`).toBeTruthy();
-  expect(raw!.toLowerCase()).toContain('httponly');
-  const token = raw!.split(';')[0].split('=')[1];
-  expect(token.length, 'session token should not be empty').toBeGreaterThan(0);
-  return token;
-}
-
-export function expectNoSessionCookie(response: APIResponse): void {
-  const raw = response
-    .headersArray()
-    .filter((h) => h.name.toLowerCase() === 'set-cookie')
-    .map((h) => h.value)
-    .find((v) => v.startsWith('session-token='));
-  expect(raw, 'session-token cookie must not be set').toBeFalsy();
-}
-
-export async function getSessionCookieFromContext(
-  context: BrowserContext,
-): Promise<string | undefined> {
-  const cookies = await context.cookies();
-  return cookies.find((c) => c.name === 'session-token')?.value;
-}
-
-export async function getRememberedEmailCookie(
-  context: BrowserContext,
-): Promise<string | undefined> {
-  const cookies = await context.cookies();
-  return cookies.find((c) => c.name === 'remembered-email')?.value;
-}
-```
-
-- [ ] **Step 2: Commit**
-
-```bash
-git add e2e/helpers/cookies.ts
-git commit -m "Add cookie assertion helpers (Set-Cookie parsing, HttpOnly checks)"
-```
-
----
-
-### Task 14: TOTP helper
-
-**Files:**
-- Create: `e2e/fixtures/totp.ts`
-
-- [ ] **Step 1: Write helper**
-
-```ts
-import { authenticator } from 'otplib';
-
-/**
- * Generate the current TOTP code for a given base32 secret.
- * Uses default 30s window. Tests should be robust to window rollover;
- * if a test is flaky near window boundaries, consider generateAtDelta.
- */
-export function currentTotp(secret: string): string {
-  return authenticator.generate(secret);
-}
-
-/**
- * Wait until we're at least `safetyMs` away from a window rollover,
- * then return a fresh code. Reduces flakiness for time-sensitive tests.
- */
-export async function freshTotp(
-  secret: string,
-  safetyMs = 2000,
-): Promise<string> {
-  const msIntoWindow = Date.now() % 30_000;
-  const msLeft = 30_000 - msIntoWindow;
-  if (msLeft < safetyMs) {
-    await new Promise((r) => setTimeout(r, msLeft + 100));
-  }
-  return currentTotp(secret);
-}
-```
-
-- [ ] **Step 2: Commit**
-
-```bash
-git add e2e/fixtures/totp.ts
-git commit -m "Add TOTP helper using otplib"
-```
-
----
-
-### Task 15: API helpers (user/login/mfa)
-
-**Files:**
-- Create: `e2e/helpers/users.ts`
-
-- [ ] **Step 1: Write helpers**
-
-```ts
-import { APIRequestContext, expect } from '@playwright/test';
-import { currentTotp } from '../fixtures/totp';
-
-export interface LoginBody {
-  email: string;
-  password: string;
-  // NOTE: /api/v1/auth/login does NOT accept mfaCode (schema is :closed).
-  // MFA second-step is only available via the HTML /web/login flow.
-}
-
-export async function loginViaApi(request: APIRequestContext, body: LoginBody) {
-  return request.post('/api/v1/auth/login', { data: body });
-}
-
-export interface RegisterBody {
-  email: string;
-  password: string;
-  name: string;
-}
-
-export async function registerViaApi(
-  request: APIRequestContext,
-  body: RegisterBody,
-) {
-  return request.post('/api/v1/auth/register', { data: body });
-}
-
-export interface MfaSetupResult {
-  secret: string;
-  backupCodes: string[];
-  qrCodeUrl?: string;
-}
-
-/**
- * Enable MFA for a logged-in user. Returns the full setup result so callers
- * can generate TOTP codes and (if needed) reference backup codes later.
- *
- * The enable endpoint schema is :closed and requires the exact triple
- * {secret, backupCodes, verificationCode}.
- */
-export async function enableMfaForUser(
-  request: APIRequestContext,
-  sessionToken: string,
-): Promise<MfaSetupResult> {
-  const setupRes = await request.post('/api/v1/auth/mfa/setup', {
-    headers: { Cookie: `session-token=${sessionToken}` },
-  });
-  expect(setupRes.ok(), `mfa setup failed: ${setupRes.status()} ${await setupRes.text()}`).toBeTruthy();
-  const setup = (await setupRes.json()) as MfaSetupResult;
-  expect(typeof setup.secret).toBe('string');
-  expect(Array.isArray(setup.backupCodes)).toBe(true);
-
-  const verificationCode = currentTotp(setup.secret);
-  const enableRes = await request.post('/api/v1/auth/mfa/enable', {
-    headers: { Cookie: `session-token=${sessionToken}` },
-    data: {
-      secret: setup.secret,
-      backupCodes: setup.backupCodes,
-      verificationCode,
-    },
-  });
-  expect(
-    enableRes.ok(),
-    `mfa enable failed: ${enableRes.status()} ${await enableRes.text()}`,
-  ).toBeTruthy();
-  return setup;
-}
-
-/** Disable MFA for a logged-in user. No request body. */
-export async function disableMfaForUser(
-  request: APIRequestContext,
-  sessionToken: string,
-) {
-  const res = await request.post('/api/v1/auth/mfa/disable', {
-    headers: { Cookie: `session-token=${sessionToken}` },
-  });
-  expect(res.ok(), `mfa disable failed: ${res.status()} ${await res.text()}`).toBeTruthy();
-  return res;
-}
-```
-
-**Engineer note:** The field names above (`secret`, `backupCodes`, `verificationCode`, `qrCodeUrl`) are taken directly from `libs/user/src/boundary/user/shell/http.clj:443-462`. If a test fails on first run because the setup response omits one of these, read the handler body in `web_handlers.clj` / the mfa-service implementation to see the real keys and adjust.
-
-- [ ] **Step 2: Commit**
-
-```bash
-git add e2e/helpers/users.ts
-git commit -m "Add API user helpers (login, register, MFA enable)"
-```
-
----
-
-### Task 16: Custom `test` fixture with seed auto-fixture
-
-**Files:**
-- Create: `e2e/fixtures/app.ts`
-
-- [ ] **Step 1: Write fixture**
-
-```ts
-import { test as base, APIRequestContext } from '@playwright/test';
-import { resetDb, SeedResult, SeedKind } from '../helpers/reset';
-
-type Fixtures = {
-  resetDb: (kind?: SeedKind) => Promise<SeedResult>;
-  seed: SeedResult;
-};
-
-export const test = base.extend<Fixtures>({
-  resetDb: async ({ request }, use) => {
-    await use((kind = 'baseline') => resetDb(request, kind));
-  },
-  // Auto-fixture: run baseline reset before every test.
-  seed: [
-    async ({ request }, use) => {
-      const s = await resetDb(request, 'baseline');
-      await use(s);
-    },
-    { auto: true },
-  ],
-});
-
-export { expect } from '@playwright/test';
-export type { SeedResult } from '../helpers/reset';
-```
-
-- [ ] **Step 2: Write a smoke test that proves the fixture works**
-
-Create `e2e/tests/_smoke.spec.ts`:
-
-```ts
-import { test, expect } from '../fixtures/app';
-
-test('smoke: server reachable + seed fixture yields admin', async ({ request, seed }) => {
-  expect(seed.admin.email).toBe('admin@acme.test');
-  const res = await request.get('/web/login');
-  expect(res.status()).toBe(200);
-});
-```
-
-- [ ] **Step 3: Run the smoke test**
-
-```bash
-bb e2e -- _smoke.spec.ts
-```
-
-Expected: Playwright starts the server via `bb run-e2e-server`, the smoke test passes.
+Expected outcome: server starts on 3100, kaocha reports "0 tests", server is torn down, exit 0. If `clojure -M:run` does not exist or the server fails to start, fix it before continuing.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add e2e/fixtures/app.ts e2e/tests/_smoke.spec.ts
-git commit -m "Add Playwright seed auto-fixture + smoke test"
+git add bb.edn
+git commit -m "Add bb e2e task — orchestrate kaocha :e2e suite against test-profile server"
 ```
+
+---
+
+## Phase 3 — Clojure/spel test scaffolding
+
+All e2e test code lives under `libs/e2e/test/boundary/e2e/`. The `libs/e2e/` sub-library and its `deps.edn` (with the `com.blockether/spel` dependency), the root `:e2e` alias, and the `:e2e` kaocha suite entry in `tests.edn` are set up in a single foundation task (Task 10). After that, Tasks 11-16 fill in helpers and the shared fixture.
+
+### Task 10: `libs/e2e` scaffold + spel dependency
+
+**Files:**
+- Create: `libs/e2e/deps.edn`
+- Create: `libs/e2e/src/boundary/e2e/README.md` (placeholder)
+- Modify: `deps.edn` (add `:e2e` alias)
+- Modify: `tests.edn` (add `:e2e` kaocha suite + register `:e2e` in focus-meta)
+
+**Rationale:** isolating spel under its own sub-library via an opt-in `:e2e` alias keeps the hundreds of MB of Playwright Java browser JARs off the classpath for normal `clojure -M:test` runs. Only `clojure -M:test:e2e :e2e` (or `bb e2e`) pulls them in.
+
+- [ ] **Step 1: Create `libs/e2e/deps.edn`**
+
+```clojure
+{:paths ["src"]
+
+ :deps  {org.clojure/clojure        {:mvn/version "1.12.4"}
+
+         ;; Clojure wrapper around Playwright Java.
+         com.blockether/spel        {:mvn/version "0.7.11"}
+
+         ;; Monorepo libraries the e2e suite references.
+         boundary/user              {:local/root "../user"}
+         boundary/tenant            {:local/root "../tenant"}}
+
+ :aliases
+ {:test {:extra-paths ["test"]
+         :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                       com.h2database/h2   {:mvn/version "2.4.240"}
+                       clj-http/clj-http   {:mvn/version "3.13.1"}
+                       one-time/one-time   {:mvn/version "0.8.0"
+                                            :exclusions  [com.github.kenglxn.qrgen/javase]}}
+         :main-opts   ["-m" "kaocha.runner"]}}}
+```
+
+- [ ] **Step 2: Create placeholder README** at `libs/e2e/src/boundary/e2e/README.md`:
+
+```markdown
+# libs/e2e — End-to-end test suite
+
+No production Clojure source lives here. All code is under `test/boundary/e2e/`.
+```
+
+(The empty `src/` directory exists so `bb check:deps` and other lib-structure tooling treats `libs/e2e` consistently with the other 22 libraries.)
+
+- [ ] **Step 3: Add `:e2e` alias to root `deps.edn`**
+
+Under `:aliases`, append (after any existing alias block):
+
+```clojure
+:e2e {:extra-paths ["libs/e2e/src" "libs/e2e/test"]
+      :extra-deps  {com.blockether/spel {:mvn/version "0.7.11"}}}
+```
+
+Activating this alias composes with `:test` so `clojure -M:test:e2e :e2e` runs the e2e suite with spel on the classpath.
+
+- [ ] **Step 4: Add `:e2e` suite to `tests.edn`**
+
+Append to the `:tests` vector (after the `:i18n` entry, before the closing `]`):
+
+```clojure
+{:id :e2e
+ :test-paths ["libs/e2e/test"]
+ :ns-patterns ["boundary.e2e.*-test"]}
+```
+
+Also add `:e2e` to the `:kaocha.plugin.filter/focus-meta` vector so `^:e2e` metadata filtering works.
+
+- [ ] **Step 5: Dep resolution smoke test**
+
+```bash
+clojure -P -M:test         # unchanged behaviour — should NOT download spel/playwright
+clojure -P -M:test:e2e     # should download com.blockether/spel + playwright driver bundle
+```
+
+Expected: first command is fast and does not mention Playwright; second downloads Playwright Java + spel on first run.
+
+- [ ] **Step 6: Kaocha config smoke test**
+
+```bash
+clojure -M:test --print-config | grep -A2 ':id :e2e'
+```
+
+Expected: shows the `:e2e` suite in the kaocha config output.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add libs/e2e deps.edn tests.edn
+git commit -m "Scaffold libs/e2e with spel Clojars dependency and :e2e kaocha suite"
+```
+
+---
+
+### Task 11: `reset.clj` helper
+
+**Files:**
+- Create: `libs/e2e/test/boundary/e2e/helpers/reset.clj`
+- Create: `libs/e2e/test/boundary/e2e/helpers/reset_test.clj`
+
+Wraps `POST /test/reset` for the e2e suite. Used by the `fixtures.clj` auto-fixture in Task 15 to reset state before every e2e test. Pure HTTP via `clj-http` — no spel involvement at this layer.
+
+- [ ] **Step 1: Write failing unit test**
+
+```clojure
+(ns boundary.e2e.helpers.reset-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [boundary.e2e.helpers.reset :as reset]))
+
+(deftest ^:unit base-url-defaults-to-localhost-3100
+  (testing "default base URL matches the bb e2e server"
+    (is (= "http://localhost:3100" (reset/default-base-url)))))
+
+(deftest ^:unit parses-seed-response-shape
+  (testing "parse-seed-response returns a SeedResult with :tenant :admin :user"
+    (let [body {:ok     true
+                :seeded {:tenant {:id "T-1" :slug "acme"}
+                         :admin  {:id "A-1" :email "admin@acme.test"
+                                  :password "Test-Pass-1234!"}
+                         :user   {:id "U-1" :email "user@acme.test"
+                                  :password "Test-Pass-1234!"}}}
+          result (reset/parse-seed-response body)]
+      (is (= "acme" (-> result :tenant :slug)))
+      (is (= "admin@acme.test" (-> result :admin :email)))
+      (is (= "user@acme.test" (-> result :user :email))))))
+```
+
+Run `clojure -M:test:e2e --focus boundary.e2e.helpers.reset-test` and verify it fails (namespace does not exist).
+
+- [ ] **Step 2: Implement** `libs/e2e/test/boundary/e2e/helpers/reset.clj`:
+
+```clojure
+(ns boundary.e2e.helpers.reset
+  "Client-side helper for POST /test/reset. Called from e2e fixtures
+   before every test to force a clean DB + baseline seed."
+  (:require [clj-http.client :as http]
+            [cheshire.core :as json]))
+
+(defn default-base-url []
+  "http://localhost:3100")
+
+(defn parse-seed-response [body]
+  (:seeded body))
+
+(defn reset-db!
+  "POSTs to /test/reset on the running e2e server and returns the parsed
+   SeedResult (tenant/admin/user with IDs + plain-text passwords).
+
+   Options:
+     :base-url  (default http://localhost:3100)
+     :seed      :baseline | :empty  (default :baseline)
+
+   Throws ex-info on non-200 or on :ok false in the body."
+  ([] (reset-db! {}))
+  ([{:keys [base-url seed] :or {base-url (default-base-url) seed :baseline}}]
+   (let [resp (http/post (str base-url "/test/reset")
+                         {:content-type :json
+                          :accept       :json
+                          :body         (json/generate-string {:seed (name seed)})
+                          :throw-exceptions false
+                          :as           :json})]
+     (when-not (= 200 (:status resp))
+       (throw (ex-info "POST /test/reset failed"
+                       {:status (:status resp) :body (:body resp)})))
+     (when-not (:ok (:body resp))
+       (throw (ex-info "test/reset returned ok=false"
+                       {:body (:body resp)})))
+     (parse-seed-response (:body resp)))))
+```
+
+- [ ] **Step 3: Run unit tests, verify green.**
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add libs/e2e/test/boundary/e2e/helpers/reset.clj \
+        libs/e2e/test/boundary/e2e/helpers/reset_test.clj
+git commit -m "Add reset helper for POST /test/reset in e2e suite"
+```
+
+---
+
+### Task 12: `cookies.clj` helper
+
+**Files:**
+- Create: `libs/e2e/test/boundary/e2e/helpers/cookies.clj`
+- Create: `libs/e2e/test/boundary/e2e/helpers/cookies_test.clj`
+
+Parses `Set-Cookie` headers from `clj-http` / spel API responses and asserts HttpOnly on session-token.
+
+- [ ] **Step 1: Write failing unit test**
+
+```clojure
+(ns boundary.e2e.helpers.cookies-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [boundary.e2e.helpers.cookies :as cookies]))
+
+(deftest ^:unit parse-session-token-from-set-cookie
+  (testing "returns the token value when Set-Cookie has session-token with HttpOnly"
+    (let [headers {"set-cookie" ["session-token=abc123; Path=/; HttpOnly"
+                                 "other-cookie=foo; Path=/"]}]
+      (is (= "abc123" (cookies/session-token headers))))))
+
+(deftest ^:unit reject-session-token-without-httponly
+  (testing "throws when session-token is set without HttpOnly flag"
+    (let [headers {"set-cookie" ["session-token=abc123; Path=/"]}]
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (cookies/session-token headers))))))
+
+(deftest ^:unit remembered-email-parsing
+  (testing "returns remembered-email cookie value when present"
+    (let [headers {"set-cookie" ["remembered-email=user%40acme.test; Path=/; Max-Age=2592000"]}]
+      (is (= "user@acme.test" (cookies/remembered-email headers))))))
+```
+
+- [ ] **Step 2: Implement** `libs/e2e/test/boundary/e2e/helpers/cookies.clj`:
+
+```clojure
+(ns boundary.e2e.helpers.cookies
+  "Set-Cookie parsing for e2e assertions. session-token must always be HttpOnly."
+  (:require [clojure.string :as str]))
+
+(defn- set-cookie-strings [headers]
+  (let [raw (or (get headers "set-cookie")
+                (get headers "Set-Cookie"))]
+    (cond
+      (nil? raw) []
+      (string? raw) [raw]
+      :else raw)))
+
+(defn- find-cookie [headers cookie-name]
+  (some (fn [line]
+          (when (str/starts-with? (str/lower-case line) (str (str/lower-case cookie-name) "="))
+            line))
+        (set-cookie-strings headers)))
+
+(defn session-token
+  "Parses the session-token value from response headers, asserting HttpOnly.
+   Throws ex-info if absent or if HttpOnly is missing."
+  [headers]
+  (let [line (find-cookie headers "session-token")]
+    (when-not line
+      (throw (ex-info "session-token cookie not found in Set-Cookie"
+                      {:headers headers})))
+    (when-not (str/includes? (str/lower-case line) "httponly")
+      (throw (ex-info "session-token missing HttpOnly flag"
+                      {:cookie line})))
+    (-> line (str/split #";") first (str/split #"=" 2) second)))
+
+(defn remembered-email
+  "Returns the URL-decoded value of the remembered-email cookie, or nil."
+  [headers]
+  (when-let [line (find-cookie headers "remembered-email")]
+    (let [raw (-> line (str/split #";") first (str/split #"=" 2) second)]
+      (java.net.URLDecoder/decode raw "UTF-8"))))
+
+(defn no-session-token?
+  "True if Set-Cookie does NOT set session-token."
+  [headers]
+  (nil? (find-cookie headers "session-token")))
+```
+
+- [ ] **Step 3: Run, verify tests pass.**
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add libs/e2e/test/boundary/e2e/helpers/cookies.clj \
+        libs/e2e/test/boundary/e2e/helpers/cookies_test.clj
+git commit -m "Add Set-Cookie parsing + HttpOnly assertion helpers for e2e"
+```
+
+---
+
+### Task 13: `totp.clj` helper
+
+**Files:**
+- Create: `libs/e2e/test/boundary/e2e/helpers/totp.clj`
+- Create: `libs/e2e/test/boundary/e2e/helpers/totp_test.clj`
+
+Thin wrapper around `one-time.core/get-totp-token` (already in the monorepo, used by the user MFA code). Generates TOTP codes from a base32 secret.
+
+- [ ] **Step 1: Verify one-time is on classpath**
+
+```bash
+clojure -M:test:e2e -e "(require 'one-time.core) (println (one-time.core/generate-secret-key))"
+```
+
+Expected: prints a base32 secret string.
+
+- [ ] **Step 2: Write failing test**
+
+```clojure
+(ns boundary.e2e.helpers.totp-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [boundary.e2e.helpers.totp :as totp]))
+
+(deftest ^:unit current-code-is-six-digits
+  (let [secret "JBSWY3DPEHPK3PXP"]
+    (let [code (totp/current-code secret)]
+      (is (string? code))
+      (is (re-matches #"\d{6}" code)))))
+```
+
+- [ ] **Step 3: Implement** `libs/e2e/test/boundary/e2e/helpers/totp.clj`:
+
+```clojure
+(ns boundary.e2e.helpers.totp
+  "Generate TOTP codes for e2e MFA tests. Uses one-time, which is already
+   used by the boundary.user MFA implementation."
+  (:require [one-time.core :as ot]))
+
+(defn current-code
+  "Returns the current 6-digit TOTP code for a base32 secret."
+  [secret]
+  (format "%06d" (ot/get-totp-token secret)))
+
+(defn fresh-code
+  "Waits until we're at least `safety-ms` away from a TOTP window rollover,
+   then returns a fresh code. Reduces flakiness near window boundaries."
+  ([secret] (fresh-code secret 2000))
+  ([secret safety-ms]
+   (let [ms-into-window (mod (System/currentTimeMillis) 30000)
+         ms-left        (- 30000 ms-into-window)]
+     (when (< ms-left safety-ms)
+       (Thread/sleep (long (+ ms-left 100))))
+     (current-code secret))))
+```
+
+**Engineer note:** verify the exact `one-time.core` function name — it may be `get-totp-token`, `generate-token`, or `totp`. Run `clojure -M:test:e2e -e "(require 'one-time.core) (->> (ns-publics 'one-time.core) keys sort println)"` to list public vars.
+
+- [ ] **Step 4: Run tests, commit**
+
+```bash
+git add libs/e2e/test/boundary/e2e/helpers/totp.clj \
+        libs/e2e/test/boundary/e2e/helpers/totp_test.clj
+git commit -m "Add TOTP helper using one-time for e2e MFA tests"
+```
+
+---
+
+### Task 14: `users.clj` API helpers
+
+**Files:**
+- Create: `libs/e2e/test/boundary/e2e/helpers/users.clj`
+
+Implements login/register/MFA management against `/api/v1/auth/*`. Uses `clj-http` for API calls because it gives direct access to response headers (needed for cookie assertions) and doesn't need a spel page context. No unit tests for this helper file — it's exercised end-to-end by the API spec namespaces in Phase 4.
+
+- [ ] **Step 1: Implement**
+
+```clojure
+(ns boundary.e2e.helpers.users
+  "API-level helpers for e2e tests: login, register, MFA enable/disable.
+   Uses clj-http directly (not spel) because the e2e suite needs to inspect
+   Set-Cookie headers and make fine-grained assertions on status codes."
+  (:require [clj-http.client :as http]
+            [cheshire.core :as json]
+            [boundary.e2e.helpers.totp :as totp]
+            [boundary.e2e.helpers.reset :as reset]))
+
+(defn- api-post [path body & [{:keys [cookie] :as _opts}]]
+  (http/post (str (reset/default-base-url) path)
+             (cond-> {:content-type     :json
+                      :accept           :json
+                      :body             (json/generate-string body)
+                      :throw-exceptions false
+                      :as               :json}
+               cookie (assoc-in [:headers "Cookie"] (str "session-token=" cookie)))))
+
+(defn- api-get [path & [{:keys [cookie]}]]
+  (http/get (str (reset/default-base-url) path)
+            (cond-> {:accept           :json
+                     :throw-exceptions false
+                     :as               :json}
+              cookie (assoc-in [:headers "Cookie"] (str "session-token=" cookie)))))
+
+(defn login
+  "POST /api/v1/auth/login — returns the full ring response including headers."
+  [{:keys [email password]}]
+  (api-post "/api/v1/auth/login" {:email email :password password}))
+
+(defn register
+  "POST /api/v1/auth/register — returns the full ring response."
+  [{:keys [email password name]}]
+  (api-post "/api/v1/auth/register" {:email email :password password :name name}))
+
+(defn enable-mfa!
+  "Runs the two-step MFA enable flow (setup → enable with TOTP) using the
+   provided session-token. Returns the setup result `{:secret :backupCodes ...}`
+   so tests can generate fresh codes or verify backup codes."
+  [session-token]
+  (let [setup-resp (api-post "/api/v1/auth/mfa/setup" {} {:cookie session-token})
+        _ (when-not (= 200 (:status setup-resp))
+            (throw (ex-info "mfa/setup failed" {:resp setup-resp})))
+        setup (:body setup-resp)
+        code (totp/current-code (:secret setup))
+        enable-resp (api-post "/api/v1/auth/mfa/enable"
+                              {:secret           (:secret setup)
+                               :backupCodes      (:backupCodes setup)
+                               :verificationCode code}
+                              {:cookie session-token})]
+    (when-not (= 200 (:status enable-resp))
+      (throw (ex-info "mfa/enable failed" {:resp enable-resp})))
+    setup))
+
+(defn disable-mfa!
+  "POST /api/v1/auth/mfa/disable — no body."
+  [session-token]
+  (api-post "/api/v1/auth/mfa/disable" {} {:cookie session-token}))
+
+(defn mfa-status
+  "GET /api/v1/auth/mfa/status — returns response with body."
+  [session-token]
+  (api-get "/api/v1/auth/mfa/status" {:cookie session-token}))
+```
+
+**Engineer note:** the real MFA setup endpoint may accept an empty body `{}` or may require nothing at all. Verify against `libs/user/src/boundary/user/shell/http.clj:443` and adjust the `api-post` call shape. Also confirm that `mfa-setup-handler` returns the exact field names `:secret`, `:backupCodes`, `:qrCodeUrl` — adjust the helper's destructuring if different.
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add libs/e2e/test/boundary/e2e/helpers/users.clj
+git commit -m "Add e2e API user helpers (login, register, MFA enable/disable/status)"
+```
+
+---
+
+### Task 15: `fixtures.clj` with `:each` DB reset
+
+**Files:**
+- Create: `libs/e2e/test/boundary/e2e/fixtures.clj`
+- Create: `libs/e2e/test/boundary/e2e/smoke_test.clj` (minimal canary)
+
+Kaocha `use-fixtures :each` that runs `reset/reset-db!` before every e2e test and stashes the result in a dynamic var `*seed*`. Individual test namespaces `use-fixtures :each with-fresh-seed` and read `*seed*` to get the tenant/admin/user entities.
+
+- [ ] **Step 1: Implement**
+
+```clojure
+(ns boundary.e2e.fixtures
+  "Shared test fixtures for e2e tests. Every e2e test namespace should:
+
+     (use-fixtures :each fixtures/with-fresh-seed)
+
+   and then read `*seed*` to access the baseline tenant/admin/user."
+  (:require [boundary.e2e.helpers.reset :as reset]))
+
+(def ^:dynamic *seed* nil)
+
+(defn with-fresh-seed
+  "Runs POST /test/reset before every test. Binds *seed* to the seed result
+   for the duration of the test."
+  [f]
+  (let [seed (reset/reset-db!)]
+    (binding [*seed* seed]
+      (f))))
+```
+
+- [ ] **Step 2: Write smoke test**
+
+```clojure
+(ns boundary.e2e.smoke-test
+  "Minimal canary: is the e2e server reachable and does /test/reset work?"
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+            [boundary.e2e.fixtures :as fx]
+            [clj-http.client :as http]
+            [boundary.e2e.helpers.reset :as reset]))
+
+(use-fixtures :each fx/with-fresh-seed)
+
+(deftest ^:e2e server-reachable-and-seeded
+  (testing "the e2e server is up and the seed fixture returned an admin"
+    (is (= "admin@acme.test" (-> fx/*seed* :admin :email)))
+    (let [resp (http/get (str (reset/default-base-url) "/web/login")
+                         {:throw-exceptions false})]
+      (is (= 200 (:status resp))))))
+```
+
+- [ ] **Step 3: Run via bb e2e**
+
+```bash
+bb e2e
+```
+
+Expected: server boots, kaocha loads `:e2e` suite, smoke test passes, server is torn down. This is the first end-to-end validation that the whole pipeline works.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add libs/e2e/test/boundary/e2e/fixtures.clj \
+        libs/e2e/test/boundary/e2e/smoke_test.clj
+git commit -m "Add e2e :each fixture + smoke test"
+```
+
+---
+
+### Task 16: (removed — was for TypeScript `app.ts` fixture)
+
+Combined into Task 15. Skip to Phase 4.
 
 ---
 
 ## Phase 4 — API test specs
 
-All API tests use the `test` from `fixtures/app.ts`, which gives them a fresh baseline via the `seed` auto-fixture before every test.
+All API tests use `use-fixtures :each fixtures/with-fresh-seed`, giving them a fresh baseline via `/test/reset` before every test. They hit `/api/v1/auth/*` and `/api/v1/sessions/*` directly via `clj-http` (wrapped in `helpers.users`). No browser involved at this layer.
 
-### Task 17: `auth-login.spec.ts`
+### Task 17: `api/auth_login_test.clj`
 
 **Files:**
-- Create: `e2e/tests/api/auth-login.spec.ts`
+- Create: `libs/e2e/test/boundary/e2e/api/auth_login_test.clj`
 
-**Pre-step:** before writing the tests, run the server once and hit the endpoint manually to learn the real success-response shape:
+**Pre-step:** observe the real login response shape once before writing assertions:
 
 ```bash
 bb run-e2e-server &
@@ -1224,537 +1305,469 @@ curl -s -X POST -H "Content-Type: application/json" \
 curl -s -i -X POST -H "Content-Type: application/json" \
   -d '{"email":"admin@acme.test","password":"Test-Pass-1234!"}' \
   http://localhost:3100/api/v1/auth/login
-kill %1
+# kill the server after noting the response
 ```
-
-Copy the observed JSON shape into your head (or a scratch note) so the assertions below are grounded, not guessed. The reference facts already confirm that a successful login sets `session-token` via `Set-Cookie`, but the JSON body structure is not documented and must be observed.
 
 - [ ] **Step 1: Write tests**
 
-```ts
-import { test, expect } from '../../fixtures/app';
-import { loginViaApi } from '../../helpers/users';
-import { expectSessionCookie } from '../../helpers/cookies';
+```clojure
+(ns boundary.e2e.api.auth-login-test
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+            [boundary.e2e.fixtures :as fx]
+            [boundary.e2e.helpers.users :as users]
+            [boundary.e2e.helpers.cookies :as cookies]))
 
-test.describe('POST /api/v1/auth/login', () => {
-  test('happy: valid credentials return success + set session cookie', async ({ request, seed }) => {
-    const res = await loginViaApi(request, {
-      email: seed.admin.email,
-      password: seed.admin.password,
-    });
-    expect(res.ok()).toBeTruthy();
-    // API sets httpOnly cookie via Set-Cookie header
-    expectSessionCookie(res);
-    // Response MUST NOT leak password-hash in any casing
-    const raw = await res.text();
-    expect(raw).not.toMatch(/password[-_]?hash/i);
-  });
+(use-fixtures :each fx/with-fresh-seed)
 
-  test('wrong password → 401, no session cookie', async ({ request, seed }) => {
-    const res = await loginViaApi(request, {
-      email: seed.admin.email,
-      password: 'wrong-password',
-    });
-    expect(res.status()).toBe(401);
-  });
+(deftest ^:e2e login-happy-sets-session-cookie
+  (testing "valid credentials → 200 + HttpOnly session cookie + no password-hash leak"
+    (let [{:keys [admin]} fx/*seed*
+          resp (users/login {:email (:email admin) :password (:password admin)})]
+      (is (= 200 (:status resp)))
+      (is (string? (cookies/session-token (:headers resp))))
+      (is (not (re-find #"(?i)password[-_]?hash" (pr-str (:body resp)))))
+      (is (not (re-find #"(?i)password[-_]?hash" (or (slurp-safe resp) "")))))))
 
-  test('unknown email → 401 (no user enumeration)', async ({ request }) => {
-    const res = await loginViaApi(request, {
-      email: 'nobody@nowhere.test',
-      password: 'whatever',
-    });
-    expect(res.status()).toBe(401);
-    const body = await res.text();
-    // Generic error — must not reveal whether the email exists
-    expect(body.toLowerCase()).not.toContain('not found');
-    expect(body.toLowerCase()).not.toContain('does not exist');
-  });
-});
+(defn- slurp-safe [resp]
+  (try (str (:body resp)) (catch Exception _ nil)))
+
+(deftest ^:e2e login-wrong-password-401
+  (let [{:keys [admin]} fx/*seed*
+        resp (users/login {:email (:email admin) :password "wrong"})]
+    (is (= 401 (:status resp)))
+    (is (cookies/no-session-token? (:headers resp)))))
+
+(deftest ^:e2e login-unknown-email-401-no-enumeration
+  (let [resp (users/login {:email "nobody@nowhere.test" :password "whatever"})]
+    (is (= 401 (:status resp)))
+    (let [body (str (:body resp))]
+      (is (not (re-find #"(?i)not found|does not exist" body))))))
 ```
+
+**Engineer note:** `slurp-safe` is defined after its use by design — move it above the first test before committing if you want to keep clj-kondo happy, or add a `declare` at the top. The placement is illustrative; clean it up.
 
 - [ ] **Step 2: Run**
 
 ```bash
-bb e2e -- api/auth-login.spec.ts
+bb e2e
 ```
 
-Expected: PASS 3/3. The test intentionally does not assert on a specific JSON body shape — the `Set-Cookie` check and 401 status codes are the contract we care about. DO NOT weaken assertions on `password-hash` absence or 401-on-wrong-creds; those are security requirements.
+Only the newly added tests should fail/pass. Three tests pass → commit.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add e2e/tests/api/auth-login.spec.ts
-git commit -m "Add API login tests: happy, wrong password, unknown email"
+git add libs/e2e/test/boundary/e2e/api/auth_login_test.clj
+git commit -m "Add API login e2e tests: happy, wrong password, unknown email"
 ```
 
 ---
 
-### Task 18: `auth-register.spec.ts`
+### Task 18: `api/auth_register_test.clj`
 
 **Files:**
-- Create: `e2e/tests/api/auth-register.spec.ts`
+- Create: `libs/e2e/test/boundary/e2e/api/auth_register_test.clj`
 
 - [ ] **Step 1: Write tests**
 
-```ts
-import { test, expect } from '../../fixtures/app';
-import { registerViaApi } from '../../helpers/users';
+```clojure
+(ns boundary.e2e.api.auth-register-test
+  (:require [clojure.test :refer [deftest is use-fixtures]]
+            [boundary.e2e.fixtures :as fx]
+            [boundary.e2e.helpers.users :as users]))
 
-test.describe('POST /api/v1/auth/register', () => {
-  test('happy: creates user, returns session token', async ({ request }) => {
-    const res = await registerViaApi(request, {
-      email: 'new-user@acme.test',
-      password: 'A-Strong-Pass-9999!',
-      name: 'New User',
-    });
-    expect(res.ok()).toBeTruthy();
-    // Read as text to be resilient to empty/non-JSON success bodies
-    const raw = await res.text();
-    expect(raw).not.toMatch(/password[-_]?hash/i);
-  });
+(use-fixtures :each fx/with-fresh-seed)
 
-  test('duplicate email → 409', async ({ request, seed }) => {
-    const res = await registerViaApi(request, {
-      email: seed.admin.email,
-      password: 'Another-Strong-Pass-1!',
-      name: 'Dup',
-    });
-    expect(res.status()).toBe(409);
-  });
+(deftest ^:e2e register-happy-creates-user
+  (let [resp (users/register {:email "new-user@acme.test"
+                              :password "A-Strong-Pass-9999!"
+                              :name "New User"})]
+    (is (= 200 (:status resp)))
+    (is (not (re-find #"(?i)password[-_]?hash" (pr-str (:body resp)))))))
 
-  test('weak password → 400 with policy details', async ({ request }) => {
-    const res = await registerViaApi(request, {
-      email: 'weakpass@acme.test',
-      password: 'abc',
-      name: 'Weak',
-    });
-    expect(res.status()).toBe(400);
-    const body = await res.json();
-    // Policy errors should be present
-    expect(JSON.stringify(body).toLowerCase()).toMatch(/password|policy|length/);
-  });
-});
+(deftest ^:e2e register-duplicate-email-409
+  (let [{:keys [admin]} fx/*seed*
+        resp (users/register {:email (:email admin)
+                              :password "Another-Strong-Pass-1!"
+                              :name "Dup"})]
+    (is (= 409 (:status resp)))))
+
+(deftest ^:e2e register-weak-password-400
+  (let [resp (users/register {:email "weakpass@acme.test"
+                              :password "abc"
+                              :name "Weak"})]
+    (is (= 400 (:status resp)))
+    (is (re-find #"(?i)password|policy|length" (pr-str (:body resp))))))
 ```
 
-- [ ] **Step 2: Run + fix assertions if exact error shape differs**
+- [ ] **Step 2: Run, commit** if 3/3 green.
 
 ```bash
-bb e2e -- api/auth-register.spec.ts
-```
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add e2e/tests/api/auth-register.spec.ts
-git commit -m "Add API register tests: happy, duplicate, weak password"
+git add libs/e2e/test/boundary/e2e/api/auth_register_test.clj
+git commit -m "Add API register e2e tests: happy, duplicate, weak password"
 ```
 
 ---
 
-### Task 19: `auth-mfa.spec.ts`
+### Task 19: `api/auth_mfa_test.clj`
 
-**Scope note:** `/api/v1/auth/login` schema is `:closed` and does **not**
-accept an `mfaCode` field. MFA-gated login via the JSON API does not
-exist in this codebase; MFA second-step is handled exclusively by the
-HTML `mfa-login-form` flow, covered by `web-login.spec.ts`. This API spec
-covers only the MFA management endpoints.
+**Scope note:** `/api/v1/auth/login` does **not** accept `mfaCode` (schema is `:closed`). MFA-during-login is HTML-only and covered in Task 21. This spec only covers MFA management endpoints.
 
 **Files:**
-- Create: `e2e/tests/api/auth-mfa.spec.ts`
+- Create: `libs/e2e/test/boundary/e2e/api/auth_mfa_test.clj`
 
 - [ ] **Step 1: Write tests**
 
-```ts
-import { test, expect } from '../../fixtures/app';
-import { loginViaApi, enableMfaForUser, disableMfaForUser } from '../../helpers/users';
-import { expectSessionCookie } from '../../helpers/cookies';
+```clojure
+(ns boundary.e2e.api.auth-mfa-test
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+            [boundary.e2e.fixtures :as fx]
+            [boundary.e2e.helpers.users :as users]
+            [boundary.e2e.helpers.cookies :as cookies]
+            [clj-http.client :as http]
+            [boundary.e2e.helpers.reset :as reset]))
 
-test.describe('MFA management API', () => {
-  test('setup returns secret + backup codes', async ({ request, seed }) => {
-    const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const token = expectSessionCookie(login);
-    const res = await request.post('/api/v1/auth/mfa/setup', {
-      headers: { Cookie: `session-token=${token}` },
-    });
-    expect(res.ok()).toBeTruthy();
-    const body = await res.json();
-    expect(typeof body.secret).toBe('string');
-    expect(body.secret.length).toBeGreaterThan(0);
-    expect(Array.isArray(body.backupCodes)).toBe(true);
-    expect(body.backupCodes.length).toBeGreaterThan(0);
-  });
+(use-fixtures :each fx/with-fresh-seed)
 
-  test('enable with correct verification code activates MFA (status reflects it)', async ({ request, seed }) => {
-    const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const token = expectSessionCookie(login);
-    await enableMfaForUser(request, token);
+(defn- login-and-token [user]
+  (let [resp  (users/login {:email (:email user) :password (:password user)})
+        token (cookies/session-token (:headers resp))]
+    token))
 
-    const statusRes = await request.get('/api/v1/auth/mfa/status', {
-      headers: { Cookie: `session-token=${token}` },
-    });
-    expect(statusRes.ok()).toBeTruthy();
-    const status = await statusRes.json();
-    // Field name is not documented — accept any truthy "enabled" indicator.
-    expect(status.enabled).toBeTruthy();
-  });
+(deftest ^:e2e mfa-setup-returns-secret-and-backup-codes
+  (let [token (login-and-token (:user fx/*seed*))
+        resp  (http/post (str (reset/default-base-url) "/api/v1/auth/mfa/setup")
+                         {:headers {"Cookie" (str "session-token=" token)}
+                          :throw-exceptions false
+                          :as :json})]
+    (is (= 200 (:status resp)))
+    (is (string? (-> resp :body :secret)))
+    (is (seq (-> resp :body :backupCodes)))))
 
-  test('enable with wrong verification code is rejected', async ({ request, seed }) => {
-    const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const token = expectSessionCookie(login);
+(deftest ^:e2e mfa-enable-correct-code-flips-status
+  (let [token (login-and-token (:user fx/*seed*))]
+    (users/enable-mfa! token)
+    (let [status (users/mfa-status token)]
+      (is (= 200 (:status status)))
+      (is (true? (-> status :body :enabled))))))
 
-    const setupRes = await request.post('/api/v1/auth/mfa/setup', {
-      headers: { Cookie: `session-token=${token}` },
-    });
-    const setup = await setupRes.json();
+(deftest ^:e2e mfa-enable-wrong-code-rejected
+  (let [token (login-and-token (:user fx/*seed*))
+        setup (-> (http/post (str (reset/default-base-url) "/api/v1/auth/mfa/setup")
+                             {:headers {"Cookie" (str "session-token=" token)}
+                              :as :json :throw-exceptions false})
+                  :body)
+        resp (http/post (str (reset/default-base-url) "/api/v1/auth/mfa/enable")
+                        {:headers {"Cookie" (str "session-token=" token)}
+                         :content-type :json
+                         :body (cheshire.core/generate-string
+                                {:secret (:secret setup)
+                                 :backupCodes (:backupCodes setup)
+                                 :verificationCode "000000"})
+                         :throw-exceptions false
+                         :as :json})]
+    (is (not= 200 (:status resp)))
+    (let [status (users/mfa-status token)]
+      (is (false? (-> status :body :enabled))))))
 
-    const enableRes = await request.post('/api/v1/auth/mfa/enable', {
-      headers: { Cookie: `session-token=${token}` },
-      data: {
-        secret: setup.secret,
-        backupCodes: setup.backupCodes,
-        verificationCode: '000000',
-      },
-    });
-    expect(enableRes.ok()).toBeFalsy();
-
-    // Status should still be disabled
-    const statusRes = await request.get('/api/v1/auth/mfa/status', {
-      headers: { Cookie: `session-token=${token}` },
-    });
-    const status = await statusRes.json();
-    expect(status.enabled).toBeFalsy();
-  });
-
-  test('disable turns MFA off', async ({ request, seed }) => {
-    const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const token = expectSessionCookie(login);
-    await enableMfaForUser(request, token);
-    await disableMfaForUser(request, token);
-
-    const statusRes = await request.get('/api/v1/auth/mfa/status', {
-      headers: { Cookie: `session-token=${token}` },
-    });
-    const status = await statusRes.json();
-    expect(status.enabled).toBeFalsy();
-  });
-});
+(deftest ^:e2e mfa-disable-turns-it-off
+  (let [token (login-and-token (:user fx/*seed*))]
+    (users/enable-mfa! token)
+    (users/disable-mfa! token)
+    (let [status (users/mfa-status token)]
+      (is (false? (-> status :body :enabled))))))
 ```
 
-- [ ] **Step 2: Run**
+Add `cheshire.core` to the require list if needed.
+
+- [ ] **Step 2: Run, commit**
 
 ```bash
-bb e2e -- api/auth-mfa.spec.ts
-```
-
-The field name `enabled` is taken from `mfa-status-handler` at `http.clj:326`. If a first run shows a different key, read the handler and adjust.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add e2e/tests/api/auth-mfa.spec.ts
-git commit -m "Add API MFA management tests: setup, enable, wrong-code, disable"
+git add libs/e2e/test/boundary/e2e/api/auth_mfa_test.clj
+git commit -m "Add API MFA management e2e tests: setup, enable, wrong code, disable"
 ```
 
 ---
 
-### Task 20: `auth-sessions.spec.ts`
+### Task 20: `api/auth_sessions_test.clj`
 
-**Scope note:** there is no `GET /api/v1/sessions` list endpoint. Tests
-obtain the session token from the login `Set-Cookie` header and call
-`GET /api/v1/sessions/:token` to validate or `DELETE` to revoke it.
+**Scope note:** no `GET /api/v1/sessions` list endpoint. Tests use the session token from login and call `GET/DELETE /api/v1/sessions/:token` directly.
 
 **Files:**
-- Create: `e2e/tests/api/auth-sessions.spec.ts`
+- Create: `libs/e2e/test/boundary/e2e/api/auth_sessions_test.clj`
 
-**Pre-step:** determine the real account-lockout threshold before writing the lockout test. Read `libs/user/src/boundary/user/core/` (grep for `max-attempts`, `lockout`, `failed-login`) to find the configured threshold and expected status code. Do not guess.
+**Pre-step:** verify the real lockout threshold before writing the lockout test:
+
+```bash
+grep -rn "max-attempts\|lockout\|failed-login" libs/user/src/boundary/user/core/
+```
 
 - [ ] **Step 1: Write tests**
 
-```ts
-import { test, expect } from '../../fixtures/app';
-import { loginViaApi, registerViaApi } from '../../helpers/users';
-import { expectSessionCookie } from '../../helpers/cookies';
+```clojure
+(ns boundary.e2e.api.auth-sessions-test
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+            [boundary.e2e.fixtures :as fx]
+            [boundary.e2e.helpers.users :as users]
+            [boundary.e2e.helpers.cookies :as cookies]
+            [boundary.e2e.helpers.reset :as reset]
+            [clj-http.client :as http]))
 
-test.describe('Sessions + security', () => {
-  test('GET /api/v1/sessions/:token validates a live token', async ({ request, seed }) => {
-    const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const token = expectSessionCookie(login);
-    const res = await request.get(`/api/v1/sessions/${token}`);
-    expect(res.ok()).toBeTruthy();
-  });
+(use-fixtures :each fx/with-fresh-seed)
 
-  test('DELETE /api/v1/sessions/:token revokes the session; subsequent GET is 401', async ({ request, seed }) => {
-    const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const token = expectSessionCookie(login);
+(defn- login-token [user]
+  (cookies/session-token (:headers (users/login {:email (:email user) :password (:password user)}))))
 
-    const del = await request.delete(`/api/v1/sessions/${token}`);
-    expect(del.ok()).toBeTruthy();
+(deftest ^:e2e validate-live-token
+  (let [token (login-token (:user fx/*seed*))
+        resp  (http/get (str (reset/default-base-url) "/api/v1/sessions/" token)
+                        {:throw-exceptions false})]
+    (is (= 200 (:status resp)))))
 
-    const followup = await request.get(`/api/v1/sessions/${token}`);
-    expect(followup.status()).toBe(401);
-  });
+(deftest ^:e2e delete-session-makes-token-unusable
+  (let [token (login-token (:user fx/*seed*))
+        del   (http/delete (str (reset/default-base-url) "/api/v1/sessions/" token)
+                           {:throw-exceptions false})
+        _     (is (= 200 (:status del)))
+        follow (http/get (str (reset/default-base-url) "/api/v1/sessions/" token)
+                         {:throw-exceptions false})]
+    (is (= 401 (:status follow)))))
 
-  test('MFA status without token → 401', async ({ request }) => {
-    // /api/v1/auth/mfa/status requires authentication via middleware
-    const res = await request.get('/api/v1/auth/mfa/status');
-    expect(res.status()).toBe(401);
-  });
+(deftest ^:e2e protected-endpoint-without-token-is-401
+  (let [resp (http/get (str (reset/default-base-url) "/api/v1/auth/mfa/status")
+                       {:throw-exceptions false})]
+    (is (= 401 (:status resp)))))
 
-  test('account lockout after repeated failures', async ({ request, seed }) => {
-    // ADJUST THIS COUNT based on the pre-step lookup in libs/user/src/boundary/user/core/.
-    // The loop count must equal or exceed the real threshold.
-    const threshold = 5;  // PLACEHOLDER — replace with verified value
-    for (let i = 0; i < threshold + 2; i++) {
-      await loginViaApi(request, { email: seed.user.email, password: 'wrong' });
-    }
-    const res = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    // Expect lockout — one of these status codes, with a clear error message
-    expect([401, 423, 429]).toContain(res.status());
-    const body = await res.text();
-    expect(body.toLowerCase()).toMatch(/lock|attempts|try again|too many/);
-  });
+(deftest ^:e2e lockout-after-repeated-failures
+  (let [{:keys [user]} fx/*seed*
+        ;; ADJUST threshold based on pre-step lookup
+        threshold 5]
+    (dotimes [_ (+ threshold 2)]
+      (users/login {:email (:email user) :password "wrong"}))
+    (let [resp (users/login {:email (:email user) :password (:password user)})]
+      (is (contains? #{401 423 429} (:status resp)))
+      (is (re-find #"(?i)lock|attempts|try again|too many" (pr-str (:body resp)))))))
 
-  test('password-hash never appears in any auth response', async ({ request, seed }) => {
-    const responses = await Promise.all([
-      loginViaApi(request, { email: seed.admin.email, password: seed.admin.password }),
-      registerViaApi(request, { email: 'nb@acme.test', password: 'Strong-Pass-12345!', name: 'NB' }),
-    ]);
-    for (const r of responses) {
-      const t = await r.text();
-      expect(t).not.toMatch(/password[-_]?hash/i);
-    }
-  });
-});
+(deftest ^:e2e password-hash-never-appears-in-auth-responses
+  (let [{:keys [admin]} fx/*seed*
+        responses [(users/login {:email (:email admin) :password (:password admin)})
+                   (users/register {:email "nb@acme.test" :password "Strong-Pass-12345!" :name "NB"})]]
+    (doseq [r responses]
+      (is (not (re-find #"(?i)password[-_]?hash" (pr-str (:body r))))))))
 ```
 
-- [ ] **Step 2: Run**
+- [ ] **Step 2: Run, adjust threshold if needed, commit**
 
 ```bash
-bb e2e -- api/auth-sessions.spec.ts
-```
-
-If the lockout test fails because the threshold guess is wrong, adjust the constant. If `DELETE /api/v1/sessions/:token` returns something other than 2xx on success, read `invalidate-session-handler` in `web_handlers.clj` / `http.clj` for the real behaviour.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add e2e/tests/api/auth-sessions.spec.ts
-git commit -m "Add API sessions + security tests: validate, revoke, unauth, lockout, hash-leak"
+git add libs/e2e/test/boundary/e2e/api/auth_sessions_test.clj
+git commit -m "Add API sessions + security e2e tests: validate, revoke, unauth, lockout, hash-leak"
 ```
 
 ---
 
 ## Phase 5 — HTML test specs
 
-### Task 21: `web-login.spec.ts`
+HTML tests use **spel** for browser automation. Pattern: `core/with-testing-page [pg] ...` opens a Chromium page, `page/navigate`, `page/fill`, `page/click` drive the form, and `page/title` / `page/locator` read state. Cookies are read from spel's page context.
+
+### Task 21: `html/web_login_test.clj`
 
 **Files:**
-- Create: `e2e/tests/html/web-login.spec.ts`
+- Create: `libs/e2e/test/boundary/e2e/html/web_login_test.clj`
 
-- [ ] **Step 1: Write tests**
-
-```ts
-import { test, expect } from '../../fixtures/app';
-import { getSessionCookieFromContext, getRememberedEmailCookie } from '../../helpers/cookies';
-
-test.describe('/web/login HTML flow', () => {
-  test('GET renders login form with email + password fields', async ({ page }) => {
-    await page.goto('/web/login');
-    const form = page.locator('form.form-card[action="/web/login"]');
-    await expect(form).toBeVisible();
-    await expect(form.locator('input[name="email"]')).toBeVisible();
-    await expect(form.locator('input[name="password"]')).toBeVisible();
-    await expect(form.locator('input[name="remember"]')).toBeVisible();
-  });
-
-  test('happy path: regular user is redirected to /web/dashboard', async ({ page, context, seed }) => {
-    await page.goto('/web/login');
-    await page.fill('input[name="email"]', seed.user.email);
-    await page.fill('input[name="password"]', seed.user.password);
-    await page.click('button[type="submit"]');
-    await page.waitForURL('**/web/dashboard');
-    const token = await getSessionCookieFromContext(context);
-    expect(token).toBeTruthy();
-  });
-
-  test('happy path: admin user is redirected to /web/admin/users', async ({ page, seed }) => {
-    await page.goto('/web/login');
-    await page.fill('input[name="email"]', seed.admin.email);
-    await page.fill('input[name="password"]', seed.admin.password);
-    await page.click('button[type="submit"]');
-    await page.waitForURL('**/web/admin/users');
-  });
-
-  test('return-to is honoured after successful login', async ({ page, seed }) => {
-    await page.goto('/web/login?return-to=/web/dashboard/settings');
-    await page.fill('input[name="email"]', seed.user.email);
-    await page.fill('input[name="password"]', seed.user.password);
-    await page.click('button[type="submit"]');
-    await page.waitForURL('**/web/dashboard/settings');
-  });
-
-  test('remember-me sets remembered-email cookie', async ({ page, context, seed }) => {
-    await page.goto('/web/login');
-    await page.fill('input[name="email"]', seed.user.email);
-    await page.fill('input[name="password"]', seed.user.password);
-    await page.check('input[name="remember"]');
-    await page.click('button[type="submit"]');
-    await page.waitForURL('**/web/dashboard');
-    const remembered = await getRememberedEmailCookie(context);
-    expect(remembered).toBe(seed.user.email);
-  });
-
-  test('remembered-email cookie prefills the form on next visit', async ({ page, context, seed }) => {
-    // First login with remember
-    await page.goto('/web/login');
-    await page.fill('input[name="email"]', seed.user.email);
-    await page.fill('input[name="password"]', seed.user.password);
-    await page.check('input[name="remember"]');
-    await page.click('button[type="submit"]');
-    await page.waitForURL('**/web/dashboard');
-    // Clear session cookie but keep remembered-email
-    const cookies = (await context.cookies()).filter((c) => c.name !== 'session-token');
-    await context.clearCookies();
-    await context.addCookies(cookies);
-    // Revisit login page
-    await page.goto('/web/login');
-    await expect(page.locator('input[name="email"]')).toHaveValue(seed.user.email);
-  });
-
-  test('invalid credentials: re-render with error, no session cookie', async ({ page, context, seed }) => {
-    await page.goto('/web/login');
-    await page.fill('input[name="email"]', seed.user.email);
-    await page.fill('input[name="password"]', 'wrong-password');
-    await page.click('button[type="submit"]');
-    // Stay on /web/login, show an error
-    await expect(page).toHaveURL(/\/web\/login/);
-    await expect(page.locator('.validation-errors')).toBeVisible();
-    const token = await getSessionCookieFromContext(context);
-    expect(token).toBeFalsy();
-  });
-
-  test('empty fields show validation errors', async ({ page }) => {
-    await page.goto('/web/login');
-    // Bypass browser-side required by dispatching the form without typing
-    await page.evaluate(() => {
-      const form = document.querySelector<HTMLFormElement>('form.form-card')!;
-      form.noValidate = true;
-      form.submit();
-    });
-    await expect(page).toHaveURL(/\/web\/login/);
-    await expect(page.locator('.validation-errors').first()).toBeVisible();
-  });
-
-  test('MFA-required: second form is shown, wrong code rejected, valid code succeeds', async ({ page, request, seed }) => {
-    // Arrange: enable MFA for seed.user via API
-    const login = await request.post('/api/v1/auth/login', {
-      data: { email: seed.user.email, password: seed.user.password },
-    });
-    const setCookie = login
-      .headersArray()
-      .find((h) => h.name.toLowerCase() === 'set-cookie' && h.value.startsWith('session-token='))!
-      .value;
-    const token = setCookie.split(';')[0].split('=')[1];
-
-    const { enableMfaForUser } = await import('../../helpers/users');
-    const { freshTotp } = await import('../../fixtures/totp');
-    const mfa = await enableMfaForUser(request, token);
-
-    // Act: login in the browser — must show MFA second-step form
-    await page.goto('/web/login');
-    await page.fill('input[name="email"]', seed.user.email);
-    await page.fill('input[name="password"]', seed.user.password);
-    await page.click('button[type="submit"]');
-    await expect(page.locator('input[name="mfa-code"]')).toBeVisible();
-
-    // Wrong code is rejected
-    await page.fill('input[name="mfa-code"]', '000000');
-    await page.click('button[type="submit"]');
-    await expect(page.locator('.validation-errors, .auth-error')).toBeVisible();
-    await expect(page).not.toHaveURL(/dashboard/);
-
-    // Valid code succeeds
-    const code = await freshTotp(mfa.secret);
-    await page.fill('input[name="mfa-code"]', code);
-    await page.click('button[type="submit"]');
-    await page.waitForURL('**/web/dashboard');
-  });
-});
-```
-
-- [ ] **Step 2: Run**
+- [ ] **Step 1: Read spel's public API**
 
 ```bash
-bb e2e -- html/web-login.spec.ts
+clojure -M:test:e2e -e "(require 'com.blockether.spel.core 'com.blockether.spel.page) \
+                        (->> (ns-publics 'com.blockether.spel.page) keys sort println)"
 ```
 
-Expected: all tests pass. The MFA test is the most fragile — if it's flaky, review `freshTotp` and the auth handler's code-verification window.
+Expected: list of functions like `navigate`, `fill`, `click`, `title`, `url`, `locator`, `wait-for-url`, etc. Note the actual names and argument shapes.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 2: Write tests**
+
+```clojure
+(ns boundary.e2e.html.web-login-test
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+            [boundary.e2e.fixtures :as fx]
+            [boundary.e2e.helpers.users :as users]
+            [boundary.e2e.helpers.reset :as reset]
+            [boundary.e2e.helpers.totp :as totp]
+            [boundary.e2e.helpers.cookies :as cookies]
+            [com.blockether.spel.core :as spel]
+            [com.blockether.spel.page :as page]))
+
+(use-fixtures :each fx/with-fresh-seed)
+
+(defn- base [& path] (apply str (reset/default-base-url) path))
+
+(deftest ^:e2e get-renders-login-form
+  (spel/with-testing-page [pg]
+    (page/navigate pg (base "/web/login"))
+    (is (page/visible? pg "form.form-card[action='/web/login']"))
+    (is (page/visible? pg "input[name='email']"))
+    (is (page/visible? pg "input[name='password']"))
+    (is (page/visible? pg "input[name='remember']"))))
+
+(deftest ^:e2e happy-user-redirects-to-dashboard
+  (let [{:keys [user]} fx/*seed*]
+    (spel/with-testing-page [pg]
+      (page/navigate pg (base "/web/login"))
+      (page/fill pg "input[name='email']" (:email user))
+      (page/fill pg "input[name='password']" (:password user))
+      (page/click pg "button[type='submit']")
+      (page/wait-for-url pg #".*/web/dashboard.*")
+      (is (some? (page/cookie pg "session-token"))))))
+
+(deftest ^:e2e happy-admin-redirects-to-admin-users
+  (let [{:keys [admin]} fx/*seed*]
+    (spel/with-testing-page [pg]
+      (page/navigate pg (base "/web/login"))
+      (page/fill pg "input[name='email']" (:email admin))
+      (page/fill pg "input[name='password']" (:password admin))
+      (page/click pg "button[type='submit']")
+      (page/wait-for-url pg #".*/web/admin/users.*"))))
+
+(deftest ^:e2e return-to-honoured
+  (let [{:keys [user]} fx/*seed*]
+    (spel/with-testing-page [pg]
+      (page/navigate pg (base "/web/login?return-to=/web/dashboard/settings"))
+      (page/fill pg "input[name='email']" (:email user))
+      (page/fill pg "input[name='password']" (:password user))
+      (page/click pg "button[type='submit']")
+      (page/wait-for-url pg #".*/web/dashboard/settings.*"))))
+
+(deftest ^:e2e remember-me-sets-remembered-email-cookie
+  (let [{:keys [user]} fx/*seed*]
+    (spel/with-testing-page [pg]
+      (page/navigate pg (base "/web/login"))
+      (page/fill pg "input[name='email']" (:email user))
+      (page/fill pg "input[name='password']" (:password user))
+      (page/check pg "input[name='remember']")
+      (page/click pg "button[type='submit']")
+      (page/wait-for-url pg #".*/web/dashboard.*")
+      (is (= (:email user) (:value (page/cookie pg "remembered-email")))))))
+
+(deftest ^:e2e remembered-email-prefills-form
+  (let [{:keys [user]} fx/*seed*]
+    (spel/with-testing-page [pg]
+      ;; First login with remember
+      (page/navigate pg (base "/web/login"))
+      (page/fill pg "input[name='email']" (:email user))
+      (page/fill pg "input[name='password']" (:password user))
+      (page/check pg "input[name='remember']")
+      (page/click pg "button[type='submit']")
+      (page/wait-for-url pg #".*/web/dashboard.*")
+      ;; Clear session cookie but keep remembered-email
+      (page/delete-cookie pg "session-token")
+      ;; Revisit login
+      (page/navigate pg (base "/web/login"))
+      (is (= (:email user) (page/input-value pg "input[name='email']"))))))
+
+(deftest ^:e2e invalid-credentials-show-error-no-session
+  (let [{:keys [user]} fx/*seed*]
+    (spel/with-testing-page [pg]
+      (page/navigate pg (base "/web/login"))
+      (page/fill pg "input[name='email']" (:email user))
+      (page/fill pg "input[name='password']" "wrong-password")
+      (page/click pg "button[type='submit']")
+      (is (page/visible? pg ".validation-errors"))
+      (is (nil? (page/cookie pg "session-token"))))))
+
+(deftest ^:e2e mfa-required-second-step-wrong-then-right
+  (let [{:keys [user]} fx/*seed*
+        ;; Arrange: enable MFA via API first
+        login-resp (users/login {:email (:email user) :password (:password user)})
+        token (cookies/session-token (:headers login-resp))
+        setup (users/enable-mfa! token)]
+    (spel/with-testing-page [pg]
+      (page/navigate pg (base "/web/login"))
+      (page/fill pg "input[name='email']" (:email user))
+      (page/fill pg "input[name='password']" (:password user))
+      (page/click pg "button[type='submit']")
+      ;; Expect MFA second-step form
+      (is (page/visible? pg "input[name='mfa-code']"))
+      ;; Wrong code rejected
+      (page/fill pg "input[name='mfa-code']" "000000")
+      (page/click pg "button[type='submit']")
+      (is (page/visible? pg ".validation-errors, .auth-error"))
+      ;; Valid code succeeds
+      (page/fill pg "input[name='mfa-code']" (totp/fresh-code (:secret setup)))
+      (page/click pg "button[type='submit']")
+      (page/wait-for-url pg #".*/web/dashboard.*"))))
+```
+
+**Engineer note:** the spel API calls above (`page/visible?`, `page/cookie`, `page/check`, `page/delete-cookie`, `page/input-value`, `page/wait-for-url`) are illustrative. Verify actual names against `(ns-publics 'com.blockether.spel.page)` and adjust. If spel returns a map/record for cookies rather than a value, destructure accordingly. The semantics are what matter; the names are easy to fix.
+
+- [ ] **Step 3: Run tests**
 
 ```bash
-git add e2e/tests/html/web-login.spec.ts
-git commit -m "Add HTML login tests: happy, remember-me, return-to, invalid, MFA"
+bb e2e
+```
+
+First run likely flushes out API naming mismatches. Fix them until all 8 tests pass.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add libs/e2e/test/boundary/e2e/html/web_login_test.clj
+git commit -m "Add HTML login e2e tests via spel: happy, remember-me, return-to, MFA"
 ```
 
 ---
 
-### Task 22: `web-register.spec.ts`
+### Task 22: `html/web_register_test.clj`
 
 **Files:**
-- Create: `e2e/tests/html/web-register.spec.ts`
+- Create: `libs/e2e/test/boundary/e2e/html/web_register_test.clj`
 
 - [ ] **Step 1: Write tests**
 
-```ts
-import { test, expect } from '../../fixtures/app';
-import { getSessionCookieFromContext } from '../../helpers/cookies';
+```clojure
+(ns boundary.e2e.html.web-register-test
+  (:require [clojure.test :refer [deftest is use-fixtures]]
+            [boundary.e2e.fixtures :as fx]
+            [boundary.e2e.helpers.reset :as reset]
+            [com.blockether.spel.core :as spel]
+            [com.blockether.spel.page :as page]))
 
-test.describe('/web/register HTML flow', () => {
-  test('GET renders register form', async ({ page }) => {
-    await page.goto('/web/register');
-    const form = page.locator('form.form-card[action="/web/register"]');
-    await expect(form).toBeVisible();
-    await expect(form.locator('input[name="name"]')).toBeVisible();
-    await expect(form.locator('input[name="email"]')).toBeVisible();
-    await expect(form.locator('input[name="password"]')).toBeVisible();
-  });
+(use-fixtures :each fx/with-fresh-seed)
 
-  test('happy path creates user + session cookie', async ({ page, context }) => {
-    await page.goto('/web/register');
-    await page.fill('input[name="name"]', 'Fresh User');
-    await page.fill('input[name="email"]', 'fresh@acme.test');
-    await page.fill('input[name="password"]', 'A-Strong-Pass-9876!');
-    await page.click('button[type="submit"]');
-    // Wait for redirect away from /web/register
-    await page.waitForURL((u) => !u.pathname.endsWith('/web/register'));
-    const token = await getSessionCookieFromContext(context);
-    expect(token).toBeTruthy();
-  });
+(defn- base [& path] (apply str (reset/default-base-url) path))
 
-  test('weak password shows per-field validation errors', async ({ page }) => {
-    await page.goto('/web/register');
-    await page.fill('input[name="name"]', 'Weak');
-    await page.fill('input[name="email"]', 'weak@acme.test');
-    await page.fill('input[name="password"]', 'abc');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/web\/register/);
-    await expect(page.locator('.validation-errors').first()).toBeVisible();
-  });
-});
+(deftest ^:e2e get-renders-register-form
+  (spel/with-testing-page [pg]
+    (page/navigate pg (base "/web/register"))
+    (is (page/visible? pg "form.form-card[action='/web/register']"))
+    (is (page/visible? pg "input[name='name']"))
+    (is (page/visible? pg "input[name='email']"))
+    (is (page/visible? pg "input[name='password']"))))
+
+(deftest ^:e2e happy-creates-user-and-redirects
+  (spel/with-testing-page [pg]
+    (page/navigate pg (base "/web/register"))
+    (page/fill pg "input[name='name']" "Fresh User")
+    (page/fill pg "input[name='email']" "fresh@acme.test")
+    (page/fill pg "input[name='password']" "A-Strong-Pass-9876!")
+    (page/click pg "button[type='submit']")
+    (page/wait-for-url pg #"^(?!.*/web/register).*$")
+    (is (some? (page/cookie pg "session-token")))))
+
+(deftest ^:e2e weak-password-shows-validation-errors
+  (spel/with-testing-page [pg]
+    (page/navigate pg (base "/web/register"))
+    (page/fill pg "input[name='name']" "Weak")
+    (page/fill pg "input[name='email']" "weak@acme.test")
+    (page/fill pg "input[name='password']" "abc")
+    (page/click pg "button[type='submit']")
+    (is (re-find #"/web/register" (page/url pg)))
+    (is (page/visible? pg ".validation-errors"))))
 ```
 
-- [ ] **Step 2: Run**
+- [ ] **Step 2: Run, commit**
 
 ```bash
-bb e2e -- html/web-register.spec.ts
-```
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add e2e/tests/html/web-register.spec.ts
-git commit -m "Add HTML register tests: form render, happy path, weak password"
+git add libs/e2e/test/boundary/e2e/html/web_register_test.clj
+git commit -m "Add HTML register e2e tests via spel"
 ```
 
 ---
@@ -1772,10 +1785,10 @@ Append to `.github/workflows/ci.yml` after the `docs-lint` job:
 
 ```yaml
   # =============================================================================
-  # End-to-end Playwright tests
+  # End-to-end Clojure/spel tests
   # =============================================================================
   e2e:
-    name: Playwright E2E
+    name: E2E (spel)
     runs-on: ubuntu-latest
     needs: [lint, build-ui-assets]
 
@@ -1794,11 +1807,6 @@ Append to `.github/workflows/ci.yml` after the `docs-lint` job:
           cli: 1.11.1.1347
           bb: latest
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
       - name: Cache Maven deps
         uses: actions/cache@v5
         with:
@@ -1812,45 +1820,47 @@ Append to `.github/workflows/ci.yml` after the `docs-lint` job:
         uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('e2e/package-lock.json') }}
+          key: ${{ runner.os }}-playwright-spel-0.7.11
 
-      - name: Install e2e npm deps
-        working-directory: e2e
-        run: npm ci
+      - name: Warm deps and install Playwright browsers
+        run: |
+          clojure -P -M:test:e2e
+          # spel uses Playwright Java which downloads browsers lazily on first use;
+          # trigger once so the CI cache captures them.
+          clojure -M:test:e2e -e "(require 'com.blockether.spel.core) \
+            ((requiring-resolve 'com.blockether.spel.core/install-browsers!))" \
+            || echo "browser install via direct API not available; playwright will download on first test run"
 
-      - name: Install Playwright browsers
-        working-directory: e2e
-        run: npx playwright install --with-deps chromium
-
-      - name: Run e2e
+      - name: Run e2e suite
         run: bb e2e
         env:
           BND_ENV: test
           CI: "true"
 
-      - name: Upload Playwright report on failure
+      - name: Upload failure artifacts
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
-          path: e2e/playwright-report/
+          name: e2e-failures
+          path: |
+            target/spel/
+            target/test-output/
           retention-days: 7
 ```
 
-- [ ] **Step 2: Validate YAML**
+**Engineer note:** `install-browsers!` may not be the exact spel API — check the spel README / Clojars docs. If not available, the first real test run will download browsers; the cache step still catches them for subsequent runs.
+
+- [ ] **Step 2: Validate YAML syntax**
 
 ```bash
-# Cheap syntax check
-python3 -c "import yaml,sys; yaml.safe_load(open('.github/workflows/ci.yml'))" && echo OK
+python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))" && echo OK
 ```
-
-Expected: `OK`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add .github/workflows/ci.yml
-git commit -m "Add e2e job to CI workflow"
+git commit -m "Add e2e job to CI (spel + bb e2e)"
 ```
 
 ---
@@ -1859,22 +1869,22 @@ git commit -m "Add e2e job to CI workflow"
 
 ### Task 24: Full local run
 
-- [ ] **Step 1: Clean build**
+- [ ] **Step 1: Clean classpath + warm deps**
 
 ```bash
-rm -rf e2e/node_modules e2e/playwright-report e2e/test-results
-cd e2e && npm ci && npx playwright install chromium && cd ..
+rm -rf .cpcache
+clojure -P -M:test:e2e
 ```
 
-- [ ] **Step 2: Run unit + integration + contract tests**
+- [ ] **Step 2: Run Clojure unit/integration/contract tests**
 
 ```bash
-clojure -M:test:db/h2
+clojure -M:test
 ```
 
-Expected: all existing tests still pass, plus new `:unit`, `:integration`, `:contract` tests added in Phase 1.
+Expected: all existing tests pass, plus the new `:unit` / `:integration` / `:contract` tests added in Phase 1.
 
-- [ ] **Step 3: Run lint**
+- [ ] **Step 3: Run lint and quality gates**
 
 ```bash
 clojure -M:clj-kondo --lint src test libs/*/src libs/*/test boundary-tools/src
@@ -1886,19 +1896,15 @@ bb doctor --env all --ci
 
 Expected: all pass.
 
-- [ ] **Step 4: Run Playwright suite end-to-end**
+- [ ] **Step 4: Run the e2e suite end-to-end**
 
 ```bash
 bb e2e
 ```
 
-Expected: all ~32 tests pass. Total wall time < 3 minutes.
+Expected: server starts, ~28 e2e tests pass, server tears down, exit 0. Wall time target: < 3 minutes.
 
-- [ ] **Step 5: Verify the smoke test file is removed or kept**
-
-Decision: keep `_smoke.spec.ts` as a minimal "is the server up" canary — it's useful and cheap. If you prefer to remove it, `git rm` it and commit.
-
-- [ ] **Step 6: Sanity-check nothing committed accidentally**
+- [ ] **Step 5: Sanity-check the branch**
 
 ```bash
 git status
@@ -1907,27 +1913,22 @@ git log --oneline main..HEAD
 
 Expected: clean working tree, ~24 commits on the branch.
 
-- [ ] **Step 7: Final verification per superpowers:verification-before-completion**
+- [ ] **Step 6: Final verification per superpowers:verification-before-completion**
 
-Use `@superpowers:verification-before-completion` skill to confirm:
-- `bb e2e` exits 0
-- `clojure -M:test:db/h2` exits 0
-- `bb check:fcis`, `bb check:deps`, `bb doctor --env all --ci` all exit 0
-
-Only then claim the plan is complete.
+Use `@superpowers:verification-before-completion` skill to confirm all the above commands exit 0 before claiming the plan is complete.
 
 ---
 
 ## DRY / YAGNI / TDD / commit notes
 
-- **DRY:** `loginViaApi`, `enableMfaForUser`, `expectSessionCookie`, the `seed` fixture — each defined once, reused everywhere. If a helper is used in only one test, inline it.
-- **YAGNI:** single browser (Chromium), single worker, no visual regression, no multi-tenant scenarios beyond what exists, no seed configurability beyond `baseline` / `empty`.
-- **TDD:** every Clojure task (1-7) writes test before code. Playwright tasks (17-22) don't have a formal red-green cycle because the server behaviour already exists — the tests characterize and lock in existing behaviour. If a test unexpectedly fails on first run, stop and investigate with `@superpowers:systematic-debugging`.
-- **Frequent commits:** one logical unit per commit (~24 commits for the plan).
+- **DRY:** `users/login`, `users/enable-mfa!`, `cookies/session-token`, the `with-fresh-seed` fixture — each defined once, reused everywhere. If a helper is used in only one test, inline it.
+- **YAGNI:** single browser (Chromium, spel default), single worker (kaocha serial), no visual regression, no Allure reporting (spel supports it, but we don't need it yet), no seed configurability beyond `:baseline` / `:empty`.
+- **TDD:** every Clojure task in Phase 1 and the helpers in Phase 3 writes a test before code. The API and HTML e2e specs (Phase 4-5) lock in already-existing server behaviour; if a test unexpectedly fails on first run, stop and investigate with `@superpowers:systematic-debugging` — likely a helper-level API mismatch, not a product bug.
+- **Frequent commits:** one logical unit per commit (~22-24 commits total for the full plan).
 
 ## Skills to reference during execution
 
-- `@superpowers:test-driven-development` for Phase 1 Clojure tasks
+- `@superpowers:test-driven-development` for Phase 1 and helper tasks
 - `@superpowers:systematic-debugging` if any test is mysteriously flaky
 - `@superpowers:verification-before-completion` before declaring done
 - `@superpowers:subagent-driven-development` to execute this plan

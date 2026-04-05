@@ -139,7 +139,15 @@
 
           {:id :i18n
            :test-paths ["libs/i18n/test"]
-           :ns-patterns ["boundary.i18n.*-test"]}]
+           :ns-patterns ["boundary.i18n.*-test"]}
+
+         ;; End-to-end suite — requires the :e2e alias to be on the
+         ;; classpath (pulls in spel / Playwright Java). Run via:
+         ;;   clojure -M:test:e2e :e2e
+         ;; or: bb e2e
+          {:id :e2e
+           :test-paths ["libs/e2e/test"]
+           :ns-patterns ["boundary.e2e.*-test"]}]
 
   :plugins [:kaocha.plugin/randomize
             :kaocha.plugin/filter
@@ -150,7 +158,7 @@
  ;;   ^:unit        → clojure -M:test --focus-meta :unit
  ;;   ^:integration → clojure -M:test --focus-meta :integration
  ;;   ^:user        → clojure -M:test --focus-meta :user
-  :kaocha.plugin.filter/focus-meta [:unit :integration :contract :user :billing :phase3]
+  :kaocha.plugin.filter/focus-meta [:unit :integration :contract :e2e :user :billing :phase3]
 
   :kaocha.plugin.randomize/randomize? true
   :kaocha/reporter [boundary.test.reporter/reporter]

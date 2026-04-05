@@ -256,6 +256,20 @@
                        :jvm-opts    ["-Denv=test" "--enable-native-access=ALL-UNNAMED"]}
 
            ;; =============================================================================
+           ;; End-to-end test suite (spel / Playwright Java via Clojure)
+           ;;
+           ;; Opt-in only — activating this alias pulls in Playwright Java browser
+           ;; bindings, which are large and not needed by normal :test runs.
+           ;; Usage:
+           ;;   clojure -M:test:e2e :e2e
+           ;; or via the bb task:
+           ;;   bb e2e
+           ;; =============================================================================
+
+           :e2e       {:extra-paths ["libs/e2e/src" "libs/e2e/test"]
+                       :extra-deps  {com.blockether/spel {:mvn/version "0.7.11"}}}
+
+           ;; =============================================================================
            ;; CLI Interface
            ;; =============================================================================
 
