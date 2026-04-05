@@ -2,6 +2,12 @@
  ;; Test Environment Configuration
  ;; =============================================================================
 
+ ;; Enables POST /test/reset endpoint for Playwright e2e tests.
+ ;; MUST only ever be true in the :test profile (and optionally :dev).
+ ;; Startup wiring asserts the profile and will throw if this flag is set in
+ ;; prod/acc. See libs/platform/src/boundary/platform/shell/system/wiring.clj.
+ :test/reset-endpoint-enabled? true
+
  :active
  {  ;; Core application settings (always active)
   :boundary/settings
