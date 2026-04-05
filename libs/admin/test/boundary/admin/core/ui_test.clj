@@ -490,7 +490,46 @@
       (is (str/includes? (str row) "/web/admin/users/"))
 
       ;; Should NOT display hidden fields (password-hash)
-      (is (not (str/includes? (str row) "hashed123"))))))
+      (is (not (str/includes? (str row) "hashed123")))))
+
+  (testing "Row is clickable when user can edit"
+    (let [row (ui/entity-table-row :users sample-record sample-entity-config
+                                   {:can-edit true :can-delete false})
+          row-str (str row)]
+      (is (str/includes? row-str "clickable-row"))
+      (is (str/includes? row-str "data-href"))
+      ;; Chevron nav hint is visible because the row is clickable
+      (is (str/includes? row-str "row-nav-hint"))))
+
+  (testing "Row is NOT clickable when user cannot edit (read-only view)"
+    ;; The detail/edit handler is guarded by assert-can-edit-entity!, so
+    ;; rows must not advertise a detail-page link when :can-edit is false —
+    ;; otherwise clicking any cell lands on a 403.
+    (let [row (ui/entity-table-row :users sample-record sample-entity-config
+                                   {:can-edit false :can-delete false})
+          row-str (str row)]
+      (is (not (str/includes? row-str "clickable-row")))
+      (is (not (str/includes? row-str "data-href")))
+      ;; Chevron nav hint is also hidden when the row isn't navigable
+      (is (not (str/includes? row-str "row-nav-hint"))))))
+
+(deftest entity-edit-form-return-to-encoding-test
+  (testing "return_to is URL-encoded on the edit form action"
+    ;; When an edit page is reached from a contextual list URL that
+    ;; already carries query parameters (filters, pagination, etc.), the
+    ;; cancel-url must be URL-encoded before being appended as
+    ;; ?return_to=...; otherwise any raw `&` inside splits into a second
+    ;; top-level query parameter on the PUT request and the handler sees
+    ;; a truncated value.
+    (let [cancel-url "/web/admin/users?page=2&filter%5Bactive%5D=true&sort=email"
+          form (ui/entity-form :users sample-entity-config sample-record nil
+                               sample-permissions cancel-url)
+          form-str (str form)]
+      (is (str/includes? form-str
+                         (str "return_to=" (java.net.URLEncoder/encode cancel-url "UTF-8")))
+          "edit form action should contain the percent-encoded return_to value")
+      (is (not (str/includes? form-str "return_to=/web/admin/users?page=2&"))
+          "edit form action must not contain the raw unencoded return_to value"))))
 
 (deftest entity-table-test
   (testing "Complete entity table with records"

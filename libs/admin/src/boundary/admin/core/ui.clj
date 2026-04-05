@@ -33,6 +33,16 @@
   (or (:create-redirect-url entity-config)
       (str "/web/admin/" (name entity-name) "/new")))
 
+(defn- url-encode
+  "URL-encode a string for use as a query-string value.
+
+   Required when threading `return_to` (or any contextual URL containing
+   its own `?`/`&` characters) through query parameters — otherwise the
+   embedded `&` splits into a second top-level parameter and the receiving
+   handler sees a truncated value."
+  [^String s]
+  (java.net.URLEncoder/encode s "UTF-8"))
+
 ;; =============================================================================
 ;; Admin Layout Components
 ;; =============================================================================
@@ -559,9 +569,15 @@
   (let [list-fields (:list-fields entity-config)
         primary-key (:primary-key entity-config :id)
         record-id (get record primary-key)
-        readonly-fields (set (:readonly-fields entity-config))]
-    [:tr {:class "entity-row clickable-row"
-          :data-href (str "/web/admin/" (name entity-name) "/" record-id)}
+        readonly-fields (set (:readonly-fields entity-config))
+        ;; The detail/edit handler is guarded by assert-can-edit-entity!, so only
+        ;; wire the row-click navigation when the current user actually has
+        ;; permission — otherwise clicking a data cell sends them to a 403.
+        can-open? (boolean (:can-edit permissions))
+        row-attrs (cond-> {:class (if can-open? "entity-row clickable-row" "entity-row")}
+                    can-open?
+                    (assoc :data-href (str "/web/admin/" (name entity-name) "/" record-id)))]
+    [:tr row-attrs
      [:td.checkbox-cell
        ;; Alpine.js row checkbox with x-model binding to selectedIds array
       [:input (alpine/row-checkbox-attrs record-id)]]
@@ -587,13 +603,14 @@
                  :data-label field-label}
             (render-field-value field value field-config)])))
      [:td.actions-cell
-      (when (:can-edit permissions)
+      (when can-open?
         [:a.icon-button.secondary
          {:href (str "/web/admin/" (name entity-name) "/" record-id)
           :aria-label [:t :common/button-edit]}
          (icons/icon :edit {:size 18})])
-      [:span.row-nav-hint
-       (icons/icon :chevron-right {:size 14})]]]))
+      (when can-open?
+        [:span.row-nav-hint
+         (icons/icon :chevron-right {:size 14})])]]))
 
 ;; =============================================================================
 ;; Inline Editing Components (Week 2)
@@ -1236,9 +1253,12 @@
                            (str "/web/admin/" (name entity-name) "/" record-id)
                            (str "/web/admin/" (name entity-name)))
         default-list-url (str "/web/admin/" (name entity-name))
-        ; Preserve return_to through form submission so the update handler can redirect back
+        ; Preserve return_to through form submission so the update handler can redirect back.
+        ; URL-encode the value: contextual list URLs frequently carry their own query params
+        ; (filters, pagination, etc.), and a raw `&` would be parsed as a new top-level
+        ; parameter on the PUT request, truncating return_to server-side.
         form-action (if (and is-edit? cancel-url (not= cancel-url default-list-url))
-                      (str form-action-base "?return_to=" cancel-url)
+                      (str form-action-base "?return_to=" (url-encode cancel-url))
                       form-action-base)
         _form-method (if is-edit? "PUT" "POST")
         hx-attr (if is-edit? :hx-put :hx-post)
@@ -1381,7 +1401,7 @@
                 [:a.button.secondary
                  {:href (str "/web/admin/" entity "/" (:id record)
                              (when-let [rt (:return-to relationship)]
-                               (str "?return_to=" rt)))}
+                               (str "?return_to=" (url-encode rt))))}
                  [:t :common/button-edit]]])])]]])]))
 
 (defn entity-detail-page
@@ -1452,7 +1472,7 @@
           ;; params on the delete request, so the server would drop the
           ;; original list state when redirecting back.
           (let [delete-url (cond-> (str "/web/admin/" (name entity-name) "/" (get record (:primary-key entity-config :id)))
-                             return-to (str "?return_to=" (java.net.URLEncoder/encode ^String return-to "UTF-8")))]
+                             return-to (str "?return_to=" (url-encode return-to)))]
             [:button.button.danger
              {:type "button"
               :class "gap-2"

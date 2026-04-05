@@ -404,22 +404,41 @@
       });
     });
 
-    // Convert flash messages on page load into toasts
-    var flashMessages = document.querySelectorAll('.flash-messages .alert');
-    flashMessages.forEach(function (el) {
-      var type = 'info';
-      if (el.classList.contains('alert-success')) type = 'success';
-      else if (el.classList.contains('alert-error') || el.classList.contains('alert-danger')) type = 'error';
-      else if (el.classList.contains('alert-warning')) type = 'warning';
+    // Convert server-rendered flash messages into toasts. This must run
+    // both on initial page load and after any HTMX body swap, because the
+    // admin create/update flows swap the whole body via hx-swap="outerHTML"
+    // and the fresh flash markup would otherwise stay inline (external
+    // scripts are not re-executed on swaps).
+    function convertFlashMessages(root) {
+      var scope = root || document;
+      var flashMessages = scope.querySelectorAll('.flash-messages .alert');
+      flashMessages.forEach(function (el) {
+        // Guard against double-conversion if a swap event re-visits the same
+        // node (e.g. oob swaps, nested targets).
+        if (el.dataset.toastConverted === '1') return;
+        el.dataset.toastConverted = '1';
 
-      showToast({
-        type: type,
-        title: type.charAt(0).toUpperCase() + type.slice(1),
-        message: el.textContent.trim()
+        var type = 'info';
+        if (el.classList.contains('alert-success')) type = 'success';
+        else if (el.classList.contains('alert-error') || el.classList.contains('alert-danger')) type = 'error';
+        else if (el.classList.contains('alert-warning')) type = 'warning';
+
+        showToast({
+          type: type,
+          title: type.charAt(0).toUpperCase() + type.slice(1),
+          message: el.textContent.trim()
+        });
+
+        // Hide the inline flash
+        el.style.display = 'none';
       });
+    }
 
-      // Hide the inline flash
-      el.style.display = 'none';
+    convertFlashMessages();
+    document.addEventListener('htmx:afterSwap', function (event) {
+      // Scope the scan to the swapped subtree when possible to avoid
+      // rescanning the whole document on every swap.
+      convertFlashMessages(event.detail && event.detail.target);
     });
 
     // Expose public API
