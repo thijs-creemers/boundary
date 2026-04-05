@@ -62,8 +62,7 @@
     ;; Grab the single value regardless of key name.
     (long (first (vals row)))))
 
-^{:contract true}
-(deftest truncate-all!-removes-all-rows-test
+(deftest ^:contract truncate-all!-removes-all-rows-test
   (testing "truncate-all! empties a populated tenants table"
     (jdbc/execute! *datasource*
                    ["INSERT INTO tenants (id, slug, name, status)
