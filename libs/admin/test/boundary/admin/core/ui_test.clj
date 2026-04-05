@@ -149,6 +149,41 @@
         (is (str/includes? url "page=1"))
         (is (str/includes? url "page-size=20"))))))
 
+(deftest entity-create-url-test
+  (testing "Default generic admin create URL when no delegate configured"
+    (is (= "/web/admin/users/new"
+           (ui/entity-create-url :users {:label "Users"})))
+    (is (= "/web/admin/users/new"
+           (ui/entity-create-url :users {:label "Users"} "/web/admin/users?page=2"))
+        "caller-url is ignored for the non-delegated path because the generic create handler does not honor return-to"))
+
+  (testing "Delegated create URL without caller context"
+    (is (= "/web/users/new"
+           (ui/entity-create-url :users {:create-redirect-url "/web/users/new"}))
+        "2-arity returns the plain delegate URL")
+    (is (= "/web/users/new"
+           (ui/entity-create-url :users {:create-redirect-url "/web/users/new"} nil))
+        "nil caller-url returns the plain delegate URL"))
+
+  (testing "Delegated create URL threads caller URL as URL-encoded return-to"
+    (let [caller "/web/admin/users?page=2&sort=email&filter%5Bactive%5D=true"
+          url (ui/entity-create-url :users
+                                    {:create-redirect-url "/web/users/new"}
+                                    caller)]
+      (is (str/starts-with? url "/web/users/new?return-to="))
+      (is (str/includes? url (java.net.URLEncoder/encode caller "UTF-8"))
+          "caller URL must appear URL-encoded in the return-to parameter")
+      (is (not (str/includes? url "return-to=/web/admin/users?page=2&"))
+          "caller URL must not appear as a raw unencoded value")))
+
+  (testing "Delegated URL that already contains a query string uses & separator"
+    (let [url (ui/entity-create-url :users
+                                    {:create-redirect-url "/web/users/new?source=admin"}
+                                    "/web/admin/users?page=2")]
+      (is (str/includes? url "?source=admin&return-to="))
+      (is (not (str/includes? url "?source=admin?return-to="))
+          "must not introduce a second '?' separator"))))
+
 ;; =============================================================================
 ;; Field Rendering Tests
 ;; =============================================================================
@@ -593,6 +628,43 @@
 
       ;; Should have the table
       (is (str/includes? (str page) "user@example.com")))))
+
+(deftest entity-list-page-delegated-create-preserves-context-test
+  (testing "Delegated create button on list page preserves caller filter/pagination context"
+    ;; When the entity delegates creation via :create-redirect-url, the hero
+    ;; "New" button and the empty-state create button must carry the current
+    ;; admin list URL (with filters/pagination) through as return-to, so the
+    ;; delegated create flow can bring the admin back to their contextual
+    ;; list view after cancel or success.
+    (let [delegated-config (assoc sample-entity-config
+                                  :create-redirect-url "/web/users/new")
+          records [sample-record]
+          table-query {:page 2 :page-size 20 :sort :email :dir :asc}
+          opts {:search nil :filters {:active "true"}}
+          page (ui/entity-list-page :users records delegated-config
+                                    table-query 42 sample-permissions opts)
+          page-str (str page)]
+      (is (str/includes? page-str "/web/users/new?return-to=")
+          "hero New button should point to the delegated URL with return-to")
+      (is (str/includes? page-str "page%3D2")
+          "encoded caller URL must preserve pagination")
+      (is (str/includes? page-str "sort%3Demail")
+          "encoded caller URL must preserve sort field")
+      (is (not (str/includes? page-str "/web/admin/users/new"))
+          "must not fall through to the generic admin create URL"))))
+
+(deftest entity-table-empty-state-delegated-create-preserves-context-test
+  (testing "Delegated empty-state create button preserves caller context"
+    (let [delegated-config (assoc sample-entity-config
+                                  :create-redirect-url "/web/users/new")
+          table-query {:page 3 :page-size 25}
+          table (ui/entity-table :users [] delegated-config table-query 0
+                                 sample-permissions {:role "admin"})
+          table-str (str table)]
+      (is (str/includes? table-str "/web/users/new?return-to=")
+          "empty-state create button should include delegate URL with return-to")
+      (is (str/includes? table-str "page%3D3")
+          "encoded caller URL must preserve pagination from table-query"))))
 
 ;; =============================================================================
 ;; Entity Form Tests

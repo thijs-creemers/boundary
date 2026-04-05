@@ -22,17 +22,6 @@
 ;; URL Helpers
 ;; =============================================================================
 
-(defn entity-create-url
-  "Resolve the URL used for the 'New' button on an entity.
-
-   Entities may expose a dedicated create flow via `:create-redirect-url`
-   (e.g. split-table entities that cannot be created via the generic admin
-   CRUD path). Falls back to `/web/admin/<entity>/new` when no override is
-   configured."
-  [entity-name entity-config]
-  (or (:create-redirect-url entity-config)
-      (str "/web/admin/" (name entity-name) "/new")))
-
 (defn- url-encode
   "URL-encode a string for use as a query-string value.
 
@@ -42,6 +31,57 @@
    handler sees a truncated value."
   [^String s]
   (java.net.URLEncoder/encode s "UTF-8"))
+
+(defn entity-create-url
+  "Resolve the URL used for the 'New' button on an entity.
+
+   Entities may expose a dedicated create flow via `:create-redirect-url`
+   (e.g. split-table entities that cannot be created via the generic admin
+   CRUD path). Falls back to `/web/admin/<entity>/new` when no override is
+   configured.
+
+   When `caller-url` is provided AND the entity delegates via
+   `:create-redirect-url`, the caller URL is threaded through as a
+   `return-to` query parameter so the delegated flow (e.g. the user
+   module's `/web/users/new` page) can bring the admin back to their
+   current filtered/paginated list view on cancel or success. The value
+   is URL-encoded to survive embedded `&`/`=` characters from filters
+   and pagination.
+
+   `caller-url` is ignored for the non-delegated path because the generic
+   admin create handler re-renders the default list view directly and
+   does not honor `return-to`."
+  ([entity-name entity-config]
+   (entity-create-url entity-name entity-config nil))
+  ([entity-name entity-config caller-url]
+   (let [redirect-url (:create-redirect-url entity-config)
+         base (or redirect-url (str "/web/admin/" (name entity-name) "/new"))]
+     (if (and redirect-url caller-url)
+       (let [separator (if (str/includes? base "?") "&" "?")]
+         (str base separator "return-to=" (url-encode caller-url)))
+       base))))
+
+(defn- current-list-url
+  "Build the current admin list URL with filters/pagination applied.
+
+   Used to seed `return-to` on links that navigate away from a list view
+   (notably the delegated create flow), so the user lands back on the
+   same filtered/paginated page after cancel or success. Returns the
+   plain `/web/admin/<entity>` when no meaningful query params exist."
+  [entity-name table-query filters]
+  (let [base (str "/web/admin/" (name entity-name))
+        ;; Drop empty values so the default list view produces the bare
+        ;; `/web/admin/<entity>` rather than `?page=&page-size=`.
+        ;; (`encode-query-params` already strips nils, so we only need to
+        ;; filter empty strings here.)
+        params (into {}
+                     (remove (fn [[_ v]] (= "" v)))
+                     (merge (table-ui/table-query->params table-query)
+                            (table-ui/search-filters->params filters)))
+        qs (table-ui/encode-query-params params)]
+    (if (str/blank? qs)
+      base
+      (str base "?" qs))))
 
 ;; =============================================================================
 ;; Admin Layout Components
@@ -821,7 +861,12 @@
         (when (:can-create permissions)
           [:a.button.primary
            {:class "mt-4"
-            :href (entity-create-url entity-name entity-config)}
+            ;; Only build the contextual list URL when the entity delegates
+            ;; creation — for generic entities the caller URL is discarded
+            ;; and the extra work would be wasted.
+            :href (entity-create-url entity-name entity-config
+                                     (when (:create-redirect-url entity-config)
+                                       (current-list-url entity-name table-query filters)))}
            [:t :admin/button-create-first-record]])]
        [:div.table-wrapper
         ;; Form for checkbox submission (hidden inputs + table)
@@ -913,7 +958,12 @@
         (when (:can-create permissions)
           [:a.button.primary
            {:class "gap-2"
-            :href (entity-create-url entity-name entity-config)
+            ;; Only build the contextual list URL when the entity delegates
+            ;; creation — for generic entities the caller URL is discarded
+            ;; and the extra work would be wasted.
+            :href (entity-create-url entity-name entity-config
+                                     (when (:create-redirect-url entity-config)
+                                       (current-list-url entity-name table-query filters)))
             :aria-label (str "Create new " (name entity-name))}
            (icons/icon :plus {:size 18})
            [:t :admin/button-new {:entity (str/capitalize (name entity-name))}]])]]]
@@ -1462,7 +1512,11 @@
         (when is-edit?
           [:a.button.primary
            {:class "gap-2"
-            :href (entity-create-url entity-name entity-config)}
+            ;; `list-url` is the caller context (either return-to from the
+            ;; query string or the plain list URL). Threading it through
+            ;; ensures the delegated create flow lands the user back on
+            ;; their filtered/paginated list on cancel or success.
+            :href (entity-create-url entity-name entity-config list-url)}
            (icons/icon :plus {:size 16})
            [:t :admin/form-create-heading {:label label}]])
         (when (and is-edit? (:can-delete permissions))
