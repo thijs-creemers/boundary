@@ -2,7 +2,33 @@
 
 **Date:** 2026-04-05
 **Branch:** `feat/playwright-test-login-sequence`
-**Status:** Design approved, pending spec review
+**Status:** Design approved, scope narrowed 2026-04-05 after route verification
+
+## Scope correction (2026-04-05)
+
+The original brainstorm referenced HTML routes `/tenants/login`,
+`/tenants/activate`, and `/portal/accept`. Exploration of the codebase
+confirmed these routes do not exist. The real login form lives at
+`/web/login` (`libs/user/src/boundary/user/shell/http.clj:495`, template
+`libs/user/src/boundary/user/core/ui.clj:659`), and self-service
+registration lives at `/web/register`. No admin-activation or contractor
+portal HTML flow exists today.
+
+Scope has been narrowed to cover only what exists:
+
+- `/web/login` (GET/POST) — including remember-me, return-to, and the MFA
+  second-step form served at the same path
+- `/web/register` (GET/POST) — self-service registration
+- All `/api/auth/*` scenarios as originally specified (login, register, MFA,
+  sessions) — these endpoints all exist and match the original spec
+
+Dropped:
+
+- `/tenants/activate` admin activation flow — does not exist
+- `/portal/accept` contractor invite flow — does not exist
+
+Follow-up work (out of scope for this plan): building those HTML flows as
+production features would require their own brainstorm and design.
 
 ## Goal
 
@@ -14,13 +40,12 @@ clean state per test, and must pass in CI.
 
 ## Scope
 
-### HTML flows (Hiccup + HTMX, `form.form-card`)
+### HTML flows (Hiccup + HTMX, `form.form-card.ui-form-shell`)
 
 | Route | Scenarios |
 |---|---|
-| `GET/POST /tenants/login` | form render, `remembered-email` cookie prefill, happy path + `session-token` cookie, `return-to` redirect, invalid credentials, empty fields |
-| `GET/POST /tenants/activate` | form render, happy path (create + auto-login + `notify=activation-success`), unknown tenant slug, weak password per-field errors, already-activated account |
-| `GET/POST /portal/accept?token=...` | valid token prefill, invalid/expired token (error, no form), happy path + `notify=portal-accepted`, password mismatch, weak password |
+| `GET/POST /web/login` | form render, `remembered-email` cookie prefill, happy path sets `session-token` cookie, `remember=on` sets 30-day `remembered-email` cookie, `return-to` redirect honoured, admin-role default redirect to `/web/admin/users`, invalid credentials re-render with error (400), empty fields validation errors, MFA-required path renders `mfa-login-page` with `mfa-code` field, MFA happy path, MFA wrong code |
+| `GET/POST /web/register` | form render, happy path (creates user + redirects + session cookie), duplicate email error, weak password policy errors per-field |
 
 ### API endpoints (`boundary-user`)
 
@@ -35,7 +60,7 @@ clean state per test, and must pass in CI.
 | `DELETE /api/auth/sessions/:id` | subsequent requests with revoked token get 401 |
 | cross-cutting | protected endpoint without token returns 401; `password-hash` never appears in any API response |
 
-**Total scenarios: ~33 tests** across 7 spec files.
+**Total scenarios: ~32 tests** across 6 spec files (2 HTML + 4 API).
 
 ## Architecture
 
@@ -56,9 +81,8 @@ e2e/
 │   └── cookies.ts                # session-token cookie assertions
 └── tests/
     ├── html/
-    │   ├── tenants-login.spec.ts
-    │   ├── tenants-activate.spec.ts
-    │   └── portal-accept.spec.ts
+    │   ├── web-login.spec.ts
+    │   └── web-register.spec.ts
     └── api/
         ├── auth-login.spec.ts
         ├── auth-register.spec.ts
@@ -154,9 +178,8 @@ What `/test/reset` default-installs:
 | Entity | Details | Used by |
 |---|---|---|
 | Tenant | `slug=acme`, `name=Acme Test` | all flows |
-| Admin user | `admin@acme.test` / `Test-Pass-1234!`, activated, no MFA | `/tenants/login` happy, API login |
-| Pending admin | `pending@acme.test`, not activated | `/tenants/activate` |
-| Contractor invite | `invitee@acme.test` + token | `/portal/accept` |
+| Admin user | `admin@acme.test` / `Test-Pass-1234!`, activated, role `:admin`, no MFA | `/web/login` admin-redirect test, API login |
+| Regular user | `user@acme.test` / `Test-Pass-1234!`, activated, role `:user`, no MFA | `/web/login` happy path (dashboard redirect), sessions tests |
 
 MFA-user, lockout-user, and duplicate-registration state is **not** in
 baseline — tests build it via helpers (hybrid approach). Keeps baseline small
