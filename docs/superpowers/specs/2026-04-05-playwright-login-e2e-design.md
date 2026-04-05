@@ -135,6 +135,18 @@ hardcoding of tokens or ephemeral values.
 **Performance target:** reset < 200 ms. With 33 tests: ≤ 7 s reset overhead
 total.
 
+**Performance caveats to resolve during planning:**
+
+- H2 does not support `TRUNCATE ... CASCADE` the way Postgres does. Use
+  `SET REFERENTIAL_INTEGRITY FALSE` + `TRUNCATE TABLE` per table (or
+  `DELETE FROM`) and re-enable referential integrity after.
+- Reusing production `register` / `create-tenant` services routes seed
+  password creation through bcrypt/argon2, which can blow the 200 ms budget
+  on its own for 3–4 users. Mitigation options (pick one in the plan):
+  lower the hash cost factor in `:test` profile config, **or** provide a
+  shell helper that inserts the seeded admin rows with a pre-computed hash
+  while still exercising production code paths for everything else.
+
 ### Baseline seed
 
 What `/test/reset` default-installs:
@@ -303,4 +315,7 @@ time for marginal coverage on server-rendered HTML).
   during implementation by reading current catalogues.
 - Whether `test-support` lives under `libs/` (publishable) or `src/` (app-only).
   Leaning toward `src/boundary/test_support/` because it should never ship as
-  a library consumers depend on.
+  a library consumers depend on. **Caveat**: `bb check:fcis` and
+  `bb check:deps` are configured per-library — confirm the chosen location is
+  covered by those checks before relying on the FC/IS acceptance criterion.
+  If not, extend the check config to include the test-support path.
