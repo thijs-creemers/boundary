@@ -1,7 +1,8 @@
 {:paths ["scripts"]   ; still needed for docs_lint.clj + verify_doc_links.clj
  :deps  {org.boundary-app/boundary-tools {:local/root "boundary-tools"}}
  :tasks
- {:requires ([babashka.process          :as process]
+ {:requires ([babashka.http-client       :as http]
+             [babashka.process          :as process]
              [boundary.tools.scaffold    :as scaffold]
              [boundary.tools.ai          :as ai]
              [boundary.tools.deps        :as deps]
@@ -82,6 +83,36 @@
                       :shutdown  process/destroy-tree}
                      "clojure" "-M:run" "server")]
            (System/exit (or (:exit (deref proc)) 0)))}
+
+  e2e
+  {:doc "Start e2e server, wait for /web/login, run kaocha :e2e suite, tear down"
+   :task (letfn [(healthy? [url]
+                   (try
+                     (= 200 (:status (http/get url {:throw false
+                                                    :timeout 2000})))
+                     (catch Exception _ false)))
+                 (wait-for-server [url timeout-s]
+                   (loop [n 0]
+                     (cond
+                       (healthy? url) (println (str "e2e: server up after " n "s"))
+                       (>= n timeout-s) (throw (ex-info "e2e: server never came up"
+                                                        {:url url :waited-s n}))
+                       :else (do (Thread/sleep 1000) (recur (inc n))))))]
+           (let [server (process/process
+                         {:extra-env {"BND_ENV"   "test"
+                                      "HTTP_PORT" "3100"}
+                          :inherit   true
+                          :shutdown  process/destroy-tree}
+                         "clojure" "-M:run" "server")
+                 exit   (try
+                          (wait-for-server "http://localhost:3100/web/login" 60)
+                          (println "e2e: running kaocha :e2e suite")
+                          (:exit (process/shell {:continue true}
+                                                "clojure" "-M:test:e2e" ":e2e"))
+                          (finally
+                            (process/destroy-tree server)
+                            (println "e2e: server torn down")))]
+             (System/exit (or exit 1))))}
 
   verify-doc-links
   {:doc "Verify internal links in docs/ documentation files (.md and .adoc)"
