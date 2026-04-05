@@ -281,6 +281,19 @@
                        :jvm-opts   ["-Denv=dev"]}
 
            ;; =============================================================================
+           ;; HTTP server entrypoint (invokes boundary.main/-main in server mode).
+           ;; Used by `bb run-e2e-server` for Playwright/spel e2e runs, and available
+           ;; for any local run that needs to boot the Integrant system from deps.edn
+           ;; rather than the uberjar. Respects BND_ENV to select the active profile.
+           ;; =============================================================================
+
+           :run       {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.51.0.0"}
+                                    org.postgresql/postgresql   {:mvn/version "42.7.8"}
+                                    com.h2database/h2           {:mvn/version "2.4.240"}
+                                    com.mysql/mysql-connector-j {:mvn/version "9.5.0"}}
+                       :main-opts  ["-m" "boundary.main"]}
+
+           ;; =============================================================================
            ;; Documentation
            ;; =============================================================================
 

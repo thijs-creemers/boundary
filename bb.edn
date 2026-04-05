@@ -1,7 +1,8 @@
 {:paths ["scripts"]   ; still needed for docs_lint.clj + verify_doc_links.clj
  :deps  {org.boundary-app/boundary-tools {:local/root "boundary-tools"}}
  :tasks
- {:requires ([boundary.tools.scaffold    :as scaffold]
+ {:requires ([babashka.process          :as process]
+             [boundary.tools.scaffold    :as scaffold]
              [boundary.tools.ai          :as ai]
              [boundary.tools.deps        :as deps]
              [boundary.tools.i18n        :as i18n]
@@ -70,6 +71,15 @@
                                        'boundary.tools.check-fcis-test)]
                           (when (pos? (+ (:fail summary) (:error summary)))
                             (System/exit 1))))}
+  run-e2e-server
+  {:doc "Start the Boundary app on :test profile (port 3100) for Playwright/spel e2e runs"
+   :task (let [proc (process/process
+                     {:extra-env {"BND_ENV" "test"}
+                      :inherit   true
+                      :shutdown  process/destroy-tree}
+                     "clojure" "-M:run" "server")]
+           (System/exit (or (:exit (deref proc)) 0)))}
+
   verify-doc-links
   {:doc "Verify internal links in docs/ documentation files (.md and .adoc)"
    :task (do (require 'verify-doc-links)
