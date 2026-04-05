@@ -1446,8 +1446,13 @@
            (icons/icon :plus {:size 16})
            [:t :admin/form-create-heading {:label label}]])
         (when (and is-edit? (:can-delete permissions))
+          ;; URL-encode return-to because contextual list URLs may already
+          ;; carry their own query string (filters, pagination). Without
+          ;; encoding, any `&` inside return-to would be parsed as additional
+          ;; params on the delete request, so the server would drop the
+          ;; original list state when redirecting back.
           (let [delete-url (cond-> (str "/web/admin/" (name entity-name) "/" (get record (:primary-key entity-config :id)))
-                             return-to (str "?return_to=" return-to))]
+                             return-to (str "?return_to=" (java.net.URLEncoder/encode ^String return-to "UTF-8")))]
             [:button.button.danger
              {:type "button"
               :class "gap-2"

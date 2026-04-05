@@ -280,10 +280,18 @@
       hideProgress();
       clearSavedTable();
     });
-    document.addEventListener('htmx:responseError', function () {
+    // htmx:responseError fires when the server returns a non-2xx status.
+    // htmx:sendError and htmx:timeout fire when the request fails before any
+    // response arrives (offline, DNS failure, CORS, connection timeout, etc.).
+    // Without handling these, the progress bar stays stuck and the table body
+    // is left permanently replaced by skeleton rows.
+    function onTransportFailure() {
       hideProgress();
       restoreTableOnError();
-    });
+    }
+    document.addEventListener('htmx:responseError', onTransportFailure);
+    document.addEventListener('htmx:sendError', onTransportFailure);
+    document.addEventListener('htmx:timeout', onTransportFailure);
 
     // Skeleton on table requests
     document.addEventListener('htmx:beforeRequest', function (event) {
