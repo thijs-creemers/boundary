@@ -99,22 +99,46 @@
   (->> (file-seq root)
        (filter #(and (.isDirectory %) (= "core" (.getName %))))))
 
-(defn- core-clj-files
-  "Find all .clj files under any core/ directory in libs/*/src/.
-   Covers both standard paths (boundary/<lib>/core/) and non-standard
-   ones like boundary/shared/ui/core/."
+(defn core-source-paths
+  "Find all .clj files under any core/ directory that must be subject to
+   FC/IS enforcement. Covers:
+   - libs/*/src/boundary/<lib>/core/ (and non-standard libs like
+     boundary/shared/ui/core/)
+   - src/boundary/test_support/core/ (monorepo-level shared test helpers)
+
+   Public so it can be exercised from tests."
   []
-  (let [root (io/file (System/getProperty "user.dir"))
-        libs (io/file root "libs")]
-    (when (.exists libs)
-      (->> (.listFiles libs)
-           (filter #(.isDirectory %))
-           (mapcat (fn [lib-dir]
-                     (let [src-dir (io/file lib-dir "src")]
-                       (when (.exists src-dir)
-                         (find-core-dirs src-dir)))))
-           (mapcat file-seq)
-           (filter #(and (.isFile %) (str/ends-with? (.getName %) ".clj")))))))
+  (let [root          (io/file (System/getProperty "user.dir"))
+        libs          (io/file root "libs")
+        libs-files    (when (.exists libs)
+                        (->> (.listFiles libs)
+                             (filter #(.isDirectory %))
+                             (mapcat (fn [lib-dir]
+                                       (let [src-dir (io/file lib-dir "src")]
+                                         (when (.exists src-dir)
+                                           (find-core-dirs src-dir)))))
+                             (mapcat file-seq)
+                             (filter #(and (.isFile %)
+                                           (str/ends-with? (.getName %) ".clj")))))
+        ;; src/boundary/test_support/core.clj is the monorepo-level shared
+        ;; test helper namespace. It is a single file (boundary.test-support.core),
+        ;; not a directory of core sources — include it explicitly plus any
+        ;; future files under a nested core/ dir, should one appear.
+        test-support-root (io/file root "src" "boundary" "test_support")
+        test-support-file (io/file test-support-root "core.clj")
+        test-support-dir-files (when (.exists test-support-root)
+                                 (->> (find-core-dirs test-support-root)
+                                      (mapcat file-seq)
+                                      (filter #(and (.isFile %)
+                                                    (str/ends-with? (.getName %) ".clj")))))
+        test-support  (cond-> (vec test-support-dir-files)
+                        (.exists test-support-file) (conj test-support-file))]
+    (concat libs-files test-support)))
+
+(defn- core-clj-files
+  "Backwards-compatible alias for core-source-paths."
+  []
+  (core-source-paths))
 
 (defn- extract-requires
   "Extract required namespace symbols from a (ns ...) form."

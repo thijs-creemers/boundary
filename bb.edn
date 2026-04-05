@@ -61,11 +61,13 @@
               :extra-paths ["boundary-tools/test"]
               :task (do (require 'boundary.tools.doctor-test
                                  'boundary.tools.integrate-test
-                                 'boundary.tools.setup-test)
+                                 'boundary.tools.setup-test
+                                 'boundary.tools.check-fcis-test)
                         (let [summary (clojure.test/run-tests
                                        'boundary.tools.doctor-test
                                        'boundary.tools.integrate-test
-                                       'boundary.tools.setup-test)]
+                                       'boundary.tools.setup-test
+                                       'boundary.tools.check-fcis-test)]
                           (when (pos? (+ (:fail summary) (:error summary)))
                             (System/exit 1))))}
   verify-doc-links
