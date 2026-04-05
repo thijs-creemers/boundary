@@ -47,20 +47,37 @@ clean state per test, and must pass in CI.
 | `GET/POST /web/login` | form render, `remembered-email` cookie prefill, happy path sets `session-token` cookie, `remember=on` sets 30-day `remembered-email` cookie, `return-to` redirect honoured, admin-role default redirect to `/web/admin/users`, invalid credentials re-render with error (400), empty fields validation errors, MFA-required path renders `mfa-login-page` with `mfa-code` field, MFA happy path, MFA wrong code |
 | `GET/POST /web/register` | form render, happy path (creates user + redirects + session cookie), duplicate email error, weak password policy errors per-field |
 
-### API endpoints (`boundary-user`)
+### API endpoints (`boundary-user`, real paths are `/api/v1/...`)
+
+Source-of-truth verified in `libs/user/src/boundary/user/shell/http.clj:338-468`. The
+`/api/v1` prefix is applied globally by `boundary.platform.shell.http.versioning/apply-versioning`;
+unversioned `/api/...` paths exist only as 307 redirects.
 
 | Endpoint | Scenarios |
 |---|---|
-| `POST /api/auth/login` | happy, wrong password (401), unknown email (401, no user enumeration), lockout after repeat failures, MFA flows (see below) |
-| `POST /api/auth/register` | happy, duplicate email (409), weak password (400 with policy details) |
-| `POST /api/auth/mfa/setup` | returns TOTP secret |
-| `POST /api/auth/mfa/enable` | correct code activates MFA; wrong code rejected |
-| `POST /api/auth/mfa/disable` | correct code disables MFA |
-| `GET /api/auth/sessions` | lists active sessions |
-| `DELETE /api/auth/sessions/:id` | subsequent requests with revoked token get 401 |
+| `POST /api/v1/auth/login` | happy, wrong password (401), unknown email (401, no user enumeration), lockout after repeat failures |
+| `POST /api/v1/auth/register` | happy, duplicate email (409), weak password (400 with policy details) |
+| `POST /api/v1/auth/mfa/setup` (authenticated) | returns `{secret, qrCodeUrl, backupCodes, ...}` |
+| `POST /api/v1/auth/mfa/enable` (authenticated) | body `{secret, backupCodes, verificationCode}` — correct code activates MFA; wrong code rejected |
+| `POST /api/v1/auth/mfa/disable` (authenticated) | no body — disables MFA for the authenticated user |
+| `GET /api/v1/auth/mfa/status` (authenticated) | returns MFA enabled flag |
+| `DELETE /api/v1/sessions/:token` | revokes a session; subsequent validation returns 401 |
+| `GET /api/v1/sessions/:token` | validates a session token |
 | cross-cutting | protected endpoint without token returns 401; `password-hash` never appears in any API response |
 
-**Total scenarios: ~32 tests** across 6 spec files (2 HTML + 4 API).
+**Scope note on MFA login:** the JSON API `/api/v1/auth/login` schema is
+`:closed` and does **not** accept an `mfaCode` field. MFA second-step is
+implemented only via the HTML `mfa-login-form` on `/web/login`. Therefore
+"login with MFA active" scenarios are covered by the HTML suite, not the
+API suite.
+
+**Scope note on sessions listing:** there is no `GET /api/v1/sessions`
+list endpoint. Session management consists of create (`POST`), validate
+(`GET /:token`), and invalidate (`DELETE /:token`). Revocation tests
+obtain the token from the login `Set-Cookie` header and `DELETE` it
+directly.
+
+**Total scenarios: ~28 tests** across 6 spec files (2 HTML + 4 API).
 
 ## Architecture
 

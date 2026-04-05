@@ -24,7 +24,19 @@ Engineer: read these before starting. They are already verified in the repo.
 - **Session cookie:** `session-token` (httpOnly, path `/`, max-age = 30 days if `remember=on`, no max-age otherwise — session cookie). Set in `web_handlers.clj:379-388`.
 - **`remembered-email` cookie:** set when `remember=on` on successful login, max-age 30 days, read back by `login-page-handler` to prefill `:email` + check `:remember` (`web_handlers.clj:310-316`).
 - **Default redirect after login:** admins → `/web/admin/users`, others → `/web/dashboard` (`web_handlers.clj:352-356`).
-- **API auth routes:** `libs/user/src/boundary/user/shell/http.clj` — `login-handler`, `mfa-setup-handler` (lines 242-266), `mfa-enable-handler` (268-291), `mfa-disable-handler` (293-312), `mfa-status-handler` (314-332).
+- **API auth routes (VERIFIED from http.clj:338-468):** all API routes are prefixed with `/api/v1` by `boundary.platform.shell.http.versioning/apply-versioning`. Real paths:
+  - `POST /api/v1/auth/login` — body `{email, password, deviceInfo?}` — schema is `:closed`, does **not** accept `mfaCode`.
+  - `POST /api/v1/auth/register` — body `{email, password, name, ...}`.
+  - `POST /api/v1/auth/mfa/setup` — authenticated, no body — returns `{secret, qrCodeUrl, backupCodes, issuer, accountName}`.
+  - `POST /api/v1/auth/mfa/enable` — authenticated, body `{secret, backupCodes, verificationCode}` — all three required, schema is `:closed`.
+  - `POST /api/v1/auth/mfa/disable` — authenticated, **no body schema** — just disables for the authenticated user.
+  - `GET /api/v1/auth/mfa/status` — authenticated.
+  - `POST /api/v1/sessions` — create session by userId or by {email,password}.
+  - `GET /api/v1/sessions/:token` — validate session.
+  - `DELETE /api/v1/sessions/:token` — invalidate session.
+  - **There is NO `GET /api/v1/sessions` list endpoint.**
+  - Unversioned `/api/auth/login` etc. exist only as 307 redirects to `/api/v1/...`.
+- **MFA + API login (CRITICAL):** MFA-gated login cannot be tested via the JSON API — no `mfaCode` field exists in the login schema. MFA second-step is only implemented in the HTML `mfa-login-form` flow on `/web/login`. Tests for MFA-during-login belong in `web-login.spec.ts`, not any API spec.
 - **User service:** `libs/user/src/boundary/user/shell/service.clj` — `UserService` record, `register-user` (line 116).
 - **Tenant service:** `libs/tenant/src/boundary/tenant/shell/service.clj` — `create-new-tenant` (line 62).
 - **Config:** Aero-based, loaded via `src/boundary/config.clj`. Profile env var `BND_ENV` (`test`/`dev`/`prod`/`acc`). Test config at `resources/conf/test/config.edn`.
@@ -77,10 +89,10 @@ e2e/
     │   ├── web-login.spec.ts       # ~10 tests
     │   └── web-register.spec.ts    # ~3 tests
     └── api/
-        ├── auth-login.spec.ts      # ~3 tests
-        ├── auth-register.spec.ts   # ~3 tests
-        ├── auth-mfa.spec.ts        # ~6 tests
-        └── auth-sessions.spec.ts   # ~5 tests
+        ├── auth-login.spec.ts      # 3 tests
+        ├── auth-register.spec.ts   # 3 tests
+        ├── auth-mfa.spec.ts        # 4 tests (setup, enable-ok, enable-wrong, status-after-disable)
+        └── auth-sessions.spec.ts   # 4 tests (validate-ok, revoke, revoked-is-401, lockout, hash-leak)
 
 .github/workflows/ci.yml              # MODIFY: add e2e job
 ```
@@ -1043,15 +1055,12 @@ import { currentTotp } from '../fixtures/totp';
 export interface LoginBody {
   email: string;
   password: string;
-  mfaCode?: string;
+  // NOTE: /api/v1/auth/login does NOT accept mfaCode (schema is :closed).
+  // MFA second-step is only available via the HTML /web/login flow.
 }
 
-export async function loginViaApi(
-  request: APIRequestContext,
-  body: LoginBody,
-) {
-  const res = await request.post('/api/auth/login', { data: body });
-  return res;
+export async function loginViaApi(request: APIRequestContext, body: LoginBody) {
+  return request.post('/api/v1/auth/login', { data: body });
 }
 
 export interface RegisterBody {
@@ -1064,30 +1073,64 @@ export async function registerViaApi(
   request: APIRequestContext,
   body: RegisterBody,
 ) {
-  return request.post('/api/auth/register', { data: body });
+  return request.post('/api/v1/auth/register', { data: body });
 }
 
-/** Enable MFA for a logged-in user. Returns the TOTP secret. */
+export interface MfaSetupResult {
+  secret: string;
+  backupCodes: string[];
+  qrCodeUrl?: string;
+}
+
+/**
+ * Enable MFA for a logged-in user. Returns the full setup result so callers
+ * can generate TOTP codes and (if needed) reference backup codes later.
+ *
+ * The enable endpoint schema is :closed and requires the exact triple
+ * {secret, backupCodes, verificationCode}.
+ */
 export async function enableMfaForUser(
   request: APIRequestContext,
   sessionToken: string,
-): Promise<string> {
-  const setupRes = await request.post('/api/auth/mfa/setup', {
+): Promise<MfaSetupResult> {
+  const setupRes = await request.post('/api/v1/auth/mfa/setup', {
     headers: { Cookie: `session-token=${sessionToken}` },
   });
-  expect(setupRes.ok()).toBeTruthy();
-  const setupBody = (await setupRes.json()) as { secret: string };
-  const code = currentTotp(setupBody.secret);
-  const enableRes = await request.post('/api/auth/mfa/enable', {
+  expect(setupRes.ok(), `mfa setup failed: ${setupRes.status()} ${await setupRes.text()}`).toBeTruthy();
+  const setup = (await setupRes.json()) as MfaSetupResult;
+  expect(typeof setup.secret).toBe('string');
+  expect(Array.isArray(setup.backupCodes)).toBe(true);
+
+  const verificationCode = currentTotp(setup.secret);
+  const enableRes = await request.post('/api/v1/auth/mfa/enable', {
     headers: { Cookie: `session-token=${sessionToken}` },
-    data: { code },
+    data: {
+      secret: setup.secret,
+      backupCodes: setup.backupCodes,
+      verificationCode,
+    },
   });
-  expect(enableRes.ok(), `enable failed: ${await enableRes.text()}`).toBeTruthy();
-  return setupBody.secret;
+  expect(
+    enableRes.ok(),
+    `mfa enable failed: ${enableRes.status()} ${await enableRes.text()}`,
+  ).toBeTruthy();
+  return setup;
+}
+
+/** Disable MFA for a logged-in user. No request body. */
+export async function disableMfaForUser(
+  request: APIRequestContext,
+  sessionToken: string,
+) {
+  const res = await request.post('/api/v1/auth/mfa/disable', {
+    headers: { Cookie: `session-token=${sessionToken}` },
+  });
+  expect(res.ok(), `mfa disable failed: ${res.status()} ${await res.text()}`).toBeTruthy();
+  return res;
 }
 ```
 
-**Engineer note:** verify the exact JSON field names for `/api/auth/mfa/setup` and `/api/auth/mfa/enable` responses by reading `libs/user/src/boundary/user/shell/http.clj` lines 242-291. Adjust field names (`secret`, `code`) to match what the real handlers return and accept.
+**Engineer note:** The field names above (`secret`, `backupCodes`, `verificationCode`, `qrCodeUrl`) are taken directly from `libs/user/src/boundary/user/shell/http.clj:443-462`. If a test fails on first run because the setup response omits one of these, read the handler body in `web_handlers.clj` / the mfa-service implementation to see the real keys and adjust.
 
 - [ ] **Step 2: Commit**
 
@@ -1172,6 +1215,21 @@ All API tests use the `test` from `fixtures/app.ts`, which gives them a fresh ba
 **Files:**
 - Create: `e2e/tests/api/auth-login.spec.ts`
 
+**Pre-step:** before writing the tests, run the server once and hit the endpoint manually to learn the real success-response shape:
+
+```bash
+bb run-e2e-server &
+sleep 10
+curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"seed":"baseline"}' http://localhost:3100/test/reset
+curl -s -i -X POST -H "Content-Type: application/json" \
+  -d '{"email":"admin@acme.test","password":"Test-Pass-1234!"}' \
+  http://localhost:3100/api/v1/auth/login
+kill %1
+```
+
+Copy the observed JSON shape into your head (or a scratch note) so the assertions below are grounded, not guessed. The reference facts already confirm that a successful login sets `session-token` via `Set-Cookie`, but the JSON body structure is not documented and must be observed.
+
 - [ ] **Step 1: Write tests**
 
 ```ts
@@ -1179,20 +1237,18 @@ import { test, expect } from '../../fixtures/app';
 import { loginViaApi } from '../../helpers/users';
 import { expectSessionCookie } from '../../helpers/cookies';
 
-test.describe('POST /api/auth/login', () => {
+test.describe('POST /api/v1/auth/login', () => {
   test('happy: valid credentials return success + set session cookie', async ({ request, seed }) => {
     const res = await loginViaApi(request, {
       email: seed.admin.email,
       password: seed.admin.password,
     });
     expect(res.ok()).toBeTruthy();
-    const body = await res.json();
-    expect(body.authenticated).toBe(true);
     // API sets httpOnly cookie via Set-Cookie header
     expectSessionCookie(res);
-    // Response MUST NOT leak password-hash
-    expect(JSON.stringify(body)).not.toContain('password-hash');
-    expect(JSON.stringify(body)).not.toContain('passwordHash');
+    // Response MUST NOT leak password-hash in any casing
+    const raw = await res.text();
+    expect(raw).not.toMatch(/password[-_]?hash/i);
   });
 
   test('wrong password → 401, no session cookie', async ({ request, seed }) => {
@@ -1223,7 +1279,7 @@ test.describe('POST /api/auth/login', () => {
 bb e2e -- api/auth-login.spec.ts
 ```
 
-Expected: PASS 3/3. If any fail, the handler may return slightly different field names or status codes — adjust assertions to match reality (but DO NOT change assertions about `password-hash` absence or 401-on-wrong-creds; those are security requirements).
+Expected: PASS 3/3. The test intentionally does not assert on a specific JSON body shape — the `Set-Cookie` check and 401 status codes are the contract we care about. DO NOT weaken assertions on `password-hash` absence or 401-on-wrong-creds; those are security requirements.
 
 - [ ] **Step 3: Commit**
 
@@ -1245,7 +1301,7 @@ git commit -m "Add API login tests: happy, wrong password, unknown email"
 import { test, expect } from '../../fixtures/app';
 import { registerViaApi } from '../../helpers/users';
 
-test.describe('POST /api/auth/register', () => {
+test.describe('POST /api/v1/auth/register', () => {
   test('happy: creates user, returns session token', async ({ request }) => {
     const res = await registerViaApi(request, {
       email: 'new-user@acme.test',
@@ -1297,6 +1353,12 @@ git commit -m "Add API register tests: happy, duplicate, weak password"
 
 ### Task 19: `auth-mfa.spec.ts`
 
+**Scope note:** `/api/v1/auth/login` schema is `:closed` and does **not**
+accept an `mfaCode` field. MFA-gated login via the JSON API does not
+exist in this codebase; MFA second-step is handled exclusively by the
+HTML `mfa-login-form` flow, covered by `web-login.spec.ts`. This API spec
+covers only the MFA management endpoints.
+
 **Files:**
 - Create: `e2e/tests/api/auth-mfa.spec.ts`
 
@@ -1304,185 +1366,166 @@ git commit -m "Add API register tests: happy, duplicate, weak password"
 
 ```ts
 import { test, expect } from '../../fixtures/app';
-import { loginViaApi, enableMfaForUser } from '../../helpers/users';
+import { loginViaApi, enableMfaForUser, disableMfaForUser } from '../../helpers/users';
 import { expectSessionCookie } from '../../helpers/cookies';
-import { currentTotp, freshTotp } from '../../fixtures/totp';
 
-test.describe('MFA API flow', () => {
-  test('setup returns TOTP secret', async ({ request, seed }) => {
+test.describe('MFA management API', () => {
+  test('setup returns secret + backup codes', async ({ request, seed }) => {
     const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
     const token = expectSessionCookie(login);
-    const res = await request.post('/api/auth/mfa/setup', {
+    const res = await request.post('/api/v1/auth/mfa/setup', {
       headers: { Cookie: `session-token=${token}` },
     });
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
     expect(typeof body.secret).toBe('string');
     expect(body.secret.length).toBeGreaterThan(0);
+    expect(Array.isArray(body.backupCodes)).toBe(true);
+    expect(body.backupCodes.length).toBeGreaterThan(0);
   });
 
-  test('enable with correct code activates MFA', async ({ request, seed }) => {
-    const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const token = expectSessionCookie(login);
-    const secret = await enableMfaForUser(request, token);
-    expect(secret).toBeTruthy();
-
-    // Verify MFA is now required
-    const relogin = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const body = await relogin.json();
-    expect(body.requiresMfa ?? body['requires-mfa?']).toBeTruthy();
-  });
-
-  test('enable with wrong code is rejected', async ({ request, seed }) => {
-    const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const token = expectSessionCookie(login);
-    const setup = await request.post('/api/auth/mfa/setup', { headers: { Cookie: `session-token=${token}` } });
-    expect(setup.ok()).toBeTruthy();
-    const enableRes = await request.post('/api/auth/mfa/enable', {
-      headers: { Cookie: `session-token=${token}` },
-      data: { code: '000000' },
-    });
-    expect(enableRes.ok()).toBeFalsy();
-  });
-
-  test('login with MFA active + no mfaCode is not authenticated', async ({ request, seed }) => {
+  test('enable with correct verification code activates MFA (status reflects it)', async ({ request, seed }) => {
     const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
     const token = expectSessionCookie(login);
     await enableMfaForUser(request, token);
 
-    const res = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const body = await res.json();
-    expect(body.authenticated).toBeFalsy();
-  });
-
-  test('login with MFA active + valid code → authenticated', async ({ request, seed }) => {
-    const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const token = expectSessionCookie(login);
-    const secret = await enableMfaForUser(request, token);
-
-    const code = await freshTotp(secret);
-    const res = await loginViaApi(request, {
-      email: seed.user.email,
-      password: seed.user.password,
-      mfaCode: code,
-    });
-    const body = await res.json();
-    expect(body.authenticated).toBe(true);
-  });
-
-  test('disable with correct code disables MFA', async ({ request, seed }) => {
-    const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const token = expectSessionCookie(login);
-    const secret = await enableMfaForUser(request, token);
-
-    const code = await freshTotp(secret);
-    const disableRes = await request.post('/api/auth/mfa/disable', {
+    const statusRes = await request.get('/api/v1/auth/mfa/status', {
       headers: { Cookie: `session-token=${token}` },
-      data: { code },
     });
-    expect(disableRes.ok()).toBeTruthy();
+    expect(statusRes.ok()).toBeTruthy();
+    const status = await statusRes.json();
+    // Field name is not documented — accept any truthy "enabled" indicator.
+    expect(status.enabled ?? status.mfaEnabled ?? status['mfa-enabled']).toBeTruthy();
+  });
 
-    // Login without mfa code should succeed again
-    const relogin = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    const body = await relogin.json();
-    expect(body.authenticated).toBe(true);
+  test('enable with wrong verification code is rejected', async ({ request, seed }) => {
+    const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
+    const token = expectSessionCookie(login);
+
+    const setupRes = await request.post('/api/v1/auth/mfa/setup', {
+      headers: { Cookie: `session-token=${token}` },
+    });
+    const setup = await setupRes.json();
+
+    const enableRes = await request.post('/api/v1/auth/mfa/enable', {
+      headers: { Cookie: `session-token=${token}` },
+      data: {
+        secret: setup.secret,
+        backupCodes: setup.backupCodes,
+        verificationCode: '000000',
+      },
+    });
+    expect(enableRes.ok()).toBeFalsy();
+
+    // Status should still be disabled
+    const statusRes = await request.get('/api/v1/auth/mfa/status', {
+      headers: { Cookie: `session-token=${token}` },
+    });
+    const status = await statusRes.json();
+    expect(status.enabled ?? status.mfaEnabled ?? status['mfa-enabled']).toBeFalsy();
+  });
+
+  test('disable turns MFA off', async ({ request, seed }) => {
+    const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
+    const token = expectSessionCookie(login);
+    await enableMfaForUser(request, token);
+    await disableMfaForUser(request, token);
+
+    const statusRes = await request.get('/api/v1/auth/mfa/status', {
+      headers: { Cookie: `session-token=${token}` },
+    });
+    const status = await statusRes.json();
+    expect(status.enabled ?? status.mfaEnabled ?? status['mfa-enabled']).toBeFalsy();
   });
 });
 ```
 
-- [ ] **Step 2: Run and fix field-name assumptions**
+- [ ] **Step 2: Run**
 
 ```bash
 bb e2e -- api/auth-mfa.spec.ts
 ```
 
-Adjust `body.requiresMfa` etc. to match real JSON shape after inspecting responses.
+If the status response field name is something other than `enabled` / `mfaEnabled` / `mfa-enabled`, read `mfa-status-handler` (around `http.clj:314-332`) to learn the real key and tighten the assertion. Do not leave the triple-fallback in place long term — pick one.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add e2e/tests/api/auth-mfa.spec.ts
-git commit -m "Add API MFA tests: setup, enable, wrong-code, login-with/without, disable"
+git commit -m "Add API MFA management tests: setup, enable, wrong-code, disable"
 ```
 
 ---
 
 ### Task 20: `auth-sessions.spec.ts`
 
+**Scope note:** there is no `GET /api/v1/sessions` list endpoint. Tests
+obtain the session token from the login `Set-Cookie` header and call
+`GET /api/v1/sessions/:token` to validate or `DELETE` to revoke it.
+
 **Files:**
 - Create: `e2e/tests/api/auth-sessions.spec.ts`
+
+**Pre-step:** determine the real account-lockout threshold before writing the lockout test. Read `libs/user/src/boundary/user/core/` (grep for `max-attempts`, `lockout`, `failed-login`) to find the configured threshold and expected status code. Do not guess.
 
 - [ ] **Step 1: Write tests**
 
 ```ts
 import { test, expect } from '../../fixtures/app';
-import { loginViaApi } from '../../helpers/users';
+import { loginViaApi, registerViaApi } from '../../helpers/users';
 import { expectSessionCookie } from '../../helpers/cookies';
 
 test.describe('Sessions + security', () => {
-  test('GET /api/auth/sessions returns list', async ({ request, seed }) => {
+  test('GET /api/v1/sessions/:token validates a live token', async ({ request, seed }) => {
     const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
     const token = expectSessionCookie(login);
-    const res = await request.get('/api/auth/sessions', {
-      headers: { Cookie: `session-token=${token}` },
-    });
+    const res = await request.get(`/api/v1/sessions/${token}`);
     expect(res.ok()).toBeTruthy();
-    const body = await res.json();
-    expect(Array.isArray(body.sessions ?? body)).toBe(true);
   });
 
-  test('DELETE session → token invalid on next request', async ({ request, seed }) => {
+  test('DELETE /api/v1/sessions/:token revokes the session; subsequent GET is 401', async ({ request, seed }) => {
     const login = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
     const token = expectSessionCookie(login);
 
-    const listRes = await request.get('/api/auth/sessions', { headers: { Cookie: `session-token=${token}` } });
-    const listBody = await listRes.json();
-    const sessions = listBody.sessions ?? listBody;
-    const sessionId = sessions[0].id;
+    const del = await request.delete(`/api/v1/sessions/${token}`);
+    expect(del.ok()).toBeTruthy();
 
-    const delRes = await request.delete(`/api/auth/sessions/${sessionId}`, {
-      headers: { Cookie: `session-token=${token}` },
-    });
-    expect(delRes.ok()).toBeTruthy();
-
-    const followup = await request.get('/api/auth/sessions', {
-      headers: { Cookie: `session-token=${token}` },
-    });
+    const followup = await request.get(`/api/v1/sessions/${token}`);
     expect(followup.status()).toBe(401);
   });
 
-  test('protected endpoint without token → 401', async ({ request }) => {
-    const res = await request.get('/api/auth/sessions');
+  test('MFA status without token → 401', async ({ request }) => {
+    // /api/v1/auth/mfa/status requires authentication via middleware
+    const res = await request.get('/api/v1/auth/mfa/status');
     expect(res.status()).toBe(401);
   });
 
   test('account lockout after repeated failures', async ({ request, seed }) => {
-    for (let i = 0; i < 10; i++) {
+    // ADJUST THIS COUNT based on the pre-step lookup in libs/user/src/boundary/user/core/.
+    // The loop count must equal or exceed the real threshold.
+    const threshold = 5;  // PLACEHOLDER — replace with verified value
+    for (let i = 0; i < threshold + 2; i++) {
       await loginViaApi(request, { email: seed.user.email, password: 'wrong' });
     }
     const res = await loginViaApi(request, { email: seed.user.email, password: seed.user.password });
-    // Expect lockout — either 401 or 423, with a clear error message
+    // Expect lockout — one of these status codes, with a clear error message
     expect([401, 423, 429]).toContain(res.status());
     const body = await res.text();
-    expect(body.toLowerCase()).toMatch(/lock|attempts|try again/);
+    expect(body.toLowerCase()).toMatch(/lock|attempts|try again|too many/);
   });
 
   test('password-hash never appears in any auth response', async ({ request, seed }) => {
     const responses = await Promise.all([
-      request.post('/api/auth/login', { data: { email: seed.admin.email, password: seed.admin.password } }),
-      request.post('/api/auth/register', { data: { email: 'nb@acme.test', password: 'Strong-Pass-12345!', name: 'NB' } }),
+      loginViaApi(request, { email: seed.admin.email, password: seed.admin.password }),
+      registerViaApi(request, { email: 'nb@acme.test', password: 'Strong-Pass-12345!', name: 'NB' }),
     ]);
     for (const r of responses) {
       const t = await r.text();
-      expect(t).not.toContain('password-hash');
-      expect(t).not.toContain('passwordHash');
-      expect(t).not.toContain('password_hash');
+      expect(t).not.toMatch(/password[-_]?hash/i);
     }
   });
 });
 ```
-
-**Engineer note:** the lockout threshold (10 attempts) is a guess — read `libs/user/src/boundary/user/core/` for the real value and adjust the loop count. The expected status code for lockout may also differ.
 
 - [ ] **Step 2: Run**
 
@@ -1490,11 +1533,13 @@ test.describe('Sessions + security', () => {
 bb e2e -- api/auth-sessions.spec.ts
 ```
 
+If the lockout test fails because the threshold guess is wrong, adjust the constant. If `DELETE /api/v1/sessions/:token` returns something other than 2xx on success, read `invalidate-session-handler` in `web_handlers.clj` / `http.clj` for the real behaviour.
+
 - [ ] **Step 3: Commit**
 
 ```bash
 git add e2e/tests/api/auth-sessions.spec.ts
-git commit -m "Add API sessions + security tests: list, revoke, unauth, lockout, hash-leak"
+git commit -m "Add API sessions + security tests: validate, revoke, unauth, lockout, hash-leak"
 ```
 
 ---
@@ -1600,28 +1645,26 @@ test.describe('/web/login HTML flow', () => {
     await expect(page.locator('.validation-errors').first()).toBeVisible();
   });
 
-  test('MFA-required: second form is shown, wrong code rejected', async ({ page, request, seed }) => {
+  test('MFA-required: second form is shown, wrong code rejected, valid code succeeds', async ({ page, request, seed }) => {
     // Arrange: enable MFA for seed.user via API
-    const login = await request.post('/api/auth/login', {
+    const login = await request.post('/api/v1/auth/login', {
       data: { email: seed.user.email, password: seed.user.password },
     });
-    const token = login
+    const setCookie = login
       .headersArray()
       .find((h) => h.name.toLowerCase() === 'set-cookie' && h.value.startsWith('session-token='))!
-      .value.split(';')[0]
-      .split('=')[1];
-    await request.post('/api/auth/mfa/setup', { headers: { Cookie: `session-token=${token}` } });
-    // NOTE: we need the secret to generate a correct code; enableMfaForUser returns it
-    // Use the helper for completeness
-    const { enableMfaForUser } = await import('../../helpers/users');
-    const secret = await enableMfaForUser(request, token);
+      .value;
+    const token = setCookie.split(';')[0].split('=')[1];
 
-    // Act: login in the browser
+    const { enableMfaForUser } = await import('../../helpers/users');
+    const { freshTotp } = await import('../../fixtures/totp');
+    const mfa = await enableMfaForUser(request, token);
+
+    // Act: login in the browser — must show MFA second-step form
     await page.goto('/web/login');
     await page.fill('input[name="email"]', seed.user.email);
     await page.fill('input[name="password"]', seed.user.password);
     await page.click('button[type="submit"]');
-    // Expect the MFA second-step form
     await expect(page.locator('input[name="mfa-code"]')).toBeVisible();
 
     // Wrong code is rejected
@@ -1631,8 +1674,7 @@ test.describe('/web/login HTML flow', () => {
     await expect(page).not.toHaveURL(/dashboard/);
 
     // Valid code succeeds
-    const { freshTotp } = await import('../../fixtures/totp');
-    const code = await freshTotp(secret);
+    const code = await freshTotp(mfa.secret);
     await page.fill('input[name="mfa-code"]', code);
     await page.click('button[type="submit"]');
     await page.waitForURL('**/web/dashboard');
