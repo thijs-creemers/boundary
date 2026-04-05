@@ -74,7 +74,10 @@
   run-e2e-server
   {:doc "Start the Boundary app on :test profile (port 3100) for Playwright/spel e2e runs"
    :task (let [proc (process/process
-                     {:extra-env {"BND_ENV" "test"}
+                     ;; HTTP_PORT pinned here so a caller's shell env cannot
+                     ;; silently reroute the e2e server to another port.
+                     {:extra-env {"BND_ENV"   "test"
+                                  "HTTP_PORT" "3100"}
                       :inherit   true
                       :shutdown  process/destroy-tree}
                      "clojure" "-M:run" "server")]
