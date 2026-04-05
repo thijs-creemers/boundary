@@ -20,9 +20,20 @@
 ;; =============================================================================
 
 (defn get-user-locale
-  "Extract the user's preferred locale from the authenticated user on the request.
+  "Extract the user's preferred locale from the request.
 
-   Reads :language from the :user map (set by authentication middleware).
+   Checks two locations, in order:
+     1. `[:user :language]`    — populated by authentication middleware.
+     2. `[:session :user :language]` — populated by a Ring session middleware
+        (e.g. `ring.middleware.session/wrap-session`) that runs before
+        `wrap-i18n`. This is a defensive fallback so that downstream
+        consumers of this library can resolve the user locale inside
+        `wrap-i18n`'s eager `:i18n/t` even if authentication middleware runs
+        after us — matching the pre-refactor behavior of this function.
+
+   Authenticated handlers should still prefer `resolve-t-fn` because auth
+   middleware in this codebase runs *after* `wrap-i18n`; the session fallback
+   only helps consumers who populate `:session` upstream of `wrap-i18n`.
 
    Args:
      request - Ring request map
@@ -30,7 +41,8 @@
    Returns:
      locale keyword (e.g. :nl) or nil"
   [request]
-  (when-let [lang (get-in request [:user :language])]
+  (let [lang (or (get-in request [:user :language])
+                 (get-in request [:session :user :language]))]
     (when (and (string? lang) (seq lang))
       (keyword lang))))
 
@@ -105,7 +117,10 @@
    after authentication middleware has added :user to the request.
 
    Also injects an eager :i18n/t for non-authenticated routes (login, etc.)
-   where :user is not expected to be present.
+   and for consumers that populate `:session` upstream (via Ring
+   `wrap-session`) where :user may already be present at middleware time.
+   Authenticated routes that run their auth middleware after `wrap-i18n`
+   should prefer `resolve-t-fn` at render time to honor the user locale.
 
    Args:
      handler - Ring handler
