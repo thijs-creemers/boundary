@@ -166,9 +166,49 @@
     return html;
   }
 
-  // Stashed tbody content for restoration on error
-  var savedTbodyHtml = null;
-  var savedTbody = null;
+  // Per-request snapshots, so overlapping HTMX requests targeting the same
+  // table don't clobber each other. Each entry is {xhr, tbody, originalHtml}.
+  // The list is expected to stay short (one entry per in-flight table
+  // request), so linear scans are fine.
+  var pendingTableRequests = [];
+
+  function findPendingIndexByXhr(xhr) {
+    for (var i = 0; i < pendingTableRequests.length; i++) {
+      if (pendingTableRequests[i].xhr === xhr) return i;
+    }
+    return -1;
+  }
+
+  function anyPendingForTbody(tbody) {
+    for (var i = 0; i < pendingTableRequests.length; i++) {
+      if (pendingTableRequests[i].tbody === tbody) return true;
+    }
+    return false;
+  }
+
+  function findOriginalHtmlForTbody(tbody) {
+    for (var i = 0; i < pendingTableRequests.length; i++) {
+      if (pendingTableRequests[i].tbody === tbody) {
+        return pendingTableRequests[i].originalHtml;
+      }
+    }
+    return null;
+  }
+
+  function removePendingRequest(xhr, shouldRestore) {
+    if (!xhr) return;
+    var idx = findPendingIndexByXhr(xhr);
+    if (idx < 0) return;
+    var entry = pendingTableRequests[idx];
+    pendingTableRequests.splice(idx, 1);
+    if (!shouldRestore) return;
+    // Only restore the original markup if no other in-flight request is
+    // still displaying a skeleton on this tbody. Otherwise the other
+    // request's own completion will clear its skeleton.
+    if (!anyPendingForTbody(entry.tbody)) {
+      entry.tbody.innerHTML = entry.originalHtml;
+    }
+  }
 
   // Show skeleton when table container is being loaded via HTMX
   function handleTableSkeleton(event) {
@@ -176,25 +216,28 @@
     if (!target) return;
     var tbody = target.querySelector && target.querySelector('.data-table tbody');
     if (!tbody) return;
-    // Save current rows so we can restore on error
-    savedTbodyHtml = tbody.innerHTML;
-    savedTbody = tbody;
+    var xhr = event.detail.xhr;
+    if (!xhr) return;
+    // If another in-flight request already replaced this tbody with a
+    // skeleton, reuse its captured original HTML instead of stashing the
+    // skeleton markup. Otherwise on error we'd restore the skeleton and
+    // the table would stay stuck in a loading state.
+    var originalHtml = findOriginalHtmlForTbody(tbody);
+    if (originalHtml === null) {
+      originalHtml = tbody.innerHTML;
+    }
+    pendingTableRequests.push({ xhr: xhr, tbody: tbody, originalHtml: originalHtml });
     var thead = target.querySelector('.data-table thead');
     var colCount = thead ? thead.querySelectorAll('th').length : 5;
     tbody.innerHTML = createSkeletonRows(8, colCount);
   }
 
-  function restoreTableOnError() {
-    if (savedTbody && savedTbodyHtml !== null) {
-      savedTbody.innerHTML = savedTbodyHtml;
-    }
-    savedTbodyHtml = null;
-    savedTbody = null;
+  function restoreTableOnError(xhr) {
+    removePendingRequest(xhr, true);
   }
 
-  function clearSavedTable() {
-    savedTbodyHtml = null;
-    savedTbody = null;
+  function clearSavedTable(xhr) {
+    removePendingRequest(xhr, false);
   }
 
   // =========================================================================
@@ -276,18 +319,21 @@
     document.addEventListener('htmx:beforeRequest', function () {
       showProgress();
     });
-    document.addEventListener('htmx:afterRequest', function () {
+    document.addEventListener('htmx:afterRequest', function (event) {
       hideProgress();
-      clearSavedTable();
+      // htmx:afterRequest fires after error events too; restoreTableOnError
+      // has already removed the entry in that case, so this is a no-op for
+      // failed requests.
+      clearSavedTable(event.detail && event.detail.xhr);
     });
     // htmx:responseError fires when the server returns a non-2xx status.
     // htmx:sendError and htmx:timeout fire when the request fails before any
     // response arrives (offline, DNS failure, CORS, connection timeout, etc.).
     // Without handling these, the progress bar stays stuck and the table body
     // is left permanently replaced by skeleton rows.
-    function onTransportFailure() {
+    function onTransportFailure(event) {
       hideProgress();
-      restoreTableOnError();
+      restoreTableOnError(event && event.detail && event.detail.xhr);
     }
     document.addEventListener('htmx:responseError', onTransportFailure);
     document.addEventListener('htmx:sendError', onTransportFailure);
@@ -301,7 +347,14 @@
       var targetSelector = elt.getAttribute('hx-target');
       if (targetSelector && targetSelector.indexOf('table-container') !== -1) {
         var target = document.querySelector(targetSelector);
-        if (target) handleTableSkeleton({ detail: { target: target } });
+        if (target) {
+          handleTableSkeleton({
+            detail: {
+              target: target,
+              xhr: event.detail.xhr
+            }
+          });
+        }
       }
     });
 
