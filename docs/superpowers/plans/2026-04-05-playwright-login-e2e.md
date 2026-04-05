@@ -401,11 +401,10 @@ Add to `src/boundary/test_support/shell/reset.clj`:
    entities with their generated IDs for tests to reference."
   [{:keys [user-service tenant-service]}]
   (let [spec     (core/baseline-seed-spec)
-        tenant   (tenant-ports/create-tenant tenant-service (:tenant spec))
-        admin    (user-ports/register-user user-service
-                                           (assoc (:admin spec) :tenant-id (:id tenant)))
-        user     (user-ports/register-user user-service
-                                           (assoc (:user spec) :tenant-id (:id tenant)))]
+        tenant   (tenant-ports/create-new-tenant tenant-service
+                                                 (select-keys (:tenant spec) [:slug :name]))
+        admin    (user-ports/register-user user-service (:admin spec))
+        user     (user-ports/register-user user-service (:user spec))]
     {:tenant tenant
      :admin  (assoc admin :password (-> spec :admin :password))
      :user   (assoc user  :password (-> spec :user  :password))}))

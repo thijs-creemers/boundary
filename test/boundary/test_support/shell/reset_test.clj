@@ -1,10 +1,11 @@
 (ns boundary.test-support.shell.reset-test
-  "Contract test for the H2 truncate helper used by the Playwright e2e suite.
+  "Contract test for the H2 truncate + seed helpers used by the Playwright
+   e2e suite.
 
-   Uses the same direct H2 bootstrap pattern as
-   boundary.user.shell.audit-repository-test: an in-memory HikariCP
-   datasource in PostgreSQL compatibility mode, with minimal tables
-   created inline."
+   Uses a single HikariCP datasource in H2 PostgreSQL compatibility mode and
+   lets the real production `initialize-*-schema!` helpers create the tables,
+   so any schema drift between the seed spec and the production write path
+   shows up as a test failure."
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [boundary.test-support.shell.reset :as sut]
             [boundary.platform.shell.adapters.database.h2.core :as h2]
@@ -18,48 +19,30 @@
             [next.jdbc :as jdbc]
             [next.jdbc.connection :as connection])
   (:import (com.zaxxer.hikari HikariDataSource)
+           (java.time Instant)
+           (java.sql Timestamp)
            (java.util UUID)))
 
 (def ^:dynamic *datasource* nil)
 
-(defn- create-tables! [ds]
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS tenants (
-                        id VARCHAR(36) PRIMARY KEY,
-                        slug VARCHAR(100) NOT NULL,
-                        name VARCHAR(255) NOT NULL,
-                        status VARCHAR(50) NOT NULL)"])
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS auth_users (
-                        id VARCHAR(36) PRIMARY KEY,
-                        email VARCHAR(255) NOT NULL)"])
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS users (
-                        id VARCHAR(36) PRIMARY KEY,
-                        email VARCHAR(255) NOT NULL,
-                        name VARCHAR(255))"])
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS user_sessions (
-                        id VARCHAR(36) PRIMARY KEY,
-                        user_id VARCHAR(36))"])
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS user_audit_log (
-                        id VARCHAR(36) PRIMARY KEY,
-                        action TEXT)"])
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS tenant_memberships (
-                        id VARCHAR(36) PRIMARY KEY,
-                        tenant_id VARCHAR(36),
-                        user_id VARCHAR(36))"])
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS tenant_member_invites (
-                        id VARCHAR(36) PRIMARY KEY,
-                        tenant_id VARCHAR(36),
-                        email VARCHAR(255))"]))
-
-(defn- with-h2 [f]
+(defn- with-h2
+  "Creates a fresh HikariCP H2 datasource in PostgreSQL mode, runs the real
+   production `initialize-user-schema!` and `initialize-tenant-schema!` so
+   both tests exercise the actual tables, binds `*datasource*`, and closes
+   the pool in a `finally`."
+  [f]
   (let [^HikariDataSource ds
         (connection/->pool
          HikariDataSource
          {:jdbcUrl (str "jdbc:h2:mem:test_support_reset_" (UUID/randomUUID)
-                        ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
+                        ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE"
+                        ";DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1")
           :username "sa"
           :password ""})]
     (try
-      (create-tables! ds)
+      (let [db-ctx {:datasource ds :adapter (h2/new-adapter)}]
+        (user-persistence/initialize-user-schema! db-ctx)
+        (tenant-persistence/initialize-tenant-schema! db-ctx))
       (binding [*datasource* ds]
         (f))
       (finally
@@ -73,21 +56,8 @@
     ;; Grab the single value regardless of key name.
     (long (first (vals row)))))
 
-;; ---------------------------------------------------------------------------
-;; Contract test: seed-baseline! against production services
-;; ---------------------------------------------------------------------------
-;;
-;; This fixture spins up a fresh HikariCP datasource + H2 DB, then lets the
-;; real user and tenant persistence layers create their own tables via their
-;; production initialize-*-schema! helpers. seed-baseline! is then exercised
-;; against the real production services (UserService, TenantService) so that
-;; any schema drift between the seed spec and the production write path shows
-;; up as a test failure.
-
 (defn- build-services [ds]
   (let [db-ctx {:datasource ds :adapter (h2/new-adapter)}
-        _ (user-persistence/initialize-user-schema! db-ctx)
-        _ (tenant-persistence/initialize-tenant-schema! db-ctx)
         user-repo (user-persistence/create-user-repository db-ctx)
         session-repo (user-persistence/create-session-repository db-ctx)
         audit-repo (user-persistence/create-audit-repository db-ctx
@@ -103,10 +73,12 @@
 
 (deftest ^:contract truncate-all!-removes-all-rows-test
   (testing "truncate-all! empties a populated tenants table"
-    (jdbc/execute! *datasource*
-                   ["INSERT INTO tenants (id, slug, name, status)
-                     VALUES (?, ?, ?, ?)"
-                    (str (UUID/randomUUID)) "acme" "Acme" "active"])
+    (let [now (Timestamp/from (Instant/now))]
+      (jdbc/execute! *datasource*
+                     ["INSERT INTO tenants
+                         (id, slug, schema_name, name, status, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?)"
+                      (str (UUID/randomUUID)) "acme" "tenant_acme" "Acme" "active" now]))
     (is (= 1 (count-rows *datasource* "tenants"))
         "precondition: row was inserted")
 
@@ -115,45 +87,27 @@
     (is (zero? (count-rows *datasource* "tenants"))
         "truncate-all! removed the row from tenants")))
 
-(defn- with-fresh-h2
-  "Create a pristine H2 datasource, run `f` with it, then close.
-   Unlike `with-h2`, this does NOT pre-create the minimal ad-hoc tables,
-   so the production `initialize-*-schema!` helpers can create the real
-   tables without conflicting with pre-existing stubs."
-  [f]
-  (let [^HikariDataSource ds
-        (connection/->pool
-         HikariDataSource
-         {:jdbcUrl (str "jdbc:h2:mem:test_support_seed_" (UUID/randomUUID)
-                        ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1")
-          :username "sa"
-          :password ""})]
-    (try
-      (f ds)
-      (finally
-        (.close ds)))))
-
 (deftest ^:contract seed-baseline!-creates-entities-test
   (testing "seed-baseline! persists baseline entities via production services"
-    (with-fresh-h2
-      (fn [ds]
-        (let [services (build-services ds)
-              _ (sut/truncate-all! ds)
-              {:keys [tenant admin user] :as result} (sut/seed-baseline! services)]
-          (testing "tenant created with an id"
-            (is (some? (:id tenant)) "tenant has an :id")
-            (is (= "acme" (:slug tenant))))
-          (testing "admin user created with plaintext password re-attached"
-            (is (= "admin@acme.test" (:email admin)))
-            (is (= :admin (:role admin)))
-            (is (string? (:password admin)) ":password re-attached for test consumers")
-            (is (not (contains? admin :password-hash)) ":password-hash must not be exposed"))
-          (testing "regular user created with plaintext password re-attached"
-            (is (= "user@acme.test" (:email user)))
-            (is (= :user (:role user)))
-            (is (string? (:password user)) ":password re-attached for test consumers")
-            (is (not (contains? user :password-hash)) ":password-hash must not be exposed"))
-          (testing "exactly two user rows were written by the production service"
-            (is (= 2 (count-rows ds "users"))))
-          (testing "return map has tenant/admin/user keys"
-            (is (= #{:tenant :admin :user} (set (keys result))))))))))
+    (let [services (build-services *datasource*)
+          _ (sut/truncate-all! *datasource*)
+          {:keys [tenant admin user] :as result} (sut/seed-baseline! services)]
+      (testing "tenant created with an id"
+        (is (some? (:id tenant)) "tenant has an :id")
+        (is (= "acme" (:slug tenant))))
+      (testing "admin user created with plaintext password re-attached"
+        (is (= "admin@acme.test" (:email admin)))
+        (is (= :admin (:role admin)))
+        (is (string? (:password admin)) ":password re-attached for test consumers")
+        (is (not (contains? admin :password-hash))
+            ":password-hash must not be exposed by production register-user"))
+      (testing "regular user created with plaintext password re-attached"
+        (is (= "user@acme.test" (:email user)))
+        (is (= :user (:role user)))
+        (is (string? (:password user)) ":password re-attached for test consumers")
+        (is (not (contains? user :password-hash))
+            ":password-hash must not be exposed by production register-user"))
+      (testing "exactly two user rows were written by the production service"
+        (is (= 2 (count-rows *datasource* "users"))))
+      (testing "return map has tenant/admin/user keys"
+        (is (= #{:tenant :admin :user} (set (keys result))))))))

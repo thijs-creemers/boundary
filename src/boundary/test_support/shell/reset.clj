@@ -35,13 +35,6 @@
         (jdbc/execute! tx ["SET REFERENTIAL_INTEGRITY TRUE"]))))
   (log/debug "test-support: truncated all tables"))
 
-(defn- strip-password-hash
-  "Defensive: production services are supposed to strip :password-hash on the
-   way out, but we dissoc anyway so a regression in the service can never
-   leak the hash to test consumers."
-  [entity]
-  (dissoc entity :password-hash))
-
 (defn seed-baseline!
   "Creates the baseline test fixture described by
    `boundary.test-support.core/baseline-seed-spec` by calling the real
@@ -57,8 +50,14 @@
 
    Returns:
      {:tenant <tenant-entity>
-      :admin  <user-entity with :password re-attached, :password-hash removed>
-      :user   <user-entity with :password re-attached, :password-hash removed>}"
+      :admin  <user-entity exactly as register-user returned it, with the
+               plain :password re-attached for test consumers>
+      :user   <ditto>}
+
+   Note: we deliberately do NOT dissoc :password-hash here. The production
+   `register-user` is contractually required to strip it on the success path,
+   and the contract test in `reset-test` asserts that. Stripping it defensively
+   here would neuter that assertion."
   [{:keys [user-service tenant-service]}]
   (let [spec            (core/baseline-seed-spec)
         tenant-input    (select-keys (:tenant spec) [:slug :name])
@@ -72,9 +71,5 @@
                 :admin-id  (:id created-admin)
                 :user-id   (:id created-user)})
     {:tenant tenant
-     :admin  (-> created-admin
-                 strip-password-hash
-                 (assoc :password (:password admin-spec)))
-     :user   (-> created-user
-                 strip-password-hash
-                 (assoc :password (:password user-spec)))}))
+     :admin  (assoc created-admin :password (:password admin-spec))
+     :user   (assoc created-user  :password (:password user-spec))}))
