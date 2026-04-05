@@ -16,7 +16,8 @@
 
    All routes require authentication (actor extracted from ring request).
    Caller is responsible for mounting under an authenticated router."
-  (:require [boundary.i18n.shell.render :as i18n]
+  (:require [boundary.i18n.shell.middleware :as i18n-middleware]
+            [boundary.i18n.shell.render :as i18n]
             [boundary.workflow.ports :as ports]
             [boundary.workflow.core.ui :as workflow-ui]
             [boundary.user.shell.middleware :as user-middleware]
@@ -188,15 +189,30 @@
 ;; Admin web UI helpers
 ;; =============================================================================
 
+(defn- resolve-t
+  "Resolve an i18n translation function at render time.
+
+   Prefers `resolve-t-fn`, which reads `:user` from the fully-enriched
+   request (after auth middleware has run), so it respects the authenticated
+   user's language preference. Falls back to the eager `:i18n/t` from
+   `wrap-i18n` (tenant/default only), then to a safe identity fallback that
+   renders the key name for `[:t ...]` markers."
+  [request]
+  (or (i18n-middleware/resolve-t-fn request)
+      (get request :i18n/t)
+      (fn
+        ([k] (if (keyword? k) (name k) (str k)))
+        ([k _params] (if (keyword? k) (name k) (str k)))
+        ([k _params _n] (if (keyword? k) (name k) (str k))))))
+
 (defn- html-response
   "Create a text/html Ring response, resolving [:t ...] i18n markers."
   ([request hiccup]
    (html-response request hiccup 200))
   ([request hiccup status]
-   (let [t-fn (get request :i18n/t identity)]
-     {:status  status
-      :headers {"Content-Type" "text/html; charset=utf-8"}
-      :body    (i18n/render hiccup t-fn)})))
+   {:status  status
+    :headers {"Content-Type" "text/html; charset=utf-8"}
+    :body    (i18n/render hiccup (resolve-t request))}))
 
 (defn- parse-list-opts
   "Extract list-instances filter options from query-params."

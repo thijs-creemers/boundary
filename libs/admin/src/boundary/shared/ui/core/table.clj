@@ -83,8 +83,36 @@
        [:span.sort-icon
         icon-symbol])]))
 
+(defn- page-window
+  "Compute which page numbers to show in the pagination bar.
+   Returns a sequence of page numbers (longs) and :ellipsis keywords.
+
+   Algorithm: always show first, last, and current ± siblings.
+   Gaps larger than 1 become :ellipsis."
+  [current total-pages siblings]
+  (if (<= total-pages (+ 3 (* 2 siblings)))
+    ;; Few enough pages to show all
+    (range 1 (inc total-pages))
+    ;; Build window around current page
+    (let [lo (max 2 (- current siblings))
+          hi (min (dec total-pages) (+ current siblings))]
+      (concat [1]
+              (cond
+                (= lo 2) nil          ; no gap
+                (= lo 3) [2]          ; gap of 1 — show the page directly
+                :else     [:ellipsis]) ; gap > 1
+              (range lo (inc hi))
+              (cond
+                (= hi (dec total-pages)) nil
+                (= hi (- total-pages 2)) [(dec total-pages)]
+                :else                    [:ellipsis])
+              [total-pages]))))
+
 (defn pagination
   "Render pagination controls for a table.
+
+   Shows page numbers with ellipsis, first/last jump, prev/next arrows,
+   and a 'Showing X-Y of Z' summary.
 
    opts:
    - :table-query   normalized TableQuery map
@@ -125,27 +153,69 @@
                          (str (or push-url-base base-url) "?"
                               (encode-query-params qs))))
         prev-page    (max 1 (dec page))
-        next-page    (min total-pages (inc page))]
+        next-page    (min total-pages (inc page))
+        page-btn     (fn [p]
+                       (let [active? (= p page)]
+                         [:button {:type       "button"
+                                   :class      (str "page-btn" (when active? " active"))
+                                   :hx-get     (when-not active? (mk-url p))
+                                   :hx-target  (when-not active? hx-target)
+                                   :hx-push-url (when-not active? (mk-push-url p))
+                                   :hx-params  "none"
+                                   :disabled   active?
+                                   :aria-label [:t :admin/pagination-page {:page p}]
+                                   :aria-current (when active? "page")}
+                          (str p)]))]
     (when show-pages?
       [:div.table-pagination
        [:div.page-info
-        [:span.hide-mobile "Showing "]
-        (str from "–" to " of " total-count)]
-       [:nav.pagination-nav
-        [:button {:type       "button"
-                  :hx-get     (mk-url prev-page)
-                  :hx-target  hx-target
-                  :hx-push-url (mk-push-url prev-page)
-                  :hx-params  "none"
-                  :disabled   (<= page 1)}
-         "Previous"]
-        [:span.page-status
-         [:span.hide-mobile "Page "]
-         (str page " of " total-pages)]
-        [:button {:type       "button"
-                  :hx-get     (mk-url next-page)
-                  :hx-target  hx-target
-                  :hx-push-url (mk-push-url next-page)
-                  :hx-params  "none"
-                  :disabled   (>= page total-pages)}
-         "Next"]]])))
+        [:span.hide-mobile [:t :admin/pagination-showing] " "]
+        [:strong (str from "–" to)]
+        " " [:t :admin/pagination-of] " " (str total-count)]
+       [:nav.pagination-nav {:aria-label [:t :admin/pagination-label]}
+        ;; First page
+        [:button.page-nav-btn {:type       "button"
+                               :hx-get     (mk-url 1)
+                               :hx-target  hx-target
+                               :hx-push-url (mk-push-url 1)
+                               :hx-params  "none"
+                               :disabled   (<= page 1)
+                               :aria-label [:t :admin/pagination-first-page]
+                               :title      [:t :admin/pagination-first-page]}
+         "«"]
+        ;; Previous page
+        [:button.page-nav-btn {:type       "button"
+                               :hx-get     (mk-url prev-page)
+                               :hx-target  hx-target
+                               :hx-push-url (mk-push-url prev-page)
+                               :hx-params  "none"
+                               :disabled   (<= page 1)
+                               :aria-label [:t :admin/pagination-previous-page]
+                               :title      [:t :admin/pagination-previous-page]}
+         "‹"]
+        ;; Page number buttons with ellipsis
+        [:div.page-numbers
+         (for [item (page-window page total-pages 1)]
+           (if (= item :ellipsis)
+             [:span.page-ellipsis "…"]
+             (page-btn item)))]
+        ;; Next page
+        [:button.page-nav-btn {:type       "button"
+                               :hx-get     (mk-url next-page)
+                               :hx-target  hx-target
+                               :hx-push-url (mk-push-url next-page)
+                               :hx-params  "none"
+                               :disabled   (>= page total-pages)
+                               :aria-label [:t :admin/pagination-next-page]
+                               :title      [:t :admin/pagination-next-page]}
+         "›"]
+        ;; Last page
+        [:button.page-nav-btn {:type       "button"
+                               :hx-get     (mk-url total-pages)
+                               :hx-target  hx-target
+                               :hx-push-url (mk-push-url total-pages)
+                               :hx-params  "none"
+                               :disabled   (>= page total-pages)
+                               :aria-label [:t :admin/pagination-last-page]
+                               :title      [:t :admin/pagination-last-page]}
+         "»"]]])))

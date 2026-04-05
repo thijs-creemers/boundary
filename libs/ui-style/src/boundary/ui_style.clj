@@ -19,7 +19,8 @@
 
 (def admin-pilot-css
   "Admin pilot stack with legacy admin rules plus daisy overrides."
-  ["/css/boundary-tokens.css"
+  ["/css/fonts.css"
+   "/css/boundary-tokens.css"
    "/css/admin.css"
    "/css/app.css"
    "/css/daisy-admin.css"])
@@ -45,7 +46,8 @@
   "Admin pilot JavaScript stack."
   (conj base-js
         "/js/forms.js"
-        "/js/keyboard.js"))
+        "/js/keyboard.js"
+        "/js/admin-ux.js"))
 
 (def js-bundles
   "Registry of known JavaScript bundles."

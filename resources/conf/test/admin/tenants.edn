@@ -8,12 +8,19 @@
   :hide-fields #{:deleted-at}
   :readonly-fields #{:id :schema-name :created-at :updated-at}
   :fields
-  {:status     {:type :enum :label "Status"
-                :options [[:active "Active"] [:suspended "Suspended"] [:deleted "Deleted"]]
+  {:slug       {:label [:t :admin.tenants/field-slug]}
+   :name       {:label [:t :admin.tenants/field-name]}
+   :status     {:type :enum
+                :label [:t :admin.tenants/field-status]
+                :options [[:active    [:t :admin.tenants/status-active]]
+                          [:suspended [:t :admin.tenants/status-suspended]]
+                          [:deleted   [:t :admin.tenants/status-deleted]]]
                 :filterable true}
-   :created-at {:type :instant :label "Created" :filterable true}}
+   :schema-name {:label [:t :admin.tenants/field-schema-name]}
+   :settings    {:label [:t :admin.tenants/field-settings]}
+   :created-at  {:type :instant :label [:t :admin.tenants/field-created] :filterable true}}
   :field-order [:slug :name :status :schema-name :settings :created-at :updated-at]
   :field-groups
-  [{:id :identity :label "Identity" :fields [:slug :name]}
-   {:id :state    :label "State"    :fields [:status :schema-name]}
-   {:id :config   :label "Settings" :fields [:settings]}]}}
+  [{:id :identity :label [:t :admin.tenants/group-identity] :fields [:slug :name]}
+   {:id :state    :label [:t :admin.tenants/group-state]    :fields [:status :schema-name]}
+   {:id :config   :label [:t :admin.tenants/group-settings] :fields [:settings]}]}}

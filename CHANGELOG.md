@@ -154,6 +154,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filter-key->json-key` utility in `boundary.search.core.index` (kebab → snake conversion for JSON storage).
 - Migration: `resources/migrations/20260312000000-search-filters.{up,down}.sql`.
 
+#### `boundary-admin` — Admin UI Frontend Redesign ("Refined Editorial")
+
+##### Typography & Self-Hosted Fonts
+- **DM Sans** (display/body) + **JetBrains Mono** (code/monospace) replace generic system fonts.
+- Self-hosted woff2 files under `/fonts/` for CSP compliance (`font-src 'self'`); no external CDN dependency.
+- New `fonts.css` with variable-weight `@font-face` declarations (DM Sans 300–700, JetBrains Mono 400–600).
+- Font stack tokens updated in `boundary-tokens.css`: `--font-sans`, `--font-display`, `--font-mono`.
+
+##### Design Token Refinements
+- **Shadows**: Multi-layered, softer box-shadows (`--shadow-sm` through `--shadow-2xl`) for modern depth.
+- **Border radii**: Slightly rounder (`--radius-sm` 6px, `--radius-md` 8px, `--radius-lg` 12px, `--radius-xl` 16px).
+- **Transitions**: Spring-like easing curves (`--transition-fast`, `--transition-normal`, `--transition-slow`, `--transition-bounce`).
+- **Surface colors**: Warmer light-mode palette (stone tones instead of blue-tinted slate).
+- New tokens: `--shadow-card-hover`, `--shadow-inner-glow`, `--tracking-tight`, `--tracking-tighter`, `--topbar-backdrop`.
+
+##### Admin Shell & Sidebar Polish
+- Sidebar: subtle gradient background, smooth left-border accent indicator on active/hover nav items.
+- Topbar: frosted glass effect with `backdrop-filter: blur(12px) saturate(180%)`.
+- Dark mode variants for both sidebar and topbar.
+
+##### Dashboard Redesign
+- Hero section with gradient background, decorative radial glow, tighter heading typography.
+- Entity cards with hover elevation (`translateY(-2px)`), icon color inversion on hover.
+- New `.entity-card-link`, `.entity-card-icon`, `.entity-card-title`, `.entity-card-count`, `.entity-card-description` classes.
+
+##### Entity List Page Polish
+- Table wrapper with border-radius, subtle shadow, and overflow hidden.
+- Header row: uppercase, letter-spaced, muted color for clean data-grid appearance.
+- Row hover with primary-faint background; subtle zebra striping; last-row border removal.
+- Search toolbar: unified container with focus ring animation.
+- Pagination: pill-style buttons with hover highlight.
+
+##### Form Styling Enhancements
+- Form cards with clean borders and radius.
+- Input fields: smooth focus transition with 3px primary-faint ring.
+- Error state with red border and error-bg ring.
+- Labels, help text, and required indicators refined.
+- Primary buttons with subtle shadow and hover lift (`translateY(-1px)`).
+
+##### Micro-Interactions & Animation
+- `fadeInUp` keyframe for page content entry with staggered delays.
+- `tableRowReveal` keyframe for HTMX-loaded table rows (staggered first 10 rows).
+- Sidebar nav: background slide animation via `::after` pseudo-element with `scaleX` transform.
+- Entity card grid: staggered reveal (50ms intervals, up to 8 cards).
+- `@media (prefers-reduced-motion: reduce)` disables all animations.
+
+##### Dark Mode Refinement
+- Warmer dark surfaces with blue undertone (`#0c0f17` base).
+- Softer borders using `rgba(255,255,255,0.08)`.
+- Colored shadow glow on card hover in dark mode.
+- Table row hover uses primary color at 6% opacity.
+
+##### Badge & Status Component Polish
+- Dot indicator (6px circle) before status text for success/error states.
+- Pill-shaped badges with `border-radius: var(--radius-full)`.
+
+#### `boundary-admin` — UX Enhancements (6 features)
+
+##### 1. HTMX Loading Progress Bar
+- Fixed top-of-page progress bar appears during all HTMX requests.
+- Animated gradient stripe with smooth show/hide transitions.
+- Wired to `htmx:beforeRequest` / `htmx:afterRequest` / `htmx:responseError` events.
+
+##### 2. Toast Notification System
+- Slide-in toast notifications with 4 variants: success, error, warning, info.
+- Each variant has a distinct SVG icon and color scheme.
+- Auto-dismiss after configurable duration (default 4s) with progress bar indicator.
+- Triggered via HTMX `HX-Trigger: {"showToast": {...}}` response header or `window.AdminUX.showToast()` JS API.
+- Server-rendered flash messages (`.alert-success`, `.alert-error`, etc.) auto-converted to toasts on page load.
+- `escapeHtml()` prevents XSS in toast title/message content.
+
+##### 3. Clickable Table Rows
+- Entity list table rows navigate to detail page on click (`data-href` attribute).
+- Smart exclusion: clicks on `a`, `button`, `input`, `select`, `textarea`, `.actions-cell`, `.checkbox-cell`, and `td.editable` are ignored (preserves inline editing).
+- Visual hover feedback with chevron navigation hint.
+
+##### 4. Skeleton Loading Screens
+- Table bodies replaced with shimmer-animated skeleton rows during HTMX fetch.
+- Column count auto-detected from `<thead>`.
+- Original table content saved and **restored on HTMX error** (no permanent skeleton state).
+- 6 width variants (`w-full`, `w-3-4`, `w-1-2`, `w-1-3`, `w-1-4`) for visual variety.
+
+##### 5. Styled Delete Confirmation Modal
+- Custom modal replaces native `window.confirm()` for all delete operations.
+- Intercepts `htmx:confirm` event on elements with `hx-delete` or `.danger` class.
+- Danger icon, title, message, Cancel/Delete buttons with focus trap.
+- Close on Escape key, backdrop click, or Cancel button.
+- Translated labels read from `data-confirm-title`, `data-confirm-cancel`, `data-confirm-label` attributes (server-rendered via `[:t ...]` i18n markers); falls back to English.
+
+##### 6. Accessibility — Reduced Motion Support
+- `removeAfterAnimation()` helper checks `prefers-reduced-motion: reduce` and removes DOM elements immediately instead of waiting for `animationend` (which never fires when `animation: none`).
+- Applied to toast dismissal and modal close.
+- All CSS animations gated behind `@media (prefers-reduced-motion: reduce)`.
+
+#### `boundary-admin` — Delete Flow Improvements
+- Delete handler now uses `HX-Redirect` instead of empty response with `HX-Trigger`.
+- `return_to` query parameter preserved through the delete flow for context-aware redirect.
+- **Open redirect prevention**: `return_to` validated to start with `/web/admin/`; invalid values fall back to entity list.
+
+#### `boundary-admin` — Pagination Enhancements
+- `page-window` algorithm improved: single-page gaps show the actual page number instead of an ellipsis (e.g. `1 2 3 ... 8` instead of `1 ... 3 ... 8` when page 2 is the only gap).
+- All pagination labels internationalized with `[:t ...]` markers (8 new i18n keys).
+
+#### `boundary-i18n` — New Translation Keys
+- 12 new keys added to both `en.edn` and `nl.edn`:
+  - Pagination: `:admin/pagination-showing`, `:admin/pagination-of`, `:admin/pagination-label`, `:admin/pagination-first-page`, `:admin/pagination-previous-page`, `:admin/pagination-next-page`, `:admin/pagination-last-page`, `:admin/pagination-page`.
+  - Modal buttons: `:admin/modal-button-cancel`, `:admin/modal-button-delete`.
+
 #### `boundary-admin` — tenant entity + dashboard stats
 - **Tenant admin entity config**: `resources/conf/{dev,test}/admin/tenants.edn` — list/search fields, status enum filter (active/suspended/deleted), field groups (Identity, State, Settings), readonly system fields.
 - **Dashboard entity counts**: `admin-home-handler` now calls `count-entities` for each registered entity and passes the stats map to `admin-home`, so entity tiles show real counts instead of always displaying "0".
@@ -167,6 +275,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `boundary-admin` UI theme evolved from "Cyberpunk Professionalism" (Geist + Indigo/Lime) to **"Refined Editorial"** (DM Sans + JetBrains Mono, warmer surfaces, layered shadows, spring-eased transitions). Dark mode refined with blue-tinted surfaces and colored shadow glows.
+- `boundary-admin` entity card markup restructured: icon standalone on its own line, then title, description, and count as metadata.
+- `boundary-admin` delete handler: returns `HX-Redirect` header instead of empty body with `HX-Trigger: entityDeleted`.
+- `boundary-admin` event listeners: all 7 `document.body.addEventListener` calls changed to `document.addEventListener` to survive HTMX body swaps (`hx-target="body" hx-swap="outerHTML"`).
+- `boundary-ui-style` CSS bundle: `fonts.css` added as first entry in `admin-pilot-css`; `admin-ux.js` added to `admin-pilot-js`.
+- `boundary-ui-style` keyboard.js: confirm modal escape handling added; debug mode disabled.
 - `boundary-tenant` promoted from "Active" to "Stable" in `PROJECT_STATUS.adoc`. All convenience functions documented in README are now implemented; 70 tests, 474 assertions, 0 failures.
 - `boundary-tenant` README: fixed middleware naming (`wrap-tenant-resolver` → `wrap-tenant-resolution`), removed non-existent `wrap-require-tenant` (use `:require-tenant? true` option instead), clarified middleware locations (platform lib vs tenant lib), replaced MySQL/SQLite roadmap promises with ADR-020 reference.
 - `boundary-tenant` integration tests: removed stale "DEFERRED" comment — tests pass with mock observability services and H2 in-memory DB.
@@ -175,9 +289,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `libs/workflow/AGENTS.md` and `libs/search/AGENTS.md` updated to document all new features.
 - `docs-site/content/guides/workflow.adoc` and `docs-site/content/guides/search.adoc` updated with new API examples, filter DDL, migration notes, and hook/auto-transition reference.
 
+### New Files
+
+- `libs/ui-style/resources/public/js/admin-ux.js` — Central JS for all 5 UX features (~340 lines).
+- `libs/ui-style/resources/public/css/fonts.css` — Self-hosted `@font-face` declarations.
+- `libs/ui-style/resources/public/fonts/dm-sans-latin.woff2` (63 KB).
+- `libs/ui-style/resources/public/fonts/dm-sans-italic-latin.woff2` (76 KB).
+- `libs/ui-style/resources/public/fonts/jetbrains-mono-latin.woff2` (31 KB).
+
 ### Tests
 
-- 54 tests, 287 assertions, 0 failures across all libraries (`clojure -M:test:db/h2`).
+- 3044 tests, 15742 assertions, 0 failures across all libraries (`clojure -M:test:db/h2`).
+- 113 admin tests, 823 assertions, 0 failures (`clojure -M:test:db/h2 :admin`).
 - New test namespaces: `workflow.core.transitions-test` (available-transitions-with-status), `workflow.shell.service-test` (hooks, auto-transitions), `search.core.query-test` (filter SQL), `search.shell.persistence-test` (filter round-trip).
 
 ---

@@ -61,8 +61,8 @@
 
   (claim-user-identity [_ {:keys [user-data login-context]}]
     (let [result (.register-or-authenticate-user ^boundary.user.ports.IUserService _
-                                                user-data
-                                                login-context)]
+                                                 user-data
+                                                 login-context)]
       (assoc result :mode (if (:created? result) :registered :authenticated))))
 
   (get-user-by-id [_ user-id]
@@ -427,7 +427,7 @@
       (is (html-contains? response "Connection timeout")))))
 
 (deftest create-user-htmx-handler-test
-  (testing "creates user successfully and redirects to user detail page"
+  (testing "creates user successfully and instructs HTMX to navigate to return-to"
     (let [service (create-mock-service)
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
           handler (web-handlers/create-user-htmx-handler service config)
@@ -435,15 +435,30 @@
                                  "email" "newuser@example.com"
                                  "password" "password123"
                                  "role" "user"
-                                 "active" "true"}}
+                                 "active" "true"
+                                 "return-to" "/web/admin/users"}}
           response (handler request)]
 
       (is (= 201 (:status response)))
-      (is (= "text/html; charset=utf-8" (get-in response [:headers "Content-Type"])))
       (is (has-header? response "HX-Trigger" "userCreated"))
-      ;; Now returns JavaScript redirect instead of success message
-      (is (html-contains? response "window.location.href"))
-      (is (html-contains? response "/web/users/"))))
+      ;; Uses HX-Redirect header instead of inline JavaScript for safer redirect
+      (is (has-header? response "HX-Redirect" "/web/admin/users"))))
+
+  (testing "falls back to /web/admin/users when return-to is missing or unsafe"
+    (let [service (create-mock-service)
+          config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
+          handler (web-handlers/create-user-htmx-handler service config)
+          ;; Open-redirect attempt via scheme-relative URL
+          request {:form-params {"name" "New User"
+                                 "email" "newuser2@example.com"
+                                 "password" "password123"
+                                 "role" "user"
+                                 "active" "true"
+                                 "return-to" "//evil.example.com/phish"}}
+          response (handler request)]
+
+      (is (= 201 (:status response)))
+      (is (has-header? response "HX-Redirect" "/web/admin/users"))))
 
   (testing "returns validation errors for invalid data"
     (let [service (create-mock-service)

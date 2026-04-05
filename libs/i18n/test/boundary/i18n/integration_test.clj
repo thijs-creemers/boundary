@@ -80,7 +80,7 @@
           handler  (fn [req] (reset! captured req) {:status 200 :body ""})
           wrapped  (middleware/wrap-i18n handler {:catalogue     cat
                                                   :default-locale :en})
-          request  {:session {:user {:language "nl"}}}]
+          request  {:user {:language "nl"}}]
       (wrapped request)
       (is (fn? (:i18n/t @captured))           "should inject :i18n/t function")
       (is (= [:nl :en] (:i18n/locale-chain @captured)) "should inject Dutch locale chain")))
@@ -107,6 +107,22 @@
       (is (= [:nl :en] (:i18n/locale-chain @captured))
           "should use tenant locale before default when user locale is missing")))
 
+  (testing "wrap-i18n falls back to [:session :user :language] for consumers that populate session upstream"
+    (let [cat      (catalogue/load-catalogue "boundary/i18n/translations")
+          captured (atom nil)
+          handler  (fn [req] (reset! captured req) {:status 200 :body ""})
+          wrapped  (middleware/wrap-i18n handler {:catalogue     cat
+                                                  :default-locale :en})
+          ;; :user is NOT populated (auth middleware runs later in some stacks),
+          ;; but a Ring wrap-session upstream has made [:session :user] available.
+          request  {:session {:user {:language "nl"}}}]
+      (wrapped request)
+      (is (= [:nl :en] (:i18n/locale-chain @captured))
+          "should resolve Dutch from session.user.language as a defensive fallback")
+      (let [t-fn (:i18n/t @captured)]
+        (is (= "Actief" (t-fn :user/badge-active))
+            "eager :i18n/t should honor the session-derived user locale"))))
+
   (testing "injected t-fn renders Dutch when user language is nl"
     (let [cat     (catalogue/load-catalogue "boundary/i18n/translations")
           result  (atom nil)
@@ -116,6 +132,26 @@
                     {:status 200 :body ""})
           wrapped (middleware/wrap-i18n handler {:catalogue      cat
                                                  :default-locale :en})
-          request {:session {:user {:language "nl"}}}]
+          request {:user {:language "nl"}}]
       (wrapped request)
-      (is (= "Actief" @result) "t-fn from middleware should return Dutch translation"))))
+      (is (= "Actief" @result) "t-fn from middleware should return Dutch translation")))
+
+  (testing "resolve-t-fn picks up :user added after middleware ran"
+    (let [cat     (catalogue/load-catalogue "boundary/i18n/translations")
+          result  (atom nil)
+          ;; Simulate auth middleware adding :user after wrap-i18n
+          auth-mw (fn [handler]
+                    (fn [req]
+                      (handler (assoc req :user {:language "nl"}))))
+          handler (fn [req]
+                    (let [t-fn (middleware/resolve-t-fn req)]
+                      (reset! result (t-fn :user/badge-active)))
+                    {:status 200 :body ""})
+          wrapped (middleware/wrap-i18n (auth-mw handler)
+                                        {:catalogue      cat
+                                         :default-locale :en})
+          ;; Request starts without :user (just like in production)
+          request {}]
+      (wrapped request)
+      (is (= "Actief" @result)
+          "resolve-t-fn should use Dutch locale from :user added by auth middleware"))))

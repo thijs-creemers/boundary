@@ -11,7 +11,8 @@
      GET    /search                        — list all indices
      GET    /search/:index-id              — index detail + live search form
      POST   /search/:index-id/search       — HTMX search results fragment"
-  (:require [boundary.i18n.shell.render :as i18n]
+  (:require [boundary.i18n.shell.middleware :as i18n-middleware]
+            [boundary.i18n.shell.render :as i18n]
             [boundary.search.ports :as ports]
             [boundary.search.core.ui :as search-ui]
             [clojure.tools.logging :as log])
@@ -32,14 +33,29 @@
                        :value   s
                        :message (str param-name " must be a valid UUID")})))))
 
+(defn- resolve-t
+  "Resolve an i18n translation function at render time.
+
+   Prefers `resolve-t-fn`, which reads `:user` from the fully-enriched
+   request (after auth middleware has run), so it respects the authenticated
+   user's language preference. Falls back to the eager `:i18n/t` from
+   `wrap-i18n` (tenant/default only), then to a safe identity fallback that
+   renders the key name for `[:t ...]` markers."
+  [request]
+  (or (i18n-middleware/resolve-t-fn request)
+      (get request :i18n/t)
+      (fn
+        ([k] (if (keyword? k) (name k) (str k)))
+        ([k _params] (if (keyword? k) (name k) (str k)))
+        ([k _params _n] (if (keyword? k) (name k) (str k))))))
+
 (defn- html-response
   ([request hiccup]
    (html-response request hiccup 200))
   ([request hiccup status]
-   (let [t-fn (get request :i18n/t identity)]
-     {:status  status
-      :headers {"Content-Type" "text/html; charset=utf-8"}
-      :body    (i18n/render hiccup t-fn)})))
+   {:status  status
+    :headers {"Content-Type" "text/html; charset=utf-8"}
+    :body    (i18n/render hiccup (resolve-t request))}))
 
 ;; =============================================================================
 ;; API handlers
@@ -143,14 +159,13 @@
         indices    (ports/list-indices engine)
         index-info (first (filter #(= index-id (:id %)) indices))
         page-opts  {:user  (:user request)
-                    :flash (:flash request)}
-        t-fn       (get request :i18n/t identity)]
+                    :flash (:flash request)}]
     (if (nil? index-info)
       {:status  404
        :headers {"Content-Type" "text/html; charset=utf-8"}
        :body    (i18n/render
                  [:div [:p "Search index " [:code (name index-id)] " not found."]]
-                 t-fn)}
+                 (resolve-t request))}
       (html-response request
                      (search-ui/index-detail-page index-info nil nil page-opts)))))
 
@@ -161,8 +176,7 @@
         form-params (get-in request [:form-params] {})
         query       (get form-params "query" "")
         results     (ports/search engine index-id query
-                                  {:limit 20 :highlight? true})
-        t-fn        (get request :i18n/t identity)]
+                                  {:limit 20 :highlight? true})]
     {:status  200
      :headers {"Content-Type" "text/html; charset=utf-8"}
      :body    (i18n/render
@@ -171,7 +185,7 @@
                 (:query results)
                 (:total results)
                 (:took-ms results))
-               t-fn)}))
+               (resolve-t request))}))
 
 ;; =============================================================================
 ;; Route definitions

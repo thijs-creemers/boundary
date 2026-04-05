@@ -9,7 +9,8 @@
    - HTMX Handlers: Return HTML fragments for dynamic updates
 
    All handlers use the shared UI components and user shell services."
-  (:require [boundary.i18n.shell.render :as i18n]
+  (:require [boundary.i18n.shell.middleware :as i18n-middleware]
+            [boundary.i18n.shell.render :as i18n]
             [boundary.shared.ui.core.components :as ui]
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.validation :as validation]
@@ -87,7 +88,9 @@
                       ([k] (name k))
                       ([k _params] (name k))
                       ([k _params _n] (name k)))
-         t-fn (get request :i18n/t fallback-t)
+         t-fn (or (i18n-middleware/resolve-t-fn request)
+                  (get request :i18n/t)
+                  fallback-t)
          body-content (i18n/render html t-fn)
          response {:status status
                    :headers (merge {"Content-Type" "text/html; charset=utf-8"} extra-headers)
@@ -287,16 +290,19 @@
 
 (defn create-user-page-handler
   "Handler for the create user page (GET /web/users/new).
-   
+
    Args:
      config: Application configuration map
-     
+
    Returns:
      Ring handler function"
   [_config]
   (fn [request]
-    (let [page-opts {:user (get request :user)
-                     :flash (get request :flash)}]
+    (let [raw-return-to (get-in request [:query-params "return-to"])
+          return-to (safe-return-url raw-return-to "/web/admin/users")
+          page-opts {:user (get request :user)
+                     :flash (get request :flash)
+                     :return-to return-to}]
       (html-response request (user-ui/create-user-page {} {} page-opts)))))
 
 ;; =============================================================================
@@ -661,18 +667,23 @@
 
 (defn create-user-htmx-handler
   "HTMX handler for creating a new user (POST /web/users).
-   
-   Validates form data and creates user, redirecting to user detail page on success.
-   
+
+   Validates form data and on success instructs HTMX to navigate back to the
+   caller-provided `return-to` URL (validated via `safe-return-url`), falling
+   back to the admin users list. Uses the `HX-Redirect` response header rather
+   than injecting JavaScript so the URL value never reaches an HTML/JS context.
+
    Args:
      user-service: User service instance
      config: Application configuration map
-     
+
    Returns:
      Ring handler function"
   [user-service _config]
   (fn [request]
     (let [form-data (:form-params request)
+          raw-return-to (get form-data "return-to")
+          return-to (safe-return-url raw-return-to "/web/admin/users")
           ;; Prepare data with kebab-case keyword keys for validation
           prepared-data {:name (get form-data "name")
                          :email (get form-data "email")
@@ -681,16 +692,17 @@
                          :send-welcome (= "on" (get form-data "send-welcome"))}
           [valid? validation-errors _] (validate-request-data user-schema/CreateUserRequest prepared-data)]
       (if-not valid?
-        (html-response request (user-ui/create-user-form prepared-data validation-errors) 400)
+        (html-response request
+                       (user-ui/create-user-form prepared-data validation-errors nil
+                                                 {:min-length 8 :require-numbers true}
+                                                 {:return-to return-to})
+                       400)
         (try
-          (let [user-result (user-ports/register-user user-service prepared-data)]
-            ;; Redirect to user detail page instead of showing success message
-            (html-response
-             request
-             [:div
-              [:script "window.location.href = '/web/users/" (:id user-result) "';"]]
-             201
-             {"HX-Trigger" "userCreated"}))
+          (let [_user-result (user-ports/register-user user-service prepared-data)]
+            (-> (response/response "")
+                (response/status 201)
+                (response/header "HX-Redirect" return-to)
+                (response/header "HX-Trigger" "userCreated")))
           (catch Exception e
             (html-response request (ui/error-message (.getMessage e)) 500)))))))
 

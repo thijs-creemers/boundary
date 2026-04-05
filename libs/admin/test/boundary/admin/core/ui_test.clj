@@ -149,6 +149,41 @@
         (is (str/includes? url "page=1"))
         (is (str/includes? url "page-size=20"))))))
 
+(deftest entity-create-url-test
+  (testing "Default generic admin create URL when no delegate configured"
+    (is (= "/web/admin/users/new"
+           (ui/entity-create-url :users {:label "Users"})))
+    (is (= "/web/admin/users/new"
+           (ui/entity-create-url :users {:label "Users"} "/web/admin/users?page=2"))
+        "caller-url is ignored for the non-delegated path because the generic create handler does not honor return-to"))
+
+  (testing "Delegated create URL without caller context"
+    (is (= "/web/users/new"
+           (ui/entity-create-url :users {:create-redirect-url "/web/users/new"}))
+        "2-arity returns the plain delegate URL")
+    (is (= "/web/users/new"
+           (ui/entity-create-url :users {:create-redirect-url "/web/users/new"} nil))
+        "nil caller-url returns the plain delegate URL"))
+
+  (testing "Delegated create URL threads caller URL as URL-encoded return-to"
+    (let [caller "/web/admin/users?page=2&sort=email&filter%5Bactive%5D=true"
+          url (ui/entity-create-url :users
+                                    {:create-redirect-url "/web/users/new"}
+                                    caller)]
+      (is (str/starts-with? url "/web/users/new?return-to="))
+      (is (str/includes? url (java.net.URLEncoder/encode caller "UTF-8"))
+          "caller URL must appear URL-encoded in the return-to parameter")
+      (is (not (str/includes? url "return-to=/web/admin/users?page=2&"))
+          "caller URL must not appear as a raw unencoded value")))
+
+  (testing "Delegated URL that already contains a query string uses & separator"
+    (let [url (ui/entity-create-url :users
+                                    {:create-redirect-url "/web/users/new?source=admin"}
+                                    "/web/admin/users?page=2")]
+      (is (str/includes? url "?source=admin&return-to="))
+      (is (not (str/includes? url "?source=admin?return-to="))
+          "must not introduce a second '?' separator"))))
+
 ;; =============================================================================
 ;; Field Rendering Tests
 ;; =============================================================================
@@ -166,9 +201,9 @@
             false-result (ui/render-field-value :active false {:type :boolean})]
         (is (vector? true-result))
         (is (= :span (first true-result)))
-        (is (str/includes? (str true-result) "Yes"))
+        (is (str/includes? (str true-result) ":common/option-yes"))
         (is (vector? false-result))
-        (is (str/includes? (str false-result) "No"))))
+        (is (str/includes? (str false-result) ":common/option-no"))))
 
     (testing "Instant/datetime values"
       (let [instant (Instant/parse "2026-01-09T12:00:00Z")
@@ -490,7 +525,46 @@
       (is (str/includes? (str row) "/web/admin/users/"))
 
       ;; Should NOT display hidden fields (password-hash)
-      (is (not (str/includes? (str row) "hashed123"))))))
+      (is (not (str/includes? (str row) "hashed123")))))
+
+  (testing "Row is clickable when user can edit"
+    (let [row (ui/entity-table-row :users sample-record sample-entity-config
+                                   {:can-edit true :can-delete false})
+          row-str (str row)]
+      (is (str/includes? row-str "clickable-row"))
+      (is (str/includes? row-str "data-href"))
+      ;; Chevron nav hint is visible because the row is clickable
+      (is (str/includes? row-str "row-nav-hint"))))
+
+  (testing "Row is NOT clickable when user cannot edit (read-only view)"
+    ;; The detail/edit handler is guarded by assert-can-edit-entity!, so
+    ;; rows must not advertise a detail-page link when :can-edit is false —
+    ;; otherwise clicking any cell lands on a 403.
+    (let [row (ui/entity-table-row :users sample-record sample-entity-config
+                                   {:can-edit false :can-delete false})
+          row-str (str row)]
+      (is (not (str/includes? row-str "clickable-row")))
+      (is (not (str/includes? row-str "data-href")))
+      ;; Chevron nav hint is also hidden when the row isn't navigable
+      (is (not (str/includes? row-str "row-nav-hint"))))))
+
+(deftest entity-edit-form-return-to-encoding-test
+  (testing "return_to is URL-encoded on the edit form action"
+    ;; When an edit page is reached from a contextual list URL that
+    ;; already carries query parameters (filters, pagination, etc.), the
+    ;; cancel-url must be URL-encoded before being appended as
+    ;; ?return_to=...; otherwise any raw `&` inside splits into a second
+    ;; top-level query parameter on the PUT request and the handler sees
+    ;; a truncated value.
+    (let [cancel-url "/web/admin/users?page=2&filter%5Bactive%5D=true&sort=email"
+          form (ui/entity-form :users sample-entity-config sample-record nil
+                               sample-permissions cancel-url)
+          form-str (str form)]
+      (is (str/includes? form-str
+                         (str "return_to=" (java.net.URLEncoder/encode cancel-url "UTF-8")))
+          "edit form action should contain the percent-encoded return_to value")
+      (is (not (str/includes? form-str "return_to=/web/admin/users?page=2&"))
+          "edit form action must not contain the raw unencoded return_to value"))))
 
 (deftest entity-table-test
   (testing "Complete entity table with records"
@@ -555,6 +629,43 @@
       ;; Should have the table
       (is (str/includes? (str page) "user@example.com")))))
 
+(deftest entity-list-page-delegated-create-preserves-context-test
+  (testing "Delegated create button on list page preserves caller filter/pagination context"
+    ;; When the entity delegates creation via :create-redirect-url, the hero
+    ;; "New" button and the empty-state create button must carry the current
+    ;; admin list URL (with filters/pagination) through as return-to, so the
+    ;; delegated create flow can bring the admin back to their contextual
+    ;; list view after cancel or success.
+    (let [delegated-config (assoc sample-entity-config
+                                  :create-redirect-url "/web/users/new")
+          records [sample-record]
+          table-query {:page 2 :page-size 20 :sort :email :dir :asc}
+          opts {:search nil :filters {:active "true"}}
+          page (ui/entity-list-page :users records delegated-config
+                                    table-query 42 sample-permissions opts)
+          page-str (str page)]
+      (is (str/includes? page-str "/web/users/new?return-to=")
+          "hero New button should point to the delegated URL with return-to")
+      (is (str/includes? page-str "page%3D2")
+          "encoded caller URL must preserve pagination")
+      (is (str/includes? page-str "sort%3Demail")
+          "encoded caller URL must preserve sort field")
+      (is (not (str/includes? page-str "/web/admin/users/new"))
+          "must not fall through to the generic admin create URL"))))
+
+(deftest entity-table-empty-state-delegated-create-preserves-context-test
+  (testing "Delegated empty-state create button preserves caller context"
+    (let [delegated-config (assoc sample-entity-config
+                                  :create-redirect-url "/web/users/new")
+          table-query {:page 3 :page-size 25}
+          table (ui/entity-table :users [] delegated-config table-query 0
+                                 sample-permissions {:role "admin"})
+          table-str (str table)]
+      (is (str/includes? table-str "/web/users/new?return-to=")
+          "empty-state create button should include delegate URL with return-to")
+      (is (str/includes? table-str "page%3D3")
+          "encoded caller URL must preserve pagination from table-query"))))
+
 ;; =============================================================================
 ;; Entity Form Tests
 ;; =============================================================================
@@ -611,8 +722,8 @@
         (is (vector? page))
         (is (= :div.entity-detail-page (first page)))
 
-        ;; Should have breadcrumbs
-        (is (str/includes? (str page) "Admin"))
+        ;; Should have breadcrumbs (i18n markers)
+        (is (str/includes? (str page) ":admin/breadcrumb-admin"))
         (is (str/includes? (str page) "Users"))
 
         ;; Should have page title (i18n key)
@@ -886,9 +997,9 @@
     (testing "Boolean field shows text (not just color)"
       (let [active-result (ui/render-field-value :active true {:type :boolean})
             inactive-result (ui/render-field-value :active false {:type :boolean})]
-        ;; Should show "Yes"/"No" text, not just color
-        (is (str/includes? (str active-result) "Yes"))
-        (is (str/includes? (str inactive-result) "No"))))))
+        ;; Should show "Yes"/"No" text via i18n markers (not just color)
+        (is (str/includes? (str active-result) ":common/option-yes"))
+        (is (str/includes? (str inactive-result) ":common/option-no"))))))
 
 ;; =============================================================================
 ;; Field Grouping Tests
@@ -966,8 +1077,8 @@
                        (assoc :editable-fields [:email :name :role :active :bio]))
             form (ui/entity-form :users config nil nil sample-permissions)
             form-str (str form)]
-        ;; Should use default "Other"
-        (is (str/includes? form-str "Other"))))))
+        ;; Should use default "Other" (i18n marker)
+        (is (str/includes? form-str ":admin/fieldgroup-other"))))))
 
 (deftest field-grouping-filters-non-editable-test
   (testing "Groups only contain editable fields"

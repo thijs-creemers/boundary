@@ -508,8 +508,21 @@
                 :middleware [auth-middleware]}
       :methods {:get {:handler (web-handlers/dashboard-page-handler user-service mfa-service config)
                       :summary "User dashboard page"}}}
+     ;; User creation routes (admin-only). The admin panel delegates to this flow
+     ;; for split-table entities like :users where the generic admin create cannot
+     ;; write both auth_users and users atomically.
+     {:path    "/users/new"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware user-middleware/require-admin-middleware]}
+      :methods {:get {:handler (web-handlers/create-user-page-handler config)
+                      :summary "Create user page"}}}
+     {:path    "/users"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware user-middleware/require-admin-middleware]}
+      :methods {:post {:handler (web-handlers/create-user-htmx-handler user-service config)
+                       :summary "Create user (HTMX fragment)"}}}
       ;; Session management routes (user-specific, not duplicated in admin)
-      {:path    "/users/:id/sessions"
+     {:path    "/users/:id/sessions"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:get {:handler (web-handlers/user-sessions-page-handler user-service config)
@@ -543,29 +556,29 @@
                       :interceptors ['boundary.user.shell.http-interceptors/require-platform-admin]
                       :summary "Audit table fragment (HTMX refresh)"}}}
       ;; Profile routes
-      {:path    "/profile"
-       :meta    {:no-doc     true
-                 :middleware [auth-middleware]}
-       :methods {:get  {:handler (web-handlers/profile-page-handler user-service mfa-service config)
-                        :summary "User profile page"}
-                 :post {:handler (web-handlers/profile-edit-handler user-service config)
-                        :summary "Update profile (HTMX fragment)"}}}
-      {:path    "/profile/edit"
-       :meta    {:no-doc     true
-                 :middleware [auth-middleware]}
-       :methods {:get {:handler (web-handlers/profile-edit-form-handler user-service config)
-                       :summary "Show profile edit form (HTMX fragment)"}}}
-      {:path    "/profile/info"
-       :meta    {:no-doc     true
-                 :middleware [auth-middleware]}
-       :methods {:get {:handler (web-handlers/profile-info-fragment-handler user-service config)
-                       :summary "Show profile info card (HTMX fragment)"}}}
-      {:path    "/profile/preferences/edit"
-       :meta    {:no-doc     true
-                 :middleware [auth-middleware]}
-       :methods {:get {:handler (web-handlers/preferences-edit-form-handler user-service config)
-                       :summary "Show preferences edit form (HTMX fragment)"}}}
-      {:path    "/profile/preferences"
+     {:path    "/profile"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get  {:handler (web-handlers/profile-page-handler user-service mfa-service config)
+                       :summary "User profile page"}
+                :post {:handler (web-handlers/profile-edit-handler user-service config)
+                       :summary "Update profile (HTMX fragment)"}}}
+     {:path    "/profile/edit"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/profile-edit-form-handler user-service config)
+                      :summary "Show profile edit form (HTMX fragment)"}}}
+     {:path    "/profile/info"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/profile-info-fragment-handler user-service config)
+                      :summary "Show profile info card (HTMX fragment)"}}}
+     {:path    "/profile/preferences/edit"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/preferences-edit-form-handler user-service config)
+                      :summary "Show preferences edit form (HTMX fragment)"}}}
+     {:path    "/profile/preferences"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:get  {:handler (web-handlers/preferences-fragment-handler user-service config)

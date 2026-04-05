@@ -3,7 +3,7 @@
 :toclevels: 3
 :icons: font
 
-Boundary is a module-centric Clojure framework implementing Functional Core / Imperative Shell. This roadmap tracks progress toward 1.0 and beyond. Updated March 2026.
+Boundary is a module-centric Clojure framework implementing Functional Core / Imperative Shell. This roadmap tracks progress toward 1.0 and beyond. Updated April 2026.
 
 == Phase 0 — Alpha icon:check-circle[] *COMPLETE*
 *Goal: Make Boundary usable for early adopters with minimal friction.*
@@ -14,7 +14,7 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 - [x] Scaffolder generates normalized routes, interceptor hooks, CRUD stubs
 - [x] Beginner documentation: Getting Started, Your First Module, FC/IS guide
 - [x] Public release: GitHub open, Clojars deployment (`bb deploy --all`)
-- [x] 21 independently publishable libraries under `libs/`
+- [x] 22 independently publishable libraries under `libs/` (+ `boundary-tools`)
 - [x] Example application: `examples/ecommerce-api/`
 
 '''
@@ -37,6 +37,7 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 - [x] Shared UI styles (`libs/ui-style`): Tailwind/DaisyUI bundles
 - [x] Antora documentation site (`docs/`)
 - [x] CI/CD: GitHub Actions publish workflow, `bb doctor --ci`
+- [x] External services adapters (`libs/external`): Twilio SMS/WhatsApp, SMTP, IMAP
 
 '''
 
@@ -49,6 +50,7 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 - Improve operational and security guidance
 
 === Delivered
+- [x] `boundary-tools` artifact: scaffolding, AI, i18n, deploy, dev utilities (published separately)
 - [x] Config Doctor (`bb doctor`): validates env refs, providers, JWT, admin parity, wiring
 - [x] Config Setup Wizard (`bb setup`): interactive + AI-powered config generation
 - [x] Module Integration (`bb scaffold integrate`): wires scaffolded modules into deps/tests/wiring
@@ -64,6 +66,9 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 - [x] Starter project walkthrough (`boundary-starter/WALKTHROUGH.adoc`): guided 10-minute experience
 - [x] CRUD benchmarks (`dev/boundary/bench/core.clj`): Criterium benchmarks via `clojure -M:bench`
 - [x] Scaling & tuning guide (`dev-docs/scaling-guide.adoc`): JVM, HikariCP, Redis, horizontal scaling
+- [x] Admin UI "Refined Editorial" redesign: DM Sans + JetBrains Mono, layered shadows, HTMX loading bar, toast system, skeleton screens, styled delete modal
+- [x] Full admin UI internationalisation: entity configs, filter operators, flash messages, inline edit, breadcrumbs, sidebar tooltips all use `[:t :key]` markers (EN + NL catalogues)
+- [x] i18n middleware render-time locale resolution: `resolve-t-fn` evaluates user locale after auth middleware on the route-level pipeline
 
 '''
 
@@ -71,14 +76,18 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 *Goal: Build a vibrant Boundary ecosystem and optional advanced capabilities.*
 
 === Delivered (ahead of schedule)
-- [x] Workflow engine (`libs/workflow`)
-- [x] Full-text search (`libs/search`)
-- [x] Report generation (`libs/reports`): `defreport` macro, PDF/CSV export
-- [x] Calendar / events (`libs/calendar`): `defevent` macro, RRULE recurrence, iCal
-- [x] Geocoding (`libs/geo`): OSM/Google/Mapbox providers, DB cache
-- [x] AI tooling (`libs/ai`): Ollama/Anthropic/OpenAI, NL scaffolding, error explainer, SQL copilot
+- [x] Workflow engine (`libs/workflow`): state machines with guards, lifecycle hooks, auto-transitions, audit trails
+- [x] Full-text search (`libs/search`): PostgreSQL FTS / H2 LIKE fallback, weighted fields, filter support, admin UI
+- [x] Report generation (`libs/reports`): `defreport` macro, PDF/Excel/DOCX export
+- [x] Calendar / events (`libs/calendar`): `defevent` macro, RRULE recurrence, iCal, conflict detection, Hiccup UI
+- [x] Geocoding (`libs/geo`): OSM/Google/Mapbox providers, DB cache, Haversine distance
+- [x] AI tooling (`libs/ai`): Ollama/Anthropic/OpenAI, NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
 
 === Remaining
+- [ ] Push notifications library (`boundary-push`): APNs, FCM adapters
+- [ ] Audience / segmentation library (`boundary-audience`): targeted messaging, cohorts
+- [ ] Forms library (`boundary-forms`): dynamic form definitions, validation, rendering
+- [ ] Realtime multi-server scaling: Redis-backed registry and pub/sub
 - [ ] Datomic / XTDB backend integration
 - [ ] Boundary SaaS Starter Kit (login, storage, admin, payments)
 - [ ] Application templates: API-only, admin dashboard, SaaS boilerplate
@@ -100,18 +109,22 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 |*Beta*
 |Developer productivity, admin UI, domain modules
 |icon:check-circle[] Complete
-|21 libraries
+|22 libraries
 
 |*v1.0*
 |Config tooling, stability, production readiness
 |icon:check-circle[] Complete
-|21 + boundary-tools
+|22 + boundary-tools
 
 |*Ecosystem*
 |Advanced capabilities, templates, integrations
-|Partially delivered
-|—
+|Partially delivered (6 of 9 libraries done)
+|workflow, search, reports, calendar, geo, ai
 |===
+
+=== Test Health
+
+As of April 2026: **3044 tests, 15742 assertions, 0 failures** across all 22 libraries (`clojure -M:test:db/h2`). CI runs per-library jobs plus a whole-suite gate, lint, docs-lint, and AGENTS link checks on every push.
 
 == Strategic Notes
 
@@ -126,6 +139,9 @@ Config Doctor (`bb doctor`), Setup Wizard (`bb setup`), and the AI tools (`bb ai
 
 === 4. Publish early, iterate publicly
 The framework is already more mature than most early-stage OSS releases. Early feedback accelerates correctness.
+
+=== 5. First-class internationalisation
+With the admin UI fully translatable via `[:t :key]` markers in entity configs and catalogues shipped for English and Dutch, Boundary is ready for non-English-speaking markets out of the box. New modules inherit i18n support automatically.
 
 '''
 

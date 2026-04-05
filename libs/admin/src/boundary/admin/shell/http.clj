@@ -14,6 +14,7 @@
    [boundary.admin.ports :as ports]
    [boundary.admin.core.ui :as admin-ui]
    [boundary.admin.core.permissions :as permissions]
+   [boundary.i18n.shell.middleware :as i18n-middleware]
    [boundary.i18n.shell.render :as i18n]
    [boundary.shared.ui.core.validation :as ui-validation]
    [boundary.platform.core.http.problem-details :as problem-details]
@@ -82,7 +83,16 @@
     :type "https://boundary.app/errors/invalid-entity-data"
     :title "Invalid Entity Data"
     :detail-fn (fn [_ex-data] "Entity data failed validation")
-    :errors-fn (fn [ex-data] (:errors ex-data))}})
+    :errors-fn (fn [ex-data] (:errors ex-data))}
+
+   :cannot-create-split-table-entity
+   {:status 400
+    :type "https://boundary.app/errors/cannot-create-split-table-entity"
+    :title "Cannot Create Entity"
+    :detail-fn (fn [ex-data]
+                 (str "Entity '" (name (:entity-name ex-data))
+                      "' spans multiple tables and must be created via its dedicated"
+                      " create flow (configure :create-redirect-url on the entity)."))}})
 
 (def combined-error-mappings
   "Merged error mappings: base + admin-specific"
@@ -396,7 +406,9 @@
                      ([k] (name k))
                      ([k _params] (name k))
                      ([k _params _n] (name k)))
-        t-fn (get request :i18n/t fallback-t)
+        t-fn (or (i18n-middleware/resolve-t-fn request)
+                 (get request :i18n/t)
+                 fallback-t)
         body-content (i18n/render html t-fn)]
     (-> (ring-response/response body-content)
         (ring-response/content-type "text/html; charset=utf-8"))))
@@ -695,7 +707,9 @@
 (defn new-entity-handler
   "Handler for new entity creation form.
 
-   Shows empty form for creating new entity."
+   Shows empty form for creating new entity. If the entity declares a
+   `:create-redirect-url`, redirects there instead (used for split-table
+   entities that need a dedicated create flow)."
   [_admin-service schema-provider config]
   (fn [request]
     (let [user (require-admin-user! request)
@@ -710,23 +724,31 @@
           entity-config (ports/get-entity-config schema-provider entity-name)
 
           ; Check permissions
-          _ (permissions/assert-can-create-entity! user entity-name entity-config)
+          _ (permissions/assert-can-create-entity! user entity-name entity-config)]
 
-          ; Get all available entities for sidebar
-          entities (ports/list-available-entities schema-provider)
-          entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
+      (if-let [redirect-url (:create-redirect-url entity-config)]
+        ;; Append return-to so the delegated create flow can bring the user
+        ;; back to the admin list view (or whichever page they came from) on
+        ;; success or cancel, instead of falling through to module-owned URLs
+        ;; that may not exist as GET routes.
+        (let [return-to (str "/web/admin/" (name entity-name))
+              separator (if (str/includes? redirect-url "?") "&" "?")
+              target (str redirect-url separator "return-to=" return-to)]
+          (ring-response/redirect target 303))
+        (let [; Get all available entities for sidebar
+              entities (ports/list-available-entities schema-provider)
+              entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
 
-          ; Get permissions
-          permissions (permissions/get-entity-permissions user entity-name entity-config)]
-
-      (html-response request
-                     (admin-ui/admin-layout
-                      (admin-ui/entity-detail-page entity-name entity-config nil {} permissions {})
-                      {:user user
-                       :current-entity entity-name
-                       :entities entities
-                       :entity-configs entity-configs
-                       :logo-url (:logo-url config)})))))
+              ; Get permissions
+              permissions (permissions/get-entity-permissions user entity-name entity-config)]
+          (html-response request
+                         (admin-ui/admin-layout
+                          (admin-ui/entity-detail-page entity-name entity-config nil {} permissions {})
+                          {:user user
+                           :current-entity entity-name
+                           :entities entities
+                           :entity-configs entity-configs
+                           :logo-url (:logo-url config)})))))))
 
 ;; =============================================================================
 ;; Create/Update Handlers
@@ -789,7 +811,7 @@
                            :entity-configs entity-configs
                            :logo-url (:logo-url config)
                            :flash {:type :success
-                                   :message (str (:label entity-config) " created successfully")}})))
+                                   :message [:t :admin/flash-created {:label (:label entity-config)}]}})))
 
         ; Validation errors - re-render form
         (let [entities (ports/list-available-entities schema-provider)
@@ -806,7 +828,7 @@
                            :entity-configs entity-configs
                            :logo-url (:logo-url config)
                            :flash {:type :error
-                                   :message "Please fix the errors below"}})))))))
+                                   :message [:t :admin/flash-validation-errors]}})))))))
 
 (defn update-entity-handler
   "Handler for updating existing entity.
@@ -851,7 +873,7 @@
                           (admin-ui/entity-detail-page entity-name entity-config updated-record {} permissions
                                                        (assoc (:page-opts ctx) :flash
                                                               {:type :success
-                                                               :message (str (:label entity-config) " updated successfully")}))
+                                                               :message [:t :admin/flash-updated {:label (:label entity-config)}]}))
                           {:user user
                            :current-entity entity-name
                            :entities (:entities ctx)
@@ -870,7 +892,7 @@
                           (admin-ui/entity-detail-page entity-name entity-config record errors permissions
                                                        (assoc (:page-opts ctx) :flash
                                                               {:type :error
-                                                               :message "Please fix the errors below"}))
+                                                               :message [:t :admin/flash-validation-errors]}))
                           {:user user
                            :current-entity entity-name
                            :entities (:entities ctx)
@@ -904,16 +926,23 @@
           _ (permissions/assert-can-delete-entity! user entity-name entity-config)
 
           ; Delete entity (soft or hard based on schema)
-          deleted? (ports/delete-entity admin-service entity-name id)]
+          deleted? (ports/delete-entity admin-service entity-name id)
+          return-to (get-in request [:query-params "return_to"])
+          ;; Only accept relative paths under /web/admin/ to prevent open redirects
+          safe-return-to (when (and (not-empty return-to)
+                                    (str/starts-with? return-to "/web/admin/"))
+                           return-to)]
 
       (if deleted?
-        ; Success - trigger table refresh
-        (-> (ring-response/response "")
-            (ring-response/status 200)
-            (ring-response/header "HX-Trigger" "entityDeleted"))
+        ; Success - redirect back to return_to (parent context) or entity list
+        (let [redirect-url (or safe-return-to
+                               (str "/web/admin/" (name entity-name)))]
+          (-> (ring-response/response "")
+              (ring-response/status 200)
+              (ring-response/header "HX-Redirect" redirect-url)))
 
         ; Failed to delete
-        (-> (ring-response/response "Failed to delete entity")
+        (-> (ring-response/response "")
             (ring-response/status 500))))))
 
 (defn bulk-delete-handler
@@ -959,9 +988,11 @@
           ; Create flash message
           flash-msg (if (zero? failed-count)
                       {:type :success
-                       :message (str "Successfully deleted " success-count " " (:label entity-config))}
+                       :message [:t :admin/flash-bulk-deleted {:count success-count
+                                                               :label (:label entity-config)}]}
                       {:type :warning
-                       :message (str "Deleted " success-count ", failed " failed-count)})]
+                       :message [:t :admin/flash-bulk-deleted-partial {:count success-count
+                                                                       :failed failed-count}]})]
 
       ; Return table HTML fragment
       (htmx-fragment-response request

@@ -19,6 +19,71 @@
             [clojure.string :as str]))
 
 ;; =============================================================================
+;; URL Helpers
+;; =============================================================================
+
+(defn- url-encode
+  "URL-encode a string for use as a query-string value.
+
+   Required when threading `return_to` (or any contextual URL containing
+   its own `?`/`&` characters) through query parameters — otherwise the
+   embedded `&` splits into a second top-level parameter and the receiving
+   handler sees a truncated value."
+  [^String s]
+  (java.net.URLEncoder/encode s "UTF-8"))
+
+(defn entity-create-url
+  "Resolve the URL used for the 'New' button on an entity.
+
+   Entities may expose a dedicated create flow via `:create-redirect-url`
+   (e.g. split-table entities that cannot be created via the generic admin
+   CRUD path). Falls back to `/web/admin/<entity>/new` when no override is
+   configured.
+
+   When `caller-url` is provided AND the entity delegates via
+   `:create-redirect-url`, the caller URL is threaded through as a
+   `return-to` query parameter so the delegated flow (e.g. the user
+   module's `/web/users/new` page) can bring the admin back to their
+   current filtered/paginated list view on cancel or success. The value
+   is URL-encoded to survive embedded `&`/`=` characters from filters
+   and pagination.
+
+   `caller-url` is ignored for the non-delegated path because the generic
+   admin create handler re-renders the default list view directly and
+   does not honor `return-to`."
+  ([entity-name entity-config]
+   (entity-create-url entity-name entity-config nil))
+  ([entity-name entity-config caller-url]
+   (let [redirect-url (:create-redirect-url entity-config)
+         base (or redirect-url (str "/web/admin/" (name entity-name) "/new"))]
+     (if (and redirect-url caller-url)
+       (let [separator (if (str/includes? base "?") "&" "?")]
+         (str base separator "return-to=" (url-encode caller-url)))
+       base))))
+
+(defn- current-list-url
+  "Build the current admin list URL with filters/pagination applied.
+
+   Used to seed `return-to` on links that navigate away from a list view
+   (notably the delegated create flow), so the user lands back on the
+   same filtered/paginated page after cancel or success. Returns the
+   plain `/web/admin/<entity>` when no meaningful query params exist."
+  [entity-name table-query filters]
+  (let [base (str "/web/admin/" (name entity-name))
+        ;; Drop empty values so the default list view produces the bare
+        ;; `/web/admin/<entity>` rather than `?page=&page-size=`.
+        ;; (`encode-query-params` already strips nils, so we only need to
+        ;; filter empty strings here.)
+        params (into {}
+                     (remove (fn [[_ v]] (= "" v)))
+                     (merge (table-ui/table-query->params table-query)
+                            (table-ui/search-filters->params filters)))
+        qs (table-ui/encode-query-params params)]
+    (if (str/blank? qs)
+      base
+      (str base "?" qs))))
+
+;; =============================================================================
 ;; Admin Layout Components
 ;; =============================================================================
 
@@ -45,12 +110,12 @@
      [:div.sidebar-controls
       [:button.sidebar-toggle {:type "button"
                                :aria-label [:t :admin/sidebar-toggle-button]
-                               :title "Toggle sidebar (Ctrl+B)"
+                               :title [:t :admin/sidebar-toggle-hint]
                                (keyword "@click") "$store.sidebar.toggle()"}
        (icons/icon :panel-left {:size 20})]
       [:button.sidebar-pin {:type "button"
                             :aria-label [:t :admin/sidebar-pin-button]
-                            :title "Pin sidebar open"
+                            :title [:t :admin/sidebar-pin-hint]
                             (keyword "@click") "$store.sidebar.togglePin()"
                             :x-bind:aria-pressed "$store.sidebar.pinned"}
        (icons/icon :pin {:size 20})]]]
@@ -96,6 +161,8 @@
     [:div.hiccup-fragment-wrapper
      ;; Initialize Alpine store for sidebar state management
      (alpine/sidebar-store-init)
+     ;; Toast notification container
+     [:div.toast-container {:role "status" :aria-live "polite"}]
      [:div.admin-shell (alpine/sidebar-shell-attrs)
       (admin-sidebar entities entity-configs current-entity opts)
       [:div.admin-overlay (alpine/sidebar-overlay-attrs)]
@@ -168,17 +235,15 @@
         [:div.entity-card
          [:a {:href (str "/web/admin/" (name entity))
               :class "entity-card-link"}
-          [:div.entity-card-head
-           [:div.entity-card-icon (icons/icon icon {:size 18})]
-           [:span.entity-card-count [:t :admin/entity-card-count {:count count}]]]
+          [:div.entity-card-icon (icons/icon icon {:size 20})]
           [:div.entity-card-title label]
           (when description
-            [:div.entity-card-description description])]]))
+            [:div.entity-card-description description])
+          [:div.entity-card-meta
+           [:span.entity-card-count [:t :admin/entity-card-count {:count count}]]]]]))
     [:div.entity-card
      [:a {:href "/web/audit" :class "entity-card-link"}
-      [:div.entity-card-head
-       [:div.entity-card-icon (icons/icon :file-text {:size 18})]
-       [:span]]
+      [:div.entity-card-icon (icons/icon :file-text {:size 20})]
       [:div.entity-card-title [:t :admin/audit-trail-title]]
       [:div.entity-card-description [:t :admin/audit-trail-description]]]]]])
 
@@ -235,46 +300,46 @@
      Vector of [operator-keyword display-label] tuples"
   [field-type]
   (case field-type
-    :string [[:eq "equals"]
-             [:ne "not equals"]
-             [:contains "contains"]
-             [:starts-with "starts with"]
-             [:ends-with "ends with"]
-             [:is-null "is empty"]
-             [:is-not-null "is not empty"]]
+    :string [[:eq [:t :admin/filter-op-equals]]
+             [:ne [:t :admin/filter-op-not-equals]]
+             [:contains [:t :admin/filter-op-contains]]
+             [:starts-with [:t :admin/filter-op-starts-with]]
+             [:ends-with [:t :admin/filter-op-ends-with]]
+             [:is-null [:t :admin/filter-op-is-empty]]
+             [:is-not-null [:t :admin/filter-op-is-not-empty]]]
 
-    (:int :decimal) [[:eq "equals"]
-                     [:ne "not equals"]
-                     [:gt "greater than"]
-                     [:gte "greater or equal"]
-                     [:lt "less than"]
-                     [:lte "less or equal"]
-                     [:between "between"]
-                     [:is-null "is empty"]
-                     [:is-not-null "is not empty"]]
+    (:int :decimal) [[:eq [:t :admin/filter-op-equals]]
+                     [:ne [:t :admin/filter-op-not-equals]]
+                     [:gt [:t :admin/filter-op-greater-than]]
+                     [:gte [:t :admin/filter-op-gte]]
+                     [:lt [:t :admin/filter-op-less-than]]
+                     [:lte [:t :admin/filter-op-lte]]
+                     [:between [:t :admin/filter-op-between]]
+                     [:is-null [:t :admin/filter-op-is-empty]]
+                     [:is-not-null [:t :admin/filter-op-is-not-empty]]]
 
-    (:instant :date) [[:eq "on date"]
-                      [:ne "not on date"]
-                      [:gt "after"]
-                      [:gte "on or after"]
-                      [:lt "before"]
-                      [:lte "on or before"]
-                      [:between "between"]
-                      [:is-null "is empty"]
-                      [:is-not-null "is not empty"]]
+    (:instant :date) [[:eq [:t :admin/filter-op-on-date]]
+                      [:ne [:t :admin/filter-op-not-on-date]]
+                      [:gt [:t :admin/filter-op-after]]
+                      [:gte [:t :admin/filter-op-on-or-after]]
+                      [:lt [:t :admin/filter-op-before]]
+                      [:lte [:t :admin/filter-op-on-or-before]]
+                      [:between [:t :admin/filter-op-between]]
+                      [:is-null [:t :admin/filter-op-is-empty]]
+                      [:is-not-null [:t :admin/filter-op-is-not-empty]]]
 
-    :boolean [[:eq "equals"]]
+    :boolean [[:eq [:t :admin/filter-op-equals]]]
 
-    :enum [[:eq "equals"]
-           [:ne "not equals"]
-           [:in "any of"]
-           [:not-in "none of"]]
+    :enum [[:eq [:t :admin/filter-op-equals]]
+           [:ne [:t :admin/filter-op-not-equals]]
+           [:in [:t :admin/filter-op-any-of]]
+           [:not-in [:t :admin/filter-op-none-of]]]
 
     ;; Default for unknown types
-    [[:eq "equals"]
-     [:ne "not equals"]
-     [:is-null "is empty"]
-     [:is-not-null "is not empty"]]))
+    [[:eq [:t :admin/filter-op-equals]]
+     [:ne [:t :admin/filter-op-not-equals]]
+     [:is-null [:t :admin/filter-op-is-empty]]
+     [:is-not-null [:t :admin/filter-op-is-not-empty]]]))
 
 (defn render-filter-value-inputs
   "Render value input(s) for a filter based on operator and field type.
@@ -500,7 +565,7 @@
       [:span.null-value {:class "badge ui-badge ui-badge-neutral null-value"} "—"]
 
       (= field-type :boolean)
-      (ui/badge (if value "Yes" "No")
+      (ui/badge (if value [:t :common/option-yes] [:t :common/option-no])
                 {:variant (if value :success :neutral)
                  :class (str "admin-bool-badge "
                              (if value "admin-bool-badge-true" "admin-bool-badge-false"))})
@@ -544,8 +609,15 @@
   (let [list-fields (:list-fields entity-config)
         primary-key (:primary-key entity-config :id)
         record-id (get record primary-key)
-        readonly-fields (set (:readonly-fields entity-config))]
-    [:tr {:class "entity-row"}
+        readonly-fields (set (:readonly-fields entity-config))
+        ;; The detail/edit handler is guarded by assert-can-edit-entity!, so only
+        ;; wire the row-click navigation when the current user actually has
+        ;; permission — otherwise clicking a data cell sends them to a 403.
+        can-open? (boolean (:can-edit permissions))
+        row-attrs (cond-> {:class (if can-open? "entity-row clickable-row" "entity-row")}
+                    can-open?
+                    (assoc :data-href (str "/web/admin/" (name entity-name) "/" record-id)))]
+    [:tr row-attrs
      [:td.checkbox-cell
        ;; Alpine.js row checkbox with x-model binding to selectedIds array
       [:input (alpine/row-checkbox-attrs record-id)]]
@@ -571,11 +643,14 @@
                  :data-label field-label}
             (render-field-value field value field-config)])))
      [:td.actions-cell
-      (when (:can-edit permissions)
+      (when can-open?
         [:a.icon-button.secondary
          {:href (str "/web/admin/" (name entity-name) "/" record-id)
           :aria-label [:t :common/button-edit]}
-         (icons/icon :edit {:size 18})])]]))
+         (icons/icon :edit {:size 18})])
+      (when can-open?
+        [:span.row-nav-hint
+         (icons/icon :chevron-right {:size 14})])]]))
 
 ;; =============================================================================
 ;; Inline Editing Components (Week 2)
@@ -666,11 +741,11 @@
 
      ; Action buttons
      [:span.inline-actions
-      [:button.inline-save {:type "submit" :title "Save"}
+      [:button.inline-save {:type "submit" :title [:t :admin/inline-save]}
        (icons/icon :check {:size 14})]
       [:button.inline-cancel
        {:type "button"
-        :title "Cancel"
+        :title [:t :admin/inline-cancel]
         :hx-get (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/cancel")
         :hx-target "closest td"
         :hx-swap "outerHTML"}
@@ -735,11 +810,11 @@
 
       ; Action buttons
       [:span.inline-actions
-       [:button.inline-save {:type "submit" :title "Save"}
+       [:button.inline-save {:type "submit" :title [:t :admin/inline-save]}
         (icons/icon :check {:size 14})]
        [:button.inline-cancel
         {:type "button"
-         :title "Cancel"
+         :title [:t :admin/inline-cancel]
          :hx-get (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/cancel")
          :hx-target "closest td"
          :hx-swap "outerHTML"}
@@ -786,7 +861,12 @@
         (when (:can-create permissions)
           [:a.button.primary
            {:class "mt-4"
-            :href (str "/web/admin/" (name entity-name) "/new")}
+            ;; Only build the contextual list URL when the entity delegates
+            ;; creation — for generic entities the caller URL is discarded
+            ;; and the extra work would be wasted.
+            :href (entity-create-url entity-name entity-config
+                                     (when (:create-redirect-url entity-config)
+                                       (current-list-url entity-name table-query filters)))}
            [:t :admin/button-create-first-record]])]
        [:div.table-wrapper
         ;; Form for checkbox submission (hidden inputs + table)
@@ -878,7 +958,12 @@
         (when (:can-create permissions)
           [:a.button.primary
            {:class "gap-2"
-            :href (str "/web/admin/" (name entity-name) "/new")
+            ;; Only build the contextual list URL when the entity delegates
+            ;; creation — for generic entities the caller URL is discarded
+            ;; and the extra work would be wasted.
+            :href (entity-create-url entity-name entity-config
+                                     (when (:create-redirect-url entity-config)
+                                       (current-list-url entity-name table-query filters)))
             :aria-label (str "Create new " (name entity-name))}
            (icons/icon :plus {:size 18})
            [:t :admin/button-new {:entity (str/capitalize (name entity-name))}]])]]]
@@ -935,7 +1020,10 @@
                  :id "bulk-delete-btn"
                  :form "bulk-action-form"
                  :aria-label [:t :admin/button-delete-selected]
-                 :hx-confirm [:t :admin/confirm-delete-selected]})
+                 :hx-confirm [:t :admin/confirm-delete-selected]
+                 :data-confirm-title [:t :admin/modal-confirm-delete-title]
+                 :data-confirm-cancel [:t :admin/modal-button-cancel]
+                 :data-confirm-label [:t :admin/modal-button-delete]})
          (icons/icon :trash {:size 18})]]
 
        [:div.toolbar-actions {:class "flex items-center gap-2"}
@@ -1159,7 +1247,7 @@
                                     (:editable-fields entity-config []))]
       (if (seq ungrouped-fields)
         ;; Append "Other" group for ungrouped fields
-        (let [other-label (get-in entity-config [:ui :field-grouping :other-label] "Other")]
+        (let [other-label (get-in entity-config [:ui :field-grouping :other-label] [:t :admin/fieldgroup-other])]
           (conj (vec groups-with-editable)
                 {:id :other
                  :label other-label
@@ -1215,9 +1303,12 @@
                            (str "/web/admin/" (name entity-name) "/" record-id)
                            (str "/web/admin/" (name entity-name)))
         default-list-url (str "/web/admin/" (name entity-name))
-        ; Preserve return_to through form submission so the update handler can redirect back
+        ; Preserve return_to through form submission so the update handler can redirect back.
+        ; URL-encode the value: contextual list URLs frequently carry their own query params
+        ; (filters, pagination, etc.), and a raw `&` would be parsed as a new top-level
+        ; parameter on the PUT request, truncating return_to server-side.
         form-action (if (and is-edit? cancel-url (not= cancel-url default-list-url))
-                      (str form-action-base "?return_to=" cancel-url)
+                      (str form-action-base "?return_to=" (url-encode cancel-url))
                       form-action-base)
         _form-method (if is-edit? "PUT" "POST")
         hx-attr (if is-edit? :hx-put :hx-post)
@@ -1360,7 +1451,7 @@
                 [:a.button.secondary
                  {:href (str "/web/admin/" entity "/" (:id record)
                              (when-let [rt (:return-to relationship)]
-                               (str "?return_to=" rt)))}
+                               (str "?return_to=" (url-encode rt))))}
                  [:t :common/button-edit]]])])]]])]))
 
 (defn entity-detail-page
@@ -1393,7 +1484,7 @@
      [:div.page-header {:class "space-y-3"}
       [:div.page-header-row
        [:div.page-breadcrumbs
-        [:a {:href "/web/admin"} "Admin"]
+        [:a {:href "/web/admin"} [:t :admin/breadcrumb-admin]]
         " / "
         [:a {:href list-url} label]
         " / "
@@ -1421,19 +1512,33 @@
         (when is-edit?
           [:a.button.primary
            {:class "gap-2"
-            :href (str "/web/admin/" (name entity-name) "/new")}
+            ;; `list-url` is the caller context (either return-to from the
+            ;; query string or the plain list URL). Threading it through
+            ;; ensures the delegated create flow lands the user back on
+            ;; their filtered/paginated list on cancel or success.
+            :href (entity-create-url entity-name entity-config list-url)}
            (icons/icon :plus {:size 16})
            [:t :admin/form-create-heading {:label label}]])
         (when (and is-edit? (:can-delete permissions))
-          [:button.button.danger
-           {:type "button"
-            :class "gap-2"
-            :hx-delete (str "/web/admin/" (name entity-name) "/" (get record (:primary-key entity-config :id)))
-            :hx-target "body"
-            :hx-swap "outerHTML"
-            :hx-confirm [:t :admin/confirm-delete-record]}
-           (icons/icon :trash {:size 16})
-           [:t :common/button-delete]])]]
+          ;; URL-encode return-to because contextual list URLs may already
+          ;; carry their own query string (filters, pagination). Without
+          ;; encoding, any `&` inside return-to would be parsed as additional
+          ;; params on the delete request, so the server would drop the
+          ;; original list state when redirecting back.
+          (let [delete-url (cond-> (str "/web/admin/" (name entity-name) "/" (get record (:primary-key entity-config :id)))
+                             return-to (str "?return_to=" (url-encode return-to)))]
+            [:button.button.danger
+             {:type "button"
+              :class "gap-2"
+              :hx-delete delete-url
+              :hx-target "body"
+              :hx-swap "outerHTML"
+              :hx-confirm [:t :admin/confirm-delete-record]
+              :data-confirm-title [:t :admin/modal-confirm-delete-title]
+              :data-confirm-cancel [:t :admin/modal-button-cancel]
+              :data-confirm-label [:t :admin/modal-button-delete]}
+             (icons/icon :trash {:size 16})
+             [:t :common/button-delete]]))]]
       [:h1.page-title page-title]]
      (when-let [ctx (:parent-context opts)]
        (parent-context-banner ctx))
