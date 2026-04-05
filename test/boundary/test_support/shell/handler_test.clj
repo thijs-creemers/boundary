@@ -41,3 +41,16 @@
           resp    (handler (post-request {:seed "empty"}))]
       (is (= 200 (:status resp)))
       (is (= 0 @seed-calls)))))
+
+(deftest ^:unit reset-handler-returns-500-on-truncate-failure
+  (testing "when truncate! throws, handler returns 500 with only .getMessage and no ex-data leak"
+    (let [fake-deps {:truncate! (fn [_]
+                                  (throw (ex-info "boom" {:secret "xyz"})))
+                     :seed!     (fn [_] {:should-not "be called"})}
+          handler (h/make-reset-handler fake-deps)
+          resp    (handler (post-request {:seed "baseline"}))]
+      (is (= 500 (:status resp)))
+      (is (false? (-> resp :body :ok)))
+      (is (= "boom" (-> resp :body :error)))
+      (is (not (.contains (pr-str (:body resp)) "xyz"))
+          "ex-data must not leak into the response body"))))
