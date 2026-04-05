@@ -1309,8 +1309,9 @@ test.describe('POST /api/v1/auth/register', () => {
       name: 'New User',
     });
     expect(res.ok()).toBeTruthy();
-    const body = await res.json();
-    expect(JSON.stringify(body)).not.toContain('password-hash');
+    // Read as text to be resilient to empty/non-JSON success bodies
+    const raw = await res.text();
+    expect(raw).not.toMatch(/password[-_]?hash/i);
   });
 
   test('duplicate email → 409', async ({ request, seed }) => {
@@ -1395,7 +1396,7 @@ test.describe('MFA management API', () => {
     expect(statusRes.ok()).toBeTruthy();
     const status = await statusRes.json();
     // Field name is not documented — accept any truthy "enabled" indicator.
-    expect(status.enabled ?? status.mfaEnabled ?? status['mfa-enabled']).toBeTruthy();
+    expect(status.enabled).toBeTruthy();
   });
 
   test('enable with wrong verification code is rejected', async ({ request, seed }) => {
@@ -1422,7 +1423,7 @@ test.describe('MFA management API', () => {
       headers: { Cookie: `session-token=${token}` },
     });
     const status = await statusRes.json();
-    expect(status.enabled ?? status.mfaEnabled ?? status['mfa-enabled']).toBeFalsy();
+    expect(status.enabled).toBeFalsy();
   });
 
   test('disable turns MFA off', async ({ request, seed }) => {
@@ -1435,7 +1436,7 @@ test.describe('MFA management API', () => {
       headers: { Cookie: `session-token=${token}` },
     });
     const status = await statusRes.json();
-    expect(status.enabled ?? status.mfaEnabled ?? status['mfa-enabled']).toBeFalsy();
+    expect(status.enabled).toBeFalsy();
   });
 });
 ```
@@ -1446,7 +1447,7 @@ test.describe('MFA management API', () => {
 bb e2e -- api/auth-mfa.spec.ts
 ```
 
-If the status response field name is something other than `enabled` / `mfaEnabled` / `mfa-enabled`, read `mfa-status-handler` (around `http.clj:314-332`) to learn the real key and tighten the assertion. Do not leave the triple-fallback in place long term — pick one.
+The field name `enabled` is taken from `mfa-status-handler` at `http.clj:326`. If a first run shows a different key, read the handler and adjust.
 
 - [ ] **Step 3: Commit**
 
