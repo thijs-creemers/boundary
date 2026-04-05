@@ -122,17 +122,9 @@
                                            (str/ends-with? (.getName %) ".clj")))))
         ;; src/boundary/test_support/core.clj is the monorepo-level shared
         ;; test helper namespace. It is a single file (boundary.test-support.core),
-        ;; not a directory of core sources — include it explicitly plus any
-        ;; future files under a nested core/ dir, should one appear.
-        test-support-root (io/file root "src" "boundary" "test_support")
-        test-support-file (io/file test-support-root "core.clj")
-        test-support-dir-files (when (.exists test-support-root)
-                                 (->> (find-core-dirs test-support-root)
-                                      (mapcat file-seq)
-                                      (filter #(and (.isFile %)
-                                                    (str/ends-with? (.getName %) ".clj")))))
-        test-support  (cond-> (vec test-support-dir-files)
-                        (.exists test-support-file) (conj test-support-file))]
+        ;; not a directory of core sources — include it explicitly.
+        test-support-file (io/file root "src" "boundary" "test_support" "core.clj")
+        test-support  (when (.exists test-support-file) [test-support-file])]
     (concat libs-files test-support)))
 
 (defn- core-clj-files
