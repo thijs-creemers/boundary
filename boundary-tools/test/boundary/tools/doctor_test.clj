@@ -182,6 +182,53 @@
       (is (= :pass (:level (first result)))))))
 
 ;; =============================================================================
+;; check-reset-endpoint-flag
+;; =============================================================================
+
+(deftest ^:unit reset-endpoint-flag-must-not-be-enabled-in-prod
+  (testing "errors when :test/reset-endpoint-enabled? is true in prod profile"
+    (let [result (doctor/check-reset-endpoint-flag
+                  {:test/reset-endpoint-enabled? true
+                   :active {:boundary/settings {:name "app"}}}
+                  "prod")]
+      (is (= :error (:level (first result))))
+      (is (re-find #"reset-endpoint-enabled\?" (:msg (first result))))
+      (is (re-find #"prod" (:msg (first result))))))
+
+  (testing "errors in acc profile as well"
+    (let [result (doctor/check-reset-endpoint-flag
+                  {:test/reset-endpoint-enabled? true}
+                  "acc")]
+      (is (= :error (:level (first result))))
+      (is (re-find #"acc" (:msg (first result)))))))
+
+(deftest ^:unit reset-endpoint-flag-may-be-enabled-in-test
+  (testing "passes when flag is true in test profile"
+    (let [result (doctor/check-reset-endpoint-flag
+                  {:test/reset-endpoint-enabled? true}
+                  "test")]
+      (is (= :pass (:level (first result))))))
+
+  (testing "passes when flag is true in dev profile"
+    (let [result (doctor/check-reset-endpoint-flag
+                  {:test/reset-endpoint-enabled? true}
+                  "dev")]
+      (is (= :pass (:level (first result)))))))
+
+(deftest ^:unit reset-endpoint-flag-absent-in-prod-is-fine
+  (testing "passes when flag is absent in prod"
+    (let [result (doctor/check-reset-endpoint-flag
+                  {:active {:boundary/settings {:name "app"}}}
+                  "prod")]
+      (is (= :pass (:level (first result))))))
+
+  (testing "passes when flag is explicitly false in prod"
+    (let [result (doctor/check-reset-endpoint-flag
+                  {:test/reset-endpoint-enabled? false}
+                  "prod")]
+      (is (= :pass (:level (first result)))))))
+
+;; =============================================================================
 ;; check-wiring-requires
 ;; =============================================================================
 
