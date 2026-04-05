@@ -80,7 +80,7 @@ Resolved by `boundary.i18n.shell.render/resolve-markers` during `render`.
 `locale-chain` is built by `wrap-i18n` from: `[user-locale tenant-locale default :en]`.
 In the current HTTP pipeline:
 
-- user locale comes from `[:session :user :language]`
+- user locale comes from `[:user :language]` (set by authentication middleware)
 - tenant locale comes from `[:tenant :settings :language]`
 - `[:tenant :default-language]` is also accepted as a backward-compatible fallback
 

@@ -351,21 +351,24 @@
 
 (defn create-user-form
   "Generate a form for creating new users based on CreateUserRequest schema.
-   
+
    Args:
      data: Optional form data map for pre-filling
      errors: Optional validation errors map
      password-violations: Optional password violations from policy check
      policy: Optional password policy configuration
-     
+     opts: Optional map with :return-to URL for post-create redirect
+
    Returns:
      Hiccup structure for create user form"
-  ([data errors password-violations policy]
+  ([data errors password-violations policy opts]
    [:div#create-user-form
     [:h2 [:t :user/form-create-title]]
     [:form {:hx-post   "/web/users"
             :hx-target "#create-user-form"
             :class     "form-card"}
+     (when-let [return-to (:return-to opts)]
+       [:input {:type "hidden" :name "return-to" :value return-to}])
      (ui/form-field :name [:t :common/label-name]
                     (ui/text-input :name (:name data) {:required true})
                     (:name errors))
@@ -395,10 +398,12 @@
                     (ui/checkbox :send-welcome (get data :send-welcome true))
                     nil)
      (ui/submit-button [:t :user/button-create] {:loading-text "Creating..."})]])
+  ([data errors password-violations policy]
+   (create-user-form data errors password-violations policy nil))
   ([data errors]
-   (create-user-form data errors nil {:min-length 8 :require-numbers true}))
+   (create-user-form data errors nil {:min-length 8 :require-numbers true} nil))
   ([]
-   (create-user-form {} {} nil {:min-length 8 :require-numbers true})))
+   (create-user-form {} {} nil {:min-length 8 :require-numbers true} nil)))
 
 ;; =============================================================================
 ;; User Success Messages
@@ -606,24 +611,28 @@
 
 (defn create-user-page
   "Complete create user page.
-   
+
    Args:
      data: Optional form data for pre-filling
-     errors: Optional validation errors 
-     opts: Optional page options (user context, flash messages, etc.)
-     
+     errors: Optional validation errors
+     opts: Optional page options. Supports :return-to for the 'Back to users'
+           button target and to thread through the form as a hidden field so
+           the HTMX POST handler can redirect to the same URL on success.
+
    Returns:
      Complete HTML page for creating users"
   [& [data errors opts]]
-  (page-layout
-   [:t :user/page-create-user-title]
-   [:div.create-user-page
-    [:div.page-header
-     [:h1 [:t :user/form-create-title]]
-     [:div.page-actions
-      [:a.button {:href "/web/users"} [:t :user/button-back-to-users]]]]
-    (create-user-form data errors)]
-   opts))
+  (let [return-to (or (:return-to opts) "/web/admin/users")]
+    (page-layout
+     [:t :user/page-create-user-title]
+     [:div.create-user-page
+      [:div.page-header
+       [:h1 [:t :user/form-create-title]]
+       [:div.page-actions
+        [:a.button {:href return-to} [:t :user/button-back-to-users]]]]
+      (create-user-form data errors nil {:min-length 8 :require-numbers true}
+                        {:return-to return-to})]
+     opts)))
 
 ;; =============================================================================
 ;; Web Root Landing Page

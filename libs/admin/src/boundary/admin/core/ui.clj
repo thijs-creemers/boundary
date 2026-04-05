@@ -19,6 +19,21 @@
             [clojure.string :as str]))
 
 ;; =============================================================================
+;; URL Helpers
+;; =============================================================================
+
+(defn entity-create-url
+  "Resolve the URL used for the 'New' button on an entity.
+
+   Entities may expose a dedicated create flow via `:create-redirect-url`
+   (e.g. split-table entities that cannot be created via the generic admin
+   CRUD path). Falls back to `/web/admin/<entity>/new` when no override is
+   configured."
+  [entity-name entity-config]
+  (or (:create-redirect-url entity-config)
+      (str "/web/admin/" (name entity-name) "/new")))
+
+;; =============================================================================
 ;; Admin Layout Components
 ;; =============================================================================
 
@@ -45,12 +60,12 @@
      [:div.sidebar-controls
       [:button.sidebar-toggle {:type "button"
                                :aria-label [:t :admin/sidebar-toggle-button]
-                               :title "Toggle sidebar (Ctrl+B)"
+                               :title [:t :admin/sidebar-toggle-hint]
                                (keyword "@click") "$store.sidebar.toggle()"}
        (icons/icon :panel-left {:size 20})]
       [:button.sidebar-pin {:type "button"
                             :aria-label [:t :admin/sidebar-pin-button]
-                            :title "Pin sidebar open"
+                            :title [:t :admin/sidebar-pin-hint]
                             (keyword "@click") "$store.sidebar.togglePin()"
                             :x-bind:aria-pressed "$store.sidebar.pinned"}
        (icons/icon :pin {:size 20})]]]
@@ -235,46 +250,46 @@
      Vector of [operator-keyword display-label] tuples"
   [field-type]
   (case field-type
-    :string [[:eq "equals"]
-             [:ne "not equals"]
-             [:contains "contains"]
-             [:starts-with "starts with"]
-             [:ends-with "ends with"]
-             [:is-null "is empty"]
-             [:is-not-null "is not empty"]]
+    :string [[:eq [:t :admin/filter-op-equals]]
+             [:ne [:t :admin/filter-op-not-equals]]
+             [:contains [:t :admin/filter-op-contains]]
+             [:starts-with [:t :admin/filter-op-starts-with]]
+             [:ends-with [:t :admin/filter-op-ends-with]]
+             [:is-null [:t :admin/filter-op-is-empty]]
+             [:is-not-null [:t :admin/filter-op-is-not-empty]]]
 
-    (:int :decimal) [[:eq "equals"]
-                     [:ne "not equals"]
-                     [:gt "greater than"]
-                     [:gte "greater or equal"]
-                     [:lt "less than"]
-                     [:lte "less or equal"]
-                     [:between "between"]
-                     [:is-null "is empty"]
-                     [:is-not-null "is not empty"]]
+    (:int :decimal) [[:eq [:t :admin/filter-op-equals]]
+                     [:ne [:t :admin/filter-op-not-equals]]
+                     [:gt [:t :admin/filter-op-greater-than]]
+                     [:gte [:t :admin/filter-op-gte]]
+                     [:lt [:t :admin/filter-op-less-than]]
+                     [:lte [:t :admin/filter-op-lte]]
+                     [:between [:t :admin/filter-op-between]]
+                     [:is-null [:t :admin/filter-op-is-empty]]
+                     [:is-not-null [:t :admin/filter-op-is-not-empty]]]
 
-    (:instant :date) [[:eq "on date"]
-                      [:ne "not on date"]
-                      [:gt "after"]
-                      [:gte "on or after"]
-                      [:lt "before"]
-                      [:lte "on or before"]
-                      [:between "between"]
-                      [:is-null "is empty"]
-                      [:is-not-null "is not empty"]]
+    (:instant :date) [[:eq [:t :admin/filter-op-on-date]]
+                      [:ne [:t :admin/filter-op-not-on-date]]
+                      [:gt [:t :admin/filter-op-after]]
+                      [:gte [:t :admin/filter-op-on-or-after]]
+                      [:lt [:t :admin/filter-op-before]]
+                      [:lte [:t :admin/filter-op-on-or-before]]
+                      [:between [:t :admin/filter-op-between]]
+                      [:is-null [:t :admin/filter-op-is-empty]]
+                      [:is-not-null [:t :admin/filter-op-is-not-empty]]]
 
-    :boolean [[:eq "equals"]]
+    :boolean [[:eq [:t :admin/filter-op-equals]]]
 
-    :enum [[:eq "equals"]
-           [:ne "not equals"]
-           [:in "any of"]
-           [:not-in "none of"]]
+    :enum [[:eq [:t :admin/filter-op-equals]]
+           [:ne [:t :admin/filter-op-not-equals]]
+           [:in [:t :admin/filter-op-any-of]]
+           [:not-in [:t :admin/filter-op-none-of]]]
 
     ;; Default for unknown types
-    [[:eq "equals"]
-     [:ne "not equals"]
-     [:is-null "is empty"]
-     [:is-not-null "is not empty"]]))
+    [[:eq [:t :admin/filter-op-equals]]
+     [:ne [:t :admin/filter-op-not-equals]]
+     [:is-null [:t :admin/filter-op-is-empty]]
+     [:is-not-null [:t :admin/filter-op-is-not-empty]]]))
 
 (defn render-filter-value-inputs
   "Render value input(s) for a filter based on operator and field type.
@@ -500,7 +515,7 @@
       [:span.null-value {:class "badge ui-badge ui-badge-neutral null-value"} "—"]
 
       (= field-type :boolean)
-      (ui/badge (if value "Yes" "No")
+      (ui/badge (if value [:t :common/option-yes] [:t :common/option-no])
                 {:variant (if value :success :neutral)
                  :class (str "admin-bool-badge "
                              (if value "admin-bool-badge-true" "admin-bool-badge-false"))})
@@ -669,11 +684,11 @@
 
      ; Action buttons
      [:span.inline-actions
-      [:button.inline-save {:type "submit" :title "Save"}
+      [:button.inline-save {:type "submit" :title [:t :admin/inline-save]}
        (icons/icon :check {:size 14})]
       [:button.inline-cancel
        {:type "button"
-        :title "Cancel"
+        :title [:t :admin/inline-cancel]
         :hx-get (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/cancel")
         :hx-target "closest td"
         :hx-swap "outerHTML"}
@@ -738,11 +753,11 @@
 
       ; Action buttons
       [:span.inline-actions
-       [:button.inline-save {:type "submit" :title "Save"}
+       [:button.inline-save {:type "submit" :title [:t :admin/inline-save]}
         (icons/icon :check {:size 14})]
        [:button.inline-cancel
         {:type "button"
-         :title "Cancel"
+         :title [:t :admin/inline-cancel]
          :hx-get (str "/web/admin/" (name entity-name) "/" record-id "/" (name field) "/cancel")
          :hx-target "closest td"
          :hx-swap "outerHTML"}
@@ -789,7 +804,7 @@
         (when (:can-create permissions)
           [:a.button.primary
            {:class "mt-4"
-            :href (str "/web/admin/" (name entity-name) "/new")}
+            :href (entity-create-url entity-name entity-config)}
            [:t :admin/button-create-first-record]])]
        [:div.table-wrapper
         ;; Form for checkbox submission (hidden inputs + table)
@@ -881,7 +896,7 @@
         (when (:can-create permissions)
           [:a.button.primary
            {:class "gap-2"
-            :href (str "/web/admin/" (name entity-name) "/new")
+            :href (entity-create-url entity-name entity-config)
             :aria-label (str "Create new " (name entity-name))}
            (icons/icon :plus {:size 18})
            [:t :admin/button-new {:entity (str/capitalize (name entity-name))}]])]]]
@@ -1165,7 +1180,7 @@
                                     (:editable-fields entity-config []))]
       (if (seq ungrouped-fields)
         ;; Append "Other" group for ungrouped fields
-        (let [other-label (get-in entity-config [:ui :field-grouping :other-label] "Other")]
+        (let [other-label (get-in entity-config [:ui :field-grouping :other-label] [:t :admin/fieldgroup-other])]
           (conj (vec groups-with-editable)
                 {:id :other
                  :label other-label
@@ -1399,7 +1414,7 @@
      [:div.page-header {:class "space-y-3"}
       [:div.page-header-row
        [:div.page-breadcrumbs
-        [:a {:href "/web/admin"} "Admin"]
+        [:a {:href "/web/admin"} [:t :admin/breadcrumb-admin]]
         " / "
         [:a {:href list-url} label]
         " / "
@@ -1427,7 +1442,7 @@
         (when is-edit?
           [:a.button.primary
            {:class "gap-2"
-            :href (str "/web/admin/" (name entity-name) "/new")}
+            :href (entity-create-url entity-name entity-config)}
            (icons/icon :plus {:size 16})
            [:t :admin/form-create-heading {:label label}]])
         (when (and is-edit? (:can-delete permissions))

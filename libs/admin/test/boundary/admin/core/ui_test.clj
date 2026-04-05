@@ -166,9 +166,9 @@
             false-result (ui/render-field-value :active false {:type :boolean})]
         (is (vector? true-result))
         (is (= :span (first true-result)))
-        (is (str/includes? (str true-result) "Yes"))
+        (is (str/includes? (str true-result) ":common/option-yes"))
         (is (vector? false-result))
-        (is (str/includes? (str false-result) "No"))))
+        (is (str/includes? (str false-result) ":common/option-no"))))
 
     (testing "Instant/datetime values"
       (let [instant (Instant/parse "2026-01-09T12:00:00Z")
@@ -611,8 +611,8 @@
         (is (vector? page))
         (is (= :div.entity-detail-page (first page)))
 
-        ;; Should have breadcrumbs
-        (is (str/includes? (str page) "Admin"))
+        ;; Should have breadcrumbs (i18n markers)
+        (is (str/includes? (str page) ":admin/breadcrumb-admin"))
         (is (str/includes? (str page) "Users"))
 
         ;; Should have page title (i18n key)
@@ -886,9 +886,9 @@
     (testing "Boolean field shows text (not just color)"
       (let [active-result (ui/render-field-value :active true {:type :boolean})
             inactive-result (ui/render-field-value :active false {:type :boolean})]
-        ;; Should show "Yes"/"No" text, not just color
-        (is (str/includes? (str active-result) "Yes"))
-        (is (str/includes? (str inactive-result) "No"))))))
+        ;; Should show "Yes"/"No" text via i18n markers (not just color)
+        (is (str/includes? (str active-result) ":common/option-yes"))
+        (is (str/includes? (str inactive-result) ":common/option-no"))))))
 
 ;; =============================================================================
 ;; Field Grouping Tests
@@ -966,8 +966,8 @@
                        (assoc :editable-fields [:email :name :role :active :bio]))
             form (ui/entity-form :users config nil nil sample-permissions)
             form-str (str form)]
-        ;; Should use default "Other"
-        (is (str/includes? form-str "Other"))))))
+        ;; Should use default "Other" (i18n marker)
+        (is (str/includes? form-str ":admin/fieldgroup-other"))))))
 
 (deftest field-grouping-filters-non-editable-test
   (testing "Groups only contain editable fields"

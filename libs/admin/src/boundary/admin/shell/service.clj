@@ -334,6 +334,19 @@
      db-ctx))
 
   (create-entity [_ entity-name data]
+    ;; Fail-fast: split-table entities cannot be created via the generic admin
+    ;; flow because only the primary table would be written (leaving orphaned
+    ;; rows). Such entities must expose a dedicated create flow via
+    ;; :create-redirect-url. This check is lifted OUT of the persistence
+    ;; operation so the persistence interceptor does not log a rejected
+    ;; business-rule violation as a "database operation failed" error.
+    (let [entity-config (ports/get-entity-config schema-provider entity-name)]
+      (when-let [split-cfg (:split-table-update entity-config)]
+        (throw (ex-info "Cannot create split-table entity via generic admin flow"
+                        {:type :cannot-create-split-table-entity
+                         :entity-name entity-name
+                         :split-config split-cfg
+                         :create-redirect-url (:create-redirect-url entity-config)}))))
     (persist-interceptors/execute-persistence-operation
      :admin-create-entity
      {:entity (name entity-name)}

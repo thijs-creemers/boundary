@@ -10,13 +10,38 @@
   :readonly-fields #{:id :created-at :updated-at}
 
   :fields
-  {:email      {:filterable false}
-   :name       {:filterable false}
-   :role       {:type :enum    :label "Role"
-                :options [[:admin "Admin"] [:user "User"] [:viewer "Viewer"]]
+  {:email      {:label [:t :admin.users/field-email]      :filterable false}
+   :name       {:label [:t :admin.users/field-name]       :filterable false}
+   :role       {:type :enum
+                :label [:t :admin.users/field-role]
+                :options [[:admin [:t :common/role-admin]]
+                          [:user  [:t :common/role-user]]
+                          [:viewer [:t :common/role-viewer]]]
                 :filterable true}
-   :active     {:type :boolean :label "Active"  :filterable true}
-   :created-at {:type :instant :label "Created" :filterable true}}
+   :active     {:type :boolean :label [:t :admin.users/field-active]  :filterable true}
+   :created-at {:type :instant :label [:t :admin.users/field-created] :filterable true}
+   :theme      {:type :enum
+                :label [:t :admin.users/field-theme]
+                :options [[:light [:t :admin.users/theme-light]]
+                          [:dark  [:t :admin.users/theme-dark]]
+                          [:auto  [:t :admin.users/theme-auto]]]}
+   :language   {:type :enum
+                :label [:t :admin.users/field-language]
+                :options [[:en [:t :admin.users/language-en]]
+                          [:nl [:t :admin.users/language-nl]]]}
+   :timezone   {:label [:t :admin.users/field-timezone]}
+   :date-format {:type :enum
+                 :label [:t :admin.users/field-date-format]
+                 :options [[:iso [:t :admin.users/date-format-iso]]
+                           [:us  [:t :admin.users/date-format-us]]
+                           [:eu  [:t :admin.users/date-format-eu]]]}
+   :time-format {:type :enum
+                 :label [:t :admin.users/field-time-format]
+                 :options [[:12h [:t :admin.users/time-format-12h]]
+                           [:24h [:t :admin.users/time-format-24h]]]}
+   :notifications-email {:label [:t :admin.users/field-notifications-email]}
+   :notifications-push  {:label [:t :admin.users/field-notifications-push]}
+   :notifications-sms   {:label [:t :admin.users/field-notifications-sms]}}
 
   :field-order     [:email
                     :name
@@ -34,16 +59,16 @@
                     :updated-at]
 
   :field-groups
-  [{:id :identity     :label "Identity"     :fields [:email :name]}
-   {:id :access       :label "Access"       :fields [:role :active]}
-   {:id :preferences  :label "Preferences"  :fields [:theme
-                                                     :language
-                                                     :timezone
-                                                     :date-format
-                                                     :time-format]}
-   {:id :notifications :label "Notifications" :fields [:notifications-email
-                                                       :notifications-push
-                                                       :notifications-sms]}]
+  [{:id :identity      :label [:t :admin.users/group-identity]      :fields [:email :name]}
+   {:id :access        :label [:t :admin.users/group-access]        :fields [:role :active]}
+   {:id :preferences   :label [:t :admin.users/group-preferences]   :fields [:theme
+                                                                             :language
+                                                                             :timezone
+                                                                             :date-format
+                                                                             :time-format]}
+   {:id :notifications :label [:t :admin.users/group-notifications] :fields [:notifications-email
+                                                                             :notifications-push
+                                                                             :notifications-sms]}]
 
   ;; Multi-table JOIN: email lives in auth_users, profile fields in users
   :query-overrides
