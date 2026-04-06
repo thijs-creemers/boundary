@@ -335,7 +335,7 @@
                             (get-in request [:query-params "return-to"]))
           prepared-data {:email (get form-data "email")
                          :password (get form-data "password")
-                         :remember (= "on" (get form-data "remember"))
+                         :remember (boolean (get form-data "remember"))
                          :mfa-code (get form-data "mfa-code")
                          :ip-address (:remote-addr request)
                          :user-agent (get-in request [:headers "user-agent"])}
@@ -422,6 +422,9 @@
               ;; Authentication failed (e.g. wrong password or invalid MFA code)
               :else
               (let [error-message (cond
+                                    (= :account-locked (:reason auth-result))
+                                    "Too many failed attempts, please try again in 15 minutes"
+
                                     (= :mfa-verification-failed (:reason auth-result))
                                     "Invalid MFA code"
 

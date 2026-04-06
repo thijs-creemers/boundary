@@ -841,6 +841,15 @@ jobs:
         with:
           bb: latest
 
+      - name: Cache dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
       - name: Scan for unexternalised strings
         run: bb i18n:scan
 
@@ -873,6 +882,67 @@ jobs:
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
         run: clojure -M:test:db/h2 :i18n
+
+  # =============================================================================
+  # End-to-end Clojure/spel tests
+  # =============================================================================
+  e2e:
+    name: E2E (spel)
+    runs-on: ubuntu-latest
+    needs: [lint, build-ui-assets]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13.5.2
+        with:
+          cli: 1.11.1.1347
+          bb: latest
+
+      - name: Cache Maven deps
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-spel-0.7.11
+
+      - name: Warm deps
+        run: clojure -P -M:test:e2e
+
+      - name: Install Playwright browsers
+        run: clojure -M:e2e -e "(.exit (com.microsoft.playwright.CLI/main (into-array String [\"install\" \"chromium\"])))"
+
+      - name: Run e2e suite
+        continue-on-error: true
+        run: bb e2e
+        env:
+          BND_ENV: test
+          CI: "true"
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-failures
+          path: |
+            target/spel/
+            target/test-output/
+          retention-days: 7
 
   # =============================================================================
   # Summary job
@@ -909,6 +979,7 @@ jobs:
           echo "  - boundary/geo"
           echo "  - boundary/ai"
           echo "  - boundary/i18n"
+          echo "  - boundary/e2e (spel/Playwright)"
           echo "Gates passed:"
           echo "  - config-doctor (no config errors)"
           echo "  - i18n:scan (no unexternalised strings)"

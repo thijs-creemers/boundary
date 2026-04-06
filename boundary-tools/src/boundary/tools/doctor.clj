@@ -191,6 +191,44 @@
           :fix   "Replace all placeholder values with real configuration"}]
         [{:id :prod-placeholders :level :pass :msg "No placeholder values found"}]))))
 
+(def reset-endpoint-allowed-profiles
+  "Profiles where :test/reset-endpoint-enabled? is allowed to be true.
+   This flag exposes a DB-truncating HTTP endpoint and must never ship in prod/acc."
+  #{"test" "dev"})
+
+(defn check-reset-endpoint-flag
+  "Check that :test/reset-endpoint-enabled? is not true outside of :test or :dev profiles.
+   This flag exposes a destructive `/test/reset` endpoint and must never be enabled in
+   prod/acc. Backs the runtime assertion in
+   libs/platform/src/boundary/platform/shell/system/wiring.clj/build-test-reset-routes.
+
+   `parsed-config` is the full EDN config map (not just the :active section), since
+   the flag lives at the top level of config.edn. `env-name` is the profile name
+   string (e.g. \"prod\", \"acc\", \"test\", \"dev\")."
+  [parsed-config env-name]
+  (let [flag-value (get parsed-config :test/reset-endpoint-enabled?)
+        allowed?   (contains? reset-endpoint-allowed-profiles env-name)]
+    (cond
+      (and (true? flag-value) (not allowed?))
+      [{:id    :reset-endpoint-flag
+        :level :error
+        :msg   (str "[flag=:test/reset-endpoint-enabled?] must not be true in "
+                    env-name " profile — this flag exposes a DB-truncating endpoint. "
+                    "Allowed profiles: "
+                    (str/join ", " (sort (map #(str ":" %) reset-endpoint-allowed-profiles))))
+        :fix   (str "Remove :test/reset-endpoint-enabled? from resources/conf/"
+                    env-name "/config.edn (or set it to false)")}]
+
+      (true? flag-value)
+      [{:id    :reset-endpoint-flag
+        :level :pass
+        :msg   (str ":test/reset-endpoint-enabled? enabled (allowed in " env-name " profile)")}]
+
+      :else
+      [{:id    :reset-endpoint-flag
+        :level :pass
+        :msg   ":test/reset-endpoint-enabled? not enabled"}])))
+
 (defn check-wiring-requires
   "Check that wiring.clj has require entries for all active Integrant module keys."
   [wiring-text active-config]
@@ -344,6 +382,7 @@
        (check-jwt-secret active env-map)
        (check-admin-parity dev-admin test-admin)
        (check-prod-placeholders config-text env)
+       (check-reset-endpoint-flag (or parsed {}) env)
        (check-wiring-requires wiring-text active)))))
 
 ;; =============================================================================
@@ -404,6 +443,7 @@
   (println "  jwt-secret          JWT_SECRET set when user module active")
   (println "  admin-parity        Admin entity files exist in both dev and test")
   (println "  prod-placeholders   No placeholder values in prod config")
+  (println "  reset-endpoint-flag :test/reset-endpoint-enabled? only true in test/dev")
   (println "  wiring-requires     wiring.clj has requires for all active modules"))
 
 ;; =============================================================================

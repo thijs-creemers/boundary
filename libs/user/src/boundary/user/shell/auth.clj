@@ -110,16 +110,18 @@
 
 (defn generate-session-token
   "Shell function: Generate cryptographically secure session token.
-   
+
    Returns:
-     Base64-encoded random token string
-     
+     URL-safe base64-encoded random token string (no +, /, or = chars).
+     Uses URL-safe encoding so tokens can safely appear in URL paths
+     without triggering Jetty 'Ambiguous URI path separator' errors.
+
    Side effects: Secure random generation"
   []
   (let [random (SecureRandom.)
         bytes (byte-array 32)]
     (.nextBytes random bytes)
-    (.encodeToString (Base64/getEncoder) bytes)))
+    (.encodeToString (.withoutPadding (Base64/getUrlEncoder)) bytes)))
 
 ;; =============================================================================
 ;; Authentication Service Coordination
@@ -219,14 +221,14 @@
                    ;; Password verification failed
                    (not password-valid?)
                    (let [failure-updates (auth-core/calculate-failed-login-consequences
-                                           user auth-config current-time)
-                          updated-user (merge user failure-updates)]
+                                          user auth-config current-time)
+                         updated-user (merge user failure-updates)]
                       ;; Update user with failed login consequences (I/O)
-                      (.update-user user-repository updated-user)
-                      (log/warn "Authentication failed - invalid password" {:email email})
-                      {:success? false
-                       :error :authentication-failed
-                       :message "Invalid credentials"})
+                     (.update-user user-repository updated-user)
+                     (log/warn "Authentication failed - invalid password" {:email email})
+                     {:success? false
+                      :error :authentication-failed
+                      :message "Invalid credentials"})
 
                    ;; MFA required but not provided
                    (and (:requires-mfa? mfa-requirement)
@@ -249,36 +251,36 @@
                    ;; Successful authentication (with or without MFA)
                    :else
                    (let [;; If backup code was used, update user
-                          user-after-mfa (if (:used-backup-code? mfa-verification)
-                                           (do
-                                             (log/info "Backup code used for MFA" {:email email})
-                                             (let [updated (merge user (:updates mfa-verification))]
-                                               (.update-user user-repository updated)
-                                               updated))
-                                           user)
+                         user-after-mfa (if (:used-backup-code? mfa-verification)
+                                          (do
+                                            (log/info "Backup code used for MFA" {:email email})
+                                            (let [updated (merge user (:updates mfa-verification))]
+                                              (.update-user user-repository updated)
+                                              updated))
+                                          user)
 
                           ;; Update user for successful login (I/O)  
-                          login-updates (auth-core/prepare-successful-login-updates user-after-mfa current-time)
-                          updated-user (merge user-after-mfa login-updates)
-                          _ (.update-user user-repository updated-user)
+                         login-updates (auth-core/prepare-successful-login-updates user-after-mfa current-time)
+                         updated-user (merge user-after-mfa login-updates)
+                         _ (.update-user user-repository updated-user)
 
                          ;; Determine session creation policy
-                          session-policy (auth-core/should-create-session? user login-risk auth-config)
+                         session-policy (auth-core/should-create-session? user login-risk auth-config)
 
                           ;; Create session if policy allows
-                          session (when (:create-session? session-policy)
-                                    (let [session-token (generate-session-token)
-                                          jwt-token (create-jwt-token user (:session-duration-hours session-policy))
-                                          session-data {:user-id (:id user)
-                                                        :session-token session-token
+                         session (when (:create-session? session-policy)
+                                   (let [session-token (generate-session-token)
+                                         jwt-token (create-jwt-token user (:session-duration-hours session-policy))
+                                         session-data {:user-id (:id user)
+                                                       :session-token session-token
                                                         ;; jwt-token is NOT stored in DB, only returned to client
-                                                        :expires-at (.plus current-time
-                                                                           (Duration/ofHours (:session-duration-hours session-policy)))
-                                                        :user-agent (:user-agent login-context)
-                                                        :ip-address (:ip-address login-context)}
-                                          created-session (.create-session session-repository session-data)]
+                                                       :expires-at (.plus current-time
+                                                                          (Duration/ofHours (:session-duration-hours session-policy)))
+                                                       :user-agent (:user-agent login-context)
+                                                       :ip-address (:ip-address login-context)}
+                                         created-session (.create-session session-repository session-data)]
                                       ;; Add jwt-token to returned session (not persisted)
-                                      (assoc created-session :jwt-token jwt-token)))]
+                                     (assoc created-session :jwt-token jwt-token)))]
 
                      (log/info "Authentication successful"
                                {:email email

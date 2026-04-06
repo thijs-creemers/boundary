@@ -244,7 +244,7 @@
   [mfa-service]
   (fn [request]
     (try
-      (let [user-id (get-in request [:session :user :id])
+      (let [user-id (get-in request [:user :id])
             _ (when-not user-id
                 (throw (ex-info "User not authenticated" {:type :unauthorized})))
             result (mfa/setup-mfa mfa-service user-id)]
@@ -270,7 +270,7 @@
   [mfa-service]
   (fn [request]
     (try
-      (let [user-id (get-in request [:session :user :id])
+      (let [user-id (get-in request [:user :id])
             _ (when-not user-id
                 (throw (ex-info "User not authenticated" {:type :unauthorized})))
             body (get request :body-params)
@@ -295,7 +295,7 @@
   [mfa-service]
   (fn [request]
     (try
-      (let [user-id (get-in request [:session :user :id])
+      (let [user-id (get-in request [:user :id])
             _ (when-not user-id
                 (throw (ex-info "User not authenticated" {:type :unauthorized})))
             result (mfa/disable-mfa mfa-service user-id)]
@@ -316,7 +316,7 @@
   [mfa-service]
   (fn [request]
     (try
-      (let [user-id (get-in request [:session :user :id])
+      (let [user-id (get-in request [:user :id])
             _ (when-not user-id
                 (throw (ex-info "User not authenticated" {:type :unauthorized})))
             status (mfa/get-mfa-status mfa-service user-id)]

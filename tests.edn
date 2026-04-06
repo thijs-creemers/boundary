@@ -139,7 +139,11 @@
 
           {:id :i18n
            :test-paths ["libs/i18n/test"]
-           :ns-patterns ["boundary.i18n.*-test"]}]
+           :ns-patterns ["boundary.i18n.*-test"]}
+
+         ;; End-to-end suite lives in tests.e2e.edn so default
+         ;; clojure -M:test runs stay opt-in and do not require spel.
+         ]
 
   :plugins [:kaocha.plugin/randomize
             :kaocha.plugin/filter
@@ -150,7 +154,7 @@
  ;;   ^:unit        → clojure -M:test --focus-meta :unit
  ;;   ^:integration → clojure -M:test --focus-meta :integration
  ;;   ^:user        → clojure -M:test --focus-meta :user
-  :kaocha.plugin.filter/focus-meta [:unit :integration :contract :user :billing :phase3]
+  :kaocha.plugin.filter/focus-meta [:unit :integration :contract :e2e :user :billing :phase3]
 
   :kaocha.plugin.randomize/randomize? true
   :kaocha/reporter [boundary.test.reporter/reporter]

@@ -3,7 +3,7 @@
   (:require [clojure.string :as str]
             [boundary.core.utils.case-conversion :as case-conv])
   (:import [java.util UUID]
-           [java.time Instant]))
+           [java.time Instant OffsetDateTime]))
 
 (defn uuid->string
   "Convert UUID to string for storage (nil-safe)."
@@ -30,16 +30,20 @@
 
 (defn string->instant
   "Convert ISO 8601 string to Instant from storage (nil-safe).
-   
+
    Handles:
    - String timestamps in ISO 8601 format
    - Native Instant objects (e.g., from some databases)
-   - java.sql.Timestamp objects (e.g., from H2, PostgreSQL JDBC)"
+   - java.sql.Timestamp objects (e.g., from H2, PostgreSQL JDBC)
+   - java.time.OffsetDateTime objects (e.g., from H2 TIMESTAMP WITH TIME ZONE columns)"
   [s]
   (when (and s (not= s ""))
     (cond
       (instance? Instant s)
       s  ; Already an Instant, return as-is
+
+      (instance? OffsetDateTime s)
+      (.toInstant ^OffsetDateTime s)  ; Convert OffsetDateTime to Instant
 
       (instance? java.sql.Timestamp s)
       (.toInstant ^java.sql.Timestamp s)  ; Convert Timestamp to Instant

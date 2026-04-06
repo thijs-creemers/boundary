@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### `boundary-e2e` — end-to-end test suite for login sequence
+- **33 Clojure/spel e2e tests** covering `/web/login`, `/web/register`, and `/api/v1/auth/*` — browser automation + API testing via [spel](https://github.com/Blockether/spel) (Playwright Java wrapper). No Node.js/npm/TypeScript introduced.
+- New sub-library `libs/e2e/` with `com.blockether/spel` dependency, isolated behind opt-in `:e2e` alias — normal `clojure -M:test` runs are unaffected.
+- `bb e2e`: orchestrator task that starts the app in `:test` profile on port 3100, runs the kaocha `:e2e` suite, and tears down the server.
+- `bb run-e2e-server`: standalone task for manual debugging against the test-profile server.
+- Test-only `POST /test/reset` endpoint (behind `:test/reset-endpoint-enabled?` config flag) that truncates H2 and re-seeds baseline tenant/users via production services. Guarded by startup assertion (throws in prod/acc) and `bb doctor` check.
+- Kaocha `:e2e` suite in `tests.e2e.edn` with `^:e2e` metadata filtering.
+- CI: new `e2e` job in `.github/workflows/ci.yml` with Playwright browser cache.
+
+### Fixed
+
+#### `boundary-user` — 5 auth/session bugs discovered by e2e tests
+- **MFA handlers**: read `[:session :user :id]` instead of `[:user :id]` from the request — all 4 MFA endpoints (`setup`, `enable`, `disable`, `status`) always returned 500. Fixed by reading `(:user request)` directly.
+- **Remember-me checkbox**: `login-submit-handler` checked for `"on"` but the `ui/checkbox` component submitted `"true"` — remember-me never activated. Fixed by accepting any truthy form value.
+- **Session validation after login redirect**: `string->instant` in `boundary.core.utils.type-conversion` did not handle `java.time.OffsetDateTime` (returned by H2 for `TIMESTAMP WITH TIME ZONE` columns) — caused NPE in `is-session-valid?`, bouncing users back to login after successful authentication. Fixed by adding `OffsetDateTime` handling.
+- **Account lockout not enforced**: `should-allow-login-attempt?` and `calculate-failed-login-consequences` existed in the core layer but were never called from the service layer. Fixed by adding a service-level lockout gate that checks the threshold before delegating to `authenticate-user`. Only true lockout (`:retry-after` present) short-circuits — deactivated/deleted accounts fall through to the normal auth flow to preserve their own error semantics.
+- **Session tokens break URL paths**: standard base64 encoding produced `+`, `/`, `=` characters that caused Jetty 400 errors on `GET/DELETE /api/v1/sessions/:token`. Fixed by switching `generate-session-token` to URL-safe base64 (`Base64/getUrlEncoder` without padding). **Breaking change**: existing sessions with old-format tokens will fail validation — users must re-login after deploy.
+
+### Changed
+
 #### `boundary-tools` — 4 new developer helper tools
 
 ##### `bb doctor` — Config Doctor (rule-based)

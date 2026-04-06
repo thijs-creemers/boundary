@@ -104,8 +104,41 @@
 ;; HTTP Handler
 ;; =============================================================================
 
+(defn- build-test-reset-routes
+  "Return a one-element vector containing the POST /test/reset reitit route
+   when :test/reset-endpoint-enabled? is true in `config`, otherwise nil.
+
+   Loudly throws at startup if the flag is enabled in a non-test/non-dev
+   profile — this is a production safety net, not graceful degradation.
+
+   The handler is looked up via `requiring-resolve` so that libs/platform
+   does NOT have a compile-time dependency on the monolith test-support
+   namespace (which would reverse the library dependency direction)."
+  [{:keys [config user-service tenant-service db-context]}]
+  (when (true? (:test/reset-endpoint-enabled? config))
+    (let [profile (:boundary/profile config)]
+      (when-not (contains? #{:test :dev} profile)
+        (throw (ex-info "test/reset endpoint cannot be enabled outside :test/:dev"
+                        {:profile profile
+                         :flag    :test/reset-endpoint-enabled?}))))
+    (let [make-handler (requiring-resolve 'boundary.test-support.shell.handler/make-reset-handler)
+          truncate!    (requiring-resolve 'boundary.test-support.shell.reset/truncate-all!)
+          seed!        (requiring-resolve 'boundary.test-support.shell.reset/seed-baseline!)
+          datasource   (:datasource db-context)
+          deps         {:user-service   user-service
+                        :tenant-service tenant-service
+                        :datasource     datasource
+                        :truncate!      (fn [_] (truncate! datasource))
+                        :seed!          (fn [d] (seed! d))}
+          handler      (make-handler deps)]
+      (log/warn "Mounting /test/reset endpoint — test-profile only, DO NOT enable in production")
+      [{:path "/test/reset"
+        :methods {:post {:handler handler
+                         :summary "Playwright e2e reset + seed endpoint"
+                         :no-doc  true}}}])))
+
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service membership-service db-context cache i18n]}]
+  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service membership-service db-context cache i18n user-service]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)
@@ -252,6 +285,15 @@
                                (http-versioning/apply-versioning all-api-routes config)
                                [])
 
+        ;; Conditionally build /test/reset route (test profile only).
+        ;; Deliberately NOT routed through apply-versioning — we want the
+        ;; literal path /test/reset, not /api/v1/test/reset.
+        test-reset-routes (build-test-reset-routes
+                           {:config         config
+                            :user-service   user-service
+                            :tenant-service tenant-service
+                            :db-context     db-context})
+
         ;; Combine all routes: platform, static, web, and versioned API
         all-normalized-routes (concat platform-routes
                                       (or user-normalized-static [])
@@ -260,7 +302,8 @@
                                       (or admin-normalized-web [])
                                       (or workflow-normalized-web [])
                                       (or search-normalized-web [])
-                                      versioned-api-routes)
+                                      versioned-api-routes
+                                      (or test-reset-routes []))
 
         ;; Build system services map for HTTP interceptors
         system {:logger logger

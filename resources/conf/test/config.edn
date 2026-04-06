@@ -2,6 +2,12 @@
  ;; Test Environment Configuration
  ;; =============================================================================
 
+ ;; Enables POST /test/reset endpoint for Playwright e2e tests.
+ ;; MUST only ever be true in the :test profile (and optionally :dev).
+ ;; Startup wiring asserts the profile and will throw if this flag is set in
+ ;; prod/acc. See libs/platform/src/boundary/platform/shell/system/wiring.clj.
+ :test/reset-endpoint-enabled? true
+
  :active
  {  ;; Core application settings (always active)
   :boundary/settings
@@ -20,6 +26,14 @@
    :pool   {:minimum-idle 1
             :maximum-pool-size 5
             :connection-timeout-ms 5000}}
+
+  ;; HTTP Server configuration (used by `bb run-e2e-server` for Playwright/spel e2e runs).
+  ;; Port defaults to 3100 to avoid clashing with a dev server on 3000; override via HTTP_PORT.
+  :boundary/http
+  {:port       #or [#env HTTP_PORT 3100]
+   :host       #or [#env HTTP_HOST "0.0.0.0"]
+   :join?      false
+   :port-range {:start 3100 :end 3199}}
 
   ;; Test logging configuration
   :boundary/logging

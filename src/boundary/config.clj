@@ -51,7 +51,8 @@
      (if config-resource
        (do
          (log/info "Loading configuration" {:profile profile :path config-path})
-         (aero/read-config config-resource {:profile profile}))
+         (assoc (aero/read-config config-resource {:profile profile})
+                :boundary/profile profile))
        (throw (ex-info "Configuration file not found"
                        {:profile profile
                         :path config-path
@@ -300,6 +301,7 @@
                                      :logger (ig/ref :boundary/logging)
                                      :metrics-emitter (ig/ref :boundary/metrics)
                                      :error-reporter (ig/ref :boundary/error-reporting)
+                                     :user-service (ig/ref :boundary/user-service)
                                      :tenant-service (ig/ref :boundary/tenant-service)
                                      :membership-service (ig/ref :boundary/membership-service)
                                      :db-context (ig/ref :boundary/db-context)
