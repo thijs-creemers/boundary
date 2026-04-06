@@ -181,15 +181,21 @@ document.addEventListener('alpine:init', function () {
   function initClickableRows() {
     var clickTimer = null;
 
-    document.addEventListener('dblclick', function (event) {
-      // Cancel pending single-click navigation when double-clicking
+    function cancelPendingNavigation() {
       if (clickTimer) {
         clearTimeout(clickTimer);
         clickTimer = null;
       }
-    });
+    }
+
+    // Cancel pending navigation on any double-click (inline edit takes over)
+    document.addEventListener('dblclick', cancelPendingNavigation);
 
     document.addEventListener('click', function (event) {
+      // Any click anywhere cancels a pending row navigation first,
+      // so a correction click (checkbox, button, etc.) is never ignored.
+      cancelPendingNavigation();
+
       // Find closest clickable row
       var row = event.target.closest('tr.clickable-row');
       if (!row) return;
@@ -203,12 +209,13 @@ document.addEventListener('alpine:init', function () {
       var href = row.getAttribute('data-href');
       if (!href) return;
 
-      // Delay navigation so a double-click can cancel it
-      if (clickTimer) clearTimeout(clickTimer);
+      // Delay navigation to allow double-click (inline edit) to cancel it.
+      // 400ms matches the typical OS double-click interval and accommodates
+      // accessibility settings for slower double-clicks.
       clickTimer = setTimeout(function () {
         clickTimer = null;
         window.location.href = href;
-      }, 250);
+      }, 400);
     });
   }
 
