@@ -5,7 +5,7 @@ All notable changes to the Boundary Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.1-alpha-11] - 2026-04-06
 
 ### Added
 
@@ -819,7 +819,8 @@ Copyright 2024-2025 Thijs Creemers. All rights reserved.
 
 ## Version History
 
-- **[Unreleased]** - In development on `feat/boundary-workflow`
+- **[1.0.1-alpha-11]** - 2026-04-06: E2E testing, admin UI improvements, auth bug fixes, quality gates, version bump
 - **[1.0.0-alpha]** - 2026-02-14: Initial production release
 
+[1.0.1-alpha-11]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-11
 [1.0.0-alpha]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.0-alpha

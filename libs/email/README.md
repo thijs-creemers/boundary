@@ -1,6 +1,6 @@
 # Email Module
 
-[![Status](https://img.shields.io/badge/status-in%20development-yellow)]()
+[![Status](https://img.shields.io/badge/status-stable-brightgreen)]()
 [![Clojure](https://img.shields.io/badge/clojure-1.12+-blue)]()
 [![License](https://img.shields.io/badge/license-EPL--2.0-green)]()
 [![Clojars Project](https://img.shields.io/clojars/v/org.boundary-app/boundary-email.svg)](https://clojars.org/org.boundary-app/boundary-email)
@@ -40,7 +40,7 @@ Similar to **Action Mailer** (Rails) or **Django Email**, this module provides s
 
 ```clojure
 ;; deps.edn
-{:deps {org.boundary-app/boundary-email {:mvn/version "1.0.0-alpha"}}}
+{:deps {org.boundary-app/boundary-email {:mvn/version "1.0.1-alpha-11"}}}
 ```
 
 ### 2. Create SMTP Sender
@@ -460,8 +460,8 @@ For high-volume email sending with automatic retries and monitoring, integrate w
 
 ```clojure
 ;; deps.edn
-{:deps {org.boundary-app/boundary-email {:mvn/version "1.0.0-alpha"}
-        org.boundary-app/boundary-jobs {:mvn/version "1.0.0-alpha"}
+{:deps {org.boundary-app/boundary-email {:mvn/version "1.0.1-alpha-11"}
+        org.boundary-app/boundary-jobs {:mvn/version "1.0.1-alpha-11"}
         redis.clients/jedis {:mvn/version "5.2.0"}}}
 ```
 

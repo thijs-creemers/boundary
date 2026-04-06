@@ -189,15 +189,15 @@ This is the normal release flow:
 [source,bash]
 ----
 # 1. Bump versions in all build.clj files
-sed -i '' 's/(def version "1.0.0-alpha-3")/(def version "1.0.1-alpha-4")/' libs/*/build.clj
-sed -i '' 's/(def version "1.0.0-alpha")/(def version "1.0.1-alpha-4")/' boundary-tools/build.clj
+sed -i '' 's/(def version "1.0.1-alpha-11")/(def version "1.0.1-alpha-12")/' libs/*/build.clj
+sed -i '' 's/(def version "1.0.1-alpha-11")/(def version "1.0.1-alpha-12")/' boundary-tools/build.clj
 
 # 2. Commit and tag
 git add libs/*/build.clj boundary-tools/build.clj
-git commit -m "Bump version to 1.0.1-alpha-4"
-git tag -a v1.0.1-alpha-4 -m "Release 1.0.1-alpha-4"
+git commit -m "Bump version to 1.0.1-alpha-12"
+git tag -a v1.0.1-alpha-12 -m "Release 1.0.1-alpha-12"
 git push origin main
-git push origin v1.0.1-alpha-4
+git push origin v1.0.1-alpha-12
 ----
 
 GitHub Actions will:
@@ -286,7 +286,7 @@ Deleting an existing version on Clojars is only possible within 24 hours of uplo
 
 [source]
 ----
-Could not find artifact org.boundary-app/boundary-core:jar:1.0.1-alpha-4
+Could not find artifact org.boundary-app/boundary-core:jar:1.0.1-alpha-11
 ----
 
 . Check that the library was actually published: open `https://clojars.org/org.boundary-app/boundary-core`
