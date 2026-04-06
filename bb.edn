@@ -77,8 +77,9 @@
    :task (let [proc (process/process
                      ;; HTTP_PORT pinned here so a caller's shell env cannot
                      ;; silently reroute the e2e server to another port.
-                     {:extra-env {"BND_ENV"   "test"
-                                  "HTTP_PORT" "3100"}
+                     {:extra-env {"BND_ENV"    "test"
+                                  "HTTP_PORT"  "3100"
+                                  "JWT_SECRET" "dev-secret-32-chars-minimum"}
                       :inherit   true
                       :shutdown  process/destroy-tree}
                      "clojure" "-M:run" "server")]
@@ -99,8 +100,9 @@
                                                         {:url url :waited-s n}))
                        :else (do (Thread/sleep 1000) (recur (inc n))))))]
            (let [server (process/process
-                         {:extra-env {"BND_ENV"   "test"
-                                      "HTTP_PORT" "3100"}
+                         {:extra-env {"BND_ENV"    "test"
+                                      "HTTP_PORT"  "3100"
+                                      "JWT_SECRET" "dev-secret-32-chars-minimum"}
                           :inherit   true
                           :shutdown  process/destroy-tree}
                          "clojure" "-M:run" "server")
@@ -108,7 +110,9 @@
                           (wait-for-server "http://localhost:3100/web/login" 60)
                           (println "e2e: running kaocha :e2e suite")
                           (:exit (process/shell {:continue true}
-                                                "clojure" "-M:test:e2e" ":e2e"))
+                                                "clojure" "-M:test:e2e"
+                                                "--config-file" "tests.e2e.edn"
+                                                ":e2e"))
                           (finally
                             (process/destroy-tree server)
                             (println "e2e: server torn down")))]
