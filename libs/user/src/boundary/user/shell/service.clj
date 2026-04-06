@@ -253,7 +253,14 @@
                              (auth-core/should-allow-login-attempt?
                               existing-user nil current-time))]
 
-         (if (and existing-user (not (:allowed? lockout-check)))
+         (if (and existing-user
+                  (not (:allowed? lockout-check))
+                  ;; Only short-circuit for actual lockout (has :retry-after).
+                  ;; Other rejection reasons (deactivated, deleted) must fall
+                  ;; through to the normal auth flow so they keep their own
+                  ;; error semantics — see should-allow-login-attempt? in
+                  ;; authentication.clj for the full set of reasons.
+                  (:retry-after lockout-check))
            ;; Account is locked out — return immediately without attempting auth
            (let [audit-entry (audit-core/login-audit-entry
                               (:id existing-user)
