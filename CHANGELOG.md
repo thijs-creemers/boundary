@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### `boundary-e2e` — Admin UI end-to-end test suite (BOU-10)
+- **19 Clojure/spel e2e tests** for the admin Users and Tenants UI — list overviews, detail/edit forms, search with HTMX fragment updates, access control, and soft-delete.
+- Shared admin helper namespace (`boundary.e2e.helpers.admin`) with `login-as-admin!`, `login-as-user!`, two-phase HTMX settle waiting (`install-htmx-settle-listener!` / `await-htmx-settle!`), and table/form query utilities.
+- Tests build on BOU-9 auth helpers and `with-fresh-seed` fixture for isolated H2 state per test.
+
 ### Fixed
+
+#### `platform` — Compile-time PostgreSQL class references
+- **Removed compile-time `(:import [org.postgresql.util PGobject])` and `(instance? org.postgresql.util.PSQLException ...)`** from `boundary.user.shell.service`, `boundary.tenant.shell.persistence`, and `boundary.tenant.shell.invite-persistence`. Replaced with runtime class name checks so the REPL starts without the `:db` alias on the classpath.
 
 #### `admin` — Table view UX improvements
 - **Single-click row navigation restored**: Clicking any data cell now navigates to the edit form. Previously, editable cells blocked single-click navigation due to an overly broad exclusion in the click handler.
