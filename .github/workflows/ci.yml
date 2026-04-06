@@ -921,14 +921,11 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-spel-0.7.11
 
-      - name: Warm deps and install Playwright browsers
-        run: |
-          clojure -P -M:test:e2e
-          # spel uses Playwright Java which downloads browsers lazily on first use;
-          # trigger once so the CI cache captures them.
-          clojure -M:test:e2e -e "(require 'com.blockether.spel.core) \
-            ((requiring-resolve 'com.blockether.spel.core/install-browsers!))" \
-            || echo "browser install via direct API not available; playwright will download on first test run"
+      - name: Warm deps
+        run: clojure -P -M:test:e2e
+
+      - name: Install Playwright browsers
+        run: clojure -M:test:e2e -e "(.exit (com.microsoft.playwright.CLI/main (into-array String [\"install\" \"chromium\"])))"
 
       - name: Run e2e suite
         run: bb e2e
