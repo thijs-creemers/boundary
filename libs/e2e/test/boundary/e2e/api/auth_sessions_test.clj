@@ -3,10 +3,8 @@
 
    Discovered behaviour:
    - POST /api/v1/sessions creates a session (same as /api/v1/auth/login).
-   - GET/DELETE /api/v1/sessions/:token expect the base64 session-token in the
-     path, but tokens containing `/` or `+` cause Jetty 400 (\"Ambiguous URI
-     path separator\").  Session validate/invalidate by path is therefore
-     unreliable.  Tests document this limitation.
+   - GET/DELETE /api/v1/sessions/:token work with URL-safe base64 session
+     tokens (no +, /, or = chars). Helpers URL-encode the token for safety.
    - Lockout: enforced at both auth-shell and service layers after 5 failed
      attempts (15 min lockout window).
    - Unauthenticated access to protected endpoints returns 401 (empty body)."
@@ -44,23 +42,23 @@
       (is (string? (get-in body [:session :id]))
           "Session should have a UUID id"))))
 
-(deftest ^:e2e session-validate-by-uuid-returns-not-found
-  (testing "GET /api/v1/sessions/:id with session UUID returns 404 (uses token, not id)"
-    ;; The endpoint expects the session-token (base64), not the UUID.
-    ;; Passing a UUID demonstrates it doesn't match.
-    (let [resp     (login-resp)
-          sid      (get-in resp [:body :session :id])
-          val-resp (users/validate-session sid)]
-      (is (= 404 (:status val-resp))
-          "Session validate looks up by token, not by UUID — expect 404"))))
+(deftest ^:e2e session-validate-with-token-returns-200
+  (testing "GET /api/v1/sessions/:token with actual session token returns 200"
+    (let [resp      (login-resp)
+          token     (:sessionToken (:body resp))
+          val-resp  (users/validate-session token)]
+      (is (= 200 (:status val-resp))
+          "Session validate with URL-safe token should succeed")
+      (is (true? (get-in val-resp [:body :valid]))
+          "Validated session should be marked valid"))))
 
-(deftest ^:e2e delete-session-returns-204
-  (testing "DELETE /api/v1/sessions/:id returns 204 (no-op when token doesn't match UUID)"
-    (let [resp     (login-resp)
-          sid      (get-in resp [:body :session :id])
-          del-resp (users/invalidate-session sid)]
-      ;; Returns 204 regardless (no error on missing token match)
-      (is (= 204 (:status del-resp))))))
+(deftest ^:e2e delete-session-with-token-returns-204
+  (testing "DELETE /api/v1/sessions/:token with actual session token returns 204"
+    (let [resp      (login-resp)
+          token     (:sessionToken (:body resp))
+          del-resp  (users/invalidate-session token)]
+      (is (= 204 (:status del-resp))
+          "Session invalidation with URL-safe token should return 204"))))
 
 (deftest ^:e2e protected-endpoint-without-token-is-401
   (testing "GET /api/v1/auth/mfa/status without any credentials returns 401"

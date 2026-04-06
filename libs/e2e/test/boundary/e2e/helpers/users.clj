@@ -66,14 +66,16 @@
   (api-post "/api/v1/sessions" {:email email :password password}))
 
 (defn validate-session
-  "GET /api/v1/sessions/:id — validates a session by its UUID. Returns full response."
-  [session-id]
-  (api-get (str "/api/v1/sessions/" session-id)))
+  "GET /api/v1/sessions/:token — validates a session by token. Returns full response.
+   URL-encodes the token to handle any special characters."
+  [token]
+  (api-get (str "/api/v1/sessions/" (java.net.URLEncoder/encode (str token) "UTF-8"))))
 
 (defn invalidate-session
-  "DELETE /api/v1/sessions/:id — revokes a session by its UUID. Returns full response."
-  [session-id]
-  (api-delete (str "/api/v1/sessions/" session-id)))
+  "DELETE /api/v1/sessions/:token — revokes a session by token. Returns full response.
+   URL-encodes the token to handle any special characters."
+  [token]
+  (api-delete (str "/api/v1/sessions/" (java.net.URLEncoder/encode (str token) "UTF-8"))))
 
 (defn enable-mfa!
   "Runs the two-step MFA enable flow (setup → enable with TOTP) using the

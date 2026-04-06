@@ -49,22 +49,22 @@
 
               (if (seq missing-fields)
                   ;; Validation failed
-                  (let [validation-error {:type :validation-error
-                                          :message (format "Missing required fields: %s"
-                                                           (str/join ", " missing-fields))
-                                          :missing-fields missing-fields
-                                          :provided-fields (keys input-data)
-                                          :interface-type interface-type}]
-                    (-> context
-                        (ctx/add-validation-error :missing-required-fields validation-error)
-                        (ctx/fail-with-exception (ex-info (:message validation-error) validation-error))))
+                (let [validation-error {:type :validation-error
+                                        :message (format "Missing required fields: %s"
+                                                         (str/join ", " missing-fields))
+                                        :missing-fields missing-fields
+                                        :provided-fields (keys input-data)
+                                        :interface-type interface-type}]
+                  (-> context
+                      (ctx/add-validation-error :missing-required-fields validation-error)
+                      (ctx/fail-with-exception (ex-info (:message validation-error) validation-error))))
 
                   ;; Validation passed
-                  (ctx/add-breadcrumb context :validation :user-create-input-valid
-                                      {:required-fields required-fields
-                                       :optional-fields optional-fields
-                                       :provided-fields (keys input-data)
-                                       :has-password (some? (:password input-data))}))))})
+                (ctx/add-breadcrumb context :validation :user-create-input-valid
+                                    {:required-fields required-fields
+                                     :optional-fields optional-fields
+                                     :provided-fields (keys input-data)
+                                     :has-password (some? (:password input-data))}))))})
 
 (def transform-user-creation-data
   "Transforms and normalizes user creation input data.
@@ -88,22 +88,22 @@
                                              :role (keyword (:role raw-input))
                                              :active (get raw-input :active true)}
                                      ;; Preferences (flattened)
-                                     (contains? raw-input :notificationsEmail)
-                                     (assoc :notifications-email (:notificationsEmail raw-input))
-                                     (contains? raw-input :notificationsPush)
-                                     (assoc :notifications-push (:notificationsPush raw-input))
-                                     (contains? raw-input :notificationsSms)
-                                     (assoc :notifications-sms (:notificationsSms raw-input))
-                                     (:theme raw-input)
-                                     (assoc :theme (keyword (:theme raw-input)))
-                                     (:language raw-input)
-                                     (assoc :language (:language raw-input))
-                                     (:timezone raw-input)
-                                     (assoc :timezone (:timezone raw-input))
-                                     (:dateFormat raw-input)
-                                     (assoc :date-format (keyword (:dateFormat raw-input)))
-                                     (:timeFormat raw-input)
-                                     (assoc :time-format (keyword (:timeFormat raw-input))))
+                                      (contains? raw-input :notificationsEmail)
+                                      (assoc :notifications-email (:notificationsEmail raw-input))
+                                      (contains? raw-input :notificationsPush)
+                                      (assoc :notifications-push (:notificationsPush raw-input))
+                                      (contains? raw-input :notificationsSms)
+                                      (assoc :notifications-sms (:notificationsSms raw-input))
+                                      (:theme raw-input)
+                                      (assoc :theme (keyword (:theme raw-input)))
+                                      (:language raw-input)
+                                      (assoc :language (:language raw-input))
+                                      (:timezone raw-input)
+                                      (assoc :timezone (:timezone raw-input))
+                                      (:dateFormat raw-input)
+                                      (assoc :date-format (keyword (:dateFormat raw-input)))
+                                      (:timeFormat raw-input)
+                                      (assoc :time-format (keyword (:timeFormat raw-input))))
 
                               :cli (cond-> {:email (:email raw-input)
                                             :name (:name raw-input)
@@ -1046,11 +1046,14 @@
 ;; -----------------------------------------------------------------------------
 
 (def validate-session-token-input
-  "Validates session token input."
+  "Validates session token input.
+   URL-decodes the token from the path parameter to handle percent-encoded chars."
   {:name ::validate-session-token-input
    :enter (fn [context]
             (let [path-params (get-in context [:request :parameters :path])
-                  session-token (:token path-params)]
+                  raw-token (:token path-params)
+                  session-token (when raw-token
+                                  (java.net.URLDecoder/decode raw-token "UTF-8"))]
 
               (if (nil? session-token)
                 (ctx/fail-with-exception context
