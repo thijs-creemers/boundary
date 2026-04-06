@@ -875,12 +875,75 @@ jobs:
         run: clojure -M:test:db/h2 :i18n
 
   # =============================================================================
+  # End-to-end Clojure/spel tests
+  # =============================================================================
+  e2e:
+    name: E2E (spel)
+    runs-on: ubuntu-latest
+    needs: [lint, build-ui-assets]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13.5.2
+        with:
+          cli: 1.11.1.1347
+          bb: latest
+
+      - name: Cache Maven deps
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-spel-0.7.11
+
+      - name: Warm deps and install Playwright browsers
+        run: |
+          clojure -P -M:test:e2e
+          # spel uses Playwright Java which downloads browsers lazily on first use;
+          # trigger once so the CI cache captures them.
+          clojure -M:test:e2e -e "(require 'com.blockether.spel.core) \
+            ((requiring-resolve 'com.blockether.spel.core/install-browsers!))" \
+            || echo "browser install via direct API not available; playwright will download on first test run"
+
+      - name: Run e2e suite
+        run: bb e2e
+        env:
+          BND_ENV: test
+          CI: "true"
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-failures
+          path: |
+            target/spel/
+            target/test-output/
+          retention-days: 7
+
+  # =============================================================================
   # Summary job
   # =============================================================================
   test-summary:
     name: All Tests Passed
     runs-on: ubuntu-latest
-    needs: [build-ui-assets, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-deps, test-i18n, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-calendar, test-reports, test-geo, test-ai]
+    needs: [build-ui-assets, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-deps, test-i18n, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-calendar, test-reports, test-geo, test-ai, e2e]
 
     steps:
       - name: Summary
@@ -909,6 +972,7 @@ jobs:
           echo "  - boundary/geo"
           echo "  - boundary/ai"
           echo "  - boundary/i18n"
+          echo "  - boundary/e2e (spel/Playwright)"
           echo "Gates passed:"
           echo "  - config-doctor (no config errors)"
           echo "  - i18n:scan (no unexternalised strings)"
