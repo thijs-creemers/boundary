@@ -38,7 +38,7 @@ Engineer: read these before starting. They are already verified in the repo.
   - `DELETE /api/v1/sessions/:token` — invalidate session.
   - **There is NO `GET /api/v1/sessions` list endpoint.**
   - Unversioned `/api/auth/login` etc. exist only as 307 redirects to `/api/v1/...`.
-- **MFA + API login (CRITICAL):** MFA-gated login cannot be tested via the JSON API — no `mfaCode` field exists in the login schema. MFA second-step is only implemented in the HTML `mfa-login-form` flow on `/web/login`. Tests for MFA-during-login belong in `web-login.spec.ts`, not any API spec.
+- **MFA + API login (CRITICAL):** MFA-gated login cannot be tested via the JSON API — no `mfaCode` field exists in the login schema. MFA second-step is only implemented in the HTML `mfa-login-form` flow on `/web/login`. Tests for MFA-during-login belong in `html/web_login_test.clj`, not any API spec.
 - **User service:** `libs/user/src/boundary/user/shell/service.clj` — `UserService` record, `register-user` (line 116).
 - **Tenant service:** `libs/tenant/src/boundary/tenant/shell/service.clj` — `create-new-tenant` (line 62).
 - **Config:** Aero-based, loaded via `src/boundary/config.clj`. Profile env var `BND_ENV` (`test`/`dev`/`prod`/`acc`). Test config at `resources/conf/test/config.edn`.
@@ -1280,9 +1280,7 @@ git commit -m "Add e2e :each fixture + smoke test"
 
 ---
 
-### Task 16: (removed — was for TypeScript `app.ts` fixture)
-
-Combined into Task 15. Skip to Phase 4.
+### Task 16: (removed — merged into Task 15)
 
 ---
 
