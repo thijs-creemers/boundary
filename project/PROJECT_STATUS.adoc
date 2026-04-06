@@ -1,5 +1,5 @@
 = Project Status
-:revdate: 2026-03-28
+:revdate: 2026-04-06
 :toc: macro
 :toclevels: 2
 
@@ -7,9 +7,9 @@ Current status snapshot for the Boundary framework monorepo.
 
 == Summary
 
-Boundary is at `v1.0.1-alpha-7` and operates as a 22-library monorepo (plus `boundary-tools`) with consistent Functional Core / Imperative Shell architecture.
+Boundary is at `v1.0.1-alpha-11` and operates as a 22-library monorepo (plus `boundary-tools`) with consistent Functional Core / Imperative Shell architecture.
 All core platform capabilities are implemented. CI is comprehensive. Documentation is actively maintained.
-Roadmap Phases 1-2 (workflow, search, reports, calendar) are complete. Geo (Phase 4) was delivered ahead of schedule. Payments library is publish-ready. Phase 3 (push, audience) is the next priority.
+Roadmap Phases 1-2 (workflow, search, reports, calendar) are complete. Geo (Phase 4) was delivered ahead of schedule. Payments library is publish-ready. End-to-end testing (Playwright/spel) added for login sequence and admin UI. Six automated quality gates enforce FC/IS, placeholder tests, and dependency rules. Phase 3 (push, audience) is the next priority.
 
 == Snapshot
 
@@ -18,7 +18,7 @@ Roadmap Phases 1-2 (workflow, search, reports, calendar) are complete. Geo (Phas
 |Area |Status
 
 |Latest release tag
-|`v1.0.1-alpha-7` (see `CHANGELOG.md`)
+|`v1.0.1-alpha-11` (see `CHANGELOG.md`)
 
 |Libraries
 |22 libraries in `libs/`: `core`, `observability`, `platform`, `i18n`, `user`, `admin`, `storage`, `scaffolder`, `cache`, `jobs`, `email`, `realtime`, `tenant`, `workflow`, `search`, `reports`, `calendar`, `external`, `payments`, `geo`, `ai`, `ui-style`
@@ -36,7 +36,7 @@ Roadmap Phases 1-2 (workflow, search, reports, calendar) are complete. Geo (Phas
 |SQLite for development, H2 for test flows
 
 |CI coverage
-|Lint + docs lint + AGENTS links + per-library tests + full test run + summary gate
+|Lint + docs lint + AGENTS links + per-library tests + e2e tests + full test run + summary gate + 6 quality gates (FC/IS, placeholder tests, dependency direction)
 |===
 
 == Module Status
@@ -188,7 +188,7 @@ See `Boundary-Framework-Roadmap-2026-2027.adoc` for full detail.
 . Start Roadmap Phase 3: implement `boundary-push` (21d) and `boundary-audience` (18d).
 . Validate `boundary-external` adapters against live Twilio sandboxes and mark production-ready.
 . Decide realtime scaling path (single-node hardening vs Redis-backed) and align tests/docs.
-. Publish `v1.0.1-alpha-7` to Clojars (all 23 artifacts including payments).
+. Publish `v1.0.1-alpha-11` to Clojars (all 23 artifacts including payments).
 . Keep CI signal quality high: fast per-library feedback and enforced docs/link hygiene.
 
 == Maintenance Rules
