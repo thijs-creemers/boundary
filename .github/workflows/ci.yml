@@ -925,7 +925,7 @@ jobs:
         run: clojure -P -M:test:e2e
 
       - name: Install Playwright browsers
-        run: clojure -M:test:e2e -e "(.exit (com.microsoft.playwright.CLI/main (into-array String [\"install\" \"chromium\"])))"
+        run: clojure -M:e2e -e "(.exit (com.microsoft.playwright.CLI/main (into-array String [\"install\" \"chromium\"])))"
 
       - name: Run e2e suite
         run: bb e2e
