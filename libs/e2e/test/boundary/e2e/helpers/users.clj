@@ -32,10 +32,48 @@
   [{:keys [email password]}]
   (api-post "/api/v1/auth/login" {:email email :password password}))
 
+(defn- web-post
+  "POST to a /web endpoint with form-encoded body.
+   Returns the raw response (no JSON parsing, may be HTML or redirect).
+   Uses a raw HTTP connection to preserve Set-Cookie headers that clj-http
+   would otherwise consume into its cookie store."
+  [path form-params]
+  (http/post (str (reset/default-base-url) path)
+             {:form-params       form-params
+              :throw-exceptions  false
+              :redirect-strategy :none
+              :decode-cookies    false}))
+
+(defn- api-delete
+  "DELETE to an API endpoint. Returns full response with JSON body."
+  ([path] (api-delete path nil))
+  ([path {:keys [cookie]}]
+   (http/delete (str (reset/default-base-url) path)
+                (cond-> {:accept           :json
+                         :throw-exceptions false
+                         :as               :json}
+                  cookie (assoc-in [:headers "Cookie"] (str "session-token=" cookie))))))
+
 (defn register
-  "POST /api/v1/auth/register — returns the full ring response."
+  "POST /web/register (form-encoded) — returns the full ring response.
+   Note: there is no JSON API register endpoint; registration is web-only."
   [{:keys [email password name]}]
-  (api-post "/api/v1/auth/register" {:email email :password password :name name}))
+  (web-post "/web/register" {:email email :password password :name name}))
+
+(defn create-session
+  "POST /api/v1/sessions — creates a session via JSON API. Returns full response."
+  [{:keys [email password]}]
+  (api-post "/api/v1/sessions" {:email email :password password}))
+
+(defn validate-session
+  "GET /api/v1/sessions/:id — validates a session by its UUID. Returns full response."
+  [session-id]
+  (api-get (str "/api/v1/sessions/" session-id)))
+
+(defn invalidate-session
+  "DELETE /api/v1/sessions/:id — revokes a session by its UUID. Returns full response."
+  [session-id]
+  (api-delete (str "/api/v1/sessions/" session-id)))
 
 (defn enable-mfa!
   "Runs the two-step MFA enable flow (setup → enable with TOTP) using the
