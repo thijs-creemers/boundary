@@ -644,11 +644,6 @@
             (render-field-value field value field-config)])))
      [:td.actions-cell
       (when can-open?
-        [:a.icon-button.secondary
-         {:href (str "/web/admin/" (name entity-name) "/" record-id)
-          :aria-label [:t :common/button-edit]}
-         (icons/icon :edit {:size 18})])
-      (when can-open?
         [:span.row-nav-hint
          (icons/icon :chevron-right {:size 14})])]]))
 

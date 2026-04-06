@@ -130,21 +130,36 @@
   // =========================================================================
 
   function initClickableRows() {
+    var clickTimer = null;
+
+    document.addEventListener('dblclick', function (event) {
+      // Cancel pending single-click navigation when double-clicking
+      if (clickTimer) {
+        clearTimeout(clickTimer);
+        clickTimer = null;
+      }
+    });
+
     document.addEventListener('click', function (event) {
       // Find closest clickable row
       var row = event.target.closest('tr.clickable-row');
       if (!row) return;
 
-      // Don't navigate if clicking on interactive elements or editable cells
+      // Don't navigate if clicking on interactive elements
       var target = event.target;
-      if (target.closest('a, button, input, select, textarea, .actions-cell, .checkbox-cell, td.editable')) {
+      if (target.closest('a, button, input, select, textarea, .actions-cell, .checkbox-cell')) {
         return;
       }
 
       var href = row.getAttribute('data-href');
-      if (href) {
+      if (!href) return;
+
+      // Delay navigation so a double-click can cancel it
+      if (clickTimer) clearTimeout(clickTimer);
+      clickTimer = setTimeout(function () {
+        clickTimer = null;
         window.location.href = href;
-      }
+      }, 250);
     });
   }
 
