@@ -2,15 +2,7 @@
   "E2E browser tests for the /web/login page using spel (Playwright).
 
    These tests exercise the full HTML login flow: form rendering, credential
-   submission, redirects, cookie management, remember-me, and error feedback.
-
-   NOTE: After login, the server redirects to the default landing page (e.g.
-   /web/dashboard). The auth middleware protecting that page re-validates
-   the session token from the cookie. On the H2-based test server the
-   token validation sometimes fails (likely a cookie-encoding edge case),
-   causing a bounce back to /web/login?return-to=<url-encoded-path>.
-   Tests therefore assert on the *cookie being set* and the *decoded URL*
-   containing the expected destination rather than the raw URL."
+   submission, redirects, cookie management, remember-me, and error feedback."
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.string :as str]
             [com.blockether.spel.core :as spel]
@@ -84,19 +76,18 @@
             "Remember-me checkbox should be present")))))
 
 (deftest ^:e2e happy-user-redirects-to-dashboard
-  (testing "Valid user credentials set session-token cookie and redirect toward dashboard"
+  (testing "Valid user credentials set session-token cookie and land on dashboard"
     (spel/with-testing-page [pg]
       (page/navigate pg (str base-url "/web/login"))
       (page/wait-for-load-state pg)
       (submit-login! pg
                      (-> fx/*seed* :user :email)
                      (-> fx/*seed* :user :password))
-      ;; Wait for the server redirect (away from bare /web/login)
-      (wait-for-navigation-away-from-login! pg)
-      ;; The URL may be the dashboard directly or /web/login?return-to=%2Fweb%2Fdashboard
-      ;; if the auth middleware on /web/dashboard bounced back. URL-decode before checking.
-      (is (str/includes? (url-decoded (page/url pg)) "/web/dashboard")
-          "Decoded URL should reference /web/dashboard after user login")
+      ;; Wait for the server redirect to complete at the dashboard
+      (page/wait-for-url pg #".*/web/dashboard$" {:timeout 10000.0})
+      ;; The user should land on the dashboard, NOT be bounced back to login
+      (is (str/ends-with? (page/url pg) "/web/dashboard")
+          "User should land on /web/dashboard after login")
       ;; Session cookie must be set
       (let [cookie (find-cookie pg "session-token")]
         (is (some? cookie)
@@ -105,17 +96,18 @@
             "session-token cookie should be HttpOnly")))))
 
 (deftest ^:e2e happy-admin-redirects-to-admin-users
-  (testing "Admin credentials set session cookie and redirect toward /web/admin/users"
+  (testing "Admin credentials set session cookie and land on /web/admin/users"
     (spel/with-testing-page [pg]
       (page/navigate pg (str base-url "/web/login"))
       (page/wait-for-load-state pg)
       (submit-login! pg
                      (-> fx/*seed* :admin :email)
                      (-> fx/*seed* :admin :password))
-      (wait-for-navigation-away-from-login! pg)
-      ;; URL-decode the URL before checking (may contain %2F)
-      (is (str/includes? (url-decoded (page/url pg)) "/web/admin/users")
-          "Decoded URL should reference /web/admin/users after admin login")
+      ;; Wait for the server redirect to complete at the admin users page
+      (page/wait-for-url pg #".*/web/admin/users$" {:timeout 10000.0})
+      ;; Admin should land on /web/admin/users, NOT be bounced back to login
+      (is (str/ends-with? (page/url pg) "/web/admin/users")
+          "Admin should land on /web/admin/users after login")
       (is (some? (find-cookie pg "session-token"))
           "session-token cookie should be set after admin login"))))
 
