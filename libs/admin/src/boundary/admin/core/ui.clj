@@ -866,57 +866,60 @@
                                      (when (:create-redirect-url entity-config)
                                        (current-list-url entity-name table-query filters)))}
            [:t :admin/button-create-first-record]])]
-       [:div.table-and-pagination
-        [:div.table-wrapper
-         ;; Form for checkbox submission (hidden inputs + table)
-         [:form#table-form
-          {:hx-post (str "/web/admin/" (name entity-name) "/bulk")
-           :hx-target hx-target
-           :hx-swap "outerHTML"}
-          ;; Preserve table state
-          (for [[k v] table-params]
-            [:input {:type "hidden" :name k :value v}])
-          (for [[k v] filter-params]
-            [:input {:type "hidden" :name k :value v}])
+       (let [pagination (table-ui/pagination {:table-query table-query
+                                              :total-count total-count
+                                              :base-url base-url
+                                              :push-url-base (str "/web/admin/" (name entity-name))
+                                              :hx-target hx-target
+                                              :extra-params filters})
+             has-pagination? (some? pagination)
+             wrapper-class (if has-pagination? "table-and-pagination" "")]
+         [:div {:class wrapper-class}
+          [:div.table-wrapper
+           ;; Form for checkbox submission (hidden inputs + table)
+           [:form#table-form
+            {:hx-post (str "/web/admin/" (name entity-name) "/bulk")
+             :hx-target hx-target
+             :hx-swap "outerHTML"}
+            ;; Preserve table state
+            (for [[k v] table-params]
+              [:input {:type "hidden" :name k :value v}])
+            (for [[k v] filter-params]
+              [:input {:type "hidden" :name k :value v}])
 
-          [:table.data-table {:class "data-table table"}
-            ;; Explicit column widths for table-layout: fixed
-           [:colgroup
-            [:col {:class "col-select"}]  ; Checkbox
-            (for [_ list-fields]
-              [:col])  ; Auto-width for data columns
-            [:col {:class "col-actions"}]]  ; Actions
-           [:thead
-            [:tr
-             [:th {:class "checkbox-header"}
-              ;; Alpine.js select-all checkbox with reactive binding
-              [:input (alpine/select-all-checkbox-attrs)]]
-             (for [field list-fields]
-               (let [field-config (get-in entity-config [:fields field])
-                     sortable? (:sortable field-config true)]
-                 (if sortable?
-                   (table-ui/sortable-th {:label (:label field-config (str/capitalize (name field)))
-                                          :field field
-                                          :current-sort sort
-                                          :current-dir dir
-                                          :base-url base-url
-                                          :push-url-base (str "/web/admin/" (name entity-name))
-                                          :page page
-                                          :page-size page-size
-                                          :hx-target hx-target
-                                          :hx-push-url? true
-                                          :extra-params filters})
-                   [:th (:label field-config (str/capitalize (name field)))])))
-             [:th {:class "actions-header"} [:t :admin/column-actions]]]]
-           [:tbody
-            (for [record records]
-              (entity-table-row entity-name record entity-config permissions))]]]]
-        (table-ui/pagination {:table-query table-query
-                              :total-count total-count
-                              :base-url base-url
-                              :push-url-base (str "/web/admin/" (name entity-name))
-                              :hx-target hx-target
-                              :extra-params filters})])]))
+            [:table.data-table {:class "data-table table"}
+              ;; Explicit column widths for table-layout: fixed
+             [:colgroup
+              [:col {:class "col-select"}]  ; Checkbox
+              (for [_ list-fields]
+                [:col])  ; Auto-width for data columns
+              [:col {:class "col-actions"}]]  ; Actions
+             [:thead
+              [:tr
+               [:th {:class "checkbox-header"}
+                ;; Alpine.js select-all checkbox with reactive binding
+                [:input (alpine/select-all-checkbox-attrs)]]
+               (for [field list-fields]
+                 (let [field-config (get-in entity-config [:fields field])
+                       sortable? (:sortable field-config true)]
+                   (if sortable?
+                     (table-ui/sortable-th {:label (:label field-config (str/capitalize (name field)))
+                                            :field field
+                                            :current-sort sort
+                                            :current-dir dir
+                                            :base-url base-url
+                                            :push-url-base (str "/web/admin/" (name entity-name))
+                                            :page page
+                                            :page-size page-size
+                                            :hx-target hx-target
+                                            :hx-push-url? true
+                                            :extra-params filters})
+                     [:th (:label field-config (str/capitalize (name field)))])))
+               [:th {:class "actions-header"} [:t :admin/column-actions]]]]
+             [:tbody
+              (for [record records]
+                (entity-table-row entity-name record entity-config permissions))]]]]
+          pagination]))]))
 
 (defn entity-list-page
   "Complete entity list page with search, table, and actions.

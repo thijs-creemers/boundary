@@ -1490,14 +1490,16 @@
   .toolbar-actions {
     width: 100%;
   }
-  /* Sidebar becomes a drawer */
-  .admin-sidebar {
+  /* Sidebar becomes a drawer — override collapsed width */
+  .admin-sidebar,
+  .admin-shell[data-sidebar-state="collapsed"] .admin-sidebar {
     width: 280px;
     transform: translateX(-100%);
     transition: transform var(--transition-normal);
   }
 
-  .admin-shell[data-sidebar-open="true"] .admin-sidebar {
+  .admin-shell[data-sidebar-open="true"] .admin-sidebar,
+  .admin-shell[data-sidebar-open="true"][data-sidebar-state="collapsed"] .admin-sidebar {
     transform: translateX(0);
   }
 
