@@ -112,10 +112,10 @@
       (page/wait-for-load-state pg)
       ;; Change role from user to viewer
       (loc/select-option (page/locator pg "select[name='role']") "viewer")
-      ;; Submit the form
+      ;; Install settle listener before submitting
+      (admin/install-htmx-settle-listener! pg)
       (loc/click (page/locator pg "form.entity-form button[type='submit']"))
-      ;; Wait for HTMX to re-render the page
-      (admin/wait-for-htmx! pg)
+      (admin/await-htmx-settle! pg)
       (page/wait-for-load-state pg)
       ;; Verify the role is now viewer
       (let [role-value (loc/input-value (page/locator pg "select[name='role']"))]
@@ -130,9 +130,10 @@
       (page/wait-for-load-state pg)
       ;; Change the name to a new value
       (loc/fill (page/locator pg "input[name='name']") "Changed Name")
-      ;; Submit the form
+      ;; Install settle listener before submitting
+      (admin/install-htmx-settle-listener! pg)
       (loc/click (page/locator pg "form.entity-form button[type='submit']"))
-      (admin/wait-for-htmx! pg)
+      (admin/await-htmx-settle! pg)
       (page/wait-for-load-state pg)
       ;; After re-render, the name field should contain the new value
       (let [name-value (loc/input-value (page/locator pg "input[name='name']"))]
@@ -147,11 +148,10 @@
       (page/wait-for-load-state pg)
       ;; Make a valid change — update the name
       (loc/fill (page/locator pg "input[name='name']") "Updated Test User")
-      ;; Submit
+      ;; Submit — the form uses hx-target="body" hx-swap="outerHTML" which
+      ;; replaces the entire body, so wait for the flash element to appear
       (loc/click (page/locator pg "form.entity-form button[type='submit']"))
-      (admin/wait-for-htmx! pg)
-      (page/wait-for-load-state pg)
-      ;; Success flash should appear
+      (page/wait-for-selector pg ".alert.alert-success" {:timeout 10000.0})
       (is (admin/flash-visible? pg :success)
           "Success notification should be visible after saving"))))
 

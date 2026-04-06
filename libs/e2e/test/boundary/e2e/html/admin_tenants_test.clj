@@ -87,21 +87,24 @@
       (is (admin/field-group-visible? pg "state")
           "Field group 'state' (status, schema-name) should be visible"))))
 
-(deftest ^:e2e detail-shows-form-with-fields
-  (testing "Tenant detail page shows editable form with slug, name, status, and schema-name"
+(deftest ^:e2e detail-shows-editable-fields
+  (testing "Tenant detail page shows editable fields and excludes readonly fields"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
       (page/navigate pg (admin/admin-url (str "/tenants/" (-> fx/*seed* :tenant :id))))
       (page/wait-for-load-state pg)
       (is (loc/is-visible? (page/locator pg "form.entity-form"))
           "Entity form should be visible")
-      ;; Verify key fields are present in the form
+      ;; Editable fields should be present
       (is (pos? (loc/count-elements (page/locator pg "form.entity-form [name='slug']")))
           "Slug field should be present in the form")
       (is (pos? (loc/count-elements (page/locator pg "form.entity-form [name='name']")))
           "Name field should be present in the form")
-      (is (pos? (loc/count-elements (page/locator pg "form.entity-form [name='schema-name']")))
-          "Schema-name field should be present in the form"))))
+      ;; Readonly fields (id, schema-name, created-at, updated-at) should NOT be in the form
+      (is (zero? (loc/count-elements (page/locator pg "form.entity-form [name='id']")))
+          "Readonly field 'id' should not be in the editable form")
+      (is (zero? (loc/count-elements (page/locator pg "form.entity-form [name='created-at']")))
+          "Readonly field 'created-at' should not be in the editable form"))))
 
 (deftest ^:e2e edit-name-change
   (testing "Changing tenant name and submitting persists correctly"
@@ -112,9 +115,10 @@
       (page/wait-for-selector pg "form.entity-form" {:timeout 10000.0})
       ;; Change the name
       (loc/fill (page/locator pg "input[name='name']") "Updated Acme")
-      ;; Submit
+      ;; Install settle listener before submitting
+      (admin/install-htmx-settle-listener! pg)
       (loc/click (page/locator pg "form.entity-form button[type='submit']"))
-      (admin/wait-for-htmx! pg)
+      (admin/await-htmx-settle! pg)
       (page/wait-for-load-state pg)
       ;; Verify name updated
       (let [name-value (loc/input-value (page/locator pg "input[name='name']"))]
@@ -122,20 +126,20 @@
             "Name should be updated to 'Updated Acme' after form submission")))))
 
 (deftest ^:e2e soft-delete-removes-from-list
-  (testing "Soft-deleting a tenant removes it from the list"
+  (testing "Soft-deleting a tenant via the detail page delete button removes it from the list"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
-      (page/navigate pg (admin/admin-url "/tenants"))
+      ;; Navigate to the tenant detail page
+      (page/navigate pg (admin/admin-url (str "/tenants/" (-> fx/*seed* :tenant :id))))
       (page/wait-for-load-state pg)
-      (let [initial-count (admin/table-row-count pg)]
-        ;; Click the checkbox for the first row to select it
-        (loc/click (page/locator pg "table.data-table tbody tr:first-child td.checkbox-cell input"))
-        ;; Auto-accept the hx-confirm dialog
-        (page/evaluate pg "document.addEventListener('htmx:confirm', function(e) { e.detail.issueRequest(); }, {once: true})")
-        ;; Click the bulk delete button
-        (loc/click (page/locator pg "#bulk-delete-btn"))
-        (admin/wait-for-htmx! pg)
-        ;; Row count should decrease
-        (let [new-count (admin/table-row-count pg)]
-          (is (< new-count initial-count)
-              "Soft-deleted tenant should disappear from the list"))))))
+      ;; Auto-accept any confirm dialog (native browser or HTMX)
+      (page/on-dialog pg (fn [dialog] (.accept dialog)))
+      ;; Click the Delete button on the detail page
+      (loc/click (page/locator pg "button:has-text('Delete')"))
+      ;; Should redirect to the list page after deletion
+      (page/wait-for-url pg #".*/web/admin/tenants.*" {:timeout 10000.0})
+      (page/wait-for-load-state pg)
+      ;; The deleted tenant should no longer appear in the list
+      (let [rows (admin/table-row-count pg)]
+        (is (zero? rows)
+            "Soft-deleted tenant should not appear in the list")))))

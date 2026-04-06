@@ -38,12 +38,24 @@
   (page/wait-for-url pg #".*/web/dashboard.*" {:timeout 10000.0})
   pg)
 
-(defn wait-for-htmx!
-  "Wait for HTMX to settle after a fragment update. Uses a JS promise
-   that resolves on the htmx:afterSettle event with a 5s safety timeout."
+(defn install-htmx-settle-listener!
+  "Install a one-shot htmx:afterSettle listener BEFORE triggering an
+   interaction. Stores a promise on window that resolves on settle or
+   after 10s (safety timeout). Call `await-htmx-settle!` after the
+   interaction to wait for the result."
   [pg]
   (page/evaluate pg
-                 "new Promise(r => { const h = () => { r(); }; document.addEventListener('htmx:afterSettle', h, {once:true}); setTimeout(h, 5000); })"))
+                 (str "window.__htmxSettled = new Promise(r => {"
+                      "  let done = false;"
+                      "  document.addEventListener('htmx:afterSettle', () => { if (!done) { done = true; r(true); } }, {once:true});"
+                      "  setTimeout(() => { if (!done) { done = true; r(false); } }, 10000);"
+                      "});")))
+
+(defn await-htmx-settle!
+  "Await the promise installed by `install-htmx-settle-listener!`.
+   Must be called AFTER the interaction that triggers the HTMX request."
+  [pg]
+  (page/evaluate pg "window.__htmxSettled"))
 
 (defn table-headers
   "Read visible column header texts from table.data-table thead th.
@@ -63,13 +75,16 @@
   (loc/count-elements (page/locator pg "table.data-table tbody tr")))
 
 (defn search!
-  "Type a search query into the search input and wait for HTMX table update.
-   Uses clear + type-text instead of fill to trigger keyup events for HTMX."
+  "Fill the search input and trigger the HTMX search by clicking the
+   search button. Waits for the HTMX settle event after the click."
   [pg query]
   (let [input (page/locator pg "input.search-input")]
-    (loc/clear input)
-    (loc/type-text input query)
-    (wait-for-htmx! pg)))
+    (loc/fill input query)
+    ;; Click the search button to trigger the HTMX request immediately
+    ;; (avoids relying on keyup debounce timing)
+    (install-htmx-settle-listener! pg)
+    (loc/click (page/locator pg ".toolbar-search button[aria-label]"))
+    (await-htmx-settle! pg)))
 
 (defn has-empty-state?
   "Check if the empty state element is visible or the table has no data rows."
