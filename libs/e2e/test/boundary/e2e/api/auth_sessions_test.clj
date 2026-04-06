@@ -7,9 +7,8 @@
      path, but tokens containing `/` or `+` cause Jetty 400 (\"Ambiguous URI
      path separator\").  Session validate/invalidate by path is therefore
      unreliable.  Tests document this limitation.
-   - Lockout: the pure-core logic exists (threshold 5, 15 min lockout) but is
-     NOT enforced at the API level — correct credentials succeed even after
-     many failures.  The lockout test is skipped with a note.
+   - Lockout: enforced at both auth-shell and service layers after 5 failed
+     attempts (15 min lockout window).
    - Unauthenticated access to protected endpoints returns 401 (empty body)."
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.string :as str]
@@ -89,21 +88,21 @@
       (is (not (str/includes? reg-body "password_hash"))))))
 
 ;; ---------------------------------------------------------------------------
-;; Lockout — SKIPPED: not enforced at API level
+;; Lockout — enforced at service level
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e lockout-not-enforced-at-api-level
-  (testing "Lockout logic exists in core but is not enforced — correct password still works after 6 failures"
-    ;; Fire 6 failed login attempts
+(deftest ^:e2e lockout-enforced-after-threshold
+  (testing "Account is locked out after 5 failed login attempts"
+    ;; Fire 6 failed login attempts (threshold is 5)
     (dotimes [_ 6]
       (users/login {:email    (-> fx/*seed* :admin :email)
                     :password "Wrong-Pass-1234!"}))
-    ;; Correct password still succeeds
+    ;; Correct password should now be rejected because account is locked
     (let [resp (users/login {:email    (-> fx/*seed* :admin :email)
                              :password (-> fx/*seed* :admin :password)})
           body (:body resp)]
-      (is (true? (:authenticated body))
-          "Lockout is NOT enforced at the API level — login still succeeds after threshold")
-      ;; The failed-login-count is tracked but lockout is not applied
-      (is (pos? (get-in body [:user :failed-login-count] 0))
-          "failed-login-count should be tracked even if lockout is not enforced"))))
+      (is (= 200 (:status resp)))
+      (is (false? (:authenticated body))
+          "Login must be rejected when account is locked out")
+      (is (some? (:message body))
+          "Lockout response should include a human-readable message"))))

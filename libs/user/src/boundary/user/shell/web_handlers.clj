@@ -416,6 +416,9 @@
               ;; Authentication failed (e.g. wrong password or invalid MFA code)
               :else
               (let [error-message (cond
+                                    (= :account-locked (:reason auth-result))
+                                    "Too many failed attempts, please try again in 15 minutes"
+
                                     (= :mfa-verification-failed (:reason auth-result))
                                     "Invalid MFA code"
 

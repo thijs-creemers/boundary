@@ -98,11 +98,11 @@
   [e]
   (let [message (.getMessage e)]
     (boolean
-      (or (and (instance? org.postgresql.util.PSQLException e)
-               (= "23503" (.getSQLState ^org.postgresql.util.PSQLException e)))
-          (and message
-               (or (str/includes? message "tenant_memberships")
-                   (str/includes? message "tenant_member_invites")))))))
+     (or (and (instance? org.postgresql.util.PSQLException e)
+              (= "23503" (.getSQLState ^org.postgresql.util.PSQLException e)))
+         (and message
+              (or (str/includes? message "tenant_memberships")
+                  (str/includes? message "tenant_member_invites")))))))
 
 ;; =============================================================================
 ;; Database-Agnostic User Service (I/O Shell Layer)
@@ -201,10 +201,10 @@
                        this)]
          (if-let [existing-user (.find-user-by-email (:user-repository service) (:email user-data))]
            (let [auth-result (.authenticate-user ^boundary.user.ports.IUserService service
-                                                (merge {:email (:email user-data)
-                                                        :password (:password user-data)
-                                                        :remember false}
-                                                       login-context))]
+                                                 (merge {:email (:email user-data)
+                                                         :password (:password user-data)
+                                                         :remember false}
+                                                        login-context))]
              (if (:authenticated auth-result)
                {:mode :authenticated
                 :user (:user auth-result)
@@ -216,10 +216,10 @@
                                 :email (:email existing-user)}))))
            (let [_ (.register-user ^boundary.user.ports.IUserService service user-data)
                  auth-result (.authenticate-user ^boundary.user.ports.IUserService service
-                                                (merge {:email (:email user-data)
-                                                        :password (:password user-data)
-                                                        :remember false}
-                                                       login-context))]
+                                                 (merge {:email (:email user-data)
+                                                         :password (:password user-data)
+                                                         :remember false}
+                                                        login-context))]
              (when-not (:authenticated auth-result)
                (throw (ex-info "Authentication failed after creating account"
                                {:type :internal-error
@@ -245,55 +245,80 @@
                             :user-agent user-agent
                             :mfa-code mfa-code}
 
-             ;; Delegate to auth-service for MFA-aware authentication
-             auth-result (auth-shell/authenticate-user
-                          auth-service
-                          email
-                          password
-                          login-context)]
+             ;; Service-level lockout gate: look up user and check lockout BEFORE
+             ;; delegating to auth-shell, providing belt-and-suspenders enforcement.
+             existing-user (.find-user-by-email user-repository email)
+             current-time (current-timestamp)
+             lockout-check (when existing-user
+                             (auth-core/should-allow-login-attempt?
+                              existing-user nil current-time))]
 
-          ;; Transform auth-service result to match expected format
-          (cond
-            ;; Successful authentication
-            (:success? auth-result)
-            (let [audit-entry (audit-core/login-audit-entry
-                               (get-in auth-result [:user :id])
-                               (get-in auth-result [:user :email])
-                               ip-address
-                               user-agent
-                               true
-                               nil)]
-              (.create-audit-log audit-repository audit-entry)
-              {:authenticated true
-               :user (:user auth-result)
-               :session (:session auth-result)
-               :session-token (get-in auth-result [:session :session-token])
-               :jwt-token (get-in auth-result [:session :jwt-token])})
-
-            ;; MFA required (intermediate state)
-           (:requires-mfa? auth-result)
-           {:authenticated false
-            :requires-mfa? true
-            :user (:user auth-result)
-            :message (:message auth-result)}
-
-           ;; Authentication failed
-           :else
-           (let [user-for-audit (.find-user-by-email user-repository email)
-                 audit-entry (when user-for-audit
-                               (audit-core/login-audit-entry
-                                (:id user-for-audit)
-                                (:email user-for-audit)
-                                ip-address
-                                user-agent
-                                false
-                                (or (:message auth-result) "Authentication failed")))]
-             (when audit-entry
-               (.create-audit-log audit-repository audit-entry))
+         (if (and existing-user (not (:allowed? lockout-check)))
+           ;; Account is locked out — return immediately without attempting auth
+           (let [audit-entry (audit-core/login-audit-entry
+                              (:id existing-user)
+                              (:email existing-user)
+                              ip-address
+                              user-agent
+                              false
+                              (or (:reason lockout-check) "Account locked"))]
+             (.create-audit-log audit-repository audit-entry)
              {:authenticated false
-              :reason (:error auth-result)
-              :message (:message auth-result)
-              :retry-after (:retry-after auth-result)}))))
+              :reason :account-locked
+              :message (or (:reason lockout-check)
+                           "Too many failed attempts, please try again later")
+              :retry-after (:retry-after lockout-check)})
+
+           ;; Not locked out — delegate to auth-service for full authentication
+           (let [auth-result (auth-shell/authenticate-user
+                              auth-service
+                              email
+                              password
+                              login-context)]
+
+             ;; Transform auth-service result to match expected format
+             (cond
+               ;; Successful authentication
+               (:success? auth-result)
+               (let [audit-entry (audit-core/login-audit-entry
+                                  (get-in auth-result [:user :id])
+                                  (get-in auth-result [:user :email])
+                                  ip-address
+                                  user-agent
+                                  true
+                                  nil)]
+                 (.create-audit-log audit-repository audit-entry)
+                 {:authenticated true
+                  :user (:user auth-result)
+                  :session (:session auth-result)
+                  :session-token (get-in auth-result [:session :session-token])
+                  :jwt-token (get-in auth-result [:session :jwt-token])})
+
+               ;; MFA required (intermediate state)
+               (:requires-mfa? auth-result)
+               {:authenticated false
+                :requires-mfa? true
+                :user (:user auth-result)
+                :message (:message auth-result)}
+
+               ;; Authentication failed
+               :else
+               (let [user-for-audit (or existing-user
+                                        (.find-user-by-email user-repository email))
+                     audit-entry (when user-for-audit
+                                   (audit-core/login-audit-entry
+                                    (:id user-for-audit)
+                                    (:email user-for-audit)
+                                    ip-address
+                                    user-agent
+                                    false
+                                    (or (:message auth-result) "Authentication failed")))]
+                 (when audit-entry
+                   (.create-audit-log audit-repository audit-entry))
+                 {:authenticated false
+                  :reason (:error auth-result)
+                  :message (:message auth-result)
+                  :retry-after (:retry-after auth-result)}))))))
      {:system {:user-repository user-repository
                :session-repository session-repository
                :audit-repository audit-repository
@@ -315,7 +340,7 @@
                    ;; Update session access time and cache the valid session
                    (let [updated-session-data (session-core/update-session-access session current-time)
                          updated-session (or (.update-session session-repository updated-session-data)
-                                            updated-session-data)]
+                                             updated-session-data)]
                      (when cache
                        (let [expires-at (:expires-at updated-session)
                              ttl-seconds (when expires-at
@@ -340,13 +365,13 @@
        (let [session-token (:session-token params)]
          ;; 1. Find and invalidate session using impure shell persistence layer
          (if-let [session (.find-session-by-token session-repository session-token)]
-            (let [_invalidated-session (.invalidate-session session-repository session-token)
-                  session-user-id (or (:user-id session) (:user_id session))
-                  session-ip-address (or (:ip-address session) (:ip_address session))
-                  session-user-agent (or (:user-agent session) (:user_agent session))
+           (let [_invalidated-session (.invalidate-session session-repository session-token)
+                 session-user-id (or (:user-id session) (:user_id session))
+                 session-ip-address (or (:ip-address session) (:ip_address session))
+                 session-user-agent (or (:user-agent session) (:user_agent session))
                   ;; Get user info for audit log
-                  user (when session-user-id
-                         (.find-user-by-id user-repository session-user-id))]
+                 user (when session-user-id
+                        (.find-user-by-id user-repository session-user-id))]
 
              ;; 2. Invalidate session cache entry
              (when cache
@@ -646,7 +671,7 @@
                                                  :password-hash new-password-hash
                                                  :updated-at current-time))]
          ;; 6. Create audit log entry
-         (try
+           (try
              (let [{:keys [actor-id actor-email ip-address user-agent]}
                    (effective-audit-context {:default-actor-id user-id
                                              :default-actor-email (:email user)})
