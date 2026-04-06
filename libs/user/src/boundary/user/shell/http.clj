@@ -244,7 +244,7 @@
   [mfa-service]
   (fn [request]
     (try
-      (let [user-id (get-in request [:session :user :id])
+      (let [user-id (get-in request [:user :id])
             _ (when-not user-id
                 (throw (ex-info "User not authenticated" {:type :unauthorized})))
             result (mfa/setup-mfa mfa-service user-id)]
@@ -270,7 +270,7 @@
   [mfa-service]
   (fn [request]
     (try
-      (let [user-id (get-in request [:session :user :id])
+      (let [user-id (get-in request [:user :id])
             _ (when-not user-id
                 (throw (ex-info "User not authenticated" {:type :unauthorized})))
             body (get request :body-params)
@@ -295,7 +295,7 @@
   [mfa-service]
   (fn [request]
     (try
-      (let [user-id (get-in request [:session :user :id])
+      (let [user-id (get-in request [:user :id])
             _ (when-not user-id
                 (throw (ex-info "User not authenticated" {:type :unauthorized})))
             result (mfa/disable-mfa mfa-service user-id)]
@@ -316,7 +316,7 @@
   [mfa-service]
   (fn [request]
     (try
-      (let [user-id (get-in request [:session :user :id])
+      (let [user-id (get-in request [:user :id])
             _ (when-not user-id
                 (throw (ex-info "User not authenticated" {:type :unauthorized})))
             status (mfa/get-mfa-status mfa-service user-id)]
@@ -509,7 +509,7 @@
       :methods {:get {:handler (web-handlers/dashboard-page-handler user-service mfa-service config)
                       :summary "User dashboard page"}}}
       ;; Session management routes (user-specific, not duplicated in admin)
-      {:path    "/users/:id/sessions"
+     {:path    "/users/:id/sessions"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:get {:handler (web-handlers/user-sessions-page-handler user-service config)
@@ -543,29 +543,29 @@
                       :interceptors ['boundary.user.shell.http-interceptors/require-platform-admin]
                       :summary "Audit table fragment (HTMX refresh)"}}}
       ;; Profile routes
-      {:path    "/profile"
-       :meta    {:no-doc     true
-                 :middleware [auth-middleware]}
-       :methods {:get  {:handler (web-handlers/profile-page-handler user-service mfa-service config)
-                        :summary "User profile page"}
-                 :post {:handler (web-handlers/profile-edit-handler user-service config)
-                        :summary "Update profile (HTMX fragment)"}}}
-      {:path    "/profile/edit"
-       :meta    {:no-doc     true
-                 :middleware [auth-middleware]}
-       :methods {:get {:handler (web-handlers/profile-edit-form-handler user-service config)
-                       :summary "Show profile edit form (HTMX fragment)"}}}
-      {:path    "/profile/info"
-       :meta    {:no-doc     true
-                 :middleware [auth-middleware]}
-       :methods {:get {:handler (web-handlers/profile-info-fragment-handler user-service config)
-                       :summary "Show profile info card (HTMX fragment)"}}}
-      {:path    "/profile/preferences/edit"
-       :meta    {:no-doc     true
-                 :middleware [auth-middleware]}
-       :methods {:get {:handler (web-handlers/preferences-edit-form-handler user-service config)
-                       :summary "Show preferences edit form (HTMX fragment)"}}}
-      {:path    "/profile/preferences"
+     {:path    "/profile"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get  {:handler (web-handlers/profile-page-handler user-service mfa-service config)
+                       :summary "User profile page"}
+                :post {:handler (web-handlers/profile-edit-handler user-service config)
+                       :summary "Update profile (HTMX fragment)"}}}
+     {:path    "/profile/edit"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/profile-edit-form-handler user-service config)
+                      :summary "Show profile edit form (HTMX fragment)"}}}
+     {:path    "/profile/info"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/profile-info-fragment-handler user-service config)
+                      :summary "Show profile info card (HTMX fragment)"}}}
+     {:path    "/profile/preferences/edit"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/preferences-edit-form-handler user-service config)
+                      :summary "Show preferences edit form (HTMX fragment)"}}}
+     {:path    "/profile/preferences"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:get  {:handler (web-handlers/preferences-fragment-handler user-service config)

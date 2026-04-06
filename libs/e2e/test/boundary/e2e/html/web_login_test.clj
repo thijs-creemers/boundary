@@ -4,21 +4,13 @@
    These tests exercise the full HTML login flow: form rendering, credential
    submission, redirects, cookie management, remember-me, and error feedback.
 
-   KNOWN ISSUES:
-   1. MFA handlers read `(get-in request [:session :user :id])` but auth
-      middleware sets the user at `(:user request)`, so MFA setup returns 500.
-      The MFA-during-login test is skipped.
-   2. After login, the server redirects to the default landing page (e.g.
-      /web/dashboard). The auth middleware protecting that page re-validates
-      the session token from the cookie. On the H2-based test server the
-      token validation sometimes fails (likely a cookie-encoding edge case),
-      causing a bounce back to /web/login?return-to=<url-encoded-path>.
-      Tests therefore assert on the *cookie being set* and the *decoded URL*
-      containing the expected destination rather than the raw URL.
-   3. The `remember` checkbox component sends value=\"true\" but the
-      login-submit-handler checks for (= \"on\" ...), so the remember-me
-      feature never activates via the HTML form. Remember-me tests document
-      this bug by asserting the cookie is NOT set."
+   NOTE: After login, the server redirects to the default landing page (e.g.
+   /web/dashboard). The auth middleware protecting that page re-validates
+   the session token from the cookie. On the H2-based test server the
+   token validation sometimes fails (likely a cookie-encoding edge case),
+   causing a bounce back to /web/login?return-to=<url-encoded-path>.
+   Tests therefore assert on the *cookie being set* and the *decoded URL*
+   containing the expected destination rather than the raw URL."
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.string :as str]
             [com.blockether.spel.core :as spel]
@@ -213,26 +205,23 @@
             "No session-token cookie should be set on failed login")))))
 
 ;; ---------------------------------------------------------------------------
-;; MFA test — SKIPPED due to known handler bug
+;; MFA test — TODO: implement full MFA login flow
 ;; ---------------------------------------------------------------------------
 
 (comment
-  ;; MFA-during-login test is skipped because the MFA handlers read
-  ;; `(get-in request [:session :user :id])` but auth middleware sets the
-  ;; user at `(:user request)`. This means MFA setup via API returns 500
-  ;; ("User not authenticated"), so we cannot enable MFA for a user in the
-  ;; first place. Once the MFA handlers are fixed to read
-  ;; `(get-in request [:user :id])`, this test should be uncommented.
+  ;; The MFA handlers now correctly read `(get-in request [:user :id])`,
+  ;; so MFA setup and enable work via API. This test can be implemented
+  ;; when the full MFA-during-login browser flow is needed.
   ;;
-  ;; Expected flow when working:
+  ;; Expected flow:
   ;; 1. Login as user via API to get session token
   ;; 2. Enable MFA via API (setup + enable with TOTP code)
-  ;; 3. Login via HTML form → should show MFA code input page
-  ;; 4. Submit wrong code → error shown, stays on MFA page
-  ;; 5. Submit correct code → redirected to dashboard
+  ;; 3. Login via HTML form -> should show MFA code input page
+  ;; 4. Submit wrong code -> error shown, stays on MFA page
+  ;; 5. Submit correct code -> redirected to dashboard
 
   (deftest ^:e2e mfa-required-second-step
     (testing "MFA-enabled user sees MFA code prompt and can complete login"
       (spel/with-testing-page [pg]
-        ;; ... test body omitted until MFA handlers are fixed ...
+        ;; ... test body to be implemented ...
         ))))
