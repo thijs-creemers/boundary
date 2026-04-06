@@ -24,9 +24,10 @@
 
 .admin-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   position: relative;
   background: var(--surface-1);
+  overflow: hidden;
 }
 
 /* =============================================================================
@@ -45,11 +46,12 @@
   height: 100vh;
   z-index: var(--z-sidebar);
   overflow: hidden;
+  transition: width var(--transition-normal);
 }
 
-/* Remove legacy collapse support - sidebar is always 200px on desktop */
+/* Collapsed sidebar — icon-only */
 .admin-shell[data-sidebar-state="collapsed"] .admin-sidebar {
-  width: var(--nav-width);
+  width: var(--sidebar-width-collapsed);
 }
 
 /* =============================================================================
@@ -57,36 +59,84 @@
    ============================================================================= */
 
 .admin-sidebar-header {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3);
   border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
+  justify-content: space-between;
   min-height: var(--topbar-height);
+  gap: var(--space-2);
 }
 
-.admin-sidebar-header h2 {
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.admin-sidebar-header .sidebar-brand-logo {
+.sidebar-brand {
   flex-shrink: 0;
+  overflow: hidden;
 }
 
-.admin-sidebar-header .sidebar-brand-logo img {
-  max-width: 140px;
+.sidebar-brand-logo {
+  height: auto;
+  width: 120px;
+  display: block;
 }
 
-/* Hide collapse controls on desktop (we don't collapse anymore) */
+.sidebar-brand-logo img {
+  width: 120px;
+  height: auto;
+}
+
+
+/* Sidebar collapse controls */
 .sidebar-controls {
-  display: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
 }
 
 .sidebar-toggle,
 .sidebar-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  padding: 0;
+}
+
+.sidebar-toggle:hover,
+.sidebar-pin:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.sidebar-pin[aria-pressed="true"] {
+  color: var(--color-primary);
+}
+
+/* Collapsed header — hide logo and pin, show only toggle centered */
+.admin-shell[data-sidebar-state="collapsed"] .sidebar-brand,
+.admin-shell[data-sidebar-state="collapsed"] .sidebar-pin {
   display: none;
+}
+
+.admin-shell[data-sidebar-state="collapsed"] .admin-sidebar-header {
+  justify-content: center;
+  padding: var(--space-2);
+}
+
+.admin-shell[data-sidebar-state="collapsed"] .sidebar-controls {
+  margin-left: 0;
+}
+
+/* Mirror icon when collapsed (points right = expand) */
+.admin-shell[data-sidebar-state="collapsed"] .sidebar-toggle svg {
+  transform: scaleX(-1);
 }
 
 /* =============================================================================
@@ -197,6 +247,28 @@
   stroke-width: 1.5;
 }
 
+/* Collapsed state — hide text, center icons */
+.admin-shell[data-sidebar-state="collapsed"] .nav-text,
+.admin-shell[data-sidebar-state="collapsed"] .admin-sidebar-nav h3 {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity var(--transition-fast);
+}
+
+.admin-shell[data-sidebar-state="collapsed"] .entity-list a {
+  justify-content: center;
+  padding: var(--space-2);
+  margin: 2px var(--space-1);
+}
+
+.admin-shell[data-sidebar-state="collapsed"] .entity-list a svg {
+  width: 20px;
+  height: 20px;
+}
+
+
 /* =============================================================================
    Sidebar Footer
    ============================================================================= */
@@ -232,6 +304,24 @@
   flex-shrink: 0;
 }
 
+/* Collapsed footer — hide text, center icons */
+.admin-shell[data-sidebar-state="collapsed"] .admin-sidebar-footer a .nav-text {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.admin-shell[data-sidebar-state="collapsed"] .admin-sidebar-footer a {
+  justify-content: center;
+  padding: var(--space-2);
+}
+
+.admin-shell[data-sidebar-state="collapsed"] .admin-sidebar-footer svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* =============================================================================
    Main Content Area
    ============================================================================= */
@@ -242,11 +332,12 @@
   flex-direction: column;
   margin-left: var(--nav-width);
   min-width: 0;
+  min-height: 0;
+  transition: margin-left var(--transition-normal);
 }
 
-/* Legacy support - no collapse animation needed */
 .admin-shell[data-sidebar-state="collapsed"] .admin-main {
-  margin-left: var(--nav-width);
+  margin-left: var(--sidebar-width-collapsed);
 }
 
 /* =============================================================================
@@ -269,6 +360,7 @@
   top: 0;
   z-index: var(--z-sticky);
 }
+
 
 /* Environment badge */
 .env-badge {
@@ -464,9 +556,9 @@
   flex: 1;
   padding: var(--space-4);
   max-width: 100%;
-  overflow-x: auto;
+  overflow: auto;
   background: var(--surface-1);
-  min-height: calc(100vh - var(--topbar-height));
+  min-height: 0;
 }
 
 /* =============================================================================
@@ -617,99 +709,41 @@
   margin-bottom: var(--space-4);
 }
 
-.entity-list-hero {
-  background: linear-gradient(135deg, var(--color-primary-faint), var(--color-accent-faint));
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-xl);
-  padding: var(--space-6);
-  margin-bottom: var(--space-4);
-  box-shadow: var(--shadow-sm);
-  position: relative;
-  overflow: hidden;
-}
-
-.entity-list-hero::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at top right, var(--color-primary-light), transparent 55%);
-  pointer-events: none;
-}
-
-.entity-list-hero-inner {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-4);
-  position: relative;
-  z-index: 1;
-}
-
-.entity-list-title-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.entity-list-kicker {
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-primary);
-  font-weight: var(--font-semibold);
-}
-
-.entity-list-title {
-  font-size: var(--text-2xl);
-  font-weight: var(--font-bold);
-  letter-spacing: var(--tracking-tight);
-  margin: 0;
-  color: var(--text-primary);
-}
-
-.entity-list-subtitle {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-base);
-}
-
-.entity-list-hero-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.entity-list-hero-actions .button.primary {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 40px;
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-}
-
+/* Compact toolbar — replaces hero + search + actions */
 .table-toolbar-container {
   background: var(--surface-0);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-4);
   box-shadow: var(--shadow-sm);
   margin-bottom: var(--space-3);
+  width: 100%;
 }
 
-.toolbar-row-search,
 .toolbar-row-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
+  width: 100%;
 }
 
-.toolbar-row-search {
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: var(--space-3);
+.entity-list-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.record-count-badge {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  background: var(--surface-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  font-weight: var(--font-medium);
+  white-space: nowrap;
 }
 
 .toolbar-search {
@@ -717,12 +751,12 @@
   align-items: center;
   gap: var(--space-2);
   flex: 1;
-  max-width: 520px;
+  max-width: 320px;
 }
 
 .search-input {
   flex: 1;
-  height: 40px;
+  height: 34px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-default);
@@ -740,9 +774,10 @@
 }
 
 .record-meta {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  flex-shrink: 0;
 }
 
 .record-count {
@@ -767,9 +802,11 @@
 }
 
 .toolbar-actions {
-  display: inline-flex;
+  display: flex !important;
   align-items: center;
   gap: var(--space-2);
+  margin-left: auto !important;
+  flex-shrink: 0;
 }
 
 .icon-button.ghost {
@@ -785,6 +822,12 @@
   border: 1px solid var(--border-default);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
+}
+
+/* Remove bottom rounding when pagination follows */
+.table-and-pagination > .table-wrapper {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: none;
 }
 
 /* =============================================================================
@@ -1208,11 +1251,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--border-default);
+  padding: var(--space-4) var(--space-4);
+  border: 1px solid var(--border-default);
   background: var(--surface-1);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   font-size: var(--text-sm);
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .page-info {

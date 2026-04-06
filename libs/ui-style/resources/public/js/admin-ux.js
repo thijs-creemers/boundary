@@ -2,12 +2,61 @@
  * Admin UX Enhancements
  *
  * Features:
+ * 0. Alpine.js sidebar store (must run before Alpine init)
  * 1. Top-of-page progress bar for HTMX requests
  * 2. Toast notification system (triggered via HTMX HX-Trigger or JS API)
  * 3. Clickable table rows
  * 4. Skeleton loading for tables
  * 5. Styled delete confirmation modal (replaces hx-confirm)
  */
+
+// =========================================================================
+// 0. Alpine.js Sidebar Store
+//    Registered before Alpine.start() via alpine:init event.
+//    Must be outside the IIFE so it runs immediately.
+// =========================================================================
+document.addEventListener('alpine:init', function () {
+  var persist = function (value, key) {
+    if (window.Alpine && window.Alpine.$persist) {
+      return window.Alpine.$persist(value).as(key);
+    }
+    return value;
+  };
+
+  window.Alpine.store('sidebar', {
+    state: persist('expanded', 'boundary-admin-sidebar-state'),
+    pinned: persist(false, 'boundary-admin-sidebar-pinned'),
+    mobileOpen: false,
+
+    toggle: function () {
+      this.state = this.state === 'expanded' ? 'collapsed' : 'expanded';
+    },
+
+    togglePin: function () {
+      this.pinned = !this.pinned;
+    },
+
+    expand: function () {
+      if (!this.pinned && window.innerWidth > 768) {
+        this.state = 'expanded';
+      }
+    },
+
+    collapse: function () {
+      if (!this.pinned && window.innerWidth > 768) {
+        this.state = 'collapsed';
+      }
+    },
+
+    toggleMobile: function () {
+      this.mobileOpen = !this.mobileOpen;
+    },
+
+    closeMobile: function () {
+      this.mobileOpen = false;
+    }
+  });
+});
 
 (function () {
   'use strict';
@@ -147,7 +196,7 @@
 
       // Don't navigate if clicking on interactive elements
       var target = event.target;
-      if (target.closest('a, button, input, select, textarea, .actions-cell, .checkbox-cell')) {
+      if (target.closest('a, button, input, select, textarea, .checkbox-cell')) {
         return;
       }
 

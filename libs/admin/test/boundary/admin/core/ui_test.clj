@@ -383,8 +383,8 @@
       (is (vector? sidebar))
       (is (= :aside.admin-sidebar (first sidebar)))
 
-      ;; Should have header with brand logo (alt text is "Boundary")
-      (is (str/includes? (str sidebar) "Boundary"))
+      ;; Should have sidebar header with toggle controls
+      (is (str/includes? (str sidebar) "sidebar-toggle"))
 
       ;; Should have navigation for each entity
       (is (str/includes? (str sidebar) "Users"))
@@ -431,9 +431,9 @@
       ;; Should have page title
       (is (str/includes? (str shell) "Users"))
 
-      ;; Should have Alpine.js store initialization script
-      (is (some #(and (vector? %) (= :script (first %)))
-                (tree-seq vector? seq shell))))))
+      ;; Alpine.js sidebar store is initialized in external admin-ux.js
+      ;; Shell should have Alpine state bindings
+      (is (str/includes? (str shell) "$store.sidebar.state")))))
 
 (deftest admin-layout-test
   (testing "Complete admin page layout"

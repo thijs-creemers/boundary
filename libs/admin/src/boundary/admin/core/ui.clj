@@ -104,21 +104,22 @@
    ;; Alpine.js sidebar - hover expand/collapse via $store.sidebar
    [:aside.admin-sidebar (alpine/sidebar-attrs)
     [:div.admin-sidebar-header
-     (if-let [logo-url (:logo-url opts)]
-       [:img.sidebar-brand-logo {:src logo-url :alt "" :style "height:40px; width:auto; display:block;"}]
-       (icons/brand-logo {:size 140 :class "sidebar-brand-logo"}))
+     [:div.sidebar-brand
+      (if-let [logo-url (:logo-url opts)]
+        [:img.sidebar-brand-logo {:src logo-url :alt ""}]
+        (icons/brand-logo {:size 120 :class "sidebar-brand-logo"}))]
      [:div.sidebar-controls
-      [:button.sidebar-toggle {:type "button"
-                               :aria-label [:t :admin/sidebar-toggle-button]
-                               :title [:t :admin/sidebar-toggle-hint]
-                               (keyword "@click") "$store.sidebar.toggle()"}
-       (icons/icon :panel-left {:size 20})]
       [:button.sidebar-pin {:type "button"
                             :aria-label [:t :admin/sidebar-pin-button]
                             :title [:t :admin/sidebar-pin-hint]
                             (keyword "@click") "$store.sidebar.togglePin()"
                             :x-bind:aria-pressed "$store.sidebar.pinned"}
-       (icons/icon :pin {:size 20})]]]
+       (icons/icon :pin {:size 16})]
+      [:button.sidebar-toggle {:type "button"
+                               :aria-label [:t :admin/sidebar-toggle-button]
+                               :title [:t :admin/sidebar-toggle-hint]
+                               (keyword "@click") "$store.sidebar.toggle()"}
+       (icons/icon :panel-left-close {:size 16})]]]
     [:nav.admin-sidebar-nav
      [:h3 [:t :admin/sidebar-entities-title]]
      [:ul.entity-list
@@ -159,8 +160,7 @@
     ;; State is persisted to localStorage via $store.sidebar
     ;; Note: Using a wrapper div instead of fragment [:<>] for Hiccup compatibility with Alpine.js initialization
     [:div.hiccup-fragment-wrapper
-     ;; Initialize Alpine store for sidebar state management
-     (alpine/sidebar-store-init)
+     ;; Alpine sidebar store is initialized in admin-ux.js (external script, CSP-safe)
      ;; Toast notification container
      [:div.toast-container {:role "status" :aria-live "polite"}]
      [:div.admin-shell (alpine/sidebar-shell-attrs)
@@ -644,7 +644,10 @@
             (render-field-value field value field-config)])))
      [:td.actions-cell
       (when can-open?
-        [:span.row-nav-hint
+        [:a.row-nav-hint
+         {:href (str "/web/admin/" (name entity-name) "/" record-id)
+          :aria-label [:t :common/button-edit]
+          :tabindex 0}
          (icons/icon :chevron-right {:size 14})])]]))
 
 ;; =============================================================================
@@ -863,50 +866,51 @@
                                      (when (:create-redirect-url entity-config)
                                        (current-list-url entity-name table-query filters)))}
            [:t :admin/button-create-first-record]])]
-       [:div.table-wrapper
-        ;; Form for checkbox submission (hidden inputs + table)
-        [:form#table-form
-         {:hx-post (str "/web/admin/" (name entity-name) "/bulk")
-          :hx-target hx-target
-          :hx-swap "outerHTML"}
-         ;; Preserve table state
-         (for [[k v] table-params]
-           [:input {:type "hidden" :name k :value v}])
-         (for [[k v] filter-params]
-           [:input {:type "hidden" :name k :value v}])
+       [:div.table-and-pagination
+        [:div.table-wrapper
+         ;; Form for checkbox submission (hidden inputs + table)
+         [:form#table-form
+          {:hx-post (str "/web/admin/" (name entity-name) "/bulk")
+           :hx-target hx-target
+           :hx-swap "outerHTML"}
+          ;; Preserve table state
+          (for [[k v] table-params]
+            [:input {:type "hidden" :name k :value v}])
+          (for [[k v] filter-params]
+            [:input {:type "hidden" :name k :value v}])
 
-         [:table.data-table {:class "data-table table"}
-           ;; Explicit column widths for table-layout: fixed
-          [:colgroup
-           [:col {:class "col-select"}]  ; Checkbox
-           (for [_ list-fields]
-             [:col])  ; Auto-width for data columns
-           [:col {:class "col-actions"}]]  ; Actions
-          [:thead
-           [:tr
-            [:th {:class "checkbox-header"}
-             ;; Alpine.js select-all checkbox with reactive binding
-             [:input (alpine/select-all-checkbox-attrs)]]
-            (for [field list-fields]
-              (let [field-config (get-in entity-config [:fields field])
-                    sortable? (:sortable field-config true)]
-                (if sortable?
-                  (table-ui/sortable-th {:label (:label field-config (str/capitalize (name field)))
-                                         :field field
-                                         :current-sort sort
-                                         :current-dir dir
-                                         :base-url base-url
-                                         :push-url-base (str "/web/admin/" (name entity-name))
-                                         :page page
-                                         :page-size page-size
-                                         :hx-target hx-target
-                                         :hx-push-url? true
-                                         :extra-params filters})
-                  [:th (:label field-config (str/capitalize (name field)))])))
-            [:th {:class "actions-header"} [:t :admin/column-actions]]]]
-          [:tbody
-           (for [record records]
-             (entity-table-row entity-name record entity-config permissions))]]]
+          [:table.data-table {:class "data-table table"}
+            ;; Explicit column widths for table-layout: fixed
+           [:colgroup
+            [:col {:class "col-select"}]  ; Checkbox
+            (for [_ list-fields]
+              [:col])  ; Auto-width for data columns
+            [:col {:class "col-actions"}]]  ; Actions
+           [:thead
+            [:tr
+             [:th {:class "checkbox-header"}
+              ;; Alpine.js select-all checkbox with reactive binding
+              [:input (alpine/select-all-checkbox-attrs)]]
+             (for [field list-fields]
+               (let [field-config (get-in entity-config [:fields field])
+                     sortable? (:sortable field-config true)]
+                 (if sortable?
+                   (table-ui/sortable-th {:label (:label field-config (str/capitalize (name field)))
+                                          :field field
+                                          :current-sort sort
+                                          :current-dir dir
+                                          :base-url base-url
+                                          :push-url-base (str "/web/admin/" (name entity-name))
+                                          :page page
+                                          :page-size page-size
+                                          :hx-target hx-target
+                                          :hx-push-url? true
+                                          :extra-params filters})
+                   [:th (:label field-config (str/capitalize (name field)))])))
+             [:th {:class "actions-header"} [:t :admin/column-actions]]]]
+           [:tbody
+            (for [record records]
+              (entity-table-row entity-name record entity-config permissions))]]]]
         (table-ui/pagination {:table-query table-query
                               :total-count total-count
                               :base-url base-url
@@ -942,36 +946,22 @@
        (for [[type message] flash]
          [:div {:class (str "alert alert-" (name type) " mb-2")} message]))
 
-     [:section.entity-list-hero
-      [:div.entity-list-hero-inner
-       [:div.entity-list-title-group
-        [:span.entity-list-kicker [:t :admin/list-kicker]]
+       ;; Compact toolbar: title + search + actions in one bar
+     [:div.table-toolbar-container
+      [:div.toolbar-row-actions
+       [:div.record-meta
         [:h1.entity-list-title label]
-        [:p.entity-list-subtitle
-         [:t :admin/list-description {:label (str/lower-case label) :count total-count}]]]
-       [:div.entity-list-hero-actions {:class "flex items-center gap-2"}
-        (when (:can-create permissions)
-          [:a.button.primary
-           {:class "gap-2"
-            ;; Only build the contextual list URL when the entity delegates
-            ;; creation — for generic entities the caller URL is discarded
-            ;; and the extra work would be wasted.
-            :href (entity-create-url entity-name entity-config
-                                     (when (:create-redirect-url entity-config)
-                                       (current-list-url entity-name table-query filters)))
-            :aria-label (str "Create new " (name entity-name))}
-           (icons/icon :plus {:size 18})
-           [:t :admin/button-new {:entity (str/capitalize (name entity-name))}]])]]]
+        [:span.record-count-badge
+         (str total-count " " label)]
+        [:span.selection-count
+         {:x-show "selectedIds.length > 0"
+          :x-text "selectedIds.length + ' selected'"}]]
 
-       ;; Consolidated toolbar (OUTSIDE HTMX target - won't be replaced)
-     [:div.table-toolbar-container {:class "space-y-3"}
-        ;; Search bar (separate row)
-      [:div.toolbar-row-search
        (when has-search?
-         [:div.toolbar-search {:class "flex items-center gap-2"}
+         [:div.toolbar-search
           [:input.search-input {:type "text"
                                 :name "search"
-                                :class "search-input w-full"
+                                :class "search-input"
                                 :placeholder [:t :admin/filter-placeholder-search {:fields (str/join ", " (map name search-fields))}]
                                 :value (or search-value "")
                                 :hx-get (str "/web/admin/" (name entity-name) "/table")
@@ -985,49 +975,48 @@
                                 :hx-target "#entity-table-container"
                                 :hx-push-url "true"
                                 :hx-include "previous .search-input"}
-           (icons/icon :search {:size 20})]
+           (icons/icon :search {:size 18})]
           (when (seq search-value)
             [:button.icon-button.secondary {:type "button"
                                             :aria-label [:t :admin/button-clear-search]
                                             :onclick (str "window.location.href='/web/admin/" (name entity-name) "';")}
-             (icons/icon :x {:size 20})])])]
+             (icons/icon :x {:size 18})])])
 
-       ;; Actions row (delete + create buttons)
-      [:div.toolbar-row-actions {:class "gap-3"}
-       [:div.record-meta {:class "flex items-center gap-2"}
-        [:span.record-count
-         (str total-count " " label)]
-        [:span.selection-count
-         {:x-show "selectedIds.length > 0"
-          :x-text "selectedIds.length + ' selected'"}]]
-
+       [:div.toolbar-actions
          ;; Delete button - Alpine.js reactively disables when nothing selected
-       [:form#bulk-action-form
-        {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
-         :hx-target "#entity-table-container"
-         :hx-swap "outerHTML"
-         :hx-include "[name='ids[]']"}
-        [:button.icon-button.danger
-         (merge (alpine/delete-button-attrs)
-                {:type "submit"
-                 :name "action"
-                 :value "delete"
-                 :id "bulk-delete-btn"
-                 :form "bulk-action-form"
-                 :aria-label [:t :admin/button-delete-selected]
-                 :hx-confirm [:t :admin/confirm-delete-selected]
-                 :data-confirm-title [:t :admin/modal-confirm-delete-title]
-                 :data-confirm-cancel [:t :admin/modal-button-cancel]
-                 :data-confirm-label [:t :admin/modal-button-delete]})
-         (icons/icon :trash {:size 18})]]
-
-       [:div.toolbar-actions {:class "flex items-center gap-2"}
+        [:form#bulk-action-form
+         {:hx-post (str "/web/admin/" (name entity-name) "/bulk-delete")
+          :hx-target "#entity-table-container"
+          :hx-swap "outerHTML"
+          :hx-include "[name='ids[]']"}
+         [:button.icon-button.danger
+          (merge (alpine/delete-button-attrs)
+                 {:type "submit"
+                  :name "action"
+                  :value "delete"
+                  :id "bulk-delete-btn"
+                  :form "bulk-action-form"
+                  :aria-label [:t :admin/button-delete-selected]
+                  :hx-confirm [:t :admin/confirm-delete-selected]
+                  :data-confirm-title [:t :admin/modal-confirm-delete-title]
+                  :data-confirm-cancel [:t :admin/modal-button-cancel]
+                  :data-confirm-label [:t :admin/modal-button-delete]})
+          (icons/icon :trash {:size 18})]]
         [:button.icon-button.ghost {:type "button"
                                     :aria-label [:t :admin/button-refresh]
                                     :hx-get (str "/web/admin/" (name entity-name) "/table")
                                     :hx-target "#entity-table-container"
                                     :hx-push-url "true"}
-         (icons/icon :refresh {:size 18})]]]]
+         (icons/icon :refresh {:size 18})]
+        (when (:can-create permissions)
+          [:a.button.primary
+           {:class "gap-2"
+            :href (entity-create-url entity-name entity-config
+                                     (when (:create-redirect-url entity-config)
+                                       (current-list-url entity-name table-query filters)))
+            :aria-label (str "Create new " (name entity-name))}
+           (icons/icon :plus {:size 18})
+           [:t :admin/button-new {:entity (str/capitalize (name entity-name))}]])]]]
 
        ;; Filter builder + Table wrapper (THIS is the HTMX target for filter updates)
      [:div#filter-table-container {:class "space-y-3"}

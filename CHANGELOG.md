@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+#### `admin` — Table view UX improvements
+- **Single-click row navigation restored**: Clicking any data cell now navigates to the edit form. Previously, editable cells blocked single-click navigation due to an overly broad exclusion in the click handler.
+- **Single-click / double-click coexistence**: Added 250ms debounce so single-click navigates to the edit form while double-click triggers inline field editing without conflict.
+- **Removed redundant edit action icon**: The per-row edit icon button was removed since single-click navigation covers this. The chevron-right navigation hint is retained on hover.
+
+### Changed
+
+#### `admin` — Compact table view layout
+- **Sticky pagination footer**: Pagination bar now sticks to the bottom of the viewport when scrolling long tables, always visible without scrolling down.
+- **Compact toolbar**: Replaced the large gradient hero section with a single-row toolbar combining title, record count badge, search, and action buttons — reclaiming ~120px of vertical space.
+- **Action buttons right-aligned**: Delete, refresh, and create buttons are now pushed to the right side of the toolbar for visual balance.
+
+#### `admin` — Collapsible sidebar
+- **Collapsible sidebar**: Sidebar can now be collapsed to a 64px icon-only mode via toggle button or Ctrl+B keyboard shortcut. State is persisted to localStorage.
+- **Hover expand**: Hovering over the collapsed sidebar temporarily expands it; moving away collapses it again. Pin button keeps it expanded.
+- **CSP-safe Alpine.js store**: Moved sidebar Alpine.js store initialization from inline script to external `admin-ux.js` to comply with Content Security Policy.
+- **Script load order**: `admin-ux.js` now loads before `alpine.min.js` so the sidebar store is registered before Alpine initializes.
+
 ### Added
 
 #### `boundary-tools` — 4 new developer helper tools
