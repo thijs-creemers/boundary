@@ -917,13 +917,13 @@
         (is (str/includes? sidebar-str ":admin/sidebar-toggle-button"))
         (is (str/includes? sidebar-str ":admin/sidebar-pin-button"))))
 
-    (testing "Table row actions have aria-label"
+    (testing "Table row has navigation hint"
       (let [row (ui/entity-table-row :users sample-record sample-entity-config
                                      {:can-edit true :can-delete false})
             row-str (str row)]
-        ;; Edit button should have aria-label (i18n key)
-        (is (str/includes? row-str "aria-label"))
-        (is (str/includes? row-str ":common/button-edit"))))))
+        ;; Row should have clickable-row class and chevron navigation hint
+        (is (str/includes? row-str "clickable-row"))
+        (is (str/includes? row-str "row-nav-hint"))))))
 
 (deftest accessibility-semantic-html-test
   (testing "Pages use semantic HTML elements"
