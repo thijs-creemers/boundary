@@ -5,15 +5,14 @@
             [boundary.tenant.ports :as ports]
             [cheshire.core :as json]
             [clojure.set])
-  (:import [java.sql Timestamp]
-           [org.postgresql.util PGobject]))
+  (:import [java.sql Timestamp]))
 
 (defn- parse-json-value [value]
   (cond
     (nil? value) nil
     (map? value) value
     (string? value) (json/parse-string value true)
-    (instance? PGobject value) (some-> value .getValue (json/parse-string true))
+    (= "org.postgresql.util.PGobject" (.getName (class value))) (some-> (.getValue value) (json/parse-string true))
     :else value))
 
 (defn- ->instant [value]

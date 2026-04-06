@@ -8,8 +8,7 @@
             [boundary.tenant.schema :as tenant-schema]
             [cheshire.core]
             [clojure.set]
-            [clojure.tools.logging :as log])
-  (:import [org.postgresql.util PGobject]))
+            [clojure.tools.logging :as log]))
 
 ;; =============================================================================
 ;; Schema Initialization
@@ -53,7 +52,7 @@
     (nil? value) nil
     (map? value) value
     (string? value) (cheshire.core/parse-string value true)
-    (instance? PGobject value) (some-> value .getValue (cheshire.core/parse-string true))
+    (= "org.postgresql.util.PGobject" (.getName (class value))) (some-> (.getValue value) (cheshire.core/parse-string true))
     :else value))
 
 (defn- db->tenant-entity

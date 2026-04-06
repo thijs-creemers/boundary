@@ -98,8 +98,8 @@
   [e]
   (let [message (.getMessage e)]
     (boolean
-     (or (and (instance? org.postgresql.util.PSQLException e)
-              (= "23503" (.getSQLState ^org.postgresql.util.PSQLException e)))
+     (or (and (= "org.postgresql.util.PSQLException" (.getName (class e)))
+              (= "23503" (.getSQLState ^java.sql.SQLException e)))
          (and message
               (or (str/includes? message "tenant_memberships")
                   (str/includes? message "tenant_member_invites")))))))
