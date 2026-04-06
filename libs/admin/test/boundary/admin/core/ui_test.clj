@@ -383,8 +383,8 @@
       (is (vector? sidebar))
       (is (= :aside.admin-sidebar (first sidebar)))
 
-      ;; Should have header with brand logo (alt text is "Boundary")
-      (is (str/includes? (str sidebar) "Boundary"))
+      ;; Should have sidebar header with toggle controls
+      (is (str/includes? (str sidebar) "sidebar-toggle"))
 
       ;; Should have navigation for each entity
       (is (str/includes? (str sidebar) "Users"))
@@ -431,9 +431,9 @@
       ;; Should have page title
       (is (str/includes? (str shell) "Users"))
 
-      ;; Should have Alpine.js store initialization script
-      (is (some #(and (vector? %) (= :script (first %)))
-                (tree-seq vector? seq shell))))))
+      ;; Alpine.js sidebar store is initialized in external admin-ux.js
+      ;; Shell should have Alpine state bindings
+      (is (str/includes? (str shell) "$store.sidebar.state")))))
 
 (deftest admin-layout-test
   (testing "Complete admin page layout"
@@ -917,13 +917,13 @@
         (is (str/includes? sidebar-str ":admin/sidebar-toggle-button"))
         (is (str/includes? sidebar-str ":admin/sidebar-pin-button"))))
 
-    (testing "Table row actions have aria-label"
+    (testing "Table row has navigation hint"
       (let [row (ui/entity-table-row :users sample-record sample-entity-config
                                      {:can-edit true :can-delete false})
             row-str (str row)]
-        ;; Edit button should have aria-label (i18n key)
-        (is (str/includes? row-str "aria-label"))
-        (is (str/includes? row-str ":common/button-edit"))))))
+        ;; Row should have clickable-row class and chevron navigation hint
+        (is (str/includes? row-str "clickable-row"))
+        (is (str/includes? row-str "row-nav-hint"))))))
 
 (deftest accessibility-semantic-html-test
   (testing "Pages use semantic HTML elements"

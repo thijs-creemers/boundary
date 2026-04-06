@@ -43,11 +43,15 @@
   base-js)
 
 (def admin-pilot-js
-  "Admin pilot JavaScript stack."
-  (conj base-js
-        "/js/forms.js"
-        "/js/keyboard.js"
-        "/js/admin-ux.js"))
+  "Admin pilot JavaScript stack.
+   admin-ux.js must load before alpine.min.js because it registers
+   the sidebar Alpine store via the alpine:init event."
+  ["/js/theme.js"
+   "/js/admin-ux.js"
+   "/js/alpine.min.js"
+   "/js/htmx.min.js"
+   "/js/forms.js"
+   "/js/keyboard.js"])
 
 (def js-bundles
   "Registry of known JavaScript bundles."
