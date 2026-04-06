@@ -329,7 +329,7 @@
                             (get-in request [:query-params "return-to"]))
           prepared-data {:email (get form-data "email")
                          :password (get form-data "password")
-                         :remember (= "on" (get form-data "remember"))
+                         :remember (boolean (get form-data "remember"))
                          :mfa-code (get form-data "mfa-code")
                          :ip-address (:remote-addr request)
                          :user-agent (get-in request [:headers "user-agent"])}

@@ -138,9 +138,8 @@
       (is (str/includes? (page/url pg) "/web/dashboard/settings")
           "Should redirect to the return-to URL"))))
 
-(deftest ^:e2e remember-me-checkbox-bug-documented
-  (testing "Checking remember-me does NOT set remembered-email cookie due to handler bug
-            (handler checks for 'on' but checkbox sends 'true')"
+(deftest ^:e2e remember-me-checkbox-sets-cookie
+  (testing "Checking remember-me sets the remembered-email cookie after login"
     (spel/with-testing-page [pg]
       (page/navigate pg (str base-url "/web/login"))
       (page/wait-for-load-state pg)
@@ -153,18 +152,18 @@
       (loc/click (page/locator pg "form.form-card button[type='submit']"))
       ;; Wait for redirect away from bare login
       (wait-for-navigation-away-from-login! pg)
-      ;; BUG: The login-submit-handler checks (= "on" (get form-data "remember"))
-      ;; but the checkbox component sends value="true", so remember is always false.
-      ;; Once the handler is fixed to check for "true", change this assertion to (some?).
+      ;; The handler now accepts any truthy form value for remember-me
       (let [cookie (find-cookie pg "remembered-email")]
-        (is (nil? cookie)
-            "remembered-email cookie is NOT set because handler reads 'on' but checkbox sends 'true' (known bug)")))))
+        (is (some? cookie)
+            "remembered-email cookie should be set when remember-me is checked")
+        (when cookie
+          (is (= (-> fx/*seed* :user :email)
+                 (url-decoded (:value cookie)))
+              "remembered-email cookie value should match the login email"))))))
 
 (deftest ^:e2e remembered-email-prefills-form-via-http
-  (testing "When remembered-email cookie is set via direct HTTP (bypassing the checkbox bug),
-            revisiting /web/login prefills the email field"
-    ;; Since the checkbox bug prevents remember-me from working via the HTML form,
-    ;; we set the remembered-email cookie manually via JavaScript and then verify
+  (testing "When remembered-email cookie is set, revisiting /web/login prefills the email field"
+    ;; Set the remembered-email cookie manually via JavaScript and verify
     ;; the prefill behavior.
     (spel/with-testing-page [pg]
       ;; Navigate to login to establish the domain for cookies
