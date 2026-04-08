@@ -85,5 +85,5 @@ All four adapters ship as `:inactive` in `config.edn`. Move to `:active` to enab
 
 [source,bash]
 ----
-clojure -M:test:db/h2 :external
+clojure -M:test :external
 ----

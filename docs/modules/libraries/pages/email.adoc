@@ -1,8 +1,8 @@
 = email
 :description: Email sending with SMTP support, async processing, and jobs integration.
 
-Email sending with SMTP support, validation, and optional async processing via the jobs module.
-Supports sync, async (future-based), and queued (jobs module) sending modes.
+Email sending with SMTP support, validation, and optional async processing via the jobs library.
+Supports sync, async (future-based), and queued (jobs library) sending modes.
 
 == Key namespaces
 
@@ -84,5 +84,5 @@ boundary-email (application layer)  →  boundary-external (transport layer)
 
 [source,bash]
 ----
-clojure -M:test:db/h2 :email
+clojure -M:test :email
 ----

@@ -143,13 +143,13 @@ java.time.temporal.ChronoUnit/DAYS
 
 == defrecord changes
 
-After changing a `defrecord` definition, `(ig-repl/reset)` is not sufficient.
+After changing a `defrecord` definition, `(reset)` is not sufficient.
 You must do a full restart:
 
 [source,clojure]
 ----
-(ig-repl/halt)
-(ig-repl/go)
+(halt)
+(go)
 ;; Or restart the REPL entirely
 ----
 

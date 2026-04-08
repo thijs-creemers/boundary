@@ -1,7 +1,7 @@
 = Create a Module
 :description: How to scaffold and integrate a new Boundary module.
 
-The scaffolder generates a complete FC/IS module in seconds.
+The scaffolder generates a complete FC/IS module quickly.
 
 == Interactive wizard (recommended)
 
@@ -52,7 +52,7 @@ bb scaffold ai "product module with name, price, and stock quantity" --yes
 
 For a `product` module with three fields, the scaffolder creates:
 
-* 9 source files: core, shell (persistence, service, http, module-wiring), ports, schema
+* 8 source files: core, shell (persistence, service, http, web_handlers), ports, schema
 * 3 test files: unit, integration, contract
 * 1 migration file
 * Zero linting errors, complete FC/IS architecture
@@ -72,7 +72,7 @@ clojure -M:migrate up
 # 3. Register routes in module HTTP wiring and config
 
 # 4. Reload the system
-# In REPL: (ig-repl/reset)
+# In REPL: (reset)
 ----
 
 == Adding fields after the fact

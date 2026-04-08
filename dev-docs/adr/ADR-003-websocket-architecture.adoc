@@ -253,13 +253,13 @@ libs/realtime/
 (defrecord Connection [id user-id roles metadata created-at])
 
 ;; Pure functions
-(defn create-connection [user-id roles metadata]
+(defn create-connection [id user-id roles metadata created-at]
   (map->Connection
-    {:id (random-uuid)
+    {:id id
      :user-id user-id
      :roles roles
      :metadata metadata
-     :created-at (java.time.Instant/now)}))
+     :created-at created-at}))
 
 (defn authorize-connection? [connection required-role]
   (contains? (:roles connection) required-role))
@@ -321,10 +321,11 @@ libs/realtime/
   
   (connect [this ws-connection query-params]
     ;; Shell: I/O and side effects
-    (let [token (extract-token query-params)
-          claims (ports/verify-jwt jwt-service token)
-          connection (conn/create-connection (:user-id claims) (:roles claims) {})
-          connection-id (:id connection)]
+    (let [token       (extract-token query-params)
+          claims      (ports/verify-jwt jwt-service token)
+          connection-id (random-uuid)
+          now         (java.time.Instant/now)
+          connection  (conn/create-connection connection-id (:user-id claims) (:roles claims) {} now)]
       (ports/register connection-registry connection-id connection ws-connection)
       (ports/log logger :info "WebSocket connection established" {:connection-id connection-id})
       connection-id))
@@ -495,12 +496,16 @@ ws://localhost:3000/ws?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   (let [token (get query-params "token")
         ;; Delegate JWT verification to user module
         jwt-claims (user-ports/verify-jwt user-service token)
-        connection (conn/create-connection 
-                     (:user-id jwt-claims) 
-                     (:roles jwt-claims) 
-                     {})]
-    (ports/register connection-registry (:id connection) connection ws-connection)
-    (:id connection)))
+        connection-id (random-uuid)
+        now (java.time.Instant/now)
+        connection (conn/create-connection
+                     connection-id
+                     (:user-id jwt-claims)
+                     (:roles jwt-claims)
+                     {}
+                     now)]
+    (ports/register connection-registry connection-id connection ws-connection)
+    connection-id))
 ----
 
 '''''
@@ -822,7 +827,9 @@ Pure functions tested in isolation:
 [source,clojure]
 ----
 (deftest create-connection-test
-  (let [conn (conn/create-connection user-id #{:admin} {})]
+  (let [connection-id (random-uuid)
+        now (java.time.Instant/now)
+        conn (conn/create-connection connection-id user-id #{:admin} {} now)]
     (is (uuid? (:id conn)))
     (is (= user-id (:user-id conn)))
     (is (contains? (:roles conn) :admin))))

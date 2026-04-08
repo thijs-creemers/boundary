@@ -1,4 +1,5 @@
 * Getting Started
+** xref:getting-started:index.adoc[Overview]
 ** xref:getting-started:why-boundary.adoc[Why Boundary?]
 ** xref:getting-started:installation.adoc[Installation]
 ** xref:getting-started:quickstart.adoc[Quickstart]

@@ -77,7 +77,7 @@ resources/conf/dev/
 
 1. Create `+resources/conf/dev/admin/{module}.edn+`
 2. Add `+#include "admin/{module}.edn"+` to the `#merge` vector in `config.edn`
-3. `(ig-repl/reset)` to reload configuration
+3. `(reset)` to reload configuration
 
 == UI conventions
 
@@ -90,5 +90,5 @@ resources/conf/dev/
 
 [source,bash]
 ----
-clojure -M:test:db/h2 :admin
+clojure -M:test :admin
 ----

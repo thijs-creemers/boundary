@@ -1,7 +1,7 @@
 = Functional Core / Imperative Shell
 :description: The architectural pattern that Boundary enforces at every layer.
 
-FC/IS is the single most important concept in Boundary.
+FC/IS is Boundary's core architectural concept.
 It draws a hard boundary between *pure business logic* and *side effects*.
 
 == The two zones
@@ -80,8 +80,8 @@ libs/{library}/src/boundary/{library}/
 | *Never*
 |===
 
-The most common violation is when a core namespace requires a shell namespace (e.g., for logging or persistence).
-clj-kondo and the test suite will catch this, but the structure is self-enforcing if you think in terms of:
+The most common violation is when a core namespace requires a shell namespace (for logging or persistence).
+clj-kondo and the test suite will catch this, but the structure is self-enforcing if you ask:
 *"Can I test this function without any mocks?"*
 
 == Why this matters
@@ -100,7 +100,7 @@ Core functions are plain Clojure functions. Testing them requires no database, n
 === Predictable behaviour
 
 When you see a function in `core/`, you know it has no surprises.
-It won't log to Datadog, won't write to disk, won't call an external API.
+It will not log to Datadog, write to disk, or call an external API.
 
 === Safe refactoring
 

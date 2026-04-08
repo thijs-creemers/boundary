@@ -2,7 +2,7 @@
 :description: HTTP routing, interceptors, database integration, and CLI infrastructure.
 
 Infrastructure layer for HTTP routing/interceptors, database integration,
-CLI/runtime wiring, and shared platform adapters used by feature modules.
+CLI/runtime wiring, and shared platform adapters used by feature libraries.
 
 == Key namespaces
 
@@ -65,5 +65,5 @@ Enter phases run in order; leave phases run in reverse order.
 
 [source,bash]
 ----
-clojure -M:test:db/h2 :platform
+clojure -M:test :platform
 ----

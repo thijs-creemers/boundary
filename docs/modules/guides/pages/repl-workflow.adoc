@@ -14,12 +14,9 @@ clojure -M:repl-clj
 
 [source,clojure]
 ----
-(require '[integrant.repl :as ig-repl])
-(require 'conf.dev.system)
-
-(ig-repl/go)    ; Start all components
-(ig-repl/reset) ; Reload changed namespaces and restart
-(ig-repl/halt)  ; Stop all components
+(go)    ; Start all components
+(reset) ; Reload changed namespaces and restart
+(halt)  ; Stop all components
 ----
 
 == Connecting via nREPL
@@ -58,14 +55,14 @@ clj-nrepl-eval -p 7888 "(+ 1 2)"
 (require '[boundary.user.core.user :as user-core] :reload)
 
 ;; Full system reset (handles most changes)
-(ig-repl/reset)
+(reset)
 
 ;; After changing a defrecord, do a full restart
-(ig-repl/halt)
-(ig-repl/go)
+(halt)
+(go)
 ----
 
-NOTE: `(ig-repl/reset)` does not recreate `defrecord` instances.
+NOTE: `(reset)` does not recreate `defrecord` instances.
 If you changed a record definition and the change isn't taking effect, do a full halt + go.
 
 == Testing logic interactively

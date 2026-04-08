@@ -1,66 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<module type="JAVA_MODULE" version="4">
+<module version="4">
   <component name="AdditionalModuleElements">
     <content url="file://$MODULE_DIR$" dumb="true">
-      <sourceFolder url="file://$MODULE_DIR$/resources" type="java-resource" />
-      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/admin/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/admin/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/cache/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/cache/test" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/libs/core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/libs/core/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/external/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/external/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/jobs/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/jobs/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/observability/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/observability/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/platform/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/platform/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/scaffolder/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/scaffolder/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/storage/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/storage/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/user/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/user/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/email/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/email/test" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/realtime/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/realtime/test" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/search/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/search/test" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/tenant/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/tenant/test" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/workflow/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/workflow/test" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/calendar/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/calendar/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/reports/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/reports/test" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/dev" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/ai/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/ai/test" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/geo/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/geo/test" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/ui-style/resources" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/ui-style/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/i18n/resources" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/i18n/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/i18n/test" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/geo/resources" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/payments/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/libs/payments/test" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/boundary-tools/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/boundary-tools/test" isTestSource="true" />
     </content>
-  </component>
-  <component name="BuildSystem">
-    <option name="buildSystemId" value="CLOJURE_DEPS" />
-    <option name="displayName" value="boundary" />
-  </component>
-  <component name="CheckStyle-IDEA-Module" serialisationVersion="2">
-    <option name="activeLocationsIds" />
   </component>
 </module>

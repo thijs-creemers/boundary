@@ -2,38 +2,38 @@
 :description: Writing and running tests in Boundary projects.
 
 See xref:architecture:testing-strategy.adoc[Testing Strategy] for the conceptual overview.
-This guide covers the practical how-to.
+This guide covers the day-to-day commands and patterns.
 
 == Test commands
 
 [source,bash]
 ----
 # All tests
-clojure -M:test:db/h2
+clojure -M:test
 
 # Single library
-clojure -M:test:db/h2 :core
-clojure -M:test:db/h2 :user
+clojure -M:test :core
+clojure -M:test :user
 
 # By tag
-clojure -M:test:db/h2 --focus-meta :unit
-clojure -M:test:db/h2 --focus-meta :integration
-clojure -M:test:db/h2 --focus-meta :contract
+clojure -M:test --focus-meta :unit
+clojure -M:test --focus-meta :integration
+clojure -M:test --focus-meta :contract
 
 # Single namespace
-clojure -M:test:db/h2 --focus user-property-test
+clojure -M:test --focus user-property-test
 
 # Watch mode
-clojure -M:test:db/h2 --watch :core
-clojure -M:test:db/h2 --watch --focus-meta :unit
+clojure -M:test --watch :core
+clojure -M:test --watch --focus-meta :unit
 
 # Auth tests (JWT secret required)
-JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2 :user
+JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test :user
 ----
 
 == Writing unit tests
 
-Tag with `^:unit`. Call core functions directly — no setup needed:
+Tag with `^:unit`. Call core functions directly - no setup needed:
 
 [source,clojure]
 ----
@@ -43,13 +43,15 @@ Tag with `^:unit`. Call core functions directly — no setup needed:
 
 (deftest ^:unit test-prepare-product
   (testing "returns a product with a generated id"
-    (let [result (product-core/prepare-product {:name "Widget" :price 9.99M})]
+    (let [now    (java.time.Instant/now)
+          result (product-core/prepare-product {:name "Widget" :price 9.99M} now)]
       (is (uuid? (:id result)))
       (is (= "Widget" (:name result)))
       (is (= 9.99M (:price result)))))
 
   (testing "adds timestamps"
-    (let [result (product-core/prepare-product {:name "Widget" :price 9.99M})]
+    (let [now    (java.time.Instant/now)
+          result (product-core/prepare-product {:name "Widget" :price 9.99M} now)]
       (is (inst? (:created-at result)))
       (is (inst? (:updated-at result))))))
 ----
@@ -80,7 +82,7 @@ Tag with `^:integration`. Use in-memory adapters to test service orchestration:
 
 == Writing contract tests
 
-Tag with `^:contract`. Test against real H2 in-memory database:
+Tag with `^:contract`. Test against a real H2 in-memory database:
 
 [source,clojure]
 ----
@@ -121,4 +123,4 @@ Add new libraries to `tests.edn`:
 bb ai gen-tests libs/product/src/boundary/product/core/product.clj
 ----
 
-Generates a complete test namespace from the source file, using Boundary conventions.
+Generates a complete test namespace from the source file using Boundary conventions.

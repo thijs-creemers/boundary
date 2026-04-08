@@ -1,7 +1,7 @@
 = Monorepo Structure
 :description: How the Boundary repository is organized and how libraries relate.
 
-Boundary is a monorepo of 21 independently publishable libraries under `libs/`.
+Boundary is a monorepo of 22 independently publishable libraries under `libs/`.
 Each library can be published to Clojars as a standalone dependency.
 
 == Top-level layout
@@ -10,7 +10,7 @@ Each library can be published to Clojars as a standalone dependency.
 ----
 boundary/
 ├── src/                   ← Main application source tree
-├── libs/                  ← 21 independently publishable libraries
+├── libs/                  ← 22 independently publishable libraries
 │   ├── core/
 │   ├── observability/
 │   ├── platform/
@@ -124,9 +124,9 @@ libs/{library}/
 
 [source,bash]
 ----
-clojure -M:test:db/h2 :core
-clojure -M:test:db/h2 :user
-clojure -M:test:db/h2 :admin
+clojure -M:test :core
+clojure -M:test :user
+clojure -M:test :admin
 # etc.
 ----
 

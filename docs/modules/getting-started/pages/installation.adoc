@@ -3,13 +3,16 @@
 
 == Prerequisites
 
-You need Java (17+), Clojure CLI tools, and Babashka (`bb`).
+Boundary expects Java 17+, the Clojure CLI, and Babashka (`bb`).
+You will also want `curl` and `tar` for the bootstrap script.
+
+If you already have those installed, skip to xref:getting-started:quickstart.adoc[Quickstart].
 
 === macOS
 
 [source,bash]
 ----
-brew install openjdk clojure/tools/clojure babashka/brew/babashka
+brew install openjdk@17 clojure/tools/clojure borkdude/brew/babashka
 ----
 
 === Linux (Debian/Ubuntu)
@@ -19,11 +22,9 @@ brew install openjdk clojure/tools/clojure babashka/brew/babashka
 sudo apt-get update
 sudo apt-get install -y openjdk-17-jdk curl tar
 
-# Clojure CLI
 curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh
 chmod +x linux-install.sh && sudo ./linux-install.sh
 
-# Babashka
 bash < <(curl -s https://raw.githubusercontent.com/babashka/babashka/master/install)
 ----
 
@@ -50,9 +51,9 @@ scoop install babashka
 
 [source,bash]
 ----
-java -version        # Should show 17+
-clojure -version     # Should show 1.12+
-bb --version         # Should show 0.8+
+java -version
+clojure -Sdescribe
+bb --version
 ----
 
 == Using individual libraries
@@ -62,12 +63,12 @@ Boundary libraries are published to Clojars. Add only what you need:
 [source,clojure]
 ----
 ;; Validation utilities only
-{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.0-alpha"}}}
+{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-11"}}}
 
 ;; Full web application stack
-{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.0-alpha"}
-        org.boundary-app/boundary-user     {:mvn/version "1.0.0-alpha"}
-        org.boundary-app/boundary-admin    {:mvn/version "1.0.0-alpha"}}}
+{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-11"}
+        org.boundary-app/boundary-user     {:mvn/version "1.0.1-alpha-11"}
+        org.boundary-app/boundary-admin    {:mvn/version "1.0.1-alpha-11"}}}
 ----
 
 See xref:libraries:index.adoc[Library Overview] for the complete list of available libraries.

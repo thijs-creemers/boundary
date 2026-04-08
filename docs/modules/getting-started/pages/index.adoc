@@ -1,0 +1,47 @@
+= Getting Started
+:description: A concise path from first install to first Boundary module.
+
+Boundary is opinionated on purpose. This guide takes you from installation to a running app, then to your first module, and ends with the ideas that keep the codebase predictable.
+
+== The path
+
+[cols="1,3",options="header"]
+|===
+| Step | What you do
+
+| 1. Install
+| Get Java 17+, the Clojure CLI, and Babashka.
+
+| 2. Bootstrap
+| Create a new app from the starter repository and answer the setup prompts.
+
+| 3. Run
+| Start the REPL-backed system and open the app in your browser.
+
+| 4. Scaffold
+| Generate your first module and wire it into the running system.
+
+| 5. Understand
+| Learn FC/IS, ports, schemas, and the naming conventions that keep Boundary predictable.
+|===
+
+== Recommended order
+
+* xref:getting-started:installation.adoc[Installation]
+* xref:getting-started:quickstart.adoc[Quickstart]
+* xref:getting-started:your-first-module.adoc[Your First Module]
+* xref:getting-started:concepts.adoc[Key Concepts]
+* xref:getting-started:why-boundary.adoc[Why Boundary?]
+
+== What you'll have by the end
+
+* A local Boundary app running on `http://localhost:3000`
+* A generated module with tests, schema, service, HTTP, and migration files
+* A working mental model for where code belongs
+* Enough context to jump into the library docs without getting lost
+
+== If you want the shortest possible path
+
+1. Read xref:getting-started:quickstart.adoc[Quickstart]
+2. Scaffold one module
+3. Read xref:getting-started:concepts.adoc[Key Concepts]
