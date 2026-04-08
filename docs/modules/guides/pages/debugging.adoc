@@ -66,15 +66,15 @@ Add temporary logging in handlers:
 
 *Fix*: always use `cc/snake-case->kebab-case-map` at the persistence boundary.
 
-=== `ig-repl/reset` didn't pick up changes
+=== `reset` didn't pick up changes
 
 *Cause*: You changed a `defrecord`.
 
 *Fix*:
 [source,clojure]
 ----
-(ig-repl/halt)
-(ig-repl/go)
+(halt)
+(go)
 ----
 
 === HTTP 500 with "Exception reached HTTP boundary without :type in ex-data"
@@ -109,5 +109,5 @@ clj-paren-repair <file-with-issue>
 *Fix*:
 [source,bash]
 ----
-JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2 :user
+JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test :user
 ----

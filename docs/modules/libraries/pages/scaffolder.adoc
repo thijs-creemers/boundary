@@ -1,7 +1,7 @@
 = scaffolder
 :description: Interactive module code generator for Boundary projects.
 
-Generates new Boundary modules with complete FC/IS structure, tests, and migrations.
+Generates new Boundary modules with FC/IS structure, tests, and migrations.
 
 == Commands
 
@@ -24,7 +24,7 @@ bb scaffold adapter   # Generate a new adapter implementation
 bb scaffold generate
 ----
 
-The wizard guides you through all options, shows a summary, prints the equivalent
+The wizard guides you through the options, shows a summary, prints the equivalent
 raw command, then runs the generator.
 
 === Non-interactive
@@ -56,12 +56,12 @@ bb scaffold ai "product module with name, price, stock" --yes
 
 == What gets generated
 
-For a module with 3 fields:
+For a module with three fields:
 
-* 9 source files: core, shell (persistence, service, http, module-wiring), ports, schema
+* 8 source files: core, shell (`persistence`, `service`, `http`, `web_handlers`), ports, schema
 * 3 test files: unit (`^:unit`), integration (`^:integration`), contract (`^:contract`)
 * 1 SQL migration file
-* Zero linting errors, complete FC/IS architecture
+* Zero linting errors and a complete FC/IS architecture
 
 == Key namespaces
 
@@ -81,12 +81,12 @@ For a module with 3 fields:
 
 == Gotchas
 
-* Regenerated files can drift if templates are updated without updating test fixtures
+* Regenerated files can drift if templates change without matching test fixtures
 * Generated field names use kebab-case internally; convert only at HTTP/DB boundaries
 
 == Testing
 
 [source,bash]
 ----
-clojure -M:test:db/h2 :scaffolder
+clojure -M:test :scaffolder
 ----

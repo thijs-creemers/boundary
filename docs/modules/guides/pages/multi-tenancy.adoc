@@ -317,8 +317,8 @@ Membership lifecycle:
 
 == Email invite flow
 
-For inviting users who don't have an account yet (or whose user ID you don't know),
-use the token-based external invite flow.
+For inviting users who do not yet have an account, or whose user ID you do not
+know, use the token-based external invite flow.
 
 === Create an invite
 
@@ -386,13 +386,13 @@ Always send the raw token to the user and discard it after.
 [source,bash]
 ----
 # Full tenant test suite
-clojure -M:test:db/h2 :tenant
+clojure -M:test :tenant
 
 # Focused suites
-clojure -M:test:db/h2 --focus boundary.tenant.core.membership-test
-clojure -M:test:db/h2 --focus boundary.tenant.shell.membership-service-test
-clojure -M:test:db/h2 --focus boundary.tenant.shell.invite-service-test
-clojure -M:test:db/h2 --focus boundary.tenant.integration-test
+clojure -M:test --focus boundary.tenant.core.membership-test
+clojure -M:test --focus boundary.tenant.shell.membership-service-test
+clojure -M:test --focus boundary.tenant.shell.invite-service-test
+clojure -M:test --focus boundary.tenant.integration-test
 ----
 
-See xref:../../../libs/tenant/AGENTS.md[tenant AGENTS.md] for the full library reference.
+See `libs/tenant/AGENTS.md` for the full library reference.

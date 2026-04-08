@@ -3,7 +3,7 @@
 
 == Bootstrap a new project
 
-The fastest way to get started is the bootstrap script, which downloads only the starter essentials:
+The bootstrap script is the quickest way to get started. It pulls down only the starter essentials:
 
 [source,bash]
 ----
@@ -14,7 +14,7 @@ bb setup
 
 This gives you:
 
-* SQLite database (zero-config for development)
+* SQLite for zero-config development
 * HTTP server on port 3000
 * A complete Integrant system
 * REPL-driven development workflow
@@ -33,20 +33,27 @@ In the REPL:
 
 [source,clojure]
 ----
-(require '[integrant.repl :as ig-repl])
-(require 'conf.dev.system)
-(ig-repl/go)
+(go)
 ;; => System started. Visit http://localhost:3000
+
+;; Later, after changing code:
+(reset)
+
+;; If you changed a defrecord, do a full restart:
+(halt)
+(go)
 ----
 
 == Scaffold your first module
+
+The interactive wizard is the standard way to create a module:
 
 [source,bash]
 ----
 bb scaffold
 ----
 
-The interactive wizard walks you through creating a module. For example, a product module:
+If you want the same result without prompts, use the generated command directly. For example, a product module:
 
 [source,bash]
 ----
@@ -57,15 +64,17 @@ bb scaffold generate \
   --field sku:string:required:unique \
   --field price:decimal:required
 
+bb scaffold integrate product
+
 # Apply the generated migration
 clojure -M:migrate up
 ----
 
-Then reload the system to pick up the new routes:
+Then reload the system so the new routes are live:
 
 [source,clojure]
 ----
-(ig-repl/reset)
+(reset)
 ;; => Visit http://localhost:3000/admin/products
 ----
 
@@ -73,15 +82,14 @@ Then reload the system to pick up the new routes:
 
 [source,bash]
 ----
-# All tests
-clojure -M:test:db/h2
-
-# Watch mode during development
-clojure -M:test:db/h2 --watch --focus-meta :unit
+clojure -M:test
+clojure -M:test :product
+clojure -M:test --focus-meta :unit
 ----
 
 == Next steps
 
-* xref:getting-started:your-first-module.adoc[Your First Module] — understand what the scaffolder generated
-* xref:architecture:fc-is.adoc[Functional Core / Imperative Shell] — the pattern behind everything
-* xref:guides:testing.adoc[Testing] — unit, integration, and contract tests
+* xref:getting-started:your-first-module.adoc[Your First Module] - see what the scaffolder generated
+* xref:getting-started:concepts.adoc[Key Concepts] - learn the rules once, then reuse them everywhere
+* xref:architecture:fc-is.adoc[Functional Core / Imperative Shell] - the pattern behind everything
+* xref:guides:testing.adoc[Testing] - unit, integration, and contract tests

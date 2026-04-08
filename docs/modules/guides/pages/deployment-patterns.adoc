@@ -2,7 +2,7 @@
 :description: Reference configurations for deploying Boundary applications.
 :toc:
 
-This guide covers deployment patterns beyond Docker (which is documented in xref:deployment.adoc[] and `dev-docs/DOCKER_DEVELOPMENT.adoc`). Reference configs are in `resources/deploy/`.
+This guide covers deployment patterns beyond Docker. For the Docker path, see xref:deployment.adoc[] and `dev-docs/DOCKER_DEVELOPMENT.adoc`. Reference configs live in `resources/deploy/`.
 
 == Prerequisites
 
@@ -23,7 +23,7 @@ java -jar target/boundary-*.jar migrate up
 
 == Environment Variables
 
-All deployments need these variables. See `resources/deploy/systemd/boundary.env.example` for a complete template.
+All deployments need these variables. See `resources/deploy/systemd/boundary.env.example` for a full template.
 
 [cols="1,1,2",options="header"]
 |===
@@ -79,7 +79,7 @@ sudo journalctl -u boundary -f     # Tail logs
 sudo systemctl restart boundary    # Restart after deploy
 ----
 
-The unit file automatically runs migrations via `ExecStartPre` before starting the server. On failure it restarts after 10 seconds (max 5 retries per minute).
+The unit file runs migrations via `ExecStartPre` before starting the server. On failure it restarts after 10 seconds, with a maximum of 5 retries per minute.
 
 === JVM Tuning
 
@@ -122,7 +122,7 @@ sudo nginx -t && sudo systemctl reload nginx
 The config includes:
 
 - HTTP -> HTTPS redirect
-- WebSocket upgrade support for `/ws` (realtime module)
+- WebSocket upgrade support for `/ws` (realtime library)
 - Suppressed access logs on `/health`
 - 30-day cache for static assets
 - Connection keepalive to the app
@@ -151,7 +151,7 @@ fly secrets set JWT_SECRET="your-secret-32-chars-min" POSTGRES_PASSWORD="..."
 fly deploy
 ----
 
-The fly.toml configures:
+The `fly.toml` configures:
 
 - Auto-scaling (min 1 machine, auto-stop idle)
 - Health checks against `/health/ready`
@@ -187,4 +187,4 @@ All deployment patterns should use the health endpoints:
 | `/health/live` | Process alive | Container orchestrator liveness probes
 |===
 
-`/health/ready` returns 503 when any dependency is unreachable, making it safe for load balancer health checks — traffic won't be routed until the database is connected.
+`/health/ready` returns 503 when any dependency is unreachable, making it safe for load balancer health checks - traffic is not routed until the database is connected.

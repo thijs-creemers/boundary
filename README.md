@@ -160,7 +160,7 @@ clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
 
 # REPL (nREPL on port 7888)
 clojure -M:repl-clj
-# In REPL: (ig-repl/go) | (ig-repl/reset) | (ig-repl/halt)
+# In REPL: (go) | (reset) | (halt)
 
 # Build
 clojure -T:build clean && clojure -T:build uber

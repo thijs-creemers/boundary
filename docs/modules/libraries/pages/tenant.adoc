@@ -2,7 +2,7 @@
 :description: Multi-tenancy with PostgreSQL schema-per-tenant isolation.
 
 Multi-tenancy with schema-per-tenant isolation on PostgreSQL.
-Provides tenant CRUD, schema provisioning, tenant resolution, and cross-module integration.
+Provides tenant CRUD, schema provisioning, tenant resolution, and cross-library integration.
 
 NOTE: Requires PostgreSQL. Not supported with SQLite or H2.
 
@@ -95,5 +95,5 @@ DELETE /api/tenants/:slug            # Soft delete
 
 [source,bash]
 ----
-clojure -M:test:db/h2 :tenant
+clojure -M:test :tenant
 ----

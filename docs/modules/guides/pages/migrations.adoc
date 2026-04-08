@@ -2,7 +2,7 @@
 :description: Conventions, safe patterns, and recipes for Boundary database migrations.
 :toc:
 
-Boundary uses https://github.com/yogthos/migratus[Migratus] for SQL-based, versioned migrations. This guide covers conventions, safety patterns, and common recipes.
+Boundary uses https://github.com/yogthos/migratus[Migratus] for SQL-based, versioned migrations. This guide covers the naming convention, safe patterns, and common recipes.
 
 == Quick Reference
 
@@ -51,7 +51,7 @@ Rules:
 | `resources/migrations/`
 | Application-level migrations (main schema)
 
-| `libs/{lib}/resources/boundary/{lib}/migrations/`
+| `libs/<library>/resources/boundary/<library>/migrations/`
 | Library-contributed migrations (auto-discovered)
 |===
 
@@ -63,7 +63,7 @@ Libraries contribute migrations by publishing a `boundary/migration-paths.edn` m
 {:paths ["boundary/geo/migrations/"]}
 ----
 
-The migration system (`boundary.platform.shell.database.migrations`) discovers all manifests and merges their directories at startup.
+The migration system (`boundary.platform.shell.database.migrations`) discovers the manifests and merges their directories at startup.
 
 == Statement Separator
 
@@ -178,7 +178,7 @@ The key principle: **schema changes and code changes deploy separately**. The da
 When using `boundary-tenant` (schema-per-tenant), migrations run in two scopes:
 
 . **Shared schema** (`public`) — tenant registry, shared tables. Use `resources/migrations/` as normal.
-. **Per-tenant schema** — tenant-specific tables. The tenant module applies these automatically during provisioning.
+. **Per-tenant schema** — tenant-specific tables. The tenant library applies these automatically during provisioning.
 
 For per-tenant migrations, prefix table names with the schema:
 
@@ -216,11 +216,11 @@ UPDATE users SET status = 'active'
 WHERE id IN (SELECT id FROM batch);
 ----
 
-For very large tables (millions of rows), write a Clojure migration script instead of SQL and run it as a one-off task outside the migration framework.
+For very large tables, write a Clojure migration script instead of SQL and run it as a one-off task outside the migration framework.
 
 == Testing Migrations
 
-- **CI runs all migrations against H2** — the test suite creates a fresh schema every run
+- **CI runs all migrations against H2** - the test suite creates a fresh schema every run
 - **Test locally against PostgreSQL** before deploying to production (H2 doesn't support all PostgreSQL features like `CONCURRENTLY`)
 - **Rollback test**: run `migrate up`, then `migrate down`, then `migrate up` again. If it fails, your down migration is broken.
 

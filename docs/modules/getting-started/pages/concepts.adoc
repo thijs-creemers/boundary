@@ -1,9 +1,11 @@
 = Key Concepts
 :description: The core ideas you need to understand before working with Boundary.
 
+If the quickstart showed you how to run Boundary, this page explains why the codebase is shaped the way it is.
+
 == Functional Core / Imperative Shell
 
-The most important concept in Boundary. Every module is split into two zones:
+The most important concept in Boundary is the split between pure business logic and side effects:
 
 [source]
 ----
@@ -30,9 +32,9 @@ The most important concept in Boundary. Every module is split into two zones:
 * Shell → Adapters: allowed
 * Core → Shell: *never*
 
-See xref:architecture:fc-is.adoc[FC/IS Architecture] for the full explanation.
+See xref:architecture:fc-is.adoc[Functional Core / Imperative Shell] for the full explanation.
 
-== Ports and Adapters
+== Ports and adapters
 
 Ports are Clojure protocols that define *what* a component can do, without specifying *how*:
 
@@ -58,7 +60,7 @@ Swapping the implementation requires zero changes to business logic.
 
 == Case conventions
 
-A frequent source of bugs. Boundary uses three different naming conventions at different boundaries:
+This is a frequent source of bugs. Boundary uses three different naming conventions at different boundaries:
 
 [cols="1,1,2",options="header"]
 |===
@@ -77,7 +79,7 @@ A frequent source of bugs. Boundary uses three different naming conventions at d
 | `passwordHash`, `createdAt`
 |===
 
-*Always use `boundary.core.utils.case-conversion` for conversions. Never convert manually.*
+Always use `boundary.core.utils.case-conversion` for conversions. Never convert manually.
 
 [source,clojure]
 ----
@@ -100,20 +102,19 @@ See xref:architecture:conventions.adoc[Conventions] for the full guide.
 Boundary uses Integrant for dependency injection and system lifecycle management.
 All components are defined as Integrant keys in `config.edn`.
 
-[source,bash]
+[source,clojure]
 ----
-# In the REPL
-(ig-repl/go)     # Start all components
-(ig-repl/reset)  # Reload changed namespaces and restart
-(ig-repl/halt)   # Stop all components
+(go)     ; Start all components
+(reset)  ; Reload changed namespaces and restart
+(halt)   ; Stop all components
 ----
 
-NOTE: After changing a `defrecord`, use `(ig-repl/halt)` + `(ig-repl/go)` instead of `reset`.
+NOTE: After changing a `defrecord`, use `(halt)` + `(go)` instead of `reset`.
 `reset` does not recreate existing records.
 
 == Malli schemas
 
-Boundary uses Malli for all validation and schema definitions.
+Boundary uses Malli for validation and schema definitions.
 Schemas live in `schema.clj` at the root of each module:
 
 [source,clojure]
@@ -133,7 +134,7 @@ Schemas live in `schema.clj` at the root of each module:
 
 | Unit
 | `^:unit`
-| Pure core functions — no mocks, no DB
+| Pure core functions - no mocks, no DB
 
 | Integration
 | `^:integration`
@@ -146,9 +147,9 @@ Schemas live in `schema.clj` at the root of each module:
 
 [source,bash]
 ----
-clojure -M:test:db/h2 --focus-meta :unit         # Only unit tests
-clojure -M:test:db/h2 --focus-meta :integration  # Only integration tests
-clojure -M:test:db/h2 --focus-meta :contract     # Only contract tests
+clojure -M:test --focus-meta :unit
+clojure -M:test --focus-meta :integration
+clojure -M:test --focus-meta :contract
 ----
 
 See xref:architecture:testing-strategy.adoc[Testing Strategy] for the full guide.

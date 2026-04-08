@@ -1,13 +1,13 @@
 = Boundary Framework
 :description: Batteries-included Clojure web framework enforcing the Functional Core / Imperative Shell pattern.
 
-**Boundary** brings Django's productivity and Rails' conventions to Clojure — with functional programming rigor.
+**Boundary** brings Django-style productivity and Rails-style conventions to Clojure, with functional programming rigor.
 It is a batteries-included web framework that enforces the *Functional Core / Imperative Shell (FC/IS)* pattern:
 pure business logic in `core/`, side effects in `shell/`, and clean interfaces through `ports.clj` protocols.
 
 == What Boundary provides
 
-* *21 independently publishable libraries* on Clojars — use only what you need
+* *22 independently publishable libraries* on Clojars — use only what you need
 * *Scaffolder* that generates production-ready modules (entity + routes + tests) in seconds
 * *Auto-generated admin UI* from your schema — no manual forms
 * *Built-in observability*, RFC 5988 pagination, and declarative interceptors
@@ -21,7 +21,7 @@ pure business logic in `core/`, side effects in `shell/`, and clean interfaces t
 | Go to
 
 | Try Boundary in minutes
-| xref:getting-started:quickstart.adoc[Quickstart]
+| xref:getting-started:index.adoc[Getting Started]
 
 | Understand the design philosophy
 | xref:getting-started:why-boundary.adoc[Why Boundary?]
@@ -32,7 +32,7 @@ pure business logic in `core/`, side effects in `shell/`, and clean interfaces t
 | Add a module to an existing app
 | xref:guides:create-module.adoc[Create a Module]
 
-| Browse all 21 libraries
+| Browse all 22 libraries
 | xref:libraries:index.adoc[Library Overview]
 |===
 
@@ -53,5 +53,5 @@ clojure -M:repl-clj
 bb scaffold
 
 # Run all tests
-clojure -M:test:db/h2
+clojure -M:test
 ----
