@@ -21,7 +21,7 @@ It saves ~€3.2k–€4k per project by eliminating boilerplate around:
 | `boundary.calendar.schema` | shared | Malli schemas: `EventData`, `EventDef`, `OccurrenceResult`, `ConflictResult` |
 | `boundary.calendar.ports` | shared | `CalendarAdapterProtocol` interface |
 | `boundary.calendar.core.event` | core | `defevent` macro, registry, `duration`, `all-day?`, `within-range?` |
-| `boundary.calendar.core.recurrence` | core | RRULE parsing, `occurrences`, `next-occurrence`, `expand-event` |
+| `boundary.calendar.core.recurrence` | core | RRULE parsing, `occurrences`, `next-occurrence*`, `expand-event` |
 | `boundary.calendar.core.conflict` | core | `overlaps?`, `conflicts?`, `find-conflicts` |
 | `boundary.calendar.core.ui` | core | Pure Hiccup: `month-view`, `week-view`, `mini-calendar`, `event-badge` |
 | `boundary.calendar.shell.adapters.ical` | shell | ical4j adapter (`ICalAdapter`) |

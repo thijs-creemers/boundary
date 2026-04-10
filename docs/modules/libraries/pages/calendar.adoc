@@ -24,7 +24,7 @@ iCal export/import, and admin UI components for scheduling applications.
 
 | `boundary.calendar.core.recurrence`
 | core
-| RRULE parsing, `occurrences`, `next-occurrence`, `expand-event`
+| RRULE parsing, `occurrences`, `next-occurrence*`, `expand-event`
 
 | `boundary.calendar.core.conflict`
 | core
