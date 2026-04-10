@@ -129,7 +129,7 @@
      ;=> 7
      
    Pure: true"
-  ([created-at]
+  ([_created-at]
    (throw (ex-info "calculate-document-age-days 1-arity is deprecated; pass explicit current-time"
                    {:type :deprecated-api
                     :replacement 'calculate-document-age-days})))

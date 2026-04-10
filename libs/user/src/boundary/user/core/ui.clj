@@ -1372,21 +1372,6 @@
 ;; Dashboard Page
 ;; =============================================================================
 
-(defn- format-date-relative
-  "Format date relative to now (e.g., 'today', '2 days ago', 'never').
-   
-   Args:
-     instant - java.time.Instant or nil
-     
-   Returns:
-     String describing relative time
-
-   Deprecated for BOU-15. Use `format-date-relative*` with explicit time."
-  [& _args]
-  (throw (ex-info "format-date-relative is deprecated; use format-date-relative* with explicit time"
-                  {:type :deprecated-api
-                   :replacement 'format-date-relative*})))
-
 (defn- format-date-relative*
   "Format date relative to an explicit reference time (e.g., 'today', '2 days ago', 'never').
    
