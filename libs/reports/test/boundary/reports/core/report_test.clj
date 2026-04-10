@@ -3,7 +3,10 @@
   (:require [boundary.reports.core.report :as sut]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing use-fixtures]])
-  (:import [java.time LocalDate]))
+  (:import [java.time LocalDate ZoneId]))
+
+(def ^:private formatting-context
+  {:zone-id (ZoneId/of "UTC")})
 
 ;; =============================================================================
 ;; Test fixture — clear registry between tests
@@ -22,43 +25,46 @@
 (deftest format-cell-string-test
   ^:unit
   (testing "nil value returns empty string"
-    (is (= "" (sut/format-cell nil :string))))
+    (is (= "" (sut/format-cell* nil :string formatting-context))))
   (testing "non-nil value is coerced to string"
-    (is (= "hello" (sut/format-cell "hello" :string)))
-    (is (= "42"    (sut/format-cell 42 :string))))
+    (is (= "hello" (sut/format-cell* "hello" :string formatting-context)))
+    (is (= "42"    (sut/format-cell* 42 :string formatting-context))))
   (testing "nil format treated as :string"
-    (is (= "world" (sut/format-cell "world" nil)))))
+    (is (= "world" (sut/format-cell* "world" nil formatting-context))))
+  (testing "legacy format-cell helper is deprecated"
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"format-cell is deprecated"
+         (sut/format-cell "world" nil)))))
 
 (deftest format-cell-number-test
   ^:unit
   (testing "integer becomes double"
-    (is (= 5.0 (sut/format-cell 5 :number))))
+    (is (= 5.0 (sut/format-cell* 5 :number formatting-context))))
   (testing "nil becomes 0.0"
-    (is (= 0.0 (sut/format-cell nil :number)))))
+    (is (= 0.0 (sut/format-cell* nil :number formatting-context)))))
 
 (deftest format-cell-currency-test
   ^:unit
   (testing "nil returns default"
-    (is (= "€ 0,00" (sut/format-cell nil :currency))))
+    (is (= "€ 0,00" (sut/format-cell* nil :currency formatting-context))))
   (testing "positive value formatted with EUR prefix"
-    (let [result (sut/format-cell 1234.56 :currency)]
+    (let [result (sut/format-cell* 1234.56 :currency formatting-context)]
       (is (str/starts-with? result "€ "))))
   (testing "zero formatted"
-    (is (= "€ 0,00" (sut/format-cell 0 :currency)))))
+    (is (= "€ 0,00" (sut/format-cell* 0 :currency formatting-context)))))
 
 (deftest format-cell-date-test
   ^:unit
   (testing "nil returns empty string"
-    (is (= "" (sut/format-cell nil :date))))
+    (is (= "" (sut/format-cell* nil :date formatting-context))))
   (testing "LocalDate returns ISO date string"
     (let [date   (LocalDate/of 2026 3 13)
-          result (sut/format-cell date :date)]
+          result (sut/format-cell* date :date formatting-context)]
       (is (= "2026-03-13" result))))
   (testing "java.util.Date returns ISO date string"
-    (let [cal  (doto (java.util.Calendar/getInstance)
-                 (.set 2026 2 13 0 0 0))
-          date (.getTime cal)
-          result (sut/format-cell date :date)]
+    (let [date (java.util.Date/from (java.time.Instant/parse "2026-03-13T00:00:00Z"))
+          result (sut/format-cell* date :date formatting-context)]
       (is (re-matches #"2026-03-13" result)))))
 
 ;; =============================================================================
@@ -73,11 +79,16 @@
                    {:key :qty   :label "Qty"    :format :number}]
           record  {:name "Widget" :price 9.99 :qty 3}]
       (is (= ["Widget" "€ 9,99" 3.0]
-             (sut/map-columns columns record)))))
+             (sut/map-columns* columns record formatting-context)))))
   (testing "missing key returns formatted nil"
     (let [columns [{:key :missing :label "X" :format :string}]
           record  {}]
-      (is (= [""] (sut/map-columns columns record))))))
+      (is (= [""] (sut/map-columns* columns record formatting-context)))))
+  (testing "legacy map-columns helper is deprecated"
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"map-columns is deprecated"
+         (sut/map-columns [] {})))))
 
 ;; =============================================================================
 ;; build-table-rows
@@ -90,12 +101,17 @@
                    {:key :value :label "Value" :format :number}]
           data    [{:name "A" :value 1}
                    {:name "B" :value 2}]
-          result  (sut/build-table-rows columns data)]
+          result  (sut/build-table-rows* columns data formatting-context)]
       (is (= :tbody (first result)))
       (is (= 2 (count (rest result))))))
   (testing "empty data produces empty tbody"
-    (let [result (sut/build-table-rows [{:key :x :label "X"}] [])]
-      (is (= [:tbody] result)))))
+    (let [result (sut/build-table-rows* [{:key :x :label "X"}] [] formatting-context)]
+      (is (= [:tbody] result))))
+  (testing "legacy build-table-rows helper is deprecated"
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"build-table-rows is deprecated"
+         (sut/build-table-rows [] [])))))
 
 ;; =============================================================================
 ;; defreport macro and registry
@@ -175,11 +191,16 @@
                     {:type    :table
                      :columns [{:key :name :label "Name"}]}
                     {:type :footer :content [:p "Page 1"]}]
-          result   (sut/build-sections-hiccup sections [{:name "Alice"}])]
+          result   (sut/build-sections-hiccup* sections [{:name "Alice"}] formatting-context)]
       (is (= :html (first result)))))
   (testing "spacer section renders div.spacer"
     (let [sections [{:type :spacer}]
-          result   (sut/build-sections-hiccup sections [])
+          result   (sut/build-sections-hiccup* sections [] formatting-context)
           ;; body is [:html [:head ...] [:body [:div.spacer]]]
           body     (last result)]
-      (is (some #(= [:div.spacer] %) (rest body))))))
+      (is (some #(= [:div.spacer] %) (rest body)))))
+  (testing "legacy build-sections-hiccup helper is deprecated"
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"build-sections-hiccup is deprecated"
+         (sut/build-sections-hiccup [] [])))))

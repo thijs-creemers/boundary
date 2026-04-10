@@ -223,30 +223,43 @@
 (deftest validate-version-test
   (testing "Valid supported version"
     (let [config {:supported-versions #{:v1 :v2}}
-          result (versioning/validate-version "v1" config)]
+          result (versioning/validate-version* "v1" config "2026-04-10")]
       (is (:valid? result))
       (is (= "v1" (:version result)))
       (is (empty? (:errors result)))))
 
   (testing "Invalid version format"
     (let [config {:supported-versions #{:v1}}
-          result (versioning/validate-version "invalid" config)]
+          result (versioning/validate-version* "invalid" config "2026-04-10")]
       (is (not (:valid? result)))
       (is (= "invalid" (:version result)))
       (is (some #(re-find #"Invalid version format" %) (:errors result)))))
 
   (testing "Unsupported version"
     (let [config {:supported-versions #{:v1 :v2}}
-          result (versioning/validate-version "v3" config)]
+          result (versioning/validate-version* "v3" config "2026-04-10")]
       (is (not (:valid? result)))
       (is (= "v3" (:version result)))
       (is (some #(re-find #"not supported" %) (:errors result)))))
 
   (testing "Keyword version"
     (let [config {:supported-versions #{:v1 :v2}}
-          result (versioning/validate-version :v1 config)]
+          result (versioning/validate-version* :v1 config "2026-04-10")]
       (is (:valid? result))
-      (is (= "v1" (:version result))))))
+      (is (= "v1" (:version result)))))
+
+  (testing "Sunset version becomes invalid at explicit current date"
+    (let [config {:supported-versions #{:v1}
+                  :sunset-dates {:v1 "2026-04-10"}}
+          result (versioning/validate-version* "v1" config "2026-04-10")]
+      (is (not (:valid? result)))
+      (is (some #(re-find #"has been sunset" %) (:errors result)))))
+
+  (testing "legacy validate-version helper is deprecated"
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"validate-version is deprecated"
+         (versioning/validate-version "v1" {:supported-versions #{:v1 :v2}})))))
 
 ;; =============================================================================
 ;; Version Resolution Tests

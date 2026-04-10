@@ -223,15 +223,25 @@
 (deftest next-occurrence-test
   ^:unit
   (testing "future non-recurring event returns its start"
-    ;; Use a date far in the future to avoid test becoming stale
-    (let [far-future "2099-06-01T09:00:00Z"
+    (let [reference-time "2026-01-01T00:00:00Z"
+          far-future "2099-06-01T09:00:00Z"
           ev         (make-event far-future "2099-06-01T10:00:00Z")]
-      (is (= (Instant/parse far-future) (sut/next-occurrence ev)))))
+      (is (= (Instant/parse far-future)
+             (sut/next-occurrence* ev (Instant/parse reference-time))))))
   (testing "past non-recurring event returns nil"
     (let [ev (make-event "2020-01-01T09:00:00Z" "2020-01-01T10:00:00Z")]
-      (is (nil? (sut/next-occurrence ev)))))
+      (is (nil? (sut/next-occurrence* ev (Instant/parse "2026-01-01T00:00:00Z"))))))
   (testing "recurring event returns next future occurrence"
-    (let [far-future-start "2099-01-01T09:00:00Z"
+    (let [reference-time "2026-01-01T00:00:00Z"
+          far-future-start "2099-01-01T09:00:00Z"
           ev (make-event far-future-start "2099-01-01T10:00:00Z"
                          "FREQ=DAILY")]
-      (is (= (Instant/parse far-future-start) (sut/next-occurrence ev))))))
+      (is (= (Instant/parse far-future-start)
+             (sut/next-occurrence* ev (Instant/parse reference-time))))))
+  (testing "legacy helper is deprecated"
+    (let [ev (make-event "2099-01-01T09:00:00Z" "2099-01-01T10:00:00Z"
+                         "FREQ=DAILY")]
+      (is (thrown-with-msg?
+           clojure.lang.ExceptionInfo
+           #"next-occurrence is deprecated"
+           (sut/next-occurrence ev))))))

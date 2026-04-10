@@ -1,17 +1,16 @@
 (ns boundary.tenant.core.invite
   (:require [clojure.string :as str])
-  (:import (java.time Instant)
-           (java.util UUID)))
+  (:import (java.time Instant)))
 
 (defn normalize-email
   "Normalize invite email for consistent matching."
 [email]
   (some-> email str str/trim str/lower-case))
 
-(defn prepare-invite
-  "Creates a new tenant invite in :pending status."
-  [{:keys [tenant-id email role token-hash expires-at metadata]} now]
-  {:id                  (UUID/randomUUID)
+(defn prepare-invite*
+  "Creates a new tenant invite in :pending status using explicit runtime inputs."
+  [{:keys [invite-id tenant-id email role token-hash expires-at metadata]} now]
+  {:id                  invite-id
    :tenant-id           tenant-id
    :email               (normalize-email email)
    :role                role
@@ -24,6 +23,15 @@
    :metadata            metadata
    :created-at          now
    :updated-at          nil})
+
+(defn prepare-invite
+  "Deprecated for BOU-15.
+
+   Use `prepare-invite*` and pass a shell-generated invite id."
+  [& _args]
+  (throw (ex-info "prepare-invite is deprecated; use prepare-invite* with an explicit invite-id"
+                  {:type :deprecated-api
+                   :replacement 'prepare-invite*})))
 
 (defn expired?
   "Returns true when the invite is no longer valid due to expiry."

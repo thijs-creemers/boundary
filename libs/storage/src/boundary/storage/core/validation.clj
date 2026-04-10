@@ -249,16 +249,22 @@
         (str truncated-base "." ext)
         truncated-base))))
 
-(defn generate-unique-filename
-  "Generate a unique filename using timestamp and random component.
+(defn generate-unique-filename*
+  "Generate a unique filename using explicit shell-supplied components.
 
   Preserves the original extension."
-  [original-filename]
+  [original-filename unique-suffix]
   (let [ext (get-file-extension original-filename)
-        timestamp (System/currentTimeMillis)
-        random (str (java.util.UUID/randomUUID))
-        random-short (subs random 0 8)
-        base (str timestamp "-" random-short)]
+        base unique-suffix]
     (if ext
       (str base "." ext)
       base)))
+
+(defn generate-unique-filename
+  "Deprecated for BOU-15.
+
+   Use `generate-unique-filename*` and pass an explicit shell-generated suffix."
+  [& _args]
+  (throw (ex-info "generate-unique-filename is deprecated; use generate-unique-filename* with explicit shell-generated suffix"
+                  {:type :deprecated-api
+                   :replacement 'generate-unique-filename*})))

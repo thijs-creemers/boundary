@@ -74,21 +74,31 @@
         [ev-start]
         []))))
 
-(defn next-occurrence
-  "Return the first occurrence start Instant after now, or nil if none.
+(defn next-occurrence*
+  "Return the first occurrence start Instant after the explicit reference time, or nil if none.
 
    For non-recurring events: returns (:start event) if it is in the future, else nil.
 
    Args:
      event - EventData map
+     now - java.time.Instant supplied by the shell
 
    Returns java.time.Instant or nil."
-  [event]
-  (let [now        (Instant/now)
+  [event now]
+  (let [now        ^Instant now
         ;; Search 100 years ahead to handle events with far-future starts
         far-future (.plus now 36524 ChronoUnit/DAYS)
         occs       (occurrences event now far-future)]
     (first occs)))
+
+(defn next-occurrence
+  "Deprecated for BOU-15.
+
+   Use `next-occurrence*` and pass explicit time from the shell."
+  [& _args]
+  (throw (ex-info "next-occurrence is deprecated; use next-occurrence* with explicit time"
+                  {:type :deprecated-api
+                   :replacement 'next-occurrence*})))
 
 (defn expand-event
   "Return a vector of single-occurrence EventData maps for the given window.

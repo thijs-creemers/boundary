@@ -111,10 +111,10 @@ Multi-tenancy with schema-per-tenant isolation on PostgreSQL. Provides:
 (require '[boundary.tenant.core.membership :as m])
 
 ;; Prepare a new invitation (status :invited)
-(m/prepare-invitation user-id tenant-id :admin (Instant/now))
+(m/prepare-invitation* membership-id user-id tenant-id :admin now)
 
 ;; Prepare a direct active membership (bootstrap / no-invite flow)
-(m/prepare-active-membership user-id tenant-id :admin (Instant/now))
+(m/prepare-active-membership* membership-id user-id tenant-id :admin now)
 
 ;; Transitions
 (m/accept-invitation  membership (Instant/now))  ; :invited  → :active

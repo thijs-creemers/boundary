@@ -350,7 +350,10 @@
                                        (catch Exception e
                                          (er-core/report-application-error
                                           mock-error-service e "Migration rollback failed"
-                                          (pd/cli-context context))
+                                          (pd/cli-context* {:environment "development"
+                                                            :timestamp (java.time.Instant/parse "2026-04-10T12:00:00Z")
+                                                            :process-id "1234"}
+                                                           context))
                                          (throw e))))]
 
       (try
@@ -399,7 +402,10 @@
           cli-operation (fn [context]
                           (er-core/report-application-error
                            mock-error-service cli-exception "Background job failed"
-                           (pd/cli-context context))
+                           (pd/cli-context* {:environment "development"
+                                             :timestamp (java.time.Instant/parse "2026-04-10T12:00:00Z")
+                                             :process-id "1234"}
+                                            context))
                           (throw cli-exception))]
 
       (try

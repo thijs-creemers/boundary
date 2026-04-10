@@ -883,11 +883,26 @@
    Returns:
      String describing time relative to now
      
-   Pure: false (depends on current time)"
-  [timestamp]
+   Deprecated for BOU-15. Use `format-relative-time*` with explicit time."
+  [& _args]
+  (throw (ex-info "format-relative-time is deprecated; use format-relative-time* with explicit time"
+                  {:type :deprecated-api
+                   :replacement 'format-relative-time*})))
+
+(defn format-relative-time*
+  "Format a timestamp as relative time (e.g., '2 hours ago', 'just now').
+   
+   Args:
+     timestamp - java.time.Instant or similar
+     now - java.time.Instant supplied by the shell
+     
+   Returns:
+     String describing time relative to the explicit reference time
+     
+   Pure: true"
+  [timestamp now zone-id]
   (when timestamp
-    (let [now (java.time.Instant/now)
-          duration (java.time.Duration/between timestamp now)
+    (let [duration (java.time.Duration/between timestamp now)
           seconds (.getSeconds duration)
           minutes (quot seconds 60)
           hours (quot minutes 60)
@@ -898,7 +913,7 @@
         (< hours 24) (str hours " hour" (when (> hours 1) "s") " ago")
         (< days 7) (str days " day" (when (> days 1) "s") " ago")
         :else (.format (java.time.format.DateTimeFormatter/ofPattern "MMM d, yyyy")
-                       (.atZone timestamp (java.time.ZoneId/systemDefault)))))))
+                       (.atZone timestamp zone-id))))))
 
 (defn parse-user-agent
   "Extract browser and device information from user-agent string.
@@ -936,8 +951,8 @@
    Returns:
      Hiccup table row
      
-   Pure: false (uses format-relative-time)"
-  [session current-token user-id]
+   Pure: true"
+  [session current-token user-id current-time zone-id]
   (let [is-current? (= (:session-token session) current-token)]
     [:tr {:class (when is-current? "current-session")}
      [:td
@@ -945,8 +960,8 @@
       (when is-current?
         [:span.badge.current " Current Session"])]
      [:td (or (:ip-address session) "Unknown")]
-     [:td (format-relative-time (:last-accessed-at session))]
-     [:td (format-relative-time (:created-at session))]
+     [:td (format-relative-time* (:last-accessed-at session) current-time zone-id)]
+     [:td (format-relative-time* (:created-at session) current-time zone-id)]
      [:td
       (when-not is-current?
         [:form {:method "post"
@@ -970,8 +985,8 @@
    Returns:
      Hiccup table
      
-   Pure: false (delegates to session-row)"
-  [sessions current-token user-id]
+   Pure: true"
+  [sessions current-token user-id current-time zone-id]
   (if (empty? sessions)
     [:div.empty-state.card [:t :user/sessions-empty-state]]
     [:div.sessions-table-shell
@@ -986,7 +1001,7 @@
          [:th [:t :common/column-actions]]]]
        [:tbody
         (for [session sessions]
-          (session-row session current-token user-id))]])]))
+          (session-row session current-token user-id current-time zone-id))]])]))
 
 (defn user-sessions-page
   "Complete page for managing user sessions.
@@ -1002,25 +1017,27 @@
      
    Pure: false"
   [user sessions current-token opts]
-  (page-layout
-   [:t :user/page-sessions-title {:name (:name user)}]
-   [:div.user-sessions-page
-    [:div.page-header
-     [:div
-      [:h1 [:t :user/sessions-title]]
-      [:p [:t :user/sessions-manage-for {:name (:name user)}]]]
-     [:div.page-actions
-      [:a.button.secondary {:href (str "/web/admin/users/" (:id user))} [:t :user/button-back-to-user]]
-      (when (> (count sessions) 1)
-        [:form.session-revoke-all-form {:method "post"
-                                        :action (str "/web/users/" (:id user) "/sessions/revoke-all")}
-         [:input {:type "hidden" :name "keep-current" :value "true"}]
-         [:button.button.danger
-          {:type "submit"
-           :onclick "return confirm('Revoke all other sessions? This will log out all other devices.');"}
-          [:t :user/button-revoke-all-others]]])]]
-    (sessions-list sessions current-token (:id user))]
-   opts))
+  (let [current-time (:current-time opts)
+        zone-id (:zone-id opts)]
+    (page-layout
+     [:t :user/page-sessions-title {:name (:name user)}]
+     [:div.user-sessions-page
+      [:div.page-header
+       [:div
+        [:h1 [:t :user/sessions-title]]
+        [:p [:t :user/sessions-manage-for {:name (:name user)}]]]
+       [:div.page-actions
+        [:a.button.secondary {:href (str "/web/admin/users/" (:id user))} [:t :user/button-back-to-user]]
+        (when (> (count sessions) 1)
+          [:form.session-revoke-all-form {:method "post"
+                                          :action (str "/web/users/" (:id user) "/sessions/revoke-all")}
+           [:input {:type "hidden" :name "keep-current" :value "true"}]
+           [:button.button.danger
+            {:type "submit"
+             :onclick "return confirm('Revoke all other sessions? This will log out all other devices.');"}
+            [:t :user/button-revoke-all-others]]])]]
+      (sessions-list sessions current-token (:id user) current-time zone-id)]
+     opts)))
 
 ;; =============================================================================
 ;; Audit Log Components
@@ -1362,12 +1379,27 @@
      instant - java.time.Instant or nil
      
    Returns:
+     String describing relative time
+
+   Deprecated for BOU-15. Use `format-date-relative*` with explicit time."
+  [& _args]
+  (throw (ex-info "format-date-relative is deprecated; use format-date-relative* with explicit time"
+                  {:type :deprecated-api
+                   :replacement 'format-date-relative*})))
+
+(defn- format-date-relative*
+  "Format date relative to an explicit reference time (e.g., 'today', '2 days ago', 'never').
+   
+   Args:
+     instant - java.time.Instant or nil
+     now - java.time.Instant supplied by the shell
+     
+   Returns:
      String describing relative time"
-  [instant]
+  [instant now]
   (if-not instant
     "never"
-    (let [now (java.time.Instant/now)
-          duration (java.time.Duration/between instant now)
+    (let [duration (java.time.Duration/between instant now)
           seconds (.getSeconds duration)]
       (cond
         (< seconds 60) "just now"
@@ -1405,7 +1437,8 @@
      
    Pure: false"
   [user dashboard-data opts]
-  (let [active-sessions (:active-sessions-count dashboard-data 0)
+  (let [current-time (:current-time opts)
+        active-sessions (:active-sessions-count dashboard-data 0)
         mfa-enabled? (:mfa-enabled dashboard-data false)
         login-count (:login-count user 0)
         last-login (:last-login user)
@@ -1433,7 +1466,7 @@
         [:div.stat-icon (icons/icon :clock {:size 20})]
         [:div.stat-content
          [:div.stat-label [:t :user/stat-last-login]]
-         [:div.stat-value (format-date-relative last-login)]]]
+         [:div.stat-value (format-date-relative* last-login current-time)]]]
        [:div.stat-card
         [:div.stat-icon {:class (if mfa-enabled? "text-success" "text-warning")}
          (icons/icon :shield {:size 20})]

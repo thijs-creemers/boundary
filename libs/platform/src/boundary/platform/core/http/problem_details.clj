@@ -88,8 +88,6 @@
                                         (apply dissoc extension-candidates context-keys))
          ;; Build error context from provided context, filtering out nil values
          error-context                (into {} (filter (comp some? val) (select-keys context context-keys)))
-         ;; Add timestamp if not provided
-         error-context-with-timestamp (assoc error-context :timestamp (or (:timestamp error-context) (java.time.Instant/now)))
          ;; Choose context key based on whether exception has type
          ;; Typed exceptions (integration tests) use :context
          ;; Untyped exceptions (unit tests) use :errorContext
@@ -104,8 +102,8 @@
        :correlationId correlation-id
        :errors        (or (:errors ex-data) {})}
        ;; Add error context if present - key depends on exception type
-      (when (seq error-context-with-timestamp)
-        {context-key error-context-with-timestamp})
+      (when (seq error-context)
+        {context-key error-context})
        ;; Merge extension members at top level per RFC 7807
       extension-members))))
 
@@ -151,49 +149,72 @@
 ;; Context Building Helpers
 ;; =============================================================================
 
-(defn request->context
+(defn request->context*
   "Extract error context from Ring request map.
    
    Pure function: extracts relevant context information from HTTP request
-   for error debugging and observability.
+   and merges explicit runtime context supplied by the shell.
    
    Args:
      request: Ring request map
+     runtime-context: Optional map with explicit runtime values such as
+       :timestamp and :environment
      
    Returns:
      Context map suitable for exception->problem-body"
-  [request]
-  (let [headers (:headers request)]
-    (cond-> {}
-      (or (:user-id request) (get headers "x-user-id")) (assoc :user-id (or (:user-id request) (get headers "x-user-id")))
-      (or (:tenant-id request) (get headers "x-tenant-id")) (assoc :tenant-id (or (:tenant-id request) (get headers "x-tenant-id")))
-      ;; Check :correlation-id field first (set by middleware), then headers
-      (or (:correlation-id request) (get headers "x-trace-id") (get headers "x-correlation-id")) (assoc :trace-id (or (:correlation-id request) (get headers "x-trace-id") (get headers "x-correlation-id")))
-      (get headers "x-request-id") (assoc :request-id (get headers "x-request-id"))
-      (get headers "user-agent") (assoc :user-agent (get headers "user-agent"))
-      (:uri request) (assoc :uri (:uri request))
-      (:request-method request) (assoc :method (-> request :request-method name .toUpperCase))
-      (or (:remote-addr request) (get headers "x-forwarded-for")) (assoc :ip-address (or (:remote-addr request) (let [forwarded (get headers "x-forwarded-for")] (when forwarded (first (str/split forwarded #",\s*"))))))
-      :always (assoc :environment (or (System/getProperty "environment") "test"))
-      :always (assoc :timestamp (java.time.Instant/now)))))
+  ([request]
+   (request->context* request {}))
+  ([request runtime-context]
+   (let [headers (:headers request)]
+     (merge
+      (select-keys runtime-context [:timestamp :environment])
+      (cond-> {}
+        (or (:user-id request) (get headers "x-user-id")) (assoc :user-id (or (:user-id request) (get headers "x-user-id")))
+        (or (:tenant-id request) (get headers "x-tenant-id")) (assoc :tenant-id (or (:tenant-id request) (get headers "x-tenant-id")))
+        ;; Check :correlation-id field first (set by middleware), then headers
+        (or (:correlation-id request) (get headers "x-trace-id") (get headers "x-correlation-id")) (assoc :trace-id (or (:correlation-id request) (get headers "x-trace-id") (get headers "x-correlation-id")))
+        (get headers "x-request-id") (assoc :request-id (get headers "x-request-id"))
+        (get headers "user-agent") (assoc :user-agent (get headers "user-agent"))
+        (:uri request) (assoc :uri (:uri request))
+        (:request-method request) (assoc :method (-> request :request-method name .toUpperCase))
+        (or (:remote-addr request) (get headers "x-forwarded-for")) (assoc :ip-address (or (:remote-addr request) (let [forwarded (get headers "x-forwarded-for")] (when forwarded (first (str/split forwarded #",\s*")))))))))))
 
-(defn cli-context
+(defn request->context
+  "Deprecated for BOU-15.
+
+   Use `request->context*` and pass explicit runtime context from the shell."
+  [& _args]
+  (throw (ex-info "request->context is deprecated; use request->context* with explicit runtime context"
+                  {:type :deprecated-api
+                   :replacement 'request->context*})))
+
+(defn cli-context*
   "Create error context for CLI operations.
    
-   Pure function: builds context map for CLI error handling.
+   Pure function: builds context map for CLI error handling from explicit
+   runtime inputs supplied by the shell.
    
    Args:
+     runtime-context: Optional map with explicit runtime values such as
+       :timestamp, :environment, and :process-id
      additional-context: Optional map of additional context fields to merge
      
    Returns:
      Context map suitable for exception->problem-body"
-  ([]
-   (cli-context {}))
-  ([additional-context]
-   (merge {:environment (or (System/getProperty "environment") "development")
-           :timestamp   (java.time.Instant/now)
-           :process-id  (str (.pid (java.lang.ProcessHandle/current)))}
+  ([runtime-context]
+   (cli-context* runtime-context {}))
+  ([runtime-context additional-context]
+   (merge (select-keys runtime-context [:environment :timestamp :process-id])
           additional-context)))
+
+(defn cli-context
+  "Deprecated for BOU-15.
+
+   Use `cli-context*` and pass explicit runtime context from the shell."
+  [& _args]
+  (throw (ex-info "cli-context is deprecated; use cli-context* with explicit runtime context"
+                  {:type :deprecated-api
+                   :replacement 'cli-context*})))
 
 (defn enrich-context
   "Enrich existing context with additional debugging information.

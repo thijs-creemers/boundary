@@ -89,8 +89,8 @@ All occurrence functions are pure and live in `boundary.calendar.core.recurrence
 ;; => [{:id ... :title "Standup" :start #inst "..." :end #inst "..." :timezone "..."}
 ;;     ...]
 
-;; Next future occurrence
-(r/next-occurrence standup)
+;; Next future occurrence from an explicit reference instant
+(r/next-occurrence* standup #inst "2026-03-02T00:00:00Z")
 ;; => #inst "2026-XX-XXT08:00:00Z"  ; next Mon/Wed/Fri
 ```
 

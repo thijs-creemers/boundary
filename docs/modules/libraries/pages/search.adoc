@@ -12,7 +12,7 @@ libs/search/src/boundary/search/
 ├── schema.clj         — Malli schemas: SearchDocument, SearchResult, SearchResponse
 ├── ports.clj          — ISearchStore (persistence), ISearchEngine (orchestration)
 ├── core/
-│   ├── index.clj      — defsearch macro, global registry, build-document
+│   ├── index.clj      — defsearch macro, global registry, build-document*
 │   ├── query.clj      — SQL builders (PostgreSQL FTS + H2/SQLite LIKE fallback)
 │   └── ui.clj         — Hiccup: search results, admin index page
 └── shell/

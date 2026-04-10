@@ -69,8 +69,8 @@ iCal export/import, and admin UI components for scheduling applications.
 ;; Expand weekly recurring event
 (recurrence/occurrences event-data start-dt end-dt)
 
-;; Next occurrence after a date
-(recurrence/next-occurrence event-data after-dt)
+;; Next occurrence from an explicit reference instant
+(recurrence/next-occurrence* event-data after-dt)
 
 ;; Full expansion with metadata
 (recurrence/expand-event event-data range-start range-end)

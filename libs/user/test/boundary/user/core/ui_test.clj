@@ -136,11 +136,45 @@
                     :ip-address       "127.0.0.1"
                     :created-at       (java.time.Instant/parse "2026-03-19T08:00:00Z")
                     :last-accessed-at (java.time.Instant/parse "2026-03-19T08:00:00Z")}
-          row      (ui/session-row session "different-current-token" "user-123")
+          current-time (java.time.Instant/parse "2026-03-19T10:00:00Z")
+          zone-id (java.time.ZoneId/of "UTC")
+          row      (ui/session-row session "different-current-token" "user-123" current-time zone-id)
           row-html (str row)]
       (is (re-find #"/web/sessions/revoke" row-html))
       (is (re-find #":name \"session-token\"" row-html))
-      (is (re-find #"abc/def\+ghi==" row-html)))))
+      (is (re-find #"abc/def\+ghi==" row-html))
+      (is (re-find #"2 hours ago" row-html)))))
+
+(deftest format-relative-time-deprecated-test
+  (testing "legacy relative time helper is deprecated"
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"format-relative-time is deprecated"
+         (ui/format-relative-time (java.time.Instant/parse "2026-03-19T08:00:00Z"))))))
+
+(deftest format-relative-time-explicit-zone-test
+  (testing "long-range relative formatting uses explicit zone id"
+    (let [result (ui/format-relative-time* (java.time.Instant/parse "2026-03-01T08:00:00Z")
+                                           (java.time.Instant/parse "2026-03-19T10:00:00Z")
+                                           (java.time.ZoneId/of "UTC"))]
+      (is (re-find #"2026" result))
+      (is (re-find #"1" result))
+      (is (not= "2026-03-01" result)))))
+
+(deftest dashboard-page-relative-time-test
+  (testing "dashboard page renders relative last-login from explicit current time"
+    (let [user (assoc sample-user
+                      :last-login (java.time.Instant/parse "2026-03-19T08:00:00Z")
+                      :created-at (java.time.Instant/parse "2026-03-01T08:00:00Z")
+                      :login-count 7)
+          page (ui/dashboard-page user
+                                  {:active-sessions-count 2
+                                   :mfa-enabled true}
+                                  {:current-time (java.time.Instant/parse "2026-03-19T10:00:00Z")
+                                   :zone-id (java.time.ZoneId/of "UTC")})
+          page-html (str page)]
+      (is (re-find #"2 hours ago" page-html))
+      (is (re-find #"2026-03-01" page-html)))))
 
 ;; =============================================================================
 ;; User Form Component Tests

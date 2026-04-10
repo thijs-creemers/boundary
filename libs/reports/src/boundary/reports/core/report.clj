@@ -97,6 +97,15 @@
 ;; =============================================================================
 
 (defn format-cell
+  "Deprecated for BOU-15.
+
+   Use `format-cell*` with explicit formatting context."
+  [& _args]
+  (throw (ex-info "format-cell is deprecated; use format-cell* with explicit formatting context"
+                  {:type :deprecated-api
+                   :replacement 'format-cell*})))
+
+(defn format-cell*
   "Format a single cell value according to format-type.
 
    Supported format-types:
@@ -107,7 +116,7 @@
      nil       - treated as :string
 
    Returns a string or number suitable for use in Hiccup or POI cells."
-  [value format-type]
+  [value format-type {:keys [zone-id]}]
   (case format-type
     :date
     (cond
@@ -115,10 +124,10 @@
       (instance? java.util.Date value)
       (.format java.time.format.DateTimeFormatter/ISO_LOCAL_DATE
                (.toLocalDate (.atZone (.toInstant value)
-                                      (java.time.ZoneId/systemDefault))))
+                                      zone-id)))
       (instance? java.time.Instant value)
       (.format java.time.format.DateTimeFormatter/ISO_LOCAL_DATE
-               (.atZone value (java.time.ZoneId/systemDefault)))
+               (.atZone value zone-id))
       (instance? java.time.LocalDate value)
       (.format value java.time.format.DateTimeFormatter/ISO_LOCAL_DATE)
       :else (str value))
@@ -140,20 +149,38 @@
     (if (nil? value) "" (str value))))
 
 (defn map-columns
+  "Deprecated for BOU-15.
+
+   Use `map-columns*` with explicit formatting context."
+  [& _args]
+  (throw (ex-info "map-columns is deprecated; use map-columns* with explicit formatting context"
+                  {:type :deprecated-api
+                   :replacement 'map-columns*})))
+
+(defn map-columns*
   "Map a single data record through a vector of ColumnDef maps.
 
    Returns a vector of formatted values in column order.
 
    Example:
-     (map-columns [{:key :name :label \"Name\"} {:key :price :label \"Price\" :format :currency}]
+     (map-columns* [{:key :name :label \"Name\"} {:key :price :label \"Price\" :format :currency}]
                   {:name \"Widget\" :price 9.99})
      ;=> [\"Widget\" \"€ 9,99\"]"
-  [columns record]
+  [columns record formatting-context]
   (mapv (fn [{:keys [key format]}]
-          (format-cell (get record key) format))
+          (format-cell* (get record key) format formatting-context))
         columns))
 
 (defn build-table-rows
+  "Deprecated for BOU-15.
+
+   Use `build-table-rows*` with explicit formatting context."
+  [& _args]
+  (throw (ex-info "build-table-rows is deprecated; use build-table-rows* with explicit formatting context"
+                  {:type :deprecated-api
+                   :replacement 'build-table-rows*})))
+
+(defn build-table-rows*
   "Build a Hiccup [:tbody ...] from a collection of data records and column defs.
 
    Each record becomes a [:tr ...] with one [:td ...] per column.
@@ -161,7 +188,7 @@
 
    Returns:
      [:tbody [:tr [:td ...] ...] ...]"
-  [columns data]
+  [columns data formatting-context]
   (into [:tbody]
         (map (fn [record]
                (into [:tr]
@@ -169,11 +196,20 @@
                             (let [style (when align
                                           (str "text-align:" (name align)))]
                               [:td (cond-> {} style (assoc :style style))
-                               (format-cell (get record key) format)]))
+                               (format-cell* (get record key) format formatting-context)]))
                           columns)))
              data)))
 
 (defn build-sections-hiccup
+  "Deprecated for BOU-15.
+
+   Use `build-sections-hiccup*` with explicit formatting context."
+  [& _args]
+  (throw (ex-info "build-sections-hiccup is deprecated; use build-sections-hiccup* with explicit formatting context"
+                  {:type :deprecated-api
+                   :replacement 'build-sections-hiccup*})))
+
+(defn build-sections-hiccup*
   "Build Hiccup from a vector of SectionDef maps and the report data.
 
    Supports section types:
@@ -184,7 +220,7 @@
 
    Returns:
      [:html [:head ...] [:body ...]]"
-  [sections data]
+  [sections data formatting-context]
   (let [body-content
         (mapv (fn [{:keys [type content columns]}]
                 (case type
@@ -198,7 +234,7 @@
                                                        columns))]
                              [:table
                               [:thead header-row]
-                              (build-table-rows columns data)])
+                              (build-table-rows* columns data formatting-context)])
                   :footer  [:footer content]
                   :spacer  [:div.spacer]))
               sections)]

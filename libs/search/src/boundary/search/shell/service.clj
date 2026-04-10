@@ -8,7 +8,15 @@
   (:require [boundary.search.ports :as ports]
             [boundary.search.core.index :as index]
             [boundary.search.core.query :as qry]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log])
+  (:import [java.time Instant]
+           [java.util UUID]))
+
+(defn- generate-document-id []
+  (str (UUID/randomUUID)))
+
+(defn- current-timestamp []
+  (Instant/now))
 
 (defrecord SearchService [store]
   ports/ISearchEngine
@@ -22,9 +30,9 @@
                          :index-id index-id
                          :message  (str "No search definition found for: " (name index-id))})))
       (let [doc-opts (merge opts
-                            {:id (str (java.util.UUID/randomUUID))
-                             :updated-at (java.time.Instant/now)})
-            doc (index/build-document definition entity-id field-values doc-opts)]
+                            {:id (generate-document-id)
+                             :updated-at (current-timestamp)})
+            doc (index/build-document* definition entity-id field-values doc-opts)]
         (ports/upsert-document! store doc))))
 
   (remove-document! [_ index-id entity-id]

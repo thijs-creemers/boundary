@@ -10,7 +10,7 @@ PDF, Excel, and Word report generation with Hiccup-style templates and declarati
 
 | Namespace | Purpose |
 |-----------|---------|
-| `boundary.reports.core.report` | Registry, `defreport` macro, pure helpers (`format-cell`, `map-columns`, `build-table-rows`, `build-sections-hiccup`, `prepare-report`) |
+| `boundary.reports.core.report` | Registry, `defreport` macro, pure helpers (`format-cell*`, `map-columns*`, `build-table-rows*`, `build-sections-hiccup*`, `prepare-report`) |
 | `boundary.reports.ports` | Protocol: `ReportGeneratorProtocol` (`generate!`, `supported-type?`) |
 | `boundary.reports.schema` | Malli schemas: `ColumnDef`, `SectionDef`, `ReportDefinition`, `ReportOutput` |
 | `boundary.reports.shell.adapters.pdf` | OpenHTMLtoPDF adapter — Hiccup → HTML → PDF bytes |

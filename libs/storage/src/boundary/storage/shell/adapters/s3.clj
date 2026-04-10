@@ -18,9 +18,10 @@
             GetObjectPresignRequest]
            [software.amazon.awssdk.auth.credentials
             AwsBasicCredentials StaticCredentialsProvider
-            DefaultCredentialsProvider]
+           DefaultCredentialsProvider]
            [java.net URI]
-           [java.time Duration]))
+           [java.time Duration]
+           [java.util UUID]))
 
 ;; ============================================================================
 ;; S3 Client Configuration
@@ -68,7 +69,8 @@
 (defn- generate-s3-key
   "Generate S3 object key with optional prefix."
   [filename prefix]
-  (let [unique-filename (validation/generate-unique-filename filename)]
+  (let [unique-suffix (str (System/currentTimeMillis) "-" (subs (str (UUID/randomUUID)) 0 8))
+        unique-filename (validation/generate-unique-filename* filename unique-suffix)]
     (if prefix
       (str (str/replace prefix #"/$" "") "/" unique-filename)
       unique-filename)))

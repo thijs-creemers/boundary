@@ -150,15 +150,21 @@
   (testing "creates a pending invite with a delivery token"
     (let [service (make-service)
           tenant-id (UUID/randomUUID)
-          result (ports/invite-external-member service tenant-id "Contractor@Example.NL" :contractor {})]
-      (is (uuid? (:id result)))
-      (is (= tenant-id (:tenant-id result)))
-      (is (= "contractor@example.nl" (:email result)))
-      (is (= :contractor (:role result)))
-      (is (= :pending (:status result)))
-      (is (string? (:invite-token result)))
-      (is (not= (:invite-token result) (:token-hash result)))
-      (is (some? (:expires-at result)))))
+          invite-id (UUID/fromString "dddddddd-dddd-dddd-dddd-dddddddddddd")
+          fixed-now (Instant/parse "2026-04-10T12:00:00Z")]
+      (with-redefs [boundary.tenant.shell.invite-service/generate-invite-id (fn [] invite-id)
+                    boundary.tenant.shell.invite-service/generate-invite-token (fn [] "raw-token")
+                    boundary.tenant.shell.invite-service/current-timestamp (fn [] fixed-now)]
+        (let [result (ports/invite-external-member service tenant-id "Contractor@Example.NL" :contractor {})]
+          (is (= invite-id (:id result)))
+          (is (= tenant-id (:tenant-id result)))
+          (is (= "contractor@example.nl" (:email result)))
+          (is (= :contractor (:role result)))
+          (is (= :pending (:status result)))
+          (is (= "raw-token" (:invite-token result)))
+          (is (not= (:invite-token result) (:token-hash result)))
+          (is (= fixed-now (:created-at result)))
+          (is (some? (:expires-at result)))))))
 
   (testing "rejects duplicate non-expired invite for the same tenant and email"
     (let [service (make-service)

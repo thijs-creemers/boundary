@@ -27,7 +27,8 @@
             [clojure.tools.logging :as log]
             [malli.core :as m]
             [ring.util.response :as response])
-  (:import (java.util UUID)))
+  (:import (java.time Instant)
+           (java.util UUID)))
 
 ;; =============================================================================
 ;; Helper Functions
@@ -67,6 +68,16 @@
       (let [explain (m/explain schema transformed)
             field-errors (validation/explain->field-errors explain)]
         [false field-errors transformed]))))
+
+(defn- current-time
+  "Return the shell-controlled current time for rendering relative timestamps."
+  []
+  (Instant/now))
+
+(defn- current-zone-id
+  "Return the shell-controlled zone id for rendering presentation-only dates."
+  []
+  (java.time.ZoneId/systemDefault))
 
 (defn- html-response
   "Create HTML response map, resolving any [:t ...] i18n markers in the Hiccup tree.
@@ -213,6 +224,8 @@
             dashboard-data {:active-sessions-count active-sessions
                             :mfa-enabled mfa-enabled?}
             page-opts {:user user
+                       :current-time (current-time)
+                       :zone-id (current-zone-id)
                        :flash (get request :flash)}]
         (html-response request (user-ui/dashboard-page user dashboard-data page-opts)))
       (catch Exception e
@@ -850,6 +863,8 @@
                                                :session-keys (when (seq sessions) (keys (first sessions)))})
             current-token (get-in request [:cookies "session-token" :value])
             opts {:user (:user request)
+                  :current-time (current-time)
+                  :zone-id (current-zone-id)
                   :flash (:flash request)}]
         (if user
           (html-response request (user-ui/user-sessions-page user sessions current-token opts))
