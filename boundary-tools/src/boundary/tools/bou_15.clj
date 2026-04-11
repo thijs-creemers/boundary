@@ -90,14 +90,18 @@
 (defn- normalize-require-spec
   [spec]
   (cond
-    (symbol? spec) {:ns (str spec)}
-    (vector? spec) (let [ns-sym (first spec)
+    (symbol? spec) {:ns (str spec) :alias nil :refers []}
+    (vector? spec) (let [ns-sym  (first spec)
                          options (rest spec)
-                         alias   (some (fn [[k v]]
-                                         (when (= :as k) (str v)))
-                                       (partition 2 options))]
-                     {:ns (str ns-sym)
-                      :alias alias})
+                         pairs   (partition 2 options)
+                         alias   (some (fn [[k v]] (when (= :as k) (str v))) pairs)
+                         refers  (some (fn [[k v]]
+                                         (when (and (= :refer k) (vector? v))
+                                           (mapv str v)))
+                                       pairs)]
+                     {:ns     (str ns-sym)
+                      :alias  alias
+                      :refers (or refers [])})
     :else nil))
 
 (defn- extract-require-aliases
@@ -113,6 +117,20 @@
            (mapcat (fn [{:keys [ns alias]}]
                      (cond-> [[ns ns]]
                        alias (conj [alias ns]))))
+           (into {})))))
+
+(defn- extract-referred-symbols
+  "Map directly :refer'd symbol strings to the namespace they come from."
+  [ns-form]
+  (let [require-clause (->> ns-form
+                            (filter #(and (sequential? %) (= :require (first %))))
+                            first)]
+    (when require-clause
+      (->> (rest require-clause)
+           (map normalize-require-spec)
+           (remove nil?)
+           (mapcat (fn [{:keys [ns refers]}]
+                     (map (fn [sym] [sym ns]) refers)))
            (into {})))))
 
 (defn- offset->line-number
@@ -135,36 +153,54 @@
 
 (defn- find-qualified-call-sites
   [file api]
-  (let [raw             (slurp file)
-        cleaned         (parsing/strip-comments-and-strings raw)
-        ns-form         (parsing/read-ns-form file)
-        aliases         (extract-require-aliases ns-form)
+  (let [raw               (slurp file)
+        cleaned           (parsing/strip-comments-and-strings raw)
+        ns-form           (parsing/read-ns-form file)
+        aliases           (extract-require-aliases ns-form)
+        referred-syms     (extract-referred-symbols ns-form)
         namespace-aliases (->> aliases
                                (filter (fn [[_ ns-name]]
                                          (= ns-name (:namespace api))))
                                (map first)
-                               distinct)]
-    (when (seq namespace-aliases)
-      (->> namespace-aliases
-           (mapcat (fn [alias]
-                     (let [matcher (re-matcher
-                                    (re-pattern (str "\\(\\s*"
-                                                     (java.util.regex.Pattern/quote alias)
-                                                     "/"
-                                                     (java.util.regex.Pattern/quote (:symbol api))
-                                                     "(?!\\*)\\b"))
-                                    cleaned)]
-                       (loop [matches []]
-                         (if (.find matcher)
-                           (recur (conj matches
-                                        {:file        (str file)
-                                         :line        (offset->line-number raw (.start matcher))
-                                         :category    (file-category file)
-                                         :namespace   (:namespace api)
-                                         :symbol      (:symbol api)
-                                         :replacement (:replacement api)}))
-                           matches)))))
-           distinct))))
+                               distinct)
+        referred-matches  (->> referred-syms
+                               (filter (fn [[sym-name ns-name]]
+                                         (and (= ns-name (:namespace api))
+                                              (= sym-name (:symbol api)))))
+                               (map first)
+                               distinct)
+        find-matches      (fn [pattern]
+                            (let [matcher (re-matcher pattern cleaned)]
+                              (loop [matches []]
+                                (if (.find matcher)
+                                  (recur (conj matches
+                                               {:file        (str file)
+                                                :line        (offset->line-number raw (.start matcher))
+                                                :category    (file-category file)
+                                                :namespace   (:namespace api)
+                                                :symbol      (:symbol api)
+                                                :replacement (:replacement api)}))
+                                  matches))))]
+    (distinct
+     (concat
+      (when (seq namespace-aliases)
+        (->> namespace-aliases
+             (mapcat (fn [alias]
+                       (find-matches
+                        (re-pattern (str "\\(\\s*"
+                                         (java.util.regex.Pattern/quote alias)
+                                         "/"
+                                         (java.util.regex.Pattern/quote (:symbol api))
+                                         "(?!\\*)\\b")))))
+             distinct))
+      (when (seq referred-matches)
+        (->> referred-matches
+             (mapcat (fn [sym]
+                       (find-matches
+                        (re-pattern (str "\\(\\s*"
+                                         (java.util.regex.Pattern/quote sym)
+                                         "(?!\\*)\\b")))))
+             distinct))))))
 
 (defn scan-deprecated-usage
   "Scan repo files for qualified calls to deprecated BOU-15 transitional APIs."
