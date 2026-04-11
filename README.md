@@ -233,12 +233,12 @@ See [ADR-021](./dev-docs/adr/ADR-021-fcis-boundary-rules.adoc) (FC/IS rules) and
 
 ```clojure
 ;; Validation utilities only
-{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-11"}}}
+{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-12"}}}
 
 ;; Full web application stack
-{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-11"}
-        org.boundary-app/boundary-user     {:mvn/version "1.0.1-alpha-11"}
-        org.boundary-app/boundary-admin    {:mvn/version "1.0.1-alpha-11"}}}
+{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-12"}
+        org.boundary-app/boundary-user     {:mvn/version "1.0.1-alpha-12"}
+        org.boundary-app/boundary-admin    {:mvn/version "1.0.1-alpha-12"}}}
 ```
 
 ---
