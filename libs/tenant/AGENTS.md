@@ -20,7 +20,7 @@ Multi-tenancy with schema-per-tenant isolation on PostgreSQL. Provides:
 | Namespace | Purpose |
 |-----------|---------|
 | `boundary.tenant.core.tenant` | Slug validation, schema name generation, `prepare-tenant`, lifecycle decisions |
-| `boundary.tenant.core.membership` | Membership lifecycle: prepare-invitation, accept, suspend, revoke, role updates, `active-member?`, `has-role?` |
+| `boundary.tenant.core.membership` | Membership lifecycle: prepare-invitation*, prepare-active-membership*, accept, suspend, revoke, role updates, `active-member?`, `has-role?` |
 | `boundary.tenant.core.invite` | Invite lifecycle: create, check expiry, accept, revoke; token hashing |
 
 ### Ports (protocols)
@@ -111,13 +111,14 @@ Multi-tenancy with schema-per-tenant isolation on PostgreSQL. Provides:
 (require '[boundary.tenant.core.membership :as m])
 
 ;; Prepare a new invitation (status :invited)
-(m/prepare-invitation user-id tenant-id :admin (Instant/now))
+(m/prepare-invitation* membership-id user-id tenant-id :admin now)
 
 ;; Prepare a direct active membership (bootstrap / no-invite flow)
-(m/prepare-active-membership user-id tenant-id :admin (Instant/now))
+(m/prepare-active-membership* membership-id user-id tenant-id :admin now)
 
 ;; Transitions
-(m/accept-invitation  membership (Instant/now))  ; :invited  → :active
+(let [accepted-at #inst "2026-03-10T09:00:00Z"]
+  (m/accept-invitation membership accepted-at))  ; :invited  → :active
 (m/suspend-membership membership (Instant/now))  ; → :suspended
 (m/revoke-membership  membership (Instant/now))  ; → :revoked
 (m/update-role        membership :member (Instant/now))

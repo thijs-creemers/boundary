@@ -107,8 +107,8 @@
 ;; Document Construction
 ;; =============================================================================
 
-(defn build-document
-  "Construct a SearchDocument from a SearchDefinition and field values.
+(defn build-document*
+  "Construct a SearchDocument from a SearchDefinition and field values using explicit runtime inputs.
 
    Distributes field values to the correct weight buckets (A/B/C/D).
    Concatenates all text into :content-all for fallback LIKE search.
@@ -118,7 +118,7 @@
      entity-id    - UUID
      field-values - map of field-name -> string or seq value
                     Seqs are joined with a space.
-     opts         - optional map with :metadata
+     opts         - map with required :id and :updated-at, optional :metadata
 
    Returns:
      SearchDocument map ready for ISearchStore.upsert-document!"
@@ -150,7 +150,7 @@
         content-all (->> [:weight-a :weight-b :weight-c :weight-d]
                          (keep #(get weight-map %))
                          (str/join " "))]
-    (cond-> {:id          (or (:id opts) (str (java.util.UUID/randomUUID)))
+    (cond-> {:id          (:id opts)
              :index-id    index-id
              :entity-type entity-type
              :entity-id   entity-id
@@ -160,9 +160,18 @@
              :weight-c    (get weight-map :weight-c "")
              :weight-d    (get weight-map :weight-d "")
              :content-all content-all
-             :updated-at  (or (:updated-at opts) (java.time.Instant/now))}
+             :updated-at  (:updated-at opts)}
       (:metadata opts)
       (assoc :metadata (:metadata opts))
       ;; Store filter values so they can be used as WHERE-clause predicates.
       (seq (:filter-values opts))
       (assoc :filters (:filter-values opts)))))
+
+(defn build-document
+  "Deprecated for BOU-15.
+
+   Use `build-document*` and pass explicit :id and :updated-at in opts."
+  [& _args]
+  (throw (ex-info "build-document is deprecated; use build-document* with explicit :id and :updated-at"
+                  {:type :deprecated-api
+                   :replacement 'build-document*})))

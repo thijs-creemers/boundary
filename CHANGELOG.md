@@ -5,6 +5,17 @@ All notable changes to the Boundary Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+#### `boundary-tools` — BOU-15 deprecated wrapper usage scanner (BOU-15)
+- **Detect `:refer`'d deprecated symbols**: `normalize-require-spec` now extracts `:refer [sym ...]` vectors alongside `:as` aliases. A new `extract-referred-symbols` function maps directly referred symbol names to their source namespace. `find-qualified-call-sites` runs a second regex pass for bare `(symbol ...)` call sites, so usage like `(:require [boundary.search.core.index :refer [build-document]])` is no longer silently missed.
+- **Detect fully-qualified deprecated calls**: `find-qualified-call-sites` now unconditionally searches for `(namespace/symbol ...)` patterns regardless of whether the file has an alias or `:refer` entry. Calls like `(boundary.search.core.index/build-document ...)` are now correctly reported.
+
+#### `ci` — E2E job disabled
+- Disabled the `e2e` CI job with `if: false` to reduce pipeline run time. Tests can be run manually when needed.
+
 ## [1.0.1-alpha-11] - 2026-04-06
 
 ### Added

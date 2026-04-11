@@ -86,7 +86,13 @@
     (let [age (ranking/calculate-document-age-days
                "2024-01-01T00:00:00Z"
                "2024-01-08T00:00:00Z")]
-      (is (= 7 age)))))
+      (is (= 7 age))))
+
+  (testing "1-arity form is deprecated"
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"1-arity is deprecated"
+         (ranking/calculate-document-age-days "2024-01-01T00:00:00Z")))))
 
 (deftest apply-recency-boost-test
   (testing "boosts recent documents significantly"

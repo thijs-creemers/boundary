@@ -294,9 +294,9 @@ core/ui.clj
    Applications with thousands of concurrent events should implement indexing at the
    persistence layer before calling the library.
 
-4. **100-year occurrence window** in `next-occurrence`.  The 36524-day search window
+4. **100-year occurrence window** in `next-occurrence*`.  The 36524-day search window
    is generous but not infinite — events scheduled beyond the year 2126 will not be
-   returned by `next-occurrence`.
+   returned by `next-occurrence*`.
 
 === Risks and Mitigations
 

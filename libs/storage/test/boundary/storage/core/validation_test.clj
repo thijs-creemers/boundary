@@ -132,15 +132,21 @@
       (is (re-find #"\.txt$" result)))))
 
 (deftest generate-unique-filename-test
-  (testing "generates unique filename with timestamp"
-    (let [result (sut/generate-unique-filename "photo.jpg")]
-      (is (re-find #"\d+-[a-f0-9]{8}\.jpg$" result))))
+  (testing "generates unique filename with explicit suffix"
+    (let [result (sut/generate-unique-filename* "photo.jpg" "1712745600000-abc12345")]
+      (is (= "1712745600000-abc12345.jpg" result))))
 
   (testing "preserves extension"
-    (let [result (sut/generate-unique-filename "document.pdf")]
-      (is (re-find #"\.pdf$" result))))
+    (let [result (sut/generate-unique-filename* "document.pdf" "1712745600000-abc12345")]
+      (is (= "1712745600000-abc12345.pdf" result))))
 
   (testing "handles files without extension"
-    (let [result (sut/generate-unique-filename "README")]
-      (is (re-find #"\d+-[a-f0-9]{8}$" result))
-      (is (not (re-find #"\." result))))))
+    (let [result (sut/generate-unique-filename* "README" "1712745600000-abc12345")]
+      (is (= "1712745600000-abc12345" result))
+      (is (not (re-find #"\." result)))))
+
+  (testing "legacy helper is deprecated"
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"generate-unique-filename is deprecated"
+         (sut/generate-unique-filename "photo.jpg")))))

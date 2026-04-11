@@ -14,7 +14,7 @@
             [malli.core :as m]
             [clojure.string :as str]
             [clojure.set :as set])
-  (:import (java.time Instant LocalDate ZoneOffset)
+  (:import (java.time LocalDate ZoneOffset)
            (java.time.temporal ChronoUnit)))
 
 ;; =============================================================================
@@ -434,14 +434,15 @@
          user: User entity
          activity-events: Vector of activity event maps
          analysis-period-days: Number of days to analyze
+         now: Instant cutoff for recent activity filtering
 
        Returns:
          Map with activity analysis results
 
        Pure - data analysis based on input events."
-  [user activity-events analysis-period-days]
+  [user activity-events analysis-period-days now]
   (let [recent-events (filter #(> (:timestamp %)
-                                  (Instant/now)) ; This would be passed as param in real usage
+                                  now)
                               activity-events)
         event-count (count recent-events)
         unique-days (count (distinct (map #(LocalDate/ofInstant (:timestamp %) ZoneOffset/UTC) recent-events)))]

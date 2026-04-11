@@ -221,12 +221,13 @@
   [version config]
   (contains? (set (:supported-versions config)) (keyword version)))
 
-(defn validate-version
-  "Validate version against configuration.
+(defn validate-version*
+  "Validate version against configuration using an explicit current date.
    
    Args:
      version - Version string or keyword
      config - Configuration with version settings
+     current-date - ISO 8601 date string or comparable date value
      
    Returns:
      {:valid? bool
@@ -241,7 +242,7 @@
      => {:valid? false :version \"v3\" :errors [\"Version v3 is not supported\"]}
      
    Pure: true"
-  [version config]
+  [version config current-date]
   (let [version-str (if (keyword? version) (name version) version)
         errors      (cond-> []
                       (not (is-valid-version? version-str))
@@ -251,11 +252,20 @@
                            (not (is-supported-version? version-str config)))
                       (conj (str "Version " version-str " is not supported"))
 
-                      (is-sunset? version-str config (java.time.LocalDate/now))
+                      (is-sunset? version-str config current-date)
                       (conj (str "Version " version-str " has been sunset")))]
     {:valid?  (empty? errors)
      :version version-str
      :errors  errors}))
+
+(defn validate-version
+  "Deprecated for BOU-15.
+
+   Use `validate-version*` and pass explicit current date from the shell."
+  [& _args]
+  (throw (ex-info "validate-version is deprecated; use validate-version* with explicit current date"
+                  {:type :deprecated-api
+                   :replacement 'validate-version*})))
 
 ;; =============================================================================
 ;; Version Resolution

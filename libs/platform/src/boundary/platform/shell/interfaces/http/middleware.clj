@@ -30,6 +30,12 @@
             [clojure.tools.logging :as log])
   (:import (java.util UUID)))
 
+(defn- current-environment []
+  (or (System/getProperty "environment") "test"))
+
+(defn- current-timestamp []
+  (java.time.Instant/now))
+
 ;; =============================================================================
 ;; Middleware - Correlation ID
 ;; =============================================================================
@@ -277,7 +283,10 @@
                        tenant-id user-id]} request
                context (or observability-context {})
                ;; Build enhanced error context using the new helper
-               error-context (problem/request->context request)
+               error-context (problem/request->context*
+                              request
+                              {:environment (current-environment)
+                               :timestamp (current-timestamp)})
                ;; Add additional context for error reporting
                error-details {:method (if request-method (name request-method) "unknown")
                               :uri uri
@@ -317,4 +326,3 @@
             uri
             error-mappings
             error-context)))))))
-

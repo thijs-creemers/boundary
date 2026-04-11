@@ -2,10 +2,14 @@
   (:require [boundary.tenant.core.membership :as membership-core]
             [boundary.tenant.ports :as ports]
             [boundary.platform.shell.service-interceptors :as service-interceptors])
-  (:import (java.time Instant)))
+  (:import (java.time Instant)
+           (java.util UUID)))
 
 (defn- current-timestamp []
   (Instant/now))
+
+(defn- generate-membership-id []
+  (UUID/randomUUID))
 
 (defn- active-admin-memberships
   [membership-repository tenant-id]
@@ -27,8 +31,10 @@
                            {:type      :conflict
                             :user-id   user-id
                             :tenant-id tenant-id})))
-         (let [now        (current-timestamp)
-               membership (membership-core/prepare-invitation user-id tenant-id role now)]
+         (let [now           (current-timestamp)
+               membership-id (generate-membership-id)
+               membership    (membership-core/prepare-invitation*
+                              membership-id user-id tenant-id role now)]
            (ports/create-membership membership-repository membership))))
      {:logger          logger
       :metrics-emitter metrics-emitter
@@ -59,8 +65,10 @@
                            {:type      :conflict
                             :user-id   user-id
                             :tenant-id tenant-id})))
-         (let [now        (current-timestamp)
-               membership (membership-core/prepare-active-membership user-id tenant-id role now)]
+         (let [now           (current-timestamp)
+               membership-id (generate-membership-id)
+               membership    (membership-core/prepare-active-membership*
+                              membership-id user-id tenant-id role now)]
            (ports/create-membership membership-repository membership))))
      {:logger          logger
       :metrics-emitter metrics-emitter

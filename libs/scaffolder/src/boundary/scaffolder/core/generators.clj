@@ -240,15 +240,16 @@
    
    Args:
      data - Input data map
+     entity-id - UUID supplied by the shell
      current-time - java.time.Instant for timestamps
    
    Returns:
      Prepared %s entity map
    
    Pure: true\"
-  [data current-time]
+  [data entity-id current-time]
   (merge data
-         {:id (java.util.UUID/randomUUID)
+         {:id entity-id
           :created-at current-time
           :updated-at current-time}))
 
@@ -422,12 +423,20 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
     (str "(ns boundary." module-name ".shell.service\n"
          "  \"Service layer for " module-name " module.\"\n"
          "  (:require [boundary." module-name ".ports :as ports]\n"
-         "            [boundary." module-name ".core." (template/kebab->snake entity-name) " :as core]))\n"
+         "            [boundary." module-name ".core." (template/kebab->snake entity-name) " :as core])\n"
+         "  (:import [java.time Instant]\n"
+         "           [java.util UUID]))\n"
+         "\n"
+         "(defn- current-time []\n"
+         "  (Instant/now))\n"
+         "\n"
+         "(defn- generate-" entity-lower "-id []\n"
+         "  (UUID/randomUUID))\n"
          "\n"
          "(defrecord " entity-name "Service [repository]\n"
          "  ports/I" entity-name "Service\n"
          "  (create-" entity-lower " [this data]\n"
-         "    (let [prepared (core/prepare-new-" entity-lower " data (java.time.Instant/now))]\n"
+         "    (let [prepared (core/prepare-new-" entity-lower " data (generate-" entity-lower "-id) (current-time))]\n"
          "      (.create repository prepared)))\n"
          "  (find-" entity-lower " [this id]\n"
          "    (.find-by-id repository id))\n"
@@ -649,14 +658,19 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
         entity-lower (str/lower-case entity-name)]
     (str "(ns boundary." module-name ".core." entity-lower "-test\n"
          "  (:require [clojure.test :refer [deftest testing is]]\n"
-         "            [boundary." module-name ".core." entity-lower " :as core]))\n"
+         "            [boundary." module-name ".core." entity-lower " :as core])\n"
+         "  (:import [java.time Instant]\n"
+         "           [java.util UUID]))\n"
          "\n"
          "(deftest prepare-new-" entity-lower "-test\n"
          "  (testing \"prepares " entity-lower " for creation\"\n"
          "    (let [data {:name \"Test\"}\n"
-         "          current-time (java.time.Instant/now)\n"
-         "          result (core/prepare-new-" entity-lower " data current-time)]\n"
-         "      (is (some? result)))))\n")))
+         "          " entity-lower "-id (UUID/fromString \"11111111-1111-1111-1111-111111111111\")\n"
+         "          current-time (Instant/parse \"2026-01-01T00:00:00Z\")\n"
+         "          result (core/prepare-new-" entity-lower " data " entity-lower "-id current-time)]\n"
+         "      (is (= " entity-lower "-id (:id result)))\n"
+         "      (is (= current-time (:created-at result)))\n"
+         "      (is (= current-time (:updated-at result))))))\n")))
 
 (defn generate-service-test-file
   "Generate test service file content.

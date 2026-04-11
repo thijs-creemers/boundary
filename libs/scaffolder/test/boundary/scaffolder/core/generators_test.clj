@@ -115,6 +115,24 @@
     (testing "contains prepare-new function"
       (is (str/includes? output "prepare-new-product")))
 
+    (testing "generated core creation is pure"
+      (is (str/includes? output "[data entity-id current-time]"))
+      (is (str/includes? output "{:id entity-id"))
+      (is (not (str/includes? output "java.util.UUID/randomUUID"))))
+
+    (testing "generated core does not inline forbidden runtime access"
+      (doseq [forbidden ["UUID/randomUUID"
+                         "Instant/now"
+                         "LocalDate/now"
+                         "LocalDateTime/now"
+                         "OffsetDateTime/now"
+                         "ZonedDateTime/now"
+                         "ZoneId/systemDefault"
+                         "System/currentTimeMillis"
+                         "ProcessHandle/current"]]
+        (is (not (str/includes? output forbidden))
+            (str "generated core should not contain " forbidden))))
+
     (testing "contains apply-update function"
       (is (str/includes? output "apply-product-update")))
 
@@ -189,6 +207,13 @@
 
     (testing "contains service record"
       (is (str/includes? output "ProductService")))
+
+    (testing "shell owns runtime generation"
+      (is (str/includes? output "(defn- current-time"))
+      (is (str/includes? output "(defn- generate-product-id"))
+      (is (str/includes? output "(UUID/randomUUID)"))
+      (is (str/includes? output "(Instant/now)"))
+      (is (str/includes? output "(core/prepare-new-product data (generate-product-id) (current-time))")))
 
     (testing "contains factory function"
       (is (str/includes? output "create-service")))))

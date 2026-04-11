@@ -7,7 +7,8 @@
             [boundary.tenant.ports :as ports])
   (:import (java.nio.charset StandardCharsets)
            (java.security MessageDigest SecureRandom)
-           (java.time Instant)))
+           (java.time Instant)
+           (java.util UUID)))
 
 (defn- current-timestamp []
   (Instant/now))
@@ -19,6 +20,12 @@
     (-> (java.util.Base64/getUrlEncoder)
         (.withoutPadding)
         (.encodeToString token-bytes))))
+
+(defn- generate-invite-id []
+  (UUID/randomUUID))
+
+(defn- generate-membership-id []
+  (UUID/randomUUID))
 
 (defn- sha256 [value]
   (let [digest (MessageDigest/getInstance "SHA-256")
@@ -89,9 +96,11 @@
                               :tenant-id tenant-id
                               :email normalized-email}))))
          (let [now (current-timestamp)
+               invite-id (generate-invite-id)
                raw-token (generate-invite-token)
-               invite (invite-core/prepare-invite
-                       {:tenant-id tenant-id
+               invite (invite-core/prepare-invite*
+                       {:invite-id invite-id
+                        :tenant-id tenant-id
                         :email normalized-email
                         :role role
                         :token-hash (sha256 raw-token)
@@ -207,7 +216,9 @@
                                 :tenant-id (:tenant-id invite)
                                 :user-id accepted-by-user-id
                                 :invite-id (:id invite)})))
-             (let [membership (membership-core/prepare-active-membership
+             (let [membership-id (generate-membership-id)
+                   membership (membership-core/prepare-active-membership*
+                               membership-id
                                accepted-by-user-id
                                (:tenant-id invite)
                                (:role invite)

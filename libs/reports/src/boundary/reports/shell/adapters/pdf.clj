@@ -69,9 +69,10 @@
   (generate! [_this report-def data opts]
     (log/debug "Generating PDF report" {:id (:id report-def)})
     (let [css-override (:css opts)
+          formatting-context {:zone-id (or (:zone-id opts) (java.time.ZoneId/systemDefault))}
           hiccup-form  (if-let [tmpl (:template report-def)]
                          (tmpl data)
-                         (core/build-sections-hiccup (:sections report-def) data))
+                         (core/build-sections-hiccup* (:sections report-def) data formatting-context))
           full-hiccup  (inject-css hiccup-form css-override)
           html-str     (str "<!DOCTYPE html>" (h/html full-hiccup))
           baos         (ByteArrayOutputStream.)

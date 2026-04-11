@@ -119,8 +119,8 @@
    
    Args:
      created-at - java.time.Instant, java.sql.Timestamp, or string timestamp
-     current-time - java.time.Instant (for testing, defaults to now)
-     
+     current-time - java.time.Instant
+   
    Returns:
      Age in days (integer)
      
@@ -129,8 +129,10 @@
      ;=> 7
      
    Pure: true"
-  ([created-at]
-   (calculate-document-age-days created-at (java.time.Instant/now)))
+  ([_created-at]
+   (throw (ex-info "calculate-document-age-days 1-arity is deprecated; pass explicit current-time"
+                   {:type :deprecated-api
+                    :replacement 'calculate-document-age-days})))
   ([created-at current-time]
    (let [created-instant (parse-timestamp created-at)
          current-instant (parse-timestamp current-time)

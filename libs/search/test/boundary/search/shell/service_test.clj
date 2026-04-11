@@ -119,14 +119,20 @@
 (deftest ^:unit index-document-test
   (testing "indexes a document and returns it"
     (let [entity-id (UUID/randomUUID)
-          doc       (ports/index-document! *service* :product-search entity-id
-                                           {:title "Widget Pro"
-                                            :description "A great widget"
-                                            :tags "tools"}
-                                           {})]
-      (is (= :product (:entity-type doc)))
-      (is (= entity-id (:entity-id doc)))
-      (is (= "Widget Pro" (:weight-a doc)))))
+          doc-id    "search-doc-123"
+          now       (java.time.Instant/parse "2026-04-10T12:00:00Z")]
+      (with-redefs [boundary.search.shell.service/generate-document-id (fn [] doc-id)
+                    boundary.search.shell.service/current-timestamp (fn [] now)]
+        (let [doc (ports/index-document! *service* :product-search entity-id
+                                         {:title "Widget Pro"
+                                          :description "A great widget"
+                                          :tags "tools"}
+                                         {})]
+          (is (= doc-id (:id doc)))
+          (is (= now (:updated-at doc)))
+          (is (= :product (:entity-type doc)))
+          (is (= entity-id (:entity-id doc)))
+          (is (= "Widget Pro" (:weight-a doc)))))))
 
   (testing "throws :not-found for unregistered index"
     (is (thrown-with-msg?

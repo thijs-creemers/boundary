@@ -260,7 +260,8 @@
                              "x-correlation-id" "corr-123"
                              "user-agent" "test-client/2.0"}}
 
-          context (pd/request->context request)
+          context (pd/request->context* request {:environment "test"
+                                                 :timestamp (Instant/parse "2026-04-10T12:00:00Z")})
           enriched-context (pd/enrich-context context {:environment "test"})
           exception (create-test-exception :message "Integration test error"
                                            :data {:operation "create-user"})
@@ -285,9 +286,12 @@
 
   (testing "CLI context flows correctly to error reporting"
     (let [mock-service (create-mock-error-service)
-          cli-context (pd/cli-context {:operation "delete-user"
-                                       :user-id "admin-user"
-                                       :args ["--id" "123" "--force"]})
+          cli-context (pd/cli-context* {:environment "development"
+                                        :timestamp (Instant/parse "2026-04-10T12:00:00Z")
+                                        :process-id "1234"}
+                                       {:operation "delete-user"
+                                        :user-id "admin-user"
+                                        :args ["--id" "123" "--force"]})
           exception (create-test-exception :message "CLI operation failed")
 
           result (error-reporting/report-enhanced-application-error
@@ -353,7 +357,7 @@
                              "x-request-id" request-id
                              "x-user-id" "user-456"}}
 
-          context (pd/request->context request)
+          context (pd/request->context* request {:timestamp (Instant/parse "2026-04-10T12:00:00Z")})
           exception (create-test-exception :message "Correlated error")
 
           problem-response (pd/exception->problem-response exception :context context)
@@ -410,7 +414,7 @@
                    :headers {"x-correlation-id" correlation-id
                              "x-request-id" request-id
                              "x-user-id" "user-456"}}
-          context (pd/request->context request)
+          context (pd/request->context* request {:timestamp (Instant/parse "2026-04-10T12:00:00Z")})
           exception (create-test-exception :message "Test error")
           _ (error-reporting/report-enhanced-application-error
              mock-service exception "Test error" {} context)

@@ -25,9 +25,9 @@
 
 (defn- sheet-rows
   "Build header + data rows for one sheet spec."
-  [{:keys [columns data]}]
+  [{:keys [columns data formatting-context]}]
   (let [header-row (mapv :label columns)
-        data-rows  (mapv (fn [record] (core/map-columns columns record)) data)]
+        data-rows  (mapv (fn [record] (core/map-columns* columns record formatting-context)) data)]
     (into [header-row] data-rows)))
 
 (defn- add-sheet-data!
@@ -46,16 +46,19 @@
 (extend-protocol ports/ReportGeneratorProtocol
   DocjureExcelGenerator
 
-  (generate! [_this report-def data _opts]
+  (generate! [_this report-def data opts]
     (log/debug "Generating Excel report" {:id (:id report-def)})
-    (let [sheet-title (or (:title report-def) (name (:id report-def)))
+    (let [formatting-context {:zone-id (or (:zone-id opts) (java.time.ZoneId/systemDefault))}
+          sheet-title (or (:title report-def) (name (:id report-def)))
           sheets      (or (:sheets report-def)
                           [{:name    sheet-title
                             :columns (first-table-columns (:sections report-def))
-                            :data    data}])
+                            :data    data
+                            :formatting-context formatting-context}])
           ;; Create workbook from the first sheet, then add the rest
-          first-sheet (first sheets)
-          rest-sheets (rest sheets)
+          normalized-sheets (map #(assoc % :formatting-context formatting-context) sheets)
+          first-sheet (first normalized-sheets)
+          rest-sheets (rest normalized-sheets)
           wb          (reduce add-sheet-data!
                               (ss/create-workbook (:name first-sheet)
                                                   (sheet-rows first-sheet))

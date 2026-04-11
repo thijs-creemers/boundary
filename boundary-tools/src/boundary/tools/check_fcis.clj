@@ -75,7 +75,17 @@
    #"java\.sql\.CallableStatement"
    #"java\.sql\.ResultSet"
    #"javax\.sql\.\w+"
-   #"java\.net\.http\.\w+"])
+   #"java\.net\.http\.\w+"
+   #"java\.util\.UUID/randomUUID"
+   #"java\.time\.Instant/now"
+   #"java\.time\.LocalDate/now"
+   #"java\.time\.LocalDateTime/now"
+   #"java\.time\.OffsetDateTime/now"
+   #"java\.time\.ZonedDateTime/now"
+   #"java\.time\.ZoneId/systemDefault"
+   #"java\.lang\.System/currentTimeMillis"
+   #"java\.lang\.System/getProperty"
+   #"java\.lang\.ProcessHandle/current"])
 
 (def ^:private forbidden-call-patterns
   "Bare Clojure core function calls that perform I/O and must never
@@ -83,6 +93,30 @@
    calls, not parts of other symbols. Applied to stripped source."
   [#"\(\s*slurp\s"
    #"\(\s*spit\s"])
+
+(def ^:private forbidden-static-methods-by-class
+  "Forbidden static runtime accessors keyed by fully-qualified class name.
+   These are checked both in fully-qualified form and in imported/simple form."
+  {"java.util.UUID" ["randomUUID"]
+   "java.time.Instant" ["now"]
+   "java.time.LocalDate" ["now"]
+   "java.time.LocalDateTime" ["now"]
+   "java.time.OffsetDateTime" ["now"]
+   "java.time.ZonedDateTime" ["now"]
+   "java.time.ZoneId" ["systemDefault"]
+   "java.lang.System" ["currentTimeMillis" "getProperty"]
+   "java.lang.ProcessHandle" ["current"]})
+
+(def ^:private default-static-class-aliases
+  "Java classes available without an explicit :import that still expose
+   forbidden runtime accessors in core namespaces."
+  {"System" "java.lang.System"
+   "ProcessHandle" "java.lang.ProcessHandle"})
+
+(def ^:private allowed-fq-violations
+  "Temporary BOU-15 allowlist for known remaining runtime-dependent core calls.
+   Each entry should be removed as the corresponding namespace is migrated."
+  [])
 
 (defn- forbidden-require?
   "Returns true if `ns-str` matches any forbidden require pattern."
@@ -175,6 +209,52 @@
   [class-str]
   (some #(re-find % class-str) forbidden-import-packages))
 
+(defn- allowed-fq-violation?
+  [file req]
+  (some (fn [{file-pattern :file
+              req-pattern  :req}]
+          (and (re-find file-pattern file)
+               (re-find req-pattern req)))
+        allowed-fq-violations))
+
+(defn- imported-static-class-aliases
+  "Resolve simple class names available in the file to their fully-qualified
+   names for forbidden static accessor checks."
+  [imports]
+  (merge default-static-class-aliases
+         (->> imports
+              (filter #(contains? forbidden-static-methods-by-class %))
+              (map (fn [class-name]
+                     [(last (str/split class-name #"\."))
+                      class-name]))
+              (into {}))))
+
+(defn- scan-simple-static-calls
+  "Scan stripped file content for forbidden runtime access via imported or
+   implicitly available simple class names such as (Instant/now) or
+   (System/currentTimeMillis)."
+  [file content imports]
+  (let [cleaned        (parsing/strip-comments-and-strings content)
+        lines          (str/split-lines cleaned)
+        class-aliases  (imported-static-class-aliases imports)]
+    (->> lines
+         (map-indexed
+          (fn [idx line]
+            (mapcat (fn [[alias fq-class]]
+                      (keep (fn [method-name]
+                              (when (re-find (re-pattern (str "\\(\\s*"
+                                                              (java.util.regex.Pattern/quote alias)
+                                                              "/"
+                                                              (java.util.regex.Pattern/quote method-name)
+                                                              "\\b"))
+                                             line)
+                                {:file   (str file)
+                                 :line   (inc idx)
+                                 :symbol (str fq-class "/" method-name)}))
+                            (get forbidden-static-methods-by-class fq-class)))
+                    class-aliases)))
+         (mapcat identity))))
+
 (defn- scan-fq-calls
   "Scan stripped file content for fully-qualified forbidden calls and
    bare I/O function calls (slurp, spit).
@@ -192,7 +272,7 @@
                       {:file   (str file)
                        :line   (inc idx)
                        :symbol (str/replace
-                                (str/replace (str/trim m) #"[(/\s]" "")
+                                (str/replace (str/trim m) #"^[(/\s]+" "")
                                 #"/$" "")}))
                   all-patterns)))
          (mapcat identity))))
@@ -221,7 +301,10 @@
                                         :ns   ns-name
                                         :req  cls
                                         :kind :import})))
-        fq-violations (->> (scan-fq-calls file content)
+        fq-violations (->> (concat (scan-fq-calls file content)
+                                   (scan-simple-static-calls file content imports))
+                           (remove (fn [{:keys [symbol]}]
+                                     (allowed-fq-violation? (str file) symbol)))
                            (map (fn [{:keys [line symbol]}]
                                   {:file (str file)
                                    :ns   ns-name

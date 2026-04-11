@@ -9,6 +9,18 @@
             [clojure.tools.logging :as log])
   (:import (java.util UUID)))
 
+(defn- current-environment []
+  (or (System/getProperty "environment") "test"))
+
+(defn- current-cli-environment []
+  (or (System/getProperty "environment") "development"))
+
+(defn- current-timestamp []
+  (java.time.Instant/now))
+
+(defn- current-process-id []
+  (str (.pid (java.lang.ProcessHandle/current))))
+
 ;; =============================================================================
 ;; HTTP Error Context Middleware
 ;; =============================================================================
@@ -41,9 +53,12 @@
                          (str (UUID/randomUUID)))
           ;; Build comprehensive error context
           error-context (merge
-                         (problem/request->context request)
+                         (problem/request->context*
+                          request
+                          {:environment (current-environment)
+                           :timestamp (current-timestamp)})
                          {:request-id request-id
-                          :timestamp (java.time.Instant/now)})
+                          :timestamp (current-timestamp)})
           ;; Add error context to request for downstream middleware
           enhanced-request (assoc request :error-context error-context)]
       ;; Add request ID header for tracing
@@ -84,7 +99,11 @@
                request-method (:request-method request)
                error-context (:error-context request)
                ;; Use pre-captured error context or build it
-               context (or error-context (problem/request->context request))
+               context (or error-context
+                           (problem/request->context*
+                            request
+                            {:environment (current-environment)
+                             :timestamp (current-timestamp)}))
                ;; Enrich with exception-specific context
                enriched-context (problem/enrich-context
                                  context
@@ -144,7 +163,10 @@
             ;; Check if this exception already has CLI context (nested case)
             existing-cli-context (:cli-context original-data)
             ;; Build CLI error context
-            base-cli-context (problem/cli-context
+            base-cli-context (problem/cli-context*
+                              {:environment (current-cli-environment)
+                               :timestamp (current-timestamp)
+                               :process-id (current-process-id)}
                               {:user-id (:user-id context)
                                :command (:command context)})
             ;; Enrich with provided context

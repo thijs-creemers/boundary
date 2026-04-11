@@ -13,7 +13,7 @@ libs/search/
 │   ├── schema.clj          # Malli schemas: SearchDocument, SearchResult, SearchResponse, SearchDefinition (+ :filters)
 │   ├── ports.clj           # ISearchStore (persistence), ISearchEngine (orchestration)
 │   ├── core/
-│   │   ├── index.clj       # defsearch macro, global registry, build-document
+│   │   ├── index.clj       # defsearch macro, global registry, build-document*
 │   │   ├── query.clj       # SQL builders (PostgreSQL FTS + H2/SQLite LIKE fallback)
 │   │   └── ui.clj          # Hiccup: indices-page, index-detail-page, search-results-fragment
 │   └── shell/
@@ -22,7 +22,7 @@ libs/search/
 │       ├── http.clj         # Ring routes: API + admin web UI
 │       └── module_wiring.clj # Integrant keys :boundary/search + :boundary/search-routes
 └── test/boundary/search/
-    ├── core/index_test.clj         # unit: registry + build-document
+    ├── core/index_test.clj         # unit: registry + build-document*
     ├── core/query_test.clj         # unit: sanitize-query, SQL builders
     ├── shell/service_test.clj      # unit: MemorySearchStore double
     └── shell/persistence_test.clj  # integration: H2 upsert, delete, search, suggest
@@ -52,16 +52,18 @@ Defines a search index and registers it in a global atom registry:
 The var `product-search` holds the `SearchDefinition` map.
 `search/get-search :product-search` retrieves it from the registry.
 
-### build-document
+### build-document*
 
 Converts field values to weighted content columns:
 
 ```clojure
-(search/build-document product-search entity-id
+(search/build-document* product-search entity-id
                        {:title "Widget Pro"
                         :body  "A professional widget"
                         :tags  ["tools" "hardware"]}
-                       {:metadata      {:sku "WGT-001"}
+                       {:id            document-id
+                        :updated-at    now
+                        :metadata      {:sku "WGT-001"}
                         :filter-values {:tenant-id   tenant-uuid
                                         :category-id "hardware"}})
 ;; => {:index-id :product-search :entity-type :product :entity-id uuid
