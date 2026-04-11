@@ -6,14 +6,14 @@
 [![Clojars Project](https://img.shields.io/clojars/v/org.boundary-app/boundary-external.svg)](https://clojars.org/org.boundary-app/boundary-external)
 
 **Status:** Active (not production-ready)  
-**Version:** 1.0.1-alpha-11
+**Version:** 1.0.1-alpha-12
 
 Adapters for external services: Twilio SMS/WhatsApp, SMTP transport, and IMAP mailbox.
 
 ## Installation
 
 ```clojure
-{:deps {org.boundary-app/boundary-external {:mvn/version "1.0.1-alpha-11"}}}
+{:deps {org.boundary-app/boundary-external {:mvn/version "1.0.1-alpha-12"}}}
 ```
 
 ## Features

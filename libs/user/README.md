@@ -11,12 +11,12 @@ Complete user management and authentication system with MFA support, session man
 
 **deps.edn** (recommended):
 ```clojure
-{:deps {org.boundary-app/boundary-user {:mvn/version "1.0.1-alpha-11"}}}
+{:deps {org.boundary-app/boundary-user {:mvn/version "1.0.1-alpha-12"}}}
 ```
 
 **Leiningen**:
 ```clojure
-[org.boundary-app/boundary-user "1.0.1-alpha-11"]
+[org.boundary-app/boundary-user "1.0.1-alpha-12"]
 ```
 
 ## Features

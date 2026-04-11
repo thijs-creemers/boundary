@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### `ci` — E2E job disabled
 - Disabled the `e2e` CI job with `if: false` to reduce pipeline run time. Tests can be run manually when needed.
 
-## [1.0.1-alpha-11] - 2026-04-06
+## [1.0.1-alpha-12] - 2026-04-06
 
 ### Added
 
@@ -830,8 +830,8 @@ Copyright 2024-2025 Thijs Creemers. All rights reserved.
 
 ## Version History
 
-- **[1.0.1-alpha-11]** - 2026-04-06: E2E testing, admin UI improvements, auth bug fixes, quality gates, version bump
+- **[1.0.1-alpha-12]** - 2026-04-06: E2E testing, admin UI improvements, auth bug fixes, quality gates, version bump
 - **[1.0.0-alpha]** - 2026-02-14: Initial production release
 
-[1.0.1-alpha-11]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-11
+[1.0.1-alpha-12]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-12
 [1.0.0-alpha]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.0-alpha

@@ -1,7 +1,7 @@
 # boundary-tools
 
 **Artifact:** `org.boundary-app/boundary-tools`
-**Version:** `1.0.1-alpha-11`
+**Version:** `1.0.1-alpha-12`
 **Published to:** [Clojars](https://clojars.org/org.boundary-app/boundary-tools)
 
 Developer tooling for the Boundary framework: scaffolding, AI assistance, config management, i18n management, deployment, and development utilities — all packaged as a single Clojars artifact that any Boundary project can consume.
@@ -47,7 +47,7 @@ Add to your project's `bb.edn`:
 Bump the `:mvn/version` in your `bb.edn`:
 
 ```clojure
-org.boundary-app/boundary-tools {:mvn/version "1.0.1-alpha-11"}
+org.boundary-app/boundary-tools {:mvn/version "1.0.1-alpha-12"}
 ```
 
 ---

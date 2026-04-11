@@ -11,12 +11,12 @@ Unified observability stack with pluggable adapters for logging, metrics, and er
 
 **deps.edn** (recommended):
 ```clojure
-{:deps {org.boundary-app/boundary-observability {:mvn/version "1.0.1-alpha-11"}}}
+{:deps {org.boundary-app/boundary-observability {:mvn/version "1.0.1-alpha-12"}}}
 ```
 
 **Leiningen**:
 ```clojure
-[org.boundary-app/boundary-observability "1.0.1-alpha-11"]
+[org.boundary-app/boundary-observability "1.0.1-alpha-12"]
 ```
 
 ## Features
