@@ -200,7 +200,13 @@
                         (re-pattern (str "\\(\\s*"
                                          (java.util.regex.Pattern/quote sym)
                                          "(?!\\*)\\b")))))
-             distinct))))))
+             distinct))
+      (find-matches
+       (re-pattern (str "\\(\\s*"
+                        (java.util.regex.Pattern/quote (:namespace api))
+                        "/"
+                        (java.util.regex.Pattern/quote (:symbol api))
+                        "(?!\\*)\\b")))))))
 
 (defn scan-deprecated-usage
   "Scan repo files for qualified calls to deprecated BOU-15 transitional APIs."
