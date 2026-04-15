@@ -58,7 +58,8 @@ jobs:
             libs/reports/src \
             libs/geo/src \
             libs/ai/src \
-            libs/ui-style/src
+            libs/ui-style/src \
+            libs/i18n/src
 
   # =============================================================================
   # Build shared UI assets
@@ -951,7 +952,7 @@ jobs:
   test-summary:
     name: All Tests Passed
     runs-on: ubuntu-latest
-    needs: [build-ui-assets, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-deps, test-i18n, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-calendar, test-reports, test-geo, test-ai]
+    needs: [build-ui-assets, docs-lint, agents-links, command-smoke, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-deps, test-i18n, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-calendar, test-reports, test-geo, test-ai]
 
     steps:
       - name: Summary
