@@ -84,6 +84,16 @@
   height: auto;
 }
 
+/* Brand logo size variants (replaces inline height styles) */
+.brand-logo--h-32 img  { height: 32px;  width: auto; }
+.brand-logo--h-120 img { height: 120px; width: auto; }
+.brand-logo--h-140 img { height: 140px; width: auto; }
+.brand-logo--h-180 img { height: 180px; width: auto; }
+
+/* Spacing utilities */
+.ml-1 { margin-left: 0.25rem; }
+.ml-2 { margin-left: 0.5rem; }
+
 
 /* Sidebar collapse controls */
 .sidebar-controls {

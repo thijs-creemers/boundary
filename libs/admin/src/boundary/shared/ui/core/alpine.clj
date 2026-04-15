@@ -206,9 +206,9 @@
       [:button (toggle-button-attrs) \"Menu\"]
       [:div {:x-show \"open\"} \"Content\"]]"
   []
-  {:x-data "{open: false}"
-   (keyword "@click.outside") "open = false"
-   (keyword "@keydown.escape.window") "open = false"})
+  {:x-data "dropdown"
+   (keyword "@click.outside") "close()"
+   (keyword "@keydown.escape.window") "close()"})
 
 (defn toggle-button-attrs
   "Toggle button attributes for controlling 'open' state.
@@ -216,7 +216,7 @@
    Returns:
      Map of Alpine attributes for toggle buttons"
   []
-  {(keyword "@click") "open = !open"
+  {(keyword "@click") "toggle()"
    :x-bind:aria-expanded "open"})
 
 (defn collapsible-attrs
@@ -230,7 +230,7 @@
   ([]
    (collapsible-attrs false))
   ([initial-open]
-   {:x-data (str "{open: " initial-open "}")
+   {:x-data (str "collapsible(" initial-open ")")
     :x-show "open"
     :x-transition true}))
 
@@ -249,7 +249,7 @@
       [:input (row-checkbox-attrs id)]
       [:button (delete-button-attrs) \"Delete\"]]"
   []
-  {:x-data "{selectedIds: []}"})
+  {:x-data "bulkSelection"})
 
 (defn select-all-checkbox-attrs
   "Select-all checkbox attributes for bulk selection.
@@ -258,9 +258,9 @@
      Map of attributes for the select-all checkbox"
   []
   {:type "checkbox"
-   :x-bind:checked "selectedIds.length > 0 && selectedIds.length === $root.querySelectorAll('input[name=\"ids[]\"]').length"
-   :x-bind:indeterminate "selectedIds.length > 0 && selectedIds.length < $root.querySelectorAll('input[name=\"ids[]\"]').length"
-   (keyword "@change") "selectedIds = $event.target.checked ? [...$root.querySelectorAll('input[name=\"ids[]\"]')].map(cb => cb.value) : []"})
+   :x-bind:checked "isAllChecked()"
+   :x-bind:indeterminate "isIndeterminate()"
+   (keyword "@change") "toggleAll($event)"})
 
 (defn row-checkbox-attrs
   "Row checkbox attributes for bulk selection.
@@ -353,7 +353,7 @@
    Returns:
      Map of Alpine attributes for admin-shell div"
   []
-  {:x-data "{}"
+  {:x-data "empty"
    :x-bind:data-sidebar-state "$store.sidebar.state"
    :x-bind:data-sidebar-pinned "$store.sidebar.pinned"
    :x-bind:data-sidebar-open "$store.sidebar.mobileOpen"
@@ -392,4 +392,4 @@
    Returns:
      Map of attributes for nav links"
   []
-  {(keyword "@click") "if (window.innerWidth <= 768) $store.sidebar.closeMobile()"})
+  {(keyword "@click") "$store.sidebar.handleNavLinkClick()"})

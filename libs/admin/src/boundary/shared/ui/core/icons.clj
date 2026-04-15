@@ -424,7 +424,7 @@
        :aria-label "Toggle theme"
        :class class}
       ;; Light mode icon (sun) - shown when in dark mode
-      [:span {:data-theme-icon "light" :style "display: none;"}
+      [:span {:data-theme-icon "light" :class "hidden"}
        (icon :sun {:size size :aria-label "Switch to light mode"})]
       ;; Dark mode icon (moon) - shown when in light mode
       [:span {:data-theme-icon "dark"}
@@ -458,19 +458,18 @@
          suffix (if (= variant :icon) "-icon" "")
          light-src (str "/assets/boundary-light-512" suffix ".png")
          dark-src (str "/assets/boundary-dark-512" suffix ".png")
-         img-style (str "height: " size "px; width: auto;")]
+         size-class (str "brand-logo--h-" size)
+         combined-class (if class (str size-class " " class) size-class)]
      [:span.brand-logo
-      {:class class}
+      {:class combined-class}
       ;; Light theme logo (dark text) - shown when data-theme="light" or no theme set
       [:img.brand-logo-light
        {:src light-src
-        :alt "Boundary"
-        :style img-style}]
+        :alt "Boundary"}]
       ;; Dark theme logo (light text) - shown when data-theme="dark"
       [:img.brand-logo-dark
        {:src dark-src
-        :alt "Boundary"
-        :style img-style}]])))
+        :alt "Boundary"}]])))
 
 (comment
   ;; Usage examples:

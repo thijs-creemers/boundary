@@ -1344,14 +1344,10 @@
                 (render-field-widget field-name field-value field-config field-errors)))]]
           [:details.form-section.form-section-optional
            {:class "form-section form-section-optional"
-            :x-data "{open: true}"
-            :x-init (str "open = (localStorage.getItem('"
-                         optional-details-key
-                         "') ?? 'true') === 'true'")
+            :x-data (str "collapsibleOptionalFields('" optional-details-key "')")
+            :x-init "init()"
             :x-bind:open "open"
-            :x-on:toggle (str "localStorage.setItem('"
-                              optional-details-key
-                              "', $el.open ? 'true' : 'false')")}
+            :x-on:toggle "onToggle($event)"}
            [:summary.form-section-toggle {:class "form-section-toggle"}
             [:div.form-section-header {:class "form-section-header"}
              [:h3.form-section-title [:t :admin/form-section-optional]]

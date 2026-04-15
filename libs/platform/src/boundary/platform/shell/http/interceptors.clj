@@ -513,10 +513,11 @@
    - Cross-Origin-Opener-Policy: Isolate top-level browsing context
    - Referrer-Policy: Control referrer information
 
-   Note: script-src requires 'unsafe-eval' for Alpine.js v3 standard build.
-   Inline scripts are externalised (init.js) so 'unsafe-inline' is not needed."
+   Note: Uses Alpine.js CSP build (@alpinejs/csp) which avoids eval()/new Function().
+   All Alpine components are registered via Alpine.data() in admin-ux.js.
+   Inline scripts are externalised (init.js) so 'unsafe-inline' is not needed for script-src."
   {"Content-Security-Policy" (str "default-src 'self'; "
-                                  "script-src 'self' 'unsafe-eval'; "
+                                  "script-src 'self'; "
                                   "style-src 'self' 'unsafe-inline'; "
                                   "img-src 'self' data: https:; "
                                   "font-src 'self'; "

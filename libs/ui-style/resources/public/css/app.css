@@ -2212,9 +2212,14 @@ select:focus-visible {
 }
 
 .brand-logo img {
-  /* Width auto-scales with height set via inline style */
   object-fit: contain;
+  width: auto;
 }
+
+.brand-logo--h-32 img  { height: 32px; }
+.brand-logo--h-120 img { height: 120px; }
+.brand-logo--h-140 img { height: 140px; }
+.brand-logo--h-180 img { height: 180px; }
 
 /* Light mode: show light logo (dark text), hide dark logo */
 .brand-logo-light {
