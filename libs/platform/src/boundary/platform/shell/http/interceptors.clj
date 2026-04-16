@@ -515,9 +515,11 @@
 
    Note: Uses Alpine.js CSP build (@alpinejs/csp) which avoids eval()/new Function().
    All Alpine components are registered via Alpine.data() in admin-ux.js.
-   Inline scripts are externalised (init.js) so 'unsafe-inline' is not needed for script-src."
+   'unsafe-inline' is kept in script-src because several UI components still use inline
+   event handlers (onclick, onchange, onsubmit) and inline [:script] blocks (e.g. Alpine
+   store init, audit modal wiring). Remove 'unsafe-inline' only after those are externalised."
   {"Content-Security-Policy" (str "default-src 'self'; "
-                                  "script-src 'self'; "
+                                  "script-src 'self' 'unsafe-inline'; "
                                   "style-src 'self' 'unsafe-inline'; "
                                   "img-src 'self' data: https:; "
                                   "font-src 'self'; "
