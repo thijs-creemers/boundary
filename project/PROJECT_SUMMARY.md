@@ -1,23 +1,42 @@
 # Boundary Framework — Developer Summary
 
 A module-centric Clojure framework implementing the Functional Core / Imperative Shell (FC/IS) pattern.
-Each domain module owns its complete functionality stack: pure business logic in `core/`, side effects in `shell/`, protocol interfaces in `ports.clj`.
+Each domain module owns its full stack: pure business logic in `core/`, side effects in `shell/`, protocol interfaces in `ports.clj`.
+
+This page is a thin entry point. To keep a single source of truth, details live in the docs listed under **Where to look**. Update only the sections below; update the referenced docs for everything else.
 
 ---
 
-## Architecture
+## At a glance
 
-### Module layout
+- **22 domain libraries** under `libs/`, plus `boundary-tools/` (dev tooling, published separately) and `libs/e2e/` (Playwright/spel, opt-in).
+- **FC/IS enforced in CI** via six automated quality gates.
+- **Primary stack**: Clojure 1.12 · Integrant · Aero · Ring/Reitit · next.jdbc + HoneySQL · Malli · Buddy · Hiccup/HTMX · Kaocha · clj-kondo.
 
-```
-libs/{library}/src/boundary/{library}/
-├── core/       # Pure functions only — no I/O, no logging, no exceptions
-├── shell/      # All side effects: persistence, services, HTTP handlers
-├── ports.clj   # Protocol definitions (interfaces for dependency injection)
-└── schema.clj  # Malli validation schemas
-```
+---
 
-### Dependency rules
+## Where to look
+
+| I need… | Go to |
+|---------|-------|
+| Project intro, installation, quick start | [../README.md](../README.md) |
+| Full command reference, conventions, pitfalls, debugging | [../AGENTS.md](../AGENTS.md) |
+| Library-specific guidance (one per library) | `libs/{lib}/AGENTS.md` (22 total) |
+| Architecture, tutorials, API reference | [../docs-site/](../docs-site/) and [../docs/](../docs/) |
+| Internal/dev reference docs (publishing, ADRs, etc.) | [../dev-docs/](../dev-docs/) |
+| Current version, module status, CI coverage, roadmap progress | [PROJECT_STATUS.adoc](PROJECT_STATUS.adoc) |
+| Release history | [../CHANGELOG.md](../CHANGELOG.md) |
+| Claude Code working notes for this repo | [../CLAUDE.md](../CLAUDE.md) |
+| Roadmap 2026–2027 | [Boundary-Framework-Roadmap-2026-2027.adoc](Boundary-Framework-Roadmap-2026-2027.adoc) |
+| Strategic extensions | [Boundary-Framework-Strategische-Uitbreidingen.adoc](Boundary-Framework-Strategische-Uitbreidingen.adoc), [Addendum](Boundary-Framework-Strategische-Uitbreidingen-Addendum.adoc) |
+
+---
+
+## Architectural invariants
+
+These are load-bearing. Everything else is derivable from the repo or the docs above.
+
+**FC/IS dependency rules** (enforced by `bb check:fcis` and `bb check:deps`):
 
 | Direction | Allowed |
 |-----------|---------|
@@ -27,7 +46,7 @@ libs/{library}/src/boundary/{library}/
 | Core → Shell | **Never** |
 | Core → Adapters | **Never** |
 
-### Case conventions
+**Case conventions** — convert with `boundary.shared.core.utils.case-conversion`, never manually:
 
 | Boundary | Convention |
 |----------|------------|
@@ -35,91 +54,5 @@ libs/{library}/src/boundary/{library}/
 | Database | `snake_case` |
 | API (JSON) | `camelCase` |
 
-Use `boundary.shared.core.utils.case-conversion`. Never convert manually.
-
----
-
-## Libraries (22)
-
-| Library | Description |
-|---------|-------------|
-| `core` | Validation, utilities, interceptor pipeline, feature flags |
-| `observability` | Logging, metrics, error reporting |
-| `platform` | HTTP, database, CLI infrastructure |
-| `i18n` | Internationalization and locale management |
-| `user` | JWT auth, MFA, session management |
-| `admin` | Auto-CRUD admin UI (Hiccup + HTMX) |
-| `storage` | Local and S3 file storage |
-| `scaffolder` | Interactive module generator |
-| `cache` | Redis and in-memory caching |
-| `jobs` | Background job processing |
-| `email` | SMTP, async, jobs integration |
-| `tenant` | Multi-tenancy, PostgreSQL schema-per-tenant |
-| `realtime` | WebSocket / SSE |
-| `external` | Twilio SMS/WhatsApp, SMTP transport, IMAP adapters |
-| `payments` | PSP abstraction (Mollie, Stripe, Mock), checkout flow, webhooks |
-| `geo` | Multi-provider geocoding (OSM/Google/Mapbox), caching, distance |
-| `reports` | PDF / Excel / DOCX via `defreport` |
-| `calendar` | Recurring events, iCal, conflict detection |
-| `workflow` | State machine workflows with audit trail |
-| `search` | Full-text search (PostgreSQL FTS / LIKE fallback) |
-| `ai` | Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, tools |
-| `ui-style` | Shared UI style bundles, design tokens, CSS/JS assets |
-
-Additionally, `boundary-tools/` provides developer tooling (scaffolding, AI assistance, i18n management, deploy) and is published separately.
-
----
-
-## Key Technologies
-
-| Category | Libraries |
-|----------|-----------|
-| Language | Clojure 1.12.4 |
-| DI / lifecycle | Integrant |
-| Configuration | Aero |
-| HTTP | Ring, Reitit |
-| Database | next.jdbc, HoneySQL, HikariCP |
-| Validation | Malli |
-| Auth | Buddy (JWT) |
-| UI | Hiccup, HTMX |
-| Tests | Kaocha |
-| Lint | clj-kondo |
-
----
-
-## Essential Commands
-
-```bash
-# Tests
-clojure -M:test:db/h2                       # All tests
-clojure -M:test:db/h2 :user                 # Single library
-clojure -M:test:db/h2 --focus-meta :unit    # Unit tests only
-clojure -M:test:db/h2 --watch :core         # Watch mode
-
-# REPL (nREPL port 7888)
-clojure -M:repl-clj
-# (ig-repl/go) | (ig-repl/reset) | (ig-repl/halt)
-
-# Lint
-clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
-
-# Build
-clojure -T:build clean && clojure -T:build uber
-
-# Migrations
-clojure -M:migrate up
-
-# Scaffolding
-bb scaffold
-```
-
----
-
-## Further Reading
-
-| Resource | Description |
-|----------|-------------|
-| [README.md](../README.md) | Public overview and quick start |
-| [AGENTS.md](../AGENTS.md) | Full command reference, pitfalls, debugging |
-| [PROJECT_STATUS.adoc](PROJECT_STATUS.adoc) | Current library and CI status |
-| [docs-site/](../docs-site/) | Architecture guides, tutorials, API reference |
+**Quality gates** (all are CI jobs and `bb` tasks):
+`bb check:fcis` · `bb check:placeholder-tests` · `bb check:deps` · `docs-lint` · `agents-links` · `clj-kondo`.
