@@ -514,12 +514,16 @@
    - Referrer-Policy: Control referrer information
 
    Note: Uses Alpine.js CSP build (@alpinejs/csp) which avoids eval()/new Function().
-   All Alpine components are registered via Alpine.data() in admin-ux.js.
+   All Alpine components are registered via Alpine.data() in components.js / admin-ux.js.
    'unsafe-inline' is kept in script-src because several UI components still use inline
    event handlers (onclick, onchange, onsubmit) and inline [:script] blocks (e.g. Alpine
-   store init, audit modal wiring). Remove 'unsafe-inline' only after those are externalised."
+   store init, audit modal wiring). Remove 'unsafe-inline' only after those are externalised.
+   'unsafe-eval' is kept in script-src because HTMX 2.x has allowEval:true by default and
+   hx-on::* expression attrs (e.g. hx-on::afterRequest in admin entity forms) depend on it.
+   Remove 'unsafe-eval' only after htmx.config.allowEval is disabled or all hx-on attrs
+   are replaced."
   {"Content-Security-Policy" (str "default-src 'self'; "
-                                  "script-src 'self' 'unsafe-inline'; "
+                                  "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
                                   "style-src 'self' 'unsafe-inline'; "
                                   "img-src 'self' data: https:; "
                                   "font-src 'self'; "

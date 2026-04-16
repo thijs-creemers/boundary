@@ -66,16 +66,9 @@ document.addEventListener('alpine:init', function () {
   // =========================================================================
   // Alpine.data component registrations (required for CSP build).
   // All x-data values in templates must reference a registered component.
+  // Shared components (dropdown) are registered in components.js so they
+  // are available to base/pilot bundles as well.
   // =========================================================================
-
-  // Dropdown: manages open/close state with click-outside and escape handling.
-  window.Alpine.data('dropdown', function () {
-    return {
-      open: false,
-      toggle: function () { this.open = !this.open; },
-      close: function () { this.open = false; }
-    };
-  });
 
   // Empty: provides an Alpine scope without data (used for store-only bindings).
   window.Alpine.data('empty', function () {

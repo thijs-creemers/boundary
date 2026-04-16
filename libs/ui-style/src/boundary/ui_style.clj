@@ -33,8 +33,9 @@
 
 (def base-js
   "Base JavaScript stack.
-   Alpine.js must load before HTMX."
+   components.js must load before alpine.min.js to register shared Alpine components."
   ["/js/theme.js"
+   "/js/components.js"
    "/js/alpine.min.js"
    "/js/htmx.min.js"])
 
@@ -44,9 +45,10 @@
 
 (def admin-pilot-js
   "Admin pilot JavaScript stack.
-   admin-ux.js must load before alpine.min.js because it registers
-   the sidebar Alpine store via the alpine:init event."
+   components.js and admin-ux.js must load before alpine.min.js because they
+   register Alpine components/stores via the alpine:init event."
   ["/js/theme.js"
+   "/js/components.js"
    "/js/admin-ux.js"
    "/js/alpine.min.js"
    "/js/htmx.min.js"
