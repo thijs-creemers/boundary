@@ -1,5 +1,5 @@
 #!/usr/bin/env bb
-;; boundary-tools/src/boundary/tools/setup.clj
+;; libs/tools/src/boundary/tools/setup.clj
 ;;
 ;; Config Setup Wizard — interactive config generation for Boundary projects.
 ;;

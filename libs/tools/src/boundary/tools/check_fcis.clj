@@ -1,5 +1,5 @@
 #!/usr/bin/env bb
-;; boundary-tools/src/boundary/tools/check_fcis.clj
+;; libs/tools/src/boundary/tools/check_fcis.clj
 ;;
 ;; FC/IS boundary enforcement: ensures core/ namespaces never import
 ;; shell code, I/O libraries, logging, or database drivers.

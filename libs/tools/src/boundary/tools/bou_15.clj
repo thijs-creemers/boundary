@@ -1,5 +1,5 @@
 #!/usr/bin/env bb
-;; boundary-tools/src/boundary/tools/bou_15.clj
+;; libs/tools/src/boundary/tools/bou_15.clj
 ;;
 ;; Reports remaining usage of deprecated BOU-15 transitional wrappers so they
 ;; can be removed once downstream callers are migrated.
@@ -70,8 +70,6 @@
         libs-dir   (io/file root "libs")
         top-src    (io/file root "src")
         top-test   (io/file root "test")
-        tools-src  (io/file root "boundary-tools" "src")
-        tools-test (io/file root "boundary-tools" "test")
         trees      (concat
                     (when (.exists libs-dir)
                       (->> (.listFiles libs-dir)
@@ -81,7 +79,7 @@
                                            [(io/file lib-dir "src")
                                             (io/file lib-dir "test")])))))
                     (keep #(when (.exists %) %)
-                          [top-src top-test tools-src tools-test]))]
+                          [top-src top-test]))]
     (->> trees
          (mapcat file-seq)
          (filter #(and (.isFile %)

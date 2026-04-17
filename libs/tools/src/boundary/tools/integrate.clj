@@ -1,5 +1,5 @@
 #!/usr/bin/env bb
-;; boundary-tools/src/boundary/tools/integrate.clj
+;; libs/tools/src/boundary/tools/integrate.clj
 ;;
 ;; Module Integration — wire a scaffolded module into deps.edn, tests.edn, wiring.clj.
 ;;

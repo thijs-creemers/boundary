@@ -156,8 +156,7 @@ libs/
 ├── ui-style/      # Shared UI style bundles, tokens, and CSS assets contract
 └── i18n/          # Marker-based internationalisation, translation catalogues, locale chains
 
-# boundary-tools (at repo root, not under libs/)
-boundary-tools/    # Developer tooling: scaffolding, AI, i18n, deploy, dev utilities
+├── tools/         # Developer tooling: scaffolding, AI, i18n, deploy, dev utilities (not published to Clojars)
 ```
 
 ---
@@ -698,7 +697,7 @@ Six automated safeguards run in CI (and `check:fcis` in pre-commit) to prevent r
 | **clj-kondo lint** | `clojure -M:clj-kondo --lint ...` | Static analysis (existing gate) | Yes |
 | **Config doctor** | `bb doctor --env dev --ci` | Configuration errors (existing gate) | Yes |
 
-**Scripts location:** `boundary-tools/src/boundary/tools/check_{fcis,tests,deps}.clj`
+**Scripts location:** `libs/tools/src/boundary/tools/check_{fcis,tests,deps}.clj`
 **Security tests:** `libs/platform/test/boundary/platform/shell/security_test.clj` (tagged `^:security ^:unit`)
 **Handler test helpers:** `test/support/handler_test_helpers.clj` (Ring request builders, response assertions)
 **ADRs:** `dev-docs/adr/ADR-021-fcis-boundary-rules.adoc`, `ADR-022-error-handling-conventions.adoc`
@@ -773,21 +772,16 @@ Clojure's `{:or {limit 20 offset 0}}` destructuring only fires for **absent** ke
 
 ---
 
-## boundary-tools — Developer Tooling Artifact
+## libs/tools — Developer Tooling
 
-`boundary-tools` is a standalone, independently publishable Clojars artifact containing all portable Babashka developer tooling. It lives at `boundary-tools/` (not under `libs/`) and is consumed by the monorepo via a local path dep:
+`libs/tools` contains all portable Babashka developer tooling. It lives under `libs/tools/` alongside the other libraries and is consumed by the monorepo via a local path dep in `bb.edn`:
 
 ```clojure
 ;; bb.edn (monorepo)
-{:deps {org.boundary-app/boundary-tools {:local/root "boundary-tools"}}}
+{:deps {org.boundary-app/boundary-tools {:local/root "libs/tools"}}}
 ```
 
-Any project using `boundary-starter` or starting fresh should consume it via:
-
-```clojure
-;; bb.edn (consumer project)
-{:deps {org.boundary-app/boundary-tools {:mvn/version "1.0.0-alpha"}}}
-```
+> **Note:** `libs/tools` is not published to Clojars. It is a dev-only dependency and is not included in `bb deploy --all`.
 
 ### Namespaces
 
@@ -800,29 +794,14 @@ Any project using `boundary-starter` or starting fresh should consume it via:
 | `boundary.tools.integrate` | `bb scaffold integrate` — wire modules into deps/tests/wiring |
 | `boundary.tools.i18n` | `bb i18n:find/scan/missing/unused` |
 | `boundary.tools.admin` | `bb create-admin` |
-| `boundary.tools.deploy` | `bb deploy` (handles all 22 libs + boundary-tools) |
+| `boundary.tools.deploy` | `bb deploy` (handles all 22 libs) |
 | `boundary.tools.dev` | `bb migrate`, `bb check-links`, `bb smoke-check`, `bb install-hooks` |
 | `boundary.tools.check-fcis` | `bb check:fcis` — FC/IS boundary enforcement (ADR-021) |
 | `boundary.tools.check-tests` | `bb check:placeholder-tests` — placeholder assertion detection |
 | `boundary.tools.check-deps` | `bb check:deps` — dependency direction linting + cycle detection |
 | `boundary.tools.parsing` | Shared source-parsing utilities for quality-gate checkers |
 
-### Releasing boundary-tools
-
-```bash
-# Bump version in boundary-tools/build.clj, then:
-bb deploy boundary-tools
-
-# Or directly:
-cd boundary-tools && clojure -T:build clean && clojure -T:build deploy
-```
-
-For a full tagged Clojars release, remember that `.github/workflows/publish.yml`
-runs `bb deploy --all`. That means every artifact included in the release must
-have a fresh, unpublished version in its own `build.clj` before you push the
-tag; the tag only triggers the workflow, it does not override artifact versions.
-
-See `boundary-tools/AGENTS.md` for the full command reference.
+See `libs/tools/AGENTS.md` for the full command reference.
 
 ---
 
