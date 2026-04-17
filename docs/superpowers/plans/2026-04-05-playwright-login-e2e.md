@@ -46,7 +46,7 @@ Engineer: read these before starting. They are already verified in the repo.
 - **H2 in tests:** `:boundary/h2 {:memory true :pool {...}}` in `resources/conf/test/config.edn`. JDBC URL `jdbc:h2:mem:boundary;DB_CLOSE_DELAY=-1`.
 - **H2 truncate gotcha:** H2 does not support `TRUNCATE ... CASCADE`. Use `SET REFERENTIAL_INTEGRITY FALSE` → `TRUNCATE TABLE <t>` per table → `SET REFERENTIAL_INTEGRITY TRUE`.
 - **Tables:** `users`, `sessions`, `audit_logs`, `tenants`, `tenant_memberships`, `tenant_member_invites`.
-- **FC/IS checker:** `boundary-tools/src/boundary/tools/check_fcis.clj`. Scans `libs/*/src/boundary/*/core/**`. Anything under `src/boundary/test_support/core/**` is **not** in that glob by default — the check will silently not cover it. Task 2 addresses this.
+- **FC/IS checker:** `libs/tools/src/boundary/tools/check_fcis.clj`. Scans `libs/*/src/boundary/*/core/**`. Anything under `src/boundary/test_support/core/**` is **not** in that glob by default — the check will silently not cover it. Task 2 addresses this.
 - **CI file:** `.github/workflows/ci.yml`. Existing jobs: `lint`, `build-ui-assets`, `docs-lint`.
 - **Babashka tasks:** `bb.edn`. Pattern uses `(apply <ns>/-main *command-line-args*)` or `(clojure "-M:<alias>")`.
 
@@ -202,19 +202,19 @@ git commit -m "Add pure baseline seed spec for e2e test support"
 ### Task 2: Extend FC/IS checker to cover test-support
 
 **Files:**
-- Modify: `boundary-tools/src/boundary/tools/check_fcis.clj`
-- Test: `boundary-tools/test/boundary/tools/check_fcis_test.clj` (create if missing, else extend)
+- Modify: `libs/tools/src/boundary/tools/check_fcis.clj`
+- Test: `libs/tools/test/boundary/tools/check_fcis_test.clj` (create if missing, else extend)
 
 - [ ] **Step 1: Read the current FC/IS checker to find the scan root**
 
 ```bash
 ```
 
-Read `boundary-tools/src/boundary/tools/check_fcis.clj` top-to-bottom. Find the function that enumerates paths/files. It is probably globbing `libs/*/src/boundary/*/core/**/*.clj` or similar.
+Read `libs/tools/src/boundary/tools/check_fcis.clj` top-to-bottom. Find the function that enumerates paths/files. It is probably globbing `libs/*/src/boundary/*/core/**/*.clj` or similar.
 
 - [ ] **Step 2: Write failing test**
 
-Create or extend `boundary-tools/test/boundary/tools/check_fcis_test.clj`:
+Create or extend `libs/tools/test/boundary/tools/check_fcis_test.clj`:
 
 ```clojure
 (ns boundary.tools.check-fcis-test
@@ -254,7 +254,7 @@ Expected: test passes; `bb check:fcis` still passes against the existing codebas
 - [ ] **Step 5: Commit**
 
 ```bash
-git add boundary-tools/src/boundary/tools/check_fcis.clj boundary-tools/test/boundary/tools/check_fcis_test.clj
+git add libs/tools/src/boundary/tools/check_fcis.clj libs/tools/test/boundary/tools/check_fcis_test.clj
 git commit -m "Extend FC/IS checker to scan src/boundary/test_support/core"
 ```
 
@@ -621,12 +621,12 @@ git commit -m "Wire /test/reset route behind :test profile flag"
 ### Task 7: `bb doctor` guard against flag in non-test configs
 
 **Files:**
-- Modify: `boundary-tools/src/boundary/tools/doctor.clj`
-- Test: `boundary-tools/test/boundary/tools/doctor_test.clj`
+- Modify: `libs/tools/src/boundary/tools/doctor.clj`
+- Test: `libs/tools/test/boundary/tools/doctor_test.clj`
 
 - [ ] **Step 1: Write failing test**
 
-Extend `boundary-tools/test/boundary/tools/doctor_test.clj`:
+Extend `libs/tools/test/boundary/tools/doctor_test.clj`:
 
 ```clojure
 (deftest reset-endpoint-flag-must-not-be-enabled-in-prod
@@ -662,7 +662,7 @@ Both pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add boundary-tools/src/boundary/tools/doctor.clj boundary-tools/test/boundary/tools/doctor_test.clj
+git add libs/tools/src/boundary/tools/doctor.clj libs/tools/test/boundary/tools/doctor_test.clj
 git commit -m "Add doctor check: reset endpoint flag forbidden outside test/dev"
 ```
 
@@ -1885,7 +1885,7 @@ Expected: all existing tests pass, plus the new `:unit` / `:integration` / `:con
 - [ ] **Step 3: Run lint and quality gates**
 
 ```bash
-clojure -M:clj-kondo --lint src test libs/*/src libs/*/test boundary-tools/src
+clojure -M:clj-kondo --lint src test libs/*/src libs/*/test libs/tools/src
 bb check:fcis
 bb check:deps
 bb check:placeholder-tests

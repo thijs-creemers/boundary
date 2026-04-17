@@ -47,7 +47,7 @@ See `boundary.core.parsing` and PR #116 for the documented justification.
 
 === Enforcement
 
-The rules are enforced by `boundary-tools/src/boundary/tools/check_fcis.clj`:
+The rules are enforced by `libs/tools/src/boundary/tools/check_fcis.clj`:
 
 * **CI gate:** `bb check:fcis` runs as a standalone job in `.github/workflows/ci.yml`
 * **Pre-commit hook:** `.githooks/pre-commit` runs `bb check:fcis` before every commit

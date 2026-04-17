@@ -294,7 +294,7 @@ This automates:
 [[tools]]
 == Babashka Developer Tools
 
-All tools are defined in `bb.edn` and provided by the `boundary-tools/` package.
+All tools are defined in `bb.edn` and provided by the `libs/tools/` package.
 
 [[tool-doctor]]
 === Config Doctor
