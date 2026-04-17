@@ -84,6 +84,10 @@
   height: auto;
 }
 
+/* Spacing utilities */
+.ml-1 { margin-left: 0.25rem; }
+.ml-2 { margin-left: 0.5rem; }
+
 
 /* Sidebar collapse controls */
 .sidebar-controls {

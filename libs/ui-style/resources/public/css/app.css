@@ -2212,8 +2212,8 @@ select:focus-visible {
 }
 
 .brand-logo img {
-  /* Width auto-scales with height set via inline style */
   object-fit: contain;
+  width: auto;
 }
 
 /* Light mode: show light logo (dark text), hide dark logo */

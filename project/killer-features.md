@@ -1,6 +1,6 @@
 # Boundary Framework: Killer Features
 
-**Updated**: 2026-03-13
+**Updated**: 2026-04-15
 
 What makes Boundary different from Kit, Luminus, or rolling your own Clojure stack — and why those differences matter in practice.
 
@@ -220,16 +220,60 @@ In-memory backend for development and tests; Redis (Jedis, connection-pooled) fo
 
 ### 18. External Service Adapters with FC/IS Separation
 
-`boundary-external` ships four production adapters — Stripe, Twilio, SMTP, and IMAP — each following the same FC/IS pattern as every other Boundary library. The HTTP calls and Java mail I/O live in `shell/`; all transformation, parameter building, and webhook verification logic lives in pure `core/` functions you can test without network access.
+`boundary-external` ships three production adapters — Twilio, SMTP, and IMAP — each following the same FC/IS pattern as every other Boundary library. HTTP calls and Java mail I/O live in `shell/`; all transformation, parameter building, and verification logic lives in pure `core/` functions you can test without network access.
 
 | Adapter | Capabilities |
 |---------|-------------|
-| Stripe | Payment intents, webhook signature verification (constant-time HMAC), refunds |
 | Twilio | SMS and WhatsApp messaging (including sandbox mode) |
 | SMTP | Transactional email via javax.mail |
 | IMAP | Mailbox reading, UID-based message tracking, unread filtering |
 
-All four are shipped inactive in configuration and enabled by adding a single key to your `config.edn`. No code changes required.
+All three are shipped inactive in configuration and enabled by adding a single key to your `config.edn`. No code changes required.
+
+Payment providers live in a dedicated library — see **Payment Provider Abstraction** below.
+
+---
+
+### 19. Payment Provider Abstraction
+
+`boundary-payments` provides a single port and a checkout flow that targets multiple PSPs interchangeably. No direct Stripe or Mollie SDK calls bleed into the business logic.
+
+| Adapter | Capabilities |
+|---------|-------------|
+| Mollie | Payment creation, webhook verification, refunds |
+| Stripe | Payment intents, webhook signature verification (constant-time HMAC), refunds |
+| Mock | In-memory adapter for tests and local development |
+
+Webhook verification runs with constant-time HMAC comparison; the parsing and signature-validation logic lives in pure core functions and is unit-tested without network access. Switching PSP is a configuration change.
+
+---
+
+### 20. Framework-Aware AI Tooling
+
+`boundary-ai` plus the `bb ai` / `bb scaffold ai` commands provide AI assistance that understands FC/IS, ports, schemas, and the module layout — so outputs fit the framework instead of producing generic Clojure that needs rewriting.
+
+- **Natural-language scaffolding** — `bb scaffold ai "product module with name, price, stock"` generates a full FC/IS-compliant module (schema, persistence, service, routes, tests).
+- **Error explainer** — `bb ai explain --file stacktrace.txt` analyses stack traces with context awareness of Boundary patterns.
+- **Test generator** — `bb ai gen-tests <file>` produces unit tests from function signatures and docstrings.
+- **SQL copilot** — `bb ai sql "find active users with orders in last 7 days"` produces HoneySQL with an explanation.
+- **Docs wizard** — `bb ai docs --module libs/user --type agents` regenerates per-library `AGENTS.md` stubs.
+- **Admin entity generator** — `bb ai admin-entity "products with name, price, status"` emits EDN config for `boundary-admin`.
+
+Providers are pluggable (Ollama, Anthropic, OpenAI) — the default is Ollama, so by default no data leaves your machine.
+
+---
+
+### 21. Multi-Provider Geocoding
+
+`boundary-geo` wraps the messiness of provider APIs behind a clean protocol with built-in caching and throttling.
+
+- **Providers**: OpenStreetMap/Nominatim, Google Maps, Mapbox — switchable via configuration.
+- **DB-backed cache** — avoids redundant API calls; address hashes cached with configurable TTL.
+- **Per-provider rate limiting** out of the box.
+- **Haversine distance** for point-to-point calculations.
+- **Forward and reverse** geocoding through a single port.
+
+Switching from OSM (free) to Google Maps (paid, higher accuracy) is a configuration change, not a code change.
 
 ---
 
@@ -257,7 +301,10 @@ All four are shipped inactive in configuration and enabled by adding a single ke
 | Feature flags | Built-in | 3rd party | Gem | 3rd party | — |
 | Distributed cache + atomic ops | Built-in | Redis ext. | Redis ext. | Redis ext. | Module |
 | Tenant-scoped caching | Built-in | Manual | Manual | Manual | — |
-| Stripe + Twilio adapters | Built-in | 3rd party | Gem | 3rd party | — |
+| Twilio + SMTP + IMAP adapters | Built-in | 3rd party | Gem | 3rd party | — |
+| Payment provider abstraction (Mollie/Stripe) | Built-in | 3rd party | Gem | 3rd party | — |
+| Multi-provider geocoding + cache | Built-in | 3rd party | 3rd party | 3rd party | — |
+| Framework-aware AI scaffolding / tooling | Built-in | — | — | — | — |
 | Validation with coverage + snapshots | Built-in | Manual | Manual | Manual | — |
 
 **Legend:** Built-in = ships with the framework. 3rd party = community library or external service. Manual = possible but must be wired by the developer. — = not available or not applicable.
@@ -267,16 +314,6 @@ All four are shipped inactive in configuration and enabled by adding a single ke
 ## Roadmap
 
 Features that differentiate Boundary and are not yet shipped.
-
-### AI-Powered Developer Experience
-
-Deep framework-aware AI tooling integrated into the CLI and REPL:
-
-- **Natural language scaffolding** — describe a module in plain English; get schema, persistence, routes, and tests generated in seconds.
-- **Error explainer** — analyze stack traces with context awareness of FC/IS patterns, ports, and schemas.
-- **Test generator** — generate unit tests from function signatures and docstrings.
-- **SQL copilot** — natural language → HoneySQL query with explanation.
-- **Offline-first** — local models via Ollama by default; no data leaves the machine.
 
 ### Independent Module Deployments (Dual-Mode Runtime)
 
@@ -335,23 +372,6 @@ Many applications need user-configurable forms — NPS surveys, onboarding quest
 
 ---
 
-### Geocoding (`boundary-geo`)
-
-Location features appear in a surprisingly large share of applications — store locators, delivery address validation, proximity search, map visualisations. `boundary-geo` wraps the messiness of provider APIs behind a clean protocol.
-
-- **Multi-provider geocoding** — Google Maps, OpenStreetMap/Nominatim, Mapbox, Azure Maps
-- **Reverse geocoding** — coordinates to human-readable address
-- **Caching layer** — avoid redundant API calls; address hashes cached with configurable TTL
-- **Rate limiting** — per-provider request throttling out of the box
-- **Distance calculations** — Haversine formula for point-to-point distances
-- **Provider fallback** — configurable failover if the primary provider is unavailable
-
-Because `boundary-geo` abstracts providers behind a port, switching from OpenStreetMap (free) to Google Maps (paid, higher accuracy) is a configuration change, not a code change.
-
-**Typical use cases:** delivery address validation, store locators, CRM contact mapping, logistics routing, real estate listings.
-
----
-
 ## One-Sentence Summary
 
-> Boundary is the first framework that ships enforced FC/IS architecture, auto-generated admin UI, pluggable observability with automatic instrumentation, declarative multi-layer interceptors, state machine workflows, full-text search, report generation, calendar scheduling, multi-tenancy, real-time, distributed caching, background jobs, PII-safe logging, built-in feature flags, and Stripe/Twilio/IMAP adapters — all in one coherent stack, all following the same patterns, all swappable via configuration.
+> Boundary is the first framework that ships enforced FC/IS architecture, auto-generated admin UI, pluggable observability with automatic instrumentation, declarative multi-layer interceptors, state machine workflows, full-text search, report generation, calendar scheduling, multi-tenancy, real-time, distributed caching, background jobs, PII-safe logging, built-in feature flags, multi-provider geocoding, a PSP abstraction for payments, framework-aware AI scaffolding and tooling, and Twilio/SMTP/IMAP adapters — all in one coherent stack, all following the same patterns, all swappable via configuration.

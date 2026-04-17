@@ -51,7 +51,7 @@
        [:div.nav-links
         [:a {:href "/web/audit"}
          (icons/icon :file-text {:size 18})
-         [:span {:style "margin-left: 0.5rem;"} "Audit Trail"]]])
+         [:span {:class "ml-2"} "Audit Trail"]]])
      (if user
        [:div.user-nav
         (icons/theme-toggle-button)
@@ -59,8 +59,8 @@
         [:div.user-dropdown (alpine/dropdown-attrs)
          [:button.dropdown-toggle (alpine/toggle-button-attrs)
           (icons/icon :user {:size 18})
-          [:span {:style "margin-left: 0.5rem;"} (:name user)]
-          (icons/icon :chevron-down {:size 16 :style "margin-left: 0.25rem;"})]
+          [:span {:class "ml-2"} (:name user)]
+          (icons/icon :chevron-down {:size 16 :class "ml-1"})]
          [:div.dropdown-menu (merge {:x-show  "open"
                                      :x-cloak true}
                                     (alpine/x-transition {:origin "top right"}))

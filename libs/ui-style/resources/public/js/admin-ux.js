@@ -54,7 +54,76 @@ document.addEventListener('alpine:init', function () {
 
     closeMobile: function () {
       this.mobileOpen = false;
+    },
+
+    handleNavLinkClick: function () {
+      if (window.innerWidth <= 768) {
+        this.closeMobile();
+      }
     }
+  });
+
+  // =========================================================================
+  // Alpine.data component registrations (required for CSP build).
+  // All x-data values in templates must reference a registered component.
+  // Shared components (dropdown) are registered in components.js so they
+  // are available to base/pilot bundles as well.
+  // =========================================================================
+
+  // Empty: provides an Alpine scope without data (used for store-only bindings).
+  window.Alpine.data('empty', function () {
+    return {};
+  });
+
+  // Collapsible: simple open/close panel with optional initial state.
+  window.Alpine.data('collapsible', function (initialOpen) {
+    return {
+      open: initialOpen !== undefined ? initialOpen : false
+    };
+  });
+
+  // BulkSelection: manages a selectedIds array for table checkbox bulk actions.
+  window.Alpine.data('bulkSelection', function () {
+    return {
+      selectedIds: [],
+
+      getCheckboxes: function () {
+        return this.$root.querySelectorAll('input[name="ids[]"]');
+      },
+
+      isAllChecked: function () {
+        var checkboxes = this.getCheckboxes();
+        return this.selectedIds.length > 0 && this.selectedIds.length === checkboxes.length;
+      },
+
+      isIndeterminate: function () {
+        var checkboxes = this.getCheckboxes();
+        return this.selectedIds.length > 0 && this.selectedIds.length < checkboxes.length;
+      },
+
+      toggleAll: function (event) {
+        var checkboxes = Array.from(this.getCheckboxes());
+        this.selectedIds = event.target.checked
+          ? checkboxes.map(function (cb) { return cb.value; })
+          : [];
+      }
+    };
+  });
+
+  // CollapsibleOptionalFields: details element with localStorage persistence.
+  window.Alpine.data('collapsibleOptionalFields', function (storageKey) {
+    return {
+      open: true,
+
+      init: function () {
+        var stored = localStorage.getItem(storageKey);
+        this.open = (stored !== null ? stored : 'true') === 'true';
+      },
+
+      onToggle: function (event) {
+        localStorage.setItem(storageKey, event.target.open ? 'true' : 'false');
+      }
+    };
   });
 });
 
