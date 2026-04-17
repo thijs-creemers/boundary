@@ -108,7 +108,7 @@ All Babashka scripts are extracted from the monorepo into a dedicated,
 independently publishable artifact published to Clojars:
 
 ----
-boundary-tools/
+libs/tools/
 ├── bb.edn                          ; task definitions, references scripts/
 ├── deps.edn                        ; coordinates: org.boundary-app/boundary-tools
 ├── scripts/
@@ -202,7 +202,7 @@ local path dependency during development and the published artifact in CI:
 [source,clojure]
 ----
 ;; monorepo bb.edn — development
-{:deps {org.boundary-app/boundary-tools {:local/root "boundary-tools"}}}
+{:deps {org.boundary-app/boundary-tools {:local/root "libs/tools"}}}
 ----
 
 This guarantees that the monorepo and starter projects run identical task
@@ -225,12 +225,12 @@ resolve correctly.
 == Implementation Phases
 
 === Phase 1 — Extract and publish initial artifact
-- [ ] Create `boundary-tools/` directory in the monorepo
+- [ ] Create `libs/tools/` directory in the monorepo
 - [ ] Move existing scripts (`scaffold.clj`, `ai.clj`, `deploy.clj`, etc.)
-      into `boundary-tools/scripts/`
-- [ ] Write `boundary-tools/bb.edn` with all task definitions
-- [ ] Write `boundary-tools/deps.edn` with Maven coordinates
-- [ ] Refactor monorepo `bb.edn` to consume `boundary-tools` as local path dep
+      into `libs/tools/scripts/`
+- [ ] Write `libs/tools/bb.edn` with all task definitions
+- [ ] Write `libs/tools/deps.edn` with Maven coordinates
+- [ ] Refactor monorepo `bb.edn` to consume `libs/tools` as local path dep
 - [ ] Verify all existing `bb *` commands still work in the monorepo
 - [ ] Publish `org.boundary-app/boundary-tools 1.0.0` to Clojars
 - [ ] Extend `bb deploy` to include `boundary-tools`
@@ -243,11 +243,11 @@ resolve correctly.
 
 === Phase 3 — Add i18n tooling (follows ADR-013 Phase 1)
 - [ ] Implement `bb i18n find`, `bb i18n scan`, `bb i18n missing`,
-      `bb i18n unused` in `boundary-tools/scripts/i18n.clj`
+      `bb i18n unused` in `libs/tools/scripts/i18n.clj`
 - [ ] Release `boundary-tools 1.1.0`
 
 === Phase 4 — Documentation
-- [ ] Write `boundary-tools/AGENTS.md` with full command reference
+- [ ] Write `libs/tools/AGENTS.md` with full command reference
 - [ ] Add upgrade guide to `boundary-starter` README
 - [ ] Update root `AGENTS.md` to reference `boundary-tools` versioning
 

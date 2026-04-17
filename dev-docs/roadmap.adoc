@@ -14,7 +14,7 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 - [x] Scaffolder generates normalized routes, interceptor hooks, CRUD stubs
 - [x] Beginner documentation: Getting Started, Your First Module, FC/IS guide
 - [x] Public release: GitHub open, Clojars deployment (`bb deploy --all`)
-- [x] 22 independently publishable libraries under `libs/` (+ `boundary-tools`)
+- [x] 22 independently publishable libraries under `libs/` (+ `libs/tools` for dev tooling)
 - [x] Example application: `examples/ecommerce-api/`
 
 '''
@@ -50,7 +50,7 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 - Improve operational and security guidance
 
 === Delivered
-- [x] `boundary-tools` artifact: scaffolding, AI, i18n, deploy, dev utilities (published separately)
+- [x] `libs/tools`: scaffolding, AI, i18n, deploy, dev utilities (dev tooling, not published to Clojars)
 - [x] Config Doctor (`bb doctor`): validates env refs, providers, JWT, admin parity, wiring
 - [x] Config Setup Wizard (`bb setup`): interactive + AI-powered config generation
 - [x] Module Integration (`bb scaffold integrate`): wires scaffolded modules into deps/tests/wiring
@@ -114,7 +114,7 @@ Boundary is a module-centric Clojure framework implementing Functional Core / Im
 |*v1.0*
 |Config tooling, stability, production readiness
 |icon:check-circle[] Complete
-|22 + boundary-tools
+|22 + libs/tools
 
 |*Ecosystem*
 |Advanced capabilities, templates, integrations

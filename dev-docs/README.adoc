@@ -58,8 +58,8 @@ Detailed implementation notes and internal technical documentation.
 
 === Babashka Developer Tooling
 
-The `boundary-tools/` directory provides BB-based developer tools invoked via `bb.edn` tasks.
-See link:../boundary-tools/AGENTS.md[boundary-tools/AGENTS.md] for the full reference.
+The `libs/tools/` directory provides BB-based developer tools invoked via `bb.edn` tasks.
+See link:../libs/tools/AGENTS.md[libs/tools/AGENTS.md] for the full reference.
 
 Key tools:
 

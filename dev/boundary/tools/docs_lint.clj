@@ -109,7 +109,7 @@
     (->> (concat
           (list-files-recursive (io/file base-dir "src"))
           (list-files-recursive (io/file base-dir "libs"))
-          (list-files-recursive (io/file base-dir "boundary-tools/src")))
+          (list-files-recursive (io/file base-dir "libs/tools/src")))
          (filter #(or (str/ends-with? % ".clj")
                       (str/ends-with? % ".cljc")))
          (remove #(str/includes? % "/test/")))))

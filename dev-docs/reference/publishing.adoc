@@ -76,7 +76,7 @@ All 22 libraries are published to the `org.boundary-app` group on Clojars, in de
 == Version management
 
 Each publishable artifact has a `(def version "…")` in its own `build.clj`.
-This includes the libraries under `libs/*` and `boundary-tools/`.
+This includes the 22 libraries under `libs/*` (excluding `libs/tools`, which is not published to Clojars).
 
 The Git tag does not define the artifact versions.  It only triggers the
 workflow.  Clojars versions are read from each artifact's `build.clj` at
@@ -86,15 +86,12 @@ publish time.
 
 [source,bash]
 ----
-# From the repository root — update all library build.clj files
-sed -i '' 's/(def version "OLD")/(def version "NEW")/' libs/*/build.clj
-
-# boundary-tools is versioned separately and must be bumped too for a full tagged release
-sed -i '' 's/(def version "OLD")/(def version "NEW")/' boundary-tools/build.clj
+# From the repository root — update all publishable library build.clj files
+# (libs/tools is excluded — it is not published to Clojars)
+sed -i '' 's/(def version "OLD")/(def version "NEW")/' libs/{core,observability,platform,i18n,user,storage,scaffolder,cache,jobs,realtime,email,tenant,workflow,search,external,payments,geo,reports,calendar,ai,ui-style,admin}/build.clj
 
 # Verify
 grep "^(def version" libs/*/build.clj
-grep "^(def version" boundary-tools/build.clj
 ----
 
 === Version format
@@ -116,14 +113,14 @@ Always bump the version before deploying — you cannot re-deploy the same versi
 
 == Deploying locally
 
-=== All 23 artifacts in one command
+=== All 22 artifacts in one command
 
 [source,bash]
 ----
 bb deploy --all
 ----
 
-This deploys all publishable artifacts, including `boundary-tools`, in dependency
+This deploys all 22 publishable artifacts in dependency
 order with a 30-second pause between artifacts to allow Clojars indexing.
 
 === Only libraries not yet on Clojars
@@ -190,10 +187,10 @@ This is the normal release flow:
 ----
 # 1. Bump versions in all build.clj files
 sed -i '' 's/(def version "1.0.1-alpha-12")/(def version "1.0.1-alpha-12")/' libs/*/build.clj
-sed -i '' 's/(def version "1.0.1-alpha-12")/(def version "1.0.1-alpha-12")/' boundary-tools/build.clj
+sed -i '' 's/(def version "1.0.1-alpha-12")/(def version "1.0.1-alpha-12")/' libs/tools/build.clj
 
 # 2. Commit and tag
-git add libs/*/build.clj boundary-tools/build.clj
+git add libs/*/build.clj libs/tools/build.clj
 git commit -m "Bump version to 1.0.1-alpha-12"
 git tag -a v1.0.1-alpha-12 -m "Release 1.0.1-alpha-12"
 git push origin main
@@ -238,7 +235,7 @@ Before pushing a release tag:
 * [ ] All tests pass: `clojure -M:test:db/h2`
 * [ ] No lint errors: `clojure -M:clj-kondo --lint src test libs/*/src libs/*/test`
 * [ ] `CHANGELOG.md` updated
-* [ ] Version bumped in all relevant `build.clj` files, including `boundary-tools/build.clj` for a full tagged release
+* [ ] Version bumped in all relevant `build.clj` files, including `libs/tools/build.clj` for a full tagged release
 * [ ] Changes committed and pushed to `main`
 * [ ] Local deploy works: `bb deploy core` (quick smoke check)
 

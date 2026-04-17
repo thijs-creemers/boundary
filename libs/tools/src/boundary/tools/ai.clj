@@ -1,5 +1,5 @@
 #!/usr/bin/env bb
-;; boundary-tools/src/boundary/tools/ai.clj
+;; libs/tools/src/boundary/tools/ai.clj
 ;;
 ;; Framework-aware AI tooling for the Boundary framework.
 ;;

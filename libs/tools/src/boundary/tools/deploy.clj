@@ -1,11 +1,11 @@
 #!/usr/bin/env bb
-;; boundary-tools/src/boundary/tools/deploy.clj
+;; libs/tools/src/boundary/tools/deploy.clj
 ;;
 ;; Deploy one or more Boundary libraries to Clojars.
 ;;
 ;; Usage (via bb.edn task):
 ;;   bb deploy                         -- show help
-;;   bb deploy --all                   -- deploy all 23 artifacts in dependency order
+;;   bb deploy --all                   -- deploy all 22 artifacts in dependency order
 ;;   bb deploy core platform user      -- deploy specific libs
 ;;   bb deploy --missing               -- deploy only libs not yet on Clojars
 ;;
@@ -55,8 +55,7 @@
    "calendar"
    "ai"
    "ui-style"
-   "admin"
-   "boundary-tools"])
+   "admin"])
 
 (def valid-libs (set all-libs))
 (def root-dir (System/getProperty "user.dir"))
@@ -66,14 +65,10 @@
 ;; =============================================================================
 
 (defn lib-dir [lib]
-  (if (= lib "boundary-tools")
-    (str (io/file root-dir "boundary-tools"))
-    (str (io/file root-dir "libs" lib))))
+  (str (io/file root-dir "libs" lib)))
 
 (defn artifact-name [lib]
-  (if (= lib "boundary-tools")
-    "boundary-tools"
-    (str "boundary-" lib)))
+  (str "boundary-" lib))
 
 (defn read-version [lib]
   (let [build-file (io/file (lib-dir lib) "build.clj")]
@@ -159,7 +154,7 @@
   (println (bold "bb deploy") "— Deploy Boundary libraries to Clojars")
   (println)
   (println "Usage:")
-  (println "  bb deploy --all              Deploy all 23 artifacts in dependency order")
+  (println "  bb deploy --all              Deploy all 22 artifacts in dependency order")
   (println "  bb deploy --missing          Deploy only artifacts not yet on Clojars")
   (println "  bb deploy <lib> [lib...]     Deploy specific libraries")
   (println)

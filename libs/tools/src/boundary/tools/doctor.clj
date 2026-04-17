@@ -1,5 +1,5 @@
 #!/usr/bin/env bb
-;; boundary-tools/src/boundary/tools/doctor.clj
+;; libs/tools/src/boundary/tools/doctor.clj
 ;;
 ;; Config Doctor — rule-based validation of Boundary config files.
 ;;

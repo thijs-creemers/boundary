@@ -1,5 +1,5 @@
 #!/usr/bin/env bb
-;; boundary-tools/src/boundary/tools/i18n.clj
+;; libs/tools/src/boundary/tools/i18n.clj
 ;;
 ;; i18n tooling for the Boundary framework.
 ;;

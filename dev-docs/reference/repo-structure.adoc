@@ -104,8 +104,8 @@ This document is the **canonical reference** for repository structure and paths 
 |Shared UI style bundles
 |CSS/JS assets, design tokens, Tailwind/DaisyUI builds (`:base`, `:pilot`, `:admin-pilot`)
 
-|`boundary-tools/`
-|Babashka developer tooling (not under `libs/`)
+|`libs/tools/`
+|Babashka developer tooling (not published to Clojars)
 |Scaffolding, AI CLI, config doctor, setup wizard, deploy, i18n tools
 |===
 
@@ -217,9 +217,9 @@ boundary/
 │   ├── ai/                      # Multi-provider AI tooling
 │   ├── i18n/                    # Internationalisation
 │   └── ui-style/                # Shared UI style bundles
-├── boundary-tools/              # Babashka developer tooling (bb tasks)
-│   ├── src/boundary/tools/      # scaffold, ai, doctor, setup, deploy, etc.
-│   └── test/boundary/tools/     # Unit tests (bb test:tools)
+│   └── tools/                   # Babashka developer tooling (bb tasks, not published to Clojars)
+│       ├── src/boundary/tools/  # scaffold, ai, doctor, setup, deploy, etc.
+│       └── test/boundary/tools/ # Unit tests (bb test:tools)
 ├── resources/
 │   ├── conf/                    # Environment-based Aero configuration
 │   │   ├── dev/
@@ -294,7 +294,7 @@ scaffolder --> core
 * Domain libraries (`user`, `admin`, `tenant`, `cache`, `jobs`, `realtime`, etc.) depend on platform
 * `email` delegates raw SMTP transport to `external`; `external` sits at the platform level
 * `payments`, `i18n`, and `ui-style` are standalone — no internal Boundary deps
-* `boundary-tools` is consumed via `{:local/root "boundary-tools"}` in `bb.edn`, not as a library dependency
+* `boundary-tools` is consumed via `{:local/root "libs/tools"}` in `bb.edn`, not as a library dependency
 
 [[configuration]]
 == Configuration Structure

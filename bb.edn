@@ -1,5 +1,5 @@
 {:paths ["scripts"]   ; still needed for docs_lint.clj + verify_doc_links.clj
- :deps  {org.boundary-app/boundary-tools {:local/root "boundary-tools"}}
+ :deps  {org.boundary-app/boundary-tools {:local/root "libs/tools"}}
  :tasks
  {:requires ([babashka.http-client       :as http]
              [babashka.process          :as process]
@@ -63,7 +63,7 @@
   check:deps {:doc "Verify library dependency direction and detect cycles (bb check:deps)"
               :task (check-deps/-main)}
   test:tools {:doc "Run boundary-tools unit tests (bb test:tools)"
-              :extra-paths ["boundary-tools/test"]
+              :extra-paths ["libs/tools/test"]
               :task (do (require 'boundary.tools.doctor-test
                                  'boundary.tools.bou-15-test
                                  'boundary.tools.integrate-test

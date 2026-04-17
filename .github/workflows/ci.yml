@@ -37,7 +37,7 @@ jobs:
       - name: Lint with clj-kondo
         run: |
           clojure -M:clj-kondo --lint \
-            boundary-tools/src \
+            libs/tools/src \
             libs/core/src \
             libs/observability/src \
             libs/platform/src \

@@ -1,5 +1,5 @@
 #!/usr/bin/env bb
-;; boundary-tools/src/boundary/tools/admin.clj
+;; libs/tools/src/boundary/tools/admin.clj
 ;;
 ;; Interactive wizard to create the first admin user for a new Boundary project.
 ;;

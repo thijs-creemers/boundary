@@ -1,5 +1,5 @@
 #!/usr/bin/env bb
-;; boundary-tools/src/boundary/tools/ansi.clj
+;; libs/tools/src/boundary/tools/ansi.clj
 ;;
 ;; Shared ANSI terminal colour helpers for boundary-tools CLI output.
 
