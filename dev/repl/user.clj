@@ -18,7 +18,12 @@
             [boundary.devtools.core.schema-tools :as schema-tools]
             [boundary.devtools.core.documentation :as docs]
             [boundary.devtools.core.state-analyzer :as state-analyzer]
+            [boundary.devtools.core.error-classifier :as classifier]
+            [boundary.devtools.core.auto-fix :as auto-fix]
             [boundary.devtools.shell.repl :as devtools-repl]
+            [boundary.devtools.shell.repl-error-handler :as repl-errors]
+            [boundary.devtools.shell.fcis-checker :as fcis]
+            [boundary.devtools.shell.auto-fix :as auto-fix-shell]
             [boundary.platform.shell.adapters.database.common.core :as db]
             [integrant.repl :as ig-repl]
             [integrant.repl.state :as state]
@@ -54,7 +59,15 @@
 (defn reset
   "Reload code and restart the system."
   []
-  (ig-repl/reset))
+  ;; No startup dashboard on reset — dashboard prints once on go, not every reload.
+  (try
+    (let [result (ig-repl/reset)]
+      (fcis/check-fcis-violations!)
+      result)
+    (catch Exception e
+      (repl-errors/handle-repl-error! e)
+      (fcis/check-fcis-violations!)
+      nil)))
 
 (defn system
   "Get the current running system."
@@ -192,6 +205,36 @@
         (println (guidance/format-tip tip :full))))))
 
 ;; =============================================================================
+;; Phase 3: Error Experience — Error Pipeline Wiring
+;; =============================================================================
+
+(defmacro ^:private with-error-handling
+  "Wrap body in try/catch that runs the error pipeline on exceptions."
+  [& body]
+  `(try ~@body
+        (catch Exception e#
+          (repl-errors/handle-repl-error! e#)
+          nil)))
+
+(defn fix!
+  "Auto-fix the last error if a fix is available.
+   (fix!)     ; fix last error (recommended — nREPL-safe)
+   (fix! ex)  ; fix a specific exception directly"
+  ([] (fix! @repl-errors/last-exception*))
+  ([exception]
+   (if (nil? exception)
+     (println "No recent error. Trigger an error first, then call (fix!)")
+     (let [classified (classifier/classify exception)
+           fix-desc   (auto-fix/match-fix classified)]
+       (if fix-desc
+         (auto-fix-shell/execute-fix! fix-desc
+                                      {:guidance-level (guidance)
+                                       :confirm-fn     #(do (print (str % " [y/N] "))
+                                                            (flush)
+                                                            (= "y" (read-line)))})
+         (println "No auto-fix available for this error. Try (explain *e) for AI analysis."))))))
+
+;; =============================================================================
 ;; Phase 2: REPL Power — Route Introspection
 ;; =============================================================================
 
@@ -222,8 +265,11 @@
   ([method path]
    (simulate method path {}))
   ([method path opts]
-   (when-let [handler (get (system) :boundary/http-handler)]
-     (devtools-repl/simulate-request handler method path opts))))
+   ;; when-let returns nil silently when system is not running.
+   ;; This is intentional — (status) handles "not running" messaging.
+   (with-error-handling
+     (when-let [handler (get (system) :boundary/http-handler)]
+       (devtools-repl/simulate-request handler method path opts)))))
 
 ;; =============================================================================
 ;; Phase 2: REPL Power — Data Exploration
@@ -236,8 +282,9 @@
   ([table]
    (query table {}))
   ([table opts]
-   (when-let [ctx (db-context)]
-     (devtools-repl/run-query ctx table opts))))
+   (with-error-handling
+     (when-let [ctx (db-context)]
+       (devtools-repl/run-query ctx table opts)))))
 
 (defn count-rows
   "Count rows in a table.
@@ -357,10 +404,16 @@
 (defn go
   "Start the system with guidance dashboard."
   []
-  (let [result (ig-repl/go)]
-    (print-startup-dashboard)
-    (maybe-show-tip :start)
-    result))
+  (try
+    (let [result (ig-repl/go)]
+      (print-startup-dashboard)
+      (fcis/check-fcis-violations!)
+      (maybe-show-tip :start)
+      result)
+    (catch Exception e
+      (repl-errors/handle-repl-error! e)
+      (fcis/check-fcis-violations!)
+      nil)))
 
 ;; =============================================================================
 ;; Quick Start Message
@@ -373,6 +426,7 @@
 (println "\u2502 (status)     System health overview           \u2502")
 (println "\u2502 (routes)     Show HTTP routes                 \u2502")
 (println "\u2502 (commands)   All available commands            \u2502")
+(println "\u2502 (fix!)       Auto-fix last error              \u2502")
 (println "\u2502 (guide :topics) Browse documentation          \u2502")
 (println "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n")
 
@@ -391,6 +445,7 @@
   (modules)
   (guidance)
   (guidance :minimal)
+  (fix!)
   ...)
 
 
