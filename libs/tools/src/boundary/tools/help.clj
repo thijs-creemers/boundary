@@ -4,10 +4,10 @@
 ;; Contextual Help — state-aware guidance and reference for Boundary projects.
 ;;
 ;; Usage (via bb.edn task):
-;;   bb help                    # General help listing all commands
-;;   bb help next               # State-aware guidance (what to do next)
-;;   bb help <topic>            # Detailed help for a topic
-;;   bb help error BND-xxx      # Look up an error code
+;;   bb guide                    # General help listing all commands
+;;   bb guide next               # State-aware guidance (what to do next)
+;;   bb guide <topic>            # Detailed help for a topic
+;;   bb guide error BND-xxx      # Look up an error code
 
 (ns boundary.tools.help
   (:require [boundary.tools.ansi :refer [bold green red yellow dim cyan]]
@@ -217,10 +217,10 @@
   (println "  bb install-hooks                      Configure git hooks")
   (println)
   (println (cyan "Help:"))
-  (println "  bb help                               This listing")
-  (println "  bb help next                          State-aware guidance (what to do next)")
-  (println "  bb help <topic>                       Detailed help for a topic")
-  (println "  bb help error BND-xxx                 Look up an error code")
+  (println "  bb guide                               This listing")
+  (println "  bb guide next                          State-aware guidance (what to do next)")
+  (println "  bb guide <topic>                       Detailed help for a topic")
+  (println "  bb guide error BND-xxx                 Look up an error code")
   (println)
   (println (dim (str "Topics: " (str/join ", " (sort (keys topic-fns)))))))
 
@@ -343,7 +343,7 @@
       (doseq [[code {:keys [title]}] (sort-by key error-catalog)]
         (println (str "  " (cyan code) "  " title)))
       (println)
-      (println (dim "Usage: bb help error BND-xxx")))
+      (println (dim "Usage: bb guide error BND-xxx")))
     (let [upper-code (str/upper-case code)
           entry      (get error-catalog upper-code)]
       (println)
@@ -376,7 +376,7 @@
         (println (red (str "Unknown topic: " topic)))
         (println)
         (println (str "Available topics: " (str/join ", " (sort (keys topic-fns)))))
-        (println (dim "Usage: bb help <topic>"))))))
+        (println (dim "Usage: bb guide <topic>"))))))
 
 ;; =============================================================================
 ;; Main entry point

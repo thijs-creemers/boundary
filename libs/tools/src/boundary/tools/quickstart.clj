@@ -61,33 +61,32 @@
   (println))
 
 (defn -main [& args]
-  (let [preset? (some #{"--preset"} args)]
+  (let [preset-idx (.indexOf (vec args) "--preset")
+        preset     (when (and (>= preset-idx 0) (< (inc preset-idx) (count args)))
+                     (nth args (inc preset-idx)))]
     (print-banner)
 
-    ;; Step 1: Check environment
+    ;; Step 1: Check environment prerequisites (critical — abort on failure)
     (run-step 1 5 "Checking development environment"
-              ["bb" "doctor:env"]
-              :continue? true)
+              ["bb" "doctor:env" "--ci"])
 
-    ;; Step 2: Run setup (or skip if preset)
-    (if preset?
-      (println (dim "\n  Skipping interactive setup (--preset mode)"))
+    ;; Step 2: Run setup
+    (if preset
+      (do (println (dim (str "\n  Running non-interactive setup with preset: " preset)))
+          (run-step 2 5 "Running configuration setup"
+                    ["bb" "setup" (str "--database=" preset)]))
       (run-step 2 5 "Running configuration setup"
-                ["bb" "setup"]
-                :continue? true))
+                ["bb" "setup"]))
 
-    ;; Step 3: Run config doctor
+    ;; Step 3: Validate configuration (critical — abort on failure)
     (run-step 3 5 "Validating configuration"
-              ["bb" "doctor"]
-              :continue? true)
+              ["bb" "doctor" "--ci"])
 
-    ;; Step 4: Run migrations
+    ;; Step 4: Run migrations (critical — abort on failure)
     (run-step 4 5 "Running database migrations"
-              ["bb" "migrate" "up"]
-              :continue? true)
+              ["bb" "migrate" "up"])
 
-    ;; Step 5: Show success
-    (println)
+    ;; Step 5: Verify project structure
     (run-step 5 5 "Verifying project structure"
               ["bb" "smoke-check"])
 
