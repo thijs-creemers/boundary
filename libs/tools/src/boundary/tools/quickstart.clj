@@ -19,7 +19,8 @@
 (def presets
   {"minimal"  {:database "h2"         :description "H2 in-memory, no extras"}
    "standard" {:database "postgresql" :description "PostgreSQL, recommended for production"}
-   "sqlite"   {:database "sqlite"     :description "SQLite file-based, zero-config"}})
+   "sqlite"   {:database "sqlite"     :description "SQLite file-based, zero-config"}
+   "mysql"    {:database "mysql"      :description "MySQL/MariaDB"}})
 
 (defn- resolve-preset
   "Resolve a preset name to setup flags. Returns nil if unknown."
