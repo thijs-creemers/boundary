@@ -38,10 +38,6 @@
       (is (= :post (:request-method req)))
       (is (some? (:body req)))))
 
-  (testing ":as option adds x-simulate-role header"
-    (let [req (repl/build-simulate-request :get "/api/admin" {:as :admin})]
-      (is (= "admin" (get-in req [:headers "x-simulate-role"])))))
-
   (testing "default headers include content-type and accept"
     (let [req (repl/build-simulate-request :get "/api/users" {})]
       (is (= "application/json" (get-in req [:headers "content-type"])))

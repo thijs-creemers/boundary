@@ -78,24 +78,34 @@
 ;; Config tree helpers
 ;; =============================================================================
 
-(defn- redact-value
-  "Replace secret values with ****."
-  [k v]
-  (if (contains? secret-keys k)
-    "****"
-    v))
+(defn- redact-map
+  "Recursively redact secret values in a map at any nesting depth."
+  [m]
+  (into {}
+        (map (fn [[k v]]
+               [k (cond
+                    (contains? secret-keys k) "****"
+                    (map? v) (redact-map v)
+                    :else v)]))
+        m))
 
 (defn- format-map-entry
-  "Format a single map entry as indented lines."
+  "Format a single map entry as indented lines, recursing into nested maps."
   [indent k v]
-  (let [spaces (apply str (repeat indent " "))]
-    (if (map? v)
+  (let [spaces (apply str (repeat indent " "))
+        redacted (cond
+                   (contains? secret-keys k) "****"
+                   (map? v) (redact-map v)
+                   :else v)]
+    (if (map? redacted)
       (str/join "\n"
                 (into [(str spaces (pr-str k) ":")]
                       (map (fn [[ik iv]]
-                             (str spaces "  " (pr-str ik) ": " (pr-str (redact-value ik iv))))
-                           v)))
-      (str spaces (pr-str k) ": " (pr-str (redact-value k v))))))
+                             (if (map? iv)
+                               (format-map-entry (+ indent 2) ik iv)
+                               (str spaces "  " (pr-str ik) ": " (pr-str iv))))
+                           redacted)))
+      (str spaces (pr-str k) ": " (pr-str redacted)))))
 
 (defn- section-matches?
   "Return true if the string representation of config-key contains any alias substring."

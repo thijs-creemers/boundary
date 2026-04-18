@@ -218,7 +218,7 @@
   "Simulate an HTTP request against the running system.
    (simulate :get \"/api/v1/users\")
    (simulate :post \"/api/v1/users\" {:body {:email \"test@example.com\"}})
-   (simulate :get \"/api/v1/users\" {:as :admin})"
+   (simulate :get \"/api/v1/users\" {:headers {\"authorization\" \"Bearer ...\"}})"
   ([method path]
    (simulate method path {}))
   ([method path opts]

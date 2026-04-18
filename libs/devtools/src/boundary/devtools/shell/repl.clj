@@ -58,16 +58,12 @@
    opts keys:
      :body         — EDN/map body, will be JSON-encoded
      :headers      — extra headers map
-     :as           — role keyword, adds x-simulate-role header
      :query-params — map of query params"
   [method path opts]
-  (let [{:keys [body headers as query-params]} opts
+  (let [{:keys [body headers query-params]} opts
         base-headers {"content-type" "application/json"
                       "accept"       "application/json"}
-        role-headers (if as
-                       {"x-simulate-role" (name as)}
-                       {})
-        all-headers (merge base-headers role-headers headers)
+        all-headers (merge base-headers headers)
         request (cond-> {:request-method (keyword (str/lower-case (name method)))
                          :uri            path
                          :headers        all-headers}

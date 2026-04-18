@@ -66,7 +66,16 @@
       (is (str/includes? result "unknown"))))
 
   (testing "empty config returns message"
-    (is (= "Empty configuration." (introspection/format-config-tree {})))))
+    (is (= "Empty configuration." (introspection/format-config-tree {}))))
+
+  (testing "redacts secrets in deeply nested maps"
+    (let [config {:boundary/ai-service {:provider :anthropic
+                                        :fallback {:api-key "sk-secret-123"
+                                                   :model "claude"}}}
+          result (introspection/format-config-tree config)]
+      (is (not (str/includes? result "sk-secret-123")))
+      (is (str/includes? result "****"))
+      (is (str/includes? result "claude")))))
 
 (deftest ^:unit format-module-summary-test
   (testing "formats module list with names and component counts"
