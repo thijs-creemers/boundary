@@ -131,14 +131,16 @@
 (defn format-module-summary
   "Format a seq of module maps as a summary table.
    Each module: {:name \"user\" :components 5}.
-   Name is padded to 20 chars."
+   Name column width adapts to longest name."
   [modules]
   (if (empty? modules)
     "No modules found."
-    (let [header (str "  " (let [n "MODULE"] (str n (apply str (repeat (- 20 (count n)) " ")))) "  COMPONENTS")]
+    (let [name-strs (mapv #(str (:name %)) modules)
+          name-w    (apply max (count "MODULE") (map count name-strs))
+          pad       (fn [s] (let [s (str s)] (str s (apply str (repeat (- name-w (count s)) " ")))))
+          header    (str "  " (pad "MODULE") "  COMPONENTS")]
       (str/join "\n"
                 (into [header]
                       (map (fn [{:keys [name components]}]
-                             (let [n (str name)]
-                               (str "  " n (apply str (repeat (- 20 (count n)) " ")) "  " components)))
+                             (str "  " (pad (str name)) "  " components))
                            modules))))))

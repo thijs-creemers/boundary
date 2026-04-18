@@ -1,7 +1,7 @@
 (ns boundary.devtools.core.schema-tools
   "Pure functions for Malli schema exploration: pretty-printing, diffing, and example generation.
    No I/O, no side effects — schema in, formatted strings or data out."
-  (:require [clojure.set]
+  (:require [clojure.set :as set]
             [clojure.string :as str]
             [malli.core :as m]
             [malli.generator :as mg]))
@@ -105,11 +105,11 @@
         fields-b (extract-field-types schema-b)
         keys-a   (set (keys fields-a))
         keys-b   (set (keys fields-b))
-        added    (->> (clojure.set/difference keys-b keys-a)
+        added    (->> (set/difference keys-b keys-a)
                       (into {} (map (fn [k] [k (get fields-b k)]))))
-        removed  (->> (clojure.set/difference keys-a keys-b)
+        removed  (->> (set/difference keys-a keys-b)
                       (into {} (map (fn [k] [k (get fields-a k)]))))
-        changed  (->> (clojure.set/intersection keys-a keys-b)
+        changed  (->> (set/intersection keys-a keys-b)
                       (filter (fn [k] (not= (get fields-a k) (get fields-b k))))
                       (into {} (map (fn [k] [k {:from (get fields-a k)
                                                 :to   (get fields-b k)}]))))]
@@ -153,6 +153,8 @@
 ;; =============================================================================
 
 (defn generate-example
-  "Generate a single example value from a Malli schema using malli.generator/generate."
-  [schema]
-  (mg/generate (m/schema schema)))
+  "Generate a single example value from a Malli schema.
+   Pass an integer seed for deterministic output."
+  ([schema] (generate-example schema 1))
+  ([schema seed]
+   (mg/generate (m/schema schema) {:seed seed})))
