@@ -305,44 +305,44 @@
    (convert-route route-entry nil))
 
   ([{:keys [path methods children meta] :as route-entry} system]
-    (let [;; Extract route-level data (everything except path, methods, children)
+   (let [;; Extract route-level data (everything except path, methods, children)
           ;; This includes :middleware, :auth, :name, etc.
-          route-data (dissoc route-entry :path :methods :children)
+         route-data (dissoc route-entry :path :methods :children)
 
           ;; Route-level middleware defined in :meta should run before
           ;; handler-level middleware and before HTTP interceptors so that
           ;; interceptors can observe the modified request.
-          route-middleware (get-in meta [:middleware])
-          methods-with-route-middleware (if (seq route-middleware)
-                                          (into {}
-                                                (map (fn [[method handler-cfg]]
-                                                       [method (update handler-cfg :middleware
-                                                                       (fn [mw]
-                                                                         (vec (concat route-middleware
-                                                                                      (or mw [])))))]))
-                                                methods)
-                                          methods)
+         route-middleware (get-in meta [:middleware])
+         methods-with-route-middleware (if (seq route-middleware)
+                                         (into {}
+                                               (map (fn [[method handler-cfg]]
+                                                      [method (update handler-cfg :middleware
+                                                                      (fn [mw]
+                                                                        (vec (concat route-middleware
+                                                                                     (or mw [])))))]))
+                                               methods)
+                                         methods)
 
           ;; Recursively convert children
-          reitit-children (when (seq children)
-                            (mapv #(convert-route % system) children))]
+         reitit-children (when (seq children)
+                           (mapv #(convert-route % system) children))]
 
-      (if (seq reitit-children)
+     (if (seq reitit-children)
         ;; Route HAS children: parent methods must be empty string child
-        (let [reitit-methods (convert-methods methods-with-route-middleware system)
+       (let [reitit-methods (convert-methods methods-with-route-middleware system)
               ;; Create empty string child route for parent methods (if any)
-              parent-child (when (seq reitit-methods)
-                             ["" reitit-methods])]
+             parent-child (when (seq reitit-methods)
+                            ["" reitit-methods])]
           ;; Build: [path route-data empty-string-child ...children]
-          (into [path route-data]
-                (if parent-child
-                  (into [parent-child] reitit-children)
-                  reitit-children)))
+         (into [path route-data]
+               (if parent-child
+                 (into [parent-child] reitit-children)
+                 reitit-children)))
 
         ;; Route has NO children: methods can be on route data directly
-        (let [reitit-methods (convert-methods methods-with-route-middleware system)
-              merged-data (merge route-data reitit-methods)]
-          [path merged-data])))))
+       (let [reitit-methods (convert-methods methods-with-route-middleware system)
+             merged-data (merge route-data reitit-methods)]
+         [path merged-data])))))
 
 (defn- convert-all-routes
   "Convert vector of normalized route specs to Reitit format.
@@ -553,18 +553,22 @@
           router (ring/router all-routes router-opts)
 
           ;; Create default handler for unmatched routes
-          default-handler (create-default-handler)]
+          default-handler (create-default-handler)
 
-      ;; Wrap handler with middlewares (outermost last):
-      ;; 1. Cookies middleware - parse and set cookies
-      ;; 2. Static resource middleware - serve files from resources/public/
-      ;; 3. Params middleware - parse query and form params (including PUT/PATCH bodies)
-      (-> (ring/ring-handler router default-handler)
-          (wrap-gzip)
-          (wrap-static-cache)
-          (wrap-resource "public")
-          (wrap-cookies)
-          (wrap-params)))))
+          ;; Wrap handler with middlewares (outermost last):
+          ;; 1. Cookies middleware - parse and set cookies
+          ;; 2. Static resource middleware - serve files from resources/public/
+          ;; 3. Params middleware - parse query and form params (including PUT/PATCH bodies)
+          handler (-> (ring/ring-handler router default-handler)
+                      (wrap-gzip)
+                      (wrap-static-cache)
+                      (wrap-resource "public")
+                      (wrap-cookies)
+                      (wrap-params))]
+
+      ;; Store the Reitit router in metadata so devtools can extract route info
+      ;; from the wrapped handler without needing to unwrap middleware layers.
+      (with-meta handler {:reitit/router router}))))
 
 ;; =============================================================================
 ;; Public API

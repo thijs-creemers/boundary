@@ -121,26 +121,33 @@
 
 (def command-groups
   "All REPL commands grouped by category."
-  {:system    [{:name "(go)"      :desc "Start the system"}
-               {:name "(reset)"   :desc "Reload code and restart"}
-               {:name "(halt)"    :desc "Stop the system"}
-               {:name "(status)"  :desc "Full system health"}
-               {:name "(config)"  :desc "View current config"}
-               {:name "(modules)" :desc "List active modules"}
-               {:name "(routes)"  :desc "Show all HTTP routes"}]
-   :data      [{:name "(query :table)"    :desc "Quick SELECT (limit 20)"}
-               {:name "(schema :key)"     :desc "Pretty-print Malli schema"}
-               {:name "(validate :key d)" :desc "Validate data against schema"}
-               {:name "(seed! :table n)"  :desc "Generate random records"}]
-   :debug     [{:name "(simulate :get path)" :desc "Simulate HTTP request"}
-               {:name "(explain *e)"         :desc "AI-explain last exception"}
-               {:name "(trace :handler)"     :desc "Set handler trace"}]
-   :quality   [{:name "(test :module)"    :desc "Run module tests"}
-               {:name "(lint)"            :desc "Run clj-kondo"}
-               {:name "(check)"           :desc "Run all quality checks"}]
-   :help      [{:name "(commands)"    :desc "Show this list"}
-               {:name "(next-steps)"  :desc "What should you do next?"}
-               {:name "(guidance lv)" :desc "Set guidance level"}]})
+  {:system    [{:name "(go)"        :desc "Start the system"}
+               {:name "(reset)"     :desc "Reload code and restart"}
+               {:name "(halt)"      :desc "Stop the system"}
+               {:name "(status)"    :desc "Full system health"}
+               {:name "(config)"    :desc "View running config"}
+               {:name "(config :k)" :desc "Drill into config section"}
+               {:name "(modules)"   :desc "List active modules"}
+               {:name "(routes)"    :desc "Show all HTTP routes"}
+               {:name "(routes :m)" :desc "Filter routes by module"}]
+   :data      [{:name "(query :table)"         :desc "Quick SELECT (limit 20)"}
+               {:name "(query :t {:where ..})" :desc "With conditions"}
+               {:name "(count-rows :table)"    :desc "Count rows in table"}
+               {:name "(schema s)"             :desc "Pretty-print Malli schema"}
+               {:name "(schema-diff a b)"      :desc "Compare two schemas"}
+               {:name "(validate s data)"      :desc "Validate against schema"}
+               {:name "(generate s)"           :desc "Generate example from schema"}]
+   :debug     [{:name "(simulate :get path)"   :desc "Simulate HTTP request"}
+               {:name "(simulate :post p opts)" :desc "POST with body"}]
+   :quality   [{:name "(test-module :mod)"     :desc "Run module tests"}
+               {:name "(test-module :m :unit)" :desc "Run with tier filter"}
+               {:name "(lint)"                 :desc "Run clj-kondo"}
+               {:name "(check-all)"            :desc "Run all quality checks"}]
+   :help      [{:name "(commands)"       :desc "Show this list"}
+               {:name "(guide :topic)"   :desc "Boundary topic guide"}
+               {:name "(guide :topics)"  :desc "List available topics"}
+               {:name "(next-steps)"     :desc "What should you do next?"}
+               {:name "(guidance lv)"    :desc "Set guidance level"}]})
 
 (defn format-commands
   "Format the command palette as a string."
