@@ -1,19 +1,21 @@
 # boundary-tools
 
-**Artifact:** `org.boundary-app/boundary-tools`
+**Location:** `libs/tools`
 **Version:** `1.0.1-alpha-12`
-**Published to:** [Clojars](https://clojars.org/org.boundary-app/boundary-tools)
+**Distribution:** Part of the Boundary monorepo — not published to Clojars. Wired directly into `bb.edn` as a local dependency.
 
-Developer tooling for the Boundary framework: scaffolding, AI assistance, config management, i18n management, deployment, and development utilities — all packaged as a single Clojars artifact that any Boundary project can consume.
+Developer tooling for the Boundary framework: scaffolding, AI assistance, config management, i18n management, deployment, and development utilities — available out of the box in every Boundary project.
 
 ---
 
-## Getting started (new projects)
+## Getting started
 
-Add to your project's `bb.edn`:
+`libs/tools` is included in the monorepo and wired into the root `bb.edn` as a local dependency. No Clojars dependency needed — the tasks are available out of the box in every Boundary project.
+
+The root `bb.edn` wiring looks like this:
 
 ```clojure
-{:deps {org.boundary-app/boundary-tools {:mvn/version "1.0.0-alpha"}}
+{:deps {boundary-tools {:local/root "libs/tools"}}
  :tasks
  {:requires ([boundary.tools.scaffold  :as scaffold]
              [boundary.tools.ai        :as ai]
@@ -40,14 +42,6 @@ Add to your project's `bb.edn`:
   i18n:scan    {:task (i18n/-main "scan")}
   i18n:missing {:task (i18n/-main "missing")}
   i18n:unused  {:task (i18n/-main "unused")}}}
-```
-
-### Upgrade path
-
-Bump the `:mvn/version` in your `bb.edn`:
-
-```clojure
-org.boundary-app/boundary-tools {:mvn/version "1.0.1-alpha-12"}
 ```
 
 ---
@@ -346,12 +340,13 @@ Run database migrations first: `clojure -M:migrate up`
 
 ### `bb deploy` — Deploy to Clojars
 
+Deploys the 22 published Boundary libraries to Clojars. `boundary-tools` itself is not published — it is a monorepo-internal tool.
+
 ```bash
 bb deploy --help                    # Show help
-bb deploy --all                     # Deploy all 21 artifacts
+bb deploy --all                     # Deploy all 22 published artifacts
 bb deploy --missing                 # Deploy only unpublished artifacts
 bb deploy core platform user        # Deploy specific libraries
-bb deploy boundary-tools            # Deploy boundary-tools itself
 ```
 
 Required environment variables:
@@ -359,7 +354,7 @@ Required environment variables:
 - `CLOJARS_PASSWORD` — your Clojars deploy token
 
 Important release note:
-- `bb deploy --all` publishes every artifact listed in `boundary.tools.deploy/all-libs`, including `boundary-tools`.
+- `bb deploy --all` publishes every artifact listed in `boundary.tools.deploy/all-libs`. `boundary-tools` is excluded from this list.
 - A Git tag only triggers the GitHub Actions workflow; actual artifact versions still come from each artifact's `build.clj`.
 - For a tagged full release, bump every included artifact to an unpublished version first, otherwise the workflow will fail on the first duplicate version.
 
@@ -424,21 +419,11 @@ Translation files live in `libs/i18n/resources/boundary/i18n/translations/`.
 | `boundary.tools.admin_entity` | Admin Entity Generator — Babashka wrapper for AI admin entity generation |
 | `boundary.tools.i18n` | i18n catalogue management (find/scan/missing/unused) |
 | `boundary.tools.admin` | First admin user creation wizard |
-| `boundary.tools.deploy` | Clojars deployment for all 21 Boundary artifacts |
+| `boundary.tools.deploy` | Clojars deployment for all 22 published Boundary artifacts |
 | `boundary.tools.dev` | migrate + check-links + smoke-check + install-hooks |
 
 ---
 
 ## Releasing boundary-tools
 
-```bash
-# From the monorepo root:
-bb deploy boundary-tools
-
-# Or directly from within boundary-tools/:
-cd boundary-tools
-clojure -T:build clean
-clojure -T:build deploy
-```
-
-Bump `version` in `boundary-tools/build.clj` before releasing.
+`boundary-tools` is not published to Clojars. It is distributed as part of the Boundary monorepo. To update it, commit and push changes to `libs/tools` — consumers pick up changes by pulling the repository.

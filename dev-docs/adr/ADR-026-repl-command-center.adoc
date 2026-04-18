@@ -1,0 +1,166 @@
+= ADR-026: REPL as Command Center
+:status: Proposed
+:date: 2026-04-18
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+=== Background
+
+Boundary's REPL experience currently provides `(go)`, `(reset)`, `(halt)`,
+`(system)`, `(config)`, and a few service accessors (`(user-service)`,
+`(db-context)`). While functional, this covers only system lifecycle -- not
+the full development workflow.
+
+=== Problem
+
+* Developers frequently switch between REPL and terminal for common tasks
+  (running tests, checking routes, querying data, scaffolding).
+* No way to simulate HTTP requests from the REPL -- must use curl or a
+  browser, breaking flow state.
+* Route and interceptor chain inspection requires reading source code or
+  adding debug logging.
+* No request recording/replay capability for debugging complex flows.
+* Schema exploration requires navigating to source files.
+
+== Decision
+
+Transform the REPL into a full development cockpit. Every `bb` command has a
+REPL equivalent. The terminal is for one-off operations; the REPL is for flow
+state.
+
+=== System introspection
+
+[source,clojure]
+----
+(status)                    ; System health: components, DB, ports, errors
+(routes)                    ; All routes: method, path, handler, interceptors
+(routes :user)              ; Filter by module
+(interceptors :create-user) ; Interceptor chain for a handler
+(config :database)          ; Drill into config sections
+(modules)                   ; Active modules with status
+(deps-graph)                ; Library dependency graph (ASCII)
+(commands)                  ; All available commands, grouped by category
+----
+
+=== Request simulation
+
+[source,clojure]
+----
+(simulate :get "/api/users")
+(simulate :post "/api/users" {:body {:email "test@example.com"}})
+(simulate :get "/api/users" {:as :admin})  ; With role
+;; Returns: status, headers, body, AND interceptor trace
+----
+
+=== Data exploration
+
+[source,clojure]
+----
+(query :users)                          ; Quick SELECT * (limit 20)
+(query :users {:where [:= :active true]})
+(schema :user/create)                   ; Pretty-print Malli schema
+(schema :user/create :example)          ; Generate example value
+(validate :user/create {:email "bad"})  ; Validate against schema
+(seed! :users 10)                       ; Generate random records from schema
+----
+
+=== Time-travel debugging
+
+[source,clojure]
+----
+(recording :start)           ; Record all requests
+(recording :stop)
+(recording :replay 3)        ; Replay request #3
+(recording :diff 3 5)        ; Compare two request/response pairs
+(recording :save "auth-flow"); Save for later
+----
+
+=== Live system mutation (dev only)
+
+[source,clojure]
+----
+(restart-component :boundary/http-server)  ; Hot-swap one component
+(defroute! :get "/api/test" handler-fn)    ; Add route at runtime
+(tap-handler! :create-user inspect-fn)     ; Intercept requests
+----
+
+=== Schema-driven development
+
+[source,clojure]
+----
+(prototype! :invoice
+  {:fields {:customer [:string {:min 1}]
+            :amount   [:decimal {:min 0}]
+            :status   [:enum [:draft :sent :paid]]}
+   :endpoints [:crud :list :search]})
+;; Generates full module, wired and running after (reset)
+----
+
+=== Observability
+
+[source,clojure]
+----
+(metrics)                  ; Request rate, error rate, latency
+(log-tail 20)              ; Recent log entries
+(pool-status)              ; HikariCP pool stats
+----
+
+=== AI-assisted development
+
+[source,clojure]
+----
+(ai/suggest :query "find active users with recent orders")
+(ai/review :user.core.validation)
+(ai/test-ideas :user.core.validation)
+----
+
+=== Wiring strategy
+
+`libs/devtools/` provides `dev/repl/devtools.clj` loaded via `:extra-paths`.
+The existing `dev/repl/user.clj` requires devtools and exposes a curated set
+of top-level helpers. Advanced functions are available via the `devtools`
+namespace directly.
+
+== Consequences
+
+=== Positive
+
+* *Flow state preservation* -- developers never leave the REPL for routine
+  tasks.
+* *Faster debugging* -- request simulation and recording eliminate the
+  curl/browser/log cycle.
+* *Better understanding* -- route and interceptor introspection makes the
+  system transparent.
+* *Rapid prototyping* -- `(prototype!)` goes from idea to running module in
+  seconds.
+
+=== Negative / risks
+
+* *Large API surface* -- many functions to implement and maintain.
+* *REPL state complexity* -- live mutation and recording add stateful
+  components to the dev environment.
+* *`(prototype!)` depends on `libs/scaffolder/`* -- must verify scaffolder
+  core functions work on JVM classpath (not just Babashka).
+
+=== Mitigation
+
+* REPL functions are thin wrappers over pure core functions in devtools.
+* Stateful features (recording, tracing, tap) use atoms with explicit
+  start/stop lifecycle.
+* Phased implementation: introspection first (Phase 2), advanced features
+  later (Phase 5).
+
+== Related ADRs
+
+* ADR-024 -- Devtools Library & Guidance Engine
+* ADR-010 -- HTTP Interceptor Architecture
+
+== References
+
+* Design spec: `docs/superpowers/specs/2026-04-18-mindblowing-dx-design.md`
+  (Pillar 3: REPL as Command Center)

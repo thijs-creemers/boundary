@@ -1,0 +1,153 @@
+= ADR-027: Dev Dashboard
+:status: Proposed
+:date: 2026-04-18
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+=== Background
+
+Boundary provides observability through structured logging and interceptor
+metrics, but there is no visual interface for inspecting system state during
+development. Developers must query the REPL or read logs to understand what
+the system is doing.
+
+=== Problem
+
+* No visual overview of system health, active routes, or interceptor chains.
+* Request debugging requires adding log statements or using external tools.
+* Schema exploration is limited to reading source files.
+* Database state (migrations, tables, pool health) is not easily inspectable.
+* Background job status is not visible without querying the database.
+* Developers working on worktrees lack visibility into parallel work streams.
+
+== Decision
+
+=== Local dev dashboard at `localhost:9999`
+
+A browser-based development dashboard built as part of `libs/devtools/`. Only
+loads in `:dev` profile -- zero production overhead.
+
+=== Technical approach
+
+* HTMX + Hiccup (consistent with the admin UI patterns from ADR-006)
+* Integrant component alongside the system
+* Uses existing observability interceptors for data collection
+* Separate HTTP server on port 9999 (distinct from app on port 3000)
+
+=== Dashboard pages (11 total)
+
+[cols="1,1,3"]
+|===
+| # | Page | Purpose
+
+| 1
+| System Overview
+| Component health, config (redacted), modules, environment info
+
+| 2
+| Route Explorer
+| Route table with interceptor chain visualization, "Try it" button
+
+| 3
+| Request Inspector
+| Live request stream with timing, expandable traces
+
+| 4
+| Schema Browser
+| Malli schemas as trees, example generation, validation playground
+
+| 5
+| Database Explorer
+| Migration status, table browser, query runner, pool stats
+
+| 6
+| Error Dashboard
+| Errors grouped by type, AI-suggested fixes, error code lookup
+
+| 7
+| Jobs & Queues
+| Active/pending/failed jobs, retry history, manual retry/cancel
+
+| 8
+| Config Editor
+| Live config editing with component restart preview
+
+| 9
+| Web REPL
+| Browser-based REPL with rich output rendering, command palette
+
+| 10
+| Git Worktree Manager
+| List/create/delete worktrees, branch comparison, per-worktree status
+
+| 11
+| Security Status
+| Auth methods, CSRF/CSP status, rate limiting, recent auth failures
+|===
+
+=== Web REPL
+
+The dashboard includes a browser-based REPL connected to the running nREPL
+server. Features:
+
+* Pre-loaded with all devtools helpers
+* Syntax-highlighted input with auto-completion
+* Rich output: tables for queries, trees for schemas, formatted errors
+* Command history persisted across sessions
+* Quick-action buttons for common operations
+
+=== Git Worktree Manager
+
+Visual management of git worktrees:
+
+* List all worktrees with branch, status (clean/dirty), last commit
+* Create new worktree with auto-setup (`bb setup` in new worktree)
+* Per-worktree system status: running REPL, port, database
+* Delete stale worktrees with confirmation
+
+Also available via REPL `(worktrees)` and CLI `bb worktree:list`.
+
+== Consequences
+
+=== Positive
+
+* *System transparency* -- developers see exactly what the system is doing.
+* *Faster debugging* -- request inspector and error dashboard eliminate
+  log-searching.
+* *Schema confidence* -- validation playground catches errors before coding.
+* *Worktree awareness* -- parallel development streams visible at a glance.
+* *Browser-based REPL* -- useful for pairing, demos, and developers without
+  editor REPL integration.
+
+=== Negative / risks
+
+* *Significant implementation effort* -- 11 pages is substantial.
+* *Dashboard data freshness* -- must reflect live system state accurately.
+* *Port conflict* -- port 9999 could conflict with other services.
+* *nREPL security* -- web REPL must only be accessible locally.
+
+=== Mitigation
+
+* Phased delivery: core pages (overview, routes, requests, schemas, DB,
+  errors) in Phase 4; extensions (jobs, config editor, web REPL, worktrees,
+  security) in Phase 6.
+* Dashboard reads from existing system state (Integrant, Reitit, HikariCP) --
+  no separate data layer needed.
+* Port configurable via `:boundary/dashboard {:port 9999}`.
+* Web REPL binds to localhost only, not 0.0.0.0.
+
+== Related ADRs
+
+* ADR-006 -- Web UI Architecture: HTMX + Hiccup
+* ADR-024 -- Devtools Library & Guidance Engine
+* ADR-026 -- REPL as Command Center
+
+== References
+
+* Design spec: `docs/superpowers/specs/2026-04-18-mindblowing-dx-design.md`
+  (Pillar 4: Dev Dashboard)

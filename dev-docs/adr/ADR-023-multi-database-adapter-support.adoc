@@ -1,0 +1,194 @@
+= ADR-023: Multi-Database Adapter Support
+:status: Proposed
+:date: 2026-04-17
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+=== Background
+
+Boundary's persistence architecture follows the Functional Core / Imperative
+Shell (FC/IS) pattern. Business domain protocols in `ports.clj` define
+SQL-free repository contracts (e.g. `IUserRepository`). Shell persistence
+implementations fulfil these contracts using HoneySQL and next.jdbc against
+relational databases (H2, PostgreSQL, SQLite, MySQL).
+
+The platform library provides a `DBAdapter` protocol
+(`boundary.platform.shell.adapters.database.protocols`) that abstracts
+dialect-level differences between SQL engines. Connection management uses
+HikariCP, query execution uses next.jdbc, and migrations use Migratus with
+plain SQL files.
+
+=== Opportunity
+
+There is interest in supporting non-relational databases — specifically
+Datomic, XTDB, and potentially document databases like MongoDB or DynamoDB.
+The ports-based architecture makes this structurally possible: each database
+type would provide its own persistence implementation behind the same
+repository protocols.
+
+=== Constraints
+
+The current persistence layer is deeply SQL-specific:
+
+* **HoneySQL maps are the query language** in every `shell/persistence.clj`
+  across ~10+ modules. These contain JOINs, window functions, raw SQL
+  fragments, and dialect-specific branches that have no equivalent in
+  Datalog or document query languages.
+
+* **The `DBAdapter` protocol is JDBC-bound.** Methods like `jdbc-driver`,
+  `jdbc-url`, `pool-defaults`, and `init-connection!` assume a JDBC
+  connection model.
+
+* **Infrastructure is SQL-coupled.** HikariCP connection pooling, Migratus
+  migrations, and the Malli-to-DDL schema generator all assume relational
+  databases.
+
+* **Some persistence code bypasses the adapter protocol** with direct
+  PostgreSQL driver checks (e.g. `(= "org.postgresql.Driver" ...)`).
+
+== Decision
+
+We record this ADR as a **feasibility analysis and architectural direction**,
+not as an immediate implementation decision. Actual implementation will be
+planned when concrete demand arises.
+
+=== Architecture
+
+The ports-based FC/IS architecture supports multi-database adapters without
+changes to core business logic. The approach per database type:
+
+==== Platform level
+
+[cols="1,3"]
+|===
+| Component | Approach
+
+| Connection management
+| Each database type brings its own connection/node lifecycle (Datomic Client
+  connection, XTDB node, MongoDB client) alongside the existing JDBC/HikariCP
+  path.
+
+| Query execution
+| Each database type provides its own query/transact functions. SQL uses
+  next.jdbc + HoneySQL; Datomic uses `d/q` + `d/transact`; XTDB uses
+  `xt/q` + `xt/submit-tx`.
+
+| Schema management
+| SQL retains Migratus migrations. Datomic uses schema transactions. XTDB
+  and document databases are schemaless or use optional schema.
+
+| Adapter protocol
+| A new higher-level `DataStore` protocol (or protocol hierarchy) abstracts
+  `connect`, `disconnect`, `query`, and `transact` across paradigms. The
+  existing `DBAdapter` remains for SQL dialects.
+|===
+
+==== Module level
+
+Each module with persistence gets per-database implementations:
+
+[source]
+----
+libs/user/src/boundary/user/
+├── ports.clj                    # Contract — unchanged
+├── core/                        # Pure functions — unchanged
+└── shell/
+    └── persistence/
+        ├── sql.clj              # HoneySQL (H2, PG, SQLite, MySQL)
+        ├── datomic.clj          # Datomic Datalog
+        ├── xtdb.clj             # XTDB XTQL/Datalog
+        └── mongodb.clj          # MongoDB MQL (if needed)
+----
+
+All implementations satisfy the same `IUserRepository` (or equivalent)
+protocol. Integrant configuration determines which implementation is
+instantiated and injected.
+
+==== Database category characteristics
+
+[cols="1,1,1,1,1"]
+|===
+| | SQL | Datomic | XTDB | Document DBs
+
+| Connection
+| JDBC + HikariCP
+| Client/Peer API
+| XTDB node
+| Native client SDK
+
+| Query language
+| HoneySQL → SQL
+| Datalog
+| XTQL / Datalog
+| DB-specific (MQL, PartiQL, etc.)
+
+| Schema
+| DDL + Migratus
+| Schema transactions
+| Optional / schemaless
+| Schemaless / optional
+
+| Shared code between dialects
+| High (HoneySQL dialect switching)
+| None
+| None
+| None per DB
+|===
+
+=== Key observations
+
+* **SQL adapters share code** via HoneySQL dialect switching. Non-SQL
+  databases each have unique query languages with little cross-reuse.
+
+* **Work scales linearly**: each new database type × each module with
+  persistence. There is no shortcut for query translation.
+
+* **The entity model may need rethinking** for some databases. The current
+  split-table user model (`auth_users` + `users` with JOINs) is inherently
+  relational. Datomic and document databases would model this differently.
+
+* **Test infrastructure** needs per-database variants. The current H2
+  in-memory setup with `TRUNCATE TABLE` is SQL-specific.
+
+=== Recommended implementation order (when demand arises)
+
+1. **Proof-of-concept with one small module** (e.g. `geo` or `cache`) to
+   validate the multi-adapter wiring and Integrant configuration.
+
+2. **XTDB before Datomic** — its document-oriented API (Clojure maps in,
+   maps out) aligns more naturally with the existing data model and requires
+   less schema ceremony.
+
+3. **Extract a `DataStore` protocol** at the platform level to sit above the
+   JDBC-specific `DBAdapter`.
+
+4. **Roll out module by module**, starting with simpler modules and tackling
+   complex ones (user, search, tenant) last.
+
+== Consequences
+
+=== Positive
+
+* Boundary becomes a multi-database framework, broadening its applicability.
+* The FC/IS architecture and ports contracts remain unchanged — no impact on
+  core business logic.
+* Each database adapter is independently deployable as a library.
+
+=== Negative
+
+* Significant implementation effort per database type (~10+ module
+  persistence rewrites each).
+* Ongoing maintenance burden: changes to repository contracts require
+  updates across all adapter implementations.
+* Testing matrix grows with each supported database.
+
+=== Neutral
+
+* This ADR does not commit to implementing any adapter. It documents that
+  the architecture supports it and outlines the approach for when demand
+  materialises.

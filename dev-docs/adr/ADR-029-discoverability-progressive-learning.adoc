@@ -1,0 +1,130 @@
+= ADR-029: Discoverability & Progressive Learning
+:status: Proposed
+:date: 2026-04-18
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+=== Background
+
+Boundary has extensive tooling: 25+ Babashka tasks, 7 AI-powered features,
+comprehensive quality gates, and a rich REPL experience (expanded by ADR-026).
+However, developers must discover these features through documentation or
+word of mouth.
+
+=== Problem
+
+* Features exist but people don't know about them -- the AI scaffolding,
+  error explainer, and quality gates are hidden gems.
+* No state-aware guidance -- the system doesn't tell you when you have
+  unintegrated modules, pending migrations, or failing tests.
+* No in-REPL documentation -- developers must leave the REPL to read
+  AGENTS.md files.
+* The `bb` command list is long but not self-organizing -- developers
+  don't know which command to use when.
+
+== Decision
+
+=== Contextual tips system
+
+After significant actions (scaffold, test run, migration, system start),
+show one relevant, non-repeating tip per session:
+
+[source]
+----
+Tip: You can run (simulate :post "/api/invoices" {:body {...}})
+to test your new endpoint without leaving the REPL.
+(Set :guidance-level :minimal to see fewer tips)
+----
+
+Tips are:
+
+* Curated (not random) -- tied to the action that just completed
+* Non-repeating within a session
+* Controlled by `:guidance-level`
+
+=== `bb help next` -- state-aware guidance
+
+Analyzes project state and tells you what to do:
+
+* Detects unintegrated modules
+* Finds pending migrations
+* Checks for missing seed data
+* Reports test/lint status
+* Suggests the most impactful next action
+
+=== In-REPL documentation
+
+[source,clojure]
+----
+(doc :scaffold)          ; How to use scaffolding (with examples)
+(doc :interceptors)      ; How interceptors work in Boundary
+(doc :fcis)              ; Explain the FC/IS architecture
+(doc :testing)           ; Testing strategies and helpers
+----
+
+Documentation is loaded from structured data (not AGENTS.md files directly),
+kept concise, and includes runnable examples.
+
+=== Command palette
+
+[source,clojure]
+----
+(commands)               ; All available REPL commands, grouped:
+;; System:     (go) (reset) (halt) (status) (config) ...
+;; Data:       (query) (seed!) (count-rows) (schema) ...
+;; Debug:      (simulate) (trace) (explain) (recording) ...
+;; etc.
+----
+
+=== Daily workflow commands
+
+Unified CLI commands to reduce cognitive load:
+
+* `bb check` -- run all quality checks (aggregated output)
+* `bb db:status` / `bb db:reset` / `bb db:seed` -- database lifecycle
+* `bb help <topic>` / `bb help error BND-xxx` -- contextual help
+
+== Consequences
+
+=== Positive
+
+* *Right information at the right time* -- tips appear when relevant,
+  not in a wall of documentation.
+* *State awareness* -- `bb help next` acts as a knowledgeable colleague
+  reviewing your project state.
+* *Reduced context-switching* -- in-REPL docs and command palette keep
+  developers in flow.
+* *Lower barrier to entry* -- newcomers discover features organically.
+
+=== Negative / risks
+
+* *Tip fatigue* -- too many tips become noise. Must be curated carefully.
+* *State analyzer accuracy* -- `bb help next` must correctly detect project
+  state; false positives erode trust.
+* *Documentation currency* -- in-REPL docs must stay in sync with actual
+  behavior.
+
+=== Mitigation
+
+* Tips rotate and don't repeat -- at most one tip per significant action.
+* State analyzer uses reliable signals: file existence, migration status,
+  test output.
+* In-REPL docs are generated from the same source as AGENTS.md where
+  possible, reducing drift.
+* All guidance respects the `:guidance-level` setting.
+
+== Related ADRs
+
+* ADR-024 -- Devtools Library & Guidance Engine
+* ADR-025 -- Zero-Friction Onboarding
+* ADR-026 -- REPL as Command Center
+
+== References
+
+* Design spec: `docs/superpowers/specs/2026-04-18-mindblowing-dx-design.md`
+  (Pillar 6: Discoverability & Progressive Learning)
