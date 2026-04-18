@@ -2,6 +2,7 @@
   "Rich error output formatting for development mode.
    Pure functions — no I/O, no side effects."
   (:require [boundary.devtools.core.error-codes :as codes]
+            [boundary.devtools.core.stacktrace :as stacktrace]
             [clojure.string :as str]))
 
 ;; =============================================================================
@@ -93,3 +94,57 @@
        "\n"
        "See: libs/" (or module "core") "/AGENTS.md \u00A7 FC/IS Architecture\n"
        (apply str (repeat 65 "\u2501"))))
+
+(defn format-enriched-error
+  "Format a fully enriched error map for rich development output.
+   Combines the BND code header, stack trace, and auto-fix suggestion.
+
+   opts (optional):
+     :guidance-level — :full (default), :minimal, or :off
+     At :off, auto-fix hints and dashboard/docs links are suppressed."
+  ([enriched] (format-enriched-error enriched {}))
+  ([{:keys [code stacktrace suggestions fix dashboard-url docs-url]}
+    {:keys [guidance-level] :or {guidance-level :full}}]
+   (let [error-def    (codes/lookup code)
+         title        (or (:title error-def) "Error")
+         show-hints?  (not= guidance-level :off)
+         lines        (cond-> [(separator code title)]
+                        (:description error-def)
+                        (conj (:description error-def))
+
+                        true (conj "")
+
+                        stacktrace
+                        (conj (stacktrace/format-stacktrace stacktrace))
+
+                        stacktrace (conj "")
+
+                        (seq suggestions)
+                        (into (map #(str "  \u2192 " %) suggestions))
+
+                        (seq suggestions) (conj "")
+
+                        (:fix error-def)
+                        (conj (str "Fix: " (:fix error-def)))
+
+                        (and show-hints? fix)
+                        (conj (str "\nAuto-fix: (fix!)  \u2014 " (:label fix)))
+
+                        true (conj "")
+
+                        (and show-hints? dashboard-url) (conj (str "Dashboard: " dashboard-url))
+                        (and show-hints? docs-url)      (conj (str "Docs: " docs-url))
+
+                        true (conj (apply str (repeat 65 "\u2501"))))]
+     (str/join "\n" (remove nil? lines)))))
+
+(defn format-unclassified-error
+  "Format an unclassified error with a fallback message and AI hint."
+  [^Throwable exception]
+  (let [msg (or (.getMessage exception) "Unknown error")]
+    (str "\u2501\u2501\u2501 Unclassified Error \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n"
+         msg "\n"
+         "\n"
+         "This error is not recognized by Boundary's error catalog.\n"
+         "Try: (explain *e) for AI-powered analysis\n"
+         (apply str (repeat 65 "\u2501")))))
