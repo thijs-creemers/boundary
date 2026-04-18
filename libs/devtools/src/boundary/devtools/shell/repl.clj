@@ -3,8 +3,6 @@
    These functions take system components as arguments — they do NOT directly
    access the running system. Wiring happens in dev/repl/user.clj."
   (:require [boundary.devtools.core.documentation :as docs]
-            [boundary.devtools.core.introspection :as introspection]
-            [boundary.devtools.core.schema-tools :as schema-tools]
             [boundary.platform.shell.adapters.database.common.core :as db]
             [cheshire.core :as json]
             [clojure.java.shell :as shell]

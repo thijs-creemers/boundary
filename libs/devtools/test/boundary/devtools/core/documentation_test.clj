@@ -1,5 +1,6 @@
 (ns boundary.devtools.core.documentation-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string]
+            [clojure.test :refer [deftest is testing]]
             [boundary.devtools.core.documentation :as docs]))
 
 (deftest ^:unit lookup-topic-test

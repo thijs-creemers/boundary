@@ -1,5 +1,6 @@
 (ns boundary.devtools.core.state-analyzer-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string]
+            [clojure.test :refer [deftest is testing]]
             [boundary.devtools.core.state-analyzer :as analyzer]))
 
 (deftest ^:unit analyze-modules-test

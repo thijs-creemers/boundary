@@ -1,5 +1,6 @@
 (ns boundary.devtools.core.guidance-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string]
+            [clojure.test :refer [deftest is testing]]
             [boundary.devtools.core.guidance :as guidance]))
 
 (deftest ^:unit valid-level-test
