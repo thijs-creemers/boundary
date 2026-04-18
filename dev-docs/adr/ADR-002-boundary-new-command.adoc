@@ -2,7 +2,6 @@
 
 *Status:* Proposed +
 *Date:* 2026-01-26 +
-*Deciders:* Sisyphus-Junior +
 *Context:* Project Bootstrapping
 
 '''''

@@ -24,7 +24,7 @@
            "libs/ui-style/src"                              ;; Shared UI style API
            "libs/ui-style/resources"                        ;; Shared UI assets (CSS/JS/Tailwind)
            "libs/i18n/src" "libs/i18n/test"                 ;; Phase 20: Internationalisation
-           "libs/i18n/resources"]                           ;; i18n translation catalogues
+           "libs/i18n/resources"]                            ;; i18n translation catalogues
 
  :deps    {org.clojure/clojure                        {:mvn/version "1.12.4"}
            cheshire/cheshire                          {:mvn/version "6.2.0"} ;; process json
@@ -102,7 +102,8 @@
            ;; Development and REPL aliases
            ;; =============================================================================
 
-           :repl-clj  {:extra-paths ["dev" "dev/repl"]
+           :repl-clj  {:extra-paths ["dev" "dev/repl"
+                                     "libs/devtools/src"]
                        :extra-deps  {nrepl/nrepl             {:mvn/version "1.6.0"}
                                      cider/cider-nrepl       {:mvn/version "0.58.0"}
                                      ring/ring-jetty-adapter {:mvn/version "1.15.3"}}
@@ -129,7 +130,8 @@
            ;; Use :db alias to include all database drivers, actual drivers loaded by config
            ;; =============================================================================
 
-           :dev       {:extra-paths ["dev" "dev/repl"]
+           :dev       {:extra-paths ["dev" "dev/repl"
+                                     "libs/devtools/src"]
                        :extra-deps  {org.xerial/sqlite-jdbc      {:mvn/version "3.51.0.0"}
                                      org.postgresql/postgresql   {:mvn/version "42.7.8"}
                                      com.h2database/h2           {:mvn/version "2.4.240"}
@@ -153,7 +155,8 @@
                        :main-opts    ["-m" "clj-kondo.main"]
                        :extra-paths  ["src"]}
            :test      {:main-opts   ["-m" "kaocha.runner"]
-                       :extra-paths ["test" "dev"]
+                       :extra-paths ["test" "dev"
+                                     "libs/devtools/src" "libs/devtools/test"]
                        :extra-deps  {lambdaisland/kaocha         {:mvn/version "1.91.1392"}
                                      org.clojure/test.check      {:mvn/version "1.1.2"}
                                      com.gfredericks/test.chuck  {:mvn/version "0.2.15"}

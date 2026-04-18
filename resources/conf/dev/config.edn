@@ -136,6 +136,9 @@
               :model    #or [#env AI_MODEL "claude-haiku-4-5-20251001"]
               :api-key  #env ANTHROPIC_API_KEY}}}
 
+ ;; Guidance engine is managed by the REPL (dev/repl/user.clj), not by Integrant.
+ ;; Set level in your REPL: (guidance :minimal) or (guidance :off)
+
  :inactive
  {;; Cache configuration — move :boundary/cache to :active to enable Redis caching.
   ;; Requires a Redis instance (e.g. `docker run -p 6379:6379 redis:7-alpine`).

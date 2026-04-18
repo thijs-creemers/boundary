@@ -14,9 +14,16 @@ along with their context and consequences. Each ADR describes:
 * *Status*: Current status (Proposed, Accepted, Deprecated, Superseded)
 * *Consequences*: Implications and trade-offs of the decision
 
+=== Status Legend
+
+* *Accepted* — Decision made and implemented
+* *Proposed* — Decision drafted, awaiting implementation
+* *Deprecated* — Superseded by a later ADR
+* *Superseded* — Replaced by another decision
+
 === Current ADRs
 
-==== ADR-005: Validation DevEx Foundations
+==== ADR-005: Validation DevEx Foundations [Accepted]
 
 ADR-005-validation-devex-foundations.adoc
 
@@ -32,7 +39,7 @@ shell layers.
 * Consistent error reporting structure
 
 [[adr-006-web-ui-architecture-htmx--hiccup]]
-==== ADR-006: Web UI Architecture (HTMX {plus} Hiccup)
+==== ADR-006: Web UI Architecture (HTMX {plus} Hiccup) [Accepted]
 
 ADR-006-web-ui-architecture-htmx-hiccup.adoc
 
@@ -46,7 +53,7 @@ for progressive enhancement and Hiccup for HTML generation.
 * Hiccup for HTML generation in core layer
 * Module-integrated UI code
 
-==== ADR-007: Routing Architecture
+==== ADR-007: Routing Architecture [Accepted]
 
 ADR-007-routing-architecture.adoc
 
@@ -60,7 +67,7 @@ composition.
 * Route composition in system wiring
 * Consistent route structure across modules
 
-==== ADR-008: Normalized Routing Abstraction
+==== ADR-008: Normalized Routing Abstraction [Accepted]
 
 ADR-008-normalized-routing-abstraction.adoc
 
@@ -75,7 +82,7 @@ enabling pluggable HTTP routers and servers through the Ports & Adapters pattern
 * Pluggable server adapters (Ring+Jetty, Undertow, etc.)
 * Pure data in modules, framework selection via configuration
 
-==== ADR-009: Reitit as Exclusive Router Implementation
+==== ADR-009: Reitit as Exclusive Router Implementation [Accepted]
 
 ADR-009-reitit-exclusive-router.adoc
 
@@ -89,7 +96,7 @@ abandoning exploration of alternative router adapters due to architectural compl
 * IRouter protocol kept for future flexibility (single implementation)
 * Focus on feature development over infrastructure flexibility
 
-==== ADR-010: HTTP Interceptor Architecture
+==== ADR-010: HTTP Interceptor Architecture [Accepted]
 
 ADR-010-http-interceptor-architecture.adoc
 
@@ -104,7 +111,7 @@ cross-cutting concerns.
 * Automatic integration with observability services
 * Ring/Reitit compatibility via middleware adapter
 * Consistent pattern across HTTP, service, and persistence layers
-==== ADR-011: Pluggable User/Auth/Authorization
+==== ADR-011: Pluggable User/Auth/Authorization [Accepted]
 
 ADR-pluggable-auth.adoc
 
@@ -117,7 +124,7 @@ Make user, auth, and authorization logic pluggable (like observability and datab
 * HTTP/CLI interceptors call ports, not concrete user namespaces
 * Token shape and policy engine as adapters (JWT/opaque/PASETO, RBAC/OPA/etc.)
 
-==== ADR-016: Tenant User Membership
+==== ADR-016: Tenant User Membership [Accepted]
 
 ADR-016-tenant-user-membership.adoc
 
@@ -132,7 +139,7 @@ membership lifecycle.
 * Allow one user to belong to multiple tenants
 * Derive tenant authorization from membership role and status
 
-==== ADR-017: Library Migration Discovery
+==== ADR-017: Library Migration Discovery [Accepted]
 
 ADR-017-library-migration-discovery.adoc
 
@@ -146,6 +153,151 @@ schema changes via the normal `clojure -M:migrate up` flow.
 * Let libraries advertise extra migration dirs via `boundary/migration-paths.edn`
 * Aggregate all discovered dirs into Migratus `:migration-dir`
 * Require standard Migratus up/down filenames for library migrations
+
+==== ADR-018: Admin Belongs-To Widget [Accepted]
+
+ADR-018-admin-belongs-to-widget.adoc
+
+Defines the belongs-to widget pattern for admin entity relationships.
+
+==== ADR-019: Shared Payments Library [Accepted]
+
+ADR-019-shared-payments-library.adoc
+
+Establishes a shared payments library with PSP abstraction (Mollie, Stripe, Mock),
+checkout flow, and webhook verification.
+
+==== ADR-020: Tenant Database Scope [Accepted]
+
+ADR-020-tenant-database-scope.adoc
+
+Defines how tenant-scoped data is isolated at the database level.
+
+==== ADR-021: FC/IS Boundary Rules [Accepted]
+
+ADR-021-fcis-boundary-rules.adoc
+
+Formalizes and enforces the Functional Core / Imperative Shell boundary rules
+with automated checking via `bb check:fcis`.
+
+*Key Decisions:*
+
+* Core namespaces must not import shell, I/O, logging, or DB namespaces
+* Automated enforcement in pre-commit hooks and CI
+* Clear violation detection with actionable error messages
+
+==== ADR-022: Error Handling Conventions [Accepted]
+
+ADR-022-error-handling-conventions.adoc
+
+Establishes canonical error types mapped to HTTP status codes, with
+`enforce-error-type?` diagnostic for development.
+
+*Key Decisions:*
+
+* All errors use `ex-info` with `:type` keyword
+* Canonical type table: `:validation-error`, `:not-found`, `:unauthorized`, `:forbidden`, `:conflict`, `:redirect`
+* Dev diagnostic catches missing `:type` fields
+
+==== ADR-023: Multi-Database Adapter Support [Proposed]
+
+ADR-023-multi-database-adapter-support.adoc
+
+Introduces pluggable database adapter support (PostgreSQL, SQLite, MySQL, H2)
+with dynamic driver loading.
+
+==== ADR-024: Devtools Library & Guidance Engine [Proposed]
+
+ADR-024-devtools-guidance-engine.adoc
+
+Creates `libs/devtools/` as a dev-only library with a guidance engine that
+provides contextual, actionable help throughout the development lifecycle.
+
+*Key Decisions:*
+
+* New `libs/devtools/` library (FC/IS compliant, dev-only, not published)
+* Guidance levels: `:full`, `:minimal`, `:off` (progressive disclosure)
+* Startup dashboard on `(go)` showing system status and next steps
+* FC/IS violations detected at REPL time, not just CI
+* Clear separation: `libs/tools/` = CLI tasks, `libs/devtools/` = JVM REPL
+
+==== ADR-025: Zero-Friction Onboarding [Proposed]
+
+ADR-025-zero-friction-onboarding.adoc
+
+Establishes a one-command onboarding experience from clone to running app.
+
+*Key Decisions:*
+
+* `bb quickstart` orchestrates setup, scaffold, migrate, start, and browser open
+* `bb doctor:env` checks system prerequisites (Java, Clojure CLI, ports, AI providers)
+* IDE configs auto-generated for VS Code, IntelliJ, Emacs, Neovim/Conjure
+* AI provider flexibility: Ollama, MLX/oMLX, Anthropic, OpenAI, custom endpoints
+* Local example app in `examples/quickstart/`
+
+==== ADR-026: REPL as Command Center [Proposed]
+
+ADR-026-repl-command-center.adoc
+
+Transforms the REPL into a full development cockpit where every `bb` command
+has an equivalent and developers never need to leave flow state.
+
+*Key Decisions:*
+
+* System introspection: `(routes)`, `(status)`, `(config)`, `(modules)`
+* Request simulation: `(simulate :get "/api/users")`
+* Data exploration: `(query)`, `(schema)`, `(validate)`, `(seed!)`
+* Time-travel debugging: `(recording :start/stop/replay/diff)`
+* Schema-driven development: `(prototype! :entity {...})`
+* Live system mutation: `(restart-component)`, `(defroute!)`
+* AI-assisted: `(ai/suggest)`, `(ai/review)`, `(ai/test-ideas)`
+
+==== ADR-027: Dev Dashboard [Proposed]
+
+ADR-027-dev-dashboard.adoc
+
+A browser-based development dashboard at `localhost:9999` providing x-ray
+vision into the running system.
+
+*Key Decisions:*
+
+* 11-page HTMX + Hiccup dashboard (consistent with admin UI)
+* Pages: system overview, route explorer, request inspector, schema browser,
+  database explorer, error dashboard, jobs & queues, config editor, web REPL,
+  git worktree manager, security status
+* Dev-only Integrant component, zero production overhead
+* Web REPL connected to nREPL for browser-based development
+
+==== ADR-028: Error Experience & Auto-Recovery [Proposed]
+
+ADR-028-error-experience.adoc
+
+Extends ADR-022 with structured error codes, rich dev-mode output, and
+automatic recovery via `(fix! *e)`.
+
+*Key Decisions:*
+
+* Error code system: BND-1xx (config), BND-2xx (validation), BND-3xx (persistence),
+  BND-4xx (auth), BND-5xx (interceptor), BND-6xx (FC/IS)
+* Rich error output with input vs. expected shape, fix suggestions, dashboard links
+* `(fix! *e)` auto-recovery for known patterns (migrations, env vars, wiring)
+* Stack trace filtering: user code first, framework frames dimmed
+* Output verbosity respects `:guidance-level`
+
+==== ADR-029: Discoverability & Progressive Learning [Proposed]
+
+ADR-029-discoverability-progressive-learning.adoc
+
+Ensures developers discover Boundary's features at the right moment through
+contextual tips, state-aware guidance, and in-REPL documentation.
+
+*Key Decisions:*
+
+* Contextual tips after significant actions (non-repeating, curated)
+* `bb help next` analyzes project state and suggests next action
+* In-REPL documentation: `(doc :scaffold)`, `(doc :fcis)`, etc.
+* Command palette: `(commands)` lists all REPL functions by category
+* Unified CLI: `bb check`, `bb db:*`, `bb help <topic>`
 
 === Related Documentation
 

@@ -1,0 +1,116 @@
+= ADR-024: Devtools Library & Guidance Engine
+:status: Proposed
+:date: 2026-04-18
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+=== Background
+
+Boundary has strong DX foundations: AI-powered scaffolding, config doctor,
+structured validation, REPL workflow with Integrant, and per-library AGENTS.md
+documentation. However, these features are passive -- developers must know they
+exist and actively seek them out.
+
+=== Problem
+
+* New developers face a steep onboarding curve with no guided path from clone
+  to running application.
+* Error messages are technically correct but lack actionable guidance -- they
+  tell you *what* went wrong but not *how to fix it*.
+* FC/IS boundary violations are only caught by `bb check:fcis` (batch), not
+  at REPL time when the violation actually happens.
+* Developers don't discover powerful features (AI scaffolding, REPL helpers,
+  quality gates) until much later in their journey.
+
+== Decision
+
+=== Create `libs/devtools/` library
+
+A new dev-only library (not published to Clojars) following the FC/IS pattern:
+
+[source]
+----
+libs/devtools/
+├── src/boundary/devtools/
+│   ├── core/
+│   │   ├── guidance.clj          # Pure: message formatting, level filtering
+│   │   ├── error_codes.clj       # Error code catalog (BND-xxx)
+│   │   ├── error_formatter.clj   # Rich error output formatting
+│   │   ├── introspection.clj     # Route/config/module analysis
+│   │   ├── schema_tools.clj      # Schema tree, diff, example generation
+│   │   └── state_analyzer.clj    # Project state analysis ("next steps")
+│   ├── shell/
+│   │   ├── repl.clj              # REPL helper functions
+│   │   ├── recording.clj         # Request recording/replay
+│   │   ├── tracer.clj            # Handler tracing
+│   │   └── auto_fix.clj          # (fix! *e) implementation
+│   ├── ports.clj
+│   └── schema.clj
+├── test/
+└── resources/
+----
+
+This library is added to `deps.edn` under `:dev` paths only, ensuring zero
+production overhead.
+
+=== Implement guidance engine
+
+A `:boundary/guidance` Integrant key with configurable levels:
+
+* `:full` (default for new projects) -- startup dashboard, post-scaffold
+  steps, contextual tips, enriched error messages, FC/IS warnings at REPL time.
+* `:minimal` -- key warnings only, no tips or dashboard.
+* `:off` -- silent operation for experienced developers.
+
+Guidance level is configurable in `config.edn` and toggleable at runtime via
+`(guidance :minimal)` in the REPL.
+
+=== Startup dashboard
+
+When `(go)` runs at `:full` guidance level, the system prints a status
+dashboard showing: running components, database connection, web/admin URLs,
+nREPL port, active modules, and suggested next commands.
+
+=== Relationship to `libs/tools/`
+
+* `libs/tools/` owns Babashka CLI tasks (run outside the JVM).
+* `libs/devtools/` owns JVM REPL helpers and in-process features.
+* Both are dev-only and not published to Clojars.
+
+== Consequences
+
+=== Positive
+
+* *Guided onboarding* -- new developers receive contextual help at every step.
+* *Progressive disclosure* -- experienced developers can silence guidance.
+* *FC/IS awareness* -- violations caught at REPL time, not just in CI.
+* *Foundation for future DX features* -- dashboard, error recovery, and
+  advanced REPL features build on this library.
+
+=== Negative / risks
+
+* *Maintenance burden* -- guidance messages must stay accurate as the
+  framework evolves. Stale guidance is worse than no guidance.
+* *REPL startup time* -- loading devtools adds to initial REPL boot. Must
+  be kept lightweight.
+
+=== Mitigation
+
+* Guidance content is generated from live system state (routes, config,
+  modules) rather than hardcoded, reducing staleness risk.
+* Devtools core functions are pure and fast; only shell functions perform I/O.
+
+== Related ADRs
+
+* ADR-015 -- Boundary Tools (CLI task infrastructure)
+* ADR-021 -- FC/IS Boundary Rules (architecture enforcement)
+* ADR-022 -- Error Handling Conventions (error type system)
+
+== References
+
+* Design spec: `docs/superpowers/specs/2026-04-18-mindblowing-dx-design.md`
