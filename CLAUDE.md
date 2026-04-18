@@ -40,6 +40,18 @@ bb ai docs --module libs/user --type agents                       # Generate AGE
 bb ai admin-entity "products with name, price, status"            # Generate admin entity EDN config
 bb doctor                          # Validate config for common mistakes
 bb doctor --env all --ci           # Check all envs, exit non-zero on error (CI)
+bb doctor:env                      # Check development prerequisites (Java, CLI, ports, AI)
+bb check                           # Run ALL quality checks (fcis, deps, placeholder, kondo, doctor)
+bb check --quick                   # Fast subset (fcis + deps only)
+bb check --fix                     # Auto-fix what can be fixed
+bb db:status                       # Show database config and migration status
+bb db:reset                        # Drop + recreate + migrate (with confirmation)
+bb db:seed                         # Seed database from resources/seeds/dev.edn
+bb quickstart                      # Zero-to-running-app: check env, setup, scaffold, migrate
+bb guide                           # General help with all commands
+bb guide next                      # State-aware: what should you do next?
+bb guide scaffold                  # Detailed scaffolding help
+bb guide error BND-201             # Look up error code with causes + fixes
 bb setup                           # Interactive config setup wizard
 bb setup ai "PostgreSQL with Stripe payments"                     # AI-powered config setup
 bb setup --database postgresql --payment stripe                   # Non-interactive config setup
@@ -79,7 +91,7 @@ libs/{library}/src/boundary/{library}/
 - Core → Ports (allowed)
 - Core → Shell (NEVER - this violates FC/IS)
 
-**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, payments, workflow, search, reports, calendar, geo, ai, ui-style, i18n
+**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, payments, workflow, search, reports, calendar, geo, ai, ui-style, i18n, devtools (dev-only)
 
 The main application source in `src/boundary/` follows the same core/shell structure. Example applications live at https://github.com/tcbv/boundary-examples
 
