@@ -258,7 +258,7 @@
           [{:level :warn
             :msg   (str "Unintegrated modules (in libs/ but not in deps.edn): "
                         (str/join ", " unintegrated))
-            :fix   (str "Run `bb scaffold integrate <module>` to wire them in, or verify they are standalone libraries.")}]
+            :fix   "Run `bb scaffold integrate <module>` to wire them in, or verify they are standalone libraries."}]
           [{:level :pass
             :msg   (str "All " (count modules) " modules are integrated in deps.edn")}])))))
 

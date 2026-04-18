@@ -11,7 +11,7 @@
 ;;   bb check --help               # Print usage
 
 (ns boundary.tools.check
-  (:require [boundary.tools.ansi :refer [bold green red yellow dim]]
+  (:require [boundary.tools.ansi :refer [bold green red dim]]
             [babashka.process :as process]
             [clojure.string :as str]))
 
