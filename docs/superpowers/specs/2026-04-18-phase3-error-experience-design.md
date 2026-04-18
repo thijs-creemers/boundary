@@ -175,7 +175,7 @@ Calls into:
 
 Extend the existing formatter to handle new enriched error fields:
 - Stack trace section (filtered, with expand hint)
-- Auto-fix suggestion line: `"Auto-fix: (fix! *e)  — Apply pending migration"`
+- Auto-fix suggestion line: `"Auto-fix: (fix!)  — Apply pending migration"`
 - Unclassified error fallback format
 
 No changes to the existing `format-error`, `format-config-error`, `format-fcis-violation` signatures — new function `format-enriched-error` that wraps them with the additional sections.
@@ -221,7 +221,7 @@ Executes fix descriptors. Handles the safety/confirmation logic.
 **Behavior by guidance level:**
 - `:full` — safe fixes apply with a brief `"Applying: ..."` message, risky fixes prompt for confirmation
 - `:minimal` — safe fixes apply silently, risky fixes prompt for confirmation
-- `:off` — `(fix! *e)` still works when called explicitly, no suggestions in error output
+- `:off` — `(fix!)` still works when called explicitly, no suggestions in error output
 
 The safety gate (`safe? false` → always confirm) is **never overridden** by guidance level.
 
@@ -305,8 +305,8 @@ Not injected as nREPL middleware. Instead, `user.clj` wraps public REPL function
 ;; New top-level function
 (defn fix!
   "Auto-fix the last error if a fix is available.
-   (fix!)     ; fix last error
-   (fix! ex)  ; fix specific exception"
+   (fix!)     ; fix last error (recommended — nREPL-safe)
+   (fix! ex)  ; fix a specific exception directly"
   ([] (fix! @repl-errors/last-exception*))
   ([exception]
    (if (nil? exception)
@@ -334,7 +334,8 @@ Not injected as nREPL middleware. Instead, `user.clj` wraps public REPL function
       (fcis/check-fcis-violations!)  ;; still runs even if go fails
       nil)))
 
-;; Modified reset — FC/IS check runs even on failure
+;; Modified reset — no startup dashboard (intentional: dashboard prints once on go,
+;; not on every reload). FC/IS check runs even on failure.
 (defn reset []
   (try
     (let [result (ig-repl/reset)]
@@ -345,7 +346,10 @@ Not injected as nREPL middleware. Instead, `user.clj` wraps public REPL function
       (fcis/check-fcis-violations!)
       nil)))
 
-;; Other public REPL functions wrapped:
+;; Other public REPL functions wrapped.
+;; Note: when-let returns nil silently when system is not running.
+;; This is intentional — (status) already handles "not running" messaging.
+;; The with-error-handling macro only fires on actual exceptions from running code.
 (defn simulate [method path & [opts]]
   (with-error-handling
     (when-let [handler (get (system) :boundary/http-handler)]
@@ -377,8 +381,8 @@ Not injected as nREPL middleware. Instead, `user.clj` wraps public REPL function
 From the parent spec:
 
 - [ ] Intentionally trigger each BND-xxx error type → verify rich output with code, explanation, and fix suggestion
-- [ ] `(fix! *e)` resolves: missing migration, missing env var, missing module wiring
-- [ ] `(fix! *e)` for "missing dependency" always asks for confirmation before modifying `deps.edn`
+- [ ] `(fix!)` resolves: missing migration, missing env var, missing module wiring
+- [ ] `(fix!)` for "missing dependency" always asks for confirmation before modifying `deps.edn`
 - [ ] Stack traces in dev mode show user code first, framework frames dimmed/collapsed
 - [ ] Unclassified errors fall back gracefully with AI analysis hint
 - [ ] FC/IS violations detected and warned after `(go)` and `(reset)`
