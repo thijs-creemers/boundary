@@ -52,13 +52,24 @@
 ;; Request simulation
 ;; =============================================================================
 
+(defn- encode-query-string
+  "Encode a map of query params into a URL query string.
+   Values are URL-encoded. Keys are converted to strings via `name` if keywords."
+  [params]
+  (str/join "&"
+            (map (fn [[k v]]
+                   (str (java.net.URLEncoder/encode (name k) "UTF-8")
+                        "="
+                        (java.net.URLEncoder/encode (str v) "UTF-8")))
+                 params)))
+
 (defn build-simulate-request
   "Build a Ring request map for simulating an HTTP call.
 
    opts keys:
      :body         — EDN/map body, will be JSON-encoded
      :headers      — extra headers map
-     :query-params — map of query params"
+     :query-params — map of query params (encoded into :query-string for wrap-params)"
   [method path opts]
   (let [{:keys [body headers query-params]} opts
         base-headers {"content-type" "application/json"
@@ -67,7 +78,7 @@
         request (cond-> {:request-method (keyword (str/lower-case (name method)))
                          :uri            path
                          :headers        all-headers}
-                  query-params (assoc :query-params query-params)
+                  query-params (assoc :query-string (encode-query-string query-params))
                   body
                   (assoc :body
                          (ByteArrayInputStream.
@@ -163,10 +174,10 @@
 
 (defn run-tests
   "Run Kaocha tests for the given module keyword and optional meta filter keyword.
-   Shells out to clojure -M:test:db/h2 so it works from any REPL session.
+   Shells out to clojure -M:test so it works from any REPL session.
    Returns {:exit <int> :output <string>}."
   [module meta-filter]
-  (let [cmd (str "clojure -M:test:db/h2 " (name module)
+  (let [cmd (str "clojure -M:test " (name module)
                  (when meta-filter
                    (str " --focus-meta " (name meta-filter))))
         result (shell/sh "bash" "-c" cmd)]

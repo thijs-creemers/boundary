@@ -1,5 +1,6 @@
 (ns boundary.devtools.shell.repl-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string]
+            [clojure.test :refer [deftest is testing]]
             [boundary.devtools.shell.repl :as repl]))
 
 ;; =============================================================================
@@ -48,10 +49,13 @@
                                            {:headers {"authorization" "Bearer token123"}})]
       (is (= "Bearer token123" (get-in req [:headers "authorization"])))))
 
-  (testing "query-params are included when provided"
+  (testing "query-params are encoded into :query-string"
     (let [req (repl/build-simulate-request :get "/api/users"
-                                           {:query-params {"page" "1"}})]
-      (is (= {"page" "1"} (:query-params req))))))
+                                           {:query-params {:page "1" :limit "20"}})]
+      (is (string? (:query-string req)))
+      (is (clojure.string/includes? (:query-string req) "page=1"))
+      (is (clojure.string/includes? (:query-string req) "limit=20"))
+      (is (nil? (:query-params req))))))
 
 ;; =============================================================================
 ;; build-query-map
