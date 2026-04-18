@@ -77,11 +77,11 @@
   (println (bold "Testing Guide"))
   (println)
   (println (cyan "Run tests:"))
-  (println "  clojure -M:test:db/h2                                 # All tests")
-  (println "  clojure -M:test:db/h2 :core                           # Single library")
-  (println "  clojure -M:test:db/h2 --focus-meta :unit              # By metadata")
-  (println "  clojure -M:test:db/h2 --focus ns-name-test            # Single namespace")
-  (println "  clojure -M:test:db/h2 --watch :core                   # Watch mode")
+  (println "  clojure -M:test                                 # All tests")
+  (println "  clojure -M:test :core                           # Single library")
+  (println "  clojure -M:test --focus-meta :unit              # By metadata")
+  (println "  clojure -M:test --focus ns-name-test            # Single namespace")
+  (println "  clojure -M:test --watch :core                   # Watch mode")
   (println)
   (println (cyan "Test categories:"))
   (println "  ^:unit          Pure core functions, no mocks needed")
@@ -245,14 +245,21 @@
   [deps-text module]
   (str/includes? deps-text (str "libs/" module "/src")))
 
+(def ^:private non-module-libs
+  "Directories under libs/ that are not application modules and should not
+   be checked for integration in deps.edn. These are consumed through other
+   mechanisms (e.g., bb.edn for tools, dev alias for devtools, e2e alias)."
+  #{"tools" "devtools" "e2e"})
+
 (defn- check-unintegrated-modules
-  "Find libs/ directories that are not referenced in deps.edn."
+  "Find libs/ directories that are not referenced in deps.edn.
+   Excludes known non-module libraries (tools, devtools, e2e)."
   []
   (let [deps-file (io/file (root-dir) "deps.edn")]
     (if-not (.exists deps-file)
       [{:level :warn :msg "deps.edn not found — cannot check module integration"}]
       (let [deps-text    (slurp deps-file)
-            modules      (lib-dirs)
+            modules      (remove non-module-libs (lib-dirs))
             unintegrated (remove #(integrated? deps-text %) modules)]
         (if (seq unintegrated)
           [{:level :warn

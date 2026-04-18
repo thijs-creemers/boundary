@@ -74,7 +74,7 @@
     (if preset
       (do (println (dim (str "\n  Running non-interactive setup with preset: " preset)))
           (run-step 2 5 "Running configuration setup"
-                    ["bb" "setup" (str "--database=" preset)]))
+                    ["bb" "setup" "--database" preset]))
       (run-step 2 5 "Running configuration setup"
                 ["bb" "setup"]))
 
