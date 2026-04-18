@@ -16,7 +16,7 @@
                                            :confirm-fn (fn [_] (throw (ex-info "should not confirm" {})))}))]
       (is (str/includes? output "Applying"))))
 
-  (testing "safe fix executes silently at :minimal guidance"
+  (testing "safe fix at :minimal guidance does not print 'Applying' label"
     (let [fix {:fix-id :set-env-var
                :label "Set var"
                :safe? true
@@ -24,7 +24,7 @@
                :params {:var-name "TEST_AUTO_FIX_SILENT" :value "silent"}}
           output (with-out-str
                    (executor/execute-fix! fix {:guidance-level :minimal}))]
-      (is (= "" output)))))
+      (is (not (str/includes? output "Applying"))))))
 
 (deftest ^:integration execute-risky-fix-requires-confirmation-test
   (testing "risky fix requires confirmation even at :minimal"

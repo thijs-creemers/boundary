@@ -67,7 +67,7 @@
     (catch Exception e
       (repl-errors/handle-repl-error! e)
       (fcis/check-fcis-violations!)
-      nil)))
+      (throw e))))
 
 (defn system
   "Get the current running system."
@@ -209,12 +209,13 @@
 ;; =============================================================================
 
 (defmacro ^:private with-error-handling
-  "Wrap body in try/catch that runs the error pipeline on exceptions."
+  "Wrap body in try/catch that runs the error pipeline on exceptions.
+   Re-throws after formatting so *e is updated in the REPL."
   [& body]
   `(try ~@body
         (catch Exception e#
           (repl-errors/handle-repl-error! e#)
-          nil)))
+          (throw e#))))
 
 (defn fix!
   "Auto-fix the last error if a fix is available.
@@ -413,7 +414,7 @@
     (catch Exception e
       (repl-errors/handle-repl-error! e)
       (fcis/check-fcis-violations!)
-      nil)))
+      (throw e))))
 
 ;; =============================================================================
 ;; Quick Start Message

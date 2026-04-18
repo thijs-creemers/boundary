@@ -16,17 +16,39 @@
     (when (and (seq err) (not (zero? exit))) (println err))
     (zero? exit)))
 
+(defn- set-process-env!
+  "Set a process environment variable using reflection.
+   Aero #env reads from System/getenv, not System/getProperty,
+   so we must modify the process environment directly.
+   Falls back to System/setProperty if reflection fails."
+  [var-name value]
+  (try
+    ;; Access the internal ProcessEnvironment map via reflection
+    (let [env-class (Class/forName "java.lang.ProcessEnvironment")
+          field (doto (.getDeclaredField env-class "theUnmodifiableEnvironment")
+                  (.setAccessible true))
+          unmodifiable-env (.get field nil)
+          map-field (doto (.getDeclaredField (.getClass unmodifiable-env) "m")
+                      (.setAccessible true))
+          env-map (.get map-field unmodifiable-env)]
+      (.put env-map var-name value)
+      true)
+    (catch Exception _
+      ;; Fallback: set as system property (works for non-Aero config reads)
+      (System/setProperty var-name value)
+      (println (str "Warning: Set as JVM property, not process env. "
+                    "Restart may be needed for Aero #env to pick it up."))
+      true)))
+
 (defmethod run-action! :set-env
   [_ {:keys [var-name value]}]
   (when (and var-name value)
-    (System/setProperty var-name value)
-    true))
+    (set-process-env! var-name value)))
 
 (defmethod run-action! :set-jwt
   [_ _params]
   (let [secret (str "dev-secret-" (System/currentTimeMillis) "-boundary")]
-    (System/setProperty "JWT_SECRET" secret)
-    true))
+    (set-process-env! "JWT_SECRET" secret)))
 
 (defmethod run-action! :integrate-module
   [_ {:keys [module-name]}]
