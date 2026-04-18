@@ -104,6 +104,28 @@ bb check:deps                                      # Verify library dependency d
 clojure -M:test --focus-meta :security             # Security-focused tests (error mapping, CSRF, XSS, SQL)
 ```
 
+### AI Assistant Helpers
+
+Boundary assumes two Clojure assistant helpers are installed from
+`https://github.com/bhauman/clojure-mcp-light`:
+
+- `clj-nrepl-eval` for shell-driven REPL evaluation
+- `clj-paren-repair` for delimiter repair after edits
+
+Install them with `bbin`:
+
+```bash
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 --as clj-nrepl-eval --main-opts '["-m" "clojure-mcp-light.nrepl-eval"]'
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 --as clj-paren-repair --main-opts '["-m" "clojure-mcp-light.paren-repair"]'
+```
+
+Verify:
+
+```bash
+clj-nrepl-eval --discover-ports
+clj-paren-repair --help
+```
+
 ### Architecture Quick Facts
 
 ```
