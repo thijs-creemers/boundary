@@ -50,4 +50,14 @@
                    (executor/execute-fix! fix
                                           {:guidance-level :full
                                            :confirm-fn (fn [_] false)}))]
-      (is (str/includes? output "Aborted")))))
+      (is (str/includes? output "Aborted"))))
+
+  (testing "failed action reports failure to user"
+    (let [fix {:fix-id :unknown
+               :label "Do something"
+               :safe? true
+               :action :nonexistent-action
+               :params {}}
+          output (with-out-str
+                   (executor/execute-fix! fix {:guidance-level :full}))]
+      (is (str/includes? output "could not be applied")))))

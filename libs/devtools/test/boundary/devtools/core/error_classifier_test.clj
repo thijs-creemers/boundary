@@ -68,9 +68,9 @@
       (is (= :config (:category result)))
       (is (= :ex-data-pattern (:source result)))))
 
-  (testing "configuration error without :required-env-var → BND-103"
+  (testing "configuration error without :required-env-var stays unclassified"
     (let [ex (ex-info "Tenant schema provider not configured"
                       {:type :configuration-error :job-id 42})
           result (classifier/classify ex)]
-      (is (= "BND-103" (:code result)))
-      (is (= :config (:category result))))))
+      (is (nil? (:code result))
+          "should not misclassify as JWT-specific BND-103"))))

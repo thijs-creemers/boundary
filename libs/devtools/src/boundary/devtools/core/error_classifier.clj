@@ -46,9 +46,9 @@
         (= :auth/forbidden (:type data))
         {:code "BND-402" :category :auth :data data :source :ex-data-pattern}
 
-        (= :configuration-error (:type data))
-        {:code (if (:required-env-var data) "BND-101" "BND-103")
-         :category :config :data data :source :ex-data-pattern}
+        (and (= :configuration-error (:type data))
+             (:required-env-var data))
+        {:code "BND-101" :category :config :data data :source :ex-data-pattern}
 
         :else nil))))
 

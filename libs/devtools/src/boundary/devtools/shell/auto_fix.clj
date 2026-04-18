@@ -20,7 +20,7 @@
   "Set a process environment variable using reflection.
    Aero #env reads from System/getenv, not System/getProperty,
    so we must modify the process environment directly.
-   Falls back to System/setProperty if reflection fails."
+   Returns false if reflection fails (JDK 9+ module restrictions)."
   [var-name value]
   (try
     ;; Access the internal ProcessEnvironment map via reflection
@@ -34,11 +34,10 @@
       (.put env-map var-name value)
       true)
     (catch Exception _
-      ;; Fallback: set as system property (works for non-Aero config reads)
-      (System/setProperty var-name value)
-      (println (str "Warning: Set as JVM property, not process env. "
-                    "Restart may be needed for Aero #env to pick it up."))
-      true)))
+      (println (str "Cannot set process env var on this JVM. "
+                    "Set it in your shell and restart the REPL:\n\n"
+                    "  export " var-name "=\"" value "\"\n"))
+      false)))
 
 (defmethod run-action! :set-env
   [_ {:keys [var-name value]}]
@@ -93,10 +92,14 @@
         should-print?   (not= guidance-level :minimal)]
     (if should-confirm?
       (if (and confirm-fn (confirm-fn (str "Apply fix: " label "?")))
-        (do
-          (when should-print? (println (str "Applying: " label)))
-          (run-action! action params))
+        (let [_ (when should-print? (println (str "Applying: " label)))
+              result (run-action! action params)]
+          (when (and should-print? (not result))
+            (println "Fix could not be applied automatically."))
+          result)
         (println "Aborted."))
-      (do
-        (when should-print? (println (str "Applying: " label)))
-        (run-action! action params)))))
+      (let [_ (when should-print? (println (str "Applying: " label)))
+            result (run-action! action params)]
+        (when (and should-print? (not result))
+          (println "Fix could not be applied automatically."))
+        result))))
