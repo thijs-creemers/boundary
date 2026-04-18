@@ -12,6 +12,35 @@ This is the **canonical reference** for all development commands in the Boundary
 This document is the source of truth for development commands. If you find discrepancies elsewhere, this document takes precedence.
 ====
 
+[[assistant-tooling]]
+== AI Assistant Tooling
+
+Boundary documents two assistant-friendly Clojure CLI tools:
+
+- `clj-nrepl-eval` for evaluating code in a running nREPL from the shell
+- `clj-paren-repair` for repairing delimiter errors in edited Clojure files
+
+The recommended source is
+https://github.com/bhauman/clojure-mcp-light[`bhauman/clojure-mcp-light`].
+It provides lightweight CLI tooling for AI coding assistants; it is not an MCP
+server.
+
+Install with `bbin`:
+
+[source,bash]
+----
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 --as clj-nrepl-eval --main-opts '["-m" "clojure-mcp-light.nrepl-eval"]'
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 --as clj-paren-repair --main-opts '["-m" "clojure-mcp-light.paren-repair"]'
+----
+
+Verify:
+
+[source,bash]
+----
+clj-nrepl-eval --discover-ports
+clj-paren-repair --help
+----
+
 [[testing]]
 == Testing
 

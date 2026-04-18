@@ -75,6 +75,21 @@ bb check:deps                    # Verify library dependency direction + cycle d
 clojure -M:test:db/h2 --focus-meta :security  # Security-focused tests (error mapping, CSRF, XSS, SQL)
 ```
 
+## Assistant Tooling
+
+This repository expects the `clj-nrepl-eval` and `clj-paren-repair` commands
+from `https://github.com/bhauman/clojure-mcp-light` to be available on `PATH`.
+
+Install with `bbin`:
+
+```bash
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 --as clj-nrepl-eval --main-opts '["-m" "clojure-mcp-light.nrepl-eval"]'
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 --as clj-paren-repair --main-opts '["-m" "clojure-mcp-light.paren-repair"]'
+```
+
+Use `clj-nrepl-eval --discover-ports` to find running REPLs. Use
+`clj-paren-repair <file>` instead of manually repairing delimiters.
+
 ## Architecture: Functional Core / Imperative Shell
 
 This is a Clojure monorepo with 22 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:

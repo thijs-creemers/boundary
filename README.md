@@ -38,6 +38,31 @@ bash < <(curl -s https://raw.githubusercontent.com/babashka/babashka/master/inst
 scoop install curl tar babashka
 ```
 
+## AI Assistant Tooling
+
+Boundary expects two assistant-friendly Clojure CLI helpers on `PATH`:
+
+- `clj-nrepl-eval` for evaluating code in a running nREPL
+- `clj-paren-repair` for repairing delimiter errors in edited Clojure files
+
+The recommended source for both is
+[`bhauman/clojure-mcp-light`](https://github.com/bhauman/clojure-mcp-light).
+Despite the name, it is a small CLI toolset, not an MCP server.
+
+Install them with `bbin`:
+
+```bash
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 --as clj-nrepl-eval --main-opts '["-m" "clojure-mcp-light.nrepl-eval"]'
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 --as clj-paren-repair --main-opts '["-m" "clojure-mcp-light.paren-repair"]'
+```
+
+Verify the install:
+
+```bash
+clj-nrepl-eval --discover-ports
+clj-paren-repair --help
+```
+
 ---
 
 ## Quick Start
