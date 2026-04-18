@@ -1,6 +1,5 @@
 (ns boundary.devtools.schema
-  "Malli validation schemas for the devtools library."
-  (:require [malli.core :as m]))
+  "Malli validation schemas for the devtools library.")
 
 (def GuidanceLevel
   "Valid guidance levels."

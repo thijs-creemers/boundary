@@ -2,7 +2,8 @@
   "Pure functions for analyzing project state.
    Determines 'what should you do next?' based on project state data.
    No I/O — accepts pre-collected state data as arguments."
-  (:require [clojure.string :as str]))
+  (:require [clojure.set]
+            [clojure.string :as str]))
 
 ;; =============================================================================
 ;; State analysis
@@ -51,7 +52,7 @@
 (defn analyze-tests
   "Analyze test state.
    `test-result` - map with :total, :pass, :fail, :error"
-  [{:keys [total pass fail error]}]
+  [{:keys [total fail error]}]
   (cond
     (nil? total)
     nil
@@ -94,7 +95,7 @@
                   :warn  "\u26A0"
                   :error "\u2717"
                   "?"))
-        lines (cond-> [(str "Your project has:")
+        lines (cond-> ["Your project has:"
                        (str "  \u2713 " module-count " module"
                             (when (> module-count 1) "s"))]
                 true (into (map (fn [{:keys [level msg fix]}]

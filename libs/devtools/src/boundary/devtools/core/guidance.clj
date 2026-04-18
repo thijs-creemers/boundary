@@ -1,7 +1,8 @@
 (ns boundary.devtools.core.guidance
   "Pure functions for the guidance engine.
    Renders contextual help messages, startup dashboards, and tips.
-   No I/O, no logging — all pure data transformations.")
+   No I/O, no logging — all pure data transformations."
+  (:require [clojure.string]))
 
 ;; =============================================================================
 ;; Guidance levels

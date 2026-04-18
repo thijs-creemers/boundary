@@ -16,7 +16,12 @@
              [boundary.tools.bou-15      :as bou-15]
              [boundary.tools.check-fcis  :as check-fcis]
              [boundary.tools.check-tests :as check-tests]
-             [boundary.tools.check-deps  :as check-deps])
+             [boundary.tools.check-deps  :as check-deps]
+             [boundary.tools.doctor-env  :as doctor-env]
+             [boundary.tools.db          :as db]
+             [boundary.tools.check       :as check]
+             [boundary.tools.quickstart  :as quickstart]
+             [boundary.tools.help        :as help])
 
   scaffold      {:doc "Interactive module scaffolding wizard (bb scaffold [generate|new|field|endpoint|adapter|ai])"
                  :task (apply scaffold/-main *command-line-args*)}
@@ -26,6 +31,20 @@
                  :task (apply ai/-main *command-line-args*)}
   doctor        {:doc "Validate config for common mistakes (bb doctor [--env prod] [--ci])"
                  :task (apply doctor/-main *command-line-args*)}
+  doctor:env    {:doc "Check development environment prerequisites (Java, Clojure CLI, ports, AI providers)"
+                 :task (apply doctor-env/-main *command-line-args*)}
+  check         {:doc "Run all quality checks: FC/IS, deps, placeholder-tests, kondo, doctor (bb check [--quick] [--fix] [--ci])"
+                 :task (apply check/-main *command-line-args*)}
+  db:status     {:doc "Show database configuration, connection info, and migration status"
+                 :task (db/-main "status")}
+  db:reset      {:doc "Drop and recreate the database with all migrations (interactive confirmation)"
+                 :task (db/-main "reset")}
+  db:seed       {:doc "Seed database from resources/seeds/dev.edn"
+                 :task (db/-main "seed")}
+  quickstart    {:doc "Zero-to-running-app setup: check env, configure, scaffold, migrate, start"
+                 :task (apply quickstart/-main *command-line-args*)}
+  help          {:doc "Contextual help and guidance (bb help [next|scaffold|testing|database|fcis|config|error <code>])"
+                 :task (apply help/-main *command-line-args*)}
   setup         {:doc "Interactive config setup wizard (bb setup [ai <description>])"
                  :task (apply setup/-main *command-line-args*)}
   scaffold:integrate {:doc "Wire a scaffolded module into deps.edn, tests.edn, wiring.clj"
