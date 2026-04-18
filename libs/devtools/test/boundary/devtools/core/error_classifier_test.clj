@@ -60,13 +60,20 @@
       (is (= "BND-201" (:code result))))))
 
 (deftest ^:unit classify-configuration-error-test
-  (testing "configuration error with :required-env-var → BND-101"
+  (testing "JWT_SECRET configuration error → BND-103"
     (let [ex (ex-info "JWT_SECRET not configured"
                       {:type :configuration-error :required-env-var "JWT_SECRET"})
           result (classifier/classify ex)]
-      (is (= "BND-101" (:code result)))
+      (is (= "BND-103" (:code result)))
       (is (= :config (:category result)))
       (is (= :ex-data-pattern (:source result)))))
+
+  (testing "other missing env var → BND-101"
+    (let [ex (ex-info "DATABASE_URL not configured"
+                      {:type :configuration-error :required-env-var "DATABASE_URL"})
+          result (classifier/classify ex)]
+      (is (= "BND-101" (:code result)))
+      (is (= :config (:category result)))))
 
   (testing "configuration error without :required-env-var stays unclassified"
     (let [ex (ex-info "Tenant schema provider not configured"

@@ -40,9 +40,19 @@
       false)))
 
 (defmethod run-action! :set-env
-  [_ {:keys [var-name value]}]
-  (when (and var-name value)
-    (set-process-env! var-name value)))
+  [_ {:keys [var-name value required-env-var]}]
+  (let [env-name (or var-name required-env-var)]
+    (if-not env-name
+      (do (println "No environment variable name found in error data.")
+          false)
+      (if value
+        (set-process-env! env-name value)
+        (do (print (str "Value for " env-name ": "))
+            (flush)
+            (if-let [input (not-empty (read-line))]
+              (set-process-env! env-name input)
+              (do (println "No value provided. Aborted.")
+                  false)))))))
 
 (defmethod run-action! :set-jwt
   [_ _params]

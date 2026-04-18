@@ -47,6 +47,10 @@
         {:code "BND-402" :category :auth :data data :source :ex-data-pattern}
 
         (and (= :configuration-error (:type data))
+             (= "JWT_SECRET" (:required-env-var data)))
+        {:code "BND-103" :category :config :data data :source :ex-data-pattern}
+
+        (and (= :configuration-error (:type data))
              (:required-env-var data))
         {:code "BND-101" :category :config :data data :source :ex-data-pattern}
 
