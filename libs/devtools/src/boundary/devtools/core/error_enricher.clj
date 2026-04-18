@@ -6,7 +6,8 @@
    if any enrichment step fails, that field is omitted rather than
    crashing the pipeline."
   (:require [boundary.devtools.core.stacktrace :as stacktrace]
-            [boundary.devtools.core.auto-fix :as auto-fix]))
+            [boundary.devtools.core.auto-fix :as auto-fix]
+            [boundary.core.validation.messages :as messages]))
 
 (defn- safe-call
   "Call f, returning its result or nil if it throws."
@@ -25,13 +26,24 @@
 
    Each field is independently protected: if a sub-call fails,
    that field is omitted from the result."
-  [{:keys [code exception] :as classified}]
+  [{:keys [code exception data] :as classified}]
   (let [trace       (safe-call #(when exception (stacktrace/filter-stacktrace exception)))
         fix         (safe-call #(auto-fix/match-fix classified))
+        suggestions (safe-call
+                     #(when (and data (:value data) (:allowed-values data))
+                        (let [suggestion (messages/suggest-similar-value
+                                          (str (:value data))
+                                          (map str (:allowed-values data))
+                                          {})]
+                          (when suggestion
+                            [(messages/create-did-you-mean-suggestion
+                              {:allowed (:allowed-values data)
+                               :suggestion suggestion})]))))
         dashboard   (when code "http://localhost:9999/dashboard/errors")
         docs        (when code (str "https://boundary.dev/errors/" code))]
     (cond-> classified
-      trace     (assoc :stacktrace trace)
-      fix       (assoc :fix fix)
-      dashboard (assoc :dashboard-url dashboard)
-      docs      (assoc :docs-url docs))))
+      trace       (assoc :stacktrace trace)
+      fix         (assoc :fix fix)
+      suggestions (assoc :suggestions suggestions)
+      dashboard   (assoc :dashboard-url dashboard)
+      docs        (assoc :docs-url docs))))

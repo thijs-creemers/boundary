@@ -97,34 +97,41 @@
 
 (defn format-enriched-error
   "Format a fully enriched error map for rich development output.
-   Combines the BND code header, stack trace, and auto-fix suggestion."
-  [{:keys [code stacktrace fix dashboard-url docs-url]}]
-  (let [error-def  (codes/lookup code)
-        title      (or (:title error-def) "Error")
-        lines      (cond-> [(separator code title)]
-                     (:description error-def)
-                     (conj (:description error-def))
+   Combines the BND code header, stack trace, and auto-fix suggestion.
 
-                     true (conj "")
+   opts (optional):
+     :guidance-level — :full (default), :minimal, or :off
+     At :off, auto-fix hints and dashboard/docs links are suppressed."
+  ([enriched] (format-enriched-error enriched {}))
+  ([{:keys [code stacktrace fix dashboard-url docs-url]} {:keys [guidance-level]
+                                                          :or {guidance-level :full}}]
+   (let [error-def    (codes/lookup code)
+         title        (or (:title error-def) "Error")
+         show-hints?  (not= guidance-level :off)
+         lines        (cond-> [(separator code title)]
+                        (:description error-def)
+                        (conj (:description error-def))
 
-                     stacktrace
-                     (conj (stacktrace/format-stacktrace stacktrace))
+                        true (conj "")
 
-                     stacktrace (conj "")
+                        stacktrace
+                        (conj (stacktrace/format-stacktrace stacktrace))
 
-                     (:fix error-def)
-                     (conj (str "Fix: " (:fix error-def)))
+                        stacktrace (conj "")
 
-                     fix
-                     (conj (str "\nAuto-fix: (fix!)  \u2014 " (:label fix)))
+                        (:fix error-def)
+                        (conj (str "Fix: " (:fix error-def)))
 
-                     true (conj "")
+                        (and show-hints? fix)
+                        (conj (str "\nAuto-fix: (fix!)  \u2014 " (:label fix)))
 
-                     dashboard-url (conj (str "Dashboard: " dashboard-url))
-                     docs-url      (conj (str "Docs: " docs-url))
+                        true (conj "")
 
-                     true (conj (apply str (repeat 65 "\u2501"))))]
-    (str/join "\n" (remove nil? lines))))
+                        (and show-hints? dashboard-url) (conj (str "Dashboard: " dashboard-url))
+                        (and show-hints? docs-url)      (conj (str "Docs: " docs-url))
+
+                        true (conj (apply str (repeat 65 "\u2501"))))]
+     (str/join "\n" (remove nil? lines)))))
 
 (defn format-unclassified-error
   "Format an unclassified error with a fallback message and AI hint."

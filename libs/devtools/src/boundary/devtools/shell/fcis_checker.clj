@@ -30,9 +30,21 @@
       (nth parts 1))))
 
 (defn- ns-requires
-  "Get all required namespaces for a namespace object."
+  "Get all required namespaces for a namespace object.
+   Checks both ns-aliases (aliased requires) and the ns publics/refers
+   to catch bare :require and :refer imports."
   [ns-obj]
-  (map ns-name (vals (ns-aliases ns-obj))))
+  (distinct
+   (concat
+      ;; Aliased requires (e.g., [foo.bar :as bar])
+    (map ns-name (vals (ns-aliases ns-obj)))
+      ;; All namespaces that contributed vars to this ns via :refer or :require
+    (->> (ns-refers ns-obj)
+         vals
+         (map #(-> % meta :ns))
+         (remove nil?)
+         (map ns-name)
+         distinct))))
 
 (defn find-violations
   "Scan loaded namespaces for FC/IS violations.

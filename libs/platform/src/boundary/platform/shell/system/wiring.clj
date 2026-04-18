@@ -348,24 +348,7 @@
         handler (compile-routes router all-normalized-routes router-config)
 
         ;; Wrap handler with version headers middleware
-        versioned-handler (http-versioning/wrap-handler-with-version-headers handler config)
-
-        ;; In dev mode, wrap with error enrichment middleware (devtools)
-        ;; Uses dynamic require to avoid compile-time dependency on libs/devtools
-        profile (:boundary/profile config)
-        final-handler (if (= :dev profile)
-                        (try
-                          (require 'boundary.devtools.shell.http-error-middleware)
-                          (let [wrap-dev (ns-resolve 'boundary.devtools.shell.http-error-middleware
-                                                     'wrap-dev-error-enrichment)]
-                            (if wrap-dev
-                              (do (log/info "Dev error enrichment middleware active")
-                                  (wrap-dev versioned-handler))
-                              versioned-handler))
-                          (catch Exception _
-                            ;; devtools not on classpath (production build) — skip silently
-                            versioned-handler))
-                        versioned-handler)]
+        versioned-handler (http-versioning/wrap-handler-with-version-headers handler config)]
 
     (log/info "Top-level HTTP handler initialized successfully"
               {:user-routes {:static (count (or user-static-routes []))
@@ -385,7 +368,7 @@
                :router-adapter (class router)
                :system-services (keys system)
                :api-versioning-enabled true})
-    final-handler))
+    versioned-handler))
 
 (defmethod ig/halt-key! :boundary/http-handler
   [_ _handler]

@@ -186,8 +186,19 @@
                                 extra-middleware []}}]
   (let [common-routes (concat (health-routes config additional-health-checks)
                               (api-docs-routes config))
+        ;; In dev mode, inject devtools error enrichment INSIDE the exception handler.
+        ;; Reitit applies middleware last=outermost, so dev middleware goes before
+        ;; wrap-exception-handling: it catches exceptions, enriches ex-data with
+        ;; :dev-info, re-throws, then exception handler includes :dev-info in RFC 7807.
+        dev-error-middleware (when (= :dev (:boundary/profile config))
+                               (try
+                                 (require 'boundary.devtools.shell.http-error-middleware)
+                                 (ns-resolve 'boundary.devtools.shell.http-error-middleware
+                                             'wrap-dev-error-enrichment)
+                                 (catch Exception _ nil)))
         enhanced-middleware (concat default-middleware
                                     extra-middleware
+                                    (when dev-error-middleware [dev-error-middleware])
                                     [(http-middleware/wrap-exception-handling error-mappings)])
         enhanced-route-data (assoc route-data :middleware enhanced-middleware)
         ;; Separate routes that should be under /api from root-level routes

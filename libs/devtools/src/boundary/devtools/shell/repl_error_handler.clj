@@ -14,13 +14,18 @@
   "Run the full error pipeline on an exception and print the result.
    Stores the exception in last-exception* for (fix!) to access.
    Pipeline: classify → enrich → format → print
-   Falls back to standard output + AI hint for unclassified errors."
-  [^Throwable exception]
-  (when exception
-    (reset! last-exception* exception)
-    (let [classified (classifier/classify exception)]
-      (if (:code classified)
-        (let [enriched  (enricher/enrich classified)
-              formatted (formatter/format-enriched-error enriched)]
-          (println formatted))
-        (println (formatter/format-unclassified-error exception))))))
+   Falls back to standard output + AI hint for unclassified errors.
+
+   opts (optional):
+     :guidance-level — controls fix-hint visibility in output"
+  ([^Throwable exception]
+   (handle-repl-error! exception {}))
+  ([^Throwable exception {:keys [guidance-level] :or {guidance-level :full}}]
+   (when exception
+     (reset! last-exception* exception)
+     (let [classified (classifier/classify exception)]
+       (if (:code classified)
+         (let [enriched  (enricher/enrich classified)
+               formatted (formatter/format-enriched-error enriched {:guidance-level guidance-level})]
+           (println formatted))
+         (println (formatter/format-unclassified-error exception)))))))

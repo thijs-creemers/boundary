@@ -51,6 +51,8 @@
 ;; REPL Convenience Functions
 ;; =============================================================================
 
+(declare guidance)
+
 (defn halt
   "Stop the system."
   []
@@ -65,7 +67,7 @@
       (fcis/check-fcis-violations!)
       result)
     (catch Exception e
-      (repl-errors/handle-repl-error! e)
+      (repl-errors/handle-repl-error! e {:guidance-level (guidance)})
       (fcis/check-fcis-violations!)
       (throw e))))
 
@@ -214,7 +216,7 @@
   [& body]
   `(try ~@body
         (catch Exception e#
-          (repl-errors/handle-repl-error! e#)
+          (repl-errors/handle-repl-error! e# {:guidance-level (guidance)})
           (throw e#))))
 
 (defn fix!
@@ -412,7 +414,7 @@
       (maybe-show-tip :start)
       result)
     (catch Exception e
-      (repl-errors/handle-repl-error! e)
+      (repl-errors/handle-repl-error! e {:guidance-level (guidance)})
       (fcis/check-fcis-violations!)
       (throw e))))
 
