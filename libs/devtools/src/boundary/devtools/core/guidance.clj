@@ -143,11 +143,11 @@
                {:name "(test-module :m :unit)" :desc "Run with tier filter"}
                {:name "(lint)"                 :desc "Run clj-kondo"}
                {:name "(check-all)"            :desc "Run all quality checks"}]
-   :help      [{:name "(commands)"     :desc "Show this list"}
-               {:name "(doc :topic)"   :desc "In-REPL documentation"}
-               {:name "(doc :topics)"  :desc "List available topics"}
-               {:name "(next-steps)"   :desc "What should you do next?"}
-               {:name "(guidance lv)"  :desc "Set guidance level"}]})
+   :help      [{:name "(commands)"       :desc "Show this list"}
+               {:name "(guide :topic)"   :desc "Boundary topic guide"}
+               {:name "(guide :topics)"  :desc "List available topics"}
+               {:name "(next-steps)"     :desc "What should you do next?"}
+               {:name "(guidance lv)"    :desc "Set guidance level"}]})
 
 (defn format-commands
   "Format the command palette as a string."

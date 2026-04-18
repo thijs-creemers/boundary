@@ -318,16 +318,16 @@
 ;; Phase 2: REPL Power — Documentation & Guidance
 ;; =============================================================================
 
-(defn doc
-  "Look up in-REPL documentation for a topic.
-   (doc :scaffold)       ; scaffolding guide
-   (doc :fcis)           ; FC/IS architecture
-   (doc :topics)         ; list all topics"
+(defn guide
+  "Look up in-REPL documentation for a Boundary topic.
+   (guide :scaffold)       ; scaffolding guide
+   (guide :fcis)           ; FC/IS architecture
+   (guide :topics)         ; list all topics"
   [topic]
   (if (= topic :topics)
     (do (println "Available topics:")
         (doseq [t (docs/list-topics)]
-          (println (str "  (doc :" (name t) ")"))))
+          (println (str "  (guide :" (name t) ")"))))
     (println (devtools-repl/show-doc topic))))
 
 (defn next-steps
@@ -373,7 +373,7 @@
 (println "\u2502 (status)     System health overview           \u2502")
 (println "\u2502 (routes)     Show HTTP routes                 \u2502")
 (println "\u2502 (commands)   All available commands            \u2502")
-(println "\u2502 (doc :topics) Browse documentation            \u2502")
+(println "\u2502 (guide :topics) Browse documentation          \u2502")
 (println "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n")
 
 (comment
@@ -386,7 +386,7 @@
   (simulate :get "/api/v1/users")
   (query :users)
   (schema [:map [:id :uuid] [:name :string]])
-  (doc :topics)
+  (guide :topics)
   (commands)
   (modules)
   (guidance)

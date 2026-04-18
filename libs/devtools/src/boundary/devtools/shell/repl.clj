@@ -77,7 +77,10 @@
         all-headers (merge base-headers headers)
         request (cond-> {:request-method (keyword (str/lower-case (name method)))
                          :uri            path
-                         :headers        all-headers}
+                         :headers        all-headers
+                         :server-name    "localhost"
+                         :server-port    3000
+                         :scheme         :http}
                   query-params (assoc :query-string (encode-query-string query-params))
                   body
                   (assoc :body
