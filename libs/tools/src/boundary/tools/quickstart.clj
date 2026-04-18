@@ -67,17 +67,13 @@
   (println)
   (println "  Next steps:")
   (println "    1. Start the REPL:  " (bold "clojure -M:repl-clj"))
-  (println "    2. In the REPL:     " (bold "(require '[integrant.repl :as ig-repl]) (ig-repl/go)"))
-  (println "    3. Open browser:    " (bold "http://localhost:3000"))
-  (println)
-  (println "  Once running:")
-  (println "    Web:       " (bold "http://localhost:3000"))
-  (println "    Admin:     " (bold "http://localhost:3000/admin"))
-  (println "    nREPL:     " (bold "port 7888"))
+  (println "    2. In the REPL:     " (bold "(go)"))
+  (println "    3. The startup dashboard will show you the URLs and ports")
   (println)
   (println "  Useful commands:")
   (println "    " (bold "bb scaffold") "   — create more modules")
   (println "    " (bold "bb guide") "      — contextual help and guidance")
+  (println "    " (bold "(status)") "      — in the REPL, show URLs and health")
   (println "    " (bold "(commands)") "    — in the REPL, see all helpers")
   (println))
 
@@ -94,32 +90,36 @@
     (print-banner)
 
     ;; Step 1: Check environment prerequisites (critical — abort on failure)
-    (run-step 1 6 "Checking development environment"
+    (run-step 1 7 "Checking development environment"
               ["bb" "doctor:env" "--ci"])
 
     ;; Step 2: Run setup
     (if preset
       (do (println (dim (str "\n  Using preset: " preset-name " (" (:description preset) ")")))
-          (run-step 2 6 "Running configuration setup"
+          (run-step 2 7 "Running configuration setup"
                     ["bb" "setup" "--database" (:database preset)]))
-      (run-step 2 6 "Running configuration setup"
+      (run-step 2 7 "Running configuration setup"
                 ["bb" "setup"]))
 
     ;; Step 3: Validate configuration (critical — abort on failure)
-    (run-step 3 6 "Validating configuration"
+    (run-step 3 7 "Validating configuration"
               ["bb" "doctor" "--ci"])
 
-    ;; Step 4: Scaffold a sample module (non-critical — continue on failure)
-    (run-step 4 6 "Scaffolding sample module"
-              ["bb" "scaffold" "generate" "tasks" "title:string" "done:boolean"]
-              :continue? true)
+    ;; Step 4: Scaffold and integrate a sample module (non-critical — continue on failure)
+    (let [scaffolded? (run-step 4 7 "Scaffolding sample module"
+                                ["bb" "scaffold" "generate" "tasks" "title:string" "done:boolean"]
+                                :continue? true)]
+      (when scaffolded?
+        (run-step 5 7 "Integrating sample module into project"
+                  ["bb" "scaffold" "integrate" "tasks"]
+                  :continue? true)))
 
-    ;; Step 5: Run migrations (critical — abort on failure)
-    (run-step 5 6 "Running database migrations"
+    ;; Step 6: Run migrations (critical — abort on failure)
+    (run-step 6 7 "Running database migrations"
               ["bb" "migrate" "up"])
 
-    ;; Step 6: Verify project structure
-    (run-step 6 6 "Verifying project structure"
+    ;; Step 7: Verify project structure
+    (run-step 7 7 "Verifying project structure"
               ["bb" "smoke-check"])
 
     (print-success)))

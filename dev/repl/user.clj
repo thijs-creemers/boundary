@@ -113,6 +113,20 @@
     "api-versioning" "pagination" "logging" "metrics" "error-reporting"
     "http-server" "db-context"})
 
+(defn- actual-http-port
+  "Get the actual port the HTTP server is listening on.
+   Falls back to configured port if server object isn't accessible."
+  []
+  (let [sys (system)
+        server (get sys :boundary/http-server)]
+    (if server
+      (try
+        (let [connector (first (.getConnectors server))]
+          (.getLocalPort connector))
+        (catch Exception _
+          (or (get-in (config) [:boundary/http :port]) 3000)))
+      (or (get-in (config) [:boundary/http :port]) 3000))))
+
 (defn status
   "Show system health overview."
   []
@@ -121,9 +135,8 @@
     (if (nil? sys)
       (println "System not running. Start with (go)")
       (let [cfg        (config)
-            http-cfg   (get cfg :boundary/http)
-            http-port  (or (:port http-cfg) 3000)
-            http-host  (or (:host http-cfg) "localhost")
+            http-port  (actual-http-port)
+            http-host  (or (get-in cfg [:boundary/http :host]) "localhost")
             admin-cfg  (get cfg :boundary/admin)
             admin-path (or (:base-path admin-cfg) "/admin")
             base-url   (str "http://" (if (= http-host "0.0.0.0") "localhost" http-host)
