@@ -179,6 +179,19 @@
   (println (guidance/format-commands)))
 
 ;; =============================================================================
+;; Contextual Tips
+;; =============================================================================
+
+(defn- maybe-show-tip
+  "Show a contextual tip if guidance is :full and a tip is available."
+  [context]
+  (when (= :full (guidance))
+    (let [shown (:shown-tips @guidance-state*)]
+      (when-let [[tip new-shown] (guidance/pick-tip context shown)]
+        (swap! guidance-state* assoc :shown-tips new-shown)
+        (println (guidance/format-tip tip :full))))))
+
+;; =============================================================================
 ;; Phase 2: REPL Power — Route Introspection
 ;; =============================================================================
 
@@ -266,35 +279,18 @@
   (schema-tools/generate-example schema-def))
 
 ;; =============================================================================
-;; Phase 2: REPL Power — Handler Tracing
-;; =============================================================================
-
-(defn trace
-  "Set a trace on a handler to log requests.
-   (trace :create-user)"
-  [handler-name]
-  (println (devtools-repl/set-trace! handler-name)))
-
-(defn untrace
-  "Remove a trace from a handler.
-   (untrace :create-user)"
-  [handler-name]
-  (println (devtools-repl/remove-trace! handler-name)))
-
-;; =============================================================================
 ;; Phase 2: REPL Power — Quality Tools
 ;; =============================================================================
 
 (defn test-module
   "Run tests for a module from the REPL.
+   Requires the :test alias on the classpath (start REPL with -M:repl-clj:test).
    (test-module :user)
    (test-module :user :unit)"
   ([module]
    (test-module module nil))
   ([module tier]
-   (let [result (devtools-repl/run-tests module tier)]
-     (maybe-show-tip :test)
-     result)))
+   (devtools-repl/run-tests module tier)))
 
 (defn lint
   "Run clj-kondo from the REPL."
@@ -345,19 +341,6 @@
                                    :fix "  bb migrate up"}))
                               (catch Exception _ nil)))])]
     (println (state-analyzer/format-findings findings module-count))))
-
-;; =============================================================================
-;; Contextual Tips
-;; =============================================================================
-
-(defn- maybe-show-tip
-  "Show a contextual tip if guidance is :full and a tip is available."
-  [context]
-  (when (= :full (guidance))
-    (let [shown (:shown-tips @guidance-state*)]
-      (when-let [[tip new-shown] (guidance/pick-tip context shown)]
-        (swap! guidance-state* assoc :shown-tips new-shown)
-        (println (guidance/format-tip tip :full))))))
 
 ;; =============================================================================
 ;; Enhanced System Lifecycle with Guidance

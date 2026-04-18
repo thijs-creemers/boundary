@@ -167,20 +167,27 @@
 
 (defn run-tests
   "Run Kaocha tests for the given module keyword and optional meta filter keyword.
-   Uses dynamic require/resolve so kaocha.repl need not be on the compile-time classpath."
+   Requires the :test alias on the classpath. Returns nil with a message when
+   Kaocha is not available."
   [module meta-filter]
-  (require 'kaocha.repl)
-  (let [run-fn (resolve 'kaocha.repl/run)
-        opts   (cond-> {:kaocha/reporter [:documentation]}
-                 meta-filter (assoc :kaocha.filter/focus-meta [meta-filter]))]
-    (run-fn module opts)))
+  (try
+    (require 'kaocha.repl)
+    (let [run-fn (resolve 'kaocha.repl/run)
+          opts   (cond-> {:kaocha/reporter [:documentation]}
+                   meta-filter (assoc :kaocha.filter/focus-meta [meta-filter]))]
+      (run-fn module opts))
+    (catch java.io.FileNotFoundException _
+      (println "Kaocha is not on the classpath.")
+      (println "Start your REPL with the :test alias: clojure -M:repl-clj:test:db/h2")
+      nil)))
 
 (defn run-lint
   "Run clj-kondo linting across src, test, and all library sources.
+   Uses a shell wrapper so glob patterns are expanded correctly.
    Returns {:exit <int> :output <string>}."
   []
-  (let [result (shell/sh "clojure" "-M:clj-kondo"
-                         "--lint" "src" "test" "libs/*/src" "libs/*/test")]
+  (let [result (shell/sh "bash" "-c"
+                         "clojure -M:clj-kondo --lint src test libs/*/src libs/*/test")]
     {:exit   (:exit result)
      :output (str (:out result) (:err result))}))
 

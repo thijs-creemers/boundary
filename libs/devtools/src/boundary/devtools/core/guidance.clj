@@ -138,9 +138,7 @@
                {:name "(validate s data)"      :desc "Validate against schema"}
                {:name "(generate s)"           :desc "Generate example from schema"}]
    :debug     [{:name "(simulate :get path)"   :desc "Simulate HTTP request"}
-               {:name "(simulate :post p opts)" :desc "POST with body"}
-               {:name "(trace :handler)"       :desc "Enable handler trace"}
-               {:name "(untrace :handler)"     :desc "Disable handler trace"}]
+               {:name "(simulate :post p opts)" :desc "POST with body"}]
    :quality   [{:name "(test-module :mod)"     :desc "Run module tests"}
                {:name "(test-module :m :unit)" :desc "Run with tier filter"}
                {:name "(lint)"                 :desc "Run clj-kondo"}
