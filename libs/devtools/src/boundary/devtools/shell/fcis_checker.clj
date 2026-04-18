@@ -45,7 +45,8 @@
           resource (io/resource path)]
       (when resource
         (with-open [rdr (io/reader resource)]
-          (let [ns-form (read (java.io.PushbackReader. rdr))]
+          (let [ns-form (binding [*read-eval* false]
+                          (read (java.io.PushbackReader. rdr)))]
             (->> ns-form
                  (filter #(and (sequential? %) (= :require (first %))))
                  (mapcat rest)

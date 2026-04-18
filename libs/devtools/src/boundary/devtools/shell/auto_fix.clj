@@ -28,13 +28,16 @@
     (let [env-file (io/file ".env")
           existing (when (.exists env-file) (slurp env-file))
           prefix   (str var-name "=")
+          ;; Also match quoted form: VAR="value"
+          q-prefix (str var-name "=\"")
           filtered (when existing
                      (->> (str/split-lines existing)
-                          (remove #(str/starts-with? % prefix))
+                          (remove #(or (str/starts-with? % prefix)
+                                       (str/starts-with? % q-prefix)))
                           (str/join "\n")))
           content  (str (when (and filtered (not (str/blank? filtered)))
                           (str filtered "\n"))
-                        var-name "=" value "\n")]
+                        var-name "=\"" value "\"\n")]
       (spit env-file content)
       (println (str "Written to .env: " var-name "=..."))
       (println "Restart the REPL to pick it up:")

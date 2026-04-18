@@ -95,7 +95,7 @@
       (is (str/includes? output "Restart the REPL"))
       (when (.exists env-file)
         (let [content (slurp env-file)]
-          (is (str/includes? content "JWT_SECRET=dev-secret-")))))))
+          (is (str/includes? content "JWT_SECRET=\"dev-secret-")))))))
 
 (deftest ^:integration set-env-reads-required-env-var-test
   (testing ":set-env reads :required-env-var from ex-data params"
@@ -111,4 +111,4 @@
       (is (str/includes? output "Written to .env"))
       (when (.exists env-file)
         (let [content (slurp env-file)]
-          (is (str/includes? content "DATABASE_URL=postgres://localhost/dev")))))))
+          (is (str/includes? content "DATABASE_URL=\"postgres://localhost/dev\"")))))))

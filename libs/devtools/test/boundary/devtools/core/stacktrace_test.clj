@@ -59,11 +59,11 @@
 
 (deftest ^:unit format-stacktrace-test
   (let [filtered {:user-frames [{:ns "boundary.product.core.validation"
-                                 :fn "validate"
+                                 :fn-name "validate"
                                  :file "validation.clj"
                                  :line 15}]
-                  :framework-frames [{:ns "ring.middleware.params" :fn "wrap" :file "params.clj" :line 10}]
-                  :jvm-frames [{:ns "java.lang.Thread" :fn "run" :file "Thread.java" :line 829}]
+                  :framework-frames [{:ns "ring.middleware.params" :fn-name "wrap" :file "params.clj" :line 10}]
+                  :jvm-frames [{:ns "java.lang.Thread" :fn-name "run" :file "Thread.java" :line 829}]
                   :total-hidden 2}
         output (st/format-stacktrace filtered)]
 

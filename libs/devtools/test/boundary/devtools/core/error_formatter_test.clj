@@ -9,7 +9,7 @@
                     :category :validation
                     :data {:schema :user/create}
                     :stacktrace {:user-frames [{:ns "boundary.user.core.validation"
-                                                :fn "validate"
+                                                :fn-name "validate"
                                                 :file "validation.clj"
                                                 :line 42}]
                                  :framework-frames []

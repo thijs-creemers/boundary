@@ -24,10 +24,10 @@
 (defn- stack-element->map
   "Convert a StackTraceElement to a map."
   [^StackTraceElement element]
-  {:ns   (.getClassName element)
-   :fn   (.getMethodName element)
-   :file (.getFileName element)
-   :line (.getLineNumber element)})
+  {:ns      (.getClassName element)
+   :fn-name (.getMethodName element)
+   :file    (.getFileName element)
+   :line    (.getLineNumber element)})
 
 (defn filter-stacktrace
   "Filter and reorder an exception's stack trace.
@@ -45,8 +45,8 @@
 
 (defn- format-frame
   "Format a single stack frame as a string."
-  [{:keys [ns fn file line]}]
-  (str ns "/" fn " (" file ":" line ")"))
+  [{:keys [ns fn-name file line]}]
+  (str ns "/" fn-name " (" file ":" line ")"))
 
 (defn format-stacktrace
   "Format a filtered stack trace for display."
