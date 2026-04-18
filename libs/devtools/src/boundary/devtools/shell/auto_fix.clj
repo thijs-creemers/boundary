@@ -2,7 +2,9 @@
   "Execute fix descriptors — side-effecting operations.
    This is a shell namespace: it runs migrations, sets env vars, etc.
    The safety gate (safe? false → always confirm) is never overridden by guidance level."
-  (:require [clojure.java.shell :as shell]))
+  (:require [clojure.java.io :as io]
+            [clojure.java.shell :as shell]
+            [clojure.string :as str]))
 
 (defmulti run-action!
   "Execute a specific fix action. Dispatches on :action keyword."
@@ -16,27 +18,30 @@
     (when (and (seq err) (not (zero? exit))) (println err))
     (zero? exit)))
 
-(defn- set-process-env!
-  "Set a process environment variable using reflection.
-   Aero #env reads from System/getenv, not System/getProperty,
-   so we must modify the process environment directly.
-   Returns false if reflection fails (JDK 9+ module restrictions)."
+(defn- write-env-var!
+  "Write var=value to .env in the project root.
+   Creates the file if it doesn't exist; appends if it does,
+   replacing any existing line for the same variable.
+   Returns true on success."
   [var-name value]
   (try
-    ;; Access the internal ProcessEnvironment map via reflection
-    (let [env-class (Class/forName "java.lang.ProcessEnvironment")
-          field (doto (.getDeclaredField env-class "theUnmodifiableEnvironment")
-                  (.setAccessible true))
-          unmodifiable-env (.get field nil)
-          map-field (doto (.getDeclaredField (.getClass unmodifiable-env) "m")
-                      (.setAccessible true))
-          env-map (.get map-field unmodifiable-env)]
-      (.put env-map var-name value)
+    (let [env-file (io/file ".env")
+          existing (when (.exists env-file) (slurp env-file))
+          prefix   (str var-name "=")
+          filtered (when existing
+                     (->> (str/split-lines existing)
+                          (remove #(str/starts-with? % prefix))
+                          (str/join "\n")))
+          content  (str (when (and filtered (not (str/blank? filtered)))
+                          (str filtered "\n"))
+                        var-name "=" value "\n")]
+      (spit env-file content)
+      (println (str "Written to .env: " var-name "=..."))
+      (println "Restart the REPL to pick it up:")
+      (println (str "  source .env && clojure -M:repl-clj"))
       true)
-    (catch Exception _
-      (println (str "Cannot set process env var on this JVM. "
-                    "Set it in your shell and restart the REPL:\n\n"
-                    "  export " var-name "=\"" value "\"\n"))
+    (catch Exception e
+      (println (str "Failed to write .env: " (.getMessage e)))
       false)))
 
 (defmethod run-action! :set-env
@@ -46,18 +51,18 @@
       (do (println "No environment variable name found in error data.")
           false)
       (if value
-        (set-process-env! env-name value)
+        (write-env-var! env-name value)
         (do (print (str "Value for " env-name ": "))
             (flush)
             (if-let [input (not-empty (read-line))]
-              (set-process-env! env-name input)
+              (write-env-var! env-name input)
               (do (println "No value provided. Aborted.")
                   false)))))))
 
 (defmethod run-action! :set-jwt
   [_ _params]
   (let [secret (str "dev-secret-" (System/currentTimeMillis) "-boundary")]
-    (set-process-env! "JWT_SECRET" secret)))
+    (write-env-var! "JWT_SECRET" secret)))
 
 (defmethod run-action! :integrate-module
   [_ {:keys [module-name]}]
