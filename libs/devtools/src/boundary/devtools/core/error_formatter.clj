@@ -98,7 +98,7 @@
 (defn format-enriched-error
   "Format a fully enriched error map for rich development output.
    Combines the BND code header, stack trace, and auto-fix suggestion."
-  [{:keys [code category data stacktrace fix dashboard-url docs-url]}]
+  [{:keys [code stacktrace fix dashboard-url docs-url]}]
   (let [error-def  (codes/lookup code)
         title      (or (:title error-def) "Error")
         lines      (cond-> [(separator code title)]

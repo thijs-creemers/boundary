@@ -6,7 +6,7 @@
 
 (defmulti run-action!
   "Execute a specific fix action. Dispatches on :action keyword."
-  (fn [action params] action))
+  (fn [action _params] action))
 
 (defmethod run-action! :migrate-up
   [_ _params]
