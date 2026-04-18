@@ -292,7 +292,9 @@
   ([module]
    (test-module module nil))
   ([module tier]
-   (devtools-repl/run-tests module tier)))
+   (let [result (devtools-repl/run-tests module tier)]
+     (maybe-show-tip :test)
+     result)))
 
 (defn lint
   "Run clj-kondo from the REPL."
@@ -345,6 +347,19 @@
     (println (state-analyzer/format-findings findings module-count))))
 
 ;; =============================================================================
+;; Contextual Tips
+;; =============================================================================
+
+(defn- maybe-show-tip
+  "Show a contextual tip if guidance is :full and a tip is available."
+  [context]
+  (when (= :full (guidance))
+    (let [shown (:shown-tips @guidance-state*)]
+      (when-let [[tip new-shown] (guidance/pick-tip context shown)]
+        (swap! guidance-state* assoc :shown-tips new-shown)
+        (println (guidance/format-tip tip :full))))))
+
+;; =============================================================================
 ;; Enhanced System Lifecycle with Guidance
 ;; =============================================================================
 
@@ -357,6 +372,7 @@
   []
   (let [result (ig-repl/go)]
     (print-startup-dashboard)
+    (maybe-show-tip :start)
     result))
 
 ;; =============================================================================
