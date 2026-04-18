@@ -38,7 +38,7 @@
 ;; =============================================================================
 
 (deftest inject-module-config-test
-  (testing "injects :boundary/tasks before :inactive section"
+  (testing "injects :boundary/tasks into single-module :active section"
     (let [tmp (java.io.File/createTempFile "config" ".edn")
           path (.getAbsolutePath tmp)]
       (try
@@ -56,6 +56,29 @@
         (finally
           (.delete tmp)))))
 
+  (testing "injects correctly into multi-module :active section"
+    (let [tmp (java.io.File/createTempFile "config" ".edn")
+          path (.getAbsolutePath tmp)]
+      (try
+        ;; Realistic config: multiple modules with nested maps
+        (spit path (str "{:active\n"
+                        " {:boundary/settings {:name \"test\"}\n"
+                        "  :boundary/http {:port 3000 :host \"0.0.0.0\"}\n"
+                        "  :boundary/admin {:enabled? true\n"
+                        "                   :base-path \"/web/admin\"}}\n"
+                        "\n"
+                        " :inactive\n"
+                        " {:boundary/cache {:provider :redis}}}\n"))
+        (is (true? (#'quickstart/inject-module-config path)))
+        (let [result (slurp path)]
+          (is (re-find #":boundary/tasks" result)
+              "config should contain :boundary/tasks")
+          ;; The snippet must NOT be inside another module's value map
+          (is (not (re-find #":boundary/admin \{[^}]*:boundary/tasks" result))
+              "tasks must not be nested inside admin config"))
+        (finally
+          (.delete tmp)))))
+
   (testing "skips injection when :boundary/tasks already present"
     (let [tmp (java.io.File/createTempFile "config" ".edn")
           path (.getAbsolutePath tmp)]
@@ -67,5 +90,14 @@
         (finally
           (.delete tmp)))))
 
-  (testing "returns false for non-existent file"
-    (is (nil? (#'quickstart/inject-module-config "/nonexistent/config.edn")))))
+  (testing "returns nil for non-existent file"
+    (is (nil? (#'quickstart/inject-module-config "/nonexistent/config.edn"))))
+
+  (testing "returns false when no :active section found"
+    (let [tmp (java.io.File/createTempFile "config" ".edn")
+          path (.getAbsolutePath tmp)]
+      (try
+        (spit path "{:some-key {:value 1}}")
+        (is (false? (#'quickstart/inject-module-config path)))
+        (finally
+          (.delete tmp))))))

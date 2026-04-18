@@ -79,7 +79,7 @@
             ;; Show a brief summary — last few meaningful lines
             summary  (->> lines
                           (remove str/blank?)
-                          (take-last 3))]
+                          (take-last 10))]
         (doseq [line summary]
           (println (dim (str "  " line))))))))
 

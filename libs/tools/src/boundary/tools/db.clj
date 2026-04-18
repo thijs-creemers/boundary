@@ -128,12 +128,19 @@
         (println)))))
 
 (defn db-reset
-  "Drop and recreate the database after confirmation."
+  "Drop and recreate the database after confirmation.
+   Only operates on the dev environment."
   []
+  (let [env (or (System/getenv "BND_ENV") "dev")]
+    (when (contains? #{"prod" "acc" "production"} env)
+      (println (red (str "  REFUSED: bb db:reset cannot run in " env " environment.")))
+      (println (dim "  This command is only for development use."))
+      (System/exit 1)))
   (println)
   (println (bold "Boundary Database Reset"))
+  (println (dim "  Environment: dev"))
   (println)
-  (println (yellow "  WARNING: This will DROP and recreate the database."))
+  (println (yellow "  WARNING: This will DROP and recreate the dev database."))
   (println (yellow "  All data will be lost."))
   (println)
   (print "  Continue? [y/N] ")
@@ -177,9 +184,13 @@
         (println (dim "    {:users [{:email \"admin@example.com\" :name \"Admin\"}]}"))
         (println))
       (do
-        (println (green (str "  Seeding from " (seed-path) "...")))
-        (println (dim "  (Seed loading mechanism TBD)"))
-        (println)))))
+        (println (yellow "  Seed file found but seeding is not yet implemented."))
+        (println (dim (str "  File: " (seed-path))))
+        (println)
+        (println (dim "  This feature will be added in a future release."))
+        (println (dim "  For now, load seed data manually via the REPL."))
+        (println)
+        (System/exit 1)))))
 
 ;; =============================================================================
 ;; Help

@@ -20,8 +20,10 @@
   "Run a shell command and return its stdout, or nil if the command fails."
   [& cmd-parts]
   (try
-    (let [result (process/shell {:out :string :err :string} (str/join " " cmd-parts))]
-      (str/trim (:out result)))
+    (let [result (process/shell {:out :string :err :string :continue true}
+                                (str/join " " cmd-parts))]
+      (when (zero? (:exit result))
+        (str/trim (:out result))))
     (catch Exception _
       nil)))
 
@@ -29,8 +31,10 @@
   "Run a shell command and return its stderr (some tools print version to stderr)."
   [& cmd-parts]
   (try
-    (let [result (process/shell {:out :string :err :string} (str/join " " cmd-parts))]
-      (str/trim (:err result)))
+    (let [result (process/shell {:out :string :err :string :continue true}
+                                (str/join " " cmd-parts))]
+      (when (zero? (:exit result))
+        (str/trim (:err result))))
     (catch Exception _
       nil)))
 

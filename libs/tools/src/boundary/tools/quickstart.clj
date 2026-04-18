@@ -39,9 +39,50 @@
        "  {:enabled? true\n"
        "   :base-path \"/api/tasks\"}\n"))
 
+(defn- find-active-closing-brace
+  "Find the index of the closing brace of the :active section using
+   brace-balanced walking. Returns the index in the original text, or nil."
+  [text]
+  ;; Find :active keyword in the text (not inside comments)
+  (let [active-idx (loop [pos 0]
+                     (let [idx (str/index-of text ":active" pos)]
+                       (cond
+                         (nil? idx) nil
+                         ;; Skip if inside a comment (check if line starts with ;)
+                         (let [line-start (let [li (.lastIndexOf ^String text "\n" (int idx))]
+                                            (if (neg? li) 0 li))
+                               line-text  (str/trim (subs text line-start idx))]
+                           (str/starts-with? line-text ";"))
+                         (recur (+ idx 7))
+                         ;; Skip :inactive
+                         (str/starts-with? (subs text idx) ":inactive")
+                         (recur (+ idx 9))
+                         :else idx)))]
+    (when active-idx
+      ;; Find the opening { of the :active value (skip past ":active\n {")
+      (let [open-idx (str/index-of text "{" (+ active-idx 7))]
+        (when open-idx
+          (loop [i     (inc open-idx)
+                 depth 1]
+            (cond
+              (>= i (count text)) nil
+              (zero? depth)       (dec i)
+              :else (let [c (nth text i)]
+                      (recur (inc i)
+                             (case c \{ (inc depth) \} (dec depth) depth))))))))))
+
+(defn- paren-repair
+  "Run clj-paren-repair on a file to fix any brace/paren imbalance."
+  [config-path]
+  (try
+    (process/shell {:continue true :out :string :err :string}
+                   "clj-paren-repair" config-path)
+    (catch Exception _ nil)))
+
 (defn- inject-module-config
   "Inject the sample module Integrant config into a config.edn file.
-   Inserts before the closing brace of the :active section.
+   Uses brace-balanced walking to find the :active section's closing brace,
+   inserts the snippet before it, then runs clj-paren-repair as a safety net.
    Returns true if injection succeeded."
   [config-path]
   (let [f (io/file config-path)]
@@ -49,18 +90,14 @@
       (let [text (slurp f)]
         (if (str/includes? text ":boundary/tasks")
           true ;; already present
-          ;; Find :inactive and insert before it
-          (let [idx (str/index-of text ":inactive")]
-            (if idx
-              ;; Insert before the closing brace of :active (the } just before :inactive)
-              (let [brace-idx (str/last-index-of text "}" idx)]
-                (if brace-idx
-                  (let [new-text (str (subs text 0 brace-idx)
-                                      sample-config-snippet
-                                      (subs text brace-idx))]
-                    (spit config-path new-text)
-                    true)
-                  false))
+          (let [brace-idx (find-active-closing-brace text)]
+            (if brace-idx
+              (let [new-text (str (subs text 0 brace-idx)
+                                  sample-config-snippet
+                                  (subs text brace-idx))]
+                (spit config-path new-text)
+                (paren-repair config-path)
+                true)
               false)))))))
 
 (defn inject-sample-module-config

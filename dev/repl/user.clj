@@ -14,7 +14,6 @@
   (:require [boundary.config :as config]
             [boundary.platform.shell.system.wiring]  ;; Load Integrant init/halt methods
             [boundary.devtools.core.guidance :as guidance]
-            [boundary.devtools.core.error-codes :as error-codes]
             [integrant.repl :as ig-repl]
             [integrant.repl.state :as state]
             [clojure.tools.logging :as log]))
@@ -40,11 +39,6 @@
 ;; =============================================================================
 ;; REPL Convenience Functions
 ;; =============================================================================
-
-(defn go
-  "Start the system."
-  []
-  (ig-repl/go))
 
 (defn halt
   "Stop the system."
@@ -182,11 +176,10 @@
   (when (= (guidance) :full)
     (status)))
 
-(def original-go go)
 (defn go
   "Start the system with guidance dashboard."
   []
-  (let [result (original-go)]
+  (let [result (ig-repl/go)]
     (print-startup-dashboard)
     result))
 
