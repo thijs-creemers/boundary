@@ -33,11 +33,18 @@ clone to a running application.
 A single command that orchestrates the full onboarding flow:
 
 1. Run `bb doctor:env` to check prerequisites
-2. Run `bb setup` interactively (or `--preset minimal` for non-interactive)
-3. Scaffold a sample module (e.g., "tasks")
-4. Run database migrations
-5. Start the system
-6. Open browser to `localhost:3000`
+2. Run `bb setup` interactively (or `--preset minimal|standard|sqlite` for non-interactive)
+3. Validate configuration via `bb doctor`
+4. Scaffold a sample module ("tasks" with title and done fields)
+5. Run database migrations
+6. Verify project structure via `bb smoke-check`
+
+Presets map to concrete setup flags: `minimal` = H2 in-memory, `standard` =
+PostgreSQL, `sqlite` = SQLite file-based.
+
+NOTE: Quickstart does not auto-start the system or open the browser. Starting a
+REPL is a long-running foreground process that belongs in the developer's
+terminal. The success output tells the user exactly what to do next.
 
 === `bb doctor:env` environment checker
 

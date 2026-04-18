@@ -40,6 +40,7 @@ bb ai docs --module libs/user --type agents                       # Generate AGE
 bb ai admin-entity "products with name, price, status"            # Generate admin entity EDN config
 bb doctor                          # Validate config for common mistakes
 bb doctor --env all --ci           # Check all envs, exit non-zero on error (CI)
+bb doctor --all                    # Run both config + environment checks combined
 bb doctor:env                      # Check development prerequisites (Java, CLI, ports, AI)
 bb check                           # Run ALL quality checks (fcis, deps, placeholder, kondo, doctor)
 bb check --quick                   # Fast subset (fcis + deps only)

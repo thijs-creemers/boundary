@@ -13,6 +13,20 @@
             [clojure.string :as str]))
 
 ;; =============================================================================
+;; Presets — named onboarding profiles mapping to concrete setup flags
+;; =============================================================================
+
+(def presets
+  {"minimal"  {:database "h2"         :description "H2 in-memory, no extras"}
+   "standard" {:database "postgresql" :description "PostgreSQL, recommended for production"}
+   "sqlite"   {:database "sqlite"     :description "SQLite file-based, zero-config"}})
+
+(defn- resolve-preset
+  "Resolve a preset name to setup flags. Returns nil if unknown."
+  [preset-name]
+  (get presets preset-name))
+
+;; =============================================================================
 ;; Step runner
 ;; =============================================================================
 
@@ -48,46 +62,63 @@
   (println)
   (println (green (bold "━━━ Quickstart Complete ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")))
   (println)
-  (println (green "  Your Boundary project is ready!"))
-  (println)
-  (println "  Web:       " (bold "http://localhost:3000"))
-  (println "  Admin:     " (bold "http://localhost:3000/admin"))
-  (println "  nREPL:     " (bold "port 7888"))
+  (println (green "  Your Boundary project is configured and ready to start!"))
   (println)
   (println "  Next steps:")
-  (println "    1. Connect your editor to nREPL on port 7888")
-  (println "    2. Run " (bold "bb scaffold") " to create your first module")
-  (println "    3. Run " (bold "(commands)") " in the REPL to see all helpers")
+  (println "    1. Start the REPL:  " (bold "clojure -M:repl-clj"))
+  (println "    2. In the REPL:     " (bold "(require '[integrant.repl :as ig-repl]) (ig-repl/go)"))
+  (println "    3. Open browser:    " (bold "http://localhost:3000"))
+  (println)
+  (println "  Once running:")
+  (println "    Web:       " (bold "http://localhost:3000"))
+  (println "    Admin:     " (bold "http://localhost:3000/admin"))
+  (println "    nREPL:     " (bold "port 7888"))
+  (println)
+  (println "  Useful commands:")
+  (println "    " (bold "bb scaffold") "   — create more modules")
+  (println "    " (bold "bb guide") "      — contextual help and guidance")
+  (println "    " (bold "(commands)") "    — in the REPL, see all helpers")
   (println))
 
 (defn -main [& args]
   (let [preset-idx (.indexOf (vec args) "--preset")
-        preset     (when (and (>= preset-idx 0) (< (inc preset-idx) (count args)))
-                     (nth args (inc preset-idx)))]
+        preset-name (when (and (>= preset-idx 0) (< (inc preset-idx) (count args)))
+                      (nth args (inc preset-idx)))
+        preset      (when preset-name (resolve-preset preset-name))]
+    (when (and preset-name (not preset))
+      (println (red (str "Unknown preset: " preset-name)))
+      (println (dim (str "Available presets: " (str/join ", " (sort (keys presets))))))
+      (System/exit 1))
+
     (print-banner)
 
     ;; Step 1: Check environment prerequisites (critical — abort on failure)
-    (run-step 1 5 "Checking development environment"
+    (run-step 1 6 "Checking development environment"
               ["bb" "doctor:env" "--ci"])
 
     ;; Step 2: Run setup
     (if preset
-      (do (println (dim (str "\n  Running non-interactive setup with preset: " preset)))
-          (run-step 2 5 "Running configuration setup"
-                    ["bb" "setup" "--database" preset]))
-      (run-step 2 5 "Running configuration setup"
+      (do (println (dim (str "\n  Using preset: " preset-name " (" (:description preset) ")")))
+          (run-step 2 6 "Running configuration setup"
+                    ["bb" "setup" "--database" (:database preset)]))
+      (run-step 2 6 "Running configuration setup"
                 ["bb" "setup"]))
 
     ;; Step 3: Validate configuration (critical — abort on failure)
-    (run-step 3 5 "Validating configuration"
+    (run-step 3 6 "Validating configuration"
               ["bb" "doctor" "--ci"])
 
-    ;; Step 4: Run migrations (critical — abort on failure)
-    (run-step 4 5 "Running database migrations"
+    ;; Step 4: Scaffold a sample module (non-critical — continue on failure)
+    (run-step 4 6 "Scaffolding sample module"
+              ["bb" "scaffold" "generate" "tasks" "title:string" "done:boolean"]
+              :continue? true)
+
+    ;; Step 5: Run migrations (critical — abort on failure)
+    (run-step 5 6 "Running database migrations"
               ["bb" "migrate" "up"])
 
-    ;; Step 5: Verify project structure
-    (run-step 5 5 "Verifying project structure"
+    ;; Step 6: Verify project structure
+    (run-step 6 6 "Verifying project structure"
               ["bb" "smoke-check"])
 
     (print-success)))

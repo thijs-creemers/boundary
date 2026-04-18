@@ -7,10 +7,12 @@
 ;;   bb doctor                      # Check dev environment
 ;;   bb doctor --env prod           # Check specific environment
 ;;   bb doctor --env all            # Check all environments
+;;   bb doctor --all                # Run both config + environment checks
 ;;   bb doctor --ci                 # Exit non-zero on any error (CI mode)
 
 (ns boundary.tools.doctor
   (:require [boundary.tools.ansi :refer [bold green red yellow dim]]
+            [babashka.process :as process]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.set :as set]
@@ -420,11 +422,12 @@
 
 (defn- parse-args [args]
   (loop [[flag & more :as remaining] args
-         opts {:env "dev" :ci false}]
+         opts {:env "dev" :ci false :all false}]
     (cond
       (empty? remaining) opts
       (or (= flag "--help") (= flag "-h")) (assoc opts :help true)
       (= flag "--ci") (recur more (assoc opts :ci true))
+      (= flag "--all") (recur more (assoc opts :all true))
       (= flag "--env") (recur (rest more) (assoc opts :env (first more)))
       :else (recur more opts))))
 
@@ -432,9 +435,10 @@
   (println (bold "bb doctor") " — Validate Boundary config for common mistakes")
   (println)
   (println "Usage:")
-  (println "  bb doctor                  Check dev environment")
-  (println "  bb doctor --env prod       Check specific environment")
-  (println "  bb doctor --env all        Check all environments")
+  (println "  bb doctor                  Check dev config")
+  (println "  bb doctor --env prod       Check specific environment config")
+  (println "  bb doctor --env all        Check all environment configs")
+  (println "  bb doctor --all            Run both config + environment checks")
   (println "  bb doctor --ci             Exit non-zero on any error (CI mode)")
   (println)
   (println "Checks:")
@@ -455,6 +459,18 @@
     (when (:help opts)
       (print-help)
       (System/exit 0))
+
+    ;; When --all, run environment checks first (delegates to doctor:env)
+    (when (:all opts)
+      (println)
+      (println (bold "Running environment checks..."))
+      (let [cmd    (cond-> ["bb" "doctor:env"]
+                     (:ci opts) (conj "--ci"))
+            result (process/shell {:continue true} (str/join " " cmd))]
+        (when (and (:ci opts) (not (zero? (:exit result))))
+          (System/exit 1))
+        (println)))
+
     (let [envs    (if (= (:env opts) "all")
                     (let [conf-dir (io/file (root-dir) "resources" "conf")]
                       (->> (.listFiles conf-dir)
