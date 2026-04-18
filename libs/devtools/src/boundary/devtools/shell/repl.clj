@@ -201,7 +201,7 @@
   "Run all quality checks via 'bb check'.
    Returns {:exit <int> :output <string>}."
   []
-  (let [result (shell/sh "bb" "check")]
+  (let [result (shell/sh "bb" "check" "--ci")]
     {:exit   (:exit result)
      :output (str (:out result) (:err result))}))
 

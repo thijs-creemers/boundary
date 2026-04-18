@@ -56,7 +56,7 @@
   (str "== " title " ==\n\n"
        body
        "\n\nSee also: "
-       (str/join ", " (map #(str "(doc " % ")") see-also))))
+       (str/join ", " (map #(str "(guide " % ")") see-also))))
 
 (defn list-topics
   "Return a sorted sequence of all topic keywords in the catalog."
