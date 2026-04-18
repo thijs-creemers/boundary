@@ -22,7 +22,8 @@
                         "libs/geo/src"
                         "libs/ai/src"
                         "libs/ui-style/src"
-                        "libs/i18n/src"]
+                        "libs/i18n/src"
+                        "libs/devtools/src"]
 
   :tests [{:id :unit
            :test-paths ["test"
@@ -47,7 +48,8 @@
                         "libs/geo/test"
                         "libs/ai/test"
                         "libs/ui-style/test"
-                        "libs/i18n/test"]
+                        "libs/i18n/test"
+                        "libs/devtools/test"]
            :ns-patterns ["boundary.*-test"]
            :randomize? true}
 
@@ -141,9 +143,13 @@
            :test-paths ["libs/i18n/test"]
            :ns-patterns ["boundary.i18n.*-test"]}
 
+          {:id :devtools
+           :test-paths ["libs/devtools/test"]
+           :ns-patterns ["boundary.devtools.*-test"]}
+
          ;; End-to-end suite lives in tests.e2e.edn so default
          ;; clojure -M:test runs stay opt-in and do not require spel.
-         ]
+          ]
 
   :plugins [:kaocha.plugin/randomize
             :kaocha.plugin/filter

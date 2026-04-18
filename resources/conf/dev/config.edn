@@ -134,7 +134,12 @@
    :base-url #or [#env OLLAMA_URL "http://localhost:11434"]
    :fallback {:provider :anthropic
               :model    #or [#env AI_MODEL "claude-haiku-4-5-20251001"]
-              :api-key  #env ANTHROPIC_API_KEY}}}
+              :api-key  #env ANTHROPIC_API_KEY}}
+
+  ;; Guidance engine — contextual help for developers
+  ;; Levels: :full (default), :minimal, :off
+  :boundary/guidance
+  {:guidance-level :full}}
 
  :inactive
  {;; Cache configuration — move :boundary/cache to :active to enable Redis caching.
