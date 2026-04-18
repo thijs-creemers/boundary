@@ -31,8 +31,8 @@
 
 (defn- ns-requires
   "Get all required namespaces for a namespace object.
-   Checks both ns-aliases (aliased requires) and the ns publics/refers
-   to catch bare :require and :refer imports."
+   Checks ns-aliases (aliased requires), ns-refers (:refer imports),
+   and ns-map (fully-qualified access from bare :require)."
   [ns-obj]
   (distinct
    (concat
@@ -43,6 +43,16 @@
          vals
          (map #(-> % meta :ns))
          (remove nil?)
+         (map ns-name)
+         distinct)
+      ;; Unaliased, unreferred requires — vars accessed via fully-qualified symbols
+      ;; These show up in (ns-map) but not in ns-aliases or ns-refers
+    (->> (ns-map ns-obj)
+         vals
+         (filter var?)
+         (map #(-> % meta :ns))
+         (remove nil?)
+         (remove #{(the-ns 'clojure.core)})
          (map ns-name)
          distinct))))
 

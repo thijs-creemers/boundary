@@ -103,8 +103,8 @@
      :guidance-level — :full (default), :minimal, or :off
      At :off, auto-fix hints and dashboard/docs links are suppressed."
   ([enriched] (format-enriched-error enriched {}))
-  ([{:keys [code stacktrace fix dashboard-url docs-url]} {:keys [guidance-level]
-                                                          :or {guidance-level :full}}]
+  ([{:keys [code stacktrace suggestions fix dashboard-url docs-url]}
+    {:keys [guidance-level] :or {guidance-level :full}}]
    (let [error-def    (codes/lookup code)
          title        (or (:title error-def) "Error")
          show-hints?  (not= guidance-level :off)
@@ -118,6 +118,11 @@
                         (conj (stacktrace/format-stacktrace stacktrace))
 
                         stacktrace (conj "")
+
+                        (seq suggestions)
+                        (into (map #(str "  \u2192 " %) suggestions))
+
+                        (seq suggestions) (conj "")
 
                         (:fix error-def)
                         (conj (str "Fix: " (:fix error-def)))

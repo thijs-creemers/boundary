@@ -58,3 +58,19 @@
           wrapper (ex-info "known error" {:boundary/error-code "BND-201"} root)
           result (classifier/classify wrapper)]
       (is (= "BND-201" (:code result))))))
+
+(deftest ^:unit classify-configuration-error-test
+  (testing "configuration error with :required-env-var → BND-101"
+    (let [ex (ex-info "JWT_SECRET not configured"
+                      {:type :configuration-error :required-env-var "JWT_SECRET"})
+          result (classifier/classify ex)]
+      (is (= "BND-101" (:code result)))
+      (is (= :config (:category result)))
+      (is (= :ex-data-pattern (:source result)))))
+
+  (testing "configuration error without :required-env-var → BND-103"
+    (let [ex (ex-info "Tenant schema provider not configured"
+                      {:type :configuration-error :job-id 42})
+          result (classifier/classify ex)]
+      (is (= "BND-103" (:code result)))
+      (is (= :config (:category result))))))

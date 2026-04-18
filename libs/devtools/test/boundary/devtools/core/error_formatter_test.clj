@@ -35,7 +35,23 @@
                     :docs-url "https://boundary.dev/errors/BND-402"}
           output (formatter/format-enriched-error enriched)]
       (is (str/includes? output "BND-402"))
-      (is (not (str/includes? output "(fix!)"))))))
+      (is (not (str/includes? output "(fix!)")))))
+
+  (testing "enriched error with suggestions renders them"
+    (let [enriched {:code "BND-201"
+                    :category :validation
+                    :data {}
+                    :suggestions ["Did you mean :active? (instead of :actve)"]}
+          output (formatter/format-enriched-error enriched)]
+      (is (str/includes? output "Did you mean"))))
+
+  (testing "enriched error without suggestions omits suggestion block"
+    (let [enriched {:code "BND-201"
+                    :category :validation
+                    :data {}
+                    :suggestions []}
+          output (formatter/format-enriched-error enriched)]
+      (is (not (str/includes? output "Did you mean"))))))
 
 (deftest ^:unit format-unclassified-error-test
   (let [ex (Exception. "something broke")
