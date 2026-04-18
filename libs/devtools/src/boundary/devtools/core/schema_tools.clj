@@ -88,13 +88,23 @@
 ;; schema-diff
 ;; =============================================================================
 
+(defn- field-signature
+  "Return a comparable signature string for a schema field child tuple.
+   Includes optionality and the full recursive form so nested changes
+   and optional/required flips are detected."
+  [child]
+  (let [opt (if (optional? child) "optional " "required ")
+        cs  (child-schema child)]
+    (str opt (pr-str (m/form cs)))))
+
 (defn- extract-field-types
-  "Return a map of {field-key type-string} for all top-level fields in a :map schema."
+  "Return a map of {field-key signature-string} for all top-level fields in a :map schema.
+   Signatures include optionality and the full schema form for accurate diffing."
   [schema]
   (let [s (m/schema schema)]
     (into {}
           (map (fn [child]
-                 [(child-key child) (schema-type-str (child-schema child))])
+                 [(child-key child) (field-signature child)])
                (m/children s)))))
 
 (defn schema-diff

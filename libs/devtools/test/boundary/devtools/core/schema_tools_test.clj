@@ -52,7 +52,19 @@
       (is (not (contains? (:changed diff) :id))))
 
     (testing "returns empty map for identical schemas"
-      (is (= {} (schema-tools/schema-diff schema-a schema-a))))))
+      (is (= {} (schema-tools/schema-diff schema-a schema-a))))
+
+    (testing "detects optionality change"
+      (let [s1 [:map [:name :string]]
+            s2 [:map [:name {:optional true} :string]]
+            d  (schema-tools/schema-diff s1 s2)]
+        (is (contains? (:changed d) :name))))
+
+    (testing "detects nested map field change"
+      (let [s1 [:map [:address [:map [:city :string] [:zip :string]]]]
+            s2 [:map [:address [:map [:city :string] [:zip :int]]]]
+            d  (schema-tools/schema-diff s1 s2)]
+        (is (contains? (:changed d) :address))))))
 
 (deftest ^:unit format-schema-diff-test
   (testing "returns identical message for empty diff"

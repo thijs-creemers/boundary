@@ -12,7 +12,7 @@
   "Map of topic keywords to documentation entries."
   {:scaffold
    {:title    "Scaffolding"
-    :body     "Generate a full module skeleton with schema, persistence, HTTP handlers and tests.\n\n  bb scaffold generate          # Interactive wizard\n  bb scaffold generate product  # Non-interactive\n  bb scaffold ai \"product module with name, price, stock\"  # AI-powered\n\nPost-scaffold steps:\n  1. Review schema:  libs/{module}/src/boundary/{module}/schema.clj\n  2. Wire module:    bb scaffold integrate {module}\n  3. Add migration:  bb migrate create add-{module}-table\n  4. Run tests:      clojure -M:test:db/h2 :{module}\n\nREPL exploration after wiring:\n  (routes :module)    ; Show all routes for the scaffolded module"
+    :body     "Generate a full module skeleton with schema, persistence, HTTP handlers and tests.\n\n  bb scaffold generate          # Interactive wizard\n  bb scaffold generate product  # Non-interactive\n  bb scaffold ai \"product module with name, price, stock\"  # AI-powered\n\nPost-scaffold steps:\n  1. Review schema:  libs/{module}/src/boundary/{module}/schema.clj\n  2. Wire module:    bb scaffold integrate {module}\n  3. Add migration:  bb migrate create add-{module}-table\n  4. Run tests:      clojure -M:test :{module}\n\nREPL exploration after wiring:\n  (routes :module)    ; Show all routes for the scaffolded module"
     :see-also [:fcis :testing :routes]}
 
    :interceptors
@@ -27,7 +27,7 @@
 
    :testing
    {:title    "Testing Strategy"
-    :body     "Three test tiers differentiated by metadata tags:\n\n  ^:unit         Pure core functions — no mocks, no DB, fast\n  ^:integration  Shell services with mocked adapters\n  ^:contract     Adapters against real DB (H2 in-memory)\n\nRun commands:\n  clojure -M:test:db/h2                                   # All tests\n  clojure -M:test:db/h2 :user                             # Single library\n  clojure -M:test:db/h2 --focus-meta :unit                # By metadata tag\n  clojure -M:test:db/h2 --focus boundary.user.core.validation-test  # Single ns\n  clojure -M:test:db/h2 --watch :user                     # Watch mode\n\nREPL shorthand (after system start):\n  (test-module :user)    ; Run all tests for the user library"
+    :body     "Three test tiers differentiated by metadata tags:\n\n  ^:unit         Pure core functions — no mocks, no DB, fast\n  ^:integration  Shell services with mocked adapters\n  ^:contract     Adapters against real DB (H2 in-memory)\n\nRun commands:\n  clojure -M:test                                   # All tests\n  clojure -M:test :user                             # Single library\n  clojure -M:test --focus-meta :unit                # By metadata tag\n  clojure -M:test --focus boundary.user.core.validation-test  # Single ns\n  clojure -M:test --watch :user                     # Watch mode\n\nREPL shorthand (after system start):\n  (test-module :user)    ; Run all tests for the user library"
     :see-also [:fcis :scaffold]}
 
    :config
