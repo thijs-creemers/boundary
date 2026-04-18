@@ -13,12 +13,18 @@
      (commands)  ; Show all available commands"
   (:require [boundary.config :as config]
             [boundary.platform.shell.system.wiring]  ;; Load Integrant init/halt methods
-            [boundary.devtools.shell.module-wiring]   ;; Load devtools Integrant methods
             [boundary.devtools.core.guidance :as guidance]
             [boundary.devtools.core.error-codes :as error-codes]
             [integrant.repl :as ig-repl]
             [integrant.repl.state :as state]
             [clojure.tools.logging :as log]))
+
+;; =============================================================================
+;; Guidance state — managed here, not via Integrant (avoids non-REPL breakage)
+;; =============================================================================
+
+(defonce guidance-state* (atom {:guidance-level :full
+                                :shown-tips     #{}}))
 
 ;; =============================================================================
 ;; Integrant REPL Configuration
@@ -88,50 +94,52 @@
 ;; Devtools REPL Helpers
 ;; =============================================================================
 
-(defn guidance-state
-  "Get the guidance engine state atom."
-  []
-  (get (system) :boundary/guidance))
-
 (defn guidance
   "Get or set the guidance level.
    (guidance)          ; returns current level
    (guidance :minimal) ; set to :minimal"
   ([]
-   (when-let [state (guidance-state)]
-     (:guidance-level @state)))
+   (:guidance-level @guidance-state*))
   ([level]
-   (when-let [state (guidance-state)]
-     (if (guidance/valid-level? level)
-       (do (swap! state assoc :guidance-level level)
-           (println (str "Guidance level set to :" (name level)))
-           level)
-       (println (str "Invalid level. Use one of: " (pr-str guidance/levels)))))))
+   (if (guidance/valid-level? level)
+     (do (swap! guidance-state* assoc :guidance-level level)
+         (println (str "Guidance level set to :" (name level)))
+         level)
+     (println (str "Invalid level. Use one of: " (pr-str guidance/levels))))))
+
+(def ^:private infra-keys
+  "Integrant keys that are infrastructure, not application modules."
+  #{"settings" "postgresql" "sqlite" "mysql" "h2" "http" "router"
+    "api-versioning" "pagination" "logging" "metrics" "error-reporting"
+    "http-server" "db-context"})
 
 (defn status
   "Show system health overview."
   []
   (let [sys   (system)
-        level (or (guidance) :full)]
+        level (guidance)]
     (if (nil? sys)
       (println "System not running. Start with (go)")
-      (let [components (count sys)
+      (let [cfg        (config)
+            http-cfg   (get cfg :boundary/http)
+            http-port  (or (:port http-cfg) 3000)
+            http-host  (or (:host http-cfg) "localhost")
+            admin-cfg  (get cfg :boundary/admin)
+            admin-path (or (:base-path admin-cfg) "/admin")
+            base-url   (str "http://" (if (= http-host "0.0.0.0") "localhost" http-host)
+                            ":" http-port)
+            components (count sys)
             modules    (->> (keys sys)
                             (filter #(and (keyword? %)
                                           (= "boundary" (namespace %))
-                                          (not (contains? #{"settings" "postgresql" "sqlite"
-                                                            "mysql" "h2" "http" "router"
-                                                            "api-versioning" "pagination"
-                                                            "logging" "metrics" "error-reporting"
-                                                            "http-server" "db-context" "guidance"}
-                                                          (name %)))))
+                                          (not (contains? infra-keys (name %)))))
                             (map #(name %))
                             sort)]
         (println (guidance/format-startup-dashboard
                   {:components     components
                    :errors         0
-                   :web-url        "http://localhost:3000"
-                   :admin-url      "http://localhost:3000/admin"
+                   :web-url        base-url
+                   :admin-url      (str base-url admin-path)
                    :nrepl-port     7888
                    :modules        modules
                    :guidance-level level}))))))
@@ -143,11 +151,7 @@
     (->> (keys sys)
          (filter #(and (keyword? %)
                        (= "boundary" (namespace %))
-                       (not (contains? #{"settings" "postgresql" "sqlite" "mysql" "h2"
-                                         "http" "router" "api-versioning" "pagination"
-                                         "logging" "metrics" "error-reporting"
-                                         "http-server" "db-context" "guidance"}
-                                       (name %)))))
+                       (not (contains? infra-keys (name %)))))
          (map #(name %))
          sort
          vec)))
@@ -162,10 +166,8 @@
 ;; =============================================================================
 
 (defn- print-startup-dashboard []
-  (when-let [state (guidance-state)]
-    (let [level (:guidance-level @state)]
-      (when (= level :full)
-        (status)))))
+  (when (= (guidance) :full)
+    (status)))
 
 (def original-go go)
 (defn go

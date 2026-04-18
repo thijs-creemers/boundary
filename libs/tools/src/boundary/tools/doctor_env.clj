@@ -4,8 +4,8 @@
 ;; Environment Doctor — checks that required development tools are installed.
 ;;
 ;; Usage (via bb.edn task):
-;;   bb doctor-env              # Check all prerequisites
-;;   bb doctor-env --ci         # Exit non-zero on any error (CI mode)
+;;   bb doctor:env              # Check all prerequisites
+;;   bb doctor:env --ci         # Exit non-zero on any error (CI mode)
 
 (ns boundary.tools.doctor-env
   (:require [boundary.tools.ansi :refer [bold green red yellow dim]]
@@ -219,11 +219,11 @@
       :else (recur more opts))))
 
 (defn- print-help []
-  (println (bold "bb doctor-env") " — Check development environment prerequisites")
+  (println (bold "bb doctor:env") " — Check development environment prerequisites")
   (println)
   (println "Usage:")
-  (println "  bb doctor-env              Check all prerequisites")
-  (println "  bb doctor-env --ci         Exit non-zero on any error (CI mode)")
+  (println "  bb doctor:env              Check all prerequisites")
+  (println "  bb doctor:env --ci         Exit non-zero on any error (CI mode)")
   (println)
   (println "Checks:")
   (println "  java              Java >= 17 installed")
