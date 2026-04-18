@@ -16,11 +16,14 @@
 ;; =============================================================================
 
 (def ^:private boundary-module-pattern
-  "Regex to extract module name from a fully-qualified handler string."
-  #"boundary\.([^.]+)\.")
+  "Regex to extract module name from a handler string or compiled fn.
+   Matches both 'boundary.user.shell.http/list-users' (symbol form)
+   and 'boundary.user.shell.http$list_users@...' (compiled fn form)."
+  #"boundary\.([^.$]+)\.")
 
 (defn extract-module
-  "Extract module name from a handler string like 'boundary.user.shell.http/list-users'.
+  "Extract module name from a handler string.
+   Works with both qualified symbol strings and compiled fn str representations.
    Returns the module name string (e.g. 'user', 'admin', 'platform') or nil
    for non-boundary handlers."
   [handler-str]
@@ -28,23 +31,31 @@
     (when-let [m (re-find boundary-module-pattern handler-str)]
       (second m))))
 
+(defn- routes-from-router
+  "Extract route maps from a Reitit router instance."
+  [router]
+  (let [http-methods [:get :post :put :patch :delete :head :options]]
+    (for [[path data] (reitit.core/routes router)
+          method http-methods
+          :when (contains? data method)
+          :let [handler-fn (get-in data [method :handler])
+                handler-str (str handler-fn)]]
+      {:method  method
+       :path    path
+       :handler handler-str
+       :module  (extract-module handler-str)})))
+
 (defn extract-routes-from-handler
   "Extract route info from a compiled Ring handler backed by Reitit.
+   Checks handler metadata for :reitit/router first (set by compile-routes),
+   then falls back to reitit.ring/get-router for unwrapped handlers.
    Returns a seq of {:method :path :handler :module} maps, or nil on error."
   [http-handler]
   (try
-    (when-let [router (reitit.ring/get-router http-handler)]
-      (let [all-routes (reitit.core/routes router)
-            http-methods [:get :post :put :patch :delete :head :options]]
-        (for [[path data] all-routes
-              method http-methods
-              :when (contains? data method)
-              :let [handler-fn (get-in data [method :handler])
-                    handler-str (str handler-fn)]]
-          {:method  method
-           :path    path
-           :handler handler-str
-           :module  (extract-module handler-str)})))
+    (if-let [router (:reitit/router (meta http-handler))]
+      (routes-from-router router)
+      (when-let [router (reitit.ring/get-router http-handler)]
+        (routes-from-router router)))
     (catch Exception _
       nil)))
 
@@ -180,9 +191,9 @@
    Shells out to clojure -M:test so it works from any REPL session.
    Returns {:exit <int> :output <string>}."
   [module meta-filter]
-  (let [cmd (str "clojure -M:test " (name module)
+  (let [cmd (str "clojure -M:test :" (name module)
                  (when meta-filter
-                   (str " --focus-meta " (name meta-filter))))
+                   (str " --focus-meta :" (name meta-filter))))
         result (shell/sh "bash" "-c" cmd)]
     {:exit   (:exit result)
      :output (str (:out result) (:err result))}))

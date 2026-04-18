@@ -68,6 +68,17 @@
   (testing "empty config returns message"
     (is (= "Empty configuration." (introspection/format-config-tree {}))))
 
+  (testing "redacts compound secret keys like :auth-token and :webhook-secret"
+    (let [config {:boundary/webhooks {:webhook-secret "whsec_abc123"
+                                      :endpoint "https://example.com"}
+                  :boundary/auth    {:auth-token "tok_xyz"
+                                     :provider "jwt"}}
+          result (introspection/format-config-tree config)]
+      (is (not (str/includes? result "whsec_abc123")))
+      (is (not (str/includes? result "tok_xyz")))
+      (is (str/includes? result "****"))
+      (is (str/includes? result "example.com"))))
+
   (testing "redacts secrets in deeply nested maps"
     (let [config {:boundary/ai-service {:provider :anthropic
                                         :fallback {:api-key "sk-secret-123"

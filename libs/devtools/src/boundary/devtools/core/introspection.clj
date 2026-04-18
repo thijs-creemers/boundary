@@ -7,9 +7,18 @@
 ;; Constants
 ;; =============================================================================
 
-(def ^:private secret-keys
-  #{:password :secret :api-key :token :password-hash
-    :jwt-secret :private-key :access-key :secret-key :credentials})
+(def ^:private secret-patterns
+  "Substrings that indicate a key holds sensitive data.
+   Uses substring matching on the key name so compound keys like
+   :auth-token, :webhook-secret, :stripe-api-key are caught."
+  ["password" "secret" "api-key" "token" "private-key"
+   "access-key" "credentials" "apikey"])
+
+(defn- secret-key?
+  "Return true if the key name contains any secret pattern."
+  [k]
+  (let [kn (name k)]
+    (some #(str/includes? kn %) secret-patterns)))
 
 (def ^:private section-aliases
   {:database     ["postgresql" "sqlite" "mysql" "h2" "db-context"]
@@ -84,7 +93,7 @@
   (into {}
         (map (fn [[k v]]
                [k (cond
-                    (contains? secret-keys k) "****"
+                    (secret-key? k) "****"
                     (map? v) (redact-map v)
                     :else v)]))
         m))
@@ -94,7 +103,7 @@
   [indent k v]
   (let [spaces (apply str (repeat indent " "))
         redacted (cond
-                   (contains? secret-keys k) "****"
+                   (secret-key? k) "****"
                    (map? v) (redact-map v)
                    :else v)]
     (if (map? redacted)
