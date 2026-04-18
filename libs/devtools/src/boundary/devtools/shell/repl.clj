@@ -163,19 +163,15 @@
 
 (defn run-tests
   "Run Kaocha tests for the given module keyword and optional meta filter keyword.
-   Requires the :test alias on the classpath. Returns nil with a message when
-   Kaocha is not available."
+   Shells out to clojure -M:test:db/h2 so it works from any REPL session.
+   Returns {:exit <int> :output <string>}."
   [module meta-filter]
-  (try
-    (require 'kaocha.repl)
-    (let [run-fn (resolve 'kaocha.repl/run)
-          opts   (cond-> {:kaocha/reporter [:documentation]}
-                   meta-filter (assoc :kaocha.filter/focus-meta [meta-filter]))]
-      (run-fn module opts))
-    (catch java.io.FileNotFoundException _
-      (println "Kaocha is not on the classpath.")
-      (println "Start your REPL with the :test alias: clojure -M:repl-clj:test:db/h2")
-      nil)))
+  (let [cmd (str "clojure -M:test:db/h2 " (name module)
+                 (when meta-filter
+                   (str " --focus-meta " (name meta-filter))))
+        result (shell/sh "bash" "-c" cmd)]
+    {:exit   (:exit result)
+     :output (str (:out result) (:err result))}))
 
 (defn run-lint
   "Run clj-kondo linting across src, test, and all library sources.

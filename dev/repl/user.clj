@@ -284,13 +284,17 @@
 
 (defn test-module
   "Run tests for a module from the REPL.
-   Requires the :test alias on the classpath (start REPL with -M:repl-clj:test).
+   Shells out to the test runner so it works from any REPL session.
    (test-module :user)
    (test-module :user :unit)"
   ([module]
    (test-module module nil))
   ([module tier]
-   (devtools-repl/run-tests module tier)))
+   (let [{:keys [exit output]} (devtools-repl/run-tests module tier)]
+     (println output)
+     (if (zero? exit)
+       (println "Tests passed.")
+       (println "Tests failed.")))))
 
 (defn lint
   "Run clj-kondo from the REPL."
