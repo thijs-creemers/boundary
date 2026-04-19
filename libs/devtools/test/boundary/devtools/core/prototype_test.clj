@@ -45,3 +45,18 @@
     (is (= "DECIMAL" (prototype/malli->sql-type [:decimal {:min 0}])))
     (is (= "DATE" (prototype/malli->sql-type :date)))
     (is (= "VARCHAR(50)" (prototype/malli->sql-type [:enum [:draft :sent :paid]])))))
+
+(deftest enum-form-test
+  (testing "standard Malli enum [:enum :a :b :c] produces correct enum-values"
+    (let [spec {:fields {:status [:enum :draft :sent :paid]}
+                :endpoints [:crud]}
+          ctx  (prototype/build-scaffold-context "test" spec)
+          field (first (get-in ctx [:entities 0 :fields]))]
+      (is (= [:enum :draft :sent :paid] (:malli-type field)))))
+
+  (testing "nested vector enum [:enum [:a :b :c]] also works"
+    (let [spec {:fields {:status [:enum [:draft :sent :paid]]}
+                :endpoints [:crud]}
+          ctx  (prototype/build-scaffold-context "test" spec)
+          field (first (get-in ctx [:entities 0 :fields]))]
+      (is (= [:enum :draft :sent :paid] (:malli-type field))))))

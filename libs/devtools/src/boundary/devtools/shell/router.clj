@@ -12,7 +12,6 @@
 (defonce ^:private dynamic-routes (atom {}))
 (defonce ^:private dynamic-router (atom nil))
 (defonce ^:private taps (atom {}))
-(defonce ^:private recording-active? (atom false))
 
 (defn- rebuild-dynamic-router!
   "Rebuild the internal Reitit router from the current dynamic-routes atom.
@@ -53,12 +52,6 @@
 
 (defn list-taps []
   (vec (keys @taps)))
-
-(defn set-recording! [active?]
-  (reset! recording-active? active?))
-
-(defn recording-active?* []
-  @recording-active?)
 
 (defn apply-dynamic-routes [base-routes]
   (reduce
@@ -101,21 +94,18 @@
    so dynamic handlers behave like normal Boundary routes.
    Otherwise the request falls through to the base handler."
   [base-handler]
-  (let [;; Build a dynamic handler with the standard middleware stack.
-        ;; Muuntaja handles JSON/EDN/Transit body parsing and response encoding.
-        dynamic-handler (-> (fn [request]
-                              (if-let [match (match-dynamic-route request)]
-                                (let [handler-fn (get-in match [:handler-map :handler])
-                                      request (update request :path-params
-                                                      merge (:path-params match))]
-                                  (handler-fn request))
-                                (base-handler request)))
-                            muuntaja-mw/wrap-format
-                            wrap-cookies
-                            wrap-params)]
+  (let [;; Middleware stack for dynamic routes — applied once at wrap time.
+        mw-stack (comp wrap-params wrap-cookies muuntaja-mw/wrap-format)]
     (fn [request]
-      (if (match-dynamic-route request)
-        (dynamic-handler request)
+      (if-let [match (match-dynamic-route request)]
+        (let [handler-fn (get-in match [:handler-map :handler])
+              ;; Build a one-shot handler with the middleware stack applied,
+              ;; merging path params so the handler sees :id etc.
+              wrapped (mw-stack
+                       (fn [req]
+                         (handler-fn
+                          (update req :path-params merge (:path-params match)))))]
+          (wrapped request))
         (base-handler request)))))
 
 (defn- handler-name->pattern
@@ -179,7 +169,6 @@
   []
   (reset! dynamic-routes {})
   (reset! dynamic-router nil)
-  (reset! recording-active? false)
   nil)
 
 (defn clear-all-state!

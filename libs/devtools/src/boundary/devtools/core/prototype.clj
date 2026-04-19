@@ -51,8 +51,14 @@
               :type scaffolder-type
               :required true}]
     (if (and (= type-kw :enum) (vector? malli-spec))
-      (let [opts (second malli-spec)]
-        (assoc base :enum-values (if (vector? opts) opts [])))
+      (let [rest-items (vec (rest malli-spec))
+            ;; Support both [:enum :a :b :c] (standard Malli) and
+            ;; [:enum [:a :b :c]] (nested vector shorthand)
+            enum-values (if (and (= 1 (count rest-items))
+                                 (vector? (first rest-items)))
+                          (first rest-items)
+                          rest-items)]
+        (assoc base :enum-values enum-values))
       base)))
 
 (defn build-scaffold-context

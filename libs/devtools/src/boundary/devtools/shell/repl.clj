@@ -306,7 +306,9 @@
                                 (require 'boundary.platform.shell.system.wiring)
                                 (let [swap-fn (resolve 'boundary.platform.shell.system.wiring/swap-handler!)]
                                   (swap-fn new-val))
-                                (catch Exception _)))
+                                (catch Exception e
+                                  (println (str "  Warning: failed to sync live handler: "
+                                                (.getMessage e))))))
                             (assoc sys component-key new-val))))
         (println (format "=> %s restarted." component-key))
         (when (seq dependents)
