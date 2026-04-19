@@ -156,7 +156,7 @@
           ;; Binary body: pass decoded bytes directly
           binary-bytes
           (simulate-fn (:method request) (:uri request)
-                       (cond-> {:raw-body (String. ^bytes binary-bytes "ISO-8859-1")}
+                       (cond-> {:raw-bytes binary-bytes}
                          headers                   (assoc :headers headers)
                          (:query-string request)   (assoc :query-string (:query-string request))))
           ;; JSON: pass as :body, simulate will JSON-encode it

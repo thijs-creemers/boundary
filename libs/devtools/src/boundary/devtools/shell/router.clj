@@ -4,6 +4,7 @@
    platform's swap-handler!."
   (:require [boundary.devtools.core.router :as core-router]
             [clojure.string]
+            [muuntaja.middleware :as muuntaja-mw]
             [reitit.core :as rc]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.middleware.params :refer [wrap-params]]))
@@ -95,11 +96,13 @@
 (defn wrap-dynamic-dispatch
   "Ring middleware that checks dynamic routes via a Reitit router.
    Supports path parameters (e.g. /api/foo/:id matches /api/foo/123).
-   Matched requests go through wrap-params and wrap-cookies so dynamic
-   handlers see parsed params/cookies like normal routes.
+   Matched requests go through the standard HTTP middleware stack
+   (params, cookies, content negotiation/body parsing via Muuntaja)
+   so dynamic handlers behave like normal Boundary routes.
    Otherwise the request falls through to the base handler."
   [base-handler]
-  (let [;; Build a dynamic handler with standard middleware applied.
+  (let [;; Build a dynamic handler with the standard middleware stack.
+        ;; Muuntaja handles JSON/EDN/Transit body parsing and response encoding.
         dynamic-handler (-> (fn [request]
                               (if-let [match (match-dynamic-route request)]
                                 (let [handler-fn (get-in match [:handler-map :handler])
@@ -107,6 +110,7 @@
                                                       merge (:path-params match))]
                                   (handler-fn request))
                                 (base-handler request)))
+                            muuntaja-mw/wrap-format
                             wrap-cookies
                             wrap-params)]
     (fn [request]

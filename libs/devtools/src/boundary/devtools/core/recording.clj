@@ -1,7 +1,8 @@
 (ns boundary.devtools.core.recording
   "Pure functions for recording session data structures.
    No I/O, no atoms — just data transformations."
-  (:require [clojure.string :as str]
+  (:require [cheshire.core :as json]
+            [clojure.string :as str]
             [clojure.edn :as edn]))
 
 (defn create-session [] {:entries [] :started-at (java.util.Date.) :stopped-at nil})
@@ -25,8 +26,19 @@
     (merge-with deep-merge a b)
     b))
 
-(defn merge-request-modifications [request overrides]
-  (update request :body deep-merge overrides))
+(defn merge-request-modifications
+  "Deep-merge overrides into a recorded request's body.
+   If the body is a raw JSON string (as captured), it is parsed first
+   so the merge preserves untouched fields."
+  [request overrides]
+  (let [body (:body request)
+        parsed (if (string? body)
+                 (try (clojure.edn/read-string body)
+                      (catch Exception _
+                        (try (cheshire.core/parse-string body true)
+                             (catch Exception _ body))))
+                 body)]
+    (assoc request :body (deep-merge parsed overrides))))
 
 (defn- map-diff [a b]
   (let [all-keys (set (concat (keys a) (keys b)))]
