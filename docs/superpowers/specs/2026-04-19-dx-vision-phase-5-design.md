@@ -40,7 +40,7 @@ All 6 features from the parent spec's Phase 5:
 The platform HTTP server (`libs/platform/`) currently passes the compiled handler directly to Jetty as a closure. Jetty holds a direct function reference — there is no indirection layer. To support runtime router rebuilds, we introduce an atom-based handler wrapper:
 
 ```clojure
-;; In libs/platform/shell/http/wiring.clj
+;; In libs/platform/src/boundary/platform/shell/system/wiring.clj
 (defonce ^:private handler-atom (atom nil))
 
 (defn dispatch-handler [request]
@@ -86,7 +86,7 @@ libs/devtools/src/boundary/devtools/
 
 - `shell/repl.clj` — add `restart-component`, `scaffold!` functions
 - `dev/repl/user.clj` — expose new helpers to REPL namespace
-- `libs/platform/src/boundary/platform/shell/http/wiring.clj` — handler-atom wrapper (dev profile only)
+- `libs/platform/src/boundary/platform/shell/system/wiring.clj` — handler-atom wrapper (dev profile only)
 - `.gitignore` — add `.boundary/recordings/`
 
 ### Shared Router Rebuild Infrastructure
@@ -326,4 +326,4 @@ New functions exposed in `dev/repl/user.clj`:
 - `libs/scaffolder/` core — JVM-compatible pure functions. Specifically: `boundary.scaffolder.core.generators` (generate-schema-file, generate-ports-file, generate-core-file, generate-migration-file, generate-service-file, generate-persistence-file, generate-http-file) and `boundary.scaffolder.core.template` (field/entity context builders). `libs/scaffolder` must be on the `:dev` classpath in `deps.edn`.
 - Integrant API (`ig/halt-key!`, `ig/init-key`) for `restart-component`
 - Reitit router internals for route tree manipulation
-- `libs/platform/` — small change to `wiring.clj` for handler-atom wrapper (see Architecture section)
+- `libs/platform/` — small change to `shell/system/wiring.clj` for handler-atom wrapper (see Architecture section)
