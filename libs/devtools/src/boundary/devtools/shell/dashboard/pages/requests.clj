@@ -79,7 +79,7 @@
 
 (defn render-request-list
   "Build a data-table from the current request log, newest first, limit 50."
-  [& [{:keys [path-filter status-filter] :as filters}]]
+  [& [filters]]
   (let [entries (->> (middleware/request-log)
                      (filter-entries (or filters {}))
                      (take 50))]
