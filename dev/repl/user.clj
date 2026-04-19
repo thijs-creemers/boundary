@@ -461,16 +461,18 @@
    (recording :load \"name\")      — load from disk"
   [command & args]
   (case command
-    :start  (do
-              (rec/start-recording!)
-              ;; Install capture middleware into the live HTTP handler so that
-              ;; every request flowing through Jetty is recorded.
-              (when-let [live-handler (wiring/current-handler)]
-                (rec/store-pre-recording-handler! live-handler)
-                (let [wrapped ((rec/capture-middleware) live-handler)]
-                  (wiring/swap-handler!
-                   (with-meta wrapped (merge (meta live-handler)
-                                             {:devtools/recording true}))))))
+    :start  (if (rec/active-session)
+              (println "Recording already active. Stop the current session first with (recording :stop).")
+              (do
+                (rec/start-recording!)
+                ;; Install capture middleware into the live HTTP handler so that
+                ;; every request flowing through Jetty is recorded.
+                (when-let [live-handler (wiring/current-handler)]
+                  (rec/store-pre-recording-handler! live-handler)
+                  (let [wrapped ((rec/capture-middleware) live-handler)]
+                    (wiring/swap-handler!
+                     (with-meta wrapped (merge (meta live-handler)
+                                               {:devtools/recording true})))))))
     :stop   (do
               (rec/stop-recording!)
               ;; Restore the pre-recording handler, then re-apply any wrappers

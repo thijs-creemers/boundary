@@ -34,7 +34,7 @@
    :double  :decimal
    :float   :decimal
    :boolean :boolean
-   :date    :inst
+   :date    :date
    :instant :inst
    :uuid    :uuid
    :enum    :enum
