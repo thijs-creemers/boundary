@@ -39,14 +39,15 @@
   "Renders a grid-based data table with a header row and data rows.
    opts — {:columns [\"Name\" ...] :col-template \"1fr 1fr\" :rows [{:cells [...] :attrs {...}} ...]}"
   [{:keys [columns col-template rows]}]
-  [:div.data-table {:style (str "grid-template-columns: " col-template)}
-   ;; Header row
-   (into [:div.data-table-header]
-         (map (fn [col] [:div.data-table-cell.header-cell col]) columns))
-   ;; Data rows
-   (for [{:keys [cells attrs]} rows]
-     (into [:div.data-table-row (merge {} attrs)]
-           (map (fn [cell] [:div.data-table-cell cell]) cells)))])
+  (let [grid-style (str "grid-template-columns:" col-template)]
+    [:div.data-table
+     ;; Header row
+     (into [:div.data-table-header {:style grid-style}]
+           (map (fn [col] [:div.data-table-cell.header-cell col]) columns))
+     ;; Data rows
+     (for [{:keys [cells attrs]} rows]
+       (into [:div.data-table-row (merge {:style grid-style} attrs)]
+             (map (fn [cell] [:div.data-table-cell cell]) cells)))]))
 
 (defn card
   "Renders a card component with an optional header title and right slot.
