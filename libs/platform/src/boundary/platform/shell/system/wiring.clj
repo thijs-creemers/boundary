@@ -460,6 +460,27 @@
   (log/info "Error reporting component halted"))
 
 ;; =============================================================================
+;; Handler Atom (runtime handler swapping)
+;; =============================================================================
+
+(defonce ^:private handler-atom (atom nil))
+
+(defn dispatch-handler
+  "Indirection layer: Jetty calls this stable fn, we swap the atom underneath.
+   Only used in dev profile — production passes handler directly."
+  [request]
+  (if-let [handler @handler-atom]
+    (handler request)
+    {:status 503
+     :headers {"Content-Type" "text/plain"}
+     :body "Handler not initialized"}))
+
+(defn swap-handler!
+  "Replace the live HTTP handler. Called by devtools for router rebuilds."
+  [new-handler]
+  (reset! handler-atom new-handler))
+
+;; =============================================================================
 ;; HTTP Server (Jetty)
 ;; =============================================================================
 
@@ -471,7 +492,8 @@
 
     (port-manager/log-port-allocation port allocated-port http-config "HTTP Server")
 
-    (let [server (jetty/run-jetty handler
+    (reset! handler-atom handler)
+    (let [server (jetty/run-jetty dispatch-handler
                                   {:port allocated-port
                                    :host host
                                    :join? (or join? false)})]
