@@ -8,8 +8,26 @@
 
 (defonce ^:private session-atom (atom nil))
 
+;; Stores the handler that was live before recording started, so we can
+;; restore it on stop.  Managed exclusively by user.clj's recording helper.
+(defonce ^:private pre-recording-handler (atom nil))
+
 (defn active-session [] @session-atom)
-(defn reset-session! [] (reset! session-atom nil))
+(defn reset-session! []
+  (reset! session-atom nil)
+  (reset! pre-recording-handler nil))
+
+(defn store-pre-recording-handler!
+  "Save the current live handler so it can be restored when recording stops."
+  [handler]
+  (reset! pre-recording-handler handler))
+
+(defn restore-pre-recording-handler!
+  "Return and clear the stored pre-recording handler."
+  []
+  (let [h @pre-recording-handler]
+    (reset! pre-recording-handler nil)
+    h))
 
 (defn start-recording! []
   (reset! session-atom (core/create-session))

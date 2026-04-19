@@ -29,6 +29,7 @@
             [boundary.devtools.shell.router :as dev-router]
             [boundary.devtools.shell.prototype :as prototype]
             [boundary.platform.shell.adapters.database.common.core :as db]
+            [boundary.platform.shell.system.wiring :as wiring]
             [integrant.repl :as ig-repl]
             [integrant.repl.state :as state]
             [clojure.tools.logging :as log]))
@@ -442,8 +443,20 @@
    (recording :load \"name\")      — load from disk"
   [command & args]
   (case command
-    :start  (rec/start-recording!)
-    :stop   (rec/stop-recording!)
+    :start  (do
+              (rec/start-recording!)
+              ;; Install capture middleware into the live HTTP handler so that
+              ;; every request flowing through Jetty is recorded.
+              (when-let [live-handler (wiring/current-handler)]
+                (rec/store-pre-recording-handler! live-handler)
+                (let [wrapped ((rec/capture-middleware) live-handler)]
+                  (wiring/swap-handler! wrapped))))
+    :stop   (do
+              (rec/stop-recording!)
+              ;; Restore the original (unwrapped) handler, removing the capture
+              ;; middleware from the live request path.
+              (when-let [original (rec/restore-pre-recording-handler!)]
+                (wiring/swap-handler! original)))
     :list   (rec/list-entries)
     :replay (let [idx (first args)
                   overrides (second args)
@@ -455,12 +468,23 @@
     (println (str "Unknown recording command: " command
                   ". Use :start, :stop, :list, :replay, :diff, :save, :load"))))
 
+(defn- ensure-dynamic-dispatch!
+  "Ensure the live handler is wrapped with dynamic-dispatch middleware.
+   Idempotent — if already wrapped (marker metadata), this is a no-op."
+  []
+  (when-let [live-handler (wiring/current-handler)]
+    (when-not (:devtools/dynamic-dispatch (meta live-handler))
+      (let [wrapped (dev-router/wrap-dynamic-dispatch live-handler)]
+        (wiring/swap-handler!
+         (with-meta wrapped {:devtools/dynamic-dispatch true}))))))
+
 (defn defroute!
   "Add a route at runtime for rapid prototyping.
    (defroute! :get \"/api/test\" (fn [req] {:status 200 :body {:hello \"world\"}}))"
   [method path handler-fn]
   (dev-router/add-dynamic-route! method path handler-fn)
-  (println (format "✓ Route added: %s %s" (name method) path)))
+  (ensure-dynamic-dispatch!)
+  (println (format "✓ Route added: %s %s (live)" (name method) path)))
 
 (defn remove-route!
   "Remove a dynamically added route."
@@ -479,16 +503,17 @@
 
 (defn tap-handler!
   "Intercept requests to a handler with a callback function.
+   Taps modify Reitit interceptor chains and take effect on the next (reset).
    (tap-handler! :create-user (fn [ctx] (println (:request ctx)) ctx))"
   [handler-kw callback-fn]
   (dev-router/add-tap! handler-kw callback-fn)
-  (println (format "✓ Tap installed on %s" handler-kw)))
+  (println (format "✓ Tap registered on %s — call (reset) to activate" handler-kw)))
 
 (defn untap-handler!
-  "Remove a tap from a handler."
+  "Remove a tap from a handler. Takes effect on the next (reset)."
   [handler-kw]
   (dev-router/remove-tap! handler-kw)
-  (println (format "✓ Tap removed from %s" handler-kw)))
+  (println (format "✓ Tap removed from %s — call (reset) to apply" handler-kw)))
 
 (defn taps
   "List active handler taps."

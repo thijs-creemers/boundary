@@ -476,6 +476,11 @@
      :headers {"Content-Type" "text/plain"}
      :body "Handler not initialized"}))
 
+(defn current-handler
+  "Return the current live HTTP handler, or nil if not initialized."
+  []
+  @handler-atom)
+
 (defn swap-handler!
   "Replace the live HTTP handler. Called by devtools for router rebuilds."
   [new-handler]

@@ -57,6 +57,20 @@
         new-handler (compile-fn modified-routes)]
     (swap-fn new-handler)))
 
+(defn wrap-dynamic-dispatch
+  "Ring middleware that checks the dynamic-routes atom on every request.
+   When a request matches a registered [method path] pair, the dynamic
+   handler is called directly (bypassing the compiled Reitit router).
+   Otherwise the request falls through to the base handler."
+  [base-handler]
+  (fn [request]
+    (let [method (:request-method request)
+          path   (:uri request)
+          match  (get @dynamic-routes [method path])]
+      (if match
+        ((:handler match) request)
+        (base-handler request)))))
+
 (defn clear-dynamic-state! []
   (reset! dynamic-routes {})
   (reset! taps {})
