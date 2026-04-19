@@ -83,7 +83,7 @@
     (layout/dashboard-page
      (merge opts {:active-path "/dashboard/docs"
                   :title       (str module-name " — " filename)})
-     [:div.two-col
+     [:div.two-col.two-col-sidebar
       ;; Sidebar: module list
       (c/card {:title "Modules"}
               [:div {:style "font-size:12px;line-height:2"}

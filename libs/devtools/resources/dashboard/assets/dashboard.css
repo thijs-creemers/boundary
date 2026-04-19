@@ -982,6 +982,10 @@ pre.code-block {
   gap: 1rem;
 }
 
+.two-col.two-col-sidebar {
+  grid-template-columns: 1fr 3fr;
+}
+
 @media (max-width: 900px) {
   .two-col {
     grid-template-columns: 1fr;
