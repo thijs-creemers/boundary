@@ -113,14 +113,6 @@
         (swap! entries-atom dissoc (first lru-key))
         (record-eviction! stats-atom track-stats?)))))
 
-(defn- maybe-evict!
-  "Evict entries if cache is over max-size."
-  [entries-atom stats-atom config]
-  (when-let [max-size (:max-size config)]
-    (let [current-size (count @entries-atom)]
-      (when (> current-size max-size)
-        (evict-lru! entries-atom stats-atom (:track-stats? config))))))
-
 (defn- wildcard-pattern->regex
   "Convert wildcard pattern to regex.
    Example: 'user:*' -> #'user:.*'"
@@ -176,8 +168,12 @@
                  (calculate-expires-at ttl-seconds)
                  0
                  (now))]
+      ;; Evict before adding to prevent evicting the newly added entry
+      (when-let [max-size (:max-size (:config state))]
+        (when (and (>= (count @entries) max-size)
+                   (not (contains? @entries namespaced-key)))
+          (evict-lru! entries (:stats state) (:track-stats? (:config state)))))
       (swap! entries assoc namespaced-key entry)
-      (maybe-evict! entries (:stats state) (:config state))
       true))
 
   (delete-key! [_this key]
