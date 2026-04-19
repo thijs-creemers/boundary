@@ -32,15 +32,20 @@
              {} headers))
 
 (defn- sanitize-params
-  "Redact values for keys that look like credentials or tokens."
+  "Recursively redact values for keys that look like credentials or tokens."
   [params]
   (when params
-    (reduce-kv (fn [m k v]
-                 (let [k-str (str/lower-case (str (if (keyword? k) (name k) k)))]
-                   (assoc m k (if (contains? sensitive-param-keys k-str)
-                                "[REDACTED]"
-                                v))))
-               {} params)))
+    (cond
+      (map? params)
+      (reduce-kv (fn [m k v]
+                   (let [k-str (str/lower-case (str (if (keyword? k) (name k) k)))]
+                     (assoc m k (if (contains? sensitive-param-keys k-str)
+                                  "[REDACTED]"
+                                  (sanitize-params v)))))
+                 {} params)
+      (sequential? params)
+      (mapv sanitize-params params)
+      :else params)))
 
 (defn- truncate-body [body]
   (when body

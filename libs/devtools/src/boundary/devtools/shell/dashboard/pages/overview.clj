@@ -1,6 +1,7 @@
 (ns boundary.devtools.shell.dashboard.pages.overview
   (:require [boundary.devtools.shell.dashboard.layout :as layout]
             [boundary.devtools.shell.dashboard.components :as c]
+            [boundary.devtools.shell.dashboard.pages.errors :as dashboard-errors]
             [boundary.devtools.shell.repl :as devtools-repl]
             [clojure.string :as str]
             [integrant.repl.state :as state]))
@@ -62,7 +63,7 @@
   (let [data (system-data opts)]
     (layout/dashboard-page
      (merge opts {:component-count (:component-count data)
-                  :error-count     0
+                  :error-count     (:total (dashboard-errors/error-stats))
                   :http-port       (:http-port data)
                   :system-status   :running})
      [:div.stat-grid
@@ -76,8 +77,12 @@
       (c/stat-card {:label "Modules" :value (:module-count data)
                     :sub (when (:module-names data)
                            (str/join " · " (:module-names data)))})
-      (c/stat-card {:label "Errors" :value 0
-                    :value-class "green" :sub "no recent errors"})]
+      (let [err-total (:total (dashboard-errors/error-stats))]
+        (c/stat-card {:label "Errors (24h)" :value err-total
+                      :value-class (if (pos? err-total) "stat-value-error" "green")
+                      :sub (if (pos? err-total)
+                             "view error dashboard"
+                             "no recent errors")}))]
      [:div.two-col
       (c/card {:title "Integrant Components" :flush? true}
               (c/data-table

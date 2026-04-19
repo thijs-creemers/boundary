@@ -172,7 +172,13 @@
 (defn render-try-result [req]
   (let [params  (get req :params {})
         method  (or (get params "method") (get params :method) "get")
-        path    (or (get params "path") (get params :path) "/")
+        raw-path (or (get params "path") (get params :path) "/")
+        ;; Split path?query so Ring gets a proper :uri and :query-string
+        [path query-str] (str/split raw-path #"\?" 2)
+        query-params (when query-str
+                       (into {} (for [pair (str/split query-str #"&")
+                                      :let [[k v] (str/split pair #"=" 2)]]
+                                  [k (or v "")])))
         raw-body (or (get params "body") (get params :body) "")
         body    (when (seq raw-body)
                   (try (edn/read-string raw-body) (catch Exception _ nil)))
@@ -183,7 +189,9 @@
       (str (h/html [:div.detail-panel.detail-panel-error
                     [:p "System not running"]]))
       (let [result (devtools-repl/simulate-request handler method path
-                                                   (cond-> {} body (assoc :body body)))
+                                                   (cond-> {}
+                                                     body         (assoc :body body)
+                                                     query-params (assoc :query-params query-params)))
             status (:status result)
             ok?    (and (integer? status) (< status 400))]
         (str (h/html
