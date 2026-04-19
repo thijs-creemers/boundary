@@ -47,8 +47,9 @@
       (= prefix (str (quot status 100))))))
 
 (defn- filter-entries
-  "Filter request log entries by path substring and status range."
-  [entries {:keys [path-filter status-filter]}]
+  "Filter request log entries by path substring and status range.
+   Argument order is [filters entries] for ->> threading compatibility."
+  [{:keys [path-filter status-filter]} entries]
   (cond->> entries
     (not (str/blank? path-filter))
     (filter (fn [e] (str/includes? (str (:path e)) path-filter)))
