@@ -29,8 +29,12 @@
                  (get sys :boundary/http-handler))
         modules (active-modules sys)
         db-ctx  (get sys :boundary/db-context)
-        adapter (when db-ctx (some-> db-ctx :adapter name))
-        host    (when db-ctx (get-in db-ctx [:options :host] "localhost"))]
+        adapter (when db-ctx
+                  (let [a (:adapter db-ctx)]
+                    (if (keyword? a) (name a) (str (type a)))))
+        host    (when db-ctx (or (get-in db-ctx [:options :host])
+                                 (get-in db-ctx [:host])
+                                 "localhost"))]
     {:component-count (count sys)
      :routes          (seq routes)
      :route-methods   (when routes (frequencies (map :method routes)))
