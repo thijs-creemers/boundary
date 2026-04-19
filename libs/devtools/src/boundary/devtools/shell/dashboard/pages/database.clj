@@ -1,6 +1,7 @@
 (ns boundary.devtools.shell.dashboard.pages.database
   (:require [boundary.devtools.shell.dashboard.layout :as layout]
             [boundary.devtools.shell.dashboard.components :as c]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [integrant.repl.state :as state]
             [hiccup2.core :as h])
@@ -26,8 +27,39 @@
               acc))))
       (catch Exception _ nil))))
 
+(defn- discover-migration-files
+  "Discover .up.sql migration files from all migration directories.
+   Uses platform's discover-migration-dirs when available, falls back to
+   resources/migrations/. Scans both filesystem and classpath resources."
+  []
+  (let [dirs (try
+               (let [discover-fn (requiring-resolve
+                                  'boundary.platform.shell.database.migrations/discover-migration-dirs)]
+                 (discover-fn))
+               (catch Exception _
+                 ["migrations/"]))
+        ;; Collect files from each directory (filesystem + classpath)
+        files (mapcat (fn [dir]
+                        (let [;; Try filesystem first
+                              fs-dir (File. (str "resources/" dir))
+                              fs-files (when (.exists fs-dir)
+                                         (->> (.listFiles fs-dir)
+                                              (filter #(str/ends-with? (.getName %) ".up.sql"))
+                                              (map #(.getName %))))
+                              ;; Also scan classpath resources
+                              cp-url (io/resource dir)
+                              cp-files (when (and cp-url (= "file" (.getProtocol cp-url)))
+                                         (let [cp-dir (File. (.toURI cp-url))]
+                                           (when (.isDirectory cp-dir)
+                                             (->> (.listFiles cp-dir)
+                                                  (filter #(str/ends-with? (.getName %) ".up.sql"))
+                                                  (map #(.getName %))))))]
+                          (distinct (concat fs-files cp-files))))
+                      dirs)]
+    (->> files distinct sort)))
+
 (defn- migration-data
-  "Return a list of migration entries from resources/migrations/.
+  "Return a list of migration entries from all migration directories.
    Cross-references with schema_migrations table to determine actual status.
    Each entry: {:name <string> :status :applied|:pending}"
   [ctx]
@@ -35,25 +67,18 @@
                    (when-let [sys state/system] (get sys :boundary/db-context)))
         ds     (when db-ctx (:datasource db-ctx))
         applied-ids (applied-migration-ids ds)
-        migrations-dir (File. "resources/migrations")]
-    (if (.exists migrations-dir)
-      (let [files (->> (.listFiles migrations-dir)
-                       (filter #(str/ends-with? (.getName %) ".up.sql"))
-                       (sort-by #(.getName %)))]
-        (if (seq files)
-          (map (fn [f]
-                 (let [fname (str/replace (.getName f) #"\.up\.sql$" "")
-                       ;; Migratus stores the numeric prefix as a BIGINT id
-                       ;; e.g. file "20260324090101-bootstrap.up.sql" → id 20260324090101
-                       numeric-id (re-find #"^\d+" fname)
-                       status (if applied-ids
-                                (if (and numeric-id (contains? applied-ids numeric-id))
-                                  :applied
-                                  :pending)
-                                :unknown)]
-                   {:name fname :status status}))
-               files)
-          []))
+        filenames (discover-migration-files)]
+    (if (seq filenames)
+      (mapv (fn [fname-raw]
+              (let [fname (str/replace fname-raw #"\.up\.sql$" "")
+                    numeric-id (re-find #"^\d+" fname)
+                    status (if applied-ids
+                             (if (and numeric-id (contains? applied-ids numeric-id))
+                               :applied
+                               :pending)
+                             :unknown)]
+                {:name fname :status status}))
+            filenames)
       [])))
 
 (defn- pool-stats

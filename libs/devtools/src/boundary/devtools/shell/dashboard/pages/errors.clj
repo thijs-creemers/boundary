@@ -8,39 +8,56 @@
 ;; =============================================================================
 
 (defonce error-log* (atom []))
+(defonce error-stats-24h* (atom {:total 0 :validation 0 :persistence 0 :fcis 0
+                                 :entries []}))
 
 (defn record-error!
-  "Swap new enriched-error into the atom, newest first, max 100 entries."
+  "Record an enriched error. Keeps the display log bounded at 100 entries
+   and maintains rolling 24h stats separately so counts stay accurate."
   [enriched-error]
-  (swap! error-log* (fn [log]
-                      (let [updated (vec (cons enriched-error log))]
-                        (if (> (count updated) 100)
-                          (subvec updated 0 100)
-                          updated)))))
+  (let [ts (or (:timestamp-ms enriched-error) (System/currentTimeMillis))
+        entry (assoc enriched-error :timestamp-ms ts)]
+    ;; Display log: bounded at 100 for rendering
+    (swap! error-log* (fn [log]
+                        (let [updated (into [entry] log)]
+                          (if (> (count updated) 100)
+                            (subvec updated 0 100)
+                            updated))))
+    ;; Stats log: keeps all entries within 24h window
+    (swap! error-stats-24h* (fn [{:keys [entries]}]
+                              (let [cutoff (- (System/currentTimeMillis) (* 24 60 60 1000))
+                                    fresh (filterv #(>= (:timestamp-ms %) cutoff)
+                                                   (conj entries entry))]
+                                {:total       (count fresh)
+                                 :validation  (count (filter #(= (:category %) :validation) fresh))
+                                 :persistence (count (filter #(= (:category %) :persistence) fresh))
+                                 :fcis        (count (filter #(= (:category %) :fcis) fresh))
+                                 :entries     fresh})))))
 
 (defn clear-error-log!
-  "Reset the error log atom."
+  "Reset both the error log and stats atoms."
   []
-  (reset! error-log* []))
+  (reset! error-log* [])
+  (reset! error-stats-24h* {:total 0 :validation 0 :persistence 0 :fcis 0
+                            :entries []}))
 
 ;; =============================================================================
 ;; Stats
 ;; =============================================================================
 
 (defn error-stats
-  "Count errors in last 24h by category (:validation, :persistence, :fcis)."
+  "Return 24h error counts by category. Prunes stale entries on read."
   []
-  (let [now-ms      (System/currentTimeMillis)
-        cutoff-ms   (- now-ms (* 24 60 60 1000))
-        recent      (filter #(>= (get % :timestamp-ms 0) cutoff-ms) @error-log*)
-        total       (count recent)
-        validation  (count (filter #(= (:category %) :validation) recent))
-        persistence (count (filter #(= (:category %) :persistence) recent))
-        fcis        (count (filter #(= (:category %) :fcis) recent))]
-    {:total       total
-     :validation  validation
-     :persistence persistence
-     :fcis        fcis}))
+  (let [cutoff (- (System/currentTimeMillis) (* 24 60 60 1000))
+        stats (swap! error-stats-24h*
+                     (fn [{:keys [entries]}]
+                       (let [fresh (filterv #(>= (:timestamp-ms %) cutoff) entries)]
+                         {:total       (count fresh)
+                          :validation  (count (filter #(= (:category %) :validation) fresh))
+                          :persistence (count (filter #(= (:category %) :persistence) fresh))
+                          :fcis        (count (filter #(= (:category %) :fcis) fresh))
+                          :entries     fresh})))]
+    (dissoc stats :entries)))
 
 ;; =============================================================================
 ;; Helpers

@@ -40,7 +40,7 @@
         db-context   (:db-context config)
         app-port     (or (jetty-port http-server) (:http-port config) 3000)]
     {:system-status   (if (or sys http-handler) :running :stopped)
-     :component-count (if sys (count sys) 0)
+     :component-count (when sys (count sys))
      :error-count     (:total (errors-page/error-stats))
      :http-port       app-port
      :http-handler    http-handler
