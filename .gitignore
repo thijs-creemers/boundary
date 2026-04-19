@@ -52,6 +52,9 @@ docs-site/.hugo_build.lock
 existing-dir/
 .worktrees
 
+# Boundary devtools recordings
+.boundary/
+
 re# Claude Code local settings
 .claude/settings.local.json
 
