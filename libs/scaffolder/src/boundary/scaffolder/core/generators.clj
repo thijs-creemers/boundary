@@ -438,7 +438,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
          "  (create-" entity-lower " [this data]\n"
          "    (let [prepared (core/prepare-new-" entity-lower " data (generate-" entity-lower "-id) (current-time))]\n"
          "      (.create repository prepared)))\n"
-         "  (find-" entity-lower " [this id]\n"
+         "  (get-" entity-lower " [this id]\n"
          "    (.find-by-id repository id))\n"
          "  (list-" (template/pluralize entity-lower) " [this opts]\n"
          "    (.list-" (template/pluralize entity-lower) " repository opts))\n"

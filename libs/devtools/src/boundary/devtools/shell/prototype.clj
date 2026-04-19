@@ -18,7 +18,8 @@
   "{:paths [\"src\" \"resources\"]
 
  :deps {org.clojure/clojure {:mvn/version \"1.12.4\"}
-        boundary/platform {:local/root \"../platform\"}}
+        boundary/platform {:local/root \"../platform\"}
+        metosin/malli {:mvn/version \"0.20.1\"}}
 
  :aliases
  {:test {:extra-paths [\"test\"]

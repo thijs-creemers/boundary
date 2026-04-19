@@ -9,15 +9,34 @@
             [ring.middleware.params :refer [wrap-params]]))
 
 (defonce ^:private dynamic-routes (atom {}))
+(defonce ^:private dynamic-router (atom nil))
 (defonce ^:private taps (atom {}))
 (defonce ^:private recording-active? (atom false))
 
+(defn- rebuild-dynamic-router!
+  "Rebuild the internal Reitit router from the current dynamic-routes atom.
+   This gives us proper path matching (including path params like :id)."
+  []
+  (let [routes @dynamic-routes]
+    (if (empty? routes)
+      (reset! dynamic-router nil)
+      ;; Group routes by path, then build Reitit route vectors
+      (let [by-path (reduce (fn [acc [[method path] handler-map]]
+                              (update acc path assoc method handler-map))
+                            {} routes)
+            reitit-routes (mapv (fn [[path methods]]
+                                  [path methods])
+                                by-path)]
+        (reset! dynamic-router (rc/router reitit-routes))))))
+
 (defn add-dynamic-route! [method path handler-fn]
   (swap! dynamic-routes assoc [method path] {:handler handler-fn})
+  (rebuild-dynamic-router!)
   nil)
 
 (defn remove-dynamic-route! [method path]
   (swap! dynamic-routes dissoc [method path])
+  (rebuild-dynamic-router!)
   nil)
 
 (defn list-dynamic-routes []
@@ -61,30 +80,39 @@
         new-handler (compile-fn modified-routes)]
     (swap-fn new-handler)))
 
+(defn- match-dynamic-route
+  "Match a request against the dynamic Reitit router.
+   Returns the handler-map for the matched method, or nil."
+  [request]
+  (when-let [router @dynamic-router]
+    (when-let [match (rc/match-by-path router (:uri request))]
+      (let [method (:request-method request)
+            handler-map (get-in match [:data method])]
+        (when handler-map
+          {:handler-map handler-map
+           :path-params (:path-params match)})))))
+
 (defn wrap-dynamic-dispatch
-  "Ring middleware that checks the dynamic-routes atom on every request.
-   When a request matches a registered [method path] pair, the dynamic
-   handler is called through standard Ring middleware (params, cookies)
-   so it sees parsed query/form params and cookies like normal routes.
+  "Ring middleware that checks dynamic routes via a Reitit router.
+   Supports path parameters (e.g. /api/foo/:id matches /api/foo/123).
+   Matched requests go through wrap-params and wrap-cookies so dynamic
+   handlers see parsed params/cookies like normal routes.
    Otherwise the request falls through to the base handler."
   [base-handler]
-  (let [;; Build a handler that routes through dynamic-routes with standard
-        ;; middleware applied, so dynamic handlers see parsed params/cookies.
+  (let [;; Build a dynamic handler with standard middleware applied.
         dynamic-handler (-> (fn [request]
-                              (let [method (:request-method request)
-                                    path   (:uri request)
-                                    match  (get @dynamic-routes [method path])]
-                                (if match
-                                  ((:handler match) request)
-                                  (base-handler request))))
+                              (if-let [match (match-dynamic-route request)]
+                                (let [handler-fn (get-in match [:handler-map :handler])
+                                      request (update request :path-params
+                                                      merge (:path-params match))]
+                                  (handler-fn request))
+                                (base-handler request)))
                             wrap-cookies
                             wrap-params)]
     (fn [request]
-      (let [method (:request-method request)
-            path   (:uri request)]
-        (if (get @dynamic-routes [method path])
-          (dynamic-handler request)
-          (base-handler request))))))
+      (if (match-dynamic-route request)
+        (dynamic-handler request)
+        (base-handler request)))))
 
 (defn- handler-name->pattern
   "Convert a tap handler keyword like :create-user to a regex pattern
@@ -142,6 +170,7 @@
    documented way to activate them."
   []
   (reset! dynamic-routes {})
+  (reset! dynamic-router nil)
   (reset! recording-active? false)
   nil)
 
