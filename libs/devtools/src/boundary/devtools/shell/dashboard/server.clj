@@ -78,7 +78,7 @@
          {:post (fn [req]
                   {:status  200
                    :headers {"Content-Type" "text/html; charset=utf-8"}
-                   :body    (routes-page/render-try-result req)})}]
+                   :body    (routes-page/render-try-result (merge req (select-keys (build-context config) [:http-handler])))})}]
         ["/dashboard/fragments/routes-table"
          {:get (fn [req]
                  {:status  200

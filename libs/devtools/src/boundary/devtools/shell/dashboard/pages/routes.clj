@@ -173,8 +173,9 @@
         raw-body (or (get params "body") (get params :body) "")
         body    (when (seq raw-body)
                   (try (edn/read-string raw-body) (catch Exception _ nil)))
-        sys     state/system
-        handler (get sys :boundary/http-handler)]
+        handler (or (:http-handler req)
+                    (when-let [sys state/system]
+                      (get sys :boundary/http-handler)))]
     (if-not handler
       (str (h/html [:div.detail-panel.detail-panel-error
                     [:p "System not running"]]))

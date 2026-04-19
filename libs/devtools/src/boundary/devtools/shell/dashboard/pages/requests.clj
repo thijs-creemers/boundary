@@ -86,8 +86,11 @@
                       {:value "4xx" :label "4xx Client Error"}
                       {:value "5xx" :label "5xx Server Error"}])
     [:span.live-indicator "● Live — polling every 2s"])
-   [:div {:hx-get     "/dashboard/fragments/request-list"
-          :hx-trigger "every 2s"
-          :hx-swap    "innerHTML"}
-    (c/card {:title "Requests"}
-            (render-request-list))]))
+   (c/card {:title "Requests"
+            :right [:span.live-indicator "● polling 2s"]}
+           [:div#request-list-container
+            {:hx-get     "/dashboard/fragments/request-list"
+             :hx-trigger "every 2s"
+             :hx-swap    "innerHTML"}
+            (render-request-list)])))
+

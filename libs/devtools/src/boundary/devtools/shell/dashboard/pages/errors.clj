@@ -98,9 +98,10 @@
       (c/stat-card {:label "Validation"      :value validation  :value-class (when (pos? validation) "stat-value-error")})
       (c/stat-card {:label "Persistence"     :value persistence :value-class (when (pos? persistence) "stat-value-error")})
       (c/stat-card {:label "FC/IS Violations" :value fcis       :value-class (when (pos? fcis) "stat-value-error")})]
-     [:div {:hx-get     "/dashboard/fragments/error-list"
-            :hx-trigger "every 2s"
-            :hx-swap    "innerHTML"}
-      (c/card {:title "Recent Errors"
-               :right [:span.live-indicator "● Live — polling every 2s"]}
-              (render-error-list))])))
+     (c/card {:title "Recent Errors"
+              :right [:span.live-indicator "● polling 2s"]}
+             [:div#error-list-container
+              {:hx-get     "/dashboard/fragments/error-list"
+               :hx-trigger "every 2s"
+               :hx-swap    "innerHTML"}
+              (render-error-list)]))))

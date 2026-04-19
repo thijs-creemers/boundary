@@ -71,16 +71,18 @@
 
 (defn wrap-request-capture
   "Ring middleware that captures request/response pairs into a bounded log.
-   Records both successful responses and exceptions (as 500)."
+   Records both successful responses and exceptions (as 500).
+   Preserves handler metadata (e.g. :reitit/router) so route discovery still works."
   [handler]
-  (fn [request]
-    (let [start-ns (System/nanoTime)]
-      (try
-        (let [response (handler request)
-              duration (/ (- (System/nanoTime) start-ns) 1e6)]
-          (log-entry! request response duration)
-          response)
-        (catch Throwable t
-          (let [duration (/ (- (System/nanoTime) start-ns) 1e6)]
-            (log-entry! request {:status 500 :body (.getMessage t)} duration))
-          (throw t))))))
+  (let [wrapper (fn [request]
+                  (let [start-ns (System/nanoTime)]
+                    (try
+                      (let [response (handler request)
+                            duration (/ (- (System/nanoTime) start-ns) 1e6)]
+                        (log-entry! request response duration)
+                        response)
+                      (catch Throwable t
+                        (let [duration (/ (- (System/nanoTime) start-ns) 1e6)]
+                          (log-entry! request {:status 500 :body (.getMessage t)} duration))
+                        (throw t)))))]
+    (with-meta wrapper (meta handler))))

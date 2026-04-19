@@ -149,10 +149,7 @@
          :right [:span.count-badge (str (count schema-keys))]}
         (c/filter-input {:placeholder "Filter schemas..."
                          :id          "schema-search"
-                         :hx-get      "/dashboard/schemas"
-                         :hx-trigger  "keyup changed delay:300ms"
-                         :hx-target   "#schema-list"
-                         :hx-swap     "outerHTML"})
+                         :oninput     "let v=this.value.toLowerCase();document.querySelectorAll('#schema-list .schema-list-item').forEach(el=>{el.style.display=el.textContent.toLowerCase().includes(v)?'':'none'})"})
         [:div#schema-list
          (for [sk schema-keys]
            (let [active? (= sk selected-key)
