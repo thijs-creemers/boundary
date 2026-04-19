@@ -8,6 +8,7 @@
             [boundary.devtools.shell.dashboard.pages.errors :as errors-page]
             [boundary.devtools.shell.dashboard.pages.docs :as docs-page]
             [boundary.devtools.shell.dashboard.pages.jobs :as jobs-page]
+            [boundary.devtools.shell.dashboard.pages.config :as config-page]
             [boundary.jobs.ports :as job-ports]
             [integrant.core :as ig]
             [reitit.ring :as ring]
@@ -54,7 +55,8 @@
      :job-stats       (when job-stats-svc
                         (try (job-ports/job-stats job-stats-svc) (catch Exception _ nil)))
      :failed-jobs     (when job-store
-                        (try (job-ports/failed-jobs job-store 20) (catch Exception _ nil)))}))
+                        (try (job-ports/failed-jobs job-store 20) (catch Exception _ nil)))
+     :config          (when sys (try @(resolve 'integrant.repl.state/config) (catch Exception _ nil)))}))
 
 (defn- make-handler [config]
   (-> (ring/router
@@ -79,6 +81,24 @@
         ["/dashboard/jobs"
          {:get (fn [_req]
                  (html-response (jobs-page/render (build-context config))))}]
+        ["/dashboard/config"
+         {:get (fn [_req]
+                 (html-response (config-page/render (build-context config))))}]
+        ["/dashboard/fragments/config-preview"
+         {:post (fn [req]
+                  {:status  200
+                   :headers {"Content-Type" "text/html; charset=utf-8"}
+                   :body    (config-page/render-preview-fragment
+                             :preview
+                             (:config (build-context config))
+                             (get-in req [:params "value"] ""))})}]
+        ["/dashboard/fragments/config-apply"
+         {:post (fn [req]
+                  {:status  200
+                   :headers {"Content-Type" "text/html; charset=utf-8"}
+                   :body    (config-page/render-apply-result
+                             {:success? false
+                              :error "Hot-apply via dashboard is not yet wired to Integrant restart. Use (restart-component :key) in the REPL."})})}]
         ["/dashboard/docs"
          {:get (fn [_req]
                  (html-response (docs-page/render-index (build-context config))))}]
