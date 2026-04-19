@@ -312,7 +312,10 @@
                               workflow-enabled?
                               (assoc :workflow-routes (ig/ref :boundary/workflow-routes))
                               search-enabled?
-                              (assoc :search-routes (ig/ref :boundary/search-routes)))]
+                              (assoc :search-routes (ig/ref :boundary/search-routes)))
+        http-handler-config (cond-> http-handler-config
+                              (= (:boundary/profile config) :dev)
+                              (assoc :request-capture? true))]
     {:boundary/user-db-schema
      {:ctx (ig/ref :boundary/db-context)}
 
@@ -518,6 +521,19 @@
                           :default-locale :en})]
     {:boundary/i18n i18n-cfg}))
 
+(defn- dashboard-module-config
+  "Dashboard config — only active in dev profile."
+  [config]
+  (when (= (:boundary/profile config) :dev)
+    (let [dashboard-cfg (get-in config [:active :boundary/dashboard])]
+      (when dashboard-cfg
+        {:boundary/dashboard
+         {:port        (:port dashboard-cfg 9999)
+          :http-handler (ig/ref :boundary/http-handler)
+          :db-context   (ig/ref :boundary/db-context)
+          :router       (ig/ref :boundary/router)
+          :logging      (ig/ref :boundary/logging)}}))))
+
 (defn ig-config
   "Generate Integrant configuration map from loaded config.
 
@@ -550,7 +566,8 @@
          (workflow-module-config config)
          (search-module-config config)
          (external-module-config config)
-         (payments-module-config config)))
+         (payments-module-config config)
+         (dashboard-module-config config)))
 
 ;; =============================================================================
 ;; REPL Utilities
