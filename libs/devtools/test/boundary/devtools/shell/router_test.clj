@@ -4,9 +4,9 @@
 
 (use-fixtures :each
   (fn [f]
-    (router/clear-dynamic-state!)
+    (router/clear-all-state!)
     (f)
-    (router/clear-dynamic-state!)))
+    (router/clear-all-state!)))
 
 (deftest add-dynamic-route-test
   (testing "registers a dynamic route"
@@ -39,10 +39,19 @@
     (is (empty? (router/list-taps)))))
 
 (deftest clear-dynamic-state-test
-  (testing "clears all dynamic routes and taps"
+  (testing "clears dynamic routes but preserves taps"
     (router/add-dynamic-route! :get "/api/test"
                                (fn [_] {:status 200}))
     (router/add-tap! :create-user (fn [ctx] ctx))
     (router/clear-dynamic-state!)
+    (is (empty? (router/list-dynamic-routes)))
+    (is (= 1 (count (router/list-taps))) "taps should persist across reset")))
+
+(deftest clear-all-state-test
+  (testing "clears all dynamic routes and taps"
+    (router/add-dynamic-route! :get "/api/test"
+                               (fn [_] {:status 200}))
+    (router/add-tap! :create-user (fn [ctx] ctx))
+    (router/clear-all-state!)
     (is (empty? (router/list-dynamic-routes)))
     (is (empty? (router/list-taps)))))

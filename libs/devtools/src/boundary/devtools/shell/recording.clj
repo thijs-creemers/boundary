@@ -2,7 +2,8 @@
   "Stateful recording management: session atom, capture middleware, file I/O."
   (:require [boundary.devtools.core.recording :as core]
             [clojure.java.io :as io]
-            [clojure.string :as str]))
+            [clojure.string :as str])
+  (:import [java.io InputStream]))
 
 (def ^:private default-dir ".boundary/recordings")
 
@@ -41,21 +42,41 @@
       (println (format "Recording stopped. %d request(s) captured." cnt))))
   nil)
 
+(defn- read-body
+  "Read a request/response body into a serializable form.
+   InputStreams are slurped into strings; everything else passes through."
+  [body]
+  (cond
+    (instance? InputStream body) (slurp body)
+    :else body))
+
 (defn capture-middleware
   "Returns a Ring middleware that captures request/response pairs into the session atom.
-   Normalizes :request-method to :method for consistent data model."
+   Normalizes :request-method to :method for consistent data model.
+   InputStream bodies are materialized to strings so they survive serialization."
   []
   (fn [handler]
     (fn [request]
-      (let [start    (System/nanoTime)
-            response (handler request)
-            duration (/ (- (System/nanoTime) start) 1e6)]
+      ;; Materialize the body before passing to handler, since InputStreams
+      ;; can only be read once.  Replace the original body with a
+      ;; ByteArrayInputStream so downstream handlers still work.
+      (let [raw-body    (:body request)
+            body-str    (read-body raw-body)
+            request     (if (instance? InputStream raw-body)
+                          (assoc request :body (java.io.ByteArrayInputStream.
+                                                (.getBytes (str body-str) "UTF-8")))
+                          request)
+            start       (System/nanoTime)
+            response    (handler request)
+            duration    (/ (- (System/nanoTime) start) 1e6)]
         (when @session-atom
-          (let [req-data (-> (select-keys request [:uri :headers :body :params])
-                             (assoc :method (:request-method request)))]
+          (let [req-data (-> (select-keys request [:uri :headers :params])
+                             (assoc :method (:request-method request))
+                             (assoc :body body-str))]
             (swap! session-atom core/add-entry
                    req-data
-                   (select-keys response [:status :headers :body])
+                   (-> (select-keys response [:status :headers])
+                       (assoc :body (read-body (:body response))))
                    (long duration))))
         response))))
 

@@ -2,7 +2,8 @@
   "Orchestrates module generation: scaffold -> migrate -> reset -> summary."
   (:require [boundary.devtools.core.prototype :as core]
             [boundary.scaffolder.core.generators :as gen]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clojure.java.shell :as shell]))
 
 (defn- write-file! [path content]
   (let [f (io/file path)]
@@ -62,13 +63,13 @@
     files))
 
 (defn prototype!
-  "Generate a complete working module: scaffold + migrate + reset.
-   reset-fn should be the REPL's reset function (e.g. integrant.repl/reset).
+  "Generate a complete working module: scaffold files + run migration.
+   After this, you need to integrate (bb scaffold integrate) and restart REPL.
 
    spec keys:
      :fields    - vector of [field-name malli-spec] pairs
      :endpoints - vector of endpoint keywords (default [:crud])"
-  [module-name spec reset-fn]
+  [module-name spec]
   (let [generators (core/endpoints-to-generators (or (:endpoints spec) [:crud]))
         ctx        (core/build-scaffold-context module-name spec)
         files      (generate-module-files! module-name ctx generators)
@@ -81,11 +82,12 @@
     (println "\nGenerated files:")
     (doseq [f (conj files migration-path)] (println (str "  " f)))
     (println "\nRunning migration...")
-    (let [result (clojure.java.shell/sh "bb" "migrate" "up")]
+    (let [result (shell/sh "bb" "migrate" "up")]
       (if (zero? (:exit result))
         (println "  => Migration applied")
         (println (str "  Warning: Migration failed: " (:err result)))))
-    (println "\nResetting system to load new module...")
-    (reset-fn)
-    (println (format "\n=> Module '%s' is live!" module-name))
-    (println (format "  Try: (simulate :get \"/api/%s\")" module-name))))
+    (println (format "\n=> Module '%s' files generated. Next steps:" module-name))
+    (println (format "  1. Integrate into app:  bb scaffold integrate %s" module-name))
+    (println "  2. Restart REPL to pick up new classpath")
+    (println "  3. (reset) to load the module")
+    (println (format "  4. Try: (simulate :get \"/api/%s\")" module-name))))

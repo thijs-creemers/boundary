@@ -550,7 +550,7 @@
       :endpoints [:crud :list]})"
   [module-name spec]
   (let [name-str (if (keyword? module-name) (name module-name) module-name)]
-    (prototype/prototype! name-str spec reset)))
+    (prototype/prototype! name-str spec)))
 
 ;; =============================================================================
 ;; Quick Start Message

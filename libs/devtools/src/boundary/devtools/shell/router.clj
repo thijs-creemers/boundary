@@ -71,8 +71,18 @@
         ((:handler match) request)
         (base-handler request)))))
 
-(defn clear-dynamic-state! []
+(defn clear-dynamic-state!
+  "Clear ephemeral dynamic state on reset.
+   Taps are NOT cleared — they persist across resets because (reset) is the
+   documented way to activate them."
+  []
   (reset! dynamic-routes {})
-  (reset! taps {})
   (reset! recording-active? false)
+  nil)
+
+(defn clear-all-state!
+  "Clear ALL dynamic state including taps. Use for full cleanup."
+  []
+  (clear-dynamic-state!)
+  (reset! taps {})
   nil)
