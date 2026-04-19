@@ -299,6 +299,14 @@
                                                      v))
                                                  expanded-config)
                                 new-val (ig/init-key component-key resolved-config)]
+                            ;; If we're restarting the HTTP handler, sync the live
+                            ;; handler-atom so Jetty serves the new handler immediately.
+                            (when (= component-key :boundary/http-handler)
+                              (try
+                                (require 'boundary.platform.shell.system.wiring)
+                                (let [swap-fn (resolve 'boundary.platform.shell.system.wiring/swap-handler!)]
+                                  (swap-fn new-val))
+                                (catch Exception _)))
                             (assoc sys component-key new-val))))
         (println (format "=> %s restarted." component-key))
         (when (seq dependents)

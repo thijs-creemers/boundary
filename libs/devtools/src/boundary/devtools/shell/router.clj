@@ -140,10 +140,10 @@
 
 (defn wrap-taps
   "Ring middleware that invokes registered tap callbacks.
-   Uses the Reitit router (from handler metadata) to pre-match the request
-   and find the handler function. Matches tap keywords against the handler's
-   string representation (e.g. :create-user matches a handler whose str
-   contains 'create_user' or 'create-user').
+   Uses the Reitit router (from handler metadata) to pre-match the request.
+   Matches taps in order of preference:
+   1. Route :name keyword (exact match — works for all named routes)
+   2. Handler function string (regex match — fallback for unnamed routes)
    The tap receives {:request request :match match-data} and its return
    value replaces the context (allowing request modification)."
   [base-handler]
@@ -155,9 +155,13 @@
           (let [match      (rc/match-by-path router (:uri request))
                 method     (:request-method request)
                 match-data (when match (get-in match [:data method]))
-                handler-fn (:handler match-data)
-                handler-str (when handler-fn (str handler-fn))
-                tap-fn     (find-matching-tap active-taps handler-str)]
+                ;; Try matching by route :name first (exact keyword match)
+                route-name (:name match-data)
+                tap-fn     (or (when route-name (get active-taps route-name))
+                               ;; Fall back to handler string matching
+                               (let [handler-fn (:handler match-data)
+                                     handler-str (when handler-fn (str handler-fn))]
+                                 (find-matching-tap active-taps handler-str)))]
             (if tap-fn
               (let [ctx     {:request request :match (:data match)}
                     result  (tap-fn ctx)
