@@ -3,7 +3,10 @@
    Tracks dynamic routes and taps in atoms, rebuilds the handler via
    platform's swap-handler!."
   (:require [boundary.devtools.core.router :as core-router]
-            [reitit.core :as rc]))
+            [clojure.string]
+            [reitit.core :as rc]
+            [ring.middleware.cookies :refer [wrap-cookies]]
+            [ring.middleware.params :refer [wrap-params]]))
 
 (defonce ^:private dynamic-routes (atom {}))
 (defonce ^:private taps (atom {}))
@@ -61,38 +64,68 @@
 (defn wrap-dynamic-dispatch
   "Ring middleware that checks the dynamic-routes atom on every request.
    When a request matches a registered [method path] pair, the dynamic
-   handler is called directly (bypassing the compiled Reitit router).
+   handler is called through standard Ring middleware (params, cookies)
+   so it sees parsed query/form params and cookies like normal routes.
    Otherwise the request falls through to the base handler."
   [base-handler]
-  (fn [request]
-    (let [method (:request-method request)
-          path   (:uri request)
-          match  (get @dynamic-routes [method path])]
-      (if match
-        ((:handler match) request)
-        (base-handler request)))))
+  (let [;; Build a handler that routes through dynamic-routes with standard
+        ;; middleware applied, so dynamic handlers see parsed params/cookies.
+        dynamic-handler (-> (fn [request]
+                              (let [method (:request-method request)
+                                    path   (:uri request)
+                                    match  (get @dynamic-routes [method path])]
+                                (if match
+                                  ((:handler match) request)
+                                  (base-handler request))))
+                            wrap-cookies
+                            wrap-params)]
+    (fn [request]
+      (let [method (:request-method request)
+            path   (:uri request)]
+        (if (get @dynamic-routes [method path])
+          (dynamic-handler request)
+          (base-handler request))))))
+
+(defn- handler-name->pattern
+  "Convert a tap handler keyword like :create-user to a regex pattern
+   that matches the handler function's string representation.
+   Matches both kebab-case (symbol form) and underscore (compiled fn)."
+  [handler-kw]
+  (let [s (name handler-kw)
+        ;; Match either kebab-case or underscore variant in the fn string
+        pattern (str "(?:" s "|" (clojure.string/replace s "-" "_") ")")]
+    (re-pattern pattern)))
+
+(defn- find-matching-tap
+  "Find a registered tap whose keyword matches the handler function string.
+   Returns the tap function or nil."
+  [active-taps handler-str]
+  (when handler-str
+    (some (fn [[tap-kw tap-fn]]
+            (when (re-find (handler-name->pattern tap-kw) handler-str)
+              tap-fn))
+          active-taps)))
 
 (defn wrap-taps
   "Ring middleware that invokes registered tap callbacks.
    Uses the Reitit router (from handler metadata) to pre-match the request
-   path and extract the handler :name. This is necessary because wrap-taps
-   sits outside the compiled Reitit handler, so :reitit.core/match hasn't
-   been populated yet.
+   and find the handler function. Matches tap keywords against the handler's
+   string representation (e.g. :create-user matches a handler whose str
+   contains 'create_user' or 'create-user').
    The tap receives {:request request :match match-data} and its return
-   value replaces the context (allowing request modification).
-   Route methods must have a :name key for taps to match."
+   value replaces the context (allowing request modification)."
   [base-handler]
   (let [router (:reitit/router (meta base-handler))]
     (fn [request]
       (let [active-taps @taps]
         (if (or (empty? active-taps) (nil? router))
           (base-handler request)
-          ;; Pre-match the path to get route data with handler :name
           (let [match      (rc/match-by-path router (:uri request))
                 method     (:request-method request)
                 match-data (when match (get-in match [:data method]))
-                handler-name (when match-data (:name match-data))
-                tap-fn     (when handler-name (get active-taps handler-name))]
+                handler-fn (:handler match-data)
+                handler-str (when handler-fn (str handler-fn))
+                tap-fn     (find-matching-tap active-taps handler-str)]
             (if tap-fn
               (let [ctx     {:request request :match (:data match)}
                     result  (tap-fn ctx)

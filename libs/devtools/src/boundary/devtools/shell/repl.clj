@@ -81,13 +81,16 @@
 
    opts keys:
      :body         — EDN/map body, will be JSON-encoded
+     :raw-body     — raw string body, passed as-is (for non-JSON replay)
      :headers      — extra headers map
      :query-params — map of query params (encoded into :query-string for wrap-params)
      :query-string — raw query string (used as-is, takes precedence over :query-params)"
   [method path opts]
-  (let [{:keys [body headers query-params query-string]} opts
-        base-headers {"content-type" "application/json"
-                      "accept"       "application/json"}
+  (let [{:keys [body raw-body headers query-params query-string]} opts
+        base-headers (if raw-body
+                       {"accept" "application/json"}
+                       {"content-type" "application/json"
+                        "accept"       "application/json"})
         all-headers (merge base-headers headers)
         request (cond-> {:request-method (keyword (str/lower-case (name method)))
                          :uri            path
@@ -100,7 +103,11 @@
                   body
                   (assoc :body
                          (ByteArrayInputStream.
-                          (.getBytes (json/generate-string body) "UTF-8"))))]
+                          (.getBytes (json/generate-string body) "UTF-8")))
+                  raw-body
+                  (assoc :body
+                         (ByteArrayInputStream.
+                          (.getBytes (str raw-body) "UTF-8"))))]
     request))
 
 (defn simulate-request

@@ -100,29 +100,52 @@
                    (long duration))))
         response))))
 
-(defn- decode-recorded-body
-  "Decode a recorded body back to data for replay.
-   JSON strings are parsed to maps/vectors so simulate doesn't double-encode."
-  [body]
-  (if (string? body)
-    (try (json/parse-string body true)
-         (catch Exception _ body))
+(defn- json-content-type?
+  "Check if headers indicate a JSON content type."
+  [headers]
+  (let [ct (or (get headers "content-type")
+               (get headers "Content-Type")
+               "")]
+    (boolean (re-find #"(?i)json" ct))))
+
+(defn- prepare-replay-body
+  "Prepare a recorded body for replay based on its content type.
+   JSON bodies are parsed back to data (simulate will re-encode them).
+   Non-JSON bodies are wrapped as raw bytes via :raw-body so simulate
+   can pass them through without re-encoding."
+  [body headers]
+  (if (json-content-type? headers)
+    (if (string? body)
+      (try (json/parse-string body true)
+           (catch Exception _ body))
+      body)
     body))
 
 (defn replay-entry!
-  "Replay a recorded entry. simulate-fn should be the repl/simulate-request function."
+  "Replay a recorded entry. simulate-fn should be the repl/simulate-request function.
+   For non-JSON content types, the raw body is passed through without re-encoding."
   [idx simulate-fn & [overrides]]
   (if-let [session @session-atom]
     (if-let [entry (core/get-entry session idx)]
       (let [request (if overrides
                       (core/merge-request-modifications (:request entry) overrides)
                       (:request entry))
-            body    (decode-recorded-body (:body request))]
-        (simulate-fn (:method request) (:uri request)
-                     (cond-> {}
-                       body                      (assoc :body body)
-                       (:headers request)        (assoc :headers (:headers request))
-                       (:query-string request)   (assoc :query-string (:query-string request)))))
+            headers (:headers request)
+            json?   (json-content-type? headers)
+            body    (prepare-replay-body (:body request) headers)]
+        (if json?
+          ;; JSON: pass as :body, simulate will JSON-encode it
+          (simulate-fn (:method request) (:uri request)
+                       (cond-> {}
+                         body                      (assoc :body body)
+                         headers                   (assoc :headers headers)
+                         (:query-string request)   (assoc :query-string (:query-string request))))
+          ;; Non-JSON: pass as :raw-body to avoid re-encoding
+          (simulate-fn (:method request) (:uri request)
+                       (cond-> {}
+                         body                      (assoc :raw-body body)
+                         headers                   (assoc :headers headers)
+                         (:query-string request)   (assoc :query-string (:query-string request))))))
       (println (format "Entry %d not found. Session has %d entries (0 to %d)."
                        idx (core/entry-count session) (dec (core/entry-count session)))))
     (println "No active recording session. Use (recording :start) or (recording :load \"name\").")))
