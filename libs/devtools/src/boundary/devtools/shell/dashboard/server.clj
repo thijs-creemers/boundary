@@ -6,6 +6,7 @@
             [boundary.devtools.shell.dashboard.pages.schemas :as schemas-page]
             [boundary.devtools.shell.dashboard.pages.database :as database-page]
             [boundary.devtools.shell.dashboard.pages.errors :as errors-page]
+            [boundary.devtools.shell.dashboard.pages.docs :as docs-page]
             [integrant.core :as ig]
             [reitit.ring :as ring]
             [ring.adapter.jetty :as jetty]
@@ -66,6 +67,14 @@
         ["/dashboard/errors"
          {:get (fn [_req]
                  (html-response (errors-page/render (build-context config))))}]
+        ["/dashboard/docs"
+         {:get (fn [_req]
+                 (html-response (docs-page/render-index (build-context config))))}]
+        ["/dashboard/docs/:module/:file"
+         {:get (fn [req]
+                 (let [module (get-in req [:path-params :module])
+                       file   (get-in req [:path-params :file])]
+                   (html-response (docs-page/render (build-context config) module file))))}]
         ["/dashboard/fragments/request-list"
          {:get (fn [req]
                  {:status  200

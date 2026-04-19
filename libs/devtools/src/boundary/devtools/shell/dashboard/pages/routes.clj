@@ -57,7 +57,10 @@
              [:span.route-path path]
              [:span.route-handler (or (handler-short-name handler) handler)]
              (if module
-               [:span.module-tag module]
+               [:a.module-tag {:href  (str "/dashboard/docs/" module "/AGENTS.md")
+                               :style "color:inherit;text-decoration:none"
+                               :title (str "libs/" module "/ docs")}
+                module]
                [:span.module-tag.module-tag-unknown "—"])
              [:button.inspect-link
               {:type     "button"

@@ -1,6 +1,7 @@
 (ns boundary.devtools.shell.dashboard.layout
   "Dashboard shell: HTML wrapper, sidebar, top bar."
   (:require [boundary.ui-style :as ui-style]
+            [clojure.string :as str]
             [hiccup2.core :as h]))
 
 (def ^:private nav-items
@@ -10,7 +11,8 @@
    {:path "/dashboard/requests" :icon "⟳" :label "Requests"}
    {:path "/dashboard/schemas"  :icon "▤" :label "Schemas"}
    {:path "/dashboard/db"       :icon "⊞" :label "Database"}
-   {:path "/dashboard/errors"   :icon "⚠" :label "Errors"}])
+   {:path "/dashboard/errors"   :icon "⚠" :label "Errors"}
+   {:path "/dashboard/docs"     :icon "📖" :label "Docs"}])
 
 (defn- sidebar [{:keys [active-path system-status]}]
   [:div.dashboard-sidebar {:x-data "{collapsed: false}" ":class" "collapsed && 'collapsed'"}
@@ -19,7 +21,11 @@
     [:span.sidebar-brand-text "Boundary Dev"]]
    [:nav.sidebar-nav
     (for [{:keys [path icon label]} nav-items]
-      [:a.nav-item {:href path :class (when (= path active-path) "active")}
+      [:a.nav-item {:href path :class (when (or (= path active-path)
+                                                (and active-path
+                                                     (not= path "/dashboard")
+                                                     (str/starts-with? active-path path)))
+                                        "active")}
        [:span.nav-icon icon]
        [:span.nav-label label]])]
    [:div.sidebar-footer
