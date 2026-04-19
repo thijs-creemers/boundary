@@ -85,3 +85,8 @@
   "Render the jobs content as an HTML fragment for HTMX polling."
   [opts]
   (str (h/html (jobs-content opts))))
+
+(defn render-failed-jobs-fragment
+  "Render only the failed jobs list as an HTML fragment for retry swap."
+  [opts]
+  (str (h/html (failed-jobs-list (or (:failed-jobs opts) [])))))

@@ -109,11 +109,39 @@
                                section-key section-val (or new-val ""))}))}]
         ["/dashboard/fragments/config-apply"
          {:post (fn [req]
-                  {:status  200
-                   :headers {"Content-Type" "text/html; charset=utf-8"}
-                   :body    (config-page/render-apply-result
-                             {:success? false
-                              :error "Hot-apply via dashboard is not yet wired to Integrant restart. Use (restart-component :key) in the REPL."})})}]
+                  (let [ctx    (build-context config)
+                        params (:params req)
+                        ;; Extract section key and new value from form params
+                        [section-key new-val-str]
+                        (or (some (fn [[k v]]
+                                    (when (and (string? k) (.startsWith k "config-"))
+                                      (let [cfg-key (try (edn/read-string (subs k 7))
+                                                         (catch Exception _ nil))]
+                                        (when cfg-key [cfg-key v]))))
+                                  params)
+                            [nil nil])
+                        result
+                        (if (and section-key new-val-str)
+                          (try
+                            (let [new-val   (edn/read-string new-val-str)
+                                  sys-var   (resolve 'integrant.repl.state/system)
+                                  cfg-var   (resolve 'integrant.repl.state/config)
+                                  repl-reqs (resolve 'boundary.devtools.shell.repl/restart-component)]
+                              (if (and sys-var cfg-var repl-reqs)
+                                (do
+                                  ;; Update the config var with the new section value
+                                  (alter-var-root cfg-var assoc section-key new-val)
+                                  ;; Restart the affected component
+                                  (repl-reqs sys-var @cfg-var section-key)
+                                  {:success? true :restarted [section-key]})
+                                {:success? false
+                                 :error "Cannot resolve Integrant REPL state. Is the system running?"}))
+                            (catch Exception e
+                              {:success? false :error (.getMessage e)}))
+                          {:success? false :error "No config section identified in request."})]
+                    {:status  200
+                     :headers {"Content-Type" "text/html; charset=utf-8"}
+                     :body    (config-page/render-apply-result result)}))}]
         ["/dashboard/docs"
          {:get (fn [_req]
                  (html-response (docs-page/render-index (build-context config))))}]
@@ -129,15 +157,16 @@
                   :body    (jobs-page/render-fragment (build-context config))})}]
         ["/dashboard/fragments/retry-job"
          {:post (fn [req]
-                  (when-let [job-store (:job-store (build-context config))]
-                    (let [job-id (get-in req [:params "job-id"])]
-                      (when job-id
-                        (try (job-ports/retry-job! job-store job-id)
-                             (catch Exception e
-                               (log/warn "Failed to retry job" {:job-id job-id :error (.getMessage e)}))))))
-                  {:status  200
-                   :headers {"Content-Type" "text/html; charset=utf-8"}
-                   :body    (jobs-page/render-fragment (build-context config))})}]
+                  (let [ctx (build-context config)]
+                    (when-let [job-store (:job-store ctx)]
+                      (let [job-id (get-in req [:params "job-id"])]
+                        (when job-id
+                          (try (job-ports/retry-job! job-store job-id)
+                               (catch Exception e
+                                 (log/warn "Failed to retry job" {:job-id job-id :error (.getMessage e)}))))))
+                    {:status  200
+                     :headers {"Content-Type" "text/html; charset=utf-8"}
+                     :body    (jobs-page/render-failed-jobs-fragment ctx)}))}]
         ["/dashboard/fragments/request-list"
          {:get (fn [req]
                  {:status  200

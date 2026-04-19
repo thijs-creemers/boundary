@@ -11,9 +11,7 @@
   "Render a single top-level config section as an editable card."
   [section-key section-val]
   (let [key-str (pr-str section-key)
-        val-str (if (map? section-val)
-                  (cfg-edit/format-config-tree section-val 1)
-                  (pr-str section-val))]
+        val-str (pr-str section-val)]
     (c/card {:title key-str}
             [:div
              [:textarea.code-block

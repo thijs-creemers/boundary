@@ -176,12 +176,18 @@
         ns-name (or (second (re-find #"\(ns\s+([^\s\)]+)" source))
                     "unknown")
         test-source (when-let [match (re-find #"\(ns\s+(\S+)" source)]
-                      (let [test-ns (str (second match) "-test")
-                            test-path (-> test-ns
-                                          (clojure.string/replace "." "/")
-                                          (clojure.string/replace "-" "_")
-                                          (str ".clj"))]
-                        (try (slurp test-path) (catch Exception _ nil))))
+                      (let [test-ns  (str (second match) "-test")
+                            test-rel (-> test-ns
+                                         (clojure.string/replace "." "/")
+                                         (clojure.string/replace "-" "_")
+                                         (str ".clj"))
+                            ;; Extract lib name from ns (e.g. "user" from "boundary.user.core.validation")
+                            lib-name (second (clojure.string/split (second match) #"\."))]
+                        ;; Try: libs/<lib>/test/<path>, test/<path>, <path>
+                        (some #(try (slurp %) (catch Exception _ nil))
+                              [(str "libs/" lib-name "/test/" test-rel)
+                               (str "test/" test-rel)
+                               test-rel])))
         result  (svc/suggest-tests service ns-name source test-source)]
     (if (:error result)
       (println "\033[31mAI Error:\033[0m" (:error result))
