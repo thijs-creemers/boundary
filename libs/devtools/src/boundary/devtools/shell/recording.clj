@@ -42,50 +42,62 @@
       (println (format "Recording stopped. %d request(s) captured." cnt))))
   nil)
 
-(defn- read-body
-  "Read a request/response body into a serializable form.
-   InputStreams are slurped into strings; everything else passes through."
-  [body]
+(defn- text-content-type?
+  "Return true when the content-type header indicates a text-based body
+   (JSON, EDN, XML, plain text, form data). Binary payloads (images,
+   PDFs, octet-stream, multipart file uploads) return false so we don't
+   corrupt them by slurping to a UTF-8 string."
+  [headers]
+  (let [ct (or (get headers "content-type")
+               (get headers "Content-Type")
+               "")]
+    (boolean (re-find #"(?i)text/|json|edn|xml|urlencoded" ct))))
+
+(defn- safe-read-body
+  "Read a body into a serializable form only when it is text-based.
+   Returns [serializable-body replacement-body].
+   - For text InputStreams: slurps to string, builds a replacement BAIS.
+   - For binary InputStreams: records :binary-stream placeholder, returns original.
+   - For everything else: returns body unchanged."
+  [body text?]
   (cond
-    (instance? InputStream body) (slurp body)
-    :else body))
+    (not (instance? InputStream body))
+    [body body]
+
+    text?
+    (let [s (slurp body)]
+      [s (java.io.ByteArrayInputStream. (.getBytes s "UTF-8"))])
+
+    :else
+    [:binary-stream body]))
 
 (defn capture-middleware
   "Returns a Ring middleware that captures request/response pairs into the session atom.
    Normalizes :request-method to :method for consistent data model.
-   InputStream bodies are materialized to strings so they survive serialization."
+   Only text-based bodies (JSON, EDN, form data) are materialized for recording.
+   Binary bodies (file uploads, PDF downloads) pass through untouched."
   []
   (fn [handler]
     (fn [request]
-      ;; Materialize the body before passing to handler, since InputStreams
-      ;; can only be read once.  Replace the original body with a
-      ;; ByteArrayInputStream so downstream handlers still work.
-      (let [raw-body    (:body request)
-            body-str    (read-body raw-body)
-            request     (if (instance? InputStream raw-body)
-                          (assoc request :body (java.io.ByteArrayInputStream.
-                                                (.getBytes (str body-str) "UTF-8")))
-                          request)
-            start       (System/nanoTime)
-            response    (handler request)
-            duration    (/ (- (System/nanoTime) start) 1e6)]
-        (let [resp-body-raw (:body response)
-              resp-body     (read-body resp-body-raw)
-              ;; Replace consumed InputStream with materialized body so
-              ;; Jetty can still send it to the client.
-              response      (if (instance? InputStream resp-body-raw)
-                              (assoc response :body resp-body)
-                              response)]
-          (when @session-atom
-            (let [req-data (-> (select-keys request [:uri :headers :params])
-                               (assoc :method (:request-method request))
-                               (assoc :body body-str))]
-              (swap! session-atom core/add-entry
-                     req-data
-                     (-> (select-keys response [:status :headers])
-                         (assoc :body resp-body))
-                     (long duration))))
-          response)))))
+      (let [req-text?            (text-content-type? (:headers request))
+            [req-body-data req-body-replacement] (safe-read-body (:body request) req-text?)
+            request              (assoc request :body req-body-replacement)
+            start                (System/nanoTime)
+            response             (handler request)
+            duration             (/ (- (System/nanoTime) start) 1e6)
+            resp-text?           (text-content-type? (:headers response))
+            [resp-body-data resp-body-replacement] (safe-read-body (:body response) resp-text?)
+            response             (assoc response :body resp-body-replacement)]
+        (when @session-atom
+          (let [req-data (-> (select-keys request [:uri :headers :params])
+                             (assoc :method (:request-method request))
+                             (assoc :body req-body-data))]
+            (swap! session-atom core/add-entry
+                   req-data
+                   (-> (select-keys response [:status :headers])
+                       (assoc :body resp-body-data))
+                   (long duration))))
+        response))))
 
 (defn replay-entry!
   "Replay a recorded entry. simulate-fn should be the repl/simulate-request function."

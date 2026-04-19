@@ -237,6 +237,19 @@
 ;; Component restart
 ;; =============================================================================
 
+(defn- find-dependents
+  "Find Integrant keys that reference component-key in their config values."
+  [config component-key]
+  (let [ref? (fn check [v]
+               (cond
+                 (= v (ig/ref component-key)) true
+                 (map? v) (some check (vals v))
+                 (sequential? v) (some check v)
+                 :else false))]
+    (vec (for [[k v] config
+               :when (and (not= k component-key) (ref? v))]
+           k))))
+
 (defn restart-component
   "Halt and reinitialize a single Integrant component.
 
@@ -245,7 +258,10 @@
    component-key: the key to restart
 
    Note: integrant.repl.state/system is a plain def, not an atom.
-   We use alter-var-root to update it atomically."
+   We use alter-var-root to update it atomically.
+
+   Warning: dependents that captured the old instance are NOT updated.
+   Use (reset) for cascading restarts."
   [system-var config component-key]
   (let [system (var-get system-var)]
     (if-not (contains? system component-key)
@@ -255,7 +271,7 @@
         (doseq [k (sort (keys system))]
           (println (str "  " k)))
         nil)
-      (do
+      (let [dependents (find-dependents config component-key)]
         (println (format "Restarting %s..." component-key))
         (alter-var-root system-var
                         (fn [sys]
@@ -264,4 +280,10 @@
                                 new-val (ig/init-key component-key resolved-config)]
                             (assoc sys component-key new-val))))
         (println (format "=> %s restarted." component-key))
+        (when (seq dependents)
+          (println (format "  Warning: %d component(s) hold references to the old instance and were NOT restarted:"
+                           (count dependents)))
+          (doseq [d dependents]
+            (println (str "    " d)))
+          (println "  Use (reset) for a full cascading restart."))
         (get (var-get system-var) component-key)))))

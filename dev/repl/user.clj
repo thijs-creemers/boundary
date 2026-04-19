@@ -79,6 +79,9 @@
   ;; No startup dashboard on reset — dashboard prints once on go, not every reload.
   (try
     (dev-router/clear-dynamic-state!)
+    ;; Clear recording state so (recording :stop) can't restore a stale
+    ;; pre-reset handler after the system has been rebuilt.
+    (rec/reset-session!)
     (let [result (ig-repl/reset)]
       (apply-taps-to-handler!)
       (fcis/check-fcis-violations!)

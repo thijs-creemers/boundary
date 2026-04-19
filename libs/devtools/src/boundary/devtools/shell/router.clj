@@ -2,7 +2,8 @@
   "Stateful router management for runtime route/tap modifications.
    Tracks dynamic routes and taps in atoms, rebuilds the handler via
    platform's swap-handler!."
-  (:require [boundary.devtools.core.router :as core-router]))
+  (:require [boundary.devtools.core.router :as core-router]
+            [reitit.core :as rc]))
 
 (defonce ^:private dynamic-routes (atom {}))
 (defonce ^:private taps (atom {}))
@@ -73,25 +74,31 @@
 
 (defn wrap-taps
   "Ring middleware that invokes registered tap callbacks.
-   Checks the Reitit match data for a :name that matches a registered tap.
+   Uses the Reitit router (from handler metadata) to pre-match the request
+   path and extract the handler :name. This is necessary because wrap-taps
+   sits outside the compiled Reitit handler, so :reitit.core/match hasn't
+   been populated yet.
    The tap receives {:request request :match match-data} and its return
-   value replaces the context (allowing request modification)."
+   value replaces the context (allowing request modification).
+   Route methods must have a :name key for taps to match."
   [base-handler]
-  (fn [request]
-    (let [active-taps @taps]
-      (if (empty? active-taps)
-        (base-handler request)
-        ;; Reitit injects :reitit.core/match into the request
-        (let [match      (:reitit.core/match request)
-              match-data (when match (:data match))
-              handler-name (when match-data (:name match-data))
-              tap-fn     (when handler-name (get active-taps handler-name))]
-          (if tap-fn
-            (let [ctx     {:request request :match match-data}
-                  result  (tap-fn ctx)
-                  request (or (:request result) request)]
-              (base-handler request))
-            (base-handler request)))))))
+  (let [router (:reitit/router (meta base-handler))]
+    (fn [request]
+      (let [active-taps @taps]
+        (if (or (empty? active-taps) (nil? router))
+          (base-handler request)
+          ;; Pre-match the path to get route data with handler :name
+          (let [match      (rc/match-by-path router (:uri request))
+                method     (:request-method request)
+                match-data (when match (get-in match [:data method]))
+                handler-name (when match-data (:name match-data))
+                tap-fn     (when handler-name (get active-taps handler-name))]
+            (if tap-fn
+              (let [ctx     {:request request :match (:data match)}
+                    result  (tap-fn ctx)
+                    request (or (:request result) request)]
+                (base-handler request))
+              (base-handler request))))))))
 
 (defn has-taps? []
   (not (empty? @taps)))
