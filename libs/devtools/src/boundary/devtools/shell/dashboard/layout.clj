@@ -22,7 +22,7 @@
    [:div.sidebar-header
     [:div.sidebar-logo
      [:span.sidebar-logo-icon "⬡"]
-     [:span.sidebar-logo-text {:x-show "!collapsed"} "Boundary"]]
+     [:span.sidebar-logo-text {:x-show "!collapsed"} "Boundary Dev"]]
     [:button.sidebar-collapse-btn
      {:x-on:click "collapsed = !collapsed"
       :title "Toggle sidebar"}

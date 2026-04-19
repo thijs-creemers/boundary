@@ -62,7 +62,7 @@
    ["Java version" java-version]])
 
 (defn render [opts]
-  (let [{:keys [component-count routes route-count modules module-count
+  (let [{:keys [component-count route-count module-count
                 profile db-adapter db-host http-port nrepl-port java-version
                 error-count]}
         (merge (system-data) opts)

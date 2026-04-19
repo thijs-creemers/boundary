@@ -1,7 +1,6 @@
 (ns boundary.devtools.shell.dashboard.pages.database
   (:require [boundary.devtools.shell.dashboard.layout :as layout]
             [boundary.devtools.shell.dashboard.components :as c]
-            [boundary.devtools.shell.repl :as devtools-repl]
             [clojure.string :as str]
             [integrant.repl.state :as state]
             [hiccup2.core :as h])

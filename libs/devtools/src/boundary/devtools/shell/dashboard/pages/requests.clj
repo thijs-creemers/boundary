@@ -2,7 +2,6 @@
   (:require [boundary.devtools.shell.dashboard.layout :as layout]
             [boundary.devtools.shell.dashboard.components :as c]
             [boundary.devtools.shell.dashboard.middleware :as middleware]
-            [clojure.string :as str]
             [hiccup2.core :as h]))
 
 ;; =============================================================================

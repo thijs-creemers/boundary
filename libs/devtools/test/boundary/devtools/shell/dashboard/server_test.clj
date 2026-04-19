@@ -1,6 +1,7 @@
 (ns boundary.devtools.shell.dashboard.server-test
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
-            [boundary.devtools.shell.dashboard.server :as server]
+            [boundary.devtools.shell.dashboard.server]
+            [clojure.string :as str]
             [integrant.core :as ig]
             [clj-http.lite.client :as http])
   (:import [java.net ServerSocket]))
@@ -25,10 +26,10 @@
     (testing (str "GET " path " returns 200")
       (let [resp (http/get (str "http://localhost:" *port* path) {:throw-exceptions false})]
         (is (= 200 (:status resp)))
-        (is (clojure.string/includes? (:body resp) "Boundary Dev"))))))
+        (is (str/includes? (:body resp) "Boundary Dev"))))))
 
 (deftest ^:integration dashboard-css-served
   (testing "dashboard.css is served from classpath"
     (let [resp (http/get (str "http://localhost:" *port* "/assets/dashboard.css") {:throw-exceptions false})]
       (is (= 200 (:status resp)))
-      (is (clojure.string/includes? (:body resp) "--bg-base")))))
+      (is (str/includes? (:body resp) "--bg-base")))))
