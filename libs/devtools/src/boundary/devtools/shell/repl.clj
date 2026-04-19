@@ -7,6 +7,7 @@
             [cheshire.core :as json]
             [clojure.java.shell :as shell]
             [clojure.string :as str]
+            [integrant.core :as ig]
             [reitit.core]
             [reitit.ring])
   (:import (java.io ByteArrayInputStream)))
@@ -231,3 +232,36 @@
     (str "Unknown topic: " topic
          "\n\nAvailable topics: "
          (str/join ", " (map str (docs/list-topics))))))
+
+;; =============================================================================
+;; Component restart
+;; =============================================================================
+
+(defn restart-component
+  "Halt and reinitialize a single Integrant component.
+
+   system-var:    the var holding the running system (a plain def, not an atom)
+   config:        the Integrant config map
+   component-key: the key to restart
+
+   Note: integrant.repl.state/system is a plain def, not an atom.
+   We use alter-var-root to update it atomically."
+  [system-var config component-key]
+  (let [system (var-get system-var)]
+    (if-not (contains? system component-key)
+      (do
+        (println (format "Component %s not found in system." component-key))
+        (println "Available components:")
+        (doseq [k (sort (keys system))]
+          (println (str "  " k)))
+        nil)
+      (do
+        (println (format "Restarting %s..." component-key))
+        (alter-var-root system-var
+                        (fn [sys]
+                          (ig/halt-key! component-key (get sys component-key))
+                          (let [resolved-config (get (ig/expand config) component-key)
+                                new-val (ig/init-key component-key resolved-config)]
+                            (assoc sys component-key new-val))))
+        (println (format "=> %s restarted." component-key))
+        (get (var-get system-var) component-key)))))
