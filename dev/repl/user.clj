@@ -494,14 +494,30 @@
 
 (defn- ensure-dynamic-dispatch!
   "Ensure the live handler is wrapped with dynamic-dispatch middleware.
-   Idempotent — if already wrapped (marker metadata), this is a no-op."
+   Idempotent — if already wrapped (marker metadata), this is a no-op.
+   When recording is active, inserts dynamic dispatch beneath the capture
+   middleware so recorded traffic includes dynamic route requests."
   []
   (when-let [live-handler (wiring/current-handler)]
     (when-not (:devtools/dynamic-dispatch (meta live-handler))
-      (let [wrapped (dev-router/wrap-dynamic-dispatch live-handler)]
-        (wiring/swap-handler!
-         (with-meta wrapped (merge (meta live-handler)
-                                   {:devtools/dynamic-dispatch true})))))))
+      (if (rec/active-session)
+        ;; Recording is active: unwrap capture, add dynamic dispatch beneath,
+        ;; then re-wrap with capture so it sits on the outside.
+        (when-let [base-handler (rec/restore-pre-recording-handler!)]
+          (let [with-dispatch (dev-router/wrap-dynamic-dispatch base-handler)
+                with-dispatch (with-meta with-dispatch
+                                (merge (meta base-handler)
+                                       {:devtools/dynamic-dispatch true}))
+                with-capture  ((rec/capture-middleware) with-dispatch)]
+            (rec/store-pre-recording-handler! with-dispatch)
+            (wiring/swap-handler!
+             (with-meta with-capture (merge (meta with-dispatch)
+                                            {:devtools/recording true})))))
+        ;; No recording: simple wrap
+        (let [wrapped (dev-router/wrap-dynamic-dispatch live-handler)]
+          (wiring/swap-handler!
+           (with-meta wrapped (merge (meta live-handler)
+                                     {:devtools/dynamic-dispatch true}))))))))
 
 (defn defroute!
   "Add a route at runtime for rapid prototyping.
