@@ -138,7 +138,7 @@
                          :no-doc  true}}}])))
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service membership-service db-context cache i18n user-service request-capture?] :as opts}]
+  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service membership-service db-context cache i18n user-service request-capture?]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)

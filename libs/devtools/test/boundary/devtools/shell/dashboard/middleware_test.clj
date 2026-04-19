@@ -36,8 +36,7 @@
           _       (handler {:request-method :get
                             :uri "/api/me"
                             :headers {"authorization" "Bearer secret123"
-                                      "content-type" "application/json"}})]
-      (let [entry (first (middleware/request-log))
-            hdrs  (get-in entry [:request :headers])]
-        (is (= "[REDACTED]" (get hdrs "authorization")))
-        (is (= "application/json" (get hdrs "content-type")))))))
+                                      "content-type" "application/json"}})
+          entry   (first (middleware/request-log))]
+      (is (= "[REDACTED]" (get-in entry [:request :headers "authorization"])))
+      (is (= "application/json" (get-in entry [:request :headers "content-type"]))))))

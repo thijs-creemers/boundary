@@ -4,7 +4,6 @@
   (:require [boundary.devtools.shell.dashboard.layout :as layout]
             [boundary.devtools.shell.dashboard.components :as c]
             [clojure.java.io :as io]
-            [clojure.string :as str]
             [hiccup2.core :as h]))
 
 ;; =============================================================================
