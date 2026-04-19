@@ -4,9 +4,11 @@
         boundary/platform {:local/root "../platform"}
         boundary/core {:local/root "../core"}
         boundary/ui-style {:local/root "../ui-style"}
-        hiccup/hiccup {:mvn/version "2.0.0"}}
+        hiccup/hiccup {:mvn/version "2.0.0"}
+        ring/ring-jetty-adapter {:mvn/version "1.12.2"}}
 
  :aliases
  {:test {:extra-paths ["test"]
-         :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
+         :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                      org.clj-commons/clj-http-lite {:mvn/version "1.0.13"}}
          :main-opts ["-m" "kaocha.runner"]}}}

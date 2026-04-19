@@ -83,8 +83,7 @@
         [:meta {:charset "UTF-8"}]
         [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
         [:title page-title]
-        [:link {:rel "stylesheet" :href "/dashboard/fonts.css"}]
-        [:link {:rel "stylesheet" :href "/dashboard/dashboard.css"}]
+        [:link {:rel "stylesheet" :href "/assets/dashboard.css"}]
         (for [js-src js-files]
           [:script {:src js-src :defer true}])]
        [:body
