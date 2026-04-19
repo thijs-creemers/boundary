@@ -503,7 +503,7 @@
       (if (rec/active-session)
         ;; Recording is active: unwrap capture, add dynamic dispatch beneath,
         ;; then re-wrap with capture so it sits on the outside.
-        (when-let [base-handler (rec/restore-pre-recording-handler!)]
+        (when-let [base-handler (rec/peek-pre-recording-handler)]
           (let [with-dispatch (dev-router/wrap-dynamic-dispatch base-handler)
                 with-dispatch (with-meta with-dispatch
                                 (merge (meta base-handler)

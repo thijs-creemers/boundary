@@ -31,6 +31,11 @@
     (reset! pre-recording-handler nil)
     h))
 
+(defn peek-pre-recording-handler
+  "Read the stored pre-recording handler without clearing it."
+  []
+  @pre-recording-handler)
+
 (defn start-recording! []
   (reset! session-atom (core/create-session))
   (println "Recording started. Requests will be captured.")
@@ -177,11 +182,22 @@
                        idx (core/entry-count session) (dec (core/entry-count session)))))
     (println "No active recording session. Use (recording :start) or (recording :load \"name\").")))
 
+(defn- validate-recording-path!
+  "Assert that the resolved file path stays within the recordings directory.
+   Prevents path traversal via names like '../../../etc/passwd'."
+  [file dir]
+  (let [base-dir (.getCanonicalPath (io/file dir))
+        resolved (.getCanonicalPath file)]
+    (when-not (.startsWith resolved base-dir)
+      (throw (ex-info "Invalid recording name: path traversal detected"
+                      {:resolved resolved :base-dir base-dir})))))
+
 (defn save-session!
   ([name] (save-session! name default-dir))
   ([name dir]
    (if-let [session @session-atom]
      (let [file (io/file dir (str name ".edn"))]
+       (validate-recording-path! file dir)
        (io/make-parents file)
        (spit file (core/serialize-session session))
        (println (format "Recording saved to %s" (.getPath file))))
@@ -191,6 +207,7 @@
   ([name] (load-session! name default-dir))
   ([name dir]
    (let [file (io/file dir (str name ".edn"))]
+     (validate-recording-path! file dir)
      (if (.exists file)
        (do
          (reset! session-atom (core/deserialize-session (slurp file)))

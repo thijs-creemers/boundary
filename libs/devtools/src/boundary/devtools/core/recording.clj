@@ -70,4 +70,4 @@
     (str/join "\n" (concat [header sep] rows))))
 
 (defn serialize-session [session] (pr-str session))
-(defn deserialize-session [s] (edn/read-string s))
+(defn deserialize-session [s] (edn/read-string {:readers {}} s))
