@@ -129,7 +129,11 @@
                {:name "(config :k)" :desc "Drill into config section"}
                {:name "(modules)"   :desc "List active modules"}
                {:name "(routes)"    :desc "Show all HTTP routes"}
-               {:name "(routes :m)" :desc "Filter routes by module"}]
+               {:name "(routes :m)" :desc "Filter routes by module"}
+               {:name "(restart-component k)"  :desc "Hot-swap single component"}
+               {:name "(defroute! m p fn)"     :desc "Add route at runtime"}
+               {:name "(remove-route! m p)"    :desc "Remove dynamic route"}
+               {:name "(dynamic-routes)"       :desc "List dynamic routes"}]
    :data      [{:name "(query :table)"         :desc "Quick SELECT (limit 20)"}
                {:name "(query :t {:where ..})" :desc "With conditions"}
                {:name "(count-rows :table)"    :desc "Count rows in table"}
@@ -139,7 +143,15 @@
                {:name "(generate s)"           :desc "Generate example from schema"}]
    :debug     [{:name "(simulate :get path)"   :desc "Simulate HTTP request"}
                {:name "(simulate :post p opts)" :desc "POST with body"}
-               {:name "(fix!)"                  :desc "Auto-fix last error"}]
+               {:name "(fix!)"                  :desc "Auto-fix last error"}
+               {:name "(recording :start)"      :desc "Start request capture"}
+               {:name "(recording :list)"       :desc "List captured requests"}
+               {:name "(recording :replay N)"   :desc "Replay a captured request"}
+               {:name "(recording :diff M N)"   :desc "Diff two captured entries"}
+               {:name "(tap-handler! k fn)"     :desc "Intercept handler"}
+               {:name "(taps)"                  :desc "List active taps"}]
+   :generate  [{:name "(scaffold! n opts)"     :desc "Generate module files"}
+               {:name "(prototype! n spec)"   :desc "Scaffold + migrate + reset"}]
    :quality   [{:name "(test-module :mod)"     :desc "Run module tests"}
                {:name "(test-module :m :unit)" :desc "Run with tier filter"}
                {:name "(lint)"                 :desc "Run clj-kondo"}

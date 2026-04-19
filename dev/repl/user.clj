@@ -25,6 +25,9 @@
             [boundary.devtools.shell.repl-error-handler :as repl-errors]
             [boundary.devtools.shell.fcis-checker :as fcis]
             [boundary.devtools.shell.auto-fix :as auto-fix-shell]
+            [boundary.devtools.shell.recording :as rec]
+            [boundary.devtools.shell.router :as dev-router]
+            [boundary.devtools.shell.prototype :as prototype]
             [boundary.platform.shell.adapters.database.common.core :as db]
             [integrant.repl :as ig-repl]
             [integrant.repl.state :as state]
@@ -64,6 +67,7 @@
   []
   ;; No startup dashboard on reset — dashboard prints once on go, not every reload.
   (try
+    (dev-router/clear-dynamic-state!)
     (let [result (ig-repl/reset)]
       (fcis/check-fcis-violations!)
       result)
@@ -421,6 +425,107 @@
       (repl-errors/handle-repl-error! e {:guidance-level (guidance)})
       (fcis/check-fcis-violations!)
       (throw e))))
+
+;; =============================================================================
+;; Phase 5: Recording, Dynamic Routes, Taps, Prototyping
+;; =============================================================================
+
+(defn recording
+  "Time-travel debugging: capture, replay, and diff HTTP requests.
+   (recording :start)              — start capturing
+   (recording :stop)               — stop capturing
+   (recording :list)               — show captured requests
+   (recording :replay N)           — replay entry N
+   (recording :replay N overrides) — replay with modified body
+   (recording :diff M N)           — diff two entries
+   (recording :save \"name\")      — save to disk
+   (recording :load \"name\")      — load from disk"
+  [command & args]
+  (case command
+    :start  (rec/start-recording!)
+    :stop   (rec/stop-recording!)
+    :list   (rec/list-entries)
+    :replay (let [idx (first args)
+                  overrides (second args)
+                  simulate-fn (fn [method path opts] (simulate method path opts))]
+              (rec/replay-entry! idx simulate-fn overrides))
+    :diff   (rec/diff-entries (first args) (second args))
+    :save   (rec/save-session! (first args))
+    :load   (rec/load-session! (first args))
+    (println (str "Unknown recording command: " command
+                  ". Use :start, :stop, :list, :replay, :diff, :save, :load"))))
+
+(defn defroute!
+  "Add a route at runtime for rapid prototyping.
+   (defroute! :get \"/api/test\" (fn [req] {:status 200 :body {:hello \"world\"}}))"
+  [method path handler-fn]
+  (dev-router/add-dynamic-route! method path handler-fn)
+  (println (format "✓ Route added: %s %s" (name method) path)))
+
+(defn remove-route!
+  "Remove a dynamically added route."
+  [method path]
+  (dev-router/remove-dynamic-route! method path)
+  (println (format "✓ Route removed: %s %s" (name method) path)))
+
+(defn dynamic-routes
+  "List all dynamically added routes."
+  []
+  (let [routes (dev-router/list-dynamic-routes)]
+    (if (empty? routes)
+      (println "No dynamic routes.")
+      (doseq [{:keys [method path]} routes]
+        (println (format "  %s %s" (name method) path))))))
+
+(defn tap-handler!
+  "Intercept requests to a handler with a callback function.
+   (tap-handler! :create-user (fn [ctx] (println (:request ctx)) ctx))"
+  [handler-kw callback-fn]
+  (dev-router/add-tap! handler-kw callback-fn)
+  (println (format "✓ Tap installed on %s" handler-kw)))
+
+(defn untap-handler!
+  "Remove a tap from a handler."
+  [handler-kw]
+  (dev-router/remove-tap! handler-kw)
+  (println (format "✓ Tap removed from %s" handler-kw)))
+
+(defn taps
+  "List active handler taps."
+  []
+  (let [tap-list (dev-router/list-taps)]
+    (if (empty? tap-list)
+      (println "No active taps.")
+      (doseq [t tap-list]
+        (println (str "  " t))))))
+
+(defn restart-component
+  "Hot-swap a single Integrant component without full system reset.
+   (restart-component :boundary/http-server)"
+  [component-key]
+  (require 'boundary.devtools.shell.repl)
+  (let [restart-fn (resolve 'boundary.devtools.shell.repl/restart-component)]
+    (restart-fn #'integrant.repl.state/system
+                state/config
+                component-key)))
+
+(defn scaffold!
+  "Generate a module from the REPL.
+   (scaffold! \"invoice\" {:fields {:customer [:string {:min 1}]
+                                    :amount [:decimal {:min 0}]}})"
+  [module-name opts]
+  (prototype/scaffold! module-name opts))
+
+(defn prototype!
+  "Generate a complete working module: scaffold + migrate + reset.
+   (prototype! :invoice
+     {:fields {:customer [:string {:min 1}]
+               :amount [:decimal {:min 0}]
+               :status [:enum [:draft :sent :paid]]}
+      :endpoints [:crud :list]})"
+  [module-name spec]
+  (let [name-str (if (keyword? module-name) (name module-name) module-name)]
+    (prototype/prototype! name-str spec reset)))
 
 ;; =============================================================================
 ;; Quick Start Message
