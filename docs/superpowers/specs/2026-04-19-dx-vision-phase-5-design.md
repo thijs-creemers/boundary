@@ -28,10 +28,45 @@ All 6 features from the parent spec's Phase 5:
 | `prototype!` generation | Delegate to `libs/scaffolder/` core | Scaffolder core is pure Clojure, JVM-compatible, avoids duplication |
 | `defroute!` injection | Rebuild Reitit router | Dynamic routes get full interceptor support as first-class citizens |
 | `tap-handler!` strategy | Interceptor injection via router rebuild | Shares router rebuild infra, gives access to full interceptor context |
+| Handler swapping | Atom-based handler wrapper in platform | Jetty holds a direct function reference; atom indirection enables runtime swap without server restart |
+| `restart-component` config | Re-resolve from Integrant config map | Picks up config changes; consistent with `(reset)` behavior |
 
 ---
 
 ## Architecture
+
+### Platform Change: Handler Atom
+
+The platform HTTP server (`libs/platform/`) currently passes the compiled handler directly to Jetty as a closure. Jetty holds a direct function reference — there is no indirection layer. To support runtime router rebuilds, we introduce an atom-based handler wrapper:
+
+```clojure
+;; In libs/platform/shell/http/wiring.clj
+(defonce ^:private handler-atom (atom nil))
+
+(defn dispatch-handler [request]
+  (@handler-atom request))
+
+;; At init: (reset! handler-atom compiled-handler)
+;; Jetty receives dispatch-handler (stable reference)
+;; Router rebuilds swap handler-atom (no server restart)
+```
+
+This is a small, surgical change to `wiring.clj`:
+1. Add `handler-atom` (defonce)
+2. Store compiled handler in the atom at init time
+3. Pass `dispatch-handler` to Jetty instead of the compiled handler directly
+4. Expose a `swap-handler!` function that devtools can call
+
+The atom is only used in dev profile. In production, the handler is passed directly (no indirection overhead).
+
+### Recording vs Existing Request Capture
+
+The dashboard's `wrap-request-capture` middleware (Phase 4) captures sanitized request summaries for the request inspector page. Recording needs full request/response bodies for faithful replay. Rather than modifying the existing capture:
+
+- **Dashboard capture** stays as-is (sanitized, bounded at 200, always-on in dev)
+- **Recording capture** is a separate middleware installed only during active recording sessions, capturing full bodies
+
+They serve different purposes and operate independently.
 
 ### New Files
 
@@ -51,6 +86,7 @@ libs/devtools/src/boundary/devtools/
 
 - `shell/repl.clj` — add `restart-component`, `scaffold!` functions
 - `dev/repl/user.clj` — expose new helpers to REPL namespace
+- `libs/platform/src/boundary/platform/shell/http/wiring.clj` — handler-atom wrapper (dev profile only)
 - `.gitignore` — add `.boundary/recordings/`
 
 ### Shared Router Rebuild Infrastructure
@@ -63,7 +99,7 @@ libs/devtools/src/boundary/devtools/
 - `taps` atom — tracks active handler taps
 - On `(reset)`, all dynamic modifications clear — these are ephemeral dev aids
 
-**Platform integration:** If `libs/platform/` stores the router in a compiled closure (not swappable), a small change is needed to wrap it in an atom or derefable. This will be verified during implementation.
+**Platform integration:** Platform stores the handler as a direct closure passed to Jetty. The handler-atom wrapper (see Architecture section above) enables runtime swapping. `shell/router.clj` calls `swap-handler!` after recompiling the router.
 
 ---
 
@@ -120,6 +156,12 @@ libs/devtools/src/boundary/devtools/
 - `replay-entry!` — delegates to `repl/simulate-request`
 - `save-session!` / `load-session!` — file I/O to `.boundary/recordings/`
 
+**Error handling:**
+- `(recording :replay N)` with no active session: prints "No active recording session. Use (recording :start) or (recording :load \"name\")."
+- `(recording :replay N)` with out-of-bounds index: prints "Entry N not found. Session has M entries (0 to M-1)."
+- `(recording :save "name")` with no active session: prints "No active recording session."
+- `(recording :load "name")` with missing file: prints "Recording 'name' not found. Available: ..." (lists `.boundary/recordings/` contents).
+
 ### 2. Router Rebuild Infrastructure
 
 **Core layer (`core/router.clj`):**
@@ -172,10 +214,13 @@ All pure data transformations on Reitit route data structures.
 ```
 
 - Validates the key exists in the current system map
-- Calls `ig/halt-key!` then `ig/init-key` with current config
-- Updates the running system atom
+- Calls `ig/halt-key!` on the component
+- Re-resolves the component's config from the Integrant config map (picks up any config changes, consistent with `(reset)` behavior)
+- Calls `ig/init-key` with the resolved config value
+- Updates the running system atom atomically
 - Prints component status after restart
 - On invalid key: prints error with list of available component keys
+- **Limitation:** does not restart dependent components. If component B depends on A and you restart A, B still holds the old reference. For cascading restarts, use `(reset)`.
 
 Intentionally simple — thin wrapper around Integrant.
 
@@ -278,10 +323,7 @@ New functions exposed in `dev/repl/user.clj`:
 ## Dependencies
 
 - No new external dependencies
-- `libs/scaffolder/` core (already JVM-compatible, pure functions)
+- `libs/scaffolder/` core — JVM-compatible pure functions. Specifically: `boundary.scaffolder.core.generators` (generate-schema-file, generate-ports-file, generate-core-file, generate-migration-file, generate-service-file, generate-persistence-file, generate-http-file) and `boundary.scaffolder.core.template` (field/entity context builders). `libs/scaffolder` must be on the `:dev` classpath in `deps.edn`.
 - Integrant API (`ig/halt-key!`, `ig/init-key`) for `restart-component`
-- Reitit internals for router rebuild — need to verify how platform exposes the router
-
-## Open Questions
-
-1. **Router atom access:** How does `libs/platform/` store the compiled Reitit router? If it's in a closure, we need a small change to make it swappable. To be verified during implementation.
+- Reitit router internals for route tree manipulation
+- `libs/platform/` — small change to `wiring.clj` for handler-atom wrapper (see Architecture section)
