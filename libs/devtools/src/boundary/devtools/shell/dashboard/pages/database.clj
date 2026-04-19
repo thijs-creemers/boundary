@@ -12,6 +12,7 @@
 
 (defn- applied-migration-ids
   "Query the schema_migrations table for applied migration IDs.
+   Migratus stores IDs as strings (e.g. \"20260324090101\").
    Returns a set of ID strings, or nil if unavailable."
   [ds]
   (when ds
@@ -21,7 +22,7 @@
               rs   (.executeQuery stmt "SELECT id FROM schema_migrations")]
           (loop [acc #{}]
             (if (.next rs)
-              (recur (conj acc (str (.getLong rs "id"))))
+              (recur (conj acc (.getString rs "id")))
               acc))))
       (catch Exception _ nil))))
 
@@ -42,11 +43,13 @@
         (if (seq files)
           (map (fn [f]
                  (let [fname (str/replace (.getName f) #"\.up\.sql$" "")
-                       ;; Migration ID is the numeric prefix (e.g. "001" from "001_initial_schema")
-                       id    (re-find #"^\d+" fname)
-                       status (if (and applied-ids id (contains? applied-ids id))
-                                :applied
-                                (if applied-ids :pending :unknown))]
+                       ;; Migratus stores the full migration name as ID
+                       ;; (e.g. "20260324090101-bootstrap")
+                       status (if applied-ids
+                                (if (contains? applied-ids fname)
+                                  :applied
+                                  :pending)
+                                :unknown)]
                    {:name fname :status status}))
                files)
           []))

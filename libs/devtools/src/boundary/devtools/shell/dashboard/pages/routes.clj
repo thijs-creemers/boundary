@@ -108,8 +108,11 @@
              [:form {:hx-post "/dashboard/fragments/try-route"
                      :hx-target "#try-result"
                      :hx-swap "innerHTML"}
-              [:input {:type "hidden" :name "path" :value path}]
               [:input {:type "hidden" :name "method" :value method}]
+              [:div {:style "display:flex;gap:8px;margin-bottom:8px;align-items:center"}
+               [:span {:style "font-family:var(--font-mono);font-size:12px;color:var(--text-muted);white-space:nowrap"} "Path:"]
+               [:input {:type "text" :name "path" :value path
+                        :style "flex:1;background:var(--bg-input,#1e293b);border:1px solid var(--border-color,#334155);color:var(--text-primary,#f1f5f9);padding:6px 10px;border-radius:4px;font-family:var(--font-mono);font-size:13px"}]]
               [:textarea {:name "body" :placeholder "{:key \"value\"}" :rows 3
                           :style "width:100%;margin-bottom:8px"}]
               [:button.btn.btn-primary {:type "submit"
