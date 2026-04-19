@@ -7,6 +7,8 @@
             [boundary.devtools.shell.dashboard.pages.database :as database-page]
             [boundary.devtools.shell.dashboard.pages.errors :as errors-page]
             [boundary.devtools.shell.dashboard.pages.docs :as docs-page]
+            [boundary.devtools.shell.dashboard.pages.jobs :as jobs-page]
+            [boundary.jobs.ports :as job-ports]
             [integrant.core :as ig]
             [reitit.ring :as ring]
             [ring.adapter.jetty :as jetty]
@@ -39,13 +41,20 @@
         http-handler (:http-handler config)
         http-server  (:http-server config)
         db-context   (:db-context config)
-        app-port     (or (jetty-port http-server) (:http-port config) 3000)]
+        app-port     (or (jetty-port http-server) (:http-port config) 3000)
+        job-store     (when sys (get sys :boundary/job-store))
+        job-stats-svc (when sys (get sys :boundary/job-stats))]
     {:system-status   (if (or sys http-handler) :running :stopped)
      :component-count (when sys (count sys))
      :error-count     (:total (errors-page/error-stats))
      :http-port       app-port
      :http-handler    http-handler
-     :db-context      db-context}))
+     :db-context      db-context
+     :job-store       job-store
+     :job-stats       (when job-stats-svc
+                        (try (job-ports/job-stats job-stats-svc) (catch Exception _ nil)))
+     :failed-jobs     (when job-store
+                        (try (job-ports/failed-jobs job-store 20) (catch Exception _ nil)))}))
 
 (defn- make-handler [config]
   (-> (ring/router
@@ -67,6 +76,9 @@
         ["/dashboard/errors"
          {:get (fn [_req]
                  (html-response (errors-page/render (build-context config))))}]
+        ["/dashboard/jobs"
+         {:get (fn [_req]
+                 (html-response (jobs-page/render (build-context config))))}]
         ["/dashboard/docs"
          {:get (fn [_req]
                  (html-response (docs-page/render-index (build-context config))))}]
@@ -75,6 +87,21 @@
                  (let [module (get-in req [:path-params :module])
                        file   (get-in req [:path-params :file])]
                    (html-response (docs-page/render (build-context config) module file))))}]
+        ["/dashboard/fragments/jobs-content"
+         {:get (fn [_req]
+                 {:status  200
+                  :headers {"Content-Type" "text/html; charset=utf-8"}
+                  :body    (jobs-page/render-fragment (build-context config))})}]
+        ["/dashboard/fragments/retry-job"
+         {:post (fn [req]
+                  (when-let [job-store (:job-store (build-context config))]
+                    (let [job-id (get-in req [:params "job-id"])]
+                      (when job-id
+                        (try (job-ports/retry-job! job-store job-id)
+                             (catch Exception _)))))
+                  {:status  200
+                   :headers {"Content-Type" "text/html; charset=utf-8"}
+                   :body    (jobs-page/render-fragment (build-context config))})}]
         ["/dashboard/fragments/request-list"
          {:get (fn [req]
                  {:status  200
