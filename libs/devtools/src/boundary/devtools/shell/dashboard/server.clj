@@ -71,8 +71,12 @@
                         (try (job-ports/failed-jobs job-store 20) (catch Exception _ nil)))
      :config          (when sys (try @(resolve 'integrant.repl.state/config) (catch Exception _ nil)))
      :active-sessions (when-let [session-repo (when sys (get sys :boundary/session-repository))]
-                        (try (count (filter #(nil? (:revoked-at %))
-                                            (user-ports/find-all-sessions session-repo)))
+                        (try (let [now (java.time.Instant/now)]
+                               (count (filter (fn [s]
+                                                (and (nil? (:revoked-at s))
+                                                     (or (nil? (:expires-at s))
+                                                         (.isAfter (:expires-at s) now))))
+                                              (user-ports/find-all-sessions session-repo))))
                              (catch Exception _ 0)))}))
 
 ;; Accumulates config overrides applied from the dashboard so successive
@@ -162,11 +166,20 @@
                                    (fn []
                                      (let [cfg (load-cfg-fn)]
                                        (merge (ig-cfg-fn cfg) @config-overrides*))))
-                                  ;; Update the live config var with the new value, then
-                                  ;; restart only the affected component (not the whole system)
+                                  ;; Update the live config var, restart the component,
+                                  ;; then cascade to all dependents so they pick up
+                                  ;; the new instance (restart-component alone leaves
+                                  ;; dependents holding stale refs)
                                   (alter-var-root cfg-var assoc section-key new-val)
-                                  (restart-fn sys-var @cfg-var section-key)
-                                  {:success? true :restarted [section-key]})
+                                  (let [live-cfg      @cfg-var
+                                        find-deps-fn  (resolve 'boundary.devtools.shell.repl/find-dependents)
+                                        dependents    (when find-deps-fn (find-deps-fn live-cfg section-key))
+                                        all-to-restart (into [section-key] dependents)]
+                                    (doseq [k all-to-restart]
+                                      (try (restart-fn sys-var @cfg-var k)
+                                           (catch Exception e
+                                             (log/warn "Failed to restart" {:key k :error (.getMessage e)}))))
+                                    {:success? true :restarted all-to-restart}))
                                 {:success? false
                                  :error "Cannot resolve Integrant REPL state. Is the system running?"}))
                             (catch Exception e
@@ -199,9 +212,11 @@
                             (job-ports/retry-job! job-store job-id))
                           (catch Exception e
                             (log/warn "Failed to retry job" {:job-id job-id-str :error (.getMessage e)})))))
-                    {:status  200
-                     :headers {"Content-Type" "text/html; charset=utf-8"}
-                     :body    (jobs-page/render-failed-jobs-fragment ctx)}))}]
+                    ;; Rebuild context AFTER retry so the response reflects the new state
+                    (let [fresh-ctx (build-context config)]
+                      {:status  200
+                       :headers {"Content-Type" "text/html; charset=utf-8"}
+                       :body    (jobs-page/render-failed-jobs-fragment fresh-ctx)})))}]
         ["/dashboard/fragments/request-list"
          {:get (fn [req]
                  {:status  200

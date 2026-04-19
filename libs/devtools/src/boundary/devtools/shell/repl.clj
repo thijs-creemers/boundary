@@ -249,7 +249,7 @@
 ;; Component restart
 ;; =============================================================================
 
-(defn- find-dependents
+(defn find-dependents
   "Find Integrant keys that reference component-key in their config values."
   [config component-key]
   (let [ref? (fn check [v]

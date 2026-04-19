@@ -635,8 +635,8 @@
       ;; prototype! expects [[:price [:decimal {:min 0}]] [:name :string] ...]
       (println "\nScaffolding + generating migration...")
       (let [raw-fields (:fields spec)
-            type-map   {"string" :string "text" :string "int" :int
-                        "decimal" :decimal "boolean" :boolean "email" :string
+            type-map   {"string" :string "text" :text "int" :int
+                        "decimal" :decimal "boolean" :boolean "email" :email
                         "uuid" :uuid "date" :date "json" :map}
             fields     (if (sequential? raw-fields)
                          (mapv (fn [{:keys [name type required unique]
