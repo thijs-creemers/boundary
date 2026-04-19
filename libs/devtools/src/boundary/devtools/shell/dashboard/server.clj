@@ -73,6 +73,7 @@
                    :body    (routes-page/render-try-result req)})}]])
       ring/ring-handler
       (wrap-resource "dashboard")
+      (wrap-resource "public")
       wrap-content-type
       wrap-params))
 

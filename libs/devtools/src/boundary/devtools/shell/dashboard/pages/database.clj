@@ -106,12 +106,13 @@
   (if (seq tables)
     (for [{:keys [name]} tables]
       {:cells [[:span.table-name name]
-               [:a.inspect-link
-                {:href        "#query-result"
+               [:button.inspect-link
+                {:type        "button"
                  :hx-post     "/dashboard/fragments/query-result"
-                 :hx-vals     (str "{\"sql\": \"SELECT * FROM " name " LIMIT 20\"}")
+                 :hx-vals     (str "{\"sql\": \"SELECT * FROM \\\"" name "\\\" LIMIT 20\"}")
                  :hx-target   "#query-result"
-                 :hx-swap     "innerHTML"}
+                 :hx-swap     "innerHTML"
+                 :style       "background:none;border:none;color:var(--accent-blue);cursor:pointer;font-size:12px"}
                 "browse →"]]})
     [{:cells [[:span.no-data {:style "grid-column: 1/-1"} "No tables found or database not connected."]
               ""]}]))
