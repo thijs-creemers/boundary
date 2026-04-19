@@ -290,10 +290,12 @@
   ([method path]
    (simulate method path {}))
   ([method path opts]
-   ;; when-let returns nil silently when system is not running.
-   ;; This is intentional — (status) handles "not running" messaging.
+   ;; Use the live handler from the handler-atom so simulated requests
+   ;; go through the same path as real traffic — including dynamic
+   ;; routes, taps, and recording middleware.
    (with-error-handling
-     (when-let [handler (get (system) :boundary/http-handler)]
+     (when-let [handler (or (wiring/current-handler)
+                            (get (system) :boundary/http-handler))]
        (devtools-repl/simulate-request handler method path opts)))))
 
 ;; =============================================================================

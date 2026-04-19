@@ -7,6 +7,7 @@
             [cheshire.core :as json]
             [clojure.java.shell :as shell]
             [clojure.string :as str]
+            [clojure.walk]
             [integrant.core :as ig]
             [reitit.core]
             [reitit.ring])
@@ -276,7 +277,16 @@
         (alter-var-root system-var
                         (fn [sys]
                           (ig/halt-key! component-key (get sys component-key))
-                          (let [resolved-config (get (ig/expand config) component-key)
+                          (let [expanded-config (get (ig/expand config) component-key)
+                                ;; Resolve ig/ref values to live instances from the
+                                ;; running system so init-key receives real objects,
+                                ;; not raw Ref markers.
+                                resolved-config (clojure.walk/postwalk
+                                                 (fn [v]
+                                                   (if (ig/ref? v)
+                                                     (get sys (ig/ref-key v) v)
+                                                     v))
+                                                 expanded-config)
                                 new-val (ig/init-key component-key resolved-config)]
                             (assoc sys component-key new-val))))
         (println (format "=> %s restarted." component-key))

@@ -18,8 +18,15 @@
 
 (defn entry-count [session] (count (:entries session)))
 
+(defn- deep-merge
+  "Recursively merge maps. Non-map values in b override those in a."
+  [a b]
+  (if (and (map? a) (map? b))
+    (merge-with deep-merge a b)
+    b))
+
 (defn merge-request-modifications [request overrides]
-  (update request :body merge overrides))
+  (update request :body deep-merge overrides))
 
 (defn- map-diff [a b]
   (let [all-keys (set (concat (keys a) (keys b)))]
