@@ -65,7 +65,7 @@
                               (java.net.URLEncoder/encode path "UTF-8")
                               "&method=" (name method))
                :hx-target "#route-detail"
-               :hx-swap   "innerHTML"
+               :hx-swap   "innerHTML show:#route-detail:top"
                :style     "background:none;border:none;color:var(--accent-blue);cursor:pointer;font-size:12px"}
               "inspect →"]]}))
 
