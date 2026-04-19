@@ -466,8 +466,9 @@
 (defonce ^:private handler-atom (atom nil))
 
 (defn dispatch-handler
-  "Indirection layer: Jetty calls this stable fn, we swap the atom underneath.
-   Only used in dev profile — production passes handler directly."
+  "Stable function reference passed to Jetty. Dereferences handler-atom on
+ every request, allowing devtools to swap the compiled router at runtime
+ without restarting Jetty."
   [request]
   (if-let [handler @handler-atom]
     (handler request)
@@ -507,6 +508,7 @@
 (defmethod ig/halt-key! :boundary/http-server
   [_ server]
   (log/info "Stopping HTTP server")
+  (reset! handler-atom nil)
   (when server
     (.stop server)
     (log/info "HTTP server stopped")))
