@@ -30,6 +30,9 @@
             [boundary.devtools.shell.prototype :as prototype]
             [boundary.platform.shell.adapters.database.common.core :as db]
             [boundary.platform.shell.system.wiring :as wiring]
+            [boundary.ai.shell.repl :as ai]
+            [boundary.ai.shell.service :as ai-svc]
+            [clojure.java.shell :as shell]
             [integrant.repl :as ig-repl]
             [integrant.repl.state :as state]
             [clojure.tools.logging :as log]))
@@ -437,6 +440,8 @@
   (try
     (let [result (ig-repl/go)]
       (print-startup-dashboard)
+      (when-let [ai-svc (get state/system :boundary/ai-service)]
+        (ai/set-service! ai-svc))
       (fcis/check-fcis-violations!)
       (maybe-show-tip :start)
       result)
@@ -594,6 +599,59 @@
     (prototype/prototype! name-str spec)))
 
 ;; =============================================================================
+;; Phase 6: AI REPL + Workflow Automation
+;; =============================================================================
+
+(defn new-feature!
+  "Interactive end-to-end feature workflow.
+   Describes → scaffolds → integrates → migrates → tests.
+
+   (new-feature! \"invoicing\"
+     \"Invoice module with customer, line-items, PDF export\")"
+  [module-name description]
+  (println (str "\n━━━ New Feature: " module-name " ━━━━━━━━━━━━━━━━━━━━━━━━━"))
+  (println (str "Description: " description "\n"))
+
+  (let [ai-service (get (system) :boundary/ai-service)
+        spec   (if ai-service
+                 (do (println "Generating module spec from description...")
+                     (let [result (ai-svc/scaffold-from-description
+                                   ai-service description ".")]
+                       (if (:error result)
+                         (do (println (str "AI parsing failed: " (:error result)))
+                             (println "Falling back to basic scaffold.")
+                             nil)
+                         (do (println "\nProposed spec:")
+                             (println (pr-str result))
+                             result))))
+                 (do (println "No AI service — using basic scaffold.")
+                     nil))
+        _ (print "\nProceed with scaffolding? [y/N] ")
+        _ (flush)
+        confirm (read-line)]
+    (when (= "y" confirm)
+      ;; Convert AI spec fields (vector of maps) to scaffold format (map)
+      (println "\nScaffolding module...")
+      (let [raw-fields (:fields spec)
+            fields     (if (sequential? raw-fields)
+                         (reduce (fn [m {:keys [name type]}]
+                                   (assoc m (keyword name) [(keyword (or type "string"))]))
+                                 {} raw-fields)
+                         (or raw-fields {}))]
+        (scaffold! module-name {:fields fields}))
+
+      (println "\nIntegrating module...")
+      (let [{:keys [exit out]} (shell/sh "bb" "scaffold" "integrate" module-name)]
+        (println out)
+        (when-not (zero? exit)
+          (println "Integration had issues — check output above.")))
+
+      (println "\nRunning tests...")
+      (test-module (keyword module-name))
+
+      (println (str "\n━━━ Feature '" module-name "' scaffolded and integrated ━━━")))))
+
+;; =============================================================================
 ;; Quick Start Message
 ;; =============================================================================
 
@@ -605,6 +663,7 @@
 (println "\u2502 (routes)     Show HTTP routes                 \u2502")
 (println "\u2502 (commands)   All available commands            \u2502")
 (println "\u2502 (fix!)       Auto-fix last error              \u2502")
+(println "\u2502 (ai/review f) AI code review                 \u2502")
 (println "\u2502 (guide :topics) Browse documentation          \u2502")
 (println "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n")
 

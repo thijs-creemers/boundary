@@ -150,8 +150,12 @@
                {:name "(recording :diff M N)"   :desc "Diff two captured entries"}
                {:name "(tap-handler! k fn)"     :desc "Intercept handler"}
                {:name "(taps)"                  :desc "List active taps"}]
-   :generate  [{:name "(scaffold! n opts)"     :desc "Generate module files"}
-               {:name "(prototype! n spec)"   :desc "Scaffold + migrate + reset"}]
+   :generate  [{:name "(scaffold! n opts)"             :desc "Generate module files"}
+               {:name "(prototype! n spec)"           :desc "Scaffold + migrate + reset"}
+               {:name "(new-feature! \"name\" \"desc\")" :desc "Full feature workflow"}]
+   :ai        [{:name "(ai/review \"path\")"           :desc "AI code review"}
+               {:name "(ai/test-ideas \"path\")"       :desc "Suggest missing tests"}
+               {:name "(ai/refactor-fcis 'ns)"         :desc "FC/IS refactoring guide"}]
    :quality   [{:name "(test-module :mod)"     :desc "Run module tests"}
                {:name "(test-module :m :unit)" :desc "Run with tier filter"}
                {:name "(lint)"                 :desc "Run clj-kondo"}
