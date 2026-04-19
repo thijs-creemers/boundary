@@ -8,10 +8,12 @@
             [hiccup2.core :as h]))
 
 (defn- config-section
-  "Render a single top-level config section as an editable card."
+  "Render a single top-level config section as an editable card.
+   Strips ig/ref values to serializable placeholders so the textarea
+   contains valid EDN that can round-trip through edn/read-string."
   [section-key section-val]
   (let [key-str (pr-str section-key)
-        val-str (pr-str section-val)]
+        val-str (pr-str (cfg-edit/strip-refs section-val))]
     (c/card {:title key-str}
             [:div
              [:textarea.code-block
@@ -62,13 +64,20 @@
        (config-content config)
        [:div.empty-state "No config available. Start the system with (go) first."]))))
 
+(defn parse-edited-value
+  "Parse an edited textarea value back to a Clojure value,
+   restoring ig/ref placeholders to real refs."
+  [new-val-str fallback]
+  (try
+    (cfg-edit/restore-refs (edn/read-string new-val-str))
+    (catch Exception _ fallback)))
+
 (defn render-preview-fragment
   "Render a diff preview of proposed config change."
   [section-key old-val new-val-str]
   (str (h/html
         (let [diff (cfg-edit/config-diff {section-key old-val}
-                                         {section-key (try (edn/read-string new-val-str)
-                                                           (catch Exception _ old-val))})]
+                                         {section-key (parse-edited-value new-val-str old-val)})]
           (if (empty? (:changed diff))
             [:div.detail-panel [:p "No changes detected."]]
             [:div.detail-panel

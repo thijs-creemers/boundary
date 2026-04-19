@@ -1,6 +1,7 @@
 (ns boundary.devtools.core.config-editor-test
   (:require [clojure.test :refer [deftest testing is]]
-            [boundary.devtools.core.config-editor :as cfg-edit]))
+            [boundary.devtools.core.config-editor :as cfg-edit]
+            [integrant.core :as ig]))
 
 (deftest ^:unit config-diff-detects-changes
   (testing "detects added, removed, and changed keys"
@@ -35,6 +36,24 @@
       (is (= "********" (get-in redacted [:boundary/db :password])))
       (is (= "********" (get-in redacted [:boundary/ai :api-key])))
       (is (= "localhost" (get-in redacted [:boundary/db :host]))))))
+
+(deftest ^:unit strip-and-restore-refs-round-trips
+  (testing "ig/ref values are stripped and restored correctly"
+    (let [original {:db-ctx (ig/ref :boundary/db-context)
+                    :port   3000}
+          stripped (cfg-edit/strip-refs original)
+          restored (cfg-edit/restore-refs stripped)]
+      (is (not (ig/ref? (:db-ctx stripped))))
+      (is (keyword? (:db-ctx stripped)))
+      (is (ig/ref? (:db-ctx restored)))
+      (is (= 3000 (:port stripped)))
+      (is (= 3000 (:port restored))))))
+
+(deftest ^:unit contains-refs-detects-refs
+  (testing "detects ig/ref in nested structures"
+    (is (cfg-edit/contains-refs? {:a (ig/ref :boundary/db)}))
+    (is (cfg-edit/contains-refs? {:a {:b (ig/ref :boundary/db)}}))
+    (is (not (cfg-edit/contains-refs? {:a 1 :b "hello"})))))
 
 (deftest ^:unit format-config-tree-produces-lines
   (testing "formats config as indented text tree"

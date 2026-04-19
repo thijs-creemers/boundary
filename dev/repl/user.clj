@@ -630,10 +630,10 @@
         _ (flush)
         confirm (read-line)]
     (when (= "y" confirm)
-      ;; Convert AI spec fields to scaffold! format: [[:field-name malli-spec] ...]
+      ;; Convert AI spec fields to prototype! format: [[:field-name malli-spec] ...]
       ;; AI returns [{:name "price" :type "decimal" :required true :unique false} ...]
-      ;; scaffold! expects [[:price [:decimal {:min 0}]] [:name :string] ...]
-      (println "\nScaffolding module...")
+      ;; prototype! expects [[:price [:decimal {:min 0}]] [:name :string] ...]
+      (println "\nScaffolding + generating migration...")
       (let [raw-fields (:fields spec)
             type-map   {"string" :string "text" :string "int" :int
                         "decimal" :decimal "boolean" :boolean "email" :string
@@ -644,7 +644,6 @@
                                      :as field}]
                                  (let [kw-name (keyword name)
                                        base-type (get type-map (clojure.core/name (or type "string")) :string)
-                                       ;; Build Malli spec with metadata
                                        malli-spec (if (= type "enum")
                                                     (into [:enum] (or (:enum-values field) []))
                                                     (let [props (cond-> {}
@@ -656,7 +655,9 @@
                                    [kw-name malli-spec]))
                                raw-fields)
                          (or raw-fields []))]
-        (scaffold! module-name {:fields fields}))
+        ;; Use prototype! which generates files + migration + runs migration
+        (prototype! module-name {:fields fields
+                                 :endpoints [:crud :list]}))
 
       (println "\nIntegrating module...")
       (let [{:keys [exit out]} (shell/sh "bb" "scaffold" "integrate" module-name)]
@@ -667,7 +668,7 @@
       (println "\nRunning tests...")
       (test-module (keyword module-name))
 
-      (println (str "\n━━━ Feature '" module-name "' scaffolded and integrated ━━━")))))
+      (println (str "\n━━━ Feature '" module-name "' scaffolded, migrated, and integrated ━━━")))))
 
 ;; =============================================================================
 ;; Quick Start Message

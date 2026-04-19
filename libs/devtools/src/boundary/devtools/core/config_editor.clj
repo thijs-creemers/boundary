@@ -2,7 +2,8 @@
   "Pure functions for config diffing, dependency analysis, and formatting.
    FC/IS: no I/O, no logging."
   (:require [clojure.set :as set]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [integrant.core :as ig]))
 
 (def ^:private secret-key-patterns
   [#"(?i)password" #"(?i)secret" #"(?i)api[-_]?key" #"(?i)token" #"(?i)credential"])
@@ -43,6 +44,36 @@
   "Given a config diff, return the set of component keys that would restart."
   [diff]
   (into #{} (concat (keys (:changed diff)) (keys (:added diff)) (keys (:removed diff)))))
+
+(defn contains-refs?
+  "Check if a config value contains any ig/ref instances."
+  [v]
+  (cond
+    (ig/ref? v) true
+    (map? v) (some contains-refs? (vals v))
+    (sequential? v) (some contains-refs? v)
+    :else false))
+
+(defn strip-refs
+  "Replace ig/ref values with a keyword placeholder for serialization.
+   Returns the value with refs replaced by :integrant/ref-<key>."
+  [v]
+  (cond
+    (ig/ref? v) (keyword "integrant.ref" (name (ig/ref-key v)))
+    (map? v) (reduce-kv (fn [m k val] (assoc m k (strip-refs val))) {} v)
+    (sequential? v) (mapv strip-refs v)
+    :else v))
+
+(defn restore-refs
+  "Restore :integrant.ref/* placeholders back to ig/ref values."
+  [v]
+  (cond
+    (and (keyword? v) (= "integrant.ref" (namespace v)))
+    (ig/ref (keyword "boundary" (name v)))
+
+    (map? v) (reduce-kv (fn [m k val] (assoc m k (restore-refs val))) {} v)
+    (sequential? v) (mapv restore-refs v)
+    :else v))
 
 (defn format-config-tree
   "Format a config map as an indented string tree for display."

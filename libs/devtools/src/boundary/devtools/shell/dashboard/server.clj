@@ -143,7 +143,9 @@
                         result
                         (if (and section-key new-val-str)
                           (try
-                            (let [new-val      (edn/read-string new-val-str)
+                            (let [new-val      (config-page/parse-edited-value new-val-str ::parse-failed)
+                                  _            (when (= new-val ::parse-failed)
+                                                 (throw (ex-info "Failed to parse edited config value as EDN" {})))
                                   set-prep-fn  (resolve 'integrant.repl/set-prep!)
                                   load-cfg-fn  (resolve 'boundary.config/load-config)
                                   ig-cfg-fn    (resolve 'boundary.config/ig-config)
