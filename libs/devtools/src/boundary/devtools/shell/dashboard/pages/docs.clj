@@ -110,7 +110,7 @@
                 [:div
                  [:div#doc-content.markdown-body {:style "max-height:80vh;overflow-y:auto"}]
                  [:textarea#doc-raw {:style "display:none"} content]
-                 [:script {:src "https://cdn.jsdelivr.net/npm/marked/marked.min.js"}]
+                 [:script {:src "/assets/marked.min.js"}]
                  [:script (h/raw
                            "document.getElementById('doc-content').innerHTML=marked.parse(document.getElementById('doc-raw').value);")]]
                 [:div.empty-state

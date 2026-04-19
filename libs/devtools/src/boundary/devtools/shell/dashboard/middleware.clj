@@ -1,5 +1,6 @@
 (ns boundary.devtools.shell.dashboard.middleware
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [ring.middleware.params :as ring-params])
   (:import [java.time Instant]))
 
 (def ^:private max-entries 200)
@@ -54,17 +55,26 @@
         (subs s 0 2000)
         s))))
 
+(defn- parse-query-params
+  "Parse query string into a params map. Used when the capture middleware
+   runs outside of Ring's wrap-params and :params is not yet populated."
+  [request]
+  (if (seq (:params request))
+    (:params request)
+    (:query-params (ring-params/params-request request))))
+
 (defn- log-entry! [request response duration]
   (swap! request-log*
          (fn [log]
-           (let [entry {:id          (random-uuid)
+           (let [parsed-params (parse-query-params request)
+                 entry {:id          (random-uuid)
                         :timestamp   (Instant/now)
                         :method      (:request-method request)
                         :path        (:uri request)
                         :status      (or (:status response) 500)
                         :duration-ms (Math/round ^double duration)
                         :request     {:headers     (sanitize-headers (:headers request))
-                                      :params      (sanitize-params (:params request))
+                                      :params      (sanitize-params parsed-params)
                                       :body-params (sanitize-params (:body-params request))}
                         :response    {:status  (or (:status response) 500)
                                       :headers (sanitize-headers (:headers response))
