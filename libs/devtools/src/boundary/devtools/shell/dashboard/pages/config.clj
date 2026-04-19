@@ -39,16 +39,17 @@
              [:div {:id (str "preview-" (hash key-str))}]])))
 
 (defn- config-content
-  "Render the config tree with editable sections."
+  "Render the config tree with editable sections.
+   Uses real config values in the editable textareas (not redacted) so that
+   Apply doesn't overwrite secrets with ********. This is a dev-only dashboard."
   [config]
-  (let [redacted (cfg-edit/redact-secrets config)]
-    [:div
-     [:div.stat-row
-      (c/stat-card {:label "Components" :value (count config)})
-      (c/stat-card {:label "Mode" :value "editable" :value-class "green"})
-      (c/stat-card {:label "Status" :value "live" :sub "changes restart affected components"})]
-     (for [[k v] (sort-by str redacted)]
-       (config-section k v))]))
+  [:div
+   [:div.stat-row
+    (c/stat-card {:label "Components" :value (count config)})
+    (c/stat-card {:label "Mode" :value "editable" :value-class "green"})
+    (c/stat-card {:label "Status" :value "live" :sub "changes restart affected components"})]
+   (for [[k v] (sort-by str config)]
+     (config-section k v))])
 
 (defn render
   "Render the Config Editor full page."

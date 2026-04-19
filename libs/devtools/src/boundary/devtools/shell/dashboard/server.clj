@@ -45,14 +45,21 @@
         http-server  (:http-server config)
         db-context   (:db-context config)
         app-port     (or (jetty-port http-server) (:http-port config) 3000)
-        job-store     (when sys (get sys :boundary/job-store))
-        job-stats-svc (when sys (get sys :boundary/job-stats))]
+        ;; Jobs: the system may wire :boundary/job-queue (IJobQueue),
+        ;; :boundary/job-store (IJobStore), :boundary/job-stats (IJobStats)
+        ;; as separate keys, or the queue component may be the only one.
+        job-queue     (when sys (get sys :boundary/job-queue))
+        job-store     (when sys (or (get sys :boundary/job-store)
+                                    (when (satisfies? job-ports/IJobStore job-queue) job-queue)))
+        job-stats-svc (when sys (or (get sys :boundary/job-stats)
+                                    (when (satisfies? job-ports/IJobStats job-queue) job-queue)))]
     {:system-status   (if (or sys http-handler) :running :stopped)
      :component-count (when sys (count sys))
      :error-count     (:total (errors-page/error-stats))
      :http-port       app-port
      :http-handler    http-handler
      :db-context      db-context
+     :job-queue       job-queue
      :job-store       job-store
      :job-stats       (when job-stats-svc
                         (try (job-ports/job-stats job-stats-svc) (catch Exception _ nil)))
@@ -123,16 +130,16 @@
                         result
                         (if (and section-key new-val-str)
                           (try
-                            (let [new-val   (edn/read-string new-val-str)
-                                  sys-var   (resolve 'integrant.repl.state/system)
-                                  cfg-var   (resolve 'integrant.repl.state/config)
-                                  repl-reqs (resolve 'boundary.devtools.shell.repl/restart-component)]
-                              (if (and sys-var cfg-var repl-reqs)
+                            (let [new-val  (edn/read-string new-val-str)
+                                  cfg-var  (resolve 'integrant.repl.state/config)
+                                  reset-fn (resolve 'integrant.repl/reset)]
+                              (if (and cfg-var reset-fn)
                                 (do
-                                  ;; Update the config var with the new section value
+                                  ;; Update the config with the new section value
                                   (alter-var-root cfg-var assoc section-key new-val)
-                                  ;; Restart the affected component
-                                  (repl-reqs sys-var @cfg-var section-key)
+                                  ;; Full system reset so dependents pick up the new instance.
+                                  ;; restart-component warns that dependents keep stale refs.
+                                  (reset-fn)
                                   {:success? true :restarted [section-key]})
                                 {:success? false
                                  :error "Cannot resolve Integrant REPL state. Is the system running?"}))

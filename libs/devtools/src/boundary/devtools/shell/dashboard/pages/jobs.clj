@@ -4,22 +4,53 @@
             [boundary.devtools.shell.dashboard.components :as c]
             [hiccup2.core :as h]))
 
+(defn- normalize-queues
+  "Normalize queue stats to a consistent format.
+   Adapters return :queues as a vector of maps with :queue-name key,
+   e.g. [{:queue-name :default :size 5 :processed-total 30 ...}].
+   Returns a seq of maps with :queue-name :size :processed :failed :avg-duration."
+  [queues]
+  (cond
+    ;; Vector of maps (actual adapter format)
+    (and (sequential? queues) (every? map? queues))
+    (map (fn [q]
+           {:queue-name   (:queue-name q)
+            :size         (or (:size q) 0)
+            :processed    (or (:processed-total q) (:processed q) 0)
+            :failed       (or (:failed-total q) (:failed q) 0)
+            :avg-duration (:avg-duration-ms q)})
+         queues)
+
+    ;; Map of queue-name -> stats (alternative format)
+    (map? queues)
+    (map (fn [[qn stats]]
+           {:queue-name   qn
+            :size         (or (:size stats) 0)
+            :processed    (or (:processed-total stats) (:processed stats) 0)
+            :failed       (or (:failed-total stats) (:failed stats) 0)
+            :avg-duration (or (:avg-duration-ms stats) (:avg-duration stats))})
+         queues)
+
+    :else []))
+
 (defn- queue-table
   "Render a table of queues with their sizes and stats."
   [queues]
-  (if (empty? queues)
-    [:div.empty-state "No queues active."]
-    (c/data-table
-     {:columns      ["Queue" "Pending" "Processed" "Failed" "Avg Duration"]
-      :col-template "1fr 100px 100px 100px 120px"
-      :rows         (for [[queue-name {:keys [size processed failed avg-duration]}] (sort-by key queues)]
-                      {:cells [[:span.text-mono (name queue-name)]
-                               [:span (str (or size 0))]
-                               [:span (str (or processed 0))]
-                               [:span {:style (when (and failed (pos? failed))
-                                                "color:var(--color-red,#f87171)")}
-                                (str (or failed 0))]
-                               [:span (if avg-duration (str avg-duration "ms") "—")]]})})))
+  (let [normalized (normalize-queues queues)]
+    (if (empty? normalized)
+      [:div.empty-state "No queues active."]
+      (c/data-table
+       {:columns      ["Queue" "Pending" "Processed" "Failed" "Avg Duration"]
+        :col-template "1fr 100px 100px 100px 120px"
+        :rows         (for [{:keys [queue-name size processed failed avg-duration]}
+                            (sort-by (comp str :queue-name) normalized)]
+                        {:cells [[:span.text-mono (name queue-name)]
+                                 [:span (str size)]
+                                 [:span (str processed)]
+                                 [:span {:style (when (pos? failed)
+                                                  "color:var(--color-red,#f87171)")}
+                                  (str failed)]
+                                 [:span (if avg-duration (str avg-duration "ms") "—")]]})}))))
 
 (defn- failed-jobs-list
   "Render the list of failed jobs."
@@ -47,7 +78,8 @@
   "Render the jobs page content (used for both full page and fragment)."
   [{:keys [job-stats failed-jobs]}]
   (let [{:keys [total-processed total-failed total-succeeded queues]} job-stats
-        active (reduce + 0 (map (fn [[_ v]] (or (:size v) 0)) queues))]
+        normalized-queues (normalize-queues queues)
+        active (reduce + 0 (map :size normalized-queues))]
     (list
      [:div.stat-row
       (c/stat-card {:label "Active/Pending" :value active
@@ -67,7 +99,7 @@
 (defn render
   "Render the Jobs & Queues full page."
   [opts]
-  (if (or (:job-stats opts) (:job-queue opts))
+  (if (or (:job-stats opts) (:job-queue opts) (:job-store opts))
     (layout/dashboard-page
      (merge opts {:active-path "/dashboard/jobs"
                   :title       "Jobs & Queues"})
