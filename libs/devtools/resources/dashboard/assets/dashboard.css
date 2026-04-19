@@ -1029,6 +1029,7 @@ pre.code-block {
   font-size: 13px;
   line-height: 1.7;
   color: var(--text-primary);
+  padding: 0.5rem 1rem;
 }
 
 .markdown-body h1,
@@ -1036,15 +1037,16 @@ pre.code-block {
 .markdown-body h3,
 .markdown-body h4 {
   color: var(--text-primary);
-  margin: 1.5em 0 0.5em;
+  padding-top: 1.5em;
+  margin: 0 0 0.6em;
   font-weight: 600;
 }
 
-.markdown-body h1 { font-size: 1.4em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
-.markdown-body h2 { font-size: 1.2em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
-.markdown-body h3 { font-size: 1.05em; }
+.markdown-body h1 { font-size: 1.4em; border-bottom: 1px solid var(--border); padding-bottom: 0.5em; padding-top: 0; }
+.markdown-body h2 { font-size: 1.2em; border-bottom: 1px solid var(--border); padding-bottom: 0.5em; padding-top: 2em; }
+.markdown-body h3 { font-size: 1.05em; padding-top: 1.5em; }
 
-.markdown-body p { margin: 0.6em 0; }
+.markdown-body p { margin: 0.8em 0; }
 
 .markdown-body code {
   background: var(--bg-stripe, rgba(255,255,255,0.05));
