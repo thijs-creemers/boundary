@@ -10,27 +10,47 @@
 ;; Data
 ;; =============================================================================
 
+(defn- applied-migration-ids
+  "Query the schema_migrations table for applied migration IDs.
+   Returns a set of ID strings, or nil if unavailable."
+  [ds]
+  (when ds
+    (try
+      (with-open [conn (.getConnection ds)]
+        (let [stmt (.createStatement conn)
+              rs   (.executeQuery stmt "SELECT id FROM schema_migrations")]
+          (loop [acc #{}]
+            (if (.next rs)
+              (recur (conj acc (str (.getLong rs "id"))))
+              acc))))
+      (catch Exception _ nil))))
+
 (defn- migration-data
-  "Return a list of migration entries from resources/migrations/ if available,
-   otherwise fall back to sample data.
+  "Return a list of migration entries from resources/migrations/.
+   Cross-references with schema_migrations table to determine actual status.
    Each entry: {:name <string> :status :applied|:pending}"
-  []
-  (let [migrations-dir (File. "resources/migrations")]
+  [ctx]
+  (let [db-ctx (or (:db-context ctx)
+                   (when-let [sys state/system] (get sys :boundary/db-context)))
+        ds     (when db-ctx (:datasource db-ctx))
+        applied-ids (applied-migration-ids ds)
+        migrations-dir (File. "resources/migrations")]
     (if (.exists migrations-dir)
       (let [files (->> (.listFiles migrations-dir)
                        (filter #(str/ends-with? (.getName %) ".up.sql"))
                        (sort-by #(.getName %)))]
         (if (seq files)
           (map (fn [f]
-                 {:name   (str/replace (.getName f) #"\.up\.sql$" "")
-                  :status :applied})
+                 (let [fname (str/replace (.getName f) #"\.up\.sql$" "")
+                       ;; Migration ID is the numeric prefix (e.g. "001" from "001_initial_schema")
+                       id    (re-find #"^\d+" fname)
+                       status (if (and applied-ids id (contains? applied-ids id))
+                                :applied
+                                (if applied-ids :pending :unknown))]
+                   {:name fname :status status}))
                files)
-          [{:name "001_initial_schema" :status :applied}
-           {:name "002_add_users"      :status :applied}
-           {:name "003_add_sessions"   :status :pending}]))
-      [{:name "001_initial_schema" :status :applied}
-       {:name "002_add_users"      :status :applied}
-       {:name "003_add_sessions"   :status :pending}])))
+          []))
+      [])))
 
 (defn- pool-stats
   "Get HikariCP pool stats. Prefers injected :db-context, falls back to REPL state.
@@ -97,7 +117,7 @@
   [migrations]
   (for [{:keys [name status]} migrations]
     {:cells [[:span {:class (str "migration-status migration-" (clojure.core/name status))}
-              (if (= status :applied) "✓" "○")]
+              (case status :applied "✓" :pending "○" "?")]
              [:span.migration-name name]
              [:span {:class (str "migration-badge migration-" (clojure.core/name status))}
               (clojure.core/name status)]]}))
@@ -194,7 +214,7 @@
 (defn render
   "Render the Database Explorer full page."
   [opts]
-  (let [migrations (migration-data)
+  (let [migrations (migration-data opts)
         tables     (or (table-list opts) [])
         stats      (pool-stats opts)
         applied    (count (filter #(= :applied (:status %)) migrations))

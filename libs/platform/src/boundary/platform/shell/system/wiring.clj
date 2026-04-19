@@ -352,9 +352,15 @@
 
         ;; Conditionally wrap with request capture middleware (dev only).
         ;; Uses requiring-resolve to avoid hard dependency on devtools from platform.
+        ;; Guarded with try/catch because devtools may not be on the classpath
+        ;; in non-REPL dev boots (e.g. BND_ENV=development clojure -M -m boundary.main).
         final-handler (if request-capture?
-                        (let [wrap-fn (requiring-resolve 'boundary.devtools.shell.dashboard.middleware/wrap-request-capture)]
-                          (wrap-fn versioned-handler))
+                        (try
+                          (let [wrap-fn (requiring-resolve 'boundary.devtools.shell.dashboard.middleware/wrap-request-capture)]
+                            (wrap-fn versioned-handler))
+                          (catch Exception _
+                            (log/debug "Request capture middleware not available, skipping")
+                            versioned-handler))
                         versioned-handler)]
 
     (log/info "Top-level HTTP handler initialized successfully"
