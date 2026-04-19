@@ -48,3 +48,9 @@
       (is (:csp summary))
       (is (= 5 (:active-sessions summary)))
       (is (= 1 (count (:recent-failures summary)))))))
+
+(deftest ^:unit rate-limiting-from-runtime-data
+  (testing "rate-limiting? comes from runtime data, not config"
+    (let [cfg {}]
+      (is (false? (:rate-limiting? (sec/build-security-summary cfg {}))))
+      (is (true? (:rate-limiting? (sec/build-security-summary cfg {:rate-limiting? true})))))))

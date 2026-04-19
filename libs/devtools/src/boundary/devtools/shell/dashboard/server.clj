@@ -14,6 +14,7 @@
             [boundary.user.ports :as user-ports]
             [clojure.edn :as edn]
             [integrant.core :as ig]
+            [reitit.core]
             [reitit.ring :as ring]
             [ring.adapter.jetty :as jetty]
             [ring.middleware.resource :refer [wrap-resource]]
@@ -77,7 +78,18 @@
                                                      (or (nil? (:expires-at s))
                                                          (.isAfter (:expires-at s) now))))
                                               (user-ports/find-all-sessions session-repo))))
-                             (catch Exception _ 0)))}))
+                             (catch Exception _ 0)))
+     :rate-limiting?  (try
+                        (when-let [router (some-> http-handler meta :reitit/router)]
+                          (some (fn [[_path data]]
+                                  (some (fn [interceptor]
+                                          (= :http-rate-limit (:name interceptor)))
+                                        (concat (:interceptors data)
+                                                (mapcat (fn [method]
+                                                          (:interceptors (get data method)))
+                                                        [:get :post :put :patch :delete]))))
+                                (reitit.core/routes router)))
+                        (catch Exception _ false))}))
 
 ;; Accumulates config overrides applied from the dashboard so successive
 ;; edits are not lost. Each apply merges into this atom; the prep function

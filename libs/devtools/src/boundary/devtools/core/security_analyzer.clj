@@ -49,7 +49,7 @@
 (defn build-security-summary
   "Build a complete security summary from system config and runtime data."
   ([config] (build-security-summary config {}))
-  ([config {:keys [active-sessions recent-auth-failures]}]
+  ([config {:keys [active-sessions recent-auth-failures rate-limiting?] :as opts}]
    (let [settings   (get config :boundary/settings {})
          validation (get settings :user-validation {})]
      {:password-policy    (analyze-password-policy (:password-policy validation))
@@ -59,6 +59,6 @@
       :lockout            {:max-attempts  (get-in validation [:lockout :max-attempts] 5)
                            :duration-mins (get-in validation [:lockout :duration-mins] 15)}
       :csrf-enabled?      (not (false? (get-in config [:boundary/http :security :csrf])))
-      :rate-limiting?     (boolean (get-in config [:boundary/rate-limiting :enabled?]))
+      :rate-limiting?     (boolean (or (:rate-limiting? opts) false))
       :active-sessions    (or active-sessions 0)
       :recent-failures    (or recent-auth-failures [])})))

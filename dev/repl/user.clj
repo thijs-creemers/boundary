@@ -626,10 +626,15 @@
                              result))))
                  (do (println "No AI service — using basic scaffold.")
                      nil))
-        _ (print "\nProceed with scaffolding? [y/N] ")
-        _ (flush)
-        confirm (read-line)]
-    (when (= "y" confirm)
+        _ (when (and (nil? spec) (nil? ai-service))
+            (println "Cannot generate fields without an AI service. Aborting."))
+        _ (when (and (nil? spec) ai-service)
+            (println "No valid spec could be generated. Aborting."))
+        _ (when spec
+            (print "\nProceed with scaffolding? [y/N] ")
+            (flush))
+        confirm (when spec (read-line))]
+    (when (and spec (= "y" confirm))
       ;; Convert AI spec fields to prototype! format: [[:field-name malli-spec] ...]
       ;; AI returns [{:name "price" :type "decimal" :required true :unique false} ...]
       ;; prototype! expects [[:price [:decimal {:min 0}]] [:name :string] ...]

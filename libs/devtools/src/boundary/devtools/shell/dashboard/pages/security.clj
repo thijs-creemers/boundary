@@ -89,8 +89,9 @@
   "Render the Security Status full page."
   [opts]
   (let [config       (:config opts)
-        runtime-data {:active-sessions     (:active-sessions opts)
-                      :recent-auth-failures (:recent-auth-failures opts)}]
+        runtime-data {:active-sessions      (:active-sessions opts)
+                      :recent-auth-failures (:recent-auth-failures opts)
+                      :rate-limiting?       (:rate-limiting? opts)}]
     (layout/dashboard-page
      (merge opts {:active-path "/dashboard/security"
                   :title       "Security Status"})
