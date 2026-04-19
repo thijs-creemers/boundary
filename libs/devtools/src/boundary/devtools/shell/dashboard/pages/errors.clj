@@ -23,11 +23,14 @@
                           (if (> (count updated) 100)
                             (subvec updated 0 100)
                             updated))))
-    ;; Stats log: keeps all entries within 24h window
+    ;; Stats log: keeps entries within 24h window, capped at 10000
     (swap! error-stats-24h* (fn [{:keys [entries]}]
                               (let [cutoff (- (System/currentTimeMillis) (* 24 60 60 1000))
-                                    fresh (filterv #(>= (:timestamp-ms %) cutoff)
-                                                   (conj entries entry))]
+                                    fresh  (let [f (filterv #(>= (:timestamp-ms %) cutoff)
+                                                            (conj entries entry))]
+                                             (if (> (count f) 10000)
+                                               (subvec f (- (count f) 10000))
+                                               f))]
                                 {:total       (count fresh)
                                  :validation  (count (filter #(= (:category %) :validation) fresh))
                                  :persistence (count (filter #(= (:category %) :persistence) fresh))

@@ -160,7 +160,7 @@
                [:button.inspect-link
                 {:type        "button"
                  :hx-post     "/dashboard/fragments/query-result"
-                 :hx-vals     (str "{\"sql\": \"SELECT * FROM \\\"" name "\\\" LIMIT 20\"}")
+                 :hx-vals     (str "{\"sql\": \"SELECT * FROM \\\"" (str/replace name "\"" "") "\\\" LIMIT 20\"}")
                  :hx-target   "#query-result"
                  :hx-swap     "innerHTML"
                  :style       "background:none;border:none;color:var(--accent-blue);cursor:pointer;font-size:12px"}

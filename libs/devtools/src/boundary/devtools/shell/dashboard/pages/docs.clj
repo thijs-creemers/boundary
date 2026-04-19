@@ -4,25 +4,37 @@
   (:require [boundary.devtools.shell.dashboard.layout :as layout]
             [boundary.devtools.shell.dashboard.components :as c]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [hiccup2.core :as h]))
 
 ;; =============================================================================
 ;; Data
 ;; =============================================================================
 
+(defn- safe-name?
+  "Reject path components containing traversal sequences or separators."
+  [s]
+  (and (string? s)
+       (seq s)
+       (not (str/includes? s ".."))
+       (not (str/includes? s "/"))
+       (not (str/includes? s "\\"))))
+
 (defn- module-dir
   "Resolve the libs/<module>/ directory. Returns a File or nil."
   [module-name]
-  (let [dir (io/file "libs" module-name)]
-    (when (.isDirectory dir) dir)))
+  (when (safe-name? module-name)
+    (let [dir (io/file "libs" module-name)]
+      (when (.isDirectory dir) dir))))
 
 (defn- read-doc-file
   "Read a documentation file from a module directory. Returns content string or nil."
   [module-name filename]
-  (when-let [dir (module-dir module-name)]
-    (let [f (io/file dir filename)]
-      (when (.exists f)
-        (slurp f)))))
+  (when (safe-name? filename)
+    (when-let [dir (module-dir module-name)]
+      (let [f (io/file dir filename)]
+        (when (.exists f)
+          (slurp f))))))
 
 (defn- available-docs
   "Return a list of {:name :path} for available doc files in a module."
