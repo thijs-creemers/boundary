@@ -158,20 +158,27 @@
                        (if (.next rs)
                          (recur (conj acc (mapv #(.getString rs %) cols)))
                          acc))]
-            (str (h/html
-                  [:div.query-result
-                   [:div.query-result-meta
-                    [:span.result-count (str (count rows) " row(s) returned")]
-                    (when (= (count rows) 50)
-                      [:span.result-limit " (limited to 50 rows)"])]
-                   (if (seq rows)
-                     (c/data-table
-                      {:columns     cols
-                       :col-template (str/join " " (repeat (count cols) "1fr"))
-                       :rows        (map (fn [row]
-                                           {:cells (map (fn [v] (or v [:span.null-value "NULL"])) row)})
-                                         rows)})
-                     [:p.no-data "Query returned no rows."])]))))
+            (let [col-width (if (> (count cols) 6) "minmax(140px, 1fr)" "1fr")
+                  tpl       (str/join " " (repeat (count cols) col-width))]
+              (str (h/html
+                    [:div.query-result
+                     [:div.query-result-meta
+                      [:span.result-count (str (count rows) " row(s) returned")]
+                      (when (= (count rows) 50)
+                        [:span.result-limit " (limited to 50 rows)"])]
+                     (if (seq rows)
+                       [:div {:style "overflow-x:auto"}
+                        (c/data-table
+                         {:columns     cols
+                          :col-template tpl
+                          :rows        (map (fn [row]
+                                              {:cells (map (fn [v]
+                                                             (if v
+                                                               [:span {:style "word-break:break-all"} v]
+                                                               [:span.text-muted "NULL"]))
+                                                           row)})
+                                            rows)})]
+                       [:p.no-data "Query returned no rows."])])))))
         (catch Exception e
           (str (h/html
                 [:div.detail-panel.detail-panel-error
