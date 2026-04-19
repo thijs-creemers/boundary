@@ -9,49 +9,80 @@
 ;; Schema collection
 ;; =============================================================================
 
-(def ^:private fallback-schema-keys
-  "Hardcoded fallback list of common Boundary schema keys."
-  [:user/create
-   :user/update
-   :user/login
-   :user/auth-user
-   :user/tenant-user
-   :user/session
-   :user/audit-log
-   :user/create-request
-   :user/update-request
-   :user/login-request
-   :user/response])
+(def ^:private schema-namespaces
+  "Known Boundary schema namespace symbols to scan."
+  '[boundary.user.schema
+    boundary.admin.schema
+    boundary.payments.schema
+    boundary.calendar.schema
+    boundary.storage.schema
+    boundary.cache.schema
+    boundary.email.schema
+    boundary.jobs.schema
+    boundary.tenant.schema
+    boundary.realtime.schema
+    boundary.reports.schema
+    boundary.search.schema
+    boundary.workflow.schema
+    boundary.geo.schema
+    boundary.ai.schema
+    boundary.i18n.schema
+    boundary.external.schema
+    boundary.platform.schema
+    boundary.core.schema])
 
-(def ^:private known-schemas
-  "Map of schema key -> Malli schema value for schemas we can directly reference."
+(defn- malli-schema?
+  "Return true if value looks like a Malli schema (vector or keyword)."
+  [v]
+  (and (some? v)
+       (not (fn? v))
+       (not (var? v))
+       (try (m/schema v) true (catch Exception _ false))))
+
+(defn- discover-schemas-from-ns
+  "Try to require a namespace and collect its public Malli schema defs.
+   Returns a map of {:<module>/<VarName> schema-value} or nil."
+  [ns-sym]
   (try
-    (require 'boundary.user.schema)
-    (let [s (find-ns 'boundary.user.schema)]
-      (when s
-        {:user/auth-user        (var-get (ns-resolve s 'AuthUser))
-         :user/tenant-user      (var-get (ns-resolve s 'TenantUser))
-         :user/user             (var-get (ns-resolve s 'User))
-         :user/session          (var-get (ns-resolve s 'UserSession))
-         :user/audit-log        (var-get (ns-resolve s 'UserAuditLog))
-         :user/create-request   (var-get (ns-resolve s 'CreateUserRequest))
-         :user/update-request   (var-get (ns-resolve s 'UpdateUserRequest))
-         :user/login-request    (var-get (ns-resolve s 'LoginRequest))
-         :user/response         (var-get (ns-resolve s 'UserResponse))
-         :user/mfa-setup-request   (var-get (ns-resolve s 'MFASetupRequest))
-         :user/mfa-enable-request  (var-get (ns-resolve s 'MFAEnableRequest))
-         :user/mfa-verify-request  (var-get (ns-resolve s 'MFAVerifyRequest))
-         :user/login-response      (var-get (ns-resolve s 'LoginResponse))
-         :user/mfa-setup-response  (var-get (ns-resolve s 'MFASetupResponse))
-         :user/mfa-status-response (var-get (ns-resolve s 'MFAStatusResponse))}))
+    (require ns-sym)
+    (when-let [ns-obj (find-ns ns-sym)]
+      (let [;; Extract module name from ns: boundary.user.schema -> user
+            module (second (re-find #"boundary\.([^.]+)\.schema" (str ns-sym)))]
+        (into {}
+              (for [[var-name var-ref] (ns-publics ns-obj)
+                    :let [v (try (var-get var-ref) (catch Exception _ nil))]
+                    :when (malli-schema? v)]
+                [(keyword (or module "core") (name var-name)) v]))))
     (catch Exception _ nil)))
+
+(defn- discover-all-schemas
+  "Scan all known schema namespaces and collect Malli schemas.
+   Returns a map of {qualified-key schema-value}."
+  []
+  (reduce (fn [acc ns-sym]
+            (if-let [schemas (discover-schemas-from-ns ns-sym)]
+              (merge acc schemas)
+              acc))
+          {}
+          schema-namespaces))
+
+(defonce ^:private known-schemas* (atom nil))
+
+(defn- known-schemas
+  "Return the discovered schema map, lazily initializing on first call."
+  []
+  (or @known-schemas*
+      (let [schemas (discover-all-schemas)]
+        (reset! known-schemas* schemas)
+        schemas)))
 
 (defn collect-schemas
   "Collect available Malli schemas. Returns a seq of schema keys."
   []
-  (if (seq known-schemas)
-    (sort-by name (keys known-schemas))
-    fallback-schema-keys))
+  (let [schemas (known-schemas)]
+    (if (seq schemas)
+      (sort-by (juxt namespace name) (keys schemas))
+      [])))
 
 ;; =============================================================================
 ;; Schema detail rendering
@@ -97,7 +128,7 @@
   "Render a schema's fields as a tree panel."
   [schema-key]
   (try
-    (let [schema-val (get known-schemas schema-key)]
+    (let [schema-val (get (known-schemas) schema-key)]
       (if-not schema-val
         [:div.detail-panel
          [:p.schema-no-detail (str "No schema loaded for " (pr-str schema-key))]

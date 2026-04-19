@@ -19,29 +19,39 @@
 
 (defn- system-data
   "Gather system info. Uses injected context refs when available,
-   falls back to integrant.repl.state/system."
+   falls back to integrant.repl.state/system for supplementary data."
   [ctx]
-  (let [sys      state/system
+  (let [sys      (try state/system (catch Exception _ nil))
         handler  (or (:http-handler ctx) (when sys (get sys :boundary/http-handler)))
         db-ctx   (or (:db-context ctx) (when sys (get sys :boundary/db-context)))
         routes   (when handler
                    (try (devtools-repl/extract-routes-from-handler handler)
                         (catch Exception _ [])))
-        modules  (active-modules sys)
+        ;; Derive modules from routes when REPL state is unavailable
+        route-modules (when routes
+                        (->> routes (keep :module) distinct sort))
+        modules  (or (seq (active-modules sys)) route-modules)
+        ;; Build component list from REPL state if available, otherwise from injected refs
+        components (if sys
+                     (for [k (sort-by str (keys sys))]
+                       {:name (name k) :status :running})
+                     ;; Derive minimal component list from what we know is running
+                     (cond-> []
+                       handler  (conj {:name "http-handler" :status :running})
+                       db-ctx   (conj {:name "db-context" :status :running})
+                       true     (conj {:name "dashboard" :status :running})))
         adapter  (when db-ctx
                    (let [a (:adapter db-ctx)]
                      (if (keyword? a) (name a) (str (type a)))))
         host     (when db-ctx (or (get-in db-ctx [:options :host])
                                   (get-in db-ctx [:host])
                                   "localhost"))]
-    {:component-count (or (:component-count ctx) (if sys (count sys) 0))
+    {:component-count (or (:component-count ctx) (if sys (count sys) (count components)))
      :route-count     (count (or routes []))
      :route-methods   (when routes (frequencies (map :method routes)))
      :module-count    (count (or modules []))
      :module-names    modules
-     :components      (when sys
-                        (for [k (sort-by str (keys sys))]
-                          {:name (name k) :status :running}))
+     :components      components
      :profile         (or (System/getenv "BND_ENV") "dev")
      :db-info         (when adapter (str adapter " @ " (or host "localhost")))
      :http-port       (or (:http-port ctx) 3000)

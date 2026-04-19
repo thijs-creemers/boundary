@@ -19,6 +19,16 @@
    :headers {"Content-Type" "text/html; charset=utf-8"}
    :body    body})
 
+(defn- jetty-port
+  "Extract the actual listening port from a Jetty Server instance."
+  [server]
+  (try
+    (when server
+      (let [connector (first (.getConnectors server))]
+        (when connector
+          (.getLocalPort connector))))
+    (catch Exception _ nil)))
+
 (defn- build-context
   "Build a context map from the injected Integrant components.
    Falls back to integrant.repl.state/system for component count (full system view),
@@ -26,11 +36,13 @@
   [config]
   (let [sys          (try @(resolve 'integrant.repl.state/system) (catch Exception _ nil))
         http-handler (:http-handler config)
-        db-context   (:db-context config)]
+        http-server  (:http-server config)
+        db-context   (:db-context config)
+        app-port     (or (jetty-port http-server) (:http-port config) 3000)]
     {:system-status   (if (or sys http-handler) :running :stopped)
      :component-count (if sys (count sys) 0)
      :error-count     0
-     :http-port       (or (:http-port config) 3000)
+     :http-port       app-port
      :http-handler    http-handler
      :db-context      db-context}))
 
@@ -95,13 +107,33 @@
       wrap-content-type
       wrap-params))
 
+(defn- try-start-jetty
+  "Attempt to start Jetty on the given port. On BindException, try up to
+   max-port before giving up. Returns {:server s :port p} or nil."
+  [handler host port max-port]
+  (loop [p port]
+    (when (<= p max-port)
+      (let [result (try
+                     {:server (jetty/run-jetty handler {:port p :host host :join? false})
+                      :port   p}
+                     (catch java.net.BindException _
+                       (log/debugf "Dashboard port %d in use, trying %d" p (inc p))
+                       nil))]
+        (or result (recur (inc p)))))))
+
 (defmethod ig/init-key :boundary/dashboard [_ {:keys [port host] :as config}]
   (let [port   (or port 9999)
         host   (or host "127.0.0.1")
-        config (assoc config :port port :host host)
-        server (jetty/run-jetty (make-handler config) {:port port :host host :join? false})]
-    (log/infof "Dev dashboard started on http://localhost:%d/dashboard" port)
-    {:server server :port port}))
+        result (try-start-jetty (make-handler config) host port (+ port 10))]
+    (if result
+      (do
+        (log/infof "Dev dashboard started on http://%s:%d/dashboard" host (:port result))
+        (when (not= port (:port result))
+          (log/warnf "Dashboard port %d was busy, using %d instead" port (:port result)))
+        result)
+      (do
+        (log/warnf "Could not start dev dashboard — ports %d–%d all in use" port (+ port 10))
+        nil))))
 
 (defmethod ig/halt-key! :boundary/dashboard [_ {:keys [server]}]
   (when server

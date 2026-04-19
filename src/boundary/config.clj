@@ -536,8 +536,9 @@
         (try
           (require 'boundary.devtools.shell.dashboard.server)
           {:boundary/dashboard
-           {:port        (:port dashboard-cfg 9999)
+           {:port         (:port dashboard-cfg 9999)
             :http-handler (ig/ref :boundary/http-handler)
+            :http-server  (ig/ref :boundary/http-server)
             :db-context   (ig/ref :boundary/db-context)
             :router       (ig/ref :boundary/router)
             :logging      (ig/ref :boundary/logging)}}
