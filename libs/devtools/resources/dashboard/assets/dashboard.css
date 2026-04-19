@@ -464,6 +464,19 @@ a:hover {
   flex-shrink: 0;
 }
 
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.status-dot.status-running,
+.status-dot.status-healthy { background: var(--accent-green); }
+.status-dot.status-error   { background: var(--accent-red); }
+.status-dot.status-warning { background: var(--accent-yellow); }
+
 .status-healthy { color: var(--accent-green); }
 .status-healthy::before { background: var(--accent-green); }
 
