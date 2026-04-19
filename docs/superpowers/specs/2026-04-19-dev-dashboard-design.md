@@ -8,6 +8,8 @@
 
 A local web dashboard at `localhost:9999` providing x-ray vision into the running Boundary system. Six pages: System Overview, Route Explorer, Request Inspector, Schema Browser, Database Explorer, and Error Dashboard. Dev-only, zero production overhead.
 
+**Scope:** This spec covers the 6 pages listed in Phase 4 of the parent spec. The remaining 5 dashboard pages (Jobs & Queues, Config Editor, Web REPL, Git Worktree Manager, Security Status) are deferred to Phase 6.
+
 ## Design Decisions
 
 | Decision | Choice | Rationale |
@@ -22,21 +24,35 @@ A local web dashboard at `localhost:9999` providing x-ray vision into the runnin
 
 ### Integrant Component
 
-A new `:boundary/dashboard` key in `resources/conf/dev/config.edn`:
+The dashboard is wired as a `:boundary/dashboard` Integrant component. Configuration is assembled programmatically in `src/boundary/config.clj` (matching the existing pattern — no `#ig/ref` in EDN files):
 
 ```clojure
-:boundary/dashboard
-{:port     9999
- :system   #ig/ref :boundary/system
- :http     #ig/ref :boundary/http-server
- :db       #ig/ref :boundary/db}
+;; In src/boundary/config.clj — new dashboard-module-config function
+(defn- dashboard-module-config [config]
+  (when (= (:boundary/profile config) "dev")
+    {:boundary/dashboard
+     {:port            (get-in config [:active :boundary/dashboard :port] 9999)
+      :http-handler    (ig/ref :boundary/http-handler)
+      :db-context      (ig/ref :boundary/db-context)
+      :router          (ig/ref :boundary/router)
+      :logging         (ig/ref :boundary/logging)}}))
+
+;; Added to ig-config merge chain
+(defn ig-config [config]
+  (merge (core-system-config config)
+         ...existing modules...
+         (dashboard-module-config config)))
 ```
 
-The component starts a Ring/Jetty server on port 9999 with its own Reitit router. It holds refs to the running system's components for introspection.
+The component starts a Ring/Jetty server on port 9999 with its own Reitit router. It receives specific component refs (not the whole system map) following the existing pattern. The system map is accessed via `integrant.repl.state/system` for full introspection when needed (same as `dev/repl/user.clj` does).
+
+### Component Wiring
+
+Init/halt methods live in `libs/devtools/src/boundary/devtools/shell/dashboard/server.clj`. The namespace is required from `dev/repl/user.clj` (not from platform wiring, since devtools is dev-only and not published to Clojars).
 
 ### Request Capture
 
-A dev-only Ring middleware wraps the main HTTP handler (port 3000). It captures request/response pairs into a bounded atom (ring buffer, last 200 entries):
+A dev-only Ring middleware wraps the main HTTP handler (port 3000). It is inserted in `src/boundary/config.clj` within the `:boundary/http-handler` config, conditionally added only when `(:boundary/profile config)` is `"dev"`. The middleware captures request/response pairs into a shared bounded atom (last 200 entries, oldest dropped via simple `swap!` + size check — no ring buffer library needed):
 
 ```clojure
 {:id        (random-uuid)
@@ -98,9 +114,10 @@ libs/devtools/
 
 ### Modified files
 
-- `resources/conf/dev/config.edn` — add `:boundary/dashboard` key
-- `dev/repl/user.clj` — wire dashboard component into system startup
-- `tests.edn` — add `:devtools` test suite (if not already present)
+- `src/boundary/config.clj` — add `dashboard-module-config` function, add to `ig-config` merge chain, add request capture middleware conditionally for dev profile
+- `resources/conf/dev/config.edn` — add `:boundary/dashboard {:port 9999}` under `:active`
+- `dev/repl/user.clj` — require `boundary.devtools.shell.dashboard.server` to register Integrant methods
+- `tests.edn` — verify existing `:devtools` test suite entry
 
 ## Routing
 
@@ -113,7 +130,9 @@ GET /dashboard/requests     → Request Inspector
 GET /dashboard/schemas      → Schema Browser
 GET /dashboard/db           → Database Explorer
 GET /dashboard/errors       → Error Dashboard
-GET /dashboard/assets/*     → Static CSS/JS/fonts
+GET /dashboard/assets/*     → Static CSS/JS/fonts (via ring.middleware.resource/wrap-resource
+                               serving from classpath "dashboard/assets" for dashboard.css,
+                               and from ui-style classpath resources for Alpine.js/HTMX/fonts)
 ```
 
 ### HTMX fragment endpoints (polling targets)
@@ -140,6 +159,8 @@ Route table: method (color-coded badge), path, handler, module, "inspect" link.
 
 Clicking "inspect" expands an interceptor chain visualization below the table — shows the full chain as a horizontal flow: `cors → content-type → auth → rate-limit → handler`.
 
+"Try it" button on expanded route detail: pre-fills method and path, lets user add params/body, sends a simulated request via the existing `simulate` function from `devtools/shell/repl.clj`, and displays the response inline.
+
 ### 3. Request Inspector (`/dashboard/requests`)
 
 Filter bar: path search, status filter, module filter. Live indicator showing polling status.
@@ -161,6 +182,8 @@ Schema detail shows field tree with required markers (`*` red, `○` gray for op
 Top row: two-column with migration status (list with applied/pending indicators) and HikariCP pool stats (active, idle, waiting, max — polls every 2s).
 
 Below: table browser with dropdown to select table (showing row count), displays columns and sample rows.
+
+Bottom: query runner with a textarea for HoneySQL or raw SQL input, execute button, and results table. Uses the existing `query` function from `devtools/shell/repl.clj`. Results limited to 50 rows.
 
 ### 6. Error Dashboard (`/dashboard/errors`)
 
@@ -229,6 +252,10 @@ From the parent spec (Phase 4):
 - Request inspector shows live request stream
 - Schema browser generates valid example values from Malli schemas
 - All dashboard pages work after `(go)` and `(reset)`
+- Database explorer shows migration status and pool stats
+- Error dashboard shows errors captured by Phase 3 pipeline, grouped by BND code
+- Route explorer "Try it" sends a simulated request and displays the response
+- Database explorer query runner executes SQL and displays results
 - `clojure -M:test:db/h2 :devtools` passes
 
 ## Existing Code to Leverage
