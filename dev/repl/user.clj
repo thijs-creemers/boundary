@@ -63,6 +63,16 @@
   []
   (ig-repl/halt))
 
+(defn- apply-taps-to-handler!
+  "After reset, install tap middleware if any taps are registered."
+  []
+  (when (dev-router/has-taps?)
+    (when-let [live-handler (wiring/current-handler)]
+      (let [wrapped (dev-router/wrap-taps live-handler)]
+        (wiring/swap-handler!
+         (with-meta wrapped {:devtools/taps-applied true}))
+        (println (format "  %d tap(s) activated" (count (dev-router/list-taps))))))))
+
 (defn reset
   "Reload code and restart the system."
   []
@@ -70,6 +80,7 @@
   (try
     (dev-router/clear-dynamic-state!)
     (let [result (ig-repl/reset)]
+      (apply-taps-to-handler!)
       (fcis/check-fcis-violations!)
       result)
     (catch Exception e

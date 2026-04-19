@@ -24,8 +24,9 @@
       (swap! files conj (write-file! (str src-dir "/ports.clj")
                                      (gen/generate-ports-file ctx))))
     (when (contains? gen-set :core)
-      (swap! files conj (write-file! (str src-dir "/core/validation.clj")
-                                     (gen/generate-core-file ctx))))
+      (let [entity-kebab (get-in ctx [:entities 0 :entity-kebab] module-name)]
+        (swap! files conj (write-file! (str src-dir "/core/" entity-kebab ".clj")
+                                       (gen/generate-core-file ctx)))))
     (when (contains? gen-set :service)
       (swap! files conj (write-file! (str src-dir "/shell/service.clj")
                                      (gen/generate-service-file ctx))))
@@ -73,14 +74,19 @@
   (let [generators (core/endpoints-to-generators (or (:endpoints spec) [:crud]))
         ctx        (core/build-scaffold-context module-name spec)
         files      (generate-module-files! module-name ctx generators)
-        migration-num     (System/currentTimeMillis)
-        migration-content (gen/generate-migration-file ctx migration-num)
-        migration-path    (format "resources/migrations/%d-add-%s-table.sql"
-                                  migration-num module-name)]
-    (write-file! migration-path migration-content)
+        now               (java.time.LocalDateTime/now)
+        migration-ts      (.format now (java.time.format.DateTimeFormatter/ofPattern "yyyyMMddHHmmss"))
+        migration-content (gen/generate-migration-file ctx migration-ts)
+        up-path           (format "resources/migrations/%s-add-%s-table.up.sql"
+                                  migration-ts module-name)
+        down-path         (format "resources/migrations/%s-add-%s-table.down.sql"
+                                  migration-ts module-name)
+        entity-table      (get-in ctx [:entities 0 :entity-table] module-name)]
+    (write-file! up-path migration-content)
+    (write-file! down-path (format "DROP TABLE IF EXISTS %s;\n" entity-table))
     (println (format "\n=> Module '%s' prototyped:" module-name))
     (println "\nGenerated files:")
-    (doseq [f (conj files migration-path)] (println (str "  " f)))
+    (doseq [f (concat files [up-path down-path])] (println (str "  " f)))
     (println "\nRunning migration...")
     (let [result (shell/sh "bb" "migrate" "up")]
       (if (zero? (:exit result))

@@ -41,10 +41,10 @@
             (is (contains? file-set path) "ports.clj path is returned")
             (is (.exists (io/file path)) "ports.clj file exists on disk")))
 
-        (testing "core/validation.clj is generated"
-          (let [path (str src-dir "/core/validation.clj")]
-            (is (contains? file-set path) "core/validation.clj path is returned")
-            (is (.exists (io/file path)) "core/validation.clj file exists on disk")))
+        (testing "core/<entity>.clj is generated (named after the entity, not 'validation')"
+          (let [path (str src-dir "/core/" test-module ".clj")]
+            (is (contains? file-set path) "core/<entity>.clj path is returned")
+            (is (.exists (io/file path)) "core/<entity>.clj file exists on disk")))
 
         (testing "shell/service.clj is generated"
           (let [path (str src-dir "/shell/service.clj")]

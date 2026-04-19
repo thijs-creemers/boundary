@@ -71,6 +71,31 @@
         ((:handler match) request)
         (base-handler request)))))
 
+(defn wrap-taps
+  "Ring middleware that invokes registered tap callbacks.
+   Checks the Reitit match data for a :name that matches a registered tap.
+   The tap receives {:request request :match match-data} and its return
+   value replaces the context (allowing request modification)."
+  [base-handler]
+  (fn [request]
+    (let [active-taps @taps]
+      (if (empty? active-taps)
+        (base-handler request)
+        ;; Reitit injects :reitit.core/match into the request
+        (let [match      (:reitit.core/match request)
+              match-data (when match (:data match))
+              handler-name (when match-data (:name match-data))
+              tap-fn     (when handler-name (get active-taps handler-name))]
+          (if tap-fn
+            (let [ctx     {:request request :match match-data}
+                  result  (tap-fn ctx)
+                  request (or (:request result) request)]
+              (base-handler request))
+            (base-handler request)))))))
+
+(defn has-taps? []
+  (not (empty? @taps)))
+
 (defn clear-dynamic-state!
   "Clear ephemeral dynamic state on reset.
    Taps are NOT cleared — they persist across resets because (reset) is the

@@ -69,16 +69,23 @@
             start       (System/nanoTime)
             response    (handler request)
             duration    (/ (- (System/nanoTime) start) 1e6)]
-        (when @session-atom
-          (let [req-data (-> (select-keys request [:uri :headers :params])
-                             (assoc :method (:request-method request))
-                             (assoc :body body-str))]
-            (swap! session-atom core/add-entry
-                   req-data
-                   (-> (select-keys response [:status :headers])
-                       (assoc :body (read-body (:body response))))
-                   (long duration))))
-        response))))
+        (let [resp-body-raw (:body response)
+              resp-body     (read-body resp-body-raw)
+              ;; Replace consumed InputStream with materialized body so
+              ;; Jetty can still send it to the client.
+              response      (if (instance? InputStream resp-body-raw)
+                              (assoc response :body resp-body)
+                              response)]
+          (when @session-atom
+            (let [req-data (-> (select-keys request [:uri :headers :params])
+                               (assoc :method (:request-method request))
+                               (assoc :body body-str))]
+              (swap! session-atom core/add-entry
+                     req-data
+                     (-> (select-keys response [:status :headers])
+                         (assoc :body resp-body))
+                     (long duration))))
+          response)))))
 
 (defn replay-entry!
   "Replay a recorded entry. simulate-fn should be the repl/simulate-request function."
@@ -88,7 +95,11 @@
       (let [request (if overrides
                       (core/merge-request-modifications (:request entry) overrides)
                       (:request entry))]
-        (simulate-fn (:method request) (:uri request) {:body (:body request)}))
+        (simulate-fn (:method request) (:uri request)
+                     (cond-> {}
+                       (:body request)    (assoc :body (:body request))
+                       (:headers request) (assoc :headers (:headers request))
+                       (:params request)  (assoc :params (:params request)))))
       (println (format "Entry %d not found. Session has %d entries (0 to %d)."
                        idx (core/entry-count session) (dec (core/entry-count session)))))
     (println "No active recording session. Use (recording :start) or (recording :load \"name\").")))
