@@ -142,9 +142,13 @@
             [:h3.schema-detail-title title]
             [:span.schema-field-type (str (m/type s))]]
            (when (seq children)
-             [:div.schema-fields
-              (for [child children]
-                (render-field-row child))])
+             (let [map-children (filter sequential? children)]
+               (if (seq map-children)
+                 [:div.schema-fields
+                  (for [child map-children]
+                    (render-field-row child))]
+                 [:div.schema-fields
+                  [:pre.code-block (pr-str children)]])))
            (when example
              [:div.schema-example
               [:div.schema-example-label "Example value"]
