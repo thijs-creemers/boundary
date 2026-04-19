@@ -630,14 +630,32 @@
         _ (flush)
         confirm (read-line)]
     (when (= "y" confirm)
-      ;; Convert AI spec fields (vector of maps) to scaffold format (map)
+      ;; Convert AI spec fields to scaffold! format: [[:field-name malli-spec] ...]
+      ;; AI returns [{:name "price" :type "decimal" :required true :unique false} ...]
+      ;; scaffold! expects [[:price [:decimal {:min 0}]] [:name :string] ...]
       (println "\nScaffolding module...")
       (let [raw-fields (:fields spec)
+            type-map   {"string" :string "text" :string "int" :int
+                        "decimal" :decimal "boolean" :boolean "email" :string
+                        "uuid" :uuid "date" :date "json" :map}
             fields     (if (sequential? raw-fields)
-                         (reduce (fn [m {:keys [name type]}]
-                                   (assoc m (keyword name) [(keyword (or type "string"))]))
-                                 {} raw-fields)
-                         (or raw-fields {}))]
+                         (mapv (fn [{:keys [name type required unique]
+                                     :or {required true unique false}
+                                     :as field}]
+                                 (let [kw-name (keyword name)
+                                       base-type (get type-map (clojure.core/name (or type "string")) :string)
+                                       ;; Build Malli spec with metadata
+                                       malli-spec (if (= type "enum")
+                                                    (into [:enum] (or (:enum-values field) []))
+                                                    (let [props (cond-> {}
+                                                                  (not required) (assoc :optional true)
+                                                                  unique         (assoc :unique true))]
+                                                      (if (seq props)
+                                                        [base-type props]
+                                                        base-type)))]
+                                   [kw-name malli-spec]))
+                               raw-fields)
+                         (or raw-fields []))]
         (scaffold! module-name {:fields fields}))
 
       (println "\nIntegrating module...")

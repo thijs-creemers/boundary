@@ -11,6 +11,7 @@
             [boundary.devtools.shell.dashboard.pages.config :as config-page]
             [boundary.devtools.shell.dashboard.pages.security :as security-page]
             [boundary.jobs.ports :as job-ports]
+            [boundary.user.ports :as user-ports]
             [clojure.edn :as edn]
             [integrant.core :as ig]
             [reitit.ring :as ring]
@@ -65,7 +66,11 @@
                         (try (job-ports/job-stats job-stats-svc) (catch Exception _ nil)))
      :failed-jobs     (when job-store
                         (try (job-ports/failed-jobs job-store 20) (catch Exception _ nil)))
-     :config          (when sys (try @(resolve 'integrant.repl.state/config) (catch Exception _ nil)))}))
+     :config          (when sys (try @(resolve 'integrant.repl.state/config) (catch Exception _ nil)))
+     :active-sessions (when-let [session-repo (when sys (get sys :boundary/session-repository))]
+                        (try (count (filter #(nil? (:revoked-at %))
+                                            (user-ports/find-all-sessions session-repo)))
+                             (catch Exception _ 0)))}))
 
 (defn- make-handler [config]
   (-> (ring/router
@@ -130,15 +135,20 @@
                         result
                         (if (and section-key new-val-str)
                           (try
-                            (let [new-val  (edn/read-string new-val-str)
-                                  cfg-var  (resolve 'integrant.repl.state/config)
-                                  reset-fn (resolve 'integrant.repl/reset)]
-                              (if (and cfg-var reset-fn)
+                            (let [new-val     (edn/read-string new-val-str)
+                                  set-prep-fn (resolve 'integrant.repl/set-prep!)
+                                  reset-fn    (resolve 'integrant.repl/reset)
+                                  load-cfg-fn (resolve 'boundary.config/load-config)
+                                  ig-cfg-fn   (resolve 'boundary.config/ig-config)]
+                              (if (and set-prep-fn reset-fn load-cfg-fn ig-cfg-fn)
                                 (do
-                                  ;; Update the config with the new section value
-                                  (alter-var-root cfg-var assoc section-key new-val)
-                                  ;; Full system reset so dependents pick up the new instance.
-                                  ;; restart-component warns that dependents keep stale refs.
+                                  ;; Patch the prep function to merge our override AFTER
+                                  ;; loading from disk, so reset doesn't discard the edit.
+                                  (set-prep-fn
+                                   (fn []
+                                     (let [cfg (load-cfg-fn)]
+                                       (-> (ig-cfg-fn cfg)
+                                           (assoc section-key new-val)))))
                                   (reset-fn)
                                   {:success? true :restarted [section-key]})
                                 {:success? false
@@ -166,11 +176,13 @@
          {:post (fn [req]
                   (let [ctx (build-context config)]
                     (when-let [job-store (:job-store ctx)]
-                      (let [job-id (get-in req [:params "job-id"])]
-                        (when job-id
-                          (try (job-ports/retry-job! job-store job-id)
-                               (catch Exception e
-                                 (log/warn "Failed to retry job" {:job-id job-id :error (.getMessage e)}))))))
+                      (when-let [job-id-str (get-in req [:params "job-id"])]
+                        (try
+                          (let [job-id (try (java.util.UUID/fromString job-id-str)
+                                            (catch Exception _ job-id-str))]
+                            (job-ports/retry-job! job-store job-id))
+                          (catch Exception e
+                            (log/warn "Failed to retry job" {:job-id job-id-str :error (.getMessage e)})))))
                     {:status  200
                      :headers {"Content-Type" "text/html; charset=utf-8"}
                      :body    (jobs-page/render-failed-jobs-fragment ctx)}))}]
