@@ -12,7 +12,7 @@
 
 (defn- applied-migration-ids
   "Query the schema_migrations table for applied migration IDs.
-   Migratus stores IDs as strings (e.g. \"20260324090101\").
+   Migratus stores IDs as BIGINT (e.g. 20260324090101).
    Returns a set of ID strings, or nil if unavailable."
   [ds]
   (when ds
@@ -43,10 +43,11 @@
         (if (seq files)
           (map (fn [f]
                  (let [fname (str/replace (.getName f) #"\.up\.sql$" "")
-                       ;; Migratus stores the full migration name as ID
-                       ;; (e.g. "20260324090101-bootstrap")
+                       ;; Migratus stores the numeric prefix as a BIGINT id
+                       ;; e.g. file "20260324090101-bootstrap.up.sql" → id 20260324090101
+                       numeric-id (re-find #"^\d+" fname)
                        status (if applied-ids
-                                (if (contains? applied-ids fname)
+                                (if (and numeric-id (contains? applied-ids numeric-id))
                                   :applied
                                   :pending)
                                 :unknown)]
