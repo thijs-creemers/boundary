@@ -9,6 +9,7 @@
             [boundary.devtools.shell.dashboard.pages.docs :as docs-page]
             [boundary.devtools.shell.dashboard.pages.jobs :as jobs-page]
             [boundary.devtools.shell.dashboard.pages.config :as config-page]
+            [boundary.devtools.shell.dashboard.pages.security :as security-page]
             [boundary.jobs.ports :as job-ports]
             [integrant.core :as ig]
             [reitit.ring :as ring]
@@ -84,6 +85,9 @@
         ["/dashboard/config"
          {:get (fn [_req]
                  (html-response (config-page/render (build-context config))))}]
+        ["/dashboard/security"
+         {:get (fn [_req]
+                 (html-response (security-page/render (build-context config))))}]
         ["/dashboard/fragments/config-preview"
          {:post (fn [req]
                   {:status  200

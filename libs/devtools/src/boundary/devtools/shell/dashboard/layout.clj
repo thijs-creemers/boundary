@@ -13,7 +13,8 @@
    {:path "/dashboard/db"       :icon "⊞" :label "Database"}
    {:path "/dashboard/errors"   :icon "⚠" :label "Errors"}
    {:path "/dashboard/jobs"     :icon "⚙" :label "Jobs"}
-   {:path "/dashboard/config"   :icon "⚡" :label "Config"}
+   {:path "/dashboard/config"    :icon "⚡" :label "Config"}
+   {:path "/dashboard/security" :icon "🔒" :label "Security"}
    {:path "/dashboard/docs"     :icon "📖" :label "Docs"}])
 
 (defn- sidebar [{:keys [active-path system-status]}]
