@@ -88,6 +88,8 @@
             #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\.[a-zA-Z]{2,}$"]
     :enum (into [:enum] enum-values)
     :inst 'inst?
+    :date [:re {:error/message "Must be an ISO date (YYYY-MM-DD)"}
+           #"^\d{4}-\d{2}-\d{2}$"]
     :json :map
     :decimal :double))
 
@@ -118,6 +120,7 @@
     :email "VARCHAR(255)"
     :enum "VARCHAR(50)"
     :inst "TIMESTAMPTZ"
+    :date "DATE"
     :json "JSONB"
     :decimal "DOUBLE PRECISION"))
 

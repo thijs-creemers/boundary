@@ -7,6 +7,8 @@
             [cheshire.core :as json]
             [clojure.java.shell :as shell]
             [clojure.string :as str]
+            [clojure.walk]
+            [integrant.core :as ig]
             [reitit.core]
             [reitit.ring])
   (:import (java.io ByteArrayInputStream)))
@@ -79,13 +81,17 @@
 
    opts keys:
      :body         — EDN/map body, will be JSON-encoded
+     :raw-body     — raw string body, passed as-is (for non-JSON text replay)
+     :raw-bytes    — raw byte array, passed directly (for binary replay)
      :headers      — extra headers map
      :query-params — map of query params (encoded into :query-string for wrap-params)
      :query-string — raw query string (used as-is, takes precedence over :query-params)"
   [method path opts]
-  (let [{:keys [body headers query-params query-string]} opts
-        base-headers {"content-type" "application/json"
-                      "accept"       "application/json"}
+  (let [{:keys [body raw-body raw-bytes headers query-params query-string]} opts
+        base-headers (if (or raw-body raw-bytes)
+                       {"accept" "application/json"}
+                       {"content-type" "application/json"
+                        "accept"       "application/json"})
         all-headers (merge base-headers headers)
         request (cond-> {:request-method (keyword (str/lower-case (name method)))
                          :uri            path
@@ -98,7 +104,14 @@
                   body
                   (assoc :body
                          (ByteArrayInputStream.
-                          (.getBytes (json/generate-string body) "UTF-8"))))]
+                          (.getBytes (json/generate-string body) "UTF-8")))
+                  raw-body
+                  (assoc :body
+                         (ByteArrayInputStream.
+                          (.getBytes (str raw-body) "UTF-8")))
+                  raw-bytes
+                  (assoc :body
+                         (ByteArrayInputStream. ^bytes raw-bytes)))]
     request))
 
 (defn simulate-request
@@ -231,3 +244,77 @@
     (str "Unknown topic: " topic
          "\n\nAvailable topics: "
          (str/join ", " (map str (docs/list-topics))))))
+
+;; =============================================================================
+;; Component restart
+;; =============================================================================
+
+(defn- find-dependents
+  "Find Integrant keys that reference component-key in their config values."
+  [config component-key]
+  (let [ref? (fn check [v]
+               (cond
+                 (= v (ig/ref component-key)) true
+                 (map? v) (some check (vals v))
+                 (sequential? v) (some check v)
+                 :else false))]
+    (vec (for [[k v] config
+               :when (and (not= k component-key) (ref? v))]
+           k))))
+
+(defn restart-component
+  "Halt and reinitialize a single Integrant component.
+
+   system-var:    the var holding the running system (a plain def, not an atom)
+   config:        the Integrant config map
+   component-key: the key to restart
+
+   Note: integrant.repl.state/system is a plain def, not an atom.
+   We use alter-var-root to update it atomically.
+
+   Warning: dependents that captured the old instance are NOT updated.
+   Use (reset) for cascading restarts."
+  [system-var config component-key]
+  (let [system (var-get system-var)]
+    (if-not (contains? system component-key)
+      (do
+        (println (format "Component %s not found in system." component-key))
+        (println "Available components:")
+        (doseq [k (sort (keys system))]
+          (println (str "  " k)))
+        nil)
+      (let [dependents (find-dependents config component-key)]
+        (println (format "Restarting %s..." component-key))
+        (alter-var-root system-var
+                        (fn [sys]
+                          (ig/halt-key! component-key (get sys component-key))
+                          (let [expanded-config (get (ig/expand config) component-key)
+                                ;; Resolve ig/ref values to live instances from the
+                                ;; running system so init-key receives real objects,
+                                ;; not raw Ref markers.
+                                resolved-config (clojure.walk/postwalk
+                                                 (fn [v]
+                                                   (if (ig/ref? v)
+                                                     (get sys (ig/ref-key v) v)
+                                                     v))
+                                                 expanded-config)
+                                new-val (ig/init-key component-key resolved-config)]
+                            ;; If we're restarting the HTTP handler, sync the live
+                            ;; handler-atom so Jetty serves the new handler immediately.
+                            (when (= component-key :boundary/http-handler)
+                              (try
+                                (require 'boundary.platform.shell.system.wiring)
+                                (let [swap-fn (resolve 'boundary.platform.shell.system.wiring/swap-handler!)]
+                                  (swap-fn new-val))
+                                (catch Exception e
+                                  (println (str "  Warning: failed to sync live handler: "
+                                                (.getMessage e))))))
+                            (assoc sys component-key new-val))))
+        (println (format "=> %s restarted." component-key))
+        (when (seq dependents)
+          (println (format "  Warning: %d component(s) hold references to the old instance and were NOT restarted:"
+                           (count dependents)))
+          (doseq [d dependents]
+            (println (str "    " d)))
+          (println "  Use (reset) for a full cascading restart."))
+        (get (var-get system-var) component-key)))))

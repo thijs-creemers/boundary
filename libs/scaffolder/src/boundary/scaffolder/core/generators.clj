@@ -419,11 +419,12 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
   (let [module-name (:module-name ctx)
         entity (first (:entities ctx))
         entity-name (:entity-name entity)
-        entity-lower (str/lower-case entity-name)]
+        entity-lower (str/lower-case entity-name)
+        entity-kebab (str/replace entity-lower #"\s+" "-")]
     (str "(ns boundary." module-name ".shell.service\n"
          "  \"Service layer for " module-name " module.\"\n"
          "  (:require [boundary." module-name ".ports :as ports]\n"
-         "            [boundary." module-name ".core." (template/kebab->snake entity-name) " :as core])\n"
+         "            [boundary." module-name ".core." entity-kebab " :as core])\n"
          "  (:import [java.time Instant]\n"
          "           [java.util UUID]))\n"
          "\n"
@@ -438,7 +439,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
          "  (create-" entity-lower " [this data]\n"
          "    (let [prepared (core/prepare-new-" entity-lower " data (generate-" entity-lower "-id) (current-time))]\n"
          "      (.create repository prepared)))\n"
-         "  (find-" entity-lower " [this id]\n"
+         "  (get-" entity-lower " [this id]\n"
          "    (.find-by-id repository id))\n"
          "  (list-" (template/pluralize entity-lower) " [this opts]\n"
          "    (.list-" (template/pluralize entity-lower) " repository opts))\n"
