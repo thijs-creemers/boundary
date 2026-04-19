@@ -1,6 +1,7 @@
 (ns boundary.devtools.shell.recording
   "Stateful recording management: session atom, capture middleware, file I/O."
   (:require [boundary.devtools.core.recording :as core]
+            [cheshire.core :as json]
             [clojure.java.io :as io]
             [clojure.string :as str])
   (:import [java.io InputStream]))
@@ -99,6 +100,15 @@
                    (long duration))))
         response))))
 
+(defn- decode-recorded-body
+  "Decode a recorded body back to data for replay.
+   JSON strings are parsed to maps/vectors so simulate doesn't double-encode."
+  [body]
+  (if (string? body)
+    (try (json/parse-string body true)
+         (catch Exception _ body))
+    body))
+
 (defn replay-entry!
   "Replay a recorded entry. simulate-fn should be the repl/simulate-request function."
   [idx simulate-fn & [overrides]]
@@ -106,12 +116,13 @@
     (if-let [entry (core/get-entry session idx)]
       (let [request (if overrides
                       (core/merge-request-modifications (:request entry) overrides)
-                      (:request entry))]
+                      (:request entry))
+            body    (decode-recorded-body (:body request))]
         (simulate-fn (:method request) (:uri request)
                      (cond-> {}
-                       (:body request)    (assoc :body (:body request))
-                       (:headers request) (assoc :headers (:headers request))
-                       (:params request)  (assoc :params (:params request)))))
+                       body               (assoc :body body)
+                       (:headers request)  (assoc :headers (:headers request))
+                       (:params request)   (assoc :params (:params request)))))
       (println (format "Entry %d not found. Session has %d entries (0 to %d)."
                        idx (core/entry-count session) (dec (core/entry-count session)))))
     (println "No active recording session. Use (recording :start) or (recording :load \"name\").")))

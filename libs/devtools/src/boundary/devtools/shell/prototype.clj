@@ -11,6 +11,29 @@
     (spit f content)
     path))
 
+(defn- generate-lib-deps
+  "Generate a monorepo library deps.edn (local/root references to sibling libs).
+   Mirrors the format used by existing libs/*/deps.edn files."
+  [_module-name]
+  "{:paths [\"src\" \"resources\"]
+
+ :deps {org.clojure/clojure {:mvn/version \"1.12.4\"}
+        boundary/platform {:local/root \"../platform\"}}
+
+ :aliases
+ {:test {:extra-paths [\"test\"]
+         :extra-deps {lambdaisland/kaocha {:mvn/version \"1.91.1392\"}
+                      com.h2database/h2 {:mvn/version \"2.4.240\"}}
+         :main-opts [\"-m\" \"kaocha.runner\"]}
+
+  :clj-kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version \"2026.01.19\"}}
+              :main-opts [\"-m\" \"clj-kondo.main\"]}
+
+  :build {:replace-deps {io.github.clojure/tools.build {:git/tag \"v0.10.11\" :git/sha \"c6c670a4\"}
+                        slipset/deps-deploy {:mvn/version \"0.2.2\"}}
+          :ns-default build}}}
+")
+
 (defn- generate-module-files!
   "Generate all files for a module using scaffolder generators."
   [module-name ctx generators]
@@ -37,7 +60,7 @@
       (swap! files conj (write-file! (str src-dir "/shell/http.clj")
                                      (gen/generate-http-file ctx))))
     (swap! files conj (write-file! (str "libs/" module-name "/deps.edn")
-                                   (gen/generate-project-deps module-name)))
+                                   (generate-lib-deps module-name)))
     @files))
 
 (defn scaffold!

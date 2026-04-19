@@ -70,7 +70,8 @@
     (when-let [live-handler (wiring/current-handler)]
       (let [wrapped (dev-router/wrap-taps live-handler)]
         (wiring/swap-handler!
-         (with-meta wrapped {:devtools/taps-applied true}))
+         (with-meta wrapped (merge (meta live-handler)
+                                   {:devtools/taps-applied true})))
         (println (format "  %d tap(s) activated" (count (dev-router/list-taps))))))))
 
 (defn reset
@@ -464,7 +465,9 @@
               (when-let [live-handler (wiring/current-handler)]
                 (rec/store-pre-recording-handler! live-handler)
                 (let [wrapped ((rec/capture-middleware) live-handler)]
-                  (wiring/swap-handler! wrapped))))
+                  (wiring/swap-handler!
+                   (with-meta wrapped (merge (meta live-handler)
+                                             {:devtools/recording true}))))))
     :stop   (do
               (rec/stop-recording!)
               ;; Restore the original (unwrapped) handler, removing the capture
@@ -490,7 +493,8 @@
     (when-not (:devtools/dynamic-dispatch (meta live-handler))
       (let [wrapped (dev-router/wrap-dynamic-dispatch live-handler)]
         (wiring/swap-handler!
-         (with-meta wrapped {:devtools/dynamic-dispatch true}))))))
+         (with-meta wrapped (merge (meta live-handler)
+                                   {:devtools/dynamic-dispatch true})))))))
 
 (defn defroute!
   "Add a route at runtime for rapid prototyping.
