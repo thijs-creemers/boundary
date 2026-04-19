@@ -2,7 +2,9 @@
 
  :deps {org.clojure/clojure {:mvn/version "1.12.4"}
         boundary/platform {:local/root "../platform"}
-        boundary/core {:local/root "../core"}}
+        boundary/core {:local/root "../core"}
+        boundary/ui-style {:local/root "../ui-style"}
+        hiccup/hiccup {:mvn/version "2.0.0"}}
 
  :aliases
  {:test {:extra-paths ["test"]
