@@ -88,7 +88,7 @@
             #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\.[a-zA-Z]{2,}$"]
     :enum (into [:enum] enum-values)
     :inst 'inst?
-    :date 'inst?
+    :date [:fn {:error/message "Must be a LocalDate"} #(instance? java.time.LocalDate %)]
     :json :map
     :decimal :double))
 

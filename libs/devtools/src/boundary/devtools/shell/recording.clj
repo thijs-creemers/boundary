@@ -55,10 +55,11 @@
     (boolean (re-find #"(?i)text/|json|edn|xml|urlencoded" ct))))
 
 (defn- safe-read-body
-  "Read a body into a serializable form only when it is text-based.
+  "Read a body into a serializable form.
    Returns [serializable-body replacement-body].
    - For text InputStreams: slurps to string, builds a replacement BAIS.
-   - For binary InputStreams: records :binary-stream placeholder, returns original.
+   - For binary InputStreams: reads to byte array, stores as base64 string
+     tagged with {:binary true :base64 ...}, returns a replacement BAIS.
    - For everything else: returns body unchanged."
   [body text?]
   (cond
@@ -70,7 +71,10 @@
       [s (java.io.ByteArrayInputStream. (.getBytes s "UTF-8"))])
 
     :else
-    [:binary-stream body]))
+    (let [bytes (.readAllBytes ^InputStream body)
+          b64   (.encodeToString (java.util.Base64/getEncoder) bytes)]
+      [{:binary true :base64 b64}
+       (java.io.ByteArrayInputStream. bytes)])))
 
 (defn capture-middleware
   "Returns a Ring middleware that captures request/response pairs into the session atom.
@@ -108,18 +112,32 @@
                "")]
     (boolean (re-find #"(?i)json" ct))))
 
+(defn- decode-binary-body
+  "Decode a base64-encoded binary body back to bytes."
+  [body]
+  (when (and (map? body) (:binary body))
+    (.decode (java.util.Base64/getDecoder) ^String (:base64 body))))
+
 (defn- prepare-replay-body
   "Prepare a recorded body for replay based on its content type.
    JSON bodies are parsed back to data (simulate will re-encode them).
-   Non-JSON bodies are wrapped as raw bytes via :raw-body so simulate
-   can pass them through without re-encoding."
+   Binary bodies are decoded from base64 back to byte arrays.
+   Other text bodies are returned as-is for :raw-body passthrough."
   [body headers]
-  (if (json-content-type? headers)
+  (cond
+    ;; Binary body stored as {:binary true :base64 "..."}
+    (and (map? body) (:binary body))
+    {:binary-bytes (decode-binary-body body)}
+
+    ;; JSON: parse back to data for simulate to re-encode
+    (json-content-type? headers)
     (if (string? body)
       (try (json/parse-string body true)
            (catch Exception _ body))
       body)
-    body))
+
+    ;; Other text: pass through as-is
+    :else body))
 
 (defn replay-entry!
   "Replay a recorded entry. simulate-fn should be the repl/simulate-request function.
@@ -132,15 +150,24 @@
                       (:request entry))
             headers (:headers request)
             json?   (json-content-type? headers)
-            body    (prepare-replay-body (:body request) headers)]
-        (if json?
+            body    (prepare-replay-body (:body request) headers)
+            binary-bytes (when (map? body) (:binary-bytes body))]
+        (cond
+          ;; Binary body: pass decoded bytes directly
+          binary-bytes
+          (simulate-fn (:method request) (:uri request)
+                       (cond-> {:raw-body (String. ^bytes binary-bytes "ISO-8859-1")}
+                         headers                   (assoc :headers headers)
+                         (:query-string request)   (assoc :query-string (:query-string request))))
           ;; JSON: pass as :body, simulate will JSON-encode it
+          json?
           (simulate-fn (:method request) (:uri request)
                        (cond-> {}
                          body                      (assoc :body body)
                          headers                   (assoc :headers headers)
                          (:query-string request)   (assoc :query-string (:query-string request))))
-          ;; Non-JSON: pass as :raw-body to avoid re-encoding
+          ;; Non-JSON text: pass as :raw-body to avoid re-encoding
+          :else
           (simulate-fn (:method request) (:uri request)
                        (cond-> {}
                          body                      (assoc :raw-body body)

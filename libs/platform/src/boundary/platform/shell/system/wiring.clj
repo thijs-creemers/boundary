@@ -463,28 +463,34 @@
 ;; Handler Atom (runtime handler swapping)
 ;; =============================================================================
 
-(defonce ^:private handler-atom (atom nil))
+(def ^:private active-handler-atom
+  "Atom holding the handler atom for the most recently started HTTP server.
+   Each init-key creates a fresh atom so multiple systems in the same JVM
+   don't share a single mutable pointer. halt-key! only nils its own atom."
+  (atom nil))
 
-(defn dispatch-handler
-  "Stable function reference passed to Jetty. Dereferences handler-atom on
- every request, allowing devtools to swap the compiled router at runtime
- without restarting Jetty."
-  [request]
-  (if-let [handler @handler-atom]
-    (handler request)
-    {:status 503
-     :headers {"Content-Type" "text/plain"}
-     :body "Handler not initialized"}))
+(defn- make-dispatch-handler
+  "Create a dispatch function closed over a specific handler atom.
+   Jetty holds this stable reference; the atom underneath can be swapped."
+  [handler-atom]
+  (fn [request]
+    (if-let [handler @handler-atom]
+      (handler request)
+      {:status 503
+       :headers {"Content-Type" "text/plain"}
+       :body "Handler not initialized"})))
 
 (defn current-handler
   "Return the current live HTTP handler, or nil if not initialized."
   []
-  @handler-atom)
+  (when-let [ha @active-handler-atom]
+    @ha))
 
 (defn swap-handler!
   "Replace the live HTTP handler. Called by devtools for router rebuilds."
   [new-handler]
-  (reset! handler-atom new-handler))
+  (when-let [ha @active-handler-atom]
+    (reset! ha new-handler)))
 
 ;; =============================================================================
 ;; HTTP Server (Jetty)
@@ -498,11 +504,15 @@
 
     (port-manager/log-port-allocation port allocated-port http-config "HTTP Server")
 
-    (reset! handler-atom handler)
-    (let [server (jetty/run-jetty dispatch-handler
+    (let [ha (atom handler)
+          _  (reset! active-handler-atom ha)
+          server (jetty/run-jetty (make-dispatch-handler ha)
                                   {:port allocated-port
                                    :host host
-                                   :join? (or join? false)})]
+                                   :join? (or join? false)
+                                   ;; Store the handler atom on the server so
+                                   ;; halt-key! can clear the right one.
+                                   :configurator (fn [s] (.setAttribute s "handler-atom" ha))})]
       (log/info "HTTP server started successfully"
                 {:port allocated-port
                  :host host
@@ -513,8 +523,12 @@
 (defmethod ig/halt-key! :boundary/http-server
   [_ server]
   (log/info "Stopping HTTP server")
-  (reset! handler-atom nil)
   (when server
+    ;; Clear only this server's handler atom
+    (when-let [ha (.getAttribute server "handler-atom")]
+      (reset! ha nil)
+      ;; If this was the active server, clear the active reference
+      (compare-and-set! active-handler-atom ha nil))
     (.stop server)
     (log/info "HTTP server stopped")))
 
