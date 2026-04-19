@@ -375,8 +375,8 @@ a:hover {
    Data Tables
    ------------------------------------------------------------ */
 .data-table {
-  width: 100%;
-  min-width: max-content;
+  width: fit-content;
+  min-width: 100%;
   border-collapse: collapse;
 }
 
