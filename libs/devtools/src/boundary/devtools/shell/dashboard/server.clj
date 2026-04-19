@@ -80,6 +80,11 @@
                  {:status  200
                   :headers {"Content-Type" "text/html; charset=utf-8"}
                   :body    (requests-page/render-fragment req)})}]
+        ["/dashboard/fragments/request-detail"
+         {:get (fn [req]
+                 {:status  200
+                  :headers {"Content-Type" "text/html; charset=utf-8"}
+                  :body    (requests-page/render-detail-fragment req)})}]
         ["/dashboard/fragments/error-list"
          {:get (fn [_req]
                  {:status  200

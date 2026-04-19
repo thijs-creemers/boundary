@@ -63,12 +63,19 @@
 (defn- request-rows
   "Build data-table rows from request log entries."
   [entries]
-  (for [{:keys [status method path duration-ms timestamp]} entries]
+  (for [{:keys [id status method path duration-ms timestamp]} entries]
     {:cells [[:span {:style (status-color status)} status]
              (c/method-badge method)
              [:span.route-path path]
              [:span {:style (duration-style duration-ms)} (str duration-ms "ms")]
-             [:span.request-time (relative-time timestamp)]]}))
+             [:span.request-time (relative-time timestamp)]
+             [:button.inspect-link
+              {:type      "button"
+               :hx-get    (str "/dashboard/fragments/request-detail?id=" id)
+               :hx-target "#request-detail"
+               :hx-swap   "innerHTML show:#request-detail:top"
+               :style     "background:none;border:none;color:var(--accent-blue);cursor:pointer;font-size:12px"}
+              "details →"]]}))
 
 (defn render-request-list
   "Build a data-table from the current request log, newest first, limit 50."
@@ -79,8 +86,8 @@
     (if (empty? entries)
       [:div.empty-state "No requests captured yet. Make some HTTP requests to see them here."]
       (c/data-table
-       {:columns      ["Status" "Method" "Path" "Duration" "Time"]
-        :col-template "70px 90px 1fr 90px 100px"
+       {:columns      ["Status" "Method" "Path" "Duration" "Time" ""]
+        :col-template "70px 90px 1fr 90px 100px 80px"
         :rows         (request-rows entries)}))))
 
 (defn render-fragment
@@ -90,6 +97,47 @@
         filters {:path-filter   (or (get params "path") "")
                  :status-filter (or (get params "status") "")}]
     (str (h/html (render-request-list filters)))))
+
+(defn- render-headers-table
+  "Render a map of headers as a simple key-value grid."
+  [headers label]
+  (when (seq headers)
+    [:div {:style "margin-bottom:1rem"}
+     [:div {:style "font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase"} label]
+     (c/data-table
+      {:columns      ["Header" "Value"]
+       :col-template "220px 1fr"
+       :rows         (for [[k v] (sort-by key headers)]
+                       {:cells [[:span {:style "font-family:var(--font-mono);font-weight:500"} k]
+                                [:span {:style "font-family:var(--font-mono);word-break:break-all"} (str v)]]})})]))
+
+(defn render-detail-fragment
+  "Return request detail (headers, params) as an HTML fragment."
+  [req]
+  (let [params   (get req :params {})
+        id-str   (or (get params "id") "")
+        entries  (middleware/request-log)
+        entry    (first (filter #(= (str (:id %)) id-str) entries))]
+    (if-not entry
+      (str (h/html [:div.detail-panel [:p.no-data "Request not found — it may have been evicted from the log."]]))
+      (let [{:keys [method path status duration-ms timestamp request response]} entry
+            req-headers  (:headers request)
+            req-params   (:params request)
+            resp-headers (:headers response)]
+        (str (h/html
+              [:div.detail-panel
+               [:div.detail-header
+                [:span (c/method-badge method)]
+                [:span {:style "margin-left:8px"} path]
+                [:span {:style "margin-left:auto;font-size:12px"}
+                 [:span {:style (status-color status)} (str status)]
+                 [:span {:style "margin-left:8px;color:var(--text-muted)"} (str duration-ms "ms")]
+                 [:span {:style "margin-left:8px;color:var(--text-muted)"} (relative-time timestamp)]]]
+               [:div {:style "padding:1rem 1.5rem"}
+                (render-headers-table req-headers "Request Headers")
+                (when (seq req-params)
+                  (render-headers-table req-params "Request Params"))
+                (render-headers-table resp-headers "Response Headers")]]))))))
 
 ;; =============================================================================
 ;; Page
@@ -130,5 +178,6 @@
              :hx-trigger "every 2s"
              :hx-swap    "innerHTML"
              :hx-include "[name='path'],[name='status']"}
-            (render-request-list)])))
+            (render-request-list)])
+   [:div#request-detail]))
 
