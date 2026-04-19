@@ -38,7 +38,7 @@
    (when http-port
      (list
       [:a.topbar-link {:href (str "http://localhost:" http-port) :target "_blank"} "App"]
-      [:a.topbar-link {:href (str "http://localhost:" http-port "/web/admin") :target "_blank"} "Admin"]))])
+      [:a.topbar-link {:href (str "http://localhost:" http-port "/web/admin/") :target "_blank"} "Admin"]))])
 
 (defn dashboard-page
   "Wrap page content in the full dashboard shell.
