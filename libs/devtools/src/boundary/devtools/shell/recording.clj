@@ -90,7 +90,7 @@
             [resp-body-data resp-body-replacement] (safe-read-body (:body response) resp-text?)
             response             (assoc response :body resp-body-replacement)]
         (when @session-atom
-          (let [req-data (-> (select-keys request [:uri :headers :params])
+          (let [req-data (-> (select-keys request [:uri :headers :query-string])
                              (assoc :method (:request-method request))
                              (assoc :body req-body-data))]
             (swap! session-atom core/add-entry
@@ -120,9 +120,9 @@
             body    (decode-recorded-body (:body request))]
         (simulate-fn (:method request) (:uri request)
                      (cond-> {}
-                       body               (assoc :body body)
-                       (:headers request)  (assoc :headers (:headers request))
-                       (:params request)   (assoc :params (:params request)))))
+                       body                      (assoc :body body)
+                       (:headers request)        (assoc :headers (:headers request))
+                       (:query-string request)   (assoc :query-string (:query-string request)))))
       (println (format "Entry %d not found. Session has %d entries (0 to %d)."
                        idx (core/entry-count session) (dec (core/entry-count session)))))
     (println "No active recording session. Use (recording :start) or (recording :load \"name\").")))

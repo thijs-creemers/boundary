@@ -57,6 +57,7 @@
 ;; =============================================================================
 
 (declare guidance)
+(declare ensure-dynamic-dispatch!)
 
 (defn halt
   "Stop the system."
@@ -470,10 +471,12 @@
                                              {:devtools/recording true}))))))
     :stop   (do
               (rec/stop-recording!)
-              ;; Restore the original (unwrapped) handler, removing the capture
-              ;; middleware from the live request path.
+              ;; Restore the pre-recording handler, then re-apply any wrappers
+              ;; (e.g. dynamic dispatch) that were added while recording was active.
               (when-let [original (rec/restore-pre-recording-handler!)]
-                (wiring/swap-handler! original)))
+                (wiring/swap-handler! original)
+                ;; Re-wrap with dynamic dispatch if routes were added during recording
+                (ensure-dynamic-dispatch!)))
     :list   (rec/list-entries)
     :replay (let [idx (first args)
                   overrides (second args)
