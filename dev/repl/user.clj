@@ -404,7 +404,9 @@
 (defn- print-startup-dashboard []
   (when (= (guidance) :full)
     (status)
-    (println "  Dashboard: http://localhost:9999/dashboard")))
+    (when-let [dashboard (get state/system :boundary/dashboard)]
+      (let [port (or (:port dashboard) 9999)]
+        (println (str "  Dashboard: http://localhost:" port "/dashboard"))))))
 
 (defn go
   "Start the system with guidance dashboard."

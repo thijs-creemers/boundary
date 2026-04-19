@@ -175,10 +175,6 @@
         raw-path (or (get params "path") (get params :path) "/")
         ;; Split path?query so Ring gets a proper :uri and :query-string
         [path query-str] (str/split raw-path #"\?" 2)
-        query-params (when query-str
-                       (into {} (for [pair (str/split query-str #"&")
-                                      :let [[k v] (str/split pair #"=" 2)]]
-                                  [k (or v "")])))
         raw-body (or (get params "body") (get params :body) "")
         body    (when (seq raw-body)
                   (try (edn/read-string raw-body) (catch Exception _ nil)))
@@ -188,10 +184,11 @@
     (if-not handler
       (str (h/html [:div.detail-panel.detail-panel-error
                     [:p "System not running"]]))
+      ;; Pass raw query string directly to avoid double-encoding
       (let [result (devtools-repl/simulate-request handler method path
                                                    (cond-> {}
-                                                     body         (assoc :body body)
-                                                     query-params (assoc :query-params query-params)))
+                                                     body      (assoc :body body)
+                                                     query-str (assoc :query-string query-str)))
             status (:status result)
             ok?    (and (integer? status) (< status 400))]
         (str (h/html

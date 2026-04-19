@@ -41,7 +41,7 @@
         app-port     (or (jetty-port http-server) (:http-port config) 3000)]
     {:system-status   (if (or sys http-handler) :running :stopped)
      :component-count (if sys (count sys) 0)
-     :error-count     0
+     :error-count     (:total (errors-page/error-stats))
      :http-port       app-port
      :http-handler    http-handler
      :db-context      db-context}))
