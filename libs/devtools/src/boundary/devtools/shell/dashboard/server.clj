@@ -152,4 +152,5 @@
 (defmethod ig/halt-key! :boundary/dashboard [_ {:keys [server]}]
   (when server
     (.stop server)
+    (schemas-page/reset-schemas!)
     (log/info "Dev dashboard stopped")))

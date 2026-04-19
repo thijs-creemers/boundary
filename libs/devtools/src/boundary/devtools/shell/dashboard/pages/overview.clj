@@ -60,10 +60,12 @@
      :java-version    (System/getProperty "java.version")}))
 
 (defn render [opts]
-  (let [data (system-data opts)]
+  (let [data      (system-data opts)
+        err-stats (dashboard-errors/error-stats)
+        err-total (:total err-stats)]
     (layout/dashboard-page
      (merge opts {:component-count (:component-count data)
-                  :error-count     (:total (dashboard-errors/error-stats))
+                  :error-count     err-total
                   :http-port       (:http-port data)
                   :system-status   :running})
      [:div.stat-grid
@@ -77,12 +79,11 @@
       (c/stat-card {:label "Modules" :value (:module-count data)
                     :sub (when (:module-names data)
                            (str/join " · " (:module-names data)))})
-      (let [err-total (:total (dashboard-errors/error-stats))]
-        (c/stat-card {:label "Errors (24h)" :value err-total
-                      :value-class (if (pos? err-total) "stat-value-error" "green")
-                      :sub (if (pos? err-total)
-                             "view error dashboard"
-                             "no recent errors")}))]
+      (c/stat-card {:label "Errors (24h)" :value err-total
+                    :value-class (if (pos? err-total) "stat-value-error" "green")
+                    :sub (if (pos? err-total)
+                           "view error dashboard"
+                           "no recent errors")})]
      [:div.two-col
       (c/card {:title "Integrant Components" :flush? true}
               (c/data-table

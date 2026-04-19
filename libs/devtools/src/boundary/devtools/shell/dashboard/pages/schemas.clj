@@ -9,27 +9,22 @@
 ;; Schema collection
 ;; =============================================================================
 
-(def ^:private schema-namespaces
-  "Known Boundary schema namespace symbols to scan."
-  '[boundary.user.schema
-    boundary.admin.schema
-    boundary.payments.schema
-    boundary.calendar.schema
-    boundary.storage.schema
-    boundary.cache.schema
-    boundary.email.schema
-    boundary.jobs.schema
-    boundary.tenant.schema
-    boundary.realtime.schema
-    boundary.reports.schema
-    boundary.search.schema
-    boundary.workflow.schema
-    boundary.geo.schema
-    boundary.ai.schema
-    boundary.i18n.schema
-    boundary.external.schema
-    boundary.platform.schema
-    boundary.core.schema])
+(defn- discover-schema-namespaces
+  "Scan libs/ for modules that have a schema.clj file and derive namespace symbols.
+   Falls back to loaded namespaces matching boundary.*.schema if libs/ is unavailable."
+  []
+  (let [libs-dir (java.io.File. "libs")]
+    (if (.isDirectory libs-dir)
+      (->> (.listFiles libs-dir)
+           (filter #(.isDirectory %))
+           (map #(symbol (str "boundary." (.getName %) ".schema")))
+           (filterv (fn [ns-sym]
+                      (try (require ns-sym) true (catch Exception _ false)))))
+      ;; Fallback: scan already-loaded namespaces
+      (->> (all-ns)
+           (map ns-name)
+           (filter #(re-matches #"boundary\.[^.]+\.schema" (str %)))
+           (mapv symbol)))))
 
 (defn- malli-schema?
   "Return true if value looks like a Malli schema (vector or keyword)."
@@ -56,7 +51,7 @@
     (catch Exception _ nil)))
 
 (defn- discover-all-schemas
-  "Scan all known schema namespaces and collect Malli schemas.
+  "Scan all boundary.*.schema namespaces and collect Malli schemas.
    Returns a map of {qualified-key schema-value}."
   []
   (reduce (fn [acc ns-sym]
@@ -64,9 +59,15 @@
               (merge acc schemas)
               acc))
           {}
-          schema-namespaces))
+          (discover-schema-namespaces)))
 
 (defonce ^:private known-schemas* (atom nil))
+
+(defn reset-schemas!
+  "Clear the cached schema map so it is re-discovered on next access.
+   Called automatically on system reload."
+  []
+  (reset! known-schemas* nil))
 
 (defn- known-schemas
   "Return the discovered schema map, lazily initializing on first call."
