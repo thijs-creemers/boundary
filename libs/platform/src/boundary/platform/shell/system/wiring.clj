@@ -138,7 +138,7 @@
                          :no-doc  true}}}])))
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service membership-service db-context cache i18n user-service]}]
+  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service membership-service db-context cache i18n user-service request-capture?]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)
@@ -348,7 +348,20 @@
         handler (compile-routes router all-normalized-routes router-config)
 
         ;; Wrap handler with version headers middleware
-        versioned-handler (http-versioning/wrap-handler-with-version-headers handler config)]
+        versioned-handler (http-versioning/wrap-handler-with-version-headers handler config)
+
+        ;; Conditionally wrap with request capture middleware (dev only).
+        ;; Uses requiring-resolve to avoid hard dependency on devtools from platform.
+        ;; Guarded with try/catch because devtools may not be on the classpath
+        ;; in non-REPL dev boots (e.g. BND_ENV=development clojure -M -m boundary.main).
+        final-handler (if request-capture?
+                        (try
+                          (let [wrap-fn (requiring-resolve 'boundary.devtools.shell.dashboard.middleware/wrap-request-capture)]
+                            (wrap-fn versioned-handler))
+                          (catch Exception _
+                            (log/debug "Request capture middleware not available, skipping")
+                            versioned-handler))
+                        versioned-handler)]
 
     (log/info "Top-level HTTP handler initialized successfully"
               {:user-routes {:static (count (or user-static-routes []))
@@ -367,8 +380,9 @@
                :total-normalized-routes (count all-normalized-routes)
                :router-adapter (class router)
                :system-services (keys system)
-               :api-versioning-enabled true})
-    versioned-handler))
+               :api-versioning-enabled true
+               :request-capture-enabled (boolean request-capture?)})
+    final-handler))
 
 (defmethod ig/halt-key! :boundary/http-handler
   [_ _handler]

@@ -103,7 +103,8 @@
            ;; =============================================================================
 
            :repl-clj  {:extra-paths ["dev" "dev/repl"
-                                     "libs/devtools/src"]
+                                     "libs/devtools/src"
+                                     "libs/devtools/resources"]
                        :extra-deps  {nrepl/nrepl             {:mvn/version "1.6.0"}
                                      cider/cider-nrepl       {:mvn/version "0.58.0"}
                                      ring/ring-jetty-adapter {:mvn/version "1.15.3"}}
@@ -131,7 +132,8 @@
            ;; =============================================================================
 
            :dev       {:extra-paths ["dev" "dev/repl"
-                                     "libs/devtools/src"]
+                                     "libs/devtools/src"
+                                     "libs/devtools/resources"]
                        :extra-deps  {org.xerial/sqlite-jdbc      {:mvn/version "3.51.0.0"}
                                      org.postgresql/postgresql   {:mvn/version "42.7.8"}
                                      com.h2database/h2           {:mvn/version "2.4.240"}
@@ -156,14 +158,16 @@
                        :extra-paths  ["src"]}
            :test      {:main-opts   ["-m" "kaocha.runner"]
                        :extra-paths ["test" "dev"
-                                     "libs/devtools/src" "libs/devtools/test"]
-                       :extra-deps  {lambdaisland/kaocha         {:mvn/version "1.91.1392"}
-                                     org.clojure/test.check      {:mvn/version "1.1.2"}
-                                     com.gfredericks/test.chuck  {:mvn/version "0.2.15"}
-                                     org.xerial/sqlite-jdbc      {:mvn/version "3.51.0.0"}
-                                     org.postgresql/postgresql   {:mvn/version "42.7.8"}
-                                     com.h2database/h2           {:mvn/version "2.4.240"}
-                                     com.mysql/mysql-connector-j {:mvn/version "9.5.0"}}
+                                     "libs/devtools/src" "libs/devtools/test"
+                                     "libs/devtools/resources"]
+                       :extra-deps  {lambdaisland/kaocha             {:mvn/version "1.91.1392"}
+                                     org.clojure/test.check          {:mvn/version "1.1.2"}
+                                     com.gfredericks/test.chuck      {:mvn/version "0.2.15"}
+                                     org.xerial/sqlite-jdbc          {:mvn/version "3.51.0.0"}
+                                     org.postgresql/postgresql       {:mvn/version "42.7.8"}
+                                     com.h2database/h2               {:mvn/version "2.4.240"}
+                                     com.mysql/mysql-connector-j     {:mvn/version "9.5.0"}
+                                     org.clj-commons/clj-http-lite   {:mvn/version "1.0.13"}}
                        :jvm-opts    ["-Denv=test" "--enable-native-access=ALL-UNNAMED"]}
            :outdated  {:extra-deps {olical/depot {:mvn/version "2.4.1"}}
                        :main-opts  ["-m" "depot.outdated.main"]}

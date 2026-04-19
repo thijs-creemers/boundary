@@ -20,6 +20,7 @@
             [boundary.devtools.core.state-analyzer :as state-analyzer]
             [boundary.devtools.core.error-classifier :as classifier]
             [boundary.devtools.core.auto-fix :as auto-fix]
+            [boundary.devtools.shell.dashboard.server]  ;; Load dashboard Integrant init/halt methods
             [boundary.devtools.shell.repl :as devtools-repl]
             [boundary.devtools.shell.repl-error-handler :as repl-errors]
             [boundary.devtools.shell.fcis-checker :as fcis]
@@ -402,7 +403,10 @@
 
 (defn- print-startup-dashboard []
   (when (= (guidance) :full)
-    (status)))
+    (status)
+    (when-let [dashboard (get state/system :boundary/dashboard)]
+      (let [port (or (:port dashboard) 9999)]
+        (println (str "  Dashboard: http://localhost:" port "/dashboard"))))))
 
 (defn go
   "Start the system with guidance dashboard."

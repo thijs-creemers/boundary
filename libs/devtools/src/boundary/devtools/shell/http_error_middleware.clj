@@ -5,7 +5,8 @@
    to ex-data so the outer middleware can include it in the RFC 7807 response."
   (:require [boundary.devtools.core.error-classifier :as classifier]
             [boundary.devtools.core.error-enricher :as enricher]
-            [boundary.devtools.core.error-formatter :as formatter]))
+            [boundary.devtools.core.error-formatter :as formatter]
+            [boundary.devtools.shell.dashboard.pages.errors :as dashboard-errors]))
 
 (defn- build-dev-info
   "Build the :dev-info map from an enriched error."
@@ -34,6 +35,12 @@
               dev-info   (build-dev-info enriched)
               original-data (or (ex-data ex) {})
               enhanced-data (assoc original-data :dev-info dev-info)]
+          ;; Record in dashboard error log
+          (dashboard-errors/record-error!
+           (merge enriched
+                  {:timestamp-ms (System/currentTimeMillis)
+                   :message      (.getMessage ex)
+                   :source       :http}))
           ;; Pass original exception as cause to preserve full stack trace
           (throw (ex-info (.getMessage ex)
                           enhanced-data

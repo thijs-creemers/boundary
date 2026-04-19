@@ -132,24 +132,26 @@
      ;;              \"X-API-Sunset\" \"2026-06-01\"}
      ;;    :body ...}"
   [handler version config]
-  (fn [request]
-    (let [response (handler request)
-          version-str (name version)
-          latest-str (name (:latest-stable config))
-          deprecated? (contains? (:deprecated-versions config) version)
-          sunset-date (get (:sunset-dates config) version)
+  (let [wrapper
+        (fn [request]
+          (let [response (handler request)
+                version-str (name version)
+                latest-str (name (:latest-stable config))
+                deprecated? (contains? (:deprecated-versions config) version)
+                sunset-date (get (:sunset-dates config) version)
 
-          ;; Build version headers
-          version-headers (cond-> {"X-API-Version" version-str
-                                   "X-API-Version-Latest" latest-str}
-                            deprecated?
-                            (assoc "X-API-Deprecated" "true")
+                ;; Build version headers
+                version-headers (cond-> {"X-API-Version" version-str
+                                         "X-API-Version-Latest" latest-str}
+                                  deprecated?
+                                  (assoc "X-API-Deprecated" "true")
 
-                            sunset-date
-                            (assoc "X-API-Sunset" sunset-date))]
+                                  sunset-date
+                                  (assoc "X-API-Sunset" sunset-date))]
 
-      ;; Add version headers to response
-      (update response :headers merge version-headers))))
+            ;; Add version headers to response
+            (update response :headers merge version-headers)))]
+    (with-meta wrapper (meta handler))))
 
 ;; =============================================================================
 ;; Backward Compatibility Redirect

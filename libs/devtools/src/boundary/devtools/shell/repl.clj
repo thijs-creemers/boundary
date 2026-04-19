@@ -80,9 +80,10 @@
    opts keys:
      :body         — EDN/map body, will be JSON-encoded
      :headers      — extra headers map
-     :query-params — map of query params (encoded into :query-string for wrap-params)"
+     :query-params — map of query params (encoded into :query-string for wrap-params)
+     :query-string — raw query string (used as-is, takes precedence over :query-params)"
   [method path opts]
-  (let [{:keys [body headers query-params]} opts
+  (let [{:keys [body headers query-params query-string]} opts
         base-headers {"content-type" "application/json"
                       "accept"       "application/json"}
         all-headers (merge base-headers headers)
@@ -92,7 +93,8 @@
                          :server-name    "localhost"
                          :server-port    3000
                          :scheme         :http}
-                  query-params (assoc :query-string (encode-query-string query-params))
+                  query-string (assoc :query-string query-string)
+                  (and query-params (not query-string)) (assoc :query-string (encode-query-string query-params))
                   body
                   (assoc :body
                          (ByteArrayInputStream.

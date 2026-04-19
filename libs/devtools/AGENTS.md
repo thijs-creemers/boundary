@@ -54,3 +54,32 @@ The safety gate is never overridden by guidance level.
 - `core/state_analyzer.clj` — Module/migration/test state analysis
 - `core/documentation.clj` — In-REPL help topics
 - `shell/repl.clj` — Route extraction, request simulation, data queries, test/lint runners
+
+## Dev Dashboard (Phase 4)
+
+Local web UI at `localhost:9999` providing x-ray vision into the running system.
+
+### Pages
+
+- `/dashboard` — System Overview: components, routes, modules, environment
+- `/dashboard/routes` — Route Explorer: filterable route table with interceptor chain
+- `/dashboard/requests` — Request Inspector: live request stream (HTMX polling 2s)
+- `/dashboard/schemas` — Schema Browser: Malli schema tree with example generation
+- `/dashboard/db` — Database Explorer: migrations, pool stats, query runner
+- `/dashboard/errors` — Error Dashboard: BND-coded errors with fix suggestions
+
+### Architecture
+
+- Integrant component (`:boundary/dashboard`) starts Jetty on port 9999
+- Server-rendered Hiccup + HTMX polling for live updates
+- Request capture middleware wraps main HTTP handler (port 3000)
+- Dark theme CSS in `resources/dashboard/assets/dashboard.css`
+- All data access through existing introspection functions
+
+### Key Files
+
+- `shell/dashboard/server.clj` — Integrant component, Reitit router
+- `shell/dashboard/middleware.clj` — Request capture middleware
+- `shell/dashboard/layout.clj` — Sidebar, top bar, page wrapper
+- `shell/dashboard/components.clj` — Reusable UI components
+- `shell/dashboard/pages/*.clj` — Individual page renders
