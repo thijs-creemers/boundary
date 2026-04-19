@@ -3,6 +3,7 @@
   (:require [boundary.devtools.shell.dashboard.layout :as layout]
             [boundary.devtools.shell.dashboard.components :as c]
             [boundary.devtools.core.config-editor :as cfg-edit]
+            [clojure.edn :as edn]
             [clojure.string :as str]
             [hiccup2.core :as h]))
 
@@ -67,7 +68,7 @@
   [section-key old-val new-val-str]
   (str (h/html
         (let [diff (cfg-edit/config-diff {section-key old-val}
-                                         {section-key (try (clojure.edn/read-string new-val-str)
+                                         {section-key (try (edn/read-string new-val-str)
                                                            (catch Exception _ old-val))})]
           (if (empty? (:changed diff))
             [:div.detail-panel [:p "No changes detected."]]

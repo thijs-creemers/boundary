@@ -56,9 +56,9 @@
       :auth-methods       (analyze-auth-methods config)
       :roles              (analyze-role-config config)
       :csp                (analyze-csp-config config)
-      :lockout            {:max-attempts  5
-                           :duration-mins 15}
-      :csrf-enabled?      true
+      :lockout            {:max-attempts  (get-in validation [:lockout :max-attempts] 5)
+                           :duration-mins (get-in validation [:lockout :duration-mins] 15)}
+      :csrf-enabled?      (not (false? (get-in config [:boundary/http :security :csrf])))
       :rate-limiting?     (boolean (get-in config [:boundary/rate-limiting :enabled?]))
       :active-sessions    (or active-sessions 0)
       :recent-failures    (or recent-auth-failures [])})))

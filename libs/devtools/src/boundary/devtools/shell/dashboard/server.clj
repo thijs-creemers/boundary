@@ -11,6 +11,7 @@
             [boundary.devtools.shell.dashboard.pages.config :as config-page]
             [boundary.devtools.shell.dashboard.pages.security :as security-page]
             [boundary.jobs.ports :as job-ports]
+            [clojure.edn :as edn]
             [integrant.core :as ig]
             [reitit.ring :as ring]
             [ring.adapter.jetty :as jetty]
@@ -90,12 +91,22 @@
                  (html-response (security-page/render (build-context config))))}]
         ["/dashboard/fragments/config-preview"
          {:post (fn [req]
-                  {:status  200
-                   :headers {"Content-Type" "text/html; charset=utf-8"}
-                   :body    (config-page/render-preview-fragment
-                             :preview
-                             (:config (build-context config))
-                             (get-in req [:params "value"] ""))})}]
+                  (let [ctx    (build-context config)
+                        params (:params req)
+                        ;; Find the config-:key param sent by hx-include
+                        [section-key section-val new-val]
+                        (or (some (fn [[k v]]
+                                    (when (and (string? k) (.startsWith k "config-"))
+                                      (let [cfg-key (try (edn/read-string (subs k 7))
+                                                         (catch Exception _ nil))]
+                                        (when cfg-key
+                                          [cfg-key (get (:config ctx) cfg-key) v]))))
+                                  params)
+                            [:unknown nil ""])]
+                    {:status  200
+                     :headers {"Content-Type" "text/html; charset=utf-8"}
+                     :body    (config-page/render-preview-fragment
+                               section-key section-val (or new-val ""))}))}]
         ["/dashboard/fragments/config-apply"
          {:post (fn [req]
                   {:status  200
@@ -122,7 +133,8 @@
                     (let [job-id (get-in req [:params "job-id"])]
                       (when job-id
                         (try (job-ports/retry-job! job-store job-id)
-                             (catch Exception _)))))
+                             (catch Exception e
+                               (log/warn "Failed to retry job" {:job-id job-id :error (.getMessage e)}))))))
                   {:status  200
                    :headers {"Content-Type" "text/html; charset=utf-8"}
                    :body    (jobs-page/render-fragment (build-context config))})}]
