@@ -19,12 +19,20 @@
    :headers {"Content-Type" "text/html; charset=utf-8"}
    :body    body})
 
-(defn- build-context [config]
-  (let [sys (try @(resolve 'integrant.repl.state/system) (catch Exception _ nil))]
-    {:system-status   (if sys :running :stopped)
+(defn- build-context
+  "Build a context map from the injected Integrant components.
+   Falls back to integrant.repl.state/system for component count (full system view),
+   but uses the injected refs for actual data access."
+  [config]
+  (let [sys          (try @(resolve 'integrant.repl.state/system) (catch Exception _ nil))
+        http-handler (:http-handler config)
+        db-context   (:db-context config)]
+    {:system-status   (if (or sys http-handler) :running :stopped)
      :component-count (if sys (count sys) 0)
      :error-count     0
-     :http-port       (or (:http-port config) 3000)}))
+     :http-port       (or (:http-port config) 3000)
+     :http-handler    http-handler
+     :db-context      db-context}))
 
 (defn- make-handler [config]
   (-> (ring/router
@@ -87,10 +95,11 @@
       wrap-content-type
       wrap-params))
 
-(defmethod ig/init-key :boundary/dashboard [_ {:keys [port] :as config}]
+(defmethod ig/init-key :boundary/dashboard [_ {:keys [port host] :as config}]
   (let [port   (or port 9999)
-        config (assoc config :port port)
-        server (jetty/run-jetty (make-handler config) {:port port :join? false})]
+        host   (or host "127.0.0.1")
+        config (assoc config :port port :host host)
+        server (jetty/run-jetty (make-handler config) {:port port :host host :join? false})]
     (log/infof "Dev dashboard started on http://localhost:%d/dashboard" port)
     {:server server :port port}))
 

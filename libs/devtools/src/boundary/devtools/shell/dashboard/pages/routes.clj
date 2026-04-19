@@ -11,11 +11,15 @@
 ;; Data
 ;; =============================================================================
 
-(defn- route-data []
-  (let [sys     state/system
-        handler (get sys :boundary/http-handler)]
-    (when handler
-      (devtools-repl/extract-routes-from-handler handler))))
+(defn- route-data
+  "Get routes. Prefers injected :http-handler from context, falls back to REPL state."
+  ([] (route-data nil))
+  ([ctx]
+   (let [handler (or (:http-handler ctx)
+                     (when-let [sys state/system]
+                       (get sys :boundary/http-handler)))]
+     (when handler
+       (devtools-repl/extract-routes-from-handler handler)))))
 
 (defn- filter-routes [routes {:keys [search module method]}]
   (cond->> routes
@@ -24,7 +28,7 @@
               (or (str/includes? (str path) search)
                   (str/includes? (str handler) search))))
     (not (str/blank? module))
-    (filter (fn [{:keys [module] :as _r}] (= module module)))
+    (filter (fn [r] (= (:module r) module)))
     (not (str/blank? method))
     (filter (fn [r] (= (name (:method r)) method)))))
 

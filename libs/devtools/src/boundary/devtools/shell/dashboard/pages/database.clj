@@ -33,36 +33,38 @@
        {:name "003_add_sessions"   :status :pending}])))
 
 (defn- pool-stats
-  "Get HikariCP pool stats from state/system.
+  "Get HikariCP pool stats. Prefers injected :db-context, falls back to REPL state.
    Returns {:active :idle :waiting :max} or nil when unavailable."
-  []
-  (when-let [sys state/system]
-    (when-let [db-ctx (get sys :boundary/db-context)]
-      (when-let [ds (:datasource db-ctx)]
-        (try
-          (let [pool (.getHikariPoolMXBean ^com.zaxxer.hikari.HikariDataSource ds)]
-            {:active  (.getActiveConnections pool)
-             :idle    (.getIdleConnections pool)
-             :waiting (.getThreadsAwaitingConnection pool)
-             :max     (.getTotalConnections pool)})
-          (catch Exception _ nil))))))
+  ([] (pool-stats nil))
+  ([ctx]
+   (let [db-ctx (or (:db-context ctx)
+                    (when-let [sys state/system] (get sys :boundary/db-context)))]
+     (when-let [ds (when db-ctx (:datasource db-ctx))]
+       (try
+         (let [pool (.getHikariPoolMXBean ^com.zaxxer.hikari.HikariDataSource ds)]
+           {:active  (.getActiveConnections pool)
+            :idle    (.getIdleConnections pool)
+            :waiting (.getThreadsAwaitingConnection pool)
+            :max     (.getTotalConnections pool)})
+         (catch Exception _ nil))))))
 
 (defn- table-list
   "List database tables via JDBC DatabaseMetaData.
    Returns a seq of {:name <string>} maps, or [] when unavailable."
-  []
-  (when-let [sys state/system]
-    (when-let [db-ctx (get sys :boundary/db-context)]
-      (when-let [ds (:datasource db-ctx)]
-        (try
-          (with-open [conn (.getConnection ds)]
-            (let [md (.getMetaData conn)
-                  rs (.getTables md nil nil "%" (into-array String ["TABLE"]))]
-              (loop [acc []]
-                (if (.next rs)
-                  (recur (conj acc {:name (.getString rs "TABLE_NAME")}))
-                  acc))))
-          (catch Exception _ []))))))
+  ([] (table-list nil))
+  ([ctx]
+   (let [db-ctx (or (:db-context ctx)
+                    (when-let [sys state/system] (get sys :boundary/db-context)))]
+     (when-let [ds (when db-ctx (:datasource db-ctx))]
+       (try
+         (with-open [conn (.getConnection ds)]
+           (let [md (.getMetaData conn)
+                 rs (.getTables md nil nil "%" (into-array String ["TABLE"]))]
+             (loop [acc []]
+               (if (.next rs)
+                 (recur (conj acc {:name (.getString rs "TABLE_NAME")}))
+                 acc))))
+         (catch Exception _ []))))))
 
 ;; =============================================================================
 ;; Rendering helpers
@@ -123,8 +125,8 @@
 
 (defn render-pool-fragment
   "Return an HTML string of pool stats for HTMX polling."
-  [_context]
-  (str (h/html (render-pool-stats (pool-stats)))))
+  [context]
+  (str (h/html (render-pool-stats (pool-stats context)))))
 
 (defn render-query-result
   "Execute SQL from request params and return an HTML table fragment.
@@ -133,8 +135,8 @@
   [req]
   (let [params  (get req :params {})
         sql     (str/trim (or (get params "sql") (get params :sql) ""))
-        sys     state/system
-        db-ctx  (get sys :boundary/db-context)
+        db-ctx  (or (:db-context req)
+                    (when-let [sys state/system] (get sys :boundary/db-context)))
         ds      (when db-ctx (:datasource db-ctx))]
     (cond
       (str/blank? sql)
@@ -193,8 +195,8 @@
   "Render the Database Explorer full page."
   [opts]
   (let [migrations (migration-data)
-        tables     (or (table-list) [])
-        stats      (pool-stats)
+        tables     (or (table-list opts) [])
+        stats      (pool-stats opts)
         applied    (count (filter #(= :applied (:status %)) migrations))
         pending    (count (filter #(= :pending (:status %)) migrations))]
     (layout/dashboard-page

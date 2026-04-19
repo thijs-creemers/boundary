@@ -6,13 +6,10 @@
             [integrant.repl.state :as state]))
 
 (def ^:private infra-keys
-  "Infrastructure component names to filter out when listing modules."
   #{"db-context" "http-server" "http-handler" "router" "logging" "metrics"
     "error-reporting" "cache" "dashboard" "i18n"})
 
-(defn- active-modules
-  "Extract module names from Integrant system keys, filtering out infra-keys."
-  [sys]
+(defn- active-modules [sys]
   (when sys
     (->> (keys sys)
          (filter keyword?)
@@ -20,21 +17,24 @@
          (remove infra-keys)
          sort)))
 
-(defn- system-data []
-  (let [sys     state/system
-        handler (when sys (get sys :boundary/http-handler))
-        routes  (when handler
-                  (try (devtools-repl/extract-routes-from-handler handler)
-                       (catch Exception _ [])))
-        modules (active-modules sys)
-        db-ctx  (when sys (get sys :boundary/db-context))
-        adapter (when db-ctx
-                  (let [a (:adapter db-ctx)]
-                    (if (keyword? a) (name a) (str (type a)))))
-        host    (when db-ctx (or (get-in db-ctx [:options :host])
-                                 (get-in db-ctx [:host])
-                                 "localhost"))]
-    {:component-count (if sys (count sys) 0)
+(defn- system-data
+  "Gather system info. Uses injected context refs when available,
+   falls back to integrant.repl.state/system."
+  [ctx]
+  (let [sys      state/system
+        handler  (or (:http-handler ctx) (when sys (get sys :boundary/http-handler)))
+        db-ctx   (or (:db-context ctx) (when sys (get sys :boundary/db-context)))
+        routes   (when handler
+                   (try (devtools-repl/extract-routes-from-handler handler)
+                        (catch Exception _ [])))
+        modules  (active-modules sys)
+        adapter  (when db-ctx
+                   (let [a (:adapter db-ctx)]
+                     (if (keyword? a) (name a) (str (type a)))))
+        host     (when db-ctx (or (get-in db-ctx [:options :host])
+                                  (get-in db-ctx [:host])
+                                  "localhost"))]
+    {:component-count (or (:component-count ctx) (if sys (count sys) 0))
      :route-count     (count (or routes []))
      :route-methods   (when routes (frequencies (map :method routes)))
      :module-count    (count (or modules []))
@@ -44,18 +44,17 @@
                           {:name (name k) :status :running}))
      :profile         (or (System/getenv "BND_ENV") "dev")
      :db-info         (when adapter (str adapter " @ " (or host "localhost")))
-     :http-port       3000
+     :http-port       (or (:http-port ctx) 3000)
      :nrepl-port      7888
      :java-version    (System/getProperty "java.version")}))
 
 (defn render [opts]
-  (let [data (system-data)]
+  (let [data (system-data opts)]
     (layout/dashboard-page
      (merge opts {:component-count (:component-count data)
                   :error-count     0
                   :http-port       (:http-port data)
                   :system-status   :running})
-     ;; Stat cards — use .stat-grid for 4-column layout
      [:div.stat-grid
       (c/stat-card {:label "Components" :value (:component-count data)
                     :sub "all healthy" :sub-class "healthy"})
@@ -69,7 +68,6 @@
                            (str/join " · " (:module-names data)))})
       (c/stat-card {:label "Errors" :value 0
                     :value-class "green" :sub "no recent errors"})]
-     ;; Two column: components + environment
      [:div.two-col
       (c/card {:title "Integrant Components" :flush? true}
               (c/data-table
