@@ -43,9 +43,6 @@
         ["/dashboard/db"
          {:get (fn [_req]
                  (html-response (database-page/render (build-context config))))}]
-        ["/dashboard/database"
-         {:get (fn [_req]
-                 (html-response (database-page/render (build-context config))))}]
         ["/dashboard/errors"
          {:get (fn [_req]
                  (html-response (errors-page/render (build-context config))))}]

@@ -107,8 +107,9 @@
     (for [{:keys [name]} tables]
       {:cells [[:span.table-name name]
                [:a.inspect-link
-                {:href        (str "/dashboard/database/table?name=" (java.net.URLEncoder/encode name "UTF-8"))
-                 :hx-get      (str "/dashboard/database/table?name=" (java.net.URLEncoder/encode name "UTF-8"))
+                {:href        "#query-result"
+                 :hx-post     "/dashboard/fragments/query-result"
+                 :hx-vals     (str "{\"sql\": \"SELECT * FROM " name " LIMIT 20\"}")
                  :hx-target   "#query-result"
                  :hx-swap     "innerHTML"}
                 "browse →"]]})
@@ -189,11 +190,11 @@
         applied    (count (filter #(= :applied (:status %)) migrations))
         pending    (count (filter #(= :pending (:status %)) migrations))]
     (layout/dashboard-page
-     (merge opts {:active-path "/dashboard/database"
+     (merge opts {:active-path "/dashboard/db"
                   :title       "Database Explorer"})
 
      ;; Top row: migrations + pool stats
-     [:div.dashboard-two-col
+     [:div.two-col
 
       ;; Migration status
       (c/card
