@@ -7,7 +7,14 @@
 (defonce ^:private request-log* (atom []))
 
 (def ^:private sensitive-headers
-  #{"authorization" "cookie" "x-api-key" "x-auth-token"})
+  #{"authorization" "cookie" "x-api-key" "x-auth-token" "set-cookie"})
+
+(def ^:private sensitive-param-keys
+  #{"password" "password_hash" "password-hash" "passwordHash"
+    "token" "secret" "api_key" "api-key" "apiKey"
+    "access_token" "access-token" "accessToken"
+    "refresh_token" "refresh-token" "refreshToken"
+    "credit_card" "credit-card" "creditCard" "cvv" "ssn"})
 
 (defn request-log
   "Return captured requests, newest first."
@@ -23,6 +30,17 @@
                             "[REDACTED]"
                             v)))
              {} headers))
+
+(defn- sanitize-params
+  "Redact values for keys that look like credentials or tokens."
+  [params]
+  (when params
+    (reduce-kv (fn [m k v]
+                 (let [k-str (str/lower-case (str (if (keyword? k) (name k) k)))]
+                   (assoc m k (if (contains? sensitive-param-keys k-str)
+                                "[REDACTED]"
+                                v))))
+               {} params)))
 
 (defn- truncate-body [body]
   (when body
@@ -41,10 +59,10 @@
                         :status      (or (:status response) 500)
                         :duration-ms (Math/round ^double duration)
                         :request     {:headers     (sanitize-headers (:headers request))
-                                      :params      (:params request)
-                                      :body-params (:body-params request)}
+                                      :params      (sanitize-params (:params request))
+                                      :body-params (sanitize-params (:body-params request))}
                         :response    {:status  (or (:status response) 500)
-                                      :headers (:headers response)
+                                      :headers (sanitize-headers (:headers response))
                                       :body    (truncate-body (:body response))}}
                  new-log (into [entry] log)]
              (if (> (count new-log) max-entries)

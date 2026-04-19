@@ -73,7 +73,7 @@
          {:post (fn [req]
                   {:status  200
                    :headers {"Content-Type" "text/html; charset=utf-8"}
-                   :body    (database-page/render-query-result req)})}]
+                   :body    (database-page/render-query-result (merge req (select-keys (build-context config) [:db-context])))})}]
         ["/dashboard/fragments/try-route"
          {:post (fn [req]
                   {:status  200
@@ -83,7 +83,7 @@
          {:get (fn [req]
                  {:status  200
                   :headers {"Content-Type" "text/html; charset=utf-8"}
-                  :body    (routes-page/render-table-fragment req)})}]
+                  :body    (routes-page/render-table-fragment (merge req (select-keys (build-context config) [:http-handler])))})}]
         ["/dashboard/fragments/route-inspect"
          {:get (fn [req]
                  {:status  200

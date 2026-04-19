@@ -87,7 +87,7 @@
         search (or (get params "search") "")
         module (or (get params "module") "")
         method (or (get params "method") "")
-        routes (filter-routes (or (route-data) [])
+        routes (filter-routes (or (route-data req) [])
                               {:search search :module module :method method})]
     (str (h/html (render-routes-table routes)))))
 
@@ -122,7 +122,7 @@
 ;; =============================================================================
 
 (defn render [opts]
-  (let [routes      (or (route-data) [])
+  (let [routes      (or (route-data opts) [])
         all-routes  (vec routes)
         modules     (all-modules all-routes)
         methods     (all-methods all-routes)

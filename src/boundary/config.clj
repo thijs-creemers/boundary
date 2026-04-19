@@ -522,11 +522,16 @@
     {:boundary/i18n i18n-cfg}))
 
 (defn- dashboard-module-config
-  "Dashboard config — only active in dev profile."
+  "Dashboard config — only active in dev profile.
+   Uses requiring-resolve to load the init-key defmethod lazily,
+   so non-REPL dev boots (boundary.main) don't fail when the
+   devtools namespace isn't pre-loaded."
   [config]
   (when (= (:boundary/profile config) :dev)
     (let [dashboard-cfg (get-in config [:active :boundary/dashboard])]
       (when dashboard-cfg
+        ;; Ensure the init-key/halt-key! defmethods are registered
+        (require 'boundary.devtools.shell.dashboard.server)
         {:boundary/dashboard
          {:port        (:port dashboard-cfg 9999)
           :http-handler (ig/ref :boundary/http-handler)
