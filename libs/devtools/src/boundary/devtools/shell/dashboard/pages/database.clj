@@ -40,7 +40,7 @@
     (when-let [db-ctx (get sys :boundary/db-context)]
       (when-let [ds (:datasource db-ctx)]
         (try
-          (let [pool (.unwrap ds com.zaxxer.hikari.HikariPoolMXBean)]
+          (let [pool (.getHikariPoolMXBean ^com.zaxxer.hikari.HikariDataSource ds)]
             {:active  (.getActiveConnections pool)
              :idle    (.getIdleConnections pool)
              :waiting (.getThreadsAwaitingConnection pool)

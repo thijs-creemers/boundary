@@ -70,7 +70,17 @@
          {:post (fn [req]
                   {:status  200
                    :headers {"Content-Type" "text/html; charset=utf-8"}
-                   :body    (routes-page/render-try-result req)})}]])
+                   :body    (routes-page/render-try-result req)})}]
+        ["/dashboard/fragments/routes-table"
+         {:get (fn [req]
+                 {:status  200
+                  :headers {"Content-Type" "text/html; charset=utf-8"}
+                  :body    (routes-page/render-table-fragment req)})}]
+        ["/dashboard/fragments/route-inspect"
+         {:get (fn [req]
+                 {:status  200
+                  :headers {"Content-Type" "text/html; charset=utf-8"}
+                  :body    (routes-page/render-inspect-fragment req)})}]])
       ring/ring-handler
       (wrap-resource "dashboard")
       (wrap-resource "public")

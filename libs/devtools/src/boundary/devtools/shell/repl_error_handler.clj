@@ -6,7 +6,8 @@
      The zero-arity (fix!) reads from last-exception*."
   (:require [boundary.devtools.core.error-classifier :as classifier]
             [boundary.devtools.core.error-enricher :as enricher]
-            [boundary.devtools.core.error-formatter :as formatter]))
+            [boundary.devtools.core.error-formatter :as formatter]
+            [boundary.devtools.shell.dashboard.pages.errors :as dashboard-errors]))
 
 (defonce last-exception* (atom nil))
 
@@ -27,5 +28,16 @@
        (if (:code classified)
          (let [enriched  (enricher/enrich classified)
                formatted (formatter/format-enriched-error enriched {:guidance-level guidance-level})]
+           (dashboard-errors/record-error!
+            {:code         (:code enriched)
+             :message      (or (:message enriched) (.getMessage exception))
+             :category     (:category enriched)
+             :timestamp-ms (System/currentTimeMillis)})
            (println formatted))
-         (println (formatter/format-unclassified-error exception)))))))
+         (do
+           (dashboard-errors/record-error!
+            {:code         "BND-000"
+             :message      (.getMessage exception)
+             :category     :unclassified
+             :timestamp-ms (System/currentTimeMillis)})
+           (println (formatter/format-unclassified-error exception))))))))
