@@ -46,13 +46,16 @@
         http-server  (:http-server config)
         db-context   (:db-context config)
         app-port     (or (jetty-port http-server) (:http-port config) 3000)
-        ;; Jobs: the system may wire :boundary/job-queue (IJobQueue),
-        ;; :boundary/job-store (IJobStore), :boundary/job-stats (IJobStats)
-        ;; as separate keys, or the queue component may be the only one.
-        job-queue     (when sys (get sys :boundary/job-queue))
-        job-store     (when sys (or (get sys :boundary/job-store)
+        ;; Jobs: standard setup uses :boundary/jobs as a composite map
+        ;; with {:queue :store :stats} keys. Also check for separate keys.
+        jobs-composite (when sys (get sys :boundary/jobs))
+        job-queue     (when sys (or (when (map? jobs-composite) (:queue jobs-composite))
+                                    (get sys :boundary/job-queue)))
+        job-store     (when sys (or (when (map? jobs-composite) (:store jobs-composite))
+                                    (get sys :boundary/job-store)
                                     (when (satisfies? job-ports/IJobStore job-queue) job-queue)))
-        job-stats-svc (when sys (or (get sys :boundary/job-stats)
+        job-stats-svc (when sys (or (when (map? jobs-composite) (:stats jobs-composite))
+                                    (get sys :boundary/job-stats)
                                     (when (satisfies? job-ports/IJobStats job-queue) job-queue)))]
     {:system-status   (if (or sys http-handler) :running :stopped)
      :component-count (when sys (count sys))
@@ -71,6 +74,11 @@
                         (try (count (filter #(nil? (:revoked-at %))
                                             (user-ports/find-all-sessions session-repo)))
                              (catch Exception _ 0)))}))
+
+;; Accumulates config overrides applied from the dashboard so successive
+;; edits are not lost. Each apply merges into this atom; the prep function
+;; applies all accumulated overrides on top of the disk config.
+(defonce config-overrides* (atom {}))
 
 (defn- make-handler [config]
   (-> (ring/router
@@ -135,21 +143,27 @@
                         result
                         (if (and section-key new-val-str)
                           (try
-                            (let [new-val     (edn/read-string new-val-str)
-                                  set-prep-fn (resolve 'integrant.repl/set-prep!)
-                                  reset-fn    (resolve 'integrant.repl/reset)
-                                  load-cfg-fn (resolve 'boundary.config/load-config)
-                                  ig-cfg-fn   (resolve 'boundary.config/ig-config)]
-                              (if (and set-prep-fn reset-fn load-cfg-fn ig-cfg-fn)
+                            (let [new-val      (edn/read-string new-val-str)
+                                  set-prep-fn  (resolve 'integrant.repl/set-prep!)
+                                  load-cfg-fn  (resolve 'boundary.config/load-config)
+                                  ig-cfg-fn    (resolve 'boundary.config/ig-config)
+                                  sys-var      (resolve 'integrant.repl.state/system)
+                                  cfg-var      (resolve 'integrant.repl.state/config)
+                                  restart-fn   (resolve 'boundary.devtools.shell.repl/restart-component)]
+                              (if (and set-prep-fn sys-var cfg-var restart-fn load-cfg-fn ig-cfg-fn)
                                 (do
-                                  ;; Patch the prep function to merge our override AFTER
-                                  ;; loading from disk, so reset doesn't discard the edit.
+                                  ;; Accumulate this override so successive edits aren't lost
+                                  (swap! config-overrides* assoc section-key new-val)
+                                  ;; Patch the prep function to apply ALL accumulated overrides
+                                  ;; after loading from disk, so reset preserves all edits
                                   (set-prep-fn
                                    (fn []
                                      (let [cfg (load-cfg-fn)]
-                                       (-> (ig-cfg-fn cfg)
-                                           (assoc section-key new-val)))))
-                                  (reset-fn)
+                                       (merge (ig-cfg-fn cfg) @config-overrides*))))
+                                  ;; Update the live config var with the new value, then
+                                  ;; restart only the affected component (not the whole system)
+                                  (alter-var-root cfg-var assoc section-key new-val)
+                                  (restart-fn sys-var @cfg-var section-key)
                                   {:success? true :restarted [section-key]})
                                 {:success? false
                                  :error "Cannot resolve Integrant REPL state. Is the system running?"}))
