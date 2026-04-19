@@ -95,7 +95,7 @@
               [:div {:style "font-family:var(--font-mono);font-size:12px;line-height:2"}
                [:div [:span.text-muted "Profile: "] [:span {:style "color:var(--accent-yellow)"} (:profile data)]]
                [:div [:span.text-muted "Database: "] [:span (or (:db-info data) "unknown")]]
-               [:div [:span.text-muted "Web: "] [:a.topbar-link {:href (str "http://localhost:" (:http-port data))} (str "http://localhost:" (:http-port data))]]
-               [:div [:span.text-muted "Admin: "] [:a.topbar-link {:href (str "http://localhost:" (:http-port data) "/web/admin/")} (str "http://localhost:" (:http-port data) "/web/admin/")]]
+               [:div [:span.text-muted "Web: "] [:a.topbar-link {:href (str "http://localhost:" (:http-port data)) :target "_blank"} (str "http://localhost:" (:http-port data))]]
+               [:div [:span.text-muted "Admin: "] [:a.topbar-link {:href (str "http://localhost:" (:http-port data) "/web/admin/") :target "_blank"} (str "http://localhost:" (:http-port data) "/web/admin/")]]
                [:div [:span.text-muted "nREPL: "] [:span (str "port " (:nrepl-port data))]]
                [:div [:span.text-muted "Java: "] [:span (:java-version data)]]])])))
