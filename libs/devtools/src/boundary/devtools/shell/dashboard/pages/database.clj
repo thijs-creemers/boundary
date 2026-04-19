@@ -158,7 +158,7 @@
                        (if (.next rs)
                          (recur (conj acc (mapv #(.getString rs %) cols)))
                          acc))]
-            (let [col-width (if (> (count cols) 6) "minmax(140px, 1fr)" "1fr")
+            (let [col-width (if (> (count cols) 6) "140px" "1fr")
                   tpl       (str/join " " (repeat (count cols) col-width))]
               (str (h/html
                     [:div.query-result
