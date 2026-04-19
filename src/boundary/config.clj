@@ -530,14 +530,19 @@
   (when (= (:boundary/profile config) :dev)
     (let [dashboard-cfg (get-in config [:active :boundary/dashboard])]
       (when dashboard-cfg
-        ;; Ensure the init-key/halt-key! defmethods are registered
-        (require 'boundary.devtools.shell.dashboard.server)
-        {:boundary/dashboard
-         {:port        (:port dashboard-cfg 9999)
-          :http-handler (ig/ref :boundary/http-handler)
-          :db-context   (ig/ref :boundary/db-context)
-          :router       (ig/ref :boundary/router)
-          :logging      (ig/ref :boundary/logging)}}))))
+        ;; Ensure the init-key/halt-key! defmethods are registered.
+        ;; Wrapped in try/catch because devtools may not be on the classpath
+        ;; in non-REPL dev boots (e.g. boundary.main or BND_ENV=development).
+        (try
+          (require 'boundary.devtools.shell.dashboard.server)
+          {:boundary/dashboard
+           {:port        (:port dashboard-cfg 9999)
+            :http-handler (ig/ref :boundary/http-handler)
+            :db-context   (ig/ref :boundary/db-context)
+            :router       (ig/ref :boundary/router)
+            :logging      (ig/ref :boundary/logging)}}
+          (catch Exception _
+            nil))))))
 
 (defn ig-config
   "Generate Integrant configuration map from loaded config.

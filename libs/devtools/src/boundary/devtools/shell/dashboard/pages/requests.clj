@@ -2,6 +2,7 @@
   (:require [boundary.devtools.shell.dashboard.layout :as layout]
             [boundary.devtools.shell.dashboard.components :as c]
             [boundary.devtools.shell.dashboard.middleware :as middleware]
+            [clojure.string :as str]
             [hiccup2.core :as h]))
 
 ;; =============================================================================
@@ -35,6 +36,26 @@
     ""))
 
 ;; =============================================================================
+;; Filtering
+;; =============================================================================
+
+(defn- status-matches?
+  "Check if a numeric status code matches a filter like \"2xx\", \"4xx\", etc."
+  [status filter-str]
+  (when (and status (not (str/blank? filter-str)))
+    (let [prefix (subs filter-str 0 1)]
+      (= prefix (str (quot status 100))))))
+
+(defn- filter-entries
+  "Filter request log entries by path substring and status range."
+  [entries {:keys [path-filter status-filter]}]
+  (cond->> entries
+    (not (str/blank? path-filter))
+    (filter (fn [e] (str/includes? (str (:path e)) path-filter)))
+    (not (str/blank? status-filter))
+    (filter (fn [e] (status-matches? (:status e) status-filter)))))
+
+;; =============================================================================
 ;; Rendering
 ;; =============================================================================
 
@@ -50,8 +71,10 @@
 
 (defn render-request-list
   "Build a data-table from the current request log, newest first, limit 50."
-  []
-  (let [entries (take 50 (middleware/request-log))]
+  [& [{:keys [path-filter status-filter] :as filters}]]
+  (let [entries (->> (middleware/request-log)
+                     (filter-entries (or filters {}))
+                     (take 50))]
     (if (empty? entries)
       [:div.empty-state "No requests captured yet. Make some HTTP requests to see them here."]
       (c/data-table
@@ -61,8 +84,11 @@
 
 (defn render-fragment
   "Return the request list as an HTML string fragment for HTMX polling."
-  []
-  (str (h/html (render-request-list))))
+  [req]
+  (let [params (get req :params {})
+        filters {:path-filter   (or (get params "path") "")
+                 :status-filter (or (get params "status") "")}]
+    (str (h/html (render-request-list filters)))))
 
 ;; =============================================================================
 ;; Page
@@ -77,9 +103,19 @@
    (c/filter-bar
     (c/filter-input {:name        "path"
                      :placeholder "Filter by path..."
-                     :id          "path-search"})
-    (c/filter-select {:name "status"
-                      :id   "status-filter"}
+                     :id          "path-search"
+                     :hx-get      "/dashboard/fragments/request-list"
+                     :hx-trigger  "keyup changed delay:300ms"
+                     :hx-target   "#request-list-container"
+                     :hx-swap     "innerHTML"
+                     :hx-include  "[name='status']"})
+    (c/filter-select {:name       "status"
+                      :id         "status-filter"
+                      :hx-get     "/dashboard/fragments/request-list"
+                      :hx-trigger "change"
+                      :hx-target  "#request-list-container"
+                      :hx-swap    "innerHTML"
+                      :hx-include "[name='path']"}
                      [{:value "" :label "All statuses"}
                       {:value "2xx" :label "2xx Success"}
                       {:value "3xx" :label "3xx Redirect"}
@@ -91,6 +127,7 @@
            [:div#request-list-container
             {:hx-get     "/dashboard/fragments/request-list"
              :hx-trigger "every 2s"
-             :hx-swap    "innerHTML"}
+             :hx-swap    "innerHTML"
+             :hx-include "[name='path'],[name='status']"}
             (render-request-list)])))
 
