@@ -4,7 +4,8 @@
   (:require [boundary.devtools.shell.dashboard.layout :as layout]
             [boundary.devtools.shell.dashboard.components :as c]
             [clojure.java.io :as io]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [hiccup2.core :as h])
   (:import (java.io File)))
 
 ;; =============================================================================
@@ -106,7 +107,11 @@
                                             (if active? "var(--accent-blue)" "transparent"))}
                             d]))]}
               (if content
-                [:pre {:style "white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.6;font-family:var(--font-mono);padding:0;margin:0;max-height:80vh;overflow-y:auto"}
-                 content]
+                [:div
+                 [:div#doc-content.markdown-body {:style "max-height:80vh;overflow-y:auto"}]
+                 [:textarea#doc-raw {:style "display:none"} content]
+                 [:script {:src "https://cdn.jsdelivr.net/npm/marked/marked.min.js"}]
+                 [:script (h/raw
+                           "document.getElementById('doc-content').innerHTML=marked.parse(document.getElementById('doc-raw').value);")]]
                 [:div.empty-state
                  (str "File not found: libs/" module-name "/" filename)]))])))
