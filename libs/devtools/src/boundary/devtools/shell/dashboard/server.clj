@@ -208,10 +208,22 @@
                                   ;; then cascade to all dependents so they pick up
                                   ;; the new instance (restart-component alone leaves
                                   ;; dependents holding stale refs)
-                                  (alter-var-root cfg-var assoc section-key new-val)
-                                  (let [live-cfg      @cfg-var
+                                  (let [old-cfg       @cfg-var
                                         find-deps-fn  (resolve 'boundary.devtools.shell.repl/find-dependents)
-                                        dependents    (when find-deps-fn (find-deps-fn live-cfg section-key))
+                                        ;; Compute dependents from BOTH old and new config so that
+                                        ;; consumers that dropped the ig/ref are still restarted
+                                        old-deps      (when find-deps-fn (set (find-deps-fn old-cfg section-key)))
+                                        _             (alter-var-root cfg-var assoc section-key new-val)
+                                        live-cfg      @cfg-var
+                                        new-deps      (when find-deps-fn (set (find-deps-fn live-cfg section-key)))
+                                        all-dep-keys  (into (or old-deps #{}) (or new-deps #{}))
+                                        ;; Topologically sort the union using the NEW config
+                                        dependents    (if find-deps-fn
+                                                        (let [sorted (find-deps-fn live-cfg section-key)]
+                                                          ;; Append any old-only deps not in the sorted result
+                                                          (into (vec sorted)
+                                                                (remove (set sorted) all-dep-keys)))
+                                                        [])
                                         all-to-restart (into [section-key] dependents)
                                         ;; Restart components one by one; stop on first failure
                                         {:keys [succeeded failed-key failed-error]}

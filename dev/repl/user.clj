@@ -635,9 +635,13 @@
                    (do (println (if ai-service
                                   "Falling back to basic scaffold (name field only)."
                                   "No AI service — using basic scaffold (name field only)."))
-                       {:module-name module-name
-                        :entity      (str/capitalize module-name)
-                        :fields      [{:name "name" :type "string" :required true :unique false}]}))
+                       (let [pascal (-> module-name
+                                        (str/split #"-")
+                                        (->> (map str/capitalize)
+                                             (str/join "")))]
+                         {:module-name module-name
+                          :entity      pascal
+                          :fields      [{:name "name" :type "string" :required true :unique false}]})))
         _ (print "\nProceed with scaffolding? [y/N] ")
         _ (flush)
         confirm (read-line)]
@@ -660,10 +664,13 @@
                                                (not required) (assoc :optional true)
                                                unique         (assoc :unique true))
                                        malli-spec (if (= type "enum")
-                                                    (let [base (into [:enum] (or (:enum-values field) []))]
-                                                      (if (seq props)
-                                                        (into [(first base) props] (rest base))
-                                                        base))
+                                                    (if-let [vals (seq (:enum-values field))]
+                                                      (let [base (into [:enum] vals)]
+                                                        (if (seq props)
+                                                          (into [(first base) props] (rest base))
+                                                          base))
+                                                      (do (println (str "  Warning: enum field '" name "' has no values, defaulting to :string"))
+                                                          (if (seq props) [:string props] :string)))
                                                     (if (seq props)
                                                       [base-type props]
                                                       base-type))]
