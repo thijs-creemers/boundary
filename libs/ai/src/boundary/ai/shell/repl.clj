@@ -9,7 +9,8 @@
 
    The service is resolved from a dynamic var that you can bind
    in your dev/user.clj before using these helpers."
-  (:require [boundary.ai.shell.service :as svc]))
+  (:require [boundary.ai.shell.service :as svc]
+            [clojure.string :as str]))
 
 ;; =============================================================================
 ;; Service binding
@@ -178,11 +179,11 @@
         test-source (when-let [match (re-find #"\(ns\s+(\S+)" source)]
                       (let [test-ns  (str (second match) "-test")
                             test-rel (-> test-ns
-                                         (clojure.string/replace "." "/")
-                                         (clojure.string/replace "-" "_")
+                                         (str/replace "." "/")
+                                         (str/replace "-" "_")
                                          (str ".clj"))
                             ;; Extract lib name from ns (e.g. "user" from "boundary.user.core.validation")
-                            lib-name (second (clojure.string/split (second match) #"\."))]
+                            lib-name (second (str/split (second match) #"\."))]
                         ;; Try: libs/<lib>/test/<path>, test/<path>, <path>
                         (some #(try (slurp %) (catch Exception _ nil))
                               [(str "libs/" lib-name "/test/" test-rel)
@@ -208,13 +209,13 @@
   (let [service  (require-service)
         ns-str   (str ns-sym)
         file-path (-> ns-str
-                      (clojure.string/replace "." "/")
-                      (clojure.string/replace "-" "_")
+                      (str/replace "." "/")
+                      (str/replace "-" "_")
                       (str ".clj"))
         source   (some #(try (slurp (str % "/" file-path)) (catch Exception _ nil))
                        ["src" "libs"])
         source   (or source
-                     (let [parts (clojure.string/split ns-str #"\.")
+                     (let [parts (str/split ns-str #"\.")
                            lib-name (second parts)]
                        (try (slurp (str "libs/" lib-name "/src/" file-path))
                             (catch Exception _ nil))))

@@ -33,6 +33,7 @@
             [boundary.ai.shell.repl :as ai]
             [boundary.ai.shell.service :as ai-svc]
             [clojure.java.shell :as shell]
+            [clojure.string :as str]
             [integrant.repl :as ig-repl]
             [integrant.repl.state :as state]
             [clojure.tools.logging :as log]))
@@ -635,7 +636,7 @@
                                   "Falling back to basic scaffold (name field only)."
                                   "No AI service — using basic scaffold (name field only)."))
                        {:module-name module-name
-                        :entity      (clojure.string/capitalize module-name)
+                        :entity      (str/capitalize module-name)
                         :fields      [{:name "name" :type "string" :required true :unique false}]}))
         _ (print "\nProceed with scaffolding? [y/N] ")
         _ (flush)
