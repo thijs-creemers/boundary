@@ -4,17 +4,17 @@
         boundary/platform {:local/root "../platform"}
         
         ;; AWS SDK for S3
-        software.amazon.awssdk/s3 {:mvn/version "2.39.5"}
-        software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.39.5"}}
+        software.amazon.awssdk/s3 {:mvn/version "2.42.33"}
+        software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.42.33"}}
  
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
          :main-opts ["-m" "kaocha.runner"]}
   
-  :clj-kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2026.01.19"}}
+  :clj-kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2026.04.15"}}
               :main-opts ["-m" "clj-kondo.main"]}
   
-  :build {:replace-deps {io.github.clojure/tools.build {:git/tag "v0.10.11" :git/sha "c6c670a4"}
+  :build {:replace-deps {io.github.clojure/tools.build {:git/tag "v0.10.13" :git/sha "c6c670a4"}
                          slipset/deps-deploy {:mvn/version "0.2.2"}}
           :ns-default build}}}

@@ -7,7 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1-alpha-13] - 2026-04-20
+
+### Added
+
+#### `boundary-devtools` — DX Vision: 6-phase developer experience overhaul
+- **Phase 1 — Zero-Friction Onboarding**: Error codes (`BND-*`) with structured messages, ADRs for devtools guidance engine, REPL command center, dev dashboard, error experience, and progressive learning (ADR-024 through ADR-029).
+- **Phase 2 — REPL Power**: Introspection tools (`boundary.devtools.core.introspection`), schema exploration (`schema-tools`), documentation lookup (`documentation`), and guidance engine (`guidance`). REPL namespace (`boundary.devtools.shell.repl`) with unified API.
+- **Phase 3 — Error Experience**: Error classifier, enricher, and formatter for human-friendly Clojure error messages. Auto-fix suggestions (`boundary.devtools.core.auto_fix`), stacktrace parser, FC/IS checker, HTTP error middleware, and REPL error handler.
+- **Phase 4 — Dev Dashboard**: Browser-based dashboard (`localhost:9090`) with pages for system overview, routes, schemas, database, errors, requests, and docs. Hiccup-rendered with custom CSS, served via Ring.
+- **Phase 5 — Advanced REPL**: Request/response recording (`boundary.devtools.core.recording`), route testing (`router`), and rapid prototyping (`prototype`). Shell adapters for file-based recording persistence and route simulation.
+- **Phase 6 — Dashboard Extensions + AI**: Config editor, security analyzer, jobs dashboard page. AI-powered REPL helpers for code explanation, refactoring suggestions, and documentation generation.
+
+#### `boundary-ai` — REPL AI integration (Phase 6)
+- New AI-powered REPL functions: `explain-code`, `suggest-refactor`, `generate-docs` in `boundary.ai.shell.repl`.
+- Prompt builders for Phase 6 features in `boundary.ai.core.prompts`.
+
 ### Fixed
+
+#### `boundary-cache` — LRU eviction bug (#137)
+- **LRU eviction evicting wrong entry when timestamps are identical**: Fixed eviction logic in `boundary.cache.shell.adapters.in_memory` to correctly identify the least-recently-used entry when multiple entries share the same timestamp.
 
 #### `boundary-tools` — BOU-15 deprecated wrapper usage scanner (BOU-15)
 - **Detect `:refer`'d deprecated symbols**: `normalize-require-spec` now extracts `:refer [sym ...]` vectors alongside `:as` aliases. A new `extract-referred-symbols` function maps directly referred symbol names to their source namespace. `find-qualified-call-sites` runs a second regex pass for bare `(symbol ...)` call sites, so usage like `(:require [boundary.search.core.index :refer [build-document]])` is no longer silently missed.
@@ -15,6 +34,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### `ci` — E2E job disabled
 - Disabled the `e2e` CI job with `if: false` to reduce pipeline run time. Tests can be run manually when needed.
+
+### Changed
+
+#### Security — Alpine.js CSP build (#129)
+- Migrated to Alpine.js CSP-compatible build to comply with Content Security Policy. Hardened CI pipeline with stricter security checks.
+
+#### Chore — Project data cleanup (#130)
+- Moved `boundary-tools` into `libs/tools/` to follow monorepo convention. Removed redundant top-level `boundary-tools/` directory.
 
 ## [1.0.1-alpha-12] - 2026-04-06
 
@@ -830,8 +857,10 @@ Copyright 2024-2025 Thijs Creemers. All rights reserved.
 
 ## Version History
 
+- **[1.0.1-alpha-13]** - 2026-04-20: DX Vision (devtools, dev dashboard, REPL power, error experience, AI integration), LRU cache fix, CSP hardening
 - **[1.0.1-alpha-12]** - 2026-04-06: E2E testing, admin UI improvements, auth bug fixes, quality gates, version bump
 - **[1.0.0-alpha]** - 2026-02-14: Initial production release
 
+[1.0.1-alpha-13]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-13
 [1.0.1-alpha-12]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-12
 [1.0.0-alpha]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.0-alpha
