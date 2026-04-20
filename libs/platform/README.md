@@ -319,7 +319,7 @@ libs/platform/src/boundary/platform/
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| `boundary/observability` | 0.1.0 | Logging, metrics |
+| `boundary/observability` | 1.0.1-alpha-13 | Logging, metrics |
 | `next.jdbc` | 1.3.1086 | Database access |
 | `honeysql` | 2.7.1364 | SQL generation |
 | `HikariCP` | 7.0.2 | Connection pooling |

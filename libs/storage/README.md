@@ -227,7 +227,7 @@ libs/storage/src/boundary/storage/
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| `boundary/platform` | 0.1.0 | Configuration, database |
+| `boundary/platform` | 1.0.1-alpha-13 | Configuration, database |
 | `aws-sdk/s3` | 2.39.5 | S3 client |
 | `aws-sdk/s3-transfer-manager` | 2.39.5 | Efficient uploads |
 

@@ -161,7 +161,7 @@ libs/observability/src/boundary/observability/
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| `boundary/core` | 0.1.0 | Foundation utilities |
+| `boundary/core` | 1.0.1-alpha-13 | Foundation utilities |
 | `org.clojure/tools.logging` | 1.3.1 | Logging abstraction |
 | `ch.qos.logback/logback-classic` | 1.5.23 | SLF4J implementation |
 | `io.sentry/sentry-clj` | 8.29.238 | Sentry integration |

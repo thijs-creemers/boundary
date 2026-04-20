@@ -333,7 +333,7 @@ resources/scaffolder/templates/
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| `boundary/core` | 0.1.0 | Utilities |
+| `boundary/core` | 1.0.1-alpha-13 | Utilities |
 | `org.clojure/tools.cli` | 1.3.250 | CLI parsing |
 
 ## Relationship to Other Libraries

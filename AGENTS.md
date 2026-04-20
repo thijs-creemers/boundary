@@ -10,44 +10,44 @@ Essential commands, conventions, and patterns for working with the Boundary Fram
 
 ```bash
 # Testing - All tests across all libraries
-clojure -M:test                                    # All tests (default test profile uses H2 in-memory)
-JWT_SECRET="dev-secret-32-chars-minimum" BND_ENV=test clojure -M:test  # With JWT secret
+clojure -M:test:db/h2                                    # All tests (default test profile uses H2 in-memory)
+JWT_SECRET="dev-secret-32-chars-minimum" BND_ENV=test clojure -M:test:db/h2  # With JWT secret
 
 # Testing - Per-library test suites
-clojure -M:test :core                              # Core library tests
-clojure -M:test :observability                     # Observability library tests
-clojure -M:test :platform                          # Platform library tests
-clojure -M:test :user                              # User library tests
-clojure -M:test :admin                             # Admin library tests
-clojure -M:test :storage                           # Storage library tests
-clojure -M:test :scaffolder                        # Scaffolder library tests
-clojure -M:test :cache                             # Cache library tests
-clojure -M:test :jobs                              # Jobs library tests
-clojure -M:test :email                             # Email library tests
-clojure -M:test :tenant                            # Tenant library tests
-clojure -M:test :realtime                          # Realtime library tests
-clojure -M:test :workflow                          # Workflow library tests
-clojure -M:test :search                            # Search library tests
-clojure -M:test :external                          # External adapters tests
-clojure -M:test :payments                          # Payments library tests
-clojure -M:test :reports                           # Reports library tests
-clojure -M:test :calendar                          # Calendar library tests
-clojure -M:test :geo                               # Geo library tests
-clojure -M:test :ai                                # AI library tests
-clojure -M:test :ui-style                          # UI style library tests
-clojure -M:test :i18n                              # i18n library tests
+clojure -M:test:db/h2 :core                              # Core library tests
+clojure -M:test:db/h2 :observability                     # Observability library tests
+clojure -M:test:db/h2 :platform                          # Platform library tests
+clojure -M:test:db/h2 :user                              # User library tests
+clojure -M:test:db/h2 :admin                             # Admin library tests
+clojure -M:test:db/h2 :storage                           # Storage library tests
+clojure -M:test:db/h2 :scaffolder                        # Scaffolder library tests
+clojure -M:test:db/h2 :cache                             # Cache library tests
+clojure -M:test:db/h2 :jobs                              # Jobs library tests
+clojure -M:test:db/h2 :email                             # Email library tests
+clojure -M:test:db/h2 :tenant                            # Tenant library tests
+clojure -M:test:db/h2 :realtime                          # Realtime library tests
+clojure -M:test:db/h2 :workflow                          # Workflow library tests
+clojure -M:test:db/h2 :search                            # Search library tests
+clojure -M:test:db/h2 :external                          # External adapters tests
+clojure -M:test:db/h2 :payments                          # Payments library tests
+clojure -M:test:db/h2 :reports                           # Reports library tests
+clojure -M:test:db/h2 :calendar                          # Calendar library tests
+clojure -M:test:db/h2 :geo                               # Geo library tests
+clojure -M:test:db/h2 :ai                                # AI library tests
+clojure -M:test:db/h2 :ui-style                          # UI style library tests
+clojure -M:test:db/h2 :i18n                              # i18n library tests
 
 # Testing - By metadata category
-clojure -M:test --focus-meta :unit                 # Unit tests only
-clojure -M:test --focus-meta :integration          # Integration tests
-clojure -M:test --focus-meta :contract             # Database contract tests
+clojure -M:test:db/h2 --focus-meta :unit                 # Unit tests only
+clojure -M:test:db/h2 --focus-meta :integration          # Integration tests
+clojure -M:test:db/h2 --focus-meta :contract             # Database contract tests
 
 # Testing - Watch mode and specific namespaces
-clojure -M:test --watch :core                      # Watch core library tests
-clojure -M:test --focus validation-test            # Single namespace
+clojure -M:test:db/h2 --watch :core                      # Watch core library tests
+clojure -M:test:db/h2 --focus validation-test            # Single namespace
 
 # Update validation snapshots
-UPDATE_SNAPSHOTS=true clojure -M:test --focus user-validation-snapshot-test
+UPDATE_SNAPSHOTS=true clojure -M:test:db/h2 --focus user-validation-snapshot-test
 
 # Code Quality
 clojure -M:clj-kondo --lint src test libs/*/src libs/*/test  # Lint all code
@@ -101,7 +101,7 @@ bb scripts/docs_lint.clj                           # Run documentation drift lin
 bb check:fcis                                      # FC/IS enforcement: core/ must not import shell/IO/logging/DB
 bb check:placeholder-tests                         # Detect (is true) placeholder assertions in tests
 bb check:deps                                      # Verify library dependency direction + cycle detection
-clojure -M:test --focus-meta :security             # Security-focused tests (error mapping, CSRF, XSS, SQL)
+clojure -M:test:db/h2 --focus-meta :security             # Security-focused tests (error mapping, CSRF, XSS, SQL)
 ```
 
 ### AI Assistant Helpers
@@ -246,13 +246,13 @@ libs/
 
 ```bash
 # Watch mode while developing
-clojure -M:test --watch --focus-meta :unit
+clojure -M:test:db/h2 --watch --focus-meta :unit
 
 # Watch specific library
-clojure -M:test --watch :core
+clojure -M:test:db/h2 --watch :core
 
 # Full test suite before committing
-clojure -M:test
+clojure -M:test:db/h2
 
 # Lint before committing
 clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
@@ -273,7 +273,7 @@ To do a complete run against PostgreSQL:
 
 ```bash
 BND_ENV=test JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:migrate up
-BND_ENV=test JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test
+BND_ENV=test JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2
 ```
 
 4. Revert `resources/conf/test/config.edn` afterwards so normal local and CI
@@ -715,7 +715,7 @@ Six automated safeguards run in CI (and `check:fcis` in pre-commit) to prevent r
 | **FC/IS enforcement** | `bb check:fcis` | Core namespaces importing shell, I/O, logging, or DB code | Yes |
 | **Placeholder tests** | `bb check:placeholder-tests` | `(is true)` / `(is (= true true))` masking missing coverage | Yes |
 | **Dependency direction** | `bb check:deps` | Core independence violations, circular deps between libraries | Yes (cycles/core); warn (undeclared) |
-| **Security tests** | `clojure -M:test --focus-meta :security` | Error→HTTP mapping, CSRF routing, XSS escaping, SQL injection, sensitive field leaks | Yes (test failure) |
+| **Security tests** | `clojure -M:test:db/h2 --focus-meta :security` | Error→HTTP mapping, CSRF routing, XSS escaping, SQL injection, sensitive field leaks | Yes (test failure) |
 | **clj-kondo lint** | `clojure -M:clj-kondo --lint ...` | Static analysis (existing gate) | Yes |
 | **Config doctor** | `bb doctor --env dev --ci` | Configuration errors (existing gate) | Yes |
 
@@ -762,7 +762,7 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 When a new library is added under `libs/`, update **`.github/workflows/ci.yml`** in three places:
 
 1. **Lint step** — add `libs/{name}/src` to the `clojure -M:clj-kondo --lint \` path list.
-2. **New test job** — copy an existing `test-*` job block; set `needs: lint` (or add a dependency if the lib depends on another boundary lib); run `clojure -M:test :{name}`.
+2. **New test job** — copy an existing `test-*` job block; set `needs: lint` (or add a dependency if the lib depends on another boundary lib); run `clojure -M:test:db/h2 :{name}`.
 3. **`test-summary` job** — add `test-{name}` to the `needs:` array and add an echo line.
 
 Also add the lib's `:id` test suite to `tests.edn` and its source/test paths to the root `deps.edn`.
@@ -841,5 +841,5 @@ See `libs/tools/AGENTS.md` for the full command reference.
 
 ---
 
-**Last Updated**: 2026-04-04
+**Last Updated**: 2026-04-20
 **Version**: 5.2.0 (quality gate improvements, i18n library documentation, boundary.tools.parsing extraction)
