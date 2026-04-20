@@ -56,20 +56,31 @@
 
 (defn strip-refs
   "Replace ig/ref values with a keyword placeholder for serialization.
-   Returns the value with refs replaced by :integrant/ref-<key>."
+   Encodes the full qualified key (namespace + name) so restore-refs can
+   round-trip refs with any namespace, not just :boundary/*."
   [v]
   (cond
-    (ig/ref? v) (keyword "integrant.ref" (name (ig/ref-key v)))
+    (ig/ref? v) (let [k (ig/ref-key v)]
+                  (keyword "integrant.ref"
+                           (if (namespace k)
+                             (str (namespace k) "/" (name k))
+                             (name k))))
     (map? v) (reduce-kv (fn [m k val] (assoc m k (strip-refs val))) {} v)
     (sequential? v) (mapv strip-refs v)
     :else v))
 
 (defn restore-refs
-  "Restore :integrant.ref/* placeholders back to ig/ref values."
+  "Restore :integrant.ref/* placeholders back to ig/ref values.
+   Decodes the full qualified key preserved by strip-refs."
   [v]
   (cond
     (and (keyword? v) (= "integrant.ref" (namespace v)))
-    (ig/ref (keyword "boundary" (name v)))
+    (let [encoded (name v)
+          slash-idx (str/index-of encoded "/")]
+      (if slash-idx
+        (ig/ref (keyword (subs encoded 0 slash-idx)
+                         (subs encoded (inc slash-idx))))
+        (ig/ref (keyword encoded))))
 
     (map? v) (reduce-kv (fn [m k val] (assoc m k (restore-refs val))) {} v)
     (sequential? v) (mapv restore-refs v)

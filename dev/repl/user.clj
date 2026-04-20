@@ -89,6 +89,8 @@
     (rec/reset-session!)
     (let [result (ig-repl/reset)]
       (apply-taps-to-handler!)
+      (when-let [ai-svc (get state/system :boundary/ai-service)]
+        (ai/set-service! ai-svc))
       (fcis/check-fcis-violations!)
       result)
     (catch Exception e

@@ -43,15 +43,22 @@
    :map     :json})
 
 (defn- malli-spec->scaffolder-field
-  "Convert a [field-name malli-spec] pair into a scaffolder field definition."
+  "Convert a [field-name malli-spec] pair into a scaffolder field definition.
+   Reads :optional and :unique from the Malli props map (second element of
+   vector specs like [:string {:optional true}])."
   [[field-name malli-spec]]
   (let [type-kw (if (vector? malli-spec) (first malli-spec) malli-spec)
+        props   (when (and (vector? malli-spec)
+                           (>= (count malli-spec) 2)
+                           (map? (second malli-spec)))
+                  (second malli-spec))
         scaffolder-type (get malli-type->scaffolder-type type-kw :string)
-        base {:name (name field-name)
-              :type scaffolder-type
-              :required true}]
+        base {:name     (name field-name)
+              :type     scaffolder-type
+              :required (not (:optional props))
+              :unique   (boolean (:unique props))}]
     (if (and (= type-kw :enum) (vector? malli-spec))
-      (let [rest-items (vec (rest malli-spec))
+      (let [rest-items (vec (remove map? (rest malli-spec)))
             ;; Support both [:enum :a :b :c] (standard Malli) and
             ;; [:enum [:a :b :c]] (nested vector shorthand)
             enum-values (if (and (= 1 (count rest-items))
@@ -82,12 +89,18 @@
            needs-http (conj :http)))))
 
 (defn build-migration-spec
-  "Convert a field spec to migration column definitions."
+  "Convert a field spec to migration column definitions.
+   Reads :optional and :unique from Malli props to set NOT NULL and UNIQUE."
   [module-name fields]
   (let [user-columns (mapv (fn [[field-name malli-spec]]
-                             {:name     field-name
-                              :sql-type (malli->sql-type malli-spec)
-                              :not-null true})
+                             (let [props (when (and (vector? malli-spec)
+                                                    (>= (count malli-spec) 2)
+                                                    (map? (second malli-spec)))
+                                           (second malli-spec))]
+                               (cond-> {:name     field-name
+                                        :sql-type (malli->sql-type malli-spec)
+                                        :not-null (not (:optional props))}
+                                 (:unique props) (assoc :unique true))))
                            fields)]
     (vec (concat
           [{:name :id :sql-type "UUID" :primary-key true}]

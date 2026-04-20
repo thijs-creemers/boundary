@@ -46,8 +46,19 @@
       (is (not (ig/ref? (:db-ctx stripped))))
       (is (keyword? (:db-ctx stripped)))
       (is (ig/ref? (:db-ctx restored)))
+      (is (= (ig/ref-key (ig/ref :boundary/db-context))
+             (ig/ref-key (:db-ctx restored))))
       (is (= 3000 (:port stripped)))
-      (is (= 3000 (:port restored))))))
+      (is (= 3000 (:port restored)))))
+
+  (testing "round-trips non-boundary namespaced refs"
+    (let [original {:logger (ig/ref :app.logging/stdout)
+                    :cache  (ig/ref :vendor/redis)}
+          restored (cfg-edit/restore-refs (cfg-edit/strip-refs original))]
+      (is (ig/ref? (:logger restored)))
+      (is (= :app.logging/stdout (ig/ref-key (:logger restored))))
+      (is (ig/ref? (:cache restored)))
+      (is (= :vendor/redis (ig/ref-key (:cache restored)))))))
 
 (deftest ^:unit contains-refs-detects-refs
   (testing "detects ig/ref in nested structures"
