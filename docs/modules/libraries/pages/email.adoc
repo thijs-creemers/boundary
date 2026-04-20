@@ -84,5 +84,5 @@ boundary-email (application layer)  →  boundary-external (transport layer)
 
 [source,bash]
 ----
-clojure -M:test :email
+clojure -M:test:db/h2 :email
 ----

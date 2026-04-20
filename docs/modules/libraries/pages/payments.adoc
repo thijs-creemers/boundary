@@ -72,7 +72,7 @@ Configure `:boundary/payment-provider` in `config.edn`:
 
 [source,bash]
 ----
-clojure -M:test :payments
+clojure -M:test:db/h2 :payments
 ----
 
 See xref:guides:payments.adoc[Payments Guide] for the full integration walkthrough.

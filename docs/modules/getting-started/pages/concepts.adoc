@@ -147,9 +147,9 @@ Schemas live in `schema.clj` at the root of each module:
 
 [source,bash]
 ----
-clojure -M:test --focus-meta :unit
-clojure -M:test --focus-meta :integration
-clojure -M:test --focus-meta :contract
+clojure -M:test:db/h2 --focus-meta :unit
+clojure -M:test:db/h2 --focus-meta :integration
+clojure -M:test:db/h2 --focus-meta :contract
 ----
 
 See xref:architecture:testing-strategy.adoc[Testing Strategy] for the full guide.

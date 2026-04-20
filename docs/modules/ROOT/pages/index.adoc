@@ -53,5 +53,5 @@ clojure -M:repl-clj
 bb scaffold
 
 # Run all tests
-clojure -M:test
+clojure -M:test:db/h2
 ----

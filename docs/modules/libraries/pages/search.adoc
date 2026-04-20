@@ -76,5 +76,5 @@ Weight levels: `:a` (highest) → `:d` (lowest).
 
 [source,bash]
 ----
-clojure -M:test :search
+clojure -M:test:db/h2 :search
 ----

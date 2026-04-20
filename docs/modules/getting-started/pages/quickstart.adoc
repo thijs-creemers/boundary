@@ -82,9 +82,9 @@ Then reload the system so the new routes are live:
 
 [source,bash]
 ----
-clojure -M:test
-clojure -M:test :product
-clojure -M:test --focus-meta :unit
+clojure -M:test:db/h2
+clojure -M:test:db/h2 :product
+clojure -M:test:db/h2 --focus-meta :unit
 ----
 
 == Next steps

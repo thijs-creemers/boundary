@@ -109,5 +109,5 @@ clj-paren-repair <file-with-issue>
 *Fix*:
 [source,bash]
 ----
-JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test :user
+JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2 :user
 ----

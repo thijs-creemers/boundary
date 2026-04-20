@@ -107,5 +107,5 @@ Migration file: `resources/boundary/geo/migrations/001-geo-cache.sql`
 
 [source,bash]
 ----
-clojure -M:test :geo
+clojure -M:test:db/h2 :geo
 ----
