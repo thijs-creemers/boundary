@@ -250,31 +250,90 @@
 ;; =============================================================================
 
 (defn find-dependents
-  "Find Integrant keys that reference component-key in their config values.
-   Returns the full transitive closure in topological order (BFS level-order):
-   direct dependents first, then their dependents, etc. This ordering is
-   required so that restarts proceed from the changed component outward."
+  "Find Integrant keys that transitively depend on component-key.
+   Returns the full transitive closure in dependency-safe restart order:
+   if dependent A is also referenced by dependent B, A appears before B
+   so that restarting in sequence leaves every component wired to fresh
+   instances rather than stale refs.
+
+   Algorithm: BFS to collect the dependent set, then topological sort
+   within that set using Kahn's algorithm."
   [config component-key]
-  (let [direct-deps (fn [k]
-                      (let [ref? (fn check [v]
-                                   (cond
-                                     (= v (ig/ref k)) true
-                                     (map? v) (some check (vals v))
-                                     (sequential? v) (some check v)
-                                     :else false))]
-                        (sort (for [[ck cv] config
-                                    :when (and (not= ck k) (ref? cv))]
-                                ck))))]
-    (loop [queue   (into clojure.lang.PersistentQueue/EMPTY [component-key])
-           visited #{component-key}
-           result  []]
-      (if-let [current (peek queue)]
-        (let [deps     (direct-deps current)
-              new-deps (remove visited deps)]
-          (recur (into (pop queue) new-deps)
-                 (into visited new-deps)
-                 (into result new-deps)))
-        result))))
+  (let [;; For a key k, find all config keys whose values reference k
+        direct-dependents
+        (fn [k]
+          (let [ref? (fn check [v]
+                       (cond
+                         (= v (ig/ref k)) true
+                         (map? v) (some check (vals v))
+                         (sequential? v) (some check v)
+                         :else false))]
+            (sort (for [[ck cv] config
+                        :when (and (not= ck k) (ref? cv))]
+                    ck))))
+
+        ;; BFS to collect full transitive dependent set
+        all-dependents
+        (loop [queue   (into clojure.lang.PersistentQueue/EMPTY [component-key])
+               visited #{component-key}
+               result  #{}]
+          (if-let [current (peek queue)]
+            (let [deps     (direct-dependents current)
+                  new-deps (remove visited deps)]
+              (recur (into (pop queue) new-deps)
+                     (into visited new-deps)
+                     (into result new-deps)))
+            result))]
+
+    (if (< (count all-dependents) 2)
+      (vec all-dependents)
+      ;; Topological sort (Kahn's) within the dependent subgraph.
+      ;; Edge: A -> B means "A is depended upon by B" (B refs A),
+      ;; so A must restart before B.
+      (let [;; For each dependent, find which OTHER dependents it references
+            ;; (i.e. its dependencies within the subgraph)
+            deps-within
+            (reduce (fn [m k]
+                      (let [refs-in-val
+                            (fn collect [v]
+                              (cond
+                                (ig/ref? v) (let [rk (ig/ref-key v)]
+                                              (when (and (contains? all-dependents rk)
+                                                         (not= rk k))
+                                                [rk]))
+                                (map? v) (mapcat collect (vals v))
+                                (sequential? v) (mapcat collect v)
+                                :else nil))
+                            ;; Also count the changed component-key as a dependency
+                            ;; (it is restarted first, before any dependent)
+                            internal-deps (set (concat
+                                                (refs-in-val (get config k))
+                                                (when (some #(= % (ig/ref component-key))
+                                                            (tree-seq coll? seq (get config k)))
+                                                  [])))]
+                        (assoc m k (disj internal-deps k))))
+                    {}
+                    all-dependents)
+
+            ;; In-degree: how many other dependents does each key depend on?
+            in-degree (reduce-kv (fn [m k deps] (assoc m k (count deps)))
+                                 {} deps-within)]
+
+        (loop [queue  (into clojure.lang.PersistentQueue/EMPTY
+                            (sort (filter #(zero? (get in-degree %)) (keys in-degree))))
+               degree in-degree
+               result []]
+          (if-let [current (peek queue)]
+            (let [;; Find dependents of current within the subgraph
+                  consumers (sort (for [k all-dependents
+                                        :when (contains? (get deps-within k) current)]
+                                    k))
+                  updated   (reduce (fn [d c] (update d c dec)) degree consumers)
+                  new-ready (filter #(zero? (get updated %)) consumers)]
+              (recur (into (pop queue) (sort new-ready))
+                     updated
+                     (conj result current)))
+            result))))))
 
 (defn restart-component
   "Halt and reinitialize a single Integrant component.
