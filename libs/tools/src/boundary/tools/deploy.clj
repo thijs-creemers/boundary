@@ -55,7 +55,8 @@
    "calendar"
    "ai"
    "ui-style"
-   "admin"])
+   "admin"
+   "devtools"])
 
 (def valid-libs (set all-libs))
 (def root-dir (System/getProperty "user.dir"))
