@@ -49,6 +49,16 @@
       (is (= 5 (:active-sessions summary)))
       (is (= 1 (count (:recent-failures summary)))))))
 
+(deftest ^:unit lockout-reads-flat-validation-keys
+  (testing "reads :max-failed-attempts and :lockout-duration-minutes from validation config"
+    (let [cfg {:boundary/settings
+               {:user-validation
+                {:max-failed-attempts 3
+                 :lockout-duration-minutes 30}}}
+          summary (sec/build-security-summary cfg {})]
+      (is (= 3 (get-in summary [:lockout :max-attempts])))
+      (is (= 30 (get-in summary [:lockout :duration-mins]))))))
+
 (deftest ^:unit rate-limiting-from-runtime-data
   (testing "rate-limiting? comes from runtime data, not config"
     (let [cfg {}]

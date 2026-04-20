@@ -190,17 +190,21 @@
                                         find-deps-fn  (resolve 'boundary.devtools.shell.repl/find-dependents)
                                         dependents    (when find-deps-fn (find-deps-fn live-cfg section-key))
                                         all-to-restart (into [section-key] dependents)
-                                        errors (reduce (fn [errs k]
-                                                         (try (restart-fn sys-var @cfg-var k)
-                                                              errs
-                                                              (catch Exception e
-                                                                (log/warn "Failed to restart" {:key k :error (.getMessage e)})
-                                                                (conj errs {:key k :error (.getMessage e)}))))
-                                                       []
-                                                       all-to-restart)]
-                                    (if (seq errors)
-                                      ;; Roll back: restore config-overrides* and live config
-                                      ;; so subsequent resets don't replay a broken value
+                                        ;; Restart components one by one; stop on first failure
+                                        {:keys [succeeded failed-key failed-error]}
+                                        (reduce (fn [acc k]
+                                                  (if (:failed-key acc)
+                                                    acc ;; skip remaining after first failure
+                                                    (try (restart-fn sys-var @cfg-var k)
+                                                         (update acc :succeeded conj k)
+                                                         (catch Exception e
+                                                           (log/warn "Failed to restart" {:key k :error (.getMessage e)})
+                                                           (assoc acc :failed-key k :failed-error (.getMessage e))))))
+                                                {:succeeded []}
+                                                all-to-restart)]
+                                    (if failed-key
+                                      ;; Roll back: restore config state and re-restart
+                                      ;; already-succeeded components with the old config
                                       (do (if (= prev-override ::absent)
                                             (swap! config-overrides* dissoc section-key)
                                             (swap! config-overrides* assoc section-key prev-override))
@@ -209,10 +213,14 @@
                                            (fn []
                                              (let [cfg (load-cfg-fn)]
                                                (merge (ig-cfg-fn cfg) @config-overrides*))))
+                                          ;; Re-restart succeeded components with restored config
+                                          (doseq [k (reverse succeeded)]
+                                            (try (restart-fn sys-var @cfg-var k)
+                                                 (catch Exception e
+                                                   (log/warn "Rollback restart failed" {:key k :error (.getMessage e)}))))
                                           {:success? false
-                                           :restarted (remove (set (map :key errors)) all-to-restart)
-                                           :error (str "Failed to restart (changes rolled back): "
-                                                       (str/join ", " (map #(str (:key %) " (" (:error %) ")") errors)))})
+                                           :error (str "Failed to restart " failed-key " (" failed-error
+                                                       "). All changes rolled back.")})
                                       {:success? true :restarted all-to-restart})))
                                 {:success? false
                                  :error "Cannot resolve Integrant REPL state. Is the system running?"}))

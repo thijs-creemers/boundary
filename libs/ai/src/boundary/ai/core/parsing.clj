@@ -70,11 +70,17 @@
           {:module-name module-name
            :entity      entity
            :fields      (mapv (fn [f]
-                                {:name     (get f :name (get f "name"))
-                                 :type     (let [t (get f :type (get f "type" "string"))]
-                                             (if (valid-types t) t "string"))
-                                 :required (boolean (get f :required (get f "required" true)))
-                                 :unique   (boolean (get f :unique (get f "unique" false)))})
+                                (let [t (let [raw (get f :type (get f "type" "string"))]
+                                          (if (valid-types raw) raw "string"))]
+                                  (cond-> {:name     (get f :name (get f "name"))
+                                           :type     t
+                                           :required (boolean (get f :required (get f "required" true)))
+                                           :unique   (boolean (get f :unique (get f "unique" false)))}
+                                    (= t "enum")
+                                    (assoc :enum-values (get f :enum-values
+                                                             (get f "enum-values"
+                                                                  (get f :values
+                                                                       (get f "values"))))))))
                               fields)
            :http        (boolean (get parsed :http true))
            :web         (boolean (get parsed :web true))})))))

@@ -613,28 +613,29 @@
   (println (str "Description: " description "\n"))
 
   (let [ai-service (get (system) :boundary/ai-service)
-        spec   (if ai-service
-                 (do (println "Generating module spec from description...")
-                     (let [result (ai-svc/scaffold-from-description
-                                   ai-service description ".")]
-                       (if (:error result)
-                         (do (println (str "AI parsing failed: " (:error result)))
-                             (println "Falling back to basic scaffold.")
-                             nil)
-                         (do (println "\nProposed spec:")
-                             (println (pr-str result))
-                             result))))
-                 (do (println "No AI service — using basic scaffold.")
-                     nil))
-        _ (when (and (nil? spec) (nil? ai-service))
-            (println "Cannot generate fields without an AI service. Aborting."))
-        _ (when (and (nil? spec) ai-service)
-            (println "No valid spec could be generated. Aborting."))
-        _ (when spec
-            (print "\nProceed with scaffolding? [y/N] ")
-            (flush))
-        confirm (when spec (read-line))]
-    (when (and spec (= "y" confirm))
+        ai-spec (when ai-service
+                  (println "Generating module spec from description...")
+                  (let [result (ai-svc/scaffold-from-description
+                                ai-service description ".")]
+                    (if (:error result)
+                      (do (println (str "AI parsing failed: " (:error result)))
+                          nil)
+                      (do (println "\nProposed spec:")
+                          (println (pr-str result))
+                          result))))
+        ;; Fall back to a basic scaffold (name-only field) when AI is
+        ;; unavailable or returns an error, so the workflow stays usable.
+        spec   (or ai-spec
+                   (do (println (if ai-service
+                                  "Falling back to basic scaffold (name field only)."
+                                  "No AI service — using basic scaffold (name field only)."))
+                       {:module-name module-name
+                        :entity      (clojure.string/capitalize module-name)
+                        :fields      [{:name "name" :type "string" :required true :unique false}]}))
+        _ (print "\nProceed with scaffolding? [y/N] ")
+        _ (flush)
+        confirm (read-line)]
+    (when (= "y" confirm)
       ;; Convert AI spec fields to prototype! format: [[:field-name malli-spec] ...]
       ;; AI returns [{:name "price" :type "decimal" :required true :unique false} ...]
       ;; prototype! expects [[:price [:decimal {:min 0}]] [:name :string] ...]
