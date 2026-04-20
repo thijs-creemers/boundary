@@ -654,21 +654,22 @@
                         "decimal" :decimal "boolean" :boolean "email" :email
                         "uuid" :uuid "date" :date "json" :map}
             fields     (if (sequential? raw-fields)
-                         (mapv (fn [{:keys [name type required unique]
+                         (mapv (fn [{field-name :name field-type :type
+                                     :keys [required unique]
                                      :or {required true unique false}
                                      :as field}]
-                                 (let [kw-name (keyword name)
-                                       base-type (get type-map (clojure.core/name (or type "string")) :string)
+                                 (let [kw-name (keyword field-name)
+                                       base-type (get type-map (name (or field-type "string")) :string)
                                        props (cond-> {}
                                                (not required) (assoc :optional true)
                                                unique         (assoc :unique true))
-                                       malli-spec (if (= type "enum")
+                                       malli-spec (if (= field-type "enum")
                                                     (if-let [vals (seq (:enum-values field))]
                                                       (let [base (into [:enum] vals)]
                                                         (if (seq props)
                                                           (into [(first base) props] (rest base))
                                                           base))
-                                                      (do (println (str "  Warning: enum field '" name "' has no values, defaulting to :string"))
+                                                      (do (println (str "  Warning: enum field '" field-name "' has no values, defaulting to :string"))
                                                           (if (seq props) [:string props] :string)))
                                                     (if (seq props)
                                                       [base-type props]

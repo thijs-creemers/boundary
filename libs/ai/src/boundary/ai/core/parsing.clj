@@ -134,7 +134,7 @@
   (let [parsed (parse-json-response response-text)]
     (if (:error parsed)
       parsed
-      {:honeysql    (or (:honeysql parsed) (:honeysql parsed) "")
+      {:honeysql    (or (:honeysql parsed) (get parsed :honeySQL) "")
        :explanation (or (:explanation parsed) "")
        :raw-sql     (or (:raw-sql parsed) (get parsed :rawSql ""))})))
 

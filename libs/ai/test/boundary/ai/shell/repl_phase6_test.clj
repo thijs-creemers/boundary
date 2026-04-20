@@ -26,3 +26,9 @@
   (testing "ai/test-ideas calls service and returns text"
     (let [result (ai/test-ideas "(ns test.core)\n(defn foo [] 1)")]
       (is (string? result)))))
+
+(deftest ^:unit refactor-fcis-returns-text
+  (testing "ai/refactor-fcis returns nil for clean namespace (no violations)"
+    ;; Uses a real core namespace that has no FC/IS violations
+    (let [result (ai/refactor-fcis 'boundary.ai.core.parsing)]
+      (is (nil? result) "clean namespace should return nil (no violations)"))))

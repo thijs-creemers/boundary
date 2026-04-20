@@ -256,12 +256,19 @@
                                            (fn []
                                              (let [cfg (load-cfg-fn)]
                                                (merge (ig-cfg-fn cfg) @config-overrides*))))
-                                          ;; Re-restart in forward (topological) order so each
-                                          ;; component resolves refs against already-restored deps
-                                          (doseq [k (into succeeded [failed-key])]
+                                          ;; Re-restart succeeded components with restored config
+                                          (doseq [k succeeded]
                                             (try (restart-fn sys-var @cfg-var k)
                                                  (catch Exception e
                                                    (log/warn "Rollback restart failed" {:key k :error (.getMessage e)}))))
+                                          ;; The failed component was already halted by restart-component
+                                          ;; before init-key threw — the system map still holds the old
+                                          ;; (halted) instance. Set it to nil so restart-component's
+                                          ;; halt-key! is a no-op, then re-init with old config.
+                                          (alter-var-root sys-var assoc failed-key nil)
+                                          (try (restart-fn sys-var @cfg-var failed-key)
+                                               (catch Exception e
+                                                 (log/warn "Rollback re-init failed" {:key failed-key :error (.getMessage e)})))
                                           {:success? false
                                            :error (str "Failed to restart " failed-key " (" failed-error
                                                        "). All changes rolled back.")})

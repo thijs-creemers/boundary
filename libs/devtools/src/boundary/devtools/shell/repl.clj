@@ -333,7 +333,11 @@
               (recur (into (pop queue) (sort new-ready))
                      updated
                      (conj result current)))
-            result))))))
+            (do (when (not= (count result) (count all-dependents))
+                  (println (str "Warning: find-dependents could not sort all dependents — "
+                                "possible cycle among: "
+                                (pr-str (remove (set result) all-dependents)))))
+                result)))))))
 
 (defn restart-component
   "Halt and reinitialize a single Integrant component.
