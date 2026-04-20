@@ -173,7 +173,7 @@
                        :main-opts  ["-m" "depot.outdated.main"]}
            :build     {:main-opts  ["-m" "build"]
                        :extra-deps {org.clojure/clojure           {:mvn/version "1.12.3"}
-                                    io.github.clojure/tools.build {:git/tag "v0.10.13" :git/sha "c6c670a4"}}
+                                    io.github.clojure/tools.build {:git/tag "v0.10.13" :git/sha "3a3c177d"}}
                        :ns-default build}
            :migrate   {:main-opts  ["-m" "boundary.platform.shell.database.cli-migrations"]
                        :extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.0.0"}
