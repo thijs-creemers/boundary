@@ -12,6 +12,7 @@
   (let [type-kw (if (vector? malli-spec) (first malli-spec) malli-spec)]
     (case type-kw
       :string     "VARCHAR(255)"
+      :text       "TEXT"
       :int        "INTEGER"
       :integer    "INTEGER"
       :decimal    "DECIMAL"
@@ -23,6 +24,8 @@
       :timestamp  "TIMESTAMP"
       :uuid       "UUID"
       :enum       "VARCHAR(50)"
+      :map        "TEXT"
+      :json       "TEXT"
       "VARCHAR(255)")))
 
 (def ^:private malli-type->scaffolder-type

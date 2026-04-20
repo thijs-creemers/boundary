@@ -44,7 +44,10 @@
     (is (= "VARCHAR(255)" (prototype/malli->sql-type [:string {:min 1}])))
     (is (= "DECIMAL" (prototype/malli->sql-type [:decimal {:min 0}])))
     (is (= "DATE" (prototype/malli->sql-type :date)))
-    (is (= "VARCHAR(50)" (prototype/malli->sql-type [:enum [:draft :sent :paid]])))))
+    (is (= "VARCHAR(50)" (prototype/malli->sql-type [:enum [:draft :sent :paid]])))
+    (is (= "TEXT" (prototype/malli->sql-type :text)))
+    (is (= "TEXT" (prototype/malli->sql-type :map)))
+    (is (= "TEXT" (prototype/malli->sql-type :json)))))
 
 (deftest optional-unique-field-test
   (testing "optional field sets field-required false in scaffold context"

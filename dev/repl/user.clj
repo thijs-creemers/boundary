@@ -67,6 +67,7 @@
   "Stop the system."
   []
   (dashboard/clear-config-overrides!)
+  (ai/set-service! nil)
   (ig-repl/halt))
 
 (defn- apply-taps-to-handler!
@@ -92,8 +93,7 @@
     (dashboard/clear-config-overrides!)
     (let [result (ig-repl/reset)]
       (apply-taps-to-handler!)
-      (when-let [ai-svc (get state/system :boundary/ai-service)]
-        (ai/set-service! ai-svc))
+      (ai/set-service! (get state/system :boundary/ai-service))
       (fcis/check-fcis-violations!)
       result)
     (catch Exception e
@@ -446,8 +446,7 @@
     (dashboard/clear-config-overrides!)
     (let [result (ig-repl/go)]
       (print-startup-dashboard)
-      (when-let [ai-svc (get state/system :boundary/ai-service)]
-        (ai/set-service! ai-svc))
+      (ai/set-service! (get state/system :boundary/ai-service))
       (fcis/check-fcis-violations!)
       (maybe-show-tip :start)
       result)
