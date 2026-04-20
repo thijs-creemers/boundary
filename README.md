@@ -108,7 +108,7 @@ Each library also has its own `AGENTS.md` with library-specific documentation.
 
 ## Libraries
 
-Boundary is a monorepo of **22 independently publishable libraries**:
+Boundary is a monorepo of **22 independently publishable libraries** plus development tooling:
 
 | Library | Description |
 |---------|-------------|
@@ -134,6 +134,8 @@ Boundary is a monorepo of **22 independently publishable libraries**:
 | [ai](libs/ai/) | Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard |
 | [i18n](libs/i18n/) | Marker-based internationalisation with translation catalogues |
 | [ui-style](libs/ui-style/) | Shared UI style bundles, design tokens, CSS/JS assets |
+| [devtools](libs/devtools/) | Dev-only: error pipeline, dev dashboard, REPL power tools, guidance engine |
+| [tools](libs/tools/) | Dev-only: deploy, doctor, setup, scaffolder integration, quality checks |
 
 ---
 

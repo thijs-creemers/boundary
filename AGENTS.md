@@ -754,6 +754,8 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 | **ai** | [`libs/ai/AGENTS.md`](libs/ai/AGENTS.md) | Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, error explainer, test generator, SQL copilot, docs wizard |
 | **ui-style** | [`libs/ui-style/AGENTS.md`](libs/ui-style/AGENTS.md) | App-wide UI contract: style bundles (`:base`, `:pilot`, `:admin-pilot`), tokens, and shared CSS assets |
 | **i18n** | [`libs/i18n/AGENTS.md`](libs/i18n/AGENTS.md) | Marker-based i18n, translation catalogues, locale chains, scanning tools |
+| **devtools** | [`libs/devtools/AGENTS.md`](libs/devtools/AGENTS.md) | Dev-only: error pipeline (BND codes), dev dashboard (localhost:9999), REPL power tools, guidance engine, request recording, AI REPL commands |
+| **tools** | [`libs/tools/AGENTS.md`](libs/tools/AGENTS.md) | Dev-only: deploy, doctor, setup wizard, scaffolder integration, quality checks, deprecated wrapper scanner |
 
 ---
 
