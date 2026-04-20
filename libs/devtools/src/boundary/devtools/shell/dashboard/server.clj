@@ -112,7 +112,13 @@
 ;; Accumulates config overrides applied from the dashboard so successive
 ;; edits are not lost. Each apply merges into this atom; the prep function
 ;; applies all accumulated overrides on top of the disk config.
+;; Cleared on halt/go/reset so dashboard changes don't leak across restarts.
 (defonce config-overrides* (atom {}))
+
+(defn clear-config-overrides!
+  "Reset dashboard config overrides so the next restart loads only on-disk config."
+  []
+  (reset! config-overrides* {}))
 
 (defn- make-handler [config]
   (-> (ring/router
@@ -230,8 +236,9 @@
                                            (fn []
                                              (let [cfg (load-cfg-fn)]
                                                (merge (ig-cfg-fn cfg) @config-overrides*))))
-                                          ;; Re-restart succeeded components + the failed one with restored config
-                                          (doseq [k (reverse (conj succeeded failed-key))]
+                                          ;; Re-restart in forward (topological) order so each
+                                          ;; component resolves refs against already-restored deps
+                                          (doseq [k (into succeeded [failed-key])]
                                             (try (restart-fn sys-var @cfg-var k)
                                                  (catch Exception e
                                                    (log/warn "Rollback restart failed" {:key k :error (.getMessage e)}))))

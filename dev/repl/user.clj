@@ -20,7 +20,7 @@
             [boundary.devtools.core.state-analyzer :as state-analyzer]
             [boundary.devtools.core.error-classifier :as classifier]
             [boundary.devtools.core.auto-fix :as auto-fix]
-            [boundary.devtools.shell.dashboard.server]  ;; Load dashboard Integrant init/halt methods
+            [boundary.devtools.shell.dashboard.server :as dashboard]  ;; Load dashboard Integrant init/halt methods
             [boundary.devtools.shell.repl :as devtools-repl]
             [boundary.devtools.shell.repl-error-handler :as repl-errors]
             [boundary.devtools.shell.fcis-checker :as fcis]
@@ -65,6 +65,7 @@
 (defn halt
   "Stop the system."
   []
+  (dashboard/clear-config-overrides!)
   (ig-repl/halt))
 
 (defn- apply-taps-to-handler!
@@ -87,6 +88,7 @@
     ;; Clear recording state so (recording :stop) can't restore a stale
     ;; pre-reset handler after the system has been rebuilt.
     (rec/reset-session!)
+    (dashboard/clear-config-overrides!)
     (let [result (ig-repl/reset)]
       (apply-taps-to-handler!)
       (when-let [ai-svc (get state/system :boundary/ai-service)]
@@ -440,6 +442,7 @@
   "Start the system with guidance dashboard."
   []
   (try
+    (dashboard/clear-config-overrides!)
     (let [result (ig-repl/go)]
       (print-startup-dashboard)
       (when-let [ai-svc (get state/system :boundary/ai-service)]
@@ -652,14 +655,17 @@
                                      :as field}]
                                  (let [kw-name (keyword name)
                                        base-type (get type-map (clojure.core/name (or type "string")) :string)
+                                       props (cond-> {}
+                                               (not required) (assoc :optional true)
+                                               unique         (assoc :unique true))
                                        malli-spec (if (= type "enum")
-                                                    (into [:enum] (or (:enum-values field) []))
-                                                    (let [props (cond-> {}
-                                                                  (not required) (assoc :optional true)
-                                                                  unique         (assoc :unique true))]
+                                                    (let [base (into [:enum] (or (:enum-values field) []))]
                                                       (if (seq props)
-                                                        [base-type props]
-                                                        base-type)))]
+                                                        (into [(first base) props] (rest base))
+                                                        base))
+                                                    (if (seq props)
+                                                      [base-type props]
+                                                      base-type))]
                                    [kw-name malli-spec]))
                                raw-fields)
                          (or raw-fields []))]
