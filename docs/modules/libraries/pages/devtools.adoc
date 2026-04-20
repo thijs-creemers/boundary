@@ -1,0 +1,232 @@
+= devtools
+:description: Development-only tools: error pipeline, dev dashboard, REPL power tools, guidance engine, request recording, AI REPL commands.
+
+Development-only library providing x-ray vision into running Boundary applications. Zero production overhead — loaded only via the `:dev` and `:repl-clj` aliases.
+
+NOTE: Not published to Clojars. Included as a local dependency via `libs/devtools`.
+
+== Features
+
+The DX Vision feature set spans six phases:
+
+1. *Guidance Engine* — startup dashboard, post-scaffold tips, contextual help, command palette
+2. *Introspection* — route table, config tree (secrets redacted), module/migration/test state analysis, schema exploration
+3. *Error Pipeline* — BND-xxx error codes, classifier → enricher → formatter chain, auto-fix suggestions
+4. *Dev Dashboard* — browser-based UI at `localhost:9999` with live system views
+5. *Advanced REPL* — request/response recording, route testing, rapid prototyping
+6. *Dashboard Extensions + AI* — jobs monitoring, config editor, security status, AI-powered code review
+
+== Error Pipeline
+
+Layered pipeline: `classify → enrich → format → output`. All pure functions in `core/`, side effects in `shell/`.
+
+=== BND Error Codes
+
+[cols="1,2",options="header"]
+|===
+| Range | Category
+
+| BND-1xx | Configuration errors
+| BND-2xx | Validation errors
+| BND-3xx | Persistence errors
+| BND-4xx | Authentication / authorization
+| BND-5xx | Interceptor pipeline
+| BND-6xx | FC/IS violations
+|===
+
+=== Auto-Fix
+
+[source,clojure]
+----
+;; Fix the last error (safe fixes auto-apply, risky ones confirm)
+(fix!)
+
+;; Fix a specific exception
+(fix! ex)
+----
+
+Safe fixes (e.g. setting an env var) apply automatically. Risky fixes (e.g. running a migration) always prompt for confirmation regardless of guidance level.
+
+== Dev Dashboard
+
+Local web UI at `http://localhost:9999` providing live insight into the running system.
+
+=== Pages
+
+[cols="1,2",options="header"]
+|===
+| Page | What it shows
+
+| `/dashboard` | System overview: components, routes, modules, environment
+| `/dashboard/routes` | Filterable route table with interceptor chains
+| `/dashboard/requests` | Live request stream (HTMX polling, 2s interval)
+| `/dashboard/schemas` | Malli schema browser with example generation
+| `/dashboard/db` | Database explorer: migrations, pool stats, query runner
+| `/dashboard/errors` | BND-coded errors with fix suggestions
+| `/dashboard/jobs` | Job queue stats, failed jobs with retry button
+| `/dashboard/config` | Editable config tree with secret redaction and diff preview
+| `/dashboard/security` | Security posture: password policy, auth methods, MFA, CSRF, rate limiting
+| `/dashboard/docs` | In-app documentation browser
+|===
+
+=== Architecture
+
+* Integrant component (`:boundary/dashboard`) starts Jetty on port 9999
+* Server-rendered Hiccup + HTMX polling for live updates
+* Request capture middleware wraps the main HTTP handler (port 3000)
+* Dark theme CSS in `resources/dashboard/assets/dashboard.css`
+
+== Introspection & REPL Tools
+
+[source,clojure]
+----
+;; Route table
+(routes)
+
+;; Config tree (secrets redacted)
+(config)
+
+;; Module summary
+(modules)
+
+;; Schema exploration
+(schema-tree :user/CreateUser)
+(schema-example :user/CreateUser)
+(schema-diff :user/CreateUser :user/UpdateUser)
+----
+
+== Request Recording
+
+Capture HTTP request/response pairs for debugging and replay.
+
+[source,clojure]
+----
+;; Start recording
+(def session (recording/create-session))
+
+;; After capturing entries, inspect them
+(recording/format-entry-table session)
+(recording/diff-entries session 0 1)
+
+;; Save/load sessions
+(recording/serialize-session session)
+----
+
+== Route Testing
+
+Add or remove routes on a running system without restart.
+
+[source,clojure]
+----
+;; Add a temporary test route
+(router/add-route {:path "/test" :method :get :handler my-handler})
+
+;; Inject a tap interceptor for debugging
+(router/inject-tap-interceptor route-name)
+----
+
+== AI REPL Commands
+
+Three AI-powered commands (require an AI provider to be configured):
+
+[source,clojure]
+----
+;; Code review
+(ai/review "path/to/file.clj")
+
+;; Suggest missing test cases
+(ai/test-ideas "path/to/file.clj")
+
+;; FC/IS refactoring guide
+(ai/refactor-fcis 'boundary.product.core.validation)
+----
+
+== `(new-feature!)` Workflow
+
+End-to-end feature scaffolding from a single REPL call:
+
+[source,clojure]
+----
+(new-feature! "invoicing"
+  "Invoice module with customer, line-items, PDF export")
+----
+
+Steps: AI spec generation → confirm → scaffold → integrate → test.
+
+== Key namespaces
+
+[cols="1,2,3",options="header"]
+|===
+| Namespace | Layer | Responsibility
+
+| `boundary.devtools.core.error_classifier`
+| core
+| Exception → BND-xxx code mapping (5 strategies)
+
+| `boundary.devtools.core.error_enricher`
+| core
+| Adds stacktrace, suggestions, fix descriptor, URLs
+
+| `boundary.devtools.core.error_formatter`
+| core
+| Rich formatted output with BND code header
+
+| `boundary.devtools.core.auto_fix`
+| core
+| Pure fix descriptor registry
+
+| `boundary.devtools.core.error_codes`
+| core
+| BND error catalog (BND-1xx through BND-6xx)
+
+| `boundary.devtools.core.guidance`
+| core
+| Startup dashboard, tips, command palette
+
+| `boundary.devtools.core.introspection`
+| core
+| Route table, config tree, module summary
+
+| `boundary.devtools.core.schema_tools`
+| core
+| Schema tree, diff, example generation
+
+| `boundary.devtools.core.recording`
+| core
+| Request/response session management
+
+| `boundary.devtools.core.router`
+| core
+| Route addition/removal, tap interceptor injection
+
+| `boundary.devtools.core.prototype`
+| core
+| Malli schema → scaffold spec conversion
+
+| `boundary.devtools.core.config_editor`
+| core
+| Config redaction, formatting, diff
+
+| `boundary.devtools.core.security_analyzer`
+| core
+| Security posture analysis
+
+| `boundary.devtools.shell.repl`
+| shell
+| Unified REPL API
+
+| `boundary.devtools.shell.dashboard.server`
+| shell
+| Integrant component, Reitit router for dashboard
+
+| `boundary.devtools.shell.http_error_middleware`
+| shell
+| Dev error enrichment middleware
+|===
+
+== Testing
+
+[source,bash]
+----
+clojure -M:test:db/h2 :devtools
+----

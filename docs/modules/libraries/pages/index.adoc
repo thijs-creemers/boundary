@@ -1,7 +1,7 @@
 = Library Overview
-:description: All 22 independently publishable Boundary libraries.
+:description: All 22 independently publishable Boundary libraries plus developer tooling.
 
-Boundary is a monorepo of 22 libraries, each independently publishable to Clojars.
+Boundary is a monorepo of 22 libraries publishable to Clojars, plus developer tooling.
 Every library follows the same FC/IS structure, making the codebase instantly familiar across libraries.
 
 == Foundation
@@ -89,6 +89,21 @@ Every library follows the same FC/IS structure, making the codebase instantly fa
 
 | xref:ai.adoc[ai]
 | Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard.
+|===
+
+== Developer Tooling
+
+These libraries are not published to Clojars — they are part of the monorepo and available automatically.
+
+[cols="1,3",options="header"]
+|===
+| Library | Purpose
+
+| xref:devtools.adoc[devtools]
+| Dev-only: error pipeline (BND codes), dev dashboard (localhost:9999), REPL power tools, guidance engine, request recording, AI REPL commands.
+
+| xref:tools.adoc[tools]
+| Dev-only: deploy to Clojars, config doctor, setup wizard, scaffolder integration, quality checks, i18n management.
 |===
 
 == Clojars coordinates

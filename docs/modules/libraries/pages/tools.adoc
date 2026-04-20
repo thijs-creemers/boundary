@@ -1,0 +1,120 @@
+= tools
+:description: Developer tooling: deploy, doctor, setup wizard, scaffolder integration, quality checks, i18n management.
+
+Babashka-powered developer tooling for the Boundary framework. Available out of the box in every Boundary project via `bb.edn` — no separate install needed.
+
+NOTE: Not published to Clojars. Part of the monorepo at `libs/tools`.
+
+== Commands
+
+=== Config & Environment
+
+[source,bash]
+----
+bb doctor                    # Validate config (6 rule-based checks)
+bb doctor --env all --ci     # Check all envs, exit non-zero on error
+bb setup                     # Interactive config setup wizard
+bb setup --database postgresql --payment stripe  # Non-interactive
+bb setup ai "PostgreSQL with Stripe payments"    # AI-powered setup
+----
+
+=== Scaffolding
+
+[source,bash]
+----
+bb scaffold                          # Interactive module generation wizard
+bb scaffold ai "product module with name, price, stock"  # NL scaffolding
+bb scaffold integrate product        # Wire scaffolded module into project
+bb scaffold integrate product --dry-run  # Preview changes only
+----
+
+=== AI Tooling
+
+[source,bash]
+----
+bb ai explain --file stacktrace.txt          # Explain error
+bb ai gen-tests libs/user/src/.../validation.clj  # Generate test namespace
+bb ai sql "find active users last 7 days"    # NL → HoneySQL
+bb ai docs --module libs/user --type agents  # Generate AGENTS.md
+bb ai admin-entity "products with name, price, status"  # Generate admin entity EDN
+----
+
+=== Deployment
+
+[source,bash]
+----
+bb deploy --all              # Deploy all 22 libraries to Clojars
+bb deploy --missing          # Deploy only unpublished versions
+bb deploy core platform user # Deploy specific libraries
+----
+
+Requires `CLOJARS_USERNAME` and `CLOJARS_PASSWORD` environment variables.
+
+=== i18n Management
+
+[source,bash]
+----
+bb i18n:find "Sign in"       # Find key by substring
+bb i18n:scan                 # Scan for unexternalised strings (CI gate)
+bb i18n:missing              # Keys in en.edn missing from other locales
+bb i18n:unused               # Catalogue keys not referenced in source
+----
+
+=== Utilities
+
+[source,bash]
+----
+bb create-admin              # Create first admin user (interactive)
+bb migrate up                # Run database migrations
+bb check-links               # Validate AGENTS.md local links
+bb smoke-check               # Verify deps.edn aliases and tool entrypoints
+bb install-hooks             # Configure git hooks path to .githooks
+----
+
+== Doctor checks
+
+[cols="1,1,2",options="header"]
+|===
+| Check | Level | What it catches
+
+| `env-refs` | error | `#env VAR` without `#or` fallback and not set
+| `providers` | error | Unknown `:provider` values
+| `jwt-secret` | error | `JWT_SECRET` not set when user module is active
+| `admin-parity` | warn | Admin entity EDN mismatch between dev and test
+| `prod-placeholders` | error | Placeholder values in prod/acc configs
+| `wiring-requires` | warn | Active modules missing `module-wiring` require
+|===
+
+== Key namespaces
+
+[cols="1,2",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.tools.scaffold`
+| Scaffolding wizards + AI passthrough + integrate dispatch
+
+| `boundary.tools.ai`
+| AI CLI frontend (explain, gen-tests, sql, docs, admin-entity)
+
+| `boundary.tools.doctor`
+| Config Doctor — 6 rule-based config checks
+
+| `boundary.tools.setup`
+| Config Setup Wizard — interactive + template-based
+
+| `boundary.tools.integrate`
+| Module Integration — wire into deps/tests/wiring
+
+| `boundary.tools.deploy`
+| Clojars deployment for all 22 published artifacts
+
+| `boundary.tools.i18n`
+| i18n catalogue management (find/scan/missing/unused)
+
+| `boundary.tools.admin`
+| First admin user creation wizard
+
+| `boundary.tools.dev`
+| migrate + check-links + smoke-check + install-hooks
+|===
