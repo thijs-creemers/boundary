@@ -217,12 +217,20 @@
                                         live-cfg      @cfg-var
                                         new-deps      (when find-deps-fn (set (find-deps-fn live-cfg section-key)))
                                         all-dep-keys  (into (or old-deps #{}) (or new-deps #{}))
-                                        ;; Topologically sort the union using the NEW config
+                                        ;; Topologically sort: new-config deps first (already sorted),
+                                        ;; then old-only deps sorted by the OLD config so removed
+                                        ;; chains like A <- B <- C restart in the right order
                                         dependents    (if find-deps-fn
-                                                        (let [sorted (find-deps-fn live-cfg section-key)]
-                                                          ;; Append any old-only deps not in the sorted result
-                                                          (into (vec sorted)
-                                                                (remove (set sorted) all-dep-keys)))
+                                                        (let [sorted-new  (find-deps-fn live-cfg section-key)
+                                                              new-set     (set sorted-new)
+                                                              old-only    (remove new-set all-dep-keys)
+                                                              sorted-old  (find-deps-fn old-cfg section-key)
+                                                              ;; Keep old-only keys in their old topological order
+                                                              old-ordered (filterv (set old-only) sorted-old)
+                                                              ;; Any old-only keys not in sorted-old (shouldn't happen,
+                                                              ;; but safe fallback)
+                                                              remainder   (remove (set old-ordered) old-only)]
+                                                          (into (vec sorted-new) (concat old-ordered remainder)))
                                                         [])
                                         all-to-restart (into [section-key] dependents)
                                         ;; Restart components one by one; stop on first failure
