@@ -251,7 +251,9 @@
 
 (defn find-dependents
   "Find Integrant keys that reference component-key in their config values.
-   Returns the full transitive closure: direct dependents, their dependents, etc."
+   Returns the full transitive closure in topological order (BFS level-order):
+   direct dependents first, then their dependents, etc. This ordering is
+   required so that restarts proceed from the changed component outward."
   [config component-key]
   (let [direct-deps (fn [k]
                       (let [ref? (fn check [v]
@@ -260,19 +262,19 @@
                                      (map? v) (some check (vals v))
                                      (sequential? v) (some check v)
                                      :else false))]
-                        (set (for [[ck cv] config
-                                   :when (and (not= ck k) (ref? cv))]
-                               ck))))]
-    (loop [to-visit #{component-key}
-           visited  #{}
-           result   []]
-      (if-let [current (first to-visit)]
+                        (sort (for [[ck cv] config
+                                    :when (and (not= ck k) (ref? cv))]
+                                ck))))]
+    (loop [queue   (into clojure.lang.PersistentQueue/EMPTY [component-key])
+           visited #{component-key}
+           result  []]
+      (if-let [current (peek queue)]
         (let [deps     (direct-deps current)
               new-deps (remove visited deps)]
-          (recur (into (disj to-visit current) new-deps)
-                 (conj visited current)
+          (recur (into (pop queue) new-deps)
+                 (into visited new-deps)
                  (into result new-deps)))
-        (vec (distinct result))))))
+        result))))
 
 (defn restart-component
   "Halt and reinitialize a single Integrant component.

@@ -103,7 +103,7 @@
       (is (= [:boundary/repo] (repl/find-dependents config :boundary/db))))))
 
 (deftest ^:unit find-dependents-transitive-test
-  (testing "finds transitive dependents through multi-hop chains"
+  (testing "finds transitive dependents in topological (depth) order"
     (let [config {:boundary/db       {:host "localhost"}
                   :boundary/repo     {:db (ig/ref :boundary/db)}
                   :boundary/service  {:repo (ig/ref :boundary/repo)}
@@ -111,7 +111,10 @@
                   :boundary/unrelated {:foo "bar"}}
           deps   (repl/find-dependents config :boundary/db)]
       (is (= 3 (count deps)))
-      (is (every? (set deps) [:boundary/repo :boundary/service :boundary/handler])))))
+      (is (every? (set deps) [:boundary/repo :boundary/service :boundary/handler]))
+      ;; Topological order: repo before service before handler
+      (is (< (.indexOf deps :boundary/repo) (.indexOf deps :boundary/service)))
+      (is (< (.indexOf deps :boundary/service) (.indexOf deps :boundary/handler))))))
 
 (deftest ^:unit find-dependents-no-dependents-test
   (testing "returns empty when no dependents exist"

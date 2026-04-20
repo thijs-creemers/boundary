@@ -13,6 +13,7 @@
             [boundary.jobs.ports :as job-ports]
             [boundary.user.ports :as user-ports]
             [clojure.edn :as edn]
+            [clojure.string :as str]
             [integrant.core :as ig]
             [reitit.core]
             [reitit.ring :as ring]
@@ -187,11 +188,20 @@
                                         find-deps-fn  (resolve 'boundary.devtools.shell.repl/find-dependents)
                                         dependents    (when find-deps-fn (find-deps-fn live-cfg section-key))
                                         all-to-restart (into [section-key] dependents)]
-                                    (doseq [k all-to-restart]
-                                      (try (restart-fn sys-var @cfg-var k)
-                                           (catch Exception e
-                                             (log/warn "Failed to restart" {:key k :error (.getMessage e)}))))
-                                    {:success? true :restarted all-to-restart}))
+                                    (let [errors (reduce (fn [errs k]
+                                                           (try (restart-fn sys-var @cfg-var k)
+                                                                errs
+                                                                (catch Exception e
+                                                                  (log/warn "Failed to restart" {:key k :error (.getMessage e)})
+                                                                  (conj errs {:key k :error (.getMessage e)}))))
+                                                         []
+                                                         all-to-restart)]
+                                      (if (seq errors)
+                                        {:success? false
+                                         :restarted (remove (set (map :key errors)) all-to-restart)
+                                         :error (str "Failed to restart: "
+                                                     (str/join ", " (map #(str (:key %) " (" (:error %) ")") errors)))}
+                                        {:success? true :restarted all-to-restart}))))
                                 {:success? false
                                  :error "Cannot resolve Integrant REPL state. Is the system running?"}))
                             (catch Exception e
