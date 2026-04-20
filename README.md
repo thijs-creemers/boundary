@@ -108,7 +108,7 @@ Each library also has its own `AGENTS.md` with library-specific documentation.
 
 ## Libraries
 
-Boundary is a monorepo of **22 independently publishable libraries**:
+Boundary is a monorepo of **22 independently publishable libraries** plus development tooling:
 
 | Library | Description |
 |---------|-------------|
@@ -134,6 +134,8 @@ Boundary is a monorepo of **22 independently publishable libraries**:
 | [ai](libs/ai/) | Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard |
 | [i18n](libs/i18n/) | Marker-based internationalisation with translation catalogues |
 | [ui-style](libs/ui-style/) | Shared UI style bundles, design tokens, CSS/JS assets |
+| [devtools](libs/devtools/) | Dev-only: error pipeline, dev dashboard, REPL power tools, guidance engine |
+| [tools](libs/tools/) | Dev-only: deploy, doctor, setup, scaffolder integration, quality checks |
 
 ---
 
@@ -173,12 +175,12 @@ Use `boundary.core.utils.case-conversion` for conversions. Never convert manuall
 
 ```bash
 # Testing (Kaocha, default test profile uses H2 in-memory DB)
-clojure -M:test                                          # All tests
-clojure -M:test :core                                    # Single library
-clojure -M:test --focus-meta :unit                       # Unit tests only
-clojure -M:test --focus-meta :integration                # Integration tests only
-clojure -M:test --watch :core                            # Watch mode
-JWT_SECRET="dev-secret-32-chars-minimum" BND_ENV=test clojure -M:test
+clojure -M:test:db/h2                                          # All tests
+clojure -M:test:db/h2 :core                                    # Single library
+clojure -M:test:db/h2 --focus-meta :unit                       # Unit tests only
+clojure -M:test:db/h2 --focus-meta :integration                # Integration tests only
+clojure -M:test:db/h2 --watch :core                            # Watch mode
+JWT_SECRET="dev-secret-32-chars-minimum" BND_ENV=test clojure -M:test:db/h2
 
 # Linting
 clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
@@ -231,7 +233,7 @@ To do one full run against PostgreSQL:
 
 ```bash
 BND_ENV=test JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:migrate up
-BND_ENV=test JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test
+BND_ENV=test JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2
 ```
 
 4. Revert `resources/conf/test/config.edn` after the run so normal local and CI
@@ -247,7 +249,7 @@ Six automated safeguards run in CI to catch regressions early. The FC/IS check a
 bb check:fcis                    # Core namespaces must not import shell, I/O, logging, or DB
 bb check:placeholder-tests       # No (is true) placeholders masking missing coverage
 bb check:deps                    # Library dependency direction + cycle detection
-clojure -M:test --focus-meta :security  # Error mapping, CSRF, XSS, SQL parameterization
+clojure -M:test:db/h2 --focus-meta :security  # Error mapping, CSRF, XSS, SQL parameterization
 ```
 
 See [ADR-021](./dev-docs/adr/ADR-021-fcis-boundary-rules.adoc) (FC/IS rules) and [ADR-022](./dev-docs/adr/ADR-022-error-handling-conventions.adoc) (error handling conventions) for rationale.
@@ -258,12 +260,12 @@ See [ADR-021](./dev-docs/adr/ADR-021-fcis-boundary-rules.adoc) (FC/IS rules) and
 
 ```clojure
 ;; Validation utilities only
-{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-12"}}}
+{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-13"}}}
 
 ;; Full web application stack
-{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-12"}
-        org.boundary-app/boundary-user     {:mvn/version "1.0.1-alpha-12"}
-        org.boundary-app/boundary-admin    {:mvn/version "1.0.1-alpha-12"}}}
+{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-13"}
+        org.boundary-app/boundary-user     {:mvn/version "1.0.1-alpha-13"}
+        org.boundary-app/boundary-admin    {:mvn/version "1.0.1-alpha-13"}}}
 ```
 
 ---

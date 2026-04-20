@@ -12,7 +12,7 @@ Code generation tool for creating new Boundary modules following the Functional 
 **deps.edn** (as dev dependency):
 ```clojure
 {:aliases
- {:dev {:extra-deps {org.boundary-app/boundary-scaffolder {:mvn/version "1.0.1-alpha-12"}}}}}
+ {:dev {:extra-deps {org.boundary-app/boundary-scaffolder {:mvn/version "1.0.1-alpha-13"}}}}}
 ```
 
 ## Features
@@ -333,7 +333,7 @@ resources/scaffolder/templates/
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| `boundary/core` | 0.1.0 | Utilities |
+| `boundary/core` | 1.0.1-alpha-13 | Utilities |
 | `org.clojure/tools.cli` | 1.3.250 | CLI parsing |
 
 ## Relationship to Other Libraries

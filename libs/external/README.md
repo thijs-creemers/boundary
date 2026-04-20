@@ -6,36 +6,35 @@
 [![Clojars Project](https://img.shields.io/clojars/v/org.boundary-app/boundary-external.svg)](https://clojars.org/org.boundary-app/boundary-external)
 
 **Status:** Active (not production-ready)  
-**Version:** 1.0.1-alpha-12
+**Version:** 1.0.1-alpha-13
 
 Adapters for external services: Twilio SMS/WhatsApp, SMTP transport, and IMAP mailbox.
 
 ## Installation
 
 ```clojure
-{:deps {org.boundary-app/boundary-external {:mvn/version "1.0.1-alpha-12"}}}
+{:deps {org.boundary-app/boundary-external {:mvn/version "1.0.1-alpha-13"}}}
 ```
 
 ## Features
 
-- **Email**: SMTP adapter for sending emails
-- **Payments**: Stripe payment processing
-- **Notifications**: Generic notification system
+- **SMTP**: Email transport adapter for sending via SMTP
+- **IMAP**: Mailbox adapter for reading emails
+- **Twilio**: SMS and WhatsApp messaging adapter
 
 ## Quick Start
 
 ```clojure
 (ns myapp.notifications
-  (:require [myapp.external.email :as email]))
+  (:require [boundary.external.shell.adapters.smtp :as smtp]))
 
-(def mailer (email/smtp-mailer {:host "smtp.example.com" 
-                                :port 587
-                                :user "user"
-                                :pass "pass"}))
+;; Create an SMTP provider via Integrant config:
+;; {:boundary/smtp-provider {:host "smtp.example.com"
+;;                           :port 587
+;;                           :username "user"
+;;                           :password "pass"}}
 
-(email/send mailer {:to "user@example.com"
-                    :subject "Welcome"
-                    :body "Welcome to our app!"})
+;; Then use the IExternalEmailProvider protocol to send emails
 ```
 
 ## License

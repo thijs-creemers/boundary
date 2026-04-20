@@ -1,4 +1,4 @@
-# boudary/search
+# boundary/search
 
 [![Status](https://img.shields.io/badge/status-stable-brightgreen)]()
 [![Clojure](https://img.shields.io/badge/clojure-1.12+-blue)]()

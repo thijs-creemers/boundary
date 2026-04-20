@@ -124,9 +124,9 @@ libs/{library}/
 
 [source,bash]
 ----
-clojure -M:test :core
-clojure -M:test :user
-clojure -M:test :admin
+clojure -M:test:db/h2 :core
+clojure -M:test:db/h2 :user
+clojure -M:test:db/h2 :admin
 # etc.
 ----
 

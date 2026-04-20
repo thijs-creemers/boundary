@@ -125,14 +125,14 @@ That split is deliberate:
 
 [source,bash]
 ----
-clojure -M:test :product
+clojure -M:test:db/h2 :product
 ----
 
 If you only changed pure logic, you can also run the unit-focused suite:
 
 [source,bash]
 ----
-clojure -M:test --focus-meta :unit
+clojure -M:test:db/h2 --focus-meta :unit
 ----
 
 == Next steps

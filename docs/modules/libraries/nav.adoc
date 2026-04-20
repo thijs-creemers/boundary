@@ -22,3 +22,5 @@
 ** xref:libraries:calendar.adoc[calendar]
 ** xref:libraries:geo.adoc[geo]
 ** xref:libraries:ai.adoc[ai]
+** xref:libraries:devtools.adoc[devtools]
+** xref:libraries:tools.adoc[tools]

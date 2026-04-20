@@ -94,5 +94,5 @@ Supports sync generation and optional async via `boundary-jobs`.
 
 [source,bash]
 ----
-clojure -M:test :reports
+clojure -M:test:db/h2 :reports
 ----

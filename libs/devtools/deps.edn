@@ -8,7 +8,7 @@
         boundary/jobs {:local/root "../jobs"}
         boundary/user {:local/root "../user"}
         hiccup/hiccup {:mvn/version "2.0.0"}
-        ring/ring-jetty-adapter {:mvn/version "1.12.2"}}
+        ring/ring-jetty-adapter {:mvn/version "1.15.4"}}
 
  :aliases
  {:test {:extra-paths ["test"]

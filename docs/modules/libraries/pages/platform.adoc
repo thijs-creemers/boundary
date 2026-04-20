@@ -65,5 +65,5 @@ Enter phases run in order; leave phases run in reverse order.
 
 [source,bash]
 ----
-clojure -M:test :platform
+clojure -M:test:db/h2 :platform
 ----

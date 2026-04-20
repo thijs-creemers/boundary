@@ -84,6 +84,42 @@ Local web UI at `localhost:9999` providing x-ray vision into the running system.
 - `shell/dashboard/components.clj` — Reusable UI components
 - `shell/dashboard/pages/*.clj` — Individual page renders
 
+## Advanced REPL (Phase 5)
+
+Request/response recording, route testing, and rapid prototyping from the REPL.
+
+### Recording
+
+Capture and replay HTTP request/response pairs for debugging and regression testing.
+
+- `core/recording.clj` — Pure session management: `create-session`, `add-entry`, `stop-session`, `diff-entries`, `format-entry-table`, `serialize-session`/`deserialize-session`
+- `shell/recording.clj` — File-based persistence: save/load recording sessions to disk
+
+### Route Testing
+
+Add, remove, and inspect routes on a running system without restart.
+
+- `core/router.clj` — Pure route manipulation: `add-route`, `remove-route`, `inject-tap-interceptor`, `remove-tap-interceptor`
+- `shell/router.clj` — Route simulation against the live Reitit router
+
+### Rapid Prototyping
+
+Generate scaffold specs from Malli schemas for quick module prototyping.
+
+- `core/prototype.clj` — Schema-to-scaffold conversion: `malli->sql-type`, `build-scaffold-context`, `endpoints-to-generators`, `build-migration-spec`
+- `shell/prototype.clj` — End-to-end prototype execution
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `core/recording.clj` | Pure session data structure, entry diffing, table formatting |
+| `core/router.clj` | Route addition/removal, tap interceptor injection |
+| `core/prototype.clj` | Malli schema → scaffold spec conversion, migration spec generation |
+| `shell/recording.clj` | File I/O for recording sessions |
+| `shell/router.clj` | Live router manipulation |
+| `shell/prototype.clj` | Prototype execution with side effects |
+
 ## Phase 6: Jobs, Config, Security + AI REPL
 
 Three new dashboard pages and three new AI-powered REPL commands. The nav sidebar now has **10 items** total: Overview, Routes, Requests, Schemas, Database, Errors, Jobs, Config, Security, Docs.
