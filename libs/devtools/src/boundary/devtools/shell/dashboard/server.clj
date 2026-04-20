@@ -80,6 +80,23 @@
                                                          (.isAfter (:expires-at s) now))))
                                               (user-ports/find-all-sessions session-repo))))
                              (catch Exception _ 0)))
+     :recent-auth-failures
+     (when-let [audit-repo (when sys (get sys :boundary/audit-repository))]
+       (try (let [logs (:audit-logs
+                        (user-ports/find-audit-logs
+                         audit-repo
+                         {:filter-action :login
+                          :filter-result :failure
+                          :limit 20
+                          :sort-by :created-at
+                          :sort-direction :desc}))]
+              (mapv (fn [log]
+                      {:timestamp (str (:created-at log))
+                       :type      :failed-login
+                       :detail    (or (:details log)
+                                      (str (:actor-email log)))})
+                    logs))
+            (catch Exception _ [])))
      :rate-limiting?  (try
                         (when-let [router (some-> http-handler meta :reitit/router)]
                           (some (fn [[_path data]]
@@ -213,8 +230,8 @@
                                            (fn []
                                              (let [cfg (load-cfg-fn)]
                                                (merge (ig-cfg-fn cfg) @config-overrides*))))
-                                          ;; Re-restart succeeded components with restored config
-                                          (doseq [k (reverse succeeded)]
+                                          ;; Re-restart succeeded components + the failed one with restored config
+                                          (doseq [k (reverse (conj succeeded failed-key))]
                                             (try (restart-fn sys-var @cfg-var k)
                                                  (catch Exception e
                                                    (log/warn "Rollback restart failed" {:key k :error (.getMessage e)}))))

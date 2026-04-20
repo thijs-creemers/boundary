@@ -22,12 +22,17 @@
        :require-special?    (boolean require-special-chars?)})))
 
 (defn analyze-auth-methods
-  "Detect which authentication methods are configured."
+  "Detect which authentication methods are configured.
+   Derives methods from presence of auth-related Integrant keys in config
+   rather than hardcoding, so projects without the user/auth stack show
+   an accurate (possibly empty) list."
   [config]
   (let [settings (get config :boundary/settings {})
         features (get settings :features {})
-        methods  (cond-> [:jwt :session]
-                   (get-in features [:mfa :enabled?]) (conj :mfa))]
+        methods  (cond-> []
+                   (contains? config :boundary/auth-service)      (conj :jwt)
+                   (contains? config :boundary/session-repository) (conj :session)
+                   (get-in features [:mfa :enabled?])              (conj :mfa))]
     {:methods methods
      :mfa-enabled? (boolean (get-in features [:mfa :enabled?]))}))
 
