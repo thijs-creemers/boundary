@@ -76,15 +76,21 @@
   "Render a diff preview of proposed config change."
   [section-key old-val new-val-str]
   (str (h/html
-        (let [diff (cfg-edit/config-diff {section-key old-val}
-                                         {section-key (parse-edited-value new-val-str old-val)})]
-          (if (empty? (:changed diff))
-            [:div.detail-panel [:p "No changes detected."]]
+        (let [parsed (parse-edited-value new-val-str ::parse-failed)]
+          (if (= parsed ::parse-failed)
             [:div.detail-panel
-             [:p [:strong "Affected components: "]
-              (str/join ", " (map pr-str (cfg-edit/affected-components diff)))]
-             [:pre.code-block
-              (str "Current: " (pr-str old-val) "\n\nProposed: " new-val-str)]])))))
+             [:p {:style "color:var(--color-red,#f87171)"} "Invalid EDN — please fix syntax errors before applying."]
+             [:pre.code-block {:style "border-color:var(--color-red,#f87171)"}
+              new-val-str]]
+            (let [diff (cfg-edit/config-diff {section-key old-val}
+                                             {section-key parsed})]
+              (if (empty? (:changed diff))
+                [:div.detail-panel [:p "No changes detected."]]
+                [:div.detail-panel
+                 [:p [:strong "Affected components: "]
+                  (str/join ", " (map pr-str (cfg-edit/affected-components diff)))]
+                 [:pre.code-block
+                  (str "Current: " (pr-str old-val) "\n\nProposed: " new-val-str)]])))))))
 
 (defn render-apply-result
   "Render the result of a config apply operation as an HTML fragment."

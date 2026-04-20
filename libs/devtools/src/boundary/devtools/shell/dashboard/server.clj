@@ -170,7 +170,9 @@
                                   cfg-var      (resolve 'integrant.repl.state/config)
                                   restart-fn   (resolve 'boundary.devtools.shell.repl/restart-component)]
                               (if (and set-prep-fn sys-var cfg-var restart-fn load-cfg-fn ig-cfg-fn)
-                                (do
+                                (let [;; Snapshot previous state so we can roll back on failure
+                                      prev-override (get @config-overrides* section-key ::absent)
+                                      prev-cfg-val  (get @cfg-var section-key)]
                                   ;; Accumulate this override so successive edits aren't lost
                                   (swap! config-overrides* assoc section-key new-val)
                                   ;; Patch the prep function to apply ALL accumulated overrides
@@ -187,21 +189,31 @@
                                   (let [live-cfg      @cfg-var
                                         find-deps-fn  (resolve 'boundary.devtools.shell.repl/find-dependents)
                                         dependents    (when find-deps-fn (find-deps-fn live-cfg section-key))
-                                        all-to-restart (into [section-key] dependents)]
-                                    (let [errors (reduce (fn [errs k]
-                                                           (try (restart-fn sys-var @cfg-var k)
-                                                                errs
-                                                                (catch Exception e
-                                                                  (log/warn "Failed to restart" {:key k :error (.getMessage e)})
-                                                                  (conj errs {:key k :error (.getMessage e)}))))
-                                                         []
-                                                         all-to-restart)]
-                                      (if (seq errors)
-                                        {:success? false
-                                         :restarted (remove (set (map :key errors)) all-to-restart)
-                                         :error (str "Failed to restart: "
-                                                     (str/join ", " (map #(str (:key %) " (" (:error %) ")") errors)))}
-                                        {:success? true :restarted all-to-restart}))))
+                                        all-to-restart (into [section-key] dependents)
+                                        errors (reduce (fn [errs k]
+                                                         (try (restart-fn sys-var @cfg-var k)
+                                                              errs
+                                                              (catch Exception e
+                                                                (log/warn "Failed to restart" {:key k :error (.getMessage e)})
+                                                                (conj errs {:key k :error (.getMessage e)}))))
+                                                       []
+                                                       all-to-restart)]
+                                    (if (seq errors)
+                                      ;; Roll back: restore config-overrides* and live config
+                                      ;; so subsequent resets don't replay a broken value
+                                      (do (if (= prev-override ::absent)
+                                            (swap! config-overrides* dissoc section-key)
+                                            (swap! config-overrides* assoc section-key prev-override))
+                                          (alter-var-root cfg-var assoc section-key prev-cfg-val)
+                                          (set-prep-fn
+                                           (fn []
+                                             (let [cfg (load-cfg-fn)]
+                                               (merge (ig-cfg-fn cfg) @config-overrides*))))
+                                          {:success? false
+                                           :restarted (remove (set (map :key errors)) all-to-restart)
+                                           :error (str "Failed to restart (changes rolled back): "
+                                                       (str/join ", " (map #(str (:key %) " (" (:error %) ")") errors)))})
+                                      {:success? true :restarted all-to-restart})))
                                 {:success? false
                                  :error "Cannot resolve Integrant REPL state. Is the system running?"}))
                             (catch Exception e
