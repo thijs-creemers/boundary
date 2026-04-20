@@ -1,7 +1,8 @@
 (ns boundary.devtools.shell.repl-test
   (:require [clojure.string]
             [clojure.test :refer [deftest is testing]]
-            [boundary.devtools.shell.repl :as repl]))
+            [boundary.devtools.shell.repl :as repl]
+            [integrant.core :as ig]))
 
 ;; =============================================================================
 ;; extract-module
@@ -89,3 +90,48 @@
   (testing "table name is correctly placed in :from vector"
     (let [q (repl/build-query-map :orders {})]
       (is (= [:orders] (:from q))))))
+
+;; =============================================================================
+;; find-dependents (transitive)
+;; =============================================================================
+
+(deftest ^:unit find-dependents-direct-test
+  (testing "finds direct dependents"
+    (let [config {:boundary/db       {:host "localhost"}
+                  :boundary/repo     {:db (ig/ref :boundary/db)}
+                  :boundary/unrelated {:foo "bar"}}]
+      (is (= [:boundary/repo] (repl/find-dependents config :boundary/db))))))
+
+(deftest ^:unit find-dependents-transitive-test
+  (testing "chain: repo before service before handler"
+    (let [config {:boundary/db       {:host "localhost"}
+                  :boundary/repo     {:db (ig/ref :boundary/db)}
+                  :boundary/service  {:repo (ig/ref :boundary/repo)}
+                  :boundary/handler  {:svc (ig/ref :boundary/service)}
+                  :boundary/unrelated {:foo "bar"}}
+          deps   (repl/find-dependents config :boundary/db)]
+      (is (= 3 (count deps)))
+      (is (every? (set deps) [:boundary/repo :boundary/service :boundary/handler]))
+      (is (< (.indexOf deps :boundary/repo) (.indexOf deps :boundary/service)))
+      (is (< (.indexOf deps :boundary/service) (.indexOf deps :boundary/handler)))))
+
+  (testing "diamond: handler depends on both db and service, so service before handler"
+    ;; Changing :boundary/db should restart :boundary/service first,
+    ;; then :boundary/handler (which refs both db AND service).
+    ;; BFS level-order would put them on the same level — wrong.
+    (let [config {:boundary/db       {:host "localhost"}
+                  :boundary/service  {:db (ig/ref :boundary/db)}
+                  :boundary/handler  {:db  (ig/ref :boundary/db)
+                                      :svc (ig/ref :boundary/service)}
+                  :boundary/unrelated {:foo "bar"}}
+          deps   (repl/find-dependents config :boundary/db)]
+      (is (= 2 (count deps)))
+      (is (every? (set deps) [:boundary/service :boundary/handler]))
+      ;; service must restart before handler so handler gets fresh service ref
+      (is (< (.indexOf deps :boundary/service) (.indexOf deps :boundary/handler))))))
+
+(deftest ^:unit find-dependents-no-dependents-test
+  (testing "returns empty when no dependents exist"
+    (let [config {:boundary/db   {:host "localhost"}
+                  :boundary/cache {:ttl 300}}]
+      (is (empty? (repl/find-dependents config :boundary/db))))))

@@ -20,7 +20,7 @@
             [boundary.devtools.core.state-analyzer :as state-analyzer]
             [boundary.devtools.core.error-classifier :as classifier]
             [boundary.devtools.core.auto-fix :as auto-fix]
-            [boundary.devtools.shell.dashboard.server]  ;; Load dashboard Integrant init/halt methods
+            [boundary.devtools.shell.dashboard.server :as dashboard]  ;; Load dashboard Integrant init/halt methods
             [boundary.devtools.shell.repl :as devtools-repl]
             [boundary.devtools.shell.repl-error-handler :as repl-errors]
             [boundary.devtools.shell.fcis-checker :as fcis]
@@ -30,6 +30,10 @@
             [boundary.devtools.shell.prototype :as prototype]
             [boundary.platform.shell.adapters.database.common.core :as db]
             [boundary.platform.shell.system.wiring :as wiring]
+            [boundary.ai.shell.repl :as ai]
+            [boundary.ai.shell.service :as ai-svc]
+            [clojure.java.shell :as shell]
+            [clojure.string :as str]
             [integrant.repl :as ig-repl]
             [integrant.repl.state :as state]
             [clojure.tools.logging :as log]))
@@ -62,6 +66,8 @@
 (defn halt
   "Stop the system."
   []
+  (dashboard/clear-config-overrides!)
+  (ai/set-service! nil)
   (ig-repl/halt))
 
 (defn- apply-taps-to-handler!
@@ -84,8 +90,10 @@
     ;; Clear recording state so (recording :stop) can't restore a stale
     ;; pre-reset handler after the system has been rebuilt.
     (rec/reset-session!)
+    (dashboard/clear-config-overrides!)
     (let [result (ig-repl/reset)]
       (apply-taps-to-handler!)
+      (ai/set-service! (get state/system :boundary/ai-service))
       (fcis/check-fcis-violations!)
       result)
     (catch Exception e
@@ -435,8 +443,10 @@
   "Start the system with guidance dashboard."
   []
   (try
+    (dashboard/clear-config-overrides!)
     (let [result (ig-repl/go)]
       (print-startup-dashboard)
+      (ai/set-service! (get state/system :boundary/ai-service))
       (fcis/check-fcis-violations!)
       (maybe-show-tip :start)
       result)
@@ -594,6 +604,95 @@
     (prototype/prototype! name-str spec)))
 
 ;; =============================================================================
+;; Phase 6: AI REPL + Workflow Automation
+;; =============================================================================
+
+(defn new-feature!
+  "Interactive end-to-end feature workflow.
+   Describes → scaffolds → integrates → migrates → tests.
+
+   (new-feature! \"invoicing\"
+     \"Invoice module with customer, line-items, PDF export\")"
+  [module-name description]
+  (println (str "\n━━━ New Feature: " module-name " ━━━━━━━━━━━━━━━━━━━━━━━━━"))
+  (println (str "Description: " description "\n"))
+
+  (let [ai-service (get (system) :boundary/ai-service)
+        ai-spec (when ai-service
+                  (println "Generating module spec from description...")
+                  (let [result (ai-svc/scaffold-from-description
+                                ai-service description ".")]
+                    (if (:error result)
+                      (do (println (str "AI parsing failed: " (:error result)))
+                          nil)
+                      (do (println "\nProposed spec:")
+                          (println (pr-str result))
+                          result))))
+        ;; Fall back to a basic scaffold (name-only field) when AI is
+        ;; unavailable or returns an error, so the workflow stays usable.
+        spec   (or ai-spec
+                   (do (println (if ai-service
+                                  "Falling back to basic scaffold (name field only)."
+                                  "No AI service — using basic scaffold (name field only)."))
+                       (let [pascal (-> module-name
+                                        (str/split #"-")
+                                        (->> (map str/capitalize)
+                                             (str/join "")))]
+                         {:module-name module-name
+                          :entity      pascal
+                          :fields      [{:name "name" :type "string" :required true :unique false}]})))
+        _ (print "\nProceed with scaffolding? [y/N] ")
+        _ (flush)
+        confirm (read-line)]
+    (when (= "y" confirm)
+      ;; Convert AI spec fields to prototype! format: [[:field-name malli-spec] ...]
+      ;; AI returns [{:name "price" :type "decimal" :required true :unique false} ...]
+      ;; prototype! expects [[:price [:decimal {:min 0}]] [:name :string] ...]
+      (println "\nScaffolding + generating migration...")
+      (let [raw-fields (:fields spec)
+            type-map   {"string" :string "text" :text "int" :int
+                        "decimal" :decimal "boolean" :boolean "email" :email
+                        "uuid" :uuid "date" :date "json" :map}
+            fields     (if (sequential? raw-fields)
+                         (mapv (fn [{field-name :name field-type :type
+                                     :keys [required unique]
+                                     :or {required true unique false}
+                                     :as field}]
+                                 (let [kw-name (keyword field-name)
+                                       base-type (get type-map (name (or field-type "string")) :string)
+                                       props (cond-> {}
+                                               (not required) (assoc :optional true)
+                                               unique         (assoc :unique true))
+                                       malli-spec (if (= field-type "enum")
+                                                    (if-let [vals (seq (:enum-values field))]
+                                                      (let [base (into [:enum] vals)]
+                                                        (if (seq props)
+                                                          (into [(first base) props] (rest base))
+                                                          base))
+                                                      (do (println (str "  Warning: enum field '" field-name "' has no values, defaulting to :string"))
+                                                          (if (seq props) [:string props] :string)))
+                                                    (if (seq props)
+                                                      [base-type props]
+                                                      base-type))]
+                                   [kw-name malli-spec]))
+                               raw-fields)
+                         (or raw-fields []))]
+        ;; Use prototype! which generates files + migration + runs migration
+        (prototype! module-name {:fields fields
+                                 :endpoints [:crud :list]}))
+
+      (println "\nIntegrating module...")
+      (let [{:keys [exit out]} (shell/sh "bb" "scaffold" "integrate" module-name)]
+        (println out)
+        (when-not (zero? exit)
+          (println "Integration had issues — check output above.")))
+
+      (println "\nRunning tests...")
+      (test-module (keyword module-name))
+
+      (println (str "\n━━━ Feature '" module-name "' scaffolded, migrated, and integrated ━━━")))))
+
+;; =============================================================================
 ;; Quick Start Message
 ;; =============================================================================
 
@@ -605,6 +704,7 @@
 (println "\u2502 (routes)     Show HTTP routes                 \u2502")
 (println "\u2502 (commands)   All available commands            \u2502")
 (println "\u2502 (fix!)       Auto-fix last error              \u2502")
+(println "\u2502 (ai/review f) AI code review                 \u2502")
 (println "\u2502 (guide :topics) Browse documentation          \u2502")
 (println "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n")
 

@@ -298,3 +298,42 @@
      (if (:error result)
        result
        {:data (:data result)}))))
+
+;; =============================================================================
+;; Feature 8: Code Review
+;; =============================================================================
+
+(defn review-code
+  "AI code review of a namespace."
+  ([service ns-name source-code]
+   (review-code service ns-name source-code {}))
+  ([service ns-name source-code opts]
+   (log/info "ai review-code" {:ns ns-name})
+   (let [messages (prompts/review-messages ns-name source-code)]
+     (resolve-provider service messages opts))))
+
+;; =============================================================================
+;; Feature 9: Test Ideas
+;; =============================================================================
+
+(defn suggest-tests
+  "Suggest missing test cases for a namespace."
+  ([service ns-name source-code existing-tests]
+   (suggest-tests service ns-name source-code existing-tests {}))
+  ([service ns-name source-code existing-tests opts]
+   (log/info "ai suggest-tests" {:ns ns-name})
+   (let [messages (prompts/test-ideas-messages ns-name source-code existing-tests)]
+     (resolve-provider service messages opts))))
+
+;; =============================================================================
+;; Feature 10: FC/IS Refactoring Guide
+;; =============================================================================
+
+(defn refactor-fcis
+  "AI-guided FC/IS violation refactoring."
+  ([service ns-name source-code violations]
+   (refactor-fcis service ns-name source-code violations {}))
+  ([service ns-name source-code violations opts]
+   (log/info "ai refactor-fcis" {:ns ns-name :violations (count violations)})
+   (let [messages (prompts/refactor-fcis-messages ns-name source-code violations)]
+     (resolve-provider service messages opts))))

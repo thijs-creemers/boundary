@@ -467,3 +467,82 @@ Rules:
   [description]
   [{:role :system :content (build-setup-parse-system-prompt)}
    {:role :user   :content (build-setup-parse-user-prompt description)}])
+
+;; =============================================================================
+;; Feature 8: Code Review
+;; =============================================================================
+
+(defn review-messages
+  "Build messages for AI code review of a namespace."
+  [ns-name source-code]
+  [{:role :system
+    :content (str framework-system-context "
+
+Your task: review the given Clojure namespace for:
+1. FC/IS violations (core importing shell, side effects in core)
+2. Code quality issues (naming, complexity, missing edge cases)
+3. Malli schema mismatches or missing validations
+4. Potential bugs or race conditions
+5. Adherence to Boundary conventions (kebab-case, case conversion boundaries)
+
+Be specific and actionable. Reference line numbers when possible.
+Format: list each issue with severity (critical/warning/info) and suggested fix.")}
+   {:role :user
+    :content (str "Review this namespace: " ns-name "\n\n```clojure\n" source-code "\n```")}])
+
+;; =============================================================================
+;; Feature 9: Test Ideas
+;; =============================================================================
+
+(defn test-ideas-messages
+  "Build messages for suggesting missing test cases."
+  [ns-name source-code existing-tests]
+  [{:role :system
+    :content (str framework-system-context "
+
+Your task: suggest missing test cases for the given namespace.
+
+Consider:
+- Edge cases: nil inputs, empty collections, boundary values
+- Error paths: what should fail and how
+- Property-based test opportunities
+- For core namespaces: pure function tests (^:unit)
+- For shell namespaces: integration tests with mocked adapters (^:integration)
+
+Output: a numbered list of test ideas, each with:
+- Test name (descriptive, in test-that-something format)
+- What it tests and why it matters
+- Brief code sketch showing the assertion")}
+   {:role :user
+    :content (str "Suggest missing tests for: " ns-name "\n\nSource:\n```clojure\n" source-code "\n```"
+                  (when existing-tests
+                    (str "\n\nExisting tests:\n```clojure\n" existing-tests "\n```")))}])
+
+;; =============================================================================
+;; Feature 10: FC/IS Refactoring Guide
+;; =============================================================================
+
+(defn refactor-fcis-messages
+  "Build messages for FC/IS violation refactoring guidance."
+  [ns-name source-code violations]
+  [{:role :system
+    :content (str framework-system-context "
+
+Your task: guide the developer through refactoring FC/IS violations.
+
+FC/IS rules:
+- core/ namespaces MUST be pure: no I/O, no logging, no database, no HTTP
+- shell/ namespaces handle all side effects
+- core/ CAN depend on ports.clj (protocols)
+- shell/ implements ports and calls core
+
+For each violation, provide:
+1. Why it violates FC/IS
+2. Step-by-step refactoring plan
+3. Code examples showing before/after
+4. Where to add the port protocol if needed")}
+   {:role :user
+    :content (str "Refactor FC/IS violations in: " ns-name "\n\n"
+                  "Violations detected:\n"
+                  (str/join "\n" (map #(str "  " (:from %) " \u2192 " (:to %)) violations))
+                  "\n\nSource:\n```clojure\n" source-code "\n```")}])

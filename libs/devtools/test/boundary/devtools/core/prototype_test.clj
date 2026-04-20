@@ -44,7 +44,38 @@
     (is (= "VARCHAR(255)" (prototype/malli->sql-type [:string {:min 1}])))
     (is (= "DECIMAL" (prototype/malli->sql-type [:decimal {:min 0}])))
     (is (= "DATE" (prototype/malli->sql-type :date)))
-    (is (= "VARCHAR(50)" (prototype/malli->sql-type [:enum [:draft :sent :paid]])))))
+    (is (= "VARCHAR(50)" (prototype/malli->sql-type [:enum [:draft :sent :paid]])))
+    (is (= "TEXT" (prototype/malli->sql-type :text)))
+    (is (= "TEXT" (prototype/malli->sql-type :map)))
+    (is (= "TEXT" (prototype/malli->sql-type :json)))))
+
+(deftest optional-unique-field-test
+  (testing "optional field sets field-required false in scaffold context"
+    (let [spec {:fields [[:nickname [:string {:optional true}]]]
+                :endpoints [:crud]}
+          ctx  (prototype/build-scaffold-context "user" spec)
+          field (first (get-in ctx [:entities 0 :fields]))]
+      (is (false? (:field-required field)))))
+
+  (testing "unique field sets field-unique true in scaffold context"
+    (let [spec {:fields [[:email [:email {:unique true}]]]
+                :endpoints [:crud]}
+          ctx  (prototype/build-scaffold-context "user" spec)
+          field (first (get-in ctx [:entities 0 :fields]))]
+      (is (true? (:field-unique field)))))
+
+  (testing "migration respects optional (nullable) and unique"
+    (let [fields [[:nickname [:string {:optional true}]]
+                  [:email [:email {:unique true}]]
+                  [:name :string]]
+          columns (prototype/build-migration-spec "user" fields)]
+      (let [nick-col (first (filter #(= :nickname (:name %)) columns))
+            email-col (first (filter #(= :email (:name %)) columns))
+            name-col (first (filter #(= :name (:name %)) columns))]
+        (is (false? (:not-null nick-col)) "optional field should be nullable")
+        (is (true? (:unique email-col)) "unique field should have unique constraint")
+        (is (true? (:not-null name-col)) "required field should be NOT NULL")
+        (is (nil? (:unique name-col)) "non-unique field should not have unique key")))))
 
 (deftest enum-form-test
   (testing "standard Malli enum [:enum :a :b :c] produces correct enum-values"

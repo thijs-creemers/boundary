@@ -5,6 +5,8 @@
         boundary/core {:local/root "../core"}
         boundary/ui-style {:local/root "../ui-style"}
         boundary/scaffolder {:local/root "../scaffolder"}
+        boundary/jobs {:local/root "../jobs"}
+        boundary/user {:local/root "../user"}
         hiccup/hiccup {:mvn/version "2.0.0"}
         ring/ring-jetty-adapter {:mvn/version "1.12.2"}}
 

@@ -83,3 +83,93 @@ Local web UI at `localhost:9999` providing x-ray vision into the running system.
 - `shell/dashboard/layout.clj` — Sidebar, top bar, page wrapper
 - `shell/dashboard/components.clj` — Reusable UI components
 - `shell/dashboard/pages/*.clj` — Individual page renders
+
+## Phase 6: Jobs, Config, Security + AI REPL
+
+Three new dashboard pages and three new AI-powered REPL commands. The nav sidebar now has **10 items** total: Overview, Routes, Requests, Schemas, Database, Errors, Jobs, Config, Security, Docs.
+
+### Dashboard Pages
+
+#### Jobs & Queues — `/dashboard/jobs`
+
+Monitors background job processing in real time.
+
+| Section | Contents |
+|---------|----------|
+| Stat row | Active/Pending, Processed, Succeeded, Failed |
+| Queues table | Per-queue: size, processed, failed, avg duration |
+| Failed Jobs list | Job type, error message, retry count, queue — with **Retry** button (HTMX POST) |
+
+- HTMX polling every **5 seconds** keeps the failed-jobs container live
+- Page degrades gracefully when no `:boundary/jobs` component is configured
+- Key files: `shell/dashboard/pages/jobs.clj`
+
+#### Config Editor — `/dashboard/config`
+
+Editable view of the running system config with secret redaction.
+
+- Config tree rendered via `core/config_editor.clj` (`redact-secrets`, `format-config-tree`)
+- Each top-level key gets its own card with an editable `<textarea>`
+- **Preview Changes** button — HTMX POST to `/dashboard/fragments/config-preview` — shows a diff and lists affected components
+- **Apply** button — HTMX POST to `/dashboard/fragments/config-apply` — restarts affected components; always confirms with a browser dialog
+- Key files: `shell/dashboard/pages/config.clj`, `core/config_editor.clj`
+
+#### Security Status — `/dashboard/security`
+
+Point-in-time security posture of the running application.
+
+| Stat card | What it shows |
+|-----------|---------------|
+| Password Strength | `:strong` / `:moderate` / `:weak` derived from policy analysis |
+| Auth Methods | Count of active methods (JWT, session, MFA) |
+| MFA | Enabled / Disabled |
+| Active Sessions | Live session count |
+| CSRF | Active / Inactive |
+| Rate Limiting | Active / Inactive |
+
+- Password Policy card: per-criterion check marks (min length, uppercase, lowercase, numbers, special chars)
+- Authentication & Access card: lists auth methods, CSP status, role config, lockout thresholds
+- Recent Auth Failures table: last 10 failures with timestamp, type, detail
+- Data sourced from `core/security_analyzer.clj` (`build-security-summary`)
+- Key files: `shell/dashboard/pages/security.clj`, `core/security_analyzer.clj`
+
+### AI REPL Commands
+
+Three new commands exposed via the `ai/` alias (namespace `boundary.ai.shell.repl`):
+
+```clojure
+(ai/review "path/to/file.clj")
+;; AI code review — reads source, sends to configured AI provider,
+;; prints annotated feedback with provider/model/token footer.
+;; Accepts a file path or an inline source string.
+
+(ai/test-ideas "path/to/file.clj")
+;; Suggest missing test cases — analyzes source + existing test file
+;; (auto-resolved from namespace), prints a list of uncovered scenarios.
+
+(ai/refactor-fcis 'boundary.product.core.validation)
+;; FC/IS refactoring guide — locates the source file from the namespace symbol,
+;; identifies violations, and prints a step-by-step migration plan.
+;; Also surfaced by (fix!) when a BND-601 violation is detected.
+```
+
+All three degrade gracefully when no AI service is configured.
+
+### `(new-feature!)` Workflow Automation
+
+Full end-to-end feature scaffolding from a single REPL call (defined in `dev/repl/user.clj`):
+
+```clojure
+(new-feature! "invoicing"
+  "Invoice module with customer, line-items, PDF export")
+```
+
+Steps executed interactively:
+
+1. **AI spec generation** — calls `ai-svc/scaffold-from-description`; falls back to basic scaffold if no AI service or parse failure
+2. **Confirm prompt** — prints proposed spec, asks `[y/N]` before proceeding
+3. **Scaffold** — `(scaffold! module-name {:fields fields})`
+4. **Integrate** — runs `bb scaffold integrate <module>` via `clojure.java.shell/sh`
+5. **Test** — runs `(test-module (keyword module-name))`
+
+The workflow converts AI field specs (vector of `{:name :type}` maps) into the HoneySQL-compatible map format expected by the scaffolder.

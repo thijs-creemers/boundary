@@ -50,7 +50,21 @@
   (testing "defaults unique to false"
     (let [json   "{\"module-name\": \"p\", \"entity\": \"P\", \"fields\": [{\"name\": \"x\", \"type\": \"string\"}]}"
           result (parsing/parse-module-spec json)]
-      (is (false? (:unique (first (:fields result))))))))
+      (is (false? (:unique (first (:fields result)))))))
+
+  (testing "preserves enum-values for enum fields"
+    (let [json   "{\"module-name\": \"p\", \"entity\": \"P\", \"fields\": [{\"name\": \"status\", \"type\": \"enum\", \"enum-values\": [\"active\", \"inactive\", \"archived\"]}]}"
+          result (parsing/parse-module-spec json)
+          field  (first (:fields result))]
+      (is (= "enum" (:type field)))
+      (is (= ["active" "inactive" "archived"] (:enum-values field)))))
+
+  (testing "enum field without enum-values gets nil"
+    (let [json   "{\"module-name\": \"p\", \"entity\": \"P\", \"fields\": [{\"name\": \"status\", \"type\": \"enum\"}]}"
+          result (parsing/parse-module-spec json)
+          field  (first (:fields result))]
+      (is (= "enum" (:type field)))
+      (is (nil? (:enum-values field))))))
 
 (deftest module-spec->cli-args-test
   ^:unit

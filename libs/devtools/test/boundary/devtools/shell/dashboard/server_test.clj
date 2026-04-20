@@ -22,7 +22,8 @@
 
 (deftest ^:integration dashboard-pages-return-200
   (doseq [path ["/dashboard" "/dashboard/routes" "/dashboard/requests"
-                "/dashboard/schemas" "/dashboard/db" "/dashboard/errors"]]
+                "/dashboard/schemas" "/dashboard/db" "/dashboard/errors"
+                "/dashboard/jobs" "/dashboard/config" "/dashboard/security"]]
     (testing (str "GET " path " returns 200")
       (let [resp (http/get (str "http://localhost:" *port* path) {:throw-exceptions false})]
         (is (= 200 (:status resp)))
