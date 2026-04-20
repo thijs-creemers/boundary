@@ -3,8 +3,7 @@
    and migration definitions.
    Delegates to scaffolder's template functions for context building
    to ensure generated output matches what generators expect."
-  (:require [clojure.string :as str]
-            [boundary.scaffolder.core.template :as tmpl]))
+  (:require [boundary.scaffolder.core.template :as tmpl]))
 
 (defn malli->sql-type
   "Map a Malli type spec to a SQL column type."
@@ -94,7 +93,7 @@
 (defn build-migration-spec
   "Convert a field spec to migration column definitions.
    Reads :optional and :unique from Malli props to set NOT NULL and UNIQUE."
-  [module-name fields]
+  [_module-name fields]
   (let [user-columns (mapv (fn [[field-name malli-spec]]
                              (let [props (when (and (vector? malli-spec)
                                                     (>= (count malli-spec) 2)

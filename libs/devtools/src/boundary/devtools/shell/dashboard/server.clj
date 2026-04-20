@@ -13,7 +13,6 @@
             [boundary.jobs.ports :as job-ports]
             [boundary.user.ports :as user-ports]
             [clojure.edn :as edn]
-            [clojure.string :as str]
             [integrant.core :as ig]
             [reitit.core]
             [reitit.ring :as ring]
@@ -169,8 +168,7 @@
                                section-key section-val (or new-val ""))}))}]
         ["/dashboard/fragments/config-apply"
          {:post (fn [req]
-                  (let [ctx    (build-context config)
-                        params (:params req)
+                  (let [params (:params req)
                         ;; Extract section key and new value from form params
                         [section-key new-val-str]
                         (or (some (fn [[k v]]
