@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-EPL--2.0-green)]()
 [![Clojars Project](https://img.shields.io/clojars/v/org.boundary-app/boundary-external.svg)](https://clojars.org/org.boundary-app/boundary-external)
 
-**Status:** Active (not production-ready)  
+**Status:** In development  
 **Version:** 1.0.1-alpha-13
 
 Adapters for external services: Twilio SMS/WhatsApp, SMTP transport, and IMAP mailbox.

@@ -29,7 +29,7 @@ Code generation tool for creating new Boundary modules following the Functional 
 
 ## Creating a New Project
 
-Use the `new` command to generate a starter project with full Integrant wiring, database setup, and a production-ready structure.
+Use the `new` command to generate a starter project with full Integrant wiring, database setup, and a complete FC/IS structure.
 
 ```bash
 clojure -M:dev -m boundary.scaffolder.shell.cli-entry new --name myapp

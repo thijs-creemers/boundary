@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-EPL--2.0-green)]()
 [![Clojars Project](https://img.shields.io/clojars/v/org.boundary-app/boundary-cache.svg)](https://clojars.org/org.boundary-app/boundary-cache)
 
-Production-grade distributed caching for the Boundary Framework, providing high-performance key-value storage with TTL, atomic operations, and pattern matching.
+Distributed caching for the Boundary Framework — Redis and in-memory backends with TTL, atomic operations, and pattern matching.
 
 ## Features
 

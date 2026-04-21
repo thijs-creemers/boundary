@@ -5,9 +5,9 @@
 [![License](https://img.shields.io/badge/license-EPL--2.0-green)]()
 [![Clojars Project](https://img.shields.io/clojars/v/org.boundary-app/boundary-realtime.svg)](https://clojars.org/org.boundary-app/boundary-realtime)
 
-**Production-ready WebSocket-based real-time communication for Boundary Framework**
+**WebSocket-based real-time communication for Boundary Framework**
 
-Similar to **Phoenix Channels** (Elixir) or **Socket.io** (Node.js), this module provides WebSocket support with:
+JWT-authenticated WebSocket support with:
 
 - ✅ JWT-based authentication
 - ✅ Point-to-point messaging (send to specific user)
