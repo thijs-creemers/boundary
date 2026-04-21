@@ -146,7 +146,7 @@ Core infrastructure for web applications: database, HTTP routing, pagination, se
 
 #### Middleware Integration
 
-The platform includes production-ready multi-tenant middleware that automatically resolves tenants and switches database schemas:
+The platform includes multi-tenant middleware that automatically resolves tenants and switches database schemas:
 
 ```clojure
 (ns myapp.routes

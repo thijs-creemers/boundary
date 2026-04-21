@@ -5,9 +5,9 @@
 [![License](https://img.shields.io/badge/license-EPL--2.0-green)]()
 [![Clojars Project](https://img.shields.io/clojars/v/org.boundary-app/boundary-jobs.svg)](https://clojars.org/org.boundary-app/boundary-jobs)
 
-**Production-ready asynchronous job processing for Boundary Framework**
+**Asynchronous job processing for Boundary Framework**
 
-Similar to **Sidekiq** (Ruby) or **Celery** (Python), this module provides robust background job processing with:
+Redis-backed background job processing with:
 
 - ✅ Distributed job queuing (Redis-backed)
 - ✅ Priority queues (critical, high, normal, low)
