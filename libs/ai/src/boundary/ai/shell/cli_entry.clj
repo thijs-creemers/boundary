@@ -71,35 +71,46 @@
                 {:base-url (or (System/getenv "OLLAMA_URL") "http://localhost:11434")
                  :model    (or (System/getenv "AI_MODEL") "qwen2.5-coder:7b")})}))
 
+(defn- provider-env-vars-set?
+  "Returns true when the developer has explicitly configured a provider via
+   environment variables, indicating their intent to use a specific backend."
+  []
+  (or (System/getenv "ANTHROPIC_API_KEY")
+      (System/getenv "OPENAI_BASE_URL")
+      (System/getenv "OPENAI_API_KEY")))
+
 (defn- make-service-from-config
   "Build an AI service from the Aero config file (resources/conf/{env}/config.edn).
 
-   Uses the same :boundary/ai-service config that the Integrant system uses,
-   including primary provider and fallback. Falls back to environment variables
-   only when boundary.config is not on the classpath (external consumers /
-   published jars) or when :boundary/ai-service is absent / :no-op. Errors
-   from an existing config (broken provider, bad keys, etc.) are not swallowed
-   so that misconfiguration surfaces immediately."
+   Priority:
+     1. Explicit provider env vars (ANTHROPIC_API_KEY, OPENAI_BASE_URL, OPENAI_API_KEY)
+        — developer intent always wins over project config.
+     2. :boundary/ai-service from config, when present and not :no-op.
+     3. make-service-from-env fallback (config absent, resources missing, or :no-op).
+
+   Errors from a present but broken config still surface immediately."
   []
-  (let [config-available? (try (require 'boundary.config) true
-                               (catch Exception _ false))]
-    (if-not config-available?
-      (make-service-from-env)
-      (let [load-config (resolve 'boundary.config/load-config)
-            config      (try (load-config)
-                             (catch Exception e
-                               ;; Config resources absent (external consumer without
-                               ;; resources/conf/<env>/config.edn) — fall back to env vars.
-                               ;; Any other exception (malformed config, bad provider key)
-                               ;; is re-thrown so misconfiguration surfaces immediately.
-                               (if (str/includes? (str (.getMessage e)) "not found")
-                                 nil
-                                 (throw e))))
-            ai-cfg      (when config (get-in config [:active :boundary/ai-service]))]
-        (if (and ai-cfg (not= (:provider ai-cfg) :no-op))
-          (let [init-key (get-method ig/init-key :boundary/ai-service)]
-            (init-key :boundary/ai-service ai-cfg))
-          (make-service-from-env))))))
+  (if (provider-env-vars-set?)
+    (make-service-from-env)
+    (let [config-available? (try (require 'boundary.config) true
+                                 (catch Exception _ false))]
+      (if-not config-available?
+        (make-service-from-env)
+        (let [load-config (resolve 'boundary.config/load-config)
+              config      (try (load-config)
+                               (catch Exception e
+                                 ;; Config resources absent (external consumer without
+                                 ;; resources/conf/<env>/config.edn) — fall back to env vars.
+                                 ;; Any other exception (malformed config, bad provider key)
+                                 ;; is re-thrown so misconfiguration surfaces immediately.
+                                 (if (str/includes? (str (.getMessage e)) "not found")
+                                   nil
+                                   (throw e))))
+              ai-cfg      (when config (get-in config [:active :boundary/ai-service]))]
+          (if (and ai-cfg (not= (:provider ai-cfg) :no-op))
+            (let [init-key (get-method ig/init-key :boundary/ai-service)]
+              (init-key :boundary/ai-service ai-cfg))
+            (make-service-from-env)))))))
 
 ;; =============================================================================
 ;; Subcommand: scaffold-ai
