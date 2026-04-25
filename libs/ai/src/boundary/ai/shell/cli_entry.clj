@@ -68,20 +68,22 @@
 
    Uses the same :boundary/ai-service config that the Integrant system uses,
    including primary provider and fallback. Falls back to environment variables
-   when boundary.config is not on the classpath (external consumers / published
-   jars), when :boundary/ai-service is absent, or when the provider is :no-op."
+   only when boundary.config is not on the classpath (external consumers /
+   published jars) or when :boundary/ai-service is absent / :no-op. Errors
+   from an existing config (broken provider, bad keys, etc.) are not swallowed
+   so that misconfiguration surfaces immediately."
   []
-  (try
-    (require 'boundary.config)
-    (let [load-config (resolve 'boundary.config/load-config)
-          config      (load-config)
-          ai-cfg      (get-in config [:active :boundary/ai-service])]
-      (if (and ai-cfg (not= (:provider ai-cfg) :no-op))
-        (let [init-key (get-method ig/init-key :boundary/ai-service)]
-          (init-key :boundary/ai-service ai-cfg))
-        (make-service-from-env)))
-    (catch Exception _
-      (make-service-from-env))))
+  (let [config-available? (try (require 'boundary.config) true
+                               (catch Exception _ false))]
+    (if-not config-available?
+      (make-service-from-env)
+      (let [load-config (resolve 'boundary.config/load-config)
+            config      (load-config)
+            ai-cfg      (get-in config [:active :boundary/ai-service])]
+        (if (and ai-cfg (not= (:provider ai-cfg) :no-op))
+          (let [init-key (get-method ig/init-key :boundary/ai-service)]
+            (init-key :boundary/ai-service ai-cfg))
+          (make-service-from-env))))))
 
 ;; =============================================================================
 ;; Subcommand: scaffold-ai
