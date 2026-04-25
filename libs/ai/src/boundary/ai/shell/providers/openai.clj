@@ -27,7 +27,10 @@
      Parsed JSON map or throws."
   [base-url api-key model messages opts]
   (let [timeout    (or (:timeout opts) 60000)
-        url        (str (str/replace base-url #"/v1/?$" "") "/v1/chat/completions")
+        url        (-> base-url
+                       (str/replace #"/v1/?$" "")
+                       (str/replace #"/$" "")
+                       (str "/v1/chat/completions"))
         body       (cond-> {:model    model
                             :messages (mapv (fn [{:keys [role content]}]
                                               {:role (name role) :content content})

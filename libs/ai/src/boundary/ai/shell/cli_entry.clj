@@ -86,8 +86,16 @@
     (if-not config-available?
       (make-service-from-env)
       (let [load-config (resolve 'boundary.config/load-config)
-            config      (load-config)
-            ai-cfg      (get-in config [:active :boundary/ai-service])]
+            config      (try (load-config)
+                             (catch Exception e
+                               ;; Config resources absent (external consumer without
+                               ;; resources/conf/<env>/config.edn) — fall back to env vars.
+                               ;; Any other exception (malformed config, bad provider key)
+                               ;; is re-thrown so misconfiguration surfaces immediately.
+                               (if (str/includes? (str (.getMessage e)) "not found")
+                                 nil
+                                 (throw e))))
+            ai-cfg      (when config (get-in config [:active :boundary/ai-service]))]
         (if (and ai-cfg (not= (:provider ai-cfg) :no-op))
           (let [init-key (get-method ig/init-key :boundary/ai-service)]
             (init-key :boundary/ai-service ai-cfg))
