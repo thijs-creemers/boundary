@@ -60,7 +60,7 @@ Run migrations before starting the server in production.
 
 == Docker
 
-A production-ready Dockerfile is included in the starter:
+A Dockerfile is included in the starter:
 
 [source,bash]
 ----

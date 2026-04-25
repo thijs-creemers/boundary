@@ -13,18 +13,20 @@
 ;; =============================================================================
 
 (defn- chat-completion-request!
-  "POST to OpenAI /v1/chat/completions and return parsed JSON response.
+  "POST to /v1/chat/completions and return parsed JSON response.
 
    Args:
-     api-key  - OpenAI API key string
+     base-url - API base URL string (e.g. \"https://api.openai.com\")
+     api-key  - API key string
      model    - model ID string
      messages - vector of {:role :content} maps
      opts     - map with :temperature :max-tokens
 
    Returns:
      Parsed JSON map or throws."
-  [api-key model messages opts]
+  [base-url api-key model messages opts]
   (let [timeout    (or (:timeout opts) 60000)
+        url        (str base-url "/v1/chat/completions")
         body       (cond-> {:model    model
                             :messages (mapv (fn [{:keys [role content]}]
                                               {:role (name role) :content content})
@@ -32,7 +34,7 @@
                      (:temperature opts) (assoc :temperature (:temperature opts))
                      (:response-format opts) (assoc :response_format (:response-format opts))
                      (:max-tokens opts)  (assoc :max_tokens (:max-tokens opts)))
-        response   (http/post "https://api.openai.com/v1/chat/completions"
+        response   (http/post url
                               {:body               (json/generate-string body)
                                :content-type       :json
                                :as                 :json
@@ -46,14 +48,14 @@
 ;; OpenAIProvider record
 ;; =============================================================================
 
-(defrecord OpenAIProvider [api-key model]
+(defrecord OpenAIProvider [base-url api-key model]
   ports/IAIProvider
 
   (complete [_ messages opts]
     (let [effective-model (or (:model opts) model "gpt-4o-mini")]
       (try
         (log/debug "openai complete" {:model effective-model :messages (count messages)})
-        (let [resp   (chat-completion-request! api-key effective-model messages opts)
+        (let [resp   (chat-completion-request! base-url api-key effective-model messages opts)
               text   (get-in resp [:choices 0 :message :content])
               tokens (get-in resp [:usage :total_tokens] 0)]
           {:text     text
@@ -93,12 +95,14 @@
 
    Args:
      config - map with:
-       :api-key - OpenAI API key string (required)
-       :model   - model ID (default \"gpt-4o-mini\")
+       :base-url - API base URL (default \"https://api.openai.com\")
+       :api-key  - API key string (required)
+       :model    - model ID (default \"gpt-4o-mini\")
 
    Returns:
      OpenAIProvider record."
-  [{:keys [api-key model]}]
+  [{:keys [base-url api-key model]}]
   (->OpenAIProvider
+   (or base-url "https://api.openai.com")
    api-key
    (or model "gpt-4o-mini")))

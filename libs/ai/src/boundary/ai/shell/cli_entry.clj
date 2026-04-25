@@ -10,16 +10,15 @@
      gen-tests <source-file>                   -- test generator
      sql <description>                         -- SQL copilot
      docs --module <path> --type <type>        -- documentation wizard"
-  (:require [boundary.ai.shell.providers.anthropic :as anthropic]
-            [boundary.ai.core.parsing :as parsing]
-            [boundary.ai.shell.providers.ollama :as ollama]
-            [boundary.ai.shell.providers.openai :as openai]
+  (:require [boundary.ai.core.parsing :as parsing]
+            [boundary.ai.shell.module-wiring]
             [boundary.ai.shell.service :as svc]
             [cheshire.core :as json]
             [clojure.java.io :as io]
             [clojure.java.shell :as sh]
             [clojure.string :as str]
-            [clojure.tools.cli :as cli])
+            [clojure.tools.cli :as cli]
+            [integrant.core :as ig])
   (:gen-class))
 
 ;; =============================================================================
@@ -37,28 +36,20 @@
 ;; Service bootstrap
 ;; =============================================================================
 
-(defn- make-service-from-env
-  "Build an AI service from environment variables.
+(defn- make-service-from-config
+  "Build an AI service from the Aero config file (resources/conf/{env}/config.edn).
 
-   Checks ANTHROPIC_API_KEY, OPENAI_API_KEY, OLLAMA_URL in that order.
-   Falls back to no-op if none are set."
+   Uses the same :boundary/ai-service config that the Integrant system uses,
+   including primary provider and fallback. This is the single source of truth."
   []
-  (cond
-    (System/getenv "ANTHROPIC_API_KEY")
-    {:provider (anthropic/create-anthropic-provider
-                {:api-key (System/getenv "ANTHROPIC_API_KEY")
-                 :model   (or (System/getenv "AI_MODEL") "claude-haiku-4-5-20251001")})}
-
-    (System/getenv "OPENAI_API_KEY")
-    {:provider (openai/create-openai-provider
-                {:api-key (System/getenv "OPENAI_API_KEY")
-                 :model   (or (System/getenv "AI_MODEL") "gpt-4o-mini")})}
-
-    :else
-    ;; Try Ollama (local)
-    {:provider (ollama/create-ollama-provider
-                {:base-url (or (System/getenv "OLLAMA_URL") "http://localhost:11434")
-                 :model    (or (System/getenv "AI_MODEL") "qwen2.5-coder:7b")})}))
+  (require 'boundary.config)
+  (let [load-config (resolve 'boundary.config/load-config)
+        config      (load-config)
+        ai-cfg      (get-in config [:active :boundary/ai-service])]
+    (if ai-cfg
+      (let [init-key (get-method ig/init-key :boundary/ai-service)]
+        (init-key :boundary/ai-service ai-cfg))
+      (throw (ex-info "No :boundary/ai-service found in active config" {})))))
 
 ;; =============================================================================
 ;; Subcommand: scaffold-ai
@@ -88,7 +79,7 @@
     (println)
     (println (dim (str "Parsing: " description)))
     (println)
-    (let [service (make-service-from-env)
+    (let [service (make-service-from-config)
           result  (svc/scaffold-from-description service description (:root options))]
       (if (:error result)
         (do (println (red (str "Error: " (:error result)))) (System/exit 1))
@@ -132,7 +123,7 @@
     (when (str/blank? stacktrace)
       (println (red "No stack trace provided. Pipe via stdin or use --file."))
       (System/exit 1))
-    (let [service (make-service-from-env)
+    (let [service (make-service-from-config)
           result  (svc/explain-error service stacktrace (:root options))]
       (if (:error result)
         (do (println (red (str "Error: " (:error result)))) (System/exit 1))
@@ -162,7 +153,7 @@
     (println (bold "\u2746 Boundary AI Test Generator"))
     (println (dim (str "Source: " source-path)))
     (println)
-    (let [service (make-service-from-env)
+    (let [service (make-service-from-config)
           result  (svc/generate-tests service source-path)]
       (if (:error result)
         (do (println (red (str "Error: " (:error result)))) (System/exit 1))
@@ -186,7 +177,7 @@
     (when (or (:help options) (str/blank? description))
       (println "Usage: bb ai sql <description>")
       (System/exit 0))
-    (let [service (make-service-from-env)
+    (let [service (make-service-from-config)
           result  (svc/sql-from-description service description (:root options))]
       (if (:error result)
         (do (println (red (str "Error: " (:error result)))) (System/exit 1))
@@ -220,7 +211,7 @@
           doc-types   (if (= (:type options) "all")
                         [:agents :openapi :readme]
                         [(keyword (:type options))])
-          service     (make-service-from-env)]
+          service     (make-service-from-config)]
       (doseq [doc-type doc-types]
         (println (bold (str "\u2746 Generating " (name doc-type) " for " module-path)))
         (println)
@@ -255,7 +246,7 @@
     (println)
     (println (dim (str "Parsing: " description)))
     (println)
-    (let [service (make-service-from-env)
+    (let [service (make-service-from-config)
           result  (svc/generate-admin-entity service description (:root options))]
       (if (:error result)
         (do (println (red (str "Error: " (:error result))))
@@ -301,7 +292,7 @@
     (when (or (:help options) (str/blank? description))
       (println "Usage: bb ai setup-parse <description>")
       (System/exit 0))
-    (let [service (make-service-from-env)
+    (let [service (make-service-from-config)
           result  (svc/parse-setup-description service description)]
       (if (:error result)
         (do (println (red (str "Error: " (:error result)))) (System/exit 1))

@@ -806,7 +806,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
   [_name]
   ";; bb.edn — Babashka task runner for this Boundary project
 ;; All tasks are provided by boundary-tools; no local scripts needed.
-{:deps {org.boundary-app/boundary-tools {:mvn/version \"1.0.0-alpha\"}}
+{:deps {org.boundary-app/boundary-tools {:mvn/version \"1.0.1-alpha-13\"}}
 
  :tasks
  {:requires ([boundary.tools.scaffold :as scaffold]

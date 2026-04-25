@@ -7,7 +7,7 @@ The bootstrap script is the quickest way to get started. It pulls down only the 
 
 [source,bash]
 ----
-curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary-starter/main/scripts/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary-starter/refs/heads/main/scripts/bootstrap.sh | bash
 cd boundary-starter
 bb setup
 ----
@@ -18,7 +18,7 @@ This gives you:
 * HTTP server on port 3000
 * A complete Integrant system
 * REPL-driven development workflow
-* A production-ready Dockerfile
+* A Dockerfile
 
 == Start the system
 

@@ -113,14 +113,25 @@
 ;; Run Clojure scaffolder
 ;; =============================================================================
 
+;; Must match libs/tools/build.clj version and libs/scaffolder/build.clj version.
+;; Update all three together on each release.
+(def ^:private scaffolder-version "1.0.1-alpha-13")
+
 (defn run-clojure!
-  "Shell out to the Clojure scaffolder CLI with given args. Streams output to terminal."
+  "Shell out to the Clojure scaffolder CLI with given args. Streams output to terminal.
+
+   Injects boundary-scaffolder via -Sdeps so the command works both in the Boundary
+   monorepo (where the source is on the classpath already) and in generated projects
+   (where only boundary-tools is a Babashka dep and the scaffolder is not on the JVM classpath)."
   [args]
   (println)
   (println (bold "Running scaffolder..."))
   (println)
   (try
-    (apply shell "clojure" "-M" "-m" "boundary.scaffolder.shell.cli-entry" args)
+    (apply shell "clojure"
+           "-Sdeps"
+           (str "{:deps {org.boundary-app/boundary-scaffolder {:mvn/version \"" scaffolder-version "\"}}}")
+           "-M" "-m" "boundary.scaffolder.shell.cli-entry" args)
     (catch Exception e
       (println (red (str "Scaffolder exited with error: " (.getMessage e))))
       (System/exit 1))))
