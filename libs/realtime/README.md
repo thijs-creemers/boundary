@@ -42,8 +42,8 @@ Similar to **Phoenix Channels** (Elixir) or **Socket.io** (Node.js), this module
 
 ```clojure
 ;; deps.edn
-{:deps {org.boundary-app/boundary-realtime {:mvn/version "1.0.1-alpha-13"}
-        org.boundary-app/boundary-user {:mvn/version "1.0.1-alpha-13"}}}
+{:deps {org.boundary-app/boundary-realtime {:mvn/version "1.0.1-alpha-14"}
+        org.boundary-app/boundary-user {:mvn/version "1.0.1-alpha-14"}}}
 ```
 
 ### 2. Create Realtime Service
@@ -187,7 +187,7 @@ ws.onclose = () => {
 
 ### Topic-Based Pub/Sub
 
-**NEW in v1.0.1-alpha-13**: Connections can subscribe to arbitrary topics and receive messages published to those topics.
+**NEW in v1.0.1-alpha-14**: Connections can subscribe to arbitrary topics and receive messages published to those topics.
 
 **Use Cases:**
 - **Chat rooms / Game lobbies**: `topic = "chat:general"`, `"lobby:game-123"`
@@ -891,7 +891,7 @@ Client Receives Message
 
 ## Limitations
 
-### Current Limitations (v1.0.1-alpha-13)
+### Current Limitations (v1.0.1-alpha-14)
 
 **Single-Server Deployment:**
 - ❌ **No multi-server support**: Connections tied to single server instance
@@ -1015,7 +1015,7 @@ clojure -M:test
 | `malli` | 0.20.0 | Schema validation |
 | `cheshire` | 6.1.0 | JSON encoding/decoding |
 | `tools.logging` | 1.3.1 | Logging |
-| `boundary/user` | 1.0.1-alpha-13 | JWT authentication (optional) |
+| `boundary/user` | 1.0.1-alpha-14 | JWT authentication (optional) |
 
 ---
 
@@ -1049,5 +1049,5 @@ Distributed under the Eclipse Public License version 2.0.
 ---
 
 **Last Updated**: 2026-02-04  
-**Version**: 1.0.1-alpha-13  
+**Version**: 1.0.1-alpha-14  
 **Status**: Production Ready (Single-Server)

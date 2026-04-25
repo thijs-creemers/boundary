@@ -12,6 +12,9 @@
      docs --module <path> --type <type>        -- documentation wizard"
   (:require [boundary.ai.core.parsing :as parsing]
             [boundary.ai.shell.module-wiring]
+            [boundary.ai.shell.providers.anthropic :as anthropic]
+            [boundary.ai.shell.providers.ollama :as ollama]
+            [boundary.ai.shell.providers.openai :as openai]
             [boundary.ai.shell.service :as svc]
             [cheshire.core :as json]
             [clojure.java.io :as io]
@@ -36,20 +39,41 @@
 ;; Service bootstrap
 ;; =============================================================================
 
+(defn- make-service-from-env
+  "Fall-back when no :boundary/ai-service is present in active config.
+   Checks ANTHROPIC_API_KEY, OPENAI_API_KEY, OLLAMA_URL in that order."
+  []
+  (cond
+    (System/getenv "ANTHROPIC_API_KEY")
+    {:provider (anthropic/create-anthropic-provider
+                {:api-key (System/getenv "ANTHROPIC_API_KEY")
+                 :model   (or (System/getenv "AI_MODEL") "claude-haiku-4-5-20251001")})}
+
+    (System/getenv "OPENAI_API_KEY")
+    {:provider (openai/create-openai-provider
+                {:api-key (System/getenv "OPENAI_API_KEY")
+                 :model   (or (System/getenv "AI_MODEL") "gpt-4o-mini")})}
+
+    :else
+    {:provider (ollama/create-ollama-provider
+                {:base-url (or (System/getenv "OLLAMA_URL") "http://localhost:11434")
+                 :model    (or (System/getenv "AI_MODEL") "qwen2.5-coder:7b")})}))
+
 (defn- make-service-from-config
   "Build an AI service from the Aero config file (resources/conf/{env}/config.edn).
 
    Uses the same :boundary/ai-service config that the Integrant system uses,
-   including primary provider and fallback. This is the single source of truth."
+   including primary provider and fallback. Falls back to environment variables
+   when :boundary/ai-service is absent (e.g. projects generated with --ai none)."
   []
   (require 'boundary.config)
   (let [load-config (resolve 'boundary.config/load-config)
         config      (load-config)
         ai-cfg      (get-in config [:active :boundary/ai-service])]
-    (if ai-cfg
+    (if (and ai-cfg (not= (:provider ai-cfg) :no-op))
       (let [init-key (get-method ig/init-key :boundary/ai-service)]
         (init-key :boundary/ai-service ai-cfg))
-      (throw (ex-info "No :boundary/ai-service found in active config" {})))))
+      (make-service-from-env))))
 
 ;; =============================================================================
 ;; Subcommand: scaffold-ai

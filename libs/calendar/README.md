@@ -22,7 +22,7 @@ Calendar and scheduling library for the [Boundary](https://github.com/thijs-cree
 Add to your `deps.edn`:
 
 ```clojure
-org.boundary-app/boundary-calendar {:mvn/version "1.0.1-alpha-13"}
+org.boundary-app/boundary-calendar {:mvn/version "1.0.1-alpha-14"}
 ```
 
 ## Quick Start

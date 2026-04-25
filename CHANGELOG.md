@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1-alpha-14] - 2026-04-25
+
+### Fixed
+
+- **`boundary-tools`**: `bb scaffold generate` now works in projects created from `boundary-starter` — scaffolder is injected via `-Sdeps` instead of requiring it on the classpath.
+- **`boundary-tools`**: `bb smoke-check` no longer fails in generated projects — removed monorepo-only `:docs-lint` alias from required checks.
+- **`boundary-tools`**: `bb check` linting no longer includes `libs/*/src libs/*/test` paths when not in the monorepo.
+- **`boundary-tools`**: `bb install-hooks` gives a friendly message instead of a Java exception when run outside a git repository.
+- **`boundary-tools`**: AI CLI (`bb ai`) falls back to environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OLLAMA_URL`) when config has `:provider :no-op` or no AI config is present.
+- **`boundary-ai`**: OpenAI-compatible base URLs with a trailing `/v1` suffix no longer produce double `/v1/v1/chat/completions` paths.
+- **`boundary-scaffolder`**: Generated `deps.edn` now includes `:clj-kondo` and `:migrate` aliases with all four database drivers (SQLite, PostgreSQL, H2, MySQL).
+
 ## [1.0.1-alpha-13] - 2026-04-20
 
 ### Added
@@ -857,10 +869,12 @@ Copyright 2024-2025 Thijs Creemers. All rights reserved.
 
 ## Version History
 
+- **[1.0.1-alpha-14]** - 2026-04-25: Bug fixes — scaffolder in generated projects, AI CLI env fallback, OpenAI double /v1 path, smoke-check / linting in non-monorepo projects
 - **[1.0.1-alpha-13]** - 2026-04-20: DX Vision (devtools, dev dashboard, REPL power, error experience, AI integration), LRU cache fix, CSP hardening
 - **[1.0.1-alpha-12]** - 2026-04-06: E2E testing, admin UI improvements, auth bug fixes, quality gates, version bump
 - **[1.0.0-alpha]** - 2026-02-14: Initial production release
 
+[1.0.1-alpha-14]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-14
 [1.0.1-alpha-13]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-13
 [1.0.1-alpha-12]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-12
 [1.0.0-alpha]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.0-alpha

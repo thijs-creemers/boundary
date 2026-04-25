@@ -6,6 +6,7 @@
   (:require [boundary.ai.ports :as ports]
             [cheshire.core :as json]
             [clj-http.client :as http]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]))
 
 ;; =============================================================================
@@ -26,7 +27,7 @@
      Parsed JSON map or throws."
   [base-url api-key model messages opts]
   (let [timeout    (or (:timeout opts) 60000)
-        url        (str base-url "/v1/chat/completions")
+        url        (str (str/replace base-url #"/v1$" "") "/v1/chat/completions")
         body       (cond-> {:model    model
                             :messages (mapv (fn [{:keys [role content]}]
                                               {:role (name role) :content content})

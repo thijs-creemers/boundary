@@ -7,7 +7,7 @@ The bootstrap script is the quickest way to get started. It pulls down only the 
 
 [source,bash]
 ----
-curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary-starter/refs/heads/main/scripts/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary-starter/main/scripts/bootstrap.sh | bash
 cd boundary-starter
 bb setup
 ----

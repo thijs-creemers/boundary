@@ -79,7 +79,7 @@
 ;; smoke-check — verify deps.edn aliases and key tool entrypoints
 ;; =============================================================================
 
-(def ^:private required-aliases [:migrate :test :repl-clj :docs-lint])
+(def ^:private required-aliases [:migrate :test :repl-clj])
 
 (defn- load-deps-aliases []
   (let [deps-file (io/file root-dir "deps.edn")
@@ -108,7 +108,6 @@
   (check-aliases)
   (run-check "Checking migrate CLI entrypoint" "clojure" "-M:migrate" "--help")
   (run-check "Checking test runner entrypoint" "clojure" "-M:test" "--help")
-  (run-check "Running docs lint" "clojure" "-M:docs-lint")
   (run-check "Running AGENTS link check" "bb" "check-links")
   (println "[smoke] Command smoke checks passed"))
 
@@ -158,8 +157,12 @@
 (defn install-hooks
   "Configure git hooks path to .githooks."
   []
-  (shell "git" "config" "core.hooksPath" ".githooks")
-  (println "Configured git hooks path: .githooks"))
+  (try
+    (shell "git" "config" "core.hooksPath" ".githooks")
+    (println "Configured git hooks path: .githooks")
+    (catch Exception _
+      (println "Warning: could not configure git hooks — not in a git repository.")
+      (println "  Run 'git init' first, then run 'bb install-hooks' again."))))
 
 ;; =============================================================================
 ;; Entry point (for direct invocation)
