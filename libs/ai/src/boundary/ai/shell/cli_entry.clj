@@ -64,15 +64,19 @@
 
    Uses the same :boundary/ai-service config that the Integrant system uses,
    including primary provider and fallback. Falls back to environment variables
-   when :boundary/ai-service is absent (e.g. projects generated with --ai none)."
+   when boundary.config is not on the classpath (external consumers / published
+   jars), when :boundary/ai-service is absent, or when the provider is :no-op."
   []
-  (require 'boundary.config)
-  (let [load-config (resolve 'boundary.config/load-config)
-        config      (load-config)
-        ai-cfg      (get-in config [:active :boundary/ai-service])]
-    (if (and ai-cfg (not= (:provider ai-cfg) :no-op))
-      (let [init-key (get-method ig/init-key :boundary/ai-service)]
-        (init-key :boundary/ai-service ai-cfg))
+  (try
+    (require 'boundary.config)
+    (let [load-config (resolve 'boundary.config/load-config)
+          config      (load-config)
+          ai-cfg      (get-in config [:active :boundary/ai-service])]
+      (if (and ai-cfg (not= (:provider ai-cfg) :no-op))
+        (let [init-key (get-method ig/init-key :boundary/ai-service)]
+          (init-key :boundary/ai-service ai-cfg))
+        (make-service-from-env)))
+    (catch Exception _
       (make-service-from-env))))
 
 ;; =============================================================================
