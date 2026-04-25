@@ -131,14 +131,16 @@
           (println (cyan "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518"))
           (println)
           (if (or (:yes options) (confirm? "Generate this module?"))
-            (let [cli-args (parsing/module-spec->cli-args result)
-                  sdeps    (str "{:deps {org.boundary-app/boundary-scaffolder "
-                                "{:mvn/version \"" scaffolder-version "\"}}}")
-                  {:keys [exit out err]} (apply sh/sh "clojure"
-                                                "-Sdeps" sdeps
-                                                "-M" "-m"
-                                                "boundary.scaffolder.shell.cli-entry"
-                                                cli-args)]
+            (let [cli-args     (parsing/module-spec->cli-args result)
+                  in-monorepo? (.exists (io/file "libs/scaffolder"))
+                  base-cmd     (if in-monorepo?
+                                 ["clojure" "-M" "-m" "boundary.scaffolder.shell.cli-entry"]
+                                 ["clojure"
+                                  "-Sdeps"
+                                  (str "{:deps {org.boundary-app/boundary-scaffolder "
+                                       "{:mvn/version \"" scaffolder-version "\"}}}")
+                                  "-M" "-m" "boundary.scaffolder.shell.cli-entry"])
+                  {:keys [exit out err]} (apply sh/sh (concat base-cmd cli-args))]
               (when (seq out) (print out))
               (when (seq err) (binding [*out* *err*] (print err)))
               (System/exit exit))

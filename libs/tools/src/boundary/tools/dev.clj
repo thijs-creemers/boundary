@@ -172,11 +172,13 @@
     (shell "git" "config" "core.hooksPath" ".githooks")
     (println "Configured git hooks path: .githooks")
     (catch Exception e
-      (if (str/includes? (str (.getMessage e)) "not a git repository")
-        (do
-          (println "Warning: could not configure git hooks — not in a git repository.")
-          (println "  Run 'git init' first, then run 'bb install-hooks' again."))
-        (throw e)))))
+      (let [err (str (get (ex-data e) :err "") " " (.getMessage e))]
+        (if (or (str/includes? err "not in a git directory")
+                (str/includes? err "not a git repository"))
+          (do
+            (println "Warning: could not configure git hooks — not in a git repository.")
+            (println "  Run 'git init' first, then run 'bb install-hooks' again."))
+          (throw e))))))
 
 ;; =============================================================================
 ;; Entry point (for direct invocation)

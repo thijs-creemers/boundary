@@ -15,6 +15,7 @@
 
 (ns boundary.tools.scaffold
   (:require [boundary.tools.ansi :as ansi :refer [bold green cyan red yellow dim]]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [babashka.process :refer [shell]]))
 
@@ -120,18 +121,23 @@
 (defn run-clojure!
   "Shell out to the Clojure scaffolder CLI with given args. Streams output to terminal.
 
-   Injects boundary-scaffolder via -Sdeps so the command works both in the Boundary
-   monorepo (where the source is on the classpath already) and in generated projects
-   (where only boundary-tools is a Babashka dep and the scaffolder is not on the JVM classpath)."
+   In generated projects (no libs/scaffolder directory), injects boundary-scaffolder
+   via -Sdeps so the namespace is resolvable. In the monorepo, libs/scaffolder/src is
+   already on the classpath, so -Sdeps is skipped to avoid forcing Maven resolution of
+   an artifact that may not yet be published."
   [args]
   (println)
   (println (bold "Running scaffolder..."))
   (println)
   (try
-    (apply shell "clojure"
-           "-Sdeps"
-           (str "{:deps {org.boundary-app/boundary-scaffolder {:mvn/version \"" scaffolder-version "\"}}}")
-           "-M" "-m" "boundary.scaffolder.shell.cli-entry" args)
+    (let [in-monorepo? (.exists (io/file "libs/scaffolder"))
+          base-cmd     (if in-monorepo?
+                         ["clojure" "-M" "-m" "boundary.scaffolder.shell.cli-entry"]
+                         ["clojure"
+                          "-Sdeps"
+                          (str "{:deps {org.boundary-app/boundary-scaffolder {:mvn/version \"" scaffolder-version "\"}}}")
+                          "-M" "-m" "boundary.scaffolder.shell.cli-entry"])]
+      (apply shell (concat base-cmd args)))
     (catch Exception e
       (println (red (str "Scaffolder exited with error: " (.getMessage e))))
       (System/exit 1))))
