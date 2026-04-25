@@ -35,6 +35,10 @@
 (defn- yellow [s] (str "\033[33m" s "\033[0m"))
 (defn- dim   [s] (str "\033[2m"  s "\033[0m"))
 
+;; Must match libs/tools/src/boundary/tools/scaffold.clj scaffolder-version.
+;; Update both together on each release.
+(def ^:private scaffolder-version "1.0.1-alpha-14")
+
 ;; =============================================================================
 ;; Service bootstrap
 ;; =============================================================================
@@ -126,7 +130,11 @@
           (println)
           (if (or (:yes options) (confirm? "Generate this module?"))
             (let [cli-args (parsing/module-spec->cli-args result)
-                  {:keys [exit out err]} (apply sh/sh "clojure" "-M" "-m"
+                  sdeps    (str "{:deps {org.boundary-app/boundary-scaffolder "
+                                "{:mvn/version \"" scaffolder-version "\"}}}")
+                  {:keys [exit out err]} (apply sh/sh "clojure"
+                                                "-Sdeps" sdeps
+                                                "-M" "-m"
                                                 "boundary.scaffolder.shell.cli-entry"
                                                 cli-args)]
               (when (seq out) (print out))

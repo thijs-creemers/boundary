@@ -79,7 +79,12 @@
 ;; smoke-check — verify deps.edn aliases and key tool entrypoints
 ;; =============================================================================
 
-(def ^:private required-aliases [:migrate :test :repl-clj])
+;; Aliases every Boundary project must have.
+(def ^:private required-aliases [:migrate :test])
+
+;; The REPL alias name differs between the monorepo (:repl-clj) and generated
+;; projects (:repl). Accept either so smoke-check works in both contexts.
+(def ^:private repl-aliases #{:repl :repl-clj})
 
 (defn- load-deps-aliases []
   (let [deps-file (io/file root-dir "deps.edn")
@@ -96,7 +101,13 @@
         (do
           (binding [*out* *err*]
             (println (str "[smoke] Missing required alias in deps.edn: " a)))
-          (System/exit 1))))))
+          (System/exit 1))))
+    (if-let [found (first (filter known repl-aliases))]
+      (println (str "[smoke] OK alias " found))
+      (do
+        (binding [*out* *err*]
+          (println "[smoke] Missing required alias in deps.edn: :repl or :repl-clj"))
+        (System/exit 1)))))
 
 (defn- run-check [label & cmd]
   (println (str "[smoke] " label))
