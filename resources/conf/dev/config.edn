@@ -132,7 +132,7 @@
   {:provider :openai
    :model    #or [#env AI_MODEL "gemma-4-26b-a4b-it-4bit"]
    :base-url #or [#env OPENAI_BASE_URL "http://localhost:8000"]
-   :api-key  #or [#env OPENAI_BASE_URL_API_KEY "omlx-9999"]
+   :api-key  #or [#env OPENAI_API_KEY "omlx-9999"]
    :fallback {:provider :openai
               :model    "gpt-5.4-mini"
               :api-key  #env OPENAI_API_KEY}}

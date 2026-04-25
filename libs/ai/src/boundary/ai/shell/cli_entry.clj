@@ -45,13 +45,21 @@
 
 (defn- make-service-from-env
   "Fall-back when no :boundary/ai-service is present in active config.
-   Checks ANTHROPIC_API_KEY, OPENAI_API_KEY, OLLAMA_URL in that order."
+   Checks ANTHROPIC_API_KEY, OPENAI_BASE_URL, OPENAI_API_KEY, OLLAMA_URL in that order.
+   OPENAI_BASE_URL covers OpenAI-compatible endpoints (oMLX, LM Studio, etc.) that may
+   not require a real API key."
   []
   (cond
     (System/getenv "ANTHROPIC_API_KEY")
     {:provider (anthropic/create-anthropic-provider
                 {:api-key (System/getenv "ANTHROPIC_API_KEY")
                  :model   (or (System/getenv "AI_MODEL") "claude-haiku-4-5-20251001")})}
+
+    (System/getenv "OPENAI_BASE_URL")
+    {:provider (openai/create-openai-provider
+                {:base-url (System/getenv "OPENAI_BASE_URL")
+                 :api-key  (or (System/getenv "OPENAI_API_KEY") "no-key")
+                 :model    (or (System/getenv "AI_MODEL") "gpt-4o-mini")})}
 
     (System/getenv "OPENAI_API_KEY")
     {:provider (openai/create-openai-provider
