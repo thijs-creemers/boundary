@@ -73,6 +73,7 @@
   "Detect current environment from various sources"
   []
   (or (System/getProperty "env")
+      (System/getenv "BND_ENV")
       (System/getenv "ENV")
       (System/getenv "ENVIRONMENT")
       *default-environment*))

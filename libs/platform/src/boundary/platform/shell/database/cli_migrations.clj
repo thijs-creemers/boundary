@@ -211,7 +211,9 @@
       :else
       (let [status (case command
                      "migrate"  (cmd-migrate options)
+                     "up"       (cmd-migrate options)   ; common alias
                      "rollback" (cmd-rollback options)
+                     "down"     (cmd-rollback options)  ; common alias
                      "status"   (cmd-status options)
                      "create"   (cmd-create (first command-args) options)
                      "reset"    (cmd-reset options)
