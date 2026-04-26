@@ -24,7 +24,7 @@ Every library follows the same FC/IS structure, so a Boundary codebase feels fam
 bb scaffold ai "product module with name, price, stock"
 ----
 
-The scaffolder generates production-ready modules in seconds. The admin UI can build CRUD screens from your schema, observability is built in, and declarative interceptors keep the plumbing out of your way.
+The scaffolder generates fully structured modules in seconds. The admin UI can build CRUD screens from your schema, observability is built in, and declarative interceptors keep the plumbing out of your way.
 
 === Zero lock-in
 

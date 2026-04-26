@@ -10,8 +10,9 @@
      gen-tests <source-file>                   -- test generator
      sql <description>                         -- SQL copilot
      docs --module <path> --type <type>        -- documentation wizard"
-  (:require [boundary.ai.shell.providers.anthropic :as anthropic]
-            [boundary.ai.core.parsing :as parsing]
+  (:require [boundary.ai.core.parsing :as parsing]
+            [boundary.ai.shell.module-wiring]
+            [boundary.ai.shell.providers.anthropic :as anthropic]
             [boundary.ai.shell.providers.ollama :as ollama]
             [boundary.ai.shell.providers.openai :as openai]
             [boundary.ai.shell.service :as svc]
@@ -19,7 +20,8 @@
             [clojure.java.io :as io]
             [clojure.java.shell :as sh]
             [clojure.string :as str]
-            [clojure.tools.cli :as cli])
+            [clojure.tools.cli :as cli]
+            [integrant.core :as ig])
   (:gen-class))
 
 ;; =============================================================================
@@ -33,15 +35,19 @@
 (defn- yellow [s] (str "\033[33m" s "\033[0m"))
 (defn- dim   [s] (str "\033[2m"  s "\033[0m"))
 
+;; Must match libs/tools/src/boundary/tools/scaffold.clj scaffolder-version.
+;; Update both together on each release.
+(def ^:private scaffolder-version "1.0.1-alpha-14")
+
 ;; =============================================================================
 ;; Service bootstrap
 ;; =============================================================================
 
 (defn- make-service-from-env
-  "Build an AI service from environment variables.
-
-   Checks ANTHROPIC_API_KEY, OPENAI_API_KEY, OLLAMA_URL in that order.
-   Falls back to no-op if none are set."
+  "Fall-back when no :boundary/ai-service is present in active config.
+   Checks ANTHROPIC_API_KEY, OPENAI_BASE_URL, OPENAI_API_KEY, OLLAMA_URL in that order.
+   OPENAI_BASE_URL covers OpenAI-compatible endpoints (oMLX, LM Studio, etc.) that may
+   not require a real API key."
   []
   (cond
     (System/getenv "ANTHROPIC_API_KEY")
@@ -49,16 +55,63 @@
                 {:api-key (System/getenv "ANTHROPIC_API_KEY")
                  :model   (or (System/getenv "AI_MODEL") "claude-haiku-4-5-20251001")})}
 
+    (System/getenv "OPENAI_BASE_URL")
+    {:provider (openai/create-openai-provider
+                {:base-url (System/getenv "OPENAI_BASE_URL")
+                 :api-key  (or (System/getenv "OPENAI_API_KEY") "no-key")
+                 :model    (or (System/getenv "AI_MODEL") "gpt-4o-mini")})}
+
     (System/getenv "OPENAI_API_KEY")
     {:provider (openai/create-openai-provider
                 {:api-key (System/getenv "OPENAI_API_KEY")
                  :model   (or (System/getenv "AI_MODEL") "gpt-4o-mini")})}
 
     :else
-    ;; Try Ollama (local)
     {:provider (ollama/create-ollama-provider
                 {:base-url (or (System/getenv "OLLAMA_URL") "http://localhost:11434")
                  :model    (or (System/getenv "AI_MODEL") "qwen2.5-coder:7b")})}))
+
+(defn- provider-env-vars-set?
+  "Returns true when the developer has explicitly configured a provider via
+   environment variables, indicating their intent to use a specific backend."
+  []
+  (or (System/getenv "ANTHROPIC_API_KEY")
+      (System/getenv "OPENAI_BASE_URL")
+      (System/getenv "OPENAI_API_KEY")))
+
+(defn- make-service-from-config
+  "Build an AI service from the Aero config file (resources/conf/{env}/config.edn).
+
+   Priority:
+     1. Explicit provider env vars (ANTHROPIC_API_KEY, OPENAI_BASE_URL, OPENAI_API_KEY)
+        — developer intent always wins over project config.
+     2. :boundary/ai-service from config, when present and not :no-op.
+     3. make-service-from-env fallback (config absent, resources missing, or :no-op).
+
+   Errors from a present but broken config still surface immediately."
+  []
+  (if (provider-env-vars-set?)
+    (make-service-from-env)
+    (let [config-available? (try (require 'boundary.config) true
+                                 (catch Exception _ false))]
+      (if-not config-available?
+        (make-service-from-env)
+        (let [load-config (resolve 'boundary.config/load-config)
+              config      (try (load-config)
+                               (catch Exception e
+                                 ;; Config resources absent (external consumer without
+                                 ;; resources/conf/<env>/config.edn) — fall back to env vars.
+                                 ;; Pin to the exact message so Aero env-var resolution
+                                 ;; errors ("Environment variable not found: X") are NOT
+                                 ;; swallowed — those indicate a broken config that should
+                                 ;; surface immediately.
+                                 (if (= (str (.getMessage e)) "Configuration file not found")
+                                   nil
+                                   (throw e))))
+              ai-cfg      (when config (get-in config [:active :boundary/ai-service]))]
+          (if (and ai-cfg (not= (:provider ai-cfg) :no-op))
+            (ig/init-key :boundary/ai-service ai-cfg)
+            (make-service-from-env)))))))
 
 ;; =============================================================================
 ;; Subcommand: scaffold-ai
@@ -88,7 +141,7 @@
     (println)
     (println (dim (str "Parsing: " description)))
     (println)
-    (let [service (make-service-from-env)
+    (let [service (make-service-from-config)
           result  (svc/scaffold-from-description service description (:root options))]
       (if (:error result)
         (do (println (red (str "Error: " (:error result)))) (System/exit 1))
@@ -106,10 +159,16 @@
           (println (cyan "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518"))
           (println)
           (if (or (:yes options) (confirm? "Generate this module?"))
-            (let [cli-args (parsing/module-spec->cli-args result)
-                  {:keys [exit out err]} (apply sh/sh "clojure" "-M" "-m"
-                                                "boundary.scaffolder.shell.cli-entry"
-                                                cli-args)]
+            (let [cli-args     (parsing/module-spec->cli-args result)
+                  in-monorepo? (.exists (io/file "libs/scaffolder"))
+                  base-cmd     (if in-monorepo?
+                                 ["clojure" "-M" "-m" "boundary.scaffolder.shell.cli-entry"]
+                                 ["clojure"
+                                  "-Sdeps"
+                                  (str "{:deps {org.boundary-app/boundary-scaffolder "
+                                       "{:mvn/version \"" scaffolder-version "\"}}}")
+                                  "-M" "-m" "boundary.scaffolder.shell.cli-entry"])
+                  {:keys [exit out err]} (apply sh/sh (concat base-cmd cli-args))]
               (when (seq out) (print out))
               (when (seq err) (binding [*out* *err*] (print err)))
               (System/exit exit))
@@ -132,7 +191,7 @@
     (when (str/blank? stacktrace)
       (println (red "No stack trace provided. Pipe via stdin or use --file."))
       (System/exit 1))
-    (let [service (make-service-from-env)
+    (let [service (make-service-from-config)
           result  (svc/explain-error service stacktrace (:root options))]
       (if (:error result)
         (do (println (red (str "Error: " (:error result)))) (System/exit 1))
@@ -162,7 +221,7 @@
     (println (bold "\u2746 Boundary AI Test Generator"))
     (println (dim (str "Source: " source-path)))
     (println)
-    (let [service (make-service-from-env)
+    (let [service (make-service-from-config)
           result  (svc/generate-tests service source-path)]
       (if (:error result)
         (do (println (red (str "Error: " (:error result)))) (System/exit 1))
@@ -186,7 +245,7 @@
     (when (or (:help options) (str/blank? description))
       (println "Usage: bb ai sql <description>")
       (System/exit 0))
-    (let [service (make-service-from-env)
+    (let [service (make-service-from-config)
           result  (svc/sql-from-description service description (:root options))]
       (if (:error result)
         (do (println (red (str "Error: " (:error result)))) (System/exit 1))
@@ -220,7 +279,7 @@
           doc-types   (if (= (:type options) "all")
                         [:agents :openapi :readme]
                         [(keyword (:type options))])
-          service     (make-service-from-env)]
+          service     (make-service-from-config)]
       (doseq [doc-type doc-types]
         (println (bold (str "\u2746 Generating " (name doc-type) " for " module-path)))
         (println)
@@ -255,7 +314,7 @@
     (println)
     (println (dim (str "Parsing: " description)))
     (println)
-    (let [service (make-service-from-env)
+    (let [service (make-service-from-config)
           result  (svc/generate-admin-entity service description (:root options))]
       (if (:error result)
         (do (println (red (str "Error: " (:error result))))
@@ -301,7 +360,7 @@
     (when (or (:help options) (str/blank? description))
       (println "Usage: bb ai setup-parse <description>")
       (System/exit 0))
-    (let [service (make-service-from-env)
+    (let [service (make-service-from-config)
           result  (svc/parse-setup-description service description)]
       (if (:error result)
         (do (println (red (str "Error: " (:error result)))) (System/exit 1))

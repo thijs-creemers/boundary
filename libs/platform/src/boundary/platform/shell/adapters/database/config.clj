@@ -73,6 +73,7 @@
   "Detect current environment from various sources"
   []
   (or (System/getProperty "env")
+      (System/getenv "BND_ENV")
       (System/getenv "ENV")
       (System/getenv "ENVIRONMENT")
       *default-environment*))
@@ -334,7 +335,7 @@
     (println "\n=== Database Configuration Summary ===")
     (println "Environment:" (:environment summary))
     (println "Active Adapters:" (:active-adapters summary))
-    (println "Active Configs:" (count (:active-count summary)))
+    (println "Active Configs:" (:active-count summary))
     (println "Inactive Configs:" (:inactive-count summary))
     (println "Validation:" (if (get-in summary [:validation :valid?]) "✅ VALID" "❌ INVALID"))
 

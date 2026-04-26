@@ -13,6 +13,7 @@
 (ns boundary.tools.check
   (:require [boundary.tools.ansi :refer [bold green red dim]]
             [babashka.process :as process]
+            [clojure.java.io :as io]
             [clojure.string :as str]))
 
 ;; =============================================================================
@@ -31,7 +32,9 @@
     :cmd   ["bb" "check:placeholder-tests"]}
    {:id    :linting
     :label "Linting"
-    :cmd   ["clojure" "-M:clj-kondo" "--lint" "src" "test" "libs/*/src" "libs/*/test"]}
+    :cmd   (into ["clojure" "-M:clj-kondo" "--lint" "src" "test"]
+                 (when (.exists (io/file "libs"))
+                   ["libs/*/src" "libs/*/test"]))}
    {:id    :doctor
     :label "Config doctor"
     :cmd   ["bb" "doctor"]}])

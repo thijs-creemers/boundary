@@ -79,7 +79,12 @@
 ;; smoke-check — verify deps.edn aliases and key tool entrypoints
 ;; =============================================================================
 
-(def ^:private required-aliases [:migrate :test :repl-clj :docs-lint])
+;; Aliases every Boundary project must have.
+(def ^:private required-aliases [:migrate :test])
+
+;; The REPL alias name differs between the monorepo (:repl-clj) and generated
+;; projects (:repl). Accept either so smoke-check works in both contexts.
+(def ^:private repl-aliases #{:repl :repl-clj})
 
 (defn- load-deps-aliases []
   (let [deps-file (io/file root-dir "deps.edn")
@@ -96,7 +101,13 @@
         (do
           (binding [*out* *err*]
             (println (str "[smoke] Missing required alias in deps.edn: " a)))
-          (System/exit 1))))))
+          (System/exit 1))))
+    (if-let [found (first (filter known repl-aliases))]
+      (println (str "[smoke] OK alias " found))
+      (do
+        (binding [*out* *err*]
+          (println "[smoke] Missing required alias in deps.edn: :repl or :repl-clj"))
+        (System/exit 1)))))
 
 (defn- run-check [label & cmd]
   (println (str "[smoke] " label))
@@ -108,7 +119,6 @@
   (check-aliases)
   (run-check "Checking migrate CLI entrypoint" "clojure" "-M:migrate" "--help")
   (run-check "Checking test runner entrypoint" "clojure" "-M:test" "--help")
-  (run-check "Running docs lint" "clojure" "-M:docs-lint")
   (run-check "Running AGENTS link check" "bb" "check-links")
   (println "[smoke] Command smoke checks passed"))
 
@@ -158,8 +168,17 @@
 (defn install-hooks
   "Configure git hooks path to .githooks."
   []
-  (shell "git" "config" "core.hooksPath" ".githooks")
-  (println "Configured git hooks path: .githooks"))
+  (try
+    (shell "git" "config" "core.hooksPath" ".githooks")
+    (println "Configured git hooks path: .githooks")
+    (catch Exception e
+      (let [err (str (get (ex-data e) :err "") " " (.getMessage e))]
+        (if (or (str/includes? err "not in a git directory")
+                (str/includes? err "not a git repository"))
+          (do
+            (println "Warning: could not configure git hooks — not in a git repository.")
+            (println "  Run 'git init' first, then run 'bb install-hooks' again."))
+          (throw e))))))
 
 ;; =============================================================================
 ;; Entry point (for direct invocation)

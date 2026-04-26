@@ -786,7 +786,19 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
   
   :build
   {:deps {io.github.clojure/tools.build {:mvn/version \"0.10.9\"}}
-   :ns-default build}}}
+   :ns-default build}
+
+  :clj-kondo
+  {:replace-deps {clj-kondo/clj-kondo {:mvn/version \"2026.04.15\"}}
+   :main-opts    [\"-m\" \"clj-kondo.main\"]}
+
+  :migrate
+  {:main-opts  [\"-m\" \"boundary.platform.shell.database.cli-migrations\"]
+   :extra-deps {org.boundary-app/boundary-platform {:mvn/version \"1.0.1-alpha-14\"}
+                org.xerial/sqlite-jdbc             {:mvn/version \"3.51.0.0\"}
+                org.postgresql/postgresql          {:mvn/version \"42.7.8\"}
+                com.h2database/h2                  {:mvn/version \"2.4.240\"}
+                com.mysql/mysql-connector-j        {:mvn/version \"9.6.0\"}}}}}
 "
           name))
 
@@ -806,7 +818,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
   [_name]
   ";; bb.edn — Babashka task runner for this Boundary project
 ;; All tasks are provided by boundary-tools; no local scripts needed.
-{:deps {org.boundary-app/boundary-tools {:mvn/version \"1.0.0-alpha\"}}
+{:deps {org.boundary-app/boundary-tools {:mvn/version \"1.0.1-alpha-14\"}}
 
  :tasks
  {:requires ([boundary.tools.scaffold :as scaffold]

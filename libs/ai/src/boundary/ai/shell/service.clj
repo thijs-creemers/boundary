@@ -194,7 +194,10 @@
          result       (resolve-provider-json service messages "SQLResponse" opts)]
      (if (:error result)
        result
-       (parsing/parse-sql-response (pr-str (:data result)))))))
+       (let [data (:data result)]
+         {:honeysql    (or (:honeysql data) (get data :honeySQL) "")
+          :explanation (or (:explanation data) "")
+          :raw-sql     (or (:raw-sql data) (get data :rawSql) "")})))))
 
 ;; =============================================================================
 ;; Feature 5: Documentation Wizard

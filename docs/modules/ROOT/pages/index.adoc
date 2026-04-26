@@ -1,14 +1,13 @@
 = Boundary Framework
 :description: Batteries-included Clojure web framework enforcing the Functional Core / Imperative Shell pattern.
 
-**Boundary** brings Django-style productivity and Rails-style conventions to Clojure, with functional programming rigor.
-It is a batteries-included web framework that enforces the *Functional Core / Imperative Shell (FC/IS)* pattern:
+**Boundary** is a batteries-included Clojure web framework that enforces the *Functional Core / Imperative Shell (FC/IS)* pattern:
 pure business logic in `core/`, side effects in `shell/`, and clean interfaces through `ports.clj` protocols.
 
 == What Boundary provides
 
 * *22 independently publishable libraries* on Clojars — use only what you need
-* *Scaffolder* that generates production-ready modules (entity + routes + tests) in seconds
+* *Scaffolder* that generates fully structured modules (entity + routes + tests) in seconds
 * *Auto-generated admin UI* from your schema — no manual forms
 * *Built-in observability*, RFC 5988 pagination, and declarative interceptors
 * *Framework-aware AI tooling* — NL scaffolding, error explainer, test generator, SQL copilot
@@ -41,7 +40,7 @@ pure business logic in `core/`, side effects in `shell/`, and clean interfaces t
 [source,bash]
 ----
 # Start a new project
-curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary-starter/main/scripts/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary-starter/refs/heads/main/scripts/bootstrap.sh | bash
 cd boundary-starter && bb setup
 
 # REPL-driven development

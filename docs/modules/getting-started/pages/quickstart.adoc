@@ -18,7 +18,7 @@ This gives you:
 * HTTP server on port 3000
 * A complete Integrant system
 * REPL-driven development workflow
-* A production-ready Dockerfile
+* A Dockerfile
 
 == Start the system
 
