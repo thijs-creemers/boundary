@@ -101,15 +101,16 @@
                                (catch Exception e
                                  ;; Config resources absent (external consumer without
                                  ;; resources/conf/<env>/config.edn) — fall back to env vars.
-                                 ;; Any other exception (malformed config, bad provider key)
-                                 ;; is re-thrown so misconfiguration surfaces immediately.
-                                 (if (str/includes? (str (.getMessage e)) "not found")
+                                 ;; Pin to the exact message so Aero env-var resolution
+                                 ;; errors ("Environment variable not found: X") are NOT
+                                 ;; swallowed — those indicate a broken config that should
+                                 ;; surface immediately.
+                                 (if (= (str (.getMessage e)) "Configuration file not found")
                                    nil
                                    (throw e))))
               ai-cfg      (when config (get-in config [:active :boundary/ai-service]))]
           (if (and ai-cfg (not= (:provider ai-cfg) :no-op))
-            (let [init-key (get-method ig/init-key :boundary/ai-service)]
-              (init-key :boundary/ai-service ai-cfg))
+            (ig/init-key :boundary/ai-service ai-cfg)
             (make-service-from-env)))))))
 
 ;; =============================================================================

@@ -17,7 +17,15 @@
   "POST to /v1/chat/completions and return parsed JSON response.
 
    Args:
-     base-url - API base URL string (e.g. \"https://api.openai.com\")
+     base-url - API base URL string. Accepted forms:
+                  \"https://api.openai.com\"      (bare host)
+                  \"https://api.openai.com/\"     (trailing slash)
+                  \"https://api.openai.com/v1\"   (with /v1)
+                  \"https://api.openai.com/v1/\"  (with /v1/)
+                Trailing /v1 and /v1/ are stripped before appending
+                /v1/chat/completions. base-url must not contain /v1
+                in a non-terminal position (e.g. http://host/v1/openai
+                would produce an incorrect double-segment URL).
      api-key  - API key string
      model    - model ID string
      messages - vector of {:role :content} maps
