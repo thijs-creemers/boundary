@@ -5,9 +5,9 @@
 [![License](https://img.shields.io/badge/license-EPL--2.0-green)]()
 [![Clojars Project](https://img.shields.io/clojars/v/org.boundary-app/boundary-email.svg)](https://clojars.org/org.boundary-app/boundary-email)
 
-**Production-ready email sending for Boundary Framework**
+**Email sending for Boundary Framework**
 
-Similar to **Action Mailer** (Rails) or **Django Email**, this module provides simple yet robust email sending with:
+Simple, robust email delivery with:
 
 - ✅ SMTP email sending (Gmail, SES, Mailgun, SendGrid, etc.)
 - ✅ Email composition and validation

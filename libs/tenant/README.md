@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-EPL--2.0-green)]()
 [![Clojars Project](https://img.shields.io/clojars/v/org.boundary-app/boundary-tenant.svg)](https://clojars.org/org.boundary-app/boundary-tenant)
 
-Production-grade multi-tenancy support for the Boundary Framework with isolated database schemas, tenant-scoped caching, and tenant context propagation across background jobs.
+Multi-tenancy for the Boundary Framework — isolated PostgreSQL schemas, tenant-scoped caching, and automatic tenant context propagation across background jobs.
 
 ## Features
 

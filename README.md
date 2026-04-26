@@ -1,6 +1,6 @@
 # Boundary Framework
 
-**Boundary** brings Django's productivity and Rails' conventions to Clojure — with functional programming rigor. It is a batteries-included web framework that enforces the **Functional Core / Imperative Shell (FC/IS)** pattern: pure business logic in `core/`, side effects in `shell/`, and clean interfaces through `ports.clj` protocols.
+**Boundary** is a batteries-included Clojure web framework that enforces the **Functional Core / Imperative Shell (FC/IS)** pattern: pure business logic in `core/`, side effects in `shell/`, and clean interfaces through `ports.clj` protocols.
 
 ---
 
@@ -8,9 +8,9 @@
 
 **For developers:** 22 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
 
-**Ship faster:** The scaffolder generates production-ready modules (entity + routes + tests) in seconds. The admin UI auto-generates CRUD interfaces from your schema — no manual forms. Built-in observability, RFC 5988 pagination, and declarative interceptors mean you write business logic, not plumbing. AI-powered tooling (`bb scaffold ai`, `bb ai gen-tests`, `bb ai sql`) accelerates common workflows.
+**Ship faster:** The scaffolder generates fully structured modules (entity + routes + tests) in seconds. The admin UI auto-generates CRUD interfaces from your schema — no manual forms. Built-in observability, RFC 5988 pagination, and declarative interceptors mean you write business logic, not plumbing. AI tooling (`bb scaffold ai`, `bb ai gen-tests`, `bb ai sql`) handles the repetitive parts.
 
-**Production-ready:** Reference deployment configs (systemd, nginx, Fly.io, Render), an OWASP-aligned security checklist, scaling guides, health check endpoints, and zero-downtime migration patterns — everything you need to ship with confidence.
+**Ship with confidence:** Reference deployment configs (systemd, nginx, Fly.io, Render), an OWASP-aligned security checklist, scaling guides, health check endpoints, and zero-downtime migration patterns.
 
 **Zero lock-in:** Each library is a standard `deps.edn` dependency. Swap what doesn't fit.
 
@@ -38,33 +38,6 @@ bash < <(curl -s https://raw.githubusercontent.com/babashka/babashka/master/inst
 scoop install curl tar babashka
 ```
 
-## AI Assistant Tooling
-
-Boundary expects two assistant-friendly Clojure CLI helpers on `PATH`:
-
-- `clj-nrepl-eval` for evaluating code in a running nREPL
-- `clj-paren-repair` for repairing delimiter errors in edited Clojure files
-
-The recommended source for both is
-[`bhauman/clojure-mcp-light`](https://github.com/bhauman/clojure-mcp-light).
-Despite the name, it is a small CLI toolset, not an MCP server.
-
-Install them with `bbin`:
-
-```bash
-bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 --as clj-nrepl-eval --main-opts '["-m" "clojure-mcp-light.nrepl-eval"]'
-bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 --as clj-paren-repair --main-opts '["-m" "clojure-mcp-light.paren-repair"]'
-```
-
-Verify the install:
-
-```bash
-clj-nrepl-eval --discover-ports
-clj-paren-repair --help
-```
-
----
-
 ## Quick Start
 
 Get started with your Boundary project.
@@ -86,7 +59,7 @@ export BND_ENV="dev"
 clojure -M:repl-clj
 ```
 
-You get: SQLite database (zero-config), HTTP server on port 3000, a complete Integrant system, REPL-driven development, and production-ready deployment templates.
+You get: SQLite database (zero-config), HTTP server on port 3000, a complete Integrant system, and REPL-driven development.
 
 ---
 
@@ -121,7 +94,7 @@ Boundary is a monorepo of **22 independently publishable libraries** plus develo
 | [scaffolder](libs/scaffolder/) | Interactive module code generator |
 | [cache](libs/cache/) | Distributed caching: Redis and in-memory |
 | [jobs](libs/jobs/) | Background job processing with retry logic |
-| [email](libs/email/) | Production-ready email: SMTP, async, jobs integration |
+| [email](libs/email/) | Email delivery: SMTP, async, jobs integration |
 | [tenant](libs/tenant/) | Multi-tenancy with PostgreSQL schema-per-tenant isolation |
 | [realtime](libs/realtime/) | WebSocket / SSE for real-time features |
 | [external](libs/external/) | External service adapters: Twilio, IMAP |
@@ -219,16 +192,12 @@ See [AGENTS.md](./AGENTS.md) for the complete command reference, common pitfalls
 
 ### Running The Full Suite Against PostgreSQL
 
-The default `test` profile runs against in-memory H2. There is currently no
-dedicated `:db/pg` or `:test:db/postgres` alias in `deps.edn`.
+The default `test` profile runs against in-memory H2. To run against PostgreSQL:
 
-To do one full run against PostgreSQL:
-
-1. Start a disposable PostgreSQL instance that matches the credentials in
+1. Start a PostgreSQL instance matching the credentials in
    [`resources/conf/test/config.edn`](./resources/conf/test/config.edn).
-2. Temporarily move `:boundary/postgresql` from `:inactive` to `:active` in
-   [`resources/conf/test/config.edn`](./resources/conf/test/config.edn), and
-   move `:boundary/h2` out of `:active`.
+2. In `resources/conf/test/config.edn`, move `:boundary/postgresql` from `:inactive` to `:active`
+   and move `:boundary/h2` out of `:active`.
 3. Run:
 
 ```bash
@@ -236,8 +205,7 @@ BND_ENV=test JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:migrate up
 BND_ENV=test JWT_SECRET="dev-secret-32-chars-minimum" clojure -M:test:db/h2
 ```
 
-4. Revert `resources/conf/test/config.edn` after the run so normal local and CI
-   test runs keep using H2.
+4. Revert `resources/conf/test/config.edn` after the run.
 
 ---
 
