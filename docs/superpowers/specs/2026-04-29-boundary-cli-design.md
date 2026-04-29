@@ -34,16 +34,16 @@ Standalone `boundary` CLI published to Clojars as `org.boundary-app/boundary-cli
 ## Section 1: Bootstrap & Install
 
 ```bash
-curl -fsSL https://get.boundary.dev | sh
+curl -fsSL https://get.boundary-app.org | sh
 ```
 
-The script `scripts/install.sh` is committed to the monorepo and served via GitHub Pages at `get.boundary.dev`. Until that domain is configured, the canonical fallback URL is:
+The script `scripts/install.sh` is committed to the monorepo and served via GitHub Pages at `get.boundary-app.org` (domain owned: `boundary-app.org`). Until GitHub Pages is configured for that subdomain, the canonical fallback URL is:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/scripts/install.sh | sh
 ```
 
-Both URLs must serve identical content. DNS/CDN setup for `get.boundary.dev` is a separate infrastructure task outside this spec.
+Both URLs must serve identical content. GitHub Pages setup for `get.boundary-app.org` is a separate infrastructure task outside this spec.
 
 **Install steps (idempotent — skips already-satisfied steps):**
 
