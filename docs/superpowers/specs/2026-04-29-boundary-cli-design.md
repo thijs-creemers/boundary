@@ -55,13 +55,16 @@ Both URLs must serve identical content. DNS/CDN setup for `get.boundary.dev` is 
    - Linux: run official Clojure install script
    - macOS: `brew install clojure`
 4. **bbin** — check `bbin --version`; if missing, run official bbin installer
-5. **boundary CLI** — install from the tagged GitHub release using the bbin git pattern (same as existing `clj-nrepl-eval` / `clj-paren-repair` tools):
+5. **boundary CLI** — install from the tagged GitHub release using the bbin git pattern (same as existing `clj-nrepl-eval` / `clj-paren-repair` tools). The install script resolves the latest tag at runtime via the GitHub Releases API:
    ```bash
+   BOUNDARY_TAG=$(curl -fsSL https://api.github.com/repos/thijs-creemers/boundary/releases/latest \
+     | grep '"tag_name"' | sed 's/.*"tag_name": "\(.*\)".*/\1/')
    bbin install https://github.com/thijs-creemers/boundary \
-     --tag <latest-version> \
+     --tag "$BOUNDARY_TAG" \
      --main-opts '["-m" "boundary.cli.main"]' \
      --as boundary
    ```
+   If the API call fails (no network, rate limit), the script exits with a clear error rather than installing from an unknown tag.
    Note: `bbin install <clojars-coord>` is not used here because bbin's primary install path is Git URLs, not Maven coordinates. The git URL approach is already proven in this project.
 6. **PATH** — append `~/.babashka/bbin/bin` to `~/.zshrc` (macOS) or `~/.bashrc` (Linux) if not already present. Print:
    ```
@@ -114,16 +117,19 @@ libs/boundary-cli/
 ### Module catalogue entry shape (`modules-catalogue.edn`)
 
 ```edn
-{:name           "payments"
- :description    "PSP abstraction — Mollie, Stripe, Mock checkout flow and webhook verification"
- :clojars        org.boundary-app/boundary-payments
- :version        "1.0.1-alpha-14"
- :category       :optional          ; :core | :optional
- :config-key     :boundary/payment-provider
- :config-snippet "  :boundary/payment-provider\n  {:provider :mock}\n"
- :add-command    "boundary add payments"
- :docs-url       "https://github.com/thijs-creemers/boundary/blob/main/libs/payments/AGENTS.md"}
+{:name                "payments"
+ :description         "PSP abstraction — Mollie, Stripe, Mock checkout flow and webhook verification"
+ :clojars             org.boundary-app/boundary-payments
+ :version             "1.0.1-alpha-14"
+ :category            :optional          ; :core | :optional
+ :config-key          :boundary/payment-provider
+ :config-snippet      "  :boundary/payment-provider\n  {:provider :mock}\n"
+ :test-config-snippet "  :boundary/payment-provider\n  {:provider :mock}\n"
+ :add-command         "boundary add payments"
+ :docs-url            "https://github.com/thijs-creemers/boundary/blob/main/libs/payments/AGENTS.md"}
 ```
+
+`:test-config-snippet` is always required in the catalogue entry. For most optional modules this is a mock or no-op variant (e.g. `:provider :mock`, `:provider :no-op`). `boundary add` injects `:config-snippet` into `dev/config.edn` and `:test-config-snippet` into `test/config.edn`. The implementer must fill both fields for every catalogue entry — a missing `:test-config-snippet` is a validation error caught at CLI startup.
 
 Note: `:docs-url` is a GitHub URL, not a local path. Generated projects do not contain the monorepo, so local `libs/*/AGENTS.md` paths would be dead. The URL is rendered as a clickable link in `boundary add` output and in the generated `AGENTS.md`.
 
@@ -175,10 +181,10 @@ The name must match `[a-z][a-z0-9-]*` (kebab-case). The CLI validates this befor
 | Situation | Behaviour |
 |-----------|-----------|
 | Directory does not exist | Create and populate |
-| Directory exists and is empty | Populate (with confirmation) |
+| Directory exists and is empty | Populate (with confirmation prompt) |
 | Directory exists and is non-empty | Exit 1 with error: "Directory my-app/ already exists and is not empty. Use a different name or remove the directory first." |
 
-`--force` flag overrides the non-empty check and overwrites without confirmation (for scripted use).
+`--force` skips **all** interactive prompts (including the empty-directory confirmation) and proceeds without user input. This makes `--force` safe for scripted and AI-agent use.
 
 ### Generated structure
 
