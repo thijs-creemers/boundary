@@ -47,7 +47,7 @@ Both URLs must serve identical content. GitHub Pages setup for `get.boundary-app
 
 **Install steps (idempotent — skips already-satisfied steps):**
 
-1. Detect OS — macOS, Debian/Ubuntu, Arch; exit with message if unsupported
+1. Detect OS — macOS, Debian/Ubuntu, Arch, WSL2 (treated as Linux); exit with message if unsupported. If running on native Windows (no WSL), print: "Windows is not supported natively. Please install WSL2 and re-run this script inside it: https://learn.microsoft.com/en-us/windows/wsl/install"
 2. **JVM** — check `java -version`; if missing:
    - Linux: bootstrap sdkman if absent, then `sdk install java`
    - macOS: `brew install --cask temurin`
@@ -358,7 +358,7 @@ Fully non-interactive — safe for AI agents to call directly.
 
 ## Out of Scope
 
-- Windows support (install script targets macOS and Linux only)
+- Native Windows support — Windows users should use WSL2 and run the Linux bash script inside it. The install script will detect if it is running under WSL and proceed normally. A native PowerShell installer is out of scope for now.
 - `boundary remove <module>` — not planned; removal is manual
 - Remote catalogue fetching — the catalogue is always bundled, never fetched at runtime
 - `boundary sync` — refreshing a generated project's AGENTS.md from the latest catalogue
