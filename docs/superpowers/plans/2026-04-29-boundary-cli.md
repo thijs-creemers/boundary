@@ -875,7 +875,27 @@ uploads/
 logs/
 ```
 
-- [ ] **Step 9: Commit templates**
+- [ ] **Step 9: Create `env.example.tmpl`**
+
+```
+# {{project-name}} environment variables
+# Copy to .env and fill in values
+
+# HTTP Server
+HTTP_PORT=3000
+HTTP_HOST=0.0.0.0
+
+# Security
+JWT_SECRET=change-me-to-a-32-char-minimum-secret
+```
+
+Also add `".env.example"` to the `files` map in `new.clj`'s `generate!` function (Task 5):
+
+```clojure
+".env.example" "env.example.tmpl"
+```
+
+- [ ] **Step 10: Commit templates**
 
 ```bash
 git add libs/boundary-cli/resources/boundary/cli/templates/
@@ -928,7 +948,7 @@ Create `libs/boundary-cli/test/boundary/cli/new_test.clj`:
         (is (.exists (io/file tmp))))
 
       (testing "generates required files"
-        (doseq [f ["deps.edn" "bb.edn" ".gitignore" "CLAUDE.md" "AGENTS.md"
+        (doseq [f ["deps.edn" "bb.edn" ".gitignore" ".env.example" "CLAUDE.md" "AGENTS.md"
                    "resources/conf/dev/config.edn"
                    "resources/conf/test/config.edn"]]
           (is (.exists (io/file tmp f)) (str "Missing: " f))))
@@ -1033,6 +1053,7 @@ Expected: errors about `boundary.cli.new` not found.
         files      {"deps.edn"                        "deps.edn.tmpl"
                     "bb.edn"                          "bb.edn.tmpl"
                     ".gitignore"                      "gitignore.tmpl"
+                    ".env.example"                    "env.example.tmpl"
                     "CLAUDE.md"                       "CLAUDE.md.tmpl"
                     "AGENTS.md"                       "AGENTS.md.tmpl"
                     "resources/conf/dev/config.edn"   "dev-config.edn.tmpl"
@@ -1314,11 +1335,25 @@ Expected: errors about `boundary.cli.add` not found.
         (doseq [m (cat/optional-modules)]
           (println (str "  " (:name m))))
         (System/exit 1))
-      ;; Check if already installed
-      (let [deps (slurp (io/file dir "deps.edn"))
-            coord (str (:clojars module))]
-        (if (str/includes? deps (name (symbol (:clojars module))))
+      ;; Check if already installed or version-conflicted
+      (let [deps      (slurp (io/file dir "deps.edn"))
+            lib-name  (name (symbol (:clojars module)))
+            version   (:version module)
+            installed? (str/includes? deps lib-name)
+            ;; Check if a different version is already present
+            existing-version (when installed?
+                               (second (re-find (re-pattern (str lib-name ".*:mvn/version\\s+\"([^\"]+)\"")) deps)))]
+        (cond
+          (and installed? existing-version (not= existing-version version))
+          (do (println (str "Warning: " module-name " is already in deps.edn at version " existing-version
+                            " (catalogue version: " version ")."))
+              (println "Resolve the version conflict manually — no changes made.")
+              (System/exit 0))
+
+          installed?
           (println (str "Module '" module-name "' is already installed."))
+
+          :else
           (do
             (println (str "Adding " module-name "..."))
             (patch-deps! dir module)
@@ -1326,7 +1361,7 @@ Expected: errors about `boundary.cli.add` not found.
             (patch-config! dir "resources/conf/test/config.edn" (:test-config-snippet module))
             (patch-agents-md! dir module)
             (println (str "\n✓ " module-name " added"))
-            (println (str "\nDocs: " (:docs-url module)))))))))
+            (println (str "\nDocs: " (:docs-url module))))))))))
 ```
 
 - [ ] **Step 4: Run tests**
@@ -1505,17 +1540,19 @@ git commit -m "feat: add bootstrap install script"
 cat libs/tools/src/boundary/tools/deploy.clj
 ```
 
-- [ ] **Step 2: Add `boundary-cli` to `all-libs` in `deploy.clj`**
+- [ ] **Step 2: Add `boundary-cli` to `all-libs` in both deploy files**
 
-Find the `all-libs` vector and add `"boundary-cli"` in dependency order (after `"tools"`, before `"core"`):
+Both `libs/tools/src/boundary/tools/deploy.clj` and `scripts/deploy.clj` have their own `all-libs` vectors. Read both files and add `"boundary-cli"` to each. Place it after `"tools"` since it has no other boundary lib dependencies:
 
 ```clojure
 (def all-libs
   ["tools"
-   "boundary-cli"   ; <-- add here
+   "boundary-cli"   ; <-- add here in both files
    "core"
    ...])
 ```
+
+Also apply the `patch-catalogue-version!` function (Step 3 below) and the call to it (Step 4) to **both** deploy files, not just the tools version.
 
 - [ ] **Step 3: Add catalogue-patch function to `deploy.clj`**
 
