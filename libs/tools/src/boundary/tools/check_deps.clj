@@ -86,18 +86,27 @@
                [lib-name (parse-deps-edn (io/file lib-dir "deps.edn"))])
              lib-entries)))
 
+(defn- dir-name->ns-prefix
+  "For hyphenated lib dirs like 'boundary-cli', return the namespace segment
+   'cli' that the library's own sources actually use under boundary.<segment>.*.
+   Returns nil for libs whose dir name equals their namespace segment."
+  [lib-name]
+  (when (str/starts-with? lib-name "boundary-")
+    (subs lib-name (count "boundary-"))))
+
 (defn- build-actual-graph
   "Build adjacency map from source :requires: {lib-name -> #{dep-lib-names}}."
   [lib-entries]
   (into {}
         (map (fn [[lib-name lib-dir]]
-               (let [files (source-files lib-dir)
+               (let [ns-prefix (dir-name->ns-prefix lib-name)
+                     files (source-files lib-dir)
                      dep-libs (->> files
                                    (mapcat (fn [f]
                                              (let [ns-form (parsing/read-ns-form f)]
                                                (extract-required-ns ns-form))))
                                    (keep ns->boundary-lib)
-                                   (remove #(= % lib-name))
+                                   (remove #(or (= % lib-name) (= % ns-prefix)))
                                    (set))]
                  [lib-name dep-libs]))
              lib-entries)))
