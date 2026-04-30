@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Boundary Framework installer
-# Usage: curl -fsSL https://get.boundary-app.org | sh
-# Fallback: curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/scripts/install.sh | sh
+# Usage: curl -fsSL https://get.boundary-app.org | bash
+# Fallback: curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/scripts/install.sh | bash
 
 set -euo pipefail
 

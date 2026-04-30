@@ -65,6 +65,8 @@
                     "AGENTS.md"                          "AGENTS.md.tmpl"
                     "resources/conf/dev/config.edn"      "dev-config.edn.tmpl"
                     "resources/conf/test/config.edn"     "test-config.edn.tmpl"
+                    "src/boundary/config.clj"            "config.clj.tmpl"
+                    "dev/user.clj"                       "user.clj.tmpl"
                     (str "src/" project-ns "/system.clj") "system.clj.tmpl"}]
     (doseq [[target tmpl] files]
       (write-file! dir target (render (read-template tmpl) subs)))))

@@ -93,19 +93,27 @@
           (System/exit 1))
         (let [deps-content (slurp (io/file dir "deps.edn"))
               coord-str    (str (:clojars module))
-              installed?   (str/includes? deps-content coord-str)
-              existing-ver (when installed?
+              dep-present? (str/includes? deps-content coord-str)
+              existing-ver (when dep-present?
                              (second (re-find
                                       (re-pattern (str (java.util.regex.Pattern/quote coord-str)
                                                        "[\\s\\S]*?:mvn/version\\s+\"([^\"]+)\""))
-                                      deps-content)))]
+                                      deps-content)))
+              snippet      (:config-snippet module)
+              ;; A module is "installed" when its config key is wired in config.edn.
+              ;; For modules with no config snippet, fall back to dep presence.
+              wired?       (if (seq snippet)
+                             (let [config-key     (second (re-find #":(\S+)" snippet))
+                                   config-content (slurp (io/file dir "resources/conf/dev/config.edn"))]
+                               (str/includes? config-content (str ":" config-key)))
+                             dep-present?)]
           (cond
-            (and installed? existing-ver (not= existing-ver (:version module)))
+            (and dep-present? existing-ver (not= existing-ver (:version module)))
             (do (println (str "Warning: " module-name " is already in deps.edn at version " existing-ver
                               " (catalogue version: " (:version module) ")."))
                 (println "Resolve the version conflict manually — no changes made."))
 
-            installed?
+            wired?
             (println (str "Module '" module-name "' is already installed."))
 
             :else

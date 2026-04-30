@@ -36,6 +36,8 @@
         (doseq [f ["deps.edn" "bb.edn" ".gitignore" ".env.example" "CLAUDE.md" "AGENTS.md"
                    "resources/conf/dev/config.edn"
                    "resources/conf/test/config.edn"
+                   "src/boundary/config.clj"
+                   "dev/user.clj"
                    "src/test_proj/system.clj"]]
           (is (.exists (io/file tmp f)) (str "Missing: " f))))
 
