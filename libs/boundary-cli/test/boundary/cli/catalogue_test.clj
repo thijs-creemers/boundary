@@ -18,7 +18,11 @@
       (is (string? (:add-command m)) (str "missing :add-command in " m))
       (is (string? (:config-snippet m)) (str "missing :config-snippet in " m))
       (is (string? (:test-config-snippet m)) (str "missing :test-config-snippet in " m))
-      (is (string? (:docs-url m))   (str "missing :docs-url in " m)))))
+      (is (string? (:docs-url m))   (str "missing :docs-url in " m))))
+
+  (testing "every module :clojars is a symbol"
+    (doseq [m (:modules (cat/load-catalogue))]
+      (is (symbol? (:clojars m)) (str ":clojars is not a symbol in " (:name m))))))
 
 (deftest find-module-test
   (testing "finds a module by name"
@@ -41,3 +45,16 @@
     (let [opts (cat/optional-modules)]
       (is (every? #(= :optional (:category %)) opts))
       (is (seq opts)))))
+
+(deftest core-modules-test
+  (testing "core-modules returns only :core category"
+    (let [cores (cat/core-modules)]
+      (is (every? #(= :core (:category %)) cores))
+      (is (seq cores))))
+
+  (testing "core-modules includes all 4 required core modules"
+    (let [core-names (set (map :name (cat/core-modules)))]
+      (is (contains? core-names "core"))
+      (is (contains? core-names "observability"))
+      (is (contains? core-names "platform"))
+      (is (contains? core-names "user")))))

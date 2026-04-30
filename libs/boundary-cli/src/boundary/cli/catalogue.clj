@@ -4,19 +4,23 @@
 
 (def ^:private catalogue-path "boundary/cli/modules-catalogue.edn")
 
+(def ^:private catalogue-data
+  (delay
+    (let [r (io/resource catalogue-path)]
+      (when-not r
+        (throw (ex-info "modules-catalogue.edn not found on classpath"
+                        {:path catalogue-path})))
+      (edn/read-string (slurp r)))))
+
 (defn load-catalogue
   "Load the bundled modules-catalogue.edn. Throws if not found."
   []
-  (let [r (io/resource catalogue-path)]
-    (when-not r
-      (throw (ex-info "modules-catalogue.edn not found on classpath"
-                      {:path catalogue-path})))
-    (edn/read-string (slurp r))))
+  @catalogue-data)
 
 (defn find-module
   "Find a module by name string. Returns the module map or nil."
-  [name]
-  (first (filter #(= name (:name %)) (:modules (load-catalogue)))))
+  [module-name]
+  (first (filter #(= module-name (:name %)) (:modules (load-catalogue)))))
 
 (defn optional-modules
   "Return all modules with :category :optional."
@@ -37,4 +41,8 @@
             field required]
       (when-not (contains? m field)
         (throw (ex-info (str "Catalogue entry missing field: " field)
-                        {:module (:name m) :field field}))))))
+                        {:module (:name m) :field field}))))
+    (doseq [m (:modules (load-catalogue))]
+      (when-not (symbol? (:clojars m))
+        (throw (ex-info (str "Catalogue entry :clojars must be a symbol")
+                        {:module (:name m) :clojars (:clojars m)}))))))
