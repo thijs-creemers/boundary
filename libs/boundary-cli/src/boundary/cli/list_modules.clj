@@ -21,6 +21,8 @@
       (println (format fmt (pad name 12) (pad description 50) add-command)))
     (println)))
 
+;; print-json includes all modules (core + optional) so AI tools can discover
+;; everything installed by default, not just what can be added.
 (defn print-json []
   (let [catalogue (cat/load-catalogue)
         modules   (map (fn [m]
@@ -39,6 +41,11 @@
               {:pretty true}))))
 
 (defn -main [args]
-  (if (some #(= "--json" %) args)
-    (print-json)
-    (print-table)))
+  (let [[subcmd & rest-args] args]
+    (when-not (= "modules" subcmd)
+      (println (str "Unknown list subcommand: " (or subcmd "<none>")))
+      (println "Usage: boundary list modules [--json]")
+      (System/exit 1))
+    (if (some #(= "--json" %) rest-args)
+      (print-json)
+      (print-table))))
