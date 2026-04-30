@@ -15,7 +15,9 @@
     (is (string? (new/validate-name "123app")))    ; starts with digit
     (is (string? (new/validate-name "my.app")))    ; dot
     (is (string? (new/validate-name "")))           ; empty
-    (is (string? (new/validate-name "my_app")))))  ; underscore not allowed in project name
+    (is (string? (new/validate-name "my_app")))    ; underscore not allowed in project name
+    (is (string? (new/validate-name "my-")))       ; trailing hyphen
+    (is (string? (new/validate-name "my--app")))))  ; double hyphen
 
 (deftest name->ns-test
   (testing "converts hyphens to underscores"
@@ -33,7 +35,8 @@
       (testing "generates required files"
         (doseq [f ["deps.edn" "bb.edn" ".gitignore" ".env.example" "CLAUDE.md" "AGENTS.md"
                    "resources/conf/dev/config.edn"
-                   "resources/conf/test/config.edn"]]
+                   "resources/conf/test/config.edn"
+                   "src/test_proj/system.clj"]]
           (is (.exists (io/file tmp f)) (str "Missing: " f))))
 
       (testing "substitutes project name in CLAUDE.md"

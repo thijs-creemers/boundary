@@ -6,7 +6,7 @@
 (defn validate-name [n]
   (cond
     (str/blank? n)                            "Project name cannot be empty"
-    (not (re-matches #"[a-z][a-z0-9-]*" n))  "Project name must be kebab-case (lowercase letters, digits, hyphens; must start with a letter)"
+    (not (re-matches #"[a-z][a-z0-9]*(-[a-z0-9]+)*" n))  "Project name must be kebab-case (lowercase letters, digits, hyphens; must start with a letter)"
     :else nil))
 
 (defn name->ns [n]
