@@ -93,6 +93,24 @@
   (Thread/sleep 30000))
 
 ;; =============================================================================
+;; Catalogue patch
+;; =============================================================================
+
+(def ^:private catalogue-path
+  "libs/boundary-cli/resources/boundary/cli/modules-catalogue.edn")
+
+(defn- patch-catalogue-version!
+  "Update :version for lib-name in modules-catalogue.edn after a successful deploy."
+  [lib-name new-version]
+  (let [f       (io/file catalogue-path)
+        content (slurp f)
+        pattern (re-pattern (str "(?s)(\\{[^}]*:name\\s+\"" (java.util.regex.Pattern/quote lib-name) "\"[^}]*:version\\s+\")([^\"]+)(\")"))]
+    (if (re-find pattern content)
+      (do (spit f (str/replace content pattern (str "$1" new-version "$3")))
+          (println (green (str "  Catalogue updated: " lib-name " → " new-version))))
+      (println (dim (str "  Catalogue: no entry for " lib-name " (skipping)"))))))
+
+;; =============================================================================
 ;; Deploy
 ;; =============================================================================
 
@@ -105,7 +123,8 @@
     (println (bold (str "\nDeploying boundary-" lib " " version "...")))
     (p/shell {:dir dir} "clojure" "-T:build" "clean")
     (p/shell {:dir dir} "clojure" "-T:build" "deploy")
-    (println (green (str "✓ boundary-" lib " " version " deployed")))))
+    (println (green (str "✓ boundary-" lib " " version " deployed")))
+    (patch-catalogue-version! lib version)))
 
 (defn deploy-sequence! [libs]
   (doseq [[i lib] (map-indexed vector libs)]

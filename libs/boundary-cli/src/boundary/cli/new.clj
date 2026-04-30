@@ -75,13 +75,7 @@
         (do (println (str "Error: Directory " project-name "/ already exists and is not empty."))
             (println "Use a different name, remove the directory, or pass --force.")
             (System/exit 1))
-        :empty-exists
-        (do (print (str "Directory " project-name "/ exists but is empty. Populate it? [Y/n]: "))
-            (flush)
-            (let [input (str/lower-case (str/trim (or (read-line) "")))]
-              (when (= input "n")
-                (println "Aborted.")
-                (System/exit 0))))
+        :empty-exists nil
         :ok nil)
       (println (str "Creating " project-name "/..."))
       (generate! dir project-name {})
