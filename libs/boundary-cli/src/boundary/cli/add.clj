@@ -17,14 +17,14 @@
 (defn patch-deps!
   "Add clojars coordinate to deps.edn if not already present."
   [dir {:keys [clojars version]}]
-  (let [f        (io/file dir "deps.edn")
-        content  (slurp f)
-        lib-name (name clojars)]
-    (when-not (str/includes? content lib-name)
+  (let [f         (io/file dir "deps.edn")
+        content   (slurp f)
+        coord-str (str clojars)]
+    (when-not (str/includes? content coord-str)
       (let [new-content (str/replace-first
                          content
                          #"(:deps\s*\{)"
-                         (str "$1\n         " clojars " {:mvn/version \"" version "\"}\n        "))]
+                         (str "$1\n         " coord-str " {:mvn/version \"" version "\"}"))]
         (spit f new-content)))))
 
 ;; ─── config.edn patching ─────────────────────────────────────────────────────
@@ -92,11 +92,12 @@
             (println (str "  " (:name m))))
           (System/exit 1))
         (let [deps-content (slurp (io/file dir "deps.edn"))
-              lib-name     (name (:clojars module))
-              installed?   (str/includes? deps-content lib-name)
+              coord-str    (str (:clojars module))
+              installed?   (str/includes? deps-content coord-str)
               existing-ver (when installed?
                              (second (re-find
-                                      (re-pattern (str lib-name ".*:mvn/version\\s+\"([^\"]+)\""))
+                                      (re-pattern (str (java.util.regex.Pattern/quote coord-str)
+                                                       "[\\s\\S]*?:mvn/version\\s+\"([^\"]+)\""))
                                       deps-content)))]
           (cond
             (and installed? existing-ver (not= existing-ver (:version module)))
