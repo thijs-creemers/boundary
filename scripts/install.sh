@@ -29,6 +29,18 @@ else
 fi
 ok "Detected OS: $OS"
 
+# ── Homebrew (macOS only) ─────────────────────────────────────
+if [[ "$OS" == "macos" ]]; then
+  if command -v brew &>/dev/null; then
+    ok "Homebrew already installed"
+  else
+    info "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+      || fail "Failed to install Homebrew. Install it manually from https://brew.sh and re-run."
+    ok "Homebrew installed"
+  fi
+fi
+
 # ── JVM ──────────────────────────────────────────────────────
 if java -version 2>&1 | grep -q "version"; then
   ok "JVM already installed"

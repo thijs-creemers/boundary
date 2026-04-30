@@ -70,3 +70,12 @@
       (finally
         (doseq [f (reverse (file-seq (io/file tmp)))]
           (.delete f))))))
+
+(deftest not-a-directory-test
+  (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-file-test-" (System/currentTimeMillis))]
+    (spit (io/file tmp) "x")
+    (try
+      (testing "existing regular file returns :not-a-dir"
+        (is (= :not-a-dir (new/check-directory tmp false))))
+      (finally
+        (.delete (io/file tmp))))))

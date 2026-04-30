@@ -29,14 +29,15 @@
     (spit f content)))
 
 (defn check-directory
-  "Returns :ok, :empty-exists, or :non-empty. If force? is true, always :ok."
+  "Returns :ok, :empty-exists, :non-empty, or :not-a-dir. If force? is true, always :ok."
   [dir force?]
   (let [f (io/file dir)]
     (cond
-      force?              :ok
-      (not (.exists f))   :ok
-      (empty? (.list f))  :empty-exists
-      :else               :non-empty)))
+      force?               :ok
+      (not (.exists f))    :ok
+      (not (.isDirectory f)) :not-a-dir
+      (empty? (.list f))   :empty-exists
+      :else                :non-empty)))
 
 (defn generate!
   "Generate project files into dir."
@@ -73,6 +74,9 @@
     (let [dir    (str (System/getProperty "user.dir") "/" project-name)
           status (check-directory dir force?)]
       (case status
+        :not-a-dir
+        (do (println (str "Error: " project-name " already exists and is not a directory."))
+            (System/exit 1))
         :non-empty
         (do (println (str "Error: Directory " project-name "/ already exists and is not empty."))
             (println "Use a different name, remove the directory, or pass --force.")

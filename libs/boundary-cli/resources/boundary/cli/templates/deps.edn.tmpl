@@ -2,7 +2,8 @@
  :deps  {org.boundary-app/boundary-core         {:mvn/version "{{core-version}}"}
          org.boundary-app/boundary-observability {:mvn/version "{{observability-version}}"}
          org.boundary-app/boundary-platform      {:mvn/version "{{platform-version}}"}
-         org.boundary-app/boundary-user          {:mvn/version "{{user-version}}"}}
+         org.boundary-app/boundary-user          {:mvn/version "{{user-version}}"}
+         com.h2database/h2                       {:mvn/version "2.4.240"}}
  :aliases
  {:repl-clj {:extra-deps {nrepl/nrepl {:mvn/version "1.3.0"}
                           cider/cider-nrepl {:mvn/version "0.50.2"}}
@@ -11,4 +12,4 @@
   :test     {:extra-paths ["test"]
              :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
              :main-opts   ["-m" "kaocha.runner"]}
-  :migrate  {:main-opts ["-m" "boundary.platform.shell.migrate"]}}}
+  :migrate  {:main-opts ["-m" "boundary.platform.shell.database.cli-migrations"]}}}
