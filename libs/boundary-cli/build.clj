@@ -24,6 +24,14 @@
   (b/copy-dir {:src-dirs ["src" "resources"] :target-dir class-dir})
   (b/jar {:class-dir class-dir :jar-file jar-file}))
 
+(defn install [_]
+  (jar nil)
+  (b/install {:basis basis
+              :lib lib
+              :version version
+              :jar-file jar-file
+              :class-dir class-dir}))
+
 (defn deploy [_]
   (jar nil)
   ((requiring-resolve 'deps-deploy.deps-deploy/deploy)

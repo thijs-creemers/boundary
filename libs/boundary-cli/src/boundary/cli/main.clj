@@ -1,5 +1,4 @@
-(ns boundary.cli.main
-  (:require [clojure.string :as str]))
+(ns boundary.cli.main)
 
 (defn- usage []
   (println "boundary — Boundary Framework project tool")
