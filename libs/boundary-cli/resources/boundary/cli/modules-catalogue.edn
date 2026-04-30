@@ -178,8 +178,8 @@
    :clojars             org.boundary-app/boundary-geo
    :version             "1.0.1-alpha-14"
    :category            :optional
-   :config-snippet      "  :boundary/geo-service\n  {:provider :osm}\n"
-   :test-config-snippet "  :boundary/geo-service\n  {:provider :no-op}\n"
+   :config-snippet      "  :boundary/geo-service\n  {:provider :openstreetmap}\n"
+   :test-config-snippet "  :boundary/geo-service\n  {:provider :openstreetmap}\n"
    :add-command         "boundary add geo"
    :docs-url            "https://github.com/thijs-creemers/boundary/blob/main/libs/geo/AGENTS.md"}
 
