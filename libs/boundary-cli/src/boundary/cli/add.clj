@@ -108,7 +108,17 @@
                                    config-content (slurp (io/file dir "resources/conf/dev/config.edn"))]
                                (and dep-present?
                                     (str/includes? config-content (str ":" config-key))))
-                             dep-present?)]
+                             ;; No config snippet — check AGENTS.md installed section to avoid
+                             ;; false positives from pre-installed deps (e.g. boundary-external).
+                             (let [agents-f (io/file dir "AGENTS.md")]
+                               (if (.exists agents-f)
+                                 (let [content          (slurp agents-f)
+                                       installed-start  (str/index-of content "<!-- boundary:installed-modules -->")
+                                       installed-end    (str/index-of content "<!-- /boundary:installed-modules -->")]
+                                   (if (and installed-start installed-end)
+                                     (str/includes? (subs content installed-start installed-end) module-name)
+                                     dep-present?))
+                                 dep-present?)))]
           (cond
             (and dep-present? existing-ver (not= existing-ver (:version module)))
             (do (println (str "Warning: " module-name " is already in deps.edn at version " existing-ver

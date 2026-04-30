@@ -33,11 +33,11 @@
   [dir force?]
   (let [f (io/file dir)]
     (cond
-      force?               :ok
-      (not (.exists f))    :ok
+      (not (.exists f))      :ok
       (not (.isDirectory f)) :not-a-dir
-      (empty? (.list f))   :empty-exists
-      :else                :non-empty)))
+      force?                 :ok
+      (empty? (.list f))     :empty-exists
+      :else                  :non-empty)))
 
 (defn generate!
   "Generate project files into dir."
