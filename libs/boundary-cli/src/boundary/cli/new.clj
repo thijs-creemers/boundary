@@ -48,7 +48,15 @@
                     :core-version          (:version (cat/find-module "core"))
                     :observability-version (:version (cat/find-module "observability"))
                     :platform-version      (:version (cat/find-module "platform"))
-                    :user-version          (:version (cat/find-module "user"))}
+                    :user-version          (:version (cat/find-module "user"))
+                    :cache-version         (:version (cat/find-module "cache"))
+                    :admin-version         (:version (cat/find-module "admin"))
+                    :tenant-version        (:version (cat/find-module "tenant"))
+                    :workflow-version      (:version (cat/find-module "workflow"))
+                    :search-version        (:version (cat/find-module "search"))
+                    :external-version      (:version (cat/find-module "external"))
+                    :payments-version      (:version (cat/find-module "payments"))
+                    :i18n-version          (:version (cat/find-module "i18n"))}
         files      {"deps.edn"                           "deps.edn.tmpl"
                     "bb.edn"                             "bb.edn.tmpl"
                     ".gitignore"                         "gitignore.tmpl"

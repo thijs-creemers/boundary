@@ -93,14 +93,22 @@ else
 fi
 
 # ── bbin ─────────────────────────────────────────────────────
-if command -v bbin &>/dev/null; then
-  ok "bbin already installed"
-else
-  info "Installing bbin..."
+install_bbin() {
   bb -e "(babashka.deps/add-deps {:deps '{io.github.babashka/bbin {:git/url \"https://github.com/babashka/bbin\" :git/sha \"HEAD\"}}}) (require 'bbin.cli) (bbin.cli/install! \"bbin\")" 2>/dev/null \
     || { curl -fsSL https://raw.githubusercontent.com/babashka/bbin/master/bbin > /tmp/bbin && chmod +x /tmp/bbin && sudo mv /tmp/bbin /usr/local/bin/bbin; } \
     || fail "Failed to install bbin"
+}
+
+if ! command -v bbin &>/dev/null; then
+  info "Installing bbin..."
+  install_bbin
   ok "bbin installed"
+elif ! bbin install --help 2>&1 | grep -q -- '--git/root'; then
+  info "Upgrading bbin (current version does not support --git/root)..."
+  install_bbin
+  ok "bbin upgraded"
+else
+  ok "bbin already installed"
 fi
 
 # ── PATH ─────────────────────────────────────────────────────
