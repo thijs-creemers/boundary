@@ -39,7 +39,8 @@
       (testing "adds module coordinate to deps.edn"
         (add/patch-deps! tmp {:clojars 'org.boundary-app/boundary-payments :version "1.0.0"})
         (let [content (slurp (io/file tmp "deps.edn"))]
-          (is (str/includes? content "boundary-payments"))))
+          (is (str/includes? content "boundary-payments"))
+          (is (map? (clojure.edn/read-string (slurp (io/file tmp "deps.edn")))) "deps.edn must remain valid EDN after patching")))
 
       (testing "is idempotent — does not duplicate if already present"
         (add/patch-deps! tmp {:clojars 'org.boundary-app/boundary-payments :version "1.0.0"})

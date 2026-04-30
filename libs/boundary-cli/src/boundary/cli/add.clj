@@ -24,7 +24,7 @@
       (let [new-content (str/replace-first
                          content
                          #"(:deps\s*\{)"
-                         (str "$1\n         " coord-str " {:mvn/version \"" version "\"}"))]
+                         (str "$1\n         " coord-str " {:mvn/version \"" version "\"}\n         "))]
         (spit f new-content)))))
 
 ;; ─── config.edn patching ─────────────────────────────────────────────────────
