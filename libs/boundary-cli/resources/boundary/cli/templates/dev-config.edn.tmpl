@@ -1,0 +1,27 @@
+{;; {{project-name}} — dev configuration
+ :active
+ {  :boundary/settings
+    {:name             "{{project-name}}-dev"
+     :version          "0.1.0"
+     :date-format      "yyyy-MM-dd"
+     :date-time-format "yyyy-MM-dd HH:mm:ss"
+     :features         {}}
+
+   :boundary/h2
+   {:memory true
+    :pool   {:minimum-idle 1 :maximum-pool-size 10}}
+
+   :boundary/http
+   {:port       #or [#env HTTP_PORT 3000]
+    :host       #or [#env HTTP_HOST "0.0.0.0"]
+    :join?      false
+    :port-range {:start 3000 :end 3099}}
+
+   :boundary/router
+   {:adapter :reitit :coercion :malli :middleware []}
+
+   :boundary/logging
+   {:level :debug :console true}}
+
+ :inactive
+ {}}

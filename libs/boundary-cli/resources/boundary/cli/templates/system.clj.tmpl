@@ -1,0 +1,7 @@
+(ns {{project-ns}}.system
+  (:require [integrant.core :as ig]))
+
+;; System configuration is loaded from resources/conf/{env}/config.edn
+;; via Aero. Add module configs with `boundary add <module>`.
+
+(defmethod ig/init-key :boundary/settings [_ config] config)

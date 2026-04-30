@@ -1,0 +1,58 @@
+# {{project-name}} — Developer Reference
+
+Built with the Boundary Framework. Follows the Functional Core / Imperative Shell (FC/IS) pattern.
+
+## Essential Commands
+
+```bash
+clojure -M:repl-clj          # Start REPL (nREPL on port 7888)
+bb migrate up                 # Run database migrations
+clojure -M:test               # Run all tests
+boundary add <module>         # Add a boundary module
+boundary list modules --json  # Machine-readable module catalogue
+```
+
+## Architecture
+
+- `src/{{project-ns}}/core/`  — Pure functions, no side effects
+- `src/{{project-ns}}/shell/` — I/O, HTTP, database
+- `resources/conf/dev/`       — Dev configuration (Aero + Integrant)
+- `resources/conf/test/`      — Test configuration
+
+## Boundary Modules
+
+Core modules are pre-installed. Add optional modules with:
+
+  boundary add <module>
+  boundary list modules --json    ← machine-readable catalogue for AI tools
+
+<!-- boundary:available-modules -->
+| Module     | Description                                   | Command                     |
+|------------|-----------------------------------------------|-----------------------------|
+| payments   | PSP abstraction — Mollie, Stripe, Mock        | boundary add payments       |
+| storage    | File storage, local/S3, image processing      | boundary add storage        |
+| jobs       | Background job processing, retry logic        | boundary add jobs           |
+| email      | SMTP sending, async/queued                    | boundary add email          |
+| cache      | Redis or in-memory caching                    | boundary add cache          |
+| search     | Full-text search                              | boundary add search         |
+| realtime   | WebSocket pub/sub                             | boundary add realtime       |
+| tenant     | Multi-tenancy, schema-per-tenant              | boundary add tenant         |
+| ai         | Multi-provider AI (Ollama/Claude/OpenAI)      | boundary add ai             |
+| external   | Twilio, SMTP, IMAP adapters                   | boundary add external       |
+| workflow   | Workflow orchestration                        | boundary add workflow       |
+| reports    | PDF/CSV export, scheduling                    | boundary add reports        |
+| calendar   | iCal, RRULE, conflict detection               | boundary add calendar       |
+| geo        | Geocoding (OSM/Google/Mapbox), Haversine      | boundary add geo            |
+| i18n       | Marker-based i18n, translation catalogues     | boundary add i18n           |
+| admin      | Admin UI, entity config, HTMX forms           | boundary add admin          |
+| ui-style   | Shared CSS/JS style bundles                   | boundary add ui-style       |
+<!-- /boundary:available-modules -->
+
+<!-- boundary:installed-modules -->
+## Installed Modules
+
+- core (`org.boundary-app/boundary-core`) — [docs](https://github.com/thijs-creemers/boundary/blob/main/libs/core/AGENTS.md)
+- observability (`org.boundary-app/boundary-observability`) — [docs](https://github.com/thijs-creemers/boundary/blob/main/libs/observability/AGENTS.md)
+- platform (`org.boundary-app/boundary-platform`) — [docs](https://github.com/thijs-creemers/boundary/blob/main/libs/platform/AGENTS.md)
+- user (`org.boundary-app/boundary-user`) — [docs](https://github.com/thijs-creemers/boundary/blob/main/libs/user/AGENTS.md)
+<!-- /boundary:installed-modules -->
