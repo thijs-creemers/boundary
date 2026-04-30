@@ -42,10 +42,12 @@
   "Generate project files into dir."
   [dir project-name _opts]
   (let [project-ns (name->ns project-name)
-        version    (:catalogue-version (cat/load-catalogue))
-        subs       {:project-name     project-name
-                    :project-ns       project-ns
-                    :boundary-version version}
+        subs       {:project-name          project-name
+                    :project-ns            project-ns
+                    :core-version          (:version (cat/find-module "core"))
+                    :observability-version (:version (cat/find-module "observability"))
+                    :platform-version      (:version (cat/find-module "platform"))
+                    :user-version          (:version (cat/find-module "user"))}
         files      {"deps.edn"                           "deps.edn.tmpl"
                     "bb.edn"                             "bb.edn.tmpl"
                     ".gitignore"                         "gitignore.tmpl"

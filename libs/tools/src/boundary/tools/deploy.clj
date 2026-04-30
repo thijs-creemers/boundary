@@ -35,7 +35,6 @@
 
 (def all-libs
   ["tools"
-   "boundary-cli"
    "core"
    "observability"
    "platform"
@@ -58,6 +57,7 @@
    "ai"
    "ui-style"
    "admin"
+   "boundary-cli"
    "devtools"])
 
 (def valid-libs (set all-libs))

@@ -86,7 +86,7 @@ if command -v bbin &>/dev/null; then
 else
   info "Installing bbin..."
   bb -e "(babashka.deps/add-deps {:deps '{io.github.babashka/bbin {:git/url \"https://github.com/babashka/bbin\" :git/sha \"HEAD\"}}}) (require 'bbin.cli) (bbin.cli/install! \"bbin\")" 2>/dev/null \
-    || curl -fsSL https://raw.githubusercontent.com/babashka/bbin/master/bbin > /tmp/bbin && chmod +x /tmp/bbin && sudo mv /tmp/bbin /usr/local/bin/bbin \
+    || { curl -fsSL https://raw.githubusercontent.com/babashka/bbin/master/bbin > /tmp/bbin && chmod +x /tmp/bbin && sudo mv /tmp/bbin /usr/local/bin/bbin; } \
     || fail "Failed to install bbin"
   ok "bbin installed"
 fi

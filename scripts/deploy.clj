@@ -37,8 +37,7 @@
 ;; =============================================================================
 
 (def all-libs
-  ["boundary-cli"
-   "core"
+  ["core"
    "observability"
    "platform"
    "user"
@@ -57,7 +56,8 @@
    "calendar"
    "ai"
    "ui-style"
-   "admin"])
+   "admin"
+   "boundary-cli"])
 
 (def valid-libs (set all-libs))
 (def root-dir (System/getProperty "user.dir"))
