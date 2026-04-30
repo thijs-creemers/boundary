@@ -100,12 +100,14 @@
                                                        "[\\s\\S]*?:mvn/version\\s+\"([^\"]+)\""))
                                       deps-content)))
               snippet      (:config-snippet module)
-              ;; A module is "installed" when its config key is wired in config.edn.
-              ;; For modules with no config snippet, fall back to dep presence.
+              ;; A module is "installed" when its dep is present AND its config key is
+              ;; wired. Requiring dep-present? prevents false positives when two modules
+              ;; share a config key (e.g. email and external both use :boundary.external/smtp).
               wired?       (if (seq snippet)
                              (let [config-key     (second (re-find #":(\S+)" snippet))
                                    config-content (slurp (io/file dir "resources/conf/dev/config.edn"))]
-                               (str/includes? config-content (str ":" config-key)))
+                               (and dep-present?
+                                    (str/includes? config-content (str ":" config-key))))
                              dep-present?)]
           (cond
             (and dep-present? existing-ver (not= existing-ver (:version module)))
