@@ -1,7 +1,6 @@
 (ns boundary.cli.catalogue-test
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.java.io :as io]
-            [clojure.string :as str]
             [boundary.cli.catalogue :as cat]))
 
 (deftest load-catalogue-test
