@@ -1,11 +1,11 @@
 {:cli-version       "1.0.0-alpha-1"
- :catalogue-version "1.0.1-alpha-14"
+ :catalogue-version "1.0.1-alpha-15"
  :modules
  [;; ─── Core (always included) ───────────────────────────────────────────────
   {:name                "core"
    :description         "Pure validation, case conversion, interceptor pipeline, feature flags"
    :clojars             org.boundary-app/boundary-core
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :core
    :config-snippet      ""
    :test-config-snippet ""
@@ -15,7 +15,7 @@
   {:name                "observability"
    :description         "Interceptor-based metrics, logging, and error reporting"
    :clojars             org.boundary-app/boundary-observability
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :core
    :config-snippet      "  :boundary/metrics\n  {:provider :no-op}\n\n  :boundary/error-reporting\n  {:provider :no-op}\n"
    :test-config-snippet "  :boundary/metrics\n  {:provider :no-op}\n\n  :boundary/error-reporting\n  {:provider :no-op}\n"
@@ -25,7 +25,7 @@
   {:name                "platform"
    :description         "HTTP server, Reitit router, Ring middleware pipeline"
    :clojars             org.boundary-app/boundary-platform
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :core
    :config-snippet      "  :boundary/http\n  {:port #or [#env HTTP_PORT 3000] :host \"0.0.0.0\" :join? false}\n\n  :boundary/router\n  {:adapter :reitit :coercion :malli :middleware []}\n"
    :test-config-snippet ""
@@ -35,7 +35,7 @@
   {:name                "user"
    :description         "Authentication, JWT, MFA, user management"
    :clojars             org.boundary-app/boundary-user
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :core
    :config-snippet      ""
    :test-config-snippet ""
@@ -46,7 +46,7 @@
   {:name                "payments"
    :description         "PSP abstraction — Mollie, Stripe, Mock checkout and webhook verification"
    :clojars             org.boundary-app/boundary-payments
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/payment-provider\n  {:provider :mock}\n"
    :test-config-snippet "  :boundary/payment-provider\n  {:provider :mock}\n"
@@ -56,7 +56,7 @@
   {:name                "storage"
    :description         "File storage — local filesystem and S3, image processing"
    :clojars             org.boundary-app/boundary-storage
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/storage\n  {:provider :local :root \"uploads\"}\n"
    :test-config-snippet "  :boundary/storage\n  {:provider :local :root \"/tmp/boundary-test-uploads\"}\n"
@@ -66,7 +66,7 @@
   {:name                "jobs"
    :description         "Background job processing with retry logic"
    :clojars             org.boundary-app/boundary-jobs
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/jobs\n  {:provider :in-memory}\n"
    :test-config-snippet "  :boundary/jobs\n  {:provider :in-memory}\n"
@@ -76,7 +76,7 @@
   {:name                "email"
    :description         "SMTP email sending, async and queued modes"
    :clojars             org.boundary-app/boundary-email
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary.external/smtp\n  {:host #or [#env SMTP_HOST \"localhost\"] :port 1025 :tls? false :from \"no-reply@localhost\"}\n"
    :test-config-snippet "  :boundary.external/smtp\n  {:host \"localhost\" :port 1025 :tls? false :from \"test@localhost\"}\n"
@@ -86,7 +86,7 @@
   {:name                "cache"
    :description         "Distributed caching — Redis or in-memory, TTL, atomic ops"
    :clojars             org.boundary-app/boundary-cache
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/cache\n  {:provider :in-memory :default-ttl 300}\n"
    :test-config-snippet "  :boundary/cache\n  {:provider :in-memory :default-ttl 300}\n"
@@ -96,7 +96,7 @@
   {:name                "search"
    :description         "Full-text search"
    :clojars             org.boundary-app/boundary-search
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/search\n  {:provider :in-memory}\n"
    :test-config-snippet "  :boundary/search\n  {:provider :in-memory}\n"
@@ -106,7 +106,7 @@
   {:name                "realtime"
    :description         "WebSocket pub/sub messaging"
    :clojars             org.boundary-app/boundary-realtime
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/realtime\n  {:provider :in-memory}\n"
    :test-config-snippet "  :boundary/realtime\n  {:provider :in-memory}\n"
@@ -116,7 +116,7 @@
   {:name                "tenant"
    :description         "Multi-tenancy with schema-per-tenant isolation"
    :clojars             org.boundary-app/boundary-tenant
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/tenant\n  {:strategy :schema-per-tenant}\n"
    :test-config-snippet "  :boundary/tenant\n  {:strategy :schema-per-tenant}\n"
@@ -126,7 +126,7 @@
   {:name                "ai"
    :description         "Multi-provider AI — Ollama, Anthropic Claude, OpenAI"
    :clojars             org.boundary-app/boundary-ai
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/ai-service\n  {:provider :ollama :model #or [#env AI_MODEL \"qwen2.5-coder:7b\"] :base-url #or [#env OLLAMA_URL \"http://localhost:11434\"]}\n"
    :test-config-snippet "  :boundary/ai-service\n  {:provider :no-op}\n"
@@ -136,7 +136,7 @@
   {:name                "external"
    :description         "External service adapters — Twilio, SMTP, IMAP"
    :clojars             org.boundary-app/boundary-external
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      ""
    :test-config-snippet ""
@@ -146,7 +146,7 @@
   {:name                "workflow"
    :description         "Workflow orchestration with state machines"
    :clojars             org.boundary-app/boundary-workflow
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/workflow\n  {:provider :in-memory}\n"
    :test-config-snippet "  :boundary/workflow\n  {:provider :in-memory}\n"
@@ -156,7 +156,7 @@
   {:name                "reports"
    :description         "PDF/CSV export and scheduled report generation"
    :clojars             org.boundary-app/boundary-reports
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/reports\n  {:provider :in-memory}\n"
    :test-config-snippet "  :boundary/reports\n  {:provider :in-memory}\n"
@@ -166,7 +166,7 @@
   {:name                "calendar"
    :description         "iCal, RRULE recurrence, conflict detection, Hiccup UI"
    :clojars             org.boundary-app/boundary-calendar
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/calendar\n  {:provider :in-memory}\n"
    :test-config-snippet "  :boundary/calendar\n  {:provider :in-memory}\n"
@@ -176,7 +176,7 @@
   {:name                "geo"
    :description         "Multi-provider geocoding (OSM/Google/Mapbox), Haversine distance"
    :clojars             org.boundary-app/boundary-geo
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/geo-service\n  {:provider :openstreetmap}\n"
    :test-config-snippet "  :boundary/geo-service\n  {:provider :openstreetmap}\n"
@@ -186,7 +186,7 @@
   {:name                "i18n"
    :description         "Marker-based i18n, translation catalogues, locale chains"
    :clojars             org.boundary-app/boundary-i18n
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/i18n\n  {:default-locale :en}\n"
    :test-config-snippet "  :boundary/i18n\n  {:default-locale :en}\n"
@@ -196,7 +196,7 @@
   {:name                "admin"
    :description         "Admin UI with entity config, HTMX forms"
    :clojars             org.boundary-app/boundary-admin
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/admin\n  {:enabled? true :base-path \"/web/admin\" :require-role :admin}\n"
    :test-config-snippet "  :boundary/admin\n  {:enabled? true :base-path \"/web/admin\" :require-role :admin}\n"
@@ -206,7 +206,7 @@
   {:name                "ui-style"
    :description         "Shared CSS/JS style bundles — :base, :pilot, :admin-pilot"
    :clojars             org.boundary-app/boundary-ui-style
-   :version             "1.0.1-alpha-14"
+   :version             "1.0.1-alpha-15"
    :category            :optional
    :config-snippet      "  :boundary/ui-style\n  {:bundle :base}\n"
    :test-config-snippet ""
