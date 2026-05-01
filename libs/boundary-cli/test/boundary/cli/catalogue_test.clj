@@ -61,10 +61,34 @@
       (is (contains? core-names "platform"))
       (is (contains? core-names "user")))))
 
+(defn- parse-all-libs
+  "Extracts and parses the all-libs vector from scripts/deploy.clj as EDN.
+  Returns nil if file absent or vector not found."
+  []
+  (let [f (io/file (System/getProperty "user.dir") "scripts/deploy.clj")]
+    (when (.exists f)
+      (let [content (slurp f)
+            m       (re-find #"(?s)\(def all-libs\s+(\[.*?\])\)" content)]
+        (when m
+          (clojure.edn/read-string (second m)))))))
+
 (deftest scripts-deploy-lib-registry-drift-test
-  (testing "scripts/deploy.clj all-libs contains i18n and payments"
-    (let [deploy-script (io/file (System/getProperty "user.dir") "scripts/deploy.clj")]
-      (when (.exists deploy-script)
-        (let [content (slurp deploy-script)]
-          (is (str/includes? content "\"i18n\"")    "i18n missing from scripts/deploy.clj all-libs — drift from boundary.tools.deploy/all-libs")
-          (is (str/includes? content "\"payments\"") "payments missing from scripts/deploy.clj all-libs — drift from boundary.tools.deploy/all-libs"))))))
+  (let [all-libs (parse-all-libs)]
+    (when all-libs
+      (testing "all-libs vector is parseable and non-empty"
+        (is (vector? all-libs))
+        (is (seq all-libs)))
+
+      (testing "i18n and payments are present in all-libs"
+        (is (some #{"i18n"}    all-libs) "i18n missing from scripts/deploy.clj all-libs")
+        (is (some #{"payments"} all-libs) "payments missing from scripts/deploy.clj all-libs"))
+
+      (testing "i18n appears after platform and before user (dependency order)"
+        (let [idx #(.indexOf ^java.util.List (vec all-libs) %)]
+          (is (< (idx "platform") (idx "i18n"))    "i18n must come after platform")
+          (is (< (idx "i18n")     (idx "user"))     "i18n must come before user")))
+
+      (testing "payments appears after external and before geo (dependency order)"
+        (let [idx #(.indexOf ^java.util.List (vec all-libs) %)]
+          (is (< (idx "external") (idx "payments")) "payments must come after external")
+          (is (< (idx "payments") (idx "geo"))      "payments must come before geo"))))))
