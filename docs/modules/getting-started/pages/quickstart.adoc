@@ -1,31 +1,55 @@
 = Quickstart
 :description: Get a Boundary application running in minutes.
 
-== Bootstrap a new project
-
-The bootstrap script is the quickest way to get started. It pulls down only the starter essentials:
+== Install the Boundary CLI
 
 [source,bash]
 ----
-curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary-starter/main/scripts/bootstrap.sh | bash
-cd boundary-starter
-bb setup
+curl -fsSL https://get.boundary-app.org | bash
 ----
 
-This gives you:
+This installs all prerequisites (JVM, Clojure CLI, Babashka, bbin) and the `boundary` command. +
+Fallback if `get.boundary-app.org` is unavailable:
 
-* SQLite for zero-config development
-* HTTP server on port 3000
-* A complete Integrant system
-* REPL-driven development workflow
-* A Dockerfile
+[source,bash]
+----
+curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/scripts/install.sh | bash
+----
+
+Supports macOS, Debian/Ubuntu, Arch Linux, and WSL2.
+See xref:getting-started:installation.adoc[Installation] for manual setup.
+
+== Bootstrap a new project
+
+[source,bash]
+----
+boundary new my-app
+cd my-app
+----
+
+This scaffolds a complete project with four core modules wired: `core`, `observability`, `platform`, and `user`.
+
+Add optional modules before starting the system:
+
+[source,bash]
+----
+boundary add payments          # PSP abstraction (Stripe / Mollie / Mock)
+boundary add cache             # Redis / in-memory caching
+boundary list modules          # See all 18 optional modules
+----
+
+== Run database migrations
+
+[source,bash]
+----
+clojure -M:migrate up
+----
 
 == Start the system
 
 [source,bash]
 ----
 export JWT_SECRET="change-me-dev-secret-min-32-chars"
-export BND_ENV="development"
 clojure -M:repl-clj
 ----
 
@@ -36,10 +60,10 @@ In the REPL:
 (go)
 ;; => System started. Visit http://localhost:3000
 
-;; Later, after changing code:
+;; After changing code:
 (reset)
 
-;; If you changed a defrecord, do a full restart:
+;; Full restart (after defrecord changes):
 (halt)
 (go)
 ----
@@ -82,9 +106,8 @@ Then reload the system so the new routes are live:
 
 [source,bash]
 ----
-clojure -M:test:db/h2
-clojure -M:test:db/h2 :product
-clojure -M:test:db/h2 --focus-meta :unit
+clojure -M:test
+clojure -M:test --focus-meta :unit
 ----
 
 == Next steps

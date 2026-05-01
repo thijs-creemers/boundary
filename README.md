@@ -16,50 +16,50 @@
 
 ---
 
-## Install Prerequisites
+## Install
 
-You need `curl`, `tar`, and Babashka (`bb`) for starter bootstrap.
+Install the Boundary CLI — it handles all prerequisites (JVM, Clojure CLI, Babashka, bbin) automatically:
 
-**macOS**
 ```bash
-brew install babashka
-# curl and tar are preinstalled on macOS
+curl -fsSL https://get.boundary-app.org | bash
 ```
 
-**Linux (Debian/Ubuntu)**
+Fallback if `get.boundary-app.org` is unavailable:
+
 ```bash
-sudo apt-get update
-sudo apt-get install -y curl tar
-bash < <(curl -s https://raw.githubusercontent.com/babashka/babashka/master/install)
+curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/scripts/install.sh | bash
 ```
 
-**Windows (PowerShell + Scoop)**
-```powershell
-scoop install curl tar babashka
-```
+Supports macOS, Debian/Ubuntu, Arch Linux, and WSL2.
 
 ## Quick Start
 
-Get started with your Boundary project.
-
 ```bash
-curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary-starter/main/scripts/bootstrap.sh | bash
-cd boundary-starter
+# 1. Create a new project
+boundary new my-app
+cd my-app
 
-bb setup
-```
+# 2. Add optional modules (e.g. payments, cache, search)
+boundary add payments
+boundary list modules    # see all 18 optional modules
 
-This downloads only starter essentials into `boundary-starter/`.
+# 3. Run database migrations
+clojure -M:migrate up
 
-If you prefer to use the full repository, from the repo root:
-
-```bash
+# 4. Start the REPL (nREPL on port 7888)
 export JWT_SECRET="change-me-dev-secret-min-32-chars"
-export BND_ENV="dev"
 clojure -M:repl-clj
 ```
 
-You get: SQLite database (zero-config), HTTP server on port 3000, a complete Integrant system, and REPL-driven development.
+In the REPL:
+
+```clojure
+(go)    ; start the system — http://localhost:3000
+(reset) ; reload changed namespaces and restart
+(halt)  ; stop the system
+```
+
+You get: H2 in-memory database (zero-config), HTTP server on port 3000, a complete Integrant system, and REPL-driven development.
 
 ---
 
@@ -224,16 +224,65 @@ See [ADR-021](./dev-docs/adr/ADR-021-fcis-boundary-rules.adoc) (FC/IS rules) and
 
 ---
 
+## Releasing a New Version
+
+Version appears in 24+ files — use these steps to bump consistently.
+
+**1. Replace the version string everywhere (all .clj, .edn, and .md files):**
+
+```bash
+OLD="1.0.1-alpha-15"
+NEW="1.0.1-alpha-16"   # example
+
+# Source and config files
+find . \( -name "*.clj" -o -name "*.edn" \) \
+  ! -path "*/docs/superpowers/*" ! -path "*/.git/*" \
+  -exec grep -l "$OLD" {} \; | xargs sed -i '' "s/$OLD/$NEW/g"
+
+# Documentation
+find . -name "*.md" \
+  ! -path "*/CHANGELOG.md" ! -path "*/docs/superpowers/*" ! -path "*/.git/*" \
+  -exec grep -l "$OLD" {} \; | xargs sed -i '' "s/$OLD/$NEW/g"
+```
+
+On Linux, use `sed -i` instead of `sed -i ''`.
+
+**2. Verify, commit, tag, and release:**
+
+```bash
+# Verify — must print nothing
+grep -r "$OLD" --include="*.clj" --include="*.edn" . | grep -v ".git" | grep -v "docs/superpowers"
+
+bb check --quick
+
+git add -A && git commit -m "bump library suite version $OLD → $NEW"
+git tag -a "$NEW" -m "Release $NEW"
+git push && git push --tags
+gh release create "$NEW" --title "$NEW" --notes "Library suite release $NEW"
+```
+
+**3. Deploy to Clojars:**
+
+```bash
+bb deploy --all
+```
+
+`patch-catalogue-version!` in the deploy script keeps `modules-catalogue.edn` in sync automatically after each successful deploy.
+
+**What to skip:** `CHANGELOG.md` (maintain manually), `docs/superpowers/` (historical planning docs), draft/pre-releases on GitHub (`install.sh` uses `/releases/latest` which only returns published releases).
+
+---
+
 ## Using Individual Libraries
 
 ```clojure
 ;; Validation utilities only
-{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-14"}}}
+{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-15"}}}
 
 ;; Full web application stack
-{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-14"}
-        org.boundary-app/boundary-user     {:mvn/version "1.0.1-alpha-14"}
-        org.boundary-app/boundary-admin    {:mvn/version "1.0.1-alpha-14"}}}
+{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-15"}
+        org.boundary-app/boundary-user     {:mvn/version "1.0.1-alpha-15"}
+        org.boundary-app/boundary-admin    {:mvn/version "1.0.1-alpha-15"}}}
 ```
 
 ---

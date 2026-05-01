@@ -1,0 +1,2 @@
+{:paths ["src" "resources"]
+ :bbin/bin {boundary {:main-opts ["-m" "boundary.cli.main"]}}}

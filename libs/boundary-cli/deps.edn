@@ -1,0 +1,8 @@
+{:paths ["src" "resources"]
+ :deps  {org.babashka/babashka {:mvn/version "RELEASE"}
+         cheshire/cheshire     {:mvn/version "5.12.0"}}
+ :aliases
+ {:test  {:extra-paths ["test"]}
+  :build {:replace-deps {io.github.clojure/tools.build {:git/tag "v0.10.13" :git/sha "3a3c177d"}
+                         slipset/deps-deploy {:mvn/version "0.2.2"}}
+          :ns-default build}}}

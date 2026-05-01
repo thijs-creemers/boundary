@@ -11,14 +11,14 @@ Core infrastructure for web applications: database, HTTP routing, pagination, se
 
 **deps.edn** (recommended):
 ```clojure
-{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-14"}
+{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-15"}
         ;; Choose your database driver
         org.postgresql/postgresql {:mvn/version "42.7.8"}}}
 ```
 
 **Leiningen**:
 ```clojure
-[org.boundary-app/boundary-platform "1.0.1-alpha-14"]
+[org.boundary-app/boundary-platform "1.0.1-alpha-15"]
 [org.postgresql/postgresql "42.7.8"]
 ```
 
@@ -319,7 +319,7 @@ libs/platform/src/boundary/platform/
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| `boundary/observability` | 1.0.1-alpha-14 | Logging, metrics |
+| `boundary/observability` | 1.0.1-alpha-15 | Logging, metrics |
 | `next.jdbc` | 1.3.1086 | Database access |
 | `honeysql` | 2.7.1364 | SQL generation |
 | `HikariCP` | 7.0.2 | Connection pooling |

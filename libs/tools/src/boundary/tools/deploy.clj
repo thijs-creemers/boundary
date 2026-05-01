@@ -5,7 +5,7 @@
 ;;
 ;; Usage (via bb.edn task):
 ;;   bb deploy                         -- show help
-;;   bb deploy --all                   -- deploy all 22 artifacts in dependency order
+;;   bb deploy --all                   -- deploy all 23 artifacts in dependency order
 ;;   bb deploy core platform user      -- deploy specific libs
 ;;   bb deploy --missing               -- deploy only libs not yet on Clojars
 ;;
@@ -57,6 +57,7 @@
    "ai"
    "ui-style"
    "admin"
+   "boundary-cli"
    "devtools"])
 
 (def valid-libs (set all-libs))
@@ -99,6 +100,20 @@
 ;; Deploy
 ;; =============================================================================
 
+(def ^:private catalogue-path
+  "libs/boundary-cli/resources/boundary/cli/modules-catalogue.edn")
+
+(defn- patch-catalogue-version!
+  "Update :version for lib-name in modules-catalogue.edn after a successful deploy."
+  [lib-name new-version]
+  (let [f       (io/file catalogue-path)
+        content (slurp f)
+        pattern (re-pattern (str "(?s)(\\{[^}]*:name\\s+\"" (java.util.regex.Pattern/quote lib-name) "\"[^}]*:version\\s+\")([^\"]+)(\")"))]
+    (if (re-find pattern content)
+      (do (spit f (str/replace content pattern (str "$1" new-version "$3")))
+          (println (green (str "  Catalogue updated: " lib-name " → " new-version))))
+      (println (dim (str "  Catalogue: no entry for " lib-name " (skipping)"))))))
+
 (defn deploy-lib! [lib]
   (let [dir     (lib-dir lib)
         version (read-version lib)]
@@ -108,7 +123,8 @@
     (println (bold (str "\nDeploying " (artifact-name lib) " " version "...")))
     (p/shell {:dir dir} "clojure" "-T:build" "clean")
     (p/shell {:dir dir} "clojure" "-T:build" "deploy")
-    (println (green (str "✓ " (artifact-name lib) " " version " deployed")))))
+    (println (green (str "✓ " (artifact-name lib) " " version " deployed")))
+    (patch-catalogue-version! lib version)))
 
 (defn deploy-sequence! [libs]
   (doseq [[i lib] (map-indexed vector libs)]
@@ -156,7 +172,7 @@
   (println (bold "bb deploy") "— Deploy Boundary libraries to Clojars")
   (println)
   (println "Usage:")
-  (println "  bb deploy --all              Deploy all 22 artifacts in dependency order")
+  (println "  bb deploy --all              Deploy all 23 artifacts in dependency order")
   (println "  bb deploy --missing          Deploy only artifacts not yet on Clojars")
   (println "  bb deploy <lib> [lib...]     Deploy specific libraries")
   (println)

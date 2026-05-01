@@ -1,0 +1,7 @@
+{:tasks
+ {migrate {:doc "Run database migrations"
+           :task (clojure ["-M:migrate"] *command-line-args*)}
+  repl    {:doc "Start REPL"
+           :task (clojure ["-M:repl-clj"])}
+  test    {:doc "Run tests"
+           :task (clojure ["-M:test"])}}}

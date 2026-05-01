@@ -104,6 +104,22 @@
                                        'boundary.tools.help-test)]
                           (when (pos? (+ (:fail summary) (:error summary)))
                             (System/exit 1))))}
+  test:boundary-cli
+  {:doc "Run boundary-cli tests"
+   :extra-paths ["libs/boundary-cli/src"
+                 "libs/boundary-cli/resources"
+                 "libs/boundary-cli/test"]
+   :task (do (require 'boundary.cli.catalogue-test
+                      'boundary.cli.list-modules-test
+                      'boundary.cli.new-test
+                      'boundary.cli.add-test)
+             (let [summary (clojure.test/run-tests
+                            'boundary.cli.catalogue-test
+                            'boundary.cli.list-modules-test
+                            'boundary.cli.new-test
+                            'boundary.cli.add-test)]
+               (when (pos? (+ (:fail summary) (:error summary)))
+                 (System/exit 1))))}
   run-e2e-server
   {:doc "Start the Boundary app on :test profile (port 3100) for Playwright/spel e2e runs"
    :task (let [proc (process/process
