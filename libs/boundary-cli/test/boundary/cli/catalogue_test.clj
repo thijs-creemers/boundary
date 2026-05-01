@@ -1,5 +1,7 @@
 (ns boundary.cli.catalogue-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
             [boundary.cli.catalogue :as cat]))
 
 (deftest load-catalogue-test
@@ -58,3 +60,11 @@
       (is (contains? core-names "observability"))
       (is (contains? core-names "platform"))
       (is (contains? core-names "user")))))
+
+(deftest scripts-deploy-lib-registry-drift-test
+  (testing "scripts/deploy.clj all-libs contains i18n and payments"
+    (let [deploy-script (io/file (System/getProperty "user.dir") "scripts/deploy.clj")]
+      (when (.exists deploy-script)
+        (let [content (slurp deploy-script)]
+          (is (str/includes? content "\"i18n\"")    "i18n missing from scripts/deploy.clj all-libs — drift from boundary.tools.deploy/all-libs")
+          (is (str/includes? content "\"payments\"") "payments missing from scripts/deploy.clj all-libs — drift from boundary.tools.deploy/all-libs"))))))

@@ -69,6 +69,26 @@
       (finally
         (doseq [f (reverse (file-seq (io/file tmp)))] (.delete f))))))
 
+(deftest email-writes-smtp-to-test-config-test
+  (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-add-email-" (System/currentTimeMillis))]
+    (try
+      (make-boundary-project! tmp)
+      (testing "boundary add email patches test/config.edn with :boundary.external/smtp"
+        (add/patch-config! tmp "resources/conf/test/config.edn"
+                           "  :boundary.external/smtp\n  {:host \"localhost\" :port 1025 :tls? false :from \"test@localhost\"}\n")
+        (let [content (slurp (io/file tmp "resources/conf/test/config.edn"))]
+          (is (str/includes? content ":boundary.external/smtp"))))
+
+      (testing "does not inject SMTP into test config if already present"
+        (let [before (slurp (io/file tmp "resources/conf/test/config.edn"))]
+          (add/patch-config! tmp "resources/conf/test/config.edn"
+                             "  :boundary.external/smtp\n  {:host \"localhost\" :port 1025 :tls? false :from \"test@localhost\"}\n")
+          (let [after (slurp (io/file tmp "resources/conf/test/config.edn"))]
+            (is (= (count (re-seq #":boundary.external/smtp" before))
+                   (count (re-seq #":boundary.external/smtp" after)))))))
+      (finally
+        (doseq [f (reverse (file-seq (io/file tmp)))] (.delete f))))))
+
 (deftest patch-agents-md-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-add-agents-" (System/currentTimeMillis))]
     (try
