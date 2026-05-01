@@ -224,6 +224,55 @@ See [ADR-021](./dev-docs/adr/ADR-021-fcis-boundary-rules.adoc) (FC/IS rules) and
 
 ---
 
+## Releasing a New Version
+
+Version appears in 24+ files — use these steps to bump consistently.
+
+**1. Replace the version string everywhere (all .clj, .edn, and .md files):**
+
+```bash
+OLD="1.0.1-alpha-15"
+NEW="1.0.1-alpha-16"   # example
+
+# Source and config files
+find . \( -name "*.clj" -o -name "*.edn" \) \
+  ! -path "*/docs/superpowers/*" ! -path "*/.git/*" \
+  -exec grep -l "$OLD" {} \; | xargs sed -i '' "s/$OLD/$NEW/g"
+
+# Documentation
+find . -name "*.md" \
+  ! -path "*/CHANGELOG.md" ! -path "*/docs/superpowers/*" ! -path "*/.git/*" \
+  -exec grep -l "$OLD" {} \; | xargs sed -i '' "s/$OLD/$NEW/g"
+```
+
+On Linux, use `sed -i` instead of `sed -i ''`.
+
+**2. Verify, commit, tag, and release:**
+
+```bash
+# Verify — must print nothing
+grep -r "$OLD" --include="*.clj" --include="*.edn" . | grep -v ".git" | grep -v "docs/superpowers"
+
+bb check --quick
+
+git add -A && git commit -m "bump library suite version $OLD → $NEW"
+git tag -a "$NEW" -m "Release $NEW"
+git push && git push --tags
+gh release create "$NEW" --title "$NEW" --notes "Library suite release $NEW"
+```
+
+**3. Deploy to Clojars:**
+
+```bash
+bb deploy --all
+```
+
+`patch-catalogue-version!` in the deploy script keeps `modules-catalogue.edn` in sync automatically after each successful deploy.
+
+**What to skip:** `CHANGELOG.md` (maintain manually), `docs/superpowers/` (historical planning docs), draft/pre-releases on GitHub (`install.sh` uses `/releases/latest` which only returns published releases).
+
+---
+
 ## Using Individual Libraries
 
 ```clojure
