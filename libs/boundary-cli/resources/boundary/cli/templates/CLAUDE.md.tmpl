@@ -5,8 +5,8 @@ Built with the [Boundary Framework](https://github.com/thijs-creemers/boundary) 
 ## Build & Development Commands
 
 ```bash
-# REPL (nREPL on port 7888)
-export JWT_SECRET="dev-secret-minimum-32-characters"
+# REPL (nREPL on port 7888) — JWT_SECRET is pre-set in .env
+source .env
 clojure -M:repl-clj
 # In REPL: (go) | (reset) | (halt)
 

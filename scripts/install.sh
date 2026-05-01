@@ -146,10 +146,24 @@ bbin install https://github.com/thijs-creemers/boundary \
 
 ok "boundary CLI installed"
 
+# ── AI agent tooling ──────────────────────────────────────────
+info "Installing AI agent tooling (clj-nrepl-eval + clj-paren-repair)..."
+bbin install https://github.com/bhauman/clojure-mcp-light.git \
+  --tag v0.2.2 --as clj-nrepl-eval \
+  --main-opts '["-m" "clojure-mcp-light.nrepl-eval"]' 2>/dev/null || true
+bbin install https://github.com/bhauman/clojure-mcp-light.git \
+  --tag v0.2.2 --as clj-paren-repair \
+  --main-opts '["-m" "clojure-mcp-light.paren-repair"]' 2>/dev/null || true
+ok "AI agent tooling installed"
+
 echo ""
 echo -e "${GREEN}━━━ Install complete ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 echo ""
 echo "  Next step:"
 echo ""
 echo "    boundary new <your-app-name>"
+echo ""
+echo "  AI tooling (REPL eval + paren repair):"
+echo ""
+echo "    clj-nrepl-eval --discover-ports"
 echo ""

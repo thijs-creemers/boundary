@@ -39,35 +39,45 @@
       (empty? (.list f))     :empty-exists
       :else                  :non-empty)))
 
+(defn- random-jwt-secret []
+  (let [rng   (java.security.SecureRandom.)
+        bytes (byte-array 32)]
+    (.nextBytes rng bytes)
+    (.encodeToString (java.util.Base64/getUrlEncoder) bytes)))
+
 (defn generate!
   "Generate project files into dir."
   [dir project-name _opts]
-  (let [project-ns (name->ns project-name)
-        subs       {:project-name          project-name
-                    :project-ns            project-ns
-                    :core-version          (:version (cat/find-module "core"))
-                    :observability-version (:version (cat/find-module "observability"))
-                    :platform-version      (:version (cat/find-module "platform"))
-                    :user-version          (:version (cat/find-module "user"))
-                    :cache-version         (:version (cat/find-module "cache"))
-                    :admin-version         (:version (cat/find-module "admin"))
-                    :tenant-version        (:version (cat/find-module "tenant"))
-                    :workflow-version      (:version (cat/find-module "workflow"))
-                    :search-version        (:version (cat/find-module "search"))
-                    :external-version      (:version (cat/find-module "external"))
-                    :payments-version      (:version (cat/find-module "payments"))
-                    :i18n-version          (:version (cat/find-module "i18n"))}
-        files      {"deps.edn"                           "deps.edn.tmpl"
-                    "bb.edn"                             "bb.edn.tmpl"
-                    ".gitignore"                         "gitignore.tmpl"
-                    ".env.example"                       "env.example.tmpl"
-                    "CLAUDE.md"                          "CLAUDE.md.tmpl"
-                    "AGENTS.md"                          "AGENTS.md.tmpl"
-                    "resources/conf/dev/config.edn"      "dev-config.edn.tmpl"
-                    "resources/conf/test/config.edn"     "test-config.edn.tmpl"
-                    "src/boundary/config.clj"            "config.clj.tmpl"
-                    "dev/user.clj"                       "user.clj.tmpl"
-                    (str "src/" project-ns "/system.clj") "system.clj.tmpl"}]
+  (let [project-ns  (name->ns project-name)
+        jwt-secret  (random-jwt-secret)
+        subs        {:project-name          project-name
+                     :project-ns            project-ns
+                     :jwt-secret            jwt-secret
+                     :core-version          (:version (cat/find-module "core"))
+                     :observability-version (:version (cat/find-module "observability"))
+                     :platform-version      (:version (cat/find-module "platform"))
+                     :user-version          (:version (cat/find-module "user"))
+                     :cache-version         (:version (cat/find-module "cache"))
+                     :admin-version         (:version (cat/find-module "admin"))
+                     :tenant-version        (:version (cat/find-module "tenant"))
+                     :workflow-version      (:version (cat/find-module "workflow"))
+                     :search-version        (:version (cat/find-module "search"))
+                     :external-version      (:version (cat/find-module "external"))
+                     :payments-version      (:version (cat/find-module "payments"))
+                     :i18n-version          (:version (cat/find-module "i18n"))}
+        files       {"deps.edn"                            "deps.edn.tmpl"
+                     "bb.edn"                              "bb.edn.tmpl"
+                     ".gitignore"                          "gitignore.tmpl"
+                     ".env"                                "env.tmpl"
+                     ".env.example"                        "env.example.tmpl"
+                     "tests.edn"                           "tests.edn.tmpl"
+                     "CLAUDE.md"                           "CLAUDE.md.tmpl"
+                     "AGENTS.md"                           "AGENTS.md.tmpl"
+                     "resources/conf/dev/config.edn"       "dev-config.edn.tmpl"
+                     "resources/conf/test/config.edn"      "test-config.edn.tmpl"
+                     "src/boundary/config.clj"             "config.clj.tmpl"
+                     "dev/user.clj"                        "user.clj.tmpl"
+                     (str "src/" project-ns "/system.clj") "system.clj.tmpl"}]
     (doseq [[target tmpl] files]
       (write-file! dir target (render (read-template tmpl) subs)))))
 
