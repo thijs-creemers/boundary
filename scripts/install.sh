@@ -136,13 +136,26 @@ if [[ -z "$BOUNDARY_TAG" ]]; then
 fi
 
 info "Installing boundary CLI @ $BOUNDARY_TAG..."
-bbin install https://github.com/thijs-creemers/boundary \
+# bbin calls stty size during install; in non-TTY envs (curl|bash) stty returns
+# empty string → Integer/parseInt crash. Shadow stty with a fake that returns
+# fixed dimensions so bbin can complete the install.
+_STTY_WRAP=$(mktemp -d)
+cat > "$_STTY_WRAP/stty" << 'STTY_SHIM'
+#!/bin/sh
+if [ "$1" = "size" ]; then echo "24 80"; else exec /bin/stty "$@"; fi
+STTY_SHIM
+chmod +x "$_STTY_WRAP/stty"
+PATH="$_STTY_WRAP:$PATH" bbin install https://github.com/thijs-creemers/boundary.git \
   --tag "$BOUNDARY_TAG" \
   --git/root libs/boundary-cli \
   --main-opts '["-m" "boundary.cli.main"]' \
-  --as boundary \
-  || fail "Failed to install boundary CLI via bbin.
+  --as boundary || true
+rm -rf "$_STTY_WRAP"
+hash -r 2>/dev/null || true
+if ! command -v boundary &>/dev/null; then
+  fail "Failed to install boundary CLI via bbin.
   If --git/root is not supported by your bbin version, upgrade bbin and retry."
+fi
 
 ok "boundary CLI installed"
 
