@@ -1,10 +1,29 @@
 = Installation
 :description: Prerequisites and installation instructions for Boundary Framework.
 
-== Prerequisites
+== One-liner install (recommended)
 
-Boundary expects Java 17+, the Clojure CLI, and Babashka (`bb`).
-You will also want `curl` and `tar` for the bootstrap script.
+The Boundary installer handles all prerequisites automatically:
+
+[source,bash]
+----
+curl -fsSL https://get.boundary-app.org | bash
+----
+
+Fallback if `get.boundary-app.org` is unavailable:
+
+[source,bash]
+----
+curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/scripts/install.sh | bash
+----
+
+Supports macOS, Debian/Ubuntu, Arch Linux, and WSL2.
+
+After installation, proceed to xref:getting-started:quickstart.adoc[Quickstart].
+
+== Manual installation
+
+Install Java 17+, the Clojure CLI, and Babashka (`bb`) manually if you prefer not to use the installer.
 
 If you already have those installed, skip to xref:getting-started:quickstart.adoc[Quickstart].
 
