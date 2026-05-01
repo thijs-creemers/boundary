@@ -136,25 +136,29 @@ if [[ -z "$BOUNDARY_TAG" ]]; then
 fi
 
 info "Installing boundary CLI @ $BOUNDARY_TAG..."
-# bbin calls stty size during install; in non-TTY envs (curl|bash) stty returns
-# empty string → Integer/parseInt crash. Shadow stty with a fake that returns
-# fixed dimensions so bbin can complete the install.
-_STTY_WRAP=$(mktemp -d)
-cat > "$_STTY_WRAP/stty" << 'STTY_SHIM'
-#!/bin/sh
-if [ "$1" = "size" ]; then echo "24 80"; else exec /bin/stty "$@"; fi
-STTY_SHIM
-chmod +x "$_STTY_WRAP/stty"
-PATH="$_STTY_WRAP:$PATH" bbin install https://github.com/thijs-creemers/boundary.git \
-  --tag "$BOUNDARY_TAG" \
-  --git/root libs/boundary-cli \
-  --main-opts '["-m" "boundary.cli.main"]' \
-  --as boundary || true
-rm -rf "$_STTY_WRAP"
+# bbin's git dep resolution (--deps-root + --config) does not reliably set up
+# the classpath for monorepo sub-projects. Clone the repo and write a plain
+# wrapper script with an explicit classpath instead.
+BOUNDARY_CACHE="$HOME/.boundary/releases/$BOUNDARY_TAG"
+if [[ -d "$BOUNDARY_CACHE" ]]; then
+  info "Using cached source at $BOUNDARY_CACHE"
+else
+  git clone --depth 1 --branch "$BOUNDARY_TAG" \
+    https://github.com/thijs-creemers/boundary.git \
+    "$BOUNDARY_CACHE" 2>&1 | grep -v "^remote:" \
+    || fail "Failed to clone boundary @ $BOUNDARY_TAG"
+fi
+
+mkdir -p "$BBIN_BIN"
+cat > "$BBIN_BIN/boundary" << EOF
+#!/usr/bin/env bash
+exec bb --classpath "$BOUNDARY_CACHE/libs/boundary-cli/src:$BOUNDARY_CACHE/libs/boundary-cli/resources" -m boundary.cli.main "\$@"
+EOF
+chmod +x "$BBIN_BIN/boundary"
+
 hash -r 2>/dev/null || true
 if ! command -v boundary &>/dev/null; then
-  fail "Failed to install boundary CLI via bbin.
-  If --git/root is not supported by your bbin version, upgrade bbin and retry."
+  fail "Failed to install boundary CLI."
 fi
 
 ok "boundary CLI installed"
