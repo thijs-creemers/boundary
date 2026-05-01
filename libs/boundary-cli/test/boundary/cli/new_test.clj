@@ -33,13 +33,19 @@
         (is (.exists (io/file tmp))))
 
       (testing "generates required files"
-        (doseq [f ["deps.edn" "bb.edn" ".gitignore" ".env.example" "CLAUDE.md" "AGENTS.md"
+        (doseq [f ["deps.edn" "bb.edn" ".gitignore" ".env" ".env.example" "tests.edn"
+                   "CLAUDE.md" "AGENTS.md"
                    "resources/conf/dev/config.edn"
                    "resources/conf/test/config.edn"
                    "src/boundary/config.clj"
                    "dev/user.clj"
                    "src/test_proj/system.clj"]]
           (is (.exists (io/file tmp f)) (str "Missing: " f))))
+
+      (testing ".env has a generated JWT_SECRET (no unreplaced placeholder)"
+        (let [content (slurp (io/file tmp ".env"))]
+          (is (str/includes? content "JWT_SECRET="))
+          (is (not (str/includes? content "{{jwt-secret}}")))))
 
       (testing "substitutes project name in CLAUDE.md"
         (let [content (slurp (io/file tmp "CLAUDE.md"))]
