@@ -2,29 +2,294 @@
 
 Built with the Boundary Framework. Follows the Functional Core / Imperative Shell (FC/IS) pattern.
 
+---
+
 ## Essential Commands
 
 ```bash
-clojure -M:repl-clj          # Start REPL (nREPL on port 7888)
-bb migrate up                 # Run database migrations
-clojure -M:test               # Run all tests
-boundary add <module>         # Add a boundary module
-boundary list modules --json  # Machine-readable module catalogue
+# REPL (nREPL on port 7888) — requires JWT_SECRET
+export JWT_SECRET="dev-secret-minimum-32-characters"
+clojure -M:repl-clj
+
+# Shorthand via bb tasks
+bb repl          # same as clojure -M:repl-clj
+bb test          # same as clojure -M:test
+bb migrate up    # same as clojure -M:migrate up
+
+# In the REPL (dev/user.clj defines these aliases):
+(go)    # start the system — http://localhost:3000
+(reset) # reload changed namespaces and restart
+(halt)  # stop the system
+
+# Testing
+clojure -M:test                   # all tests
+clojure -M:test --focus-meta :unit        # unit tests only
+clojure -M:test --focus-meta :integration # integration tests
+
+# Database
+clojure -M:migrate up    # run pending migrations
+
+# Modules
+boundary add <module>          # add an optional module
+boundary list modules          # human-readable module list
+boundary list modules --json   # machine-readable catalogue (for AI tools)
 ```
 
-## Architecture
+---
 
-- `src/{{project-ns}}/core/`  — Pure functions, no side effects
-- `src/{{project-ns}}/shell/` — I/O, HTTP, database
-- `resources/conf/dev/`       — Dev configuration (Aero + Integrant)
-- `resources/conf/test/`      — Test configuration
+## Required Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `JWT_SECRET` | **Yes** | Minimum 32 characters. Required by the user/auth module at startup. |
+| `BND_ENV` | No | Defaults to `dev`. Other values: `test`, `prod`, `acc`. |
+| `HTTP_PORT` | No | Defaults to `3000`. Auto-increments to 3099 if busy. |
+
+```bash
+# Minimum required to start the system
+export JWT_SECRET="dev-secret-minimum-32-characters"
+clojure -M:repl-clj
+```
+
+---
+
+## Architecture: Functional Core / Imperative Shell
+
+```
+src/{{project-ns}}/
+├── core/    # Pure functions ONLY — business logic, calculations, transformations
+│             # No I/O, no logging, no exceptions, no side effects
+└── shell/   # All side effects — HTTP handlers, DB access, external calls, services
+```
+
+**Hard dependency rules — never break these:**
+
+| Direction | Allowed? |
+|-----------|----------|
+| Shell → Core | ✅ Shell calls core |
+| Core → Ports | ✅ Core depends on protocol definitions |
+| Shell → Ports | ✅ Shell implements protocols |
+| Core → Shell | ❌ NEVER — violates FC/IS |
+| Core → I/O | ❌ NEVER — even logging |
+
+```clojure
+;; ✅ CORRECT — core is pure
+(ns {{project-ns}}.core.product)
+(defn calculate-total [items] (reduce + (map :price items)))
+
+;; ❌ WRONG — core must never do I/O
+(ns {{project-ns}}.core.product
+  (:require [{{project-ns}}.shell.persistence :as db]))  ; NEVER
+```
+
+**Module structure when adding new functionality:**
+
+```
+src/{{project-ns}}/
+├── schema.clj               # Malli validation schemas (shared)
+├── ports.clj                # Protocol definitions (interfaces)
+├── core/
+│   └── {domain}.clj         # Pure business logic
+└── shell/
+    ├── persistence.clj      # Database access
+    ├── service.clj          # Business operations (orchestrates core + adapters)
+    └── http.clj             # HTTP handlers and routes
+```
+
+---
+
+## Critical Conventions
+
+### Case conversion — a frequent source of bugs
+
+| Location | Convention | Example |
+|----------|-----------|---------|
+| All Clojure code | kebab-case | `:password-hash`, `:created-at` |
+| Database boundary only | snake_case | `password_hash`, `created_at` |
+| API/JSON boundary only | camelCase | `passwordHash`, `createdAt` |
+
+Convert **only at boundaries** — never in business logic:
+
+```clojure
+;; At persistence boundary — db record → Clojure entity
+(defn db->entity [row]
+  (clojure.set/rename-keys row {:created_at  :created-at
+                                 :updated_at  :updated-at
+                                 :user_id     :user-id}))
+
+;; At persistence boundary — Clojure entity → db params
+(defn entity->db [entity]
+  (clojure.set/rename-keys entity {:created-at  :created_at
+                                    :updated-at  :updated_at
+                                    :user-id     :user_id}))
+```
+
+### Adding new fields — always synchronise all three
+
+1. Malli schema in `schema.clj`
+2. Database column (new migration file)
+3. Persistence layer transformations in `shell/persistence.clj`
+
+Missing any one of these causes `nil` values or SQL errors at runtime.
+
+### Exception handling — always include `:type`
+
+```clojure
+;; ❌ WRONG — no :type causes generic 500 errors
+(throw (ex-info "Not found" {:id user-id}))
+
+;; ✅ CORRECT
+(throw (ex-info "User not found"
+                {:type    :not-found
+                 :id      user-id
+                 :message "No user with this ID exists"}))
+```
+
+Valid `:type` values: `:validation-error` `:not-found` `:unauthorized` `:forbidden` `:conflict` `:internal-error`
+
+### Parenthesis repair
+
+Never manually fix unbalanced parentheses — use the tool:
+
+```bash
+clj-paren-repair src/{{project-ns}}/core/product.clj
+```
+
+---
+
+## Development Workflow
+
+### Adding new functionality
+
+1. **Define schema** in `schema.clj` (Malli)
+2. **Write pure core logic** in `core/{domain}.clj` — no side effects
+3. **Write unit tests** for core logic (fast, no mocks needed)
+4. **Define protocol** in `ports.clj` if the feature needs an adapter
+5. **Implement service** in `shell/service.clj` — orchestrates core + DB + adapters
+6. **Add HTTP handler** in `shell/http.clj`
+
+### Testing workflow
+
+```bash
+# During development — watch a namespace
+clojure -M:test --watch
+
+# Before committing
+clojure -M:test
+```
+
+Tag tests with metadata:
+
+```clojure
+(deftest ^:unit validate-email-test ...)        ; pure core test, no DB
+(deftest ^:integration create-user-test ...)    ; service test with mocked adapters
+```
+
+---
+
+## REPL Patterns
+
+### Start and access the system
+
+```bash
+export JWT_SECRET="dev-secret-minimum-32-characters"
+clojure -M:repl-clj
+```
+
+```clojure
+(go)    ; start system
+
+;; Access a running component
+(def user-svc (get integrant.repl.state/system :boundary/user-service))
+
+;; Test a service function directly (bypass HTTP)
+;; (user-svc/list-users user-svc {:limit 10})
+
+;; After editing code
+(reset)   ; reload changed namespaces and restart
+
+;; After changing a defrecord definition
+(halt)
+(go)
+```
+
+### Query the database directly
+
+```clojure
+(require '[next.jdbc :as jdbc])
+(def ds (get-in integrant.repl.state/system [:boundary/db-context :datasource]))
+(jdbc/execute! ds ["SELECT * FROM users LIMIT 5"])
+```
+
+---
+
+## AI Agent Tooling
+
+Install once with bbin to enable REPL-driven development from the terminal:
+
+```bash
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 \
+  --as clj-nrepl-eval --main-opts '["-m" "clojure-mcp-light.nrepl-eval"]'
+
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 \
+  --as clj-paren-repair --main-opts '["-m" "clojure-mcp-light.paren-repair"]'
+```
+
+```bash
+clj-nrepl-eval --discover-ports      # find running REPLs
+clj-nrepl-eval -p 7888 "(+ 1 2)"     # evaluate an expression
+clj-paren-repair src/my_ns/core.clj  # repair after edits
+```
+
+---
+
+## Common Pitfalls
+
+### 1. defrecord changes require full restart
+
+`(reset)` does not recreate defrecord instances. After changing a defrecord:
+
+```clojure
+(halt)
+(go)
+```
+
+### 2. snake_case vs kebab-case mixing
+
+Using `(:password_hash user)` instead of `(:password-hash user)` returns `nil`. Always use kebab-case internally; convert only at the DB boundary.
+
+### 3. Core depending on shell
+
+If you see `(:require [{{project-ns}}.shell.*])` inside a `core/` namespace, that is an FC/IS violation. Move the dependency to a port protocol instead.
+
+### 4. Missing `:type` in ex-info
+
+Any `(ex-info ...)` without a `:type` key in ex-data will produce a generic 500 error with no useful message. Always include `:type`.
+
+### 5. Validation in wrong layer
+
+```clojure
+;; ❌ WRONG — validation (a side effect decision) in core
+(defn create-product [data]
+  (when-not (valid? data) (throw ...)))
+
+;; ✅ CORRECT — validate in shell, pass clean data to core
+(defn create-product-service [data]
+  (let [[valid? errors clean] (validate data)]
+    (if valid?
+      (product-core/create clean)
+      (throw (ex-info "Validation failed" {:type :validation-error :errors errors})))))
+```
+
+### 6. Forward references
+
+Clojure compiles top-to-bottom. Private helpers must be defined **above** the functions that call them.
+
+---
 
 ## Boundary Modules
 
-Core modules are pre-installed. Add optional modules with:
-
-  boundary add <module>
-  boundary list modules --json    ← machine-readable catalogue for AI tools
+Core modules are pre-installed. Add optional modules with `boundary add <module>`.
 
 <!-- boundary:available-modules -->
 | Module     | Description                                   | Command                     |

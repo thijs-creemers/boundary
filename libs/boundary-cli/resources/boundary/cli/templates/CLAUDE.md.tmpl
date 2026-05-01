@@ -2,7 +2,69 @@
 
 Built with the [Boundary Framework](https://github.com/thijs-creemers/boundary) (Clojure, FC/IS architecture).
 
-See AGENTS.md for available modules, dev commands, and architecture conventions.
+## Build & Development Commands
 
-To discover available boundary modules in machine-readable form:
-  boundary list modules --json
+```bash
+# REPL (nREPL on port 7888)
+export JWT_SECRET="dev-secret-minimum-32-characters"
+clojure -M:repl-clj
+# In REPL: (go) | (reset) | (halt)
+
+# Tests
+clojure -M:test
+
+# Database migrations
+clojure -M:migrate up
+
+# Add optional modules
+boundary add <module>         # e.g. boundary add payments
+boundary list modules --json  # machine-readable catalogue
+```
+
+## Architecture: Functional Core / Imperative Shell
+
+```
+src/{{project-ns}}/
+├── core/    # Pure functions ONLY — no I/O, no logging, no exceptions
+└── shell/   # All side effects: HTTP handlers, DB, services
+```
+
+**Dependency rules (never break these):**
+- Shell → Core ✅
+- Core → Shell ❌ NEVER
+
+## Critical Conventions
+
+**Case conversion — a frequent source of bugs:**
+- All Clojure code: **kebab-case** (`:password-hash`, `:created-at`)
+- Database boundary only: `snake_case`
+- API boundary only: `camelCase`
+
+**Adding new fields — always synchronise all three:**
+1. Malli schema in `schema.clj`
+2. Database column (migration)
+3. Persistence layer transformations
+
+**Exception handling:**
+- All `(ex-info ...)` calls MUST include `:type` in ex-data
+- Valid types: `:validation-error` `:not-found` `:unauthorized` `:forbidden` `:conflict` `:internal-error`
+
+**Parenthesis repair:**
+- NEVER fix unbalanced parentheses manually
+- Use: `clj-paren-repair <file>`
+
+## AI Agent Tooling
+
+Install once with bbin for REPL-driven development:
+
+```bash
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 --as clj-nrepl-eval --main-opts '["-m" "clojure-mcp-light.nrepl-eval"]'
+bbin install https://github.com/bhauman/clojure-mcp-light.git --tag v0.2.2 --as clj-paren-repair --main-opts '["-m" "clojure-mcp-light.paren-repair"]'
+```
+
+Use `clj-nrepl-eval --discover-ports` to find a running REPL.
+Use `clj-nrepl-eval -p 7888 "<expr>"` to evaluate code without leaving the terminal.
+
+## Git Policy
+
+Never commit or push without explicit user approval. Always show intended changes and wait for confirmation.
