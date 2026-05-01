@@ -59,6 +59,7 @@
                      :user-version          (:version (cat/find-module "user"))
                      :cache-version         (:version (cat/find-module "cache"))
                      :admin-version         (:version (cat/find-module "admin"))
+                     :ui-style-version      (:version (cat/find-module "ui-style"))
                      :tenant-version        (:version (cat/find-module "tenant"))
                      :workflow-version      (:version (cat/find-module "workflow"))
                      :search-version        (:version (cat/find-module "search"))
