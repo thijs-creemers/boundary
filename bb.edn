@@ -1,4 +1,6 @@
-{:paths ["scripts"]   ; still needed for docs_lint.clj + verify_doc_links.clj
+{:paths ["scripts"                    ; still needed for docs_lint.clj + verify_doc_links.clj
+         "libs/boundary-cli/src"       ; bbin installs via --deps-root repo-root, so root bb.edn :paths must include CLI src
+         "libs/boundary-cli/resources"]
  :deps  {org.boundary-app/boundary-tools {:local/root "libs/tools"}}
  :tasks
  {:requires ([babashka.http-client       :as http]
