@@ -6,7 +6,7 @@ pure business logic in `core/`, side effects in `shell/`, and clean interfaces t
 
 == What Boundary provides
 
-* *22 independently publishable libraries* on Clojars — use only what you need
+* *22 independently publishable libraries* on Clojars — use only what you need (plus `boundary-cli` and `boundary-devtools`)
 * *Scaffolder* that generates fully structured modules (entity + routes + tests) in seconds
 * *Auto-generated admin UI* from your schema — no manual forms
 * *Built-in observability*, RFC 5988 pagination, and declarative interceptors
@@ -39,9 +39,16 @@ pure business logic in `core/`, side effects in `shell/`, and clean interfaces t
 
 [source,bash]
 ----
+# Install Boundary (JVM, Clojure CLI, Babashka, bbin, boundary CLI)
+curl -fsSL https://get.boundary-app.org | bash
+
 # Start a new project
-curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary-starter/refs/heads/main/scripts/bootstrap.sh | bash
-cd boundary-starter && bb setup
+boundary new my-app
+cd my-app
+
+# Add optional modules
+boundary add payments
+boundary list modules
 
 # REPL-driven development
 export JWT_SECRET="change-me-dev-secret-min-32-chars"

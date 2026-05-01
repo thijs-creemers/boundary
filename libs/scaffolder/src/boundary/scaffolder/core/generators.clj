@@ -8,7 +8,7 @@
 
 ;; When bumping the boundary-tools release, update this version and redeploy
 ;; libs/tools to Clojars before cutting a new boundary-starters release.
-(def boundary-tools-version "1.0.1-alpha-15")
+(def boundary-tools-version "1.0.1-alpha-20")
 
 ;; =============================================================================
 ;; Schema File Generator
@@ -798,7 +798,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
 
   :migrate
   {:main-opts  [\"-m\" \"boundary.platform.shell.database.cli-migrations\"]
-   :extra-deps {org.boundary-app/boundary-platform {:mvn/version \"1.0.1-alpha-15\"}
+   :extra-deps {org.boundary-app/boundary-platform {:mvn/version \"1.0.1-alpha-20\"}
                 org.xerial/sqlite-jdbc             {:mvn/version \"3.51.0.0\"}
                 org.postgresql/postgresql          {:mvn/version \"42.7.8\"}
                 com.h2database/h2                  {:mvn/version \"2.4.240\"}

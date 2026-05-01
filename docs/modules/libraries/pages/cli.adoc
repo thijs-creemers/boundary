@@ -1,0 +1,99 @@
+= cli
+:description: Standalone project bootstrapper and module installer for Boundary. Install everything with one curl command and generate new projects with boundary new.
+
+Standalone CLI tool for bootstrapping new Boundary projects and adding optional modules. Installed via bbin — does not require the monorepo. Generated projects are fully self-contained.
+
+NOTE: Not published to Clojars. Installed via bbin from the GitHub repository.
+
+== Install
+
+[source,bash]
+----
+curl -fsSL https://get.boundary-app.org | bash
+----
+
+The installer handles all prerequisites: JVM, Clojure CLI, Babashka, bbin, and the `boundary` command itself.
+Supports macOS, Debian/Ubuntu, Arch Linux, and WSL2.
+
+Fallback if `get.boundary-app.org` is unavailable:
+
+[source,bash]
+----
+curl -fsSL https://raw.githubusercontent.com/thijs-creemers/boundary/main/scripts/install.sh | bash
+----
+
+== Commands
+
+=== Create a new project
+
+[source,bash]
+----
+boundary new my-app          # Scaffold a new project
+boundary new my-app --force  # Overwrite existing directory
+----
+
+Generates a complete project with four core modules pre-wired: `core`, `observability`, `platform`, and `user`. The project is immediately runnable after `clojure -M:migrate up`.
+
+=== Add a module
+
+[source,bash]
+----
+boundary add payments          # PSP abstraction (Stripe / Mollie / Mock)
+boundary add cache             # Redis / in-memory caching
+boundary add search            # Full-text search (Meilisearch)
+boundary add jobs              # Background job processing
+----
+
+Wires the module into `deps.edn`, `system.clj`, and migration files.
+
+=== List available modules
+
+[source,bash]
+----
+boundary list modules          # Human-readable table
+boundary list modules --json   # Machine-readable JSON
+----
+
+=== Show version
+
+[source,bash]
+----
+boundary version
+----
+
+== Generated project structure
+
+[source]
+----
+my-app/
+├── deps.edn          # Clojure deps with :migrate, :repl-clj, :test aliases
+├── bb.edn            # Babashka tasks (scaffold, check, doctor, deploy, ...)
+├── dev-config.edn    # Development environment config
+├── test-config.edn   # Test environment config
+├── src/
+│   └── my_app/
+│       └── system.clj    # Component system wiring
+└── AGENTS.md         # AI agent context file
+----
+
+== Manual bbin install (advanced)
+
+If you prefer to manage your own bbin installation:
+
+[source,bash]
+----
+bbin install https://github.com/thijs-creemers/boundary \
+  --tag v1.0.1-alpha-15 \
+  --git/root libs/boundary-cli \
+  --main-opts '["-m" "boundary.cli.main"]' \
+  --as boundary
+----
+
+== AI agent tooling
+
+The installer also installs `clj-nrepl-eval` and `clj-paren-repair` from `clojure-mcp-light` for REPL-over-MCP workflows:
+
+[source,bash]
+----
+clj-nrepl-eval --discover-ports   # Connect AI agent to running REPL
+----

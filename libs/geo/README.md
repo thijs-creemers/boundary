@@ -13,7 +13,7 @@
 
 ```clojure
 ;; deps.edn
-{:deps {org.boundary-app/boundary-geo {:mvn/version "1.0.1-alpha-15"}}}
+{:deps {org.boundary-app/boundary-geo {:mvn/version "1.0.1-alpha-20"}}}
 ```
 
 ```clojure

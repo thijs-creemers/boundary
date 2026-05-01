@@ -3,6 +3,9 @@
             [clojure.string :as str]
             [boundary.cli.catalogue :as cat]))
 
+;; Keep in sync with libs/tools/build.clj version
+(def ^:private boundary-tools-version "1.0.1-alpha-20")
+
 (defn validate-name [n]
   (cond
     (str/blank? n)                            "Project name cannot be empty"
@@ -50,10 +53,11 @@
   [dir project-name _opts]
   (let [project-ns  (name->ns project-name)
         jwt-secret  (random-jwt-secret)
-        subs        {:project-name          project-name
-                     :project-ns            project-ns
-                     :jwt-secret            jwt-secret
-                     :core-version          (:version (cat/find-module "core"))
+        subs        {:project-name             project-name
+                     :project-ns               project-ns
+                     :jwt-secret               jwt-secret
+                     :boundary-tools-version   boundary-tools-version
+                     :core-version             (:version (cat/find-module "core"))
                      :observability-version (:version (cat/find-module "observability"))
                      :platform-version      (:version (cat/find-module "platform"))
                      :user-version          (:version (cat/find-module "user"))
@@ -112,4 +116,4 @@
       (doseq [{:keys [name description add-command]} (take 6 (cat/optional-modules))]
         (println (format "  %-25s %s" add-command description)))
       (println "  ... (boundary list modules for full list)")
-      (println (str "\nNext:\n  cd " project-name "\n  boundary add <module>    (optional)\n  clojure -M:repl-clj")))))
+      (println (str "\nNext:\n  cd " project-name "\n  boundary add <module>    (optional)\n  clojure -M:repl")))))

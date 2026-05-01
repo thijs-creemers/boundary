@@ -11,12 +11,12 @@ Foundation library providing validation, utilities, and interceptor framework fo
 
 **deps.edn** (recommended):
 ```clojure
-{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-15"}}}
+{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-20"}}}
 ```
 
 **Leiningen**:
 ```clojure
-[org.boundary-app/boundary-core "1.0.1-alpha-15"]
+[org.boundary-app/boundary-core "1.0.1-alpha-20"]
 ```
 
 ## Features
