@@ -79,7 +79,7 @@
    :version             "1.0.1-alpha-14"
    :category            :optional
    :config-snippet      "  :boundary.external/smtp\n  {:host #or [#env SMTP_HOST \"localhost\"] :port 1025 :tls? false :from \"no-reply@localhost\"}\n"
-   :test-config-snippet ""
+   :test-config-snippet "  :boundary.external/smtp\n  {:host \"localhost\" :port 1025 :tls? false :from \"test@localhost\"}\n"
    :add-command         "boundary add email"
    :docs-url            "https://github.com/thijs-creemers/boundary/blob/main/libs/email/AGENTS.md"}
 
