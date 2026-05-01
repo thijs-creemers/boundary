@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1-alpha-20] - 2026-05-01
+
+### Fixed
+
+- **`boundary-cli`**: `boundary new` now generates a full `boundary-tools` task suite in `bb.edn` instead of a minimal 3-task config. The old template used broken `(clojure ["-M:repl-clj"])` syntax that caused `FileNotFoundException: [-M:repl-clj]` on `bb repl`.
+- **`boundary-cli`**: Generated `deps.edn` now uses `:repl` alias (consistent with generated-project convention; monorepo uses `:repl-clj`).
+
+### Changed
+
+- All 23 libraries bumped to `1.0.1-alpha-20` to re-align lockstep versioning.
+
 ## [1.0.1-alpha-14] - 2026-04-25
 
 ### Fixed
@@ -869,11 +880,13 @@ Copyright 2024-2025 Thijs Creemers. All rights reserved.
 
 ## Version History
 
+- **[1.0.1-alpha-20]** - 2026-05-01: Fix `boundary new` bb.edn template — full boundary-tools task suite, version re-alignment
 - **[1.0.1-alpha-14]** - 2026-04-25: Bug fixes — scaffolder in generated projects, AI CLI env fallback, OpenAI double /v1 path, smoke-check / linting in non-monorepo projects
 - **[1.0.1-alpha-13]** - 2026-04-20: DX Vision (devtools, dev dashboard, REPL power, error experience, AI integration), LRU cache fix, CSP hardening
 - **[1.0.1-alpha-12]** - 2026-04-06: E2E testing, admin UI improvements, auth bug fixes, quality gates, version bump
 - **[1.0.0-alpha]** - 2026-02-14: Initial production release
 
+[1.0.1-alpha-20]: https://github.com/thijs-creemers/boundary/releases/tag/1.0.1-alpha-20
 [1.0.1-alpha-14]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-14
 [1.0.1-alpha-13]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-13
 [1.0.1-alpha-12]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-12
