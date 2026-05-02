@@ -28,6 +28,8 @@
                              [:url "https://www.eclipse.org/legal/epl-2.0/"]]]]})
   (b/copy-dir {:src-dirs ["src" "resources"]
                :target-dir class-dir})
+  (spit (str class-dir "/cljdoc.edn")
+        (pr-str {:cljdoc/root "libs/i18n"}))
   (b/jar {:class-dir class-dir
           :jar-file jar-file}))
 
