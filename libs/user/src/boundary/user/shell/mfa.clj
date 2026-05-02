@@ -16,7 +16,12 @@
   (:import (java.security SecureRandom)
            (java.net URLEncoder)
            (java.time Instant)
-           (org.apache.commons.codec.binary Base32)))
+           (java.util Base64)
+           (java.io ByteArrayOutputStream)
+           (org.apache.commons.codec.binary Base32)
+           (com.google.zxing BarcodeFormat)
+           (com.google.zxing.qrcode QRCodeWriter)
+           (com.google.zxing.client.j2se MatrixToImageWriter)))
 
 ;; =============================================================================
 ;; TOTP Operations (Side Effects)
@@ -80,19 +85,21 @@
        "&period=30"))
 
 (defn generate-qr-code-data-url
-  "Shell function: Generate QR code data URL for TOTP URI.
-   
+  "Shell function: Generate QR code as a base64-encoded PNG data URL.
+
    Args:
      totp-uri: TOTP URI string
-     
+
    Returns:
-     Data URL for QR code image (can be used in <img> tag)
-     
-   Note: This generates a URL that uses an external QR code service.
-         For production, consider using a library like clj-qrcode or zxing."
+     Data URL string (data:image/png;base64,...) for use in <img> src attribute.
+     Generated locally using ZXing — no external service required."
   [totp-uri]
-  (let [encoded-uri (URLEncoder/encode totp-uri "UTF-8")]
-    (str "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" encoded-uri)))
+  (let [writer (QRCodeWriter.)
+        bit-matrix (.encode writer totp-uri BarcodeFormat/QR_CODE 200 200)
+        baos (ByteArrayOutputStream.)]
+    (MatrixToImageWriter/writeToStream bit-matrix "PNG" baos)
+    (str "data:image/png;base64,"
+         (.encodeToString (Base64/getEncoder) (.toByteArray baos)))))
 
 ;; =============================================================================
 ;; Backup Code Operations (Side Effects)
@@ -160,7 +167,7 @@
       :backup-codes vector (if successful)
       :error string (if failed)}"
   [mfa-service user-id]
-(let [{:keys [user-repository config]} mfa-service]
+  (let [{:keys [user-repository config]} mfa-service]
     (try
       (let [user (.find-user-by-id user-repository user-id)
             can-enable (mfa-core/can-enable-mfa? user)]
@@ -199,7 +206,7 @@
      {:success? boolean
       :error string (if failed)}"
   [mfa-service user-id secret backup-codes verification-code]
-(let [{:keys [user-repository]} mfa-service]
+  (let [{:keys [user-repository]} mfa-service]
     (try
       (let [user (.find-user-by-id user-repository user-id)
             can-enable (mfa-core/can-enable-mfa? user)]
@@ -211,7 +218,7 @@
                   updates (mfa-core/prepare-mfa-enablement
                            user secret backup-codes current-time)
                   updated-user (merge user updates)]
-              (log/info "Updating user with MFA" 
+              (log/info "Updating user with MFA"
                         {:user-id (:id user)
                          :mfa-enabled (:mfa-enabled updated-user)
                          :has-secret (boolean (:mfa-secret updated-user))
@@ -239,7 +246,7 @@
      {:success? boolean
       :error string (if failed)}"
   [mfa-service user-id]
-(let [{:keys [user-repository]} mfa-service]
+  (let [{:keys [user-repository]} mfa-service]
     (try
       (let [user (.find-user-by-id user-repository user-id)
             can-disable (mfa-core/can-disable-mfa? user)]
@@ -271,21 +278,21 @@
   [_mfa-service user code]
   (cond
       ;; Try TOTP verification first
-      (verify-totp-code code (:mfa-secret user))
-      {:valid? true
-       :used-backup-code? false}
+    (verify-totp-code code (:mfa-secret user))
+    {:valid? true
+     :used-backup-code? false}
 
       ;; Try backup code
-      (mfa-core/is-valid-backup-code? code user)
-      (let [updates (mfa-core/mark-backup-code-used user code)]
-        {:valid? true
-         :used-backup-code? true
-         :updates updates})
+    (mfa-core/is-valid-backup-code? code user)
+    (let [updates (mfa-core/mark-backup-code-used user code)]
+      {:valid? true
+       :used-backup-code? true
+       :updates updates})
 
       ;; Invalid code
-      :else
-      {:valid? false
-       :used-backup-code? false}))
+    :else
+    {:valid? false
+     :used-backup-code? false}))
 
 (defn get-mfa-status
   "Get MFA status for a user.

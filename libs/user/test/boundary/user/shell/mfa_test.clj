@@ -186,15 +186,15 @@
           totp-uri (mfa-shell/generate-totp-uri secret email issuer)
           data-url (mfa-shell/generate-qr-code-data-url totp-uri)]
 
-      (testing "generates external QR code URL"
+      (testing "generates base64 PNG data URL"
         (is (some? data-url))
         (is (string? data-url)))
 
-      (testing "URL points to QR service"
-        (is (.contains data-url "api.qrserver.com")))
+      (testing "URL is a data URL"
+        (is (.startsWith data-url "data:image/png;base64,")))
 
-      (testing "URL contains encoded otpauth URI"
-        (is (.contains data-url "otpauth"))))))
+      (testing "data URL contains non-empty base64 payload"
+        (is (< (count "data:image/png;base64,") (count data-url)))))))
 
 ;; =============================================================================
 ;; MFA Service Integration Tests
@@ -219,9 +219,9 @@
         (is (some? (:backup-codes result)))
         (is (= 10 (count (:backup-codes result)))))
 
-      (testing "returns QR code URL"
+      (testing "returns QR code data URL"
         (is (some? (:qr-code-url result)))
-        (is (.contains (:qr-code-url result) "api.qrserver.com")))
+        (is (.startsWith (:qr-code-url result) "data:image/png;base64,")))
 
       (testing "user not yet enabled (requires verification)"
         (let [user (ports/find-user-by-id mock-repo (:id test-user))]
