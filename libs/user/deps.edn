@@ -1,26 +1,30 @@
 {:paths ["src" "resources"]
- 
+
  :deps {org.clojure/clojure {:mvn/version "1.12.4"}
         boundary/platform {:local/root "../platform"}
-        
+
         ;; Authentication
         buddy/buddy-hashers {:mvn/version "2.0.167"}
         buddy/buddy-sign {:mvn/version "3.6.1-359"}
         one-time/one-time {:mvn/version "0.8.0"
                            :exclusions [com.github.kenglxn.qrgen/javase]}
-        
+
+        ;; QR code generation (local, no external service)
+        com.google.zxing/core    {:mvn/version "3.5.3"}
+        com.google.zxing/javase  {:mvn/version "3.5.3"}
+
         ;; UI
         hiccup/hiccup {:mvn/version "2.0.0"}}
- 
+
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
                       com.h2database/h2 {:mvn/version "2.4.240"}}
          :main-opts ["-m" "kaocha.runner"]}
-  
+
   :clj-kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2026.04.15"}}
               :main-opts ["-m" "clj-kondo.main"]}
-  
+
   :build {:replace-deps {io.github.clojure/tools.build {:git/tag "v0.10.13" :git/sha "3a3c177d"}
-                        slipset/deps-deploy {:mvn/version "0.2.2"}}
+                         slipset/deps-deploy {:mvn/version "0.2.2"}}
           :ns-default build}}}

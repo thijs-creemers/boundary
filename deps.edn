@@ -73,6 +73,10 @@
            one-time/one-time                          {:mvn/version "0.8.0" ;; TOTP/HOTP for MFA
                                                        :exclusions  [com.github.kenglxn.qrgen/javase]}
 
+           ;; QR code generation for MFA setup (local, no external service)
+           com.google.zxing/core                      {:mvn/version "3.5.3"}
+           com.google.zxing/javase                    {:mvn/version "3.5.3"}
+
            ;; Web UI and Templates
            hiccup/hiccup                              {:mvn/version "2.0.0"}
 

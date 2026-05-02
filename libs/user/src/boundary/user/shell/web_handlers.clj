@@ -1479,16 +1479,11 @@
                              (profile-ui/mfa-backup-codes-display backup-codes false
                                                                   {:user current-user
                                                                    :flash {:success "Two-factor authentication enabled successfully"}}))
-              ;; Invalid code
-              (let [qr-code-url (str "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="
-                                     (java.net.URLEncoder/encode
-                                      (str "otpauth://totp/" (get config :app-name "Boundary")
-                                           ":" (:email current-user)
-                                           "?secret=" secret
-                                           "&issuer=" (get config :app-name "Boundary"))
-                                      "UTF-8"))
-                    issuer (get config :app-name "Boundary")
-                    account-name (:email current-user)]
+              ;; Invalid code - regenerate QR code data URL from the submitted secret
+              (let [issuer (get-in config [:boundary/settings :app-name] "Boundary")
+                    account-name (:email current-user)
+                    totp-uri (mfa/generate-totp-uri secret account-name issuer)
+                    qr-code-url (mfa/generate-qr-code-data-url totp-uri)]
                 (html-response request
                                (profile-ui/mfa-qr-code-step secret qr-code-url issuer account-name backup-codes
                                                             {:verification-code ["Invalid verification code. Please try again."]})
