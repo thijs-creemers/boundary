@@ -1480,7 +1480,7 @@
                                                                   {:user current-user
                                                                    :flash {:success "Two-factor authentication enabled successfully"}}))
               ;; Invalid code - regenerate QR code data URL from the submitted secret
-              (let [issuer (get-in config [:boundary/settings :app-name] "Boundary")
+              (let [issuer (get-in mfa-service [:config :issuer] "Boundary Framework")
                     account-name (:email current-user)
                     totp-uri (mfa/generate-totp-uri secret account-name issuer)
                     qr-code-url (mfa/generate-qr-code-data-url totp-uri)]
