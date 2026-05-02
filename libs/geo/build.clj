@@ -29,7 +29,7 @@
   (b/copy-dir {:src-dirs ["src" "resources"]
                :target-dir class-dir})
   (spit (str class-dir "/cljdoc.edn")
-        (pr-str {:cljdoc/root (str "libs/" (.getName (java.io.File. (System/getProperty "user.dir"))))}))
+        (pr-str {:cljdoc/root "libs/geo"}))
   (b/jar {:class-dir class-dir
           :jar-file jar-file}))
 
