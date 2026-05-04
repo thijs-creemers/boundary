@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`boundary-tools`**: `bb create-admin` now works in freshly generated projects (BOU-27). The command previously shelled out to `clojure -M:cli:db` which requires `boundary.cli` — a monorepo-only namespace never included in published libraries. Replaced with `clojure -M:user-cli` which calls `boundary.user.shell.cli-entry/run-cli!` directly via `-e` eval, requiring no unpublished code.
+- **`boundary-cli`**: Generated `deps.edn` now includes a `:user-cli` alias with all four JDBC drivers (SQLite, PostgreSQL, H2, MySQL) so `bb create-admin` works regardless of which database adapter the project is configured to use.
+- **`boundary-cli`**: Generated `config.clj` now defines `user-validation-config`, which `boundary.user.shell.cli-entry` resolves at runtime via `requiring-resolve`.
+- **`boundary-tools`**: `bb create-admin` passes the target environment via `BND_ENV` environment variable instead of `-J-Denv=`, matching how `boundary.config/load-config` actually reads the active profile.
+
 ## [1.0.1-alpha-20] - 2026-05-01
 
 ### Fixed
