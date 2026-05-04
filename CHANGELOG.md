@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`boundary-admin`**: `schema_repository/get-entity-config` now uses `:table-name` from manual entity config when fetching table metadata, so entities whose key differs from their table name (e.g. `:users` → `auth_users`) resolve correctly (BOU-28).
+- **`boundary-admin`**: `bulk-delete-entities` now targets `:soft-delete-table` instead of `:table-name` when soft-deleting, fixing bulk deletes in split-table setups (BOU-28).
+- **`boundary-admin`**: `update-entity` and `update-entity-field` now use `execute-update!` for DML statements instead of `execute-one!`, fixing UPDATE execution in both split-table and single-table paths (BOU-28).
+- **`boundary-admin`**: Added `:soft-delete true` to the default `users` admin entity config so soft-delete is enabled out of the box (BOU-28).
 - **`boundary-tools`**: `bb create-admin` now works in freshly generated projects (BOU-27). The command previously shelled out to `clojure -M:cli:db` which requires `boundary.cli` — a monorepo-only namespace never included in published libraries. Replaced with `clojure -M:user-cli` which calls `boundary.user.shell.cli-entry/run-cli!` directly via `-e` eval, requiring no unpublished code.
 - **`boundary-cli`**: Generated `deps.edn` now includes a `:user-cli` alias with all four JDBC drivers (SQLite, PostgreSQL, H2, MySQL) so `bb create-admin` works regardless of which database adapter the project is configured to use.
 - **`boundary-cli`**: Generated `config.clj` now defines `user-validation-config`, which `boundary.user.shell.cli-entry` resolves at runtime via `requiring-resolve`.
