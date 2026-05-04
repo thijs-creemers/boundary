@@ -129,7 +129,7 @@
                     shell-opts
                     "clojure"
                     "-M:user-cli"
-                    "user" "create"
+                    "create"
                     "--email" email
                     "--name"  name
                     "--role"  "admin"
