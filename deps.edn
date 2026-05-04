@@ -291,6 +291,16 @@
                        :main-opts  ["-m" "boundary.cli"]
                        :jvm-opts   ["-Denv=dev"]}
 
+           ;; Direct entrypoint into the user module CLI; used by bb create-admin so that
+           ;; generated projects (which do not have boundary.cli on the classpath) can still
+           ;; run the user CLI via -M:user-cli. Must include all JDBC drivers because
+           ;; db-factory/db-context resolves the driver at runtime based on active config.
+           :user-cli  {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.0.0"}
+                                    org.postgresql/postgresql   {:mvn/version "42.7.10"}
+                                    com.h2database/h2           {:mvn/version "2.4.240"}
+                                    com.mysql/mysql-connector-j {:mvn/version "9.6.0"}}
+                       :main-opts  ["-m" "boundary.user.shell.cli-entry"]}
+
            ;; =============================================================================
            ;; HTTP server entrypoint (invokes boundary.main/-main in server mode).
            ;; Used by `bb run-e2e-server` for Playwright/spel e2e runs, and available
