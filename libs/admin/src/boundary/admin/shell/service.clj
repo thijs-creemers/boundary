@@ -434,13 +434,13 @@
                    (db/with-transaction* db-ctx
                      (fn [tx]
                        (when (seq primary-db)
-                         (db/execute-one! tx {:update table-name
-                                              :set    primary-db
-                                              :where  [:= primary-key id-str]}))
+                         (db/execute-update! tx {:update table-name
+                                                 :set    primary-db
+                                                 :where  [:= primary-key id-str]}))
                        (when (seq secondary-db)
-                         (db/execute-one! tx {:update secondary-table
-                                              :set    secondary-db
-                                              :where  [:= primary-key id-str]})))))
+                         (db/execute-update! tx {:update secondary-table
+                                                 :set    secondary-db
+                                                 :where  [:= primary-key id-str]})))))
                  ;; non-split path: unchanged
                  (db/execute-one! db-ctx {:update table-name
                                           :set    db-data
@@ -516,7 +516,7 @@
                update-query {:update effective-table
                              :set db-data
                              :where [:= primary-key id-str]}
-               _ (db/execute-one! db-ctx update-query)
+               _ (db/execute-update! db-ctx update-query)
 
                ; Fetch updated record using join-aware query
                {:keys [from-clause select-clause join-clause field-aliases]} (resolve-query-config entity-config)
