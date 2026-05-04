@@ -614,6 +614,7 @@
              table-name (:table-name entity-config)
              primary-key (:primary-key entity-config :id)
              soft-delete? (:soft-delete entity-config false)
+             {:keys [soft-delete-table]} (resolve-query-config entity-config)
 
              ;; Convert UUIDs to strings at database boundary
              id-strings (mapv type-conversion/uuid->string ids)
@@ -627,7 +628,7 @@
              soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
 
              query (if soft-delete?
-                     {:update table-name
+                     {:update soft-delete-table
                       :set soft-delete-data
                       :where [:in primary-key id-strings]}
                      {:delete-from table-name
