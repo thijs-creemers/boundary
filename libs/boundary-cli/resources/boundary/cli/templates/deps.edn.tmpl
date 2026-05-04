@@ -23,4 +23,5 @@
   :test     {:extra-paths ["test"]
              :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
              :main-opts   ["-m" "kaocha.runner"]}
-  :migrate  {:main-opts ["-m" "boundary.platform.shell.database.cli-migrations"]}}}
+  :migrate  {:main-opts ["-m" "boundary.platform.shell.database.cli-migrations"]}
+  :user-cli {:main-opts ["-m" "boundary.user.shell.cli-entry"]}}}

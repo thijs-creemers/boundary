@@ -62,6 +62,11 @@
       :else (throw (ex-info "No active database adapter in config"
                             {:active-keys (keys active)})))))
 
+(defn user-validation-config
+  "Extract user validation configuration."
+  [config]
+  (get-in config [:active :boundary/settings :user-validation] {}))
+
 (defn ig-config
   "Build Integrant configuration map from loaded config.
 

@@ -88,3 +88,9 @@
           (println "Fatal error:" (.getMessage e)))
         (reset! exit-status 1)))
     @exit-status))
+
+(defn -main
+  "CLI main entry point for direct invocation via clojure -M:user-cli.
+  Delegates to run-cli! and exits with the returned status code."
+  [& args]
+  (System/exit (run-cli! (vec args))))
