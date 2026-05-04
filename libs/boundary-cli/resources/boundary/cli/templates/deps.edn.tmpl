@@ -28,4 +28,5 @@
                           org.postgresql/postgresql   {:mvn/version "42.7.10"}
                           com.h2database/h2           {:mvn/version "2.4.240"}
                           com.mysql/mysql-connector-j {:mvn/version "9.6.0"}}
-             :main-opts  ["-m" "boundary.user.shell.cli-entry"]}}}
+             :main-opts  ["-e" "(require '[boundary.user.shell.cli-entry :as e]) (System/exit (e/run-cli! (vec *command-line-args*)))"]}}}
+
