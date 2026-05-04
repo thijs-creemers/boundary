@@ -66,7 +66,10 @@
      6. Inject effective UI config (admin global + entity override)
      7. Apply field ordering if :field-order is specified
      8. Return complete entity configuration"
-    (let [table-metadata (ports/fetch-table-metadata this entity-name)
+    (let [;; Use :table-name from manual config if provided, otherwise derive from entity-name
+          effective-table-name (or (get-in config [:entities entity-name :table-name])
+                                   entity-name)
+          table-metadata (ports/fetch-table-metadata this effective-table-name)
           auto-config (introspection/parse-table-metadata entity-name table-metadata)
           ;; Enrich auto-detected fields with enum type/widget/options from Malli schema
           malli-schema (get malli-schemas entity-name)

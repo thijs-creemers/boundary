@@ -434,17 +434,17 @@
                    (db/with-transaction* db-ctx
                      (fn [tx]
                        (when (seq primary-db)
-                         (db/execute-one! tx {:update table-name
-                                              :set    primary-db
-                                              :where  [:= primary-key id-str]}))
+                         (db/execute-update! tx {:update table-name
+                                                 :set    primary-db
+                                                 :where  [:= primary-key id-str]}))
                        (when (seq secondary-db)
-                         (db/execute-one! tx {:update secondary-table
-                                              :set    secondary-db
-                                              :where  [:= primary-key id-str]})))))
-                 ;; non-split path: unchanged
-                 (db/execute-one! db-ctx {:update table-name
-                                          :set    db-data
-                                          :where  [:= primary-key id-str]}))
+                         (db/execute-update! tx {:update secondary-table
+                                                 :set    secondary-db
+                                                 :where  [:= primary-key id-str]})))))
+                 ;; non-split path
+                 (db/execute-update! db-ctx {:update table-name
+                                             :set    db-data
+                                             :where  [:= primary-key id-str]}))
 
               ; Fetch the updated record using join-aware query
              {:keys [from-clause select-clause join-clause field-aliases]} (resolve-query-config entity-config)
@@ -516,7 +516,7 @@
                update-query {:update effective-table
                              :set db-data
                              :where [:= primary-key id-str]}
-               _ (db/execute-one! db-ctx update-query)
+               _ (db/execute-update! db-ctx update-query)
 
                ; Fetch updated record using join-aware query
                {:keys [from-clause select-clause join-clause field-aliases]} (resolve-query-config entity-config)
@@ -614,6 +614,7 @@
              table-name (:table-name entity-config)
              primary-key (:primary-key entity-config :id)
              soft-delete? (:soft-delete entity-config false)
+             {:keys [soft-delete-table]} (resolve-query-config entity-config)
 
              ;; Convert UUIDs to strings at database boundary
              id-strings (mapv type-conversion/uuid->string ids)
@@ -627,7 +628,7 @@
              soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
 
              query (if soft-delete?
-                     {:update table-name
+                     {:update soft-delete-table
                       :set soft-delete-data
                       :where [:in primary-key id-strings]}
                      {:delete-from table-name

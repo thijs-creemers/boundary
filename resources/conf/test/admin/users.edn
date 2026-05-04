@@ -11,6 +11,7 @@
   ;; email and active live in auth_users and are routed there via :split-table-update.
   ;; mfa-enabled is controlled by the MFA enrollment flow, not the generic edit form.
   :table-name      :users
+  :soft-delete     true
   :readonly-fields #{:id :mfa-enabled :created-at :updated-at}
 
   ;; Split-table update: fields listed under :secondary-fields are written to
