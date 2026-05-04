@@ -441,10 +441,10 @@
                          (db/execute-update! tx {:update secondary-table
                                                  :set    secondary-db
                                                  :where  [:= primary-key id-str]})))))
-                 ;; non-split path: unchanged
-                 (db/execute-one! db-ctx {:update table-name
-                                          :set    db-data
-                                          :where  [:= primary-key id-str]}))
+                 ;; non-split path
+                 (db/execute-update! db-ctx {:update table-name
+                                             :set    db-data
+                                             :where  [:= primary-key id-str]}))
 
               ; Fetch the updated record using join-aware query
              {:keys [from-clause select-clause join-clause field-aliases]} (resolve-query-config entity-config)
