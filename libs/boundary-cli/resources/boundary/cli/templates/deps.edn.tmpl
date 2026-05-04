@@ -23,4 +23,10 @@
   :test     {:extra-paths ["test"]
              :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
              :main-opts   ["-m" "kaocha.runner"]}
-  :migrate  {:main-opts ["-m" "boundary.platform.shell.database.cli-migrations"]}}}
+  :migrate  {:main-opts ["-m" "boundary.platform.shell.database.cli-migrations"]}
+  :user-cli {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.0.0"}
+                          org.postgresql/postgresql   {:mvn/version "42.7.10"}
+                          com.h2database/h2           {:mvn/version "2.4.240"}
+                          com.mysql/mysql-connector-j {:mvn/version "9.6.0"}}
+             :main-opts  ["-e" "(require '[boundary.user.shell.cli-entry :as e]) (System/exit (e/run-cli! (vec *command-line-args*)))"]}}}
+

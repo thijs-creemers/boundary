@@ -120,15 +120,16 @@
                            (< (count p) 8)  (do (println (red "  Password must be at least 8 characters.")) (recur))
                            :else p)))
 
-            shell-opts (cond-> {:continue true :in (str password "\n")}
+            shell-opts (cond-> {:continue true
+                                :in (str password "\n")
+                                :env (assoc (into {} (System/getenv)) "BND_ENV" env)}
                          dir (assoc :dir dir))
 
             result (p/shell
                     shell-opts
                     "clojure"
-                    (str "-J-Denv=" env)
-                    "-M:cli:db"
-                    "user" "create"
+                    "-M:user-cli"
+                    "create"
                     "--email" email
                     "--name"  name
                     "--role"  "admin"
