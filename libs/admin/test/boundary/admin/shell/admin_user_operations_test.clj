@@ -149,12 +149,12 @@
   ([email name active role]
    (let [id      (UUID/randomUUID)
          now-str (.toString (Instant/now))]
-     (db/execute-update! *db-ctx*
-                         {:raw (str "INSERT INTO auth_users (id, email, active, created_at) "
-                                    "VALUES ('" id "', '" email "', " active ", '" now-str "')")})
-     (db/execute-update! *db-ctx*
-                         {:raw (str "INSERT INTO users (id, name, role) "
-                                    "VALUES ('" id "', '" name "', '" role "')")})
+     (db/execute-one! *db-ctx*
+                      {:insert-into :auth_users
+                       :values      [{:id id :email email :active active :created_at now-str}]})
+     (db/execute-one! *db-ctx*
+                      {:insert-into :users
+                       :values      [{:id id :name name :role role}]})
      id)))
 
 (defn- fetch-auth [id]
