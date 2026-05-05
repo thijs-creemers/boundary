@@ -13,7 +13,7 @@ Auto-generated CRUD admin interface with database schema introspection, filterin
 
 **deps.edn** (recommended):
 ```clojure
-{:deps {org.boundary-app/boundary-admin {:mvn/version "1.0.1-alpha-20"}}}
+{:deps {org.boundary-app/boundary-admin {:mvn/version "1.0.1-alpha-21"}}}
 ```
 
 ---

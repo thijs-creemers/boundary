@@ -1,7 +1,7 @@
 # boundary-tools
 
 **Location:** `libs/tools`
-**Version:** `1.0.1-alpha-20`
+**Version:** `1.0.1-alpha-21`
 **Distribution:** Part of the Boundary monorepo — not published to Clojars. Wired directly into `bb.edn` as a local dependency.
 
 Developer tooling for the Boundary framework: scaffolding, AI assistance, config management, i18n management, deployment, and development utilities — available out of the box in every Boundary project.
