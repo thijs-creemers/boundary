@@ -18,6 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`boundary-cli`**: Generated `config.clj` now defines `user-validation-config`, which `boundary.user.shell.cli-entry` resolves at runtime via `requiring-resolve`.
 - **`boundary-tools`**: `bb create-admin` passes the target environment via `BND_ENV` environment variable instead of `-J-Denv=`, matching how `boundary.config/load-config` actually reads the active profile.
 
+## [1.0.1-alpha-21] - 2026-05-04
+
+### Fixed
+
+- **`boundary-user`**: MFA QR code is now generated locally using the ZXing library (`com.google.zxing/core` and `com.google.zxing/javase` 3.5.3) instead of calling the external `api.qrserver.com` service. `generate-qr-code-data-url` returns a `data:image/png;base64,…` URL that works in `<img src>` without any network dependency (#148).
+- **`build` (all 25 libraries)**: Each library JAR now embeds a `cljdoc.edn` file containing `{:cljdoc/root "libs/<name>"}`. Without this hint cljdoc defaulted to the repo root and could not find source files located under `libs/{name}/src`, breaking all Clojars cljdoc links (BOU-26, #149).
+
+### Changed
+
+- All 25 libraries bumped to `1.0.1-alpha-21` to re-align lockstep versioning.
+
 ## [1.0.1-alpha-20] - 2026-05-01
 
 ### Fixed
