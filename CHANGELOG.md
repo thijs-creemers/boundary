@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1-alpha-22] - 2026-05-05
+
 ### Fixed
 
 - **`boundary-admin`**: `schema_repository/get-entity-config` now uses `:table-name` from manual entity config when fetching table metadata, so entities whose key differs from their table name (e.g. `:users` → `auth_users`) resolve correctly (BOU-28).
