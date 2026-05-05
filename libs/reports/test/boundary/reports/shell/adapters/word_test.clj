@@ -3,7 +3,9 @@
    Generates real DOCX bytes — verifies ZIP magic bytes (DOCX = ZIP container)."
   (:require [boundary.reports.shell.adapters.word :as sut]
             [boundary.reports.ports :as ports]
-            [clojure.test :refer [deftest is testing]]))
+            [clojure.test :refer [deftest is testing]])
+  (:import [java.util.zip ZipInputStream]
+           [java.io ByteArrayInputStream]))
 
 ;; =============================================================================
 ;; Helpers
@@ -31,7 +33,7 @@
    {:product "Gamma"  :quantity 3  :revenue  13.47}])
 
 ;; =============================================================================
-;; ZIP / DOCX magic bytes helper
+;; ZIP / DOCX helpers
 ;; =============================================================================
 
 (defn- docx-magic? [^bytes bytes]
@@ -41,6 +43,14 @@
        (= (aget bytes 1) (byte 0x4B))  ; K
        (= (aget bytes 2) (byte 0x03))
        (= (aget bytes 3) (byte 0x04))))
+
+(defn- read-zip-entry [^bytes bs entry-name]
+  (with-open [zis (ZipInputStream. (ByteArrayInputStream. bs))]
+    (loop []
+      (when-let [e (.getNextEntry zis)]
+        (if (= (.getName e) entry-name)
+          (slurp zis)
+          (recur))))))
 
 ;; =============================================================================
 ;; Tests
@@ -91,3 +101,19 @@
                   :type :word}
           result (ports/generate! gen report [] {})]
       (is (docx-magic? (:bytes result))))))
+
+(deftest word-deterministic-output-test
+  ^:integration
+  (testing "same input always produces identical bytes"
+    (let [gen     (sut/create-word-generator)
+          result1 (ports/generate! gen sample-sections-report sample-data {})
+          _       (Thread/sleep 1100)
+          result2 (ports/generate! gen sample-sections-report sample-data {})]
+      (is (= (seq (:bytes result1)) (seq (:bytes result2))))))
+
+  (testing "core.xml created timestamp is pinned to epoch (not dynamic)"
+    (let [gen      (sut/create-word-generator)
+          result   (ports/generate! gen sample-sections-report sample-data {})
+          core-xml (read-zip-entry (:bytes result) "docProps/core.xml")]
+      (is (re-find #"1970-01-01T00:00:00Z" core-xml)
+          "dcterms:created must be pinned to epoch, not the current clock"))))
