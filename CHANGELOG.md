@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`boundary-admin`**: Auto-introspect secondary table fields when `:split-table-update` is configured, so split-table entities no longer require manual field definitions (#158).
+- **`boundary-admin`**: Auto-expand SELECT columns for join queries in split-table setups, ensuring all fields from both tables are fetched (#158).
+- **`boundary-admin`**: Auto-hide `tsvector` generated columns from entity forms and list views (#158).
+- **`boundary-admin`**: Skip required validation for boolean fields, which default to `false` rather than `NULL` (#158).
+
 ## [1.0.1-alpha-22] - 2026-05-05
 
 ### Fixed

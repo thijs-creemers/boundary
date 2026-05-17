@@ -9,7 +9,9 @@
    - Field filters
    - Validation
    - Soft vs hard delete
-   - Bulk operations"
+   - Bulk operations
+   - Split-table query config resolution
+   - Boolean required-field validation"
   (:require [boundary.admin.ports :as ports]
             [boundary.admin.shell.service :as service]
             [boundary.admin.shell.schema-repository :as schema-repo]
@@ -570,4 +572,82 @@
 
       ;; Week 1 may pass simple validation, Week 2+ will fail with Malli
       (is (map? result))
-      (is (contains? result :valid?)))))
+      (is (contains? result :valid?))))
+
+  (testing "Boolean fields pass validation when absent"
+    ;; Unchecked checkbox submits no value — boolean fields default to false
+    (let [data {:email "bool-test@example.com"
+                :name "Bool Test"
+                :password-hash "hash123"}
+          result (ports/validate-entity-data *admin-service* :test-users data)]
+      (is (true? (:valid? result))
+          "active (boolean, required) should not cause validation error when absent"))))
+
+;; =============================================================================
+;; resolve-query-config Unit Tests (private fn)
+;; =============================================================================
+
+(def ^:private resolve-query-config #'service/resolve-query-config)
+
+(deftest resolve-query-config-no-overrides-test
+  ^{:kaocha.testable/meta {:unit true :admin true}}
+  (testing "Without query-overrides, returns table-name as from and [:*] as select"
+    (let [config {:table-name :products}
+          result (resolve-query-config config)]
+      (is (= [:products] (:from-clause result)))
+      (is (= [:*] (:select-clause result)))
+      (is (nil? (:join-clause result)))
+      (is (= {} (:field-aliases result))))))
+
+(deftest resolve-query-config-simple-overrides-test
+  ^{:kaocha.testable/meta {:unit true :admin true}}
+  (testing "With query-overrides but no split-table, uses overrides as-is"
+    (let [config {:table-name :products
+                  :query-overrides {:from [[:products :p]]
+                                    :select [:p.id :p.name]}}
+          result (resolve-query-config config)]
+      (is (= [[:products :p]] (:from-clause result)))
+      (is (= [:p.id :p.name] (:select-clause result))))))
+
+(deftest resolve-query-config-split-table-expands-select-test
+  ^{:kaocha.testable/meta {:unit true :admin true}}
+  (testing "Split-table config auto-expands SELECT for missing fields"
+    (let [config {:table-name :auth-users
+                  :split-table-update {:secondary-table :user-profiles
+                                       :secondary-fields #{:bio :avatar-url}
+                                       :join-column :user-id}
+                  :query-overrides {:from [[:auth-users :a]]
+                                    :select [:a.id :a.email]
+                                    :join [[:user-profiles :p] [:= :a.id :p.user-id]]}
+                  :fields {:id {:type :uuid}
+                           :email {:type :string}
+                           :bio {:type :text}
+                           :avatar-url {:type :string}}}
+          result (resolve-query-config config)]
+      ;; Original select columns preserved
+      (is (some #{:a.id} (:select-clause result)))
+      (is (some #{:a.email} (:select-clause result)))
+      ;; Secondary fields use join table alias :p, primary fields use :from alias :a
+      (is (some #{:p.bio} (:select-clause result))
+          "Secondary field :bio should use join table alias :p")
+      (is (some #{:p.avatar_url} (:select-clause result))
+          "Secondary field :avatar-url should use join table alias :p (snake_case in SQL)"))))
+
+(deftest resolve-query-config-split-table-no-duplicate-test
+  ^{:kaocha.testable/meta {:unit true :admin true}}
+  (testing "Fields already in explicit select are not duplicated"
+    (let [config {:table-name :auth-users
+                  :split-table-update {:secondary-table :user-profiles
+                                       :secondary-fields #{:bio}
+                                       :join-column :user-id}
+                  :query-overrides {:from [[:auth-users :a]]
+                                    :select [:a.id :a.email :p.bio]
+                                    :join [[:user-profiles :p] [:= :a.id :p.user-id]]}
+                  :fields {:id {:type :uuid}
+                           :email {:type :string}
+                           :bio {:type :text}}}
+          result (resolve-query-config config)]
+      ;; :bio already in select as :p.bio — should not appear twice
+      (is (= 1 (count (filter #(= :bio (keyword (last (clojure.string/split (name %) #"\."))))
+                              (:select-clause result))))
+          "bio should appear exactly once in select"))))

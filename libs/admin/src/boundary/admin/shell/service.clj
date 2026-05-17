@@ -218,26 +218,25 @@
         select-clause (if (and split-cfg raw-select (:join overrides))
                         (let [secondary-fields (:secondary-fields split-cfg #{})
                               field-aliases    (:field-aliases overrides {})
-                              ;; Collect field names already covered by explicit select OR field-aliases
+                              ;; Collect field names already covered by explicit select OR field-aliases.
+                              ;; Strip table alias prefix and convert snake_case → kebab-case to match
+                              ;; internal field keys (e.g. :a.password_hash → :password-hash).
                               already-selected (into #{}
-                                                     (comp
-                                                      (map (fn [col]
-                                                             (let [s (name col)]
-                                                               (keyword (last (str/split s #"\."))))))
-                                                      (mapcat (fn [bare]
-                                                                ;; Also mark aliased fields as covered
-                                                                [bare])))
+                                                     (map (fn [col]
+                                                            (let [s (name col)
+                                                                  bare (last (str/split s #"\."))]
+                                                              (keyword (case-conversion/snake-case->kebab-case-string bare)))))
                                                      (concat raw-select (keys field-aliases)))
                               ;; Fields in entity config that are NOT yet in select
                               all-fields      (keys (:fields entity-config))
                               missing         (remove already-selected all-fields)
-                              ;; Derive table alias from the join definition
-                              ;; :join [[:users :u] ...] → primary alias :u
-                              ;; :from [[:auth_users :a]] → secondary alias :a
-                              primary-alias   (when-let [j (:join overrides)]
-                                                (second (first j)))
-                              secondary-alias (when-let [f (:from overrides)]
+                              ;; Derive table aliases.  :from holds the primary table,
+                              ;; :join holds the secondary (joined) table.
+                              ;; Expected shape: :from [[:table :alias] ...], :join [[:table :alias] ...]
+                              primary-alias   (when-let [f (:from overrides)]
                                                 (second (first f)))
+                              secondary-alias (when-let [j (:join overrides)]
+                                                (second (first j)))
                               ;; Build qualified column references for missing fields
                               ;; Field names are kebab-case internally but SQL columns are snake_case
                               extra           (mapv (fn [field]
