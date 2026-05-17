@@ -200,7 +200,8 @@
 (def common-hidden-fields
   "Set of field names that are typically hidden in admin UI (in kebab-case)."
   #{:password-hash :password-encrypted :secret :token
-    :api-key :private-key :salt :hash})
+    :api-key :private-key :salt :hash
+    :search-vector :tsv :fts-vector})
 
 (defn should-be-readonly?
   "Determine if field should be readonly based on characteristics.
@@ -407,7 +408,8 @@
      :widget widget
      :required (and is-not-null? (not is-primary-key?))
      :readonly (should-be-readonly? field-name is-primary-key?)
-     :hidden (should-be-hidden? field-name)
+     :hidden (or (should-be-hidden? field-name)
+                 (str/includes? (str/lower-case (str sql-type)) "tsvector"))
      :searchable (should-be-searchable? field-type field-name)
      :sortable (should-be-sortable? field-type)
      :filterable (should-be-sortable? field-type)
@@ -663,9 +665,9 @@
                              (= :enum (first field-schema)))]
               (let [enum-values (rest field-schema)
                     options (mapv (fn [v]
-                                   [v (-> (name v)
-                                          (str/replace #"[-_]" " ")
-                                          str/capitalize)])
+                                    [v (-> (name v)
+                                           (str/replace #"[-_]" " ")
+                                           str/capitalize)])
                                   enum-values)]
                 [field-key {:type :enum
                             :widget :select
