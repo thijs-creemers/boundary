@@ -502,3 +502,38 @@
           result (introspection/extract-enum-fields-from-malli-schema schema)]
       (is (= [[:date-format "Date format"] [:time-format "Time format"]]
              (get-in result [:format :options]))))))
+
+;; =============================================================================
+;; tsvector Column Hiding Tests
+;; =============================================================================
+
+(deftest tsvector-hidden-by-common-hidden-fields-test
+  (testing "Common tsvector field names are in hidden set"
+    (is (introspection/should-be-hidden? :search-vector))
+    (is (introspection/should-be-hidden? :tsv))
+    (is (introspection/should-be-hidden? :fts-vector))))
+
+(deftest tsvector-hidden-by-sql-type-test
+  (testing "Column with TSVECTOR SQL type is hidden regardless of name"
+    (let [col-meta {:name "content_search"
+                    :type "TSVECTOR"
+                    :not-null false
+                    :primary-key false}
+          result (introspection/parse-column-metadata col-meta)]
+      (is (true? (:hidden result)))))
+
+  (testing "Column with tsvector mixed-case SQL type is hidden"
+    (let [col-meta {:name "custom_fts"
+                    :type "tsvector"
+                    :not-null false
+                    :primary-key false}
+          result (introspection/parse-column-metadata col-meta)]
+      (is (true? (:hidden result)))))
+
+  (testing "Normal VARCHAR column is not hidden by type check"
+    (let [col-meta {:name "description"
+                    :type "VARCHAR(255)"
+                    :not-null false
+                    :primary-key false}
+          result (introspection/parse-column-metadata col-meta)]
+      (is (false? (:hidden result))))))

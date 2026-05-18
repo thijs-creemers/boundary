@@ -5,11 +5,15 @@
    user entity: updates route fields to the correct table, soft-delete targets
    auth_users, bulk-delete uses auth_users, and list queries exclude deleted rows.
 
+   Uses embedded PostgreSQL (io.zonky.test/embedded-postgres) instead of H2 so that
+   tenant_id, tsvector, and other PG-specific columns are supported natively.
+
    Contrast with split-table-update-test which uses synthetic tables (test_auth /
    test_profiles). These tests use the actual production schema."
   (:require [boundary.admin.ports :as ports]
             [boundary.admin.shell.service :as service]
             [boundary.admin.shell.schema-repository :as schema-repo]
+            [boundary.admin.test.embedded-pg :as epg]
             [boundary.platform.shell.adapters.database.factory :as db-factory]
             [boundary.platform.shell.adapters.database.common.execution :as db]
             [boundary.observability.logging.shell.adapters.no-op :as logging-no-op]
@@ -24,12 +28,6 @@
 ;; =============================================================================
 ;; Config
 ;; =============================================================================
-
-(def ^:private test-db-config
-  {:adapter :h2
-   :database-path nil
-   :pool {:minimum-idle 1
-          :maximum-pool-size 3}})
 
 ;; Entity config mirrors resources/conf/dev/admin/users.edn (and test).
 ;; Uses :soft-delete true so the service enables deleted_at filtering and
@@ -75,9 +73,10 @@
                 :max-page-size 200}})
 
 ;; =============================================================================
-;; Setup / Teardown
+;; Setup / Teardown (Embedded PostgreSQL)
 ;; =============================================================================
 
+(defonce ^:dynamic *pg* nil)
 (defonce ^:dynamic *db-ctx* nil)
 (defonce ^:dynamic *admin-service* nil)
 
@@ -94,7 +93,7 @@
            updated_at   TIMESTAMP,
            deleted_at   TIMESTAMP,
            password_hash VARCHAR(255))"})
-  ;; users is the tenant-profile table (owns name, role)
+  ;; users is the tenant-profile table (owns name, role, tenant_id)
   (db/execute-update!
    db-ctx
    {:raw "CREATE TABLE IF NOT EXISTS users (
@@ -110,25 +109,26 @@
   (db/execute-update! db-ctx {:raw "DROP TABLE IF EXISTS auth_users"}))
 
 (defn- setup! []
-  (let [db-config (assoc test-db-config
-                         :database-path
-                         (str "mem:admin_user_ops_test_" (UUID/randomUUID)
-                              ";DB_CLOSE_DELAY=-1"))
-        db-ctx   (db-factory/db-context db-config)
-        logger   (logging-no-op/create-logging-component {})
-        errors   (error-reporting-no-op/create-error-reporting-component {})
-        schema   (schema-repo/create-schema-repository db-ctx admin-config)
-        svc      (service/create-admin-service db-ctx schema logger errors admin-config)]
+  (let [pg     (epg/start!)
+        db-ctx (epg/db-context pg)
+        logger (logging-no-op/create-logging-component {})
+        errors (error-reporting-no-op/create-error-reporting-component {})]
+    (alter-var-root #'*pg* (constantly pg))
+    (alter-var-root #'*db-ctx* (constantly db-ctx))
     (create-tables! db-ctx)
-    (alter-var-root #'*db-ctx*       (constantly db-ctx))
-    (alter-var-root #'*admin-service* (constantly svc))))
+    (let [schema (schema-repo/create-schema-repository db-ctx admin-config)
+          svc    (service/create-admin-service db-ctx schema logger errors admin-config)]
+      (alter-var-root #'*admin-service* (constantly svc)))))
 
 (defn- teardown! []
   (when *db-ctx*
     (drop-tables! *db-ctx*)
     (db-factory/close-db-context! *db-ctx*)
     (alter-var-root #'*db-ctx*       (constantly nil))
-    (alter-var-root #'*admin-service* (constantly nil))))
+    (alter-var-root #'*admin-service* (constantly nil)))
+  (when *pg*
+    (epg/stop! *pg*)
+    (alter-var-root #'*pg* (constantly nil))))
 
 (defn- clean-tables [f]
   (when *db-ctx*

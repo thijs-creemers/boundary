@@ -1,8 +1,8 @@
 {:paths ["src" "resources"]
 
- :deps {org.clojure/clojure {:mvn/version "1.12.4"}}
+ :deps  {org.clojure/clojure {:mvn/version "1.12.4"}}
 
  :aliases
  {:build {:replace-deps {io.github.clojure/tools.build {:git/tag "v0.10.13" :git/sha "3a3c177d"}
-                         slipset/deps-deploy            {:mvn/version "0.2.2"}}
-          :ns-default build}}}
+                         slipset/deps-deploy           {:mvn/version "0.2.3"}}
+          :ns-default   build}}}
