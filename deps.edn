@@ -74,18 +74,18 @@
                                                        :exclusions  [com.github.kenglxn.qrgen/javase]}
 
            ;; QR code generation for MFA setup (local, no external service)
-           com.google.zxing/core                      {:mvn/version "3.5.3"}
-           com.google.zxing/javase                    {:mvn/version "3.5.3"}
+           com.google.zxing/core                      {:mvn/version "3.5.4"}
+           com.google.zxing/javase                    {:mvn/version "3.5.4"}
 
            ;; Web UI and Templates
            hiccup/hiccup                              {:mvn/version "2.0.0"}
 
            ;; File Storage - AWS SDK for S3
-           software.amazon.awssdk/s3                  {:mvn/version "2.42.33"}
-           software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.42.33"}
+           software.amazon.awssdk/s3                  {:mvn/version "2.44.1"}
+           software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.44.1"}
 
            ;; Redis client for cache and jobs libs
-           redis.clients/jedis                        {:mvn/version "7.3.0"}
+           redis.clients/jedis                        {:mvn/version "7.5.0"}
 
            ;; Email - javax.mail for SMTP
            com.sun.mail/javax.mail                    {:mvn/version "1.6.2"}
@@ -109,7 +109,7 @@
            :repl-clj  {:extra-paths ["dev" "dev/repl"
                                      "libs/devtools/src"
                                      "libs/devtools/resources"]
-                       :extra-deps  {nrepl/nrepl             {:mvn/version "1.6.0"}
+                       :extra-deps  {nrepl/nrepl             {:mvn/version "1.7.0"}
                                      cider/cider-nrepl       {:mvn/version "0.58.0"}
                                      ring/ring-jetty-adapter {:mvn/version "1.15.4"}}
                        :main-opts   ["-m" "nrepl.cmdline" "--port" "7888" "--middleware" "[cider.nrepl/cider-middleware]"]}
@@ -125,10 +125,10 @@
            ;; Include all common drivers to support all possible configurations
            ;; =============================================================================
 
-           :db        {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.0.0"}
-                                    org.postgresql/postgresql   {:mvn/version "42.7.10"}
+           :db        {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.1.0"}
+                                    org.postgresql/postgresql   {:mvn/version "42.7.11"}
                                     com.h2database/h2           {:mvn/version "2.4.240"}
-                                    com.mysql/mysql-connector-j {:mvn/version "9.6.0"}}}
+                                    com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}}
 
            ;; =============================================================================
            ;; Environment aliases with database support
@@ -138,15 +138,15 @@
            :dev       {:extra-paths ["dev" "dev/repl"
                                      "libs/devtools/src"
                                      "libs/devtools/resources"]
-                       :extra-deps  {org.xerial/sqlite-jdbc      {:mvn/version "3.53.0.0"}
-                                     org.postgresql/postgresql   {:mvn/version "42.7.10"}
+                       :extra-deps  {org.xerial/sqlite-jdbc      {:mvn/version "3.53.1.0"}
+                                     org.postgresql/postgresql   {:mvn/version "42.7.11"}
                                      com.h2database/h2           {:mvn/version "2.4.240"}
-                                     com.mysql/mysql-connector-j {:mvn/version "9.6.0"}}
+                                     com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
                        :jvm-opts    ["-Denv=dev"]}
-           :prod      {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.0.0"}
-                                    org.postgresql/postgresql   {:mvn/version "42.7.10"}
+           :prod      {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.1.0"}
+                                    org.postgresql/postgresql   {:mvn/version "42.7.11"}
                                     com.h2database/h2           {:mvn/version "2.4.240"}
-                                    com.mysql/mysql-connector-j {:mvn/version "9.6.0"}}
+                                    com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
                        :jvm-opts   ["-Denv=prod"]}
 
            ;; =============================================================================
@@ -167,31 +167,31 @@
                        :extra-deps  {lambdaisland/kaocha             {:mvn/version "1.91.1392"}
                                      org.clojure/test.check          {:mvn/version "1.1.2"}
                                      com.gfredericks/test.chuck      {:mvn/version "0.2.15"}
-                                     org.xerial/sqlite-jdbc          {:mvn/version "3.53.0.0"}
-                                     org.postgresql/postgresql       {:mvn/version "42.7.10"}
+                                     org.xerial/sqlite-jdbc          {:mvn/version "3.53.1.0"}
+                                     org.postgresql/postgresql       {:mvn/version "42.7.11"}
                                      com.h2database/h2               {:mvn/version "2.4.240"}
-                                     com.mysql/mysql-connector-j     {:mvn/version "9.6.0"}
+                                     com.mysql/mysql-connector-j     {:mvn/version "9.7.0"}
                                      org.clj-commons/clj-http-lite   {:mvn/version "1.0.13"}}
                        :jvm-opts    ["-Denv=test" "--enable-native-access=ALL-UNNAMED"]}
            :outdated  {:extra-deps {olical/depot {:mvn/version "2.4.1"}}
                        :main-opts  ["-m" "depot.outdated.main"]}
            :build     {:main-opts  ["-m" "build"]
-                       :extra-deps {org.clojure/clojure           {:mvn/version "1.12.3"}
+                       :extra-deps {org.clojure/clojure           {:mvn/version "1.12.4"}
                                     io.github.clojure/tools.build {:git/tag "v0.10.13" :git/sha "3a3c177d"}}
                        :ns-default build}
            :migrate   {:main-opts  ["-m" "boundary.platform.shell.database.cli-migrations"]
-                       :extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.0.0"}
-                                    org.postgresql/postgresql   {:mvn/version "42.7.10"}
+                       :extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.1.0"}
+                                    org.postgresql/postgresql   {:mvn/version "42.7.11"}
                                     com.h2database/h2           {:mvn/version "2.4.240"}
-                                    com.mysql/mysql-connector-j {:mvn/version "9.6.0"}}}
+                                    com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}}
            :bench     {:extra-paths ["dev"]
                        :extra-deps  {criterium/criterium {:mvn/version "0.4.6"}}
                        :main-opts   ["-m" "boundary.bench.core"]}
            :coverage  {:extra-deps  {cloverage/cloverage         {:mvn/version "1.2.4"}
-                                     org.xerial/sqlite-jdbc      {:mvn/version "3.53.0.0"}
-                                     org.postgresql/postgresql   {:mvn/version "42.7.10"}
+                                     org.xerial/sqlite-jdbc      {:mvn/version "3.53.1.0"}
+                                     org.postgresql/postgresql   {:mvn/version "42.7.11"}
                                      com.h2database/h2           {:mvn/version "2.4.240"}
-                                     com.mysql/mysql-connector-j {:mvn/version "9.6.0"}}
+                                     com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
                        :main-opts   ["-m" "cloverage.coverage"
                                      "--src-ns-path" "src"
                                      "--src-ns-path" "libs/core/src"
@@ -278,16 +278,16 @@
            ;; =============================================================================
 
            :e2e       {:extra-paths ["libs/e2e/src" "libs/e2e/test"]
-                       :extra-deps  {com.blockether/spel {:mvn/version "0.7.11"}}}
+                       :extra-deps  {com.blockether/spel {:mvn/version "0.9.7"}}}
 
            ;; =============================================================================
            ;; CLI Interface
            ;; =============================================================================
 
-           :cli       {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.0.0"}
-                                    org.postgresql/postgresql   {:mvn/version "42.7.10"}
+           :cli       {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.1.0"}
+                                    org.postgresql/postgresql   {:mvn/version "42.7.11"}
                                     com.h2database/h2           {:mvn/version "2.4.240"}
-                                    com.mysql/mysql-connector-j {:mvn/version "9.6.0"}}
+                                    com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
                        :main-opts  ["-m" "boundary.cli"]
                        :jvm-opts   ["-Denv=dev"]}
 
@@ -296,10 +296,10 @@
            ;; run the user CLI via -M:user-cli. Uses -e to call run-cli! directly so this
            ;; works with any published boundary-user without requiring a -main entrypoint.
            ;; Must include all JDBC drivers because db-factory resolves the driver at runtime.
-           :user-cli  {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.0.0"}
-                                    org.postgresql/postgresql   {:mvn/version "42.7.10"}
+           :user-cli  {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.1.0"}
+                                    org.postgresql/postgresql   {:mvn/version "42.7.11"}
                                     com.h2database/h2           {:mvn/version "2.4.240"}
-                                    com.mysql/mysql-connector-j {:mvn/version "9.6.0"}}
+                                    com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
                        :main-opts  ["-e" "(require '[boundary.user.shell.cli-entry :as e]) (System/exit (e/run-cli! (vec *command-line-args*)))"]}
 
            ;; =============================================================================
@@ -309,10 +309,10 @@
            ;; rather than the uberjar. Respects BND_ENV to select the active profile.
            ;; =============================================================================
 
-           :run       {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.0.0"}
-                                    org.postgresql/postgresql   {:mvn/version "42.7.10"}
+           :run       {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.1.0"}
+                                    org.postgresql/postgresql   {:mvn/version "42.7.11"}
                                     com.h2database/h2           {:mvn/version "2.4.240"}
-                                    com.mysql/mysql-connector-j {:mvn/version "9.6.0"}}
+                                    com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
                        :main-opts  ["-m" "boundary.main"]}
 
            ;; =============================================================================

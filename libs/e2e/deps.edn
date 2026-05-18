@@ -15,7 +15,7 @@
 
          ;; The whole point: Clojure wrapper around Playwright Java.
          ;; Provides browser + API testing helpers with shared traces.
-         com.blockether/spel        {:mvn/version "0.7.11"}
+         com.blockether/spel        {:mvn/version "0.9.7"}
 
          ;; Monorepo libraries the e2e suite depends on for helper data
          ;; and protocol access (e.g. generating admin tokens directly,
