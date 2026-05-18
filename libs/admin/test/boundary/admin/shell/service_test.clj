@@ -19,6 +19,7 @@
             [boundary.platform.shell.adapters.database.common.execution :as db]
             [boundary.observability.logging.shell.adapters.no-op :as logging-no-op]
             [boundary.observability.errors.shell.adapters.no-op :as error-reporting-no-op]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing use-fixtures]])
   (:import [java.util UUID]
            [java.time Instant]))
@@ -648,6 +649,6 @@
                            :bio {:type :text}}}
           result (resolve-query-config config)]
       ;; :bio already in select as :p.bio — should not appear twice
-      (is (= 1 (count (filter #(= :bio (keyword (last (clojure.string/split (name %) #"\."))))
+      (is (= 1 (count (filter #(= :bio (keyword (last (str/split (name %) #"\."))))
                               (:select-clause result))))
           "bio should appear exactly once in select"))))
