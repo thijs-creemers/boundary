@@ -1,20 +1,20 @@
 {:paths ["src" "resources"]
 
- :deps {org.clojure/clojure {:mvn/version "1.12.4"}
-        boundary/platform {:local/root "../platform"}
-        boundary/core {:local/root "../core"}
-        boundary/ui-style {:local/root "../ui-style"}
-        boundary/scaffolder {:local/root "../scaffolder"}
-        boundary/jobs {:local/root "../jobs"}
-        boundary/user {:local/root "../user"}
-        hiccup/hiccup {:mvn/version "2.0.0"}
-        ring/ring-jetty-adapter {:mvn/version "1.15.4"}}
+ :deps  {org.clojure/clojure     {:mvn/version "1.12.4"}
+         boundary/platform       {:local/root "../platform"}
+         boundary/core           {:local/root "../core"}
+         boundary/ui-style       {:local/root "../ui-style"}
+         boundary/scaffolder     {:local/root "../scaffolder"}
+         boundary/jobs           {:local/root "../jobs"}
+         boundary/user           {:local/root "../user"}
+         hiccup/hiccup           {:mvn/version "2.0.0"}
+         ring/ring-jetty-adapter {:mvn/version "1.15.4"}}
 
  :aliases
  {:build {:replace-deps {io.github.clojure/tools.build {:git/tag "v0.10.13" :git/sha "3a3c177d"}
-                         slipset/deps-deploy           {:mvn/version "0.2.2"}}
-          :ns-default build}
-  :test {:extra-paths ["test"]
-         :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
-                      org.clj-commons/clj-http-lite {:mvn/version "1.0.13"}}
-         :main-opts ["-m" "kaocha.runner"]}}}
+                         slipset/deps-deploy           {:mvn/version "0.2.3"}}
+          :ns-default   build}
+  :test  {:extra-paths ["test"]
+          :extra-deps  {lambdaisland/kaocha           {:mvn/version "1.91.1392"}
+                        org.clj-commons/clj-http-lite {:mvn/version "1.0.13"}}
+          :main-opts   ["-m" "kaocha.runner"]}}}

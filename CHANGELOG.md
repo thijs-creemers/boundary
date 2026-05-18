@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`boundary-admin`**: Auto-expand SELECT columns for join queries in split-table setups, ensuring all fields from both tables are fetched (#158).
 - **`boundary-admin`**: Auto-hide `tsvector` generated columns from entity forms and list views (#158).
 - **`boundary-admin`**: Skip required validation for boolean fields, which default to `false` rather than `NULL` (#158).
+- **`boundary-admin`**: Fixed swapped primary/secondary table alias mapping in `resolve-query-config`, which caused wrong SQL column qualifiers for split-table entities (#158).
+- **`boundary-admin`**: Fixed snake_case→kebab-case mismatch in SELECT deduplication that caused duplicate columns in split-table join queries (#158).
+
+### Changed
+
+- Upgraded 10 dependencies to latest versions: ZXing 3.5.4, MySQL Connector/J 9.7.0, nREPL 1.7.0, PostgreSQL 42.7.11, SQLite JDBC 3.53.1.0, Jedis 7.5.0, AWS SDK 2.44.1, spel 0.9.7.
+- Aligned `cheshire` version in `boundary-cli` from 5.12.0 to 6.2.0 (matches rest of monorepo).
+- Aligned `org.clojure/clojure` in `:build` alias from 1.12.3 to 1.12.4.
 
 ## [1.0.1-alpha-22] - 2026-05-05
 

@@ -11,17 +11,17 @@
 ;; library layout (`bb check:deps`, `build`, etc.) doesn't choke on it.
 {:paths ["src"]
 
- :deps  {org.clojure/clojure        {:mvn/version "1.12.4"}
+ :deps  {org.clojure/clojure {:mvn/version "1.12.4"}
 
          ;; The whole point: Clojure wrapper around Playwright Java.
          ;; Provides browser + API testing helpers with shared traces.
-         com.blockether/spel        {:mvn/version "0.9.7"}
+         com.blockether/spel {:mvn/version "0.9.7"}
 
          ;; Monorepo libraries the e2e suite depends on for helper data
          ;; and protocol access (e.g. generating admin tokens directly,
          ;; reading schema definitions for assertions).
-         boundary/user              {:local/root "../user"}
-         boundary/tenant            {:local/root "../tenant"}}
+         boundary/user       {:local/root "../user"}
+         boundary/tenant     {:local/root "../tenant"}}
 
  :aliases
  {:test {:extra-paths ["test"]
