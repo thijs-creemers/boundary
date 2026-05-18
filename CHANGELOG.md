@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`boundary-admin`**: Embedded PostgreSQL test infrastructure (`io.zonky.test/embedded-postgres`) for `admin-user-operations-test`. Split-table tests with `tenant_id` and other PG-specific columns now run against a real PostgreSQL instance instead of H2, fixing 8 pre-existing test errors.
 - **`boundary-admin`**: New test helper namespace `boundary.admin.test.embedded-pg` with `start!`/`stop!`/`db-context`/`with-embedded-pg` for reusable embedded PG lifecycle in tests.
 
+### Fixed (CI)
+
+- **`ci`**: Removed non-existent `:db/h2` alias from all CI test commands. H2 and embedded PostgreSQL deps are already in the `:test` alias; the phantom alias was silently ignored but produced warnings.
+
 ### Changed
 
 - Upgraded 10 dependencies to latest versions: ZXing 3.5.4, MySQL Connector/J 9.7.0, nREPL 1.7.0, PostgreSQL 42.7.11, SQLite JDBC 3.53.1.0, Jedis 7.5.0, AWS SDK 2.44.1, spel 0.9.7.
