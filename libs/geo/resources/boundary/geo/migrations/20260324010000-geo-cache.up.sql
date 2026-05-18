@@ -9,5 +9,5 @@ CREATE TABLE IF NOT EXISTS geo_cache (
   provider          TEXT NOT NULL,
   created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
+--;;
 CREATE INDEX IF NOT EXISTS idx_geo_cache_coords ON geo_cache(lat, lng);
