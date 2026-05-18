@@ -230,15 +230,27 @@
                               ;; Fields in entity config that are NOT yet in select
                               all-fields      (keys (:fields entity-config))
                               missing         (remove already-selected all-fields)
-                              ;; Derive table aliases.  :from holds the primary table,
-                              ;; :join holds the secondary (joined) table.
+                              ;; Derive table aliases and determine which alias maps to the
+                              ;; split-table's :secondary-table.
                               ;; Expected shape: :from [[:table :alias] ...], :join [[:table :alias] ...]
-                              primary-alias   (when-let [f (:from overrides)]
-                                                (second (first f)))
-                              secondary-alias (when-let [j (:join overrides)]
-                                                (second (first j)))
-                              ;; Build qualified column references for missing fields
-                              ;; Field names are kebab-case internally but SQL columns are snake_case
+                              from-entry      (first (:from overrides))
+                              join-entry      (first (:join overrides))
+                              from-alias      (when (vector? from-entry) (second from-entry))
+                              join-alias      (when (vector? join-entry) (second join-entry))
+                              ;; Match :secondary-table to :from or :join to determine alias mapping
+                              secondary-table (:secondary-table split-cfg)
+                              from-table      (when (vector? from-entry) (first from-entry))
+                              join-table      (when (vector? join-entry) (first join-entry))
+                              secondary-alias (cond
+                                                (= secondary-table from-table) from-alias
+                                                (= secondary-table join-table) join-alias
+                                                :else from-alias)
+                              primary-alias   (if (= secondary-alias from-alias)
+                                                join-alias
+                                                from-alias)
+                              ;; Build qualified column references for missing fields.
+                              ;; :secondary-fields get the alias of :secondary-table,
+                              ;; all other fields get the other table's alias.
                               extra           (mapv (fn [field]
                                                       (let [col-name (case-conversion/kebab-case->snake-case-string (name field))
                                                             alias (if (contains? secondary-fields field)

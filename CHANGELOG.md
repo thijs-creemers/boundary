@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`boundary-admin`**: Skip required validation for boolean fields, which default to `false` rather than `NULL` (#158).
 - **`boundary-admin`**: Fixed swapped primary/secondary table alias mapping in `resolve-query-config`, which caused wrong SQL column qualifiers for split-table entities (#158).
 - **`boundary-admin`**: Fixed snake_case→kebab-case mismatch in SELECT deduplication that caused duplicate columns in split-table join queries (#158).
+- **`boundary-admin`**: Fixed split-table SELECT auto-expansion assigning columns to wrong table alias when `:secondary-table` maps to the `:from` table in query-overrides (e.g., `a.tenant_id` instead of `u.tenant_id`). Alias is now resolved by matching `:secondary-table` against `:from`/`:join` table names (#158).
+
+### Added
+
+- **`boundary-admin`**: Embedded PostgreSQL test infrastructure (`io.zonky.test/embedded-postgres`) for `admin-user-operations-test`. Split-table tests with `tenant_id` and other PG-specific columns now run against a real PostgreSQL instance instead of H2, fixing 8 pre-existing test errors.
+- **`boundary-admin`**: New test helper namespace `boundary.admin.test.embedded-pg` with `start!`/`stop!`/`db-context`/`with-embedded-pg` for reusable embedded PG lifecycle in tests.
 
 ### Changed
 
