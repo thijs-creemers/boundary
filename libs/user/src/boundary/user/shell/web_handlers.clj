@@ -46,6 +46,7 @@
       (str/replace "\"" "\\\"")
       (str/replace "\n" "\\n")
       (str/replace "\r" "\\r")
+      (str/replace "\u0000" "\\u0000")
       (str/replace "</" "<\\/")))
 
 (defn- safe-return-url
@@ -699,10 +700,11 @@
 
 (defn- send-welcome-email!
   "Send welcome email to newly created user.
-   email-sender satisfies boundary.external.ports/ISmtpProvider."
+   email-sender satisfies boundary.external.ports/ISmtpProvider.
+   Config keys used: :welcome-email-from, :app-name (set at wiring time)."
   [email-sender user config]
-  (let [app-name (get-in config [:active :boundary/settings :name] "Boundary")
-        from     (get-in config [:active :boundary.external/smtp :from] "no-reply@localhost")]
+  (let [app-name (or (:app-name config) "Boundary")
+        from     (or (:welcome-email-from config) "no-reply@localhost")]
     (external-ports/send-email!
      email-sender
      {:to      [(:email user)]

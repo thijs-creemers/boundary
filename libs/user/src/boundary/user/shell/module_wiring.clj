@@ -130,7 +130,10 @@
   (require 'boundary.user.shell.http)
   (let [user-routes-fn (ns-resolve 'boundary.user.shell.http 'user-routes-normalized)
         config-with-email (cond-> (or config {})
-                            email-sender (assoc :email-sender email-sender))
+                            email-sender
+                            (assoc :email-sender email-sender
+                                   :welcome-email-from (get-in config [:active :boundary.external/smtp :from])
+                                   :app-name (get-in config [:active :boundary/settings :name])))
         routes (user-routes-fn user-service mfa-service config-with-email)]
     (log/info "User module routes initialized successfully"
               {:route-keys (keys routes)

@@ -20,8 +20,21 @@
    [boundary.platform.core.http.problem-details :as problem-details]
    [boundary.user.shell.middleware :as user-middleware]
    [clojure.string :as str]
+   [clojure.tools.logging :as log]
    [ring.util.response :as ring-response])
   (:import [java.util UUID]))
+
+(defn- escape-json-string
+  "Escape a string for safe embedding in a JSON string value.
+   Prevents injection via entity labels or user-controlled text."
+  [s]
+  (-> (str s)
+      (str/replace "\\" "\\\\")
+      (str/replace "\"" "\\\"")
+      (str/replace "\n" "\\n")
+      (str/replace "\r" "\\r")
+      (str/replace "\t" "\\t")
+      (str/replace "</" "<\\/")))
 
 ;; =============================================================================
 ;; Method Override Middleware
@@ -825,6 +838,7 @@
                              :flash {:type :success
                                      :message [:t :admin/flash-created {:label (:label entity-config)}]}})))
           (catch Exception e
+            (log/error e "Failed to create entity" {:entity entity-name})
             (let [entities (ports/list-available-entities schema-provider)
                   entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
                   permissions (permissions/get-entity-permissions user entity-name entity-config)]
@@ -964,7 +978,7 @@
         (let [redirect-url (or safe-return-to
                                (str "/web/admin/" (name entity-name)))
               label (or (:label entity-config) (name entity-name))
-              toast-json (str "{\"type\":\"success\",\"message\":\"" label " deleted\"}")]
+              toast-json (str "{\"type\":\"success\",\"message\":\"" (escape-json-string (str label " deleted")) "\"}")]
           (-> (ring-response/response "")
               (ring-response/status 200)
               (ring-response/header "X-Toast" toast-json)
@@ -1021,7 +1035,7 @@
                       (str success-count " " label " deleted, " failed-count " failed"))
           toast-json (str "{\"type\":\""
                           (if (zero? failed-count) "success" "warning")
-                          "\",\"message\":\"" toast-msg "\"}")]
+                          "\",\"message\":\"" (escape-json-string toast-msg) "\"}")]
 
       ; Return table HTML fragment with toast via showToast event
       (-> (htmx-fragment-response request
