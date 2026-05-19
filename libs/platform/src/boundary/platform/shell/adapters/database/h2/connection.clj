@@ -1,7 +1,18 @@
 (ns boundary.platform.shell.adapters.database.h2.connection
   "H2 connection management utilities."
   (:require [clojure.tools.logging :as log]
+            [clojure.tools.logging.impl :as log-impl]
             [next.jdbc :as jdbc]))
+
+(defn- log-debug [msg]
+  (let [logger (log-impl/get-logger log/*logger-factory* *ns*)]
+    (when (log-impl/enabled? logger :debug)
+      (log/log* logger :debug nil msg))))
+
+(defn- log-warn [msg data]
+  (let [logger (log-impl/get-logger log/*logger-factory* *ns*)]
+    (when (log-impl/enabled? logger :warn)
+      (log/log* logger :warn nil (print-str msg data)))))
 
 ;; =============================================================================
 ;; Configuration Constants
@@ -44,9 +55,9 @@
 
    Returns:
      nil - side effects only"
-   [datasource _db-config]
-   (validate-datasource datasource)
-   (log/debug "Initializing H2 connection settings")
+  [datasource _db-config]
+  (validate-datasource datasource)
+  (log-debug "Initializing H2 connection settings")
   (try
     ;; Set timezone to UTC for consistency
     (jdbc/execute! datasource ["SET TIME ZONE '+00:00'"])
@@ -54,11 +65,11 @@
     ;; Enable referential integrity (foreign keys)
     (jdbc/execute! datasource ["SET REFERENTIAL_INTEGRITY TRUE"])
 
-    (log/debug "H2 connection initialized successfully")
+    (log-debug "H2 connection initialized successfully")
     (catch Exception e
       ;; Log warning but don't fail - these are optional optimization settings
       ;; Connection will still work even if these settings fail
-      (log/warn "Failed to initialize some H2 settings (connection will still work)"
+      (log-warn "Failed to initialize some H2 settings (connection will still work)"
                 {:error (.getMessage e)
                  :error-type (type e)}))))
 

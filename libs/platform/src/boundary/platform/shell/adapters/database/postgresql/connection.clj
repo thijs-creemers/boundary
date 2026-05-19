@@ -1,7 +1,18 @@
 (ns boundary.platform.shell.adapters.database.postgresql.connection
   "PostgreSQL connection management utilities."
   (:require [clojure.tools.logging :as log]
+            [clojure.tools.logging.impl :as log-impl]
             [next.jdbc :as jdbc]))
+
+(defn- log-debug [msg]
+  (let [logger (log-impl/get-logger log/*logger-factory* *ns*)]
+    (when (log-impl/enabled? logger :debug)
+      (log/log* logger :debug nil msg))))
+
+(defn- log-warn [msg data]
+  (let [logger (log-impl/get-logger log/*logger-factory* *ns*)]
+    (when (log-impl/enabled? logger :warn)
+      (log/log* logger :warn nil (print-str msg data)))))
 
 ;; =============================================================================
 ;; Connection Configuration
@@ -29,7 +40,7 @@
    Returns:
      nil - side effects only"
   [datasource db-config]
-  (log/debug "Initializing PostgreSQL connection settings")
+  (log-debug "Initializing PostgreSQL connection settings")
   (try
     ;; Set application name for connection identification
     (let [app-name (or (:application-name db-config) default-application-name)]
@@ -43,10 +54,10 @@
       (when (pos? timeout)
         (jdbc/execute! datasource ["SET statement_timeout = ?" timeout])))
 
-    (log/debug "PostgreSQL connection initialized successfully")
+    (log-debug "PostgreSQL connection initialized successfully")
     (catch Exception e
       ;; Log warning but don't fail - these are optional optimization settings
-      (log/warn "Failed to initialize some PostgreSQL settings (connection will still work)"
+      (log-warn "Failed to initialize some PostgreSQL settings (connection will still work)"
                 {:error (.getMessage e)
                  :error-type (type e)}))))
 
