@@ -19,6 +19,7 @@
             [boundary.user.core.profile-ui :as profile-ui]
             [boundary.user.ports :as user-ports]
             [boundary.user.schema :as user-schema]
+            [boundary.external.ports :as external-ports]
             [boundary.user.shell.auth :as auth]
             [boundary.user.shell.middleware :as user-middleware]
             [boundary.user.shell.mfa :as mfa]
@@ -33,6 +34,20 @@
 ;; =============================================================================
 ;; Helper Functions
 ;; =============================================================================
+
+(defn- escape-js-string
+  "Escape a string for safe embedding inside a JavaScript single-quoted
+   string literal within a <script> tag. Prevents XSS via quote-breaking
+   and </script> tag injection."
+  [s]
+  (-> (str s)
+      (str/replace "\\" "\\\\")
+      (str/replace "'" "\\'")
+      (str/replace "\"" "\\\"")
+      (str/replace "\n" "\\n")
+      (str/replace "\r" "\\r")
+      (str/replace "\u0000" "\\u0000")
+      (str/replace "</" "<\\/")))
 
 (defn- safe-return-url
   "Validate and sanitize return URL to prevent open redirect attacks.
@@ -211,7 +226,7 @@
      
    Returns:
      Ring handler function"
-  [user-service mfa-service _config]
+  [user-service mfa-service config]
   (fn [request]
     (try
       (let [user (:user request)
@@ -223,10 +238,12 @@
             mfa-enabled? (:enabled mfa-status false)
             dashboard-data {:active-sessions-count active-sessions
                             :mfa-enabled mfa-enabled?}
-            page-opts {:user user
-                       :current-time (current-time)
-                       :zone-id (current-zone-id)
-                       :flash (get request :flash)}]
+            extra-cards (:dashboard-extra-cards config)
+            page-opts (cond-> {:user user
+                               :current-time (current-time)
+                               :zone-id (current-zone-id)
+                               :flash (get request :flash)}
+                        extra-cards (assoc :extra-cards extra-cards))]
         (html-response request (user-ui/dashboard-page user dashboard-data page-opts)))
       (catch Exception e
         (log/error e "Error in dashboard-page-handler")
@@ -681,6 +698,23 @@
         (log/error e "Unexpected error in bulk-update-users-htmx-handler")
         (html-response request (ui/error-message (.getMessage e)) 500)))))
 
+(defn- send-welcome-email!
+  "Send welcome email to newly created user.
+   email-sender satisfies boundary.external.ports/ISmtpProvider.
+   Config keys used: :welcome-email-from, :app-name (set at wiring time)."
+  [email-sender user config]
+  (let [app-name (or (:app-name config) "Boundary")
+        from     (or (:welcome-email-from config) "no-reply@localhost")]
+    (external-ports/send-email!
+     email-sender
+     {:to      [(:email user)]
+      :from    from
+      :subject (str "Welcome to " app-name)
+      :body    (str "Hello " (:name user) ",\n\n"
+                    "Your account has been created successfully.\n\n"
+                    "You can log in at any time.\n\n"
+                    "— " app-name)})))
+
 (defn create-user-htmx-handler
   "HTMX handler for creating a new user (POST /web/users).
 
@@ -691,21 +725,25 @@
 
    Args:
      user-service: User service instance
+     email-sender: Optional ISmtpProvider for sending welcome emails
      config: Application configuration map
 
    Returns:
      Ring handler function"
-  [user-service _config]
+  [user-service email-sender config]
   (fn [request]
     (let [form-data (:form-params request)
           raw-return-to (get form-data "return-to")
           return-to (safe-return-url raw-return-to "/web/admin/users")
+          send-welcome? (let [v (get form-data "send-welcome")]
+                          (or (= "on" v) (= "true" v)
+                              (and (sequential? v) (some #{"on" "true"} v))))
           ;; Prepare data with kebab-case keyword keys for validation
           prepared-data {:name (get form-data "name")
                          :email (get form-data "email")
                          :password (get form-data "password")
                          :role (keyword (get form-data "role"))
-                         :send-welcome (= "on" (get form-data "send-welcome"))}
+                         :send-welcome send-welcome?}
           [valid? validation-errors _] (validate-request-data user-schema/CreateUserRequest prepared-data)]
       (if-not valid?
         (html-response request
@@ -714,12 +752,34 @@
                                                  {:return-to return-to})
                        400)
         (try
-          (let [_user-result (user-ports/register-user user-service prepared-data)]
-            (-> (response/response "")
-                (response/status 201)
-                (response/header "HX-Redirect" return-to)
-                (response/header "HX-Trigger" "userCreated")))
+          (let [user-data (dissoc prepared-data :send-welcome)
+                user-result (user-ports/register-user user-service user-data)
+                email-sent? (when (and send-welcome? email-sender)
+                              (try
+                                (send-welcome-email! email-sender user-result config)
+                                true
+                                (catch Exception e
+                                  (log/warn e "Failed to send welcome email" {:email (:email user-result)})
+                                  false)))
+                flash-msg (str "User " (:name user-result) " created"
+                               (when email-sent?
+                                 (str ", welcome email sent to " (:email user-result))))
+                toast-json (str "{\"type\":\"success\",\"message\":\""
+                                (escape-js-string flash-msg) "\"}")
+                ;; Return inline script that stores toast + redirects.
+                ;; This avoids HX-Redirect (which skips XHR event listeners)
+                ;; and cached JS issues (inline script always executes fresh).
+                body (str "<script>"
+                          "try{sessionStorage.setItem('pendingToast','"
+                          (escape-js-string toast-json)
+                          "')}catch(e){}"
+                          "window.location.href='" (escape-js-string return-to) "';"
+                          "</script>")]
+            (-> (response/response body)
+                (response/status 200)
+                (response/header "Content-Type" "text/html; charset=utf-8")))
           (catch Exception e
+            (log/error e "Create user failed")
             (html-response request (ui/error-message (.getMessage e)) 500)))))))
 
 (defn update-user-htmx-handler

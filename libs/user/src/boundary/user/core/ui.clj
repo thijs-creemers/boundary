@@ -1481,5 +1481,9 @@
           [:div.card-icon (icons/icon :shield {:size 32})]
           [:h2 [:t :user/dashboard-card-admin-title]]
           [:p [:t :user/dashboard-card-admin-description]]
-          [:a.button.secondary {:href "/web/admin/"} [:t :user/button-admin-panel]]])]]
+          [:a.button.secondary {:href "/web/admin/"} [:t :user/button-admin-panel]]])
+
+       ;; Extra cards injected by the host application via opts
+       (when-let [extra (:extra-cards opts)]
+         (for [card extra] card))]]
      opts)))

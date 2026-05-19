@@ -20,8 +20,21 @@
    [boundary.platform.core.http.problem-details :as problem-details]
    [boundary.user.shell.middleware :as user-middleware]
    [clojure.string :as str]
+   [clojure.tools.logging :as log]
    [ring.util.response :as ring-response])
   (:import [java.util UUID]))
+
+(defn- escape-json-string
+  "Escape a string for safe embedding in a JSON string value.
+   Prevents injection via entity labels or user-controlled text."
+  [s]
+  (-> (str s)
+      (str/replace "\\" "\\\\")
+      (str/replace "\"" "\\\"")
+      (str/replace "\n" "\\n")
+      (str/replace "\r" "\\r")
+      (str/replace "\t" "\\t")
+      (str/replace "</" "<\\/")))
 
 ;; =============================================================================
 ;; Method Override Middleware
@@ -726,6 +739,17 @@
           ; Check permissions
           _ (permissions/assert-can-create-entity! user entity-name entity-config)]
 
+      ;; Split-table entities MUST have :create-redirect-url because the generic
+      ;; admin create flow only writes to one table, leaving orphaned rows.
+      ;; Fail early with a clear error instead of letting the service layer throw.
+      (when (and (:split-table-update entity-config)
+                 (not (:create-redirect-url entity-config)))
+        (throw (ex-info (str "Entity '" (name entity-name) "' uses split-table-update but has no "
+                             ":create-redirect-url configured. Add :create-redirect-url to the "
+                             "entity config in :boundary/admin :entities.")
+                        {:type :invalid-config
+                         :entity-name entity-name})))
+
       (if-let [redirect-url (:create-redirect-url entity-config)]
         ;; Append return-to so the delegated create flow can bring the user
         ;; back to the admin list view (or whichever page they came from) on
@@ -786,32 +810,48 @@
 
       (if (:valid? validation-result)
         ; Create entity and return list page
-        (let [_created-entity (ports/create-entity admin-service entity-name form-data)
+        (try
+          (let [_created-entity (ports/create-entity admin-service entity-name form-data)
 
-              ; Fetch list page data
-              entities (ports/list-available-entities schema-provider)
-              entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
+                ; Fetch list page data
+                entities (ports/list-available-entities schema-provider)
+                entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
 
-              ; Get entity list with default options
-              result (ports/list-entities admin-service entity-name {})
-              records (:records result)
-              total-count (:total-count result)
-              table-query {:page-size (:page-size result)
-                           :page (:page-number result)}
+                ; Get entity list with default options
+                result (ports/list-entities admin-service entity-name {})
+                records (:records result)
+                total-count (:total-count result)
+                table-query {:page-size (:page-size result)
+                             :page (:page-number result)}
 
-              permissions (permissions/get-entity-permissions user entity-name entity-config)]
+                permissions (permissions/get-entity-permissions user entity-name entity-config)]
 
-          ; Return list page HTML with success message
-          (html-response request
-                         (admin-ui/admin-layout
-                          (admin-ui/entity-list-page entity-name records entity-config table-query total-count permissions {})
-                          {:user user
-                           :current-entity entity-name
-                           :entities entities
-                           :entity-configs entity-configs
-                           :logo-url (:logo-url config)
-                           :flash {:type :success
-                                   :message [:t :admin/flash-created {:label (:label entity-config)}]}})))
+            ; Return list page HTML with success message
+            (html-response request
+                           (admin-ui/admin-layout
+                            (admin-ui/entity-list-page entity-name records entity-config table-query total-count permissions {})
+                            {:user user
+                             :current-entity entity-name
+                             :entities entities
+                             :entity-configs entity-configs
+                             :logo-url (:logo-url config)
+                             :flash {:type :success
+                                     :message [:t :admin/flash-created {:label (:label entity-config)}]}})))
+          (catch Exception e
+            (log/error e "Failed to create entity" {:entity entity-name})
+            (let [entities (ports/list-available-entities schema-provider)
+                  entity-configs (into {} (map (fn [e] [e (ports/get-entity-config schema-provider e)])) entities)
+                  permissions (permissions/get-entity-permissions user entity-name entity-config)]
+              (html-response request
+                             (admin-ui/admin-layout
+                              (admin-ui/entity-detail-page entity-name entity-config form-data {} permissions {})
+                              {:user user
+                               :current-entity entity-name
+                               :entities entities
+                               :entity-configs entity-configs
+                               :logo-url (:logo-url config)
+                               :flash {:type :error
+                                       :message (.getMessage e)}})))))
 
         ; Validation errors - re-render form
         (let [entities (ports/list-available-entities schema-provider)
@@ -936,9 +976,12 @@
       (if deleted?
         ; Success - redirect back to return_to (parent context) or entity list
         (let [redirect-url (or safe-return-to
-                               (str "/web/admin/" (name entity-name)))]
+                               (str "/web/admin/" (name entity-name)))
+              label (or (:label entity-config) (name entity-name))
+              toast-json (str "{\"type\":\"success\",\"message\":\"" (escape-json-string (str label " deleted")) "\"}")]
           (-> (ring-response/response "")
               (ring-response/status 200)
+              (ring-response/header "X-Toast" toast-json)
               (ring-response/header "HX-Redirect" redirect-url)))
 
         ; Failed to delete
@@ -985,18 +1028,19 @@
                        :page (:page-number list-result)}
           permissions (permissions/get-entity-permissions user entity-name entity-config)
 
-          ; Create flash message
-          flash-msg (if (zero? failed-count)
-                      {:type :success
-                       :message [:t :admin/flash-bulk-deleted {:count success-count
-                                                               :label (:label entity-config)}]}
-                      {:type :warning
-                       :message [:t :admin/flash-bulk-deleted-partial {:count success-count
-                                                                       :failed failed-count}]})]
+          ; Create toast message
+          label (or (:label entity-config) (name entity-name))
+          toast-msg (if (zero? failed-count)
+                      (str success-count " " label " deleted")
+                      (str success-count " " label " deleted, " failed-count " failed"))
+          toast-json (str "{\"type\":\""
+                          (if (zero? failed-count) "success" "warning")
+                          "\",\"message\":\"" (escape-json-string toast-msg) "\"}")]
 
-      ; Return table HTML fragment
-      (htmx-fragment-response request
-                              (admin-ui/entity-table entity-name records entity-config table-query total-count permissions {} flash-msg)))))
+      ; Return table HTML fragment with toast via showToast event
+      (-> (htmx-fragment-response request
+                                  (admin-ui/entity-table entity-name records entity-config table-query total-count permissions {}))
+          (ring-response/header "HX-Trigger" (str "{\"showToast\":" toast-json ",\"entityListUpdated\":{}}"))))))
 
 ;; =============================================================================
 ;; Inline Editing Handlers (Week 2)

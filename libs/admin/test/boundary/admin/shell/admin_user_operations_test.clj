@@ -102,6 +102,7 @@
            role       VARCHAR(50)  NOT NULL DEFAULT 'user',
            tenant_id  UUID,
            updated_at TIMESTAMP,
+           deleted_at TIMESTAMP,
            FOREIGN KEY (id) REFERENCES auth_users(id))"}))
 
 (defn- drop-tables! [db-ctx]

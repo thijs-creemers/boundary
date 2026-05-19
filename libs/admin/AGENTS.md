@@ -394,7 +394,20 @@ Drop `tokens-openprops.css` from the `:css` list to get the default Boundary nav
 
 ## Gotchas
 
-### 1. Form Parsing - Array Values from Checkboxes
+### 1. Checkbox value mismatch — `"true"` not `"on"`
+
+**Problem**: Handler checks `(= "on" (get form-data "field"))` but checkbox sends `"true"`.
+
+**Root Cause**: `ui/checkbox` renders `value="true"` (not `"on"`). With the hidden+checkbox pattern, a checked box sends both `"false"` and `"true"` — Ring parses as vector `["false" "true"]`.
+
+**Solution**: Always handle all cases:
+```clojure
+(let [v (get form-data "send-welcome")]
+  (or (= "on" v) (= "true" v)
+      (and (sequential? v) (some #{"on" "true"} v))))
+```
+
+### 2. Form Parsing - Array Values from Checkboxes
 
 **Problem**: Checkboxes using hidden field + checkbox pattern submit as arrays `["false", "true"]`.
 
@@ -482,7 +495,31 @@ Both values are submitted when checkbox is checked, resulting in an array.
 - Use `hx-target="#foo"` → response should have `[:div#foo ...]` as root
 - Keep filter UI outside HTMX-updated regions if it shouldn't change
 
-### 4. Direct Navigation to HTMX Fragment Endpoints
+### 4. Split-Table Entities Missing `:create-redirect-url`
+
+**Problem**: Clicking "New" on a split-table entity in admin crashes with `StreamableResponseBody` / `PersistentArrayMap` error.
+
+**Symptom**: `java.lang.IllegalArgumentException: No implementation of method: :write-body-to-stream of protocol: #'ring.core.protocols/StreamableResponseBody found for class: clojure.lang.PersistentArrayMap`
+
+**Root Cause**: When an entity has `:split-table-update` but no `:create-redirect-url`, the admin renders its own generic create form. On submit, `create-entity` throws `:cannot-create-split-table-entity` because the generic flow only writes to one table. The exception bubbles to Reitit's `exception/exception-middleware`, which returns a map body. Since the browser sent `Accept: text/html`, Muuntaja doesn't JSON-encode the map — Ring gets a raw `PersistentArrayMap` as body and crashes.
+
+**Solution**: Always pair `:split-table-update` with `:create-redirect-url`:
+```clojure
+;; ❌ WRONG — split-table without create redirect
+{:users
+ {:split-table-update {:secondary-table  :auth_users
+                       :secondary-fields #{:email :active}}}}
+
+;; ✅ CORRECT — redirect to module's dedicated create flow
+{:users
+ {:create-redirect-url "/web/users/new"
+  :split-table-update  {:secondary-table  :auth_users
+                        :secondary-fields #{:email :active}}}}
+```
+
+**Prevention**: The admin `new-entity-handler` now validates this at startup and throws a clear config error if the combination is missing.
+
+### 5. Direct Navigation to HTMX Fragment Endpoints
 
 **Problem**: Refreshing page on HTMX fragment URL shows unstyled HTML.
 

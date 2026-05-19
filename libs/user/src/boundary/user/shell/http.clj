@@ -481,7 +481,8 @@
    Returns:
      Vector of normalized route maps"
   [user-service mfa-service config]
-  (let [auth-middleware (user-middleware/flexible-authentication-middleware user-service)]
+  (let [auth-middleware (user-middleware/flexible-authentication-middleware user-service)
+        email-sender    (:email-sender config)]
     [{:path    ""
       :meta    {:no-doc true}
       :methods {:get {:handler (web-handlers/web-root-page-handler user-service config)
@@ -519,7 +520,7 @@
      {:path    "/users"
       :meta    {:no-doc     true
                 :middleware [auth-middleware user-middleware/require-admin-middleware]}
-      :methods {:post {:handler (web-handlers/create-user-htmx-handler user-service config)
+      :methods {:post {:handler (web-handlers/create-user-htmx-handler user-service email-sender config)
                        :summary "Create user (HTMX fragment)"}}}
       ;; Session management routes (user-specific, not duplicated in admin)
      {:path    "/users/:id/sessions"

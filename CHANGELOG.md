@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`boundary-user`**: Welcome email on admin user creation — optional `send-welcome` checkbox triggers email via `ISmtpProvider` with graceful failure handling.
+- **`boundary-user`**: Dashboard extensibility via `:dashboard-extra-cards` config for injecting custom Hiccup cards into the user dashboard.
+- **`boundary-ui-style`**: Cross-page toast notification system via `X-Toast` response header + `sessionStorage`, works across all page layouts (base, pilot, admin-pilot).
+
+### Fixed
+
+- **`boundary-user`**: XSS in `create-user-htmx-handler` inline `<script>` — added `escape-js-string` to sanitize `return-to` URL, toast JSON, and user name before interpolation. Prevents quote-breaking and `</script>` tag injection.
+- **`boundary-admin`**: Toast JSON injection via entity labels in delete/bulk-delete handlers — added `escape-json-string` to sanitize label values in `X-Toast` and `HX-Trigger` headers.
+- **`boundary-admin`**: Split-table soft-delete now correctly writes `deleted_at` to both primary and secondary tables in a transaction, fixing `column "deleted_at" does not exist` errors.
+- **`boundary-admin`**: Added config validation for split-table entities missing `:create-redirect-url`, failing early with a clear error instead of a `StreamableResponseBody` crash.
+- **`boundary-admin`**: Added `log/error` to create-entity exception handler (previously swallowed silently).
+- **`boundary-admin`**: Added missing `deleted_at` column to `users` test DDL for embedded PostgreSQL integration tests, fixing 12 pre-existing test errors.
+- **`boundary-user`**: Restored 500 status code for server errors in `create-user-htmx-handler` (was incorrectly returning 200).
+- **`boundary-user`**: Fixed arity mismatch in `create-user-htmx-handler` test calls — handler signature changed to `[user-service email-sender config]` but tests were not updated.
+- **`boundary-ui-style`**: Removed duplicate XHR monkey-patch from `admin-ux.js` — `components.js` already handles `X-Toast` capture for all bundles.
+- **`boundary-ui-style`**: Increased horizontal padding on table pagination for better alignment.
+
+### Fixed (CI)
+
+- **`ci`**: Replaced `:local/root` dep in `bb.edn` with direct `:paths` entry for `libs/tools/src`, preventing `deps.clj` from triggering a Clojure tools download that times out on CI runners.
+
 ## [1.0.1-alpha-23] - 2026-05-18
 
 ### Fixed

@@ -170,11 +170,15 @@ document.addEventListener('alpine:init', function () {
 
   function getToastContainer() {
     if (!toastContainer) {
-      toastContainer = document.createElement('div');
-      toastContainer.className = 'toast-container';
-      toastContainer.setAttribute('role', 'status');
-      toastContainer.setAttribute('aria-live', 'polite');
-      document.body.appendChild(toastContainer);
+      // Reuse existing HTML-rendered container if present, otherwise create one
+      toastContainer = document.querySelector('.toast-container');
+      if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container';
+        toastContainer.setAttribute('role', 'status');
+        toastContainer.setAttribute('aria-live', 'polite');
+        document.body.appendChild(toastContainer);
+      }
     }
     return toastContainer;
   }
@@ -183,7 +187,7 @@ document.addEventListener('alpine:init', function () {
     var type = opts.type || 'info';
     var title = opts.title || '';
     var message = opts.message || '';
-    var duration = opts.duration || 4000;
+    var duration = opts.duration || 5000;
 
     var container = getToastContainer();
 
@@ -511,6 +515,9 @@ document.addEventListener('alpine:init', function () {
         message: detail.message || ''
       });
     });
+
+    // XHR interception + pendingToast pickup handled by components.js
+    // (loaded in every bundle). No duplication needed here.
 
     // Intercept hx-confirm on delete buttons with styled modal
     document.addEventListener('htmx:confirm', function (event) {

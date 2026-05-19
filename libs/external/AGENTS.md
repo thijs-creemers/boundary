@@ -91,6 +91,39 @@ All three keys are opt-in — add to `:active` in `config.edn` to enable:
 ### Twilio WhatsApp Sandbox
 In dev, Twilio sandbox requires the sandbox number (`whatsapp:+14155238886`) as the From number. The adapter is config-agnostic — set `:from-number` accordingly.
 
+## Local SMTP Development (Mailhog)
+
+For dev/test, use [Mailhog](https://github.com/mailhog/MailHog) as a local SMTP server that captures all outgoing email without delivering it.
+
+```bash
+# Start Mailhog (SMTP on 1025, Web UI on 8025)
+docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog
+```
+
+**Web UI**: http://localhost:8025 — view all captured emails, search by sender/recipient/subject.
+
+**Config** (`config.edn` dev profile):
+```clojure
+:boundary.external/smtp
+{:host "localhost" :port 1025 :tls? false :from "no-reply@localhost"}
+```
+
+**Key points:**
+- No authentication needed — Mailhog accepts all connections
+- `:tls?` must be `false` — Mailhog doesn't support TLS
+- Emails are stored in memory only — restart clears all messages
+- Use `docker run --name mailhog ...` to reuse the container: `docker start mailhog`
+
+**Alternative** (no Docker): Use `LoggingEmailSender` from `libs/email` which logs emails to console and stores in an atom for REPL inspection:
+```clojure
+(require '[boundary.email.shell.adapters.logging :as log-email])
+(def sender (log-email/create-logging-sender))
+;; After sending:
+(log-email/list-sent-emails)  ;; all emails
+(log-email/latest-sent-email) ;; most recent
+(log-email/clear-sent-emails!) ;; reset
+```
+
 ## Testing
 
 ```bash

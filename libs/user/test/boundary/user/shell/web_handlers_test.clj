@@ -9,6 +9,7 @@
    - HTML response structure"
   (:require [boundary.user.shell.web-handlers :as web-handlers]
             [boundary.user.ports :as ports]
+            [boundary.external.ports :as external-ports]
             [clojure.test :refer [deftest testing is]]
             [clojure.string :as str])
   (:import [java.util UUID]
@@ -430,7 +431,7 @@
   (testing "creates user successfully and instructs HTMX to navigate to return-to"
     (let [service (create-mock-service)
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
-          handler (web-handlers/create-user-htmx-handler service config)
+          handler (web-handlers/create-user-htmx-handler service nil config)
           request {:form-params {"name" "New User"
                                  "email" "newuser@example.com"
                                  "password" "password123"
@@ -439,15 +440,15 @@
                                  "return-to" "/web/admin/users"}}
           response (handler request)]
 
-      (is (= 201 (:status response)))
-      (is (has-header? response "HX-Trigger" "userCreated"))
-      ;; Uses HX-Redirect header instead of inline JavaScript for safer redirect
-      (is (has-header? response "HX-Redirect" "/web/admin/users"))))
+      (is (= 200 (:status response)))
+      (is (html-contains? response "pendingToast"))
+      (is (html-contains? response "User New User created"))
+      (is (html-contains? response "/web/admin/users"))))
 
   (testing "falls back to /web/admin/users when return-to is missing or unsafe"
     (let [service (create-mock-service)
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
-          handler (web-handlers/create-user-htmx-handler service config)
+          handler (web-handlers/create-user-htmx-handler service nil config)
           ;; Open-redirect attempt via scheme-relative URL
           request {:form-params {"name" "New User"
                                  "email" "newuser2@example.com"
@@ -457,13 +458,14 @@
                                  "return-to" "//evil.example.com/phish"}}
           response (handler request)]
 
-      (is (= 201 (:status response)))
-      (is (has-header? response "HX-Redirect" "/web/admin/users"))))
+      (is (= 200 (:status response)))
+      (is (html-contains? response "/web/admin/users"))
+      (is (not (html-contains? response "evil.example.com")))))
 
   (testing "returns validation errors for invalid data"
     (let [service (create-mock-service)
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
-          handler (web-handlers/create-user-htmx-handler service config)
+          handler (web-handlers/create-user-htmx-handler service nil config)
           request {:form-params {"name" ""
                                  "email" "invalid-email"
                                  "password" "123"}}
@@ -493,7 +495,7 @@
                     (get-audit-logs-for-user [_ _ _] [])
                     (change-password [_ _ _ _] false))
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
-          handler (web-handlers/create-user-htmx-handler service config)
+          handler (web-handlers/create-user-htmx-handler service nil config)
           request {:form-params {"name" "Test User"
                                  "email" "test@example.com"
                                  "password" "password123"
@@ -502,7 +504,53 @@
           response (handler request)]
 
       (is (= 500 (:status response)))
-      (is (html-contains? response "Email already exists")))))
+      (is (html-contains? response "Email already exists"))))
+
+  (testing "sends welcome email when send-welcome is checked and email-sender provided"
+    (let [sent-emails (atom [])
+          service (create-mock-service)
+          email-sender (reify external-ports/ISmtpProvider
+                         (send-email! [_ email]
+                           (swap! sent-emails conj email)
+                           {:success? true :message-id "msg-1"})
+                         (send-email-async! [this email]
+                           (future (external-ports/send-email! this email)))
+                         (test-connection! [_] {:success? true}))
+          config {:app-name "TestApp" :welcome-email-from "hello@test.com"}
+          handler (web-handlers/create-user-htmx-handler service email-sender config)
+          request {:form-params {"name" "Welcome User"
+                                 "email" "welcome@example.com"
+                                 "password" "password123"
+                                 "role" "user"
+                                 "send-welcome" "true"}}
+          response (handler request)]
+
+      (is (= 200 (:status response)))
+      (is (= 1 (count @sent-emails)))
+      (is (= ["welcome@example.com"] (:to (first @sent-emails))))
+      (is (= "hello@test.com" (:from (first @sent-emails))))
+      (is (str/includes? (:subject (first @sent-emails)) "TestApp"))
+      (is (html-contains? response "welcome email sent"))))
+
+  (testing "gracefully handles welcome email failure"
+    (let [service (create-mock-service)
+          email-sender (reify external-ports/ISmtpProvider
+                         (send-email! [_ _]
+                           (throw (Exception. "SMTP connection refused")))
+                         (send-email-async! [_ _] (future {:success? false}))
+                         (test-connection! [_] {:success? false}))
+          config {:app-name "TestApp" :welcome-email-from "hello@test.com"}
+          handler (web-handlers/create-user-htmx-handler service email-sender config)
+          request {:form-params {"name" "Fail User"
+                                 "email" "fail@example.com"
+                                 "password" "password123"
+                                 "role" "user"
+                                 "send-welcome" "true"}}
+          response (handler request)]
+
+      (is (= 200 (:status response)))
+      (is (html-contains? response "User Fail User created"))
+      (is (not (html-contains? response "welcome email sent"))))))
 
 (deftest update-user-htmx-handler-test
   (testing "updates user successfully and re-renders form with success banner"
@@ -651,7 +699,7 @@
           list-response (list-handler {})
 
           ;; 2. Create user
-          create-handler (web-handlers/create-user-htmx-handler service config)
+          create-handler (web-handlers/create-user-htmx-handler service nil config)
           create-response (create-handler {:form-params {"name" "Integration User"
                                                          "email" "integration@example.com"
                                                          "password" "password123"
@@ -680,8 +728,8 @@
 
       ;; Verify each step
       (is (= 200 (:status list-response)))
-      (is (= 201 (:status create-response)))
-      (is (has-header? create-response "HX-Trigger" "userCreated"))
+      (is (= 200 (:status create-response)))
+      (is (html-contains? create-response "pendingToast"))
       (is (= 200 (:status detail-response)))
       (is (html-contains? detail-response "Integration User"))
       (is (= 200 (:status update-response)))
