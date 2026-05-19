@@ -502,7 +502,7 @@
                                  "active" "true"}}
           response (handler request)]
 
-      (is (= 200 (:status response)))
+      (is (= 500 (:status response)))
       (is (html-contains? response "Email already exists")))))
 
 (deftest update-user-htmx-handler-test

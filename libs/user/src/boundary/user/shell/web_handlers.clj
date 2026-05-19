@@ -35,6 +35,19 @@
 ;; Helper Functions
 ;; =============================================================================
 
+(defn- escape-js-string
+  "Escape a string for safe embedding inside a JavaScript single-quoted
+   string literal within a <script> tag. Prevents XSS via quote-breaking
+   and </script> tag injection."
+  [s]
+  (-> (str s)
+      (str/replace "\\" "\\\\")
+      (str/replace "'" "\\'")
+      (str/replace "\"" "\\\"")
+      (str/replace "\n" "\\n")
+      (str/replace "\r" "\\r")
+      (str/replace "</" "<\\/")))
+
 (defn- safe-return-url
   "Validate and sanitize return URL to prevent open redirect attacks.
    
@@ -750,22 +763,22 @@
                                (when email-sent?
                                  (str ", welcome email sent to " (:email user-result))))
                 toast-json (str "{\"type\":\"success\",\"message\":\""
-                                (.replace flash-msg "\"" "\\\"") "\"}")
+                                (escape-js-string flash-msg) "\"}")
                 ;; Return inline script that stores toast + redirects.
                 ;; This avoids HX-Redirect (which skips XHR event listeners)
                 ;; and cached JS issues (inline script always executes fresh).
                 body (str "<script>"
                           "try{sessionStorage.setItem('pendingToast','"
-                          (.replace toast-json "'" "\\'")
+                          (escape-js-string toast-json)
                           "')}catch(e){}"
-                          "window.location.href='" return-to "';"
+                          "window.location.href='" (escape-js-string return-to) "';"
                           "</script>")]
             (-> (response/response body)
                 (response/status 200)
                 (response/header "Content-Type" "text/html; charset=utf-8")))
           (catch Exception e
             (log/error e "Create user failed")
-            (html-response request (ui/error-message (.getMessage e)) 200)))))))
+            (html-response request (ui/error-message (.getMessage e)) 500)))))))
 
 (defn update-user-htmx-handler
   "HTMX handler for updating a user (PUT /web/users/:id).
