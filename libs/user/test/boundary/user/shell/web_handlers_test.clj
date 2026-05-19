@@ -430,7 +430,7 @@
   (testing "creates user successfully and instructs HTMX to navigate to return-to"
     (let [service (create-mock-service)
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
-          handler (web-handlers/create-user-htmx-handler service config)
+          handler (web-handlers/create-user-htmx-handler service nil config)
           request {:form-params {"name" "New User"
                                  "email" "newuser@example.com"
                                  "password" "password123"
@@ -447,7 +447,7 @@
   (testing "falls back to /web/admin/users when return-to is missing or unsafe"
     (let [service (create-mock-service)
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
-          handler (web-handlers/create-user-htmx-handler service config)
+          handler (web-handlers/create-user-htmx-handler service nil config)
           ;; Open-redirect attempt via scheme-relative URL
           request {:form-params {"name" "New User"
                                  "email" "newuser2@example.com"
@@ -463,7 +463,7 @@
   (testing "returns validation errors for invalid data"
     (let [service (create-mock-service)
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
-          handler (web-handlers/create-user-htmx-handler service config)
+          handler (web-handlers/create-user-htmx-handler service nil config)
           request {:form-params {"name" ""
                                  "email" "invalid-email"
                                  "password" "123"}}
@@ -493,7 +493,7 @@
                     (get-audit-logs-for-user [_ _ _] [])
                     (change-password [_ _ _ _] false))
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
-          handler (web-handlers/create-user-htmx-handler service config)
+          handler (web-handlers/create-user-htmx-handler service nil config)
           request {:form-params {"name" "Test User"
                                  "email" "test@example.com"
                                  "password" "password123"
@@ -651,7 +651,7 @@
           list-response (list-handler {})
 
           ;; 2. Create user
-          create-handler (web-handlers/create-user-htmx-handler service config)
+          create-handler (web-handlers/create-user-htmx-handler service nil config)
           create-response (create-handler {:form-params {"name" "Integration User"
                                                          "email" "integration@example.com"
                                                          "password" "password123"
