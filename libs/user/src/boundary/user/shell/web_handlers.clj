@@ -19,6 +19,7 @@
             [boundary.user.core.profile-ui :as profile-ui]
             [boundary.user.ports :as user-ports]
             [boundary.user.schema :as user-schema]
+            [boundary.external.ports :as external-ports]
             [boundary.user.shell.auth :as auth]
             [boundary.user.shell.middleware :as user-middleware]
             [boundary.user.shell.mfa :as mfa]
@@ -681,6 +682,22 @@
         (log/error e "Unexpected error in bulk-update-users-htmx-handler")
         (html-response request (ui/error-message (.getMessage e)) 500)))))
 
+(defn- send-welcome-email!
+  "Send welcome email to newly created user.
+   email-sender satisfies boundary.external.ports/ISmtpProvider."
+  [email-sender user config]
+  (let [app-name (get-in config [:active :boundary/settings :name] "Boundary")
+        from     (get-in config [:active :boundary.external/smtp :from] "no-reply@localhost")]
+    (external-ports/send-email!
+     email-sender
+     {:to      [(:email user)]
+      :from    from
+      :subject (str "Welcome to " app-name)
+      :body    (str "Hello " (:name user) ",\n\n"
+                    "Your account has been created successfully.\n\n"
+                    "You can log in at any time.\n\n"
+                    "— " app-name)})))
+
 (defn create-user-htmx-handler
   "HTMX handler for creating a new user (POST /web/users).
 
@@ -691,21 +708,25 @@
 
    Args:
      user-service: User service instance
+     email-sender: Optional ISmtpProvider for sending welcome emails
      config: Application configuration map
 
    Returns:
      Ring handler function"
-  [user-service _config]
+  [user-service email-sender config]
   (fn [request]
     (let [form-data (:form-params request)
           raw-return-to (get form-data "return-to")
           return-to (safe-return-url raw-return-to "/web/admin/users")
+          send-welcome? (let [v (get form-data "send-welcome")]
+                          (or (= "on" v) (= "true" v)
+                              (and (sequential? v) (some #{"on" "true"} v))))
           ;; Prepare data with kebab-case keyword keys for validation
           prepared-data {:name (get form-data "name")
                          :email (get form-data "email")
                          :password (get form-data "password")
                          :role (keyword (get form-data "role"))
-                         :send-welcome (= "on" (get form-data "send-welcome"))}
+                         :send-welcome send-welcome?}
           [valid? validation-errors _] (validate-request-data user-schema/CreateUserRequest prepared-data)]
       (if-not valid?
         (html-response request
@@ -714,7 +735,13 @@
                                                  {:return-to return-to})
                        400)
         (try
-          (let [_user-result (user-ports/register-user user-service prepared-data)]
+          (let [user-data (dissoc prepared-data :send-welcome)
+                user-result (user-ports/register-user user-service user-data)]
+            (when (and send-welcome? email-sender)
+              (try
+                (send-welcome-email! email-sender user-result config)
+                (catch Exception e
+                  (log/warn e "Failed to send welcome email" {:email (:email user-result)}))))
             (-> (response/response "")
                 (response/status 201)
                 (response/header "HX-Redirect" return-to)

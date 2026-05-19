@@ -124,11 +124,14 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :boundary/user-routes
-  [_ {:keys [user-service mfa-service config]}]
-  (log/info "Initializing user module routes (normalized format)")
+  [_ {:keys [user-service mfa-service config email-sender]}]
+  (log/info "Initializing user module routes (normalized format)"
+            {:email-sender? (some? email-sender)})
   (require 'boundary.user.shell.http)
   (let [user-routes-fn (ns-resolve 'boundary.user.shell.http 'user-routes-normalized)
-        routes (user-routes-fn user-service mfa-service (or config {}))]
+        config-with-email (cond-> (or config {})
+                            email-sender (assoc :email-sender email-sender))
+        routes (user-routes-fn user-service mfa-service config-with-email)]
     (log/info "User module routes initialized successfully"
               {:route-keys (keys routes)
                :api-count (count (:api routes))
