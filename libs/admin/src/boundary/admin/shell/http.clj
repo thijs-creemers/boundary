@@ -1014,18 +1014,19 @@
                        :page (:page-number list-result)}
           permissions (permissions/get-entity-permissions user entity-name entity-config)
 
-          ; Create flash message
-          flash-msg (if (zero? failed-count)
-                      {:type :success
-                       :message [:t :admin/flash-bulk-deleted {:count success-count
-                                                               :label (:label entity-config)}]}
-                      {:type :warning
-                       :message [:t :admin/flash-bulk-deleted-partial {:count success-count
-                                                                       :failed failed-count}]})]
+          ; Create toast message
+          label (or (:label entity-config) (name entity-name))
+          toast-msg (if (zero? failed-count)
+                      (str success-count " " label " deleted")
+                      (str success-count " " label " deleted, " failed-count " failed"))
+          toast-json (str "{\"type\":\""
+                          (if (zero? failed-count) "success" "warning")
+                          "\",\"message\":\"" toast-msg "\"}")]
 
-      ; Return table HTML fragment
-      (htmx-fragment-response request
-                              (admin-ui/entity-table entity-name records entity-config table-query total-count permissions {} flash-msg)))))
+      ; Return table HTML fragment with toast via showToast event
+      (-> (htmx-fragment-response request
+                                  (admin-ui/entity-table entity-name records entity-config table-query total-count permissions {}))
+          (ring-response/header "HX-Trigger" (str "{\"showToast\":" toast-json ",\"entityListUpdated\":{}}"))))))
 
 ;; =============================================================================
 ;; Inline Editing Handlers (Week 2)
