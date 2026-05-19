@@ -212,7 +212,7 @@
      
    Returns:
      Ring handler function"
-  [user-service mfa-service _config]
+  [user-service mfa-service config]
   (fn [request]
     (try
       (let [user (:user request)
@@ -224,10 +224,12 @@
             mfa-enabled? (:enabled mfa-status false)
             dashboard-data {:active-sessions-count active-sessions
                             :mfa-enabled mfa-enabled?}
-            page-opts {:user user
-                       :current-time (current-time)
-                       :zone-id (current-zone-id)
-                       :flash (get request :flash)}]
+            extra-cards (:dashboard-extra-cards config)
+            page-opts (cond-> {:user user
+                               :current-time (current-time)
+                               :zone-id (current-zone-id)
+                               :flash (get request :flash)}
+                        extra-cards (assoc :extra-cards extra-cards))]
         (html-response request (user-ui/dashboard-page user dashboard-data page-opts)))
       (catch Exception e
         (log/error e "Error in dashboard-page-handler")
