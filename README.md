@@ -231,8 +231,8 @@ Version appears in 24+ files — use these steps to bump consistently.
 **1. Replace the version string everywhere (all .clj, .edn, and .md files):**
 
 ```bash
-OLD="1.0.1-alpha-23"
-NEW="1.0.1-alpha-23"   # example
+OLD="1.0.1-alpha-25"
+NEW="1.0.1-alpha-25"   # example
 
 # Source and config files
 find . \( -name "*.clj" -o -name "*.edn" \) \
@@ -277,12 +277,12 @@ bb deploy --all
 
 ```clojure
 ;; Validation utilities only
-{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-23"}}}
+{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-25"}}}
 
 ;; Full web application stack
-{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-23"}
-        org.boundary-app/boundary-user     {:mvn/version "1.0.1-alpha-23"}
-        org.boundary-app/boundary-admin    {:mvn/version "1.0.1-alpha-23"}}}
+{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-25"}
+        org.boundary-app/boundary-user     {:mvn/version "1.0.1-alpha-25"}
+        org.boundary-app/boundary-admin    {:mvn/version "1.0.1-alpha-25"}}}
 ```
 
 ---
