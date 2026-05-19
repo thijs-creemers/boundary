@@ -736,18 +736,34 @@
                        400)
         (try
           (let [user-data (dissoc prepared-data :send-welcome)
-                user-result (user-ports/register-user user-service user-data)]
-            (when (and send-welcome? email-sender)
-              (try
-                (send-welcome-email! email-sender user-result config)
-                (catch Exception e
-                  (log/warn e "Failed to send welcome email" {:email (:email user-result)}))))
-            (-> (response/response "")
-                (response/status 201)
-                (response/header "HX-Redirect" return-to)
-                (response/header "HX-Trigger" "userCreated")))
+                user-result (user-ports/register-user user-service user-data)
+                email-sent? (when (and send-welcome? email-sender)
+                              (try
+                                (send-welcome-email! email-sender user-result config)
+                                true
+                                (catch Exception e
+                                  (log/warn e "Failed to send welcome email" {:email (:email user-result)})
+                                  false)))
+                flash-msg (str "User " (:name user-result) " created"
+                               (when email-sent?
+                                 (str ", welcome email sent to " (:email user-result))))
+                toast-json (str "{\"type\":\"success\",\"message\":\""
+                                (.replace flash-msg "\"" "\\\"") "\"}")
+                ;; Return inline script that stores toast + redirects.
+                ;; This avoids HX-Redirect (which skips XHR event listeners)
+                ;; and cached JS issues (inline script always executes fresh).
+                body (str "<script>"
+                          "try{sessionStorage.setItem('pendingToast','"
+                          (.replace toast-json "'" "\\'")
+                          "')}catch(e){}"
+                          "window.location.href='" return-to "';"
+                          "</script>")]
+            (-> (response/response body)
+                (response/status 200)
+                (response/header "Content-Type" "text/html; charset=utf-8")))
           (catch Exception e
-            (html-response request (ui/error-message (.getMessage e)) 500)))))))
+            (log/error e "Create user failed")
+            (html-response request (ui/error-message (.getMessage e)) 200)))))))
 
 (defn update-user-htmx-handler
   "HTMX handler for updating a user (PUT /web/users/:id).

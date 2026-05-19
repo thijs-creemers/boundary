@@ -599,23 +599,42 @@
              soft-delete? (:soft-delete entity-config false)
              ;; Convert UUID to string for PostgreSQL compatibility
              id-str (type-conversion/uuid->string id)
-             {:keys [soft-delete-table]} (resolve-query-config entity-config)]
+             {:keys [soft-delete-table]} (resolve-query-config entity-config)
+             split-cfg (:split-table-update entity-config)]
 
          (if soft-delete?
-             ; Soft delete: Set deleted-at timestamp and optionally active=false
+           ;; Soft delete: Set deleted-at timestamp and optionally active=false
            (let [now-str (type-conversion/instant->string (Instant/now))
-                  ;; Check if entity has an 'active' field to set on soft-delete
                  has-active-field? (contains? (:fields entity-config) :active)
-                 soft-delete-data-kebab (cond-> {:deleted-at now-str}
-                                          has-active-field? (assoc :active false))
-                  ;; Convert to snake_case for database
-                 soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
-                 query {:update soft-delete-table
-                        :set soft-delete-data
-                        :where [:= primary-key id-str]}]
-             (pos? (db/execute-update! db-ctx query)))
+                 secondary-fields (when split-cfg (:secondary-fields split-cfg #{}))]
 
-            ; Hard delete: Permanent removal
+             (if (and split-cfg secondary-fields (contains? secondary-fields :active) has-active-field?)
+               ;; Split-table: active lives on secondary table, deleted_at may be on both
+               (db/with-transaction* db-ctx
+                 (fn [tx]
+                   (let [secondary-table (:secondary-table split-cfg)
+                         ;; Secondary table gets active=false + deleted_at
+                         secondary-data (case-conversion/kebab-case->snake-case-map
+                                         {:deleted-at now-str :active false})
+                         ;; Primary table gets deleted_at only
+                         primary-data (case-conversion/kebab-case->snake-case-map
+                                       {:deleted-at now-str})]
+                     (db/execute-update! tx {:update secondary-table
+                                             :set    secondary-data
+                                             :where  [:= primary-key id-str]})
+                     (pos? (db/execute-update! tx {:update table-name
+                                                   :set    primary-data
+                                                   :where  [:= primary-key id-str]})))))
+               ;; Non-split: update single table
+               (let [soft-delete-data-kebab (cond-> {:deleted-at now-str}
+                                              has-active-field? (assoc :active false))
+                     soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
+                     query {:update soft-delete-table
+                            :set soft-delete-data
+                            :where [:= primary-key id-str]}]
+                 (pos? (db/execute-update! db-ctx query)))))
+
+           ;; Hard delete: Permanent removal
            (let [query {:delete-from table-name
                         :where [:= primary-key id-str]}]
              (pos? (db/execute-update! db-ctx query))))))
@@ -674,26 +693,42 @@
              primary-key (:primary-key entity-config :id)
              soft-delete? (:soft-delete entity-config false)
              {:keys [soft-delete-table]} (resolve-query-config entity-config)
+             split-cfg (:split-table-update entity-config)
 
              ;; Convert UUIDs to strings at database boundary
              id-strings (mapv type-conversion/uuid->string ids)
              now-str (type-conversion/instant->string (Instant/now))
 
-             ;; Check if entity has an 'active' field to set on soft-delete
              has-active-field? (contains? (:fields entity-config) :active)
-             soft-delete-data-kebab (cond-> {:deleted-at now-str}
-                                      has-active-field? (assoc :active false))
-             ;; Convert to snake_case for database
-             soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
+             secondary-fields (when split-cfg (:secondary-fields split-cfg #{}))
 
-             query (if soft-delete?
-                     {:update soft-delete-table
-                      :set soft-delete-data
-                      :where [:in primary-key id-strings]}
-                     {:delete-from table-name
-                      :where [:in primary-key id-strings]})
-
-             affected-count (db/execute-update! db-ctx query)]
+             affected-count
+             (if (and soft-delete? split-cfg secondary-fields
+                      (contains? secondary-fields :active) has-active-field?)
+               ;; Split-table bulk soft-delete: update both tables
+               (db/with-transaction* db-ctx
+                 (fn [tx]
+                   (let [secondary-table (:secondary-table split-cfg)
+                         secondary-data (case-conversion/kebab-case->snake-case-map
+                                         {:deleted-at now-str :active false})
+                         primary-data (case-conversion/kebab-case->snake-case-map
+                                       {:deleted-at now-str})]
+                     (db/execute-update! tx {:update secondary-table
+                                             :set    secondary-data
+                                             :where  [:in primary-key id-strings]})
+                     (db/execute-update! tx {:update table-name
+                                             :set    primary-data
+                                             :where  [:in primary-key id-strings]}))))
+               ;; Non-split path
+               (if soft-delete?
+                 (let [soft-delete-data-kebab (cond-> {:deleted-at now-str}
+                                                has-active-field? (assoc :active false))
+                       soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)]
+                   (db/execute-update! db-ctx {:update soft-delete-table
+                                               :set soft-delete-data
+                                               :where [:in primary-key id-strings]}))
+                 (db/execute-update! db-ctx {:delete-from table-name
+                                             :where [:in primary-key id-strings]})))]
 
          {:success-count affected-count
           :failed-count (- (count ids) affected-count)

@@ -170,11 +170,15 @@ document.addEventListener('alpine:init', function () {
 
   function getToastContainer() {
     if (!toastContainer) {
-      toastContainer = document.createElement('div');
-      toastContainer.className = 'toast-container';
-      toastContainer.setAttribute('role', 'status');
-      toastContainer.setAttribute('aria-live', 'polite');
-      document.body.appendChild(toastContainer);
+      // Reuse existing HTML-rendered container if present, otherwise create one
+      toastContainer = document.querySelector('.toast-container');
+      if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container';
+        toastContainer.setAttribute('role', 'status');
+        toastContainer.setAttribute('aria-live', 'polite');
+        document.body.appendChild(toastContainer);
+      }
     }
     return toastContainer;
   }
@@ -183,7 +187,7 @@ document.addEventListener('alpine:init', function () {
     var type = opts.type || 'info';
     var title = opts.title || '';
     var message = opts.message || '';
-    var duration = opts.duration || 4000;
+    var duration = opts.duration || 5000;
 
     var container = getToastContainer();
 
@@ -511,6 +515,16 @@ document.addEventListener('alpine:init', function () {
         message: detail.message || ''
       });
     });
+
+    // Show pending toast from sessionStorage (survives HX-Redirect page navigation).
+    // Written by XHR intercept in components.js; consumed here on the redirect target.
+    try {
+      var pending = sessionStorage.getItem('pendingToast');
+      if (pending) {
+        sessionStorage.removeItem('pendingToast');
+        showToast(JSON.parse(pending));
+      }
+    } catch (e) { /* ignore */ }
 
     // Intercept hx-confirm on delete buttons with styled modal
     document.addEventListener('htmx:confirm', function (event) {

@@ -962,10 +962,18 @@
       (if deleted?
         ; Success - redirect back to return_to (parent context) or entity list
         (let [redirect-url (or safe-return-to
-                               (str "/web/admin/" (name entity-name)))]
-          (-> (ring-response/response "")
+                               (str "/web/admin/" (name entity-name)))
+              label (or (:label entity-config) (name entity-name))
+              toast-json (str "{\"type\":\"success\",\"message\":\"" label " deleted\"}")
+              body (str "<script>"
+                        "try{sessionStorage.setItem('pendingToast','"
+                        (.replace toast-json "'" "\\'")
+                        "')}catch(e){}"
+                        "window.location.href='" redirect-url "';"
+                        "</script>")]
+          (-> (ring-response/response body)
               (ring-response/status 200)
-              (ring-response/header "HX-Redirect" redirect-url)))
+              (ring-response/header "Content-Type" "text/html; charset=utf-8")))
 
         ; Failed to delete
         (-> (ring-response/response "")
