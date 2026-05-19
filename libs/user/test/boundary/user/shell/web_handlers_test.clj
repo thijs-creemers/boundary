@@ -439,10 +439,10 @@
                                  "return-to" "/web/admin/users"}}
           response (handler request)]
 
-      (is (= 201 (:status response)))
-      (is (has-header? response "HX-Trigger" "userCreated"))
-      ;; Uses HX-Redirect header instead of inline JavaScript for safer redirect
-      (is (has-header? response "HX-Redirect" "/web/admin/users"))))
+      (is (= 200 (:status response)))
+      (is (html-contains? response "pendingToast"))
+      (is (html-contains? response "User New User created"))
+      (is (html-contains? response "/web/admin/users"))))
 
   (testing "falls back to /web/admin/users when return-to is missing or unsafe"
     (let [service (create-mock-service)
@@ -457,8 +457,9 @@
                                  "return-to" "//evil.example.com/phish"}}
           response (handler request)]
 
-      (is (= 201 (:status response)))
-      (is (has-header? response "HX-Redirect" "/web/admin/users"))))
+      (is (= 200 (:status response)))
+      (is (html-contains? response "/web/admin/users"))
+      (is (not (html-contains? response "evil.example.com")))))
 
   (testing "returns validation errors for invalid data"
     (let [service (create-mock-service)
@@ -501,7 +502,7 @@
                                  "active" "true"}}
           response (handler request)]
 
-      (is (= 500 (:status response)))
+      (is (= 200 (:status response)))
       (is (html-contains? response "Email already exists")))))
 
 (deftest update-user-htmx-handler-test
@@ -680,8 +681,8 @@
 
       ;; Verify each step
       (is (= 200 (:status list-response)))
-      (is (= 201 (:status create-response)))
-      (is (has-header? create-response "HX-Trigger" "userCreated"))
+      (is (= 200 (:status create-response)))
+      (is (html-contains? create-response "pendingToast"))
       (is (= 200 (:status detail-response)))
       (is (html-contains? detail-response "Integration User"))
       (is (= 200 (:status update-response)))
