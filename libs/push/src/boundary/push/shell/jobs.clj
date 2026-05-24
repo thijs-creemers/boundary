@@ -13,7 +13,7 @@
   (let [push-def (notif/get-push notification-id)]
     (when-not push-def
       (throw (ex-info "Push notification not found in registry"
-                      {:notification-id notification-id})))
+                      {:type :not-found :notification-id notification-id})))
     (let [devices   (ports/get-user-devices device-store user-id)
           active    (filter :active? devices)
           rendered  (notif/build-notification push-def data (or locale :en))
@@ -23,7 +23,7 @@
       (doseq [[platform platform-devices] grouped]
         (let [results (service/deliver-to-platform!
                        {:fcm-provider fcm-provider :apns-provider apns-provider}
-                       platform rendered platform-devices callback-secret)]
+                       platform rendered platform-devices)]
           (doseq [result results]
             (ports/record-send! analytics-store
                                 (merge (delivery/result->analytics-event notification-id result (java.util.Date.))
@@ -45,7 +45,7 @@
                                                    {:limit page-size :offset offset})]
         (when (seq devices)
           (let [results (service/deliver-to-platform!
-                         deps platform rendered devices (:callback-secret deps))]
+                         deps platform rendered devices)]
             (doseq [result results]
               (ports/record-send! (:analytics-store deps)
                                   (merge (delivery/result->analytics-event notification-id result (java.util.Date.))

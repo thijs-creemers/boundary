@@ -33,7 +33,7 @@
 ;; --- Device ---
 (def DeviceInfo
   [:map
-   [:token [:string {:min 1}]]
+   [:token [:string {:min 1 :max 512}]]
    [:platform Platform]
    [:app-id [:string {:min 1}]]
    [:device-name {:optional true} :string]
@@ -86,7 +86,7 @@
    [:provider-message-id :string]
    [:event-type [:enum :delivered :opened]]
    [:callback-token :string]
-   [:notification-id :string]
+   [:notification-id :keyword]
    [:platform [:enum :fcm :apns]]
    [:timestamp {:optional true} inst?]])
 

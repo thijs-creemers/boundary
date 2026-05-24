@@ -34,7 +34,7 @@
   (let [body (:body-params request)]
     (cond
       (not (schema/valid-callback? body))
-      (resp/bad-request {:errors "Invalid callback payload"})
+      (resp/bad-request {:errors (m/explain schema/CallbackPayload body)})
 
       (not (service/verify-callback-token
             callback-secret
@@ -46,7 +46,7 @@
       :else
       (do
         (let [event {:id                  (random-uuid)
-                     :notification-id     (keyword (:notification-id body))
+                     :notification-id     (:notification-id body)
                      :device-token        (:device-token body)
                      :platform            (:platform body)
                      :provider-message-id (:provider-message-id body)

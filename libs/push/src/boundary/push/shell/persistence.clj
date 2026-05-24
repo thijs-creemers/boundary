@@ -94,7 +94,8 @@
          (mapv row->device)))
 
   (get-devices-by-platform [_ platform opts]
-    (let [{:keys [limit offset] :or {limit 100 offset 0}} opts]
+    (let [{:keys [limit offset] :or {limit 100 offset 0}} opts
+          limit (min limit 1000)]
       (->> (execute! db
                      (-> (h/select :*)
                          (h/from :push-device-tokens)
@@ -127,7 +128,7 @@
   (record-send! [_ event]
     (execute-one! db
                   (-> (h/insert-into :push-analytics-events)
-                      (h/values [{:id                  (or (:id event) (random-uuid))
+                      (h/values [{:id                  (:id event)
                                   :notification-id     (name (:notification-id event))
                                   :device-token        (:device-token event)
                                   :platform            (name (:platform event))

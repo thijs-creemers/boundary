@@ -28,18 +28,21 @@
      (.getBytes ^String callback-token StandardCharsets/UTF_8))))
 
 (defn deliver-to-platform!
-  "Internal: send notification to devices on a specific platform."
-  [{:keys [fcm-provider apns-provider]} platform notification devices callback-secret]
-  (case platform
-    :fcm  (let [tokens (mapv :token devices)]
-            (ports/fcm-send-multicast!
-             fcm-provider
-             (delivery/build-fcm-payload notification (first tokens))
-             tokens))
-    :apns (ports/apns-send-batch!
-           apns-provider
-           (delivery/build-apns-payload notification)
-           (mapv :token devices))))
+  "Internal: send notification to devices on a specific platform.
+   Returns vector of results, or empty vector if no devices."
+  [{:keys [fcm-provider apns-provider]} platform notification devices]
+  (if (empty? devices)
+    []
+    (case platform
+      :fcm  (let [tokens (mapv :token devices)]
+              (ports/fcm-send-multicast!
+               fcm-provider
+               (delivery/build-fcm-payload notification (first tokens))
+               tokens))
+      :apns (ports/apns-send-batch!
+             apns-provider
+             (delivery/build-apns-payload notification)
+             (mapv :token devices)))))
 
 (defrecord PushService [device-store analytics-store
                         fcm-provider apns-provider

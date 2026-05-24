@@ -62,7 +62,7 @@
                                  :provider-message-id msg-id
                                  :event-type          :delivered
                                  :callback-token      token
-                                 :notification-id     "order-shipped"
+                                 :notification-id     :order-shipped
                                  :platform            :fcm}}
         response  (handlers/analytics-callback-handler deps request)]
     (is (= 204 (:status response)))
@@ -76,7 +76,7 @@
                                 :provider-message-id "msg-1"
                                 :event-type          :delivered
                                 :callback-token      "bad-hmac"
-                                :notification-id     "test"
+                                :notification-id     :test
                                 :platform            :fcm}}
         response (handlers/analytics-callback-handler deps request)]
     (is (= 403 (:status response)))))

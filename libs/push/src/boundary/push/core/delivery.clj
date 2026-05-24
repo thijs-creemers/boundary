@@ -21,8 +21,7 @@
     :android      {:priority     (name (:priority notification :normal))
                    :ttl          (str (:ttl notification 86400) "s")
                    :collapse_key (some-> (:collapse-key notification) name)
-                   :notification {:click_action "OPEN_ACTIVITY"}}
-    :apns         nil}})
+                   :notification {:click_action "OPEN_ACTIVITY"}}}})
 
 (defn build-apns-payload
   "Pure: transform rendered notification into APNs payload."

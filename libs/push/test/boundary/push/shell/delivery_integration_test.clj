@@ -22,7 +22,7 @@
         notif    {:title "Test" :body "Body" :priority :normal :ttl 3600
                   :silent? false :data {:k "v"}}
         devices  [{:token "fcm-1" :platform :fcm} {:token "fcm-2" :platform :fcm}]
-        results  (service/deliver-to-platform! deps :fcm notif devices "secret")]
+        results  (service/deliver-to-platform! deps :fcm notif devices)]
     (is (= 2 (count results)))
     (is (every? :success? results))
     (is (every? #(= :fcm (:platform %)) results))))
@@ -33,10 +33,17 @@
         notif     {:title "Test" :body "Body" :priority :normal :ttl 3600
                    :silent? false :data {:k "v"}}
         devices   [{:token "apns-1" :platform :apns}]
-        results   (service/deliver-to-platform! deps :apns notif devices "secret")]
+        results   (service/deliver-to-platform! deps :apns notif devices)]
     (is (= 1 (count results)))
     (is (true? (:success? (first results))))
     (is (= :apns (:platform (first results))))))
+
+(deftest ^:integration deliver-to-platform-empty-devices-test
+  (let [deps    {:fcm-provider (mock/->MockFCMProvider) :apns-provider (mock/->MockAPNsProvider)}
+        notif   {:title "Test" :body "Body" :priority :normal :ttl 3600
+                 :silent? false :data {:k "v"}}
+        results (service/deliver-to-platform! deps :fcm notif [])]
+    (is (= [] results))))
 
 ;; --- handle-send-push job handler ---
 

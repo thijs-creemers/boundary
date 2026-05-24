@@ -47,7 +47,7 @@
                      :provider-message-id "msg-1"
                      :event-type :delivered
                      :callback-token "hmac-sig"
-                     :notification-id "order-shipped"
+                     :notification-id :order-shipped
                      :platform :fcm})))
 
   (testing "invalid event type rejected"
@@ -56,5 +56,5 @@
                           :provider-message-id "msg-1"
                           :event-type :sent
                           :callback-token "x"
-                          :notification-id "test"
+                          :notification-id :test
                           :platform :fcm})))))
