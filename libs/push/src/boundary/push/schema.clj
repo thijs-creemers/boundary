@@ -86,6 +86,8 @@
    [:provider-message-id :string]
    [:event-type [:enum :delivered :opened]]
    [:callback-token :string]
+   [:notification-id :string]
+   [:platform [:enum :fcm :apns]]
    [:timestamp {:optional true} inst?]])
 
 ;; --- Validators ---

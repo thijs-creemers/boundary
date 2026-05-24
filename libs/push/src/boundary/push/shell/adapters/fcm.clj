@@ -6,6 +6,7 @@
            [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers HttpResponse$BodyHandlers]
            [java.nio.charset StandardCharsets]
            [java.time Duration]
+           [java.util.concurrent CompletableFuture]
            [com.google.auth.oauth2 GoogleCredentials]
            [java.io FileInputStream]))
 
@@ -21,45 +22,63 @@
 (defn- fcm-url [project-id]
   (str "https://fcm.googleapis.com/v1/projects/" project-id "/messages:send"))
 
-(defn- http-post [url body access-token]
-  (let [client  (HttpClient/newHttpClient)
-        request (-> (HttpRequest/newBuilder)
-                    (.uri (URI/create url))
-                    (.header "Content-Type" "application/json")
-                    (.header "Authorization" (str "Bearer " access-token))
-                    (.POST (HttpRequest$BodyPublishers/ofString
-                            (json/generate-string body)
-                            StandardCharsets/UTF_8))
-                    (.timeout (Duration/ofSeconds 10))
-                    (.build))
-        response (.send client request (HttpResponse$BodyHandlers/ofString))]
-    {:status (.statusCode response)
-     :body   (json/parse-string (.body response) true)}))
+(defn- build-request [url body access-token]
+  (-> (HttpRequest/newBuilder)
+      (.uri (URI/create url))
+      (.header "Content-Type" "application/json")
+      (.header "Authorization" (str "Bearer " access-token))
+      (.POST (HttpRequest$BodyPublishers/ofString
+              (json/generate-string body)
+              StandardCharsets/UTF_8))
+      (.timeout (Duration/ofSeconds 10))
+      (.build)))
 
-(defrecord FCMProvider [project-id credentials]
+(defn- parse-response [response token]
+  (let [status (.statusCode response)
+        body   (json/parse-string (.body response) true)]
+    (if (<= 200 status 299)
+      {:success?     true
+       :message-id   (:name body)
+       :device-token token
+       :platform     :fcm}
+      (let [error-code (get-in body [:error :status])]
+        (log/warnf "FCM send failed: %s %s" status error-code)
+        {:success?       false
+         :device-token   token
+         :platform       :fcm
+         :error          error-code
+         :token-invalid? (contains? #{"UNREGISTERED" "INVALID_ARGUMENT"} error-code)}))))
+
+(defrecord FCMProvider [project-id credentials http-client]
   ports/IFCMProvider
 
   (fcm-send! [_ payload]
     (let [token        (get-in payload [:message :token])
           access-token (get-access-token credentials)
-          response     (http-post (fcm-url project-id) payload access-token)]
-      (if (<= 200 (:status response) 299)
-        {:success?     true
-         :message-id   (get-in response [:body :name])
-         :device-token token
-         :platform     :fcm}
-        (let [error-code (get-in response [:body :error :status])]
-          (log/warnf "FCM send failed: %s %s" (:status response) error-code)
-          {:success?        false
-           :device-token    token
-           :platform        :fcm
-           :error           error-code
-           :token-invalid?  (contains? #{"UNREGISTERED" "INVALID_ARGUMENT"} error-code)}))))
+          request      (build-request (fcm-url project-id) payload access-token)
+          response     (.send ^HttpClient http-client request (HttpResponse$BodyHandlers/ofString))]
+      (parse-response response token)))
 
-  (fcm-send-multicast! [this payload tokens]
-    (mapv (fn [token]
-            (ports/fcm-send! this (assoc-in payload [:message :token] token)))
-          tokens))
+  (fcm-send-multicast! [_ payload tokens]
+    (let [access-token (get-access-token credentials)
+          url          (fcm-url project-id)
+          futures      (mapv (fn [token]
+                               (let [per-token (assoc-in payload [:message :token] token)
+                                     request   (build-request url per-token access-token)]
+                                 {:token  token
+                                  :future (.sendAsync ^HttpClient http-client request
+                                                      (HttpResponse$BodyHandlers/ofString))}))
+                             tokens)]
+      (mapv (fn [{:keys [token future]}]
+              (try
+                (parse-response (.get ^CompletableFuture future) token)
+                (catch Exception e
+                  (log/warnf "FCM async send failed for %s: %s" token (.getMessage e))
+                  {:success?     false
+                   :device-token token
+                   :platform     :fcm
+                   :error        (.getMessage e)})))
+            futures)))
 
   (fcm-validate-token [this token]
     (let [payload {:message {:token token :data {"validate_only" "true"}}}
@@ -67,5 +86,8 @@
       {:valid? (:success? result) :token token})))
 
 (defn make-fcm-provider [project-id credentials-path]
-  (let [creds (load-credentials credentials-path)]
-    (->FCMProvider project-id creds)))
+  (let [creds  (load-credentials credentials-path)
+        client (-> (HttpClient/newBuilder)
+                   (.connectTimeout (Duration/ofSeconds 10))
+                   (.build))]
+    (->FCMProvider project-id creds client)))

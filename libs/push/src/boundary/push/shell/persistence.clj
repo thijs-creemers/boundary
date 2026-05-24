@@ -12,7 +12,8 @@
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
-            [honey.sql.helpers :as h]))
+            [honey.sql.helpers :as h])
+  (:import [java.sql SQLIntegrityConstraintViolationException]))
 
 ;; =============================================================================
 ;; Shared Helpers
@@ -65,7 +66,7 @@
              :last-used-at (:last-used-at record)}]
     (try
       (insert-device-row! db row)
-      (catch Exception _
+      (catch SQLIntegrityConstraintViolationException _
         ;; Duplicate token+app_id — update active status and last-used
         (update-device-row! db
                             (:token record) (:app-id record)

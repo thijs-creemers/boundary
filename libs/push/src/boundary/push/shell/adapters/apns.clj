@@ -9,7 +9,8 @@
            [java.security KeyFactory]
            [java.security.spec PKCS8EncodedKeySpec]
            [java.time Duration Instant]
-           [java.util Base64]))
+           [java.util Base64]
+           [java.util.concurrent CompletableFuture]))
 
 (defn- load-p8-key [key-path]
   (let [raw    (String. (Files/readAllBytes (Paths/get key-path (into-array String []))))
@@ -41,46 +42,66 @@
     "https://api.sandbox.push.apple.com"
     "https://api.push.apple.com"))
 
-(defn- send-single! [http-client host bundle-id jwt payload device-token]
-  (let [url     (str host "/3/device/" device-token)
-        body    (json/generate-string payload)
-        request (-> (HttpRequest/newBuilder)
-                    (.uri (URI/create url))
-                    (.header "Content-Type" "application/json")
-                    (.header "Authorization" (str "bearer " jwt))
-                    (.header "apns-topic" bundle-id)
-                    (.header "apns-push-type" (if (= 1 (get-in payload [:aps :content-available]))
-                                                "background" "alert"))
-                    (.POST (HttpRequest$BodyPublishers/ofString body StandardCharsets/UTF_8))
-                    (.timeout (Duration/ofSeconds 10))
-                    (.build))
-        response (.send http-client request (HttpResponse$BodyHandlers/ofString))]
-    (if (<= 200 (.statusCode response) 299)
-      (let [apns-id-opt (.firstValue (.headers response) "apns-id")]
-        {:success?     true
-         :apns-id      (when (.isPresent apns-id-opt) (.get apns-id-opt))
-         :message-id   (when (.isPresent apns-id-opt) (.get apns-id-opt))
-         :device-token device-token
-         :platform     :apns})
-      (let [resp-body (try (json/parse-string (.body response) true) (catch Exception _ {}))
-            reason    (:reason resp-body)]
-        (log/warnf "APNs send failed: %d %s" (.statusCode response) reason)
-        {:success?       false
-         :device-token   device-token
-         :platform       :apns
-         :error          reason
-         :token-invalid? (contains? #{"BadDeviceToken" "Unregistered"} reason)}))))
+(defn- build-apns-request [host bundle-id jwt payload device-token]
+  (let [url  (str host "/3/device/" device-token)
+        body (json/generate-string payload)]
+    (-> (HttpRequest/newBuilder)
+        (.uri (URI/create url))
+        (.header "Content-Type" "application/json")
+        (.header "Authorization" (str "bearer " jwt))
+        (.header "apns-topic" bundle-id)
+        (.header "apns-push-type" (if (= 1 (get-in payload [:aps :content-available]))
+                                    "background" "alert"))
+        (.POST (HttpRequest$BodyPublishers/ofString body StandardCharsets/UTF_8))
+        (.timeout (Duration/ofSeconds 10))
+        (.build))))
+
+(defn- parse-apns-response [response device-token]
+  (if (<= 200 (.statusCode response) 299)
+    (let [apns-id-opt (.firstValue (.headers response) "apns-id")]
+      {:success?     true
+       :apns-id      (when (.isPresent apns-id-opt) (.get apns-id-opt))
+       :message-id   (when (.isPresent apns-id-opt) (.get apns-id-opt))
+       :device-token device-token
+       :platform     :apns})
+    (let [resp-body (try (json/parse-string (.body response) true) (catch Exception _ {}))
+          reason    (:reason resp-body)]
+      (log/warnf "APNs send failed: %d %s" (.statusCode response) reason)
+      {:success?       false
+       :device-token   device-token
+       :platform       :apns
+       :error          reason
+       :token-invalid? (contains? #{"BadDeviceToken" "Unregistered"} reason)})))
 
 (defrecord APNsProvider [team-id key-id private-key bundle-id sandbox? http-client]
   ports/IAPNsProvider
 
   (apns-send! [_ payload device-token]
-    (let [jwt  (make-jwt team-id key-id private-key)
-          host (apns-host sandbox?)]
-      (send-single! http-client host bundle-id jwt payload device-token)))
+    (let [jwt     (make-jwt team-id key-id private-key)
+          host    (apns-host sandbox?)
+          request (build-apns-request host bundle-id jwt payload device-token)
+          response (.send ^HttpClient http-client request (HttpResponse$BodyHandlers/ofString))]
+      (parse-apns-response response device-token)))
 
-  (apns-send-batch! [this payload device-tokens]
-    (mapv (fn [token] (ports/apns-send! this payload token)) device-tokens)))
+  (apns-send-batch! [_ payload device-tokens]
+    (let [jwt     (make-jwt team-id key-id private-key)
+          host    (apns-host sandbox?)
+          futures (mapv (fn [token]
+                          {:token  token
+                           :future (.sendAsync ^HttpClient http-client
+                                               (build-apns-request host bundle-id jwt payload token)
+                                               (HttpResponse$BodyHandlers/ofString))})
+                        device-tokens)]
+      (mapv (fn [{:keys [token future]}]
+              (try
+                (parse-apns-response (.get ^CompletableFuture future) token)
+                (catch Exception e
+                  (log/warnf "APNs async send failed for %s: %s" token (.getMessage e))
+                  {:success?     false
+                   :device-token token
+                   :platform     :apns
+                   :error        (.getMessage e)})))
+            futures))))
 
 (defn make-apns-provider [team-id key-id key-path bundle-id sandbox?]
   (let [pk     (load-p8-key key-path)

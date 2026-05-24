@@ -46,11 +46,15 @@
                     {:device-token "abc"
                      :provider-message-id "msg-1"
                      :event-type :delivered
-                     :callback-token "hmac-sig"})))
+                     :callback-token "hmac-sig"
+                     :notification-id "order-shipped"
+                     :platform :fcm})))
 
   (testing "invalid event type rejected"
     (is (not (m/validate schema/CallbackPayload
                          {:device-token "abc"
                           :provider-message-id "msg-1"
                           :event-type :sent
-                          :callback-token "x"})))))
+                          :callback-token "x"
+                          :notification-id "test"
+                          :platform :fcm})))))

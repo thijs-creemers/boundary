@@ -46,9 +46,9 @@
       :else
       (do
         (let [event {:id                  (random-uuid)
-                     :notification-id     (keyword "callback")
+                     :notification-id     (keyword (:notification-id body))
                      :device-token        (:device-token body)
-                     :platform            :unknown
+                     :platform            (:platform body)
                      :provider-message-id (:provider-message-id body)
                      :timestamp           (or (:timestamp body) (java.util.Date.))}]
           (case (:event-type body)
