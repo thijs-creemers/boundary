@@ -16,7 +16,7 @@ Multi-platform push notification delivery library for the Boundary framework. Su
 | Provider strategy | FCM + APNs from day one | Two providers expose bad abstractions early. Covers full mobile ecosystem. |
 | `defpush` scope | Thick definitions | All config in definition (title, body, i18n, priority, TTL, deep-link, retry). Call sites stay clean. Matches other macros. |
 | Provider protocols | Platform-specific behind unified service | `IFCMProvider` + `IAPNsProvider` instead of single `IPushProvider`. FCM and APNs have fundamentally different APIs/payloads. |
-| Delivery analytics | Full with callback endpoint | Server-side send tracking + client-reported delivery/open events via HTTP callback. |
+| Delivery analytics | Full with HMAC-secured callback endpoint | Server-side send tracking + client-reported delivery/open events via HMAC-signed callback. |
 | Jobs integration | Hard dependency | All sends go through job queue. Push without retry/queue is fragile — no transport-level fallback like SMTP. |
 | i18n | Built-in locale maps | Locale maps in `defpush` definition. No dependency on boundary-i18n. Push text is short and self-contained. |
 
@@ -74,12 +74,13 @@ libs/push/
 (defprotocol IPushService
   (send-push! [this notification-id data opts]
     "Enqueue push delivery for all user devices. opts: {:user-id uuid, :locale kw}")
-  (send-push-to-device! [this notification-id data device-token]
-    "Send to specific device. Used internally by job workers.")
   (schedule-push! [this notification-id data opts scheduled-at]
     "Schedule push for future delivery via jobs.")
   (broadcast! [this notification-id data opts]
     "Send to all registered devices matching opts: {:platform kw, :app-id str}"))
+
+;; Note: send-to-device is an internal function in shell/service.clj,
+;; not part of the public protocol. Job handlers call it directly.
 ```
 
 ### IFCMProvider — Firebase Cloud Messaging
@@ -114,8 +115,8 @@ libs/push/
     "Remove device token.")
   (get-user-devices [this user-id]
     "All active devices for user.")
-  (get-devices-by-platform [this platform]
-    "All devices for platform. Used by broadcast.")
+  (get-devices-by-platform [this platform opts]
+    "All devices for platform. opts: {:limit n :offset n}. Used by broadcast.")
   (mark-token-invalid! [this device-token]
     "Flag token as invalid after provider rejection.")
   (cleanup-stale-tokens! [this max-age-days]
@@ -133,7 +134,9 @@ libs/push/
   (record-open! [this event]
     "Log client-reported notification open.")
   (get-push-stats [this notification-id opts]
-    "Aggregate stats: sent/delivered/opened/failed counts."))
+    "Aggregate stats: sent/delivered/opened/failed counts.")
+  (cleanup-old-events! [this retention-days]
+    "Purge analytics events older than retention-days. Recommended: 90 days."))
 ```
 
 ## `defpush` Macro
@@ -158,7 +161,8 @@ libs/push/
 ### Registry
 
 - Global atom-based registry (same as `defreport`, `defevent`, `defworkflow`)
-- Validates definition against Malli schema at registration time
+- No validation at registration time (consistent with existing macros)
+- Separate `valid-push?` / `explain-push` functions for explicit validation
 - `get-push`, `list-pushes`, `clear-registry!` for lookup and test isolation
 
 ### Template Rendering (pure)
@@ -179,13 +183,13 @@ libs/push/
 
 | Schema | Purpose |
 |--------|---------|
-| `PushDefinition` | Validates `defpush` definitions at registration |
+| `PushDefinition` | Validates `defpush` definitions via `valid-push?` / `explain-push` |
 | `DeviceInfo` | Input for device registration (token, platform, app-id) |
 | `DeviceRecord` | Full device record with metadata and active flag |
 | `SendPushInput` | Input for send-push! (user-id, locale) |
 | `AnalyticsEvent` | Send/delivery/open event record |
 | `PushStats` | Aggregated stats output (counts + rates) |
-| `CallbackPayload` | Mobile app callback input (device-token, provider-message-id, event-type) |
+| `CallbackPayload` | Mobile app callback input (device-token, provider-message-id, event-type, callback-token) |
 | `LocalizedString` | Union type: plain string or locale->string map |
 | `RetryConfig` | Retry configuration (max-attempts, backoff strategy) |
 
@@ -197,6 +201,7 @@ libs/push/
 |--------|------|-------|
 | id | UUID | PK |
 | user_id | UUID | NOT NULL |
+| tenant_id | UUID | Optional, for multi-tenant contexts |
 | token | VARCHAR(512) | NOT NULL |
 | platform | VARCHAR(10) | 'fcm' or 'apns' |
 | app_id | VARCHAR(255) | NOT NULL |
@@ -215,7 +220,8 @@ Unique constraint on `(token, app_id)`. Indexes on `(user_id, active)` and `(pla
 | id | UUID | PK |
 | notification_id | VARCHAR(255) | defpush :id |
 | user_id | UUID | Optional |
-| device_token | VARCHAR(512) | |
+| device_token_id | UUID | FK to push_device_tokens.id |
+| device_token | VARCHAR(512) | Raw token for audit (survives token cleanup) |
 | platform | VARCHAR(10) | |
 | title | VARCHAR(500) | Rendered title |
 | body | TEXT | Rendered body |
@@ -225,6 +231,9 @@ Unique constraint on `(token, app_id)`. Indexes on `(user_id, active)` and `(pla
 | error_message | TEXT | On failure |
 | created_at | TIMESTAMP | |
 | sent_at | TIMESTAMP | |
+| tenant_id | UUID | Optional, for multi-tenant contexts |
+
+Write-once table: `status` reflects send outcome only. Post-send states (delivered/opened) live in `push_analytics_events`.
 
 Indexes on `(notification_id, created_at)` and `(user_id, created_at)`.
 
@@ -241,8 +250,11 @@ Indexes on `(notification_id, created_at)` and `(user_id, created_at)`.
 | provider_message_id | VARCHAR(255) | |
 | error_message | TEXT | |
 | timestamp | TIMESTAMP | |
+| tenant_id | UUID | Optional, for multi-tenant contexts |
 
 Indexes on `(notification_id, event_type)` and `(timestamp)`.
+
+Retention policy: `cleanup-old-events!` purges events older than configurable retention period (recommended: 90 days). Run as scheduled job via boundary-jobs.
 
 ## Delivery Flow
 
@@ -268,9 +280,22 @@ send-push! → enqueue :push/send job → job worker picks up
 - `build-apns-payload` — transforms into APNs structure (aps alert, sound, badge, content-available, mutable-content)
 - Both are pure functions, fully testable without I/O
 
+### Error Classification (pure, in core/delivery.clj)
+
+Pure function `classify-error` maps provider error codes to action categories:
+
+| Category | FCM errors | APNs errors | Action |
+|----------|-----------|-------------|--------|
+| `:retryable` | `UNAVAILABLE`, `INTERNAL` | `ServiceUnavailable` | Re-enqueue job with backoff |
+| `:token-invalid` | `UNREGISTERED`, `INVALID_ARGUMENT` | `BadDeviceToken`, `Unregistered` | `mark-token-invalid!`, don't retry |
+| `:rate-limited` | `QUOTA_EXCEEDED` | `TooManyRequests` | Re-enqueue with longer backoff |
+| `:permanent` | `PERMISSION_DENIED`, `SENDER_ID_MISMATCH` | `BadCertificate`, `Forbidden` | Log error, don't retry |
+
+Job handler consults `classify-error` before deciding to re-enqueue or give up.
+
 ### Invalid Token Feedback Loop
 
-Provider returns "token invalid" error → `mark-token-invalid!` sets `active = false` → future sends skip that token. `cleanup-stale-tokens!` purges old inactive tokens periodically.
+Provider returns `:token-invalid` classified error → `mark-token-invalid!` sets `active = false` → future sends skip that token. `cleanup-stale-tokens!` purges old inactive tokens periodically.
 
 ## HTTP Endpoints
 
@@ -279,10 +304,19 @@ Provider returns "token invalid" error → `mark-token-invalid!` sets `active = 
 | POST | `/api/push/devices` | User | Register device token |
 | GET | `/api/push/devices` | User | List user's devices |
 | DELETE | `/api/push/devices/:token` | User | Unregister device |
-| POST | `/api/push/callback` | None | Mobile app delivery/open callback |
+| POST | `/api/push/callback` | HMAC | Mobile app delivery/open callback |
 | GET | `/api/push/stats/:notification-id` | Admin | Delivery/open rate stats |
 
-Callback endpoint: no auth, identified by `device-token` + `provider-message-id`. Idempotent (duplicate callbacks ignored). Rate limiting recommended at middleware level.
+### Callback Security (HMAC)
+
+Callback endpoint is secured with HMAC-signed tokens:
+
+1. When sending a push, server generates HMAC: `HMAC-SHA256(server-secret, provider-message-id)`
+2. HMAC token is included in push payload's `data` field as `callback-token`
+3. Mobile app sends `callback-token` back with callback POST
+4. Server verifies HMAC before accepting event
+
+This prevents fabricated delivery/open events without requiring user authentication. Duplicate callbacks are idempotent (upsert by provider-message-id + event-type). Rate limiting recommended at middleware level.
 
 ## Integrant Configuration
 
@@ -301,10 +335,6 @@ Callback endpoint: no auth, identified by `device-token` + `provider-message-id`
    :job-queue       #ig/ref :boundary.jobs/queue}
 :boundary.push/job-handlers
   {:push-service    #ig/ref :boundary.push/service
-   :device-store    #ig/ref :boundary.push/device-store
-   :fcm-provider    #ig/ref :boundary.push/fcm-provider
-   :apns-provider   #ig/ref :boundary.push/apns-provider
-   :analytics-store #ig/ref :boundary.push/analytics-store
    :job-registry    #ig/ref :boundary.jobs/registry}
 :boundary.push/routes
   {:device-store    #ig/ref :boundary.push/device-store
