@@ -1,5 +1,5 @@
 (ns boundary.push.core.notification-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [boundary.push.core.notification :as notif]))
 
 (use-fixtures :each (fn [f] (notif/clear-registry!) (f)))

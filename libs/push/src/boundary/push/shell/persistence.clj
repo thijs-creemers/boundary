@@ -32,7 +32,7 @@
 ;; DeviceTokenStore
 ;; =============================================================================
 
-(defn- row->device [{:keys [platform] :as row}]
+(defn- row->device [row]
   (when row
     (-> row
         (update :platform keyword)

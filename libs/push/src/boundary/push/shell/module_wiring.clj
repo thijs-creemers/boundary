@@ -41,7 +41,7 @@
   (service/->PushService device-store analytics-store fcm-provider apns-provider job-queue callback-secret))
 
 (defmethod ig/init-key :boundary.push/job-handlers
-  [_ {:keys [push-service job-registry]}]
+  [_ {:keys [push-service _job-registry]}]
   (let [deps {:push-service    push-service
               :device-store    (:device-store push-service)
               :fcm-provider    (:fcm-provider push-service)

@@ -7,8 +7,8 @@
 
 (defn handle-send-push
   "Job handler for :push/send. Resolves notification, fans out to devices, delivers."
-  [{:keys [push-service device-store fcm-provider apns-provider
-           analytics-store callback-secret]}
+  [{:keys [device-store fcm-provider apns-provider
+           analytics-store]}
    {:keys [notification-id data user-id locale]}]
   (let [push-def (notif/get-push notification-id)]
     (when-not push-def
@@ -35,7 +35,7 @@
 (defn handle-broadcast
   "Job handler for :push/broadcast. Paginated send to all devices on platform."
   [{:keys [device-store] :as deps}
-   {:keys [notification-id data platform app-id locale]}]
+   {:keys [notification-id data platform _app-id locale]}]
   (let [push-def  (notif/get-push notification-id)
         rendered  (notif/build-notification push-def data (or locale :en))
         page-size 500]

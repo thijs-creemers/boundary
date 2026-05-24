@@ -1,5 +1,5 @@
 (ns boundary.push.shell.service-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest use-fixtures is]]
             [boundary.push.shell.service :as service]
             [boundary.push.shell.adapters.mock :as mock]
             [boundary.push.shell.persistence :as p]

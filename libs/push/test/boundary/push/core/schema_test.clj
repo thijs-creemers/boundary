@@ -1,5 +1,5 @@
 (ns boundary.push.core.schema-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [boundary.push.schema :as schema]
             [malli.core :as m]))
 

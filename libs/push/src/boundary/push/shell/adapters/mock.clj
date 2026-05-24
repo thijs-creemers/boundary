@@ -15,7 +15,7 @@
        :device-token token
        :platform   :fcm}))
 
-  (fcm-send-multicast! [_ payload tokens]
+  (fcm-send-multicast! [_ _payload tokens]
     (log/infof "Mock FCM: multicast to %d tokens" (count tokens))
     (mapv (fn [token]
             {:success?     true
@@ -31,7 +31,7 @@
 (defrecord MockAPNsProvider []
   ports/IAPNsProvider
 
-  (apns-send! [_ payload device-token]
+  (apns-send! [_ _payload device-token]
     (let [apns-id (str "mock-apns-" (UUID/randomUUID))]
       (log/infof "Mock APNs: sent to %s → %s" device-token apns-id)
       {:success?     true
@@ -40,7 +40,7 @@
        :device-token device-token
        :platform     :apns}))
 
-  (apns-send-batch! [_ payload device-tokens]
+  (apns-send-batch! [_ _payload device-tokens]
     (log/infof "Mock APNs: batch to %d tokens" (count device-tokens))
     (mapv (fn [token]
             {:success?     true

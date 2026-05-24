@@ -1,5 +1,5 @@
 (ns boundary.push.shell.handlers-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest use-fixtures is]]
             [boundary.push.shell.handlers :as handlers]
             [boundary.push.shell.persistence :as p]
             [boundary.push.shell.persistence-test :as pt]

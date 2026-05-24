@@ -1,5 +1,5 @@
 (ns boundary.push.core.analytics-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [boundary.push.core.analytics :as analytics]))
 
 (deftest ^:unit calculate-rates-test

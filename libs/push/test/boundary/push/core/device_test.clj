@@ -1,5 +1,5 @@
 (ns boundary.push.core.device-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [boundary.push.core.device :as device]))
 
 (deftest ^:unit detect-platform-test

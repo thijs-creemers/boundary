@@ -1,5 +1,5 @@
 (ns boundary.push.core.delivery-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [boundary.push.core.delivery :as delivery]))
 
 (def sample-notification

@@ -1,5 +1,5 @@
 (ns boundary.push.shell.persistence-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is use-fixtures]]
             [boundary.push.shell.persistence :as p]
             [boundary.push.ports :as ports]
             [next.jdbc :as jdbc]))

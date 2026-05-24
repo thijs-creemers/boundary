@@ -1,5 +1,5 @@
 (ns boundary.push.shell.hmac-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [boundary.push.shell.service :as service]))
 
 (deftest ^:unit generate-callback-token-test
