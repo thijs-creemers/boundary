@@ -9,12 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`boundary-push`**: New push notification library (`libs/push/`) with multi-platform delivery via FCM (Firebase Cloud Messaging) and APNs (Apple Push Notification service). Features include:
+  - `defpush` macro for declarative notification definitions with i18n locale maps, deep links, priority, TTL, collapse keys, and retry configuration
+  - Platform-specific provider protocols (`IFCMProvider`, `IAPNsProvider`) behind unified `IPushService` orchestrator
+  - Device token management — registration, rotation, soft-deactivation, and stale token cleanup
+  - HMAC-secured analytics callback endpoint for client-reported delivery/open tracking
+  - Error classification (retryable/permanent/token-invalid/rate-limited) for intelligent retry decisions
+  - Async parallel delivery via `sendAsync` + `CompletableFuture` for both FCM and APNs
+  - Job-based reliable delivery via hard dependency on `boundary-jobs`
+  - REST endpoints: device CRUD (`/api/push/devices`), callback (`/api/push/callback`), stats (`/api/push/stats/:id`)
+  - Database migrations for `push_device_tokens`, `push_send_log`, `push_analytics_events` with multi-tenant support
+  - Mock providers for dev/test, Integrant wiring for all components
+  - 41 tests, 118 assertions covering unit, integration, and contract layers
 - **`boundary-user`**: Welcome email on admin user creation — optional `send-welcome` checkbox triggers email via `ISmtpProvider` with graceful failure handling.
 - **`boundary-user`**: Dashboard extensibility via `:dashboard-extra-cards` config for injecting custom Hiccup cards into the user dashboard.
 - **`boundary-ui-style`**: Cross-page toast notification system via `X-Toast` response header + `sessionStorage`, works across all page layouts (base, pilot, admin-pilot).
 
 ### Fixed
 
+- **`boundary-cache`**: Deterministic LRU eviction — replaced timestamp-based ordering with monotonic access counter. Fixes non-deterministic eviction when entries are created within the same millisecond.
 - **`boundary-user`**: XSS in `create-user-htmx-handler` inline `<script>` — added `escape-js-string` to sanitize `return-to` URL, toast JSON, and user name before interpolation. Prevents quote-breaking and `</script>` tag injection.
 - **`boundary-admin`**: Toast JSON injection via entity labels in delete/bulk-delete handlers — added `escape-json-string` to sanitize label values in `X-Toast` and `HX-Trigger` headers.
 - **`boundary-admin`**: Split-table soft-delete now correctly writes `deleted_at` to both primary and secondary tables in a transaction, fixing `column "deleted_at" does not exist` errors.
