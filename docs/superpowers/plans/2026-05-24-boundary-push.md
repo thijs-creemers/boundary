@@ -802,9 +802,9 @@ git commit -m "feat(push): payload building (FCM/APNs), error classification, re
   (let [now (java.time.Instant/now)
         old (java.time.Instant/parse "2025-01-01T00:00:00Z")]
     (testing "token used recently is not stale"
-      (is (not (device/stale-token? {:last-used-at now} 30))))
+      (is (not (device/stale-token? {:last-used-at now} 30 now))))
     (testing "token unused for > max-age is stale"
-      (is (device/stale-token? {:last-used-at old} 30)))))
+      (is (device/stale-token? {:last-used-at old} 30 now)))))
 
 (deftest ^:unit prepare-device-record-test
   (let [id     (random-uuid)
@@ -844,10 +844,9 @@ Expected: FAIL
     :else nil))
 
 (defn stale-token?
-  "Check if device token hasn't been used within max-age-days."
-  [{:keys [last-used-at]} max-age-days]
-  (let [now      (Instant/now)
-        max-age  (Duration/ofDays max-age-days)
+  "Check if device token hasn't been used within max-age-days. Caller supplies current instant."
+  [{:keys [last-used-at]} max-age-days now]
+  (let [max-age  (Duration/ofDays max-age-days)
         used-at  (if (inst? last-used-at)
                    (.toInstant last-used-at)
                    last-used-at)]
