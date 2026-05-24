@@ -23,7 +23,8 @@
                         "libs/ai/src"
                         "libs/ui-style/src"
                         "libs/i18n/src"
-                        "libs/devtools/src"]
+                        "libs/devtools/src"
+                        "libs/push/src"]
 
   :tests [{:id :unit
            :test-paths ["test"
@@ -49,7 +50,8 @@
                         "libs/ai/test"
                         "libs/ui-style/test"
                         "libs/i18n/test"
-                        "libs/devtools/test"]
+                        "libs/devtools/test"
+                        "libs/push/test"]
            :ns-patterns ["boundary.*-test"]
            :randomize? true}
 
@@ -146,6 +148,11 @@
           {:id :devtools
            :test-paths ["libs/devtools/test"]
            :ns-patterns ["boundary.devtools.*-test"]}
+
+          {:id :push
+           :test-paths ["libs/push/test"]
+           :source-paths ["libs/push/src"]
+           :ns-patterns ["boundary.push.*-test"]}
 
          ;; End-to-end suite lives in tests.e2e.edn so default
          ;; clojure -M:test runs stay opt-in and do not require spel.
