@@ -213,6 +213,8 @@ libs/push/
 
 Unique constraint on `(token, app_id)`. Indexes on `(user_id, active)` and `(platform, active)`.
 
+Multi-tenancy: `tenant_id` columns are optional across all tables. Tenant scoping is handled at middleware/context layer (same pattern as jobs module `shell/tenant_context.clj`), not baked into protocol method signatures.
+
 ### push_send_log
 
 | Column | Type | Notes |
@@ -328,17 +330,19 @@ This prevents fabricated delivery/open events without requiring user authenticat
 :boundary.push/device-store  {:db #ig/ref :boundary/datasource}
 :boundary.push/analytics-store {:db #ig/ref :boundary/datasource}
 :boundary.push/service
-  {:device-store    #ig/ref :boundary.push/device-store
-   :analytics-store #ig/ref :boundary.push/analytics-store
-   :fcm-provider    #ig/ref :boundary.push/fcm-provider
-   :apns-provider   #ig/ref :boundary.push/apns-provider
-   :job-queue       #ig/ref :boundary.jobs/queue}
+  {:device-store     #ig/ref :boundary.push/device-store
+   :analytics-store  #ig/ref :boundary.push/analytics-store
+   :fcm-provider     #ig/ref :boundary.push/fcm-provider
+   :apns-provider    #ig/ref :boundary.push/apns-provider
+   :job-queue        #ig/ref :boundary.jobs/queue
+   :callback-secret  #env PUSH_CALLBACK_SECRET}
 :boundary.push/job-handlers
   {:push-service    #ig/ref :boundary.push/service
    :job-registry    #ig/ref :boundary.jobs/registry}
 :boundary.push/routes
-  {:device-store    #ig/ref :boundary.push/device-store
-   :analytics-store #ig/ref :boundary.push/analytics-store}
+  {:device-store     #ig/ref :boundary.push/device-store
+   :analytics-store  #ig/ref :boundary.push/analytics-store
+   :callback-secret  #env PUSH_CALLBACK_SECRET}
 ```
 
 ### Production (real providers)
