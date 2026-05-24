@@ -1,6 +1,5 @@
 (ns boundary.push.shell.service
   (:require [boundary.push.ports :as ports]
-            [boundary.push.core.notification :as notif]
             [boundary.push.core.delivery :as delivery]
             [boundary.jobs.ports :as job-ports]
             [clojure.tools.logging :as log])

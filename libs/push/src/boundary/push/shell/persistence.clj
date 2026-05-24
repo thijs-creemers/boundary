@@ -120,13 +120,6 @@
 ;; PushAnalyticsStore
 ;; =============================================================================
 
-(defn- row->analytics-event [row]
-  (when row
-    (-> row
-        (update :platform keyword)
-        (update :event-type keyword)
-        (update :notification-id keyword))))
-
 (defrecord PushAnalyticsStore [db]
   ports/IPushAnalyticsStore
 
