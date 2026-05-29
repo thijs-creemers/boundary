@@ -28,13 +28,14 @@
 ;; =============================================================================
 
 (defrecord CacheEntry
-           [value created-at expires-at access-count last-accessed-at])
+           [value created-at expires-at access-count last-accessed-at access-order])
 
 (defrecord InMemoryState
            [entries         ; atom: map of key -> CacheEntry
             stats           ; atom: {:hits :misses :evictions}
             config          ; {:max-size :default-ttl :track-stats?}
-            namespace])     ; optional namespace prefix
+            namespace       ; optional namespace prefix
+            access-counter]) ; atom: monotonic counter for LRU ordering
 
 (defn- create-state
   "Create initial cache state."
@@ -44,7 +45,8 @@
     (atom {})
     (atom {:hits 0 :misses 0 :evictions 0})
     config
-    namespace)))
+    namespace
+    (atom 0))))
 
 ;; =============================================================================
 ;; Helper Functions
@@ -103,12 +105,13 @@
     (swap! stats-atom update :evictions inc)))
 
 (defn- evict-lru!
-  "Evict least recently used entry."
+  "Evict least recently used entry. Uses monotonic access-order for deterministic
+   ordering when timestamps are identical (sub-millisecond operations)."
   [entries-atom stats-atom track-stats?]
   (let [entries @entries-atom]
     (when (seq entries)
       (let [lru-key (first (sort-by (fn [[_ entry]]
-                                      (:last-accessed-at entry))
+                                      (:access-order entry))
                                     entries))]
         (swap! entries-atom dissoc (first lru-key))
         (record-eviction! stats-atom track-stats?)))))
@@ -148,12 +151,13 @@
         :else
         (do
           (record-hit! (:stats state) (:track-stats? (:config state)))
-          ;; Update access count and last accessed time
+          ;; Update access count, last accessed time, and monotonic order
           (swap! entries update namespaced-key
                  (fn [e]
                    (-> e
                        (update :access-count inc)
-                       (assoc :last-accessed-at (now)))))
+                       (assoc :last-accessed-at (now))
+                       (assoc :access-order (swap! (:access-counter state) inc)))))
           (:value entry)))))
 
   (set-value! [this key value]
@@ -167,7 +171,8 @@
                  (now)
                  (calculate-expires-at ttl-seconds)
                  0
-                 (now))]
+                 (now)
+                 (swap! (:access-counter state) inc))]
       ;; Evict before adding to prevent evicting the newly added entry
       (when-let [max-size (:max-size (:config state))]
         (when (and (>= (count @entries) max-size)
@@ -258,7 +263,8 @@
                                          0)
                          new-value (+ current-value delta)]
                      (assoc cache namespaced-key
-                            (->CacheEntry new-value (now) nil 0 (now))))))
+                            (->CacheEntry new-value (now) nil 0 (now)
+                                          (swap! (:access-counter state) inc))))))
           (get namespaced-key)
           :value)))
 
@@ -292,7 +298,8 @@
                    (do
                      (reset! result true)
                      (assoc cache namespaced-key
-                            (->CacheEntry new-value (now) (:expires-at current-entry) 0 (now))))
+                            (->CacheEntry new-value (now) (:expires-at current-entry) 0 (now)
+                                          (swap! (:access-counter state) inc))))
                    cache))))
       @result))
 
@@ -332,7 +339,8 @@
       (:entries state)
       (:stats state)
       (:config state)
-      namespace)))
+      namespace
+      (:access-counter state))))
 
   (clear-namespace! [this namespace]
     (let [pattern (str namespace ":*")]
