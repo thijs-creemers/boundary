@@ -134,7 +134,7 @@
        honeysql-clause - HoneySQL map (select/where/join etc.)
 
      Returns:
-       Vector of user maps (kebab-case keys)")
+       Vector of user IDs (UUIDs)")
 
   (load-users [this user-ids]
     "Load full user records by a set of UUIDs.

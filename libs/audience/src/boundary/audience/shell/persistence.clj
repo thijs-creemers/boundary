@@ -19,7 +19,8 @@
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
             [clojure.tools.logging :as log])
-  (:import [java.util UUID]))
+  (:import [java.util UUID]
+           [java.sql SQLIntegrityConstraintViolationException]))
 
 ;; =============================================================================
 ;; JSON helpers
@@ -68,7 +69,7 @@
    :label        (:label definition)
    :description  (:description definition)
    :filters      (->json (:filters definition))
-   :composition  (->json (:composition definition))
+   :composition  (->json (:compose definition))
    :cache_config (->json (:cache-config definition))
    :tags         (->json (:tags definition))
    :source       (or (kw->str (:source definition)) "dynamic")})
@@ -82,7 +83,7 @@
              :description (:description row)
              :filters     (or (<-json (:filters row)) [])
              :source      (str->kw (or (:source row) "dynamic"))}
-      (:composition row)  (assoc :composition  (<-json (:composition row)))
+      (:composition row)  (assoc :compose (<-json (:composition row)))
       (:cache_config row) (assoc :cache-config (<-json (:cache_config row)))
       (:tags row)         (assoc :tags         (<-json (:tags row)))
       (:member_count row) (assoc :member-count (:member_count row))
@@ -201,7 +202,7 @@
                             :values      [{:audience_id seg-uuid
                                            :user_id     uid}]})
                {:builder-fn rs/as-unqualified-lower-maps})
-              (catch Exception _
+              (catch SQLIntegrityConstraintViolationException _
                 ;; Swallow duplicate-key violations (idempotent)
                 nil))))))))
 

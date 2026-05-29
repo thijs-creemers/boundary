@@ -7,7 +7,7 @@
     (audience/clear-registry!)
     (f)))
 
-(deftest defaudience-registers-definition
+(deftest ^:unit defaudience-registers-definition
   (testing "defaudience creates var and registers by :id"
     (audience/defaudience test-segment
       {:id      :test-segment
@@ -16,7 +16,7 @@
     (is (= :test-segment (:id test-segment)))
     (is (= "Test" (:label (audience/get-audience :test-segment))))))
 
-(deftest registry-operations
+(deftest ^:unit registry-operations
   (testing "list-audiences returns registered ids"
     (audience/register-audience! {:id :seg-a :label "A" :filters []})
     (audience/register-audience! {:id :seg-b :label "B" :filters []})

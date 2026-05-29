@@ -1,6 +1,7 @@
 (ns boundary.audience.core.filter
   "Filter multimethods for audience segment evaluation.
-   FC/IS rule: pure functions only — no I/O, no side effects, no logging.")
+   FC/IS rule: pure functions only — no I/O, no side effects, no logging."
+  (:require [clojure.string :as str]))
 
 ;; =============================================================================
 ;; SQL operator mapping
@@ -83,7 +84,7 @@
                      :<    #(neg? (compare % honey-val))
                      :<=   #(<= (compare % honey-val) 0)
                      :in   #(contains? (set honey-val) %)
-                     :like #(boolean (re-find (re-pattern (clojure.string/replace (str honey-val) "%" ".*")) (str %)))
+                     :like #(boolean (re-find (re-pattern (str/replace (str honey-val) "%" ".*")) (str %)))
                      (constantly false))]
     (fn [user] (compare-fn (get user field)))))
 
@@ -113,11 +114,9 @@
 ;; =============================================================================
 
 (defmethod filter->sql :account-tenure [{:keys [op value]}]
-  (let [honey-op (get sql-ops op :>=)]
-    [honey-op
-     [:- [:cast [:current_date] :integer]
-      [:cast :created_at :integer]]
-     value]))
+  ;; tenure >= N days means created_at <= now - N days (inverted comparison)
+  (let [sql-operator (get {:gte :<=, :gt :<, :lte :>=, :lt :>, :eq :=} op :<=)]
+    [sql-operator :created_at [:raw (str "CURRENT_TIMESTAMP - INTERVAL '" value " days'")]]))
 
 (defmethod filter->predicate :account-tenure [{:keys [op value]}]
   (let [compare-fn (case op
@@ -142,14 +141,8 @@
 ;; =============================================================================
 
 (defmethod filter->sql :last-active [{:keys [op value]}]
-  (case op
-    :within-days
-    [:>= :last-active-at
-     [:- [:now] [:raw (str value " days")]]]
-    ;; Default: treat as a comparison on last-active-at days-ago value
-    (let [honey-op (get sql-ops op :>=)]
-      [honey-op :last-active-at
-       [:- [:now] [:raw (str value " days")]]])))
+  (when (= op :within-days)
+    [:>= :last_active_at [:raw (str "CURRENT_TIMESTAMP - INTERVAL '" value " days'")]]))
 
 (defmethod filter->predicate :last-active [{:keys [op value]}]
   (case op

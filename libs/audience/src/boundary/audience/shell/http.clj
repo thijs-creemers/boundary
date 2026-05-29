@@ -16,23 +16,11 @@
   (:require [boundary.audience.core.ui :as ui]
             [boundary.audience.ports :as ports]
             [clojure.tools.logging :as log]
-            [hiccup2.core :as h])
-  (:import [java.util UUID]))
+            [hiccup2.core :as h]))
 
 ;; =============================================================================
 ;; Helpers
 ;; =============================================================================
-
-(defn- parse-uuid-param
-  [s param-name]
-  (try
-    (UUID/fromString s)
-    (catch IllegalArgumentException _
-      (throw (ex-info (str "Invalid UUID for " param-name)
-                      {:type    :validation-error
-                       :field   param-name
-                       :value   s
-                       :message (str param-name " must be a valid UUID")})))))
 
 (defn- html-response
   ([hiccup]
@@ -79,7 +67,7 @@
 (defn builder-edit-handler
   "GET /web/audiences/builder/:id — edit existing segment."
   [_resolver store request]
-  (let [id      (parse-uuid-param (get-in request [:path-params :id]) "id")
+  (let [id      (keyword (get-in request [:path-params :id]))
         segment (ports/find-audience store id)]
     (if segment
       (html-response (ui/builder-layout {:segment segment}))
@@ -106,7 +94,7 @@
 (defn update-audience-handler
   "PUT /api/audiences/:id — update an existing audience definition."
   [_resolver store request]
-  (let [id      (parse-uuid-param (get-in request [:path-params :id]) "id")
+  (let [id      (keyword (get-in request [:path-params :id]))
         body    (get-in request [:parameters :body] {})
         updated (ports/save-audience store (assoc body :id id))]
     (log/info "Updating audience" {:id id})
@@ -116,7 +104,7 @@
 (defn delete-audience-handler
   "DELETE /api/audiences/:id — delete an audience definition."
   [_resolver store request]
-  (let [id (parse-uuid-param (get-in request [:path-params :id]) "id")]
+  (let [id (keyword (get-in request [:path-params :id]))]
     (log/info "Deleting audience" {:id id})
     (ports/delete-audience store id)
     {:status 204 :body nil}))
@@ -134,9 +122,8 @@
 (defn evaluate-audience-handler
   "POST /api/audiences/:id/evaluate — trigger full evaluation and cache."
   [resolver _store request]
-  (let [id          (parse-uuid-param (get-in request [:path-params :id]) "id")
-        audience-id (keyword (str id))]
-    (log/info "Evaluating audience" {:id id})
+  (let [audience-id (keyword (get-in request [:path-params :id]))]
+    (log/info "Evaluating audience" {:id audience-id})
     (let [result (ports/resolve-audience resolver audience-id {:force-refresh? true})]
       (json-response {:count       (:count result)
                       :cachedAt    (str (:evaluated-at result))
@@ -145,9 +132,8 @@
 (defn list-members-handler
   "GET /api/audiences/:id/members — list member user-ids for an audience."
   [resolver _store request]
-  (let [id          (parse-uuid-param (get-in request [:path-params :id]) "id")
-        audience-id (keyword (str id))]
-    (log/debug "Listing members" {:id id})
+  (let [audience-id (keyword (get-in request [:path-params :id]))]
+    (log/debug "Listing members" {:id audience-id})
     (let [result (ports/resolve-audience resolver audience-id)]
       (json-response {:count   (:count result)
                       :userIds (mapv str (:user-ids result))}))))
