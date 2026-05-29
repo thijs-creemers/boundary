@@ -85,8 +85,10 @@
   ports/IAudienceCache
 
   (put-cached [_ audience-id result ttl-minutes]
+    (when-not ttl-minutes
+      (throw (ex-info "put-cached requires non-nil ttl-minutes" {:audience-id audience-id})))
     (log/debug "Caching audience result"
-               {:audience-id audience-id :count (:count result)})
+               {:audience-id audience-id :count (:count result) :ttl-minutes ttl-minutes})
     (let [user-ids (:user-ids result)]
       ;; Write memberships
       (persistence/clear-memberships! datasource audience-id)
@@ -94,13 +96,12 @@
       ;; Stamp the segment row
       (stamp-segment! datasource audience-id (count user-ids))
       ;; Store TTL in cache_config so get-cached can read it back
-      (when ttl-minutes
-        (jdbc/execute-one!
-         datasource
-         (sql/format {:update :audience_segments
-                      :set    {:cache_config (json/generate-string {:ttl-minutes ttl-minutes})}
-                      :where  [:= :audience_id (kw->str audience-id)]})
-         {:builder-fn rs/as-unqualified-lower-maps})))
+      (jdbc/execute-one!
+       datasource
+       (sql/format {:update :audience_segments
+                    :set    {:cache_config (json/generate-string {:ttl-minutes ttl-minutes})}
+                    :where  [:= :audience_id (kw->str audience-id)]})
+       {:builder-fn rs/as-unqualified-lower-maps}))
     result)
 
   (get-cached [_ audience-id]

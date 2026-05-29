@@ -134,7 +134,7 @@
   "POST /api/audiences/preview — evaluate filters and return count + sample."
   [resolver _store request]
   (let [body        (get-in request [:parameters :body] {})
-        audience-id (keyword (get body :audienceId "preview"))]
+        audience-id (or (parse-audience-id (get body :audienceId)) :preview)]
     (log/debug "Previewing audience" {:audience-id audience-id})
     (let [result (ports/resolve-audience resolver audience-id {:force-refresh? true})]
       (json-response {:count  (:count result)
