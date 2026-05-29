@@ -1,7 +1,8 @@
 (ns boundary.audience.core.audience
   "Audience definition registry and defaudience macro.
    FC/IS rule: no I/O here — pure in-process atom-backed registry."
-  (:require [boundary.audience.schema :as schema]))
+  (:require [boundary.audience.schema :as schema]
+            [malli.core :as m]))
 
 ;; =============================================================================
 ;; In-process registry
@@ -12,12 +13,19 @@
 (defn register-audience!
   "Register an audience definition in the in-process registry.
 
+   Validates the definition against AudienceDefinition schema before
+   registration. Throws ex-info on invalid input.
+
    Args:
      definition - AudienceDefinition map (must contain :id keyword)
 
    Returns:
      definition"
   [definition]
+  (when-not (m/validate schema/AudienceDefinition definition)
+    (throw (ex-info "Invalid audience definition"
+                    {:errors (m/explain schema/AudienceDefinition definition)
+                     :id     (:id definition)})))
   (let [id (:id definition)]
     (swap! registry assoc id definition)
     definition))

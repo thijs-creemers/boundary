@@ -19,8 +19,7 @@
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
             [clojure.tools.logging :as log])
-  (:import [java.util UUID]
-           [java.sql SQLIntegrityConstraintViolationException]))
+  (:import [java.util UUID]))
 
 ;; =============================================================================
 ;; JSON helpers
@@ -195,16 +194,23 @@
       (when seg-uuid
         (jdbc/with-transaction [tx datasource]
           (doseq [uid user-ids]
-            (try
-              (jdbc/execute-one!
-               tx
-               (sql/format {:insert-into :audience_memberships
-                            :values      [{:audience_id seg-uuid
-                                           :user_id     uid}]})
-               {:builder-fn rs/as-unqualified-lower-maps})
-              (catch SQLIntegrityConstraintViolationException _
-                ;; Swallow duplicate-key violations (idempotent)
-                nil))))))))
+            ;; Check-then-insert avoids PostgreSQL transaction abort on constraint
+            ;; violation and works on H2 without ON CONFLICT support.
+            (let [exists? (jdbc/execute-one!
+                           tx
+                           (sql/format {:select [[1 :one]]
+                                        :from   [:audience_memberships]
+                                        :where  [:and
+                                                 [:= :audience_id seg-uuid]
+                                                 [:= :user_id uid]]})
+                           {:builder-fn rs/as-unqualified-lower-maps})]
+              (when-not exists?
+                (jdbc/execute-one!
+                 tx
+                 (sql/format {:insert-into :audience_memberships
+                              :values      [{:audience_id seg-uuid
+                                             :user_id     uid}]})
+                 {:builder-fn rs/as-unqualified-lower-maps})))))))))
 
 (defn get-memberships
   "Return all user UUIDs that are members of the given audience.

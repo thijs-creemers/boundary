@@ -257,3 +257,38 @@
                             :filters [{:type :demographics :field :plan :op :eq :value "gold"}]})
       (let [result (ports/resolve-audience svc :repo-seg)]
         (is (= #{(:id u)} (:user-ids result)))))))
+
+;; =============================================================================
+;; Composition resolution — AND intersection
+;; =============================================================================
+
+(deftest ^:unit composition-resolution
+  (testing "composed segment intersects two base segments via :and"
+    (let [both     {:id (uuid) :plan "premium" :region "eu"}
+          prem-us  {:id (uuid) :plan "premium" :region "us"}
+          free-eu  {:id (uuid) :plan "free"    :region "eu"}
+          svc      (make-service [both prem-us free-eu])]
+
+      ;; Register two base segments
+      (audience/register-audience!
+       {:id      :premium-seg
+        :label   "Premium"
+        :filters [{:type :demographics :field :plan :op :eq :value "premium"}]})
+
+      (audience/register-audience!
+       {:id      :eu-seg
+        :label   "EU"
+        :filters [{:type :demographics :field :region :op :eq :value "eu"}]})
+
+      ;; Register composed segment that intersects both
+      (audience/register-audience!
+       {:id      :premium-eu
+        :label   "Premium EU"
+        :filters []
+        :compose {:and [{:ref :premium-seg} {:ref :eu-seg}]}})
+
+      (let [result (ports/resolve-audience svc :premium-eu)]
+        (is (= #{(:id both)} (:user-ids result))
+            "Only the user matching both segments should be in the intersection")
+        (is (= 1 (:count result)))
+        (is (false? (:cached? result)))))))

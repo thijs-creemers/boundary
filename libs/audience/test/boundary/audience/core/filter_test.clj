@@ -1,6 +1,8 @@
 (ns boundary.audience.core.filter-test
   (:require [clojure.test :refer [deftest is testing]]
-            [boundary.audience.core.filter :as f]))
+            [boundary.audience.core.filter :as f])
+  (:import [java.time LocalDate ZoneOffset]
+           [java.sql Timestamp]))
 
 (deftest ^:unit demographics-filter-sql
   (testing ":demographics generates HoneySQL equality clause"
@@ -68,3 +70,54 @@
     (is (= [:< :x 1]   (f/filter->sql {:type :demographics :field :x :op :lt  :value 1})))
     (is (= [:<= :x 1]  (f/filter->sql {:type :demographics :field :x :op :lte :value 1})))
     (is (= [:like :x "%foo%"] (f/filter->sql {:type :demographics :field :x :op :contains :value "foo"})))))
+
+;; =============================================================================
+;; Predicate tests for DB-evaluable filter types
+;; =============================================================================
+
+(defn- ->timestamp
+  "Create a java.sql.Timestamp from a LocalDate."
+  [^LocalDate ld]
+  (Timestamp/from (.toInstant (.atStartOfDay ld) ZoneOffset/UTC)))
+
+(deftest ^:unit demographics-predicate
+  (testing "equality predicate matches correct field value"
+    (let [pred (f/filter->predicate {:type :demographics :field :plan :op :eq :value "premium"})]
+      (is (true? (pred {:plan "premium"})))
+      (is (false? (pred {:plan "free"})))))
+
+  (testing "inequality predicate rejects matching value"
+    (let [pred (f/filter->predicate {:type :demographics :field :plan :op :neq :value "free"})]
+      (is (true? (pred {:plan "premium"})))
+      (is (false? (pred {:plan "free"}))))))
+
+(deftest ^:unit account-tenure-predicate
+  (testing "gte predicate correctly computes days since creation"
+    (let [pred    (f/filter->predicate {:type :account-tenure :op :gte :value 30})
+          old-ts  (->timestamp (.minusDays (LocalDate/now) 60))
+          new-ts  (->timestamp (.minusDays (LocalDate/now) 5))]
+      (is (true? (pred {:created-at old-ts}))
+          "User created 60 days ago should match >= 30 days tenure")
+      (is (false? (pred {:created-at new-ts}))
+          "User created 5 days ago should not match >= 30 days tenure")))
+
+  (testing "exact boundary day matches with eq"
+    (let [pred      (f/filter->predicate {:type :account-tenure :op :eq :value 10})
+          exact-ts  (->timestamp (.minusDays (LocalDate/now) 10))]
+      (is (true? (pred {:created-at exact-ts}))))))
+
+(deftest ^:unit last-active-predicate
+  (testing "within-days predicate matches user active within window"
+    (let [pred       (f/filter->predicate {:type :last-active :op :within-days :value 7})
+          recent-ts  (->timestamp (.minusDays (LocalDate/now) 3))
+          old-ts     (->timestamp (.minusDays (LocalDate/now) 14))]
+      (is (true? (pred {:last-active-at recent-ts}))
+          "User active 3 days ago should be within 7-day window")
+      (is (false? (pred {:last-active-at old-ts}))
+          "User active 14 days ago should not be within 7-day window")))
+
+  (testing "boundary day is inclusive (>= semantics)"
+    (let [pred        (f/filter->predicate {:type :last-active :op :within-days :value 7})
+          boundary-ts (->timestamp (.minusDays (LocalDate/now) 7))]
+      (is (true? (pred {:last-active-at boundary-ts}))
+          "User active exactly 7 days ago should be included (inclusive boundary)"))))

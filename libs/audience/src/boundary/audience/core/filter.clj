@@ -116,7 +116,7 @@
 (defmethod filter->sql :account-tenure [{:keys [op value]}]
   ;; tenure >= N days means created_at <= now - N days (inverted comparison)
   (let [sql-operator (get {:gte :<=, :gt :<, :lte :>=, :lt :>, :eq :=} op :<=)]
-    [sql-operator :created_at [:raw (str "CURRENT_TIMESTAMP - INTERVAL '" value " days'")]]))
+    [sql-operator :created_at [:raw (str "CURRENT_DATE - INTERVAL '" value " days'")]]))
 
 (defmethod filter->predicate :account-tenure [{:keys [op value]}]
   (let [compare-fn (case op
@@ -130,8 +130,8 @@
     (fn [user]
       (when-let [created (:created-at user)]
         (let [days (.between java.time.temporal.ChronoUnit/DAYS
-                             (.toLocalDate (.toInstant created
-                                                       java.time.ZoneOffset/UTC))
+                             (.toLocalDate (.atZone (.toInstant created)
+                                                    java.time.ZoneOffset/UTC))
                              (java.time.LocalDate/now))]
           (compare-fn days))))))
 
@@ -142,7 +142,7 @@
 
 (defmethod filter->sql :last-active [{:keys [op value]}]
   (when (= op :within-days)
-    [:>= :last_active_at [:raw (str "CURRENT_TIMESTAMP - INTERVAL '" value " days'")]]))
+    [:>= :last_active_at [:raw (str "CURRENT_DATE - INTERVAL '" value " days'")]]))
 
 (defmethod filter->predicate :last-active [{:keys [op value]}]
   (case op
@@ -150,9 +150,9 @@
     (fn [user]
       (when-let [last-active (:last-active-at user)]
         (let [cutoff (.minusDays (java.time.LocalDate/now) value)
-              active-date (.toLocalDate (.toInstant last-active
-                                                    java.time.ZoneOffset/UTC))]
-          (.isAfter active-date cutoff))))
+              active-date (.toLocalDate (.atZone (.toInstant last-active)
+                                                 java.time.ZoneOffset/UTC))]
+          (not (.isBefore active-date cutoff)))))
     (constantly false)))
 
 ;; =============================================================================
@@ -180,7 +180,7 @@
       (let [usage (get-in user [:feature-usage field])]
         (when usage
           (let [cutoff (.minusDays (java.time.LocalDate/now) value)
-                last-used (.toLocalDate (.toInstant usage
-                                                    java.time.ZoneOffset/UTC))]
-            (.isAfter last-used cutoff)))))
+                last-used (.toLocalDate (.atZone (.toInstant usage)
+                                                 java.time.ZoneOffset/UTC))]
+            (not (.isBefore last-used cutoff))))))
     (constantly false)))

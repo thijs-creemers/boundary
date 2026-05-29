@@ -57,6 +57,9 @@
 
     (:or tree)
     (let [children (map resolve-node (:or tree))]
+      (when (some :not children)
+        (throw (ex-info "NOT is not supported directly inside OR — wrap in AND"
+                        {:tree tree})))
       (apply set/union (map :user-ids children)))
 
     :else
@@ -124,6 +127,9 @@
 
     (:or tree)
     (let [children (map #(resolve-node-with-lookup % lookup visited) (:or tree))]
+      (when (some :not children)
+        (throw (ex-info "NOT is not supported directly inside OR — wrap in AND"
+                        {:tree tree})))
       (apply set/union (map :user-ids children)))
 
     :else

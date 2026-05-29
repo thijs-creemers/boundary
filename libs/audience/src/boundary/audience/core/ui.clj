@@ -43,7 +43,7 @@
      [:p.mt-1.text-sm.text-gray-600 description])
    [:div.mt-3.flex.flex-wrap.gap-1
     (for [f filters]
-      ^{:key (str (:type f) (:field f))} [filter-badge f])]
+      (filter-badge f))]
    (when cached-at
      [:p.mt-2.text-xs.text-gray-400 (str "Cached: " cached-at)])])
 
@@ -62,7 +62,7 @@
   [segments]
   [:div.space-y-4
    (for [seg segments]
-     ^{:key (:id seg)} [segment-card seg])])
+     (segment-card seg))])
 
 ;; =============================================================================
 ;; builder-layout

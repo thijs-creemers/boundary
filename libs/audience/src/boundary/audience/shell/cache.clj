@@ -92,7 +92,15 @@
       (persistence/clear-memberships! datasource audience-id)
       (persistence/save-memberships! datasource audience-id user-ids)
       ;; Stamp the segment row
-      (stamp-segment! datasource audience-id (count user-ids)))
+      (stamp-segment! datasource audience-id (count user-ids))
+      ;; Store TTL in cache_config so get-cached can read it back
+      (when ttl-minutes
+        (jdbc/execute-one!
+         datasource
+         (sql/format {:update :audience_segments
+                      :set    {:cache_config (json/generate-string {:ttl-minutes ttl-minutes})}
+                      :where  [:= :audience_id (kw->str audience-id)]})
+         {:builder-fn rs/as-unqualified-lower-maps})))
     result)
 
   (get-cached [_ audience-id]
@@ -106,9 +114,8 @@
                               (string? v) (json/parse-string v true)
                               :else       nil))
               ttl-minutes (get cache-cfg :ttl-minutes)]
-          (when (and cached-at
-                     (or (nil? ttl-minutes)
-                         (fresh? cached-at ttl-minutes)))
+          (when (and cached-at ttl-minutes
+                     (fresh? cached-at ttl-minutes))
             (let [user-ids (set (persistence/get-memberships datasource audience-id))]
               {:user-ids     user-ids
                :count        (count user-ids)

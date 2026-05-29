@@ -103,7 +103,7 @@
 ;; put-cached + get-cached-with-ttl
 ;; =============================================================================
 
-(deftest ^:contract put-and-get-cached
+(deftest ^:integration put-and-get-cached
   (testing "put result, then get within TTL returns cached result"
     (save-segment! :seg-put)
     (let [u1      (UUID/randomUUID)
@@ -128,7 +128,7 @@
 ;; get-cached-with-ttl — unknown segment
 ;; =============================================================================
 
-(deftest ^:contract get-cached-unknown-segment
+(deftest ^:integration get-cached-unknown-segment
   (testing "get for unknown audience-id returns nil"
     (let [hit (cache/get-cached-with-ttl @test-cache :no-such-segment 60)]
       (is (nil? hit)))))
@@ -137,7 +137,7 @@
 ;; IAudienceCache 1-arity get-cached
 ;; =============================================================================
 
-(deftest ^:contract get-cached-protocol-arity
+(deftest ^:integration get-cached-protocol-arity
   (testing "get-cached (1-arity) returns result when cached_at is set"
     (save-segment! :seg-proto)
     (let [u (UUID/randomUUID)]
@@ -155,7 +155,7 @@
 ;; invalidate — single segment
 ;; =============================================================================
 
-(deftest ^:contract invalidate-single-segment
+(deftest ^:integration invalidate-single-segment
   (testing "invalidate clears cached_at and memberships"
     (save-segment! :seg-inv)
     (let [u (UUID/randomUUID)]
@@ -173,7 +173,7 @@
 ;; invalidate-all
 ;; =============================================================================
 
-(deftest ^:contract invalidate-all-segments
+(deftest ^:integration invalidate-all-segments
   (testing "invalidate-all clears cached_at and memberships for every segment"
     (save-segment! :seg-all-a)
     (save-segment! :seg-all-b)
@@ -194,7 +194,7 @@
 ;; TTL freshness boundary
 ;; =============================================================================
 
-(deftest ^:contract ttl-freshness
+(deftest ^:integration ttl-freshness
   (testing "result is stale immediately when TTL is 0 minutes"
     (save-segment! :seg-ttl0)
     (let [u (UUID/randomUUID)]

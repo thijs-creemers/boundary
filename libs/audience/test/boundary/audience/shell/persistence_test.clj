@@ -123,12 +123,11 @@
     (ports/save-audience @test-store {:id :seg-b :label "B" :filters [] :tags [:test]})
     (let [all (ports/list-audiences @test-store)]
       (is (= 2 (count all)))
-      (is (= #{:seg-a :seg-b} (set (map :id all))))))
+      (is (= #{:seg-a :seg-b} (set (map :id all)))))))
 
+(deftest ^:contract list-audiences-empty
   (testing "list returns empty vector when no audiences exist"
-    ;; Table is empty (each fixture resets)
-    ;; This test runs in its own fixture cycle, so no residue
-    ))
+    (is (empty? (ports/list-audiences @test-store)))))
 
 ;; =============================================================================
 ;; delete-audience
