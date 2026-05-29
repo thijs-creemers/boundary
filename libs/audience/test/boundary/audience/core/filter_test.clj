@@ -50,7 +50,8 @@
 
 (deftest ^:unit feature-usage-filter-predicate
   (testing ":feature-usage builds predicate from declarative params"
-    (let [pred (f/filter->predicate {:type :feature-usage :field :feature-id :op :used-within :value 14})]
+    (let [pred (f/filter->predicate {:type :feature-usage :field :feature-id :op :used-within :value 14
+                                     :now (LocalDate/now)})]
       (is (fn? pred)))))
 
 (deftest ^:unit custom-filter-type-registration
@@ -93,31 +94,35 @@
 
 (deftest ^:unit account-tenure-predicate
   (testing "gte predicate correctly computes days since creation"
-    (let [pred    (f/filter->predicate {:type :account-tenure :op :gte :value 30})
-          old-ts  (->timestamp (.minusDays (LocalDate/now) 60))
-          new-ts  (->timestamp (.minusDays (LocalDate/now) 5))]
+    (let [today   (LocalDate/now)
+          pred    (f/filter->predicate {:type :account-tenure :op :gte :value 30 :now today})
+          old-ts  (->timestamp (.minusDays today 60))
+          new-ts  (->timestamp (.minusDays today 5))]
       (is (true? (pred {:created-at old-ts}))
           "User created 60 days ago should match >= 30 days tenure")
       (is (false? (pred {:created-at new-ts}))
           "User created 5 days ago should not match >= 30 days tenure")))
 
   (testing "exact boundary day matches with eq"
-    (let [pred      (f/filter->predicate {:type :account-tenure :op :eq :value 10})
-          exact-ts  (->timestamp (.minusDays (LocalDate/now) 10))]
+    (let [today     (LocalDate/now)
+          pred      (f/filter->predicate {:type :account-tenure :op :eq :value 10 :now today})
+          exact-ts  (->timestamp (.minusDays today 10))]
       (is (true? (pred {:created-at exact-ts}))))))
 
 (deftest ^:unit last-active-predicate
   (testing "within-days predicate matches user active within window"
-    (let [pred       (f/filter->predicate {:type :last-active :op :within-days :value 7})
-          recent-ts  (->timestamp (.minusDays (LocalDate/now) 3))
-          old-ts     (->timestamp (.minusDays (LocalDate/now) 14))]
+    (let [today      (LocalDate/now)
+          pred       (f/filter->predicate {:type :last-active :op :within-days :value 7 :now today})
+          recent-ts  (->timestamp (.minusDays today 3))
+          old-ts     (->timestamp (.minusDays today 14))]
       (is (true? (pred {:last-active-at recent-ts}))
           "User active 3 days ago should be within 7-day window")
       (is (false? (pred {:last-active-at old-ts}))
           "User active 14 days ago should not be within 7-day window")))
 
   (testing "boundary day is inclusive (>= semantics)"
-    (let [pred        (f/filter->predicate {:type :last-active :op :within-days :value 7})
-          boundary-ts (->timestamp (.minusDays (LocalDate/now) 7))]
+    (let [today       (LocalDate/now)
+          pred        (f/filter->predicate {:type :last-active :op :within-days :value 7 :now today})
+          boundary-ts (->timestamp (.minusDays today 7))]
       (is (true? (pred {:last-active-at boundary-ts}))
           "User active exactly 7 days ago should be included (inclusive boundary)"))))

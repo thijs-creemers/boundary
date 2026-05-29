@@ -118,8 +118,9 @@
   (let [sql-operator (get {:gte :<=, :gt :<, :lte :>=, :lt :>, :eq :=} op :<=)]
     [sql-operator :created_at [:raw (str "CURRENT_DATE - INTERVAL '" value " days'")]]))
 
-(defmethod filter->predicate :account-tenure [{:keys [op value]}]
-  (let [compare-fn (case op
+(defmethod filter->predicate :account-tenure [{:keys [op value now]}]
+  (let [today      (or now (throw (ex-info "filter->predicate :account-tenure requires :now" {})))
+        compare-fn (case op
                      :gte #(>= % value)
                      :gt  #(> % value)
                      :lte #(<= % value)
@@ -132,7 +133,7 @@
         (let [days (.between java.time.temporal.ChronoUnit/DAYS
                              (.toLocalDate (.atZone (.toInstant created)
                                                     java.time.ZoneOffset/UTC))
-                             (java.time.LocalDate/now))]
+                             today)]
           (compare-fn days))))))
 
 ;; =============================================================================
@@ -144,16 +145,17 @@
   (when (= op :within-days)
     [:>= :last_active_at [:raw (str "CURRENT_DATE - INTERVAL '" value " days'")]]))
 
-(defmethod filter->predicate :last-active [{:keys [op value]}]
-  (case op
-    :within-days
-    (fn [user]
-      (when-let [last-active (:last-active-at user)]
-        (let [cutoff (.minusDays (java.time.LocalDate/now) value)
-              active-date (.toLocalDate (.atZone (.toInstant last-active)
-                                                 java.time.ZoneOffset/UTC))]
-          (not (.isBefore active-date cutoff)))))
-    (constantly false)))
+(defmethod filter->predicate :last-active [{:keys [op value now]}]
+  (let [today (or now (throw (ex-info "filter->predicate :last-active requires :now" {})))]
+    (case op
+      :within-days
+      (fn [user]
+        (when-let [last-active (:last-active-at user)]
+          (let [cutoff      (.minusDays today value)
+                active-date (.toLocalDate (.atZone (.toInstant last-active)
+                                                   java.time.ZoneOffset/UTC))]
+            (not (.isBefore active-date cutoff)))))
+      (constantly false))))
 
 ;; =============================================================================
 ;; :behavior — arbitrary in-process predicate; not SQL-evaluable
@@ -173,14 +175,15 @@
 (defmethod filter->sql :feature-usage [_filt]
   nil)
 
-(defmethod filter->predicate :feature-usage [{:keys [field op value]}]
-  (case op
-    :used-within
-    (fn [user]
-      (let [usage (get-in user [:feature-usage field])]
-        (when usage
-          (let [cutoff (.minusDays (java.time.LocalDate/now) value)
-                last-used (.toLocalDate (.atZone (.toInstant usage)
-                                                 java.time.ZoneOffset/UTC))]
-            (not (.isBefore last-used cutoff))))))
-    (constantly false)))
+(defmethod filter->predicate :feature-usage [{:keys [field op value now]}]
+  (let [today (or now (throw (ex-info "filter->predicate :feature-usage requires :now" {})))]
+    (case op
+      :used-within
+      (fn [user]
+        (let [usage (get-in user [:feature-usage field])]
+          (when usage
+            (let [cutoff    (.minusDays today value)
+                  last-used (.toLocalDate (.atZone (.toInstant usage)
+                                                   java.time.ZoneOffset/UTC))]
+              (not (.isBefore last-used cutoff))))))
+      (constantly false))))

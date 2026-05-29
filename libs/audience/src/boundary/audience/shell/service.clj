@@ -110,7 +110,7 @@
             (throw (ex-info "Audience not found"
                             {:type :audience-not-found :audience-id audience-id})))
 
-          (let [{:keys [sql-clauses predicates]} (compiler/compile-segment definition)]
+          (let [{:keys [sql-clauses predicates]} (compiler/compile-segment definition {:now (java.time.LocalDate/now)})]
 
             ;; If :compose present, resolve composition tree
             (if-let [compose (:compose definition)]
