@@ -35,10 +35,15 @@
    Options (keyword args):
      :token-param  - query param name for JWT (default \"token\")
      :on-message   - optional (fn [ws-socket message]) for client→server
+     :on-open      - optional (fn [connection-id]) invoked after a successful
+                     connect. Use to subscribe the connection to topics based
+                     on the authenticated user's roles. Exceptions thrown by
+                     this callback are logged and swallowed — they do not abort
+                     the connection.
 
    Returns:
      Ring handler fn that returns a ::ring.websocket/listener response"
-  [realtime-service & {:keys [token-param on-message]
+  [realtime-service & {:keys [token-param on-message on-open]
                        :or   {token-param "token"}}]
   (fn [request]
     (let [token (get-in request [:query-params token-param])]
@@ -56,7 +61,13 @@
                       adapter       (ws-adapter/create-ring-websocket-adapter adapter-id ws-channel)
                       connection-id (realtime-ports/connect realtime-service adapter {token-param token})]
                   (reset! conn-id-atom connection-id)
-                  (log/debug "WebSocket connected" {:connection-id connection-id}))
+                  (log/debug "WebSocket connected" {:connection-id connection-id})
+                  (when on-open
+                    (try
+                      (on-open connection-id)
+                      (catch Exception e
+                        (log/warn e "on-open callback failed"
+                                  {:connection-id connection-id})))))
                 (catch Exception e
                   (log/warn "WebSocket auth failed — closing" {:error (.getMessage e)})
                   (ring-ws/close ws-socket))))
