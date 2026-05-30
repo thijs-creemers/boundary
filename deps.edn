@@ -26,7 +26,8 @@
            "libs/i18n/src" "libs/i18n/test"                 ;; Phase 20: Internationalisation
            "libs/i18n/resources"                            ;; i18n translation catalogues
            "libs/push/src" "libs/push/test"                 ;; Push notifications
-           "libs/push/resources"]                           ;; Push resources
+           "libs/push/resources"                            ;; Push resources
+           "libs/audience/src" "libs/audience/test"]        ;; Phase 21: Audience
 
  :deps    {org.clojure/clojure                        {:mvn/version "1.12.4"}
            cheshire/cheshire                          {:mvn/version "6.2.0"} ;; process json
