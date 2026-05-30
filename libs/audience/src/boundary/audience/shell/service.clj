@@ -51,8 +51,10 @@
   [cache-inst audience-id definition result]
   (when (and cache-inst definition)
     (let [ttl (ttl-minutes-for definition)]
-      (when ttl
-        (ports/put-cached cache-inst audience-id result ttl)))))
+      (if ttl
+        (ports/put-cached cache-inst audience-id result ttl)
+        (log/debug "Skipping cache for audience — no ttl-minutes configured"
+                   {:audience-id audience-id})))))
 
 (defn- sql-clause-for-plan
   "Combine sql-clauses into a single HoneySQL :and clause, or nil if empty."
@@ -110,7 +112,8 @@
             (throw (ex-info "Audience not found"
                             {:type :audience-not-found :audience-id audience-id})))
 
-          (let [{:keys [sql-clauses predicates]} (compiler/compile-segment definition {:now (java.time.LocalDate/now)})]
+          (let [eval-date (or (:as-of opts) (java.time.LocalDate/now))
+                {:keys [sql-clauses predicates]} (compiler/compile-segment definition {:now eval-date})]
 
             ;; If :compose present, resolve composition tree
             (if-let [compose (:compose definition)]

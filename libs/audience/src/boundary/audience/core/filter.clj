@@ -1,7 +1,7 @@
 (ns boundary.audience.core.filter
   "Filter multimethods for audience segment evaluation.
    FC/IS rule: pure functions only — no I/O, no side effects, no logging."
-  (:require [clojure.string :as str]))
+  (:import [java.util.regex Pattern]))
 
 ;; =============================================================================
 ;; SQL operator mapping
@@ -68,6 +68,18 @@
   :type)
 
 ;; =============================================================================
+;; Default implementations — fail loudly for unknown filter types
+;; =============================================================================
+
+(defmethod filter->sql :default [filt]
+  (throw (ex-info (str "No filter->sql implementation for filter type " (:type filt))
+                  {:type :unknown-filter-type :filter-type (:type filt) :filter filt})))
+
+(defmethod filter->predicate :default [filt]
+  (throw (ex-info (str "No filter->predicate implementation for filter type " (:type filt))
+                  {:type :unknown-filter-type :filter-type (:type filt) :filter filt})))
+
+;; =============================================================================
 ;; :demographics — simple field equality / comparison
 ;; =============================================================================
 
@@ -84,8 +96,10 @@
                      :<    #(neg? (compare % honey-val))
                      :<=   #(<= (compare % honey-val) 0)
                      :in   #(contains? (set honey-val) %)
-                     :like #(boolean (re-find (re-pattern (str/replace (str honey-val) "%" ".*")) (str %)))
-                     (constantly false))]
+                     :like (let [pat (re-pattern (str "(?i).*" (Pattern/quote (str value)) ".*"))]
+                             #(boolean (re-find pat (str %))))
+                     (throw (ex-info (str "Unsupported operator " honey-op " for filter type :demographics")
+                                     {:type :unsupported-filter-op :op honey-op :filter-type :demographics})))]
     (fn [user] (compare-fn (get user field)))))
 
 ;; =============================================================================
@@ -115,8 +129,9 @@
 
 (defmethod filter->sql :account-tenure [{:keys [op value]}]
   ;; tenure >= N days means created_at <= now - N days (inverted comparison)
-  (let [sql-operator (get {:gte :<=, :gt :<, :lte :>=, :lt :>, :eq :=} op :<=)]
-    [sql-operator :created_at [:raw (str "CURRENT_DATE - INTERVAL '" value " days'")]]))
+  (let [days         (long value)
+        sql-operator (get {:gte :<=, :gt :<, :lte :>=, :lt :>, :eq :=} op :<=)]
+    [sql-operator :created_at [:raw (str "CURRENT_DATE - INTERVAL '" days " days'")]]))
 
 (defmethod filter->predicate :account-tenure [{:keys [op value now]}]
   (let [today      (or now (throw (ex-info "filter->predicate :account-tenure requires :now" {})))
@@ -127,7 +142,8 @@
                      :lt  #(< % value)
                      :eq  #(= % value)
                      :neq #(not= % value)
-                     (constantly false))]
+                     (throw (ex-info (str "Unsupported operator " op " for filter type :account-tenure")
+                                     {:type :unsupported-filter-op :op op :filter-type :account-tenure})))]
     (fn [user]
       (when-let [created (:created-at user)]
         (let [days (.between java.time.temporal.ChronoUnit/DAYS
@@ -143,7 +159,8 @@
 
 (defmethod filter->sql :last-active [{:keys [op value]}]
   (when (= op :within-days)
-    [:>= :last_active_at [:raw (str "CURRENT_DATE - INTERVAL '" value " days'")]]))
+    (let [days (long value)]
+      [:>= :last_active_at [:raw (str "CURRENT_DATE - INTERVAL '" days " days'")]])))
 
 (defmethod filter->predicate :last-active [{:keys [op value now]}]
   (let [today (or now (throw (ex-info "filter->predicate :last-active requires :now" {})))]
@@ -155,7 +172,8 @@
                 active-date (.toLocalDate (.atZone (.toInstant last-active)
                                                    java.time.ZoneOffset/UTC))]
             (not (.isBefore active-date cutoff)))))
-      (constantly false))))
+      (throw (ex-info (str "Unsupported operator " op " for filter type :last-active")
+                      {:type :unsupported-filter-op :op op :filter-type :last-active})))))
 
 ;; =============================================================================
 ;; :behavior — arbitrary in-process predicate; not SQL-evaluable
@@ -186,4 +204,5 @@
                   last-used (.toLocalDate (.atZone (.toInstant usage)
                                                    java.time.ZoneOffset/UTC))]
               (not (.isBefore last-used cutoff))))))
-      (constantly false))))
+      (throw (ex-info (str "Unsupported operator " op " for filter type :feature-usage")
+                      {:type :unsupported-filter-op :op op :filter-type :feature-usage})))))
